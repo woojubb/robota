@@ -10,6 +10,11 @@ import type {
   restoreSessionRecordIntoSession,
 } from '@robota-sdk/agent-framework';
 
+/** A reference to the parent's chosen store, never project authority by itself. */
+export type TResumeStoreReference =
+  | { readonly scope: 'user' }
+  | { readonly scope: 'project'; readonly repositoryKey: string; readonly worktreeRoot: string };
+
 /**
  * The session record store a fork job's `resumeSessionId` names a record in, typed FROM the one
  * function that reads it (`restoreSessionRecordIntoSession`, agent-framework) rather than from the
@@ -122,16 +127,19 @@ export interface ISubagentWorkerComposition {
    * CLI-1994: how the child opens the session store a fork job's record was written to.
    *
    * The same shape as `providerDefinitions` and `sandboxFactories`, and for the same reason: where a
-   * product keeps its session records is the composition root's knowledge, and it cannot be
-   * projected onto the wire without also projecting the records — which is exactly what ARCH-044
-   * keeps off it. So the parent sends the id, and the child asks the composition to open the store
+   * product keeps its session records is the composition root's knowledge. The parent sends the id
+   * and, when supplied by the product, a store reference, never authority. The composition must
+   * independently verify any project reference. The child asks the composition to open the store
    * FOR THE PARENT'S cwd (`request.cwd`, not the execution root — a worktree-isolated child runs in
    * a directory that has no session records of its own).
    *
    * Absent ⇒ the product composes no store, and a job that names a record to resume fails, stated
    * as such, rather than starting with an empty conversation that looks like a fork.
    */
-  readonly openSessionStore?: (context: { readonly cwd: string }) => TResumeSessionStore;
+  readonly openSessionStore?: (context: {
+    readonly cwd: string;
+    readonly resumeStore?: TResumeStoreReference;
+  }) => TResumeSessionStore | Promise<TResumeSessionStore>;
 
   /**
    * How the child seals, decided by its parent: called with the start payload's write grant BEFORE

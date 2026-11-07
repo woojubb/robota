@@ -21,6 +21,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import type {
   IExecutionDetailPage,
+  IExecutionDetailCursor,
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
 import type { ISessionListingEntry, IToolState } from '@robota-sdk/agent-interface-session';
@@ -68,7 +69,10 @@ export interface ITuiChannelState {
   resolveUserAction: (request: IActionRequest, response: TActionResponse) => void;
   getRuntimeStatusSnapshot: (fallback: TPermissionMode) => ITuiRuntimeStatusSnapshot;
   selectExecutionWorkspaceEntry: (entryId: string) => void;
-  readExecutionWorkspaceDetail: (entryId: string) => Promise<IExecutionDetailPage>;
+  readExecutionWorkspaceDetail: (
+    entryId: string,
+    cursor?: IExecutionDetailCursor,
+  ) => Promise<IExecutionDetailPage>;
 }
 
 interface IHistoryReadableSession {
@@ -101,7 +105,8 @@ export function useTuiChannel(channel: ITuiAppChannelPort): ITuiChannelState {
     [channel],
   );
   const readExecutionWorkspaceDetail = useCallback(
-    (id: string) => channel.readExecutionWorkspaceDetail(id),
+    (id: string, cursor?: IExecutionDetailCursor) =>
+      channel.readExecutionWorkspaceDetail(id, cursor),
     [channel],
   );
 

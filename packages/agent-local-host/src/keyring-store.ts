@@ -7,11 +7,14 @@
  * owner's, or not a file, from being read as one. A refusal names the rule and the path and never
  * quotes the file: a malformed keyring may be anything, including a secret pasted into the wrong place.
  *
- * Every change is made under one lock file beside the keyring, and only to the keyring it was built
- * from: `save` replaces the file only while it still holds `expected`, and `create` only where nothing
- * is. Without that, a repair built on a snapshot taken before a slow unlock could put back a passphrase
- * slot that a concurrent change had just replaced. The lock is held for file work only, never across a
- * key derivation, so a live holder is never waited on for long.
+ * Cooperating current processes use a nonblocking OS guard beside the keyring. The older marker
+ * remains for transition and detects some conflicting older writes, but cannot fence an old process
+ * that ignores the guard; callers must exclude old writers before relying on serialization. The
+ * guard path must not be removed or replaced while the namespace is in use.
+ * Changes also use a lock file beside the keyring. `save` checks the keyring it was built from before
+ * replacement, so it refuses a change it observes after a slow unlock. The check and replacement are
+ * separate: a holder overtaken after its last check, or a writer ignoring the lock, can still replace
+ * a newer keyring. The lock is held only for file work, never across a key derivation.
  *
  * The lock names its holder by host, boot and (on Linux) pid namespace as well as pid, because the
  * home directory may be shared by other machines or containers whose pids mean nothing here. A pid is
@@ -42,7 +45,14 @@ import {
   writeSync,
 } from 'node:fs';
 import { hostname } from 'node:os';
+
+import { readWindowsKeyringFile, removeWindowsMarker } from './windows-keyring-read.js';
 import { basename, dirname, join } from 'node:path';
+
+import {
+  createProcessOperationLock,
+  type IProcessOperationLockHandle,
+} from '@robota-sdk/agent-node-lock';
 
 import {
   KeyringError,
@@ -75,9 +85,6 @@ const GROUP_AND_OTHER_BITS = 0o077;
  * commit then report.
  */
 const DEFAULT_LOCK_STALE_AFTER_MS = 30_000;
-/** How long a save waits for a live holder before it refuses with `busy`. */
-const DEFAULT_LOCK_WAIT_MS = 5_000;
-const LOCK_POLL_MS = 25;
 
 /** Why the store refused. A caller decides on `code`, never on the message. */
 export type TKeyringStoreErrorCode =
@@ -158,11 +165,11 @@ export interface IKeyringStore {
   readonly path: string;
   /** Reads and parses the keyring, tightening a group- or world-readable mode first. */
   load(): TKeyringLoadResult;
-  /** Writes `keyring` where there is none yet; `exists` when one is already there, which is left alone. */
+  /** Creates a keyring if absent; without hard links, the absence check and rename can race. */
   create(keyring: IKeyring): void;
   /**
-   * Replaces the keyring with `keyring`, but only while the file still holds `expected`, the keyring
-   * the change was built from; `changed` otherwise. Durable, atomic, and read back to confirm.
+   * Checks `expected` before replacing the keyring; an observed mismatch reports `changed`. The
+   * check and atomic replacement are separate, and the result is read back to confirm the write.
    */
   save(keyring: IKeyring, expected: IKeyring): void;
   /** The path's current state, for a report; it neither tightens nor reads. */
@@ -178,8 +185,6 @@ export interface IKeyringFileStoreOptions {
   readonly currentUserId?: number;
   /** Seams for the durable write, so a test can see the order of the flushes. */
   readonly durability?: IOwnerOnlyDurability;
-  /** How long a change waits for another live process's lock; defaults to five seconds. */
-  readonly lockWaitMs?: number;
   /** How old a lock is before it counts as abandoned; defaults to thirty seconds. A test seam. */
   readonly lockStaleAfterMs?: number;
   /** The machine this process runs on; defaults to the real one. A seam for a second "host" in a test. */
@@ -285,13 +290,19 @@ function processExists(pid: number): boolean {
 }
 
 /** Blocks this thread for `ms`: the store is synchronous, and a wait for a lock is short. */
-function sleepSync(ms: number): void {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-}
 
 /** What a lock file says about its holder, and which file it was, so a break never removes a newer lock. */
+type TLockIdentity =
+  | { readonly kind: 'posix'; readonly stats: Stats }
+  | {
+      readonly kind: 'windows';
+      readonly identity: Buffer;
+      readonly modified: Buffer;
+      readonly mtimeMs: number;
+    };
+
 interface ILockHolder {
-  readonly stats: Stats;
+  readonly file: TLockIdentity;
   /** Absent when the file is not one this store wrote (or was cut short before it was written). */
   readonly owner?: {
     readonly token: string;
@@ -307,7 +318,7 @@ function optionalString(value: unknown): string | undefined | false {
   return typeof value === 'string' && value.length > 0 ? value : false;
 }
 
-function parseLock(text: string, stats: Stats): ILockHolder {
+function parseLock(text: string, file: TLockIdentity): ILockHolder {
   try {
     const value = JSON.parse(text) as Record<string, unknown>;
     const bootId = optionalString(value['bootId']);
@@ -323,7 +334,7 @@ function parseLock(text: string, stats: Stats): ILockHolder {
       Number.isFinite(value['monotonicMs'])
     ) {
       return {
-        stats,
+        file,
         owner: {
           token: value['token'],
           pid: value['pid'] as number,
@@ -339,7 +350,7 @@ function parseLock(text: string, stats: Stats): ILockHolder {
   } catch {
     // allow-fallback: an unreadable lock is judged by its age alone.
   }
-  return { stats };
+  return { file };
 }
 
 function sameFile(a: Stats, b: Stats): boolean {
@@ -361,7 +372,6 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
   const { path, root } = options;
   const ownerId = options.currentUserId ?? currentUserId();
   const lockPath = `${path}.lock`;
-  const lockWaitMs = options.lockWaitMs ?? DEFAULT_LOCK_WAIT_MS;
   const staleAfterMs = options.lockStaleAfterMs ?? DEFAULT_LOCK_STALE_AFTER_MS;
   const machine = (): IMachineIdentity => options.machine ?? readCurrentMachine();
   const escapedName = basename(path).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -381,48 +391,59 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
   }
 
   function load(): TKeyringLoadResult {
-    let before: Stats;
-    try {
-      before = lstatSync(path);
-    } catch (error) {
-      if (isMissing(error)) return { status: 'missing' };
-      throw new KeyringStoreError('unreadable', path);
-    }
-    const refusal = refusalFor(before);
-    if (refusal !== undefined) throw new KeyringStoreError(refusal, path);
-
     let content: Buffer;
-    let descriptor: number | undefined;
-    try {
-      descriptor = openSync(path, openFlags());
-      // What was opened must be what was checked: a swap between the check and the open shows up as
-      // a different file, and every decision below is made on the open descriptor.
-      const opened = fstatSync(descriptor);
-      if (opened.ino !== before.ino || opened.dev !== before.dev) {
+    if (process.platform === 'win32') {
+      let result: ReturnType<typeof readWindowsKeyringFile>;
+      try {
+        result = readWindowsKeyringFile(path, MAX_KEYRING_FILE_BYTES);
+      } catch {
         throw new KeyringStoreError('unreadable', path);
       }
-      const openedRefusal = refusalFor(opened);
-      if (openedRefusal !== undefined) throw new KeyringStoreError(openedRefusal, path);
-      if (process.platform !== 'win32' && (opened.mode & GROUP_AND_OTHER_BITS) !== 0) {
-        try {
-          fchmodSync(descriptor, OWNER_ONLY_FILE_MODE);
-        } catch {
-          // allow-fallback: tightening is best effort; the passphrase, not the mode, is what protects the keyring, and `inspect` reports a mode that stays wide.
-        }
+      if (result.status === 'missing') return { status: 'missing' };
+      if (result.status !== 'present') throw new KeyringStoreError(result.status, path);
+      content = result.content;
+    } else {
+      let before: Stats;
+      try {
+        before = lstatSync(path);
+      } catch (error) {
+        if (isMissing(error)) return { status: 'missing' };
+        throw new KeyringStoreError('unreadable', path);
       }
-      content = readBounded(descriptor, MAX_KEYRING_FILE_BYTES);
-    } catch (error) {
-      if (error instanceof KeyringStoreError) throw error;
-      // ELOOP: the link was swapped in after the check; the open itself refused to follow it.
-      throw new KeyringStoreError(
-        (error as NodeJS.ErrnoException).code === 'ELOOP' ? 'symlink' : 'unreadable',
-        path,
-      );
-    } finally {
-      if (descriptor !== undefined) closeSync(descriptor);
-    }
-    if (content.length > MAX_KEYRING_FILE_BYTES) throw new KeyringStoreError('too-large', path);
+      const refusal = refusalFor(before);
+      if (refusal !== undefined) throw new KeyringStoreError(refusal, path);
 
+      let descriptor: number | undefined;
+      try {
+        descriptor = openSync(path, openFlags());
+        // What was opened must be what was checked: a swap between the check and the open shows up as
+        // a different file, and every decision below is made on the open descriptor.
+        const opened = fstatSync(descriptor);
+        if (opened.ino !== before.ino || opened.dev !== before.dev) {
+          throw new KeyringStoreError('unreadable', path);
+        }
+        const openedRefusal = refusalFor(opened);
+        if (openedRefusal !== undefined) throw new KeyringStoreError(openedRefusal, path);
+        if ((opened.mode & GROUP_AND_OTHER_BITS) !== 0) {
+          try {
+            fchmodSync(descriptor, OWNER_ONLY_FILE_MODE);
+          } catch {
+            // allow-fallback: tightening is best effort; the passphrase, not the mode, is what protects the keyring, and `inspect` reports a mode that stays wide.
+          }
+        }
+        content = readBounded(descriptor, MAX_KEYRING_FILE_BYTES);
+      } catch (error) {
+        if (error instanceof KeyringStoreError) throw error;
+        // ELOOP: the link was swapped in after the check; the open itself refused to follow it.
+        throw new KeyringStoreError(
+          (error as NodeJS.ErrnoException).code === 'ELOOP' ? 'symlink' : 'unreadable',
+          path,
+        );
+      } finally {
+        if (descriptor !== undefined) closeSync(descriptor);
+      }
+      if (content.length > MAX_KEYRING_FILE_BYTES) throw new KeyringStoreError('too-large', path);
+    }
     try {
       return { status: 'present', keyring: parseKeyring(content.toString('utf8')) };
     } catch (error) {
@@ -438,11 +459,26 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
 
   /** The current lock file, or `undefined` when there is none. */
   function readLock(): ILockHolder | undefined {
+    if (process.platform === 'win32') {
+      const result = readWindowsKeyringFile(lockPath, MAX_LOCK_FILE_BYTES);
+      if (result.status === 'missing') return undefined;
+      if (result.status !== 'present' && result.status !== 'too-large')
+        throw new Error('Could not safely read the lock marker.');
+      return parseLock(result.status === 'present' ? result.content.toString('utf8') : '', {
+        kind: 'windows',
+        identity: result.identity,
+        modified: result.modified,
+        mtimeMs: result.mtimeMs,
+      });
+    }
     let descriptor: number | undefined;
     try {
       descriptor = openSync(lockPath, openFlags());
       const stats = fstatSync(descriptor);
-      return parseLock(readBounded(descriptor, MAX_LOCK_FILE_BYTES).toString('utf8'), stats);
+      return parseLock(readBounded(descriptor, MAX_LOCK_FILE_BYTES).toString('utf8'), {
+        kind: 'posix',
+        stats,
+      });
     } catch (error) {
       if (isMissing(error)) return undefined;
       throw error;
@@ -472,7 +508,10 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
   }
 
   /** Whether a file is older than the stale bound on the filesystem's clock; never for a time in the future. */
-  function isOldOnFilesystem(stats: Stats, now: number | undefined): boolean {
+  function isOldOnFilesystem(
+    stats: { readonly mtimeMs: number },
+    now: number | undefined,
+  ): boolean {
     return now !== undefined && now - stats.mtimeMs > staleAfterMs;
   }
 
@@ -489,7 +528,10 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
       if (!processExists(owner.pid)) return true;
       return monotonicNowMs() - owner.monotonicMs > staleAfterMs;
     }
-    return isOldOnFilesystem(holder.stats, filesystemNowMs(token));
+    return isOldOnFilesystem(
+      holder.file.kind === 'windows' ? holder.file : holder.file.stats,
+      filesystemNowMs(token),
+    );
   }
 
   /**
@@ -500,8 +542,11 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
    */
   function breakLock(holder: ILockHolder): void {
     try {
-      if (!sameFile(lstatSync(lockPath), holder.stats)) return;
-      unlinkSync(lockPath);
+      if (holder.file.kind === 'windows') {
+        removeWindowsMarker(lockPath, holder.file.identity, holder.file.modified);
+      } else if (sameFile(lstatSync(lockPath), holder.file.stats)) {
+        unlinkSync(lockPath);
+      }
     } catch (error) {
       if (!isMissing(error)) throw error;
     }
@@ -510,10 +555,8 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
   function acquireLock(): string {
     const token = randomBytes(16).toString('hex');
     const self = machine();
-    const deadline = monotonicNowMs() + lockWaitMs;
-    // Bounded even if locks keep appearing and being broken, so this can never spin forever.
-    const maxAttempts = Math.ceil(lockWaitMs / LOCK_POLL_MS) + 16;
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    // Retry only an abandoned legacy marker; live owners are refused without waiting.
+    for (let attempt = 0; attempt < 16; attempt += 1) {
       let descriptor: number | undefined;
       try {
         descriptor = openSync(lockPath, 'wx', OWNER_ONLY_FILE_MODE);
@@ -548,8 +591,7 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
         breakLock(holder);
         continue;
       }
-      if (monotonicNowMs() >= deadline) break;
-      sleepSync(LOCK_POLL_MS);
+      break;
     }
     throw new KeyringStoreError('busy', path);
   }
@@ -569,7 +611,13 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
 
   function releaseLock(token: string): void {
     try {
-      if (readLock()?.owner?.token === token) unlinkSync(lockPath);
+      const holder = readLock();
+      if (holder?.owner?.token !== token) return;
+      if (holder.file.kind === 'windows') {
+        removeWindowsMarker(lockPath, holder.file.identity, holder.file.modified);
+      } else {
+        unlinkSync(lockPath);
+      }
     } catch {
       // allow-fallback: a lock that cannot be removed is broken by the next writer once it is stale.
     }
@@ -613,19 +661,21 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
     }
   }
 
-  /** Runs `change` under the lock, with stale temp files swept first; the lock is released whatever happens. */
+  /** Holds the OS guard through the legacy marker, file transaction, verification and cleanup. */
   function underLock(change: (token: string) => void): void {
+    let guard: IProcessOperationLockHandle | undefined;
     let token: string;
     try {
-      // Durable: the first `secure setup` creates `secure/` (and perhaps the root), and the keyring has
-      // no other copy, so the entries of what this creates are flushed along with the file.
       ensureOwnerOnlyDirectory(dirname(path), {
         withinRoot: root,
         durable: true,
         syncDirectory: options.durability?.syncDirectory,
       });
+      guard = createProcessOperationLock(dirname(path)).tryAcquire('keyring');
+      if (guard === undefined) throw new KeyringStoreError('busy', path);
       token = acquireLock();
     } catch (error) {
+      guard?.release();
       if (error instanceof KeyringStoreError) throw error;
       throw new KeyringStoreError('write-failed', path, reasonOf(error));
     }
@@ -633,7 +683,11 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
       removeStaleTemporaryFiles(token);
       change(token);
     } finally {
-      releaseLock(token);
+      try {
+        releaseLock(token);
+      } finally {
+        guard.release();
+      }
     }
   }
 
@@ -744,9 +798,8 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
     underLock((token) => {
       assertUnchanged();
       try {
-        // Checked again right before the rename: a writer that took over a lock this one held past
-        // the stale bound has changed the file by then, and that is reported as `changed`, not
-        // overwritten.
+        // Check again before the rename to refuse changes already visible at that point. A writer
+        // that takes the lock after this check can still race the replacement.
         commit(document, token, 'replace', assertUnchanged);
       } catch (error) {
         // A write that failed for want of the lock or of its temp file (which the writer that took

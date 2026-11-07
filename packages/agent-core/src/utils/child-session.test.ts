@@ -25,6 +25,7 @@ import {
   enableOwnChildSessions,
   endWithProcess,
   execFileInChildSession,
+  holdChildSpawns,
   signalChildGroup,
   withChildSession,
 } from '../node.js';
@@ -38,6 +39,27 @@ const CHILD_TIMEOUT_MS = 30_000;
 const POSIX = process.platform !== 'win32';
 
 const strays = new Set<number>();
+
+it('refuses child spawn paths while a handover descriptor is held, then restores them', () => {
+  const release = holdChildSpawns();
+  try {
+    expect(() => withChildSession({ stdio: 'ignore' })).toThrow(/spawn.*handover/iu);
+    expect(() => execFileInChildSession(process.execPath, ['-v'], {}, () => {})).toThrow(/spawn.*handover/iu);
+  } finally {
+    release();
+  }
+  expect(withChildSession({ stdio: 'ignore' })).toEqual({ stdio: 'ignore' });
+});
+
+it('keeps child spawns held until every overlapping handover releases its hold', () => {
+  const first = holdChildSpawns();
+  const second = holdChildSpawns();
+  first();
+  first();
+  expect(() => withChildSession({})).toThrow(/spawn.*handover/iu);
+  second();
+  expect(withChildSession({})).toEqual({});
+});
 
 afterEach(() => {
   resetChildSessionsForTesting();

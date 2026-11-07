@@ -113,6 +113,11 @@ export async function resolveStartupWorkspaceProjectAccess(
     readonly safeMode?: boolean;
   } = {},
 ): Promise<TWorkspaceProjectAccess> {
+  // Information-only invocations never need a durable broker or project admission.
+  if (argv.length === 3 &&
+      (argv[2] === '--help' || argv[2] === '-h' || argv[2] === '--version')) {
+    return createRestrictedWorkspaceProjectAccess('untrusted', cwd);
+  }
   // Safe mode loads nothing from the project, so it starts Restricted whatever the trust store says.
   const flags = optionArgv(argv);
   if (
@@ -248,6 +253,31 @@ export function createInitialCliWorkspaceComposition(
     ...overrides,
     productRuntime: requiredProductRuntime(overrides.productRuntime),
   });
+}
+
+/** Read settings for a supervisor before a secure runtime has unlocked its session store. */
+export function createInitialCliWorkspaceSettingsSources(
+  cwd: string,
+  runtime: ICliRuntimeContext,
+  projectAccess: TWorkspaceProjectAccess,
+): readonly TSettingsSource[] {
+  const user = createProductUserSettingsSources(runtime);
+  if (projectAccess.status !== 'trusted') return user;
+  const authority = projectAccess.authority;
+  const trustedRoot = getWorkspaceProjectIdentity(authority).worktreeRoot;
+  const remainder = relative(trustedRoot, realpathSync(cwd));
+  if (remainder === '..' || remainder.startsWith(`..${sep}`) || isAbsolute(remainder)) {
+    throw new WorkspaceAuthorityRequiredError('Trusted project access does not cover the requested working directory.');
+  }
+  for (const namespace of ['sessions', 'session-logs', 'memory', 'checkpoints'] as const) {
+    if (getWorkspaceProjectStateStorage(authority, namespace).rootRelativePath !== runtime.layout.projectStateDirectories[namespace]) {
+      throw new WorkspaceAuthorityRequiredError('Trusted project state directories do not match this CLI product.');
+    }
+  }
+  return [
+    ...user,
+    ...createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(authority), runtime.layout.projectSettingsPaths),
+  ];
 }
 
 export function createCliWorkspaceComposition(

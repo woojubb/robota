@@ -1,3 +1,4 @@
+import { SupervisedControlPathTooLongError } from '@robota-sdk/agent-local-host';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * RUNTIME-001 — the headless `the product --serve` runtime host entry.
@@ -25,7 +26,6 @@ import {
   ensureSupervisedAuditDirectory,
   resolveSupervisedDirectory,
   startSupervisedControl,
-  SupervisedControlPathTooLongError,
   takeSupervisedGrantHandoff,
   type ISupervisedControl,
   type ISupervisedPr,
@@ -47,6 +47,13 @@ import {
 import type { IServeSessionDirectory } from './serve-session-directory.js';
 import { startServeHttpHost, type IServeHttpHost } from './serve-http-host.js';
 import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
+import { RuntimeCustody } from '../secure/runtime-custody.js';
+import { SecureWorkspaceRootFence } from '../secure/workspace-root-fence.js';
+import { secureWorkspaceRoot } from '../secure/workspace-root-selection.js';
+import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-process.js';
+import { armUncertifiedStop } from '../secure/uncertified-stop.js';
+import { secureServeRefusal } from './secure-serve-refusal.js';
+import type { ISecureServeRuntime } from '../startup/secure-runtime-startup.js';
 import type { IServeHttpOptions } from '../utils/serve-http-args.js';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
@@ -104,6 +111,12 @@ export type IServeModePresetOptions = Partial<IPresetSurfaceOptions>;
 
 export interface IServeModeOptions {
   productRuntime: ICliRuntimeContext;
+  /**
+   * Present exactly for a secure runtime, which answered its spawner's pair: the identity that
+   * exchange gave it and the key holder its stores seal with. Such a runtime serves no WebSocket,
+   * and its control socket admits by owner link.
+   */
+  secureRuntime?: ISecureServeRuntime;
   /** The platform the served sessions run on. */
   host: IFrameworkHost;
   cwd: string;
@@ -368,6 +381,7 @@ export function buildPooledSessionOptions(
     sessionName: undefined,
     // What the owner accepted at launch was one record's bytes; a pooled session is another record.
     acceptedDigest: undefined,
+    resumeAdmissionSignal: undefined,
   };
 }
 
@@ -460,8 +474,41 @@ function supervisedSessionCommandProcess(
   };
 }
 
+/** The events after which a session's activity may have changed: a turn ending, a prompt settled. */
+const ACTIVITY_EVENTS = ['complete', 'interrupted', 'error', 'prompt_resolved'] as const;
+
+/** Calls `listener` whenever the activity of any of `sessions` may have changed; returns the way to stop. */
+function watchSessionActivity(
+  sessions: readonly InteractiveSession[],
+  listener: () => void,
+): () => void {
+  for (const session of sessions) {
+    for (const event of ACTIVITY_EVENTS) session.on(event, listener);
+  }
+  return () => {
+    for (const session of sessions) {
+      for (const event of ACTIVITY_EVENTS) session.off(event, listener);
+    }
+  };
+}
+
 export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   const { args } = opts;
+  // The exchange with the spawner ran exactly when the start asked for it: the two cannot disagree here.
+  if ((args.supervisedSpawnerPair === true) !== (opts.secureRuntime !== undefined)) {
+    throw new Error('A runtime serves securely exactly when it answered its spawner pair.');
+  }
+  const secureRuntime = opts.secureRuntime;
+  if (secureRuntime !== undefined) {
+    const refusal = secureServeRefusal({
+      http: opts.http !== undefined,
+      open: args.open === true,
+      externalEventGrants: args.supervisedExternalEventGrants === true,
+      daemon: args.daemon === true,
+    });
+    // Before the host starts, so nothing was bound for a start that is refused.
+    if (refusal !== undefined) throw new Error(refusal);
+  }
   if (args.open && !process.stdout.isTTY) {
     throw new Error('Opening the monitor requires an interactive terminal for its access code.');
   }
@@ -480,6 +527,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     if (error.code !== 'EPIPE') throw error;
   };
   if (args.supervisedSessionId !== undefined) process.stderr.on('error', onStderrError);
+  let secureWorkspaceFence: SecureWorkspaceRootFence | undefined;
   try {
     const runtimeOptions =
       args.supervisedExternalEventGrants === true && opts.externalEventGrantHistory === undefined
@@ -511,6 +559,16 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
             primary,
             build: (resumeSessionId) =>
               buildRuntimeSession(buildPooledSessionOptions(sessionOptions, opts, resumeSessionId)),
+            buildAccepted: (resumeSessionId, acceptedDigest, resumeAdmissionSignal) =>
+              buildRuntimeSession({
+                ...buildPooledSessionOptions(sessionOptions, opts, resumeSessionId),
+                acceptedDigest,
+                resumeAdmissionSignal,
+                checkRestoredRecord: (record) => {
+                  if (record.cwd !== opts.cwd) throw new Error('The session is no longer in this workspace.');
+                  sessionOptions.checkRestoredRecord?.(record);
+                },
+              }),
             maxLive: SESSION_POOL_MAX_LIVE,
           });
           pool = live;
@@ -519,10 +577,14 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
             primary,
             store: sessionOptions.sessionStore,
             cwd: opts.cwd,
+            ownerReviewHasUncancellableSandbox:
+              'workspaceManifest' in sessionOptions && sessionOptions.workspaceManifest !== undefined,
             isStopping: () => settling,
           });
         }
-        opts.bindTransports?.(slot);
+        // A secure runtime serves no WebSocket: nothing is registered, so nothing can be started that
+        // would admit whoever holds a token.
+        if (secureRuntime === undefined) opts.bindTransports?.(slot);
       },
     });
     // Started before anything waits on the host, so a port that cannot be served fails the start
@@ -600,6 +662,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals — or a
     // host-executed session-exit/-restart action fires (CMD-004 Phase 2) — then tear down cleanly.
     let supervisedControl: ISupervisedControl | undefined;
+    let disarmUncertifiedStop: (() => void) | undefined;
     let eventEndpoint: IExternalEventHttpHost | undefined;
     let requestSettle: (reason: string) => void = () => undefined;
     const readinessAbort = new AbortController();
@@ -608,6 +671,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         if (settling) return;
         settling = true;
         readinessAbort.abort();
+        disarmUncertifiedStop?.();
         void Promise.resolve(monitorUi?.close())
           .catch(() => {})
           .then(() => httpEndpoint?.stop())
@@ -672,7 +736,15 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         if (args.daemon === true && opts.getMonitorWsUrl?.() === undefined)
           throw new DaemonNoEndpointError();
         const supervisedCwd = realpathSync(opts.cwd);
+        if (secureRuntime !== undefined) {
+          const endpoint = await ensureWorkspaceRootBroker(opts.productRuntime);
+          secureWorkspaceFence = new SecureWorkspaceRootFence(
+            secureWorkspaceRoot(supervisedCwd, opts.projectAccess?.identity),
+            endpoint, opts.projectAccess?.status === 'trusted',
+          );
+        }
         let linkedPr: ISupervisedPr | undefined;
+        let custody: RuntimeCustody | undefined;
         // Every grant the launcher handed over is open before readiness, or the start fails.
         if (args.supervisedExternalEventGrants === true) {
           const root = opts.supervisedRoot ?? resolveSupervisedDirectory(opts.productRuntime);
@@ -714,59 +786,80 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
           };
         }
         const supervisedSessionId = args.supervisedSessionId;
+        // A terminal on this host may attach over the guarded control socket. It never becomes an
+        // operator approver: this process has no terminal, so mesh admissions stay refused. Each
+        // attached terminal binds to the sessions as a WebSocket client does, so a switch it makes
+        // moves that terminal alone.
+        const attachTarget =
+          pool !== undefined && sessionDirectory !== undefined
+            ? { binder: sessionDirectory }
+            : { session: host.session };
+        // A secure runtime's custody decides who is admitted on its control socket and whether its
+        // keys are open; it needs what a bound link reaches, which is known only here.
+        custody =
+          secureRuntime === undefined
+            ? undefined
+            : new RuntimeCustody({
+                identity: secureRuntime.identity,
+                holder: secureRuntime.holder,
+                attachTarget,
+                ...(secureWorkspaceFence ? { workspaceFence: secureWorkspaceFence } : {}),
+                restricted: opts.projectAccess?.status === 'restricted',
+              });
         supervisedControl = await startListener(SECURE_SURFACES['control-socket'], opts.productRuntime, () =>
-          startSupervisedControl(
-            supervisedSessionId,
-            () => requestSettle('supervised session stopped'),
-            opts.supervisedRoot ?? resolveSupervisedDirectory(opts.productRuntime),
-            // Activity and the next loop cover every live session, so a session no client is on that
-            // still works keeps the runtime from reading idle.
-            () => (settling ? undefined : poolActivity(liveSessions())),
-            () => (settling ? undefined : supervisedCwd),
-            () =>
-              settling || sessionOptions.disableSessionLoops
-                ? undefined
-                : nextWaitingLoopAt(
-                    liveSessions().flatMap((session) => session.listSelfPacedLoops()),
-                    Date.now(),
-                  ),
-            () => (settling ? undefined : host.session.current.getName()),
-            (name) => {
+          startSupervisedControl({
+            id: supervisedSessionId,
+            onStop: () => requestSettle('supervised session stopped'),
+            root: opts.supervisedRoot ?? resolveSupervisedDirectory(opts.productRuntime),
+            observe: {
+              // Activity and the next loop cover every live session, so a session no client is on that
+              // still works keeps the runtime from reading idle.
+              activity: () => (settling ? undefined : poolActivity(liveSessions())),
+              cwd: () => (settling ? undefined : supervisedCwd),
+              nextLoopAt: () =>
+                settling || sessionOptions.disableSessionLoops
+                  ? undefined
+                  : nextWaitingLoopAt(
+                      liveSessions().flatMap((session) => session.listSelfPacedLoops()),
+                      Date.now(),
+                    ),
+              name: () => (settling ? undefined : host.session.current.getName()),
+            },
+            rename: (name) => {
               if (settling) throw new Error('Supervised runtime is stopping.');
               host.session.current.setName(name);
             },
-            {
+            pr: {
               get: () => (settling ? undefined : linkedPr),
               set: (value) => {
                 if (settling) throw new Error('Supervised runtime is stopping.');
                 linkedPr = value;
               },
             },
-            grantHost === undefined
-              ? undefined
+            ...(grantHost === undefined
+              ? {}
               : {
-                  list: () => grantHost.adapter.list(),
-                  revoke: (grantId) => {
-                    if (settling) throw new Error('Supervised runtime is stopping.');
-                    return grantHost.adapter.revoke(grantId);
+                  externalEvents: {
+                    list: () => grantHost.adapter.list(),
+                    revoke: (grantId) => {
+                      if (settling) throw new Error('Supervised runtime is stopping.');
+                      return grantHost.adapter.revoke(grantId);
+                    },
                   },
-                },
-            // A terminal on this host may attach over the guarded control socket. It never becomes an
-            // operator approver: this process has no terminal, so mesh admissions stay refused. Each
-            // attached terminal binds to the sessions as a WebSocket client does, so a switch it makes
-            // moves that terminal alone.
-            pool !== undefined && sessionDirectory !== undefined
-              ? { binder: sessionDirectory }
-              : { session: host.session },
+                }),
+            attachTarget,
             // A daemon hands its owner the URL its transport is served on, token included, so a
             // client in this workspace can connect to it instead of starting a runtime of its own.
-            args.daemon === true
+            ...(args.daemon === true
               ? {
-                  url: () => (settling ? undefined : opts.getMonitorWsUrl?.()),
-                  restricted: opts.projectAccess?.status === 'restricted',
+                  daemon: {
+                    url: () => (settling ? undefined : opts.getMonitorWsUrl?.()),
+                    restricted: opts.projectAccess?.status === 'restricted',
+                  },
                 }
-              : undefined,
-          ),
+              : {}),
+            ...(custody === undefined ? {} : { admission: custody.admission }),
+          }),
         );
         if (settling) throw new Error('Supervised runtime stopped before readiness.');
         await acknowledgeSupervisedStartup(
@@ -776,8 +869,20 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
           grantHost?.adapter.list().map((grant) => grant.grantId),
         );
         if (settling) throw new Error('Supervised runtime stopped during readiness.');
+        if (custody !== undefined) {
+          const watched = custody;
+          disarmUncertifiedStop = armUncertifiedStop({
+            custody: watched,
+            stop: (reason) => requestSettle(`secure runtime stopped: ${reason}`),
+            isBusy: () => poolActivity(liveSessions()) !== 'idle',
+            onActivity: (listener) => watchSessionActivity(liveSessions(), listener),
+          });
+        }
       } catch (error) {
-        if (process.connected && process.send) {
+        const launchedForThisSession = process.argv.some((arg, index) =>
+          arg === `--supervised-session-id=${args.supervisedSessionId}` ||
+          (arg === '--supervised-session-id' && process.argv[index + 1] === args.supervisedSessionId));
+        if (launchedForThisSession && process.connected && process.send) {
           try {
             const refusal =
               error instanceof ExternalEventGrantRefusedError
@@ -804,6 +909,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     }
     await lifetime;
   } finally {
+    secureWorkspaceFence?.close();
     process.off('SIGTERM', onSignal);
     process.off('SIGINT', onSignal);
     if (args.supervisedSessionId !== undefined) process.stderr.off('error', onStderrError);

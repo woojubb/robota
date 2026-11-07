@@ -220,6 +220,9 @@ if you turned it on, it still saves what it captures.
 Inside the terminal UI: `/resume` opens the session picker, `/rename <name>` renames the session,
 `/fork [name] [--same-dir]` copies the conversation into a background session and keeps you here, and
 `/cd <directory>` continues the conversation as a new session in another folder.
+In the background panel, attach to follow a running fork or continue it after it ends. The two
+conversations stay separate. In a fork's detail view, `Ctrl+O` reads earlier output; sealed output
+may require unlocking.
 
 Sessions can also run without a terminal. `__PRODUCT_CLI_NAME__ session start --background` starts a supervised
 session that keeps running after you close the terminal; `__PRODUCT_CLI_NAME__ session list`, `view`, `attach`,

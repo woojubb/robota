@@ -32,6 +32,7 @@ export interface IQueueSettlers {
   // a second vocabulary to keep in step — and this file's own subject is a queue whose members
   // changed once already in review ('shutdown' was removed as unreachable).
   refuse: (turnId: string, reason: TTurnNotRunReason) => void;
+  fail?: (turnId: string, error: Error) => void;
   /** Release a wake gate for an entry that will never run (CORE-024/RUNTIME-19). */
   releaseWake: (wakeTaskId: string) => void;
 }
@@ -135,6 +136,14 @@ export class PendingInputQueue {
     this.settlers.releaseWake(wakeTaskId);
     this.settlers.refuse(entry!.turnId, 'cancelled');
     return true;
+  }
+
+  failAll(error: Error): void {
+    for (const entry of this.entries.splice(0)) {
+      if (entry.options.wakeTaskId) this.settlers.releaseWake(entry.options.wakeTaskId);
+      if (this.settlers.fail) this.settlers.fail(entry.turnId, error);
+      else this.settlers.refuse(entry.turnId, 'cancelled');
+    }
   }
 
   /** Take the HEAD entry (submission order), or undefined when the queue is empty. */

@@ -157,6 +157,8 @@ export interface ISubagentOptions {
   hookTypeExecutors?: IHookTypeExecutor[];
   /** Streaming callback. */
   onTextDelta?: (delta: string) => void;
+  /** Called after the session replaces its model context with a compaction summary. */
+  onCompact?: (summary: string) => void;
   /** Tool execution callback. */
   onToolExecution?: (event: {
     type: 'start' | 'end';
@@ -353,6 +355,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     hookTypeExecutors: hookTypeExecutors ?? [],
     ...hostSessionPorts(options.host, options.cwd),
     onTextDelta: options.onTextDelta,
+    onCompact: options.onCompact,
     onToolExecution: options.onToolExecution,
   });
   return childSession;

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { lstatSync, unlinkSync } from 'node:fs';
+import { closeSync, constants, fstatSync, lstatSync, openSync, unlinkSync } from 'node:fs';
 import { createConnection, createServer, type Server, type Socket } from 'node:net';
 import { dirname, isAbsolute } from 'node:path';
 
@@ -19,7 +19,7 @@ import {
   createNodeWorkspaceTrustStore,
 } from '@robota-sdk/agent-framework/node';
 import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
-import { WindowsControlPipeServer, type IControlChannel } from '../session-inventory/windows-control-pipe.js';
+import { WindowsControlPipeServer, type IControlChannel } from '@robota-sdk/agent-local-host';
 
 import type { IWorkspaceIdentity, IWorkspaceIdentityResolver } from '@robota-sdk/agent-framework';
 
@@ -54,6 +54,9 @@ export type TWorkspaceRootBrokerRequest =
   | { readonly op: 'writerAssert' | 'writerClose'; readonly writer: string }
   | { readonly op: 'writerWrite'; readonly writer: string; readonly segments: readonly string[]; readonly content: string }
   | { readonly op: 'compare'; readonly left: string; readonly right: string }
+  | { readonly op: 'retainRestricted'; readonly candidate: string; readonly root: string }
+  | { readonly op: 'assertRestricted'; readonly hold: string; readonly root: string }
+  | { readonly op: 'releaseRestricted'; readonly hold: string }
   | { readonly op: 'release'; readonly candidate: string };
 
 export type TWorkspaceRootBrokerResponse =
@@ -69,6 +72,8 @@ export type TWorkspaceRootBrokerResponse =
   | { readonly status: 'writer'; readonly writer: string }
   | { readonly status: 'written' }
   | { readonly status: 'same' }
+  | { readonly status: 'restricted-held'; readonly hold: string; readonly tag: string }
+  | { readonly status: 'restricted-root'; readonly tag: string }
   | { readonly status: 'released' }
   | { readonly status: 'refused'; readonly reason: string };
 
@@ -198,6 +203,15 @@ function parseRequest(frame: string): { version: number; request: TRequest } | u
       op: 'compare', left: row.left, right: row.right,
     } };
   }
+  if ((row.op === 'retainRestricted' || row.op === 'assertRestricted') && rootPath(row.root) &&
+      candidate(row.op === 'retainRestricted' ? row.candidate : row.hold)) {
+    return { version: Number(row.version), request: row.op === 'retainRestricted'
+      ? { op: 'retainRestricted', candidate: row.candidate as string, root: row.root }
+      : { op: 'assertRestricted', hold: row.hold as string, root: row.root } };
+  }
+  if (row.op === 'releaseRestricted' && candidate(row.hold)) {
+    return { version: Number(row.version), request: { op: 'releaseRestricted', hold: row.hold } };
+  }
   if (row.op === 'release' && candidate(row.candidate)) {
     return { version: Number(row.version), request: { op: 'release', candidate: row.candidate } };
   }
@@ -265,6 +279,9 @@ export async function startWorkspaceRootBroker(
     readonly reader: IStableRootedFileReader;
     readonly createdAt: number;
   }>();
+  const restricted = new Map<string, {
+    readonly root: string; readonly reader: IStableRootedFileReader; readonly descriptor: number; readonly tag: string;
+  }>();
   const active = new Map<string, {
     readonly root: string;
     readonly reader: IStableRootedFileReader;
@@ -306,6 +323,49 @@ export async function startWorkspaceRootBroker(
         root?.close();
         return refuse('root-unavailable');
       }
+    }
+    if (request.op === 'retainRestricted') {
+      if (process.platform !== 'darwin' && process.platform !== 'linux') return refuse('unsupported-backend');
+      if (restricted.size >= MAX_PREPARED_ROOTS) return refuse('capacity');
+      const pending = prepared.get(request.candidate);
+      if (!pending || pending.root !== request.root) return refuse('unknown-candidate');
+      let named: IStableRootedFileReader | undefined;
+      let descriptor: number | undefined;
+      try {
+        named = createStableRootedFileReader(request.root);
+        assertSameStableRoot(pending.reader, named);
+        descriptor = openSync(request.root, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+        assertSameStablePosixRootDescriptor(pending.reader, descriptor);
+        const stat = fstatSync(descriptor, { bigint: true });
+        if (!stat.isDirectory() || stat.ino === 0n) return refuse('root-unavailable');
+        const hold = randomUUID();
+        const tag = `${stat.dev}:${stat.ino}`;
+        prepared.delete(request.candidate);
+        restricted.set(hold, { root: request.root, reader: pending.reader, descriptor, tag });
+        descriptor = undefined;
+        return { status: 'restricted-held', hold, tag };
+      } catch { return refuse('root-changed'); }
+      finally { named?.close(); if (descriptor !== undefined) closeSync(descriptor); }
+    }
+    if (request.op === 'assertRestricted') {
+      const held = restricted.get(request.hold);
+      if (!held || held.root !== request.root) return refuse('unknown-restricted-hold');
+      let named: IStableRootedFileReader | undefined;
+      try {
+        named = createStableRootedFileReader(request.root);
+        assertSameStableRoot(held.reader, named);
+        assertSameStablePosixRootDescriptor(held.reader, held.descriptor);
+        return { status: 'restricted-root', tag: held.tag };
+      } catch { return refuse('root-changed'); }
+      finally { named?.close(); }
+    }
+    if (request.op === 'releaseRestricted') {
+      const held = restricted.get(request.hold);
+      if (!held) return refuse('unknown-restricted-hold');
+      restricted.delete(request.hold);
+      try { closeSync(held.descriptor); held.reader.close(); }
+      catch { return refuse('cleanup-unconfirmed'); }
+      return { status: 'released' };
     }
     if (request.op === 'approve') {
       const pending = prepared.get(request.candidate);
@@ -651,6 +711,8 @@ export async function startWorkspaceRootBroker(
         await new Promise<void>((resolve) => server.close(() => resolve()));
         for (const root of prepared.values()) root.reader.close();
         prepared.clear();
+        for (const root of restricted.values()) { closeSync(root.descriptor); root.reader.close(); }
+        restricted.clear();
         for (const root of active.values()) root.reader.close();
         active.clear();
         for (const writer of writers.values()) writer.authority.close();

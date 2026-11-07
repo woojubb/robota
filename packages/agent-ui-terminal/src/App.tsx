@@ -15,6 +15,7 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface-session';
 import type { IPromptHistorySource } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
@@ -28,6 +29,8 @@ interface IProps {
    * switches by building a channel for the chosen session.
    */
   requestSessionSwitch?: (sessionId: string) => Promise<void>;
+  ownerSessions?: IOwnerSessionDirectory;
+  onOwnerInvalidated?: (listener: () => void) => () => void;
   providerOverride?: string | undefined;
   providerType?: string | undefined;
   modelId?: string;
@@ -250,6 +253,8 @@ function ActiveApp(
         {...(props.permissionMode !== undefined ? { permissionMode: props.permissionMode } : {})}
         {...(props.version !== undefined ? { version: props.version } : {})}
         {...(props.sessionStore !== undefined ? { sessionStore: props.sessionStore } : {})}
+        {...(props.ownerSessions !== undefined ? { ownerSessions: props.ownerSessions } : {})}
+        {...(props.onOwnerInvalidated !== undefined ? { onOwnerInvalidated: props.onOwnerInvalidated } : {})}
         {...(props.startupUpdateNotice !== undefined
           ? { startupUpdateNotice: props.startupUpdateNotice }
           : {})}

@@ -1,12 +1,18 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { realpathSync, statSync } from 'node:fs';
+import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
 
+import { productSecureMode } from '../product/session-sealing.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
+import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
+import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { openInBrowser, type TStartOpener } from '../startup/browser-opener.js';
 import { resolveScreenReaderRenderFields } from '../startup/screen-reader-enablement.js';
 import { readUserSettingsOrExit } from '../startup/user-settings.js';
 import {
   getVerifiedSupervisedPr,
   isSupervisedSessionName,
+  parseSupervisedPr,
   listSupervisedSessions,
   resolveSupervisedDirectory,
   stopSupervisedSession,
@@ -17,6 +23,9 @@ import {
   supervisedSessionAttachMessages,
   type TAttachedAppRender,
 } from './session-attach-command.js';
+import { openSecureAttach } from './secure-attach-client.js';
+import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-process.js';
+import { secureOwnerControl } from './secure-owner-control.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 import type {
@@ -68,6 +77,7 @@ export interface ISessionViewCommandOptions {
   readonly startTrustQuestion?: (cwd: string) => Promise<ISupervisedStartTrustQuestion | undefined>;
   readonly launchCwd?: string;
   readonly openUrl?: (url: string) => Promise<unknown>;
+  readonly openSecureOwner?: () => Promise<IOwnerHandover | undefined>;
 }
 
 /** Run the global supervised view without constructing a foreground interactive session. */
@@ -170,6 +180,9 @@ export async function runSessionViewCommand(
           includePr: true,
           includeGeneration: true,
         }),
+      ...(productSecureMode(options.productRuntime) ? { attachWithoutConfirmation: true } : {}),
+      ...(productSecureMode(options.productRuntime) && start !== undefined ? { deferStart: true } : {}),
+      ...(productSecureMode(options.productRuntime) ? { deferPr: true } : {}),
       onStop: (id, generation) => (options.stop ?? stopSupervisedSession)(id, root, generation),
       onOpenPr: async (id, url, generation) => {
         const verified = await getVerifiedSupervisedPr(id, root, generation);
@@ -192,6 +205,27 @@ export async function runSessionViewCommand(
     });
     for (;;) {
       const ended = await view();
+      if (ended?.kind === 'open-pr') {
+        try {
+          const status = await secureOwnerControl({ productRuntime: options.productRuntime, root, id: ended.id,
+            generation: ended.generation, command: 'status', fields: {},
+            ...(options.openSecureOwner === undefined ? {} : { openOwner: options.openSecureOwner }) });
+          const pr = typeof status.pr === 'object' && status.pr !== null && !Array.isArray(status.pr) && 'url' in status.pr
+            ? parseSupervisedPr(status.pr.url) : undefined;
+          if (status.status !== 'running' || pr === undefined) throw new Error('The secure runtime has no verified PR link.');
+          await (options.openUrl ?? createProductSessionPrOpener())(pr.url);
+        } catch (error) {
+          process.stderr.write(`${error instanceof Error ? error.message : 'Unable to open the secure session PR.'}\n`);
+        }
+        continue;
+      }
+      if (ended?.kind === 'start') {
+        if (start !== undefined) {
+          try { await start(startCwd, ended.choice); }
+          catch (error) { process.stderr.write(`${error instanceof Error ? error.message : 'Unable to start a secure session.'}\n`); }
+        }
+        continue;
+      }
       if (ended === undefined || ended.kind !== 'attach') return 0;
       reopen = { id: ended.id, groupByDirectory: ended.groupByDirectory };
       const renderAttached = options.renderAttached;
@@ -200,9 +234,41 @@ export async function runSessionViewCommand(
         continue;
       }
       // The yes was given in the view for this row's process start; the attach holds it to that start.
-      const rows = await listSupervisedSessions(root, undefined, { includeName: true }).catch(() => []);
+      const rows = await listSupervisedSessions(root, undefined, { includeName: true, includeCwd: true }).catch(() => []);
       const { mode } = ended;
       const sessionLabel = rows.find((row) => row.id === ended.id)?.name ?? ended.id;
+      if (productSecureMode(options.productRuntime)) {
+        const product = options.productRuntime;
+        let owner: IOwnerHandover | undefined;
+        try {
+          owner = await (options.openSecureOwner ?? (() => openOwnerAtTerminal({
+            store: createKeyringFileStore({ path: product.layout.userPaths.keyring, root: product.layout.userRoot }),
+            terminal: openSecureTerminal(), purpose: `attach to ${ended.id}`,
+            report: (message) => process.stderr.write(`${message}\n`),
+          })))();
+          if (owner === undefined) {
+            process.stderr.write('Attach cancelled: secure mode needs an unlock.\n');
+            continue;
+          }
+          const handover = owner;
+          await runConfirmedAttach({
+            id: ended.id, mode, generation: ended.generation, root,
+            open: async (id, selectedMode, selectedRoot, generation) => {
+              if (generation === undefined) throw new Error('Secure attach needs a runtime generation.');
+              const selectedWorkspace = rows.find((row) => row.id === id)?.cwd;
+              if (!selectedWorkspace) throw new Error('The secure runtime workspace is unavailable.');
+              return openSecureAttach({ id, mode: selectedMode, root: selectedRoot, generation, handover,
+                workspace: selectedWorkspace, brokerEndpoint: await ensureWorkspaceRootBroker(product),
+                onMismatch: () => process.stderr.write('Warning: the runtime keyring sealing key differs from the unlocked key. Run secure verify to investigate.\n') });
+            },
+            render: (open) => renderAttached({ ...open, mode, sessionLabel: ended.id, screenReaderFlag: flag, announce: false }),
+            messages: supervisedSessionAttachMessages(ended.id, cliName),
+          });
+        } catch (error) {
+          process.stderr.write(`${error instanceof Error ? error.message : 'Unable to attach.'}\n`);
+        } finally { owner?.dispose(); }
+        continue;
+      }
       await runConfirmedAttach({
         id: ended.id,
         mode,

@@ -51,6 +51,7 @@ export function createLineDetailPage(input: ICreateLineDetailPageInput): IExecut
     ...(input.cursor ? { cursor: input.cursor } : {}),
     ...(input.nextCursor ? { nextCursor: input.nextCursor } : {}),
     records,
+    ...(input.unreadable ? { unreadable: input.unreadable } : {}),
   };
 }
 

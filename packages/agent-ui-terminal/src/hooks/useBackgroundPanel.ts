@@ -14,6 +14,7 @@ import { useExecutionDetailPage } from './useExecutionDetailPage.js';
 import { useForkAttach } from './useForkAttach.js';
 
 import type { IExecutionDetailState } from './useExecutionDetailPage.js';
+import type { IContinueForkQuestion } from './useForkAttach.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IExecutionDetailPage,
@@ -28,9 +29,11 @@ export interface IUseBackgroundPanelOptions {
   /** The panel's data, and the re-read trigger — the detail follows a running task's output. */
   readonly snapshot: IExecutionWorkspaceSnapshot | null;
   readonly read: (entryId: string) => Promise<IExecutionDetailPage>;
-  /** Absent ⇒ this surface cannot open another session's record, and attach says so. */
+  /** Absent ⇒ this surface has no store of its own: continuing a fork is asked of its host. */
   readonly sessionStore: IInteractiveSessionStore | undefined;
   readonly onSessionSwitch: (sessionId: string) => void;
+  /** Selects a workspace entry: how attaching follows a running job. */
+  readonly select: (entryId: string) => void;
   readonly addEntry: (entry: IHistoryEntry) => void;
 }
 
@@ -39,6 +42,7 @@ export interface IBackgroundPanel {
   readonly entry: IExecutionWorkspaceEntry | undefined;
   readonly detail: IExecutionDetailState;
   readonly attachToFork: (entry: IExecutionWorkspaceEntry) => void;
+  readonly continueQuestion: IContinueForkQuestion | undefined;
 }
 
 /** Wire the background panel's detail read and its attach handler together. */
@@ -49,10 +53,12 @@ export function useBackgroundPanel(inputs: IUseBackgroundPanelOptions): IBackgro
     [snapshot, selectedEntryId],
   );
   const detail = useExecutionDetailPage({ entry, snapshot, read: inputs.read });
-  const attachToFork = useForkAttach({
+  const fork = useForkAttach({
     sessionStore: inputs.sessionStore,
     onSessionSwitch: inputs.onSessionSwitch,
+    select: inputs.select,
     addEntry: inputs.addEntry,
+    snapshot,
   });
-  return { entry, detail, attachToFork };
+  return { entry, detail, attachToFork: fork.attach, continueQuestion: fork.continueQuestion };
 }

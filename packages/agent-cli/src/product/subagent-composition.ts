@@ -8,7 +8,7 @@ import { productProviderDefinitions } from './provider-definitions.js';
 import { findProviderDefinition } from '@robota-sdk/agent-core';
 import { TRANSPORT_ENVIRONMENT } from '@robota-sdk/agent-executor';
 import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
-import { createGoalStatusTool, sandboxApprovalFor } from '@robota-sdk/agent-framework';
+import { createGoalStatusTool, getWorkspaceProjectIdentity, sandboxApprovalFor } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { OsSandboxClient } from '@robota-sdk/agent-tools/node';
@@ -16,7 +16,8 @@ import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import { commandEnvironment, isWithheldFromCommands } from './command-environment.js';
 import { createProductCapabilityPacks, packCommandModuleNames } from './product-profile.js';
-import { createCliWorkspaceComposition } from '../startup/workspace-project-composition.js';
+import { createCliWorkspaceComposition, resolveInitialCliWorkspaceProjectAccess } from '../startup/workspace-project-composition.js';
+import type { ICliWorkspaceComposition } from '../startup/workspace-project-composition.js';
 import { selectProductSubagentRunner } from './subagent-provider-reproduction.js';
 import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
 import { createGitWorktreeIsolationAdapter } from '../subagents/git-worktree-isolation-adapter.js';
@@ -218,8 +219,24 @@ export function createProductSubagentComposition(
     // parent's cwd — not the execution root, which for a worktree-isolated child holds no records of
     // its own — so the child reads the store the parent just wrote the forked record into. Without
     // it every fork job dies in the worker with "this composition opens no session store".
-    openSessionStore: (context: { readonly cwd: string }) =>
-      createCliWorkspaceComposition({ cwd: context.cwd, productRuntime }).sessionStore,
+    openSessionStore: async ({ cwd, resumeStore }) => {
+      if (resumeStore?.scope !== 'project') {
+        return createCliWorkspaceComposition({ cwd, productRuntime }).sessionStore;
+      }
+      const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, { productRuntime });
+      if (projectAccess.status !== 'trusted') {
+        throw new Error('The parent project session store is no longer trusted; the subagent was not started.');
+      }
+      const identity = getWorkspaceProjectIdentity(projectAccess.authority);
+      if (identity.repositoryKey !== resumeStore.repositoryKey || identity.worktreeRoot !== resumeStore.worktreeRoot) {
+        throw new Error('The parent project session store identity changed; the subagent was not started.');
+      }
+      const workspace = createCliWorkspaceComposition({ cwd, productRuntime, projectAccess });
+      if (workspace.sessionStoreScope !== 'project') {
+        throw new Error('The parent project session store is unavailable; the subagent was not started.');
+      }
+      return workspace.sessionStore;
+    },
     // The child confines its commands exactly as the parent does NOW: from the parent's live settings,
     // which `/sandbox` may have changed, and from its root's settings files only when none came. Its
     // session lets a confined command skip the prompt exactly as the parent's does.
@@ -282,6 +299,7 @@ function createProductChildProcessSubagentRunner(options: {
   readonly packContext: IProductPackContext;
   readonly providerConfig: IProviderDefinitionConfig;
   readonly providerDefinitions: readonly IProviderDefinition[];
+  readonly workspace?: ICliWorkspaceComposition;
   /** Absent, the child writes no transcript, so the run leaves no conversation behind. */
   readonly logsDir?: string;
   readonly workerEntry: Parameters<
@@ -300,6 +318,7 @@ function createProductChildProcessSubagentRunner(options: {
     workerEntry: options.workerEntry,
     providerConfig: options.providerConfig,
     providerDefinitions: options.providerDefinitions,
+    ...(options.workspace === undefined ? {} : { resumeStore: resumeStoreReference(options.workspace) }),
     ...(options.logsDir === undefined ? {} : { logsDir: options.logsDir }),
     // #3679: the children keep their logs as every store of this process keeps its records, and
     // follow the key this process seals to when an unlock verifies or changes it — one decision.
@@ -423,12 +442,20 @@ export function createProductPackSet(
  * as debt, where the rule is "split instead of extending", so the change had to take more out of it
  * than it put in.
  */
+function resumeStoreReference(workspace: ICliWorkspaceComposition) {
+  if (workspace.sessionStoreScope === 'user') return { scope: 'user' as const };
+  if (workspace.projectAccess.status !== 'trusted') throw new Error('A project session store requires trusted workspace access.');
+  const identity = getWorkspaceProjectIdentity(workspace.projectAccess.authority);
+  return { scope: 'project' as const, repositoryKey: identity.repositoryKey, worktreeRoot: identity.worktreeRoot };
+}
+
 export function createProductSubagentRunnerFactory(options: {
   readonly productRuntime: ICliRuntimeContext;
   readonly packContext: IProductPackContext;
   readonly providerConfig: IProviderDefinitionConfig;
   /** The registry the parent's provider came from: the child is checked against what it declares. */
   readonly providerDefinitions: readonly IProviderDefinition[];
+  readonly workspace?: ICliWorkspaceComposition;
   readonly reproduction: IProviderReproduction;
   readonly notice: (message: string) => void;
   /**
@@ -465,8 +492,9 @@ export function createProductSubagentRunnerFactory(options: {
         packContext: options.packContext,
         providerConfig: options.providerConfig,
         providerDefinitions: options.providerDefinitions,
+        ...(options.workspace === undefined ? {} : { workspace: options.workspace }),
         ...(options.persistTranscripts
-          ? { logsDir: options.productRuntime.config.storage.logRoot }
+          ? { logsDir: options.productRuntime.layout.subagentLogsRoot }
           : {}),
         workerEntry: resolveSelfForkWorkerEntry(),
         worktreeAdapter: createProductWorktreeAdapter(options.productRuntime),

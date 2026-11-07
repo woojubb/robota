@@ -132,6 +132,14 @@ export type IBackgroundTaskHandle<K extends TBackgroundTaskKind = TBackgroundTas
     ? IBaseBackgroundTaskHandle & { result: Promise<IBackgroundTaskResult<K>> }
     : never;
 
+export interface IPreparedBackgroundTaskHandle<K extends TBackgroundTaskKind> {
+  readonly handle: IBackgroundTaskHandle<K>;
+  /** Opens the gate synchronously; observable work is deferred until after this call. */
+  activate(): 'active' | 'aborted';
+  /** Closes the gate before cleanup, even when cleanup throws. */
+  abort(): void;
+}
+
 /** SELFHOST-012: an in-place schedule edit — any provided field replaces the current value; identity is kept. */
 export interface IScheduleEditPatch {
   cronExpression?: string;
@@ -145,6 +153,15 @@ interface IKindedBackgroundTaskRunner<K extends TBackgroundTaskKind> {
   readonly kind: K;
   /** Optional scheduler calculation using the runner's own timezone and cron semantics. */
   nextScheduledFireOnOrAfter?(cronExpression: string, firstAllowedAt: Date): Date | null;
+  /** Prepare without emitting or executing; only runners honoring the prepared-handle contract may offer this. */
+  prepareRestore?(
+    task: IBackgroundTaskStart<K>,
+    options: {
+      readonly paused: boolean;
+      readonly canRun?: () => boolean;
+      readonly onClaimLoss?: () => void;
+    },
+  ): IPreparedBackgroundTaskHandle<K>;
   /**
    * MCP-004 §S1: how the manager admits a spawned task of this runner's kind. `'queued'` (the
    * default when absent) enqueues and waits for a concurrency slot, as every runner did before this
@@ -182,11 +199,29 @@ export interface IToolInvocationAdopter {
 
 export type TBackgroundTaskIdFactory = (request: TBackgroundTaskRequest) => string;
 
+export interface IBackgroundTaskIdReservation {
+  release(): void;
+}
+
+export interface IPreparedRestoredSchedules {
+  /** Runs final synchronous checks with every timer still gated, then opens the batch. */
+  activate(beforeOpen?: () => void): 'active' | 'aborted';
+  /** Aborts preparation. Once activated, the manager's ordinary cancellation owns the tasks. */
+  abort(): void;
+}
+
 export interface IBackgroundTaskManager {
   spawn(request: TBackgroundTaskRequest): Promise<IBackgroundTaskState>;
   wait(taskId: string): Promise<IBackgroundTaskResult>;
   list(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[];
   get(taskId: string): IBackgroundTaskState | undefined;
+  /** Synchronously reserve restored IDs before any task starts; reject IDs already owned by this manager. */
+  reserveTaskIds?(taskIds: readonly string[]): IBackgroundTaskIdReservation;
+  prepareRestoredSchedules?(
+    tasks: readonly IBackgroundTaskState<'scheduled'>[],
+    reservation: IBackgroundTaskIdReservation,
+    ownership?: { canRun(): boolean; onLoss(): void },
+  ): IPreparedRestoredSchedules;
   /** Available on the built-in manager; custom manager ports may omit it. */
   nextScheduledFireOnOrAfter?(cronExpression: string, firstAllowedAt: Date): Date | null;
   cancel(taskId: string, reason?: string): Promise<void>;

@@ -107,6 +107,7 @@ export function SessionSurface({
   state,
   surface,
   personalUsageEnabled = false,
+  draftMode = 'persistent',
   onReconnect,
   pickFiles,
   getPathForFile,
@@ -117,6 +118,8 @@ export function SessionSurface({
   surface?: string;
   /** Desktop shells opt in; embedded/session-only surfaces keep their existing chat-only contract. */
   personalUsageEnabled?: boolean;
+  /** Secure desktop discards unsent text and attachment paths when the session closes. */
+  draftMode?: 'persistent' | 'volatile';
   /**
    * Present only when the host can restart the runtime after the connection is lost for good (issue
    * #3280 §5, the desktop app); absent in the browser, where the banner says how to reopen it instead.
@@ -356,6 +359,7 @@ export function SessionSurface({
                 {setupRequired ? null : (
                   <Composer
                     ref={composerRef}
+                    draftMode={draftMode}
                     catalog={state.commandCatalog ?? null}
                     status={state.sessionStatus ?? null}
                     connected={state.status === 'connected'}
@@ -425,6 +429,28 @@ export function SessionSurface({
               onClose={() => state.closeExecutionDetail()}
               onLoadMore={() => state.loadMoreExecutionDetail()}
               onStop={openEntry ? () => stopExecutionEntry(openEntry) : undefined}
+              inputState={state.executionDetailInput}
+              mode={state.executionDetailMode}
+              unreadable={state.executionDetailUnreadable}
+              onShowEarlier={state.showEarlierExecutionDetail}
+              onShowLive={state.showLiveExecutionDetail}
+              onSend={
+                openEntry
+                  ? (prompt) =>
+                      state.send({
+                        type: 'send-background-task',
+                        taskId: openEntry.sourceId,
+                        input: { prompt },
+                      })
+                  : undefined
+              }
+              onContinue={
+                openEntry?.resumeSessionId
+                  ? () => {
+                      if (openEntry.resumeSessionId) state.switchSession(openEntry.resumeSessionId);
+                    }
+                  : undefined
+              }
             />
           </div>
         )}

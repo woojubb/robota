@@ -51,7 +51,8 @@ hydration is not itself an event.
 The session record is the complete resumable-record source of truth, and its store port owns CRUD
 only — it never exposes a reusable absolute record path (transcript references belong to the
 logger/source owner). A writer that updates only part of a loaded record must preserve every field
-it does not own before overwriting its authoritative fields.
+it does not own before overwriting its authoritative fields; a schedule restore requires a
+claim-fenced complete commit because a failed write may leave either the prior record or the new one.
 
 A load reports which of five things happened — valid, missing, corrupt, unsupported, or locked —
 rather than a bare `record | undefined`, because that collapsed "no such session" and "the snapshot

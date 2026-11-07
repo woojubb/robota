@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterEach, expect, it } from 'vitest';
 
-import { createProcessOperationLock } from '../process-operation-lock.js';
+import { createProcessOperationLock } from '../index.js';
 
 const roots: string[] = [];
 afterEach(() => {
@@ -40,9 +40,7 @@ it('excludes a second owner for the same id, but not a different id', () => {
 
 it('recovers a guard after its owning OS process is killed', async () => {
   const root = directory();
-  const source = pathToFileURL(
-    fileURLToPath(new URL('../process-operation-lock.ts', import.meta.url)),
-  ).href;
+  const source = pathToFileURL(fileURLToPath(new URL('../index.ts', import.meta.url))).href;
   const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
   const program = `import { createProcessOperationLock } from ${JSON.stringify(source)}; const held = createProcessOperationLock(process.argv[1]).tryAcquire('session_a'); if (!held) process.exit(2); process.send('ready'); setInterval(() => {}, 1000);`;
   const child = spawn(

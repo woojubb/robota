@@ -45,9 +45,10 @@ import {
   type TProcessOwnerLiveness,
 } from '@robota-sdk/agent-core/node';
 
-import { readWindowsProcessStartTime } from '../session-inventory/windows-security.js';
+import { readWindowsProcessStartTime } from '@robota-sdk/agent-local-host';
 
 import type { ICliRuntimeContext } from './runtime-context.js';
+import { readProductConversationMode } from '../secure/conversation-mode-state.js';
 
 const PROCESS_PREFIX = 'process-';
 const MIGRATION_PREFIX = 'migration-';
@@ -387,8 +388,9 @@ export interface IEnterProductStoresOptions extends IPresenceOptions {
  * process's presence and then refuses — {@link ProductMigrationRunningError}, with the presence
  * removed again — while a migration is running; once it has passed, a running migration has seen
  * this presence and refuses itself, so later constructions need not look again. A presence that
- * cannot be created is reported on stderr once and the stores are still built, so a state root this
- * process cannot write to does not cost the session; every construction then looks for a migration.
+ * cannot be created is reported on stderr once and no store opens: a migration could otherwise
+ * miss this writer. The mode is checked again after admission so a stale invocation cannot open
+ * stores in an artifact layout selected before a mode transition.
  */
 export function enterProductStores(
   runtime: ICliRuntimeContext,
@@ -407,12 +409,27 @@ export function enterProductStores(
       const code = (error as NodeJS.ErrnoException).code ?? 'unknown';
       (options.stderr ?? ((text: string) => process.stderr.write(text)))(
         `Could not mark this process in ${runtime.layout.userPaths.presence} (${code}): a migration ` +
-          'of the stored conversations started while it runs would not see it.\n',
+          'of the stored conversations started while it runs would not see it. No conversation store was opened.\n',
       );
     }
   }
+  if (presence.failed) {
+    throw new Error('Could not mark this process for conversation storage; no conversation store was opened.');
+  }
   const migration = runningMigration(runtime, options);
-  if (migration === undefined) return;
+  if (migration === undefined) {
+    try {
+      if (readProductConversationMode(runtime.layout.userRoot) === runtime.conversationMode) return;
+      throw new Error('The conversation mode changed before a store opened; restart this command.');
+    } catch (error) {
+      if (presence.directory !== undefined && presence.cancelRemoval !== undefined) {
+        removeDirectory(presence.directory, presence.cancelRemoval);
+        presence.directory = undefined;
+        presence.cancelRemoval = undefined;
+      }
+      throw error;
+    }
+  }
   if (presence.directory !== undefined && presence.cancelRemoval !== undefined) {
     removeDirectory(presence.directory, presence.cancelRemoval);
     presence.directory = undefined;

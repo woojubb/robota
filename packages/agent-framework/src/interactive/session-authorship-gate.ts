@@ -68,6 +68,11 @@ export function unverifiedSessionNotice(sessionId: string): string {
 /** The question asked after {@link unverifiedSessionNotice}; no is the default. */
 export const UNVERIFIED_SESSION_QUESTION = 'Resume it and mark it as yours?';
 
+/** Fixed recovery instruction for a served review whose sandbox setup cannot be cancelled. */
+export const OWNER_SANDBOX_REVIEW_UNAVAILABLE =
+  'This session requires sandbox setup that cannot be cancelled while attached. ' +
+  'Review it in a local interactive terminal with --resume and its session ID.';
+
 /**
  * What a person is told of an unverified record that has no stored bytes to accept — one rebuilt
  * from its replay log — so it cannot be marked as theirs. Fixed text and the id only.
@@ -104,19 +109,24 @@ export function provenanceOfOutcome(outcome: TSessionLoadOutcome): TSessionProve
 }
 
 /**
- * Refuses an outcome a store that seals calls unverified, unless it is exactly the bytes the owner
- * accepted. Keyed on the outcome alone, so no view of a store can switch it off. Any other status is
- * the caller's to judge.
+ * Refuses an unverified outcome without acceptance, and refuses a missing or valid outcome whose
+ * bytes differ from the accepted digest, even if replacement bytes are verified. A store view cannot
+ * switch the gate off. Other non-valid outcomes remain the caller's to judge.
  */
 export function assertClaimedOutcomeAccepted(
   sessionId: string,
   outcome: TSessionLoadOutcome,
   acceptedDigest: string | undefined,
 ): void {
-  if (outcome.status !== 'valid' || outcome.authorship !== 'unverified') return;
-  if (acceptedDigest === undefined)
-    throw new SessionAuthorshipRefusedError(sessionId, 'unverified');
-  if (outcome.digest !== acceptedDigest) {
+  if (
+    acceptedDigest !== undefined &&
+    (outcome.status === 'missing' ||
+      (outcome.status === 'valid' && outcome.digest !== acceptedDigest))
+  ) {
     throw new SessionAuthorshipRefusedError(sessionId, 'changed-since-accepted');
+  }
+  if (outcome.status !== 'valid') return;
+  if (outcome.authorship === 'unverified' && acceptedDigest === undefined) {
+    throw new SessionAuthorshipRefusedError(sessionId, 'unverified');
   }
 }

@@ -1,6 +1,6 @@
 /**
- * `the product secure setup | status | verify | change-passphrase`: create and inspect the keyring that
- * secure conversations will be sealed to, and keep its passphrase.
+ * `the product secure setup | status | enable | disable | verify | change-passphrase`: manage the
+ * conversation choice and the keyring that secure conversations are sealed to.
  *
  * A passphrase or recovery key is typed at an interactive terminal and comes from nowhere else: not
  * an argument, not the environment, not a pipe, not a file. That is why there is no environment or
@@ -10,11 +10,10 @@
  * What this can check is a terminal, not a person: a program that allocates a pseudo-terminal of its
  * own and types into it is outside this guard.
  *
- * There is no `unlock` or `lock` here by design. Unlocked keys live in the memory of the process that
- * uses them, so a short-lived command could only unlock to throw the keys away; `verify` unlocks to
- * prove the passphrase and the stored sealing key, and then locks.
+ * There is no `unlock` here: unlocked keys live in the process that uses them. `lock` asks each
+ * reachable secure runtime to discard its keys and needs no secret.
  *
- * This command never turns secure mode on for sessions; creating a keyring is all `setup` does.
+ * Creating a keyring is all `setup` does; only a confirmed `enable` turns secure mode on.
  * `migrate` and `compact` (`secure-migrate.ts`) run only once secure mode is on, and until then
  * refuse with a fixed message; they are left out of the usage while they cannot run.
  */
@@ -27,10 +26,14 @@ import {
 } from '@robota-sdk/agent-keyring';
 
 import { SecretInputCancelled } from '../devices/secret-terminal.js';
+import { writeProductMigrationMarker } from '../product/process-presence.js';
 import { productSecureMode } from '../product/session-sealing.js';
 import { userPaths } from '../product/user-paths.js';
+import { writeProductConversationMode } from './conversation-mode-state.js';
+import { createInterface } from 'node:readline/promises';
+import { listSupervisedSessions, lockSupervisedSession, resolveSupervisedDirectory } from '../session-inventory/supervised-session-control.js';
 import { KeyHolder, SealingKeyMismatchError } from './key-holder.js';
-import { KeyringStoreError, createKeyringFileStore, type IKeyringStore } from './keyring-store.js';
+import { KeyringStoreError, createKeyringFileStore, type IKeyringStore } from '@robota-sdk/agent-local-host';
 import {
   EXIT_FAILED,
   EXIT_OK,
@@ -51,6 +54,7 @@ import {
 } from './secure-conversations.js';
 import {
   runSecureCompact,
+  runSecureEnable,
   runSecureMigrate,
   type ISecureMigrateOptions,
 } from './secure-migrate.js';
@@ -72,6 +76,9 @@ export interface ISecureCommandOptions extends ISecureMigrateOptions {
 type TSecureAction =
   | { readonly action: 'setup' }
   | { readonly action: 'status' }
+  | { readonly action: 'enable' }
+  | { readonly action: 'disable' }
+  | { readonly action: 'lock' }
   | { readonly action: 'verify'; readonly credential: TCredentialKind }
   | { readonly action: 'change-passphrase'; readonly credential: TCredentialKind }
   | { readonly action: 'migrate'; readonly dryRun: boolean }
@@ -80,6 +87,9 @@ type TSecureAction =
 export const SECURE_USAGE = (cliName: string): string =>
   `Usage: ${cliName} secure setup\n` +
   `       ${cliName} secure status\n` +
+  `       ${cliName} secure enable\n` +
+  `       ${cliName} secure disable\n` +
+  `       ${cliName} secure lock\n` +
   `       ${cliName} secure verify [--recovery]\n` +
   `       ${cliName} secure change-passphrase [--recovery]\n` +
   'A passphrase or recovery key is typed at the terminal when asked; it is never an argument.\n';
@@ -87,7 +97,7 @@ export const SECURE_USAGE = (cliName: string): string =>
 /** The action the arguments name, or `undefined` for anything else; what was typed is never echoed. */
 function parseSecureArgs(args: readonly string[]): TSecureAction | undefined {
   const [action, ...flags] = args;
-  if (action === 'setup' || action === 'status') return flags.length === 0 ? { action } : undefined;
+  if (action === 'setup' || action === 'status' || action === 'lock' || action === 'enable' || action === 'disable') return flags.length === 0 ? { action } : undefined;
   if (action === 'verify' || action === 'change-passphrase') {
     if (flags.length > 1 || (flags.length === 1 && flags[0] !== '--recovery')) return undefined;
     return { action, credential: flags.length === 1 ? 'recoveryKey' : 'passphrase' };
@@ -109,6 +119,9 @@ type TSecureActionName = TSecureAction['action'];
 const CANCELLED: Readonly<Record<TSecureActionName, string>> = {
   setup: 'Cancelled. No keyring was created.',
   status: 'Cancelled.',
+  enable: 'Cancelled. Secure conversations remain off.',
+  disable: 'Cancelled. Secure conversations remain on.',
+  lock: 'Cancelled.',
   verify: 'Cancelled.',
   'change-passphrase': 'Cancelled. The passphrase was not changed.',
   migrate: 'Cancelled. Nothing was changed.',
@@ -170,20 +183,21 @@ function describeSlots(keyring: IKeyring): string {
 
 function runStatus(store: IKeyringStore, options: ISecureCommandOptions): number {
   const cliName = options.productRuntime.vocabulary.cliName;
+  const modeLine = `Conversation mode: ${options.productRuntime.conversationMode}\n`;
   const before = store.inspect();
   if (!before.exists) {
     options.stdout(
-      `No keyring exists at ${store.path}.\nRun \`${cliName} secure setup\` to create one.\n`,
+      `${modeLine}No keyring exists at ${store.path}.\nRun \`${cliName} secure setup\` to create one.\n`,
     );
     return EXIT_OK;
   }
   const loaded = store.load();
   if (loaded.status === 'missing') {
-    options.stdout(`No keyring exists at ${store.path}.\n`);
+    options.stdout(`${modeLine}No keyring exists at ${store.path}.\n`);
     return EXIT_OK;
   }
   const after = store.inspect();
-  const lines = [`Keyring: ${store.path}`];
+  const lines = [modeLine.trimEnd(), `Keyring: ${store.path}`];
   if (after.mode !== undefined) {
     const tightened =
       before.mode !== undefined && before.mode !== after.mode && (after.mode & 0o077) === 0
@@ -201,6 +215,49 @@ function runStatus(store: IKeyringStore, options: ISecureCommandOptions): number
   );
   options.stdout(`${lines.join('\n')}\n`);
   return EXIT_OK;
+}
+
+async function runDisable(options: ISecureCommandOptions): Promise<number> {
+  const runtime = options.productRuntime;
+  if (runtime.conversationMode === 'preparing') {
+    options.stderr(`Secure conversation preparation is incomplete; resume \`${runtime.vocabulary.cliName} secure enable\` before turning it off.\n`);
+    return EXIT_FAILED;
+  }
+  if (runtime.conversationMode === 'plain') {
+    options.stdout('Secure conversations are already off. New conversations are saved in plaintext.\n');
+    return EXIT_OK;
+  }
+  if (!(options.stdinIsTTY ?? process.stdin.isTTY === true)) {
+    options.stderr(`\`${runtime.vocabulary.cliName} secure disable\` needs an interactive terminal.\n`);
+    return EXIT_FAILED;
+  }
+  const answer = options.confirm === undefined
+    ? await (async (): Promise<string> => {
+        const prompt = createInterface({ input: process.stdin, output: process.stderr });
+        try {
+          return await prompt.question('Turn off secure conversations? New conversations will be saved in plaintext. [y/N] ');
+        } finally {
+          prompt.close();
+        }
+      })()
+    : await options.confirm('Turn off secure conversations? New conversations will be saved in plaintext. [y/N] ');
+  if (!/^y(es)?$/iu.test(answer.trim())) {
+    options.stderr('Cancelled. Secure conversations remain on.\n');
+    return EXIT_FAILED;
+  }
+  const marker = writeProductMigrationMarker(runtime, { mode: 'secure migrate' });
+  try {
+    const others = marker.others();
+    if (others.length > 0) {
+      options.stderr(`Could not turn secure conversations off while ${others.length} product process(es) or migration(s) remain active or uncertain. Close them and try again.\n`);
+      return EXIT_FAILED;
+    }
+    writeProductConversationMode(runtime.layout.userRoot, 'secure', 'plain');
+    options.stdout('Secure conversations are off. New conversations will be saved in plaintext. The sealed archive and keyring remain in place.\n');
+    return EXIT_OK;
+  } finally {
+    marker.release();
+  }
 }
 
 async function runSetup(
@@ -403,6 +460,26 @@ export async function runSecureCommand(
     });
   try {
     if (parsed.action === 'status') return runStatus(store, options);
+    if (parsed.action === 'disable') return await runDisable(options);
+    if (parsed.action === 'lock') {
+      const root = resolveSupervisedDirectory(options.productRuntime);
+      const rows = await listSupervisedSessions(root, undefined, { includeGeneration: true });
+      const targets = rows.filter((row): row is typeof row & { readonly generation: string } =>
+        row.liveness === 'alive' && row.control === 'available' && row.generation !== undefined);
+      const results = await Promise.allSettled(targets.map((row) => lockSupervisedSession(row.id, root, row.generation)));
+      const failed = results.filter((result) => result.status === 'rejected').length +
+        rows.filter((row) => row.liveness !== 'dead' && row.control === 'unavailable').length;
+      if (failed > 0) {
+        options.stderr(`Could not confirm locking ${failed} runtime(s).\n`);
+        return EXIT_FAILED;
+      }
+      if (targets.length > 0) {
+        options.stderr(`Lock requested from ${targets.length} runtime(s), but this command cannot verify runtime identity or lock state.\n`);
+        return EXIT_FAILED;
+      }
+      options.stdout('No live registered runtimes found.\n');
+      return EXIT_OK;
+    }
 
     // Everything below asks for a secret, which is typed at an interactive terminal or not at all.
     const needsTerminal = `${cliName} secure ${parsed.action} needs an interactive terminal: run it in a terminal window, where you type the secret yourself.\n`;
@@ -424,6 +501,9 @@ export async function runSecureCommand(
     if (parsed.action === 'setup') return await runSetup(store, terminalSession, options);
     if (parsed.action === 'migrate') {
       return await runSecureMigrate(store, terminalSession, parsed.dryRun, options);
+    }
+    if (parsed.action === 'enable') {
+      return await runSecureEnable(store, terminalSession, options);
     }
     if (parsed.action === 'compact') return await runSecureCompact(store, terminalSession, options);
     return parsed.action === 'verify'

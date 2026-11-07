@@ -4,13 +4,15 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { getWorkspaceProjectReader, getWorkspaceProjectStateStorage } from '@robota-sdk/agent-framework';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 import { BrokeredWorkspaceTrustService } from '../brokered-workspace-trust.js';
 import { workspaceRootBrokerEndpoint } from '../workspace-root-broker-process.js';
 import { runWorkspaceTrustCommand } from '../workspace-trust-command.js';
+import { prepareDesktopRestrictedRoot } from '../../desktop-host.js';
+import { requestWorkspaceRootBroker } from '../workspace-root-broker.js';
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -18,6 +20,34 @@ afterEach(async () => {
 });
 
 describe.skipIf(process.platform === 'win32')('brokered CLI workspace trust', () => {
+  it('starts the broker for a fresh non-Git Restricted desktop choice', async () => {
+    const parent = mkdtempSync(join(tmpdir(), 'brokered-restricted-'));
+    const home = join(parent, 'home');
+    const root = join(parent, 'plain');
+    mkdirSync(home);
+    mkdirSync(root);
+    const runtime = createTestProductRuntime('test-product', { HOME: home });
+    const endpoint = workspaceRootBrokerEndpoint(runtime);
+    const output: string[] = [];
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(((chunk: unknown) => {
+      output.push(String(chunk)); return true;
+    }) as never);
+    try {
+      expect(await runWorkspaceTrustCommand(['status', '--json'], root, runtime)).toBe(0);
+      expect(JSON.parse(output.join(''))).toMatchObject({ state: 'identity-unavailable', workspace: root });
+      expect(await prepareDesktopRestrictedRoot(runtime.config, runtime.environment, root)).toMatch(
+        /^[0-9a-f]{8}-/u,
+      );
+    } finally {
+      write.mockRestore();
+      try {
+        const ready = await requestWorkspaceRootBroker(endpoint, { op: 'ping' });
+        if (ready.status === 'ready' && ready.pid !== process.pid) process.kill(ready.pid);
+      } catch { /* The broker may already have exited. */ }
+      rmSync(dirname(endpoint), { recursive: true, force: true });
+      rmSync(parent, { recursive: true, force: true });
+    }
+  }, 30_000);
   it('retains approval across clients, refuses a swapped root, and forgets live trust on restart', async () => {
     const parent = mkdtempSync(join(tmpdir(), 'brokered-cli-trust-'));
     const home = join(parent, 'home');

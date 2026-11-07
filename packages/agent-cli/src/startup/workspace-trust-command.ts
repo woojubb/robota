@@ -10,7 +10,7 @@ import { BrokeredWorkspaceTrustService } from './brokered-workspace-trust.js';
 
 import { formatProjectContributionPreview } from './project-contribution-preview.js';
 import { trustQuestionFor } from './interactive-trust-prompt.js';
-import { createInitialCliWorkspaceComposition } from './workspace-project-composition.js';
+import { createInitialCliWorkspaceSettingsSources } from './workspace-project-composition.js';
 import { providerEnvironmentReferences } from '../product/restart-environment.js';
 
 type TWorkspaceTrustAction = 'status' | 'grant' | 'revoke' | 'release';
@@ -54,7 +54,7 @@ function trustStatusJson(
     ...(candidate === undefined ? {} : { candidate }),
     ...(access.status === 'trusted' ? {
       providerEnvRefs: providerEnvironmentReferences(
-        createInitialCliWorkspaceComposition(cwd, { productRuntime: runtime, projectAccess: access }).settingsSources,
+        createInitialCliWorkspaceSettingsSources(cwd, runtime, access),
         providerDefinitions,
       ),
     } : {}),

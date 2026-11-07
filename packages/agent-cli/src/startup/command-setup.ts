@@ -1,10 +1,14 @@
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
+import { resolve } from 'node:path';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
   createSettingsPermissionRulesAdapter,
   OrgPolicyParseError,
   readMergedProviderSettings,
+  inspectSettingsLayers,
+  getWorkspaceProjectIdentity,
+  getWorkspaceProjectReader,
   prepareWorkflowJsonMutation,
   resolveProviderSettingsWriteTarget,
 } from '@robota-sdk/agent-framework';
@@ -22,6 +26,8 @@ import type {
   ICommandModule,
   IWorkspaceProjectMutation,
   TProviderSettingsDocument,
+  TSettingsSource,
+  TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import {
   getStartupCliUpdateNotice,
@@ -189,6 +195,28 @@ export interface ICliSetup {
  * rather than rejecting them as base collisions. Removing the pack from the profile therefore genuinely
  * removes those commands from the product.
  */
+/** Resolve the effective declaration without granting write authority to its source. */
+export function providerSelectionSettingsPath(
+  cwd: string,
+  sources: readonly TSettingsSource[],
+  fallback: TSettingsSource,
+  projectAccess?: TWorkspaceProjectAccess,
+): string | undefined {
+  try {
+    const inspection = inspectSettingsLayers(sources);
+    if (inspection.partial) return undefined;
+    const source = inspection.layers.findLast((layer) => layer.settings?.currentProvider !== undefined)?.source ?? fallback;
+    if (source.kind === 'project') {
+      if (projectAccess?.status !== 'trusted') return undefined;
+      if (source.reader !== getWorkspaceProjectReader(projectAccess.authority)) return undefined;
+      return resolve(getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot, source.relativePath);
+    }
+    return source.path === undefined ? undefined : resolve(cwd, source.path);
+  } catch {
+    return undefined;
+  }
+}
+
 export function buildCommandSetup(
   cwd: string,
   args: IParsedCliArgs,
@@ -211,6 +239,7 @@ export function buildCommandSetup(
    * with it, so a plain product, or a process with no terminal to ask on, has neither.
    */
   keyCustodyPort?: IKeyCustodyCommandPort,
+  reportedCredentialNames?: readonly string[],
 ): ICliSetup {
   const productRuntime = resolveCliRuntimeContext(options);
   const workspaceComposition = createCliWorkspaceComposition({
@@ -306,6 +335,20 @@ export function buildCommandSetup(
     providerSettingsAdapter,
     providerConnectionHost,
     providerCredentialResolver: providerConnectionHost.resolveCredential,
+    ...(reportedCredentialNames === undefined ? {} : {
+      missingEnvironmentCredentialHint: (profile: string, name: string): string => {
+        const report = reportedCredentialNames.includes(name)
+          ? `The launching process reported ${name} was set, but it was not forwarded.`
+          : `The launching process did not report ${name} as set. Set it in the environment used to start the runtime.`;
+        const path = providerSelectionSettingsPath(cwd, providerSettingsSources, providerSettingsStore.source, workspaceComposition.projectAccess);
+        const selection = path === undefined
+          ? 'The effective settings source could not be determined; inspect the settings layers before changing "currentProvider".'
+          : `In ${JSON.stringify(path)}, set "currentProvider" to ${JSON.stringify(profile)}.`;
+        const cli = productRuntime.vocabulary.cliName;
+        const stop = args.supervisedSessionId === undefined ? 'Stop this secure runtime' : `Stop it with ${cli} session stop ${args.supervisedSessionId}`;
+        return `${report} ${selection} ${stop}; then start a new secure daemon with ${cli} daemon start from the workspace, using an environment where ${name} is set, or restart through a supervisor that supports secure forwarding.`;
+      },
+    }),
     // The provider commands check `$ENV:` credentials against the snapshot taken before the runtime
     // withheld its own credentials from `process.env` — the live env no longer has them.
     providerEnvironment: productRuntime.environment,

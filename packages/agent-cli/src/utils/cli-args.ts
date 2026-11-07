@@ -46,6 +46,8 @@ export interface IParsedCliArgs {
   supervisedExternalEventGrants?: boolean;
   /** Supervised child only: read the WebSocket transport token from the pipe its launcher inherited it on. */
   supervisedTransportTokenFd?: boolean;
+  /** Supervised child only: this secure runtime answers the pair its spawner inherited it on (descriptor 4). */
+  supervisedSpawnerPair?: boolean;
   /** Supervised child only: this runtime is its workspace's daemon and hands its WS URL to its owner. */
   daemon?: boolean;
   /** TUI only: files, each one external-event grant verified by access token. */
@@ -206,6 +208,8 @@ const PARSE_ARGS_CONFIG = {
     'supervised-session-id': { type: 'string' },
     'supervised-external-event-grants': { type: 'boolean' },
     'supervised-transport-token-fd': { type: 'boolean' },
+    'supervised-spawner-pair': { type: 'boolean' },
+    'supervised-forwarded-environment': { type: 'boolean' },
     daemon: { type: 'boolean' },
     'external-event-grant': { type: 'string', multiple: true },
     'external-event-port': { type: 'string' },
@@ -363,6 +367,7 @@ function mapParsedValues(
     ...(values['supervised-transport-token-fd'] === true
       ? { supervisedTransportTokenFd: true }
       : {}),
+    ...(values['supervised-spawner-pair'] === true ? { supervisedSpawnerPair: true } : {}),
     ...(values['daemon'] === true ? { daemon: true } : {}),
     externalEventGrantFiles: values['external-event-grant'] ?? [],
     ...(values['external-event-port'] !== undefined
@@ -452,6 +457,9 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
   ) {
     throw new Error('--http-port must be an integer in 1..65535');
   }
+  if (values['supervised-forwarded-environment'] === true && values['supervised-spawner-pair'] !== true) {
+    throw new Error('--supervised-forwarded-environment requires a spawner pair');
+  }
   if (args.supervisedSessionId !== undefined) {
     if (
       !args.serve ||
@@ -467,6 +475,14 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
   }
   if (args.supervisedTransportTokenFd === true && args.supervisedSessionId === undefined) {
     throw new Error('--supervised-transport-token-fd is set only by a supervised launch');
+  }
+  if (args.supervisedSpawnerPair === true && args.supervisedSessionId === undefined) {
+    throw new Error('--supervised-spawner-pair is set only by a supervised launch');
+  }
+  if (args.supervisedSpawnerPair === true && args.supervisedTransportTokenFd === true) {
+    throw new Error(
+      '--supervised-spawner-pair and --supervised-transport-token-fd are exclusive: a secure runtime takes no WebSocket token.',
+    );
   }
   if (args.daemon === true && args.supervisedSessionId === undefined) {
     throw new Error(

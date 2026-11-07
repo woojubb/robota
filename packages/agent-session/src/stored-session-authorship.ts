@@ -642,6 +642,11 @@ export class StoredSessionAuthorship {
     this.#memory.forget(id);
   }
 
+  /** Drops only a claim's held plaintext; pending tags, taint and handoffs remain intact. */
+  discardHeld(id: string): void {
+    this.#memory.dropHeld(id);
+  }
+
   /** Subscribes `listener` to the unlocks of this store's keys (held as weakly as the sealer holds it). */
   onUnlock(listener: () => void): () => void {
     return this.#sealer.onUnlock?.(listener) ?? (() => undefined);

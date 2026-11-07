@@ -101,7 +101,20 @@ export async function stopFixtureBroker(env) {
   });
   if (pid === undefined) return;
   try { process.kill(pid, 'SIGTERM'); }
-  catch (error) { if (error.code !== 'ESRCH') throw error; }
+  catch (error) {
+    if (error.code !== 'ESRCH') throw error;
+    return;
+  }
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    try { process.kill(pid, 0); }
+    catch (error) {
+      if (error.code !== 'ESRCH') throw error;
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Fixture broker ${pid} did not exit after SIGTERM.`);
 }
 
 export function assertStandaloneNativeRuntime(binaryPath) {

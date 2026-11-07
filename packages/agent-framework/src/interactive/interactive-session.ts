@@ -38,6 +38,7 @@ import { applyModelFallback } from '../routing/model-fallback-chain.js';
 import { persistSessionRename } from './interactive-session-rename.js';
 import { loadSessionRecord, resumeRefusal } from './interactive-session-restore.js';
 import { SessionRecordClaim } from './session-record-claim.js';
+import { isSessionAuthorshipRefusedError } from './session-authorship-gate.js';
 import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-tools.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { loadSessionPluginSkills, requireSessionPluginFiles } from './session-plugin-skills.js';
@@ -243,6 +244,7 @@ export class InteractiveSession
     resumeQueuedTurn: (entry) => this.resumeQueuedTurn(entry),
   });
   private shutdownPromise: Promise<void> | null = null;
+  private restoredOwnershipLost = false;
   private externalEventIngress?: ExternalEventIngress;
   private readonly peerTurnRate = new PeerTurnRateLimiter();
   private readonly sandboxClient?: ISandboxClient;
@@ -328,13 +330,16 @@ export class InteractiveSession
    * ends on every way out of the session.
    */
   private readonly recordClaim?: SessionRecordClaim;
+  private pendingAcceptedAdmission: { readonly signal: AbortSignal; readonly onAbort: () => void } | undefined;
+  private discardedAcceptedAdmission = false;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
     const host = requireFrameworkHost(options.host, 'InteractiveSession');
     this.frameworkHost = host;
     // The session's own environment snapshot wins; without one the host's environment answers.
-    this.providerEnvironment = ('environment' in options ? options.environment : undefined) ?? host.env;
+    this.providerEnvironment =
+      ('environment' in options ? options.environment : undefined) ?? host.env;
     if ('pluginDirectories' in options && options.pluginDirectories !== undefined) {
       requireSessionPluginFiles(host.files?.sync);
     }
@@ -624,12 +629,32 @@ export class InteractiveSession
       });
     }
 
+    // A revoked owner decision immediately gives up its claim, including while initialization waits.
+    const admission = options.resumeAdmissionSignal;
+    const cancelAdmission = (): void => {
+      this.discardedAcceptedAdmission = true;
+      this.execCtrl.shuttingDown = true;
+      this.recordClaim?.discard();
+    };
+    if (admission !== undefined) this.pendingAcceptedAdmission = { signal: admission, onAbort: cancelAdmission };
+    admission?.addEventListener('abort', cancelAdmission, { once: true });
     // A claim taken from here on is let go if the session never comes to exist.
     try {
+      admission?.throwIfAborted();
+      if (admission !== undefined && options.sessionStore?.supportsClaimDiscard !== true) {
+        throw new Error('This session store cannot discard an abandoned owner decision.');
+      }
+      if (admission !== undefined && 'workspaceManifest' in options && options.workspaceManifest !== undefined) {
+        throw new Error('This session uses a sandbox workspace that cannot be cancelled safely; review it in a local interactive terminal.');
+      }
       const hasInjectedSession = this.configureInjectedSession(options);
       this.restoreSessionRecordIfNeeded(options);
       if (hasInjectedSession) this.recordClaim?.claimSession(this.session!.getSessionId());
       this.startAsyncInitializationIfNeeded(options, hasInjectedSession);
+      if (this.initPromise !== null) void this.initPromise.catch(() => {
+        admission?.removeEventListener('abort', cancelAdmission);
+        this.pendingAcceptedAdmission = undefined;
+      });
       // The baseline is the initialized session's status, so the first push is a real change.
       if (this.initialized) this.statusPush.prime();
       else
@@ -638,14 +663,18 @@ export class InteractiveSession
           () => undefined,
         );
 
-      if (this.initialized) {
-        this.bgTracker.subscribe(this.session!);
+      if (this.initialized && admission === undefined) {
+        this.subscribeBackgroundTasks(this.session!);
         this.resumeSelfPacedLoops();
       }
-      if (this.initialized) this.persistCurrentSession();
-      this.resumeGoalIfActive();
+      if (this.initialized && admission === undefined) this.persistCurrentSession();
+      if (admission === undefined) this.resumeGoalIfActive();
     } catch (error) {
-      this.recordClaim?.end();
+      admission?.removeEventListener('abort', cancelAdmission);
+      if (admission === undefined) this.recordClaim?.end();
+      else this.recordClaim?.discard();
+      this.bgTracker.releaseTaskIdReservation();
+      this.clearSessionLoopExpiryTimers();
       throw error;
     }
   }
@@ -656,10 +685,6 @@ export class InteractiveSession
 
   getProjectAccess(): TWorkspaceProjectAccess {
     return this.workspace.projectAccess;
-  }
-
-  protected sessionRecordHasWriter(sessionId: string): boolean {
-    return this.sessionStore?.hasWriter(sessionId) ?? false;
   }
 
   protected getSessionReplayValidator(): IFrameworkHost['validateSessionReplayLog'] {
@@ -674,6 +699,23 @@ export class InteractiveSession
     return true;
   }
 
+  private subscribeBackgroundTasks(session: Session): void {
+    this.bgTracker.subscribe(session, {
+      ownsRecord: this.recordClaim !== undefined,
+      canRun: () =>
+        this.session === session &&
+        !this.execCtrl.shuttingDown &&
+        (this.recordClaim === undefined || this.recordClaim.holdsWriter(session.getSessionId())),
+      canCommit: () =>
+        typeof this.sessionStore?.saveRestoreTransaction === 'function' &&
+        this.session === session &&
+        !this.execCtrl.shuttingDown &&
+        this.recordClaim?.holdsWriter(session.getSessionId()) === true,
+      commit: () => this.persistCurrentSession(true, undefined, undefined, true),
+      onLoss: () => this.loseRestoredOwnership(),
+    });
+  }
+
   private restoreSessionRecordIfNeeded(options: TInteractiveSessionOptions): void {
     if (!options.resumeSessionId || !this.recordClaim) return;
     const copy =
@@ -681,12 +723,16 @@ export class InteractiveSession
       ('workspaceMovedFrom' in options && options.workspaceMovedFrom !== undefined);
     // The claim's own read is the one the session restores from — gated there, so nothing can swap
     // the file between a check and the restore. A copy claims its source only for that read. Accepted
-    // bytes are raised to the owner's only once the restore went ahead.
+    // bytes are raised only after restore, or at the binding move for a revocable owner decision.
     const outcome = this.recordClaim.readForRestore(options.resumeSessionId, this.startedAsFork);
     try {
+      if (options.resumeAdmissionSignal !== undefined && outcome.status === 'valid' && outcome.record.sandboxSnapshotId) {
+        throw new Error('This session uses a sandbox snapshot that cannot be cancelled safely; review it in a local interactive terminal.');
+      }
       if (outcome.status === 'valid') options.checkRestoredRecord?.(outcome.record);
       this.restoreFromOutcome(options.resumeSessionId, outcome, copy);
-      this.recordClaim.restored();
+      options.resumeAdmissionSignal?.throwIfAborted();
+      if (options.resumeAdmissionSignal === undefined) this.recordClaim.restored();
     } finally {
       if (this.startedAsFork) this.recordClaim.copied();
     }
@@ -713,12 +759,15 @@ export class InteractiveSession
       skillActivationEvents: restored.skillActivationEvents,
     });
     if (restored.sessionName) this.sessionName = restored.sessionName;
-    this.bgTracker.restoreState({
-      tasks: restored.backgroundTasks,
-      taskEvents: restored.backgroundTaskEvents,
-      groups: restored.backgroundJobGroups,
-      groupEvents: restored.backgroundJobGroupEvents,
-    });
+    this.bgTracker.restoreState(
+      {
+        tasks: restored.backgroundTasks,
+        taskEvents: restored.backgroundTaskEvents,
+        groups: restored.backgroundJobGroups,
+        groupEvents: restored.backgroundJobGroupEvents,
+      },
+      !copy,
+    );
     this.pendingRestoreMessages = restored.pendingRestoreMessages;
     this.pendingRestoreConversation = restored.pendingRestoreConversation;
     // CLI-1994: a fork is a copy, prompt included; the deferred path applies it after assembly.
@@ -751,7 +800,8 @@ export class InteractiveSession
     this.initPromise.catch((error: unknown) => {
       this.initFailure = error instanceof Error ? error : new Error(String(error));
       // A session that never came to exist holds nothing: its claim ends with the build.
-      this.recordClaim?.end();
+      if (options.resumeAdmissionSignal === undefined) this.recordClaim?.end();
+      else this.recordClaim?.discard();
     });
   }
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
@@ -831,6 +881,10 @@ export class InteractiveSession
         },
       },
     });
+    if (options.resumeAdmissionSignal?.aborted === true) {
+      void result.session.shutdown({ reason: 'other' }).catch(() => undefined);
+      options.resumeAdmissionSignal.throwIfAborted();
+    }
     // A new session claims its id before its first save; a resumed one already holds it.
     try {
       this.recordClaim?.claimSession(result.session.getSessionId());
@@ -854,10 +908,78 @@ export class InteractiveSession
       this.announceWorkspaceMove(options.workspaceMovedFrom, result.agentsFileEntries);
     }
     this.initialized = true;
-    this.bgTracker.subscribe(this.session);
-    this.resumeSelfPacedLoops();
-    this.persistCurrentSession();
-    this.emit('context_update', this.getContextState());
+    if (options.resumeAdmissionSignal === undefined) {
+      try {
+        this.subscribeBackgroundTasks(this.session);
+      } catch (error) {
+        this.initialized = false;
+        this.session = null;
+        this.bgTracker.releaseTaskIdReservation();
+        this.clearSessionLoopExpiryTimers();
+        await result.session.shutdown({ reason: 'other' }).catch(() => undefined);
+        throw error;
+      }
+      this.resumeSelfPacedLoops();
+      this.persistCurrentSession();
+      this.emit('context_update', this.getContextState());
+    }
+  }
+
+  /** Activate a privately initialized owner acceptance only as its binding moves onto it. */
+  commitAcceptedAdmission(): boolean {
+    const admission = this.pendingAcceptedAdmission;
+    if (admission === undefined) return !this.discardedAcceptedAdmission;
+    admission.signal.throwIfAborted();
+    const session = this.getSessionOrThrow();
+    this.recordClaim?.assertAcceptedStillCurrent();
+    try {
+      this.recordClaim?.restored();
+    } catch (error) {
+      if (isSessionAuthorshipRefusedError(error)) throw error;
+      // An I/O error can follow the on-disk replacement. Keep the binding where it is, but do not
+      // run or save this session when the adoption result cannot be confirmed.
+      this.discardAcceptedAdmission();
+      try {
+        this.reportBackgroundError(new Error(
+          'The session may have been marked as yours, but the result could not be confirmed. ' +
+          'No turns will start here; reopen it in a local interactive terminal to check it.',
+        ), 'session-admission');
+      } catch {
+        // allow-fallback: an observer cannot turn an uncertain write into a false rollback.
+      }
+      return false;
+    }
+    admission.signal.removeEventListener('abort', admission.onAbort);
+    this.pendingAcceptedAdmission = undefined;
+    // Adoption has committed: an observer or subsequent activation step cannot undo the binding.
+    const steps = [
+      () => this.subscribeBackgroundTasks(session),
+      () => this.resumeSelfPacedLoops(),
+      () => this.persistCurrentSession(),
+      () => this.emit('context_update', this.getContextState()),
+      () => this.resumeGoalIfActive(),
+    ];
+    for (const step of steps) {
+      try {
+        step();
+      } catch (error) {
+        try {
+          this.reportBackgroundError(error instanceof Error ? error : new Error(String(error)), 'session-admission');
+        } catch {
+          // allow-fallback: reporting cannot undo a record already adopted at this binding.
+        }
+      }
+    }
+    return true;
+  }
+
+  /** Drop a private accepted session without starting work or creating a sandbox snapshot. */
+  discardAcceptedAdmission(): void {
+    const admission = this.pendingAcceptedAdmission;
+    if (admission === undefined) return;
+    admission.signal.removeEventListener('abort', admission.onAbort);
+    this.pendingAcceptedAdmission = undefined;
+    admission.onAbort();
   }
 
   /** Issue #3081: tell the model (once) that it now works in this directory, with what it loaded. */
@@ -1114,6 +1236,7 @@ export class InteractiveSession
   }
 
   private async executeAcceptedTurn(entry: IQueuedInput): Promise<void> {
+    if (!this.admitRestoredWake(entry)) return;
     try {
       this.getSessionOrThrow().assertInputAllowed();
     } catch (error) {
@@ -1203,6 +1326,7 @@ export class InteractiveSession
       const memory = await this.injectedMemoryStore.loadStartupMemory();
       this.rebuildLivePrompt({ memoryMd: memory.content });
     }
+    if (!this.admitRestoredWake(entry)) return;
     await this.execCtrl.executePrompt(
       input,
       displayInput,
@@ -1300,6 +1424,11 @@ export class InteractiveSession
       );
     });
     return true;
+  }
+
+  private clearSessionLoopExpiryTimers(): void {
+    for (const timer of this.sessionLoopExpiryTimers.values()) clearTimeout(timer);
+    this.sessionLoopExpiryTimers.clear();
   }
 
   private armSessionLoopExpiry(task: IBackgroundTaskState, retryDelayMs?: number): void {
@@ -1634,6 +1763,7 @@ export class InteractiveSession
   }
 
   override async cancelBackgroundTask(taskId: string, reason?: string): Promise<void> {
+    if (this.execCtrl.shuttingDown) throw new Error('The session is shutting down.');
     const task = this.getBackgroundTaskManager()?.get(taskId);
     if (task?.metadata?.['sessionLoopSelfPaced'] === true) {
       const loopId = task.metadata['sessionLoopId'];
@@ -1757,10 +1887,10 @@ export class InteractiveSession
 
   shutdown(options: IInteractiveSessionShutdownOptions = {}): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
+    this.discardAcceptedAdmission();
     this.execCtrl.shuttingDown = true;
     this.externalEventIngress?.closeAll();
-    for (const timer of this.sessionLoopExpiryTimers.values()) clearTimeout(timer);
-    this.sessionLoopExpiryTimers.clear();
+    this.clearSessionLoopExpiryTimers();
     this.shutdownPromise = (async () => {
       try {
         await this.ensureInitialized();
@@ -1769,10 +1899,14 @@ export class InteractiveSession
         session?.abort();
         const moduleShutdownErrors = await this.skillRouter.shutdownModules();
         await this.runtimeTools.drain();
+        const preservedSchedules =
+          this.sessionStore !== undefined && this.bgTracker.preserveSchedulesForShutdown();
         await this.getBackgroundTaskManager()?.shutdown(options.message ?? 'Session shutdown');
         this.bgTracker.dispose();
-        await this.captureSandboxSnapshot();
-        this.persistCurrentSession();
+        if (!this.discardedAcceptedAdmission) {
+          await this.captureSandboxSnapshot();
+          this.persistCurrentSession(preservedSchedules);
+        }
         // That was the last save of the record, so the claim ends now — a refusal still standing is
         // saved as a copy and said while listeners still hear it.
         this.recordClaim?.end();
@@ -1787,6 +1921,7 @@ export class InteractiveSession
         }
       } finally {
         this.recordClaim?.end();
+        this.bgTracker.releaseTaskIdReservation();
       }
     })();
     return this.shutdownPromise;
@@ -1799,7 +1934,44 @@ export class InteractiveSession
    * persists nothing.
    */
   releaseSessionClaim(): void {
-    this.recordClaim?.end();
+    this.loseRestoredOwnership();
+  }
+
+  private loseRestoredOwnership(): void {
+    if (this.restoredOwnershipLost) return;
+    this.restoredOwnershipLost = true;
+    const ids = this.bgTracker.invalidateRestoredSchedules(this.sessionId, () =>
+      this.recordClaim?.loseWriter(),
+    );
+    for (const id of ids) {
+      this.stoppedWakeTaskIds.add(id);
+      this.execCtrl.wakeTaskIds.delete(id);
+    }
+    if (this.recordClaim)
+      this.execCtrl.failPendingQueue(new Error('Session writer claim was lost.'));
+    if (this.recordClaim && this.execCtrl.executing) {
+      this.promptRegistry.drain();
+      this.session?.abort();
+    }
+    this.clearSessionLoopExpiryTimers();
+    if (this.recordClaim)
+      this.reportBackgroundError(new Error('Session writer claim was lost.'), 'session-claim');
+  }
+
+  private admitRestoredWake(entry: IQueuedInput): boolean {
+    const id = entry.options.wakeTaskId;
+    if (this.restoredOwnershipLost && this.recordClaim) {
+      this.execCtrl.turns.fail(entry.turnId, new Error('Session writer claim was lost.'));
+      if (id) this.execCtrl.wakeTaskIds.delete(id);
+      return false;
+    }
+    if (!id || !this.bgTracker.requiresWriterForWake(id, this.sessionId)) return true;
+    if (!this.restoredOwnershipLost && this.recordClaim?.holdsWriter(this.sessionId) === true)
+      return true;
+    this.loseRestoredOwnership();
+    this.execCtrl.turns.fail(entry.turnId, new Error('Session writer claim was lost.'));
+    this.execCtrl.wakeTaskIds.delete(id);
+    return false;
   }
 
   get isInitialized(): boolean {
@@ -2147,6 +2319,7 @@ export class InteractiveSession
     strict = false,
     acceptedLoopId?: string,
     loopStateOverride?: readonly ISessionLoopState[],
+    restoreTransaction = false,
   ): void {
     if (!this.sessionStore || !this.session) {
       if (strict) throw new Error('A session store is required for a resumable loop.');
@@ -2176,6 +2349,7 @@ export class InteractiveSession
       strict,
       state.sessionLoops,
       this.reportRefusedSave,
+      restoreTransaction,
     );
   }
 

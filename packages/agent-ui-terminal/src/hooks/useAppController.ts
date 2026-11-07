@@ -21,6 +21,7 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface-session';
 import type { IPromptHistorySource } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
@@ -31,6 +32,8 @@ export interface IUseAppControllerOptions {
   permissionMode?: TPermissionMode;
   version?: string;
   sessionStore?: IInteractiveSessionStore;
+  ownerSessions?: IOwnerSessionDirectory;
+  onOwnerInvalidated?: (listener: () => void) => () => void;
   showSessionPickerOnStart?: boolean;
   /** FLOW-2006: a deep link's prefill, handed to the composer exactly once. */
   initialInput?: string;
@@ -102,7 +105,8 @@ function buildInput(composition: IComposition): IAppInputViewModel {
     screens.showTransportTUI ||
     screens.showSessionPicker ||
     screens.showThemePicker ||
-    workspace.background.switcherVisible,
+    workspace.background.switcherVisible ||
+    workspace.background.continueQuestion,
   );
   const interactionBlocked =
     composition.coordination.blocked ||
@@ -245,6 +249,8 @@ export function useAppController(props: IUseAppControllerOptions): IAppViewModel
     sessionStore: props.sessionStore,
     onSessionSwitch: props.onSessionSwitch,
     pluginAdapter: props.pluginAdapter,
+    ownerSessions: props.ownerSessions,
+    onOwnerInvalidated: props.onOwnerInvalidated,
     transportRegistry: props.transportRegistry,
     recoveryError: coordination.error,
     recoveryPending: coordination.pending,

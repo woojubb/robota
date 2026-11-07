@@ -85,22 +85,21 @@ describe('read-only local session inventory', () => {
     try {
       process.env['HOME'] = home;
       process.env['XDG_RUNTIME_DIR'] = home;
-      control = await startSupervisedControl(
+      control = await startSupervisedControl({
         id,
-        () => undefined,
-        resolveSupervisedDirectory(createTestProductRuntime()),
-        () => 'needs-input',
-        undefined,
-        undefined,
-        () => 'Private session name',
-        undefined,
-        {
+        onStop: () => undefined,
+        root: resolveSupervisedDirectory(createTestProductRuntime()),
+        observe: {
+          activity: () => 'needs-input',
+          name: () => 'Private session name',
+        },
+        pr: {
           get: () => pr,
           set: (value) => {
             pr = value;
           },
         },
-      );
+      });
       await linkSupervisedPr(
         id,
         'https://github.com/team/repo/pull/456',

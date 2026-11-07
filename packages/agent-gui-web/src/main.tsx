@@ -12,15 +12,17 @@ import { requireRootElement } from './root-element.js';
 import './main.css';
 
 import type { IDesktopBridge } from './gui-host.js';
+import type { IDesktopSessionBridge } from '@robota-sdk/agent-ui-web/client';
 
 declare global {
   interface Window {
     /** Present only inside the desktop app (apps/agent-app/electron/preload.ts). */
     readonly agentGui?: IDesktopBridge;
+    readonly desktopSession?: IDesktopSessionBridge;
   }
 }
 
-const host = resolveGuiHost({ bridge: window.agentGui, document, location: window.location });
+const host = resolveGuiHost({ bridge: window.agentGui, desktopSession: window.desktopSession, document, location: window.location });
 
 ReactDOM.createRoot(requireRootElement(document)).render(
   <React.StrictMode>

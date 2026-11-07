@@ -499,7 +499,11 @@ export async function renderAttachedApp(
         // One channel for the App's life: a session switch is the host's, and the channel follows it.
         createChannel: () =>
           (channel ??= new WireTuiChannel({
-            connection: options.connection,
+            connection: {
+              send: options.connection.send,
+              subscribe: options.connection.subscribe,
+              onClose: options.connection.onClose,
+            },
             driverId: options.driverId,
             sessionName: options.sessionLabel,
             role: options.mode ?? 'drive',
@@ -514,6 +518,9 @@ export async function renderAttachedApp(
             },
           })),
         requestSessionSwitch: async (sessionId) => channel?.requestSessionSwitch(sessionId),
+        ...(options.connection.ownerSessions !== undefined && options.mode !== 'observe'
+          ? { ownerSessions: options.connection.ownerSessions.directory, onOwnerInvalidated: options.connection.ownerSessions.onInvalidate }
+          : {}),
         ended,
       };
     });
@@ -572,6 +579,8 @@ interface IAppChannelComposition {
   readonly createChannel: (resumeSessionId?: string, acceptedDigest?: string) => ITuiAppChannelPort;
   /** Present when the host switches sessions and the channel follows it. */
   readonly requestSessionSwitch?: (sessionId: string) => Promise<void>;
+  readonly ownerSessions?: NonNullable<IAttachedSessionConnection['ownerSessions']>['directory'];
+  readonly onOwnerInvalidated?: NonNullable<IAttachedSessionConnection['ownerSessions']>['onInvalidate'];
   /** Settles when the app ends without the user closing it (the connection closed). */
   readonly ended?: Promise<void>;
 }
@@ -696,6 +705,8 @@ async function renderStartedApp(
         <ScreenReaderProvider enabled={screenReader}>
           <TerminalCapabilitiesProvider overrides={options.terminalCapabilities}>
             <App
+              {...(composition.ownerSessions !== undefined ? { ownerSessions: composition.ownerSessions } : {})}
+              {...(composition.onOwnerInvalidated !== undefined ? { onOwnerInvalidated: composition.onOwnerInvalidated } : {})}
               cwd={options.cwd}
               createChannel={createChannel}
               {...(composition.requestSessionSwitch !== undefined

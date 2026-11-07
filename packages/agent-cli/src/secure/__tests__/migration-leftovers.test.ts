@@ -115,6 +115,25 @@ describe.skipIf(posixOnly)('sweepMigrationLeftovers', () => {
     expect(readFileSync(join(spill, 'result.json'), 'utf8')).toBe(CANARY);
   });
 
+  it('reports an unavailable shared temporary root instead of treating it as empty', () => {
+    rmSync(temporary, { recursive: true });
+    expect(sweep(false).refused).toContain(temporary);
+    expect(sweep(true).refused).toContain(temporary);
+  });
+
+  it('refuses a matching SDK spill entry that is not a real directory', () => {
+    const outside = join(home, 'outside-spill');
+    mkdirSync(outside);
+    writeFileSync(join(outside, 'result.json'), CANARY);
+    const planted = join(temporary, 'agent-tool-results-XyZ987');
+    symlinkSync(outside, planted);
+
+    const done = sweep(true);
+    expect(done.sdkSpillDirectories).toEqual([]);
+    expect(done.refused).toContain(planted);
+    expect(readFileSync(join(outside, 'result.json'), 'utf8')).toBe(CANARY);
+  });
+
   it('removes the scratch directories of processes that are gone, by their owner records', () => {
     const gone = leaveProcessScopedDirectory(
       runtime.layout.userPaths.spill,

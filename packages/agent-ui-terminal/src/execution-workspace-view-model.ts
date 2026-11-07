@@ -21,6 +21,9 @@ const ACTIVE_STATUSES: readonly TExecutionWorkspaceStatus[] = [
   'sleeping',
 ];
 const DETAIL_RECORD_TEXT_LIMIT = 160;
+export const FOLLOW_ROW_TAIL_CHARACTERS = 300;
+const FOLLOW_TOTAL_CHARACTERS = 1300;
+const FOLLOW_MAX_ROWS = 12;
 const PREVIEW_WHITESPACE = /\s+/g;
 const PREVIEW_SEPARATOR = ' ';
 
@@ -84,6 +87,29 @@ export function formatExecutionDetailRecord(record: IExecutionDetailRecord): str
   return text.length > DETAIL_RECORD_TEXT_LIMIT
     ? `${text.slice(0, DETAIL_RECORD_TEXT_LIMIT)}...`
     : text;
+}
+
+/** Retain the newest output within the terminal's display budget. */
+export function formatFollowRows(
+  records: readonly IExecutionDetailRecord[],
+): IExecutionDetailRecord[] {
+  const result: IExecutionDetailRecord[] = [];
+  let remaining = FOLLOW_TOTAL_CHARACTERS;
+  for (const record of records.slice(-FOLLOW_MAX_ROWS).reverse()) {
+    const text = record.text.trim().replace(PREVIEW_WHITESPACE, PREVIEW_SEPARATOR);
+    const limit = Math.min(FOLLOW_ROW_TAIL_CHARACTERS, remaining);
+    if (limit <= 0) break;
+    let tail = text;
+    if (text.length > limit) {
+      let start = text.length - limit + 1;
+      const code = text.charCodeAt(start);
+      if (code >= 0xdc00 && code <= 0xdfff) start++;
+      tail = `…${text.slice(start)}`;
+    }
+    result.unshift({ ...record, text: tail });
+    remaining -= tail.length;
+  }
+  return result;
 }
 
 function formatEntryTitle(entry: IExecutionWorkspaceEntry): string {

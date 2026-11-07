@@ -21,12 +21,14 @@ import { optionArgv } from './utils/option-argv.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { resolveCliRuntimeContext } from './startup/product-bootstrap.js';
 import { assertLocalWorkerPosture } from './hosted/hosted-runtime-config.js';
+import { assertProductConversationLaunch } from './product/session-sealing.js';
 
 export type { IStartCliOptions };
 
 /** Full CLI entry: supplies its terminal presentation to the shared serve/bootstrap path. */
 export async function startCli(initialOptions: IStartCliOptions = {}): Promise<void> {
   const productRuntime = resolveCliRuntimeContext(initialOptions);
+  assertProductConversationLaunch(productRuntime, process.argv);
   installProductProcessEnvironment(productRuntime);
   installProductChildSessions(productRuntime);
   const options = { ...initialOptions, productRuntime };

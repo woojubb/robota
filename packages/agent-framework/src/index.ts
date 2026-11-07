@@ -142,6 +142,7 @@ export {
   restoredScheduleDisposition,
   resumeRefusal,
   SessionAuthorshipRefusedError,
+  OWNER_SANDBOX_REVIEW_UNAVAILABLE,
   UNVERIFIED_SESSION_QUESTION,
   isSessionAuthorshipRefusedError,
   unacceptableSessionMessage,
@@ -725,13 +726,18 @@ export {
   createMainThreadExecutionEntryId,
   EXECUTION_ORIGIN_METADATA_KEYS,
   parseExecutionWorkspaceEntryId,
-  // CLI-1994: a surface asks this whether an entry can be attached to; the answer is the framework's
-  // because the same module decides when the `attach` control is offered.
+  // CLI-1994: a surface asks this what attaching to an entry does; the answer is the framework's
+  // because the same table (`attachKind`) decides when the `attach` control is offered.
+  attachKind,
+  liveBackgroundJobCount,
   resolveExecutionAttach,
   summarizeBackgroundJobGroup,
 } from './background-tasks/index.js';
 export type {
-  IResolveExecutionAttachInput,
+  IHostAttachFacts,
+  IStoreAttachFacts,
+  TExecutionAttachFacts,
+  TExecutionAttachKind,
   TExecutionAttachOutcome,
 } from './background-tasks/execution-workspace-attach.js';
 // ARCH-039: nine `agent-executor` names were re-exported here through the background-tasks barrel

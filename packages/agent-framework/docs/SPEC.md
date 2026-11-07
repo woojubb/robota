@@ -199,8 +199,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   names, since merging the file would launder it and overwriting it could destroy newer work; a
   refusal only the locked keys stand behind is decided at the unlock, and a session that ends while
   either refusal stands saves that copy as it ends and reports a copy it could not write. A project
-  session record is replaced whole and flushed, so a write that fails part-way leaves the previous
-  record; a replay log rebuilds only the session it names.
+  session record is replaced whole, so a failed write can leave either the prior record or the
+  complete replacement; a replay log rebuilds only the session it names.
 - **Fork vs. resume is exactly one bit of difference.** Resume reuses the source session id; fork
   generates a fresh id while still restoring the same messages and the parent's assembled system
   prompt verbatim — a fork inherits the parent's full assembled prompt (including any active output
@@ -208,7 +208,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   project files. A plain resume is not a copy and always rebuilds, so edits to AGENTS.md between
   sessions still reach it. Writing a fork's record leaves the source record byte-identical; the two
   conversations never rejoin. An unresolved recovery conversation cannot be copied to another
-  session or workspace because discovery is bound to its existing owner. Attaching a surface's view to a fork is a _view switch_, never a merge.
+  session or workspace because discovery is bound to its existing owner. Following a running fork or
+  continuing an ended fork keeps its record separate from the parent; the live view is bounded and
+  transient so observing it does not add another persisted conversation copy.
 - **Host-action parity.** A command's host actions (language change, settings reset, session
   exit/restart/rename, …) are executed by the session through injected host adapters, so headless and
   programmatic embeddings get the same command semantics as an attached UI. An embedding with no

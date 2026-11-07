@@ -34,7 +34,12 @@ export type { IReadKeys } from './read-keys.js';
 export { openOwnerHandover } from './owner-handover.js';
 export type { IOwnerHandover } from './owner-handover.js';
 export type { ILinkBinding, ITrustRoot } from './runtime-certificate.js';
-export { SpawnerKey, startSpawnerExchange } from './spawner-exchange.js';
+export {
+  SPAWNER_EXCHANGE_MESSAGE_BYTES,
+  SPAWNER_EXCHANGE_REPLY_BYTES,
+  SpawnerKey,
+  startSpawnerExchange,
+} from './spawner-exchange.js';
 export type { ISpawnerExchange, ISpawnerExchangeResult } from './spawner-exchange.js';
 export { createRuntimeIdentity } from './runtime-identity.js';
 export type { IRuntimeIdentity } from './runtime-identity.js';

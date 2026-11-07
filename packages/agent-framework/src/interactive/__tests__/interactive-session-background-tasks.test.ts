@@ -323,6 +323,9 @@ describe('InteractiveSession background task integration', () => {
 
   it('marks restored running background tasks as stale when they cannot be reattached', () => {
     const sessionStub = createSharedSessionStub({ getSessionId: () => 'session_parent' });
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: new BackgroundTaskManager({ runners: [] }),
+    } as unknown as IAgentToolDeps);
     const sessionStore = createSessionStoreStub();
     sessionStore.save({
       id: 'session_stale',

@@ -4,9 +4,9 @@ import { join } from 'node:path';
 
 import { createProcessMarkers } from '@robota-sdk/agent-core/node';
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
+import { createProcessOperationLock } from '@robota-sdk/agent-node-lock';
 import { expect, it } from 'vitest';
 
-import { createProcessOperationLock } from '../process-operation-lock.js';
 import { NodeSessionStore } from '../session-store.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';

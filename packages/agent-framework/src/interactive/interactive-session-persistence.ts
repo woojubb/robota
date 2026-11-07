@@ -107,6 +107,7 @@ export function persistSession(
   strict = false,
   sessionLoops?: readonly ISessionLoopState[],
   refusals?: ISaveRefusalReporter,
+  restoreTransaction = false,
 ): void {
   try {
     const sessionId = session.getSessionId();
@@ -122,27 +123,31 @@ export function persistSession(
     }
     const existing = outcome.status === 'valid' ? outcome.record : undefined;
     const sandboxSnapshotId = sandboxState?.snapshotId ?? existing?.sandboxSnapshotId;
-    const acknowledgment: unknown = sessionStore.save(
-      buildInteractiveSessionRecord({
-        session,
-        sessionId,
-        sessionName: sessionName ?? existing?.name,
-        cwd,
-        history,
-        createdAt: existing?.createdAt,
-        backgroundState,
-        memoryState,
-        skillActivationState,
-        contextReferenceState,
-        ...(sandboxSnapshotId !== undefined ? { sandboxSnapshotId } : {}),
-        ...(goalState !== undefined ? { goalState } : {}),
-        ...(planState !== undefined ? { planState } : {}),
-        ...(activeBranchState !== undefined ? { activeBranchState } : {}),
-        ...(sessionLoops !== undefined || existing?.sessionLoops !== undefined
-          ? { sessionLoops: sessionLoops ?? existing?.sessionLoops }
-          : {}),
-      }),
-    );
+    const record = buildInteractiveSessionRecord({
+      session,
+      sessionId,
+      sessionName: sessionName ?? existing?.name,
+      cwd,
+      history,
+      createdAt: existing?.createdAt,
+      backgroundState,
+      memoryState,
+      skillActivationState,
+      contextReferenceState,
+      ...(sandboxSnapshotId !== undefined ? { sandboxSnapshotId } : {}),
+      ...(goalState !== undefined ? { goalState } : {}),
+      ...(planState !== undefined ? { planState } : {}),
+      ...(activeBranchState !== undefined ? { activeBranchState } : {}),
+      ...(sessionLoops !== undefined || existing?.sessionLoops !== undefined
+        ? { sessionLoops: sessionLoops ?? existing?.sessionLoops }
+        : {}),
+    });
+    if (restoreTransaction && !sessionStore.saveRestoreTransaction) {
+      throw new Error('Restoring schedules requires an atomic session store.');
+    }
+    const acknowledgment: unknown = restoreTransaction
+      ? sessionStore.saveRestoreTransaction?.(record)
+      : sessionStore.save(record);
     if (
       acknowledgment !== null &&
       (typeof acknowledgment === 'object' || typeof acknowledgment === 'function') &&
@@ -151,6 +156,20 @@ export function persistSession(
     ) {
       void Promise.resolve(acknowledgment).catch(() => undefined);
       throw new Error('Session store must acknowledge synchronously');
+    }
+    if (restoreTransaction) {
+      if (
+        typeof acknowledgment !== 'object' ||
+        acknowledgment === null ||
+        !('status' in acknowledgment)
+      ) {
+        throw new Error('Restore commit outcome is unknown.');
+      }
+      if (acknowledgment.status !== 'committed') {
+        throw new Error('Restore commit outcome is unknown.', {
+          cause: 'error' in acknowledgment ? acknowledgment.error : undefined,
+        });
+      }
     }
     refusals?.saved(sessionId);
   } catch (error) {

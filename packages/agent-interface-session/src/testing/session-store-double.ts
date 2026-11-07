@@ -16,7 +16,11 @@ type TLoadAnswer<TStore> = TStore extends { load(...args: never[]): infer TOutco
 export function withHoldReadClaim<TStore extends object>(
   store: TStore,
 ): TStore & {
-  claim(id: string): { readonly outcome: TLoadAnswer<TStore>; release(): void };
+  claim(id: string): {
+    readonly outcome: TLoadAnswer<TStore>;
+    holdsWriter(): boolean;
+    release(): void;
+  };
   lend(id: string): { readonly nonce: string; end(): void };
   hasWriter(id: string): boolean;
 } {
@@ -45,6 +49,7 @@ export function withHoldReadClaim<TStore extends object>(
       let released = false;
       return {
         outcome,
+        holdsWriter: (): boolean => !released,
         release: (): void => {
           if (released) return;
           released = true;

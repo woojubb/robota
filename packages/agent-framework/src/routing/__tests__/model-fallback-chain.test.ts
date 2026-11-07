@@ -95,6 +95,7 @@ describe('resolveModelFallbackChain', () => {
       'gemini/gemini-pro',
       'anthropic/claude-smaller',
     ]);
+    expect(chain.targets.map((target) => target.profile)).toEqual(['openai', 'gemini', 'claude']);
 
     const withDefault = resolveModelFallbackChain(
       input(['default'], {

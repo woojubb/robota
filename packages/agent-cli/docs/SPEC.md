@@ -156,11 +156,12 @@ Restricted, and a Restricted start is never handed one with the project's config
 person chose Restricted, while a plain start in a folder trusted since is not handed a Restricted one,
 because the person who trusted it expects that configuration; a daemon that could not hand over a connection is never left running, and
 the lock that keeps racing starts apart is removed only by the start that took it or by the user. The
-transport's per-launch authentication token is never exposed through the control endpoint or inventory,
-with one exception: a daemon, which receives it only over a pipe its launcher hands it, never through its
-environment or command line (a process's initial environment stays readable to every program of the
-same user), hands its connection URL to a caller that named its start, so the token leaves only as that URL
-and never in human-readable output.
+plain transport's per-launch authentication token is never exposed through the control endpoint or
+inventory except by a daemon to a caller that named its start; the launcher passes it through a pipe
+because another program of the same user can read the environment. Before certification, a secure
+runtime lets its proven spawner start and drive its own sessions but reserves stored owner records for
+the proven owner; the spawner's authority ends at certification. Locking requires no proof because it
+only removes access.
 
 Observability has two independently gated paths. `usage export` is an explicit,
 local-only action over the same authorized stores as local usage reporting: its aggregate usage,
@@ -321,7 +322,10 @@ unless stdin is a terminal, which is also what turns away a program the model st
 shell tool: that process has no controlling terminal and no input. The recovery key is shown once,
 on the secret terminal where it is wiped afterwards, and typed back before anything is saved, so a
 keyring whose key the person never held is not created. Creating a keyring does not turn secure mode
-on. Every conversation store the CLI builds — the workspace composition's and each command's own —
+on; the person's separate activation seals and imports legacy conversations into a dedicated area
+before it permits new sealed sessions, and an interrupted activation blocks all sessions until
+resumed. Turning the mode off retains the sealed archive and makes only future conversations plain.
+Every conversation store the CLI builds — the workspace composition's and each command's own —
 comes from one factory that states how it seals, from one decision: what a later process reads is
 sealed with the keyring, and what only its own process reads back (a spilled tool result, the edit
 checkpoints of a run that persists no session) with a key made in that process's memory, which seals
@@ -343,7 +347,8 @@ by a fresh path or a required state, consumed by its first match, timed out) bec
 session. Plain mode opens what it always did: while it is off, the children a process starts share
 its terminal session as before. Once it is on, each entry gives every child its own session before
 it starts any, so none can reach the terminal a secret is typed at; only the terminal handover
-(`/editor`, `/keybindings`, `/shell`, the workspace-move re-exec) hands a child the terminal.
+(`/keybindings`, `/shell`, the workspace-move re-exec) hands a child the terminal; the external
+editor is unavailable for a secure conversation because it would put a plaintext draft on disk.
 
 Being the one construction point, the factory is also where a process records that it uses the
 stores: the first store it builds (or, for a subagent worker, the grant it binds) creates its
@@ -354,8 +359,8 @@ lock file is needed; a compaction holds no store, since writers append to the hi
 catches them up, so only a migration's marker stops a store. A marker whose owner cannot be checked
 counts as running, since a migration that may be running must be treated as one that is; one that
 never got the owner record its creation writes at once, and flushes, is a crash's once that moment
-is past, and counts as gone. A presence that cannot be created is reported, never fatal, and the
-migration's plan says such processes, like those of builds without presence, are invisible to it.
+is past, and counts as gone. A presence that cannot be created prevents the store from opening;
+otherwise a migration could miss a writer. Builds without presence remain invisible to it.
 `secure migrate` and `secure compact` unlock before writing anything, since before an unlock the
 sealing key is whatever the same-user-writable file holds; they run only in secure mode, at a
 terminal, and are never a slash command, a skill or a transport request. A migration marks
@@ -365,13 +370,16 @@ project only when the trust service says it is trusted now, on a host that can w
 through the authority that service mints: the roots records and the history name are same-user
 writable, so they are candidates, never authority, and every other root is listed and left alone.
 
-There is no `secure unlock` or `secure lock`: unlocked keys live in the memory of the process that
+There is no `secure unlock`: unlocked keys live in the memory of the process that
 uses them, in one holder that every lock (the user, inactivity, the last client leaving, a locked
 screen, suspend) ends and that offers operations with the keys rather than the keys themselves —
 opening, and the authorship tag that is the only proof a stored artifact was written by the owner's
 unlocked process, since anything sealed to the public key opens — so after a lock no caller still
 holds one, and each unlock is announced so what was written while locked can be tagged then; a
-short-lived command could only unlock to throw the keys away. A terminal session holding keys is
+short-lived command could only unlock to throw the keys away. `secure lock` asks live runtimes to
+discard their keys without a credential and reports any unconfirmed request, including a plain runtime's
+refusal. Open control replies are not owner proof, so requests without authenticated confirmation return
+an unverified result even when acknowledged. A terminal session holding keys is
 unlocked where it runs instead, by the local unlock gate: store reads never say why they read (many
 are not the person's), so the reason lives on the prompt, which opens only for a read the terminal UI
 says the person started — a request its action modules mint from a key press, which the import rule
@@ -380,7 +388,7 @@ it did not make — or for `/unlock`, a user-only command, and `/lock` drops the
 is then asked on the secret terminal while the session has handed the terminal over, one question at
 a time, and never where nobody can answer, so no command or tool the model runs opens the prompt and
 nothing typed there reaches the conversation.
-Unlocking is where a swapped stored sealing key is caught. From the first unlock in a process the
+Unlocking catches a swapped stored sealing key: a terminal may repair it with the credential, while a runtime receiving an owner grant reports it and leaves the file untouched. From the first unlock in a process the
 holder seals to the key that unlock verified, locked or not and even when the repair of the file
 cannot be written; the mismatch is always reported, and the exit status tells a repair that completed
 from one that did not. Before that first unlock a locked writer seals to the key the file holds: that

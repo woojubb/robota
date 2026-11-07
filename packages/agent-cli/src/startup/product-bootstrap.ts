@@ -12,6 +12,7 @@ import { homedir } from 'node:os';
 import { robotaEnvironment } from '../../../../products/robota.mjs';
 
 import { createCliRuntimeContext } from '../product/runtime-context.js';
+import { readProductConversationMode } from '../secure/conversation-mode-state.js';
 
 import type {
   IEmbeddedProductIdentity,
@@ -49,7 +50,7 @@ export function resolveCliRuntimeContext(options: IStartCliOptions): ICliRuntime
       throw new Error('Consumer artifact metadata requires a product CLI host.');
     return selectedArtifact === undefined
       ? options.productRuntime
-      : createCliRuntimeContext(options.productRuntime.config, options.productRuntime.environment, selectedArtifact);
+      : createCliRuntimeContext(options.productRuntime.config, options.productRuntime.environment, selectedArtifact, options.productRuntime.conversationMode);
   }
   const suppliedEnvironment: TConfigEnvironment =
     options.environment ?? Object.freeze({ ...process.env });
@@ -121,7 +122,7 @@ export function resolveCliRuntimeContext(options: IStartCliOptions): ICliRuntime
         ? JSON.stringify(value)
         : String(value);
   }
-  return createCliRuntimeContext(config, hostEnvironment, selectedArtifact);
+  return createCliRuntimeContext(config, hostEnvironment, selectedArtifact, readProductConversationMode(config.storage.userRoot));
 }
 
 /** Canonical technical host inputs and selected product aliases share one invocation snapshot. */

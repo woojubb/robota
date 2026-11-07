@@ -7,7 +7,7 @@
   "main": "dist/electron/main.js",
   "scripts": {
     "build:renderer": "node scripts/copy-renderer.mjs",
-    "build:electron": "tsc -p electron/tsconfig.build.json && node scripts/copy-product-identity.mjs",
+    "build:electron": "tsc -p electron/tsconfig.build.json && pnpm exec esbuild electron/secure-preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/electron/secure-preload.js && node scripts/copy-product-identity.mjs && node scripts/copy-secret-window.mjs",
     "build": "pnpm build:renderer && pnpm build:electron",
     "start": "electron dist/electron/main.js",
     "bundle:runtime": "node scripts/bundle-runtime.mjs",
@@ -16,13 +16,21 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "xvfb-run -a node --import tsx --conditions=source e2e/run-e2e.mjs",
+    "test:e2e:secret": "pnpm build:electron && node e2e/secret-window-e2e.mjs",
+    "test:e2e:session-channel": "pnpm build:electron && node e2e/session-channel-e2e.mjs",
     "test:e2e:bundled": "node e2e/bundled-runtime-e2e.mjs",
     "test:e2e:packaged": "node e2e/packaged-app-e2e.mjs",
     "lint": "eslint . --max-warnings 0",
-    "test:e2e:remote": "node e2e/remote-runtime-e2e.mjs"
+    "test:e2e:remote": "node e2e/remote-runtime-e2e.mjs",
+    "test:e2e:packaged-keyring": "node e2e/packaged-keyring-e2e.mjs",
+    "test:e2e:owner-session": "pnpm build:electron && node e2e/desktop-owner-session-e2e.mjs",
+    "test:e2e:session-admission": "pnpm build:electron && node e2e/desktop-session-admission-e2e.mjs",
+    "test:e2e:secure": "node --import tsx --conditions=source e2e/secure-production-smoke.mjs"
   },
   "devDependencies": {
+    "@electron/asar": "^3.4.1",
     "@robota-sdk/agent-gui-web": "workspace:*",
+    "@robota-sdk/agent-keyring": "workspace:*",
     "@types/ws": "^8.18.1",
     "electron": "^43.5.0",
     "electron-builder": "26.15.7",
@@ -32,6 +40,8 @@
   },
   "dependencies": {
     "@robota-sdk/agent-cli": "workspace:*",
+    "@robota-sdk/agent-local-host": "workspace:*",
+    "@robota-sdk/agent-transport": "workspace:*",
     "@robota-sdk/product-config": "workspace:*",
     "ws": "^8.21.1"
   },

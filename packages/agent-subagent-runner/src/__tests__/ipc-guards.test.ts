@@ -34,7 +34,9 @@ describe('isSubagentWorkerParentMessage', () => {
     expect(isSubagentWorkerParentMessage({ type: 'start', payload: validStartPayload() })).toBe(
       true,
     );
-    expect(isSubagentWorkerParentMessage({ type: 'send', prompt: 'continue' })).toBe(true);
+    expect(isSubagentWorkerParentMessage({ type: 'send', prompt: 'continue', sendId: 1 })).toBe(
+      true,
+    );
     expect(isSubagentWorkerParentMessage({ type: 'cancel' })).toBe(true);
     expect(isSubagentWorkerParentMessage({ type: 'cancel', reason: 'stop' })).toBe(true);
   });
@@ -45,6 +47,13 @@ describe('isSubagentWorkerParentMessage', () => {
     expect(isSubagentWorkerParentMessage('start')).toBe(false);
     expect(isSubagentWorkerParentMessage({ type: 'bogus' })).toBe(false);
     expect(isSubagentWorkerParentMessage({ type: 'send' })).toBe(false);
+    // A send is answered by its number, so it must carry one: a positive integer.
+    expect(isSubagentWorkerParentMessage({ type: 'send', prompt: 'continue' })).toBe(false);
+    for (const sendId of [0, -1, 1.5, '1', null]) {
+      expect(isSubagentWorkerParentMessage({ type: 'send', prompt: 'continue', sendId })).toBe(
+        false,
+      );
+    }
     expect(isSubagentWorkerParentMessage({ type: 'cancel', reason: 42 })).toBe(false);
   });
 
@@ -119,6 +128,8 @@ describe('isSubagentWorkerChildMessage', () => {
     expect(isSubagentWorkerChildMessage({ type: 'error', message: 'boom' })).toBe(true);
     expect(isSubagentWorkerChildMessage({ type: 'cancelled' })).toBe(true);
     expect(isSubagentWorkerChildMessage({ type: 'cancelled', reason: 'stop' })).toBe(true);
+    expect(isSubagentWorkerChildMessage({ type: 'send_accepted', sendId: 3 })).toBe(true);
+    expect(isSubagentWorkerChildMessage({ type: 'send_refused', sendId: 3 })).toBe(true);
   });
 
   it('rejects malformed or unknown child messages', () => {
@@ -129,6 +140,11 @@ describe('isSubagentWorkerChildMessage', () => {
     expect(isSubagentWorkerChildMessage({ type: 'error' })).toBe(false);
     expect(isSubagentWorkerChildMessage({ type: 'cancelled', reason: 7 })).toBe(false);
     expect(isSubagentWorkerChildMessage({ type: 'unknown' })).toBe(false);
+    for (const type of ['send_accepted', 'send_refused']) {
+      expect(isSubagentWorkerChildMessage({ type })).toBe(false);
+      expect(isSubagentWorkerChildMessage({ type, sendId: 0 })).toBe(false);
+      expect(isSubagentWorkerChildMessage({ type, sendId: '3' })).toBe(false);
+    }
   });
 
   it('validates the optional composed-tool-name declaration (ARCH-021)', () => {
@@ -245,6 +261,25 @@ describe('the sealing fields of a start payload', () => {
         payload: { ...validStartPayload(), resumeLease: 'lease-nonce' },
       }),
     ).toBe(false);
+  });
+
+  it('accepts only a well-formed store reference attached to a fork', () => {
+    for (const resumeStore of [
+      { scope: 'user' },
+      { scope: 'project', repositoryKey: 'repo', worktreeRoot: '/workspace' },
+    ]) {
+      expect(isSubagentWorkerParentMessage({ type: 'start', payload: forkPayload({ resumeStore }) })).toBe(true);
+    }
+    for (const resumeStore of [
+      null, [], { scope: 'other' }, { scope: 'project' }, { scope: 'user', extra: true },
+      { scope: 'project', repositoryKey: '', worktreeRoot: '/workspace' },
+      { scope: 'project', repositoryKey: 'repo', worktreeRoot: '' },
+    ]) {
+      expect(isSubagentWorkerParentMessage({ type: 'start', payload: forkPayload({ resumeStore }) })).toBe(false);
+    }
+    expect(isSubagentWorkerParentMessage({
+      type: 'start', payload: { ...validStartPayload(), resumeStore: { scope: 'user' } },
+    })).toBe(false);
   });
 
   it('rejects a held record with no session to resume', () => {

@@ -16,6 +16,8 @@ const NOT_IN_GLOBAL_HELP = new Set([
   'supervised-session-id',
   'supervised-external-event-grants',
   'supervised-transport-token-fd',
+  'supervised-spawner-pair',
+  'supervised-forwarded-environment',
   'daemon',
   'external-event-allow',
   // `the product session list --format` is listed with that command; `--summary` and `--source` belong
@@ -176,6 +178,9 @@ describe('the help router hands --help to commands with their own help', () => {
     for (const entry of [
       'test-product secure setup',
       'test-product secure status',
+      'test-product secure enable',
+      'test-product secure disable',
+      'test-product secure lock',
       'test-product secure verify [--recovery]',
       'test-product secure change-passphrase [--recovery]',
     ]) {

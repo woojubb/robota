@@ -368,8 +368,18 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   // Their request ids, for this connection: a refusal names the request it answers. A switch
   // answers with no id, so an id that succeeded stays here until the connection is replaced.
   const sessionChangeRequestIdsRef = useRef(new Set<string>());
+  const [executionDetailInput, setExecutionDetailInput] = useState<{
+    taskId: string;
+    status: 'pending' | 'sent' | 'failed';
+  }>();
+  const executionDetailInputRef = useRef<string | null>(null);
   const send = useCallback(
     (msg: TClientMessage): void => {
+      if (msg.type === 'send-background-task') {
+        if (executionDetailInputRef.current !== null) return;
+        executionDetailInputRef.current = msg.taskId;
+        setExecutionDetailInput({ taskId: msg.taskId, status: 'pending' });
+      }
       if (msg.type === 'command') {
         // #3282 §4e: `/help` is the GUI's own Help sheet — never sent to the session.
         if (msg.name === 'help') {
@@ -433,8 +443,12 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     [send],
   );
   const { handleUsageMessage, ...personalUsageState } = usePersonalUsageState(send);
-  const { handleExecutionDetailMessage, closeExecutionDetail, ...executionDetailState } =
-    useExecutionDetailState(send);
+  const {
+    handleExecutionDetailMessage,
+    handleExecutionWorkspace,
+    closeExecutionDetail,
+    ...executionDetailState
+  } = useExecutionDetailState(send);
   const { handleModelListMessage, ...modelListState } = useModelListState(send);
   const { handleProjectMessage, ...projectPanelState } = useProjectPanelState(send);
   const isConnected = useCallback((): boolean => statusRef.current === 'connected', []);
@@ -465,7 +479,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const { handleSchedulesMessage, requestSchedules, ...schedulesState } = useSchedulesState(send);
 
   const clearCompactionNotices = useCallback((): void => {
-    setSessionNotices((previous) => previous.filter((notice) => notice.kind !== 'context-compacted'));
+    setSessionNotices((previous) =>
+      previous.filter((notice) => notice.kind !== 'context-compacted'),
+    );
   }, []);
 
   const handleMessage = useCallback(
@@ -552,19 +568,29 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'execution_workspace_event': {
+          handleExecutionWorkspace(msg.snapshot);
           setExecutionWorkspace(msg.snapshot);
           break;
         }
         // #3288 §1: a Stop that did not take effect (e.g. the task/loop had already finished) is
         // worth telling the operator; a success shows itself through the snapshot update above.
         case 'background_task_control_result': {
+          if (msg.action === 'send' && executionDetailInputRef.current === msg.taskId) {
+            executionDetailInputRef.current = null;
+            setExecutionDetailInput({
+              taskId: msg.taskId,
+              status: msg.success ? 'sent' : 'failed',
+            });
+          }
           if (!msg.success) {
             setSessionNotices((previous) => [
               ...previous,
               {
                 id: nextId(),
                 kind: 'background-task-control-failed',
-                message: msg.message ?? `Could not stop ${msg.taskId}.`,
+                message:
+                  msg.message ??
+                  `Could not ${msg.action === 'send' ? 'send to' : 'stop'} ${msg.taskId}.`,
               },
             ]);
           }
@@ -765,6 +791,13 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'protocol_error': {
+          if (
+            executionDetailInputRef.current !== null &&
+            msg.message === 'Not permitted for an observer: send-background-task'
+          ) {
+            setExecutionDetailInput({ taskId: executionDetailInputRef.current, status: 'failed' });
+            executionDetailInputRef.current = null;
+          }
           if (sessionChangesInFlightRef.current > 0) {
             // A host older than `session_change_failed` refuses a session change with this.
             settleSessionChange();
@@ -911,6 +944,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       handleAgentDefinitionsMessage,
       handleAppViewMessage,
       handleExecutionDetailMessage,
+      handleExecutionWorkspace,
       handleModelListMessage,
       handleProjectMessage,
       handleSchedulesMessage,
@@ -954,6 +988,11 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       if (next !== 'connected') {
         rejectPendingAppRequests();
         clearCompactionNotices();
+        closeExecutionDetail();
+        if (executionDetailInputRef.current !== null) {
+          setExecutionDetailInput({ taskId: executionDetailInputRef.current, status: 'failed' });
+          executionDetailInputRef.current = null;
+        }
       }
       // Every client learns what it can offer and what is in effect as soon as it is attached.
       if (next === 'connected') {
@@ -988,6 +1027,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     makeClient,
     handleMessage,
     clearCompactionNotices,
+    closeExecutionDetail,
     requestSessions,
     requestSchedules,
     armRestore,
@@ -1013,6 +1053,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     answerAsk,
     ...personalUsageState,
     ...executionDetailState,
+    executionDetailInput,
     closeExecutionDetail,
     ...modelListState,
     ...projectPanelState,
