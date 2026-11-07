@@ -235,7 +235,13 @@ function libcFunctions(): IPosixFunctions {
         renameExchange(sourceDirectory, source, targetDirectory, target, RENAME_EXCHANGE),
       unlinkAt: library.func('int unlinkat(int fd, const char *path, int flags)') as TUnlinkAt,
       fchmod: library.func('int fchmod(int fd, unsigned int mode)') as TFchmod,
-      fstatfs: library.func('int fstatfs(int fd, void *buf)') as TFstatfs,
+      // Darwin x64's unqualified symbol writes the legacy statfs layout; the SDK's
+      // 64-bit-inode declaration binds this symbol for the layout inspected below.
+      fstatfs: library.func(
+        process.platform === 'darwin' && process.arch === 'x64' ? 'fstatfs$INODE64' : 'fstatfs',
+        'int',
+        ['int', 'void *'],
+      ) as TFstatfs,
       dup: library.func('int dup(int fd)') as TDup,
       fdopendir: library.func('void *fdopendir(int fd)') as TFdopendir,
       readdir: library.func('void *readdir(void *dirp)') as TReaddir,
