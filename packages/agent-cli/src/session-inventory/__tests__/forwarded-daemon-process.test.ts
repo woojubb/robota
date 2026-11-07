@@ -115,6 +115,7 @@ it.each([false, true])('forwards the pair with project-local provider override: 
   telemetryRequests = 0;
   const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=source', fixture, 'daemon', 'start', '--spawner-fd', '4', '--json'], { cwd: launchCwd, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
   children.push(child);
+  const closed = once(child, 'close');
   let stdout = '';
   let stderr = '';
   child.stdout?.on('data', (part: Buffer) => { stdout += part.toString(); });
@@ -123,7 +124,7 @@ it.each([false, true])('forwards the pair with project-local provider override: 
   if (!(pipe instanceof Duplex)) throw new Error('Missing desktop spawner pair');
   let pair: Awaited<ReturnType<typeof completeSpawnerPair>>;
   try { pair = await completeSpawnerPair(pipe); } catch (error) { throw new Error(`Pair failed: ${stderr}`, { cause: error }); }
-  const [code] = await once(child, 'exit');
+  const [code] = await closed;
   expect(code, stderr).toBe(0);
   expect(stderr).toContain('TEST_FORWARD_FD_CLOSED');
   expect(stderr).toContain('TEST_PROVIDER_NAMES selected=true fallback=true unused=false');

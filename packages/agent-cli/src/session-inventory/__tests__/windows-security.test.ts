@@ -251,7 +251,7 @@ describe('Windows session operation guard', () => {
       const moduleUrl = pathToFileURL(
         createRequire(import.meta.url).resolve('@robota-sdk/agent-session/node'),
       ).href;
-      const script = `import { createProcessOperationLock, NodeSessionStore } from ${JSON.stringify(moduleUrl)}; import { join } from 'node:path'; const root = process.argv[1]; const store = new NodeSessionStore(root, { sealing: 'plain' }); store.claim('session_a', { fresh: true }); const lock = createProcessOperationLock(join(root, 'claims')).tryAcquire('session_a'); if (!lock) process.exit(2); process.send('ready'); setInterval(() => {}, 1000);`;
+      const script = `import session from ${JSON.stringify(moduleUrl)}; import { join } from 'node:path'; const { createProcessOperationLock, NodeSessionStore } = session; const root = process.argv[1]; const store = new NodeSessionStore(root, { sealing: 'plain' }); store.claim('session_a', { fresh: true }); const lock = createProcessOperationLock(join(root, 'claims')).tryAcquire('session_a'); if (!lock) process.exit(2); process.send('ready'); setInterval(() => {}, 1000);`;
       const child = spawn(process.execPath, ['--input-type=module', '-e', script, root], {
         stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
       });
