@@ -115,7 +115,7 @@ export class LinkSession implements ILinkSessionSink {
         ? startOnly(binding.directory)
         : binding.directory;
     const deliver = createOutboundDelivery(
-      (message) => { if (!this.#revoked) link.sendSession(JSON.stringify(message)); },
+      (message) => { if (this.#canCarrySession()) link.sendSession(JSON.stringify(message)); },
       // A reader that stopped reading, or a frame too large to carry, costs only this link.
       () => link.close(),
       () => link.pendingBytes(),
@@ -187,7 +187,7 @@ export class LinkSession implements ILinkSessionSink {
 
   receive(data: string): void {
     const bound = this.#bound;
-    if (bound === undefined || this.#revoked) return;
+    if (bound === undefined || !this.#canCarrySession()) return;
     if (bound.countsInput && isOwnerInput(data)) this.#options.onOwnerInput();
     try {
       bound.handler.onMessage(data);
@@ -195,6 +195,11 @@ export class LinkSession implements ILinkSessionSink {
       // allow-fallback: a frame the handler cannot take ends this link, as it ends an attached terminal's connection.
       this.#options.link.close();
     }
+  }
+
+  #canCarrySession(): boolean {
+    return !this.#ended && !this.#revoked &&
+      (this.#standing === 'spawner' || this.#options.ownerUnlocked());
   }
 
   /** End this link's session authority at once; transport closure may still flush a control reply. */

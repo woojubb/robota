@@ -873,6 +873,29 @@ describe.skipIf(process.platform === 'win32')('what the custody reports of its l
 });
 
 describe.skipIf(process.platform === 'win32')('what locks a runtime', () => {
+  it('blocks session input and output while a connected owner is locked, then resumes after a new grant', async () => {
+    const started = await certified();
+    const client = await ownerLink(started);
+    await client.unlock();
+    expect(await attach(client, 'drive')).toMatchObject({ status: 'attached' });
+    const heard = hear(client);
+
+    await client.lock('explicit');
+    await vi.waitFor(() => expect(client.custody.unlocked).toBe(false));
+    const framesBefore = heard.frames.length;
+    client.session.send({ type: 'submit', prompt: 'must stay locked' });
+    client.session.send({ type: 'get-messages' });
+    await client.control({ command: 'status', fields: {} });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(started.runtime.run).not.toHaveBeenCalled();
+    expect(heard.frames).toHaveLength(framesBefore);
+
+    await client.unlock();
+    client.session.send({ type: 'submit', prompt: 'owner returned' });
+    await heard.waitFor('complete');
+    expect(started.runtime.run).toHaveBeenCalledTimes(1);
+  });
+
   it.each(['explicit', 'screen-lock', 'suspend'] as const)(
     'locks on an owner request for %s, and keeps the link open',
     async (reason) => {
