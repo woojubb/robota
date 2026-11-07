@@ -716,6 +716,49 @@ describe.skipIf(posixOnly)('secure migrate', () => {
     expect(readFileSync(target, 'utf8')).toContain(CANARY);
   });
 
+  it('does not call a run complete while a record with an unsafe name remains plain', async () => {
+    await installFixtureKeyring();
+    const sessions = runtime.layout.userPaths.sessions;
+    mkdirSync(sessions, { recursive: true });
+    const unsafe = join(sessions, 'not an id.json');
+    writeFileSync(unsafe, `{"note":"${CANARY}"}`);
+
+    const { code } = await secure(['migrate'], 'y');
+
+    expect(code, out()).toBe(EXIT_INCOMPLETE);
+    expect(out()).toContain(`Left as they are, since their names are not session ids: ${unsafe}.`);
+    expect(readFileSync(unsafe, 'utf8')).toContain(CANARY);
+  });
+
+  it('does not call a run complete while a recorded project cannot be migrated on this host', async () => {
+    await installFixtureKeyring();
+    const project = await trustedProject();
+
+    const { code } = await secure(['migrate'], 'y', undefined, {
+      migrationSteps: createMigrationSteps({
+        platform: 'darwin',
+        temporaryDirectory: join(home, 'shared-tmp'),
+      }),
+    });
+
+    expect(code, out()).toBe(EXIT_INCOMPLETE);
+    expect(out()).toContain(`Project ${project}: left as it is`);
+    expect(readFileSync(join(project, runtime.layout.projectStateDirectories.sessions, 'project_one.json'), 'utf8')).toContain(CANARY);
+  });
+
+  it('does not call a run complete while a recent editor buffer remains plain', async () => {
+    await installFixtureKeyring();
+    const editor = join(home, 'shared-tmp', 'test-product-editor-AbC123');
+    mkdirSync(editor, { recursive: true });
+    writeFileSync(join(editor, 'buffer.md'), CANARY);
+
+    const { code } = await secure(['migrate'], 'y');
+
+    expect(code, out()).toBe(EXIT_INCOMPLETE);
+    expect(out()).toContain('used within the last day left for a later run');
+    expect(readFileSync(join(editor, 'buffer.md'), 'utf8')).toBe(CANARY);
+  });
+
   it.skipIf(process.platform !== 'linux')(
     'is incomplete, exit 5, when a project record has another name or its pending memory candidates are a link',
     async () => {
