@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { execFile, spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server } from 'node:http';
@@ -9,6 +9,7 @@ import { serializeKeyring } from '@robota-sdk/agent-keyring';
 import { fixtureKeyring } from '../../secure/__tests__/helpers.js';
 import { Duplex } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 
 import { completeSpawnerPair } from '@robota-sdk/agent-transport-link';
 import { afterEach, expect, it } from 'vitest';
@@ -25,6 +26,7 @@ import type { ChildProcess } from 'node:child_process';
 const fixture = fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url));
 const recorder = new URL('../../testing/forward-spawn-recorder.mjs', import.meta.url).href;
 const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
+const execFileAsync = promisify(execFile);
 const roots: string[] = [];
 const children: ChildProcess[] = [];
 const servers: Server[] = [];
@@ -198,9 +200,8 @@ it.each([false, true])('forwards the pair with project-local provider override: 
     expect(launcherGit).not.toContain(`${child.pid} present`);
     expect(runtimeGit).not.toContain(`${registration.pid} present`);
   }
-  const stopped = spawnSync(process.execPath, ['--import', tsx, '--conditions=source', fixture, 'session', 'stop', reply.id],
-    { cwd: root, env, encoding: 'utf8', timeout: 30_000 });
-  expect(stopped.status, stopped.stderr).toBe(0);
+  await execFileAsync(process.execPath, ['--import', tsx, '--conditions=source', fixture, 'session', 'stop', reply.id],
+    { cwd: root, env, timeout: 30_000 });
   expect(telemetryRequests).toBe(0);
   link.close();
   pair.spawnerKey.wipe();

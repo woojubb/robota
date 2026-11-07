@@ -1,13 +1,11 @@
-import { execFileSync, spawn } from 'node:child_process';
-import { once } from 'node:events';
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterEach, expect, it } from 'vitest';
 
+import { stopTestWorkspaceBroker } from '../../__tests__/helpers/approve-test-workspace.js';
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { productProviderDefinitions } from '../../product/provider-definitions.js';
 import { restartProductEnvironment } from '../../product/restart-environment.js';
@@ -17,15 +15,11 @@ import { workspaceRootBrokerEndpoint } from '../workspace-root-broker-process.js
 import { requestWorkspaceRootBroker } from '../workspace-root-broker.js';
 
 const roots: string[] = [];
-const brokers: ReturnType<typeof spawn>[] = [];
 afterEach(async () => {
-  for (const broker of brokers.splice(0)) {
-    if (broker.exitCode === null && broker.signalCode === null) {
-      broker.kill('SIGTERM');
-      await once(broker, 'exit');
-    }
+  for (const root of roots.splice(0)) {
+    await stopTestWorkspaceBroker(join(root, '.test-product'));
+    rmSync(root, { recursive: true, force: true });
   }
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
 it('forwards only admitted provider references and withholds unrelated secrets', async () => {
@@ -54,21 +48,6 @@ it('forwards only admitted provider references and withholds unrelated secrets',
   writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'user', providers: { user: { type: 'openai', model: 'fixture', apiKey: '$ENV:USER_PROVIDER_REF' } } }), { mode: 0o600 });
 
   const endpoint = workspaceRootBrokerEndpoint(runtime);
-  const brokerDirectory = process.platform === 'win32' ? join(runtime.layout.userRoot, 'root-broker') : dirname(endpoint);
-  mkdirSync(brokerDirectory, { recursive: true, mode: 0o700 });
-  const fixture = fileURLToPath(new URL('./fixtures/workspace-root-broker-server.mjs', import.meta.url));
-  const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
-  const broker = spawn(process.execPath, ['--import', tsx, '--conditions=source', fixture, endpoint], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  brokers.push(broker);
-  await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Workspace broker did not start.')), 10_000);
-    broker.stdout?.on('data', (data: Buffer) => {
-      if (data.toString().includes('READY')) { clearTimeout(timer); resolve(); }
-    });
-    broker.once('exit', (code) => { clearTimeout(timer); reject(new Error(`Workspace broker exited ${code}.`)); });
-  });
   const prepared = await requestWorkspaceRootBroker(endpoint, { op: 'prepare', root: project });
   expect(prepared.status).toBe('prepared');
   if (prepared.status !== 'prepared') return;

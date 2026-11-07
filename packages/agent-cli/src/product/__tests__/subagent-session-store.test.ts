@@ -4,15 +4,23 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { getWorkspaceProjectIdentity } from '@robota-sdk/agent-framework';
-import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { stopTestWorkspaceBroker } from '../../__tests__/helpers/approve-test-workspace.js';
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { BrokeredWorkspaceTrustService } from '../../startup/brokered-workspace-trust.js';
 import { createCliWorkspaceComposition } from '../../startup/workspace-project-composition.js';
 import { createProductSubagentComposition } from '../subagent-composition.js';
 
 const roots: string[] = [];
-afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
+const trustServices: BrokeredWorkspaceTrustService[] = [];
+afterEach(async () => {
+  for (const trust of trustServices.splice(0)) trust.close();
+  for (const root of roots.splice(0)) {
+    await stopTestWorkspaceBroker(join(root, '.test-product'));
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 async function fixture() {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'subagent-session-store-')));
@@ -20,8 +28,9 @@ async function fixture() {
   const cwd = join(root, 'project');
   execFileSync('git', ['init', '-q', cwd]);
   const runtime = createTestProductRuntime('test-product', { HOME: root });
-  const trust = createNodeWorkspaceTrustService(runtime.layout.userPaths.workspaceTrust, runtime.layout.projectStateDirectories);
-  const access = await trust.grant(cwd);
+  const trust = await BrokeredWorkspaceTrustService.create(runtime);
+  trustServices.push(trust);
+  const access = await trust.grant(cwd, await trust.prepare(cwd));
   if (access.status !== 'trusted') throw new Error('Could not grant fixture trust');
   const identity = getWorkspaceProjectIdentity(access.authority);
   const resumeStore = { scope: 'project' as const, repositoryKey: identity.repositoryKey, worktreeRoot: identity.worktreeRoot };
