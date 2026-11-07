@@ -1,6 +1,8 @@
 import { constants, closeSync, fstatSync, lstatSync, openSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { writeOwnerOnlyFile } from '@robota-sdk/agent-core/node';
+
 export type TProductConversationMode = 'plain' | 'preparing' | 'secure';
 
 const MODE_FILE = 'mode.json';
@@ -54,5 +56,32 @@ export function readProductConversationMode(userRoot: string): TProductConversat
     return record.mode === 'on' ? 'secure' : record.mode === 'preparing' ? 'preparing' : 'plain';
   } finally {
     closeSync(descriptor);
+  }
+}
+
+/** Commit a mode transition under the caller's exclusive migration/presence barrier. */
+export function writeProductConversationMode(
+  userRoot: string,
+  expected: TProductConversationMode,
+  next: TProductConversationMode,
+): void {
+  if (readProductConversationMode(userRoot) !== expected) {
+    throw new Error('The secure conversation mode changed; the transition was not committed.');
+  }
+  const mode = next === 'secure' ? 'on' : next === 'preparing' ? 'preparing' : 'off';
+  writeOwnerOnlyFile(
+    join(userRoot, 'secure', MODE_FILE),
+    `${JSON.stringify({ schemaVersion: 1, mode })}\n`,
+    {
+      durable: true,
+      beforeCommit: () => {
+        if (readProductConversationMode(userRoot) !== expected) {
+          throw new Error('The secure conversation mode changed; the transition was not committed.');
+        }
+      },
+    },
+  );
+  if (readProductConversationMode(userRoot) !== next) {
+    throw new Error('The secure conversation mode was written but could not be confirmed.');
   }
 }
