@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-node-lock",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "description": "Nonblocking Node operation locks for cooperating local processes.",
   "type": "module",
   "main": "dist/node/index.js",
@@ -48,7 +48,8 @@
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "typecheck": "tsgo --noEmit",
     "lint": "eslint src/ --ext .ts",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
     "koffi": "3.3.1"

@@ -1,5 +1,11 @@
 # @robota-sdk/agent-provider-replay
 
+## 3.0.12
+### Patch Changes
+
+  - @robota-sdk/agent-session@3.2.1
+  - @robota-sdk/agent-core@3.2.1
+
 ## 3.0.11
 ### Patch Changes
 

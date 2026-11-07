@@ -1,5 +1,18 @@
 # __PRODUCT_DISPLAY_NAME__-scratch
 
+## 0.0.13
+### Patch Changes
+
+  - @robota-sdk/agent-session@3.2.1
+  - @robota-sdk/agent-framework@3.2.1
+  - @robota-sdk/agent-subagent-runner@3.2.1
+  - @robota-sdk/agent-builtin-providers@3.2.1
+  - @robota-sdk/agent-core@3.2.1
+  - @robota-sdk/agent-executor@3.2.1
+  - @robota-sdk/agent-mcp@3.2.1
+  - @robota-sdk/agent-provider-openai@3.2.1
+  - @robota-sdk/agent-tools@3.2.1
+
 ## 0.0.12
 ### Patch Changes
 
