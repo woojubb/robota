@@ -14,7 +14,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -104,6 +104,11 @@ export function runStandaloneAutoloadE2e(binaryPath, options = {}) {
     }
     if (version.status !== 0) throw failure('--version in the planted repository failed', version);
     if (help.status !== 0) throw failure('--help in the planted repository failed', help);
+    const expectedVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+    const cliName = selectedFixtureIdentity().identity.cliName;
+    if ((version.stdout ?? '').trim() !== `${cliName} ${expectedVersion}`)
+      throw failure('--version did not report the package version', version);
+    if (!(help.stdout ?? '').includes(`Usage: ${cliName}`)) throw failure('--help did not report usage', help);
     return 'standalone-autoload=passed; bunfig.toml preload=ignored; .env=ignored';
   } finally {
     rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });

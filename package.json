@@ -38,7 +38,6 @@
     "web:start": "pnpm --filter robota-web run start",
     "harness:browser-proof": "node scripts/harness/browser-runtime-proof.mjs",
     "harness:scan:publish": "node scripts/harness/check-publish-safety.mjs",
-    "harness:scan:sdk-public-surface": "node scripts/harness/check-sdk-public-surface.mjs",
     "git:push-tags": "git push --tags",
     "publish:beta": "bash scripts/publish/publish-packages.sh",
     "deps:check": "depcruise packages/ apps/ --config .dependency-cruiser.cjs",

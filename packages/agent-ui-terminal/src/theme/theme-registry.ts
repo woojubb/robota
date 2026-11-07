@@ -12,9 +12,7 @@
  */
 import { DEFAULT_THEME_ID, listBuiltInThemes, resolveTheme } from './built-in-themes.js';
 
-// The registry's default source, re-exported from the module that USES it. The package's public
-// surface takes this route rather than the theme barrel: the barrel re-exports `theme-context.tsx`,
-// and a public re-export chain that reaches a `.tsx` is what `sdk-public-surface` refuses.
+// Export the registry's default source from its implementation module.
 export { listBuiltInThemes } from './built-in-themes.js';
 
 import type { ITuiTheme } from './theme-contracts.js';

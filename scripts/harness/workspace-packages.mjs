@@ -49,11 +49,6 @@ export function listPackageDirs(root, hasMarker, family = 'packages') {
   return dirs;
 }
 
-/** Package directories that own a `docs/SPEC.md`. */
-export function listSpecPackageDirs(root) {
-  return listPackageDirs(root, (dir) => existsSync(path.join(dir, 'docs', 'SPEC.md')));
-}
-
 /** Package directories that own a `package.json`. */
 export function listManifestPackageDirs(root) {
   return listPackageDirs(root, (dir) => existsSync(path.join(dir, 'package.json')));

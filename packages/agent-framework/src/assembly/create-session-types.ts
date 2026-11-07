@@ -56,8 +56,7 @@ export type TSessionResponseFormat = IResponseFormatConfig;
 /**
  * Issue #2052: the threshold vocabulary is owned by agent-session. This is the framework's OWN name
  * for it — an SDK-owned facade, not a pass-through re-export of the owner's binding — because
- * `agent-command` reads it and depends on this package alone, never on agent-session
- * (`sdk-public-surface` refuses the public graph passing through the owner directly).
+ * `agent-command` reads it and depends on this package rather than on agent-session.
  */
 export type TAutoCompactThreshold = TSessionAutoCompactThreshold;
 export type TSessionOptionsWithAutoCompact = ISessionOptions & {

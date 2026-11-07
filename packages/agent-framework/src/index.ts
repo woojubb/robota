@@ -660,33 +660,7 @@ export type {
   ISubagentParentContext,
   TSubagentSuffix,
 } from './assembly/index.js';
-// `ICreateSessionOptions` stays exported although `createSession` does not (issue #2270).
-//
-// It is agent-framework's OWN type, and four packages read indexed-access types off it as the option
-// SSOT: agent-preset, agent-cli, agent-transport, agent-ui-terminal. Exporting a type this package
-// owns is ownership, not pass-through.
-//
-// The tempting alternative — re-export `agent-core`'s `TPermissionMode` / `TModelEffort` from here so
-// the options type can go — is banned as a pass-through re-export of another package's symbols
-// (STRUCT-07). Consumers that want those unions take them from `agent-core`, which exports both from
-// its root. NOTE for anyone re-deriving this: an earlier version of this comment claimed
-// `TPermissionMode` is exported from no package root. That was false — agent-core's root re-exports
-// its permissions barrel wholesale (a star re-export), so the symbol never appears BY NAME in that
-// index and a grep for the name cannot see it. Resolve exports against the built .d.ts instead of
-// grepping barrels.
-//
-// Written without the literal re-export syntax on purpose: `check-sdk-public-surface.mjs` (scan id
-// `sdk-public-surface`) matches raw source, so spelling it out here registers a phantom export-star
-// in this barrel and fails that scan.
-// That is issue #2258's defect — comment text read as code — arriving from the other direction.
-//
-// The type is inert without the factory: no exported function accepts it, so nothing public reaches
-// `additionalHookExecutors` through it.
-//
-// `ICreateSessionResult` is no longer re-exported from this root (it stays on `assembly/index.ts`).
-// The ground is not that it had few consumers — `.agents/project-structure.md` bans that reasoning
-// about a public surface at any count. It is the return type of a factory that is no longer public,
-// so it describes nothing a consumer can obtain.
+// The framework owns this options type even though its session factory is not public.
 export type { ICreateSessionOptions, TSessionResponseFormat } from './assembly/index.js';
 // MCP-004 §S3: the `toolCallHandoff` policy shape reachable from `ICreateSessionOptions` — the ONLY
 // barrel addition this unit makes; `buildToolCallHandoff`, the wrapper class and
@@ -1031,9 +1005,7 @@ export type {
 //   loadContext()          — context loading (used by InteractiveSession internally)
 // ──────────────────────────────────────────────────────────────
 
-// ARCH-029: the command-axis role ports. Named explicitly (the barrels carry no `export *` —
-// sdk-public-surface enforces that, so owner boundaries stay auditable) and sourced straight from
-// the contract module rather than through ./commands, which keeps that barrel under its size floor.
+// Command-axis role ports come directly from the contract module.
 export type {
   IAgentJobDispatch,
   IAgentJobGroups,

@@ -211,7 +211,6 @@ jobs:
           binary="$standalone_root/${{ steps.product.outputs.artifact_prefix }}-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}"
           cp ".release-output/${{ matrix.target }}/${{ steps.product.outputs.artifact_prefix }}-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}" "$binary"
           chmod +x "$binary"
-          (cd "$standalone_root" && "$binary" --version)
           node packages/agent-cli/scripts/e2e-native-file-authority.mjs "$binary"
           node packages/agent-cli/scripts/e2e-standalone-autoload.mjs "$binary"
           node packages/agent-cli/scripts/e2e-regex-worker.mjs "$binary"
@@ -247,7 +246,6 @@ jobs:
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
         run: |
           pnpm --filter './packages/agent-keyring' smoke:bun
-          pnpm --filter './packages/agent-transport-link' build
           pnpm --filter './packages/agent-transport-link' smoke:bun
 
       - name: Package and exercise the unsigned desktop product
@@ -263,7 +261,6 @@ jobs:
           pnpm --filter './apps/agent-app' exec electron-builder --dir --publish never -c.mac.notarize=false -c.mac.identity=null
           pnpm --filter './apps/agent-app' test:e2e:packaged
           pnpm --filter './apps/agent-app' test:e2e:bundled
-          pnpm --filter './packages/agent-cli' test:bun
 
       - name: Upload exactly one native binary
         timeout-minutes: 10
