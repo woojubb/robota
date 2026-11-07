@@ -137,7 +137,7 @@ function hostCode(errno: number): string {
 }
 
 /** Darwin x64's plain symbols use legacy inode layouts; these match the SDK's declarations. */
-function inode64Symbol(name: 'fstatfs' | 'readdir'): string {
+function inode64Symbol(name: 'fstatfs' | 'fdopendir' | 'readdir'): string {
   return process.platform === 'darwin' && process.arch === 'x64' ? `${name}$INODE64` : name;
 }
 
@@ -246,7 +246,7 @@ function libcFunctions(): IPosixFunctions {
         ['int', 'void *'],
       ) as TFstatfs,
       dup: library.func('int dup(int fd)') as TDup,
-      fdopendir: library.func('void *fdopendir(int fd)') as TFdopendir,
+      fdopendir: library.func(inode64Symbol('fdopendir'), 'void *', ['int']) as TFdopendir,
       readdir: library.func(inode64Symbol('readdir'), 'void *', ['void *']) as TReaddir,
       closedir: library.func('int closedir(void *dirp)') as TClosedir,
     };
