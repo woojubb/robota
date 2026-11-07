@@ -10,6 +10,7 @@
     ".": {
       "source": "./src/index.ts",
       "browser": null,
+      "product-source": "./src/index.ts",
       "import": {
         "types": "./dist/node/index.d.ts",
         "default": "./dist/node/index.js"
@@ -41,7 +42,7 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-organization": "workspace:*"
+    "@robota-sdk/agent-organization": "npm:@robota-sdk/agent-organization@3.2.1"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

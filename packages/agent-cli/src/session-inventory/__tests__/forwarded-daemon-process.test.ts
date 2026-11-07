@@ -113,7 +113,7 @@ it.each([false, true])('forwards the pair with project-local provider override: 
   }
   await trustWorkspace(runtime, root);
   telemetryRequests = 0;
-  const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=source', fixture, 'daemon', 'start', '--spawner-fd', '4', '--json'], { cwd: launchCwd, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
+  const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=product-source', fixture, 'daemon', 'start', '--spawner-fd', '4', '--json'], { cwd: launchCwd, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
   children.push(child);
   const closed = once(child, 'close');
   let stdout = '';
@@ -201,7 +201,7 @@ it.each([false, true])('forwards the pair with project-local provider override: 
     expect(launcherGit).not.toContain(`${child.pid} present`);
     expect(runtimeGit).not.toContain(`${registration.pid} present`);
   }
-  await execFileAsync(process.execPath, ['--import', tsx, '--conditions=source', fixture, 'session', 'stop', reply.id],
+  await execFileAsync(process.execPath, ['--import', tsx, '--conditions=product-source', fixture, 'session', 'stop', reply.id],
     { cwd: root, env, timeout: 30_000 });
   expect(telemetryRequests).toBe(0);
   link.close();
@@ -215,7 +215,7 @@ it('refuses untrusted project startup after forwarding without granting trust', 
   expect(spawnSync('git', ['init', '-q', root]).status).toBe(0);
   const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '0' });
   const runtime = createTestProductRuntime('test-product', env);
-  const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=source', fixture, 'daemon', 'start', '--spawner-fd=4', '--json'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
+  const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=product-source', fixture, 'daemon', 'start', '--spawner-fd=4', '--json'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
   children.push(child);
   let stdout = '';
   let stderr = '';
@@ -240,7 +240,7 @@ it('refuses the spawner flag in plain mode before starting any child', async () 
   roots.push(root);
   const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '0' });
   const plainEntry = fileURLToPath(new URL('../../bin.ts', import.meta.url));
-  const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=source', plainEntry, 'daemon', 'start', '--spawner-fd', '4'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
+  const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=product-source', plainEntry, 'daemon', 'start', '--spawner-fd', '4'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
   children.push(child);
   let stderr = '';
   child.stderr?.on('data', (part: Buffer) => { stderr += part.toString(); });
@@ -260,7 +260,7 @@ it('refuses forwarded local startup for valid and invalid hosted posture before 
   const hosted = await hostedFixture();
   try {
     for (const environment of [hosted.environment, { PRODUCT_RUNTIME_POSTURE: 'hosted', PRODUCT_HOSTED_RUNTIME_CONFIG: join(root, 'missing.json') }]) {
-      const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=source', fixture, 'daemon', 'start', '--spawner-fd', '4', '--json'], { cwd: root, env: { ...base, ...environment }, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
+      const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=product-source', fixture, 'daemon', 'start', '--spawner-fd', '4', '--json'], { cwd: root, env: { ...base, ...environment }, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
       children.push(child);
       let stdout = '';
       let stderr = '';

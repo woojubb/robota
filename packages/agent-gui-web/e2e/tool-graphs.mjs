@@ -10,7 +10,7 @@ import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
-import { createNodeWorkspaceTrustService } from '../../agent-framework/src/node.ts';
+import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../agent-cli/src/__tests__/helpers/product-runtime.ts';
 import { respond, wireReceipts } from '../../agent-cli/src/__tests__/helpers/provider-wire-fixture.ts';
 import { createInitialCliWorkspaceComposition } from '../../agent-cli/src/startup/workspace-project-composition.ts';
@@ -183,7 +183,7 @@ try {
   const launch = async (resumeId) => {
     round = 0; restored = Boolean(resumeId);
     const reservation = createServer(); const wsPort = await listen(reservation); await close(reservation);
-    child = spawn(process.execPath, ['--import', loader, '--conditions=source', join(cliRoot, 'src/__tests__/e2e/fixtures/mcp-bidirectional-host.ts'), '--serve', '--permission-mode', 'default', '--allowed-tools', `Read,${toolName}${mixed ? ',fixture-two_probe__echo' : ''}`, '--max-turns', '5', ...(resumeId ? ['--resume', resumeId] : [])], {
+    child = spawn(process.execPath, ['--import', loader, '--conditions=product-source', join(cliRoot, 'src/__tests__/e2e/fixtures/mcp-bidirectional-host.ts'), '--serve', '--permission-mode', 'default', '--allowed-tools', `Read,${toolName}${mixed ? ',fixture-two_probe__echo' : ''}`, '--max-turns', '5', ...(resumeId ? ['--resume', resumeId] : [])], {
       cwd: root, env: createTestBinaryEnvironment(home, { PRODUCT_WS_TOKEN: token, PRODUCT_WS_PORT: String(wsPort), PRODUCT_FIXTURE_MCP_SERVER_ID: 'fixture:probe', ...(mixed ? { PRODUCT_FIXTURE_MCP_SECOND_SOURCE: '1' } : {}), PRODUCT_FIXTURE_TOOL_POLICY: JSON.stringify(policy), PRODUCT_FIXTURE_MEASURE_TIMING: '1' }), stdio: ['ignore', 'pipe', 'pipe'],
     });
     child.stdout.on('data', (chunk) => { diagnostics += String(chunk); }); child.stderr.on('data', (chunk) => { diagnostics += String(chunk); });

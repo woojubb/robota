@@ -41,9 +41,9 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@robota-sdk/agent-remote-pairing": "workspace:*",
-    "@robota-sdk/agent-ui-web": "workspace:*",
-    "@robota-sdk/agent-transport": "workspace:*"
+    "@robota-sdk/agent-remote-pairing": "workspace:^",
+    "@robota-sdk/agent-ui-web": "workspace:^",
+    "@robota-sdk/agent-transport": "workspace:^"
   },
   "peerDependencies": {
     "react": ">=18"

@@ -36,7 +36,7 @@ it('requires an owner before taking a start lock and certifies a new background 
     const started = await startSecureBackground(home, { productRuntime: runtime, env, root, restricted: true, openOwner: async () => owner,
       launch: (cwd, options) => launchCertifiedRuntime(cwd, { ...options,
         entrypoint: fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url)),
-        execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'] }),
+        execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=product-source'] }),
     });
     try {
       expect(owner.disposed).toBe(true);

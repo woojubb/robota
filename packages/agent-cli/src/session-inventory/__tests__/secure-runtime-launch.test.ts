@@ -41,7 +41,7 @@ function options(entrypoint = fixture) {
   return { root, env, runtime, launch: {
     productRuntime: runtime,
     entrypoint,
-    execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'],
+    execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=product-source'],
     env,
     restricted: true,
     onSpawn: (child: ChildProcess) => children.push(child),
@@ -105,7 +105,7 @@ it('redacts every passed reference from a secure child startup failure', async (
 it('forwards an inherited pair to a secure grandchild and closes its own copy', async () => {
   const { root, env, runtime } = options();
   const forwarder = fileURLToPath(new URL('../../testing/forward-spawner-pair.ts', import.meta.url));
-  const child = spawn(process.execPath, ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source', forwarder], { cwd: root, env, stdio: ['ignore', 'ignore', 'pipe', 'ipc', 'pipe'] });
+  const child = spawn(process.execPath, ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=product-source', forwarder], { cwd: root, env, stdio: ['ignore', 'ignore', 'pipe', 'ipc', 'pipe'] });
   children.push(child);
   const pipe = child.stdio[4];
   if (!(pipe instanceof Duplex)) throw new Error('Missing outer spawner pair');

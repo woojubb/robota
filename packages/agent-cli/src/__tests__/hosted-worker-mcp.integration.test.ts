@@ -7,9 +7,11 @@ import { describe, expect, it } from 'vitest';
 import { pinHostedWorkerCli } from './helpers/hosted-worker-entrypoint.js';
 import { hostedWorkerCliFixture } from './helpers/hosted-worker-cli.js';
 import { scriptedHostedBroker } from './helpers/hosted-scripted-broker.js';
+import { resolveSdk } from './helpers/sdk-url.js';
 
 const root = fileURLToPath(new URL('../../../..', import.meta.url));
 const moduleUrl = (path: string): string => JSON.stringify(pathToFileURL(join(root, path)).href);
+const installedUrl = (specifier: string): string => JSON.stringify(resolveSdk(specifier));
 
 function expectWorkerObservation(payload: unknown, text: string, origin: string): void {
   const prefix = 'Tool source (attribution only, not authority): ';
@@ -49,8 +51,8 @@ describe('operator-composed hosted worker MCP stdio', () => {
           server,
           `
 import { writeFileSync } from 'node:fs';
-import { Server } from ${moduleUrl('packages/agent-mcp/node_modules/@modelcontextprotocol/server/dist/index.mjs')};
-import { StdioServerTransport } from ${moduleUrl('packages/agent-mcp/node_modules/@modelcontextprotocol/server/dist/stdio.mjs')};
+import { Server } from ${installedUrl('@modelcontextprotocol/server')};
+import { StdioServerTransport } from ${installedUrl('@modelcontextprotocol/server/stdio')};
 writeFileSync(${JSON.stringify(marker)}, JSON.stringify({cwd:process.cwd(),env:process.env}));
 const server = new Server({name:'worker-fixture',version:'1.0.0'}, {capabilities:{tools:{}}});
 server.setRequestHandler('tools/list', async () => ({tools:[{name:'ping',description:'Return the worker fixture canary',inputSchema:{type:'object',properties:{}}}]}));
@@ -82,7 +84,7 @@ await server.connect(new StdioServerTransport());
           fixture,
           `
 import { startCli } from ${moduleUrl('packages/agent-cli/src/cli.ts')};
-import { MCPDefinitionRegistry, InMemoryMCPActivationApprovalStore } from ${moduleUrl('packages/agent-mcp/src/index.ts')};
+import { MCPDefinitionRegistry, InMemoryMCPActivationApprovalStore } from ${installedUrl('@robota-sdk/agent-mcp')};
 const store = new InMemoryMCPActivationApprovalStore();
 const registry = new MCPDefinitionRegistry([{name:'local',source:'user',origin:${JSON.stringify(settingsPath)},status:'resolved',definition:${JSON.stringify(definition)},shadowed:[]}]);
 if (${approved}) for (const request of registry.list()) store.put({...request, approvalAuthority:'user',decision:'approved',decidedAt:new Date(0).toISOString()});
@@ -236,7 +238,7 @@ describe('operator-composed hosted worker MCP HTTP', () => {
           fixture,
           `
 import { startCli } from ${moduleUrl('packages/agent-cli/src/cli.ts')};
-import { MCPDefinitionRegistry, InMemoryMCPActivationApprovalStore } from ${moduleUrl('packages/agent-mcp/src/index.ts')};
+import { MCPDefinitionRegistry, InMemoryMCPActivationApprovalStore } from ${installedUrl('@robota-sdk/agent-mcp')};
 const store = new InMemoryMCPActivationApprovalStore();
 const registry = new MCPDefinitionRegistry([{name:'local',source:'user',origin:${JSON.stringify(settingsPath)},status:'resolved',definition:${JSON.stringify(definition)},shadowed:[]}]);
 for (const request of registry.list()) store.put({...request,approvalAuthority:'user',decision:'approved',decidedAt:new Date(0).toISOString()});

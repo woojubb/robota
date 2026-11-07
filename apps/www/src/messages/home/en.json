@@ -313,7 +313,7 @@
   },
   "architectureLink": "Read the architecture guide",
   "packagesTitle": "Published packages",
-  "packagesLead": "Every package is published on npm under @robota-sdk/ and shares one version. Start with the smallest set your task needs.",
+  "packagesLead": "Every package is published on npm under @robota-sdk/ and has its own version. Start with the smallest set your task needs.",
   "packageGroups": {
     "start": {
       "title": "Start here",

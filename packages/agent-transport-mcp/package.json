@@ -53,9 +53,9 @@
   "dependencies": {
     "@modelcontextprotocol/node": "^2.1.0",
     "@modelcontextprotocol/server": "^2.3.0",
-    "@robota-sdk/agent-interface-session": "workspace:*",
-    "@robota-sdk/agent-interface-transport": "workspace:*",
-    "@robota-sdk/agent-transport": "workspace:*"
+    "@robota-sdk/agent-interface-session": "workspace:^",
+    "@robota-sdk/agent-interface-transport": "workspace:^",
+    "@robota-sdk/agent-transport": "workspace:^"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "^2.3.0",

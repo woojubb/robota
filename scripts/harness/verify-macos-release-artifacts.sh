@@ -32,6 +32,11 @@ set -uo pipefail
 
 TAG="${1:?usage: verify-macos-release-artifacts.sh <tag> <download-dir>}"
 DOWNLOAD_DIR="${2:?usage: verify-macos-release-artifacts.sh <tag> <download-dir>}"
+MODE="${3:-all}"
+if [ "$MODE" != all ] && [ "$MODE" != desktop ]; then
+  echo "FATAL: invalid artifact verification mode." >&2
+  exit 2
+fi
 ARTIFACT_PREFIX="${PRODUCT_ARTIFACT_PREFIX:?Set PRODUCT_ARTIFACT_PREFIX from the selected product configuration.}"
 if [[ ! "$ARTIFACT_PREFIX" =~ ^[A-Za-z0-9._-]+$ ]]; then
   echo "FATAL: PRODUCT_ARTIFACT_PREFIX contains unsupported filename characters." >&2
@@ -252,9 +257,11 @@ echo "download dir: $DOWNLOAD_DIR"
 echo "macOS: $(sw_vers -productVersion 2>/dev/null || echo unknown)"
 ls -la "$DOWNLOAD_DIR"
 
-for asset in "$ARTIFACT_PREFIX-darwin-arm64" "$ARTIFACT_PREFIX-darwin-x64"; do
-  verify_cli_binary "$DOWNLOAD_DIR/$asset"
-done
+if [ "$MODE" = all ]; then
+  for asset in "$ARTIFACT_PREFIX-darwin-arm64" "$ARTIFACT_PREFIX-darwin-x64"; do
+    verify_cli_binary "$DOWNLOAD_DIR/$asset"
+  done
+fi
 
 shopt -s nullglob
 dmgs=("$DOWNLOAD_DIR"/*.dmg)

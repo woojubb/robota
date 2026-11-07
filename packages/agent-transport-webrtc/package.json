@@ -51,11 +51,11 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-interface-session": "workspace:*",
-    "@robota-sdk/agent-interface-session-mobility": "workspace:*",
-    "@robota-sdk/agent-interface-transport": "workspace:*",
-    "@robota-sdk/agent-remote-pairing": "workspace:*",
-    "@robota-sdk/agent-transport": "workspace:*",
+    "@robota-sdk/agent-interface-session": "workspace:^",
+    "@robota-sdk/agent-interface-session-mobility": "workspace:^",
+    "@robota-sdk/agent-interface-transport": "workspace:^",
+    "@robota-sdk/agent-remote-pairing": "workspace:^",
+    "@robota-sdk/agent-transport": "workspace:^",
     "bittorrent-dht": "^11.0.12",
     "multicast-dns": "^7.2.5",
     "nostr-tools": "^2.25.2",

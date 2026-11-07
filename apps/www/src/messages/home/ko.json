@@ -313,7 +313,7 @@
   },
   "architectureLink": "아키텍처 가이드(영문)",
   "packagesTitle": "공개 패키지",
-  "packagesLead": "모든 패키지는 npm의 @robota-sdk/에 공개되어 있으며 같은 버전을 사용합니다. 작업에 필요한 최소한의 패키지부터 시작하세요.",
+  "packagesLead": "모든 패키지는 npm의 @robota-sdk/에 공개되어 있으며 각각의 버전을 사용합니다. 작업에 필요한 최소한의 패키지부터 시작하세요.",
   "packageGroups": {
     "start": {
       "title": "여기서 시작",

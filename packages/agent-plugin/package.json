@@ -50,7 +50,7 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-core": "workspace:^",
     "jssha": "^3.3.2"
   },
   "devDependencies": {

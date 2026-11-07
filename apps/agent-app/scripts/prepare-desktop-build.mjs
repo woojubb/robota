@@ -13,9 +13,9 @@ export function prepareDesktopBuild({
   const identity = JSON.parse(readFileSync(join(appRoot, 'dist/electron/product-identity.json'), 'utf8')).identity;
   const metadataPath = join(workspaceRoot, '.product/artifact-metadata.json');
   const metadata = existsSync(metadataPath) ? JSON.parse(readFileSync(metadataPath, 'utf8')) : undefined;
-  const cliManifest = JSON.parse(readFileSync(join(workspaceRoot, 'packages/agent-cli/package.json'), 'utf8'));
-  const version = metadata?.version ?? cliManifest.version;
-  if (typeof version !== 'string' || !version) throw new Error('Desktop build requires the selected CLI or product version.');
+  const appManifest = JSON.parse(readFileSync(join(appRoot, 'package.json'), 'utf8'));
+  const version = appManifest.version;
+  if (typeof version !== 'string' || !version) throw new Error('Desktop build requires the app version.');
   const artifactName = metadata?.artifactName ?? identity.cliName;
   const replacements = {
     __PRODUCT_APP_ID__: identity.appId,

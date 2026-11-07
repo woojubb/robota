@@ -9,6 +9,7 @@
     ".": {
       "source": "./src/index.ts",
       "browser": null,
+      "product-source": "./src/index.ts",
       "node": {
         "import": {
           "types": "./dist/node/index.d.ts",
@@ -51,10 +52,10 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-keyring": "workspace:*",
-    "@robota-sdk/agent-node-lock": "workspace:*",
-    "@robota-sdk/agent-remote-pairing": "workspace:*",
+    "@robota-sdk/agent-core": "npm:@robota-sdk/agent-core@3.2.1",
+    "@robota-sdk/agent-keyring": "npm:@robota-sdk/agent-keyring@3.2.1",
+    "@robota-sdk/agent-node-lock": "npm:@robota-sdk/agent-node-lock@3.2.1",
+    "@robota-sdk/agent-remote-pairing": "npm:@robota-sdk/agent-remote-pairing@3.2.1",
     "koffi": "3.3.1"
   },
   "devDependencies": {

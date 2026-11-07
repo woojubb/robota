@@ -1,9 +1,8 @@
 packages:
   - 'packages/*'
   - 'apps/*'
-  # examples are workspace members so they resolve @robota-sdk/* against local source
-  # (drift detection via typecheck). They are excluded from harness scans — see
-  # scripts/harness/shared.mjs listWorkspaceScopes — and are private (never published).
+  # Examples remain independently installable and use the published SDK. They are private
+  # workspace members for shared tooling, and are excluded from harness scans.
   - 'examples/*'
   - 'examples/capabilities/*'
   # dev-tooling tier: disposable live-verification scripts (src/ gitignored)

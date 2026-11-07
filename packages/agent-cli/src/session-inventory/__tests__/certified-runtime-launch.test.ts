@@ -33,7 +33,7 @@ it('certifies a real launched runtime and assigns its daemon role under owner pr
   try {
     const started = await launchCertifiedRuntime(home, { productRuntime: runtime, env, restricted: true, root,
       entrypoint: fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url)),
-      execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'],
+      execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=product-source'],
       handover, daemonRole: true });
     const owner = await openRegisteredOwnerLink({ root, ...started, handover });
     try {
@@ -95,7 +95,7 @@ it('starts and certifies a daemon through the secure daemon command', async () =
     openSecureOwner: () => openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE }),
     launchSecure: (cwd, options) => launchCertifiedRuntime(cwd, { ...options,
       entrypoint: fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url)),
-      execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'] }),
+      execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=product-source'] }),
   });
   expect(code, errors.join('')).toBe(0);
   const result = JSON.parse(output.join('')) as { id: string; generation: string; mode: string };
@@ -118,7 +118,7 @@ it('stops a proved runtime when certification fails', async () => {
     vi.spyOn(handover, 'certify').mockImplementation(() => { throw new Error('Certification refused'); });
     await expect(launchCertifiedRuntime(home, { productRuntime: runtime, env, restricted: true, root,
       entrypoint: fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url)),
-      execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'],
+      execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=product-source'],
       handover, daemonRole: true })).rejects.toThrow(/certification refused/i);
     expect(await listSupervisedSessions(root)).toEqual([]);
   } finally { handover.dispose(); }

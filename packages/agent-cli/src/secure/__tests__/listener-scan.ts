@@ -10,9 +10,8 @@
  * message never matches, and `.bind(` counts only in a file that loads `dgram`, since everywhere
  * else it is `Function.prototype.bind`.
  *
- * Product code is `packages/**` and `apps/**` minus what never runs in a product process on the
- * owner's machine: tests, fixtures, `testing/`, examples, scripts and end-to-end drivers, at any
- * depth, build output, and `apps/remote-signaling`, a relay that runs elsewhere.
+ * Product code is the CLI, desktop app, and their local product packages. SDK packages are consumed
+ * as published artifacts, so their unrelated development sources are outside this scan.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -22,7 +21,10 @@ import ts from 'typescript';
 
 export const REPOSITORY_ROOT = fileURLToPath(new URL('../../../../../', import.meta.url));
 
-const SCANNED_ROOTS = ['packages', 'apps'] as const;
+const SCANNED_ROOTS = [
+  'packages/agent-cli', 'packages/agent-gui-web', 'packages/agent-local-host',
+  'packages/agent-organization-host', 'packages/agent-provider-replay', 'apps/agent-app',
+] as const;
 
 /** Directory names that never hold code a product process runs, wherever they appear. */
 const EXCLUDED_DIRECTORIES = new Set([
@@ -42,9 +44,6 @@ const EXCLUDED_DIRECTORIES = new Set([
   'scripts',
   'e2e',
 ]);
-
-/** Not a product process on the owner's machine: the content-blind relay runs on a server. */
-const EXCLUDED_TREES = ['apps/remote-signaling/'];
 
 const SOURCE_FILE = /\.(?:[cm]?[jt]s|tsx)$/;
 const DECLARATION_FILE = /\.d\.[cm]?ts$/;
@@ -82,7 +81,6 @@ export interface IGateCall {
 /** Whether `path` (relative to the repository root, `/`-separated) is product code the scan covers. */
 export function isProductSource(path: string): boolean {
   if (!SCANNED_ROOTS.some((root) => path.startsWith(`${root}/`))) return false;
-  if (EXCLUDED_TREES.some((tree) => path.startsWith(tree))) return false;
   const segments = path.split('/');
   const name = segments[segments.length - 1] ?? '';
   if (segments.slice(0, -1).some((segment) => EXCLUDED_DIRECTORIES.has(segment))) return false;

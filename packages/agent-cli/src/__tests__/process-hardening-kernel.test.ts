@@ -25,12 +25,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterAll, describe, expect, it } from 'vitest';
+import { resolveSdk } from './helpers/sdk-url.js';
 
 const root = fileURLToPath(new URL('../../../..', import.meta.url));
 const runnable = process.platform === 'linux' && process.getuid?.() !== 0;
 const scratch = realpathSync(mkdtempSync(join(tmpdir(), 'process-hardening-')));
 const READY = `process.stdout.write('ready ' + applied + '\\n');\nprocess.stdin.resume();\n`;
 const sourceUrl = (path: string): string => JSON.stringify(pathToFileURL(join(root, path)).href);
+const sdkUrl = (name: string): string => JSON.stringify(resolveSdk(name));
 /** An unprotected process prints its inspector URL within milliseconds of the signal. */
 const INSPECTOR_SETTLE_MS = 1_500;
 
@@ -57,9 +59,9 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { hardenProductProcess } from ${sourceUrl('packages/agent-cli/src/process-hardening.ts')};
-import { getWorkspaceProjectStateStorage } from ${sourceUrl('packages/agent-framework/src/index.ts')};
-import { createNodeWorkspaceTrustService } from ${sourceUrl('packages/agent-framework/src/node.ts')};
-import { createReadTool } from ${sourceUrl('packages/agent-tools/src/node.ts')};
+import { getWorkspaceProjectStateStorage } from ${sdkUrl('@robota-sdk/agent-framework')};
+import { createNodeWorkspaceTrustService } from ${sdkUrl('@robota-sdk/agent-framework/node')};
+import { createReadTool } from ${sdkUrl('@robota-sdk/agent-tools/node')};
 
 hardenProductProcess();
 const prctl = createRequire(${sourceUrl('packages/agent-cli/package.json')})('koffi')
@@ -158,7 +160,7 @@ function startProcess(argv: readonly string[], env: NodeJS.ProcessEnv = {}): Pro
   });
 }
 
-const TSX = ['--import', join(root, 'node_modules/tsx/dist/loader.mjs'), '--conditions=source'];
+const TSX = ['--import', join(root, 'node_modules/tsx/dist/loader.mjs'), '--conditions=product-source'];
 
 function startEntry(mode: 'harden' | 'product' | 'control', env?: NodeJS.ProcessEnv): Promise<IStarted> {
   return startProcess([...TSX, entry, mode], env);

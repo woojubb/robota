@@ -12,8 +12,8 @@ import { promisify } from 'node:util';
 
 import electronPath from 'electron';
 import { _electron as electron } from 'playwright';
-import { resolveProductConfig } from '../../../packages/product-config/src/index.ts';
-import { createNodeWorkspaceTrustService } from '../../../packages/agent-framework/src/node.ts';
+import { resolveProductConfig } from '@robota-sdk/product-config';
+import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 import { createCliRuntimeContext } from '../../../packages/agent-cli/src/product/runtime-context.ts';
 import { respond } from '../../../packages/agent-cli/src/__tests__/helpers/provider-wire-fixture.ts';
 import { buildProductTestEnvironment, readDesktopTestIdentity } from './product-fixture.mjs';
@@ -74,7 +74,7 @@ const waitUntil = async (predicate, label, timeout = 20_000) => {
   }
 };
 async function runCli(args) {
-  const result = await runFile(process.execPath, ['--import', loader, '--conditions=source', cli, ...args], {
+  const result = await runFile(process.execPath, ['--import', loader, '--conditions=product-source', cli, ...args], {
     cwd: workspace, env: environment, timeout: 45_000, maxBuffer: 4 * 1024 * 1024,
   });
   const diagnosticOutput = args[0] === 'daemon' && args[1] === 'status'
@@ -133,7 +133,7 @@ try {
   writeFileSync(join(commands, 'compact-proof.md'), '---\ndescription: Complete the deterministic local compaction acceptance prompt.\n---\nCLI_SLASH_COMPACT_ACCEPTANCE\n');
   const trust = createNodeWorkspaceTrustService(runtime.layout.userPaths.workspaceTrust, runtime.layout.projectStateDirectories);
   assert.equal((await trust.grant(workspace)).status, 'trusted');
-  writeFileSync(sidecar, `#!/bin/sh\nexec ${shellQuote(process.execPath)} --import ${shellQuote(loader)} --conditions=source ${shellQuote(cli)} "$@"\n`);
+  writeFileSync(sidecar, `#!/bin/sh\nexec ${shellQuote(process.execPath)} --import ${shellQuote(loader)} --conditions=product-source ${shellQuote(cli)} "$@"\n`);
   chmodSync(sidecar, 0o755);
   rpc = createServer(async (request, response) => {
     try {

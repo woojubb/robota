@@ -9,6 +9,7 @@
     ".": {
       "source": "./src/index.ts",
       "browser": null,
+      "product-source": "./src/index.ts",
       "node": {
         "import": {
           "types": "./dist/node/index.d.ts",
@@ -45,8 +46,8 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-session": "workspace:*"
+    "@robota-sdk/agent-core": "npm:@robota-sdk/agent-core@3.2.1",
+    "@robota-sdk/agent-session": "npm:@robota-sdk/agent-session@3.2.1"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

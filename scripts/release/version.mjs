@@ -53,6 +53,8 @@ export function updateFeature(workspace) {
 }
 
 export function generateVersion(workspace) {
+  const cliPath = path.join(workspace, 'packages/agent-cli/package.json');
+  const previousCliVersion = JSON.parse(readFileSync(cliPath, 'utf8')).version;
   run(process.execPath, [executable('@changesets/cli', 'bin.js'), 'version'], workspace);
   if (process.platform === 'win32') {
     run(
@@ -63,7 +65,7 @@ export function generateVersion(workspace) {
   } else {
     run('pnpm', ['install', '--lockfile-only', '--ignore-scripts'], workspace);
   }
-  updateFeature(workspace);
+  if (JSON.parse(readFileSync(cliPath, 'utf8')).version !== previousCliVersion) updateFeature(workspace);
   const changed = output('git', ['diff', '--name-only', '-z', '--diff-filter=ACM'], workspace)
     .split('\0')
     .filter((file) => /\.(?:json|md|ya?ml)$/u.test(file));

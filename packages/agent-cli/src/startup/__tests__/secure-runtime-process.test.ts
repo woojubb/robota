@@ -39,7 +39,7 @@ it.skipIf(process.platform === 'win32')('starts the real secure CLI runtime and 
   const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '0' });
   const runtime = createTestProductRuntime('test-product', env);
   const id = randomUUID();
-  const child = spawn(process.execPath, ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--import', recorder, '--conditions=source', fixture, '--serve', '--safe-mode', '--supervised-session-id', id, '--supervised-spawner-pair'], {
+  const child = spawn(process.execPath, ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--import', recorder, '--conditions=product-source', fixture, '--serve', '--safe-mode', '--supervised-session-id', id, '--supervised-spawner-pair'], {
     cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'],
   });
   children.push(child);
@@ -92,7 +92,7 @@ it.runIf(process.platform === 'win32')('refuses secure conversation before start
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'sa-')));
   roots.push(root);
   const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '0' });
-  const child = spawn(process.execPath, ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source', fixture], {
+  const child = spawn(process.execPath, ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=product-source', fixture], {
     cwd: root, env, stdio: ['ignore', 'ignore', 'pipe'],
   });
   children.push(child);

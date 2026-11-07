@@ -51,12 +51,12 @@
   },
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "dependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-provider-anthropic": "workspace:*",
-    "@robota-sdk/agent-provider-bytedance": "workspace:*",
-    "@robota-sdk/agent-provider-gemini": "workspace:*",
-    "@robota-sdk/agent-provider-openai": "workspace:*",
-    "@robota-sdk/agent-provider-openai-compatible": "workspace:*"
+    "@robota-sdk/agent-core": "workspace:^",
+    "@robota-sdk/agent-provider-anthropic": "workspace:^",
+    "@robota-sdk/agent-provider-bytedance": "workspace:^",
+    "@robota-sdk/agent-provider-gemini": "workspace:^",
+    "@robota-sdk/agent-provider-openai": "workspace:^",
+    "@robota-sdk/agent-provider-openai-compatible": "workspace:^"
   },
   "volta": {
     "extends": "../../package.json"

@@ -86,7 +86,7 @@ function startWithTokenPipe(
         ...preload,
         '--import',
         'tsx',
-        '--conditions=source',
+        '--conditions=product-source',
         entry,
         '--serve',
         '--supervised-session-id',

@@ -2,7 +2,7 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 
-import { createDesktopSessionClient } from '../../../agent-ui-web/src/client/desktop-session-client.js';
+import { createDesktopSessionClient } from '@robota-sdk/agent-ui-web';
 import { App } from '../App.js';
 import { testProduct } from './product-fixture.js';
 

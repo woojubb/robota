@@ -21,7 +21,7 @@ afterEach(async () => {
 });
 
 async function reader(timeoutMs = 5_000) {
-  const child = spawn(process.execPath, ['--import', tsx, '--conditions=source', fixture, '--supervised-session-id', ID], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'], env: { PATH: process.env.PATH ?? '', FORWARDED_TEST_TIMEOUT_MS: String(timeoutMs) } });
+  const child = spawn(process.execPath, ['--import', tsx, '--conditions=product-source', fixture, '--supervised-session-id', ID], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'], env: { PATH: process.env.PATH ?? '', FORWARDED_TEST_TIMEOUT_MS: String(timeoutMs) } });
   children.push(child);
   const [request] = await once(child, 'message');
   expect(request).toEqual({ kind: 'forwarded-environment-needed', id: ID });

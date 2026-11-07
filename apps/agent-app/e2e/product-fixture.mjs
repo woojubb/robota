@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { embeddedProductIdentity, productConfigEntries, resolveProductConfig } from '../../../packages/product-config/dist/index.js';
+import { embeddedProductIdentity, productConfigEntries, resolveProductConfig } from '@robota-sdk/product-config';
 
 const fixtureIdentityEnvironment = {
   PRODUCT_ID: 'desktop-fixture',
