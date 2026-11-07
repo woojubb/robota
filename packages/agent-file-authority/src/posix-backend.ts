@@ -136,6 +136,11 @@ function hostCode(errno: number): string {
   return `ERRNO_${errno}`;
 }
 
+/** Darwin x64's plain symbols use legacy inode layouts; these match the SDK's declarations. */
+function inode64Symbol(name: 'fstatfs' | 'fdopendir' | 'readdir'): string {
+  return process.platform === 'darwin' && process.arch === 'x64' ? `${name}$INODE64` : name;
+}
+
 function flags(directory: boolean): number {
   const closeOnExec =
     (constants as typeof constants & { readonly O_CLOEXEC?: number }).O_CLOEXEC ??
@@ -235,10 +240,14 @@ function libcFunctions(): IPosixFunctions {
         renameExchange(sourceDirectory, source, targetDirectory, target, RENAME_EXCHANGE),
       unlinkAt: library.func('int unlinkat(int fd, const char *path, int flags)') as TUnlinkAt,
       fchmod: library.func('int fchmod(int fd, unsigned int mode)') as TFchmod,
-      fstatfs: library.func('int fstatfs(int fd, void *buf)') as TFstatfs,
+      fstatfs: library.func(
+        inode64Symbol('fstatfs'),
+        'int',
+        ['int', 'void *'],
+      ) as TFstatfs,
       dup: library.func('int dup(int fd)') as TDup,
-      fdopendir: library.func('void *fdopendir(int fd)') as TFdopendir,
-      readdir: library.func('void *readdir(void *dirp)') as TReaddir,
+      fdopendir: library.func(inode64Symbol('fdopendir'), 'void *', ['int']) as TFdopendir,
+      readdir: library.func(inode64Symbol('readdir'), 'void *', ['void *']) as TReaddir,
       closedir: library.func('int closedir(void *dirp)') as TClosedir,
     };
   }

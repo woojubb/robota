@@ -105,7 +105,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
 
       - name: Apply release packaging and verification tooling
         shell: bash
@@ -142,7 +142,7 @@ jobs:
 
       - name: Build workspace
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
-        run: pnpm install --frozen-lockfile && pnpm build
+        run: pnpm install --frozen-lockfile && pnpm -r --filter "{apps/agent-app}^..." run build
 
       - name: Verify Windows native control transport
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
@@ -346,7 +346,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
       - name: Generate selected product workspace
         id: product
         shell: bash
@@ -403,7 +403,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
       - name: Generate selected product workspace
         id: product
         shell: bash
