@@ -4,8 +4,7 @@
  * `require`, `Buffer`, `global`, `setImmediate`, `__dirname` among them — and the error names it.
  *
  * Every name below is a web standard that a browser and a Worker both define. A name is added only
- * when a bundle under proof reads it, and with the reason; this is not a place to make a scenario
- * pass.
+ * when a bundle under proof reads it, and with the reason.
  */
 
 /** [name, why a library under proof reads it]. The host's own value is shared, so its classes are the page's. */
@@ -78,7 +77,7 @@ export const NODE_ONLY_GLOBAL_NAMES = [
 
 /**
  * The sandbox object a `vm` context takes its globals from, and what it collected: the console
- * output, and the timers still pending (cleared by `dispose`, so a scenario that leaves one running
+ * output, and the timers still pending (cleared by `dispose`, so a load that leaves one running
  * cannot hold the process open).
  */
 export function createRealmGlobals(host = globalThis) {
@@ -115,6 +114,7 @@ export function createRealmGlobals(host = globalThis) {
         (...args) => logs.push({ level, text: args.map((value) => String(value)).join(' ') }),
       ]),
     ),
+    fetch: () => Promise.reject(new Error('Network is unavailable in the browser entry proof.')),
   });
   return {
     sandbox,
