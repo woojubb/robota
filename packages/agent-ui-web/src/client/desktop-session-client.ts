@@ -1,99 +1,78 @@
-import {
-  decodeClientMessage,
-  decodeFrame,
-  decodeServerMessage,
-  MAX_INBOUND_FRAME_BYTES,
-} from '@robota-sdk/agent-transport/client';
+import { decodeFrame, decodeServerMessage } from '@robota-sdk/agent-transport/client';
 
-import type { IWsSessionClientCallbacks } from './ws-session-client.js';
+import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport';
 import type { ISessionClientHandle } from '../hooks/session-client-types.js';
-import type { TClientMessage } from '@robota-sdk/agent-transport';
+import type { TConnectionStatus } from './ws-session-client.js';
 
-/** A context-isolated preload exposes only this session facade, never its MessagePort. */
+/** The secure desktop preload exposes frames, never an owner credential or a daemon endpoint. */
 export interface IDesktopSessionBridge {
   subscribe(onFrame: (frame: string) => void, onClose: () => void, onReady: () => void): () => void;
   send(frame: string): boolean;
   close(): void;
 }
 
-function fits(frame: string): boolean {
-  return (
-    frame.length <= MAX_INBOUND_FRAME_BYTES &&
-    new TextEncoder().encode(frame).byteLength <= MAX_INBOUND_FRAME_BYTES
-  );
-}
-
-/** One bridge belongs to one admitted session and is never reconnected after revocation. */
 export function createDesktopSessionClient(
   bridge: IDesktopSessionBridge,
-  callbacks: IWsSessionClientCallbacks,
+  callbacks: {
+    readonly onMessage: (message: TServerMessage) => void;
+    readonly onStatusChange: (status: TConnectionStatus) => void;
+  },
 ): ISessionClientHandle {
-  let state: 'idle' | 'connecting' | 'connected' | 'closed' = 'idle';
-  let unsubscribe: (() => void) | undefined;
-  let ready = false;
-
-  function finish(status: 'disconnected' | 'error'): void {
-    if (state === 'closed') return;
-    state = 'closed';
-    unsubscribe?.();
-    unsubscribe = undefined;
-    bridge.close();
-    callbacks.onStatusChange(status);
-  }
-
-  function send(message: TClientMessage): void {
-    if (state !== 'connected') return;
-    try {
-      const decoded = decodeClientMessage(message);
-      const frame = JSON.stringify(message);
-      if (!decoded.ok || !fits(frame) || !bridge.send(frame)) finish('error');
-    } catch {
-      finish('error');
-    }
-  }
-
-  function connect(): void {
-    if (state !== 'idle') return;
-    state = 'connecting';
-    callbacks.onStatusChange('connecting');
-    if (state !== 'connecting') return;
-    function activate(): void {
-      if (!ready || !unsubscribe || state !== 'connecting') return;
-      state = 'connected';
-      callbacks.onStatusChange('connected');
-      send({ type: 'get-messages' });
-    }
-    try {
-      const release = bridge.subscribe(
-        (frame) => {
-          if (state !== 'connected') return;
-          if (typeof frame !== 'string' || !fits(frame)) {
-            finish('error');
-            return;
-          }
-          const decoded = decodeFrame(frame, decodeServerMessage);
-          if (!decoded.ok) {
-            finish('error');
-            return;
-          }
-          callbacks.onMessage(decoded.message);
-        },
-        () => finish('disconnected'),
-        () => {
-          ready = true;
-          activate();
-        },
-      );
-      if (state !== 'connecting') {
-        release();
-        return;
+  let connected = false;
+  let subscribed = false;
+  let release: (() => void) | undefined;
+  let failed = false;
+  let revoked = false;
+  const close = (): void => {
+    revoked = true;
+    connected = false;
+    if (!failed && subscribed) callbacks.onStatusChange('disconnected');
+  };
+  return {
+    connect() {
+      if (revoked || failed) return;
+      if (subscribed) return;
+      subscribed = true;
+      callbacks.onStatusChange('connecting');
+      try {
+        release = bridge.subscribe(
+          (frame) => {
+            if (!subscribed || failed || revoked) return;
+            const decoded = decodeFrame(frame, decodeServerMessage);
+            if (!decoded.ok) {
+              failed = true;
+              connected = false;
+              bridge.close();
+              callbacks.onStatusChange('error');
+              return;
+            }
+            callbacks.onMessage(decoded.message);
+          },
+          close,
+          () => {
+            if (!subscribed || failed || revoked) return;
+            connected = true;
+            callbacks.onStatusChange('connected');
+            bridge.send(JSON.stringify({ type: 'get-messages' }));
+          },
+        );
+      } catch {
+        close();
       }
-      unsubscribe = release;
-      activate();
-    } catch {
-      finish('error');
-    }
-  }
-
-  return { connect, send, disconnect: () => finish('disconnected') };
+    },
+    disconnect() {
+      subscribed = false;
+      connected = false;
+      release?.();
+      release = undefined;
+      callbacks.onStatusChange('disconnected');
+    },
+    send(message: TClientMessage) {
+      if (!connected || failed) return;
+      if (!bridge.send(JSON.stringify(message))) {
+        bridge.close();
+        close();
+      }
+    },
+  };
 }

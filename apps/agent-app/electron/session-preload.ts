@@ -17,6 +17,7 @@ const pending = new Set<number>();
 const buffered: Array<{ seq: number; frame: string }> = [];
 let readyScheduled = false;
 let readyDelivered = false;
+let subscriptionEpoch = 0;
 
 function fits(frame: string): boolean {
   return (
@@ -50,7 +51,12 @@ function deliver(seq: number, frame: string): void {
 }
 
 function signalReady(): void {
-  if (readyScheduled || !port || !notifyReady || ended) return;
+  if (!port || !notifyReady || ended) return;
+  if (readyDelivered) {
+    queueMicrotask(() => { if (!ended && port && notifyReady) notifyReady(); });
+    return;
+  }
+  if (readyScheduled) return;
   readyScheduled = true;
   queueMicrotask(() => {
     if (ended || !port || !notifyReady) return;
@@ -130,8 +136,17 @@ if (process.isMainFrame) {
       receive = onFrame;
       notifyClose = onClose;
       notifyReady = onReady;
+      subscriptionEpoch += 1;
       signalReady();
-      return close;
+      return () => {
+        if (receive === onFrame) receive = undefined;
+        if (notifyClose === onClose) notifyClose = undefined;
+        if (notifyReady === onReady) notifyReady = undefined;
+        const epoch = ++subscriptionEpoch;
+        queueMicrotask(() => {
+          if (epoch === subscriptionEpoch && !receive) close();
+        });
+      };
     },
     send(frame: string): boolean {
       if (

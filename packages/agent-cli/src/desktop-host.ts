@@ -11,6 +11,9 @@ import type { TConfigEnvironment } from '@robota-sdk/product-config';
 import type { IProductConfig } from '@robota-sdk/product-config';
 import type { IProductCliArtifact } from './product/artifact.js';
 
+export { desktopConversationMode, openDesktopSecureOwner } from './desktop-secure-host.js';
+export type { IDesktopSecureOwnerOptions, TDesktopSecureSecret } from './desktop-secure-host.js';
+
 export interface IDesktopCliResult {
   readonly exitCode: number | null;
   readonly stdout: string;

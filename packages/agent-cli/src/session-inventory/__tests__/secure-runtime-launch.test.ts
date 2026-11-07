@@ -66,6 +66,24 @@ it('exchanges the spawner key before reporting a real secure runtime ready', asy
   await stopped;
 }, 60_000);
 
+it('uses an explicit desktop sidecar command instead of this process entry', async () => {
+  const { root, runtime, launch } = options('/missing/electron-main.js');
+  const started = await launchRuntimeProcess(root, {
+    ...launch,
+    mode: 'spawner',
+    launchCommand: {
+      executable: process.execPath,
+      args: [...launch.execArgs, fixture],
+    },
+  });
+  const supervisedRoot = resolveSupervisedDirectory(runtime);
+  const rows = await listSupervisedSessions(supervisedRoot, undefined, { includeGeneration: true });
+  const row = rows.find((item) => item.id === started.id);
+  expect(row?.generation).toBeDefined();
+  if (row?.generation) await stopSupervisedSession(started.id, supervisedRoot, row.generation);
+  started.spawnerKey.wipe();
+}, 60_000);
+
 it('ends a child that never answers the exchange, without accepting readiness', async () => {
   const { root, launch } = options(noAnswer);
   await expect(launchRuntimeProcess(root, { ...launch, mode: 'spawner', pairTimeoutMs: 400 })).rejects.toThrow(/exchange|pair/i);

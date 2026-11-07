@@ -187,6 +187,11 @@ export async function runEarlyForwardedDaemon(runtime: ICliRuntimeContext, argv:
   }
   try {
     const environment = childProductEnvironment(runtime);
+    // Admission may inspect a project through Git before the child is launched. Keep provider
+    // values in the runtime snapshot for the private handoff, but never let those Git calls inherit them.
+    for (const name of Object.keys(process.env)) {
+      if (environment[name] === undefined) delete process.env[name];
+    }
     for (const name of Object.keys(environment)) {
       if (name.startsWith('PRODUCT_TELEMETRY_') && name !== 'PRODUCT_TELEMETRY_SERVICE_NAME') delete environment[name];
     }

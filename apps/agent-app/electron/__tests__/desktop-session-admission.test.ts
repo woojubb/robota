@@ -33,14 +33,16 @@ function setup(beforeRegistration?: (ipc: EventEmitter, sender: EventEmitter) =>
   const requestSecret = vi.fn(async () => ({ type: 'passphrase' as const, value: 'synthetic' }));
   const openOwner = vi.fn(async () => ({ link, release, selected: { runtimeId: 'r', generation: 'g' } }));
   const onUnconfirmed = vi.fn();
+  const onDisposed = vi.fn();
   const admission = registerDesktopSessionAdmission({
     sender: sender as unknown as WebContents, ipc: ipc as unknown as IpcMain, isCurrent: () => true,
     expected: { workspace: '/fixture', restricted: false },
-    requestSecret, openOwner, onUnconfirmed, createChannel: () => ({ port1: {}, port2: {} }) as unknown as MessageChannelMain,
+    requestSecret, openOwner, onUnconfirmed, onDisposed,
+    createChannel: () => ({ port1: {}, port2: {} }) as unknown as MessageChannelMain,
   });
   const event = { sender, senderFrame: frame, ports: [] };
   const request = (value: unknown = event, ...extra: unknown[]) => ipc.emit('desktop-session:request', value, ...extra);
-  return { ipc, sender, frame, event, request, admission, requestSecret, openOwner, link, release, onUnconfirmed, closeLink: () => closed.resolve() };
+  return { ipc, sender, frame, event, request, admission, requestSecret, openOwner, link, release, onUnconfirmed, onDisposed, closeLink: () => closed.resolve() };
 }
 
 describe('desktop session admission', () => {
@@ -165,6 +167,7 @@ describe('desktop session admission', () => {
     expect(s.link.lock).toHaveBeenCalledOnce();
     expect(s.link.close).toHaveBeenCalledOnce();
     expect(s.release).toHaveBeenCalledOnce();
+    expect(s.onDisposed).toHaveBeenCalledOnce();
     expect((await s.admission.openFromNativeAction()).kind).toBe('not-ready');
   });
 
@@ -176,6 +179,7 @@ describe('desktop session admission', () => {
     relay.open.mock.calls[0]?.[0].onClosed();
     await expect(s.admission.dispose()).rejects.toThrow('The runtime lock could not be confirmed.');
     expect(s.onUnconfirmed).toHaveBeenCalledOnce();
+    expect(s.onDisposed).not.toHaveBeenCalled();
     expect(s.link.close).toHaveBeenCalledOnce();
     expect(s.release).toHaveBeenCalledOnce();
   });

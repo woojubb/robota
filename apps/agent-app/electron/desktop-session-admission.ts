@@ -15,6 +15,7 @@ interface IAdmissionOptions extends Pick<TOwnerOptions, 'expected' | 'requestSec
   readonly isCurrent: () => boolean;
   readonly createChannel: () => MessageChannelMain;
   readonly onUnconfirmed: () => void;
+  readonly onDisposed?: () => void;
 }
 
 /**
@@ -34,6 +35,8 @@ export function registerDesktopSessionAdmission(options: IAdmissionOptions): {
   let opening: Promise<TResult> | undefined;
   let disposing: Promise<void> | undefined;
   let reportedUnconfirmed = false;
+  let hadOpen = false;
+  let navigating = false;
   const reportUnconfirmed = (): void => {
     if (reportedUnconfirmed) return;
     reportedUnconfirmed = true;
@@ -64,7 +67,9 @@ export function registerDesktopSessionAdmission(options: IAdmissionOptions): {
     if (!source) source = { sender: event.sender, senderFrame: event.senderFrame };
   };
   const stop = (): void => { void dispose().catch(() => {}); };
-  const onNavigation = (details: { isMainFrame: boolean }): void => { if (details.isMainFrame) stop(); };
+  const onNavigation = (details: { isMainFrame: boolean }): void => {
+    if (details.isMainFrame) { navigating = true; stop(); }
+  };
   function dispose(): Promise<void> {
     if (disposing) return disposing;
     let resolve!: () => void;
@@ -88,7 +93,12 @@ export function registerDesktopSessionAdmission(options: IAdmissionOptions): {
       }
       if (result?.kind === 'lock-unconfirmed') { reportUnconfirmed(); throw new Error('The runtime lock could not be confirmed.'); }
       if (cleanupError) throw cleanupError;
-    })().then(resolve, reject);
+    })().then(() => {
+      if (hadOpen && !navigating) {
+        try { options.onDisposed?.(); } catch { /* A notification failure cannot reopen a session. */ }
+      }
+      resolve();
+    }, reject);
     return disposing;
   }
   const register = (add: () => void, remove: () => void): void => {
@@ -110,7 +120,7 @@ export function registerDesktopSessionAdmission(options: IAdmissionOptions): {
       const pending = new Promise<TResult>((done) => { resolve = done; });
       opening = pending;
       void coordinator.open({ signal: lifetime.signal, isCurrent: valid }).then((result) => {
-        if (result.kind === 'open') active = result;
+        if (result.kind === 'open') { active = result; hadOpen = true; }
         if (result.kind === 'lock-unconfirmed') reportUnconfirmed();
         opening = undefined;
         resolve(result);

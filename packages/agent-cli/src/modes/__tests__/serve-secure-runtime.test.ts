@@ -152,6 +152,7 @@ describe('a secure runtime at start', () => {
     await expect(runServeMode(secureOptions(args, overrides as Partial<IServeModeOptions>))).rejects.toThrow(reason);
 
     expect(startedHosts).not.toHaveBeenCalled();
+    expect(sent).toEqual([]);
   });
 
   it('is secure exactly when it answered its spawner pair', async () => {
@@ -160,6 +161,15 @@ describe('a secure runtime at start', () => {
     await expect(runServeMode(plain)).rejects.toThrow(/spawner pair/u);
 
     expect(startedHosts).not.toHaveBeenCalled();
+  });
+
+  it('does not send a supervised startup failure into an unrelated parent channel', async () => {
+    const { secureRuntime: _secure, ...plain } = secureOptions({
+      supervisedSpawnerPair: undefined,
+      daemon: true,
+    });
+    await expect(runServeMode(plain)).rejects.toThrow('The daemon has no WebSocket endpoint.');
+    expect(sent).toEqual([]);
   });
 
   it('registers no WebSocket and gives its control socket to its custody', async () => {

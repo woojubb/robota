@@ -33,6 +33,9 @@ function WsSessionView({ url, host }: { url: string; host: IGuiHost }): React.Re
 
 function PortSessionView({ makeClient, host }: { makeClient: TMakeSessionClient; host: IGuiHost }): React.ReactElement {
   const state = useSessionClient(makeClient);
+  if (host.secureMode && state.status !== 'connected') {
+    return <CenteredChrome tone="muted">Secure conversation is locked. Choose File → Unlock Secure Conversation to open it.</CenteredChrome>;
+  }
   return <SessionView state={{ ...state, connectionLost: state.status === 'disconnected' || state.status === 'error' }} host={host} />;
 }
 
@@ -47,7 +50,7 @@ function SessionView({ state, host }: { state: IWsSessionState; host: IGuiHost }
   useEffect(() => host.onOpenSettings(openSettings), [host, openSettings]);
   const restart = host.restartRuntime;
   const currentSessionId = state.sessionListing?.currentSessionId ?? null;
-  const onReconnect = restart
+  const onReconnect = restart && !host.secureMode
     ? async (): Promise<void> => {
         if (currentSessionId) rememberSessionForRestore(storage.browserNamespace, currentSessionId);
         await restart();
@@ -58,11 +61,12 @@ function SessionView({ state, host }: { state: IWsSessionState; host: IGuiHost }
       state={state}
       surface={host.kind === 'desktop' ? 'app' : 'web'}
       personalUsageEnabled
+      draftMode={host.secureMode ? 'volatile' : 'persistent'}
       onReconnect={onReconnect}
       pickFiles={host.pickFiles}
       getPathForFile={host.getPathForFile}
       onOpenMemoryInEditor={host.openMemoryInEditor}
-      appViewSandboxUrl={new URL('app-sandbox.html', document.baseURI).href}
+      appViewSandboxUrl={host.secureMode ? undefined : new URL('app-sandbox.html', document.baseURI).href}
     />
   );
 }

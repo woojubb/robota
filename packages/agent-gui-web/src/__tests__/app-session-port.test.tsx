@@ -37,7 +37,7 @@ describe('session-only desktop host', () => {
         receive = frame;
         revoked = close;
         ready();
-        return () => {};
+        return () => { bridge.close(); };
       },
       send: (frame: string) => { sent.push(frame); return true; },
       close: vi.fn(),
@@ -121,7 +121,7 @@ describe('session-only desktop host', () => {
         const bridge = {
           subscribe: (_frame: (value: string) => void, _close: () => void, ready: () => void) => {
             ready();
-            return () => {};
+            return () => { bridge.close(); };
           },
           send: () => true,
           close: vi.fn(),

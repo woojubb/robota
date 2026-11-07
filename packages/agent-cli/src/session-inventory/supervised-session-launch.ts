@@ -233,6 +233,8 @@ export interface ISupervisedLaunchOptions {
     readonly productRuntime: ICliRuntimeContext;
     readonly entrypoint?: string;
     readonly execArgs?: readonly string[];
+    /** Explicit sidecar command for a host whose own executable is not the CLI (such as Electron). */
+    readonly launchCommand?: { readonly executable: string; readonly args: readonly string[] };
     readonly env?: NodeJS.ProcessEnv;
     readonly name?: string;
     readonly onSpawn?: (child: ChildProcess) => void;
@@ -328,9 +330,10 @@ async function launchRuntime(
   const sentGrantIds = grants.map((grant) => grant.grantId);
   const root = grants.length > 0 ? (options.root ?? resolveSupervisedDirectory(options.productRuntime)) : undefined;
   const self = resolveSelfForkWorkerEntry();
-  const entryArgs = options.entrypoint ? [options.entrypoint] : self.args;
+  const entryArgs = options.launchCommand?.args ?? (options.entrypoint ? [options.entrypoint] : self.args);
   // Explicitly supplied flags keep the inspector signal closed too.
-  const execArgs = withInspectorSignalDisabled(options.execArgs ?? self.execArgv ?? []);
+  const execArgs = options.launchCommand ? [] : withInspectorSignalDisabled(options.execArgs ?? self.execArgv ?? []);
+  const executable = options.launchCommand?.executable ?? self.execPath;
   const id = randomUUID();
   const discardHandoff = (): void => {
     if (root !== undefined) discardSupervisedGrantHandoff(root, id);
@@ -344,7 +347,7 @@ async function launchRuntime(
     : withoutTransportTokenNames(inheritedEnv, options.productRuntime.config.identity.envPrefix);
   let child: ChildProcess;
   try {
-    child = spawn(self.execPath, [
+    child = spawn(executable, [
       ...execArgs, ...entryArgs, '--serve', '--supervised-session-id', id,
       ...(options.name === undefined ? [] : [`--name=${options.name}`]),
       ...(grants.length > 0 ? ['--supervised-external-event-grants'] : []),

@@ -1,8 +1,8 @@
 /**
  * GUI-002 — Electron main process (Node). Thin shell: ask the configured CLI to start this workspace's daemon
  * (or reuse the live one), load the GUI web app (agent-gui-web) in a hardened BrowserWindow, and hand the
- * page the daemon's loopback address. The daemon belongs to the CLI and outlives the window. NO session/
- * command/permission logic lives here — all of that is in the daemon, reached over the loopback WS.
+ * page the daemon's loopback address in plain mode. Secure mode instead admits the native owner
+ * through a session port and confirms runtime lock before the window or app closes.
  */
 
 import { spawn } from 'node:child_process';
@@ -12,7 +12,7 @@ import {
   REMOTE_RUNTIME_FAILURE,
 } from './remote-runtime.js';
 import { remotePermissionText } from './remote-permission-display.js';
-import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -20,12 +20,15 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  MessageChannelMain,
   Menu,
   session,
   shell,
   type MenuItemConstructorOptions,
   type WebContents,
 } from 'electron';
+import { registerDesktopSessionAdmission } from './desktop-session-admission.js';
+import { openSecretWindow } from './secret-window.js';
 
 import {
   appendOutputTail,
@@ -58,7 +61,10 @@ import {
   loadDesktopProductConfigSelection,
   resolveDesktopIdentity,
 } from './product-config.js';
-import { refusedRemoteDebuggingSwitch, REMOTE_DEBUGGING_REFUSED_EXIT_CODE } from './launch-guard.js';
+import {
+  refusedRemoteDebuggingSwitch,
+  REMOTE_DEBUGGING_REFUSED_EXIT_CODE,
+} from './launch-guard.js';
 
 // Before any window, runtime or credential exists: Chromium opens a remote debugging endpoint only after this script
 // has run, and `app.exit` before the app is ready ends the process on the spot.
@@ -68,7 +74,9 @@ const refusedSwitch = refusedRemoteDebuggingSwitch({
   hasSwitch: (name) => app.commandLine.hasSwitch(name),
 });
 if (refusedSwitch !== undefined) {
-  console.error(`[agent-app] refusing to start: --${refusedSwitch} would let another program drive this app.`);
+  console.error(
+    `[agent-app] refusing to start: --${refusedSwitch} would let another program drive this app.`,
+  );
   app.exit(REMOTE_DEBUGGING_REFUSED_EXIT_CODE);
 }
 
@@ -83,6 +91,28 @@ const productSelection = loadDesktopProductConfigSelection({
 const productConfig = productSelection.config;
 const hostEnvironment = desktopHostEnvironment(productConfig, ambientEnvironment);
 const remoteMode = hostEnvironment.PRODUCT_DESKTOP_REMOTE_CONNECTION_CONFIG !== undefined;
+let conversationMode: 'plain' | 'preparing' | 'secure' = 'plain';
+let desktopAdmission: ReturnType<typeof registerDesktopSessionAdmission> | undefined;
+let secureLockUnconfirmed = false;
+let secureLockPending = false;
+
+async function disposeDesktopAdmission(): Promise<void> {
+  const admission = desktopAdmission;
+  if (!admission) return;
+  desktopAdmission = undefined;
+  secureLockPending = true;
+  try {
+    await admission.dispose();
+  } finally {
+    secureLockPending = false;
+  }
+}
+
+async function readConversationMode(): Promise<typeof conversationMode> {
+  if (remoteMode) return 'plain';
+  const { desktopConversationMode } = await import('@robota-sdk/agent-cli/desktop-host');
+  return desktopConversationMode(productConfig);
+}
 let admittedProviderEnvironmentReferences: readonly string[] = [];
 const allowScriptedE2eVariables =
   !app.isPackaged &&
@@ -180,6 +210,12 @@ let restricted = false;
 
 /** Run the daemon start command and read its answer. */
 async function startDaemon(): Promise<TDaemonStart> {
+  if (!remoteMode && (await readConversationMode()) !== 'plain') {
+    return {
+      ok: false,
+      detail: 'Secure conversations use native unlock; no WebSocket daemon endpoint is available.',
+    };
+  }
   if (remoteMode) {
     try {
       await remoteRuntime?.close();
@@ -230,8 +266,8 @@ async function readTrustQuestion(): Promise<ITrustQuestion | undefined> {
     run.spawned && run.exitCode === 0
       ? (parseTrustedProviderEnvironmentReferences(run.stdout) ?? [])
       : [];
-  pendingTrustCandidate = run.spawned && run.exitCode === 0
-    ? parseTrustCandidate(run.stdout) : undefined;
+  pendingTrustCandidate =
+    run.spawned && run.exitCode === 0 ? parseTrustCandidate(run.stdout) : undefined;
   return run.spawned && run.exitCode === 0 ? parseTrustStatusOutput(run.stdout) : undefined;
 }
 
@@ -287,7 +323,9 @@ function installCsp(): void {
     cb({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': [buildContentSecurityPolicy(daemon.port())],
+        'Content-Security-Policy': [
+          buildContentSecurityPolicy(conversationMode === 'plain' ? daemon.port() : undefined),
+        ],
       },
     });
   });
@@ -339,7 +377,10 @@ function openRecentMenuItem(): MenuItemConstructorOptions {
     id: 'open-recent',
     label: 'Open Recent',
     submenu: [
-      ...recent.map((folder) => ({ label: folder, click: () => openFolderFromMenu(async () => folder) })),
+      ...recent.map((folder) => ({
+        label: folder,
+        click: () => openFolderFromMenu(async () => folder),
+      })),
       ...(recent.length > 0 ? [{ type: 'separator' } as const] : []),
       {
         label: 'Clear Recently Opened',
@@ -353,9 +394,43 @@ function openRecentMenuItem(): MenuItemConstructorOptions {
   };
 }
 
+function unlockSecureMenuItem(): MenuItemConstructorOptions {
+  return {
+    id: 'unlock-secure-conversation',
+    label: 'Unlock Secure Conversation…',
+    enabled: !secureLockUnconfirmed,
+    click: () => {
+      const admission = desktopAdmission;
+      if (!admission) return;
+      void admission.openFromNativeAction().then((result) => {
+        if (result.kind === 'open' || result.kind === 'cancelled') return;
+        const win = liveWindow();
+        if (!win) return;
+        void dialog.showMessageBox(win, {
+          type: 'warning',
+          message:
+            result.kind === 'lock-unconfirmed'
+              ? 'The secure runtime lock could not be confirmed. Restart the app before trying again.'
+              : result.kind === 'busy'
+                ? 'A secure conversation is already open.'
+                : 'The secure conversation could not be unlocked. Check the passphrase and runtime, then try again.',
+        });
+      });
+    },
+  };
+}
+
 /** The File menu's folder items; a remote task has no local folder to open. */
 function folderMenuItems(): MenuItemConstructorOptions[] {
-  return remoteMode ? [] : [openFolderMenuItem(), openRecentMenuItem()];
+  return remoteMode
+    ? []
+    : [
+        openFolderMenuItem(),
+        openRecentMenuItem(),
+        ...(conversationMode === 'secure'
+          ? [{ type: 'separator' } as const, unlockSecureMenuItem()]
+          : []),
+      ];
 }
 
 /**
@@ -434,7 +509,9 @@ async function pickFolder(win?: BrowserWindow): Promise<string | undefined> {
     buttonLabel: 'Open',
     properties: ['openDirectory', 'createDirectory'] as Array<'openDirectory' | 'createDirectory'>,
   };
-  const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+  const result = win
+    ? await dialog.showOpenDialog(win, options)
+    : await dialog.showOpenDialog(options);
   return result.canceled ? undefined : result.filePaths[0];
 }
 
@@ -470,7 +547,11 @@ async function openFolder(folder: string): Promise<void> {
     if (!isDirectory(folder)) {
       writeRecentFolders(readRecentFolders().filter((recent) => recent !== folder));
       refreshMenu();
-      const message = { type: 'warning' as const, message: 'That folder no longer exists.', detail: folder };
+      const message = {
+        type: 'warning' as const,
+        message: 'That folder no longer exists.',
+        detail: folder,
+      };
       const win = liveWindow();
       await (win ? dialog.showMessageBox(win, message) : dialog.showMessageBox(message));
       return false;
@@ -481,9 +562,16 @@ async function openFolder(folder: string): Promise<void> {
     admittedProviderEnvironmentReferences = [];
     // A start still running belongs to the previous folder; let it settle before asking for this one.
     await daemon.current()?.catch(() => undefined);
+    if (conversationMode === 'secure') {
+      await disposeDesktopAdmission();
+    }
     useFolder(folder);
     const win = liveWindow();
     if (!win) return true;
+    if (conversationMode === 'secure') {
+      win.destroy();
+      return true;
+    }
     pendingTrust = await readTrustQuestion();
     if (pendingTrust === undefined) await daemon.start();
     if (!win.isDestroyed()) win.webContents.reload();
@@ -508,12 +596,13 @@ async function createWindow(): Promise<void> {
     }
     useFolder(initial);
   }
+  conversationMode = await readConversationMode();
 
   // In a folder not trusted yet the daemon would be refused; the person in front is asked first.
   const started = inFolderOrder(() =>
     readTrustQuestion().then((question) => {
       pendingTrust = question;
-      return question === undefined ? daemon.start() : undefined;
+      return question === undefined && conversationMode !== 'secure' ? daemon.start() : undefined;
     }),
   );
 
@@ -522,7 +611,7 @@ async function createWindow(): Promise<void> {
     height: 780,
     show: false,
     webPreferences: {
-      preload: join(__dirname, 'preload.js'),
+      preload: join(__dirname, conversationMode === 'secure' ? 'secure-preload.js' : 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -534,6 +623,93 @@ async function createWindow(): Promise<void> {
   win.on('page-title-updated', (event) => event.preventDefault());
   win.setTitle(windowTitle(app.name, remoteMode ? undefined : workspaceFolder));
   win.once('ready-to-show', () => win.show());
+  win.on('close', (event) => {
+    if (conversationMode !== 'secure') return;
+    if (secureLockUnconfirmed || secureLockPending) {
+      event.preventDefault();
+      return;
+    }
+    if (!desktopAdmission) return;
+    event.preventDefault();
+    void disposeDesktopAdmission().then(
+      () => {
+        if (!win.isDestroyed()) win.destroy();
+      },
+      (error: unknown) => {
+        secureLockUnconfirmed = true;
+        reportFatal(
+          win.webContents,
+          error instanceof Error
+            ? error.message
+            : 'The secure runtime lock could not be confirmed.',
+        );
+      },
+    );
+  });
+
+  if (conversationMode === 'secure') {
+    win.webContents.on('did-finish-load', () => {
+      void (async () => {
+        await disposeDesktopAdmission();
+        if (
+          secureLockUnconfirmed ||
+          win.isDestroyed() ||
+          pendingTrust !== undefined ||
+          workspaceFolder === undefined
+        )
+          return;
+        const workspace = workspaceFolder;
+        const admission = registerDesktopSessionAdmission({
+          sender: win.webContents,
+          ipc: ipcMain,
+          expected: { workspace: realpathSync(workspace), restricted },
+          requestSecret: (signal) => openSecretWindow(win, signal),
+          openOwner: async (secret, signal) => {
+            const { openDesktopSecureOwner } = await import('@robota-sdk/agent-cli/desktop-host');
+            return openDesktopSecureOwner({
+              config: productConfig,
+              environment: hostEnvironment,
+              workspace,
+              restricted,
+              secret,
+              signal,
+              childEnvironment: desktopDaemonEnvironment(productConfig, hostEnvironment, {
+                restricted,
+                providerEnvironmentReferences: admittedProviderEnvironmentReferences,
+                allowScriptedE2eVariables,
+              }),
+              launchCommand: { executable: productCli(), args: [] },
+            });
+          },
+          isCurrent: () =>
+            !secureLockUnconfirmed &&
+            conversationMode === 'secure' &&
+            workspaceFolder === workspace,
+          createChannel: () => new MessageChannelMain(),
+          onUnconfirmed: () => {
+            secureLockUnconfirmed = true;
+            refreshMenu();
+            reportFatal(
+              win.webContents,
+              'The secure runtime lock could not be confirmed. Restart the app before reconnecting.',
+            );
+          },
+          onDisposed: () => {
+            if (desktopAdmission !== admission || secureLockUnconfirmed || win.isDestroyed())
+              return;
+            desktopAdmission = undefined;
+            if (!win.webContents.isLoadingMainFrame()) win.webContents.reload();
+          },
+        });
+        desktopAdmission = admission;
+      })().catch((error: unknown) => {
+        reportFatal(
+          win.webContents,
+          error instanceof Error ? error.message : 'Secure session admission failed.',
+        );
+      });
+    });
+  }
 
   // The CSP is fixed when the page loads, so the page loads once the daemon's port is known. A failed
   // start still loads the page: it shows the fatal screen with the CLI's reason. A pending trust
@@ -548,10 +724,14 @@ async function createWindow(): Promise<void> {
  * subscribed to state. A failed start answers `null` and reports `fatal` with the reason to that page.
  */
 ipcMain.on('agent-gui:runtime-mode', (event) => {
-  event.returnValue = remoteMode ? 'remote' : 'local';
+  event.returnValue = remoteMode ? 'remote' : conversationMode === 'secure' ? 'secure' : 'local';
 });
 
 ipcMain.handle('agent-gui:endpoint', async (event): Promise<string | null> => {
+  if (conversationMode === 'secure' || (await readConversationMode()) !== 'plain') {
+    reportFatal(event.sender, 'Secure conversations do not expose a WebSocket endpoint.');
+    return null;
+  }
   if (pendingTrust !== undefined) return null;
   const current = daemon.current();
   const started = current ? await current : null;
@@ -569,6 +749,11 @@ ipcMain.handle('agent-gui:restart', (event): Promise<void> =>
   inFolderOrder(async () => {
     // Nothing starts before the trust question is answered.
     if (pendingTrust !== undefined) return;
+    if (conversationMode === 'secure') {
+      await disposeDesktopAdmission();
+      if (!event.sender.isDestroyed()) event.sender.reload();
+      return;
+    }
     if (restricted) {
       admittedProviderEnvironmentReferences = [];
     } else {
@@ -613,6 +798,8 @@ ipcMain.handle(
   'agent-gui:open-path',
   async (_event, path: unknown): Promise<{ error?: string }> => {
     if (remoteMode) return { error: 'Remote task paths cannot open files on this computer.' };
+    if (conversationMode === 'secure')
+      return { error: 'External editors are unavailable for secure conversations.' };
     if (typeof path !== 'string') return { error: 'path must be a string' };
     if (workspaceFolder === undefined) return { error: 'No folder is open.' };
     const target = resolveOpenPathTarget(workspaceFolder, path);
@@ -647,13 +834,15 @@ ipcMain.handle(
           return { error: 'The prepared workspace approval is unavailable.' };
         }
         try {
-          const { approveDesktopTrustCandidate } = await import('@robota-sdk/agent-cli/desktop-host');
-          if (!await approveDesktopTrustCandidate(productConfig, cliEnv(), asked, candidate)) {
+          const { approveDesktopTrustCandidate } =
+            await import('@robota-sdk/agent-cli/desktop-host');
+          if (!(await approveDesktopTrustCandidate(productConfig, cliEnv(), asked, candidate))) {
             return { error: 'Workspace trust could not be confirmed.' };
           }
         } catch (error) {
           return {
-            error: error instanceof Error ? error.message : 'Workspace trust could not be confirmed.',
+            error:
+              error instanceof Error ? error.message : 'Workspace trust could not be confirmed.',
           };
         }
         pendingTrustCandidate = undefined;
@@ -666,7 +855,7 @@ ipcMain.handle(
       // Trust grant has completed. Re-read the now-admitted settings projection before starting
       // the daemon so only explicitly referenced provider/transport variables cross the boundary.
       if (choice === 'trust') await readTrustQuestion();
-      await daemon.start();
+      if (conversationMode !== 'secure') await daemon.start();
       if (!event.sender.isDestroyed()) event.sender.reload();
       return {};
     });
@@ -690,6 +879,29 @@ app
   });
 
 let closingRemote = false;
+let closingSecure = false;
+app.on('before-quit', (event) => {
+  if (secureLockUnconfirmed || secureLockPending) {
+    event.preventDefault();
+    return;
+  }
+  if (!desktopAdmission || closingSecure) return;
+  event.preventDefault();
+  closingSecure = true;
+  void disposeDesktopAdmission().then(
+    () => app.quit(),
+    (error: unknown) => {
+      closingSecure = false;
+      secureLockUnconfirmed = true;
+      console.error('[agent-app] secure runtime lock could not be confirmed:', error);
+      void dialog.showMessageBox({
+        type: 'error',
+        message: 'The secure runtime lock could not be confirmed. The app will stay open.',
+        detail: 'Stop the secure runtime before closing the app.',
+      });
+    },
+  );
+});
 app.on('before-quit', (event) => {
   if (!remoteRuntime || closingRemote) return;
   event.preventDefault();

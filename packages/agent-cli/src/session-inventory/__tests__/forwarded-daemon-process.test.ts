@@ -17,6 +17,8 @@ import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__t
 import { hostedFixture } from '../../hosted/__tests__/hosted-fixture.js';
 import { openRegisteredSpawnerLink } from '../owner-link-client.js';
 import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
+import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
+import { requestWorkspaceRootBroker, startWorkspaceRootBroker } from '../../startup/workspace-root-broker.js';
 
 import type { ChildProcess } from 'node:child_process';
 
@@ -26,7 +28,19 @@ const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
 const roots: string[] = [];
 const children: ChildProcess[] = [];
 const servers: Server[] = [];
+const brokers: Array<{ close(): Promise<void> }> = [];
+async function trustWorkspace(runtime: ReturnType<typeof createTestProductRuntime>, root: string): Promise<void> {
+  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  const directory = process.platform === 'win32' ? join(runtime.layout.userRoot, 'root-broker') : dirname(endpoint);
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  brokers.push(await startWorkspaceRootBroker(endpoint, directory, runtime.layout.userPaths.workspaceTrust));
+  const prepared = await requestWorkspaceRootBroker(endpoint, { op: 'prepare', root });
+  if (prepared.status !== 'prepared') throw new Error('Workspace trust could not be prepared.');
+  const approved = await requestWorkspaceRootBroker(endpoint, { op: 'approve', root, candidate: prepared.candidate });
+  if (approved.status !== 'trusted') throw new Error('Workspace trust could not be approved.');
+}
 afterEach(async () => {
+  for (const broker of brokers.splice(0)) await broker.close();
   for (const server of servers.splice(0)) await new Promise<void>((resolve) => server.close(() => resolve()));
   for (const child of children.splice(0)) {
     if (child.exitCode === null && child.signalCode === null) {
@@ -95,8 +109,7 @@ it.each([false, true])('forwards the pair with project-local provider override: 
     writeFileSync(projectLocalPath, JSON.stringify({ currentProvider: 'openai' }), { mode: 0o600 });
     mkdirSync(launchCwd);
   }
-  const trusted = spawnSync(process.execPath, ['--import', tsx, '--conditions=source', fixture, 'trust', '--yes'], { cwd: root, env, encoding: 'utf8', timeout: 30_000 });
-  expect(trusted.status).toBe(0);
+  await trustWorkspace(runtime, root);
   telemetryRequests = 0;
   const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=source', fixture, 'daemon', 'start', '--spawner-fd', '4', '--json'], { cwd: launchCwd, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
   children.push(child);
@@ -241,7 +254,7 @@ it('refuses forwarded local startup for valid and invalid hosted posture before 
   expect(spawnSync('git', ['init', '-q', root]).status).toBe(0);
   const base = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '0' });
   const runtime = createTestProductRuntime('test-product', base);
-  expect(spawnSync(process.execPath, ['--import', tsx, '--conditions=source', fixture, 'trust', '--yes'], { cwd: root, env: base, encoding: 'utf8', timeout: 30_000 }).status).toBe(0);
+  await trustWorkspace(runtime, root);
   const hosted = await hostedFixture();
   try {
     for (const environment of [hosted.environment, { PRODUCT_RUNTIME_POSTURE: 'hosted', PRODUCT_HOSTED_RUNTIME_CONFIG: join(root, 'missing.json') }]) {

@@ -1,9 +1,11 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 import { afterEach, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
@@ -11,9 +13,20 @@ import { productProviderDefinitions } from '../../product/provider-definitions.j
 import { restartProductEnvironment } from '../../product/restart-environment.js';
 import { createProductUserSettingsSources } from '../../product/user-settings.js';
 import { prepareForwardedEnvironment, validateForwardedEnvironment } from '../early-forwarded-daemon.js';
+import { workspaceRootBrokerEndpoint } from '../workspace-root-broker-process.js';
+import { requestWorkspaceRootBroker } from '../workspace-root-broker.js';
 
 const roots: string[] = [];
-afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
+const brokers: ReturnType<typeof spawn>[] = [];
+afterEach(async () => {
+  for (const broker of brokers.splice(0)) {
+    if (broker.exitCode === null && broker.signalCode === null) {
+      broker.kill('SIGTERM');
+      await once(broker, 'exit');
+    }
+  }
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
 
 it('forwards only admitted provider references and withholds unrelated secrets', async () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'forward-env-')));
@@ -40,8 +53,26 @@ it('forwards only admitted provider references and withholds unrelated secrets',
   await expect(validateForwardedEnvironment(runtime, project, true, { PRODUCT_CONFIG_FILE: '/tmp/attacker-config' })).rejects.toThrow(/not admitted/i);
   writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'user', providers: { user: { type: 'openai', model: 'fixture', apiKey: '$ENV:USER_PROVIDER_REF' } } }), { mode: 0o600 });
 
-  const trust = createNodeWorkspaceTrustService(runtime.layout.userPaths.workspaceTrust, runtime.layout.projectStateDirectories);
-  expect((await trust.grant(project)).status).toBe('trusted');
+  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  const brokerDirectory = process.platform === 'win32' ? join(runtime.layout.userRoot, 'root-broker') : dirname(endpoint);
+  mkdirSync(brokerDirectory, { recursive: true, mode: 0o700 });
+  const fixture = fileURLToPath(new URL('./fixtures/workspace-root-broker-server.mjs', import.meta.url));
+  const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
+  const broker = spawn(process.execPath, ['--import', tsx, '--conditions=source', fixture, endpoint], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  brokers.push(broker);
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Workspace broker did not start.')), 10_000);
+    broker.stdout?.on('data', (data: Buffer) => {
+      if (data.toString().includes('READY')) { clearTimeout(timer); resolve(); }
+    });
+    broker.once('exit', (code) => { clearTimeout(timer); reject(new Error(`Workspace broker exited ${code}.`)); });
+  });
+  const prepared = await requestWorkspaceRootBroker(endpoint, { op: 'prepare', root: project });
+  expect(prepared.status).toBe('prepared');
+  if (prepared.status !== 'prepared') return;
+  expect((await requestWorkspaceRootBroker(endpoint, { op: 'approve', root: project, candidate: prepared.candidate })).status).toBe('trusted');
   const trusted = await prepareForwardedEnvironment(runtime, project, false);
   expect(trusted.USER_PROVIDER_REF).toBeUndefined();
   expect(trusted.PROJECT_PROVIDER_REF).toBe('project-fixture');

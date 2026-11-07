@@ -17,7 +17,7 @@ it('renders session history on the real conversation surface from an admitted de
     subscribe: (frame: (value: string) => void, _close: () => void, ready: () => void) => {
       receive = frame;
       ready();
-      return () => {};
+      return () => { bridge.close(); };
     },
     send: (frame: string) => { sent.push(frame); return true; },
     close: vi.fn(),

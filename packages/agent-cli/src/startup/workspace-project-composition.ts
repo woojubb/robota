@@ -250,6 +250,31 @@ export function createInitialCliWorkspaceComposition(
   });
 }
 
+/** Read settings for a supervisor before a secure runtime has unlocked its session store. */
+export function createInitialCliWorkspaceSettingsSources(
+  cwd: string,
+  runtime: ICliRuntimeContext,
+  projectAccess: TWorkspaceProjectAccess,
+): readonly TSettingsSource[] {
+  const user = createProductUserSettingsSources(runtime);
+  if (projectAccess.status !== 'trusted') return user;
+  const authority = projectAccess.authority;
+  const trustedRoot = getWorkspaceProjectIdentity(authority).worktreeRoot;
+  const remainder = relative(trustedRoot, realpathSync(cwd));
+  if (remainder === '..' || remainder.startsWith(`..${sep}`) || isAbsolute(remainder)) {
+    throw new WorkspaceAuthorityRequiredError('Trusted project access does not cover the requested working directory.');
+  }
+  for (const namespace of ['sessions', 'session-logs', 'memory', 'checkpoints'] as const) {
+    if (getWorkspaceProjectStateStorage(authority, namespace).rootRelativePath !== runtime.layout.projectStateDirectories[namespace]) {
+      throw new WorkspaceAuthorityRequiredError('Trusted project state directories do not match this CLI product.');
+    }
+  }
+  return [
+    ...user,
+    ...createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(authority), runtime.layout.projectSettingsPaths),
+  ];
+}
+
 export function createCliWorkspaceComposition(
   options: ICreateCliWorkspaceCompositionOptions,
 ): ICliWorkspaceComposition {

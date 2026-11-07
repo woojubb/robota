@@ -10,11 +10,12 @@ import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'ele
 
 import type { IPickedFile, ITrustQuestion, TSidecarState, TTrustChoice } from './sidecar.js';
 
-const remoteMode = ipcRenderer.sendSync('agent-gui:runtime-mode') === 'remote';
+const runtimeMode = ipcRenderer.sendSync('agent-gui:runtime-mode') as 'local' | 'remote' | 'secure';
+const remoteMode = runtimeMode === 'remote';
 const api = {
-  runtimeMode: remoteMode ? ('remote' as const) : ('local' as const),
+  runtimeMode,
   /** Resolve the loopback WS URL (with the token) the renderer connects to. */
-  getEndpoint: (): Promise<string | null> => ipcRenderer.invoke('agent-gui:endpoint'),
+  getEndpoint: (): Promise<string | null> => runtimeMode === 'secure' ? Promise.resolve(null) : ipcRenderer.invoke('agent-gui:endpoint'),
   /**
    * The connection to the daemon is gone for good: ask the shell to start (or reuse) a daemon again. The
    * shell then reloads the page, which attaches to whatever the CLI answered.
@@ -38,7 +39,9 @@ const api = {
   /** The Project panel's Memory "Open in editor" (#3282 §4c): open a project-relative path in the OS
    *  default app for it. */
   openPath: (path: string): Promise<{ error?: string }> =>
-    ipcRenderer.invoke('agent-gui:open-path', path),
+    runtimeMode === 'secure'
+      ? Promise.resolve({ error: 'External editors are unavailable for secure conversations.' })
+      : ipcRenderer.invoke('agent-gui:open-path', path),
   /** Subscribe to lifecycle state (`starting`/`ready`/`fatal`). Returns an unsubscribe fn. */
   /** `detail` accompanies `fatal`: what the CLI said when the daemon could not be started. */
   onState: (cb: (state: TSidecarState, detail?: string) => void): (() => void) => {

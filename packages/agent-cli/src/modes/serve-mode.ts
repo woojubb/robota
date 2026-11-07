@@ -867,7 +867,10 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
           });
         }
       } catch (error) {
-        if (process.connected && process.send) {
+        const launchedForThisSession = process.argv.some((arg, index) =>
+          arg === `--supervised-session-id=${args.supervisedSessionId}` ||
+          (arg === '--supervised-session-id' && process.argv[index + 1] === args.supervisedSessionId));
+        if (launchedForThisSession && process.connected && process.send) {
           try {
             const refusal =
               error instanceof ExternalEventGrantRefusedError

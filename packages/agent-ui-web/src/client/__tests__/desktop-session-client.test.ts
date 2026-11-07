@@ -12,7 +12,7 @@ describe('desktop session client', () => {
         receive = onFrame;
         closed = onClose;
         onReady();
-        return () => {};
+        return () => { bridge.close(); };
       },
       send(frame: string) {
         sent.push(frame);

@@ -6,6 +6,7 @@
   "include": [
     "main.ts",
     "preload.ts",
+    "secure-preload.ts",
     "sidecar.ts",
     "secret-window.ts",
     "secret-preload.ts",

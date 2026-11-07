@@ -56,6 +56,7 @@ import { subcommandHelpFor } from '../utils/cli-help.js';
 import {
   RESTRICTED_WORKSPACE_FLAG,
   createInitialCliWorkspaceComposition,
+  createInitialCliWorkspaceSettingsSources,
   resolveInitialCliWorkspaceProjectAccess,
 } from './workspace-project-composition.js';
 import { runMcpLoginCommand, runMcpLogoutCommand } from './mcp-login-command.js';
@@ -451,12 +452,15 @@ export async function runPreparsedCliCommand(
         });
         admittedSettings.set(
           targetCwd,
-          createInitialCliWorkspaceComposition(targetCwd, {
-            productRuntime,
-            projectAccess: restricted
-              ? createRestrictedWorkspaceProjectAccess('untrusted', targetCwd)
-              : access,
-          }).settingsSources,
+          productSecureMode(productRuntime)
+            ? createInitialCliWorkspaceSettingsSources(targetCwd, productRuntime,
+                restricted ? createRestrictedWorkspaceProjectAccess('untrusted', targetCwd) : access)
+            : createInitialCliWorkspaceComposition(targetCwd, {
+                productRuntime,
+                projectAccess: restricted
+                  ? createRestrictedWorkspaceProjectAccess('untrusted', targetCwd)
+                  : access,
+              }).settingsSources,
         );
         if (productSecureMode(productRuntime)) {
           return (await startSecureBackground(targetCwd, {
@@ -498,12 +502,15 @@ export async function runPreparsedCliCommand(
         });
         admittedSettings.set(
           workspace,
-          createInitialCliWorkspaceComposition(workspace, {
-            productRuntime,
-            projectAccess: restricted
-              ? createRestrictedWorkspaceProjectAccess('untrusted', workspace)
-              : access,
-          }).settingsSources,
+          productSecureMode(productRuntime)
+            ? createInitialCliWorkspaceSettingsSources(workspace, productRuntime,
+                restricted ? createRestrictedWorkspaceProjectAccess('untrusted', workspace) : access)
+            : createInitialCliWorkspaceComposition(workspace, {
+                productRuntime,
+                projectAccess: restricted
+                  ? createRestrictedWorkspaceProjectAccess('untrusted', workspace)
+                  : access,
+              }).settingsSources,
         );
         return { restricted: restricted || access.status === 'restricted' };
       },
@@ -527,6 +534,50 @@ export async function runPreparsedCliCommand(
       stdout: (text) => process.stdout.write(text),
       stderr: (text) => process.stderr.write(text),
     });
+    return true;
+  }
+  if (productSecureMode(productRuntime) && argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'start') {
+    const start = parseStartArgs(argv.slice(SUBCOMMAND_ARGUMENT_INDEX));
+    if (start === undefined) {
+      process.stderr.write(START_USAGE.replaceAll('{{cli}}', productRuntime.config.identity.cliName));
+      process.exitCode = 1;
+      return true;
+    }
+    if (start.grantFiles.length > 0 || start.port !== undefined || start.trustedProxies.length > 0) {
+      process.stderr.write('External event grants are not available in secure mode.\n');
+      process.exitCode = 1;
+      return true;
+    }
+    const access = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
+    if (requiresHeadlessWorkspaceTrust(access) && !(start.restricted && canAskToTrust(access))) {
+      process.stderr.write(`${formatHeadlessWorkspaceTrustError(access, cwd, productRuntime.config.identity.cliName)}\n`);
+      process.exitCode = 1;
+      return true;
+    }
+    try {
+      validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
+        telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
+        serviceVersion: runtimeVersion(productRuntime),
+        surface: 'serve',
+      });
+      if (start.restricted || access.status === 'restricted') {
+        process.stderr.write(`${formatHeadlessRestrictedNotice(productRuntime.layout.projectSettingsPaths)}\n`);
+      }
+      const sources = createInitialCliWorkspaceSettingsSources(cwd, productRuntime,
+        start.restricted ? createRestrictedWorkspaceProjectAccess('untrusted', cwd) : access);
+      withholdProviderCredentials(sources, options.providerDefinitions ?? productProviderDefinitions());
+      admittedSettings.set(cwd, sources);
+      const launched = await startSecureBackground(cwd, {
+        productRuntime,
+        env: supervisedEnv(),
+        ...(start.name === undefined ? {} : { name: start.name }),
+        ...(start.restricted ? { restricted: true } : {}),
+      });
+      process.stdout.write(`Supervised session: ${launched.id}\n`);
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : 'Supervised session could not start.'}\n`);
+      process.exitCode = 1;
+    }
     return true;
   }
   const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
@@ -620,11 +671,6 @@ export async function runPreparsedCliCommand(
       process.exitCode = 1;
       return true;
     }
-    if (productSecureMode(productRuntime) && (start.grantFiles.length > 0 || start.port !== undefined || start.trustedProxies.length > 0)) {
-      process.stderr.write('External event grants are not available in secure mode.\n');
-      process.exitCode = 1;
-      return true;
-    }
     // Every grant is validated before anything starts; a refusal names the grant, never a value.
     let grants: IExternalEventGrant[];
     let eventEndpoint: ReturnType<typeof parseEventEndpoint>;
@@ -673,17 +719,13 @@ export async function runPreparsedCliCommand(
           }).settingsSources,
         );
       }
-      const id = productSecureMode(productRuntime)
-        ? (await startSecureBackground(cwd, { productRuntime, env: supervisedEnv(),
-            ...(start.name !== undefined ? { name: start.name } : {}),
-            ...(start.restricted ? { restricted: true } : {}) })).id
-        : await launchSupervisedSession(cwd, {
-            productRuntime,
-            env: supervisedEnv(),
-            ...(start.name !== undefined ? { name: start.name } : {}),
-            ...(start.restricted ? { restricted: true } : {}),
-            ...(grants.length > 0 && eventEndpoint !== undefined ? { grants, eventEndpoint } : {}),
-          });
+      const id = await launchSupervisedSession(cwd, {
+        productRuntime,
+        env: supervisedEnv(),
+        ...(start.name !== undefined ? { name: start.name } : {}),
+        ...(start.restricted ? { restricted: true } : {}),
+        ...(grants.length > 0 && eventEndpoint !== undefined ? { grants, eventEndpoint } : {}),
+      });
       process.stdout.write(`Supervised session: ${id}\n`);
     } catch (error) {
       process.stderr.write(

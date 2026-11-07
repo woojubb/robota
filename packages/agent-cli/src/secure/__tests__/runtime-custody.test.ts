@@ -791,6 +791,7 @@ describe.skipIf(process.platform === 'win32')('a certified runtime and its owner
   it('lets the owner switch to a stored record through its own binding, which a spawner could not', async () => {
     const started = await certified({ withBinder: true });
     const client = await ownerLink(started);
+    await client.unlock();
     const heard = hear(client);
     await attach(client, 'drive');
 
@@ -1050,6 +1051,7 @@ describe.skipIf(process.platform === 'win32')('the session protocol over a link'
   it('drops frames until the link says what role it binds in, and binds once', async () => {
     const started = await certified();
     const client = await ownerLink(started);
+    await client.unlock();
     const heard = hear(client);
 
     client.session.send({ type: 'submit', prompt: 'too early' });
@@ -1077,6 +1079,7 @@ describe.skipIf(process.platform === 'win32')('the session protocol over a link'
   it('keeps an observer read-only and out of the prompt path', async () => {
     const started = await certified();
     const client = await ownerLink(started);
+    await client.unlock();
     const heard = hear(client);
     expect(await attach(client, 'observe')).toMatchObject({ status: 'attached' });
 
@@ -1152,6 +1155,7 @@ describe.skipIf(process.platform === 'win32')('the session protocol over a link'
     const started = await certified({ closeFlushTimeoutMs: 200 });
     const slow = await ownerLink(started);
     const fast = await ownerLink(started);
+    await fast.unlock();
     await attach(slow, 'observe');
     await attach(fast, 'observe');
     const heard = hear(fast);
