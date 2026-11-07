@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-local-host",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Node host authority for owner-protected local runtime state.",
   "type": "module",
   "main": "dist/node/index.js",

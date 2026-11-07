@@ -1,5 +1,20 @@
 # @robota-sdk/agent-interface-execution
 
+## 3.2.0
+### Minor Changes
+
+- 12ab3f5: Follow a running fork without stopping its parent, steer its job, and continue its record after it ends.
+
+### Patch Changes
+
+- Updated dependencies [ffaf7d5]
+  - @robota-sdk/agent-core@3.2.0
+
+## 3.1.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.1.2
+
 ## 3.1.1
 ### Patch Changes
 

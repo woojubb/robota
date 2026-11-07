@@ -1,5 +1,37 @@
 # __PRODUCT_DISPLAY_NAME__-scratch
 
+## 0.0.12
+### Patch Changes
+
+- Updated dependencies [e5ce7d6]
+- Updated dependencies [12ab3f5]
+- Updated dependencies [ffaf7d5]
+- Updated dependencies [9da9c6c]
+- Updated dependencies [384a855]
+- Updated dependencies [ad5e9fb]
+  - @robota-sdk/agent-executor@3.2.0
+  - @robota-sdk/agent-session@3.2.0
+  - @robota-sdk/agent-framework@3.2.0
+  - @robota-sdk/agent-subagent-runner@3.2.0
+  - @robota-sdk/agent-core@3.2.0
+  - @robota-sdk/agent-builtin-providers@3.2.0
+  - @robota-sdk/agent-mcp@3.2.0
+  - @robota-sdk/agent-provider-openai@3.2.0
+  - @robota-sdk/agent-tools@3.2.0
+
+## 0.0.11
+### Patch Changes
+
+  - @robota-sdk/agent-builtin-providers@3.1.2
+  - @robota-sdk/agent-core@3.1.2
+  - @robota-sdk/agent-executor@3.1.2
+  - @robota-sdk/agent-framework@3.1.2
+  - @robota-sdk/agent-mcp@3.1.2
+  - @robota-sdk/agent-provider-openai@3.1.2
+  - @robota-sdk/agent-session@3.1.2
+  - @robota-sdk/agent-subagent-runner@3.1.2
+  - @robota-sdk/agent-tools@3.1.2
+
 ## 0.0.10
 ### Patch Changes
 

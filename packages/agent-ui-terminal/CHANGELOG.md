@@ -1,5 +1,46 @@
 # @robota-sdk/agent-ui-terminal
 
+## 3.2.0
+### Minor Changes
+
+- 12ab3f5: Follow a running fork without stopping its parent, steer its job, and continue its record after it ends.
+- 9da9c6c: Rename `daemon unlock` to `daemon clear-start-lock` so clearing an abandoned start lock is distinct from unlocking secure runtime keys.
+
+  Allow the session view to hand secure attach to its host for credential-based confirmation.
+
+  Allow hosts to constrain the environment used for workspace identity Git probes.
+- ad5e9fb: Allow a verified owner driving an attached terminal to review an unverified stored session. Bind each decision to the attached surface and the exact claimed bytes, and discard it when the owner cancels or the link or keys are lost.
+
+### Patch Changes
+
+- Updated dependencies [e5ce7d6]
+- Updated dependencies [12ab3f5]
+- Updated dependencies [ffaf7d5]
+- Updated dependencies [9da9c6c]
+- Updated dependencies [ad5e9fb]
+  - @robota-sdk/agent-interface-session@3.2.0
+  - @robota-sdk/agent-framework@3.2.0
+  - @robota-sdk/agent-interface-execution@3.2.0
+  - @robota-sdk/agent-core@3.2.0
+  - @robota-sdk/agent-transport@3.2.0
+  - @robota-sdk/agent-interface-command@3.2.0
+  - @robota-sdk/agent-interface-transport@3.2.0
+  - @robota-sdk/agent-interface-analytics@3.2.0
+  - @robota-sdk/agent-interface-tui@3.2.0
+
+## 3.1.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.1.2
+  - @robota-sdk/agent-framework@3.1.2
+  - @robota-sdk/agent-interface-analytics@3.1.2
+  - @robota-sdk/agent-interface-command@3.1.2
+  - @robota-sdk/agent-interface-execution@3.1.2
+  - @robota-sdk/agent-interface-session@3.1.2
+  - @robota-sdk/agent-interface-transport@3.1.2
+  - @robota-sdk/agent-interface-tui@3.1.2
+  - @robota-sdk/agent-transport@3.1.2
+
 ## 3.1.1
 ### Patch Changes
 

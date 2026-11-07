@@ -1,5 +1,41 @@
 # @robota-sdk/agent-command
 
+## 3.2.0
+### Minor Changes
+
+- 12ab3f5: Follow a running fork without stopping its parent, steer its job, and continue its record after it ends.
+- ffaf7d5: Add the runtime half of owner-link admission. Secure mode remains dormant until the product enables it.
+
+  The transport provides the spawner-pair exchange and bounded delivery of queued link frames. The CLI
+  uses the exchanged runtime identity to admit owner links, receives read grants without a passphrase,
+  locks keys when access ends, and refuses unsecured listener and control paths. The child-session spawn
+  paths can be held while a handed-over descriptor is consumed, and the runtime uses that hold during the
+  exchange.
+
+### Patch Changes
+
+- Updated dependencies [e5ce7d6]
+- Updated dependencies [12ab3f5]
+- Updated dependencies [ffaf7d5]
+- Updated dependencies [9da9c6c]
+- Updated dependencies [ad5e9fb]
+  - @robota-sdk/agent-interface-session@3.2.0
+  - @robota-sdk/agent-framework@3.2.0
+  - @robota-sdk/agent-interface-execution@3.2.0
+  - @robota-sdk/agent-core@3.2.0
+  - @robota-sdk/agent-preset@3.2.0
+  - @robota-sdk/agent-interface-command@3.2.0
+
+## 3.1.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.1.2
+  - @robota-sdk/agent-framework@3.1.2
+  - @robota-sdk/agent-interface-command@3.1.2
+  - @robota-sdk/agent-interface-execution@3.1.2
+  - @robota-sdk/agent-interface-session@3.1.2
+  - @robota-sdk/agent-preset@3.1.2
+
 ## 3.1.1
 ### Patch Changes
 

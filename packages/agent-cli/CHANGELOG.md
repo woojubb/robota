@@ -1,5 +1,33 @@
 # @robota-sdk/agent-cli
 
+## 3.2.0
+### Minor Changes
+
+- 0ea29ac: Add an opt-in secure conversation path for the desktop shell. A native owner credential opens a certified runtime, and the renderer receives a session-only port without a daemon URL or owner capability. Secure drafts remain in memory, and the desktop relocks on reload or exit. The CLI exposes the persisted mode transition and an explicit supervised child command for this host.
+- 12ab3f5: Follow a running fork without stopping its parent, steer its job, and continue its record after it ends.
+- 9da9c6c: Rename `daemon unlock` to `daemon clear-start-lock` so clearing an abandoned start lock is distinct from unlocking secure runtime keys.
+
+  Allow the session view to hand secure attach to its host for credential-based confirmation.
+
+  Allow hosts to constrain the environment used for workspace identity Git probes.
+- ad5e9fb: Allow a verified owner driving an attached terminal to review an unverified stored session. Bind each decision to the attached surface and the exact claimed bytes, and discard it when the owner cancels or the link or keys are lost.
+
+### Patch Changes
+
+- ffaf7d5: Add the runtime half of owner-link admission. Secure mode remains dormant until the product enables it.
+
+  The transport provides the spawner-pair exchange and bounded delivery of queued link frames. The CLI
+  uses the exchanged runtime identity to admit owner links, receives read grants without a passphrase,
+  locks keys when access ends, and refuses unsecured listener and control paths. The child-session spawn
+  paths can be held while a handed-over descriptor is consumed, and the runtime uses that hold during the
+  exchange.
+- 2a28af7: Read keyrings and recover abandoned lock markers safely on Windows using consistent handle identities.
+
+## 3.1.2
+### Patch Changes
+
+- 871fbef: Publish repaired restricted-workspace consumers for the Dev Container Feature and agent image.
+
 ## 3.1.1
 ### Patch Changes
 
