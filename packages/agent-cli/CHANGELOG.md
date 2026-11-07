@@ -1,5 +1,10 @@
 # @robota-sdk/agent-cli
 
+## 3.1.2
+### Patch Changes
+
+- 871fbef: Publish repaired restricted-workspace consumers for the Dev Container Feature and agent image.
+
 ## 3.1.1
 ### Patch Changes
 
