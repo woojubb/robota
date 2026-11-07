@@ -40,7 +40,6 @@
     "harness:scan:publish": "node scripts/harness/check-publish-safety.mjs",
     "harness:scan:sdk-public-surface": "node scripts/harness/check-sdk-public-surface.mjs",
     "git:push-tags": "git push --tags",
-    "publish:packages": "bash scripts/publish/publish-packages.sh",
     "publish:beta": "bash scripts/publish/publish-packages.sh",
     "deps:check": "depcruise packages/ apps/ --config .dependency-cruiser.cjs",
     "examples:typecheck": "pnpm --filter \"./examples/**\" run typecheck",
