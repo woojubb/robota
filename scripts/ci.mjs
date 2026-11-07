@@ -68,6 +68,14 @@ export function selectScope({
   });
   if (event !== 'pull_request') return full('push or manual dispatch');
   try {
+    if (process.env.CI_REUSE_MAIN === 'true') {
+      const main = git(cwd, 'rev-parse', 'refs/remotes/origin/main');
+      if (main === process.env.CI_HEAD_SHA &&
+          git(cwd, 'merge-base', base, main) === base &&
+          git(cwd, 'rev-parse', 'HEAD^{tree}') === git(cwd, 'rev-parse', `${main}^{tree}`))
+        return { full: false, developerDocs: false, reuseMain: true,
+          reason: 'fast-forward backmerge of reviewed main', checks: [], build: [], docs: false, release: false };
+    }
     const comparison = git(cwd, 'merge-base', base, 'HEAD');
     const changes = command(
       'git',
@@ -152,8 +160,9 @@ export function assertGate(needs) {
   const plan = JSON.parse(needs.scope.outputs.plan);
   if (typeof plan.release !== 'boolean') throw new Error('Invalid scope plan.');
   assertDeveloperDocs(plan);
+  assertReuseMain(plan);
   for (const job of ['workspace-build', 'static-checks', 'tests']) {
-    const omitted = plan.developerDocs === true;
+    const omitted = plan.developerDocs === true || plan.reuseMain === true;
     const expected = omitted ? 'skipped' : 'success';
     if (needs[job]?.result !== expected)
       throw new Error(`${job}: expected ${expected}, received ${needs[job]?.result}`);
@@ -165,7 +174,8 @@ export function assertNativeGate(needs) {
   const plan = JSON.parse(needs.scope.outputs.plan);
   if (typeof plan.developerDocs !== 'boolean') throw new Error('Invalid native scope plan.');
   assertDeveloperDocs(plan);
-  const expected = plan.developerDocs ? 'skipped' : 'success';
+  assertReuseMain(plan);
+  const expected = plan.developerDocs || plan.reuseMain ? 'skipped' : 'success';
   if (needs['build-bun']?.result !== expected)
     throw new Error(`Native builds: expected ${expected}, received ${needs['build-bun']?.result}`);
 }
@@ -183,6 +193,13 @@ function assertDeveloperDocs(plan) {
     plan.build.length
   )
     throw new Error('Invalid developer document selection.');
+}
+
+function assertReuseMain(plan) {
+  if (plan.reuseMain !== true) return;
+  if (plan.full !== false || plan.developerDocs !== false || plan.docs !== false ||
+      plan.release !== false || plan.checks?.length || plan.build?.length)
+    throw new Error('Invalid reviewed-main reuse selection.');
 }
 
 export function assertBuild(metadata, plan, sha, cwd = process.cwd()) {
@@ -209,7 +226,7 @@ async function main() {
     });
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `plan=${JSON.stringify(plan)}\nrelease=${plan.release}\ndeveloper_docs=${plan.developerDocs}\n`,
+      `plan=${JSON.stringify(plan)}\nrelease=${plan.release}\ndeveloper_docs=${plan.developerDocs}\nreuse_main=${plan.reuseMain === true}\n`,
     );
     console.log(JSON.stringify(plan, null, 2));
     if (process.env.GITHUB_STEP_SUMMARY)

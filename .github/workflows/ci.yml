@@ -2,8 +2,6 @@ name: CI
 on:
   pull_request:
     branches: [develop, main]
-  push:
-    branches: [main]
   workflow_dispatch:
 concurrency:
   # Keep retries out of the ref group so an old retry cannot replace a newer pending run.
@@ -21,6 +19,7 @@ jobs:
       plan: ${{ steps.scope.outputs.plan }}
       release: ${{ steps.scope.outputs.release }}
       developer_docs: ${{ steps.scope.outputs.developer_docs }}
+      reuse_main: ${{ steps.scope.outputs.reuse_main }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -33,16 +32,18 @@ jobs:
         env:
           CI_EVENT: ${{ github.event_name }}
           CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CI_REUSE_MAIN: ${{ github.base_ref == 'develop' && github.head_ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository }}
   workspace-build:
     needs: scope
-    if: needs.scope.outputs.developer_docs != 'true'
+    if: needs.scope.outputs.developer_docs != 'true' && needs.scope.outputs.reuse_main != 'true'
     uses: ./.github/workflows/ci-check.yml
     with:
       kind: build
       plan: ${{ needs.scope.outputs.plan }}
   static-checks:
     needs: [scope, workspace-build]
-    if: needs.scope.outputs.developer_docs != 'true'
+    if: needs.scope.outputs.developer_docs != 'true' && needs.scope.outputs.reuse_main != 'true'
     uses: ./.github/workflows/ci-check.yml
     with:
       kind: static
@@ -50,7 +51,7 @@ jobs:
       artifact-id: ${{ needs.workspace-build.outputs.artifact-id }}
   tests:
     needs: [scope, workspace-build]
-    if: needs.scope.outputs.developer_docs != 'true'
+    if: needs.scope.outputs.developer_docs != 'true' && needs.scope.outputs.reuse_main != 'true'
     strategy:
       fail-fast: false
       matrix:
