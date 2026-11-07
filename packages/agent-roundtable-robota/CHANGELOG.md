@@ -1,5 +1,10 @@
 # @robota-sdk/agent-roundtable-robota
 
+## 3.2.1
+### Patch Changes
+
+  - @robota-sdk/agent-roundtable@3.2.1
+
 ## 3.2.0
 ### Patch Changes
 

@@ -1,5 +1,15 @@
 # @robota-sdk/agent-session
 
+## 3.2.1
+### Patch Changes
+
+- Updated dependencies [9e86321]
+  - @robota-sdk/agent-node-lock@3.2.1
+  - @robota-sdk/agent-core@3.2.1
+  - @robota-sdk/agent-file-authority@3.2.1
+  - @robota-sdk/agent-interface-execution@3.2.1
+  - @robota-sdk/agent-interface-session@3.2.1
+
 ## 3.2.0
 ### Minor Changes
 
