@@ -13,7 +13,6 @@ Review a PR you did not write. Read-only: never commit, push, reset, checkout, s
    - **MUST** — wrong requested target, incorrect behavior, broken contract, security or data-loss risk. Blocks merge.
    - **SHOULD** — a concrete defect within the requested scope, not an optional improvement or preference. Blocks merge.
 3. SPEC.md and product slash-command/skill changes that violate their AGENTS.md requirements are a SHOULD.
-4. For a behavior change, confirm that its regression check would fail without the fix.
-5. Do not pad or suppress findings. Report scope violations as MUST; sufficient evidence with no remaining defects ends review.
+4. Do not pad or suppress findings. Report scope violations as MUST; sufficient evidence with no remaining defects ends review.
 
 End with one line: `ACTIONABLE FINDINGS: <number of MUST + SHOULD>`.

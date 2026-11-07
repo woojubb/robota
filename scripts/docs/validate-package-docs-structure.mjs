@@ -1,6 +1,9 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { listWorkspaceScopes, WORKSPACE_ROOT } from '../harness/shared.mjs';
+import { resolveWorkspaceRoot } from '../harness/shared.mjs';
+import { listWorkspacePackageDirs } from '../harness/workspace-packages.mjs';
+
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 
 const MARKDOWN_EXTENSION = '.md';
 const ROOT_DOCS_BASENAMES = new Set(['README.md', 'CHANGELOG.md']);
@@ -78,9 +81,7 @@ async function validatePackageDocumentation(packagePath) {
 }
 
 async function main() {
-  const packageDirectories = (await listWorkspaceScopes()).map((scope) =>
-    path.join(WORKSPACE_ROOT, scope.relativeDir),
-  );
+  const packageDirectories = listWorkspacePackageDirs(WORKSPACE_ROOT);
   const violations = [];
 
   for (const packagePath of packageDirectories) {

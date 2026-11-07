@@ -10,7 +10,7 @@
 #   already set, so a credential can reach `$ENV:NAME` settings without appearing in the
 #   container's configuration.
 # - Arguments starting with `-` run `robota`; anything else runs as given (for example
-#   `sh -c 'git clone … && robota trust --yes && robota -p …'`).
+#   `sh -c 'git clone … && robota --restricted-workspace -p …'`).
 set -eu
 
 state="${PRODUCT_USER_STATE_DIR:?PRODUCT_USER_STATE_DIR must be set}"
