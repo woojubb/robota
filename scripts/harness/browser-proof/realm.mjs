@@ -26,7 +26,7 @@ const describe = (error, depth = 0) => ({
   ...(depth < 4 && error?.cause !== undefined ? { cause: describe(error.cause, depth + 1) } : {}),
 });
 
-/** Faults raised outside any promise the scenario awaited: a timer callback that threw, a rejection nobody handled. */
+/** Faults raised outside the load promise: a timer callback that threw, or an unhandled rejection. */
 let faults = [];
 process.on('uncaughtException', (error) =>
   faults.push({ kind: 'uncaught exception', ...describe(error) }),
