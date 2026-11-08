@@ -108,7 +108,8 @@ async function setup(crash?: 'before' | 'after') {
     );
   }
   const options = f.ledgerOptions;
-  const replicaOptions = { options, asset: { path: f.path, ref: 'refs/heads/work', gitPath }, pause };
+  const asset = { path: f.path, ref: 'refs/heads/work', gitPath };
+  const replicaOptions = { options, asset, pause };
   const replicas = await Promise.all([
     launch('./git-replica.mjs', f.directory, replicaOptions),
     launch('./git-replica.mjs', f.directory, {

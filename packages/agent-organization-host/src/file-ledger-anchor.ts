@@ -19,7 +19,8 @@ export class OrganizationFileLedgerAnchor implements IOrganizationLedgerAnchor {
     if (!isAbsolute(options.directory)) throw new OrganizationRefused('policy-unavailable');
     this.directory = realpathSync(options.directory);
     const stat = lstatSync(this.directory);
-    if (!stat.isDirectory() || !isOwnerOnly(stat)) throw new OrganizationRefused('policy-unavailable');
+    if (!stat.isDirectory() || !isOwnerOnly(stat))
+      throw new OrganizationRefused('policy-unavailable');
     this.file = join(this.directory, 'head.json');
     this.lock = join(this.directory, 'head.lock');
   }
@@ -68,7 +69,8 @@ export class OrganizationFileLedgerAnchor implements IOrganizationLedgerAnchor {
       finally { closeSync(fd); }
       renameSync(temporary, this.file);
       temporary = undefined;
-      // Windows has no directory flush and refuses one with EPERM; there the rename is as durable as NTFS makes it.
+      // Windows has no directory flush and refuses one with EPERM; there the rename is as durable as
+      // NTFS makes it.
       if (process.platform !== 'win32') {
         const directory = openSync(this.directory, constants.O_RDONLY);
         try { fsyncSync(directory); } finally { closeSync(directory); }

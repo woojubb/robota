@@ -78,8 +78,10 @@ export class OrganizationGitAsset {
     this.gitPath = realpathSync(options.gitPath);
     this.phaseTimeoutMs = integer(options.phaseTimeoutMs ?? 1000, 1);
     if (this.phaseTimeoutMs > 1000) throw new OrganizationRefused('invalid-schema');
+    // Strings: a Windows file index can exceed the safe integers the canonical form carries.
+    const { dev, ino } = this.root;
     this.identity = createHash('sha256')
-      .update(organizationCanonical([this.path, String(this.root.dev), String(this.root.ino), this.ref]))
+      .update(organizationCanonical([this.path, String(dev), String(ino), this.ref]))
       .digest('hex');
     this.phase((run) => {
       if (run(['rev-parse', '--is-bare-repository']) !== 'true')

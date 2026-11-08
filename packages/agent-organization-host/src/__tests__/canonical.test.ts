@@ -33,7 +33,8 @@ describe('organization signing bytes', () => {
     ].join('\n');
     // Windows names the interpreter `python` and defaults its standard streams to the ANSI code page, which
     // cannot carry the Korean and emoji input, so UTF-8 is requested explicitly there and everywhere.
-    const python = spawnSync(process.platform === 'win32' ? 'python' : 'python3', ['-X', 'utf8', '-c', script], {
+    const interpreter = process.platform === 'win32' ? 'python' : 'python3';
+    const python = spawnSync(interpreter, ['-X', 'utf8', '-c', script], {
       input: JSON.stringify(value),
       encoding: 'utf8',
     });
