@@ -16,7 +16,11 @@ import type {
   IExecutionDetailRecord,
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
-import type { IWireAgentDefinitionSummary, TServerMessage } from '@robota-sdk/agent-transport';
+import type {
+  IWireAgentDefinitionSummary,
+  TServerMessage,
+  TSessionSurfaceRole,
+} from '@robota-sdk/agent-transport';
 
 export type { TAppToolArguments, TAppToolOutcome, TAppView } from '../app-view/types.js';
 
@@ -204,6 +208,8 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   sessionName: string | null;
   /** This connection's own driver id, learned from the server's first frame; null until then. */
   ownDriverId: TDriverId | null;
+  /** The role the host gave this connection, learned when it connects; null until the host answers. */
+  role: TSessionSurfaceRole | null;
   /** Null until the session has answered; refreshed after every command. */
   commandCatalog: TCommandCatalog | null;
   /** Null until the session has answered; refreshed after every command and turn. */
