@@ -28,7 +28,8 @@ const FIXTURE = fileURLToPath(new URL('./fixtures/terminal-handoff-driver.tsx', 
 const PACKAGE_DIR = fileURLToPath(new URL('../..', import.meta.url));
 /** One wait per phase, as it would be on a developer machine; the harness scales it for the host. */
 const PHASE_TIMEOUT_MS = 10_000;
-const TEST_TIMEOUT_MS = PHASE_TIMEOUT_MS * 4 * PTY_TIME_FACTOR;
+/** Five waits in sequence: a stuck phase must report its own timeout, with the events, before this fires. */
+const TEST_TIMEOUT_MS = PHASE_TIMEOUT_MS * 5 * PTY_TIME_FACTOR;
 
 const tempDirs: string[] = [];
 const sessions: IPtyRunSession[] = [];

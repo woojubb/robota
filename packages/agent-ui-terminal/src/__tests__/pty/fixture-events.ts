@@ -1,5 +1,5 @@
 /**
- * The events a PTY fixture records for the test that drives it.
+ * Test side of the events a PTY fixture records for it (the fixture side is `fixture-event-log.ts`).
  *
  * A test cannot rely on a marker printed to the terminal: a Windows pseudo-console redraws its screen
  * and may never show text that a later frame erased, and a marker lost that way fails a test whose
@@ -7,8 +7,9 @@
  * `<result path>.events`, and the test waits on that file. A timeout reports the events recorded so
  * far and the tail of the terminal, which says which step did not happen.
  */
-import { appendFileSync, existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
+import { fixtureEventsPath } from './fixture-event-log.js';
 import { PTY_TIME_FACTOR } from './spawn-pty.js';
 
 import type { IPtyRunSession } from './spawn-pty.js';
@@ -16,18 +17,8 @@ import type { IPtyRunSession } from './spawn-pty.js';
 const POLL_MS = 50;
 const TERMINAL_TAIL_LENGTH = 2000;
 
-function eventsPathOf(resultPath: string): string {
-  return `${resultPath}.events`;
-}
-
-/** Fixture side: records `event`; a fixture with no result path records nothing. */
-export function recordFixtureEvent(resultPath: string | undefined, event: string): void {
-  if (resultPath)
-    appendFileSync(eventsPathOf(resultPath), `${event.replace(/\s+/g, ' ')}\n`, 'utf8');
-}
-
 function readFixtureEvents(resultPath: string): string[] {
-  const path = eventsPathOf(resultPath);
+  const path = fixtureEventsPath(resultPath);
   return existsSync(path) ? readFileSync(path, 'utf8').split('\n') : [];
 }
 

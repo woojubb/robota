@@ -14,7 +14,7 @@
  *
  * Markers: `@@READY canHandoff=…@@`, `@@CMD_DONE@@`, `@@INPUT_READY n@@` (the input hook has mounted
  * for the n-th time: 2 once the TUI has taken the terminal back), `@@INPUT_AFTER_HANDOFF …@@`. Each is
- * also recorded as an event (`pty/fixture-events.ts`), which is what a test waits on. A JSON result
+ * also recorded as an event (`pty/fixture-event-log.ts`), which is what a test waits on. A JSON result
  * `{ success, exitCode?, message }` is written to outputPath.
  */
 import { writeFileSync } from 'node:fs';
@@ -26,7 +26,7 @@ import React from 'react';
 
 import { useTerminalHandoffSuspension } from '../../hooks/useTerminalHandoffSuspension.js';
 import { TerminalHandoffController } from '../../terminal-handoff-controller.js';
-import { recordFixtureEvent } from '../pty/fixture-events.js';
+import { recordFixtureEvent } from '../pty/fixture-event-log.js';
 import { readOneLineScript } from './read-one-line-script.js';
 
 import type {

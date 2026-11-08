@@ -9,7 +9,7 @@
  *
  * Driven by `terminal-handoff-pty-e2e.test.ts`. Markers the harness keys off: `@@READY@@`,
  * `@@HANDOFF_STARTED@@`, `CHILD_GOT:[...]`, `@@RESUMED exit=N@@`. Each `@@` marker is also recorded as
- * an event (`pty/fixture-events.ts`), with `CHILD_SPAWNED` and `CHILD_EXITED <code>` from the parent,
+ * an event (`pty/fixture-event-log.ts`), with `CHILD_SPAWNED` and `CHILD_EXITED <code>` from the parent,
  * which is what the test waits on. A JSON result is written to argv[0].
  */
 import { spawn } from 'node:child_process';
@@ -20,7 +20,7 @@ import React from 'react';
 
 import { useTerminalHandoffSuspension } from '../../hooks/useTerminalHandoffSuspension.js';
 import { TerminalHandoffController } from '../../terminal-handoff-controller.js';
-import { recordFixtureEvent } from '../pty/fixture-events.js';
+import { recordFixtureEvent } from '../pty/fixture-event-log.js';
 import { readOneLineScript } from './read-one-line-script.js';
 
 const OUTPUT_PATH = process.argv[2];
