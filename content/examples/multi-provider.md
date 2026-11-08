@@ -5,14 +5,12 @@ own package; DeepSeek, Qwen and Gemma share `@robota-sdk/agent-provider-openai-c
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
-import {
-  DeepSeekProvider,
-  GemmaProvider,
-  QwenProvider,
-} from '@robota-sdk/agent-provider-openai-compatible';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
+import { GemmaProvider } from '@robota-sdk/agent-provider/gemma';
+import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
 
 const agent = new ConversationAgent({
   name: 'MultiAgent',

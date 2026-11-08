@@ -5,7 +5,7 @@ OpenTelemetry tracing and GenAI metrics for Robota agents, in three forms:
 - **`createOtelTracing`** records an agent run's provider calls and tool bodies as spans on your own
   tracer, under your span, with the span IDs Robota sent to providers and subprocesses in `traceparent`.
 - **`projectLivePromptTrace`** maps one `ILivePromptTraceBatch` (from
-  `@robota-sdk/agent-interface-analytics`) onto span shapes as plain data, for a host that writes
+  `@robota-sdk/agent-interface/analytics`) onto span shapes as plain data, for a host that writes
   spans itself.
 - **`projectLivePromptMetricSamples`** maps the same batch onto the OpenTelemetry GenAI metrics as plain
   samples, for a host that records or exports metrics itself.

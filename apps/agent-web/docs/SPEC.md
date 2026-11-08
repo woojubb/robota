@@ -6,7 +6,7 @@ Owns the browser remote application: a Next.js host that serves the client for t
 control, a second screen for a running session. The client (`src/remote-client`) opens the pairing link,
 answers the host's WebRTC offer over the browser's native `RTCPeerConnection`, runs the directional-HMAC
 pairing handshake as the responder and renders the live session over the data channel. It is the browser
-counterpart of the Node host transport `@robota-sdk/agent-transport-webrtc`, which is where the admission
+counterpart of the Node host transport `@robota-sdk/agent-transport/webrtc`, which is where the admission
 decision is made; the client presents a credential and decides nothing.
 
 ## Contract

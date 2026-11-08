@@ -30,7 +30,7 @@ export const SECURE_EDITOR_UNAVAILABLE =
  * its command modules, its subagents AND its tools, because the profile hands the packs
  * the whole tool surface (see {@link PACKS_OWN_TOOL_SURFACE}).
  *
- * A FACTORY over the session context, not a constant: `pack-coding`'s file tools are scoped to the `cwd`
+ * A FACTORY over the session context, not a constant: `agent-product/coding`'s file tools are scoped to the `cwd`
  * they are built with, and a context-free pack would carry a disarmed working-directory path guard.
  */
 export function createProductCapabilityPacks(

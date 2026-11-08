@@ -14,7 +14,7 @@ adapter you supply does). Its own runners are the only place it spawns child pro
 live on `@robota-sdk/agent-executor/node`: the main entry is platform-neutral and runs in a browser,
 a Web Worker, Node, Deno and Bun.
 `@robota-sdk/agent-framework` builds its subagents and background jobs on this package; the task
-and result types come from `@robota-sdk/agent-interface-execution`.
+and result types come from `@robota-sdk/agent-interface/execution`.
 
 ## Installation
 

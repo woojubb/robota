@@ -3,7 +3,7 @@
  *
  * Three claims: an agent runtime built-in preset (`careful-reviewer`) is reusable by id with nothing registered;
  * a consumer-authored `ICapabilityPack` merges ADDITIVELY on top of the product's base modules and our
- * `pack-coding`; and a deliberate id collision is REPORTED on the rejection channel rather than silently
+ * `agent-product/coding`; and a deliberate id collision is REPORTED on the rejection channel rather than silently
  * dropped or silently overridden.
  *
  * TOOL AXIS. All three axes are now additive on the same terms. `agent-framework`'s
@@ -202,7 +202,7 @@ export async function runModeC(): Promise<void> {
       (options.additionalTools ?? []).some((tool) => tool.getName() === 'AcmeTicketLookup'),
   );
   // The four assertions the item's verification scenario names. Until this change the
-  // aggregator was published by `@robota-sdk/agent-framework` and `pack-coding` rebuilt the same list
+  // aggregator was published by `@robota-sdk/agent-framework` and `agent-product/coding` rebuilt the same list
   // by hand; the two were held together by a NAME-equality pin, which is a pin that can pass while
   // being unable to fail. The set has ONE owner now, so the questions worth
   // asking from outside the monorepo changed.
@@ -224,7 +224,7 @@ export async function runModeC(): Promise<void> {
   );
 
   checkEqual(
-    "pack-coding's tools ARE the always-present set — structurally now, not by a name pin",
+    "agent-product/coding's tools ARE the always-present set — structurally now, not by a name pin",
     codingPackToolNames,
     ALWAYS_PRESENT,
   );
@@ -335,7 +335,7 @@ export async function runModeC(): Promise<void> {
       'from the published surface is the seam that makes it reachable: the `defaultTools` option on the ' +
       'shipped session-options type, the overlay that carries the pack tools into it, and the scoping of ' +
       'the pack-owned file tools. the reference CLI now consumes exactly this shape — its profile builds ' +
-      'pack-coding with the shell cwd and passes `defaultTools: []`, so its coding tools come FROM the ' +
+      'agent-product/coding with the shell cwd and passes `defaultTools: []`, so its coding tools come FROM the ' +
       'pack (asserted in-repo by agent-cli src/__tests__/product-runtime-seam.test.ts).',
   );
   note(

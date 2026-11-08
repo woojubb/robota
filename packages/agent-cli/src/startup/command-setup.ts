@@ -307,7 +307,7 @@ export function buildCommandSetup(
   );
   // The pack-supplied modules are excluded from the base; `assembleProduct` merges them back in from the
   // profile's packs. `unknownModuleNames` is not read here — a pack may supply a module the default set
-  // does not build (`/shell` and `/editor` live on `agent-command/node`), and the preset delta's
+  // does not build (`/shell` and `/editor` live on `agent-product/command/node`), and the preset delta's
   // unknown-name diagnostics are computed by the shell against the MERGED superset.
   // This call is where `loadOrgPolicy()` is read: dropping it leaves four implemented enforcement
   // sites unreachable. Nothing fails, because the parameter is optional and its

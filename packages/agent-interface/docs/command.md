@@ -60,7 +60,7 @@ whether a missing value means "no" or "not stated".
 ## Where it sits
 
 - Depends on `@robota-sdk/agent-core` (types only) and on no other subpath of `@robota-sdk/agent-interface`.
-- `@robota-sdk/agent-command` implements the built-in command modules as `ICommandSource`s;
+- `@robota-sdk/agent-product/command` implements the built-in command modules as `ICommandSource`s;
   `@robota-sdk/agent-framework` owns the command registry, the model-facing capability
   descriptors, and the `ISkillExecutionPort` implementation.
 - `@robota-sdk/agent-ui-terminal` implements `IThemeCataloguePort` (`createThemeCataloguePort`),

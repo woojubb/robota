@@ -78,7 +78,7 @@ export const OS_SANDBOX_TYPE = 'os';
  * Capability a recipe cannot reproduce in the child, because it is a live, unrepeatable handle
  * rather than a pure function of (execution root, serialized payload, ambient durable state).
  *
- * Today that is exactly `sandboxClient`: it is consumed by `pack-coding`, and `E2BSandboxClient` /
+ * Today that is exactly `sandboxClient`: it is consumed by `agent-product/coding`, and `E2BSandboxClient` /
  * `InMemorySandboxClient` are both exported from `agent-tools`'s barrel, so a consumer can compose a
  * sandboxed parent.
  */
@@ -134,7 +134,7 @@ export function assertChildProcessSubagentsCanReproduce(context: IProductPackCon
  * The pack factory this composition derives from.
  *
  * Injectable for ONE reason, stated because it is not obvious: the product's own packs mirror
- * `createDefaultTools()` by name today — `pack-coding` is pinned to that set by its own test — so a
+ * `createDefaultTools()` by name today — `agent-product/coding` is pinned to that set by its own test — so a
  * test comparing the two name sets passes whether the child composes from packs or from imported
  * defaults. That check cannot fail on the defect it names. Injecting a pack proves the derivation
  * instead of the coincidence.

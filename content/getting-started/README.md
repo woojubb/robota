@@ -72,13 +72,13 @@ npm install -g @robota-sdk/agent-cli
 ### A custom AI agent
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-core @robota-sdk/agent-provider @anthropic-ai/sdk
 ```
 
 ### Tool calling (function tools)
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider-anthropic zod@3
+npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider @anthropic-ai/sdk zod@3
 ```
 
 `agent-tools` uses Zod 3; install `zod@3` so your schemas match it.
@@ -86,7 +86,7 @@ npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-pro
 ### Sessions with built-in tools, permissions and hooks
 
 ```bash
-npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-framework @robota-sdk/agent-provider @anthropic-ai/sdk
 ```
 
 ## Quick Start — CLI
@@ -157,7 +157,7 @@ __PRODUCT_CLI_NAME__
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -185,7 +185,7 @@ runs, and types the function's input from that schema.
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { z } from 'zod';
 
 const provider = new AnthropicProvider({
@@ -221,8 +221,8 @@ console.log(response);
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const agent = new ConversationAgent({
   name: 'MultiProviderAgent',
@@ -255,8 +255,8 @@ permission modes, hooks, compaction and streaming events. The tools come from th
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const session = new InteractiveSession({
   host: createNodeFrameworkHost({ createDefaultTools }),

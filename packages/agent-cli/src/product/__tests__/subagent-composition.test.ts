@@ -35,7 +35,7 @@ function toolNames(tools: readonly { schema: { name: string } }[]): string[] {
 
 /**
  * A pack contributing a tool NO default tier contains. This is the discriminator: the product's own packs
- * mirror `createDefaultTools()` by name (`pack-coding` is pinned to that set by its own test), so
+ * mirror `createDefaultTools()` by name (`agent-product/coding` is pinned to that set by its own test), so
  * comparing the product's two name sets passes whether the child composes from packs or from imported
  * defaults — a check that cannot fail on the defect it names. A uniquely-named pack tool can.
  */

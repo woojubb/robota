@@ -80,7 +80,7 @@ calculator and clock). Add your own tools with `additionalTools` and approve the
 | `@robota-sdk/agent-framework`           | `createAgentRuntime`, `createQuery` — high-level runtime |
 | `@robota-sdk/agent-core`                | `ConversationAgent` — low-level agent                   |
 | `@robota-sdk/agent-tools`               | `createZodFunctionTool` — Zod-schema function tools      |
-| `@robota-sdk/agent-tool-defaults`       | `createDefaultTools` — the default file and shell tools  |
+| `@robota-sdk/agent-tools/defaults`       | `createDefaultTools` — the default file and shell tools  |
 | `@robota-sdk/agent-transport-{http,ws}` | HTTP and WebSocket transports for one session            |
 | `@robota-sdk/agent-provider-*`          | `AnthropicProvider`, `OpenAIProvider`, …                 |
 
@@ -91,12 +91,12 @@ provider class — see each example's README for the exact spot.
 
 | Provider              | Package                                        | Class                                               |
 | --------------------- | ---------------------------------------------- | --------------------------------------------------- |
-| Anthropic             | `@robota-sdk/agent-provider-anthropic`         | `AnthropicProvider`                                 |
-| OpenAI                | `@robota-sdk/agent-provider-openai`            | `OpenAIProvider`                                    |
-| Google Gemini         | `@robota-sdk/agent-provider-gemini`            | `GeminiProvider`                                    |
+| Anthropic             | `@robota-sdk/agent-provider/anthropic`         | `AnthropicProvider`                                 |
+| OpenAI                | `@robota-sdk/agent-provider/openai`            | `OpenAIProvider`                                    |
+| Google Gemini         | `@robota-sdk/agent-provider/gemini`            | `GeminiProvider`                                    |
 | DeepSeek, Qwen, Gemma | `@robota-sdk/agent-provider-openai-compatible` | `DeepSeekProvider`, `QwenProvider`, `GemmaProvider` |
 
 Any other OpenAI-compatible endpoint works through `OpenAIProvider` with a `baseURL` — see
 [`capabilities/openai-compatible-gateway/`](./capabilities/openai-compatible-gateway/).
-`@robota-sdk/agent-provider-bytedance` generates video and is not a chat provider, so it does not drop into
+`@robota-sdk/agent-provider/bytedance` generates video and is not a chat provider, so it does not drop into
 these examples.

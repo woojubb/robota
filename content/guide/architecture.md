@@ -34,9 +34,9 @@ list the exact members.
 flowchart TB
     SURF["**Surfaces**\nagent-cli · agent-ui-terminal · agent-ui-web · agent-gui-web"]
     TRANS["**Transports**\nagent-transport · agent-transport-{http,ws,mcp,webrtc}"]
-    COMP["**Composition**\nagent-command · agent-preset\nagent-builtin-providers · agent-product · pack-coding"]
+    COMP["**Composition**\nagent-command · agent-product/preset\nagent-builtin-providers · agent-product · agent-product/coding"]
     FW["**Assembly**\nagent-framework"]
-    RT["**Runtime**\nagent-session · agent-executor · agent-tool-defaults"]
+    RT["**Runtime**\nagent-session · agent-executor · agent-tools/defaults"]
     CAP["**Capabilities**\nagent-tools · agent-mcp · agent-plugin\nagent-provider-{anthropic,openai,openai-compatible,gemini,bytedance}"]
     IF["**Contracts**\nagent-interface-*"]
     CORE["**Foundation**\nagent-core"]
@@ -115,11 +115,11 @@ transport accept a session without depending on `agent-framework`.
 | `agent-remote-pairing`                  | Pairing and channel binding for peer-to-peer connections (no Robota dependencies)     |
 
 Each provider package is a leaf over `agent-core` (the OpenAI package also reuses
-`agent-provider-openai-compatible`), so a vendor SDK is installed only by the package that needs
+`agent-provider (deepseek, qwen, gemma)`), so a vendor SDK is installed only by the package that needs
 it. `agent-plugin` depends only on `agent-core`; plugins attach to the engine and never reach into
 the layers above it.
 
-### Runtime — `agent-session`, `agent-executor`, `agent-tool-defaults`
+### Runtime — `agent-session`, `agent-executor`, `agent-tools/defaults`
 
 `agent-session` wraps a `Robota` instance in a `Session`: tool calls pass through permission checks
 and hooks, context usage is tracked, the conversation is compacted when it grows too large, and
@@ -130,7 +130,7 @@ on `@robota-sdk/agent-session/node`.
 `agent-executor` provides background-task lifecycles (queueing, cancellation, snapshots) and the
 subagent job ports.
 
-`agent-tool-defaults` holds `createDefaultTools()`, the default tool set (built on `agent-tools`).
+`agent-tools/defaults` holds `createDefaultTools()`, the default tool set (built on `agent-tools`).
 `agent-framework` loads it lazily when it assembles a session, and a caller replaces it by passing its
 own `defaultTools`; a library that needs only the tool mechanism depends on `agent-tools` and never
 pulls in the default catalog.
@@ -177,7 +177,7 @@ never drags in these defaults.
 
 A transport is a thin adapter: it turns protocol messages into session calls (submit, abort,
 commands, permission answers) and sends session events back. Transports implement
-`ITransportAdapter` from `agent-interface-transport` and depend on the session contracts, not on
+`ITransportAdapter` from `agent-interface/transport` and depend on the session contracts, not on
 `agent-framework`. `agent-framework` itself provides the non-interactive runner (`text`, `json` or
 `stream-json` output) and the `TransportRegistry` that starts and stops several transports
 together. See [Deployment](./deployment.md).

@@ -3,7 +3,7 @@
  * JSON `RTCIceServer[]`. It is **attacker-influenceable** (anyone who crafts a pairing link controls it), so the
  * decoded value MUST be validated into a well-formed `RTCIceServer[]` (sane URL schemes) and **fail closed** on
  * malformed input — never a loose cast into `RTCConfiguration`. Browser-local (takes no dependency on
- * the node validators in agent-cli / agent-transport-webrtc).
+ * the node validators in agent-cli / agent-transport/webrtc).
  */
 
 const ICE_URL_SCHEME = /^(stuns?|turns?):/i;

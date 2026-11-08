@@ -7,7 +7,7 @@ Express REST API that streams chat responses over SSE and registers custom tools
 
 - Creating a per-request query with `createQuery` from `@robota-sdk/agent-framework`
 - Defining `calculate` and `get_current_time` tools with `createZodFunctionTool` from `@robota-sdk/agent-tools`
-- Driving an `AnthropicProvider` from `@robota-sdk/agent-provider-anthropic`
+- Driving an `AnthropicProvider` from `@robota-sdk/agent-provider/anthropic`
 - Streaming the response as SSE from a POST endpoint via the `onTextDelta` callback
 
 ## Quick start
@@ -77,11 +77,11 @@ const query = createQuery({
 
 ## Swap provider
 
-Install the provider package (`npm install @robota-sdk/agent-provider-openai`), then in `src/server.ts`
+Install the provider package (`npm install @robota-sdk/agent-provider openai`), then in `src/server.ts`
 replace `AnthropicProvider` and pass the new provider to `createQuery`:
 
 ```ts
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 
 const query = createQuery({
   host,

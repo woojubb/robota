@@ -50,7 +50,7 @@ A session exposes these states through its background-task capability
   `@robota-sdk/agent-framework` wires them into a session.
 - `@robota-sdk/agent-session` persists task and group state in the session record.
 - `@robota-sdk/agent-interface/session` names these types in its session capabilities;
-  `@robota-sdk/agent-command`, `@robota-sdk/agent-transport`, `@robota-sdk/agent-ui-terminal` and
+  `@robota-sdk/agent-product/command`, `@robota-sdk/agent-transport`, `@robota-sdk/agent-ui-terminal` and
   `@robota-sdk/agent-ui-web` use them to control and display work.
 
 ## Documentation

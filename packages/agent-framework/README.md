@@ -10,7 +10,7 @@ provider-neutral SDK for building agents: sessions with tools, permissions, hook
 loading, commands, subagents and persistence. The main entry is platform-neutral: it runs in a
 browser, a Web Worker, Node, Deno and Bun and never reaches the file system or the process. The
 platform it runs on is passed in as `host`: a Node process passes `createNodeFrameworkHost` from
-`@robota-sdk/agent-framework/node`, with the default tool set from `@robota-sdk/agent-tool-defaults`;
+`@robota-sdk/agent-framework/node`, with the default tool set from `@robota-sdk/agent-tools/defaults`;
 a host that lends nothing is `{}`. Provider clients have their own host and credential requirements;
 see [Browser hosts](../../content/guide/providers.md#browser-hosts).
 
@@ -23,7 +23,7 @@ It has three main entry points:
   one configuration, for headless and multi-session hosts.
 
 The package has no React dependency, and it never imports a concrete provider: you create the
-provider (for example from `@robota-sdk/agent-provider-anthropic`) and pass it in. The configured CLI
+provider (for example from `@robota-sdk/agent-provider/anthropic`) and pass it in. The configured CLI
 (`@robota-sdk/agent-cli`) is a maintained agent interface built on this package.
 
 For walkthroughs, see the [SDK guide](../../content/guide/sdk.md) and
@@ -32,7 +32,7 @@ For walkthroughs, see the [SDK guide](../../content/guide/sdk.md) and
 ## Installation
 
 ```bash
-npm install @robota-sdk/agent-framework @robota-sdk/agent-tool-defaults @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-framework @robota-sdk/agent-tools @robota-sdk/agent-provider @anthropic-ai/sdk
 ```
 
 Requires Node.js 22.12 or later for the `@robota-sdk/agent-framework/node` and
@@ -44,8 +44,8 @@ package given a `model`; without one they use the settings files, or Anthropic's
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 // The platform the framework runs on. It has no host default: a Node process passes its own.
 const host = createNodeFrameworkHost({ createDefaultTools });
@@ -142,7 +142,7 @@ await session.shutdown();
 | `additionalTools`                                           | Tools added to the default set.                                                                 |
 | `defaultTools`                                              | Replaces the host's default tool set (`host.createDefaultTools`); `[]` removes it.              |
 | `allowedTools`, `deniedTools`                               | Tool name patterns to allow or deny for this session.                                           |
-| `commandModules`                                            | Command modules the session can execute (for example from `@robota-sdk/agent-command`).         |
+| `commandModules`                                            | Command modules the session can execute (for example from `@robota-sdk/agent-product/command`).         |
 | `sessionStore`, `resumeSessionId`, `forkSession`            | Persistence, and resuming or forking a stored session.                                          |
 | `userSettingsSources`, `projectSettingsPaths`               | Settings files to read. Absent means no settings file is read.                                  |
 | `contributionSources`, `skillRoots`, `agentDefinitionRoots` | Where to discover skills and agent definitions. Absent means no discovery.                      |
@@ -175,7 +175,7 @@ path; an omitted location means that feature is off.
 
 - `submit(input, displayInput?, rawInput?, options?)` returns a turn handle (`{ turnId, completed }`).
   `completed` rejects with an error that `isTurnNotRunError()` (from
-  `@robota-sdk/agent-interface-session`) recognizes if the queued prompt never ran: replaced by a
+  `@robota-sdk/agent-interface/session`) recognizes if the queued prompt never ran: replaced by a
   later prompt, dropped from a full queue, or cleared by abort, cancel or shutdown.
 - `abort()` stops the running turn and clears the queue; `cancelQueue()` drops queued prompts only.
 - `executeCommand(name, args)` runs a command; `listCommands()` lists them.
@@ -260,7 +260,7 @@ session store, transports) and creates `InteractiveSession`s from it:
 
 ```typescript
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const runtime = createAgentRuntime({
   host,
@@ -321,7 +321,7 @@ This package adds two hook executors to the `command` and `http` executors from 
 The framework owns the command infrastructure: `SystemCommandExecutor`, `CommandRegistry`, command
 sources (`BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`) and the common APIs
 command modules use. It does not own the user-visible built-in commands; those are command modules
-from `@robota-sdk/agent-command` that the host composes. Command names are slash-free (`help`,
+from `@robota-sdk/agent-product/command` that the host composes. Command names are slash-free (`help`,
 `compact`); a UI renders them as `/help`, `/compact`.
 
 A command module is a plain object:
@@ -539,9 +539,9 @@ is also on `/node`.
 | `@robota-sdk/agent-core`                                                                              | Agent engine, provider contract, permissions, hooks |
 | `@robota-sdk/agent-session`                                                                           | `Session`, logging and persistence ports            |
 | `@robota-sdk/agent-tools`                                                                             | Tool factories and sandbox clients                  |
-| `@robota-sdk/agent-tool-defaults`                                                                     | The default tool set, for `./testing` only          |
+| `@robota-sdk/agent-tools/defaults`                                                                     | The default tool set, for `./testing` only          |
 | `@robota-sdk/agent-executor`                                                                          | Background tasks and subagent managers              |
-| `@robota-sdk/agent-file-authority`                                                                    | Bounded, root-relative project file reads           |
+| `@robota-sdk/agent-os/file-authority`                                                                    | Bounded, root-relative project file reads           |
 | `@robota-sdk/agent-interface-*` (analytics, command, execution, session, session-mobility, transport) | Shared contracts                                    |
 | `yaml`, `zod`                                                                                         | Frontmatter parsing and settings validation         |
 

@@ -1096,7 +1096,7 @@ const session = new ScriptedSession();
 
 /**
  * A refusal the transport recognises, so it answers `session_change_failed` with this code (the shape
- * `isSessionChangeRefusal` in agent-interface-session checks).
+ * `isSessionChangeRefusal` in agent-interface/session checks).
  */
 const refusal = (code, message) => Object.assign(new Error(message), { name: 'SessionChangeRefusal', code });
 

@@ -522,7 +522,7 @@ service alive.
 
 ### `__PRODUCT_CLI_NAME__ acp`
 
-A separate headless process mode: one normally assembled session plus one `agent-transport-acp`
+A separate headless process mode: one normally assembled session plus one `agent-transport/acp`
 service on stdio, for an editor that launches the process. It uses the caller's working directory,
 which `session/new` and `session/load` must name. Unlike the other headless modes it does not exit
 at startup for want of workspace trust: the same decision is asked when the editor creates or loads
@@ -542,7 +542,7 @@ own sandbox, and the editor's terminals are not used. No WebSocket or TUI transp
 
 ### `__PRODUCT_CLI_NAME__ mcp serve`
 
-A separate headless process mode: one normally assembled session plus one `agent-transport-mcp`
+A separate headless process mode: one normally assembled session plus one `agent-transport/mcp`
 stdio, loopback HTTP (`--http-token-file`) or remote HTTP (`--http-public-url` with the `--oauth-*`
 settings) service. It uses the caller's working directory
 and the same headless project-access/trust decision as `--serve`, and never prompts for trust over

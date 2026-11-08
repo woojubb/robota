@@ -8,7 +8,7 @@
  * open (the browser answerer may produce an ICE candidate before the socket connects). A relay `error` frame, a
  * socket error, or a close-before-join is surfaced through an explicit `onError` — never a silent degrade.
  *
- * The signaling contract types are defined LOCALLY (not imported from `agent-transport-webrtc`, which is
+ * The signaling contract types are defined LOCALLY (not imported from `agent-transport/webrtc`, which is
  * node-only) so the browser package takes no dependency on the node transport.
  */
 

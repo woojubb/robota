@@ -80,7 +80,7 @@ task carries no authority, and a peer's driver id is for attribution only.
   of this package imports it.
 - `@robota-sdk/agent-framework` admits incoming peer messages into a session.
 - `@robota-sdk/agent-transport` implements the peer-message ledger, handoff payload sealing and
-  chunking, and file transfer; `@robota-sdk/agent-transport-webrtc` runs the device mesh, with a
+  chunking, and file transfer; `@robota-sdk/agent-transport/webrtc` runs the device mesh, with a
   `ConnectionAuthority` per connection.
 - The reference CLI, `@robota-sdk/agent-cli`, composes handoff, remote control and device
   messaging from these pieces and supplies the operator approval.

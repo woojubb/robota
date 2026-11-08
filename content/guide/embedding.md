@@ -18,7 +18,7 @@ server and returns a fixed reply, so this checks the embedding mechanics, not mo
 ```bash
 mkdir robota-first-task && cd robota-first-task
 npm init -y && npm pkg set type=module
-npm install @robota-sdk/agent-framework @robota-sdk/agent-tool-defaults @robota-sdk/agent-provider-openai-compatible
+npm install @robota-sdk/agent-framework @robota-sdk/agent-tools @robota-sdk/agent-provider openai
 ```
 
 Save this as `first-task.mjs`:
@@ -27,8 +27,8 @@ Save this as `first-task.mjs`:
 import { createServer } from 'node:http';
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { GemmaProvider } from '@robota-sdk/agent-provider-openai-compatible';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { GemmaProvider } from '@robota-sdk/agent-provider/gemma';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const REPLY = 'Hello from the fixture model.';
 
@@ -143,8 +143,8 @@ it the model comes from the settings files, and without one the session asks the
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const query = createQuery({
   host: createNodeFrameworkHost({ createDefaultTools }),
@@ -203,8 +203,8 @@ modules); `runtime.createSession()` builds an `InteractiveSession` from it with 
 ```typescript
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 declare const apiKey: string;
 
@@ -333,7 +333,7 @@ The default tools are still there, so deny the ones your environment should not 
 
 ```typescript
 import { createStatelessRuntime } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 declare const apiKey: string;
 
@@ -399,8 +399,8 @@ Parse the reply defensively either way.
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const query = createQuery({
   host: createNodeFrameworkHost({ createDefaultTools }),
@@ -444,7 +444,7 @@ For typed, validated objects with automatic retries, use `Robota.run(prompt, { o
 ## WebSocket server
 
 One session per connection, with events forwarded as JSON messages. (For a ready-made WebSocket
-carrier with the full session protocol, see `@robota-sdk/agent-transport-ws` and
+carrier with the full session protocol, see `@robota-sdk/agent-transport/ws` and
 [Deployment](./deployment.md).)
 
 <!-- doc-example-skip: imports the external `ws` package, which is not a workspace dependency -->
@@ -453,8 +453,8 @@ carrier with the full session protocol, see `@robota-sdk/agent-transport-ws` and
 import { WebSocketServer } from 'ws';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const runtime = createAgentRuntime({
   host: createNodeFrameworkHost({ createDefaultTools }),
@@ -502,8 +502,8 @@ Run independent queries in parallel with one query function per item:
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const host = createNodeFrameworkHost({ createDefaultTools });
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });

@@ -8,7 +8,7 @@
 How a slash command, and a skill in particular, travels from an input line to a prompt the model
 runs. Almost none of this pipeline is CLI code: the presentation channel forwards the input,
 `InteractiveSession` in `@robota-sdk/agent-framework` routes it, the `/skills` command module in
-`@robota-sdk/agent-command` activates the skill, and the framework's `executeSkill()` builds the
+`@robota-sdk/agent-product/command` activates the skill, and the framework's `executeSkill()` builds the
 prompt. The CLI supplies the inputs that make it __PRODUCT_CLI_NAME__'s: the skill roots, the model command-tool
 prefix, and the shell function used for skill preprocessing.
 
@@ -41,7 +41,7 @@ prefix, and the shell function used for skill preprocessing.
 modules' system commands and a `SkillCommandSource` over the skill roots. When `executeCommand`
 receives a name that is not a system command but matches a skill, it rewrites the call to the
 command whose semantic role is `skillActivation` — the `/skills` command from
-`@robota-sdk/agent-command` — as `/skills <skill-name> [args]`.
+`@robota-sdk/agent-product/command` — as `/skills <skill-name> [args]`.
 
 `/skills` calls back into the session with `executeSkillCommandByName()`. For a user invocation the
 router refuses skills marked not user-invocable; for a model invocation it refuses skills with
@@ -75,7 +75,7 @@ descriptions only; a skill's body is loaded when `/skills` activates it.
 sequenceDiagram
     participant Ch as Channel (TUI, headless, transport)
     participant R as SessionSkillRouter
-    participant K as /skills (agent-command)
+    participant K as /skills (agent-product/command)
     participant E as executeSkill
     Ch->>R: executeCommand("review", "src/")
     R->>R: not a system command, matches a skill

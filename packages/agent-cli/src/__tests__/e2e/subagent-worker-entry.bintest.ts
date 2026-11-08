@@ -136,7 +136,7 @@ describe('the built binary is its own subagent worker', () => {
 
       expect(names).toBeDefined();
       expect(names?.length ?? 0).toBeGreaterThan(0);
-      // The invariant, asserted in the CHILD: these come from `pack-coding`, which the
+      // The invariant, asserted in the CHILD: these come from `agent-product/coding`, which the
       // product profile hands the whole tool surface.
       expect(names).toEqual(
         expect.arrayContaining(['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash']),

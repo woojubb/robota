@@ -4,7 +4,7 @@
 > 3.1.0 or later after it is published, and check the exports in your installed version.
 > The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
 
-Drive an `InteractiveSession` over a WebSocket connection with `@robota-sdk/agent-transport-ws`. The
+Drive an `InteractiveSession` over a WebSocket connection with `@robota-sdk/agent-transport/ws`. The
 client sends JSON messages (submit a prompt, run a command, answer a permission prompt) and receives
 the session's events as they happen.
 
@@ -19,9 +19,9 @@ to loopback or authenticate the upgrade yourself.
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createWsTransport } from '@robota-sdk/agent-transport-ws';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createWsTransport } from '@robota-sdk/agent-transport/ws';
 import { WebSocketServer } from 'ws';
 
 const wss = new WebSocketServer({ host: '127.0.0.1', port: 8080 });

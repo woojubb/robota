@@ -232,7 +232,7 @@ durable Roundtable execution. Unresolved forks and workspace copies are refused 
 | `CompactionOrchestrator`, `CompactionError`, `DEFAULT_COMPACTION_PROMPT`                 | Class, error, const | Conversation compaction                                                                  |
 | `TPermissionHandler`, `TPermissionResult`                                                | Types               | Approval callback and its answer (`true`, `false`, `'allow-session'`, `'allow-project'`) |
 | `ITerminalOutput`, `ISpinner`                                                            | Types               | Terminal I/O used for approval prompts                                                   |
-| `IInteractiveSessionRecord`, `IInteractiveSessionStore`                                  | Types               | The persisted session record and store port (from `@robota-sdk/agent-interface-session`) |
+| `IInteractiveSessionRecord`, `IInteractiveSessionStore`                                  | Types               | The persisted session record and store port (from `@robota-sdk/agent-interface/session`) |
 | `decodeInteractiveSessionRecord`, `decodeVersionedInteractiveSessionRecord`              | Functions           | Validate a stored record before use                                                      |
 | `serializeSessionArtifact`, `deserializeSessionArtifact`                                 | Functions           | Export a session record to a portable artifact and import it again                       |
 | `scrubSensitiveKeys`, `isSensitiveKey`                                                   | Functions           | Redact secret-looking keys (used by the logger; optional for artifacts)                  |
@@ -340,9 +340,9 @@ checks the conversion on disposable files without touching your sessions.
 ## Dependencies
 
 - `@robota-sdk/agent-core` — `ConversationAgent`, permissions, hooks and core types
-- `@robota-sdk/agent-interface-session` — the session record and store contracts
-- `@robota-sdk/agent-interface-execution` — background task contracts stored in the session record
-- `@robota-sdk/agent-file-authority` — bounded, root-relative file reads for log payloads, used only
+- `@robota-sdk/agent-interface/session` — the session record and store contracts
+- `@robota-sdk/agent-interface/execution` — background task contracts stored in the session record
+- `@robota-sdk/agent-os/file-authority` — bounded, root-relative file reads for log payloads, used only
   by `@robota-sdk/agent-session/node`
 
 ## Documentation

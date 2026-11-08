@@ -234,8 +234,8 @@ its screenshot bytes without a Node global. There is no host fallback without a 
 | Dependency                         | Kind | Purpose                                                        |
 | ---------------------------------- | ---- | -------------------------------------------------------------- |
 | `@robota-sdk/agent-core`           | Peer | Tool contract, `FunctionTool`, schemas, event types            |
-| `@robota-sdk/agent-process`        | Prod | Terminating shell process trees on cancel or timeout (`/node`) |
-| `@robota-sdk/agent-file-authority` | Prod | Atomic rooted writes for Write and Edit (`/node`)              |
+| `@robota-sdk/agent-os/process`        | Prod | Terminating shell process trees on cancel or timeout (`/node`) |
+| `@robota-sdk/agent-os/file-authority` | Prod | Atomic rooted writes for Write and Edit (`/node`)              |
 | `fast-glob`                        | Prod | Glob matching (`/node`)                                        |
 | `p-limit`                          | Prod | Concurrency limit in the Glob tool (`/node`)                   |
 | `zod`                              | Prod | Tool parameter schemas and validation                          |

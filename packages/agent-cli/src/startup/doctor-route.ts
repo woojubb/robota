@@ -1,5 +1,5 @@
 /**
- * `the product doctor` / `checkup` / `diagnose` — the shell route over the `agent-command` doctor runner.
+ * `the product doctor` / `checkup` / `diagnose` — the shell route over the `agent-product/command` doctor runner.
  *
  * Reachable without a working session: matched in `runPreparsedCliCommand` BEFORE the route's shared
  * workspace composition and before the strict global parser, so a broken configuration cannot make

@@ -4,7 +4,7 @@
 > 3.1.0 or later after it is published, and check the exports in your installed version.
 > The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
 
-Serve an `InteractiveSession` over REST endpoints with `@robota-sdk/agent-transport-http`. Prompts
+Serve an `InteractiveSession` over REST endpoints with `@robota-sdk/agent-transport/http`. Prompts
 stream back as Server-Sent Events. The routes are a [Hono](https://hono.dev) app, so you can serve
 them with any Hono adapter.
 
@@ -15,9 +15,9 @@ them with any Hono adapter.
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createHttpTransport } from '@robota-sdk/agent-transport-http';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createHttpTransport } from '@robota-sdk/agent-transport/http';
 import { serve } from '@hono/node-server';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -104,7 +104,7 @@ and denies what it left open.
 session per signed-in user. Mount them on your own Hono app.
 
 ```typescript
-import { createAgentRoutes, type TSessionFactory } from '@robota-sdk/agent-transport-http';
+import { createAgentRoutes, type TSessionFactory } from '@robota-sdk/agent-transport/http';
 
 // Receives each request's Hono context and returns the session that should handle it.
 declare const resolveSession: TSessionFactory;

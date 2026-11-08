@@ -17,14 +17,14 @@ npm install @robota-sdk/agent-core
 
 The main entry runs on any standard JavaScript runtime; the `./node` entry requires Node.js 22.12
 or later. A provider package supplies the model connection, for example
-`@robota-sdk/agent-provider-anthropic`. Provider clients have their own host and credential
+`@robota-sdk/agent-provider/anthropic`. Provider clients have their own host and credential
 requirements; see [Browser hosts](../../content/guide/providers.md#browser-hosts).
 
 ## Quick Start
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 

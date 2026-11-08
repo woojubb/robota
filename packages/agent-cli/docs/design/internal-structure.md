@@ -16,7 +16,7 @@ code and no user depends on where a file sits.
   startup path (`src/cli-core.ts`) and the headless entry refer to it only through types, so the
   headless build carries no TUI.
 - Command execution, the command registry and skill execution belong to
-  `@robota-sdk/agent-framework`; command behaviour belongs to the `@robota-sdk/agent-command*`
+  `@robota-sdk/agent-framework`; command behaviour belongs to the `@robota-sdk/agent-product/command*`
   packages. The CLI has no `src/commands/` directory and never instantiates `SystemCommandExecutor`.
 
 ## Internal Structure

@@ -105,8 +105,8 @@ A query function returns a promise; a failed turn rejects it.
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { AgentRuntimeError, classifyProviderFailure } from '@robota-sdk/agent-core';
 
 const query = createQuery({
@@ -142,8 +142,8 @@ prompt is not accepted or its turn fails before it starts running — for exampl
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { classifyProviderFailure } from '@robota-sdk/agent-core';
 
 const session = new InteractiveSession({
@@ -195,8 +195,8 @@ errors — with exponential back-off and jitter, and wait at least as long as a 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { RateLimitError, classifyProviderFailure } from '@robota-sdk/agent-core';
 import type { TProviderFailureReason } from '@robota-sdk/agent-core';
 
@@ -244,8 +244,8 @@ Check that a key is present when your application starts, rather than at the fir
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey) {

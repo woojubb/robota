@@ -88,7 +88,7 @@ compiling when the contract gains a member, instead of silently testing against 
 - `@robota-sdk/agent-session` persists session records (`NodeSessionStore` implements
   `IInteractiveSessionStore`).
 - Transports (`@robota-sdk/agent-transport` and its `-http`, `-mcp`, `-ws` carriers), the UIs
-  (`@robota-sdk/agent-ui-terminal`, `@robota-sdk/agent-ui-web`), `@robota-sdk/agent-command`,
+  (`@robota-sdk/agent-ui-terminal`, `@robota-sdk/agent-ui-web`), `@robota-sdk/agent-product/command`,
   `@robota-sdk/agent-session-analytics` and `@robota-sdk/agent-interface/session-mobility` consume
   these types.
 
