@@ -47,7 +47,7 @@ const NATIVE_WORKSPACES = new Set([
   'packages/agent-cli',
 ]);
 const SDK_WINDOWS_WORKSPACES = new Set(['agent-executor', 'agent-keyring', 'agent-os',
-  'agent-tools', 'agent-transport-link', 'agent-ui-terminal'].map((name) => `packages/${name}`));
+  'agent-tools', 'agent-transport', 'agent-ui-terminal'].map((name) => `packages/${name}`));
 const WINDOWS_WORKSPACES = new Set([...NATIVE_WORKSPACES, ...SDK_WINDOWS_WORKSPACES, 'packages/agent-local-host']);
 const PRODUCT_WORKSPACES = new Set(['agent-cli', 'agent-gui-web', 'agent-local-host',
   'agent-organization-host', 'agent-provider-replay'].map((name) => `packages/${name}`));

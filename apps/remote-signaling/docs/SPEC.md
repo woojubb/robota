@@ -9,7 +9,7 @@ logic, and the WebSocket server entrypoint.
 
 ## Contract
 
-- Does not own the WebRTC transport (that is `@robota-sdk/agent-transport-webrtc`); this app only
+- Does not own the WebRTC transport (that is `@robota-sdk/agent-transport/webrtc`); this app only
   rendezvous-pairs peers and relays their opaque signaling blobs.
 - Carries no session content: within a rendezvous it relays only `offer`/`answer`/`ice` frames verbatim, and
   between device inboxes it delivers an opaque `message` to whichever connection declared `presence` at its

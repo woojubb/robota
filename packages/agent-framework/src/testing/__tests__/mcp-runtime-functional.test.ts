@@ -3,11 +3,11 @@ import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
 import { FunctionTool } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { Session } from '@robota-sdk/agent-session';
-import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
+import { createAgentMcpServer } from '@robota-sdk/agent-transport/mcp';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { scriptedSession } from '../index.js';
 import type { IHookTypeExecutor, IToolExecutionContext } from '@robota-sdk/agent-core';
-import type { IMcpTransportSession } from '@robota-sdk/agent-transport-mcp';
+import type { IMcpTransportSession } from '@robota-sdk/agent-transport/mcp';
 import { writeTextCommand } from '../shell-command-fixture.js';
 
 // A private home made by mkdtemp before any module that reads `homedir()` loads.
