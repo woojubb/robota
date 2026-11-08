@@ -77,7 +77,7 @@ export interface IDefaultCommandModulesOptions {
   providerDefinitions: readonly IProviderDefinition[];
   providerSettingsAdapter: IProviderCommandSettingsAdapter;
   /**
-   * CLI-083 (issue #2287) — the org policy, so `allowedProviders` and `requireApiKeyFromEnv` are
+   * The org policy, so `allowedProviders` and `requireApiKeyFromEnv` are
    * reachable. This parameter existed, was removed by `92596bc6f` along with its only caller, and
    * the consumer never stopped reading it: `provider-command-profile-operations.ts` still
    * destructures `orgPolicy` from its options and enforces on it. Optional, so its absence stays
@@ -104,7 +104,7 @@ export interface IDefaultCommandModulesOptions {
    */
   keybindingsEditor?: TOpenFileInEditor;
   /**
-   * SCREEN-2002: the surface's theme catalogue. Absent (print mode, `--serve`), `/theme` is still
+   * The surface's theme catalogue. Absent (print mode, `--serve`), `/theme` is still
    * listed and says it belongs to an interactive terminal, which runs it when attached.
    */
   themeCataloguePort?: IThemeCataloguePort;
@@ -124,7 +124,7 @@ export interface IDefaultCommandModulesOptions {
    * `@robota-sdk/agent-framework/node`. Absent, `/git` is registered and says it is unavailable on this host.
    */
   gitProcess?: IGitProcessPort;
-  /** OBSERVABILITY-1991: host-composed doctor inputs; absence means `/doctor` is not registered. */
+  /** host-composed doctor inputs; absence means `/doctor` is not registered. */
   doctorInputs?: IDoctorInputs;
   /**
    * The probes and writers `/doctor` runs through; a Node host passes `createNodeDoctorDeps` from
@@ -156,7 +156,7 @@ export interface IDefaultCommandModulesOptions {
  * remove any module whose `name` is in `disabled` (deny > allow). Neither given →
  * the full default set is returned unchanged (no-regression).
  *
- * INFRA-032: delegates to agent-framework's `selectCommandModules` (the allowed command→framework
+ * Delegates to agent-framework's `selectCommandModules` (the allowed command→framework
  * edge) so the filter body exists once — the previously byte-identical copy here is collapsed.
  */
 function applyModuleSelection(
@@ -168,7 +168,7 @@ function applyModuleSelection(
 }
 
 /**
- * Result of {@link createDefaultCommandModules} (INFRA-032): the selected `modules` plus any preset
+ * Result of {@link createDefaultCommandModules}: the selected `modules` plus any preset
  * `enabledCommandModules`/`disabledCommandModules` names that matched no built module. Unknown names
  * are returned as data (not dropped silently) so the CLI startup path can surface a non-fatal notice.
  */
@@ -217,7 +217,7 @@ export function createDefaultCommandModules({
     createOutputStyleCommandModule(),
     createLanguageCommandModule(),
     createBackgroundCommandModule(),
-    // CLI-1994: beside `/background`, because a fork IS a background job — the one it starts is
+    // Beside `/background`, because a fork IS a background job — the one it starts is
     // listed, peeked at, stopped and attached to through that command and its panel.
     createForkCommandModule(formatForkResumeCommand),
     createGoalCommandModule(),
@@ -243,7 +243,7 @@ export function createDefaultCommandModules({
     createSettingsCommandModule(),
     createPeersCommandModule(),
     createEventsCommandModule(),
-    // HANDOFF-001 (issue #1864). Registered even though no product wires the carrier adapter yet:
+    // Registered even though no product wires the carrier adapter yet:
     // the command's own answer to a host without one is to say so, which is a better state than a
     // capability nobody can see. It is also what makes the carrier's arrival observable.
     createHandoffCommandModule(),
@@ -261,7 +261,7 @@ export function createDefaultCommandModules({
         : { resolveCredential: providerCredentialResolver }),
       ...(missingEnvironmentCredentialHint === undefined ? {} : { missingEnvironmentCredentialHint }),
     }),
-    // #3282 §2: shares the provider command's settings adapter and definitions — one settings write
+    // Shares the provider command's settings adapter and definitions — one settings write
     // owner, never a second copy that could drift from what `/provider switch` reads and writes.
     createModelCommandModule({
       providerDefinitions,

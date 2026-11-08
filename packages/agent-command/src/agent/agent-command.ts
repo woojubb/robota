@@ -46,7 +46,7 @@ function executeOpenSwitcher(): ICommandResult {
 }
 
 /**
- * #3282 §4: `/agent <name>` with nothing after the name sets the session's default agent type —
+ * `/agent <name>` with nothing after the name sets the session's default agent type —
  * the one `/agent <prompt>` falls back to, and the one the agent switcher shows checked. Distinct
  * from `executeRun`, which a name FOLLOWED by a prompt still reaches (a prompt makes it a run, not
  * a selection).

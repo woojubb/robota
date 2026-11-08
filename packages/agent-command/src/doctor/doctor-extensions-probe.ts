@@ -1,5 +1,5 @@
 /**
- * Plugin, skill, hook and MCP probes (OBSERVABILITY-1991) — each over the owner's inspection API.
+ * Plugin, skill, hook and MCP probes — each over the owner's inspection API.
  *
  * Statuses follow the spec: a plugin the user installed that cannot load is `fail`; a hooks.json the
  * schema refuses is `warn` (report-only — the loader still loads it); an MCP structural fault is
@@ -296,7 +296,7 @@ export function probeExtensions(
 ): IDoctorCheck[] {
   // Enablement is read the way the session loader reads it — from the user settings file through the
   // plugin settings store — so the doctor and the session agree even where that store's own policy is
-  // a separate open item (recorded on #2670).
+  // still unsettled.
   let plugins: IBundlePluginInspection[];
   let settingsProblem: string | undefined;
   try {

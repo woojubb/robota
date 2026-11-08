@@ -1,5 +1,5 @@
 /**
- * The doctor runner (OBSERVABILITY-1991): one pass over every probe, one redaction boundary, one
+ * The doctor runner: one pass over every probe, one redaction boundary, one
  * exit-code aggregation. Reachable without a session — it constructs no provider, no preset and no
  * session; the host supplies what it composed and the checks only it can make.
  */
@@ -45,7 +45,7 @@ function redactCheck(check: IDoctorCheck, secrets: readonly string[]): IDoctorCh
   };
 }
 
-/** Aggregate checks into the report; `fail` alone raises the exit code (CLI-067). */
+/** Aggregate checks into the report; `fail` alone raises the exit code. */
 export function buildDoctorReport(checks: readonly IDoctorCheck[]): IDoctorReport {
   const failCount = checks.filter((check) => check.status === 'fail').length;
   const warnCount = checks.filter((check) => check.status === 'warn').length;

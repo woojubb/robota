@@ -94,7 +94,7 @@ describe('preset command module', () => {
     expect(module.systemCommands?.map((command) => command.name)).toContain('preset');
   });
 
-  it('TC-01: lists every preset and marks the active one', async () => {
+  it('lists every preset and marks the active one', async () => {
     const runtime = createSessionRuntime({ getActivePresetId: () => 'autonomous-builder' });
     const context = createCommandHostContext(runtime);
 
@@ -110,7 +110,7 @@ describe('preset command module', () => {
     expect(result.data?.active).toBe('autonomous-builder');
   });
 
-  it('TC-02: switches to a valid preset and drives the live re-apply seams', async () => {
+  it('switches to a valid preset and drives the live re-apply seams', async () => {
     const setActivePresetId = vi.fn();
     const setPermissionMode = vi.fn();
     const applyModelOptions = vi.fn();
@@ -127,13 +127,13 @@ describe('preset command module', () => {
     expect(result.message).toBe('Switched to preset: careful-reviewer');
     expect(result.data?.preset).toBe('careful-reviewer');
     expect(setActivePresetId).toHaveBeenCalledWith('careful-reviewer');
-    // careful-reviewer resolves autonomy ask-first → default permission posture (PRESET-012)
-    // and effort high → applyModelOptions (PRESET-013).
+    // careful-reviewer resolves autonomy ask-first → default permission posture
+    // and effort high → applyModelOptions.
     expect(setPermissionMode).toHaveBeenCalledWith('default');
     expect(applyModelOptions).toHaveBeenCalledWith(expect.objectContaining({ effort: 'high' }));
   });
 
-  it('TC-04: rejects an unknown preset id without switching', async () => {
+  it('rejects an unknown preset id without switching', async () => {
     const setActivePresetId = vi.fn();
     const runtime = createSessionRuntime({ setActivePresetId });
     const context = createCommandHostContext(runtime);
@@ -147,7 +147,7 @@ describe('preset command module', () => {
     expect(setActivePresetId).not.toHaveBeenCalled();
   });
 
-  it('CMD-004: asks the user to pick a preset when none is given, then switches', async () => {
+  it('asks the user to pick a preset when none is given, then switches', async () => {
     const setActivePresetId = vi.fn();
     const setPermissionMode = vi.fn();
     const applyModelOptions = vi.fn();
@@ -169,7 +169,7 @@ describe('preset command module', () => {
     expect(setActivePresetId).toHaveBeenCalledWith('careful-reviewer');
   });
 
-  it('CMD-004: shows the preset list when the pick is cancelled', async () => {
+  it('shows the preset list when the pick is cancelled', async () => {
     const setActivePresetId = vi.fn();
     const runtime = createSessionRuntime({ setActivePresetId });
     const context = createCommandHostContext(runtime, {
@@ -183,9 +183,9 @@ describe('preset command module', () => {
     expect(setActivePresetId).not.toHaveBeenCalled();
   });
 
-  describe('INFRA-032: unmatched command-module names surface in the /preset result', () => {
+  describe('unmatched command-module names surface in the /preset result', () => {
     it('a preset disabling an unknown module name reports it (no longer silent)', async () => {
-      // ARCH-009: the external preset reaches `/preset` through the HOST, not through a process-wide
+      // The external preset reaches `/preset` through the HOST, not through a process-wide
       // registration this case used to perform and then have to undo in an afterEach. This is the
       // seam the item added, exercised by a case that already needed an external preset.
       const registry = createPresetRegistry([

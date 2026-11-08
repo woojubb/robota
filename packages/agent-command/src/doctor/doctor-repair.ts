@@ -1,5 +1,5 @@
 /**
- * The doctor's closed repair allowlist (OBSERVABILITY-1991).
+ * The doctor's closed repair allowlist.
  *
  * Two entries, both existing idempotent writers, both gated on the state being re-read IMMEDIATELY
  * before the write (the report a user read a minute ago is not the state on disk now):

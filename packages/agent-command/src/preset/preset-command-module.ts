@@ -11,15 +11,15 @@ const PRESET_ARGUMENT_HINT = 'list | <preset-id>';
 /**
  * Build one subcommand per registered preset id (mirrors the permission-mode subcommands).
  *
- * ARCH-009 LIMIT, stated rather than left implicit: this lists the BUILT-INS, because it builds a
+ * LIMIT, stated rather than left implicit: this lists the BUILT-INS, because it builds a
  * STATIC catalog entry at module-construction time and has no `ICommandHostContext` to reach a
  * host-supplied registry. `/preset`'s own execution — listing, lookup, resolution — goes through the
  * host's registry, so an embedded host with its own presets resolves and applies correctly; only the
  * pre-computed subcommand hints for tab-completion omit that host's external presets.
  *
- * What ARCH-009 changed here is what the limit COSTS. This used to read a process-wide mutable
- * registry, so the hints a host saw depended on which other host had loaded presets first. They are
- * now the built-ins and nothing else — wrong the same way for everyone, and never someone else's.
+ * What the limit COSTS: the hints are the built-ins and nothing else — wrong the same way for
+ * everyone, and never someone else's. Reading a process-wide mutable registry would make the hints
+ * depend on which other host had loaded presets first.
  *
  * Closing it needs the catalog to be built per host rather than per module, which is a change to how
  * command modules are constructed and not to this file. Filed separately.

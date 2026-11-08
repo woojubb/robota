@@ -1,5 +1,5 @@
 /**
- * TERM-003: `/shell` command module — a framework-level consumer of the terminal-handoff capability.
+ * `/shell` command module — a framework-level consumer of the terminal-handoff capability.
  */
 import { executeShellCommand, SHELL_COMMAND_DESCRIPTION } from './shell-command.js';
 

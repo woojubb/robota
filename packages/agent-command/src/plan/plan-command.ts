@@ -1,5 +1,5 @@
 /**
- * SELFHOST-002: the `/plan` slash command — explicit plan-mode (plan → review → approve → act).
+ * The `/plan` slash command — explicit plan-mode (plan → review → approve → act).
  * Delegates to the framework-owned plan controller via the command host context; the phase machine
  * and the `setPermissionMode` application both live in agent-framework. The mutation block stays the
  * existing `plan` permission mode; approving flips to `acceptEdits` (edits auto-apply, shell stays

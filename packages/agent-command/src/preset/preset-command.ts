@@ -13,12 +13,12 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { IPresetSummary } from '@robota-sdk/agent-preset';
 
 /**
- * ARCH-009 — the registry `/preset` discovers through.
+ * The registry `/preset` discovers through.
  *
  * The host supplies the instance it resolved with through the ADAPTER bag — the same path
  * `/permission-mode` and `/plugin` already take to their host capabilities. A host that supplies none
  * gets a fresh built-ins registry. That order is the point: while discovery read a module-global
- * registry directly, two products in one process shared one mutable list, so ARCH-008's per-instance
+ * registry directly, two products in one process shared one mutable list, so per-instance
  * resolution was only half-true for an embedded host. A command runs with an `ICommandHostContext`
  * and nothing else, so the context is the only path from here to the instance the shell built.
  *
@@ -29,8 +29,8 @@ import type { IPresetSummary } from '@robota-sdk/agent-preset';
 /**
  * What `/preset` actually needs from a registry — three members, no assertion.
  *
- * Narrower than `agent-preset`'s `IPresetRegistry` on purpose. Review of ARCH-009 reported the first
- * version reaching that contract with three casts, one of which (`listPresets()`) widened optional
+ * Narrower than `agent-preset`'s `IPresetRegistry` on purpose. A first version reached that
+ * contract with three casts, one of which (`listPresets()`) widened optional
  * `title`/`description` into required ones and would have printed `id — undefined: undefined` for a
  * host that typechecked. The fix is not a better cast: it is asking for the shape the command uses,
  * so both the built-in registry and a host adapter satisfy it STRUCTURALLY and nothing is asserted.
@@ -84,7 +84,7 @@ function presetListResult(
 }
 
 /**
- * Ask the user to pick a preset (CMD-004 inline ask). Returns the chosen id, or `undefined` when no
+ * Ask the user to pick a preset inline. Returns the chosen id, or `undefined` when no
  * interactive renderer is attached or the user cancelled — the caller then shows the preset list.
  */
 async function resolvePresetViaAsk(
@@ -109,7 +109,7 @@ export async function executePresetCommand(
     ICommandHostAdapterAccess,
   args: string,
 ): Promise<ICommandResult> {
-  // ARCH-009: resolved ONCE per invocation, so listing, lookup and resolution cannot disagree — a
+  // Resolved ONCE per invocation, so listing, lookup and resolution cannot disagree — a
   // host that swapped registries mid-command would otherwise report one set and apply another.
   const registry = presetRegistry(context);
   let id: string | undefined = args.trim().split(/\s+/)[0];
@@ -134,7 +134,7 @@ export async function executePresetCommand(
 
   const resolved = registry.resolvePreset(id);
   const result = await applyPresetToSession(context, id, resolved);
-  // INFRA-032: surface any preset command-module name that matched no live module as a non-fatal
+  // Surface any preset command-module name that matched no live module as a non-fatal
   // notice — an in-session `/preset` switch is no longer silent about a short form / typo.
   const noticeLines = result.unknownCommandModules.map(
     ({ name, kind }) =>

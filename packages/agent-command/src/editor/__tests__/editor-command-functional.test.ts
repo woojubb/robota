@@ -1,10 +1,10 @@
 /**
- * TERM-004: `/editor` — framework functional test.
+ * `/editor` — framework functional test.
  *
  * Drives the command through a REAL InteractiveSession with an injected fake handoff and a FAKE
  * editor (a tiny script that writes known content to its file arg). Verifies the round-trip: the
  * command opens the editor via `runWithTerminal`, captures the saved text, and cleans up — without a
- * real interactive editor (which is a manual gate, TERM-002).
+ * real interactive editor (which is a manual gate).
  */
 import {
   chmodSync,

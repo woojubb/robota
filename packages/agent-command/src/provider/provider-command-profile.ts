@@ -28,7 +28,7 @@ const ACTION_DELETE = 'delete';
 const ACTION_RECONNECT = 'reconnect';
 
 /**
- * Ask the user to pick a provider profile, then drive its action menu (CMD-004 inline ask). Replaces
+ * Ask the user to pick a provider profile, then drive its action menu. Replaces
  * the former returned choice→submit continuation chain — the picker's own option list is the rendered
  * profile list, so the caller no longer prepends a separate list message.
  */
@@ -60,10 +60,10 @@ async function askProviderProfileAction(
   if (!settings.providers?.[profileName]) {
     return { message: `Provider profile "${profileName}" was not found.`, success: false };
   }
-  // #3282 §2: no separate 'cancel' option here — the picker's own persistent Cancel affordance
+  // No separate 'cancel' option here — the picker's own persistent Cancel affordance
   // (every ask renderer offers one, e.g. `PermissionPrompt`'s ghost Cancel button in agent-ui-web)
   // is the only Cancel a person sees. A second one, indistinguishable from Switch/Edit/Test/Duplicate
-  // in a flat list, was the audited bug (#3282 issue text): "Delete looks the same as Switch... plus
+  // in a flat list, was an audited bug: "Delete looks the same as Switch... plus
   // a second Cancel." Order matters too — Switch first as the primary action, then Edit/Test/
   // Duplicate, with Delete last: a client (the GUI's provider-action menu) that wants Delete
   // separated and styled destructive can rely on it always being the final entry.

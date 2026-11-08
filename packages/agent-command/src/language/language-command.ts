@@ -9,7 +9,7 @@ import type { ICommandHostUserInteraction } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 /**
- * Ask the user to pick a language (CMD-004 inline ask). Returns a validated language, or `undefined`
+ * Ask the user to pick a language inline. Returns a validated language, or `undefined`
  * when no interactive renderer is attached or the user cancelled — the caller then shows usage.
  */
 async function resolveLanguageViaAsk(

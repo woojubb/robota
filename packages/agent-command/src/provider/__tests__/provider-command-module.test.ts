@@ -169,7 +169,7 @@ describe('createProviderCommandModule', () => {
     expect(requests[1]?.title).toBe('Provider profile: anthropic');
   });
 
-  it('#3282 §2: the profile action menu offers Switch, Edit, Test, Duplicate and Delete — no separate Cancel option (the picker\'s own Cancel affordance is the only one)', async () => {
+  it('the profile action menu offers Switch, Edit, Test, Duplicate and Delete — no separate Cancel option (the picker\'s own Cancel affordance is the only one)', async () => {
     const { adapter } = createSettingsAdapter({
       currentProvider: 'openai',
       providers: {
@@ -424,10 +424,10 @@ describe('createProviderCommandModule', () => {
     expect(result?.message).toContain('not stored in the active write target');
   });
 
-  it('owns provider setup flow, writes settings, and hot-swaps a session actually in setup mode (#3282 §3)', async () => {
+  it('owns provider setup flow, writes settings, and hot-swaps a session actually in setup mode', async () => {
     const { adapter, readTarget } = createSettingsAdapter({}, {});
 
-    // #3282 §3: the session's own live `isSetupRequired()` says so — a served runtime's setup mode has
+    // The session's own live `isSetupRequired()` says so — a served runtime's setup mode has
     // no session to restart into, so this hot-swaps a running placeholder instead. Restarting a live
     // session that already has a provider (adding a second profile, below) is unaffected.
     const { context, requests } = scriptedContext(
@@ -468,7 +468,7 @@ describe('createProviderCommandModule', () => {
     expect(completed?.hostActions).toEqual([{ type: 'provider-hot-swap', profileName: 'openai' }]);
   });
 
-  it('restarts (never hot-swaps) an env-default session with no persisted provider either (#3282 §3)', async () => {
+  it('restarts (never hot-swaps) an env-default session with no persisted provider either', async () => {
     // A session that started from a recognized provider env key (zero-config) has no `currentProvider`
     // persisted, exactly like a served runtime's setup-mode session — but it is NOT in setup mode.
     // Inferring "first ever" from settings alone would hot-swap it silently; only the session's own
@@ -540,7 +540,7 @@ describe('createProviderCommandModule', () => {
     ]);
     const completed = await createExecutor(adapter).execute('provider', context, 'add openai');
 
-    // #3282 §3: this session is not in setup mode (scriptedContext's isSetupRequired default, false) —
+    // This session is not in setup mode (scriptedContext's isSetupRequired default, false) —
     // it restarts to pick up the new profile, exactly as an ordinary session with one already active.
     expect(completed?.hostActions).toEqual([
       { type: 'session-restart', reason: 'other', message: 'Provider setup restart' },
@@ -593,10 +593,10 @@ describe('createProviderCommandModule', () => {
     expect(probe).toHaveBeenCalled();
   });
 
-  // #3282 §4b: direct, non-interactive forms of Edit/Duplicate/Delete — the Settings screen already
+  // Direct, non-interactive forms of Edit/Duplicate/Delete — the Settings screen already
   // knows which profile a button belongs to, so it names it directly instead of repeating the
   // profile-action menu's own "which profile" ask.
-  describe('direct edit/duplicate/delete subcommands (#3282 §4b)', () => {
+  describe('direct edit/duplicate/delete subcommands', () => {
     it('edits a named profile directly, skipping the "which profile" ask', async () => {
       const { adapter, readTarget } = createSettingsAdapter(
         {
@@ -805,7 +805,7 @@ describe('createProviderCommandModule', () => {
     });
   });
 
-  // #3459: a host that withholds its own credentials from `process.env` checks `$ENV:` credentials
+  // A host that withholds its own credentials from `process.env` checks `$ENV:` credentials
   // against the snapshot it took first, which it hands the command as `env`.
   describe('credentials the host withheld from process.env', () => {
     const settings: TProviderSettingsDocument = {

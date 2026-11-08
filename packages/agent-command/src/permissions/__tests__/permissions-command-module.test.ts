@@ -149,7 +149,7 @@ describe('createPermissionsCommandModule', () => {
     expect(result?.data).toEqual({ mode: 'acceptEdits', sessionAllowed: ['Bash', 'Read'] });
   });
 
-  it('lists the effective rules under the settings file each comes from, and recent denials (issue #3082)', async () => {
+  it('lists the effective rules under the settings file each comes from, and recent denials', async () => {
     const executor = new SystemCommandExecutor([
       ...(createPermissionsCommandModule().systemCommands ?? []),
     ]);
@@ -244,7 +244,7 @@ describe('createPermissionsCommandModule', () => {
     );
   });
 
-  it('retries a classifier denial by the number /permissions shows (issue #3082)', async () => {
+  it('retries a classifier denial by the number /permissions shows', async () => {
     const executor = new SystemCommandExecutor([
       ...(createPermissionsCommandModule().systemCommands ?? []),
     ]);

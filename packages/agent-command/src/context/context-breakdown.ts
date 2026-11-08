@@ -199,7 +199,7 @@ export function formatFullContextBreakdown(context: TContextReadHost): ICommandR
   const autoCompactThresholdSource = readAutoCompactThresholdSource(context);
   const rawMessages = context.getSession().getHistory();
   const msgTokens = computeMessageTokensByRole(rawMessages);
-  // CLI-1990: what the TOOL SCHEMAS cost on every request — the offered set, so a deferred tool that
+  // What the TOOL SCHEMAS cost on every request — the offered set, so a deferred tool that
   // has not been loaded is not counted, because it is not sent. Until now nothing separated this
   // from the system prompt it is billed alongside, so the saving deferral produces had no observable.
   const offeredToolSchemas = context.getSession().getOfferedToolSchemas();
@@ -287,7 +287,7 @@ export function formatFullContextBreakdown(context: TContextReadHost): ICommandR
     data: {
       references,
       history: { turnCount: display.turnCount, toolResults: display.toolResults },
-      // CLI-1990: machine-readable beside the rendered line, so a caller can compare the figure
+      // Machine-readable beside the rendered line, so a caller can compare the figure
       // across configurations rather than parsing the message back out.
       toolSchemaTokens,
     },

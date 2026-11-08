@@ -1,4 +1,4 @@
-/** BEHAVIOR-2437 TC-05 — registration, the descriptor, and the verb parse through the real session. */
+/** Registration, the descriptor, and the verb parse through the real session. */
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

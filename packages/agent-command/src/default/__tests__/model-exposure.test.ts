@@ -130,7 +130,7 @@ const USER_ONLY_COMMANDS = [
   'provider',
   'unlock',
   'lock',
-  // Cost and capability decisions: the person chooses, never the model on its own (#3282 §2).
+  // Cost and capability decisions: the person chooses, never the model on its own.
   'model',
   // Permission widening or permission-mode changes.
   'mode',

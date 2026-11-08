@@ -1,5 +1,5 @@
 /**
- * TERM-003: `/shell` — hand the real terminal to an interactive subshell (or run a single command
+ * `/shell` — hand the real terminal to an interactive subshell (or run a single command
  * interactively), then return to the agent session. Uses the framework terminal-handoff capability;
  * the shell choice goes through the `resolveShell()` seam (macOS/Linux first).
  */

@@ -1,6 +1,6 @@
 import { createSystemCommandFromEntry } from '../command-module-utils.js';
 /**
- * `/doctor` — the interactive surface of the same runner the shell route uses (OBSERVABILITY-1991).
+ * `/doctor` — the interactive surface of the same runner the shell route uses.
  *
  * `/doctor` renders the report; `/doctor repair <check-id>` confirms through the host's user
  * interaction port and treats an absent port or a cancelled answer as "nothing written". Neither

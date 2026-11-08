@@ -35,7 +35,7 @@ describe('exit command module', () => {
   });
 
   it('proceeds to exit with no renderer attached (no human to confirm)', async () => {
-    // ARCH-029 TC-09: "no renderer attached" is a VALUE — `getUserInteraction()` returns undefined —
+    // "no renderer attached" is a VALUE — `getUserInteraction()` returns undefined —
     // not an absent member. `{} as never` expressed it as absence, which the required member no
     // longer permits, and the double's default answers exactly this case.
     const result = await executeExitCommand(createTestCommandHost(), '');
@@ -47,12 +47,12 @@ describe('exit command module', () => {
     });
   });
 
-  it('confirms before exiting and proceeds on yes (CMD-004)', async () => {
+  it('confirms before exiting and proceeds on yes', async () => {
     const result = await executeExitCommand(contextWithAnswer('yes'), '');
     expect(result.hostActions).toEqual([{ type: 'session-exit' }]);
   });
 
-  it('cancels the exit when the user declines (CMD-004)', async () => {
+  it('cancels the exit when the user declines', async () => {
     const result = await executeExitCommand(contextWithAnswer('no'), '');
     expect(result.success).toBe(true);
     expect(result.message).toBe('Exit cancelled.');

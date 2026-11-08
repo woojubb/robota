@@ -1,5 +1,5 @@
 /**
- * #3459 — the default command modules hand `/provider` and `/model` the host's environment snapshot.
+ * The default command modules hand `/provider` and `/model` the host's environment snapshot.
  *
  * A host that withholds its own credentials from `process.env` passes the snapshot it took first as
  * `providerEnvironment`. This drives both commands through the factory, with the key gone from the
@@ -78,7 +78,7 @@ async function withoutLiveKey<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
-describe('#3459: the default command modules forward the provider environment', () => {
+describe('the default command modules forward the provider environment', () => {
   it('/provider switch checks the key against the snapshot', async () => {
     const result = await withoutLiveKey(() =>
       executorThroughFactory('agent-command-provider').execute('provider', createTestCommandHost(), 'switch openai'),

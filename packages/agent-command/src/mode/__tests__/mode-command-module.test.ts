@@ -97,7 +97,7 @@ describe('createModeCommandModule', () => {
       'bypassPermissions',
       'auto',
     ]);
-    // #3282 §2: a plain label beside every description, so a client never shows the raw id.
+    // A plain label beside every description, so a client never shows the raw id.
     expect(entry?.subcommands?.map((subcommand) => subcommand.displayName)).toEqual([
       'Plan only',
       'Ask first',
@@ -159,7 +159,7 @@ describe('createModeCommandModule', () => {
     expect(context.setPermissionMode).not.toHaveBeenCalled();
   });
 
-  it('#3282 §2: the picker shows plain labels with their descriptions, never a raw id', async () => {
+  it('the picker shows plain labels with their descriptions, never a raw id', async () => {
     const executor = new SystemCommandExecutor([
       ...(createModeCommandModule().systemCommands ?? []),
     ]);
@@ -190,7 +190,7 @@ describe('createModeCommandModule', () => {
     ]);
   });
 
-  it('asks the user to pick a mode when no arg is given and a renderer is attached (CMD-004)', async () => {
+  it('asks the user to pick a mode when no arg is given and a renderer is attached', async () => {
     const executor = new SystemCommandExecutor([
       ...(createModeCommandModule().systemCommands ?? []),
     ]);
@@ -209,7 +209,7 @@ describe('createModeCommandModule', () => {
     expect(context.setPermissionMode).toHaveBeenCalledWith('plan');
   });
 
-  it('reports the current mode when the user cancels the pick (CMD-004)', async () => {
+  it('reports the current mode when the user cancels the pick', async () => {
     const executor = new SystemCommandExecutor([
       ...(createModeCommandModule().systemCommands ?? []),
     ]);

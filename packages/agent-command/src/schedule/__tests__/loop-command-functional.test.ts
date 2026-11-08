@@ -11,9 +11,9 @@ afterEach(async () => {
 });
 
 /**
- * #3288 §1: a bare/interval-only loop now asks before it falls back to the default prompt, even in
+ * A bare/interval-only loop now asks before it falls back to the default prompt, even in
  * this harness's "typed the command" (`source: 'user'`) path — subscribing an `askHandler` gives
- * `getUserInteraction()` a live port (REMOTE-007 D4a), so these functional tests stay interactive
+ * `getUserInteraction()` a live port, so these functional tests stay interactive
  * rather than hitting the new headless refusal. Always answers "Start".
  */
 const confirmDefaultStart = async (): Promise<{ type: 'answer'; values: readonly string[] }> =>

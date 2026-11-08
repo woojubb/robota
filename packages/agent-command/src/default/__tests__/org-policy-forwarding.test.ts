@@ -1,5 +1,5 @@
 /**
- * CLI-083 (issue #2287) — the default command modules forward the org policy.
+ * The default command modules forward the org policy.
  *
  * `createDefaultCommandModules` used to accept `orgPolicy` and hand it to the provider command
  * module; `92596bc6f` removed the parameter along with its only caller. The consumer never changed:
@@ -79,7 +79,7 @@ function executorThroughFactory(orgPolicy?: IOrgPolicy): SystemCommandExecutor {
   return new SystemCommandExecutor([...(provider.systemCommands ?? [])]);
 }
 
-describe('CLI-083: the default command modules forward the org policy', () => {
+describe('the default command modules forward the org policy', () => {
   it('blocks a disallowed provider switch when a policy is supplied to the FACTORY', async () => {
     const result = await executorThroughFactory(POLICY).execute(
       'provider',

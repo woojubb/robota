@@ -1,5 +1,5 @@
 /**
- * #3282 §4c review finding: `/memory` in a served (GUI) session throws instead of answering, because
+ * `/memory` in a served (GUI) session throws instead of answering, because
  * `executeMemoryCommand` never caught what `context.getMemoryStore()` throws when the host composed no
  * memory store (off by default, or unavailable on this host — `WorkspaceAuthorityRequiredError`). The
  * uncaught rejection reaches the transport's `command` handler

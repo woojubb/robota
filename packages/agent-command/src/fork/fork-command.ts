@@ -1,5 +1,5 @@
 /**
- * `/fork [name] [--same-dir]` (CLI-1994, issue #1994) — copy this conversation into a background
+ * `/fork [name] [--same-dir]` — copy this conversation into a background
  * session and keep working here.
  *
  * The two halves are deliberately separate calls to two different capabilities, because they are two
@@ -7,7 +7,7 @@
  * messages, the parent's assembled system message, the tool schemas and the transcript, under a
  * fresh id and a name that is not the parent's. Spawning then starts a background agent job that
  * carries ONLY that id — the conversation never rides on the request, so it never crosses the
- * child-process wire (ARCH-044); the child reads the record from the session store, exactly as the
+ * child-process wire; the child reads the record from the session store, exactly as the
  * startup `--fork-session` does.
  *
  * A fork is a copy, not a branch of one live thing: from the moment the record is written, work in
@@ -42,8 +42,8 @@ const FORK_AGENT_TYPE = 'general-purpose';
  *
  * A fork inherits the parent's whole conversation and its assembled system message, so there is
  * nothing left to brief it about — this is a minimal continuation cue, deliberately NOT a prompt.
- * § Solution 5 asked for an empty string; a turn with no user content is rejected by providers, and
- * one word is the smallest thing that is not — the divergence is recorded in the spec beside it. Anything longer would be this neutral command layer
+ * An empty string would be a turn with no user content, which providers reject, and one word is
+ * the smallest thing that is not. Anything longer would be this neutral command layer
  * deciding how a forked agent should behave, which is the product layer's call
  * (`scan-prompt-prose` is the mechanical form of that rule).
  */

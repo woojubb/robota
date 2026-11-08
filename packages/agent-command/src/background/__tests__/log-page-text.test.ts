@@ -1,5 +1,5 @@
 /**
- * #3679 step 3b: how `/agent read` (model-invocable) and `/background read` show a log page whose
+ * How `/agent read` (model-invocable) and `/background read` show a log page whose
  * records are sealed. The page's lines already hold a fixed placeholder for what could not be opened;
  * the command says why, names "unlock" only where an unlock would help, and never says there are no
  * log lines while records exist. A plain page is its lines, with nothing added.
@@ -132,7 +132,7 @@ describe('a log page as /agent read and /background read show it', () => {
 });
 
 /**
- * Every build before #3679 step 3b, kept verbatim as the golden reference: the page a plain log gave
+ * Every build before the paged log view, kept verbatim as the golden reference: the page a plain log gave
  * (`createBackgroundTaskLogPage`), and the text both commands made of it.
  */
 function pagePre3b(
@@ -156,7 +156,7 @@ function textPre3b(taskId: string, page: IBackgroundTaskLogPage): string {
   return page.lines.length > 0 ? `${page.lines.join('\n')}${next}` : `No log lines: ${taskId}`;
 }
 
-describe('a plain log reads as its lines #3679 step 3b', () => {
+describe('a plain log reads as its lines', () => {
   const log = Array.from({ length: 450 }, (_, index) => `{"event":"e${index}"}`);
 
   it.each(['0', '1', '199', '200', '449', '450', '455', '-5', 'later', undefined])(

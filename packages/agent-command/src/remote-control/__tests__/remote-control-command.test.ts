@@ -10,7 +10,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 
 /**
- * REMOTE-008 — `/remote-control` command: a declarative trigger (enable/stop return host actions) + a
+ * `/remote-control` command: a declarative trigger (enable/stop return host actions) + a
  * status read over the injected `remoteControl` adapter.
  */
 
@@ -24,7 +24,7 @@ function ctx(status?: TRemoteControlStatus) {
   });
 }
 
-describe('executeRemoteControlCommand (REMOTE-008)', () => {
+describe('executeRemoteControlCommand', () => {
   it('default (no args) requests enable via a host effect (no transport touched by the command)', () => {
     const result = executeRemoteControlCommand(ctx(), '');
     expect(result.success).toBe(true);
@@ -76,7 +76,7 @@ describe('executeRemoteControlCommand (REMOTE-008)', () => {
     expect(result.hostActions).toBeUndefined();
   });
 
-  // REMOTE-012 E3 — trusted-device management verbs.
+  // Trusted-device management verbs.
   function e3ctx(over: Partial<ICommandRemoteControlAdapter>) {
     const adapter: ICommandRemoteControlAdapter = { getStatus: () => ({ state: 'off' }), ...over };
     return createTestCommandHost({

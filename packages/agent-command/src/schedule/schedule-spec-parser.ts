@@ -1,5 +1,5 @@
 /**
- * FLOW-005: parse the `<when>` portion of `/schedule` into a cron expression croner accepts.
+ * Parse the `<when>` portion of `/schedule` into a cron expression croner accepts.
  *
  * Two forms:
  *   in <N><unit> <instruction>     — one-shot, fires once at now + duration (s|m|h|d)

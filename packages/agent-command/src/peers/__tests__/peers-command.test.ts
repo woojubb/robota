@@ -1,5 +1,5 @@
 /**
- * PEER-004 (#1863) — `/peers` is the surface that makes local discovery observable.
+ * `/peers` is the surface that makes local discovery observable.
  *
  * Discovery landed as two leaves — a guarded rendezvous directory and a registry whose liveness is
  * settled by pid AND process start time — and measured on this tree before this command existed, no
@@ -77,7 +77,7 @@ describe('what the operator is told', () => {
     expect(result.message).toMatch(/unobserved.*status unknown/);
   });
 
-  it('shows how each peer is related by workspace (#3101 B2)', async () => {
+  it('shows how each peer is related by workspace', async () => {
     const result = await executePeersCommand(
       hostWithPeers([
         { sessionId: OWN, liveness: 'alive', workspaceRelation: 'same-worktree' },
@@ -232,7 +232,7 @@ describe('when the host wires no discovery', () => {
   });
 });
 
-describe('PEER-006 — /peers send', () => {
+describe('/peers send', () => {
   function hostWithSend(
     send: (target: string, text: string) => Promise<{ state: string; reason?: string }>,
   ): ICommandHostAdapterAccess {

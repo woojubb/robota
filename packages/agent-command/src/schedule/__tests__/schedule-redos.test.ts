@@ -1,5 +1,5 @@
 /**
- * SEC-003 (`js/polynomial-redos`): `/schedule cron` and `/monitor` argument parsing must stay
+ * CodeQL `js/polynomial-redos`: `/schedule cron` and `/monitor` argument parsing must stay
  * linear in the length of their argument string.
  *
  * Both commands are declared `modelInvocable: true` (see `schedule-command-module.ts`), so the

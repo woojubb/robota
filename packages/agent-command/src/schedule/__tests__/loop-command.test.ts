@@ -6,7 +6,7 @@ import type { ILoopInvocationContext } from '../loop-command.js';
 import { createTestAgentJobHost } from '@robota-sdk/agent-framework/testing';
 
 /**
- * #3288 §1: every default-prompt form (bare or interval-only) is gated on confirmation — an
+ * Every default-prompt form (bare or interval-only) is gated on confirmation — an
  * interactive invocation with an ask port that answers Start, for a test whose OWN point is
  * something else (default-prompt resolution, cadence, etc.), not the confirmation gate itself.
  */
@@ -394,7 +394,7 @@ describe('fixed in-session loop', () => {
 });
 
 /**
- * #3288 §1: every form that falls back to the host's default maintenance prompt — bare `/loop` or
+ * Every form that falls back to the host's default maintenance prompt — bare `/loop` or
  * an interval-only `/loop <N><s|m|h|d>` (self-paced or fixed cadence) — keeps working on its own for
  * up to 7 days: a standing commitment the operator never typed, gated the same way regardless of
  * which form reached it. An explicit prompt is the operator's own instruction and is never gated.
@@ -402,7 +402,7 @@ describe('fixed in-session loop', () => {
  * a headless one (no ask port — print mode, a scheduled run) is refused too, the same reason as the
  * model: nobody is there to say yes to a loop that can run for a week.
  */
-describe('/loop asks before starting on its own (#3288 §1)', () => {
+describe('/loop asks before starting on its own', () => {
   function askResolving(value: 'start' | 'cancel'): ReturnType<typeof vi.fn> {
     return vi.fn().mockResolvedValue({ type: 'answer', values: [value] });
   }

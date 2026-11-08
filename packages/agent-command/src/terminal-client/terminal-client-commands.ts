@@ -1,5 +1,5 @@
 /**
- * #3189: the commands that belong to the terminal the user sits at — the ones a product's assembly
+ * The commands that belong to the terminal the user sits at — the ones a product's assembly
  * marks `runner: 'client'`. They start the terminal's own processes, so they are on the Node entry. A terminal attached to a workspace daemon runs these in its own process,
  * on its own terminal and working directory, and sends nothing to the daemon.
  *

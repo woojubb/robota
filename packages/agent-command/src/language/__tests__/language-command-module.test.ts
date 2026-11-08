@@ -106,7 +106,7 @@ describe('createLanguageCommandModule', () => {
     expect(result?.message).toBe('Usage: language <code> (e.g., ko, en, ja, zh)');
   });
 
-  it('asks the user to pick a language when none is provided (CMD-004)', async () => {
+  it('asks the user to pick a language when none is provided', async () => {
     const executor = new SystemCommandExecutor([
       ...(createLanguageCommandModule().systemCommands ?? []),
     ]);

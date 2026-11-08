@@ -387,7 +387,7 @@ describe('executeRewindCommand', () => {
     expect(result?.message).toContain('Rolled back code through turn-0001.');
   });
 
-  // SELFHOST-007 TC-05: branching subcommands route through the host context.
+  // Branching subcommands route through the host context.
   it('delegates fork through session.executeCommand (non-destructive)', async () => {
     const session = createInteractiveSession();
     const forkCheckpointBranch = vi
@@ -481,7 +481,7 @@ describe('executeRewindCommand', () => {
       const result = await session.executeCommand('rewind', 'list');
 
       expect(result?.success).toBe(false);
-      // #3289 §3: plain words naming the feature ("Rewind"), not the internal write-containment reason.
+      // Plain words naming the feature ("Rewind"), not the internal write-containment reason.
       expect(result?.message).toBe("Rewind isn't available on this computer yet.");
       expect(result?.message).not.toContain('trust');
     });

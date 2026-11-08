@@ -22,7 +22,7 @@ function goal(overrides: Partial<IGoalState> = {}): IGoalState {
 }
 
 function host(overrides: ICreateTestCommandHostOptions['overrides'] = {}) {
-  // ARCH-029: the partial is now an OVERRIDE over a conformant host, not a cast that turns the
+  // The partial is now an OVERRIDE over a conformant host, not a cast that turns the
   // check off. A fixture that names three members no longer claims to satisfy 46.
   return createTestCommandHost({ overrides });
 }
