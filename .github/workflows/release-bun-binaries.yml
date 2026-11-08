@@ -244,7 +244,7 @@ jobs:
           fi
 
       - name: Package and exercise the unsigned desktop product
-        timeout-minutes: 10
+        timeout-minutes: 15
         if: github.event_name == 'pull_request'
         shell: bash
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
@@ -253,7 +253,12 @@ jobs:
         run: |
           pnpm --filter './apps/agent-app' build
           pnpm --filter './apps/agent-app' bundle:runtime
-          pnpm --filter './apps/agent-app' exec electron-builder --dir --publish never -c.mac.notarize=false -c.mac.identity=null
+          # electron-builder downloads Electron and its helper tools from GitHub releases, which fail intermittently.
+          for attempt in 1 2 3 4; do
+            pnpm --filter './apps/agent-app' exec electron-builder --dir --publish never -c.mac.notarize=false -c.mac.identity=null && break
+            if [ "$attempt" = 4 ]; then exit 1; fi
+            sleep $((attempt * 20))
+          done
           pnpm --filter './apps/agent-app' test:e2e:packaged
           pnpm --filter './apps/agent-app' test:e2e:bundled
 
