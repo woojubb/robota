@@ -53,7 +53,7 @@ function assertCondition(condition: boolean, message: string): void {
 }
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'arch-035-example-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'zero-config-tools-example-'));
   let session: InteractiveSession | undefined;
   let result:
     { createSessionReturnedSynchronously: boolean; providerObservedTools: string[] } | undefined;

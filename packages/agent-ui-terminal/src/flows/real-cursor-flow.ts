@@ -3,7 +3,7 @@
  *
  * Maps the input box's absolute frame-space origin plus the live (value, cursor) to the exact
  * screen cell the hardware cursor must occupy, and guards WHEN positioning is allowed at all.
- * Contract: .design/investigations/2026-07-25-cli-062-ime-cursor-design.md.
+ * Contract: the invariants I1–I5 documented on `shouldPositionRealCursor` below.
  *
  * The wrap math reuses `displayOffset` — the same wrap-aware column accounting the input's
  * vertical navigation already trusts — so the computed cell always matches where ink actually

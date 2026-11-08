@@ -430,6 +430,32 @@ export async function stopSupervisedSession(
   if (!('status' in response) || response.status !== 'stopping') {
     throw new Error('Supervised session did not confirm shutdown.');
   }
+  await awaitRuntimeExit(directory, record);
+}
+
+/**
+ * End a runtime this process started and return only once it is gone. A runtime whose spawner
+ * left without certifying it ends itself, and its control closes before it answers a stop request:
+ * that is a runtime on its way out, not one that has left, and a caller that goes on while it is
+ * still registered sees it as a live session with no control. So an unanswered or refused stop is
+ * not an error here, and the wait for the exit does not depend on the answer.
+ */
+export async function stopStartedSupervisedSession(
+  id: string,
+  root: string,
+  expectedGeneration: string,
+): Promise<void> {
+  const { directory, record, generation } = verifyLiveOwner(root, id, expectedGeneration);
+  try {
+    await request(directory, id, generation, 'stop');
+  } catch {
+    // allow-fallback: the runtime may already be stopping itself; the wait below decides.
+  }
+  await awaitRuntimeExit(directory, record);
+}
+
+/** Resolves once the registration is removed and the registered process has exited. */
+export async function awaitRuntimeExit(directory: string, record: Pick<IRegistration, 'pid' | 'startedAt'>): Promise<void> {
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     let registrationRemoved = false;

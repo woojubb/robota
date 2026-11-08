@@ -53,7 +53,7 @@ async function runTool(tool: FunctionTool, args: TToolParameters): Promise<ITool
 beforeAll(() => {
   // `realpathSync.native` spells a path as the shell does: unlike the JS `realpathSync` it expands the
   // 8.3 short names Windows gives a temporary directory (`RUNNER~1`).
-  root = realpathSync.native(mkdtempSync(join(tmpdir(), 'sec007-shell-')));
+  root = realpathSync.native(mkdtempSync(join(tmpdir(), 'shell-working-directory-')));
   workdir = join(root, 'workdir');
   sibling = join(root, 'sibling');
   mkdirSync(workdir, { recursive: true });

@@ -40,7 +40,7 @@ describe('the marketplace-wide cleanup refuses a path outside the plugin cache',
   let pluginsDir: string;
 
   beforeEach(() => {
-    base = realpathSync(mkdtempSync(join(tmpdir(), 'sec-018-registry-')));
+    base = realpathSync(mkdtempSync(join(tmpdir(), 'sink-registry-')));
     pluginsDir = join(base, 'plugins');
     mkdirSync(pluginsDir, { recursive: true });
   });
@@ -124,11 +124,15 @@ describe('a marketplace manifest name cannot select a destination outside its ro
   let client: MarketplaceClient;
 
   beforeEach(() => {
-    base = realpathSync(mkdtempSync(join(tmpdir(), 'sec-018-client-')));
+    base = realpathSync(mkdtempSync(join(tmpdir(), 'sink-client-')));
     pluginsDir = join(base, 'plugins');
     mkdirSync(pluginsDir, { recursive: true });
     mockExec = vi.fn().mockReturnValue('');
-    client = new MarketplaceClient({ pluginsDir, exec: mockExec as unknown as TExecFn, fs: nodeFs });
+    client = new MarketplaceClient({
+      pluginsDir,
+      exec: mockExec as unknown as TExecFn,
+      fs: nodeFs,
+    });
   });
 
   afterEach(() => rmSync(base, { recursive: true, force: true }));
@@ -173,11 +177,15 @@ describe('known_marketplaces.json installLocation is a hint, not a fact', () => 
   let client: MarketplaceClient;
 
   beforeEach(() => {
-    base = realpathSync(mkdtempSync(join(tmpdir(), 'sec-018-known-')));
+    base = realpathSync(mkdtempSync(join(tmpdir(), 'sink-known-')));
     pluginsDir = join(base, 'plugins');
     mkdirSync(pluginsDir, { recursive: true });
     mockExec = vi.fn().mockReturnValue('');
-    client = new MarketplaceClient({ pluginsDir, exec: mockExec as unknown as TExecFn, fs: nodeFs });
+    client = new MarketplaceClient({
+      pluginsDir,
+      exec: mockExec as unknown as TExecFn,
+      fs: nodeFs,
+    });
   });
 
   afterEach(() => rmSync(base, { recursive: true, force: true }));

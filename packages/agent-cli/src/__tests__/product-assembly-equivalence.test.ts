@@ -448,11 +448,11 @@ describe('the assembled test-product runtime matches the pre-change baseline', (
 /* ── ONE preset resolution path ────────────────────────────────────────────────────────── */
 
 /** An external preset with a posture no built-in has, so a resolution can be traced to its source. */
-const ARCH_008_EXTERNAL: IPreset = {
-  id: 'arch-008-external',
+const EXTERNAL_PRESET: IPreset = {
+  id: 'external-preset',
   title: 'external probe',
   description: 'external preset used to trace which registry a resolution came from',
-  persona: 'arch-008 persona',
+  persona: 'external-preset persona',
   autonomy: 'act-first',
 };
 
@@ -493,31 +493,31 @@ describe('test-product resolves presets through the kernel’s per-call registry
     const { product, preset } = assembleProductFixture(
       {},
       {
-        externalPresets: [ARCH_008_EXTERNAL],
-        args: { ...MINIMAL_ARGS, preset: ARCH_008_EXTERNAL.id } as unknown as IParsedCliArgs,
+        externalPresets: [EXTERNAL_PRESET],
+        args: { ...MINIMAL_ARGS, preset: EXTERNAL_PRESET.id } as unknown as IParsedCliArgs,
       },
     );
 
-    expect(preset.options.persona).toBe('arch-008 persona');
-    expect(product.resolvePreset(ARCH_008_EXTERNAL.id)).toMatchObject({
-      persona: 'arch-008 persona',
+    expect(preset.options.persona).toBe('external-preset persona');
+    expect(product.resolvePreset(EXTERNAL_PRESET.id)).toMatchObject({
+      persona: 'external-preset persona',
       // `act-first` maps to acceptEdits in agent-preset's posture derivation.
       permissionMode: 'acceptEdits',
     });
-    expect(product.presets.listPresets().map((p) => p.id)).toContain(ARCH_008_EXTERNAL.id);
+    expect(product.presets.listPresets().map((p) => p.id)).toContain(EXTERNAL_PRESET.id);
   });
 
   it('keeps two assembleProduct calls in one process from contaminating each other (R8)', () => {
-    const withExternal = assembleProductFixture({}, { externalPresets: [ARCH_008_EXTERNAL] }).product;
+    const withExternal = assembleProductFixture({}, { externalPresets: [EXTERNAL_PRESET] }).product;
     const withoutExternal = assembleProductFixture().product;
 
-    expect(withExternal.presets.getPreset(ARCH_008_EXTERNAL.id)).toBeDefined();
-    expect(withoutExternal.presets.getPreset(ARCH_008_EXTERNAL.id)).toBeUndefined();
-    expect(() => withoutExternal.resolvePreset(ARCH_008_EXTERNAL.id)).toThrow(/Unknown preset/);
+    expect(withExternal.presets.getPreset(EXTERNAL_PRESET.id)).toBeDefined();
+    expect(withoutExternal.presets.getPreset(EXTERNAL_PRESET.id)).toBeUndefined();
+    expect(() => withoutExternal.resolvePreset(EXTERNAL_PRESET.id)).toThrow(/Unknown preset/);
     // Order-independent: the second call does not inherit the first, in EITHER direction.
     expect(
-      assembleProductFixture({}, { externalPresets: [ARCH_008_EXTERNAL] }).product.presets.getPreset(
-        ARCH_008_EXTERNAL.id,
+      assembleProductFixture({}, { externalPresets: [EXTERNAL_PRESET] }).product.presets.getPreset(
+        EXTERNAL_PRESET.id,
       ),
     ).toBeDefined();
     // …and a registry built afterwards still starts at the built-ins, so nothing accumulated anywhere
@@ -526,7 +526,7 @@ describe('test-product resolves presets through the kernel’s per-call registry
       createPresetRegistry()
         .listPresets()
         .map((p) => p.id),
-    ).not.toContain(ARCH_008_EXTERNAL.id);
+    ).not.toContain(EXTERNAL_PRESET.id);
   });
 
   it('resolves test-product’s startup preset from the shell’s list, by VALUE not by id', () => {
@@ -537,7 +537,7 @@ describe('test-product resolves presets through the kernel’s per-call registry
     // What survives is the half that can still fail: the VALUE comes from the list the shell handed
     // over. Asserting the value rather than "something resolved" is what makes a wrong source visible;
     // an "unknown id throws" assertion would pass no matter which list answered.
-    const id = 'arch-008-dual';
+    const id = 'dual-preset';
     const { product, preset } = assembleProductFixture(
       {},
       {

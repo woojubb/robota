@@ -18,8 +18,8 @@ import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 const testHost = createTestFrameworkHost();
 
-const PARENT_ID = 'session_cli-1994-parent';
-const FORK_ID = 'session_cli-1994-fork';
+const PARENT_ID = 'session_parent';
+const FORK_ID = 'session_fork';
 const PROMPT = 'Continue the forked work.';
 const RESPONSE = 'The forked work is current.';
 

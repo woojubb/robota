@@ -31,7 +31,7 @@ function executableBasename(executable: string): string {
 }
 
 function observedExecutableBasename(output: string, caseName: string): string {
-  const marker = output.match(/ARCH026_EXECUTABLE:([^\r\n]+)/)?.[1]?.trim();
+  const marker = output.match(/SHELL_EXECUTABLE:([^\r\n]+)/)?.[1]?.trim();
   assertCondition(
     marker !== undefined && marker.length > 0,
     `${caseName} executable marker missing`,
@@ -57,9 +57,9 @@ function requestFor(
   kind: 'process' | 'scheduled',
 ): IBackgroundTaskStart<'process'> | IBackgroundTaskStart<'scheduled'> {
   const common = {
-    label: `arch-026-${shellCase.name}-${kind}`,
+    label: `windows-shell-${shellCase.name}-${kind}`,
     mode: 'background' as const,
-    parentSessionId: 'session-arch-026',
+    parentSessionId: 'session-windows-shell-runners',
     depth: 0,
     cwd: process.cwd(),
     command: shellCase.command,
@@ -139,9 +139,9 @@ async function scheduledResult(
 async function assertUnknownShellRejected(): Promise<number> {
   const unknown: IShellCase = {
     name: 'unknown',
-    expectedObservedBasename: 'arch-026-unknown-shell.exe',
-    expectedRequestedBasename: 'arch-026-unknown-shell.exe',
-    executable: 'arch-026-unknown-shell.exe',
+    expectedObservedBasename: 'unknown-shell.exe',
+    expectedRequestedBasename: 'unknown-shell.exe',
+    executable: 'unknown-shell.exe',
     command: 'must-not-spawn',
     sentinel: 'must-not-spawn',
   };
@@ -193,24 +193,24 @@ async function main(): Promise<void> {
         expectedObservedBasename: 'powershell.exe',
         expectedRequestedBasename: 'powershell.exe',
         command:
-          "$arch026Path=(Get-Process -Id $PID).Path; Write-Output ('ARCH026_EXECUTABLE:' + [IO.Path]::GetFileName($arch026Path)); Write-Output 'arch026-default'",
-        sentinel: 'arch026-default',
+          "$shellPath=(Get-Process -Id $PID).Path; Write-Output ('SHELL_EXECUTABLE:' + [IO.Path]::GetFileName($shellPath)); Write-Output 'shell-default'",
+        sentinel: 'shell-default',
       },
       {
         name: 'sh',
         expectedObservedBasename: 'bash.exe',
         expectedRequestedBasename: 'sh.exe',
         executable: installedExecutable('sh.exe'),
-        command: `printf 'ARCH026_EXECUTABLE:%s\\n' "$(basename "$0")"; printf 'arch026-sh\\n'`,
-        sentinel: 'arch026-sh',
+        command: `printf 'SHELL_EXECUTABLE:%s\\n' "$(basename "$0")"; printf 'shell-sh\\n'`,
+        sentinel: 'shell-sh',
       },
       {
         name: 'bash',
         expectedObservedBasename: 'bash.exe',
         expectedRequestedBasename: 'bash.exe',
         executable: installedExecutable('bash.exe'),
-        command: `printf 'ARCH026_EXECUTABLE:%s\\n' "$(basename "$0")"; printf 'arch026-bash\\n'`,
-        sentinel: 'arch026-bash',
+        command: `printf 'SHELL_EXECUTABLE:%s\\n' "$(basename "$0")"; printf 'shell-bash\\n'`,
+        sentinel: 'shell-bash',
       },
       {
         name: 'powershell',
@@ -218,8 +218,8 @@ async function main(): Promise<void> {
         expectedRequestedBasename: 'powershell.exe',
         executable: installedExecutable('powershell.exe'),
         command:
-          "$arch026Path=(Get-Process -Id $PID).Path; Write-Output ('ARCH026_EXECUTABLE:' + [IO.Path]::GetFileName($arch026Path)); Write-Output 'arch026-powershell'",
-        sentinel: 'arch026-powershell',
+          "$shellPath=(Get-Process -Id $PID).Path; Write-Output ('SHELL_EXECUTABLE:' + [IO.Path]::GetFileName($shellPath)); Write-Output 'shell-powershell'",
+        sentinel: 'shell-powershell',
       },
       {
         name: 'pwsh',
@@ -227,16 +227,16 @@ async function main(): Promise<void> {
         expectedRequestedBasename: 'pwsh.exe',
         executable: installedExecutable('pwsh.exe'),
         command:
-          "$arch026Path=(Get-Process -Id $PID).Path; Write-Output ('ARCH026_EXECUTABLE:' + [IO.Path]::GetFileName($arch026Path)); Write-Output 'arch026-pwsh'",
-        sentinel: 'arch026-pwsh',
+          "$shellPath=(Get-Process -Id $PID).Path; Write-Output ('SHELL_EXECUTABLE:' + [IO.Path]::GetFileName($shellPath)); Write-Output 'shell-pwsh'",
+        sentinel: 'shell-pwsh',
       },
       {
         name: 'cmd',
         expectedObservedBasename: 'cmd.exe',
         expectedRequestedBasename: 'cmd.exe',
         executable: installedExecutable('cmd.exe'),
-        command: 'echo ARCH026_EXECUTABLE:%COMSPEC%&& echo arch026-cmd',
-        sentinel: 'arch026-cmd',
+        command: 'echo SHELL_EXECUTABLE:%COMSPEC%&& echo shell-cmd',
+        sentinel: 'shell-cmd',
       },
     ];
     rows = [];

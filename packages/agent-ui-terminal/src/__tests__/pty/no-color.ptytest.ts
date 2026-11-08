@@ -33,7 +33,7 @@ import type { IPtySession } from './pty-driver.js';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const REPLAY_FIXTURE = join(FIXTURES, 'replay-conversation.jsonl');
-const COLORS_FIXTURE = join(FIXTURES, 'screen-006-colors.jsonl');
+const COLORS_FIXTURE = join(FIXTURES, 'colors.jsonl');
 
 /** SGR params that set a color (foreground/background, basic/bright/extended). */
 const COLOR_PARAM = /^(?:3[0-8]|39|4[0-8]|49|9[0-7]|10[0-7])$/;
@@ -60,7 +60,7 @@ describe('color/motion through the real binary', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-screen006-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-no-color-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 
@@ -114,7 +114,7 @@ describe('color/motion through the real binary', () => {
 
     // The turn continues: the second replayed response carries the markdown diff block,
     // and the persisted tool summary lands at turn end.
-    await session.waitFor(/SCREEN006_DIFF_DONE/, 20_000);
+    await session.waitFor(/DIFF_DONE/, 20_000);
     await session.waitFor(/✓ Shell/, 10_000);
 
     const stripped = session.snapshot();

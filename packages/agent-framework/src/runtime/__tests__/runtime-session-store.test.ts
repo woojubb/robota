@@ -64,7 +64,7 @@ describe('agent runtime session-store inheritance', () => {
   const scratchDirs: string[] = [];
 
   function scratchDir(): string {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'arch-023-runtime-')));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'runtime-session-store-')));
     scratchDirs.push(cwd);
     return cwd;
   }

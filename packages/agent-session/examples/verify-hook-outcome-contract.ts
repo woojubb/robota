@@ -99,7 +99,7 @@ async function toolRuns(
 ): Promise<boolean> {
   const ran = { value: false };
   const options: IPermissionEnforcerOptions = {
-    sessionId: 'sec-015-scenario',
+    sessionId: 'hook-outcome-scenario',
     cwd,
     getPermissionMode: () => 'bypassPermissions',
     config: { permissions: { allow: [], deny: [] }, hooks },
@@ -114,7 +114,7 @@ async function toolRuns(
 
 function hookInput(cwd: string): IHookInput {
   return {
-    session_id: 'sec-015-scenario',
+    session_id: 'hook-outcome-scenario',
     cwd,
     hook_event_name: 'PreToolUse',
     tool_name: 'Bash',
@@ -132,7 +132,7 @@ function check(condition: boolean, line: string): void {
 }
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'sec-015-scenario-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'hook-outcome-scenario-'));
   let server: Server | undefined;
 
   try {

@@ -3,7 +3,7 @@
  *
  * Runs the BUILT CLI binary in a real pseudo-terminal and interprets the raw ANSI stream the
  * way a terminal emulator (and the OS IME) does. Two geometries from the implementation contract
- * (.design/investigations/2026-07-25-cli-062-ime-cursor-design.md):
+ * (the invariants documented on `shouldPositionRealCursor`):
  *
  *  - 24-row pty: while typing CJK, every `ESC[?25h` emitted after boot lands ON the input row at
  *    the composition column — never the top region (the historical hardcoded-y:0 crash geometry).

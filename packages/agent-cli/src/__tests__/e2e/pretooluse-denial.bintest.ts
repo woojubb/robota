@@ -32,11 +32,11 @@ import { createBinaryAgentDriver } from '../../testing/binary-agent-driver.js';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI = join(HERE, '..', '..', '..', 'bin', 'agent.cjs');
 /** The recorded session whose tool call the `PreToolUse` hook denies. */
-const FIXTURE = join(HERE, 'fixtures', 'sec-016-tool-call.jsonl');
-const PROBE_NAME = 'SEC-016-PROBE.txt';
+const FIXTURE = join(HERE, 'fixtures', 'tool-call.jsonl');
+const PROBE_NAME = 'PROBE.txt';
 const PROBE_CONTENT = 'probe MARKER_XYZ';
 /** A path that does not exist, so the `command` hook's shell exits 127 → kind `nonzero-exit`. */
-const MISSING_HOOK = '/nonexistent/sec-016-hook';
+const MISSING_HOOK = '/nonexistent/missing-hook';
 
 interface IRunResult {
   readonly exitCode: number | null;
@@ -55,7 +55,7 @@ function providerSettings(withHook: boolean): string {
     // A provider profile must exist even for replay (config-loader requires `currentProvider`);
     // `--session-log` swaps in the replay provider, so this key is never used.
     providers: {
-      anthropic: { type: 'anthropic', model: 'claude-test-model', apiKey: 'sec022-dummy-key' },
+      anthropic: { type: 'anthropic', model: 'claude-test-model', apiKey: 'dummy-key' },
     },
     // The two arms differ ONLY by this key: the provider profile survives in both, so a difference
     // between them cannot be explained by a broken configuration.
@@ -146,8 +146,8 @@ describe('the provider-free route to a PreToolUse denial', () => {
   let projectDir: string;
 
   beforeEach(() => {
-    homeDir = mkdtempSync(join(tmpdir(), 'test-product-sec022-home-'));
-    projectDir = mkdtempSync(join(tmpdir(), 'test-product-sec022-proj-'));
+    homeDir = mkdtempSync(join(tmpdir(), 'test-product-denial-home-'));
+    projectDir = mkdtempSync(join(tmpdir(), 'test-product-denial-proj-'));
     writeFileSync(join(projectDir, PROBE_NAME), `${PROBE_CONTENT}\n`, 'utf8');
   });
 

@@ -325,10 +325,10 @@ describe('PreToolUse fails closed when a hook cannot evaluate', () => {
           hooks: [
             // Matched by the stub executor below, which reports an error outcome. The command
             // string is inert — the stub never spawns anything — so do not read it as the mechanism.
-            { type: 'command', command: 'definitely-not-a-real-binary-sec016' },
+            { type: 'command', command: 'definitely-not-a-real-binary' },
             // A second failing hook, so the "(+N more hook failure(s))" clause is exercised rather
             // than skipped — with one error the clause is absent and its deletion is invisible.
-            { type: 'command', command: 'also-not-a-real-binary-sec016' },
+            { type: 'command', command: 'also-not-a-real-binary' },
             // No executor supplied for this type -> reported on `unknownHookTypes`.
             { type: 'guardrail' },
           ],

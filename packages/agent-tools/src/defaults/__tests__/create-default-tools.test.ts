@@ -55,11 +55,11 @@ describe('createDefaultTools', () => {
   // asserted is that the assembly produces a CONTAINED tool, not merely that a factory can accept a
   // `cwd` nobody passes.
   it('Glob and Grep are bound to the assembly cwd, not context-free singletons', async () => {
-    const contained = createDefaultTools({ cwd: join(PRIVATE_BASE, 'sec007-assembly-scope') });
+    const contained = createDefaultTools({ cwd: join(PRIVATE_BASE, 'assembly-scope') });
     // This used to be `createDefaultTools()` with no root at all, which is no longer
     // constructible. A SECOND root serves the same purpose and states it better: one shared singleton
     // could not carry two different roots either way.
-    const otherRoot = createDefaultTools({ cwd: join(PRIVATE_BASE, 'sec007-other-scope') });
+    const otherRoot = createDefaultTools({ cwd: join(PRIVATE_BASE, 'other-scope') });
 
     for (const name of ['Glob', 'Grep']) {
       const tool = contained.find((candidate) => candidate.getName() === name);

@@ -81,15 +81,15 @@ describe('HttpExecutor', () => {
   });
 
   it('interpolates $VAR references in headers from process.env', async () => {
-    process.env['SEC_015_TOKEN'] = 'sekrit';
+    process.env['HOOK_TOKEN'] = 'sekrit';
     try {
       await executor.execute(
-        { type: 'http', url, headers: { Authorization: 'Bearer $SEC_015_TOKEN' } },
+        { type: 'http', url, headers: { Authorization: 'Bearer $HOOK_TOKEN' } },
         input,
       );
       expect(lastHeaders['authorization']).toBe('Bearer sekrit');
     } finally {
-      delete process.env['SEC_015_TOKEN'];
+      delete process.env['HOOK_TOKEN'];
     }
   });
 

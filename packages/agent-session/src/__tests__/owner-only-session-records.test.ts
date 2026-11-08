@@ -46,7 +46,7 @@ let previousUmask: number;
 
 beforeEach(() => {
   previousUmask = process.umask(PERMISSIVE_UMASK);
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'sec-020-')));
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'owner-only-records-')));
 });
 
 afterEach(() => {

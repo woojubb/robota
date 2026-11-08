@@ -47,7 +47,7 @@ describe.runIf(process.platform === 'linux')(
     let projectMutation: IWorkspaceProjectMutation;
 
     beforeEach(async () => {
-      cwd = realpathSync(mkdtempSync(join(tmpdir(), 'sec-020-init-')));
+      cwd = realpathSync(mkdtempSync(join(tmpdir(), 'runtime-data-ignore-')));
       projectAccess = await createTrustedWorkspaceProjectAccess(cwd);
       projectMutation = createWorkspaceProjectMutation(projectAccess.authority, {
         status: 'approved',

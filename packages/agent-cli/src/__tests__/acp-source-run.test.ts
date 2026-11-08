@@ -19,7 +19,7 @@ import type { SessionUpdate } from '@agentclientprotocol/sdk';
 
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const launcher = path.join(repoRoot, 'scripts', 'dev', 'agent');
-const replayLog = fileURLToPath(new URL('./e2e/fixtures/sec-016-tool-call.jsonl', import.meta.url));
+const replayLog = fileURLToPath(new URL('./e2e/fixtures/tool-call.jsonl', import.meta.url));
 const scratch = realpathSync(mkdtempSync(path.join(tmpdir(), 'robota-acp-run-')));
 const home = path.join(scratch, 'home');
 const repo = path.join(scratch, 'repo');
@@ -35,7 +35,7 @@ writeFileSync(
   }),
 );
 execFileSync('git', ['init', '--quiet', repo]);
-writeFileSync(path.join(repo, 'SEC-016-PROBE.txt'), 'probe contents\n');
+writeFileSync(path.join(repo, 'PROBE.txt'), 'probe contents\n');
 
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 
@@ -119,7 +119,7 @@ describe('acp from source', () => {
       expect(run.updates).toContainEqual(
         expect.objectContaining({
           sessionUpdate: 'agent_message_chunk',
-          content: { type: 'text', text: expect.stringContaining('SEC_016_TURN_COMPLETE') },
+          content: { type: 'text', text: expect.stringContaining('TURN_COMPLETE') },
         }),
       );
 
