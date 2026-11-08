@@ -25,10 +25,7 @@
       "path": "./packages/agent-core"
     },
     {
-      "path": "./packages/agent-provider-openai"
-    },
-    {
-      "path": "./packages/agent-provider-anthropic"
+      "path": "./packages/agent-provider"
     }
   ]
 }

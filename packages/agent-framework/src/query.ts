@@ -91,7 +91,7 @@ async function submitQuery(
  * ```typescript
  * import { createQuery } from '@robota-sdk/agent-framework';
  * import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
- * import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+ * import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
  * import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
  *
  * const query = createQuery({

@@ -476,12 +476,15 @@ importers:
 
   apps/starter-nextjs:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@robota-sdk/agent-framework':
         specifier: workspace:^
         version: link:../../packages/agent-framework
-      '@robota-sdk/agent-provider-anthropic':
+      '@robota-sdk/agent-provider':
         specifier: workspace:^
-        version: link:../../packages/agent-provider-anthropic
+        version: link:../../packages/agent-provider
       '@robota-sdk/agent-tool-defaults':
         specifier: workspace:^
         version: link:../../packages/agent-tool-defaults
@@ -993,43 +996,6 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
-  packages/agent-builtin-providers:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: workspace:^
-        version: link:../agent-provider-anthropic
-      '@robota-sdk/agent-provider-bytedance':
-        specifier: workspace:^
-        version: link:../agent-provider-bytedance
-      '@robota-sdk/agent-provider-gemini':
-        specifier: workspace:^
-        version: link:../agent-provider-gemini
-      '@robota-sdk/agent-provider-openai':
-        specifier: workspace:^
-        version: link:../agent-provider-openai
-      '@robota-sdk/agent-provider-openai-compatible':
-        specifier: workspace:^
-        version: link:../agent-provider-openai-compatible
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
-
   packages/agent-capability-pack:
     dependencies:
       '@robota-sdk/agent-core':
@@ -1526,9 +1492,9 @@ importers:
       '@modelcontextprotocol/client':
         specifier: ^2.3.0
         version: 2.3.0
-      '@robota-sdk/agent-provider-openai-compatible':
+      '@robota-sdk/agent-provider':
         specifier: workspace:^
-        version: link:../agent-provider-openai-compatible
+        version: link:../agent-provider
       '@robota-sdk/agent-provider-replay':
         specifier: workspace:^
         version: link:../agent-provider-replay
@@ -1538,6 +1504,9 @@ importers:
       '@robota-sdk/agent-transport-mcp':
         specifier: workspace:^
         version: link:../agent-transport-mcp
+      openai:
+        specifier: ^6.0.0
+        version: 6.0.0(ws@8.21.1)(zod@4.6.7)
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
@@ -1972,118 +1941,24 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/agent-provider-anthropic:
+  packages/agent-provider:
     dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:^
+        version: link:../agent-core
+    devDependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.114.0
         version: 0.114.0(zod@4.6.7)
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-provider-bytedance:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-provider-gemini:
-    dependencies:
       '@google/genai':
         specifier: ^1.52.0
         version: 1.52.0
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-    devDependencies:
       '@types/node':
         specifier: ^22.19.21
         version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-provider-openai:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-      '@robota-sdk/agent-provider-openai-compatible':
-        specifier: workspace:^
-        version: link:../agent-provider-openai-compatible
       openai:
         specifier: ^6.0.0
         version: 6.0.0(ws@8.21.1)(zod@4.6.7)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-provider-openai-compatible:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-      openai:
-        specifier: ^6.0.0
-        version: 6.0.0(ws@8.21.1)(zod@4.6.7)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
@@ -2787,9 +2662,6 @@ importers:
 
   scratch:
     dependencies:
-      '@robota-sdk/agent-builtin-providers':
-        specifier: workspace:^
-        version: link:../packages/agent-builtin-providers
       '@robota-sdk/agent-core':
         specifier: workspace:^
         version: link:../packages/agent-core
@@ -2802,9 +2674,9 @@ importers:
       '@robota-sdk/agent-mcp':
         specifier: workspace:^
         version: link:../packages/agent-mcp
-      '@robota-sdk/agent-provider-openai':
+      '@robota-sdk/agent-provider':
         specifier: workspace:^
-        version: link:../packages/agent-provider-openai
+        version: link:../packages/agent-provider
       '@robota-sdk/agent-session':
         specifier: workspace:^
         version: link:../packages/agent-session
