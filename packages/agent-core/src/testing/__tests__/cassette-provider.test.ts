@@ -98,3 +98,113 @@ describe('cassette provider', () => {
     expect(toolArgs).not.toContain(recordCwd);
   });
 });
+
+/**
+ * A Windows workspace path carries backslashes, which JSON text spells doubled. These cases write the
+ * paths as plain strings, so they hold on every host and not only where the path is native.
+ */
+describe('cassette provider with a Windows workspace path', () => {
+  const posixCwd = '/tmp/record-workspace-AAA';
+  const windowsCwd = 'C:\\Users\\runner\\work';
+  const otherWindowsCwd = 'D:\\a\\replay\\work';
+
+  function toolCallArguments(response: TUniversalMessage): Record<string, string> {
+    const toolCalls = 'toolCalls' in response ? response.toolCalls : undefined;
+    return JSON.parse(toolCalls?.[0]?.function.arguments ?? '{}') as Record<string, string>;
+  }
+
+  /** Records one tool call and one text answer that both name `recordCwd`, then replays them into `rewriteCwd`. */
+  async function replayInto(
+    recordCwd: string,
+    rewriteCwd: string,
+    separator: string,
+  ): Promise<[TUniversalMessage, TUniversalMessage]> {
+    const underlying = createScriptedProvider([
+      {
+        toolCalls: [
+          {
+            name: 'Bash',
+            args: { command: `echo x > ${recordCwd}${separator}out.txt`, cwd: recordCwd },
+          },
+        ],
+      },
+      { text: `wrote ${recordCwd}${separator}out.txt` },
+    ]);
+    const recorder = createRecordingProvider({
+      provider: underlying.provider,
+      cassettePath: cassette,
+      recordCwd,
+    });
+    await recorder.chat([userMessage(`work in ${recordCwd}`)]);
+    await recorder.chat([userMessage(`finish in ${recordCwd}`)]);
+
+    const replay = createReplayProvider({ cassettePath: cassette, rewriteCwd });
+    return [
+      await replay.chat([userMessage(`work in ${rewriteCwd}`)]),
+      await replay.chat([userMessage(`finish in ${rewriteCwd}`)]),
+    ];
+  }
+
+  it('replays a recording made on POSIX into a Windows workspace', async () => {
+    const [toolTurn, textTurn] = await replayInto(posixCwd, windowsCwd, '/');
+
+    expect(toolCallArguments(toolTurn)).toEqual({
+      command: `echo x > ${windowsCwd}/out.txt`,
+      cwd: windowsCwd,
+    });
+    expect(textTurn.content).toBe(`wrote ${windowsCwd}/out.txt`);
+  });
+
+  it('replays a recording made in a Windows workspace into another path', async () => {
+    const [toolTurn, textTurn] = await replayInto(windowsCwd, posixCwd, '\\');
+
+    expect(toolCallArguments(toolTurn)).toEqual({
+      command: `echo x > ${posixCwd}\\out.txt`,
+      cwd: posixCwd,
+    });
+    expect(textTurn.content).toBe(`wrote ${posixCwd}\\out.txt`);
+  });
+
+  it('replays a recording made in one Windows workspace into another', async () => {
+    const [toolTurn, textTurn] = await replayInto(windowsCwd, otherWindowsCwd, '\\');
+
+    expect(toolCallArguments(toolTurn)).toEqual({
+      command: `echo x > ${otherWindowsCwd}\\out.txt`,
+      cwd: otherWindowsCwd,
+    });
+    expect(textTurn.content).toBe(`wrote ${otherWindowsCwd}\\out.txt`);
+  });
+
+  it('still matches the next request, which carries the replayed tool call back', async () => {
+    const underlying = createScriptedProvider([
+      { toolCalls: [{ name: 'Bash', args: { cwd: windowsCwd } }] },
+      { text: 'done' },
+    ]);
+    const recorder = createRecordingProvider({
+      provider: underlying.provider,
+      cassettePath: cassette,
+      recordCwd: windowsCwd,
+    });
+    const followUp = (assistant: TUniversalMessage, cwd: string): TUniversalMessage[] => [
+      userMessage(`work in ${cwd}`),
+      assistant,
+      {
+        id: 'tool-1',
+        role: 'tool',
+        content: `ran in ${cwd}`,
+        toolCallId: 'call-1',
+        state: 'complete',
+        timestamp: new Date(),
+      },
+    ];
+    const recordedAssistant = await recorder.chat([userMessage(`work in ${windowsCwd}`)]);
+    await recorder.chat(followUp(recordedAssistant, windowsCwd));
+
+    const replay = createReplayProvider({ cassettePath: cassette, rewriteCwd: otherWindowsCwd });
+    const replayedAssistant = await replay.chat([userMessage(`work in ${otherWindowsCwd}`)]);
+
+    await expect(replay.chat(followUp(replayedAssistant, otherWindowsCwd))).resolves.toMatchObject({
+      content: 'done',
+    });
+  });
+});
