@@ -5,7 +5,7 @@ import { subagentExecutionRoot } from '../execution-root.js';
 import type { ISubagentExecutionEnvelope } from '../execution-root.js';
 
 /**
- * ARCH-010 — which directory a spawned subagent actually runs in.
+ * Which directory a spawned subagent actually runs in.
  *
  * This is where the audit's measured breach was: neither runner read `request.cwd`, so both children
  * fell back to `process.cwd()` — the parent's directory — and their file tools, built with no
@@ -16,7 +16,7 @@ import type { ISubagentExecutionEnvelope } from '../execution-root.js';
  * cases are for, and why the rule lives in one function rather than being written out at each runner.
  */
 /**
- * ARCH-031: the envelope, not the request. The worktree is runner-PRODUCED — it does not exist when a
+ * The envelope, not the request. The worktree is runner-PRODUCED — it does not exist when a
  * caller builds a request — so it rides beside the request rather than on it, and the runner no longer
  * rewrites `request.cwd` to the same path (two carriers for one rule could disagree).
  */
@@ -27,7 +27,7 @@ function envelope(cwd: string, worktreePath?: string): ISubagentExecutionEnvelop
   };
 }
 
-describe('subagentExecutionRoot (ARCH-010)', () => {
+describe('subagentExecutionRoot', () => {
   it('uses the request cwd — never the process directory', () => {
     // The defect in one line: both runners produced the parent's directory here.
     expect(subagentExecutionRoot(envelope('/some/workspace'))).toBe('/some/workspace');

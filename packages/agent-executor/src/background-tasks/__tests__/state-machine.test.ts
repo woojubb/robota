@@ -26,7 +26,7 @@ describe('background task state machine', () => {
     expect(() => transitionBackgroundTaskStatus('completed', 'START')).toThrow('terminal status');
   });
 
-  // SELFHOST-012 TC-01: non-destructive pause/resume lifecycle for scheduled tasks.
+  // Non-destructive pause/resume lifecycle for scheduled tasks.
   it('supports non-destructive pause/resume and keeps `paused` non-terminal', () => {
     expect(transitionBackgroundTaskStatus('sleeping', 'PAUSE')).toBe('paused');
     expect(transitionBackgroundTaskStatus('running', 'PAUSE')).toBe('paused');

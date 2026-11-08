@@ -8,8 +8,8 @@ import { checkPathWithinCwd } from '../builtins/path-guard.js';
 describe('checkPathWithinCwd', () => {
   const cwd = '/project/root';
 
-  // ARCH-010 inverted this. It used to assert `undefined` — "no objection" — which is what let a
-  // rootless `Read` return `/etc/hostname`. A guard with no configured boundary now refuses.
+  // A guard with no configured boundary refuses. Treating that as "no objection" would let a
+  // rootless `Read` return `/etc/hostname`.
   it('REFUSES when cwd is not set', () => {
     const error = checkPathWithinCwd('/etc/passwd', undefined);
     expect(error).toBeDefined();
@@ -58,7 +58,7 @@ describe('checkPathWithinCwd', () => {
 });
 
 /**
- * SEC-006 — the guard is the ONLY sandbox boundary for `Read`/`Write`/`Edit` when no provider sandbox
+ * The guard is the ONLY sandbox boundary for `Read`/`Write`/`Edit` when no provider sandbox
  * is injected (see `pack-coding`'s `ICodingPackOptions.cwd`). It compared `path.resolve()` output,
  * which performs pure lexical normalization and does NOT resolve symlinks — so a symlink *inside* the
  * working directory pointing outside it satisfied `startsWith(cwd + sep)` while `readFile`/`writeFile`
@@ -68,7 +68,7 @@ describe('checkPathWithinCwd', () => {
  * These tests use the REAL filesystem: the previous suite only ever passed fictional path strings, which
  * is precisely why the hole survived — a lexical-only test can never observe a symlink.
  */
-describe('checkPathWithinCwd — symlink containment (SEC-006)', () => {
+describe('checkPathWithinCwd — symlink containment', () => {
   let root: string;
   let workdir: string;
   let outside: string;

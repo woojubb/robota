@@ -4,7 +4,7 @@ import type { ChildProcess } from 'node:child_process';
 
 /**
  * Shared grace window (ms) between the initial signal and the forced SIGKILL. Previously
- * duplicated as `DEFAULT_KILL_GRACE_MS` in every runner package (CORE-023).
+ * duplicated as `DEFAULT_KILL_GRACE_MS` in every runner package.
  */
 export const DEFAULT_KILL_GRACE_MS = 2000;
 
@@ -17,7 +17,7 @@ export interface IKillProcessOptions {
   /**
    * Kill the child's whole process group, not just the direct child. Requires the caller to
    * have spawned the child with `detached: true` on POSIX (so it is a group leader). Without
-   * this a shell child's grandchildren survive the SIGTERM (the CORE-018 regression).
+   * this a shell child's grandchildren survive the SIGTERM (the grandchild-survival regression).
    */
   processGroup?: boolean;
   /**
@@ -63,7 +63,7 @@ function forceKill(child: ChildProcess, processGroup: boolean): void {
 
 /**
  * Terminate a spawned `ChildProcess` and its descendants, escalating SIGTERM → grace → SIGKILL,
- * and resolve only once the process has actually exited (CORE-023, SPEC § Termination contract).
+ * and resolve only once the process has actually exited (SPEC § Termination contract).
  *
  * Settling on the real `exit` event — never synchronously, never on the misleading `child.killed`
  * flag — lets a caller safely run follow-up cleanup (temp-dir removal, worktree teardown) knowing

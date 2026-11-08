@@ -352,7 +352,7 @@ describe('createScheduledTaskRunner', () => {
   it(
     'emits background_task_sleeping synchronously on start with a strictly-future nextFireAt',
     async () => {
-      // BEHAVIOR-003: the initial sleeping event is emitted synchronously inside start(),
+      // The initial sleeping event is emitted synchronously inside start(),
       // so the previous "wait 200ms then compare to Date.now()" was a flake — if start ran just
       // before a cron boundary, the 200ms wait crossed it and the (correct-at-emit) nextFireAt
       // fell behind the moved wall clock. Pin the clock so nextFireAt is computed against a known
@@ -427,7 +427,7 @@ describe('createScheduledTaskRunner', () => {
   );
 
   it(
-    'kills a hung fire after timeoutMs so subsequent fires still run (CORE-024 RUNTIME-18)',
+    'kills a hung fire after timeoutMs so subsequent fires still run',
     async () => {
       const runner = createScheduledTaskRunner();
       const emittedEvents: TBackgroundTaskRunnerEvent[] = [];
@@ -504,7 +504,7 @@ describe('createScheduledTaskRunner', () => {
     TEST_TIMEOUT_MS,
   );
 
-  // SELFHOST-012 TC-02: a paused schedule does not fire, and resumes correctly with the same task id.
+  // A paused schedule does not fire, and resumes correctly with the same task id.
   it(
     'does not fire while paused (croner .pause(), not .stop()) and fires again after resume',
     async () => {
@@ -555,7 +555,7 @@ describe('createScheduledTaskRunner', () => {
     TEST_TIMEOUT_MS,
   );
 
-  // SELFHOST-012 TC-03: edit re-arms the schedule in place (same task id) with the new cadence.
+  // Edit re-arms the schedule in place (same task id) with the new cadence.
   it('edits a schedule in place — new cadence applies, same task id', async () => {
     vi.useFakeTimers();
     try {
@@ -588,8 +588,8 @@ describe('createScheduledTaskRunner', () => {
     }
   });
 
-  // SELFHOST-012 (review CONSIDER): editing while paused re-pauses the rebuilt job and emits no sleeping while
-  // paused; resuming then announces the NEW cadence. Locks in the `if (state.paused)` re-pause + no-emit guards.
+  // Editing while paused re-pauses the rebuilt job and emits no sleeping while paused; resuming
+  // then announces the NEW cadence. Locks in the `if (state.paused)` re-pause + no-emit guards.
   it('edit while paused stays paused (no sleeping emit) and resumes with the new cadence', async () => {
     vi.useFakeTimers();
     try {

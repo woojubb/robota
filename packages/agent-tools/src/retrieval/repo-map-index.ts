@@ -1,5 +1,5 @@
 /**
- * SELFHOST-003 P2: repo-map index build + persistence.
+ * Repo-map index build + persistence.
  *
  * Builds the whole corpus into a parsed index ONCE (via the injected duck-typed parser), and
  * serializes it to a neutral JSON string the surface can persist. Ranking then runs over the index
@@ -43,7 +43,7 @@ export function buildRepoMapIndex(options: IBuildRepoMapIndexOptions): IRepoMapI
 }
 
 /**
- * Apply corpus changes to a built index INCREMENTALLY (SELFHOST-003 P3): re-parse only the `upserted`
+ * Apply corpus changes to a built index INCREMENTALLY: re-parse only the `upserted`
  * files and drop `removed` paths, reusing every unchanged entry. Returns a new index (the input is not
  * mutated). A file present in both `removed` and `upserted` is upserted (re-parse wins); a path repeated
  * within `upserted` is de-duplicated last-wins, so the result always has one entry per path — matching a

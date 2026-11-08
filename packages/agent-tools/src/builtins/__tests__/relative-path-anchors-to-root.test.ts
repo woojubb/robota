@@ -1,5 +1,5 @@
 /**
- * Issue #2429 — a relative `filePath` given to `Read`/`Write`/`Edit` anchors to the containment
+ * A relative `filePath` given to `Read`/`Write`/`Edit` anchors to the containment
  * root, not to `process.cwd()`, the way `resolveSearchRoot` already anchors `Glob`/`Grep`.
  */
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -30,7 +30,7 @@ async function invoke(
   return JSON.parse(result.data) as IInvocation;
 }
 
-describe('a relative filePath anchors to the containment root (issue #2429)', () => {
+describe('a relative filePath anchors to the containment root', () => {
   it('resolveHostPath joins a relative path onto the root and keeps an absolute one', () => {
     expect(resolveHostPath('a/b.txt', '/root')).toBe('/root/a/b.txt');
     expect(resolveHostPath('/abs/b.txt', '/root')).toBe('/abs/b.txt');
@@ -38,11 +38,11 @@ describe('a relative filePath anchors to the containment root (issue #2429)', ()
   });
 
   it('Read opens <root>/<relative>, wherever the process runs', async () => {
-    writeFileSync(join(root, 'probe.txt'), 'PROBE-2429\n');
+    writeFileSync(join(root, 'probe.txt'), 'relative-path-probe\n');
     const read = createReadTool({ cwd: root });
     const result = await invoke(read, { filePath: 'probe.txt' });
     expect(result.success, result.error).toBe(true);
-    expect(result.output).toContain('PROBE-2429');
+    expect(result.output).toContain('relative-path-probe');
   });
 
   it('Write and Edit act on <root>/<relative>', async () => {

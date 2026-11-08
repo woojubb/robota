@@ -114,7 +114,7 @@ describe('ToolRegistry', () => {
     it('should throw when parameters type is not "object"', () => {
       const schema = buildSchema();
       // Same two-step form as the sibling case above: naming the subset's object root as an
-      // interface (CORE-039) means TypeScript no longer grants it an implicit index signature.
+      // interface means TypeScript no longer grants it an implicit index signature.
       (schema.parameters as unknown as Record<string, unknown>).type = 'array';
       const tool = createMockTool(schema);
 
@@ -127,7 +127,7 @@ describe('ToolRegistry', () => {
         parameters: {
           type: 'object',
           properties: {
-            // CORE-039: this case used to be spelled `integer`, which pinned a defect rather than a
+            // This case used to be spelled `integer`, which pinned a defect rather than a
             // rule — `integer` is a member of `TJSONSchemaKind`, and registration was refusing a
             // type the subset itself defines. The case now uses a type that genuinely is not one.
             badField: { type: 'decimal' as 'string' },
@@ -140,7 +140,7 @@ describe('ToolRegistry', () => {
       expect(() => registry.register(tool)).toThrow('invalid type');
     });
 
-    it('should accept integer and null parameter properties (CORE-039)', () => {
+    it('should accept integer and null parameter properties', () => {
       const schema = buildSchema({
         parameters: {
           type: 'object',
