@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -25,7 +25,8 @@ function makeProject(): string {
 }
 
 function writeTask(cwd: string, name: string, content: string): string {
-  const relativePath = join('.agents', 'tasks', name);
+  // A workspace-relative path is spelled with `/` on every platform.
+  const relativePath = posix.join('.agents', 'tasks', name);
   writeFileSync(join(cwd, relativePath), content, 'utf8');
   return relativePath;
 }
@@ -50,7 +51,7 @@ describe('task context loading', () => {
     mkdirSync(join(cwd, '.agents', 'tasks', 'completed'), { recursive: true });
     writeFileSync(join(cwd, '.agents', 'tasks', 'completed', 'DONE.md'), '# Done', 'utf8');
 
-    expect(discoverTaskFiles(await projectReader(cwd), join('.agents', 'tasks'))).toEqual([
+    expect(discoverTaskFiles(await projectReader(cwd), '.agents/tasks')).toEqual([
       '.agents/tasks/CLI-BL-001-example.md',
     ]);
   });
@@ -147,7 +148,7 @@ describe('task context loading', () => {
     writeTask(cwd, 'CLI-BL-001-example.md', '# CLI-BL-001\n\n- **Status**: in-progress\n');
 
     const context = loadTaskContext(await projectReader(cwd), {
-      dir: join('.agents', 'tasks'),
+      dir: '.agents/tasks',
       maxTasks: 3,
     });
 

@@ -13,6 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { ownerOnlyGuarantee } from '@robota-sdk/agent-core/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { WorkspaceTrustService } from './index.js';
@@ -26,7 +27,9 @@ import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
 const roots: string[] = [];
 
 function tempRoot(prefix: string): string {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+  // The native form, as the resolver reports it: a Windows temp directory is spelled with an 8.3
+  // short name (`RUNNER~1`) until it is resolved.
+  const root = realpathSync.native(mkdtempSync(join(tmpdir(), prefix)));
   roots.push(root);
   return root;
 }
@@ -66,7 +69,9 @@ describe('Node host workspace trust', () => {
     mkdirSync(nested);
     execFileSync('git', ['init', '--bare', '--quiet', join(root, 'relgit')]);
     execFileSync('git', ['init', '--bare', '--quiet', join(nested, 'relgit')]);
-    const store = createNodeWorkspaceTrustStore(join(tempRoot('agent-workspace-separate-store-'), 'trust.json'));
+    const store = createNodeWorkspaceTrustStore(
+      join(tempRoot('agent-workspace-separate-store-'), 'trust.json'),
+    );
     const service = new WorkspaceTrustService({
       identityResolver: createNodeWorkspaceIdentityResolver(),
       store,
@@ -95,14 +100,19 @@ describe('Node host workspace trust', () => {
     const canonicalIdentity = resolver.resolve(identity.worktreeRoot);
     expect(canonicalIdentity).toEqual(identity);
 
-    const store = createNodeWorkspaceTrustStore(join(tempRoot('agent-workspace-grant-'), 'trust.json'));
+    const store = createNodeWorkspaceTrustStore(
+      join(tempRoot('agent-workspace-grant-'), 'trust.json'),
+    );
     const service = new WorkspaceTrustService({
       identityResolver: resolver,
       store,
       projectFiles: createNodeWorkspaceProjectFiles(),
     });
     expect(await service.grant(root)).toMatchObject({ status: 'trusted', identity });
-    expect(await service.inspect(identity.worktreeRoot)).toMatchObject({ status: 'trusted', identity });
+    expect(await service.inspect(identity.worktreeRoot)).toMatchObject({
+      status: 'trusted',
+      identity,
+    });
   });
 
   it('resolves the same repository identity from a nested working directory', () => {
@@ -391,8 +401,10 @@ describe('Node host workspace trust', () => {
     ).resolves.toMatchObject({ status: 'trusted' });
 
     expect(readFileSync(storePath, 'utf8')).toContain('"version": 1');
-    const mode = statSync(storePath).mode & 0o777;
-    expect(mode).toBe(0o600);
+    // Mode bits are the owner-only claim on POSIX; Windows keeps the store private through the
+    // inherited ACL of the user's profile and `chmod` cannot express it.
+    if (ownerOnlyGuarantee() === 'posix-mode') expect(statSync(storePath).mode & 0o777).toBe(0o600);
+    else expect(ownerOnlyGuarantee()).toBe('windows-acl');
     await expect(createNodeWorkspaceTrustStore(storePath).inspect(identity)).resolves.toMatchObject(
       {
         state: 'trusted',

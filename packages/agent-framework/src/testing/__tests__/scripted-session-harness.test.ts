@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
+import { writeTextCommand } from '../shell-command-fixture.js';
 
 const TEST_TIMEOUT = 20_000;
 
@@ -25,7 +26,14 @@ describe('ScriptedSessionHarness', () => {
     async () => {
       harness = scriptedSession({
         turns: [
-          { toolCalls: [{ name: 'Bash', args: { command: 'echo functional > {{cwd}}/out.txt' } }] },
+          {
+            toolCalls: [
+              {
+                name: 'Bash',
+                args: { command: writeTextCommand('{{cwd}}/out.txt', 'functional') },
+              },
+            ],
+          },
           { text: 'created the file' },
         ],
       });
@@ -65,7 +73,11 @@ describe('ScriptedSessionHarness', () => {
     async () => {
       harness = scriptedSession({
         turns: [
-          { toolCalls: [{ name: 'Bash', args: { command: 'echo a > {{cwd}}/only-in-a.txt' } }] },
+          {
+            toolCalls: [
+              { name: 'Bash', args: { command: writeTextCommand('{{cwd}}/only-in-a.txt', 'a') } },
+            ],
+          },
           { text: 'a' },
         ],
       });

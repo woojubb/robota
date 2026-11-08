@@ -7,6 +7,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
+import { writeTextCommand } from '../shell-command-fixture.js';
 
 const TEST_TIMEOUT = 20_000;
 
@@ -26,7 +27,10 @@ describe('permission gate (framework functional)', () => {
         turns: [
           {
             toolCalls: [
-              { name: 'Bash', args: { command: 'echo x > {{cwd}}/should-not-exist.txt' } },
+              {
+                name: 'Bash',
+                args: { command: writeTextCommand('{{cwd}}/should-not-exist.txt', 'x') },
+              },
             ],
           },
           { text: 'attempted the command' },
@@ -54,7 +58,11 @@ describe('permission gate (framework functional)', () => {
     async () => {
       harness = scriptedSession({
         turns: [
-          { toolCalls: [{ name: 'Bash', args: { command: 'echo ok > {{cwd}}/allowed.txt' } }] },
+          {
+            toolCalls: [
+              { name: 'Bash', args: { command: writeTextCommand('{{cwd}}/allowed.txt', 'ok') } },
+            ],
+          },
           { text: 'ran' },
         ],
       });

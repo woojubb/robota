@@ -4,6 +4,7 @@ import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { IInteractiveSessionEvents } from '@robota-sdk/agent-interface-session';
+import { writeTextCommand } from '../shell-command-fixture.js';
 
 const TEST_TIMEOUT = 20_000;
 
@@ -45,7 +46,10 @@ describe('interactive execution claim (framework functional)', () => {
         turns: [
           {
             toolCalls: [
-              { name: 'Bash', args: { command: 'echo denied > {{cwd}}/must-not-exist.txt' } },
+              {
+                name: 'Bash',
+                args: { command: writeTextCommand('{{cwd}}/must-not-exist.txt', 'denied') },
+              },
             ],
           },
           { text: 'FIRST_DONE' },

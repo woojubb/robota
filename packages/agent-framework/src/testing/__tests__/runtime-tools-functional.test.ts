@@ -7,6 +7,7 @@ import type {
   IToolExecutionContext,
   IToolWithEventService,
 } from '@robota-sdk/agent-core';
+import { writeTextCommand } from '../shell-command-fixture.js';
 
 // A private home made by mkdtemp before any module that reads `homedir()` loads.
 const isolatedHome = await vi.hoisted(async () => {
@@ -88,7 +89,7 @@ describe('canonical runtime tools through real InteractiveSession', () => {
     expect(catalog.some((tool) => tool.name === 'Bash')).toBe(true);
     expect(catalog.some((tool) => tool.name === 'command_echo')).toBe(true);
     const result = await harness.session.invokeRuntimeTool('Bash', {
-      command: 'printf canonical > direct.txt',
+      command: writeTextCommand('direct.txt', 'canonical'),
     });
     expect(result.success).toBe(true);
     expect(harness.readFile('direct.txt')).toBe('canonical');
@@ -103,7 +104,7 @@ describe('canonical runtime tools through real InteractiveSession', () => {
     const permission = vi.fn();
     harness.session.on('permission_request', permission);
     const result = await harness.session.invokeRuntimeTool('Bash', {
-      command: 'printf denied > denied.txt',
+      command: writeTextCommand('denied.txt', 'denied'),
     });
     expect(result.success).toBe(false);
     expect(permission).not.toHaveBeenCalled();

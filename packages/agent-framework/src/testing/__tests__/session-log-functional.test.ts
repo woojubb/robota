@@ -9,6 +9,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
+import { writeTextCommand } from '../shell-command-fixture.js';
 
 const TEST_TIMEOUT = 20_000;
 
@@ -24,7 +25,11 @@ describe('session log as a verification surface (framework functional)', () => {
     async () => {
       h = scriptedSession({
         turns: [
-          { toolCalls: [{ name: 'Bash', args: { command: 'echo logged > {{cwd}}/out.txt' } }] },
+          {
+            toolCalls: [
+              { name: 'Bash', args: { command: writeTextCommand('{{cwd}}/out.txt', 'logged') } },
+            ],
+          },
           { text: 'done' },
         ],
       });

@@ -46,28 +46,46 @@ describe('resolveGitBranchFromNodeHost against a swapped .git', () => {
     rmSync(base, { recursive: true, force: true });
   });
 
-  it('reads the .git file it checked, even when the path becomes a link right after', () => {
-    const meta = (name: string, branch: string): string => {
-      const dir = join(base, name);
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, 'HEAD'), `ref: refs/heads/${branch}\n`, 'utf8');
-      return dir;
-    };
-    meta('checked-meta', 'checked');
-    meta('swapped-meta', 'swapped');
-    const pointer = join(base, 'swapped-pointer');
-    writeFileSync(pointer, `gitdir: ${join(base, 'swapped-meta')}\n`, 'utf8');
+  const meta = (name: string, branch: string): string => {
+    const dir = join(base, name);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'HEAD'), `ref: refs/heads/${branch}\n`, 'utf8');
+    return dir;
+  };
+
+  // Closing this window needs `O_NOFOLLOW`, which Windows does not have: there the resolver looks at
+  // the path once more and says in its own comment that a link swapped in after that is not caught.
+  it.skipIf(process.platform === 'win32')(
+    'reads the .git file it checked, even when the path becomes a link right after',
+    () => {
+      meta('checked-meta', 'checked');
+      meta('swapped-meta', 'swapped');
+      const pointer = join(base, 'swapped-pointer');
+      writeFileSync(pointer, `gitdir: ${join(base, 'swapped-meta')}\n`, 'utf8');
+      const cwd = join(base, 'repo');
+      mkdirSync(cwd);
+      const dotGit = join(cwd, '.git');
+      writeFileSync(dotGit, `gitdir: ${join(base, 'checked-meta')}\n`, 'utf8');
+      swap.path = dotGit;
+      swap.run = () => {
+        rmSync(dotGit);
+        symlinkSync(pointer, dotGit);
+      };
+
+      expect(resolveGitBranchFromNodeHost(cwd)).toBe('checked');
+      expect(swap.path).toBeUndefined();
+    },
+  );
+
+  // What Windows does hold: a `.git` that is already a link is ignored, as on POSIX.
+  it.runIf(process.platform === 'win32')('ignores a .git that is already a link', () => {
+    meta('linked-meta', 'linked');
+    const pointer = join(base, 'linked-pointer');
+    writeFileSync(pointer, `gitdir: ${join(base, 'linked-meta')}\n`, 'utf8');
     const cwd = join(base, 'repo');
     mkdirSync(cwd);
-    const dotGit = join(cwd, '.git');
-    writeFileSync(dotGit, `gitdir: ${join(base, 'checked-meta')}\n`, 'utf8');
-    swap.path = dotGit;
-    swap.run = () => {
-      rmSync(dotGit);
-      symlinkSync(pointer, dotGit);
-    };
+    symlinkSync(pointer, join(cwd, '.git'));
 
-    expect(resolveGitBranchFromNodeHost(cwd)).toBe('checked');
-    expect(swap.path).toBeUndefined();
+    expect(resolveGitBranchFromNodeHost(cwd)).toBeUndefined();
   });
 });
