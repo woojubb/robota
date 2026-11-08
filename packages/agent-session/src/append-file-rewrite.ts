@@ -72,11 +72,36 @@ function errorCode(error: unknown): string | undefined {
   return (error as NodeJS.ErrnoException | undefined)?.code;
 }
 
+/** What a `bigint` stat says of which file it looked at. */
+export interface IFileIdentity {
+  readonly ino: bigint;
+  readonly dev: bigint;
+}
+
+/**
+ * Whether `named`, a look at a path (`lstat`), and `held`, a look at an open descriptor (`fstat`),
+ * are the same file. Both are read with `bigint`, so a 64-bit file index is compared exactly.
+ *
+ * POSIX compares the inode and the device. A Windows path has no device number to give: `lstat`
+ * reports 0 where `fstat` of a descriptor reports the volume serial, so the two never agree and only
+ * the file index is compared there. That is the platform's limit, not a choice: a file with the same
+ * index on another volume would pass. A file index of 0 means the filesystem reports no identity, so
+ * nothing can be compared and the two do not count as the same.
+ */
+export function isSameFileIdentity(
+  named: IFileIdentity,
+  held: IFileIdentity,
+  platform: string = process.platform,
+): boolean {
+  if (platform === 'win32') return named.ino !== 0n && named.ino === held.ino;
+  return named.ino === held.ino && named.dev === held.dev;
+}
+
 /** The file opened for reading, after the checks that make it safe to replace by rename. */
 export function openAppendFile(path: string): TOpenedAppendFile {
   let linked;
   try {
-    linked = lstatSync(path);
+    linked = lstatSync(path, { bigint: true });
   } catch (error) {
     if (errorCode(error) === 'ENOENT') return { status: 'missing' };
     throw error;
@@ -90,10 +115,10 @@ export function openAppendFile(path: string): TOpenedAppendFile {
     if (errorCode(error) === 'ELOOP') return { status: 'refused', reason: 'not-a-regular-file' };
     throw error;
   }
-  const opened = fstatSync(descriptor);
+  const opened = fstatSync(descriptor, { bigint: true });
   // Replaced between the two looks: what was opened is not the file that was checked.
-  const sameFile = opened.isFile() && opened.ino === linked.ino && opened.dev === linked.dev;
-  if (!sameFile || opened.nlink > 1) {
+  const sameFile = opened.isFile() && isSameFileIdentity(linked, opened);
+  if (!sameFile || opened.nlink > 1n) {
     closeSync(descriptor);
     return { status: 'refused', reason: sameFile ? 'hard-linked' : 'not-a-regular-file' };
   }
@@ -282,15 +307,13 @@ async function catchUp(
 function namedNow(path: string, descriptor: number): 'same' | 'replaced' | 'removed' {
   let linked;
   try {
-    linked = lstatSync(path);
+    linked = lstatSync(path, { bigint: true });
   } catch (error) {
     if (errorCode(error) === 'ENOENT') return 'removed';
     throw error;
   }
-  const opened = fstatSync(descriptor);
-  return linked.isFile() && linked.ino === opened.ino && linked.dev === opened.dev
-    ? 'same'
-    : 'replaced';
+  const opened = fstatSync(descriptor, { bigint: true });
+  return linked.isFile() && isSameFileIdentity(linked, opened) ? 'same' : 'replaced';
 }
 
 function waitBriefly(): Promise<void> {

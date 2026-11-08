@@ -20,6 +20,7 @@ import { PROCESS_OWNER_RECORD_NAME } from '@robota-sdk/agent-core/node';
 import { goneProcessOwner, leaveProcessScopedDirectory } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { expectKilled } from './__tests__/killed-child-helpers.js';
 import {
   NodeToolResultSpillStore,
   sweepStaleToolResultSpillDirectories,
@@ -269,7 +270,7 @@ describe('a process that exits without reaching shutdown()', () => {
 
     const child = runChild(root, "process.kill(process.pid, 'SIGKILL');");
 
-    expect(child.signal).toBe('SIGKILL');
+    expectKilled(child);
     const [left] = readdirSync(root);
     expect(left).toMatch(/^agent-tool-results-\d+-[A-Za-z0-9]{6}$/u);
     expect(sweepStaleToolResultSpillDirectories(root)).toEqual([left]);
