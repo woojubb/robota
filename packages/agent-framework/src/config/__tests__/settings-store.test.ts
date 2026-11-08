@@ -49,7 +49,7 @@ describe('settings stores', () => {
     expect(writer.relativePath).toBe(relativePath);
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'reads and writes only the project target approved by the same authority',
     async () => {

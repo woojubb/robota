@@ -33,10 +33,10 @@ afterEach(() => {
 });
 
 /**
- * SELFHOST-008 TC-03 — the memory adapter is threaded through the session assembly and consumed by
+ * The memory adapter is threaded through the session assembly and consumed by
  * startup-memory injection; with NO adapter injected, project state remains inaccessible.
  */
-describe('SELFHOST-008 TC-03 — loadContext memory-port threading + adapter-gating', () => {
+describe('loadContext memory-port threading + adapter-gating', () => {
   it('consumes an INJECTED IMemoryStore for startup memory', async () => {
     const injected: IMemoryStore = {
       loadStartupMemory: async (): Promise<IStartupMemory> => ({
@@ -75,7 +75,7 @@ describe('SELFHOST-008 TC-03 — loadContext memory-port threading + adapter-gat
     expect(context.memoryMd).toBe('INJECTED-MEMORY-CONTENT');
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'does not discover project memory from cwd when no store is injected',
     async () => {

@@ -59,10 +59,10 @@ describe('CommandExecutor', () => {
     expect(parsed.tool_name).toBe('Bash');
   });
 
-  // SEC-015 TC-03 — the exit-code mapping. Each row below was one `exitCode` number before, and
+  // The exit-code mapping. Each row below was one `exitCode` number before, and
   // three of them were the SAME number: a timeout, a signal kill and `exit 1` all resolved to 1,
   // which is what made "the gate failed" indistinguishable from "the gate ran".
-  describe('TC-03 exit mapping', () => {
+  describe('exit mapping', () => {
     it('exit 2 is deny, carrying stderr as the reason', async () => {
       const outcome = await executor.execute(
         { type: 'command', command: nodeHook("console.error('no thanks'); process.exit(2)") },
@@ -136,7 +136,6 @@ describe('CommandExecutor', () => {
     });
   });
 
-  // SEC-015 TC-05
   it('every outcome carries source: "command"', async () => {
     const outcomes = await Promise.all([
       executor.execute({ type: 'command', command: 'exit 0' }, input),

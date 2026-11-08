@@ -45,8 +45,8 @@ afterEach(() => {
   if (existsSync(TMP_BASE)) rmSync(TMP_BASE, { recursive: true, force: true });
 });
 
-describe('SELFHOST-008 TC-01 — durable round-trip across sessions (async port)', () => {
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe('durable round-trip across sessions (async port)', () => {
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'recalls a fact written in one store from a FRESH store over the same workspace',
     async () => {
@@ -72,8 +72,8 @@ describe('SELFHOST-008 TC-01 — durable round-trip across sessions (async port)
   );
 });
 
-describe('SELFHOST-008 TC-02 — budgeted recall (ranked, never over budget)', () => {
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe('budgeted recall (ranked, never over budget)', () => {
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'returns at most maxTopics and truncates each topic to maxTopicChars',
     async () => {
@@ -98,7 +98,7 @@ describe('SELFHOST-008 TC-02 — budgeted recall (ranked, never over budget)', (
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'returns empty for a query with no matching topics',
     async () => {
@@ -111,8 +111,8 @@ describe('SELFHOST-008 TC-02 — budgeted recall (ranked, never over budget)', (
   );
 });
 
-describe('SELFHOST-008 TC-05 (P1R) — recall seam cleaned: injected clock reaches the recall read path', () => {
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe('recall seam cleaned: injected clock reaches the recall read path', () => {
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'FileSystemMemoryStore holds one ProjectMemoryStore honoring the injected now',
     async () => {
@@ -132,8 +132,8 @@ describe('SELFHOST-008 TC-05 (P1R) — recall seam cleaned: injected clock reach
   );
 });
 
-describe('SELFHOST-008 TC-04 — curate queue + sensitive-content refusal', () => {
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe('curate queue + sensitive-content refusal', () => {
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'queues and transitions pending candidates through the port',
     async () => {
@@ -158,7 +158,7 @@ describe('SELFHOST-008 TC-04 — curate queue + sensitive-content refusal', () =
   });
 });
 
-describe('SELFHOST-008 TC-02 (P1R) — async adapter swap needs no library change; semantic seam functions', () => {
+describe('async adapter swap needs no library change; semantic seam functions', () => {
   it('a fake ASYNC IMemoryStore satisfies the port with no agent-framework edit', async () => {
     const recalls: string[] = [];
     const fake: IMemoryStore = {
@@ -205,7 +205,7 @@ describe('SELFHOST-008 TC-02 (P1R) — async adapter swap needs no library chang
     expect(recalls).toEqual(['q']);
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'an IMemoryStore backed by a fake async ISemanticMemoryAdapter is injectable (ghost-seam closed)',
     async () => {
@@ -241,8 +241,8 @@ describe('SELFHOST-008 TC-02 (P1R) — async adapter swap needs no library chang
   );
 });
 
-describe('SELFHOST-008 TC-03 (capture half) — AutomaticMemoryController routes through the injected port', () => {
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe('capture half — AutomaticMemoryController routes through the injected port', () => {
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'an injected IMemoryStore receives the capture write',
     async () => {
@@ -288,8 +288,8 @@ describe('SELFHOST-008 TC-03 (capture half) — AutomaticMemoryController routes
   );
 });
 
-describe('SELFHOST-008 — WorkspaceMemoryStore is the authority-backed reference adapter', () => {
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe('WorkspaceMemoryStore is the authority-backed reference adapter', () => {
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'is an IMemoryStore and composes the existing fs mechanisms without new behavior',
     async () => {

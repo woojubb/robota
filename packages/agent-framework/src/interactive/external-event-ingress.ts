@@ -70,7 +70,7 @@ export interface IExternalEventHost {
   /** Whether the session has begun shutting down; a refused submission is then named so. */
   isShuttingDown?: () => boolean;
   /**
-   * The run's grant history (#3189). A run that switches sessions lends every session the same one,
+   * The run's grant history. A run that switches sessions lends every session the same one,
    * so spent tokens, rate windows and revocations belong to the run: a switch replays nothing and
    * resets no rate. Without it, the history lives and ends with this session.
    */

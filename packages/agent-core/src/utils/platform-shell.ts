@@ -1,5 +1,5 @@
 /**
- * TERM-008: cross-platform shell resolution (SSOT).
+ * Cross-platform shell resolution (SSOT).
  *
  * Single source of truth for "which shell do we spawn, and how", shared by every shell-running site.
  * Resolution is a pure function of one request so every branch is testable without the host shell.

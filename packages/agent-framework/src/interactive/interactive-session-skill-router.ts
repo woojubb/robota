@@ -93,8 +93,8 @@ export class SessionSkillRouter {
   /** Absent when the host has no `createAsyncScope`: no fork can run, so no fork window exists. */
   private readonly forkResourceWindow: IAsyncScope<ISkillResourceWindow> | undefined;
   /**
-   * The in-flight command's source and, for CMD-004, its origin driver id (REMOTE-014 E5
-   * server-assigned). Scoped to that command's own async chain, not shared fields: two commands in
+   * The in-flight command's source and its origin driver id
+   * (server-assigned). Scoped to that command's own async chain, not shared fields: two commands in
    * flight at once each see their own, and neither can overwrite or strand the other's.
    */
   private readonly commandScope: IAsyncScope<ICommandScope>;
@@ -165,7 +165,7 @@ export class SessionSkillRouter {
     }
   }
   readonly commandExecutor: SystemCommandExecutor;
-  /** Command modules received at construction — retained for live re-selection (PRESET-015). */
+  /** Command modules received at construction — retained for live re-selection. */
   private readonly allCommandModules: readonly ICommandModule[];
   private readonly skillCommandSource: SkillCommandSource;
   private readonly commandHostAdapters?: ICommandHostAdapters;
@@ -212,7 +212,7 @@ export class SessionSkillRouter {
     ) => Promise<ICommandResult>,
     createAsyncScope: IFrameworkHost['createAsyncScope'],
     private readonly shellExec?: TShellExecFn,
-    /** Optional remote-command policy (REMOTE-006). Undefined → allow (local == remote); provide one only to opt into a restriction. */
+    /** Optional remote-command policy. Undefined → allow (local == remote); provide one only to opt into a restriction. */
     private readonly remoteCommandPolicy?: IRemoteCommandPolicy,
     /** Skills from the bundle plugins the session loaded. */
     private pluginSkills: readonly ICommand[] = [],
@@ -236,7 +236,7 @@ export class SessionSkillRouter {
     this.commandHostAdapters = commandHostAdapters;
   }
   /**
-   * PRESET-015 — re-filter the session's command modules and rebuild the executor live. INFRA-032 also
+   * Re-filter the session's command modules and rebuild the executor live. It also
    * returns unmatched `enabled`/`disabled` names so `/preset` can report them instead of dropping them.
    */
   reapplyCommandModuleSelection(
@@ -274,7 +274,7 @@ export class SessionSkillRouter {
     return command?.lifecycle === 'inline' && command.canRunDuringTurn?.(args.trim()) === true;
   }
 
-  /** #3282 §4 part b-2: allow-by-default, matching every other transport-origin default here. */
+  /** Allow-by-default, matching every other transport-origin default here. */
   getCommandSurfaceLocality(): TCommandSurfaceLocality {
     return this.commandScope.getStore()?.locality ?? 'local';
   }
@@ -465,7 +465,7 @@ export class SessionSkillRouter {
   ): Promise<ICommandResult> {
     const scope = { source, originDriverId, locality, ...(signal !== undefined ? { signal } : {}) };
     return this.commandScope.run(scope, async () => {
-      // REMOTE-006: local == remote — a transport-origin command runs exactly as a locally-typed one (pairing is
+      // Local == remote — a transport-origin command runs exactly as a locally-typed one (pairing is
       // the trust boundary; the universal permission system governs anything dangerous). This is **allow-by-
       // default**: with no injected policy it always allows; an OPTIONAL `remoteCommandPolicy` may restrict for a
       // consumer that opts in. (The guard is kept only as that opt-in seam.)
@@ -536,7 +536,7 @@ export class SessionSkillRouter {
       originDriverId,
       signal,
     );
-    // CMD-004 Stage E: `data.sessionExecution` — the requester-local "session turn started" hint.
+    // `data.sessionExecution` — the requester-local "session turn started" hint.
     return {
       success: true,
       message: '',

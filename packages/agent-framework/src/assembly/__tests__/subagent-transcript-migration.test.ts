@@ -1,5 +1,5 @@
 /**
- * Sealing the subagent transcripts a host wrote in plaintext (#3679, secure conversation): every
+ * Sealing the subagent transcripts a host wrote in plaintext (secure conversation): every
  * parent's `subagents/` directory under the log root, each line one sealed record, so `/agent read`
  * pages the same lines at the same offsets before and after, and a parent entry that is a link is
  * never followed.

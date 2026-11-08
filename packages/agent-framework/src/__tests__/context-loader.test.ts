@@ -59,7 +59,7 @@ describe('loadContext', () => {
     expect(result.projectNotesMd).toContain('# Root CLAUDE');
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'loads project memory index when .agent/memory/MEMORY.md exists',
     async () => {

@@ -1,5 +1,5 @@
 /**
- * Edit checkpoints whose state seals (#3679, secure conversation). Programs running as the same OS
+ * Edit checkpoints whose state seals (secure conversation). Programs running as the same OS
  * user are the threat: they can read, move, plant and damage anything in the checkpoint directory,
  * so a sealed checkpoint file opens only at the place it was written, numbering never depends on
  * opening a manifest, a manifest is believed only where it agrees with its place, and a restore is
@@ -840,7 +840,7 @@ describe('a listing', () => {
   });
 });
 
-// ARCH-047: restoring writes the project's files back, and project mutation is Linux-only.
+// Restoring writes the project's files back, and project mutation is Linux-only.
 describe.runIf(process.platform === 'linux')('restoring sealed checkpoints', () => {
   it('restores the pre-images it sealed, a plain checkpoint written before among them', async () => {
     writeFileSync(join(project, 'a.txt'), 'a1');

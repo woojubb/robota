@@ -1,5 +1,5 @@
 /**
- * CLI-073: --fork-session restores the source conversation into the new
+ * --fork-session restores the source conversation into the new
  * session (SPEC: "Creates a new session (fresh UUID) but restores context").
  * The source record stays untouched (append-only invariant).
  */
@@ -21,8 +21,8 @@ import { loadedRecord, loadedRecordOrMissing } from './session-load-helpers.js';
 
 const SOURCE_ID = 'cli-073-source-session';
 
-// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
-describe.runIf(process.platform === 'linux')('fork restores conversation context (CLI-073)', () => {
+// Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe.runIf(process.platform === 'linux')('fork restores conversation context', () => {
   let cwd: string;
   let store: IInteractiveSessionStore;
   let storeFilePath: string | undefined;
@@ -59,7 +59,7 @@ describe.runIf(process.platform === 'linux')('fork restores conversation context
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  it('TC-01: loadSessionRecord yields the source messages for injection regardless of fork', () => {
+  it('loadSessionRecord yields the source messages for injection regardless of fork', () => {
     const restored = loadSessionRecord(
       store,
       SOURCE_ID,
@@ -75,7 +75,7 @@ describe.runIf(process.platform === 'linux')('fork restores conversation context
     });
   });
 
-  it('TC-03: the source record is unmodified after a fork-style load (append-only)', () => {
+  it('the source record is unmodified after a fork-style load (append-only)', () => {
     const before = storeFilePath !== undefined ? readFileSync(storeFilePath, 'utf8') : undefined;
 
     loadSessionRecord(store, SOURCE_ID, null, store.load(SOURCE_ID, { hold: true }));
@@ -86,7 +86,7 @@ describe.runIf(process.platform === 'linux')('fork restores conversation context
     expect(loadedRecordOrMissing(store, SOURCE_ID)?.messages).toHaveLength(2);
   });
 
-  it('TC-05: plain resume keeps yielding the messages (regression)', () => {
+  it('plain resume keeps yielding the messages (regression)', () => {
     const restored = loadSessionRecord(
       store,
       SOURCE_ID,
@@ -98,14 +98,14 @@ describe.runIf(process.platform === 'linux')('fork restores conversation context
 });
 
 /**
- * CLI-1994 TC-04 — the persisted `systemPrompt` stops being a dead field: `loadSessionRecord` reads
+ * The persisted `systemPrompt` stops being a dead field: `loadSessionRecord` reads
  * it back as `restoredSystemPrompt`, and a FORK initialised from the record answers under that exact
  * string. Driven through REAL sessions (the scripted harness, a real `NodeSessionStore`), on every
  * platform: the fixture above needs the Linux-only project mutation, this one does not. RED with the
  * restore read removed — the fork then rebuilds its prompt and the sentinel never reaches it.
  */
-describe('a fork inherits the persisted system prompt (CLI-1994 TC-04)', () => {
-  const SENTINEL = 'PARENT ASSEMBLED PROMPT — CLI-1994 sentinel';
+describe('a fork inherits the persisted system prompt', () => {
+  const SENTINEL = 'PARENT ASSEMBLED PROMPT — fork sentinel';
   const TEST_TIMEOUT = 20_000;
   const open: ScriptedSessionHarness[] = [];
   let sharedCwd: string | undefined;
@@ -208,7 +208,7 @@ describe('a fork inherits the persisted system prompt (CLI-1994 TC-04)', () => {
 });
 
 /**
- * Issue #3081 — the session a `/cd` starts resumes the copied conversation with the RECORDED prompt
+ * The session a `/cd` starts resumes the copied conversation with the RECORDED prompt
  * (so a provider's prompt cache survives) and one appended message announcing the move.
  */
 describe('a /cd target keeps the recorded prompt and announces the move', () => {
