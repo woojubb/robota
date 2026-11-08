@@ -71,7 +71,10 @@ function linesOf(path: string): string[] {
     .filter((line) => line.length > 0);
 }
 
-describe.each(['linux', 'win32'])('rewriteAppendFile replacing as %s', (platform) => {
+/** The rename-first order needs a platform that replaces open files, so it is not forced on Windows. */
+const ORDERS = process.platform === 'win32' ? ['win32'] : ['linux', 'win32'];
+
+describe.each(ORDERS)('rewriteAppendFile replacing as %s', (platform) => {
   it('rewrites every line into a new file that replaces the old, leaving no temporary file', async () => {
     const root = directory();
     const path = join(root, 'history.jsonl');
