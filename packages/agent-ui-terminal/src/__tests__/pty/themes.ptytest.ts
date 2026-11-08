@@ -25,7 +25,7 @@ const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const THEME_FIXTURE = join(FIXTURES, 'themes.jsonl');
 
 const PROMPT = /Type a message or \/help/;
-const SNIPPET_DONE = /SCREEN2002_SNIPPET_DONE/;
+const SNIPPET_DONE = /SNIPPET_DONE/;
 const ACCENT = '#56b4e9';
 
 /** Named because a bare number in a call is a lint warning, and because each one means something. */
@@ -106,7 +106,7 @@ describe('themes through the real binary', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-screen2002-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-themes-pty-')));
     writeTuiProviderSettings(projectDir);
     homeDir = join(projectDir, 'home');
     seedThemeFiles(homeDir);

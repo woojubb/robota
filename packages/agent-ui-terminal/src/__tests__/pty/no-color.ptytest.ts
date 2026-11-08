@@ -60,7 +60,7 @@ describe('color/motion through the real binary', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-screen006-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-no-color-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 
@@ -114,7 +114,7 @@ describe('color/motion through the real binary', () => {
 
     // The turn continues: the second replayed response carries the markdown diff block,
     // and the persisted tool summary lands at turn end.
-    await session.waitFor(/SCREEN006_DIFF_DONE/, 20_000);
+    await session.waitFor(/DIFF_DONE/, 20_000);
     await session.waitFor(/✓ Shell/, 10_000);
 
     const stripped = session.snapshot();

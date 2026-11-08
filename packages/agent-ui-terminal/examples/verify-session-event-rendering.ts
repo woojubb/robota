@@ -96,7 +96,7 @@ async function main(): Promise<void> {
     assertCondition(session.getPlanState()?.phase === 'planning', 'plan revert was not committed');
 
     result = {
-      scenario: 'ARCH-028-tui',
+      scenario: 'session-event-rendering',
       notices: notices.map((notice) => notice.replace(cwd, '<cwd>')),
       deliveryFailure: {
         ...deliveryFailures[0],

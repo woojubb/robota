@@ -41,7 +41,7 @@ describe('prompt footers through the real binary', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-screen005-pty-')));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-prompt-footers-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 
