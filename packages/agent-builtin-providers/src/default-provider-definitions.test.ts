@@ -6,7 +6,7 @@ import { createDefaultProviderDefinitions } from './default-provider-definitions
  * Keep the original provider order when adding a service, and retain each provider's factory.
  * ByteDance is a media/video provider and remains outside the chat provider set.
  */
-describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
+describe('createDefaultProviderDefinitions (golden)', () => {
   it('appends OpenRouter while preserving the original chat provider order', () => {
     const types = createDefaultProviderDefinitions().map((d) => d.type);
     expect(types).toEqual([
@@ -26,7 +26,7 @@ describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
     }
   });
 
-  it('carries the interim per-provider cost migrated from the former llm-text vendor nodes (ARCH-PROVIDER-003 TC-05)', () => {
+  it('carries the interim per-provider cost migrated from the former llm-text vendor nodes', () => {
     const costByType = Object.fromEntries(
       createDefaultProviderDefinitions().map((d) => [d.type, d.costPerTokenUsd]),
     );

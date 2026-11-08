@@ -5,12 +5,12 @@
  * There are no default executors: the shell and HTTP executors are Node-only
  * (`@robota-sdk/agent-core/node`), so the composition root that has a host supplies them.
  *
- * Outcome semantics (SEC-015). Executors return a decoded `THookOutcome`, not an exit code:
+ * Outcome semantics. Executors return a decoded `THookOutcome`, not an exit code:
  * - `allow` → its stdout is decoded for the response protocol below
  * - `deny`  → blocks, carrying the hook's reason
  * - `error` → the hook rendered NO verdict; recorded in `IRunHooksResult.errors`. Whether that
  *   BLOCKS is a per-event policy this runner deliberately does not decide: it reports, and the
- *   enforcement boundary reads `HOOK_ENFORCEMENT_POLICY` (SEC-016). `PreToolUse` fails closed on it
+ *   enforcement boundary reads `HOOK_ENFORCEMENT_POLICY`. `PreToolUse` fails closed on it
  *   today; every other event is advisory, because no other fire site consults `blocked` at all.
  *
  * stdout JSON semantics (Claude Code compatible):
@@ -71,7 +71,7 @@ export interface IRunHooksResult {
    */
   unknownHookTypes?: readonly string[];
   /**
-   * Hook executions that rendered no verdict (SEC-015). Absent when every hook decided.
+   * Hook executions that rendered no verdict. Absent when every hook decided.
    *
    * This is the field an enforcing consumer needs in order to fail closed, and its absence is why
    * it could not. A runner that folded `error` into `allow` would leave this `undefined` while
@@ -171,13 +171,13 @@ export async function runHooks(
       // No verdict. Recorded and skipped — the hook's output is NOT read, because a hook that
       // failed has not said anything, and treating its stdout as a response is how a malformed
       // body came to be a verdict in the first place. Whether this BLOCKS is the boundary's call,
-      // read from `HOOK_ENFORCEMENT_POLICY` — the runner reports and does not enforce (SEC-016).
+      // read from `HOOK_ENFORCEMENT_POLICY` — the runner reports and does not enforce.
       if (outcome.outcome === 'error') {
         errors.push(outcome);
         continue;
       }
 
-      // The body's meaning is the protocol module's call (issue #2191); this loop only aggregates.
+      // The body's meaning is the protocol module's call; this loop only aggregates.
       const interpretation = interpretAllowOutcome(outcome.stdout, event);
       stdoutParts.push(...interpretation.context);
 

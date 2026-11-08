@@ -1,5 +1,5 @@
 /**
- * #3679 step 3b: a composition root that SEALS, entering the real worker entry point.
+ * A composition root that SEALS, entering the real worker entry point.
  *
  * Its sealer is a stand-in that works across the process boundary (the agent-core test double's
  * grant names a key in the parent process only): a "sealed" line or file is `RSL1` framing over

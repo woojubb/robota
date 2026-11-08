@@ -1,5 +1,5 @@
 /**
- * BEHAVIOR-002: `executeRun` must emit context-window updates per agentic round
+ * `executeRun` must emit context-window updates per agentic round
  * (on `assistant_message_committed`), not only at the start and end of a turn, so the
  * TUI status bar's `Context:` value climbs live during a multi-round turn.
  */
@@ -96,7 +96,7 @@ function createContext(
   };
 }
 
-describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
+describe('executeRun real-time context updates', () => {
   it('forwards only content-free provider completion fields to the session event owner', async () => {
     const { agent, run } = createFakeConversationAgent(0);
     run.mockImplementation(
@@ -197,7 +197,7 @@ describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
     }));
   });
 
-  it('TC-01: emits a context update per round, not only at start and end', async () => {
+  it('emits a context update per round, not only at start and end', async () => {
     const updates: IContextWindowState[] = [];
     const { agent } = createFakeConversationAgent(2);
     const ctx = createContext(agent, (state) => updates.push(state));
@@ -208,7 +208,7 @@ describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
     expect(updates.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('TC-02: emitted usedTokens are non-decreasing across the turn', async () => {
+  it('emitted usedTokens are non-decreasing across the turn', async () => {
     const updates: IContextWindowState[] = [];
     const { agent } = createFakeConversationAgent(3);
     const ctx = createContext(agent, (state) => updates.push(state));
@@ -220,7 +220,7 @@ describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
     }
   });
 
-  it('TC-03: only assistant_message_committed triggers a per-round update, not other events', async () => {
+  it('only assistant_message_committed triggers a per-round update, not other events', async () => {
     const updates: IContextWindowState[] = [];
     const { agent } = createFakeConversationAgent(2);
     const ctx = createContext(agent, (state) => updates.push(state));

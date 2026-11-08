@@ -1,5 +1,5 @@
 /**
- * #3282 §2 — `swapProvider` must update `this.model` so `getModelId()` (and therefore
+ * `swapProvider` must update `this.model` so `getModelId()` (and therefore
  * `session_status`'s `model` field, and the GUI's model chip) reflects the NEW provider's model
  * right after a hot-swap, not the previous provider's.
  *
@@ -63,7 +63,7 @@ function buildSession(): Session {
   });
 }
 
-describe('Session.swapProvider updates getModelId() (#3282 §2)', () => {
+describe('Session.swapProvider updates getModelId()', () => {
   it('reports the new model right after swapping providers', () => {
     swapDefaultProviderSpy.mockClear();
     const session = buildSession();

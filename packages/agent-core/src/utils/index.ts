@@ -1,7 +1,7 @@
 // Utility exports
 //
 // `path-containment` is NOT here: it imports `node:fs` and `node:path`, and this barrel feeds the
-// BROWSER build too (CORE-028). It is exported from `@robota-sdk/agent-core/node`, which is how a
+// BROWSER build too. It is exported from `@robota-sdk/agent-core/node`, which is how a
 // consumer asks for it — the subpath, not a relative path that depends on where you are reading.
 export { createAbortError, isAbortFailure } from './abort-classification';
 export * from './message-converter';

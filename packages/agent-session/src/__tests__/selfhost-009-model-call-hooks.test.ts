@@ -1,5 +1,5 @@
 /**
- * SELFHOST-009 TC-03 — PreModelCall / PostModelCall fire from the turn owner's provider-call
+ * PreModelCall / PostModelCall fire from the turn owner's provider-call
  * execution events, exactly once per round, via the shared `runHooks` / `hookTypeExecutors` path.
  *
  * - `provider_request` → `PreModelCall`
@@ -116,7 +116,7 @@ async function flushMicrotasks(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-describe('SELFHOST-009 TC-03 — model-call hook events', () => {
+describe('model-call hook events', () => {
   it('fires PreModelCall once per round on provider_request', async () => {
     const { executor, inputs } = makeRecordingExecutor();
     const hooks: THooksConfig = {

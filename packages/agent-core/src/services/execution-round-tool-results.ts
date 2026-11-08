@@ -27,7 +27,7 @@ export function isUnknownToolExecutionResult(result: {
   return !result.success && result.metadata?.errorCode === UNKNOWN_TOOL_ERROR_CODE;
 }
 
-/** Issue #2875 (follow-up to #2078): a call whose arguments failed to decode never reached the tool. */
+/** A call whose arguments failed to decode never reached the tool. */
 export function isArgumentDecodeErrorResult(result: {
   success: boolean;
   metadata?: { errorCode?: string };

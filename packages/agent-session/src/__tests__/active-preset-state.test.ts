@@ -1,5 +1,5 @@
 /**
- * Tests for the PRESET-011 runtime active-preset state on Session.
+ * Tests for the runtime active-preset state on Session.
  *
  * The active preset id is pure runtime state: it is initialized from
  * ISessionOptions.activePresetId (default 'default') and can be mutated via
@@ -46,8 +46,8 @@ const MOCK_TERMINAL = {
   spinner: () => ({ stop: vi.fn(), update: vi.fn() }),
 };
 
-describe('Session active preset state (PRESET-011)', () => {
-  it('TC-01: initializes activePresetId from options', () => {
+describe('Session active preset state', () => {
+  it('initializes activePresetId from options', () => {
     const session = new Session({
       hookTypeExecutors: [],
       cwd: process.cwd(),
@@ -61,7 +61,7 @@ describe('Session active preset state (PRESET-011)', () => {
     expect(session.getActivePresetId()).toBe('autonomous-builder');
   });
 
-  it("TC-02: defaults activePresetId to 'default' when not provided", () => {
+  it("defaults activePresetId to 'default' when not provided", () => {
     const session = new Session({
       hookTypeExecutors: [],
       cwd: process.cwd(),
@@ -74,7 +74,7 @@ describe('Session active preset state (PRESET-011)', () => {
     expect(session.getActivePresetId()).toBe('default');
   });
 
-  it('TC-03: setActivePresetId mutates state only — no option re-application', () => {
+  it('setActivePresetId mutates state only — no option re-application', () => {
     const session = new Session({
       hookTypeExecutors: [],
       cwd: process.cwd(),

@@ -216,7 +216,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
   }
 
   /**
-   * PROV-006: this answers for the VENDOR — deepseek does support function calling — which is all a
+   * This answers for the VENDOR — deepseek does support function calling — which is all a
    * provider-granular boolean can honestly say. It used to be the only answer anything read, while
    * this package's own catalog said `deepseek-reasoner` has no `tools`; the per-MODEL question is
    * now `capabilityTable()`, which the execution seam asks before offering any.
@@ -230,7 +230,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
   }
 
   /**
-   * CORE-043: compared against the vendor default rather than merely checked for presence — passing
+   * Compared against the vendor default rather than merely checked for presence — passing
    * DeepSeek's own URL explicitly is not a gateway, and reporting it as one would make the signal
    * noise.
    */
@@ -272,7 +272,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
   }
 
   /**
-   * MCP-005: deepseek accepts standard JSON Schema — the permissive profile.
+   * Deepseek accepts standard JSON Schema — the permissive profile.
    */
   protected override projectionProfile(): IToolSchemaProjectionProfile | undefined {
     return { ...PERMISSIVE_TOOL_SCHEMA_PROFILE, providerName: 'deepseek' };

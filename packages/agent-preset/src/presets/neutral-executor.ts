@@ -33,7 +33,7 @@ const NEUTRAL_EXECUTOR_PERSONA = [
  * literal posture, AND it sets framework/executor mechanism flags so the thinness is observable
  * rather than persona text alone:
  *
- * - `autonomy: 'balanced'` → neither prompts on every write nor acts aggressively (PRESET-004
+ * - `autonomy: 'balanced'` → neither prompts on every write nor acts aggressively (the resolver
  *   maps it onto the standard permission posture).
  * - `enableParallelSubagents: false` and `selfVerification: false` → minimal machinery, predictable.
  * - `effort: 'medium'` → predictable, reproducible output for scripted use.

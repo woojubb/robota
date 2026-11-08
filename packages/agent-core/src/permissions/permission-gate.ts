@@ -1,13 +1,13 @@
 /**
  * Permission gate — evaluates whether a tool call is auto-approved, needs user approval, or denied.
  *
- * ONE ordered policy for every caller class (issue #3081): the interactive session, background
+ * ONE ordered policy for every caller class: the interactive session, background
  * tasks and subagents differ only in the context they pass, never in the order.
  *
  * 1. Deny list match → deny
  * 2. Outside the caller's ceiling → deny, in every mode
  *    The reply to a peer outside a turn a peer's message started → deny
- * 3. Deny list UNEVALUABLE (CORE-030) → ask
+ * 3. Deny list UNEVALUABLE → ask
  * 4. Never-auto-approve set → ask, in every mode: an ask rule, a critical-path removal, a
  *    modify-class call on a protected path
  * 5. The caller asks about everything → ask
@@ -108,12 +108,12 @@ export function parsePattern(pattern: string): {
  *
  * Both halves used to live in this file as hardcoded product-name tables — an argument-key `switch`
  * and a mode-policy matrix keyed on a closed union of tool names — two layers below the packages
- * that define those tools, with nothing coupling the lists. CORE-030.
+ * that define those tools, with nothing coupling the lists.
  */
 /**
  * The argument a tool's permission patterns are scoped to, and what kind of thing it is. One
  * object, so a key cannot be declared without its kind — a key alone would leave the tool on the
- * string glob that matched a URL's query as its host (CORE-049).
+ * string glob that matched a URL's query as its host.
  */
 export type { TArgumentKind, TMatchDirection, TPatternMatch } from './argument-matchers.js';
 
@@ -165,7 +165,7 @@ export interface IToolPermissionProfile {
 const toolProfiles = new Map<string, IToolPermissionProfile>();
 
 /**
- * Declare how a tool is treated by the permission system. CORE-030.
+ * Declare how a tool is treated by the permission system.
  *
  * Called by the package that DEFINES the tool, at the point it is created, so a tool's existence
  * and its classification arrive together. The foundation cannot know a product's tool inventory,
@@ -227,7 +227,7 @@ export function parseParameterRule(
   return { name, value: match[2]! };
 }
 
-/** A parameter's value against the rule's glob, compared as the model sent it (issue #3081). */
+/** A parameter's value against the rule's glob, compared as the model sent it. */
 function matchParameter(rule: IParameterRule, args: TToolArgs): TPatternMatch {
   if (!Object.prototype.hasOwnProperty.call(args, rule.name)) return 'no-match';
   const value: unknown = args[rule.name];
@@ -265,7 +265,7 @@ function primaryArg(toolName: string, args: TToolArgs): string | undefined {
 
 /**
  * Test whether a tool invocation matches ANY pattern in a list (allow or deny).
- * Shared by `evaluatePermission` and the CORE-025 policy resolver so pattern semantics stay in one place.
+ * Shared by `evaluatePermission` and the policy resolver so pattern semantics stay in one place.
  *
  * This is a match predicate, not an authorization decision: `false` includes unevaluable patterns.
  * Use `evaluatePermission` for a decision, or check `hasUnevaluableArgumentPattern` separately
@@ -283,7 +283,7 @@ export function matchesAnyPattern(
 }
 
 /**
- * Whether an argument-scoped pattern for this tool cannot be evaluated at all. CORE-030.
+ * Whether an argument-scoped pattern for this tool cannot be evaluated at all.
  *
  * `matchesPattern` answers `false` when the argument is unknowable, and `false` from a DENY list
  * means "not denied" — so `MyTool(secrets/**)` lost to a broader `allow: ['MyTool']` and the
@@ -294,11 +294,11 @@ export function hasUnevaluableArgumentPattern(
   args: TToolArgs,
   patterns: readonly string[],
 ): boolean {
-  // Two shapes of "I cannot tell": nobody declared which argument the pattern is about (CORE-030),
-  // or the argument or the pattern cannot be interpreted in the declared kind (CORE-049). A tool
+  // Two shapes of "I cannot tell": nobody declared which argument the pattern is about,
+  // or the argument or the pattern cannot be interpreted in the declared kind. A tool
   // whose key IS known but which was invoked without that argument is a real NON-match — the
   // pattern is about `path`, there is no path, so there is nothing to deny — and it goes back to
-  // the allow list. (Review of #1596 caught those two conditions collapsing into one.)
+  // the allow list. Collapsing the two conditions into one is the bug to avoid.
   return patterns.some(
     (pattern) => evaluateArgumentPattern(toolName, args, pattern, 'deny') === 'unevaluable',
   );
@@ -329,14 +329,14 @@ function evaluateArgumentPattern(
     return 'match';
   }
 
-  // A named parameter (issue #3081). Deny and ask only: in an allow list it never widens anything.
+  // A named parameter. Deny and ask only: in an allow list it never widens anything.
   const parameterRule = parseParameterRule(toolName, parsed.argPattern);
   if (parameterRule === 'primary') return 'unevaluable';
   if (parameterRule !== undefined) {
     return direction === 'deny' ? matchParameter(parameterRule, args) : 'no-match';
   }
 
-  // Nobody declared which argument this pattern is about (CORE-030)
+  // Nobody declared which argument this pattern is about
   const argument = toolProfiles.get(toolName)?.argument;
   if (argument === undefined) {
     return 'unevaluable';
@@ -360,7 +360,7 @@ function evaluateArgumentPattern(
       return globToRegex(parsed.argPattern).test(primary) ? 'match' : 'no-match';
     default: {
       // A kind this switch does not name would otherwise land on the string glob — the failure
-      // mode CORE-049 removes. The compiler holds the enumeration closed.
+      // mode this switch removes. The compiler holds the enumeration closed.
       const exhaustive: never = argument.kind;
       throw new Error(`unknown argument kind: ${String(exhaustive)}`);
     }
@@ -401,7 +401,7 @@ function isMandatoryAsk(
  * Whether an ask about this call must reach a person EVERY time — never answered by a consent the
  * session or project remembered from an earlier call. A remembered scope is wide (`Bash(rm *)`
  * from one `rm -rf build`); honouring it here would let one approval stand in for every later
- * critical-path removal, protected write or ask-rule call (issue #3081).
+ * critical-path removal, protected write or ask-rule call.
  */
 export function requiresFreshApproval(
   toolName: string,
@@ -472,7 +472,7 @@ export function evaluatePermission(
   }
 
   // 2. The caller's ceiling only narrows. It is checked before bypass, so a background task or
-  //    subagent under a permissive mode still cannot reach past what it was given (CORE-025).
+  //    subagent under a permissive mode still cannot reach past what it was given.
   if (context.ceiling !== undefined && !matchesAnyPattern(toolName, toolArgs, context.ceiling)) {
     return 'deny';
   }
@@ -487,7 +487,7 @@ export function evaluatePermission(
     return 'deny';
   }
 
-  // 3. CORE-030: a deny the gate could not EVALUATE is not a deny that did not match. Asking is
+  // 3. A deny the gate could not EVALUATE is not a deny that did not match. Asking is
   //    the answer: refusing outright would break a call the pattern was never about, and
   //    auto-approving is what this exists to stop. Plan mode refuses.
   if (hasUnevaluableArgumentPattern(toolName, toolArgs, deny)) {

@@ -1,9 +1,9 @@
 /**
- * SELFHOST-005 — guardrail hook executor.
+ * Guardrail hook executor.
  *
  * A registered `IHookTypeExecutor` (`type: 'guardrail'`) that fans out the registered guardrail SET in
  * PARALLEL and FAILS FAST: the first guardrail that returns `pass: false` (or throws — fail-safe) maps
- * onto the `deny` outcome `runHooks` understands (SEC-015; formerly exit code 2), so a guardrail block flows
+ * onto the `deny` outcome `runHooks` understands (formerly exit code 2), so a guardrail block flows
  * through the SAME `runHooks` → `runPreToolGate` → `PermissionEnforcer` denial path hooks already use —
  * no new runner, no second turn-blocking mechanism. Parallelism lives INSIDE the executor; the guardrail
  * SET runs concurrently while the turn still carries exactly one block decision.
@@ -44,7 +44,7 @@ export class GuardrailExecutor implements IHookTypeExecutor {
     if (definition.type !== 'guardrail') {
       // Defensive: the runner dispatches by type, so this should never happen. It answers `error`
       // rather than `allow` because a mis-dispatched gate has rendered no verdict — the old
-      // exit-code-0 here was itself a small instance of the coercion SEC-015 removes.
+      // exit-code-0 here was itself a small instance of coercing a missing verdict into approval.
       return {
         outcome: 'error',
         source: 'guardrail',

@@ -1,5 +1,5 @@
 /**
- * SEC-006 — the SSOT for "is this path inside that root?" when the answer is a SECURITY decision.
+ * The SSOT for "is this path inside that root?" when the answer is a SECURITY decision.
  *
  * `path.resolve` and `path.normalize` are purely lexical: they collapse `.` and `..` textually but do
  * not consult the filesystem, so they cannot see a symlink. A link sitting INSIDE the root and

@@ -1,5 +1,5 @@
 /**
- * Address classification for the egress boundary (#2026) — the "is this address public unicast?"
+ * Address classification for the egress boundary — the "is this address public unicast?"
  * half of `egress-policy.ts`, split out so each module holds one job: that one owns the FETCH
  * (scheme, redirects, headers, deadline, byte cap), this one owns the ARITHMETIC of an address.
  *

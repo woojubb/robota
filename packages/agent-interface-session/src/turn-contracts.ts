@@ -1,5 +1,5 @@
 /**
- * RUNTIME-003 — the identity of one submission, and the ways it can end.
+ * The identity of one submission, and the ways it can end.
  *
  * Split out of `session-contracts.ts`, which had grown past its size ratchet: turn identity is its
  * own subject, and the rule is to split rather than extend. Everything here is a TYPE — this package
@@ -12,7 +12,7 @@ import type { IContextWindowState, IHistoryEntry } from '@robota-sdk/agent-core'
 import type { IUsageSnapshot } from '@robota-sdk/agent-interface-analytics';
 
 /**
- * RUNTIME-003: the identity of one submission, handed back to whoever made it.
+ * The identity of one submission, handed back to whoever made it.
  *
  * Without this a subscriber has only the session-global `complete` / `interrupted` / `error` events,
  * which say that A turn ended and never which one. Two callers listening at once are answered by
@@ -93,11 +93,11 @@ export interface IExecutionResult {
 }
 
 /**
- * Origin of a turn — a human prompt, an agent-wakeup re-entry (FLOW-002), another session's
- * message (PEER-002, #1809), or a host-admitted external event (#1997).
+ * Origin of a turn — a human prompt, an agent-wakeup re-entry, another session's
+ * message, or a host-admitted external event.
  *
- * `'peer'` is a MEMBER rather than something a caller encodes into the prompt text, because #1809
- * requires a peer message to reach the runtime with EXPLICIT origin: an agent answering a peer must
+ * `'peer'` is a MEMBER rather than something a caller encodes into the prompt text, because a peer message
+ * must reach the runtime with EXPLICIT origin: an agent answering a peer must
  * be able to tell that it is answering a peer rather than its own operator, and prose inside the
  * input is not something code can branch on. WHICH peer it was travels in `driverId`, which stays
  * display attribution and never becomes an authorization input.

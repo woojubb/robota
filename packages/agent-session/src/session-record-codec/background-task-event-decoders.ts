@@ -1,5 +1,5 @@
 /**
- * TRANS-005 (#2081) — the twelve-variant persisted background-task event union.
+ * The twelve-variant persisted background-task event union.
  *
  * The union is discriminated by `type`, and the discriminant is read FIRST: it selects the key set
  * the variant declares, so an event that names the wrong members fails on the members rather than on

@@ -21,7 +21,7 @@ export function estimateSerializedContextTokens(messages: readonly TUniversalMes
 }
 
 /**
- * CLI-1990: what a set of tool schemas costs on every request, by the same chars-per-token heuristic
+ * What a set of tool schemas costs on every request, by the same chars-per-token heuristic
  * the message estimate uses — a serialised schema is what the adapters put on the wire. An empty set
  * costs nothing, stated rather than left to the two-character `[]`.
  */

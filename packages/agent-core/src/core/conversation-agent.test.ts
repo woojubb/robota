@@ -85,7 +85,7 @@ class UsageStreamProvider extends AbstractAIProvider {
   readonly name = 'usage-stream-provider';
   readonly version = '1.0.0';
 
-  // CORE-042: a streaming provider emits its text through `options.onTextDelta` and STILL returns
+  // A streaming provider emits its text through `options.onTextDelta` and STILL returns
   // the complete assembled message, usage included -- that is what `IChatOptions.onTextDelta`
   // requires. This double used to carry usage only on `chatStream`'s final chunk, which modelled the
   // second engine rather than the contract.
@@ -370,7 +370,7 @@ describe('ConversationAgent Core', () => {
   });
 
   // ----------------------------------------------------------------
-  // Run concurrency contract (CORE-012)
+  // Run concurrency contract
   // ----------------------------------------------------------------
   describe('run concurrency', () => {
     it('should serialize concurrent run() calls into strictly sequential history', async () => {
@@ -610,7 +610,7 @@ describe('ConversationAgent Core', () => {
   });
 
   // ----------------------------------------------------------------
-  // Model option threading (CORE-016)
+  // Model option threading
   // ----------------------------------------------------------------
   describe('maxTokens/temperature threading', () => {
     it('run(): defaultModel.maxTokens reaches the provider request', async () => {
@@ -682,7 +682,7 @@ describe('ConversationAgent Core', () => {
   });
 
   // ----------------------------------------------------------------
-  // Tool-choice threading (CORE-017)
+  // Tool-choice threading
   // ----------------------------------------------------------------
   describe('toolChoice threading', () => {
     it('does not execute a provider tool call that contradicts toolChoice none', async () => {
@@ -880,17 +880,15 @@ describe('ConversationAgent Core', () => {
 
   // ----------------------------------------------------------------
   // ----------------------------------------------------------------
-  // System prompt parity (CORE-036)
+  // System prompt parity
   // ----------------------------------------------------------------
   //
   // Table-driven over BOTH entry points on purpose. `config.systemMessage` was the SEVENTH
-  // capability the streaming path silently dropped -- the six before it are the CORE-016 / CORE-017 /
-  // CORE-018 pairs above and their siblings, each caught after the fact and each patched by copying
+  // capability the streaming path silently dropped -- the six before it are the pairs above
+  // and their siblings, each caught after the fact and each patched by copying
   // one clause across. Asserting one entry point at a time is what let that repeat; a table fails
   // when the two diverge instead of when someone remembers to look.
-  //
-  // Contained — CORE-042. The duplication itself is that item's work.
-  describe('system prompt parity (CORE-036)', () => {
+  describe('system prompt parity', () => {
     const SYSTEM = 'You are PERSONA-ALPHA.';
 
     const drive = {
@@ -937,7 +935,7 @@ describe('ConversationAgent Core', () => {
     );
 
     it('a run() after a runStream() does not add a second system head', async () => {
-      // The mixed case is the one the defect was reported from: before CORE-036 the streaming turn
+      // The mixed case is the one the defect was reported from: the streaming turn
       // carried no system message and the first run() injected one MID-CONVERSATION.
       //
       // The assertion is on the STREAMING turn's own request. Asserting only the later run() or the
@@ -970,7 +968,7 @@ describe('ConversationAgent Core', () => {
       const sent = provider.chatCalls[0]?.messages ?? [];
       expect(sent[0]?.content).toBe(SYSTEM);
       expect(sent.some((m) => m.role === 'system' && m.content === 'RECALLED-BLOCK')).toBe(true);
-      // SELFHOST-008 P3: the ephemeral block is appended to the DERIVED array only.
+      // The ephemeral block is appended to the DERIVED array only.
       expect(agent.getHistory().some((m) => m.content === 'RECALLED-BLOCK')).toBe(false);
     });
 
@@ -990,11 +988,11 @@ describe('ConversationAgent Core', () => {
   });
 
   // ----------------------------------------------------------------
-  // Cancellation contract (CORE-018)
+  // Cancellation contract
   // ----------------------------------------------------------------
   describe('cancellation contract', () => {
     it('runStream(): aborting the run signal aborts the in-flight provider call', async () => {
-      // CORE-042: this used to assert that the provider received the caller's signal OBJECT. That
+      // This used to assert that the provider received the caller's signal OBJECT. That
       // identity held only because the deleted streaming engine called the provider directly and so
       // skipped `callProviderWithIdleTimeout`, which hands the provider a linked controller of its
       // own (execution-round-provider.ts:132) and detaches it once the call settles. Identity was a
@@ -1045,7 +1043,7 @@ describe('ConversationAgent Core', () => {
       controller.abort();
 
       // The turn then ends the way an aborted `run()` ends -- resolved and interrupted, not
-      // rejected (CORE-020's failure contract) -- so what this pins is the abort reaching the
+      // rejected (the failure contract) -- so what this pins is the abort reaching the
       // provider. Were the signal not linked, the provider would never settle and this awaits
       // until the test times out; there is no way for it to pass without the propagation.
       await consumed;
@@ -1116,7 +1114,7 @@ describe('ConversationAgent Core', () => {
     });
   });
 
-  describe('failed execution contract (CORE-020)', () => {
+  describe('failed execution contract', () => {
     // Failures that escape the round-level provider catch (e.g. a malformed provider
     // response failing response validation) must reach run() callers as a rejection,
     // never as a normal-looking "Error: ..." response string.
@@ -1152,16 +1150,16 @@ describe('ConversationAgent Core', () => {
     it('run() throws provider stream failures too (parity via provider-error structuring)', async () => {
       class ThrowingChatProvider extends TrackingProvider {
         override async chat(): Promise<TUniversalMessage> {
-          throw new Error('provider exploded (CORE-020 probe)');
+          throw new Error('provider exploded');
         }
         override async *chatStream(): AsyncIterable<TUniversalMessage> {
           yield* [];
-          throw new Error('provider exploded (CORE-020 probe)');
+          throw new Error('provider exploded');
         }
       }
       const agent = new ConversationAgent(createConfig({ aiProviders: [new ThrowingChatProvider()] }));
 
-      await expect(agent.run('hello')).rejects.toThrow(/exploded \(CORE-020 probe\)/);
+      await expect(agent.run('hello')).rejects.toThrow(/provider exploded/);
     });
 
     it('runStream() propagates execution failure as a rejection', async () => {
@@ -1176,7 +1174,7 @@ describe('ConversationAgent Core', () => {
     });
   });
 
-  describe('disposal chain contract (CORE-022)', () => {
+  describe('disposal chain contract', () => {
     it('run() after destroy() rejects with a terminal [LIFECYCLE] error', async () => {
       const agent = new ConversationAgent(createConfig({ aiProviders: [new TrackingProvider()] }));
       await agent.run('warm up');
@@ -1252,7 +1250,7 @@ describe('ConversationAgent Core', () => {
   });
 
   // ----------------------------------------------------------------
-  // Run-isolated (stateless) mode (CORE-014)
+  // Run-isolated (stateless) mode
   // ----------------------------------------------------------------
   describe('retainHistory: false', () => {
     it('sends only system + current prompt on every consecutive run (no accumulation)', async () => {
@@ -1310,7 +1308,7 @@ describe('ConversationAgent Core', () => {
   });
 
   // ----------------------------------------------------------------
-  // Structured output (CORE-015)
+  // Structured output
   // ----------------------------------------------------------------
   describe('structured output', () => {
     // Provider that returns scripted response texts in order, recording chat options.
@@ -1605,7 +1603,7 @@ describe('ConversationAgent Core', () => {
       await expect(agent.destroy()).resolves.toEqual({ errors: [] });
     });
 
-    it('resolves with collected errors when a cleanup step fails (best-effort, CORE-013)', async () => {
+    it('resolves with collected errors when a cleanup step fails (best-effort)', async () => {
       class FailingCleanupPlugin extends AbstractPlugin {
         override readonly name = 'failing-cleanup-plugin';
         override readonly version = '1.0.0';

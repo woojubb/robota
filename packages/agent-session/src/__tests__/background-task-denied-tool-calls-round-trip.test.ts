@@ -1,10 +1,10 @@
 /**
- * Issue #3288 §1 — a persisted `agent`-kind background task result carrying `deniedToolCalls`
+ * A persisted `agent`-kind background task result carrying `deniedToolCalls`
  * round-trips. `deniedToolCalls` was added to `IAgentBackgroundTaskResult` without a matching entry
  * in `decodeBackgroundTaskResult`'s declared-key allow-list (`background-task-members.ts`), so a
  * session record persisted after a subagent had a tool call refused was reported `corrupt` on the
  * very next load — "unknown key; the record contract does not declare it" — exactly the failure this
- * test proves does not happen, mirroring `background-task-tool-call-round-trip.test.ts` (TC-22).
+ * test proves does not happen, mirroring `background-task-tool-call-round-trip.test.ts`.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -78,7 +78,7 @@ function persisted(record: IInteractiveSessionRecord): unknown {
   return JSON.parse(JSON.stringify(record)) as unknown;
 }
 
-describe('a persisted agent-task result carrying `deniedToolCalls` round-trips (#3288 §1)', () => {
+describe('a persisted agent-task result carrying `deniedToolCalls` round-trips', () => {
   it('decodes to valid, not corrupt', () => {
     const outcome = decodeInteractiveSessionRecord(persisted(agentTaskWithDenialsRecord()));
     if (outcome.status !== 'valid') {

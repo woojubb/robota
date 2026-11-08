@@ -98,7 +98,7 @@ export type { TAutoCompactThreshold } from './context-window-tracker.js';
 export class Session extends SessionBase {
   protected readonly agent: ConversationAgent;
   /**
-   * SELFHOST-004: session-owned observable event bus. Injected into the agent so tools (incl. the
+   * Session-owned observable event bus. Injected into the agent so tools (incl. the
    * `FunctionTool` span-completion emit) publish here; the interactive turn subscribes to it to
    * project per-operation spans onto session history. Exposed read-only via {@link getEventService}.
    */
@@ -189,7 +189,7 @@ export class Session extends SessionBase {
       (options.defaultTrustLevel ? TRUST_TO_MODE[options.defaultTrustLevel] : undefined) ??
       'default';
     this.activePresetId = options.activePresetId ?? 'default';
-    // PRESET-016: default true preserves the current behavior — subagent dispatch is allowed
+    // Default true preserves the current behavior — subagent dispatch is allowed
     // unless a preset explicitly disables it.
     this.parallelSubagentsEnabled = options.enableParallelSubagents ?? true;
     this.transcriptPath = options.transcriptPath;
@@ -247,9 +247,9 @@ export class Session extends SessionBase {
   }
 
   /**
-   * @param options.ephemeralSystemContext SELFHOST-008 P3 — a transient system-role block included in this
+   * @param options.ephemeralSystemContext a transient system-role block included in this
    *   turn's model call only, never persisted to history (thin pass-through to agent-core `IRunOptions`).
-   * REJECTS with `SessionBusyError` if a turn is in flight — RUNTIME-003; see `turn-claim.ts`.
+   * REJECTS with `SessionBusyError` if a turn is in flight; see `turn-claim.ts`.
    */
   async run(message: string, rawInput?: string, options?: ISessionRunOptions): Promise<string> {
     return this.runTurn(message, rawInput, options, false);
@@ -611,7 +611,7 @@ export class Session extends SessionBase {
   }
 
   /**
-   * SELFHOST-004: the session-owned observable event bus the agent's tools publish to. The interactive
+   * The session-owned observable event bus the agent's tools publish to. The interactive
    * turn subscribes to it to collect span-completion events and project them onto session history.
    */
   getEventService(): IEventService {
@@ -639,8 +639,8 @@ export class Session extends SessionBase {
   }
 
   /**
-   * Gracefully end the session and fire SessionEnd hooks once — **best-effort** (CORE-013
-   * disposal convention): never rejects, so `void session.shutdown()` cannot become an
+   * Gracefully end the session and fire SessionEnd hooks once — **best-effort** (disposal
+   * convention): never rejects, so `void session.shutdown()` cannot become an
    * unhandled rejection. Step failures are recorded to the session log and remaining steps
    * still run.
    */
@@ -652,7 +652,7 @@ export class Session extends SessionBase {
       try {
         await run();
       } catch (error) {
-        // allow-fallback: best-effort disposal IS the contract — the failure is logged and remaining shutdown steps still run (CORE-013 convention)
+        // allow-fallback: best-effort disposal IS the contract — the failure is logged and remaining shutdown steps still run (disposal convention)
         this.log('session_shutdown_step_error', {
           step: label,
           error: error instanceof Error ? error.message : String(error),
@@ -676,7 +676,7 @@ export class Session extends SessionBase {
           this.transcriptPath,
         ),
       );
-      // CORE-022 (SPEC § Disposal Chain Contract): shutdown drives agent destruction —
+      // (SPEC § Disposal Chain Contract): shutdown drives agent destruction —
       // plugins are disposed so no timers/listeners survive and the process can exit.
       await step('destroy-agent', async () => {
         await this.agent.destroy();

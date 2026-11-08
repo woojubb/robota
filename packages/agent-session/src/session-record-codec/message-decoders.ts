@@ -1,5 +1,5 @@
 /**
- * TRANS-005 (#2081) — decoders for the conversation half of a persisted session record:
+ * Decoders for the conversation half of a persisted session record:
  * message parts, tool calls, the four `TUniversalMessage` variants, and history entries.
  *
  * The message variants are discriminated by `role`, and each variant declares its OWN key set — a

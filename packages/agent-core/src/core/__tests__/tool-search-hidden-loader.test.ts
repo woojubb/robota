@@ -16,7 +16,7 @@ function schema(name: string, deferLoading = false): IToolSchema {
 }
 
 /**
- * Issue #3081 — a bare-name deny on the loader must not leave withheld schemas nobody can load.
+ * A bare-name deny on the loader must not leave withheld schemas nobody can load.
  */
 describe('tool search with the loader hidden by a deny rule', () => {
   it('turns deferral off, so the visible deferred tools are offered resident', async () => {

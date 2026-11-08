@@ -53,7 +53,7 @@ export abstract class ConversationAgentBase extends AbstractAgent<
   /**
    * The agent's identity label, read THROUGH `config` rather than copied at construction.
    *
-   * ARCH-040 (issue #1820): a preset carries `agentName`, and it reached the agent only when the
+   * A preset carries `agentName`, and it reached the agent only when the
    * agent was built — so starting with a preset set the name while switching to the SAME preset
    * mid-session left the old one. One preset with two answers, decided by when it was chosen.
    *

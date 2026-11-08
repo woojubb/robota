@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * HOOK-003 User Execution Test Scenario
+ * User Execution Test Scenario
  *
  * Demonstrates that when a PreToolUse hook blocks (exit code 2),
  * runHooks returns a blocking verdict and reason. The later tool-result formatting
@@ -45,7 +45,7 @@ const hookInput = {
   permission_mode: 'default',
 };
 
-console.log('=== HOOK-003 User Execution Test Scenario ===\n');
+console.log('=== User Execution Test Scenario ===\n');
 console.log('Hook input (sent to hook scripts via stdin):');
 console.log(JSON.stringify(hookInput, null, 2));
 console.log();
@@ -85,7 +85,7 @@ if (hookResult.blocked) {
   );
   console.log();
   if (hasNewFormat && !hasOldFormat) {
-    console.log('PASS — HOOK-003 hook blocking observed; illustrative result formatting checked.');
+    console.log('PASS — hook blocking observed; illustrative result formatting checked.');
     process.exit(0);
   } else {
     console.log('FAIL — unexpected format.');

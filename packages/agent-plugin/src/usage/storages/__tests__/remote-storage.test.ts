@@ -15,7 +15,7 @@ function makeStat(): IUsageStats {
   };
 }
 
-describe('RemoteUsageStorage (PLUGIN-001: HTTP REST contract)', () => {
+describe('RemoteUsageStorage (HTTP REST contract)', () => {
   let storage: RemoteUsageStorage;
   let fetchMock: ReturnType<typeof vi.fn>;
 

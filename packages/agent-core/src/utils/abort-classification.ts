@@ -1,5 +1,5 @@
 /**
- * CORE-027 — was this failure an ABORT, or did it merely say so?
+ * Was this failure an ABORT, or did it merely say so?
  *
  * Three call sites classified it the same wrong way:
  *

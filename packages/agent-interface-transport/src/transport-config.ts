@@ -21,7 +21,7 @@ export interface ITransportSettingsCapability {
   readonly optionsSchema?: Record<string, { type: string; description: string; default?: unknown }>;
   validateOptions?(options: Record<string, unknown>): boolean;
   /**
-   * TRANS-002 (issue #2480): receive the persisted `options` before `attach`/`start`. The registry
+   * Receive the persisted `options` before `attach`/`start`. The registry
    * calls this at `startAll` with the resolved options (after `validateOptions`); a transport that
    * declares an `optionsSchema` and omits this method is refused when non-empty options are saved,
    * because silently ignoring a saved option is the one wrong state.
@@ -29,14 +29,14 @@ export interface ITransportSettingsCapability {
   configure?(options: Record<string, unknown>): void;
 }
 
-/** What is persisted for one transport (TRANS-010, issue #2480). */
+/** What is persisted for one transport. */
 export interface ITransportSavedConfig {
   enabled?: boolean;
   options?: Record<string, unknown>;
 }
 
 /**
- * TRANS-010 (issue #2480): the storage port the registry's settings view reads and writes through, so
+ * The storage port the registry's settings view reads and writes through, so
  * the transport package owns no settings file, path or format — the shell composes one.
  */
 export interface ITransportSettingsRepository {
@@ -72,7 +72,7 @@ export interface ITransportLifecycleRegistryView {
   startAll(): Promise<void>;
   waitForCompletion(): Promise<ITransportCompletionRecord[]>;
   waitForFailure(): Promise<ITransportFailureRecord | undefined>;
-  /** Best-effort: never rejects; per-transport stop failures come back in the result (CORE-013). */
+  /** Best-effort: never rejects; per-transport stop failures come back in the result. */
   stopAll(): Promise<IDestroyResult>;
 }
 

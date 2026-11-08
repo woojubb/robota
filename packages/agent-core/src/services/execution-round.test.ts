@@ -230,7 +230,7 @@ describe('execution-round helpers', () => {
       expect(resolved.provider.chat).toHaveBeenCalled();
     });
 
-    // API-001: an omitted setting preserves provider-default selection for the adapter boundary.
+    // An omitted setting preserves provider-default selection for the adapter boundary.
     it('defaults effort to auto in chatOptions when config.defaultModel.effort is unset', async () => {
       const chat = vi.fn().mockResolvedValue({
         role: 'assistant',
@@ -247,7 +247,7 @@ describe('execution-round helpers', () => {
       );
     });
 
-    // TC-01 (PRESET-008): an explicit effort threads through chatOptions unchanged.
+    // An explicit effort threads through chatOptions unchanged.
     it('threads an explicit config.defaultModel.effort into chatOptions', async () => {
       const chat = vi.fn().mockResolvedValue({
         role: 'assistant',
@@ -267,7 +267,7 @@ describe('execution-round helpers', () => {
       );
     });
 
-    // DATA-007/API-001 (owner direction, review of #3075): the SESSION's effort SELECTION is the
+    // The SESSION's effort SELECTION is the
     // cache identity — never a locally resolved effective value. Two attempted local-resolution
     // designs were tried and dropped: keying purely on `resolveModelEffort(...).effective` let an
     // explicit selection collide with an unrelated `auto` call that happened to resolve to the same
@@ -452,10 +452,9 @@ describe('execution-round helpers', () => {
       }
     });
 
-    // New path enabled by the API-001 bypass removal: an explicit-effort run that now DOES reach the
-    // cache and gets served from it must still emit a 'cache-hit' dispatch — the develop-side
-    // dispatch-observation contract (`onDispatch`) applies uniformly, not only to the implicit
-    // `auto` path the old bypass carved out.
+    // An explicit-effort run reaches the cache and, when served from it, must still emit a
+    // 'cache-hit' dispatch — the dispatch-observation contract (`onDispatch`) applies uniformly,
+    // not only to the implicit `auto` path.
     it('emits a cache-hit dispatch when an explicit-effort run is served from cache', async () => {
       const chat = vi.fn().mockResolvedValue({
         role: 'assistant',
@@ -488,8 +487,8 @@ describe('execution-round helpers', () => {
 
       onDispatch.mockClear();
 
-      // Second call with the SAME explicit effort selection: must hit the cache (the API-001 bypass
-      // that used to skip the cache for any explicit selection is gone) and emit 'cache-hit', not
+      // Second call with the SAME explicit effort selection: must hit the cache (an explicit selection
+      // is not exempt) and emit 'cache-hit', not
       // 'invoked' — and the provider must not be called again.
       const second = await callProviderWithCache(
         messages,

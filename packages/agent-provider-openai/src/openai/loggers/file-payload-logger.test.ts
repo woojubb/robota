@@ -15,7 +15,7 @@ vi.mock('fs', () => {
   };
 });
 
-// SEC-003: `fs` is mocked, so this is an inert fixture path; it deliberately does not
+// `fs` is mocked, so this is an inert fixture path; it deliberately does not
 // live under the OS temp dir.
 const LOG_DIR = '/var/agent-test/openai-payload-logs';
 
@@ -124,7 +124,7 @@ describe('FilePayloadLogger', () => {
       expect(fs.promises.writeFile).toHaveBeenCalledWith(
         expect.stringContaining(`${LOG_DIR}/openai-chat-`),
         expect.any(String),
-        // SEC-003: payload logs hold prompt content, so they must be owner-only.
+        // Payload logs hold prompt content, so they must be owner-only.
         { encoding: 'utf8', mode: 0o600 },
       );
     });

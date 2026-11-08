@@ -1,13 +1,12 @@
 // @robota-sdk/agent-interface-execution
 //
-// The execution-bounded contract families, moved out of `agent-interface-transport` by ARCH-103
-// (issue #2109).
+// The execution-bounded contract families, owned here rather than by `agent-interface-transport`.
 //
 // LAYER 0: this package depends on `@robota-sdk/agent-core` and on no peer `agent-interface-*`
 // package. Consumers compose it downward — `agent-interface-session` names these types, never the
 // reverse.
 
-// ── Background-task data contracts (INFRA-025 SSOT) ─────────
+// ── Background-task data contracts ─────────
 export type {
   TBackgroundTaskKind,
   TBackgroundTaskMode,
@@ -60,7 +59,7 @@ export type {
   TBackgroundJobGroupStatus,
   TBackgroundJobWaitPolicy,
 } from './background-group-contracts.js';
-// ── Subagent job data contracts (INFRA-025 SSOT; ARCH-031 request/result) ────
+// ── Subagent job data contracts (request/result) ────
 export type {
   TSubagentJobStatus,
   TSubagentJobMode,

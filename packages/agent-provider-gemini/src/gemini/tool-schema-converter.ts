@@ -31,7 +31,7 @@ export function convertToolsToGeminiFormat(tools: IToolSchema[]): FunctionDeclar
 
 /**
  * Map the provider-agnostic tool-invocation directive onto Gemini's
- * `functionCallingConfig` (CORE-017). `'required'` maps to mode `ANY` (the model must call
+ * `functionCallingConfig`. `'required'` maps to mode `ANY` (the model must call
  * some declared function); a named directive maps to `ANY` constrained to that one name.
  */
 export function toGeminiFunctionCallingConfig(toolChoice: TToolChoice): FunctionCallingConfig {
@@ -113,7 +113,7 @@ function convertParameterSchema(schema: IParameterSchema): Schema {
   if (schema.properties && Object.keys(schema.properties).length > 0) {
     convertedSchema.properties = convertParameterProperties(schema.properties);
   }
-  // CORE-039: this mapper rebuilds every node from a fixed key list, so a subset member it does not
+  // This mapper rebuilds every node from a fixed key list, so a subset member it does not
   // copy is silently dropped. `required` below a nested object, and `anyOf` anywhere, are members
   // Gemini's own Schema carries — omitting them told the model every nested field was optional and
   // erased union branches entirely.

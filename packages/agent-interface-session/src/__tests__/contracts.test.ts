@@ -12,8 +12,8 @@ import type {
 } from '../index.js';
 
 /**
- * The interaction-channel and interactive-session contract assertions, moved here with their
- * declarations by ARCH-108 (issue #2113).
+ * The interaction-channel and interactive-session contract assertions, kept beside their
+ * declarations.
  *
  * They were the last thing in `agent-interface-transport`'s own contract test naming a type that
  * package no longer owns — a test asserting a foreign contract, which is the same coupling the

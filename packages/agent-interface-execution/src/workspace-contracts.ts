@@ -21,7 +21,7 @@ export type TExecutionWorkspaceStatus = 'active' | 'idle' | TBackgroundTaskStatu
 export type TExecutionAttention = 'none' | 'unread' | 'failed' | 'permission' | 'completed';
 export type TExecutionWorkspaceVisibility = 'default' | 'collapsed';
 /**
- * `attach` (CLI-1994) is offered on a `background_task` entry whose request carried a
+ * `attach` is offered on a `background_task` entry whose request carried a
  * `resumeSessionId` — a forked conversation. Selecting it is a VIEW SWITCH onto that session record,
  * not a merge: the parent and the fork stay separate records.
  */
@@ -45,20 +45,20 @@ export type TExecutionDetailRecordKind =
   | 'group_summary';
 export type TExecutionWorkspaceUpdateCause = 'main_thread' | 'background_task' | 'background_group';
 /**
- * SCREEN-1992 — the five-word normalization every surface renders beside the detailed `status`:
+ * The five-word normalization every surface renders beside the detailed `status`:
  * `working` (queued/running/sleeping/active), `needs-input` (a parked prompt or a task waiting for
  * permission), `completed`, `failed`, `stopped` (cancelled or paused — never reported as completed).
  * Total over every `TExecutionWorkspaceStatus`; derived once by the projection, never re-derived.
  */
 export type TExecutionNormalizedState =
   'working' | 'needs-input' | 'completed' | 'failed' | 'stopped';
-/** SCREEN-1992 — the row's one-line text: what it is doing, the question it is asking, or its result. */
+/** The row's one-line text: what it is doing, the question it is asking, or its result. */
 export type TExecutionHeadlineKind = 'activity' | 'question' | 'result';
 export interface IExecutionHeadline {
   readonly kind: TExecutionHeadlineKind;
   readonly text: string;
 }
-/** SCREEN-1992 — the prompt the main thread is parked on, so a surface can say what it is waiting for. */
+/** The prompt the main thread is parked on, so a surface can say what it is waiting for. */
 export interface IExecutionPendingRequest {
   readonly kind: 'permission' | 'ask';
   readonly text: string;
@@ -92,16 +92,16 @@ export interface IExecutionWorkspaceEntry {
   readonly visibility: TExecutionWorkspaceVisibility;
   readonly updatedAt: string;
   readonly controls: readonly TExecutionControl[];
-  /** CLI-1994: the forked session record an `attach` control switches the view onto. */
+  /** The forked session record an `attach` control switches the view onto. */
   readonly resumeSessionId?: string;
-  /** SCREEN-1992: the normalized state word (see `TExecutionNormalizedState`). */
+  /** The normalized state word (see `TExecutionNormalizedState`). */
   readonly state: TExecutionNormalizedState;
-  /** SCREEN-1992: the row's one-line text SSOT; `preview` stays the raw last output. */
+  /** The row's one-line text SSOT; `preview` stays the raw last output. */
   readonly headline?: IExecutionHeadline;
-  /** SCREEN-1992: ISO time of a sleeping schedule's next fire, for a surface-side countdown. */
+  /** ISO time of a sleeping schedule's next fire, for a surface-side countdown. */
   readonly nextFireAt?: string;
   /**
-   * #3288 §1: present on a `/loop`-managed entry (fixed cadence or self-paced) — its stable loop
+   * Present on a `/loop`-managed entry (fixed cadence or self-paced) — its stable loop
    * id. A `cancel` control on this entry means "stop the loop" (`/loop stop <loopId>`), never the
    * generic `cancel-background-task`: for a self-paced loop, the background task backing the entry
    * (when there is one) is only its disposable wake timer, and cancelling THAT would leave the loop
@@ -109,11 +109,11 @@ export interface IExecutionWorkspaceEntry {
    */
   readonly loopId?: string;
   /**
-   * #3288 §1: an agent task's own count of tool calls its result reports as refused
-   * (`IAgentBackgroundTaskResult.deniedToolCalls.total`, #3312), so a surface can show "Needs
+   * An agent task's own count of tool calls its result reports as refused
+   * (`IAgentBackgroundTaskResult.deniedToolCalls.total`), so a surface can show "Needs
    * permission" instead of a plain "Done" for a task that finished with something still refused,
    * rather than losing that fact once the task is no longer running. Absent on a task whose result
-   * predates #3312, or reports nothing refused.
+   * predates the denied-call count, or reports nothing refused.
    */
   readonly deniedToolCalls?: number;
 }
@@ -174,12 +174,12 @@ export interface ICreateMainThreadEntryInput {
   readonly historyLength: number;
   readonly updatedAt: string;
   readonly preview?: string;
-  /** SCREEN-1992: the parked permission/ask the main thread is waiting on, when there is one. */
+  /** The parked permission/ask the main thread is waiting on, when there is one. */
   readonly pendingRequest?: IExecutionPendingRequest;
 }
 
 /**
- * #3288 §1: the minimal self-paced-loop shape the projection needs to show a `pending`/`running`
+ * The minimal self-paced-loop shape the projection needs to show a `pending`/`running`
  * iteration that has no background-task representation of its own (its `waiting` phase does have
  * one — see {@link IExecutionWorkspaceEntry.loopId} — so is never included here). A structural
  * subset of `ISessionLoopState`, owned by `agent-interface-session`, which depends on THIS package
@@ -200,7 +200,7 @@ export interface ICreateExecutionWorkspaceSnapshotInput {
   readonly mainThread: ICreateMainThreadEntryInput;
   readonly tasks: readonly IBackgroundTaskState[];
   readonly groups: readonly IBackgroundJobGroupState[];
-  /** #3288 §1: optional — omitted by a caller that has none (or predates this field). */
+  /** Optional — omitted by a caller that has none (or predates this field). */
   readonly selfPacedLoops?: readonly IExecutionSelfPacedLoopSummary[];
   readonly selectedEntryId?: string;
   readonly filter?: IExecutionWorkspaceFilter;
@@ -215,7 +215,7 @@ export interface ICreateMainThreadDetailPageInput {
   readonly entryId: string;
   readonly history: readonly IHistoryEntry[];
   readonly cursor?: IExecutionDetailCursor;
-  /** SCREEN-1992: a parked prompt leads the page so a peek shows the blocking question first. */
+  /** A parked prompt leads the page so a peek shows the blocking question first. */
   readonly pendingRequest?: IExecutionPendingRequest;
 }
 

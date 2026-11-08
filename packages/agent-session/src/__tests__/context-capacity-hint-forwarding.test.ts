@@ -1,5 +1,5 @@
 /**
- * NEUT-005 wave 2 — context-capacity hint forwarding.
+ * Context-capacity hint forwarding.
  *
  * The zero-dependency core emits a product-neutral capacity notice and exposes the
  * `IAgentConfig.contextCapacityHint` seam so a surface tier can inject its own concrete
@@ -44,7 +44,7 @@ function build(options: ISessionOptions): IAgentConfig {
   return capturedConfigs[0]!;
 }
 
-describe('buildConversationAgent — contextCapacityHint forwarding (NEUT-005)', () => {
+describe('buildConversationAgent — contextCapacityHint forwarding', () => {
   it('threads options.contextCapacityHint into the ConversationAgent agent config', () => {
     const config = build({ contextCapacityHint: 'Run /compact and retry.' } as ISessionOptions);
     expect(config.contextCapacityHint).toBe('Run /compact and retry.');

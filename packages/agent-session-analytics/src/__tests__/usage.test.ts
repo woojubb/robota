@@ -1,5 +1,5 @@
 /**
- * ANALYTICS-001: source-attributed token-usage reducer.
+ * Source-attributed token-usage reducer.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -39,7 +39,7 @@ function chatEntry(): IHistoryEntry {
   return { id: `c-${seq}`, timestamp: new Date(seq), category: 'chat', type: 'user' };
 }
 
-describe('summarizeUsageBySource (ANALYTICS-001)', () => {
+describe('summarizeUsageBySource', () => {
   it('attributes snapshots with no source to the main thread', () => {
     const report = summarizeUsageBySource({
       id: 'sess-1',

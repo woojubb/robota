@@ -7,7 +7,7 @@ import { CompactionOrchestrator } from '../compaction-orchestrator.js';
 import type { IAIProvider, IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
 
 /**
- * RUNTIME-004 — aborting a turn during auto-compaction destroyed the conversation.
+ * Aborting a turn during auto-compaction destroyed the conversation.
  *
  * `executeRun` compacts at the head of a turn, with the turn's `abortSignal` in scope and not passed.
  * `compact()` took no signal and called `provider.chat(…, { model })`, so the provider ran to
@@ -16,7 +16,7 @@ import type { IAIProvider, IChatOptions, TUniversalMessage } from '@robota-sdk/a
  *
  * So a cancel during compaction did not cancel, and did not leave things as they were: it replaced
  * the whole conversation with a summary the user had asked not to produce. History is append-only
- * source data; CORE-019 already established that a FAILED compaction must leave it untouched
+ * source data; a FAILED compaction must leave it untouched
  * (`compaction-failure-preservation.test.ts`). An ABORTED one is the same requirement, and the rest of
  * `agent-session` already honours cancellation — which makes this an asymmetry, not an omission.
  */
@@ -60,7 +60,7 @@ function createOrchestrator(): CompactionOrchestrator {
   });
 }
 
-describe('compaction honours the turn abort (RUNTIME-004)', () => {
+describe('compaction honours the turn abort', () => {
   it('passes the signal through to the provider call', async () => {
     // Against the defect the provider is called with `{ model }` only, so a cancel mid-request
     // cannot reach the request that is in flight.
@@ -91,7 +91,7 @@ describe('compaction honours the turn abort (RUNTIME-004)', () => {
 
   it('what it throws is classified as the user cancelling, not as a failed turn', async () => {
     // The doc on `compact()` says the error reaches the caller as an abort. `isAbortFailure` is the
-    // repository's one owner of that decision (CORE-027), so the claim is checked against it rather
+    // repository's one owner of that decision, so the claim is checked against it rather
     // than asserted — a turn's own cancellation must not surface as a provider failure.
     const { isAbortFailure } = await import('@robota-sdk/agent-core');
     const controller = new AbortController();
@@ -160,7 +160,7 @@ describe('compaction honours the turn abort (RUNTIME-004)', () => {
  * provider call had to be widened, and wiring only the leaf would have left the destructive path
  * exactly as it was.
  */
-describe('the turn signal reaches compaction through the run context (RUNTIME-004)', () => {
+describe('the turn signal reaches compaction through the run context', () => {
   it('executeRun hands its abortSignal to ctx.compact', async () => {
     const { executeRun } = await import('../session-run.js');
     const controller = new AbortController();

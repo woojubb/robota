@@ -11,7 +11,7 @@ import { createPresetRegistry } from '../resolve-preset.js';
 import type { IExternalPresetLoadResult } from '../load-external-presets.js';
 
 /**
- * ARCH-009: a load registers nothing, so what a load makes visible is asked of a registry built over
+ * A load registers nothing, so what a load makes visible is asked of a registry built over
  * what it RETURNED. These cases used to read the module-global `listPresets()`, which is why they
  * needed a clear before and after each one; a value nobody shares needs neither.
  */
@@ -45,7 +45,7 @@ describe('loadExternalPresetsFromDir', () => {
     }
   });
 
-  it('TC-01: loads a valid external preset and includes it in listPresets()', () => {
+  it('loads a valid external preset and includes it in listPresets()', () => {
     const dir = makeTempDir();
     tempDirs.push(dir);
     writePreset(dir, 'my-style.json', {
@@ -62,7 +62,7 @@ describe('loadExternalPresetsFromDir', () => {
     expect(listAfter(result)).toContain('my-style');
   });
 
-  it('TC-02: skips a schema-violating preset, loads the valid one, and reports the error', () => {
+  it('skips a schema-violating preset, loads the valid one, and reports the error', () => {
     const dir = makeTempDir();
     tempDirs.push(dir);
     writePreset(dir, 'good.json', {
@@ -86,7 +86,7 @@ describe('loadExternalPresetsFromDir', () => {
     expect(listAfter(result)).not.toContain('bad-style');
   });
 
-  it('TC-03: rejects an external preset whose id collides with a built-in', () => {
+  it('rejects an external preset whose id collides with a built-in', () => {
     const dir = makeTempDir();
     tempDirs.push(dir);
     writePreset(dir, 'default.json', {
@@ -110,7 +110,7 @@ describe('loadExternalPresetsFromDir', () => {
     expect(defaults[0]?.title).toBe('Default');
   });
 
-  it('TC-04: a non-existent directory returns empty and adds nothing to a registry', () => {
+  it('a non-existent directory returns empty and adds nothing to a registry', () => {
     const missingDir = join(makeTempDir(), 'does-not-exist');
 
     const result = loadExternalPresetsFromDir(missingDir);
@@ -121,7 +121,7 @@ describe('loadExternalPresetsFromDir', () => {
     expect(listAfter(result)).toEqual(BUILT_IN_IDS);
   });
 
-  it('TC-04: an empty directory returns empty loaded and only the built-ins remain', () => {
+  it('an empty directory returns empty loaded and only the built-ins remain', () => {
     const dir = makeTempDir();
     tempDirs.push(dir);
 
@@ -198,7 +198,7 @@ describe('validateExternalPreset', () => {
     }
   });
 
-  it('drops `defaultTrustLevel`, which the preset contract no longer carries (ARCH-040)', () => {
+  it('drops `defaultTrustLevel`, which the preset contract no longer carries', () => {
     // Removed by owner decision, and the reason is stronger than "nothing read it": a preset already
     // states its posture three ways — `permissionMode`, `defaultPermissionMode` and `autonomy`, the
     // last two of which `resolvePreset` PROMOTES into the first. A fourth spelling would be a second

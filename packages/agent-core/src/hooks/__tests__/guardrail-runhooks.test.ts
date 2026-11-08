@@ -6,7 +6,7 @@ import { GuardrailExecutor } from '../executors/guardrail-executor.js';
 import type { THooksConfig, IHookInput, TGuardrail } from '../types.js';
 
 /**
- * SELFHOST-005 TC-01 / TC-04 — a guardrail block flows through the SAME single `runHooks` blocked
+ * A guardrail block flows through the SAME single `runHooks` blocked
  * return that command/http hooks use. There is NO second, independently-ordered enforcement tier:
  * the guardrail executor maps failure onto exit-code-2 → `runHooks` returns `{ blocked: true }`, the
  * exact denial `runPreToolHook`/`PermissionEnforcer` already propagate. Parallelism stays INSIDE the
@@ -27,7 +27,7 @@ function configWithGuardrail(): THooksConfig {
 const blockGuardrail: TGuardrail = () => ({ pass: false, reason: 'command contains a secret' });
 const passGuardrail: TGuardrail = () => ({ pass: true });
 
-describe('SELFHOST-005 TC-01/TC-04 — guardrail rides the single runHooks blocked path', () => {
+describe('guardrail rides the single runHooks blocked path', () => {
   it('a failing guardrail blocks the turn via runHooks (same blocked contract as hooks)', async () => {
     const result = await runHooks(configWithGuardrail(), 'PreToolUse', INPUT, [
       new GuardrailExecutor({ secrets: blockGuardrail }),

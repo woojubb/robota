@@ -7,7 +7,7 @@ import type { TModelEffortSelection } from '../interfaces/provider';
 /**
  * Hook lifecycle events.
  *
- * `PreModelCall`, `PostModelCall`, and `PermissionDecision` (SELFHOST-009) are
+ * `PreModelCall`, `PostModelCall`, and `PermissionDecision` are
  * INFORMATIONAL-ONLY: they are fired fire-and-forget from the turn owner at points it already
  * observes and their `runHooks` result is NOT awaited or consulted for gating. The sole BLOCKING
  * event is `PreToolUse`. The deny causes are enumerated once, in the catalog SSOT
@@ -69,7 +69,7 @@ export interface IAgentHookDefinition {
 }
 
 /**
- * Guardrail hook (SELFHOST-005) — runs the registered guardrail SET in parallel and fails the turn
+ * Guardrail hook — runs the registered guardrail SET in parallel and fails the turn
  * fast. The guardrail functions live in the `GuardrailExecutor` (registered by the consumer); this
  * data-only definition just selects which to run. Any failure maps onto the existing exit-code-2 /
  * `blocked` contract, so enforcement reuses the single `runHooks` → `runPreToolGate` path.
@@ -89,7 +89,7 @@ export type THookDefinition =
   | IGuardrailHookDefinition;
 
 /**
- * SELFHOST-005: the verdict a guardrail returns. `pass: false` fails the turn fast (mapped to the
+ * The verdict a guardrail returns. `pass: false` fails the turn fast (mapped to the
  * exit-code-2 / `blocked` hook contract).
  */
 export interface IGuardrailResult {
@@ -99,7 +99,7 @@ export interface IGuardrailResult {
 }
 
 /**
- * SELFHOST-005: a registerable guardrail — a pure MECHANISM that inspects the turn's hook input and
+ * A registerable guardrail — a pure MECHANISM that inspects the turn's hook input and
  * votes pass/block. The POLICY (what to check) is the consumer's. Guardrails in a set run in parallel
  * and the first `!pass` (or a thrown error — fail-safe) fails the turn fast.
  */
@@ -159,24 +159,24 @@ export interface IHookInput {
   permission_mode?: string;
   /**
    * Provider model identifier for the model call (PreModelCall/PostModelCall only).
-   * SELFHOST-009 — informational.
+   * Informational.
    */
   model?: string;
   /**
    * Provider name for the model call (PreModelCall/PostModelCall only).
-   * SELFHOST-009 — informational.
+   * Informational.
    */
   provider?: string;
   /**
    * Model-effort selection for the model call (PreModelCall/PostModelCall only).
-   * API-001 — informational; `auto` remains provider-default selection.
+   * Informational; `auto` remains provider-default selection.
    */
   effort?: TModelEffortSelection;
-  /** Agentic round index for the model call (PreModelCall/PostModelCall only). SELFHOST-009 — informational. */
+  /** Agentic round index for the model call (PreModelCall/PostModelCall only). Informational. */
   round?: number;
   /**
    * Reported permission decision (PermissionDecision only) — the value `evaluatePermission` returned
-   * (`'auto' | 'approve' | 'deny'`). SELFHOST-009 — informational. This REPORTS a decision already made;
+   * (`'auto' | 'approve' | 'deny'`). Informational. This REPORTS a decision already made;
    * it neither extends `TPermissionDecision` nor the internal `IRunHooksResult.permissionDecision`, and
    * the hook cannot change the outcome.
    */
@@ -186,7 +186,7 @@ export interface IHookInput {
 }
 
 /**
- * Why a hook execution could not produce a verdict (SEC-015).
+ * Why a hook execution could not produce a verdict.
  *
  * The distinction these six names carry is the one the exit-code channel could not: a hook that
  * DECIDED versus one that never got to. Which of the six it was is diagnostic detail; that it was
@@ -237,7 +237,7 @@ export interface IHookErrorOutcome {
 }
 
 /**
- * The decoded result of one hook execution (SEC-015).
+ * The decoded result of one hook execution.
  *
  * It replaces an `{ exitCode, stdout, stderr }` record whose only channel for a failure was a
  * number, which forced every failure to be coerced into a verdict: a truthy non-boolean `ok` read

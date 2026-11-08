@@ -97,7 +97,7 @@ export interface IPluginExecutionResult {
 /**
  * Plugin context type - for plugin execution contexts
  *
- * Moved from `interfaces/types.ts` (PLG-020 follow-up): it depends on `IPluginExecutionResult`
+ * Moved from `interfaces/types.ts`: it depends on `IPluginExecutionResult`
  * above, which lives at this abstracts layer.
  */
 export interface IPluginContext {
@@ -110,7 +110,7 @@ export interface IPluginContext {
   metadata?: TMetadata;
   error?: Error;
   executionContext?: TContextData;
-  /** PLG-020 (issue #2460): the run's result, for `afterExecution` / `afterConversation` / `afterToolExecution`. */
+  /** The run's result, for `afterExecution` / `afterConversation` / `afterToolExecution`. */
   executionResult?: IPluginExecutionResult;
   /**
    * The message just appended to the conversation, for `onMessageAdded`, or the streamed text
@@ -172,7 +172,7 @@ export interface IPluginContract<
   priority: number;
   initialize(options?: TOptions): Promise<void>;
   /**
-   * CORE-022: the single component-level disposal entry point. The base implementation
+   * The single component-level disposal entry point. The base implementation
    * unsubscribes module events; overrides release owned resources (timers, sockets,
    * storage) — always calling `super.dispose()`. Driven by `ConversationAgent.destroy()`.
    */

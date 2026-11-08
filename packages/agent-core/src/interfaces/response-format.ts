@@ -5,7 +5,7 @@ import type { TConfigValue } from './types';
  */
 export interface IResponseFormatConfig {
   type?: 'text' | 'json_object' | 'json_schema';
-  /** JSON schema payload; required when `type` is `'json_schema'` (CORE-015). */
+  /** JSON schema payload; required when `type` is `'json_schema'`. */
   schema?: Record<string, TConfigValue>;
   /** Schema name forwarded to provider native structured-output surfaces. */
   name?: string;

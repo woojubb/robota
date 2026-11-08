@@ -1,5 +1,5 @@
 /**
- * ARCH-055 (#2159): the transactional lifecycle contract for registry-owned instances.
+ * The transactional lifecycle contract for registry-owned instances.
  *
  * A registry (agent factory, module registry, plugin set) mutates its state around asynchronous
  * initialization. Without one contract, a failure part-way leaves partial registration, wrong

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CLAUDE_MODELS } from '../claude-models.js';
 
 /**
- * NEUT-010 — the Claude table, and the cases that came with it from `agent-core`.
+ * The Claude table, and the cases that came with it from `agent-core`.
  *
  * `agent-core`'s own SPEC says it must not branch on concrete provider or model names, yet it
  * carried this table and this package imported it back out. Two consequences: the vendor-neutral
@@ -40,7 +40,7 @@ describe('CLAUDE_MODELS (moved here from agent-core)', () => {
   });
 });
 
-describe('registration with the core registry (NEUT-010)', () => {
+describe('registration with the core registry', () => {
   it('core alone knows nothing about Claude — the neutral package carries no vendor table', async () => {
     vi.resetModules();
     const core = await import('@robota-sdk/agent-core');

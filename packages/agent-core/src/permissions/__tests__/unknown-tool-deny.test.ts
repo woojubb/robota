@@ -8,7 +8,7 @@ import {
 import { decideByPolicy } from './policy-decision.js';
 
 /**
- * CORE-030 — a deny the gate could not EVALUATE was overridden by a broader allow.
+ * A deny the gate could not EVALUATE was overridden by a broader allow.
  *
  * `primaryArg` is a hardcoded switch over PRODUCT tool names in the vendor-neutral foundation. For a
  * tool it has never heard of it returns `undefined`, `matchesPattern` answers `false`, and `false`
@@ -28,7 +28,7 @@ import { decideByPolicy } from './policy-decision.js';
  * An operator who denies a narrow case and allows the tool broadly is the ordinary way to write
  * these lists, and for any tool the foundation does not know the narrow deny simply vanished.
  */
-describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', () => {
+describe('an unevaluable deny is not overridden by a broader allow', () => {
   // The tools whose argument key `@robota-sdk/agent-tools` declares. These cases are about what
   // happens for a tool NOBODY has declared, so the contrast needs the declared ones present.
   beforeEach(() => {
@@ -96,9 +96,9 @@ describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', 
   });
 
   /**
-   * The distinction review of #1596 caught: the first version folded these two into one condition,
-   * so a REGISTERED tool invoked without its declared argument was treated as unevaluable — which
-   * contradicted the comment beside it and the test below it.
+   * The distinction between these two conditions matters: folding them into one would mean a
+   * REGISTERED tool invoked without its declared argument would be treated as unevaluable — which
+   * contradicts the comment beside it and the test below it.
    *
    * A key nobody declared is unevaluable. A declared key that this invocation simply does not carry
    * is a real NON-match: the pattern is about `path`, there is no path, so there is nothing to deny.
@@ -148,19 +148,19 @@ describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', 
 });
 
 /**
- * The SIBLING gate, found in review of #1596. `resolvePermissionByPolicy` had the same defect and
- * was untouched by the first pass — a missed call site, not a deferred one.
+ * The SIBLING gate. `resolvePermissionByPolicy` needs the same distinction as the gate above;
+ * a call site that misses it is a defect, not a deferred item.
  *
  * It is worse here. This is the gate for BACKGROUND and SUBAGENT calls
  * (`agent-session/src/permission-enforcer.ts:219`), it exists to be MORE restrictive than the
  * session mode, and it has no prompt at its allow step: an unevaluable deny beside a broader allow
  * resolved to `'allow'` outright.
  *
- * Issue #3081: both callers now share one evaluator, so it ASKS here as it does in a session. A
+ * Both callers now share one evaluator, so it ASKS here as it does in a session. A
  * detached task has no approver attached, and the approval path resolves an ask with no approver to
  * a deny — the outcome for a detached task is unchanged, but the order is one order.
  */
-describe('the background/subagent gate has the same rule (CORE-030)', () => {
+describe('the background/subagent gate has the same rule', () => {
   beforeEach(() => {
     clearRegisteredToolProfiles();
     registerToolPermissionProfile('Shell', {
@@ -223,7 +223,7 @@ describe('the background/subagent gate has the same rule (CORE-030)', () => {
   });
 });
 
-describe('CORE-030 — a third-party tool can be classified, which is what the union prevented', () => {
+describe('a third-party tool can be classified, which is what the union prevented', () => {
   afterEach(() => {
     clearRegisteredToolProfiles();
   });

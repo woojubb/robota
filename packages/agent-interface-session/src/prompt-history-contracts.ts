@@ -1,5 +1,5 @@
 /**
- * SCREEN-1993 — prompt history: the prompts a person typed, across sessions and projects, as a
+ * Prompt history: the prompts a person typed, across sessions and projects, as a
  * derived append-only projection the terminal UI searches. The session record stays the owner of
  * every message; this projection exists so a search never decodes a record and never crosses a
  * workspace boundary.

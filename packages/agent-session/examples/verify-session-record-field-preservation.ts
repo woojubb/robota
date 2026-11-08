@@ -221,13 +221,13 @@ async function main(): Promise<void> {
     const outcome = store.load(SESSION_ID);
     assertCondition(
       outcome.status === 'valid',
-      `ARCH-015: persisted record was not reloadable (${outcome.status})`,
+      `persisted record was not reloadable (${outcome.status})`,
     );
     const reloaded = outcome.status === 'valid' ? outcome.record : undefined;
     for (const key of PRESERVED_FIELDS) {
       assertCondition(
         isDeepStrictEqual(reloaded?.[key], existing[key]),
-        `ARCH-015: ${key} was not preserved`,
+        `${key} was not preserved`,
       );
     }
 
@@ -241,16 +241,16 @@ async function main(): Promise<void> {
     };
     assertCondition(
       Object.values(sessionOwnedOverwrites).every(Boolean),
-      'ARCH-015: a Session-owned field retained stale state',
+      'a Session-owned field retained stale state',
     );
-    assertCondition(reloaded?.createdAt === CREATED_AT, 'ARCH-015: createdAt changed');
+    assertCondition(reloaded?.createdAt === CREATED_AT, 'createdAt changed');
     assertCondition(
       assistantResponse === 'arch-015:preserve-record-fields',
-      'ARCH-015: unexpected provider response',
+      'unexpected provider response',
     );
 
     output = {
-      scenario: 'ARCH-015',
+      scenario: 'session-record-field-preservation',
       provider: 'arch-015-offline',
       assistantResponse,
       preservedFields: PRESERVED_FIELDS,
@@ -263,7 +263,7 @@ async function main(): Promise<void> {
     cleanupRemoved = !existsSync(scratchDir);
   }
 
-  assertCondition(cleanupRemoved, 'ARCH-015: scratch cleanup failed');
+  assertCondition(cleanupRemoved, 'scratch cleanup failed');
   process.stdout.write(`${JSON.stringify({ ...output, cleanupRemoved })}\n`);
 }
 

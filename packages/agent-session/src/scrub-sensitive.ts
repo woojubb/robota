@@ -1,9 +1,9 @@
 /**
- * SELFHOST-014 — the single source of the sensitive-key redaction (SSOT).
+ * The single source of the sensitive-key redaction (SSOT).
  *
  * The recursive secret-key scrub used to live privately in `session-logger.ts`, logging-coupled and not exported.
  * It is extracted here so exactly ONE definition of "which keys are sensitive" exists, consumed by BOTH the file
- * session logger (persistence-time redaction) and the SELFHOST-014 share-artifact `redact` transform (an opt-in
+ * session logger (persistence-time redaction) and the share-artifact `redact` transform (an opt-in
  * the app composes). This utility is a pure, mechanism-level key scrub only: it carries NO field/trust-boundary
  * policy (which of `cwd`/`sandboxSnapshotId`/… to strip is an app decision) and is NEVER forced into the
  * full-fidelity local round-trip.

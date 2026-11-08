@@ -1,5 +1,5 @@
 /**
- * The SOURCE half of a session hand-off (HANDOFF-001, issue #1864).
+ * The SOURCE half of a session hand-off.
  *
  * This package decides which phase transitions are allowed and when to request one. It holds one rule:
  *
@@ -12,7 +12,7 @@
  *
  * WHAT THIS DOES NOT DO. It does not send. A carrier is passed in, so that a transfer can be driven
  * over WebRTC in production and over two in-process ends in a test without the orchestration
- * knowing which — and TC-10 is precisely the case that needs the second.
+ * knowing which — and the in-process test is precisely the case that needs the second.
  */
 
 import type {

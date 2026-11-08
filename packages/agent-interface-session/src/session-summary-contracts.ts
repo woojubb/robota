@@ -55,7 +55,7 @@ export interface ISessionListing {
 }
 
 /**
- * A host that can hold one session among several and change which (#3189). Clients reach it over the
+ * A host that can hold one session among several and change which. Clients reach it over the
  * wire to list, start, switch, rename and delete sessions. A switch or delete that would lose work in
  * progress — a running turn, a pending prompt, live background tasks — is refused with an Error whose
  * message says why.

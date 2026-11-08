@@ -35,7 +35,7 @@ export class AgentFactory {
   private options: TResolvedFactoryOptions;
   private activeAgents: Map<string, IAgent<IAgentConfig>>;
   /**
-   * ARCH-055 admission: ids reserved by a `createAgent` that has not yet committed. Pending plus
+   * Admission: ids reserved by a `createAgent` that has not yet committed. Pending plus
    * active count toward `maxConcurrentAgents`, so concurrent creates cannot exceed the limit, and a
    * reserved id cannot be handed to a second create while the first is still initializing.
    */
@@ -82,7 +82,7 @@ export class AgentFactory {
   /**
    * Create a new agent instance.
    *
-   * ARCH-055 (#2159): one transaction. Admission — the limit check and a collision-safe id with a
+   * One transaction. Admission — the limit check and a collision-safe id with a
    * pending slot — happens BEFORE the first `await`, so concurrent creates cannot overshoot
    * `maxConcurrentAgents` or overwrite each other. Then `beforeCreate` → construct → `initialize` →
    * commit (pending → active, statistics) → `afterCreate`, each with its reverse step: a failure
@@ -178,7 +178,7 @@ export class AgentFactory {
   }
 
   /**
-   * ARCH-055 admission: reserve a collision-safe id and a pending slot synchronously. Pending and
+   * Admission: reserve a collision-safe id and a pending slot synchronously. Pending and
    * active instances both count toward the limit.
    */
   private admit(): string {
@@ -297,7 +297,7 @@ export class AgentFactory {
     }
 
     try {
-      // ARCH-055: the declared lifecycle, through the one type guard — not per-site duck typing.
+      // The declared lifecycle, through the one type guard — not per-site duck typing.
       await lifecycleOf(agent)?.cleanup?.();
 
       // Remove from tracking

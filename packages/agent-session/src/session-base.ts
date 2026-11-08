@@ -33,14 +33,14 @@ export abstract class SessionBase {
   protected abstract model: string;
   protected abstract systemMessage: string;
   protected abstract messageCount: number;
-  /** ARCH-010: the session's execution root — owned here, with the check that it was supplied. */
+  /** The session's execution root — owned here, with the check that it was supplied. */
   protected readonly cwd: string;
 
   protected constructor(cwd: string) {
     this.cwd = requireExecutionRoot(cwd);
   }
   /**
-   * RUNTIME-003: the turn currently running, and its owner. Was a bare `AbortController | null` that
+   * The turn currently running, and its owner. Was a bare `AbortController | null` that
    * `run()` overwrote, which is why `abort()` and `isRunning()` below could answer about a turn that
    * was not the one in flight. See `turn-claim.ts`.
    */
@@ -63,7 +63,7 @@ export abstract class SessionBase {
     return () => this.permissionModeGuards.delete(guard);
   }
 
-  /** Read the active preset id (PRESET-011 runtime state). */
+  /** Read the active preset id (runtime state). */
   getActivePresetId(): string {
     return this.activePresetId;
   }
@@ -71,13 +71,13 @@ export abstract class SessionBase {
   /**
    * Set the active preset id. PURE STATE — this only records which preset is active;
    * it does not re-apply any preset options (permission/model/persona). Higher layers
-   * own re-application (PRESET-012/013/014).
+   * own re-application.
    */
   setActivePresetId(id: string): void {
     this.activePresetId = id;
   }
 
-  /** Whether subagent dispatch is currently allowed for this session (PRESET-016 runtime gate). */
+  /** Whether subagent dispatch is currently allowed for this session (runtime gate). */
   getParallelSubagentsEnabled(): boolean {
     return this.parallelSubagentsEnabled;
   }
@@ -92,7 +92,7 @@ export abstract class SessionBase {
   }
 
   /**
-   * The session's execution root (ARCH-010).
+   * The session's execution root.
    *
    * Readable because a caller that derives something FROM the session — a fork, a subagent, a hook
    * input — must be able to ask which root this session actually runs in. Re-deriving it from
@@ -121,7 +121,7 @@ export abstract class SessionBase {
   }
 
   /**
-   * Re-apply model options to the live session (PRESET-013 model/effort re-application seam).
+   * Re-apply model options to the live session (model/effort re-application seam).
    *
    * Propagates model/effort/temperature/maxOutputTokens to the agent via `agent.setModel` so the
    * next call reflects them, and updates `this.model` to keep `getModelId()` accurate. The preset
@@ -187,7 +187,7 @@ export abstract class SessionBase {
   /**
    * Re-apply the agent's identity label to a LIVE session.
    *
-   * ARCH-040 (issue #1820): a preset's `agentName` reached the agent only at construction, so
+   * A preset's `agentName` reached the agent only at construction, so
    * starting with a preset set the name while switching to the SAME preset mid-session left the old
    * one — one preset with two answers, decided by when it was chosen.
    *
@@ -208,7 +208,7 @@ export abstract class SessionBase {
 
   /** Get tools that have been session-approved (via "Allow always" choice). */
   /**
-   * ARCH-040 Group C (issue #1934): re-apply a preset's tool lists to the live enforcer.
+   * Re-apply a preset's tool lists to the live enforcer.
    *
    * The BASE it composes onto is the session's configured rules minus whatever a previous preset
    * contributed — which is why the enforcer keeps the original: an allowlist REPLACES the preset
@@ -224,7 +224,7 @@ export abstract class SessionBase {
 
   /**
    * The rules this session's gate reads right now — settings, preset lists and command auto-allows
-   * together — so a subagent inherits what the parent actually enforces (issue #3081). Session-scoped
+   * together — so a subagent inherits what the parent actually enforces. Session-scoped
    * "allow always" consent is not included: it was given for this session's context.
    */
   getPermissionRules(): { allow: string[]; deny: string[]; ask: string[] } {
@@ -266,7 +266,7 @@ export abstract class SessionBase {
     return this.permissionEnforcer.allowRetryOfDenial(index);
   }
 
-  /** The calls this session refused, most recent first (issue #3082). */
+  /** The calls this session refused, most recent first. */
   getRecentPermissionDenials(): readonly IPermissionDenial[] {
     return this.permissionEnforcer.getRecentDenials();
   }
@@ -328,7 +328,7 @@ export abstract class SessionBase {
   }
 
   /**
-   * The tool schemas the model is offered at the next request (CLI-1990).
+   * The tool schemas the model is offered at the next request.
    *
    * The offered set, not the registered one: a deferred tool that has not been loaded is absent,
    * because it is absent from the request. `/context` reads this to report what the tool schemas

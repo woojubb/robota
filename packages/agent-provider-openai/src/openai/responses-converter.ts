@@ -30,11 +30,11 @@ export function convertToOpenAIResponsesInput(
 }
 
 /**
- * MCP-005: `tools` arrives ALREADY projected — `AbstractAIProvider.projectTools()` ran the strict or
+ * `tools` arrives ALREADY projected — `AbstractAIProvider.projectTools()` ran the strict or
  * permissive profile (`STRICT_TOOL_SCHEMA_PROFILE` / `PERMISSIVE_TOOL_SCHEMA_PROFILE`) over every
- * schema before this converter ever sees it, closing objects for strict mode where PROV-007's
- * `closeObjectSchemas` used to run inline here. This function does no schema transformation of its
- * own — it only shapes the already-projected `parameters` into the wire tool definition and keeps
+ * schema before this converter ever sees it, closing objects for strict mode with
+ * `closeObjectSchemas`. This function does no schema transformation of its own — it only shapes the
+ * already-projected `parameters` into the wire tool definition and keeps
  * `strict: true` on the emitted field when `strictTools` is on (a request-field concern, not a schema
  * one: the schema was already closed by the projection step).
  */

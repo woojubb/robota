@@ -6,7 +6,7 @@ import type { ICreateSessionOptions } from '@robota-sdk/agent-framework';
  *
  * Reuses the framework's `ICreateSessionOptions['effort']` channel (which is the
  * `agent-core` `TModelEffort` SSOT) so a resolved preset effort threads straight to the
- * provider invocation seam (PRESET-008) without introducing a parallel union.
+ * provider invocation seam without introducing a parallel union.
  */
 export type TPresetEffort = NonNullable<ICreateSessionOptions['effort']>;
 

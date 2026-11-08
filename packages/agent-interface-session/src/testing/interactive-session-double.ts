@@ -1,6 +1,5 @@
-// Imported from the DECLARING module, not the package barrel. Issue #2109 was one line of exactly
-// this shape — a module reaching a type through a re-exporter — and it accounted for 2 of the 12
-// cycles the transport omnibus carried. The sibling double next to this one does the same.
+// Imported from the DECLARING module, not the package barrel. A module reaching a type through
+// a re-exporter creates import cycles. The sibling double next to this one does the same.
 import type { IInteractiveSession } from '../session-contracts.js';
 
 const EMPTY_CONTEXT_STATE = {
@@ -41,7 +40,7 @@ const EMPTY_BACKGROUND_GROUP = {
 };
 
 /**
- * The conformant `IInteractiveSession` double, next to the contract it implements. ARCH-012.
+ * The conformant `IInteractiveSession` double, next to the contract it implements.
  *
  * WHY IT LIVES HERE. A double for this contract already existed, published, and documented — in
  * `@robota-sdk/agent-framework`. It had **zero consumers**, and the reason is the dependency
@@ -89,13 +88,13 @@ export function createTestInteractiveSession(
     }
   };
   const base: IInteractiveSession = {
-    // ARCH-012: required, not optional. A double that omitted them let a consumer's
+    // Required, not optional. A double that omitted them let a consumer's
     // `getActiveDriverId?.()` resolve to `undefined` and read as "no active driver" — the ambiguity
     // the contract change removes. `null` here means nobody is driving, and only that.
     isInitialized: true,
     getPendingCount: () => 0,
     getActiveDriverId: () => null,
-    // RUNTIME-003: a double must hand back a handle that SETTLES, because that is the promise the
+    // A double must hand back a handle that SETTLES, because that is the promise the
     // contract makes and a double that never settled would let a suite pass while the consumer it
     // stands in for hangs. The default turn ends at once with an empty result.
     submit: () =>
@@ -143,7 +142,7 @@ export function createTestInteractiveSession(
       goal: null,
       workspace: { name: 'workspace', path: '/workspace' },
     }),
-    // #3282 §2: no configured profiles by default — a case that cares builds its own groups.
+    // No configured profiles by default — a case that cares builds its own groups.
     listModels: () => ({ groups: [], currentModel: 'test-model' }),
     listRuntimeTools: async () => [],
     invokeRuntimeTool: async (name) => ({

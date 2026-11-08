@@ -1,5 +1,5 @@
 /**
- * What Anthropic's models can do. PROV-008.
+ * What Anthropic's models can do.
  *
  * A vendor default with NO deviations, and that emptiness is the finding rather than a gap: the model
  * catalog assigned the identical capability list to every entry it produced, which is a vendor
@@ -14,7 +14,7 @@ import { ANTHROPIC_MODEL_LAST_VERIFIED_AT } from './model-catalog-metadata.js';
 import type { IProviderCapabilityTable } from '@robota-sdk/agent-core';
 
 export const ANTHROPIC_CAPABILITY_TABLE: IProviderCapabilityTable = {
-  // CLI-1990: `tool_search` records that THIS vendor documents a server-side tool search — deferred
+  // `tool_search` records that THIS vendor documents a server-side tool search — deferred
   // definitions the API expands on demand (`tool_search_tool_*_20251119`, per-tool `defer_loading`).
   // It is a DECLARATION, not a switch: the current runtime uses its own client-side catalog for every provider
   // and emits no vendor block, because the vendor feature keeps definitions out of the context

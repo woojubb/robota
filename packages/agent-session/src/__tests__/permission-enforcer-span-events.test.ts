@@ -1,5 +1,5 @@
 /**
- * SELFHOST-004 P6: a service set on the permission wrapper reaches the tool it wraps.
+ * A service set on the permission wrapper reaches the tool it wraps.
  *
  * `Object.create(tool)` would shadow a `setEventService` call onto the wrapper instance, and the
  * wrapper runs the original tool's `execute`. This test proves the injected bus still receives the
@@ -53,7 +53,7 @@ function makeTool(): FunctionTool {
   return new FunctionTool(schema, async () => 'ok');
 }
 
-describe('SELFHOST-004 P6 — permission wrapper forwards setEventService', () => {
+describe('permission wrapper forwards setEventService', () => {
   it('a wrapped, permitted tool emits a span-completion event on the injected bus', async () => {
     const enforcer = makeEnforcer();
     const bus = new ObservableEventService();

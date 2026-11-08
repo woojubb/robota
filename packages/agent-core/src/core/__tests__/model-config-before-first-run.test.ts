@@ -1,5 +1,5 @@
 /**
- * CORE-047 — the model-configuration API must be reachable before the first turn.
+ * The model-configuration API must be reachable before the first turn.
  *
  * `getModel()`, `setModel()` and `swapDefaultProvider()` refused unless the agent was "fully
  * initialized", and the state they guarded — the provider registry and the current (provider, model)
@@ -8,9 +8,8 @@
  * config the constructor has already validated.
  *
  * They are now done by the constructor, which makes "an agent knows which model it is configured
- * for from the moment it exists" true by construction. That is the same conclusion CORE-045 reached
- * for `registerTool`, arrived at for a different reason: there, the guarded work did not exist;
- * here, it existed but was in the wrong place.
+ * for from the moment it exists" true by construction. The guarded work existed but was in the wrong place,
+ * so the guard protected nothing.
  *
  * `ConversationAgent.ensureReady()` remains the way to complete the genuinely asynchronous half, and is still
  * required before a turn runs. It is not required to ask which model you are using.
@@ -55,7 +54,7 @@ function buildAgent(): ConversationAgent {
   });
 }
 
-describe('CORE-047 — the model API answers from construction', () => {
+describe('the model API answers from construction', () => {
   it('getModel() returns the configured model with no prior run', async () => {
     const agent = buildAgent();
     try {

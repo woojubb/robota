@@ -1,9 +1,9 @@
 /**
- * SELFHOST-004 P3 (TC-01 / TC-03): the trace/cost read-model over a session record.
+ * The trace/cost read-model over a session record.
  *
- * TC-01 — `summarizeUsageBySource` produces per-source COST totals AND the span timeline, grouping
+ * `summarizeUsageBySource` produces per-source COST totals AND the span timeline, grouping
  *         sub-turn spans under their owning turn (asserting the grouping, not just span presence).
- * TC-03 — no cap-enforcement is added here (the reducer stays a pure read-model) — placement grep.
+ * No cap-enforcement is added here (the reducer stays a pure read-model) — placement grep.
  */
 
 import { readFileSync } from 'node:fs';
@@ -59,7 +59,7 @@ function spanEntry(op: string, durationMs: number): IHistoryEntry<ISpanEntry> {
   };
 }
 
-describe('SELFHOST-004 TC-01 — cost-by-source + span timeline', () => {
+describe('cost-by-source + span timeline', () => {
   it('sums exact per-turn cost per source and across the session', () => {
     const worker: IUsageSource = { scope: 'subagent', id: 'w1', label: 'worker 1' };
     const report = summarizeUsageBySource({
@@ -124,7 +124,7 @@ describe('SELFHOST-004 TC-01 — cost-by-source + span timeline', () => {
   });
 });
 
-describe('SELFHOST-004 TC-03 — analytics stays a pure read-model (no cap enforcement)', () => {
+describe('analytics stays a pure read-model (no cap enforcement)', () => {
   it('never throws / halts on an arbitrarily large accumulated cost (pure read-model)', () => {
     const report = summarizeUsageBySource({
       id: 'sess-huge',
@@ -136,7 +136,7 @@ describe('SELFHOST-004 TC-03 — analytics stays a pure read-model (no cap enfor
   it('the reducer source imports no runtime plugin and enforces no budget (placement)', () => {
     const source = readFileSync(new URL('../usage.ts', import.meta.url), 'utf8');
     expect(source).not.toContain('@robota-sdk/agent-plugin');
-    // no enforcement authority here — the cap lives in LimitsPlugin (P4), not this reducer
+    // no enforcement authority here — the cap lives in LimitsPlugin, not this reducer
     expect(source.toLowerCase()).not.toContain('limitsplugin');
     expect(source).not.toMatch(/throw new .*budget/i);
   });

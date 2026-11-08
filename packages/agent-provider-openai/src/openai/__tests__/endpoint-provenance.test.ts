@@ -1,5 +1,5 @@
 /**
- * CORE-043 decision (1): the advertised gateway configuration must not report enforcement it has not
+ * The advertised gateway configuration must not report enforcement it has not
  * got.
  *
  * `llms.txt` and `types.ts` advertise `baseURL` for OpenAI-compatible gateways. Setting it also
@@ -18,7 +18,7 @@ import { OpenAIProvider } from '../provider';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
-describe('CORE-043 — OpenAI endpoint provenance', () => {
+describe('OpenAI endpoint provenance', () => {
   it('reports the vendor endpoint when no baseURL is configured', () => {
     const provider = new OpenAIProvider({ apiKey: 'test-key' });
     expect(provider.endpointIsVendorDefault()).toBe(true);

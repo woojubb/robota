@@ -38,13 +38,13 @@ export function createGeminiProviderDefinition(): IProviderDefinition {
     category: 'cloud-free',
     // Google Search is not declared for a host's default, though a profile can ask for it: Google's
     // terms attach conditions to showing and storing grounded results that only the host can meet.
-    // Interim provider-level cost (ARCH-PROVIDER-003), migrated from the former llm-text-gemini node.
+    // Interim provider-level cost, migrated from the former llm-text-gemini node.
     costPerTokenUsd: 0.0005,
     defaults: {
       model: DEFAULT_GEMINI_PROVIDER_MODEL,
       apiKey: DEFAULT_GEMINI_PROVIDER_API_KEY_REFERENCE,
     },
-    // OBSERVABILITY-1991: the SDK embeds this endpoint; declared here for the pre-session doctor only.
+    // the SDK embeds this endpoint; declared here for the pre-session doctor only.
     endpoint: { host: 'generativelanguage.googleapis.com', port: 443 },
     modelCatalog: {
       status: 'fallback',

@@ -9,7 +9,7 @@ import type { IPayloadLogger } from '../interfaces/payload-logger';
 import type { IOpenAILogData } from '../types/api-types';
 import type { ILogger } from '@robota-sdk/agent-core';
 
-/** Owner-only access — no group or other bits (SEC-003 / CWE-377). */
+/** Owner-only access — no group or other bits (CWE-377). */
 const OWNER_ONLY_FILE_MODE = 0o600;
 const OWNER_ONLY_DIR_MODE = 0o700;
 
@@ -89,7 +89,7 @@ export class FilePayloadLogger implements IPayloadLogger {
         payload: sanitizeOpenAILogData(payload),
       };
 
-      // SEC-003: payload logs record the caller's request history (a request summary, not
+      // Payload logs record the caller's request history (a request summary, not
       // prompt/response content) and `logDir` is caller-supplied, so create them owner-only
       // rather than under the process umask.
       await fs.promises.writeFile(filepath, JSON.stringify(logData, null, 2), {

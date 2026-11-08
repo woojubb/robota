@@ -1,5 +1,5 @@
 /**
- * ARCH-044 (issue #2047): the JSON-safe DTOs the child-process start payload carries for the agent
+ * The JSON-safe DTOs the child-process start payload carries for the agent
  * definition and the parent's loaded context — OWNED by this process boundary, not indexed out of
  * the in-process runtime types.
  *
@@ -192,7 +192,7 @@ export function restoreAgentDefinition(dto: ISubagentWorkerAgentDefinitionDto): 
   return definition;
 }
 
-/** Accepts the issue #2317 projection (or anything wider, structurally); only declared fields cross. */
+/** Accepts the parent-context projection (or anything wider, structurally); only declared fields cross. */
 export function encodeParentContext(
   context: ISubagentParentContext,
 ): ISubagentWorkerParentContextDto {

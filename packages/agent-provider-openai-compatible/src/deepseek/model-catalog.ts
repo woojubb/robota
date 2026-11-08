@@ -52,7 +52,7 @@ export const DEEPSEEK_MODEL_CATALOG_ENTRIES: readonly IProviderModelCatalogEntry
 /**
  * The catalog as the provider surfaces it, so a per-model capability is reachable at call time.
  *
- * PROV-006: `provider-definition.ts` already built this object for the definition registry, but the
+ * `provider-definition.ts` already built this object for the definition registry, but the
  * running provider had no way to reach it — which is why `supportsTools()` answered for the whole
  * vendor and contradicted this very file.
  */

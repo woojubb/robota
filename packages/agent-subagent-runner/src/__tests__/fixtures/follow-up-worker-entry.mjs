@@ -1,5 +1,5 @@
 /**
- * #3679 3f: the REAL worker entry point over a provider the test paces, so a follow-up prompt can be
+ * The REAL worker entry point over a provider the test paces, so a follow-up prompt can be
  * sent while the initial turn is still running.
  *
  * Every provider call waits for the file `gate-<n>` in `FOLLOW_FIXTURE_DIR` before it answers

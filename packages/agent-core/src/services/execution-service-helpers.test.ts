@@ -1,5 +1,5 @@
 /**
- * Tests for buildFinalResult provider-error marking (CLI-064).
+ * Tests for buildFinalResult provider-error marking.
  *
  * The provider-error round branch records the failure as an assistant message with
  * `providerError: true` metadata. buildFinalResult must not count that message as a
@@ -20,7 +20,7 @@ import {
 import type { IAgentConfig } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 
-describe('buildFinalResult provider-error marking (CLI-064)', () => {
+describe('buildFinalResult provider-error marking', () => {
   // These stores hold the turn under test from their first user message on.
   const WHOLE_STORE_OF = (store: ConversationStore): { turnMessageId: string } => {
     const first = store.getMessages().find((message) => message.role === 'user');
@@ -28,7 +28,7 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
     return { turnMessageId: first.id };
   };
 
-  it('TC-01: marks the result failed when the final assistant message is a provider error', () => {
+  it('marks the result failed when the final assistant message is a provider error', () => {
     const store = new ConversationStore();
     store.addUserMessage('say hi');
     store.addAssistantMessage('Request failed: 401 authentication_error', [], {
@@ -47,7 +47,7 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
     expect(assistantMessages[0]?.content).toContain('Request failed: 401');
   });
 
-  it('TC-01: a normal assistant response stays successful', () => {
+  it('a normal assistant response stays successful', () => {
     const store = new ConversationStore();
     store.addUserMessage('say hi');
     store.addAssistantMessage('hello!', [], { round: 1 });
@@ -59,7 +59,7 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
     expect(result.response).toBe('hello!');
   });
 
-  it('CORE-027: the ORIGINAL provider error survives to result.error, not a prose reconstruction', () => {
+  it('the ORIGINAL provider error survives to result.error, not a prose reconstruction', () => {
     // The round trip through `Request failed: ${message}` destroyed the failure's class, code,
     // category, recoverable flag, stack and cause — result.error was a bare Error rebuilt from
     // display text. The original object must arrive by identity.
@@ -94,7 +94,7 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
     expect(result.error?.cause).toBeInstanceOf(Error);
   });
 
-  it('CORE-027: a non-Error thrown value is wrapped, never silently stringified into success', () => {
+  it('a non-Error thrown value is wrapped, never silently stringified into success', () => {
     const store = new ConversationStore();
     store.addUserMessage('say hi');
     store.addAssistantMessage('Request failed: weird', [], { round: 1, providerError: true });
@@ -113,7 +113,7 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
     expect(result.error?.message).toContain('weird string throw');
   });
 
-  it('TC-01: a provider error in an earlier round does not fail a later successful response', () => {
+  it('a provider error in an earlier round does not fail a later successful response', () => {
     const store = new ConversationStore();
     store.addUserMessage('say hi');
     store.addAssistantMessage('Request failed: 500 overloaded', [], {
@@ -130,7 +130,7 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
   });
 });
 
-describe('buildFinalResult reads only its own turn (#3209)', () => {
+describe('buildFinalResult reads only its own turn', () => {
   const toolCall = {
     id: 'call-1',
     type: 'function' as const,
@@ -193,7 +193,7 @@ describe('buildFinalResult reads only its own turn (#3209)', () => {
   });
 });
 
-describe('initializeConversationStore restore robustness (CORE-008)', () => {
+describe('initializeConversationStore restore robustness', () => {
   const msg = (role: TUniversalMessage['role'], content: string): TUniversalMessage =>
     ({
       id: `${role}-${content}`,
@@ -207,7 +207,7 @@ describe('initializeConversationStore restore robustness (CORE-008)', () => {
     const store = new ConversationStore();
     // Simulate ConversationAgent.updateSystemPrompt('LIVE SYSTEM') before the first run: it sets config AND the
     // store head to the same value. A pre-seeded system head used to make the `getMessageCount() === 0`
-    // restore guard false and silently drop the history (CORE-008).
+    // restore guard false and silently drop the history.
     store.setSystemPrompt('LIVE SYSTEM');
     const conversationHistory = { getConversationStore: () => store };
     const messages: TUniversalMessage[] = [
@@ -229,7 +229,7 @@ describe('initializeConversationStore restore robustness (CORE-008)', () => {
     expect(messagesByRole('system')).toEqual(['LIVE SYSTEM']);
   });
 
-  it('CORE-010: injects the system prompt once, then reuses the log (no re-attach across turns)', () => {
+  it('injects the system prompt once, then reuses the log (no re-attach across turns)', () => {
     const store = new ConversationStore();
     const conversationHistory = { getConversationStore: () => store };
     const config = { systemMessage: 'SYS' } as unknown as IAgentConfig;
@@ -251,7 +251,7 @@ describe('initializeConversationStore restore robustness (CORE-008)', () => {
     expect(store.getMessages().map((m) => m.role)).toEqual(['system', 'user', 'user']);
   });
 
-  it('CORE-009: on resume the live config.systemMessage replaces a differing persisted system prompt', () => {
+  it('on resume the live config.systemMessage replaces a differing persisted system prompt', () => {
     const store = new ConversationStore();
     const conversationHistory = { getConversationStore: () => store };
     // Persisted history that legitimately carried its own (stale) system prompt.
@@ -274,7 +274,7 @@ describe('initializeConversationStore restore robustness (CORE-008)', () => {
   });
 });
 
-describe('assertToolChoiceValid (CORE-017)', () => {
+describe('assertToolChoiceValid', () => {
   const tools = [
     {
       name: 'get_weather',
@@ -305,7 +305,7 @@ describe('assertToolChoiceValid (CORE-017)', () => {
   });
 });
 
-describe('resolveToolChoiceForRound (CORE-017)', () => {
+describe('resolveToolChoiceForRound', () => {
   it('passes everything through on round 1', () => {
     expect(resolveToolChoiceForRound('required', 1)).toBe('required');
     expect(resolveToolChoiceForRound({ tool: 'x' }, 1)).toEqual({ tool: 'x' });

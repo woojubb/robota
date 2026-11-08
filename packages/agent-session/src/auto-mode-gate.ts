@@ -1,6 +1,5 @@
 /**
- * `auto` permission mode: a model classifier decides the calls the mode itself does not (issue
- * #3082).
+ * `auto` permission mode: a model classifier decides the calls the mode itself does not.
  *
  * The permission gate still runs first — deny rules, the ceiling, and the reads and workspace edits
  * the mode approves. What it would have asked a person about goes to the classifier instead, unless

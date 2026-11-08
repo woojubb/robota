@@ -13,17 +13,17 @@ import type {
 import type { IToolWithEventService, ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
 
 /**
- * RUNTIME-005 — `abort()` reaches the provider but not the wait.
+ * `abort()` reaches the provider but not the wait.
  *
  * `promptForApproval` awaits a consumer-supplied handler with no signal and no timeout, so a turn
  * parked on a human-approval prompt runs until that prompt resolves on its own — which, for a prompt
- * nobody answers, is never. Since RUNTIME-003 the session's claim is held until the turn unwinds
+ * nobody answers, is never. The session's claim is held until the turn unwinds
  * (correctly), so the consequence is a permanently busy session the caller cannot clear except by
  * discarding it.
  *
  * The compensating guard lives one layer up: `agent-framework` drains its prompt registry before
  * calling `session.abort()`. A direct `agent-session` consumer has no equivalent — the
- * guard-above-the-library shape RUNTIME-003 was filed to remove.
+ * guard-above-the-library shape.
  *
  * Every case here RACES against a timer and asserts on the raced outcome. Asserting by letting the
  * suite time out would prove only that something was slow, and would take the timeout with it.
@@ -67,7 +67,7 @@ async function within<T>(promise: Promise<T>, ms = 200): Promise<'settled' | 'pe
   }
 }
 
-describe('an approval prompt observes the turn abort (RUNTIME-005)', () => {
+describe('an approval prompt observes the turn abort', () => {
   it('a prompt nobody answers is released when the turn aborts', async () => {
     const controller = new AbortController();
     const enforcer = makeEnforcer({
@@ -149,10 +149,10 @@ describe('an approval prompt observes the turn abort (RUNTIME-005)', () => {
  * Through the wrapper, which is how a real turn reaches the prompt.
  *
  * `checkPermission` taking a signal is only half the fix: the signal has to arrive. It reaches the
- * tool wrapper as `context.signal` (CORE-018) and stopped there, so wiring only the enforcer would
+ * tool wrapper as `context.signal` and stopped there, so wiring only the enforcer would
  * have left the defect exactly as it was — the shape this session has hit repeatedly.
  */
-describe('the turn signal reaches the prompt through the tool wrapper (RUNTIME-005)', () => {
+describe('the turn signal reaches the prompt through the tool wrapper', () => {
   function makeTool(): IToolWithEventService {
     return {
       getName: () => 'Bash',
@@ -197,7 +197,7 @@ describe('the turn signal reaches the prompt through the tool wrapper (RUNTIME-0
   });
 });
 
-describe('Session abort releases a turn parked on approval (RUNTIME-005)', () => {
+describe('Session abort releases a turn parked on approval', () => {
   it('rejects the real run, releases its claim, and never invokes the unapproved tool', async () => {
     let markApprovalEntered!: () => void;
     const approvalEntered = new Promise<void>((resolve) => {

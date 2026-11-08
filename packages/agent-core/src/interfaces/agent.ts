@@ -98,7 +98,7 @@ export interface IAgentConfig {
     topP?: number;
     /** Reasoning-effort dial threaded to the provider request builder per call. */
     effort?: TModelEffortSelection;
-    /** Default tool-invocation directive for every run (CORE-017). `IRunOptions.toolChoice` wins. */
+    /** Default tool-invocation directive for every run. `IRunOptions.toolChoice` wins. */
     toolChoice?: TToolChoice;
   };
 
@@ -107,7 +107,7 @@ export interface IAgentConfig {
   /** Host-owned per-round policy. Absent declarations serialize unknown shared-state operations. */
   toolExecutionPolicy?: (calls: readonly IToolCall[]) => IToolExecutionPolicy;
   /**
-   * CLI-1990: whether tools that declare `deferLoading` are withheld from the model until loaded.
+   * Whether tools that declare `deferLoading` are withheld from the model until loaded.
    * `'auto'` (the default) decides by threshold — `resolveToolSearchMode` — so a small tool set is
    * never deferred; `'on'` and `'off'` force the answer. Read on every round, never snapshotted.
    */
@@ -115,7 +115,7 @@ export interface IAgentConfig {
   /**
    * Whether a registered tool is shown to the model at all. Read on every projection, so a live
    * rule change is reflected by the next round; a hidden tool is absent from the offered set and
-   * from the deferred-tool catalogue alike (issue #3081: a bare-name deny removes the tool).
+   * from the deferred-tool catalogue alike (a bare-name deny removes the tool).
    */
   isToolVisible?: (toolName: string) => boolean;
   plugins?: Array<IPluginContract<IPluginOptions, IPluginStats>>;
@@ -138,7 +138,7 @@ export interface IAgentConfig {
   sessionId?: string;
   userId?: string;
   /**
-   * Run-isolated (stateless) mode (CORE-014). Default `true`: history accumulates for the
+   * Run-isolated (stateless) mode. Default `true`: history accumulates for the
    * instance's lifetime and the FULL history is sent to the provider on EVERY call — token cost
    * grows every turn. Set `false` to make the conversation store ephemeral per run: a run executes
    * on whatever is currently in the store (system prompt + any injected context + the prompt), and
@@ -193,7 +193,7 @@ export interface IAgentConfig {
   cache?: ICacheOptions;
 
   /**
-   * Injected "ask the user" port (CMD-005). When present, tool executions receive it as
+   * Injected "ask the user" port. When present, tool executions receive it as
    * `IToolExecutionContext.ask` so a model-invoked tool (AskUserQuestion) can solicit a structured
    * answer. Absent in headless/automation contexts.
    */
@@ -217,7 +217,7 @@ export interface IAgentTemplate {
 }
 
 /**
- * Run options whose `output` is pinned to a concrete schema type (CORE-015).
+ * Run options whose `output` is pinned to a concrete schema type.
  * Built with `Omit` rather than an intersection on `output` because Zod v3 object
  * schemas are not assignable to intersections containing themselves (deepPartial
  * variance), which would silently knock out the typed overloads.
@@ -246,7 +246,7 @@ export interface IAgent<
    */
   run(input: string, context?: TContext): Promise<string>;
 
-  /** Streams the turn's text deltas and returns its final assistant text (CORE-042). */
+  /** Streams the turn's text deltas and returns its final assistant text. */
   runStream(input: string, context?: TContext): AsyncGenerator<string, string, never>;
 
   /**

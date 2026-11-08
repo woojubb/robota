@@ -1,7 +1,7 @@
 /**
  * @robota-sdk/agent-provider-replay — deterministic provider that replays a recorded session log.
  *
- * INFRA-017 / TEST-008 (provider axis). Run a real conversation offline with no network/model key by
+ * Run a real conversation offline with no network/model key by
  * replaying the `provider_response_normalized` responses captured in a session log.
  */
 import { isArtifactLockedError } from '@robota-sdk/agent-core';

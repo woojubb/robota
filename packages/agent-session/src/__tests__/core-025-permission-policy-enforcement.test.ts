@@ -1,5 +1,5 @@
 /**
- * CORE-025 — background/subagent permissionPolicy enforcement at PermissionEnforcer.checkPermission.
+ * Background/subagent permissionPolicy enforcement at PermissionEnforcer.checkPermission.
  *
  * The load-bearing case (proposal-reviewer): the policy is resolved BEFORE the session-mode gate, so
  * `deny`/`preapproved`/`inherit-allowlist` bind even when the session mode (`bypassPermissions`) would
@@ -26,7 +26,7 @@ function makeNoopTerminal(): ITerminalOutput {
 }
 
 // Every task runs under `bypassPermissions` — the mode that auto-allows everything. If the policy did not
-// pre-empt the mode, all these calls would return `true`; that was the bypass hole CORE-025 closes.
+// pre-empt the mode, all these calls would return `true`; that is the bypass hole the policy closes.
 function makeEnforcer(overrides: Partial<IPermissionEnforcerOptions> = {}): PermissionEnforcer {
   return new PermissionEnforcer({
     hookTypeExecutors: [],
@@ -41,7 +41,7 @@ function makeEnforcer(overrides: Partial<IPermissionEnforcerOptions> = {}): Perm
 
 const ARGS: TToolArgs = { command: 'echo hi' };
 
-describe('CORE-025 — permissionPolicy overrides the session mode', () => {
+describe('permissionPolicy overrides the session mode', () => {
   it('`deny` blocks a tool even under bypassPermissions (the auto-branch hole)', async () => {
     const enforcer = makeEnforcer({ permissionPolicy: 'deny' });
     await expect(enforcer.checkPermission('Bash', ARGS)).resolves.toBe(false);

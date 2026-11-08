@@ -5,8 +5,8 @@
  * request (what options, which transport, which tools this model may have) and MAKING one safely
  * (abort propagation, idle detection, listener cleanup). They change for different reasons.
  *
- * Exported so every provider call in the execution turn goes through one implementation — CORE-042:
- * the forced-summary call was the last one built by hand, and it silently had neither guard.
+ * Exported so every provider call in the execution turn goes through one implementation, so
+ * no call, the forced-summary call included, is built by hand and silently lacks either guard.
  */
 
 import type { TUniversalMessage } from '../interfaces/messages';
@@ -23,7 +23,7 @@ type TProviderChat = (
  * Call a provider honouring the run's cancellation signal and the configured idle timeout.
  *
  * Exported so that every provider call in the execution turn goes through one implementation --
- * CORE-042: the forced-summary call was the last one built by hand, and it silently had neither.
+ * The forced-summary call was the last one built by hand, and it silently had neither.
  */
 export async function callProviderWithIdleTimeout(
   chat: TProviderChat,

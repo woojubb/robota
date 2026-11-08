@@ -1,5 +1,5 @@
 /**
- * Compaction of the prompt-history file (#3679, secure conversation): every entry, plain or sealed,
+ * Compaction of the prompt-history file (secure conversation): every entry, plain or sealed,
  * rewritten one per line under the one sealer the caller hands over, so the file holds no plaintext
  * and — given a sealer of its own — its sealed lines share one writer epoch, read back with one key
  * opening instead of one per epoch the file collected.
@@ -45,7 +45,7 @@ export interface ICompactPromptHistoryOptions {
    * replaces nothing.
    */
   readonly sealer: IArtifactSealer;
-  /** An ancestor of the file the host also owns, tightened along with the directory (SEC-020). */
+  /** An ancestor of the file the host also owns, tightened along with the directory. */
   readonly ownedRoot?: string;
   /**
    * Runs once the new file is written and flushed, just before it replaces the history. Throwing

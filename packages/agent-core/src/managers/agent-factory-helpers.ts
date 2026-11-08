@@ -26,7 +26,7 @@ export interface IAgentFactoryOptions {
   /** Enable strict configuration validation */
   strictValidation?: boolean;
   /**
-   * ARCH-055: the agent-id source. Injected so a test can drive a deterministic collision corpus;
+   * The agent-id source. Injected so a test can drive a deterministic collision corpus;
    * the factory retries a colliding id, so the source need not be unique on its own.
    */
   idFactory?: () => string;

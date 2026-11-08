@@ -1,5 +1,5 @@
 /**
- * Issue #3081 — the enforcer runs ONE evaluation order for every caller: ask rules and the
+ * The enforcer runs ONE evaluation order for every caller: ask rules and the
  * never-auto-approve set hold under bypassPermissions, and a background policy only narrows.
  */
 
@@ -159,7 +159,7 @@ describe('a remembered consent never answers a call that must reach a person', (
   });
 });
 
-describe('a bare-name deny hides the tool (issue #3081)', () => {
+describe('a bare-name deny hides the tool', () => {
   it('is read live from the current deny list', () => {
     const enforcer = makeEnforcer({
       config: { permissions: { allow: [], deny: ['Bash', 'Write(/w/project/secret/**)'] } },
@@ -194,7 +194,7 @@ describe('a bare-name deny hides the tool (issue #3081)', () => {
   });
 });
 
-describe('parameter rules on tools whose parameters arrive with the schema (issue #3081)', () => {
+describe('parameter rules on tools whose parameters arrive with the schema', () => {
   it('construct, then apply once the tools are wrapped — on argument-less and URL tools too', async () => {
     clearRegisteredToolProfiles();
     registerToolPermissionProfile('Agent', { riskClass: 'execute' });
@@ -282,7 +282,7 @@ describe('Claude WebFetch rules survive permission initialization', () => {
   });
 });
 
-describe('read-only commands follow symlinks before trusting a path (issue #3082)', () => {
+describe('read-only commands follow symlinks before trusting a path', () => {
   let root: string;
   beforeEach(() => {
     root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-readonly-')));
@@ -323,7 +323,7 @@ describe('read-only commands follow symlinks before trusting a path (issue #3082
   });
 });
 
-describe('a host with no filesystem resolver (issue #3693)', () => {
+describe('a host with no filesystem resolver', () => {
   it('does not trust a path operand, so a read-only command with one asks', async () => {
     const handler = vi.fn().mockResolvedValue(false);
     const enforcer = makeEnforcer({
@@ -349,7 +349,7 @@ describe('a host with no filesystem resolver (issue #3693)', () => {
   });
 });
 
-describe('recent denials (issue #3082)', () => {
+describe('recent denials', () => {
   it('records why each refused call was refused, most recent first', async () => {
     const enforcer = makeEnforcer({
       getPermissionMode: () => 'default',
@@ -394,7 +394,7 @@ describe('recent denials (issue #3082)', () => {
   });
 });
 
-describe('a turn cancelled before anyone is asked (issue #3082)', () => {
+describe('a turn cancelled before anyone is asked', () => {
   it('is not recorded as a refusal', async () => {
     const handler = vi.fn().mockResolvedValue(true);
     const enforcer = makeEnforcer({
@@ -411,7 +411,7 @@ describe('a turn cancelled before anyone is asked (issue #3082)', () => {
   });
 });
 
-describe('the OS sandbox lets a confined command skip the prompt (issue #3082)', () => {
+describe('the OS sandbox lets a confined command skip the prompt', () => {
   it('asks the sandbox about the command the tool runs', async () => {
     const handler = vi.fn().mockResolvedValue(false);
     const autoApproves = vi.fn(

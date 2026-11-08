@@ -1,5 +1,5 @@
 /**
- * #3679 3f: the parent's side of a follow-up prompt to a child-process job.
+ * The parent's side of a follow-up prompt to a child-process job.
  *
  * `send` resolves when the child says it queued the prompt, and rejects when it says it can take no
  * more (it has begun to finish) or when the child is gone before it answered — so a caller is never

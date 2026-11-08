@@ -39,13 +39,13 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
     description: 'Claude series — strong at coding tasks. API key required.',
     category: 'cloud-paid',
     nativeWebTools: () => ['webSearch'],
-    // Interim provider-level cost (ARCH-PROVIDER-003), migrated from the former llm-text-anthropic node.
+    // Interim provider-level cost, migrated from the former llm-text-anthropic node.
     costPerTokenUsd: 0.003,
     defaults: {
       model: DEFAULT_ANTHROPIC_PROVIDER_MODEL,
       apiKey: DEFAULT_ANTHROPIC_PROVIDER_API_KEY_REFERENCE,
     },
-    // OBSERVABILITY-1991: the SDK embeds this endpoint; declared here for the pre-session doctor only.
+    // the SDK embeds this endpoint; declared here for the pre-session doctor only.
     endpoint: { host: 'api.anthropic.com', port: 443 },
     modelCatalog: {
       status: 'fallback',

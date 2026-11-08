@@ -1,5 +1,5 @@
 /**
- * The threshold policy that decides whether deferral engages (CLI-1990 § Solution 3).
+ * The threshold policy that decides whether deferral engages.
  *
  * "On by default" means default-on as a THRESHOLD policy, never unconditional deferral. Anthropic's
  * own guidance is that standard tool calling is the better fit under ten tools, and its SDK engages

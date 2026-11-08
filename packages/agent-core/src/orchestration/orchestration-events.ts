@@ -1,10 +1,10 @@
 /**
- * Neutral orchestration lifecycle event names (SELFHOST-001).
+ * Neutral orchestration lifecycle event names.
  *
  * Mirrors the existing `task-events` / `user-events` pattern: a const name set +
  * a prefix + a union type. These are emitted by the framework orchestration
  * mechanism over the existing `IEventService`. The names are pure mechanism —
- * no app-domain identity fields anywhere (TRANS-001 neutrality; enforced by the
+ * no app-domain identity fields anywhere (neutrality; enforced by the
  * `orchestration-neutrality` harness scan).
  */
 export const ORCHESTRATION_EVENTS = {

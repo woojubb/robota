@@ -66,7 +66,7 @@ export type TToolParameters = Record<string, TUniversalValue>;
 // Do not introduce duplicate provider config value types here.
 
 // NOTE:
-// `IPluginContext` moved to `../abstracts/abstract-plugin-types` (PLG-020 follow-up): it depends
+// `IPluginContext` moved to `../abstracts/abstract-plugin-types`: it depends
 // on `IPluginExecutionResult`, which lives at the abstracts layer, and living here made this leaf
 // value-types module reach upward into abstracts — a module-level import cycle. Its only consumer
 // outside this file (`services/plugin-hook-dispatcher.ts`) now imports it from there directly.

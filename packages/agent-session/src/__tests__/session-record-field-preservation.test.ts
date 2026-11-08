@@ -179,7 +179,7 @@ function createExistingRecord(): IInteractiveSessionRecord {
   };
 }
 
-describe('ARCH-015 Session record field preservation', () => {
+describe('Session record field preservation', () => {
   const scratchDirs: string[] = [];
 
   afterEach(() => {

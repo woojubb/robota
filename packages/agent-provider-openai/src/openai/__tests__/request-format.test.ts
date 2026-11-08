@@ -6,7 +6,7 @@ import type { IOpenAIProviderOptions } from '../types';
 
 const providerOptions: IOpenAIProviderOptions = { apiKey: 'test-key' };
 
-describe('mergeChatResponseFormat (CORE-015)', () => {
+describe('mergeChatResponseFormat', () => {
   it('returns provider options untouched when no chat responseFormat is set', () => {
     expect(mergeChatResponseFormat(providerOptions, undefined)).toBe(providerOptions);
   });

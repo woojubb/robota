@@ -56,8 +56,8 @@ export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner }
 export type { IPermissionEnforcerOptions };
 
 /**
- * Throw naming every malformed permission pattern and why (issue #2428). Allow rules are held to
- * the narrower allow grammar (issue #3081).
+ * Throw naming every malformed permission pattern and why. Allow rules are held to
+ * the narrower allow grammar.
  */
 function assertPermissionPatternsEvaluable(rules: {
   allow: readonly string[];
@@ -71,7 +71,7 @@ function assertPermissionPatternsEvaluable(rules: {
   const listed = problems.map(({ pattern, reason }) => `"${pattern}" ${reason}`).join('; ');
   throw new Error(
     `Invalid permission pattern(s) in permissions.allow/deny/ask: ${listed}. ` +
-      'Fix the pattern where it is configured (issue #2428).',
+      'Fix the pattern where it is configured.',
   );
 }
 
@@ -99,7 +99,7 @@ export class PermissionEnforcer {
   private readonly hookTypeExecutors: readonly IHookTypeExecutor[];
   private readonly transcriptPath?: string;
   /**
-   * Issue #2351: consent is remembered as PATTERNS (`consentScopeFor`), not tool names, and read
+   * Consent is remembered as PATTERNS (`consentScopeFor`), not tool names, and read
    * back through the gate's own matcher — approving one argument does not allow every argument.
    */
   private readonly sessionAllowedTools = new Set<string>();
@@ -131,7 +131,7 @@ export class PermissionEnforcer {
       allow: [...options.config.permissions.allow],
       deny: [...options.config.permissions.deny],
     };
-    // Issue #2428: a pattern the gate could never evaluate is refused HERE, with the pattern and
+    // A pattern the gate could never evaluate is refused HERE, with the pattern and
     // the reason, before any turn — not discovered one unevaluable prompt at a time at the gate.
     assertPermissionPatternsEvaluable(this.configuredRules(options));
     this.terminal = options.terminal;
@@ -210,7 +210,7 @@ export class PermissionEnforcer {
 
   /**
    * Whether the model is shown this tool at all. A bare-name deny (`Tool`, `Tool(*)`, a name glob)
-   * removes it rather than offering it and refusing every call (issue #3081). Read live, so a
+   * removes it rather than offering it and refusing every call. Read live, so a
    * `/preset` that denies a tool hides it from the next round.
    */
   isToolVisible(toolName: string): boolean {
@@ -280,12 +280,12 @@ export class PermissionEnforcer {
     return tools.map((tool) => wrapToolWithPermission(tool, deps));
   }
 
-  /** The consent patterns granted this session via "Allow always" — e.g. `Bash(git *)` (issue #2351). */
+  /** The consent patterns granted this session via "Allow always" — e.g. `Bash(git *)`. */
   getSessionAllowedTools(): string[] {
     return [...this.sessionAllowedTools];
   }
 
-  /** The calls this session refused, most recent first (issue #3082). */
+  /** The calls this session refused, most recent first. */
   getRecentDenials(): readonly IPermissionDenial[] {
     return this.denials.list();
   }
@@ -296,7 +296,7 @@ export class PermissionEnforcer {
   }
 
   /**
-   * Replace the configured permission rules on a LIVE session (ARCH-040 Group C, issue #1934).
+   * Replace the configured permission rules on a LIVE session.
    *
    * The seam is this small because `checkPermission` reads `this.config.permissions` on every call
    * rather than snapshotting it at construction — so the next call sees the new rules and nothing
@@ -308,7 +308,7 @@ export class PermissionEnforcer {
    * executes, so such a call has already passed its gate, and a gate is a decision at a point in
    * time. There is also no rollback for a partially applied tool — a file already written stays
    * written — so a revocation that cannot undo is a stop, not a denial. Building one would rest on
-   * the cancellation path, which RUNTIME-004 records as declared at four layers and honoured at none.
+   * the cancellation path, which is declared at several layers and not yet honoured by a running tool.
    *
    * A newly applied denial DOES outrank an earlier "always allow": `evaluatePermission` answers
    * `deny` before `promptForApproval` — the only reader of `sessionAllowedTools` — is reached. That
@@ -349,8 +349,8 @@ export class PermissionEnforcer {
     this.config.permissions.deny = next.deny;
   }
 
-  /** Evaluate permission for a tool call. `signal` — RUNTIME-005; see `decideApproval` for why a
-   * cancelled approval denies. */
+  /** Evaluate permission for a tool call. `signal` cancels a pending approval; see
+   * `decideApproval` for why a cancelled approval denies. */
   async checkPermission(
     toolName: string,
     toolArgs: TToolArgs,
@@ -441,7 +441,7 @@ export class PermissionEnforcer {
     hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
     scope: IDecisionScope = {},
   ): Promise<boolean | IPermissionRefusal> {
-    // Issue #3081: ONE evaluator for every caller. A background/subagent policy (CORE-025) only
+    // ONE evaluator for every caller. A background/subagent policy only
     // adds a ceiling, an ask-everything flag and the task's own lists; the ceiling is checked before
     // bypassPermissions, so a policy still binds under a permissive mode.
     const policy =
@@ -478,7 +478,7 @@ export class PermissionEnforcer {
       ...(this.peerTurn ? { peerTurn: true } : {}),
     });
 
-    // SELFHOST-009: fire PermissionDecision (INFORMATIONAL-ONLY, non-blocking) right after the
+    // Fire PermissionDecision (INFORMATIONAL-ONLY, non-blocking) right after the
     // decision is made. Fire-and-forget — the hook cannot change the outcome that follows.
     this.firePermissionDecisionHook(toolName, toolArgs, decision, hookTraceEnv);
 
@@ -494,7 +494,7 @@ export class PermissionEnforcer {
     if (decision === 'auto') return true;
 
     // 'approve' — route to the human-approval path. An ask that must reach a person every time is
-    // not answered by a remembered consent, and does not create one (issue #3081).
+    // not answered by a remembered consent, and does not create one.
     const fresh = requiresFreshApproval(toolName, toolArgs, rules, where);
     // In auto mode the classifier stands in for the person, except where a person is required: an
     // ask rule, a critical removal or protected path, or a policy that asks about everything.
@@ -622,7 +622,7 @@ export class PermissionEnforcer {
   }
 
   /**
-   * SELFHOST-009: fire the PermissionDecision hook (informational-only, non-blocking) via the shared
+   * Fire the PermissionDecision hook (informational-only, non-blocking) via the shared
    * `runHooks` path. Fire-and-forget — the result is never awaited or consulted, so it cannot gate the
    * permission outcome. The sole blocking gate remains PreToolUse (`runPreToolGate`).
    */

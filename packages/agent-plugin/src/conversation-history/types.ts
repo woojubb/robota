@@ -8,7 +8,7 @@ import type { IPluginTextFileStore } from '../storage/text-file-store';
 export type THistoryStorageStrategy = 'memory' | 'file' | 'database';
 
 /**
- * Minimal key/value persistence contract a database backend must satisfy (PLUGIN-002).
+ * Minimal key/value persistence contract a database backend must satisfy.
  *
  * agent-plugin stays driver-free: the consumer injects a concrete `IDatabaseDriver`
  * (Postgres, SQLite, Redis, …) so no specific DB dependency is bundled here.
@@ -42,7 +42,7 @@ export interface IConversationHistoryPluginOptions extends IPluginOptions {
   fileStore?: IPluginTextFileStore;
   /** Database connection string for database storage (informational; the driver owns the connection) */
   connectionString?: string;
-  /** Injected database driver — required when `storage: 'database'` (PLUGIN-002). */
+  /** Injected database driver — required when `storage: 'database'`. */
   databaseDriver?: IDatabaseDriver;
   /** Whether to auto-save after each message */
   autoSave?: boolean;

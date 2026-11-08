@@ -1,5 +1,5 @@
 /**
- * Payload-agnostic channel contracts (TRANS-001).
+ * Payload-agnostic channel contracts.
  *
  * The SSOT for carrying **arbitrary payloads** over a transport connection, alongside — and
  * independent of — the text-agent protocol profile (`text_delta`/`submit`/…) that
@@ -9,9 +9,9 @@
  *
  * Content-neutral by construction: nothing here knows about audio, files, images, or any other
  * payload domain. Domain adapters (a voice app's STT/TTS bridge, a file uploader) are assembled by
- * the consumer ON TOP of these contracts — never inside the library (ROOM-001 principle).
+ * the consumer ON TOP of these contracts — never inside the library.
  *
- * Layering (CMD-004 precedent — contracts below, per-environment behavior above):
+ * Layering (contracts below, per-environment behavior above):
  *
  *   agent-interface-transport   ← THIS FILE: the channel contracts
  *   agent-transport             ← the pure wire codec for these frames

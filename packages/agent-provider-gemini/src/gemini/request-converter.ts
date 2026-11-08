@@ -213,7 +213,7 @@ function requireToolMessageName(toolMessage: IToolMessage): string {
 }
 
 /**
- * Issue #2875 (follow-up to #2078): `serializedArguments` is untrusted text a provider emitted, and
+ * `serializedArguments` is untrusted text a provider emitted, and
  * this is called on the round AFTER agent-core already reported that same call as an isolated
  * per-call decode failure — throwing here crashed message conversion for the whole next request
  * instead of leaving the (already-reported) malformed call as an empty-object input.

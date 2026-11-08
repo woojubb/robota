@@ -1,5 +1,5 @@
 /**
- * #3189 — one client's hold on a host that keeps several sessions live at once.
+ * One client's hold on a host that keeps several sessions live at once.
  *
  * A host that can switch sessions used to hold one current session for every client, so one client's
  * switch moved all of them. A binder gives each client connection a binding of its own instead: the

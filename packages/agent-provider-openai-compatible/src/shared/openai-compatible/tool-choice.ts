@@ -3,7 +3,7 @@ import type OpenAI from 'openai';
 
 /**
  * Map the provider-agnostic tool-invocation directive onto the OpenAI-compatible
- * `tool_choice` wire parameter (CORE-017). Callers pass it only when tools are present;
+ * `tool_choice` wire parameter. Callers pass it only when tools are present;
  * `undefined` (directive unset) keeps the wire default of `'auto'` explicit so existing
  * request payloads stay byte-identical.
  */
@@ -21,7 +21,7 @@ export function toOpenAICompatibleToolChoice(
 
 /**
  * Map the provider-agnostic tool-invocation directive onto the OpenAI Responses API
- * `tool_choice` parameter (CORE-017). The Responses surface names a forced function with a
+ * `tool_choice` parameter. The Responses surface names a forced function with a
  * flat `{ type: 'function', name }` shape instead of Chat Completions' nested form.
  */
 export function toOpenAIResponsesToolChoice(

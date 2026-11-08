@@ -147,7 +147,7 @@ describe('zodToJsonSchema', () => {
     const result = zodToJsonSchema(schema);
 
     expect(result.required).not.toContain('value');
-    // CORE-039: this case used to assert `type === 'number'`, pinning a LOSS — the null half of
+    // This case used to assert `type === 'number'`, pinning a LOSS — the null half of
     // what the field accepts was dropped. That was invisible while nested nodes were opaque; once
     // depth is enforced it becomes a rejection of a payload the author's own Zod schema accepts.
     expect(result.properties.value.anyOf).toEqual([{ type: 'number' }, { type: 'null' }]);
@@ -186,7 +186,7 @@ describe('zodToJsonSchema', () => {
       field: mockZodSchema({ typeName: 'ZodTuple' }),
     });
 
-    // CORE-041: the message now states the BOUNDARY, not just the construct's own name.
+    // The message now states the BOUNDARY, not just the construct's own name.
     expect(() => zodToJsonSchema(schema)).toThrow(
       /ZodTuple cannot be carried by the universal JSON-schema subset/,
     );

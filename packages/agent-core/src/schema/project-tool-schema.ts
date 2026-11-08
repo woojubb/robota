@@ -1,5 +1,5 @@
 /**
- * Project an MCP tool's schema into what one provider's wire format can actually carry — MCP-005.
+ * Project an MCP tool's schema into what one provider's wire format can actually carry.
  *
  * Four converters used to reshape `IToolSchema.parameters` independently and disagreed with each
  * other and with the provider APIs (Anthropic cast it straight through, the openai-compatible family
@@ -10,13 +10,13 @@
  * cannot be projected is REJECTED with a structured diagnostic — never dropped silently, never sent
  * in another shape (No Fallback Policy).
  *
- * This is NOT a second validator. CORE-040 (`agent-mcp/src/third-party-schema.ts`) stays the one
+ * This is NOT a second validator. `agent-mcp/src/third-party-schema.ts` stays the one
  * narrowing step for untrusted third-party schemas down to `IParameterSchema`; this module only
  * projects an already-`IParameterSchema`-shaped tool down to what one provider's profile accepts.
- * The universal subset (CORE-039, `../interfaces/tool-schema.ts`) is the SSOT this module walks —
+ * The universal subset (`../interfaces/tool-schema.ts`) is the SSOT this module walks —
  * `PARAMETER_SCHEMA_KEYWORDS` is derived from it once, at the type level, so the two cannot drift.
  *
- * See `docs/SPEC.md` § "Tool Schema Projection (MCP-005)" for the full contract.
+ * See `docs/SPEC.md` § "Tool Schema Projection" for the full contract.
  */
 
 import { closeObjectSchemas } from './close-object-schemas';
@@ -35,7 +35,7 @@ export const TOOL_SCHEMA_PROJECTION_MAX_DEPTH = 32;
 export const TOOL_SCHEMA_PROJECTION_MAX_NODES = 2000;
 
 /**
- * Every member `IParameterSchema` declares (CORE-039, `../interfaces/tool-schema.ts`), derived
+ * Every member `IParameterSchema` declares (`../interfaces/tool-schema.ts`), derived
  * ONCE at the type level rather than hand-typed a second time. `Required<IParameterSchema>` forces
  * this record literal to gain or lose a property whenever the interface does — a missing or
  * extraneous key here is a compile error, not a silent drift.
@@ -79,8 +79,8 @@ const PROTOTYPE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const ANNOTATION_ONLY_KEYWORDS = new Set(['title', '$schema', '$comment', 'examples', 'default']);
 
 /**
- * A node that accepts any JSON value, expressed IN the universal subset — the same shape CORE-040
- * substitutes for an inexpressible node (`agent-mcp/src/third-party-schema.ts`, `anyValueNode`).
+ * A node that accepts any JSON value, expressed IN the universal subset — the same shape
+ * `agent-mcp` substitutes for an inexpressible node (`agent-mcp/src/third-party-schema.ts`, `anyValueNode`).
  * Replacing (not deleting) a structurally-empty node keeps a declared property declared: an object
  * node with `properties` is CLOSED relative to that set, so deleting the key would turn it into an
  * "unexpected additional property" instead of a value whose shape merely could not be projected.
@@ -233,7 +233,7 @@ function findRejection(
   // `visited` is the ANCESTOR chain, not a whole-graph set: a node is added on entry and removed on
   // exit below, so only a node that appears inside its own subtree (a true cycle) is refused. A DAG —
   // the same sub-schema object reused by two sibling properties or branches, common in hand-built
-  // in-process tools — is walked twice and accepted (pr-review-reviewer, MCP-005 Round A).
+  // in-process tools — is walked twice and accepted.
   if (visited.has(node)) {
     return {
       path,
@@ -371,7 +371,7 @@ function findRejection(
 /**
  * The adaptation walk: `unsupportedMembers`, then `unknownKeywords`, at every node; recurses into
  * every route a nested node can arrive by (`properties`, `items`, `anyOf`, `additionalProperties`) so
- * a missed route cannot leave the exact thing this walk exists to fix untouched (the CORE-039 lesson).
+ * a missed route cannot leave the exact thing this walk exists to fix untouched (a walk that misses a route leaves the defect in place).
  * Closure is NOT done here — it delegates to `closeObjectSchemas` once, afterwards, over the whole
  * result.
  */
@@ -414,7 +414,7 @@ function adaptNode(
       // by the accept-anything node, one `keyword-replaced` per foreign keyword. Legitimate members that
       // sat beside it are not lost silently: `description` travels onto the replacement (it constrains
       // nothing); every other survivor is recorded as `member-stripped` so the loss reaches the Schema
-      // note (pr-review-reviewer, MCP-005 Round A — the `$ref` + local `description` idiom).
+      // note (the `$ref` + local `description` idiom).
       for (const key of foreign) changes.push({ path, kind: 'keyword-replaced', keyword: key });
       const replacement = anyValueNode() as unknown as Record<string, unknown>;
       for (const key of Object.keys(current)) {

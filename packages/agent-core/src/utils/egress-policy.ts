@@ -1,5 +1,5 @@
 /**
- * The shared outbound-network (egress) boundary (#2026).
+ * The shared outbound-network (egress) boundary.
  *
  * Every built-in, provider helper and node runtime that fetches a caller- or model-supplied URL goes
  * through {@link fetchWithEgressPolicy}. It owns, in one place:

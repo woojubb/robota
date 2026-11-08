@@ -1,7 +1,7 @@
 /**
- * CMD-004 Phase 2 (TC-01) — split command contract type tests.
+ * Split command contract type tests.
  *
- * Asserts the final (Stage-E) contract: `TCommandHostAction` / `TCommandUiIntent` are exported,
+ * Asserts the final contract: `TCommandHostAction` / `TCommandUiIntent` are exported,
  * UI-intent names carry no UI-technology token, `ICommandResult` carries ONLY the split fields (the
  * legacy `effects` union is deleted), `IUiIntentEvent` carries `requesterDriverId?`, the `ui_intent` /
  * `session_renamed` / `history_cleared` session events exist, and `executeCommand` accepts the
@@ -23,9 +23,9 @@ import type {
   TCommandUiIntent,
 } from '@robota-sdk/agent-interface-command';
 
-describe('CMD-004 Phase 2 split command contract (TC-01)', () => {
+describe('split command contract', () => {
   it('exports TCommandHostAction with the nine host-executed kinds', () => {
-    // `plugin-registry-reload` was dropped in Stage E: the semantic reload runs INSIDE the command
+    // `plugin-registry-reload` is not a host action: the semantic reload runs INSIDE the command
     // (host-side already); the surface refresh rides `data.pluginRegistryReloaded` (requester-local).
     expectTypeOf<TCommandHostAction['type']>().toEqualTypeOf<
       | 'provider-hot-swap'
@@ -64,7 +64,7 @@ describe('CMD-004 Phase 2 split command contract (TC-01)', () => {
     expectTypeOf<ICommandResult['uiIntents']>().toEqualTypeOf<
       readonly TCommandUiIntent[] | undefined
     >();
-    // Stage E: the legacy `effects` field no longer exists on the contract.
+    // The legacy `effects` field no longer exists on the contract.
     expectTypeOf<'effects' extends keyof ICommandResult ? true : false>().toEqualTypeOf<false>();
   });
 

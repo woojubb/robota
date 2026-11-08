@@ -7,7 +7,7 @@
  * because the ConversationAgent agent initializes lazily on the first `run()`, while `setModel` requires full
  * initialization.
  *
- * The original PRESET-013 unit test mocked the entire `ConversationAgent` class (so `setModel`'s init guard was
+ * The original unit test mocked the entire `ConversationAgent` class (so `setModel`'s init guard was
  * never exercised). This test uses a REAL ConversationAgent + real provider and never calls `run()`, so it
  * drives the exact path that failed in production. `applyModelOptions` must bring the agent to a
  * ready state (`agent.ensureReady()`) and succeed.

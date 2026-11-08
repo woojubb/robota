@@ -10,7 +10,7 @@ export * from './abstracts';
 export * from './utils';
 export { callJournaledProvider } from './services/execution-journal';
 
-// Schema utilities: Zod→JSON-schema conversion (SSOT), structured output (CORE-015), closure (PROV-007)
+// Schema utilities: Zod→JSON-schema conversion (SSOT), structured output, closure
 export * from './schema/index';
 
 // Provider integration types
@@ -203,7 +203,7 @@ export {
   type IEventEmitterHierarchicalEventData,
 } from './plugins/event-emitter-plugin';
 
-// Tool registry primitives (SSOT, DATA-005) + CLI-1990's assembly-enforced residency invariant.
+// Tool registry primitives (SSOT) + the assembly-enforced residency invariant.
 export {
   FunctionTool,
   ToolRegistry,
@@ -317,7 +317,7 @@ export { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from './services/execution-s
 export { TOOL_EVENTS, TOOL_EVENT_PREFIX } from './services/tool-execution-service';
 export { AGENT_EVENTS, AGENT_EVENT_PREFIX } from './agents/constants';
 
-// Neutral multi-agent orchestration contracts + event-type unions (SELFHOST-001)
+// Neutral multi-agent orchestration contracts + event-type unions
 export {
   ORCHESTRATION_EVENTS,
   ORCHESTRATION_EVENT_PREFIX,
@@ -335,11 +335,11 @@ export {
   type IOrchestrationEventData,
 } from './orchestration';
 
-export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy'; // #1851
+export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
 export type { IExecutionProxyConfig } from './utils/execution-proxy-types';
 
 // Permissions
-// ARCH-031: one re-export of the permissions sub-barrel rather than a hand-listed block. The list it
+// One re-export of the permissions sub-barrel rather than a hand-listed block. The list it
 // replaced had to be edited every time the module gained a public name — which is how it grew, and why
 // adding one constant tripped the size ratchet. `export *` cannot fall out of step with its owner.
 export * from './permissions/index.js';

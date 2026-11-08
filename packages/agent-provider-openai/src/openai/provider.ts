@@ -227,7 +227,7 @@ export class OpenAIProvider extends AbstractAIProvider {
   }
 
   /**
-   * CORE-043: this provider declares no capability table — nobody has verified one for OpenAI, and
+   * This provider declares no capability table — nobody has verified one for OpenAI, and
    * inventing one would be a fabricated claim. It can still answer THIS question honestly, which is
    * why the endpoint signal is not a field on the table.
    *
@@ -279,7 +279,7 @@ export class OpenAIProvider extends AbstractAIProvider {
   }
 
   /**
-   * MCP-005: strict mode's supported subset is documented; non-strict accepts standard JSON Schema
+   * Strict mode's supported subset is documented; non-strict accepts standard JSON Schema
    * except that the API answers `array schema missing items` and `object schema missing properties`
    * in either mode. Both the Responses and Chat Completions surfaces honor `strictTools` identically
    * (§ Profiles).

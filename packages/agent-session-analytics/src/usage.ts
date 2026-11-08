@@ -1,5 +1,5 @@
 /**
- * ANALYTICS-001: source-attributed token-usage analysis over a session record.
+ * Source-attributed token-usage analysis over a session record.
  *
  * The main session history records one `usage-summary` history entry per turn (an `IUsageSnapshot`,
  * created in agent-framework). This reducer aggregates those snapshots into a per-source breakdown —
@@ -19,7 +19,7 @@ import type {
 } from '@robota-sdk/agent-interface-analytics';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
-// SELFHOST-004: the trace/cost read-model is a boundary contract owned by `agent-interface-analytics`
+// The trace/cost read-model is a boundary contract owned by `agent-interface-analytics`
 // (it crosses the sidecar boundary via a TServerMessage carrier). Re-exported here for consumers that
 // import it alongside the reducer that produces it.
 export type {
@@ -74,7 +74,7 @@ function roundPercentage(part: number, whole: number): number {
 
 /**
  * Aggregate a session's `usage-summary` entries into a per-source token+cost breakdown AND assemble
- * the per-operation span timeline (SELFHOST-004).
+ * the per-operation span timeline.
  *
  * Token/cost: usage snapshots with no `source` are attributed to the main thread; sources are grouped
  * by `<scope>:<id>` and sorted by total tokens descending with the top consumer surfaced. Cost sums

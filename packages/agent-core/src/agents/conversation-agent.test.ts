@@ -282,7 +282,7 @@ describe('ConversationAgent Class - New Configuration API', () => {
       expect(agent.getModel().model).toBe('new-model');
     });
 
-    it('TC-01 (PRESET-013): setModel effort is written to defaultModel.effort', async () => {
+    it('setModel effort is written to defaultModel.effort', async () => {
       const agent = new ConversationAgent(config);
       await agent.run('initialize'); // Initialize the agent
 
@@ -492,7 +492,7 @@ describe('ConversationAgent Class - New Configuration API', () => {
     });
 
     it('should handle multiple destroy calls safely', async () => {
-      // HARNESS-052. This asserted `expect(true).toBe(true)` — it could only have caught a
+      // This used to assert `expect(true).toBe(true)` — it could only have caught a
       // synchronous throw, so a second destroy that re-ran the whole cleanup chain (double-disposing
       // every plugin) would have kept it green. Idempotency is the claim, so idempotency is what is
       // measured: the terminal-state guard in ConversationAgent.destroy() must short-circuit the second call.

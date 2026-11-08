@@ -1,5 +1,5 @@
 /**
- * SELFHOST-009 TC-04 — regression: the existing catalogued events still fire at their documented
+ * Regression: the existing catalogued events still fire at their documented
  * agent-session fire-sites, via the shared `runHooks` / `hookTypeExecutors` path.
  *
  * Covers the events fired directly by the turn owner: `UserPromptSubmit` and `Stop` (executeRun
@@ -129,7 +129,7 @@ async function flush(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-describe('SELFHOST-009 TC-04 — existing events still fire (agent-session sites)', () => {
+describe('existing events still fire (agent-session sites)', () => {
   it('fires UserPromptSubmit and Stop on the executeRun happy path', async () => {
     const { executor, events } = makeRecordingExecutor();
     const ctx = createContext(createFakeConversationAgent('ok'), allEventsConfig(), executor);

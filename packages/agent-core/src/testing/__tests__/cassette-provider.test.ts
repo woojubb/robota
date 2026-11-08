@@ -1,5 +1,5 @@
 /**
- * TEST-005: record-replay cassette provider machinery. Validated deterministically with a scripted
+ * Record-replay cassette provider machinery. Validated deterministically with a scripted
  * underlying provider — no network, no API key. Proves record→replay round-trip, staleness
  * detection, exhaustion, and workspace-path rewrite.
  */

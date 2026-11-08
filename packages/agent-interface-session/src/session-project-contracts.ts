@@ -1,12 +1,12 @@
 /**
- * #3282 §4c — the Project panel's read contracts: git status, one file's diff, and project memory as
+ * The Project panel's read contracts: git status, one file's diff, and project memory as
  * readable text. A session method's return value crosses the wire UNCHANGED as the matching message's
  * payload (the same shape `TWaitingLoopStopOutcome` already uses for `stopWaitingSelfPacedLoop`) — no
  * separate wire-shape/session-shape pair to keep in sync.
  */
 import type { IDiffLine } from './session-event-map.js';
 
-/** Never a raw git XY code — the #3277 "usable by anyone" principle applies to this panel too. */
+/** Never a raw git XY code — the "usable by anyone" principle applies to this panel too. */
 export type TProjectFileStatus =
   | 'Added'
   | 'Modified'

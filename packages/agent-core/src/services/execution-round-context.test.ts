@@ -56,7 +56,7 @@ function runCapacityBlock(config: IAgentConfig): string {
     makeRoundState(),
     store,
     logger,
-    // CORE-033: the block now announces its append. This unit exercises the message text, not the
+    // The block now announces its append. This unit exercises the message text, not the
     // event, so it is given a context that records nothing; the event itself is asserted end-to-end
     // in `__tests__/abnormal-path-replay-events.test.ts`.
     { fullContext: {} as IExecutionContext, executionId: 'exec-test', conversationId: 'conv-test' },

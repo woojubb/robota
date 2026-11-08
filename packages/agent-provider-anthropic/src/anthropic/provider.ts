@@ -298,7 +298,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     this.publishModelEffortOutcome(resolvedOptions);
   }
 
-  /** What THIS vendor's models can do, per model (PROV-008). */
+  /** What THIS vendor's models can do, per model. */
   capabilityTable(): IProviderCapabilityTable {
     return ANTHROPIC_CAPABILITY_TABLE;
   }
@@ -307,7 +307,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     return this.endpointIsVendorDefault() ? ANTHROPIC_MODEL_EFFORT_TABLE : undefined;
   }
 
-  /** CORE-043: a configured `baseURL` is a gateway, whose guarantees are not the vendor's. */
+  /** A configured `baseURL` is a gateway, whose guarantees are not the vendor's. */
   endpointIsVendorDefault(): boolean {
     return this.options.baseURL === undefined;
   }
@@ -405,7 +405,7 @@ export class AnthropicProvider extends AbstractAIProvider {
   }
 
   /**
-   * MCP-005: Anthropic accepts standard JSON Schema with an `object` root — the permissive profile.
+   * Anthropic accepts standard JSON Schema with an `object` root — the permissive profile.
    */
   protected override projectionProfile(): IToolSchemaProjectionProfile | undefined {
     return { ...PERMISSIVE_TOOL_SCHEMA_PROFILE, providerName: 'anthropic' };

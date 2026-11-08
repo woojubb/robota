@@ -1,5 +1,5 @@
 /**
- * CORE-035 — the same-tool-input loop guard: one stated contract, pinned.
+ * The same-tool-input loop guard: one stated contract, pinned.
  *
  * The SPEC said the guard throws an `AbortError` at the Nth identical call. The code threw a bare
  * `Error` at the N+1th. The gap was not cosmetic: `isAbortFailure` resolves an `AbortError` as
@@ -13,7 +13,7 @@
  *   means "the caller asked us to stop", and nobody did.
  * - **Named, not bare.** What the SPEC was reaching for by naming a type was that this condition is
  *   DISTINGUISHABLE. A bare `Error` is not: a caller cannot tell "the agent looped" from "the network
- *   died". `SameToolInputLoopError` extends `AgentRuntimeError`, so CORE-027 carries its `code`,
+ *   died". `SameToolInputLoopError` extends `AgentRuntimeError`, so it carries its `code`,
  *   `category` and `recoverable` out to the caller intact.
  * - **N is the maximum ALLOWED.** `maxSameToolInputs` names a ceiling, so the Nth identical call is
  *   permitted and the N+1th trips. The SPEC's "N or more times" contradicted its own option name.
@@ -45,7 +45,7 @@ function state(): IExecutionRoundState {
   return { sameToolInputCounts: new Map<string, number>() } as IExecutionRoundState;
 }
 
-describe('CORE-035 — the guard trips at N+1, not N', () => {
+describe('the guard trips at N+1, not N', () => {
   it('allows exactly maxSameToolInputs identical calls', () => {
     const roundState = state();
     expect(() => {
@@ -89,7 +89,7 @@ describe('CORE-035 — the guard trips at N+1, not N', () => {
   });
 });
 
-describe('CORE-035 — the guard reports a FAILED run, not a successful interruption', () => {
+describe('the guard reports a FAILED run, not a successful interruption', () => {
   class LoopTool extends AbstractTool {
     override get schema(): IToolSchema {
       return {

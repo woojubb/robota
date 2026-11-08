@@ -1,7 +1,7 @@
 /**
- * CLI-1994: how a fork job's conversation reaches the CHILD process.
+ * How a fork job's conversation reaches the CHILD process.
  *
- * From a plain parent only the id crossed the wire (ARCH-044) — the copy `/fork` wrote stays in the
+ * From a plain parent only the id crossed the wire — the copy `/fork` wrote stays in the
  * session store on the far side, and this is where the id becomes the conversation again. A sealing
  * parent also hands over the record it holds (`resumeHeld`), since a child never holds the keys that
  * open a sealed one; the store takes it before the claim reads the record. Either way the parent lent

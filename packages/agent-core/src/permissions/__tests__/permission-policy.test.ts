@@ -4,14 +4,14 @@ import { clearRegisteredToolProfiles, registerToolPermissionProfile } from '../p
 import { decideByPolicy } from './policy-decision.js';
 
 /**
- * CORE-025 — the background/subagent permission POLICY resolver.
+ * The background/subagent permission POLICY resolver.
  * Precedence: `deny` policy → deny; explicit deny-list → deny; `prompt` → prompt; `preapproved` uses the
  * task allowlist, `inherit-allowlist` the parent allowlist (matched → allow, unmatched → deny).
  */
-describe('resolvePermissionByPolicy (CORE-025)', () => {
+describe('resolvePermissionByPolicy', () => {
   const args = { command: 'ls' };
 
-  // CORE-030: the tool declares which argument its patterns are scoped to, so the cases below
+  // The tool declares which argument its patterns are scoped to, so the cases below
   // declare it rather than relying on a table in this package.
   beforeEach(() => {
     clearRegisteredToolProfiles();

@@ -327,7 +327,7 @@ export class StoredPayloads {
   }
 }
 
-/** What a stored sidecar is to a migration that seals what is still plain in place (#3679). */
+/** What a stored sidecar is to a migration that seals what is still plain in place. */
 export type TStoredPayloadMigrationState = 'plain' | 'sealed' | 'does-not-open' | 'newer-format';
 
 function payloadContext(ownerId: string): IArtifactContext {

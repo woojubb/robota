@@ -1,5 +1,5 @@
 /**
- * The prompt-history file with a sealer (#3679, secure conversation). A sealing file appends each
+ * The prompt-history file with a sealer (secure conversation). A sealing file appends each
  * entry as one sealed line that opens on its own, so the backward block reader renders newest-first
  * without any line waiting for another, and says how many prompts it could not open — locked, or no
  * keys in this process — instead of letting them look absent. A plain file holds one plain JSON line

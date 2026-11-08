@@ -24,7 +24,7 @@ import type {
 } from '@robota-sdk/agent-interface-execution';
 
 /**
- * DIST-006: how long a spawned worker may take to say anything at all. Generous — it covers process
+ * How long a spawned worker may take to say anything at all. Generous — it covers process
  * start plus module load of a bundled CLI — but finite, because the alternative is a silent hang.
  */
 const DEFAULT_HANDSHAKE_BUDGET_MS = 30_000;
@@ -48,7 +48,7 @@ export interface IChildProcessSubagentResultOptions {
   /** How long the worker may take to say anything. Injectable so a test can reach this branch. */
   handshakeBudgetMs?: number;
   /**
-   * ARCH-033: a PROMISE, because part of the payload cannot be known synchronously — projecting the
+   * A PROMISE, because part of the payload cannot be known synchronously — projecting the
    * parent's sandbox means asking it for a snapshot, and `snapshot()` is async. `start()` must stay
    * synchronous (it returns a handle the caller cancels), so the await happens HERE, between the
    * child saying `ready` and the parent sending `start`, which is the one point where waiting costs
@@ -69,7 +69,7 @@ export interface IChildProcessSubagentResultOptions {
    */
   followsRecordSaves?: true;
   /**
-   * Issue #3288 §1: how a child's own tool call gets a human's yes/no — the parent session's own
+   * How a child's own tool call gets a human's yes/no — the parent session's own
    * approver, already bound to this job's requester identity by the caller. Absent ⇒ the parent has
    * no approver attached (print mode / a truly headless run): every request from the child is denied
    * immediately, the same fail-closed default the enforcer already applies with no approver.
@@ -105,7 +105,7 @@ class ChildProcessSubagentResultController {
   private readonly handshakeBudgetMs: number;
   /** The start payload, or `undefined` when building it failed and the job was already rejected. */
   private readonly payload: Promise<ISubagentWorkerStartPayload | undefined>;
-  /** Issue #3288 §1: how many of this job's tool calls were refused, and why — for the final result. */
+  /** How many of this job's tool calls were refused, and why — for the final result. */
   private readonly deniedToolCallCounts: Record<TBackgroundTaskPermissionDenialReason, number> = {
     'no-approver': 0,
     'denied-by-person': 0,
@@ -113,7 +113,7 @@ class ChildProcessSubagentResultController {
     cancelled: 0,
   };
   /**
-   * Issue #3288 §1 (review): every `answerPermissionRequest` call currently in flight, by its
+   * Every `answerPermissionRequest` call currently in flight, by its
    * `requestId`. Settlement awaits these before building the final result, so a request the
    * settlement's own abort just denied is COUNTED before `deniedToolCalls` is read — the abort and
    * the count would otherwise land on different ticks, and the result could be built from the count
@@ -131,7 +131,7 @@ class ChildProcessSubagentResultController {
     const budget = options.handshakeBudgetMs;
     this.handshakeBudgetMs =
       budget !== undefined && budget > 0 ? budget : DEFAULT_HANDSHAKE_BUDGET_MS;
-    // ARCH-033: the payload's failure handler is attached HERE, not in `startWorker`, which may be
+    // The payload's failure handler is attached HERE, not in `startWorker`, which may be
     // several ticks away — the child has to say `ready` first. A payload that cannot be BUILT (a
     // sandbox whose `snapshot()` throws) fails the job either way, but without this the rejection
     // surfaces as an unhandled one before anything consumed it. `undefined` means "already
@@ -142,7 +142,7 @@ class ChildProcessSubagentResultController {
       return undefined;
     });
     this.timeoutTimer = createTimeoutTimer(this.options.runtime, (error) => this.rejectOnce(error));
-    // DIST-006: a worker that never answers must not hang the parent forever. The old seam failed
+    // A worker that never answers must not hang the parent forever. The old seam failed
     // LOUDLY when the entry was wrong (`Cannot find module`, then exit); this one re-executes the
     // host artifact, so a caller who wires `workerEntry` to something that is not a agent entry
     // gets a second copy of their app with an IPC channel and no `ready` — and `request.timeoutMs`
@@ -213,7 +213,7 @@ class ChildProcessSubagentResultController {
     );
   };
 
-  /** Issue #3288 §1: a child's tool call is waiting on the parent's own approver. */
+  /** A child's tool call is waiting on the parent's own approver. */
   private readonly onPermissionRequest = (
     message: ISubagentWorkerPermissionRequestMessage,
   ): void => {
@@ -280,7 +280,7 @@ class ChildProcessSubagentResultController {
 
   private readonly onExit = (code: number | null, signal: NodeJS.Signals | null): void => {
     if (this.settled) return;
-    // DIST-006: read the tail here, at `'exit'`. Review proposed deferring to `'close'` on the
+    // Read the tail here, at `'exit'`. Review proposed deferring to `'close'` on the
     // theory that the pipe has not drained yet; measured, that is not the mechanism. When a child
     // calls `process.exit()` its pending pipe writes are TRUNCATED, so the last line is never
     // written at all — lost 10/10 at `'close'` just as at `'exit'`. When a child ends naturally the
@@ -326,7 +326,7 @@ class ChildProcessSubagentResultController {
   };
 
   /**
-   * Issue #3288 §1 (review): settlement means nobody is left to deliver an answer to, so a permission
+   * Settlement means nobody is left to deliver an answer to, so a permission
    * ask still parked at this point must not outlive it — `permissionAbort.abort()` dismisses it on
    * every surface, the same path `cancel()` uses. Building the result WAITS for that dismissal to be
    * counted first: `deniedToolCallCounts` is updated inside `answerPermissionRequest`'s own
@@ -401,10 +401,10 @@ function toSubagentResult(
       ? `${result.output}\n\n${recordSaveRefusedNotice(job.request.resumeSessionId)}`
       : result.output,
     ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
-    // ANALYTICS-001 (Phase 2): carry the subagent's forwarded token usage so the background-task
+    // Carry the subagent's forwarded token usage so the background-task
     // tracker can attribute it to this agent as a source in the parent log.
     ...(result.usage ? { usage: result.usage } : {}),
-    // Issue #3288 §1: additive — a run that refused nothing carries no new field.
+    // Additive — a run that refused nothing carries no new field.
     ...(deniedToolCalls ? { deniedToolCalls } : {}),
   };
 }
@@ -433,7 +433,7 @@ function formatEarlyExitMessage(
 ): string {
   const detail =
     signal !== null ? `signal ${signal}` : `exit code ${code === null ? 'unknown' : code}`;
-  // DIST-006: the exit code alone said nothing, so the previous occurrence of this defect had to be
+  // The exit code alone said nothing, so the previous occurrence of this defect had to be
   // diagnosed by hand. The child's own words are what make the next one self-reporting.
   const cause = stderrTail.length > 0 ? `: ${stderrTail}` : '';
   return `Subagent worker exited before result: ${detail}${cause}`;

@@ -35,7 +35,7 @@ export interface IOpenAICompatibleRequestInput {
   /** Provider-level fallback used when `options.model` is absent. */
   defaultModel: string | undefined;
   /**
-   * The calling provider's per-model capability table (PROV-006). `response_format` is emitted only
+   * The calling provider's per-model capability table. `response_format` is emitted only
    * for a model that DECLARES `json_schema`, because the deployment targets this family documents
    * (`llms.txt`: any gateway, Azure, vLLM, Ollama, LM Studio) differ in whether an unknown parameter
    * is ignored or rejected. Absent table, or a model that declares nothing, means no emission —
@@ -50,7 +50,7 @@ export interface IOpenAICompatibleRequestInput {
  * This is the ONE place that decides what a compat request carries. It exists because deepseek,
  * qwen and gemma each held a private `buildRequestParams` with the same body, so a field added to
  * one of them reached the model on that provider only — and `IChatOptions.responseFormat` is the
- * field that was added to none of them (PROV-004, CORE-043). A per-provider extra (deepseek's
+ * field that was added to none of them. A per-provider extra (deepseek's
  * `thinking` / `reasoning_effort`) is spread onto the result by its own provider, so what lives
  * here stays the part that is genuinely shared.
  *
@@ -86,7 +86,7 @@ export function buildOpenAICompatibleRequestParams({
 }
 
 /**
- * PROV-004 / CORE-043: the structured-output field this family never sent.
+ * The structured-output field this family never sent.
  *
  * `agent-core` emits `IChatOptions.responseFormat` on every structured run, and this builder — the
  * ONE place that decides what a compat request carries — dropped it, so attempt 1 carried no schema

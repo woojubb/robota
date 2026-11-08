@@ -58,7 +58,7 @@ export function computeRoundThinkingContext(
 }
 
 /**
- * CLI-1990: a forcing directive that names a deferred tool loads it before the round assembles, so
+ * A forcing directive that names a deferred tool loads it before the round assembles, so
  * `toolChoice: { tool }` fetches the schema rather than failing `assertToolChoiceValid` against a
  * list the tool is withheld from. A resident or already-loaded name is not in the catalog and
  * nothing happens; an unknown name is left for the assertion to report as it always has.
@@ -81,7 +81,7 @@ function buildRoundChatOptions(
   overrides: Partial<IChatOptions> | undefined,
 ): IChatOptions {
   const responseFormat = buildChatResponseFormat(config.responseFormat);
-  // CLI-1990: read PER ROUND. The tool list used to be a per-run snapshot spread here each round, so
+  // Read PER ROUND. The tool list used to be a per-run snapshot spread here each round, so
   // a tool loaded by round N's ToolSearch call was invisible to round N+1 — the one property a
   // search tool needs. The manager applies the residency projection inside this read.
   const effectiveToolChoice = overrides?.toolChoice ?? config.defaultModel?.toolChoice;
@@ -113,7 +113,7 @@ export async function callProviderWithCache(
   cacheService?: ExecutionCacheService,
   overrides?: Partial<IChatOptions>,
   /**
-   * CORE-043: fires once, with the request as it will actually be sent.
+   * Fires once, with the request as it will actually be sent.
    *
    * A callback rather than a field on `IResolvedProviderInfo`, because this describes THIS request,
    * not the provider. The caller closes over the run's event emitter, so the replay channel records
@@ -142,16 +142,16 @@ export async function callProviderWithCache(
   }
 
   const model = config.defaultModel.model;
-  // The directive this round will carry: the round override, else the config default (CORE-017).
+  // The directive this round will carry: the round override, else the config default.
   loadForcedDeferredTool(
     overrides?.toolChoice ?? config.defaultModel.toolChoice,
     resolved.deferredTools,
   );
   const chatOptions = buildRoundChatOptions(model, config, resolved, overrides);
   assertToolChoiceValid(chatOptions.toolChoice, chatOptions.tools);
-  // PROV-006: what this MODEL can be asked to do, as opposed to what its vendor can.
+  // What this MODEL can be asked to do, as opposed to what its vendor can.
   applyModelToolCapability(chatOptions, model, resolved);
-  // CORE-043: which transport can carry the schema — decided before the call rather than discovered
+  // Which transport can carry the schema — decided before the call rather than discovered
   // by spending the retry budget. `outgoing` may carry a prompt statement of the schema, so every
   // use below (cache key included) reads it rather than the caller's history array.
   const { messages: outgoing, outcome: structuredOutcome } = applyStructuredOutputTransport(
@@ -180,7 +180,7 @@ export async function callProviderWithCache(
       options,
       journalContext,
     );
-  // DATA-007/API-001: the SESSION's effort selection is the cache identity — never a locally resolved
+  // The SESSION's effort selection is the cache identity — never a locally resolved
   // effective value. An earlier version of this fix resolved the effort against
   // `resolved.provider.effortTable()` before touching the cache, but `effortTable` is optional: a
   // provider may declare none or return none (a gateway `baseURL`, another API surface), and a
@@ -188,9 +188,8 @@ export async function callProviderWithCache(
   // reports the same "not applied" outcome regardless of the actual selection, which would let
   // different selections collide. Keying on the raw selection sidesteps that entirely: it is known
   // upfront, is identical for every provider, and is exactly what the caller asked for.
-  // `undefined` normalizes to `'auto'`, matching `buildRoundChatOptions`'s own default. This replaces
-  // the former API-001 bypass (which unconditionally skipped the cache for any explicit selection
-  // because the key could not tell efforts apart) — the cache is now always consulted.
+  // `undefined` normalizes to `'auto'`, matching `buildRoundChatOptions`'s own default. The cache is always
+  // consulted, including for an explicit selection.
   const effortCacheIdentity = chatOptions.effort ?? 'auto';
 
   if (cacheService) {

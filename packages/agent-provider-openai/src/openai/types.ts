@@ -162,7 +162,7 @@ export interface IOpenAIProviderOptions {
   /**
    * Opt into strict custom function parameter validation where supported.
    *
-   * PROV-007: the tool schema is rewritten for strict mode on the way out — every object node,
+   * The tool schema is rewritten for strict mode on the way out — every object node,
    * nested ones included, is closed and given a complete `required` list. That transformation is
    * lossy, so it runs ONLY when this flag is on; with it off the schema is forwarded exactly as
    * authored.

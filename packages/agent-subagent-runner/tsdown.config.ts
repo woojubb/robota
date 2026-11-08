@@ -6,7 +6,7 @@ const outExtensions = ({ format }: { format: string }) => ({
 });
 
 export default defineConfig({
-  // DIST-006: the worker is NO LONGER a separate entry. It was one because something had to locate
+  // The worker is NO LONGER a separate entry. It was one because something had to locate
   // it on disk at runtime, and that assumption broke twice — first when the file was never emitted,
   // then when a downstream bundler inlined this package and moved "next to me" one package along.
   // Worker mode is now entered through `runSubagentWorkerMain()` from the composition root's own

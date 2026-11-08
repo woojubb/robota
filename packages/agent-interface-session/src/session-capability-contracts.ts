@@ -99,7 +99,7 @@ export interface ISessionConversationRead {
    */
   getFullHistory(): IHistoryEntry[];
   /**
-   * #3288 §2: `getMessages()`'s chat entries, projected into the same display shapes a live stream
+   * `getMessages()`'s chat entries, projected into the same display shapes a live stream
    * produces — text runs and finished tool calls (diffs included, built from each call's arguments
    * only, never a disk read), in chronological order. A reload, reconnect or session resume has no
    * live stream to rebuild tool rows from; a client renders THIS instead of falling back to bare text.
@@ -165,7 +165,7 @@ export interface ISessionCommands {
     args: string,
     source?: TCommandInvocationSource,
     originDriverId?: TDriverId,
-    /** #3282 §4 part b-2: whether this invocation is provably on this machine. Absent → `'local'`. */
+    /** Whether this invocation is provably on this machine. Absent → `'local'`. */
     locality?: TCommandSurfaceLocality,
     /**
      * `signal` cancels what a skill command starts — the turn it submits or the fork it runs — and
@@ -178,7 +178,7 @@ export interface ISessionCommands {
   /** The skills a client can offer beside the commands (`/<skill>` activates one). */
   listSkills(): ICommandSkillListEntry[];
   /**
-   * The models a client may switch to (#3282 §2), grouped by configured provider profile — so the
+   * The models a client may switch to, grouped by configured provider profile — so the
    * GUI's model menu never scrapes `/model`'s picker text. Choosing one sends `/model <id>` through
    * `executeCommand`, the same path the command itself uses.
    */
@@ -245,9 +245,9 @@ export interface ISessionSelfPacedLoopControl {
 }
 
 /**
- * #3282 §4c — the Project panel's reads: git status, one file's diff, and project memory as readable
+ * The Project panel's reads: git status, one file's diff, and project memory as readable
  * text. Deliberately NOT registered in {@link ISessionCapabilityMap} / `SESSION_CAPABILITY_MEMBER_KEYS`
- * (the session-pool partial-test-double registry, ARCH-012) — nothing in the panel composes a partial
+ * (the session-pool partial-test-double registry) — nothing in the panel composes a partial
  * fake session through that host, and every role already there is exercised by it; adding an unused
  * row would only be more surface for that exact-parity test to carry. `IProtocolSession`
  * (`agent-transport`) composes this interface directly, the same as it does the roles above.
@@ -260,17 +260,17 @@ export interface ISessionProjectRead {
 
 export interface ISessionAgentJobs {
   /**
-   * #3282 §4: the agent switcher's roster — `definedIn` is a plain-words location (a discovered
+   * The agent switcher's roster — `definedIn` is a plain-words location (a discovered
    * file's path, or "Built-in") a person picking an agent can read.
    */
   listAgentDefinitions(): Array<{ name: string; description: string; definedIn: string }>;
   /**
-   * #3282 §4: the agent type `/agent <name>` (no prompt) currently selects — the agent switcher
+   * The agent type `/agent <name>` (no prompt) currently selects — the agent switcher
    * shows it checked. Never throws; a host without the agent runtime just has the fallback default.
    */
   getDefaultAgentType(): string;
   /**
-   * #3282 §4: `/agent <name>` (bare, no prompt) sets this. Choosing an agent in the switcher sends
+   * `/agent <name>` (bare, no prompt) sets this. Choosing an agent in the switcher sends
    * `/agent <name>` through `executeCommand`, the same path the command itself uses.
    */
   setDefaultAgentType(agentType: string): void;
@@ -364,7 +364,7 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
   readonly [TKey in keyof ISessionCapabilityMap]: readonly (keyof ISessionCapabilityMap[TKey])[];
 });
 
-// ── Capability host contracts (HARNESS-103) ──────────────────────────────────
+// ── Capability host contracts ──────────────────────────────────
 // These TYPES stayed here when the host's runtime mechanism moved to `testing/`. An
 // `agent-interface-*` package must not contain runtime logic (project-structure.md), and the
 // repository's own placement rule is `contracts→agent-interface-*, doubles→owner /testing`. The

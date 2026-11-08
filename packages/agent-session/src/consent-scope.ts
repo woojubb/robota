@@ -1,5 +1,5 @@
 /**
- * What "don't ask again" GRANTS, as a permission pattern (issue #2351).
+ * What "don't ask again" GRANTS, as a permission pattern.
  *
  * Session and project consent used to be keyed on the tool NAME: approving `Bash` for `git status`
  * allowed every later `Bash`, approving `WebFetch` for one benign URL allowed every host, and the
@@ -7,7 +7,7 @@
  * granted all of them, and the prompt never said so.
  *
  * The consent record is now a pattern in the gate's own grammar, projected from the argument by the
- * kind the tool's permission profile declares (CORE-049), so the record, the prompt and the
+ * kind the tool's permission profile declares, so the record, the prompt and the
  * `permissions.allow` rules all speak one language and are matched by one matcher:
  *
  * - `path`    → the containing directory: `Read(/w/src/**)` — one approval covers a tree, not a file

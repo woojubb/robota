@@ -14,7 +14,7 @@ const HTTP_INTERNAL_ERROR = 500;
 
 /**
  * Sends an HTTP request to the Bytedance API and returns the DECODED 2xx response. A 2xx body is
- * `unknown` until `decode` has checked it (issue #2166): the endpoint owns which fields make a valid
+ * `unknown` until `decode` has checked it: the endpoint owns which fields make a valid
  * DTO, and a body that does not qualify is a `PROVIDER_UPSTREAM_ERROR` here rather than a
  * `TypeError` in the caller.
  */

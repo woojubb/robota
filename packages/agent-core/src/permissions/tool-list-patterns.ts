@@ -3,7 +3,7 @@ import { findInvalidPermissionPatterns } from './pattern-validation.js';
 /**
  * A preset's tool LISTS as permission PATTERNS.
  *
- * ARCH-040 Group C (issue #1934). A preset names tools (`Read`, `Bash`); the enforcer matches
+ * A preset names tools (`Read`, `Bash`); the enforcer matches
  * patterns (`Read(*)`). One function because two paths need the answer — the startup merge in
  * `create-session.ts` and the live re-application `/preset` performs — and a translation written
  * twice is one rename away from two sessions disagreeing about what the same preset permits.
@@ -30,7 +30,7 @@ export function applyPresetToolLists(
   preset: { allowedTools?: readonly string[]; deniedTools?: readonly string[] },
 ): { allow: string[]; deny: string[] } {
   const allowed = toolNamesToPatterns(preset.allowedTools);
-  // Issue #3081: tool names are globbed now, so a preset naming `*` or `Read*` would grant tools
+  // Tool names are globbed now, so a preset naming `*` or `Read*` would grant tools
   // nobody listed. Held to the allow grammar on every path — startup and a live `/preset` alike.
   const problems = findInvalidPermissionPatterns(allowed, 'allow');
   if (problems.length > 0) {

@@ -1,7 +1,7 @@
 /**
  * Unit tests for tool-hook-helpers.ts
  *
- * HOOK-003 User Execution Test Scenario:
+ * User Execution Test Scenario:
  * Verifies that runPreToolHook returns { blocked: true, reason: "..." }
  * (not { success: false, error: "Blocked by hook: ..." }) when a PreToolUse
  * hook exits with code 2.
@@ -35,7 +35,7 @@ function makeHookInput(toolName = 'bash'): IHookInput {
 
 function makeMockExecutor(exitCode: number, stderr = '', stdout = ''): IHookTypeExecutor {
   // `exitCode` is kept as this helper's INPUT vocabulary so each call site still reads as the
-  // condition it is describing; the executor now answers in outcomes (SEC-015).
+  // condition it is describing; the executor now answers in outcomes.
   return {
     type: 'command',
     execute: vi
@@ -60,10 +60,10 @@ const baseConfig: THooksConfig = {
 };
 
 // ---------------------------------------------------------------------------
-// HOOK-003 core scenario: exit code 2 → blocked tool result format
+// Core scenario: exit code 2 → blocked tool result format
 // ---------------------------------------------------------------------------
 
-describe('runPreToolHook — HOOK-003 blocked format', () => {
+describe('runPreToolHook — blocked format', () => {
   it('returns { blocked: true, reason } when the hook denies', async () => {
     const executor = makeMockExecutor(2, 'Denied: dangerous tool');
     const input = makeHookInput('bash');
@@ -77,12 +77,12 @@ describe('runPreToolHook — HOOK-003 blocked format', () => {
     // The data must be JSON-parseable
     const data = JSON.parse(result!.data as string) as Record<string, unknown>;
 
-    // HOOK-003: new format — { blocked: true, reason: "..." }
+    // New format — { blocked: true, reason: "..." }
     expect(data['blocked']).toBe(true);
     expect(typeof data['reason']).toBe('string');
     expect(data['reason']).toContain('Denied: dangerous tool');
 
-    // HOOK-003: old format must NOT be present
+    // Old format must NOT be present
     expect(data).not.toHaveProperty('success');
     expect(data).not.toHaveProperty('error');
     expect(data).not.toHaveProperty('output');
@@ -120,7 +120,7 @@ describe('runPreToolHook — HOOK-003 blocked format', () => {
     // to get there and not the property itself: `execution-round-tool-results.ts` records a
     // `success: false` result too, requiring only that it carry an `error`.
     //
-    // CORE-027: a block is not a success. The result now says so, and still reaches history.
+    // A block is not a success. The result now says so, and still reaches history.
     const executor = makeMockExecutor(2, 'Access denied');
     const input = makeHookInput('bash');
 
@@ -199,13 +199,13 @@ describe('truncateToolResult', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
-// SEC-016 — a hook that reached NO verdict does not read as approval at an enforcing event.
+// A hook that reached NO verdict does not read as approval at an enforcing event.
 //
-// Issue #2083 made the failure representable; these are the cases where it starts costing something.
+// The failure is representable; these are the cases where that starts costing something.
 // Every one of them ALLOWED the tool call before this change, which is what the fixture comments
 // below record — a regression test whose pre-fix behaviour is not stated is a test nobody can check.
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
-describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () => {
+describe('PreToolUse fails closed when a hook cannot evaluate', () => {
   const hooks: THooksConfig = {
     PreToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'gate' }] }],
   };
@@ -232,8 +232,8 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
     };
   }
 
-  it('TC-01: a hook whose process cannot start blocks the call', async () => {
-    // Before SEC-016: `errors` was populated and nothing read it, so this returned null → allowed.
+  it('a hook whose process cannot start blocks the call', async () => {
+    // If nothing read `errors`, this would return null → allowed.
     const result = await runPreToolHook(hooks, makeHookInput(), [
       makeFailingExecutor('spawn-failure'),
     ]);
@@ -241,7 +241,7 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
     expect(result?.success).toBe(false);
   });
 
-  it('TC-02: a timeout blocks, and so does a malformed response', async () => {
+  it('a timeout blocks, and so does a malformed response', async () => {
     for (const kind of ['timeout', 'malformed-response'] as const) {
       const result = await runPreToolHook(hooks, makeHookInput(), [makeFailingExecutor(kind)]);
       expect(result, `${kind} should block`).not.toBeNull();
@@ -249,7 +249,7 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
     }
   });
 
-  it('TC-04: the denial reason names the failure kind and the source executor', async () => {
+  it('the denial reason names the failure kind and the source executor', async () => {
     // A fail-closed gate turns a misconfigured hook into a hard stop, so whoever hits it needs
     // enough in the message to fix it. Asserted per kind rather than once, because a reason that
     // happened to carry one kind's name would pass a single-case check.
@@ -270,21 +270,21 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
     }
   });
 
-  it('TC-03: a configured hook type with no registered executor blocks', async () => {
-    // Before SEC-016 the runner reported this on `unknownHookTypes` and the gate proceeded — so a
-    // config declaring a guardrail with no registry silently disabled itself. Startup rejection of
-    // such a config is issue #2099; this is the runtime half.
+  it('a configured hook type with no registered executor blocks', async () => {
+    // The runner reports this on `unknownHookTypes`; if the gate proceeded, a config declaring a
+    // guardrail with no registry would silently disable itself. This is the runtime half of the
+    // defence; startup rejection of such a config is separate.
     const guardrailHooks: THooksConfig = {
       PreToolUse: [{ matcher: '', hooks: [{ type: 'guardrail' }] }],
     };
     const result = await runPreToolHook(guardrailHooks, makeHookInput(), []);
     expect(result).not.toBeNull();
     // The reason travels in `error` — `toolFailure` leaves `metadata` empty and puts the message
-    // there, because a blocked call is rendered to the model as one error line (CORE-027).
+    // there, because a blocked call is rendered to the model as one error line.
     expect(result?.error).toContain('guardrail');
   });
 
-  it('TC-08: an approving hook still proceeds, and an explicit deny still blocks', async () => {
+  it('an approving hook still proceeds, and an explicit deny still blocks', async () => {
     const allowed = await runPreToolHook(hooks, makeHookInput(), [makeMockExecutor(0)]);
     expect(allowed).toBeNull();
 
@@ -293,8 +293,8 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
     expect(denied?.error).toBe('no');
   });
 
-  it('TC-03b: the SAME unknown-executor config on PostToolUse does not deny', async () => {
-    // The half of TC-03 that had no test. `runPreToolHook` is PreToolUse-specific, so the contrast
+  it('the SAME unknown-executor config on PostToolUse does not deny', async () => {
+    // `runPreToolHook` is PreToolUse-specific, so the contrast
     // is drawn where it is observable: the runner reports `unknownHookTypes` for both events, and
     // only the enforcing one turns that into a denial.
     const guardrailOnPost: THooksConfig = {
@@ -313,7 +313,7 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
     expect(denial).not.toBeNull();
   });
 
-  it('TC-04b: a turn with BOTH causes reports both in one denial, not one per attempt', async () => {
+  it('a turn with BOTH causes reports both in one denial, not one per attempt', async () => {
     // The error branch returns before the unregistered-type branch, so a config carrying both used
     // to surface only the error. The operator fixes the named cause, retries, and is stopped again
     // by a cause that was already known at the first denial. A fail-closed gate that reveals its
@@ -378,7 +378,7 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
     expect(reason).toContain(soloReason);
   });
 
-  it('TC-05: EVERY advisory event tolerates a failed hook — all fifteen', async () => {
+  it('EVERY advisory event tolerates a failed hook — all fifteen', async () => {
     // The criterion says "the fifteen advisory events", and the first version of this test drove
     // one. Review caught the gap. Driven at `runHooks`, which is where every event is observable:
     // an errored hook must report and must not block, for each advisory event by name.
@@ -424,7 +424,7 @@ describe('SEC-016 — PreToolUse fails closed when a hook cannot evaluate', () =
     }
   });
 
-  it('TC-05b: the same failure on PostToolUse does not block at the boundary', async () => {
+  it('the same failure on PostToolUse does not block at the boundary', async () => {
     // `firePostToolHook` is fire-and-forget by construction, so there is no result to block on.
     // Asserted through the enforcing helper to show the difference is the EVENT, not the outcome:
     // an identical executor produces a denial at PreToolUse and nothing here.

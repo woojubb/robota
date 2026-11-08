@@ -1,10 +1,9 @@
 /**
- * ARCH-040 Group E — the model group reaches the agent at CONSTRUCTION, not only mid-session.
+ * The model group reaches the agent at CONSTRUCTION, not only mid-session.
  *
  * `applyModelOptions` has always propagated `temperature` and `maxOutputTokens` to the agent on a
  * live session (see `apply-model-options.test.ts`). Startup propagated NEITHER, so one session held
- * two answers for the same preset depending on WHEN it was chosen — exactly what `effort` did before
- * ARCH-013 stage 1 fixed it.
+ * two answers for the same preset depending on WHEN it was chosen — exactly what `effort` once did.
  *
  * These assert on the agent CONFIG the session builds, because that is the hop that was missing. A
  * check on the session options would pass while the value stopped at the boundary.
@@ -70,7 +69,7 @@ function defaultModelOf(extra: Record<string, unknown>): Record<string, unknown>
   return config.defaultModel;
 }
 
-describe('the model group reaches the agent config at construction (ARCH-040)', () => {
+describe('the model group reaches the agent config at construction', () => {
   it('carries `temperature` onto the agent’s default model', () => {
     expect(defaultModelOf({ temperature: 0.2 })).toMatchObject({ temperature: 0.2 });
   });

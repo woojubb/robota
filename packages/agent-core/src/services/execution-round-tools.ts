@@ -66,7 +66,7 @@ export function checkSameToolInputLimit(
     const key = `${name}::${args}`;
     const count = (roundState.sameToolInputCounts.get(key) ?? 0) + 1;
     roundState.sameToolInputCounts.set(key, count);
-    // CORE-035: `maxSameToolInputs` names a MAXIMUM, so the Nth identical call is allowed and the
+    // `maxSameToolInputs` names a MAXIMUM, so the Nth identical call is allowed and the
     // N+1th trips. The SPEC used to say "N or more times", contradicting its own option name.
     if (count > maxSameToolInputs) {
       throw new SameToolInputLoopError(name, count, maxSameToolInputs);
@@ -308,7 +308,7 @@ export async function executeAndRecordToolCalls(
       index,
       toolName: request.toolName,
       toolCallId: request.executionId,
-      // Issue #2875: `request.parameters` is a placeholder ({}) when the call's arguments failed to
+      // `request.parameters` is a placeholder ({}) when the call's arguments failed to
       // decode — reporting it unchanged would misrepresent a malformed call as one that ran with no
       // arguments. Report the decode error instead; the field stays a record either way.
       parameters:

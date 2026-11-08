@@ -1,5 +1,5 @@
 /**
- * Endpoint response decoders (issue #2166): a 2xx body is `unknown` until each field the provider
+ * Endpoint response decoders: a 2xx body is `unknown` until each field the provider
  * reads has been checked. Before this, `requestJson` cast whatever parsed as JSON to the endpoint
  * DTO, so an empty object, an array or a wrong-typed field surfaced later as a `TypeError` outside
  * the provider's typed error channel. The provider owns its own `unknown → DTO |

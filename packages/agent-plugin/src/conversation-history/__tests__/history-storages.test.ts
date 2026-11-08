@@ -67,10 +67,10 @@ describe('MemoryHistoryStorage', () => {
   });
 });
 
-// DatabaseHistoryStorage now requires an injected IDatabaseDriver (PLUGIN-002); its real
+// DatabaseHistoryStorage now requires an injected IDatabaseDriver; its real
 // round-trip behavior is covered in storages/__tests__/database-storage.test.ts.
 
-describe('FileHistoryStorage (PLUGIN-001: real persistence)', () => {
+describe('FileHistoryStorage (real persistence)', () => {
   let dir: string;
   let storage: FileHistoryStorage;
 

@@ -1,5 +1,5 @@
 /**
- * Issue #2317 — what the parent's loaded context contributes to the child's wire payload.
+ * What the parent's loaded context contributes to the child's wire payload.
  *
  * Beside `parent-config-projection.ts` for the same reason it exists: "which context members cross
  * a process boundary" is a different question from "how a child process is run".
@@ -11,7 +11,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 
 /**
- * Issue #2317: the context members the CHILD reads, and no others.
+ * The context members the CHILD reads, and no others.
  *
  * `parentContext` was the parent's whole `ILoadedContext`. Measured: the child reads `agentsMd` and
  * `projectNotesMd` (create-subagent-session.ts) and nothing else — no spread, `Object.keys` or

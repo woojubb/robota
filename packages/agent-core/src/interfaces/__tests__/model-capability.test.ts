@@ -13,7 +13,7 @@ import {
 import type { IProviderCapabilityTable } from '../model-capability.js';
 
 /**
- * PROV-006 / PROV-008 — what a model can do, and what "nothing has been said" means.
+ * What a model can do, and what "nothing has been said" means.
  *
  * Two rules, and every case below is one of them:
  *
@@ -37,7 +37,7 @@ const TABLE: IProviderCapabilityTable = {
   verifiedAt: '2026-08-16',
 };
 
-describe('PROV-008 — the vendor default applies to everything that does not deviate', () => {
+describe('the vendor default applies to everything that does not deviate', () => {
   it('a model with no deviation gets the vendor default', () => {
     // The rule that makes a deviation list safe: absence from it means "ordinary", not "unknown"
     // and not "incapable". Without it every table would have to enumerate every model.
@@ -62,7 +62,7 @@ describe('PROV-008 — the vendor default applies to everything that does not de
   });
 });
 
-describe('PROV-006 — nothing declared is not a denial', () => {
+describe('nothing declared is not a denial', () => {
   it('answers UNDEFINED when no table exists at all', () => {
     expect(resolveModelCapabilities(undefined, 'any-model')).toBeUndefined();
     expect(modelDeclaresCapability(undefined, 'any-model', 'tools')).toBeUndefined();
@@ -83,7 +83,7 @@ describe('PROV-006 — nothing declared is not a denial', () => {
   });
 });
 
-describe('PROV-006 — resolving with a stated assumption', () => {
+describe('resolving with a stated assumption', () => {
   it('a declaration wins over the assumption, in both directions', () => {
     expect(resolveModelCapability(TABLE, 'reasoning-model', 'tools', true)).toBe(false);
     expect(resolveModelCapability(TABLE, 'ordinary-model', 'tools', false)).toBe(true);

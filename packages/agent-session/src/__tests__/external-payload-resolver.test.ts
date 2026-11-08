@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 describe('resolveSessionLogExternalPayloads', () => {
-  it('ARCH-014: resolves a valid content-addressed JSON sidecar', () => {
+  it('resolves a valid content-addressed JSON sidecar', () => {
     const baseDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'agent-payload-resolver-')));
     temporaryDirectories.push(baseDirectory);
     const payloadDirectory = join(baseDirectory, 'session.payloads');
@@ -46,7 +46,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     });
   });
 
-  it('ARCH-014: recursively resolves references nested through another sidecar', () => {
+  it('recursively resolves references nested through another sidecar', () => {
     const baseDirectory = createTemporaryDirectory();
     const inner = writePayload(baseDirectory, 'inner value', 'inner.json');
     const outer = writePayload(baseDirectory, { nested: inner }, 'outer.json');
@@ -58,7 +58,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     });
   });
 
-  it('ARCH-014: rejects malformed reference shapes', () => {
+  it('rejects malformed reference shapes', () => {
     const baseDirectory = createTemporaryDirectory();
     const reference = { ...writePayload(baseDirectory, 'value'), extra: true };
 
@@ -68,7 +68,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
   });
 
-  it('ARCH-014: reports a missing payload', () => {
+  it('reports a missing payload', () => {
     const baseDirectory = createTemporaryDirectory();
     const reference = createReference('missing.json', 'a'.repeat(64), 1);
 
@@ -78,7 +78,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
   });
 
-  it('ARCH-014: rejects a payload path that resolves to a non-file', () => {
+  it('rejects a payload path that resolves to a non-file', () => {
     const baseDirectory = createTemporaryDirectory();
     mkdirSync(join(baseDirectory, 'payload-directory'));
     const reference = createReference('payload-directory', 'a'.repeat(64), 0);
@@ -89,7 +89,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
   });
 
-  it('ARCH-014: rejects lexical traversal', () => {
+  it('rejects lexical traversal', () => {
     const baseDirectory = createTemporaryDirectory();
     const reference = createReference('../outside.json', 'a'.repeat(64), 1);
 
@@ -99,7 +99,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
   });
 
-  it('ARCH-014: rejects a symlink target outside the base directory', () => {
+  it('rejects a symlink target outside the base directory', () => {
     const baseDirectory = createTemporaryDirectory();
     const outsideDirectory = createTemporaryDirectory();
     const outsidePath = join(outsideDirectory, 'outside.json');
@@ -118,7 +118,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
   });
 
-  it('ARCH-042: refuses even an in-root symlink instead of reopening a checked pathname', () => {
+  it('refuses even an in-root symlink instead of reopening a checked pathname', () => {
     const baseDirectory = createTemporaryDirectory();
     const reference = writePayload(baseDirectory, 'inside', 'target.json');
     symlinkSync('target.json', join(baseDirectory, 'linked.json'));
@@ -133,7 +133,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
   });
 
-  it('ARCH-042: refuses an in-root symlink in an ancestor component', () => {
+  it('refuses an in-root symlink in an ancestor component', () => {
     const baseDirectory = createTemporaryDirectory();
     mkdirSync(join(baseDirectory, 'real'));
     const reference = writePayload(baseDirectory, 'inside', join('real', 'target.json'));
@@ -149,7 +149,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
   });
 
-  it('ARCH-014: rejects byte-length and sha256 mismatches independently', () => {
+  it('rejects byte-length and sha256 mismatches independently', () => {
     const baseDirectory = createTemporaryDirectory();
     const reference = writePayload(baseDirectory, 'integrity');
 
@@ -171,7 +171,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
   });
 
-  it('ARCH-014: rejects integrity-valid bytes that are not JSON', () => {
+  it('rejects integrity-valid bytes that are not JSON', () => {
     const baseDirectory = createTemporaryDirectory();
     const invalidJson = Buffer.from('{');
     writeFileSync(join(baseDirectory, 'invalid.json'), invalidJson);
@@ -187,7 +187,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
   });
 
-  it('keeps a leading byte-order mark, which makes the payload invalid JSON (issue #3693)', () => {
+  it('keeps a leading byte-order mark, which makes the payload invalid JSON', () => {
     const bytes = new TextEncoder().encode('\uFEFF{"content":"restored"}');
     const source: IExternalPayloadSource = { readBytes: () => bytes };
     const reference = createReference(
@@ -202,7 +202,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
   });
 
-  it('ARCH-014: enforces nested-reference depth and aggregate byte limits', () => {
+  it('enforces nested-reference depth and aggregate byte limits', () => {
     const baseDirectory = createTemporaryDirectory();
     const inner = writePayload(baseDirectory, 'inner value', 'inner.json');
     const outer = writePayload(baseDirectory, { nested: inner }, 'outer.json');
@@ -225,7 +225,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
   });
 
-  it('ARCH-042: passes the remaining aggregate budget into each source read', () => {
+  it('passes the remaining aggregate budget into each source read', () => {
     const firstSerialized = JSON.stringify('first');
     const secondSerialized = JSON.stringify('second');
     const first = createReference(
@@ -258,7 +258,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     expect(observedMaxBytes).toEqual([aggregateBytes, second.byteLength]);
   });
 
-  it('ARCH-042: rejects an oversized Node payload before returning its bytes', () => {
+  it('rejects an oversized Node payload before returning its bytes', () => {
     const baseDirectory = createTemporaryDirectory();
     writeFileSync(join(baseDirectory, 'large.json'), JSON.stringify('too large'));
     const source = new NodeExternalPayloadSource(baseDirectory, { sealing: 'plain' });
@@ -266,7 +266,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     expectResolutionCode(() => source.readBytes('large.json', 1), 'MAX_TOTAL_BYTES_EXCEEDED');
   });
 
-  it('ARCH-042: rejects an empty explicit Node payload root', () => {
+  it('rejects an empty explicit Node payload root', () => {
     expect(() => new NodeExternalPayloadSource('', { sealing: 'plain' })).toThrow(
       /base directory/i,
     );
@@ -275,7 +275,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
   });
 
-  it('PAYLOAD-2153: reports an unsupported stable host capability distinctly', () => {
+  it('reports an unsupported stable host capability distinctly', () => {
     const baseDirectory = createTemporaryDirectory();
     writeFileSync(join(baseDirectory, 'payload.json'), 'payload');
     const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('freebsd');
@@ -293,7 +293,7 @@ describe('resolveSessionLogExternalPayloads', () => {
     }
   });
 
-  it('ARCH-014: rejects circular in-memory values and invalid limits', () => {
+  it('rejects circular in-memory values and invalid limits', () => {
     const baseDirectory = createTemporaryDirectory();
     const circular: Record<string, unknown> = {};
     circular.self = circular;
