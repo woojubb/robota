@@ -223,26 +223,26 @@ The [packages index](https://docs.robota.io/en/packages/) on the docs site cover
 
 **Start here (embedding):**
 
-| Package                                                                                                                      | Description                                                                       |
-| ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)                                             | `ConversationAgent`: run/runStream, history, tool calling, structured output, plugins |
+| Package                                                                                  | Description                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)         | `ConversationAgent`: run/runStream, history, tool calling, structured output, plugins                                                                                                             |
 | [`@robota-sdk/agent-provider`](https://www.npmjs.com/package/@robota-sdk/agent-provider) | Anthropic, OpenAI, Gemini, DeepSeek, Qwen, Gemma and ByteDance providers, one subpath per vendor, the shared OpenAI-compatible protocol base, and the built-in provider definitions (`./builtin`) |
-| [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools) | Zod-validated function tools, built-in tool factories, sandbox ports, and the default tool set (`./defaults`: `createDefaultTools`) |
+| [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)       | Zod-validated function tools, built-in tool factories, sandbox ports, and the default tool set (`./defaults`: `createDefaultTools`)                                                               |
 
 **App assembly** — sessions, permissions, runtime:
 
-| Package                                                                                                    | Description                                                                                           |
-| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| [`@robota-sdk/agent-framework`](https://www.npmjs.com/package/@robota-sdk/agent-framework)                 | Assembly layer: `InteractiveSession`, `createQuery()`, `createAgentRuntime()`, config/context loading |
-| [`@robota-sdk/agent-session`](https://www.npmjs.com/package/@robota-sdk/agent-session)                     | `Session`: permission-gated tool execution, hooks, context tracking, compaction, persistence          |
-| [`@robota-sdk/agent-executor`](https://www.npmjs.com/package/@robota-sdk/agent-executor)                   | Background task lifecycle, queueing and cancellation; subagent job orchestration                      |
-| [`@robota-sdk/agent-subagent-runner`](https://www.npmjs.com/package/@robota-sdk/agent-subagent-runner)     | Optional runner that executes subagents in child processes                                            |
-| [`@robota-sdk/agent-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-mcp)                             | MCP client: server definitions, activation, connections, tool catalog, OAuth sign-in                  |
-| [`@robota-sdk/agent-plugin`](https://www.npmjs.com/package/@robota-sdk/agent-plugin)                       | Lifecycle plugins: history, logging, usage, limits, performance, errors, analytics, webhooks          |
-| [`@robota-sdk/agent-session-analytics`](https://www.npmjs.com/package/@robota-sdk/agent-session-analytics) | Session-log timing and usage analysis and reports                                                     |
-| [`@robota-sdk/agent-telemetry-otel`](https://www.npmjs.com/package/@robota-sdk/agent-telemetry-otel)       | OpenTelemetry spans and GenAI metrics for agent runs and live prompt traces, GenAI or `agent.*` names |
-| [`@robota-sdk/agent-os`](https://www.npmjs.com/package/@robota-sdk/agent-os) | Node host primitives, one subpath per primitive: bounded root-relative file reads (`./file-authority`), operation locks (`./node-lock`), child-process tree termination (`./process`) |
-| [`@robota-sdk/agent-keyring`](https://www.npmjs.com/package/@robota-sdk/agent-keyring)                     | Key custody and public-key sealing for secure conversations (`node:crypto` only)                      |
+| Package                                                                                                    | Description                                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@robota-sdk/agent-framework`](https://www.npmjs.com/package/@robota-sdk/agent-framework)                 | Assembly layer: `InteractiveSession`, `createQuery()`, `createAgentRuntime()`, config/context loading                                                                                 |
+| [`@robota-sdk/agent-session`](https://www.npmjs.com/package/@robota-sdk/agent-session)                     | `Session`: permission-gated tool execution, hooks, context tracking, compaction, persistence                                                                                          |
+| [`@robota-sdk/agent-executor`](https://www.npmjs.com/package/@robota-sdk/agent-executor)                   | Background task lifecycle, queueing and cancellation; subagent job orchestration                                                                                                      |
+| [`@robota-sdk/agent-subagent-runner`](https://www.npmjs.com/package/@robota-sdk/agent-subagent-runner)     | Optional runner that executes subagents in child processes                                                                                                                            |
+| [`@robota-sdk/agent-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-mcp)                             | MCP client: server definitions, activation, connections, tool catalog, OAuth sign-in                                                                                                  |
+| [`@robota-sdk/agent-plugin`](https://www.npmjs.com/package/@robota-sdk/agent-plugin)                       | Lifecycle plugins: history, logging, usage, limits, performance, errors, analytics, webhooks                                                                                          |
+| [`@robota-sdk/agent-session-analytics`](https://www.npmjs.com/package/@robota-sdk/agent-session-analytics) | Session-log timing and usage analysis and reports                                                                                                                                     |
+| [`@robota-sdk/agent-telemetry-otel`](https://www.npmjs.com/package/@robota-sdk/agent-telemetry-otel)       | OpenTelemetry spans and GenAI metrics for agent runs and live prompt traces, GenAI or `agent.*` names                                                                                 |
+| [`@robota-sdk/agent-os`](https://www.npmjs.com/package/@robota-sdk/agent-os)                               | Node host primitives, one subpath per primitive: bounded root-relative file reads (`./file-authority`), operation locks (`./node-lock`), child-process tree termination (`./process`) |
+| [`@robota-sdk/agent-keyring`](https://www.npmjs.com/package/@robota-sdk/agent-keyring)                     | Key custody and public-key sealing for secure conversations (`node:crypto` only)                                                                                                      |
 
 **Multi-agent conversation** — coordinate independent agents and people in a shared conversation:
 
@@ -253,22 +253,22 @@ The [packages index](https://docs.robota.io/en/packages/) on the docs site cover
 
 **Product composition** — build your own product on the same runtime:
 
-| Package                                                                                                | Description                                                                        |
-| ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| Package                                                                                | Description                                                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [`@robota-sdk/agent-product`](https://www.npmjs.com/package/@robota-sdk/agent-product) | `assembleProduct(profile)`: a product from a declarative profile; one subpath each for the `ICapabilityPack` contract, presets and output styles, slash-command modules and the coding pack (`./capability-pack`, `./preset`, `./command`, `./coding`) |
 
 **Transports and UI** — put a session behind a protocol or a screen:
 
-| Package                                                                                                  | Description                                                                          |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| [`@robota-sdk/agent-transport`](https://www.npmjs.com/package/@robota-sdk/agent-transport) | Carrier-neutral wire protocol, session dispatch and delivery (`./client`, `./node`), and one subpath per carrier: `./ws`, `./http`, `./mcp`, `./acp`, `./webrtc`, `./link` |
-| [`@robota-sdk/agent-remote-pairing`](https://www.npmjs.com/package/@robota-sdk/agent-remote-pairing)     | Pairing and DTLS-fingerprint channel binding for peer-to-peer connections            |
-| [`@robota-sdk/agent-ui-terminal`](https://www.npmjs.com/package/@robota-sdk/agent-ui-terminal)           | Terminal UI (React + Ink)                                                            |
+| Package                                                                                              | Description                                                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@robota-sdk/agent-transport`](https://www.npmjs.com/package/@robota-sdk/agent-transport)           | Carrier-neutral wire protocol, session dispatch and delivery (`./client`, `./node`), and one subpath per carrier: `./ws`, `./http`, `./mcp`, `./acp`, `./webrtc`, `./link` |
+| [`@robota-sdk/agent-remote-pairing`](https://www.npmjs.com/package/@robota-sdk/agent-remote-pairing) | Pairing and DTLS-fingerprint channel binding for peer-to-peer connections                                                                                                  |
+| [`@robota-sdk/agent-ui-terminal`](https://www.npmjs.com/package/@robota-sdk/agent-ui-terminal)       | Terminal UI (React + Ink)                                                                                                                                                  |
 
 **Contracts** — type-only packages shared across layers:
 
-| Package                                                                                                                      | Description                                                        |
-| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Package                                                                                    | Description                                                                                                                    |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | [`@robota-sdk/agent-interface`](https://www.npmjs.com/package/@robota-sdk/agent-interface) | Type contracts, one subpath per family: `session`, `session-mobility`, `command`, `execution`, `analytics`, `transport`, `tui` |
 
 **Agent interface:**

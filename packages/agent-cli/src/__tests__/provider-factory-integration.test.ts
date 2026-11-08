@@ -15,7 +15,10 @@ import {
 } from '@robota-sdk/agent-provider/anthropic';
 import { GeminiProvider, createGeminiProviderDefinition } from '@robota-sdk/agent-provider/gemini';
 import { OpenAIProvider, createOpenAIProviderDefinition } from '@robota-sdk/agent-provider/openai';
-import { DeepSeekProvider, createDeepSeekProviderDefinition } from '@robota-sdk/agent-provider/deepseek';
+import {
+  DeepSeekProvider,
+  createDeepSeekProviderDefinition,
+} from '@robota-sdk/agent-provider/deepseek';
 import { GemmaProvider, createGemmaProviderDefinition } from '@robota-sdk/agent-provider/gemma';
 import { QwenProvider, createQwenProviderDefinition } from '@robota-sdk/agent-provider/qwen';
 

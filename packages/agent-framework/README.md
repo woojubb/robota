@@ -142,7 +142,7 @@ await session.shutdown();
 | `additionalTools`                                           | Tools added to the default set.                                                                 |
 | `defaultTools`                                              | Replaces the host's default tool set (`host.createDefaultTools`); `[]` removes it.              |
 | `allowedTools`, `deniedTools`                               | Tool name patterns to allow or deny for this session.                                           |
-| `commandModules`                                            | Command modules the session can execute (for example from `@robota-sdk/agent-product/command`).         |
+| `commandModules`                                            | Command modules the session can execute (for example from `@robota-sdk/agent-product/command`). |
 | `sessionStore`, `resumeSessionId`, `forkSession`            | Persistence, and resuming or forking a stored session.                                          |
 | `userSettingsSources`, `projectSettingsPaths`               | Settings files to read. Absent means no settings file is read.                                  |
 | `contributionSources`, `skillRoots`, `agentDefinitionRoots` | Where to discover skills and agent definitions. Absent means no discovery.                      |
@@ -534,15 +534,15 @@ is also on `/node`.
 
 ## Dependencies
 
-| Package                                                                                               | Used for                                            |
-| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `@robota-sdk/agent-core`                                                                              | Agent engine, provider contract, permissions, hooks |
-| `@robota-sdk/agent-session`                                                                           | `Session`, logging and persistence ports            |
-| `@robota-sdk/agent-tools`                                                                             | Tool factories and sandbox clients; the `./defaults` tool set for `./testing` only |
-| `@robota-sdk/agent-executor`                                                                          | Background tasks and subagent managers              |
-| `@robota-sdk/agent-os`                                                                                | Bounded, root-relative project file reads (`./file-authority`) |
-| `@robota-sdk/agent-interface` (the analytics, command, execution, session, session-mobility and transport subpaths) | Shared contracts |
-| `yaml`, `zod`                                                                                         | Frontmatter parsing and settings validation         |
+| Package                                                                                                             | Used for                                                                           |
+| ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-core`                                                                                            | Agent engine, provider contract, permissions, hooks                                |
+| `@robota-sdk/agent-session`                                                                                         | `Session`, logging and persistence ports                                           |
+| `@robota-sdk/agent-tools`                                                                                           | Tool factories and sandbox clients; the `./defaults` tool set for `./testing` only |
+| `@robota-sdk/agent-executor`                                                                                        | Background tasks and subagent managers                                             |
+| `@robota-sdk/agent-os`                                                                                              | Bounded, root-relative project file reads (`./file-authority`)                     |
+| `@robota-sdk/agent-interface` (the analytics, command, execution, session, session-mobility and transport subpaths) | Shared contracts                                                                   |
+| `yaml`, `zod`                                                                                                       | Frontmatter parsing and settings validation                                        |
 
 ## Documentation
 

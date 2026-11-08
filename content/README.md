@@ -97,13 +97,13 @@ layers in full. The [packages index](/packages/) lists every package.
 
 ## Providers
 
-| Package                                        | Covers                                                                                                        |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `@robota-sdk/agent-provider/anthropic`         | Anthropic Claude                                                                                              |
-| `@robota-sdk/agent-provider/openai`            | OpenAI, and any OpenAI-compatible endpoint through `baseURL` (AI gateways, Azure OpenAI, vLLM, local servers) |
-| `@robota-sdk/agent-provider/gemini`            | Google Gemini, including image generation                                                                     |
+| Package                                                  | Covers                                                                                                        |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-provider/anthropic`                   | Anthropic Claude                                                                                              |
+| `@robota-sdk/agent-provider/openai`                      | OpenAI, and any OpenAI-compatible endpoint through `baseURL` (AI gateways, Azure OpenAI, vLLM, local servers) |
+| `@robota-sdk/agent-provider/gemini`                      | Google Gemini, including image generation                                                                     |
 | `@robota-sdk/agent-provider/deepseek`, `/qwen`, `/gemma` | DeepSeek, Qwen, and local servers such as Ollama, LM Studio or llama.cpp                                      |
-| `@robota-sdk/agent-provider/bytedance`         | ByteDance ModelArk video generation (not a chat provider)                                                     |
+| `@robota-sdk/agent-provider/bytedance`                   | ByteDance ModelArk video generation (not a chat provider)                                                     |
 
 The [Providers Reference](./guide/providers.md) covers each one. To run a local model with no API key,
 see [Local LLM Setup](./guide/local-llm.md).

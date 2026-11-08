@@ -159,31 +159,31 @@ subagent sessions with their own tools and history, and the `__PRODUCT_CLI_NAME_
 
 ### Package names from earlier betas
 
-| Earlier beta package                                      | Now                                                                                                                                                                                |
-| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@robota-sdk/agent-sdk`                                   | `@robota-sdk/agent-framework`                                                                                                                                                      |
-| `@robota-sdk/agent-sessions`                              | `@robota-sdk/agent-session`                                                                                                                                                        |
-| `@robota-sdk/agent-executor`                               | `@robota-sdk/agent-executor`                                                                                                                                                       |
-| `@robota-sdk/agent-provider-google`                       | `@robota-sdk/agent-provider/gemini`                                                                                                                                                |
-| `@robota-sdk/agent-provider-deepseek`                     | `@robota-sdk/agent-provider/deepseek` (`DeepSeekProvider`)                                                                                                                         |
-| `@robota-sdk/agent-provider` (all vendors in one package) | `@robota-sdk/agent-provider`, now with one subpath per vendor; see the next table                                                                                                  |
-| `@robota-sdk/agent-transport-tui`                         | `@robota-sdk/agent-ui-terminal` (`renderApp`, `TuiInteractionChannel`)                                                                                                             |
+| Earlier beta package                                      | Now                                                                               |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-sdk`                                   | `@robota-sdk/agent-framework`                                                     |
+| `@robota-sdk/agent-sessions`                              | `@robota-sdk/agent-session`                                                       |
+| `@robota-sdk/agent-executor`                              | `@robota-sdk/agent-executor`                                                      |
+| `@robota-sdk/agent-provider-google`                       | `@robota-sdk/agent-provider/gemini`                                               |
+| `@robota-sdk/agent-provider-deepseek`                     | `@robota-sdk/agent-provider/deepseek` (`DeepSeekProvider`)                        |
+| `@robota-sdk/agent-provider` (all vendors in one package) | `@robota-sdk/agent-provider`, now with one subpath per vendor; see the next table |
+| `@robota-sdk/agent-transport-tui`                         | `@robota-sdk/agent-ui-terminal` (`renderApp`, `TuiInteractionChannel`)            |
 
 ### Packages merged into subpaths
 
 Fewer packages are published: each former package below is now a subpath of the merged one. Import
 paths change; exported names and signatures do not.
 
-| Former packages                                                                                                               | Now                                                                                                                                    |
-| ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `agent-provider-anthropic`, `-openai`, `-gemini`, `-bytedance`                                                                  | `@robota-sdk/agent-provider/anthropic`, `/openai`, `/gemini` (`/google` is a deprecated alias), `/bytedance`                         |
-| `agent-provider-openai-compatible`                                                                                            | `@robota-sdk/agent-provider/deepseek`, `/qwen`, `/gemma`; the shared protocol base is `/openai-compatible`                           |
-| `agent-builtin-providers`                                                                                                     | `@robota-sdk/agent-provider/builtin`                                                                                                   |
-| `agent-file-authority`, `agent-node-lock`, `agent-process`                                                                    | `@robota-sdk/agent-os/file-authority`, `/node-lock`, `/process`                                                                        |
-| `agent-transport-ws`, `-http`, `-mcp`, `-acp`, `-webrtc`, `-link`                                                           | `@robota-sdk/agent-transport/ws`, `/http`, `/mcp`, `/acp`, `/webrtc`, `/link`                                                      |
-| `agent-tool-defaults`                                                                                                         | `@robota-sdk/agent-tools/defaults`                                                                                                     |
-| `agent-capability-pack`, `agent-preset`, `agent-command`, `pack-coding`                                                       | `@robota-sdk/agent-product/capability-pack`, `/preset`, `/command`, `/coding`                                                      |
-| `agent-interface-session`, `-session-mobility`, `-command`, `-execution`, `-analytics`, `-transport`, `-tui`                 | `@robota-sdk/agent-interface/session`, `/session-mobility`, `/command`, `/execution`, `/analytics`, `/transport`, `/tui`             |
+| Former packages                                                                                              | Now                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `agent-provider-anthropic`, `-openai`, `-gemini`, `-bytedance`                                               | `@robota-sdk/agent-provider/anthropic`, `/openai`, `/gemini` (`/google` is a deprecated alias), `/bytedance`             |
+| `agent-provider-openai-compatible`                                                                           | `@robota-sdk/agent-provider/deepseek`, `/qwen`, `/gemma`; the shared protocol base is `/openai-compatible`               |
+| `agent-builtin-providers`                                                                                    | `@robota-sdk/agent-provider/builtin`                                                                                     |
+| `agent-file-authority`, `agent-node-lock`, `agent-process`                                                   | `@robota-sdk/agent-os/file-authority`, `/node-lock`, `/process`                                                          |
+| `agent-transport-ws`, `-http`, `-mcp`, `-acp`, `-webrtc`, `-link`                                            | `@robota-sdk/agent-transport/ws`, `/http`, `/mcp`, `/acp`, `/webrtc`, `/link`                                            |
+| `agent-tool-defaults`                                                                                        | `@robota-sdk/agent-tools/defaults`                                                                                       |
+| `agent-capability-pack`, `agent-preset`, `agent-command`, `pack-coding`                                      | `@robota-sdk/agent-product/capability-pack`, `/preset`, `/command`, `/coding`                                            |
+| `agent-interface-session`, `-session-mobility`, `-command`, `-execution`, `-analytics`, `-transport`, `-tui` | `@robota-sdk/agent-interface/session`, `/session-mobility`, `/command`, `/execution`, `/analytics`, `/transport`, `/tui` |
 
 The libraries a subpath needs are optional peer dependencies, so install the ones for the subpaths you
 import: `@anthropic-ai/sdk`, `openai` or `@google/genai` for a provider, `ws`, `hono` and the MCP or ACP

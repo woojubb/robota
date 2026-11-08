@@ -132,13 +132,13 @@ no mechanism, and no runtime value except a small set of discriminators.
 
 ### Boundaries
 
-| Concern                                                | Owner                                  |
-| ------------------------------------------------------ | -------------------------------------- |
+| Concern                                                | Owner                                          |
+| ------------------------------------------------------ | ---------------------------------------------- |
 | Command implementations and their modules              | `agent-product/command`, command-module owners |
-| Command infrastructure and reusable host APIs          | `agent-framework`                      |
-| Rendering a command's result                           | `agent-ui-terminal`, `agent-ui-web`    |
-| Session, interaction, event, turn and driver contracts | `agent-interface/session`              |
-| Background task, workspace and subagent contracts      | `agent-interface/execution`            |
+| Command infrastructure and reusable host APIs          | `agent-framework`                              |
+| Rendering a command's result                           | `agent-ui-terminal`, `agent-ui-web`            |
+| Session, interaction, event, turn and driver contracts | `agent-interface/session`                      |
+| Background task, workspace and subagent contracts      | `agent-interface/execution`                    |
 
 ### Design decisions
 

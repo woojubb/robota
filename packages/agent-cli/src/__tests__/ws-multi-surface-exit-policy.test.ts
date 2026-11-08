@@ -11,7 +11,10 @@
  * agent-transport is the package that legitimately sees both sides.
  */
 
-import { createExitCommandModule, createLanguageCommandModule } from '@robota-sdk/agent-product/command';
+import {
+  createExitCommandModule,
+  createLanguageCommandModule,
+} from '@robota-sdk/agent-product/command';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { describe, expect, it, vi } from 'vitest';

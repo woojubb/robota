@@ -98,21 +98,21 @@ transport accept a session without depending on `agent-framework`.
 
 ### Capabilities — providers, tools, MCP, plugins
 
-| Package                                 | What it provides                                                                      |
-| --------------------------------------- | ------------------------------------------------------------------------------------- |
-| `agent-provider/anthropic`              | Anthropic Claude                                                                      |
-| `agent-provider/openai`                 | OpenAI                                                                                |
-| `agent-provider/deepseek`, `/qwen`, `/gemma` | DeepSeek, Qwen, and Gemma-family models behind OpenAI-compatible endpoints            |
-| `agent-provider/gemini`                 | Google Gemini                                                                         |
-| `agent-provider/bytedance`              | ByteDance (ModelArk) video generation                                                 |
-| `agent-tools`                           | Tool factories (`createZodFunctionTool`, `createFunctionTool`) and the built-in tools |
-| `agent-mcp`                             | Model Context Protocol client: server definitions, activation, OAuth sign-in          |
-| `agent-plugin`                          | Eight ready-made plugins (logging, usage, limits, webhooks, and more)                 |
-| `agent-os`                              | Node host primitives: bounded root-relative file reads, operation locks, process-tree termination |
-| `agent-keyring`                         | Key custody and public-key sealing for secure conversations (`node:crypto` only)      |
-| `agent-session-analytics`               | Session-log timing and usage analysis, reports and OTLP export                        |
-| `agent-telemetry-otel`                  | OpenTelemetry spans and metrics for agent runs and traces, GenAI or `agent.*` names   |
-| `agent-remote-pairing`                  | Pairing and channel binding for peer-to-peer connections (no Robota dependencies)     |
+| Package                                      | What it provides                                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `agent-provider/anthropic`                   | Anthropic Claude                                                                                  |
+| `agent-provider/openai`                      | OpenAI                                                                                            |
+| `agent-provider/deepseek`, `/qwen`, `/gemma` | DeepSeek, Qwen, and Gemma-family models behind OpenAI-compatible endpoints                        |
+| `agent-provider/gemini`                      | Google Gemini                                                                                     |
+| `agent-provider/bytedance`                   | ByteDance (ModelArk) video generation                                                             |
+| `agent-tools`                                | Tool factories (`createZodFunctionTool`, `createFunctionTool`) and the built-in tools             |
+| `agent-mcp`                                  | Model Context Protocol client: server definitions, activation, OAuth sign-in                      |
+| `agent-plugin`                               | Eight ready-made plugins (logging, usage, limits, webhooks, and more)                             |
+| `agent-os`                                   | Node host primitives: bounded root-relative file reads, operation locks, process-tree termination |
+| `agent-keyring`                              | Key custody and public-key sealing for secure conversations (`node:crypto` only)                  |
+| `agent-session-analytics`                    | Session-log timing and usage analysis, reports and OTLP export                                    |
+| `agent-telemetry-otel`                       | OpenTelemetry spans and metrics for agent runs and traces, GenAI or `agent.*` names               |
+| `agent-remote-pairing`                       | Pairing and channel binding for peer-to-peer connections (no Robota dependencies)                 |
 
 `agent-provider` is a leaf over `agent-core` with one subpath per vendor; the vendor SDKs are optional
 peers, so an application installs only the SDKs of the providers it imports. `agent-plugin` depends only on `agent-core`; plugins attach to the engine and never reach into
@@ -148,15 +148,15 @@ loads no user settings, no project instructions and no project skills. See
 
 ### Composition — defaults, presets, commands, packs
 
-| Package                   | Role                                                                              |
-| ------------------------- | --------------------------------------------------------------------------------- |
-| `agent-provider/builtin`  | `createDefaultProviderDefinitions()` — the built-in chat provider definitions     |
-| `agent-product/command`   | The slash-command modules (`/help`, `/compact`, `/permissions`, and the rest)     |
-| `agent-product/preset`    | Named bundles of session options (persona, model, permission posture)             |
+| Package                         | Role                                                                              |
+| ------------------------------- | --------------------------------------------------------------------------------- |
+| `agent-provider/builtin`        | `createDefaultProviderDefinitions()` — the built-in chat provider definitions     |
+| `agent-product/command`         | The slash-command modules (`/help`, `/compact`, `/permissions`, and the rest)     |
+| `agent-product/preset`          | Named bundles of session options (persona, model, permission posture)             |
 | `agent-product/capability-pack` | `ICapabilityPack` and `mergeCapabilityPacks()` for adding tools, commands, agents |
-| `agent-product/coding`    | `createCodingPack()` — the coding tools, commands and subagents as one pack       |
-| `agent-product`           | `assembleProduct()` — builds a product from a declarative profile                 |
-| `agent-subagent-runner`   | Optional runner that executes subagents in child processes                        |
+| `agent-product/coding`          | `createCodingPack()` — the coding tools, commands and subagents as one pack       |
+| `agent-product`                 | `assembleProduct()` — builds a product from a declarative profile                 |
+| `agent-subagent-runner`         | Optional runner that executes subagents in child processes                        |
 
 These packages are meant to be imported where an application is put together (its "composition
 root"), not by libraries in the middle of the stack, so a library that only needs the mechanisms
