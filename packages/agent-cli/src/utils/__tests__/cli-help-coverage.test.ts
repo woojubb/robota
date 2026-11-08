@@ -1,4 +1,4 @@
-import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { cleanupTestProductRuntimes, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { MODEL_EFFORT_VALUES } from '@robota-sdk/agent-core';
@@ -33,6 +33,8 @@ const NOT_IN_GLOBAL_HELP = new Set([
   'p',
   'help',
 ]);
+
+afterEach(cleanupTestProductRuntimes);
 
 describe('test-product --help', () => {
   it('lists every option the parser accepts, except those not meant for people', () => {
