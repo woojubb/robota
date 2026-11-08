@@ -12,10 +12,11 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.114.0",
     "@discordjs/rest": "^2.6.3",
     "@robota-sdk/agent-framework": "^3.0.0-beta.67",
-    "@robota-sdk/agent-provider-anthropic": "^3.0.0-beta.67",
-    "@robota-sdk/agent-tool-defaults": "^3.0.0-beta.67",
+    "@robota-sdk/agent-provider": "^3.3.0",
+    "@robota-sdk/agent-tools": "^3.3.0",
     "discord-api-types": "^0.38.50",
     "discord.js": "^14.27.0",
     "dotenv": "^16.4.5"

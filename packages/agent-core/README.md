@@ -277,7 +277,7 @@ scheduling by supplying `scheduling`; its existing unplanned strategies retain t
 ```
 agent-core            ← this package (no workspace dependencies)
   ↑
-agent-tools, agent-session, agent-plugin, agent-mcp, agent-provider-* (one package per vendor)
+agent-tools, agent-session, agent-plugin, agent-mcp, agent-provider (one subpath per vendor)
   ↑
 agent-framework       ← assembles sessions, commands, permissions and hooks
   ↑

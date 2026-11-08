@@ -9,7 +9,7 @@ import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
  * `useWsSession` reducer + `SessionMonitor` consume it unchanged — the single swap is WebSocket → data channel.
  * The channel-binding fingerprints come from the SDP: the HOST (remote) fp from the received offer, the LOCAL fp
  * from our own answer (`extractDtlsFingerprint`) — matching the Node responder oracle in
- * `agent-transport-webrtc/src/__tests__/pairing-e2e.test.ts`.
+ * `agent-transport/src/webrtc/__tests__/pairing-e2e.test.ts`.
  */
 
 import {

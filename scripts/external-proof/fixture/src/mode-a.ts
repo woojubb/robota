@@ -84,7 +84,7 @@ export function runModeA(): void {
       }),
     /Unknown provider: acme-llm/,
   );
-  note('Mode A consumers do not depend on any @robota-sdk/agent-provider-* package directly');
+  note('Mode A consumers do not import any @robota-sdk/agent-provider subpath directly');
 
   section(
     "A3 — the reference CLI's runtime capability arrives as a pack (their branding, our runtime)",

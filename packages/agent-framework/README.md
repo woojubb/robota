@@ -538,11 +538,10 @@ is also on `/node`.
 | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
 | `@robota-sdk/agent-core`                                                                              | Agent engine, provider contract, permissions, hooks |
 | `@robota-sdk/agent-session`                                                                           | `Session`, logging and persistence ports            |
-| `@robota-sdk/agent-tools`                                                                             | Tool factories and sandbox clients                  |
-| `@robota-sdk/agent-tools/defaults`                                                                     | The default tool set, for `./testing` only          |
+| `@robota-sdk/agent-tools`                                                                             | Tool factories and sandbox clients; the `./defaults` tool set for `./testing` only |
 | `@robota-sdk/agent-executor`                                                                          | Background tasks and subagent managers              |
-| `@robota-sdk/agent-os/file-authority`                                                                    | Bounded, root-relative project file reads           |
-| `@robota-sdk/agent-interface-*` (analytics, command, execution, session, session-mobility, transport) | Shared contracts                                    |
+| `@robota-sdk/agent-os`                                                                                | Bounded, root-relative project file reads (`./file-authority`) |
+| `@robota-sdk/agent-interface` (the analytics, command, execution, session, session-mobility and transport subpaths) | Shared contracts |
 | `yaml`, `zod`                                                                                         | Frontmatter parsing and settings validation         |
 
 ## Documentation

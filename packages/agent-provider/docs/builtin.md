@@ -12,8 +12,8 @@ importing each provider package itself.
 npm install @robota-sdk/agent-provider @robota-sdk/agent-core openai @anthropic-ai/sdk @google/genai
 ```
 
-The provider packages (`@robota-sdk/agent-provider/anthropic`, `-openai`, `-gemini`,
-`-openai-compatible` and `-bytedance`) and their vendor SDKs are installed as dependencies.
+`./builtin` imports every provider subpath, so the three vendor SDKs, which are optional peers of the
+package, are installed alongside it.
 
 ## Usage
 

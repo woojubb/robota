@@ -9,11 +9,13 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.114.0",
     "@robota-sdk/agent-framework": "^3.0.0-beta.67",
-    "@robota-sdk/agent-provider-anthropic": "^3.0.0-beta.67",
-    "@robota-sdk/agent-transport-http": "^3.0.0-beta.67",
-    "@robota-sdk/agent-transport-ws": "^3.0.0-beta.67",
-    "@robota-sdk/agent-tool-defaults": "^3.0.0-beta.67"
+    "@robota-sdk/agent-provider": "^3.3.0",
+    "@robota-sdk/agent-tools": "^3.3.0",
+    "@robota-sdk/agent-transport": "^3.4.0",
+    "hono": "^4.12.32",
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

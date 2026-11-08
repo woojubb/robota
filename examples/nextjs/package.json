@@ -10,9 +10,10 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.114.0",
     "@robota-sdk/agent-framework": "^3.0.0-beta.67",
-    "@robota-sdk/agent-provider-anthropic": "^3.0.0-beta.67",
-    "@robota-sdk/agent-tool-defaults": "^3.0.0-beta.67",
+    "@robota-sdk/agent-provider": "^3.3.0",
+    "@robota-sdk/agent-tools": "^3.3.0",
     "next": "^15.5.28",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

@@ -221,10 +221,10 @@ Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`)
 | `agent-core`              | Public types + utilities only; internal engine (`ConversationAgent`, `ExecutionService`, `ConversationStore`) forbidden |
 | `agent-session`           | Forbidden — the SDK provides its own session/permission types                                                           |
 | `agent-tools`             | The OS sandbox only (its client, detection and settings) — the SDK assembles tools internally                           |
-| `agent-command`           | Slash-command modules only                                                                                              |
+| `agent-product/command`   | Slash-command modules only                                                                                              |
 | `agent-subagent-runner`   | Subagent/background runner only                                                                                         |
-| `agent-builtin-providers` | Provider definition assembly only                                                                                       |
-| `agent-preset`            | Preset id selection + resolution only — `resolvePreset` owns the precedence merge                                       |
+| `agent-provider/builtin`  | Provider definition assembly only                                                                                       |
+| `agent-product/preset`    | Preset id selection + resolution only — `resolvePreset` owns the precedence merge                                       |
 
 ## Design decisions
 

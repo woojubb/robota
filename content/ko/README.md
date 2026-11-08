@@ -105,7 +105,7 @@ console.log(await agent.run('TypeScript 제네릭을 두 문장으로 설명해�
 | `@robota-sdk/agent-provider/anthropic`         | Anthropic Claude                                                                                              |
 | `@robota-sdk/agent-provider/openai`            | OpenAI, 그리고 `baseURL`로 연결하는 모든 OpenAI 호환 엔드포인트(AI 게이트웨이, Azure OpenAI, vLLM, 로컬 서버) |
 | `@robota-sdk/agent-provider/gemini`            | Google Gemini(이미지 생성 포함)                                                                               |
-| `@robota-sdk/agent-provider-openai-compatible` | DeepSeek, Qwen, 그리고 Ollama, LM Studio, llama.cpp 같은 로컬 서버                                            |
+| `@robota-sdk/agent-provider/deepseek`, `/qwen`, `/gemma` | DeepSeek, Qwen, 그리고 Ollama, LM Studio, llama.cpp 같은 로컬 서버                                            |
 | `@robota-sdk/agent-provider/bytedance`         | ByteDance ModelArk 영상 생성(채팅 프로바이더 아님)                                                            |
 
 각 프로바이더는 [Providers Reference](../guide/providers.md)(영어)에서 다룹니다. API 키 없이 로컬 모델을

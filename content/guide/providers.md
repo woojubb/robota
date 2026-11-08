@@ -28,9 +28,9 @@ OpenRouter), Azure, vLLM, Ollama, LM Studio. Model slugs pass through verbatim, 
 | OpenRouter                | Built-in service using `@robota-sdk/agent-provider/openai` | OpenAI-compatible Chat Completions                                              | Browser connection, API key, or `OPENROUTER_API_KEY` |
 | Anthropic                 | `@robota-sdk/agent-provider/anthropic`                     | Anthropic Messages API                                                          | `ANTHROPIC_API_KEY`                                  |
 | Gemini                    | `@robota-sdk/agent-provider/gemini`                        | Google GenAI API                                                                | `GEMINI_API_KEY`                                     |
-| DeepSeek                  | `@robota-sdk/agent-provider-openai-compatible`             | OpenAI-compatible (DeepSeek endpoint default)                                   | `DEEPSEEK_API_KEY`                                   |
-| Qwen (Alibaba)            | `@robota-sdk/agent-provider-openai-compatible`             | OpenAI-compatible (DashScope endpoint default)                                  | `DASHSCOPE_API_KEY`                                  |
-| Gemma / OpenAI-compatible | `@robota-sdk/agent-provider-openai-compatible`             | OpenAI-compatible (bring your own endpoint)                                     | none for local servers                               |
+| DeepSeek                  | `@robota-sdk/agent-provider/deepseek`                      | OpenAI-compatible (DeepSeek endpoint default)                                   | `DEEPSEEK_API_KEY`                                   |
+| Qwen (Alibaba)            | `@robota-sdk/agent-provider/qwen`                          | OpenAI-compatible (DashScope endpoint default)                                  | `DASHSCOPE_API_KEY`                                  |
+| Gemma / OpenAI-compatible | `@robota-sdk/agent-provider/gemma`                         | OpenAI-compatible (bring your own endpoint)                                     | none for local servers                               |
 
 > **AI gateways (Vercel AI Gateway, LiteLLM, OpenRouter):** Use the `OpenAIProvider` with the
 > gateway's `baseURL` and a gateway model slug — see [Through an AI gateway](#through-an-ai-gateway).

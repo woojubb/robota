@@ -19,7 +19,7 @@ provider package itself. The platform it runs on is passed in as `host`: on Node
 | Drive a long-lived agent from your own UI, server or bot   | `new InteractiveSession({ host, cwd, provider })`                               |
 | Ask a question and get a string back                       | `createQuery({ host, cwd, provider })`                                          |
 | Create many sessions that share one configuration          | `createAgentRuntime({ host, cwd, provider })` — see [Embedding](./embedding.md) |
-| Expose a session over HTTP, WebSocket or MCP               | `agent-transport-{http,ws,mcp}` — see [Deployment](./deployment.md)             |
+| Expose a session over HTTP, WebSocket or MCP               | `agent-transport/{http,ws,mcp}` — see [Deployment](./deployment.md)             |
 | Build a small agent with only your own tools, no framework | `new Robota()` from `agent-core` — see [Building Agents](./building-agents.md)  |
 | Assemble your own session loop from the parts              | `new Session()` from `agent-session`, with your own provider and tools          |
 

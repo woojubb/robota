@@ -1,7 +1,7 @@
 # Multi-Provider
 
-Register several providers on one agent and switch the model between runs. Each provider lives in its
-own package; DeepSeek, Qwen and Gemma share `@robota-sdk/agent-provider-openai-compatible`.
+Register several providers on one agent and switch the model between runs. Each provider is a subpath of
+`@robota-sdk/agent-provider`; DeepSeek, Qwen and Gemma share its OpenAI-compatible base.
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';

@@ -118,8 +118,8 @@ starts and stops a set of transports together, live in `@robota-sdk/agent-framew
 ## Dependencies
 
 - `@robota-sdk/agent-core`
-- `@robota-sdk/agent-interface/analytics`, `-command`, `-execution`, `-session`, `-session-mobility`,
-  `-transport` (contract packages)
+- `@robota-sdk/agent-interface` (the `analytics`, `command`, `execution`, `session`, `session-mobility` and
+  `transport` contract subpaths)
 - `jose` (access-token signature verification under `./node`)
 
 The carrier libraries (`ws`, `hono`, `@modelcontextprotocol/server` and `@modelcontextprotocol/node`,
