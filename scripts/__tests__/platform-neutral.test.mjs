@@ -348,8 +348,8 @@ describe('platform-neutral entry check', () => {
       [
         'ARCHITECTURE.md lists gone, which is not a workspace package',
         '@robota-sdk/late maps browser: null after import, so a browser resolver never reaches it',
-        'listedHost is listed as Node host, but its "." export does not map browser: null',
-        'listedNeutral is listed as Platform-neutral, but its "." export maps browser: null',
+        'listedHost is listed as Node host, but its exports do not map browser: null',
+        'listedNeutral is listed as Platform-neutral, but its exports map browser: null',
         'unlisted is not in any ARCHITECTURE.md "Runtime platforms" list',
       ].sort(),
     );
