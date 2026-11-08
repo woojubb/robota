@@ -106,7 +106,7 @@ function SetupPanel({
 export function SessionSurface({
   state,
   surface,
-  personalUsageEnabled = false,
+  personalUsageEnabled: personalUsageRequested = false,
   draftMode = 'persistent',
   onReconnect,
   pickFiles,
@@ -138,6 +138,8 @@ export function SessionSurface({
 
   appViewSandboxUrl?: string;
 }): React.ReactElement {
+  // An observer sees the session but changes nothing; the host stays the authority, this is presentation.
+  const readOnly = state.role === 'observe';
   const [view, setView] = useState<TSessionView>('chat');
   const { identity } = useProductIdentity();
   const appViewHost = useMemo(
@@ -150,6 +152,8 @@ export function SessionSurface({
     }),
     [appViewSandboxUrl, state.readAppView, state.callAppTool, identity.displayName, surface],
   );
+  // The personal usage read is not admitted for an observer.
+  const personalUsageEnabled = personalUsageRequested && !readOnly;
   const composerRef = useRef<IComposerHandle>(null);
   const tasks = state.executionWorkspace?.entries ?? [];
   // The main thread alone is this conversation; the rail earns its width only for work beside it.
@@ -180,8 +184,10 @@ export function SessionSurface({
   // #3282 §3: no provider is configured — the session is running (a placeholder stands in for the
   // real one), but there is nothing to reply with yet.
   const setupRequired = state.sessionStatus?.setupRequired === true;
+  // Switching, starting, renaming and deleting sessions are driver actions: an observer has no sidebar.
   const hasSessionList =
-    (state.sessionListing ?? null) !== null || state.sessionsError?.code === 'list_failed';
+    !readOnly &&
+    ((state.sessionListing ?? null) !== null || state.sessionsError?.code === 'list_failed');
   const sidebarOpen = hasSessionList && state.sessionSidebarOpen;
   const usage = personalUsageEnabled && view === 'usage';
   const project = view === 'project';
@@ -292,24 +298,28 @@ export function SessionSurface({
           <div className="min-h-0 flex-1">
             <PersonalUsageDashboard state={state} />
             {/* A gated turn waits on this answer, so it shows over whatever view is open. */}
-            <PermissionPrompt
-              layout="modal"
-              prompts={state.pendingPrompts}
-              onAnswerPermission={state.answerPermission}
-              onAnswerAsk={state.answerAsk}
-              ownDriverId={state.ownDriverId}
-            />
+            {readOnly ? null : (
+              <PermissionPrompt
+                layout="modal"
+                prompts={state.pendingPrompts}
+                onAnswerPermission={state.answerPermission}
+                onAnswerAsk={state.answerAsk}
+                ownDriverId={state.ownDriverId}
+              />
+            )}
           </div>
         ) : project ? (
           <div className="min-h-0 flex-1">
             <ProjectPanel state={state} onOpenMemoryInEditor={onOpenMemoryInEditor} />
-            <PermissionPrompt
-              layout="modal"
-              prompts={state.pendingPrompts}
-              onAnswerPermission={state.answerPermission}
-              onAnswerAsk={state.answerAsk}
-              ownDriverId={state.ownDriverId}
-            />
+            {readOnly ? null : (
+              <PermissionPrompt
+                layout="modal"
+                prompts={state.pendingPrompts}
+                onAnswerPermission={state.answerPermission}
+                onAnswerAsk={state.answerAsk}
+                ownDriverId={state.ownDriverId}
+              />
+            )}
           </div>
         ) : (
           <div className="flex min-h-0 flex-1">
@@ -320,7 +330,7 @@ export function SessionSurface({
                 onReconnect={onReconnect}
               />
               <div className="min-h-0 flex-1 overflow-hidden">
-                {setupRequired ? (
+                {setupRequired && !readOnly ? (
                   <SetupPanel
                     onSetUp={() => state.send({ type: 'command', name: 'provider', args: 'add' })}
                     disabled={state.status !== 'connected'}
@@ -328,7 +338,7 @@ export function SessionSurface({
                 ) : isEmpty ? (
                   <EmptyState />
                 ) : (
-                  <AppViewHostContext.Provider value={appViewHost}>
+                  <AppViewHostContext.Provider value={readOnly ? null : appViewHost}>
                     <ConversationView
                       messages={state.messages}
                       activeTools={state.activeTools}
@@ -344,19 +354,32 @@ export function SessionSurface({
               >
                 <GoalBar
                   status={state.sessionStatus ?? null}
-                  onStop={() => state.send({ type: 'command', name: 'goal', args: 'cancel' })}
+                  onStop={
+                    readOnly
+                      ? undefined
+                      : () => state.send({ type: 'command', name: 'goal', args: 'cancel' })
+                  }
                 />
-                <PermissionPrompt
-                  layout="dock"
-                  prompts={state.pendingPrompts}
-                  onAnswerPermission={state.answerPermission}
-                  onAnswerAsk={state.answerAsk}
-                  ownDriverId={state.ownDriverId}
-                  onFocusReturn={() => composerRef.current?.focus()}
-                />
+                {readOnly ? null : (
+                  <PermissionPrompt
+                    layout="dock"
+                    prompts={state.pendingPrompts}
+                    onAnswerPermission={state.answerPermission}
+                    onAnswerAsk={state.answerAsk}
+                    ownDriverId={state.ownDriverId}
+                    onFocusReturn={() => composerRef.current?.focus()}
+                  />
+                )}
                 {/* #3282 §3: hidden while there is no provider to send to — the setup panel's own
                     button is the only way in, so nobody types into a composer that goes nowhere. */}
-                {setupRequired ? null : (
+                {readOnly ? (
+                  <p
+                    role="status"
+                    className="rounded-2xl bg-card px-4 py-3 text-center text-[14px] text-muted-foreground"
+                  >
+                    Read-only: you are watching this session.
+                  </p>
+                ) : setupRequired ? null : (
                   <Composer
                     ref={composerRef}
                     draftMode={draftMode}
@@ -409,13 +432,17 @@ export function SessionSurface({
                   selectedEntryId={state.openEntryId ?? undefined}
                   onSelect={(entry) => state.openExecutionDetail(entry.id)}
                   onReturnToConversation={() => state.closeExecutionDetail()}
-                  onStop={stopExecutionEntry}
+                  onStop={readOnly ? undefined : stopExecutionEntry}
                   schedules={state.scheduledTasks}
                   goal={currentGoal}
-                  onPauseSchedule={state.pauseSchedule}
-                  onResumeSchedule={state.resumeSchedule}
-                  onDeleteSchedule={state.deleteSchedule}
-                  onCancelGoal={() => state.send({ type: 'command', name: 'goal', args: 'cancel' })}
+                  onPauseSchedule={readOnly ? undefined : state.pauseSchedule}
+                  onResumeSchedule={readOnly ? undefined : state.resumeSchedule}
+                  onDeleteSchedule={readOnly ? undefined : state.deleteSchedule}
+                  onCancelGoal={
+                    readOnly
+                      ? undefined
+                      : () => state.send({ type: 'command', name: 'goal', args: 'cancel' })
+                  }
                 />
               </aside>
             )}
@@ -428,14 +455,14 @@ export function SessionSurface({
               complete={state.executionDetailComplete}
               onClose={() => state.closeExecutionDetail()}
               onLoadMore={() => state.loadMoreExecutionDetail()}
-              onStop={openEntry ? () => stopExecutionEntry(openEntry) : undefined}
+              onStop={openEntry && !readOnly ? () => stopExecutionEntry(openEntry) : undefined}
               inputState={state.executionDetailInput}
               mode={state.executionDetailMode}
               unreadable={state.executionDetailUnreadable}
               onShowEarlier={state.showEarlierExecutionDetail}
               onShowLive={state.showLiveExecutionDetail}
               onSend={
-                openEntry
+                openEntry && !readOnly
                   ? (prompt) =>
                       state.send({
                         type: 'send-background-task',
@@ -445,7 +472,7 @@ export function SessionSurface({
                   : undefined
               }
               onContinue={
-                openEntry?.resumeSessionId
+                openEntry?.resumeSessionId && !readOnly
                   ? () => {
                       if (openEntry.resumeSessionId) state.switchSession(openEntry.resumeSessionId);
                     }
@@ -457,8 +484,8 @@ export function SessionSurface({
       </div>
 
       <SessionNotices state={state} />
-      <SettingsScreen state={state} />
-      <AgentSwitcherSheet state={state} />
+      {readOnly ? null : <SettingsScreen state={state} />}
+      {readOnly ? null : <AgentSwitcherSheet state={state} />}
       <HelpSheet
         open={state.helpOpen}
         onClose={() => state.closeHelp()}
