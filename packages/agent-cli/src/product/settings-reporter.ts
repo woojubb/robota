@@ -1,6 +1,6 @@
 /**
  * The GUI Settings screen's typed read/write, wired into the WS transport the same
- * way `reportCurrentSessionUsage` wires usage reads. §4b adds the "Providers & Models" section:
+ * way `reportCurrentSessionUsage` wires usage reads. It also adds the "Providers & Models" section:
  * its list read from `buildProviderProfilesSnapshot`, its writes (`providerProfile`, `providerModel`,
  * `deleteProviderProfile`) routed through `/provider switch|delete` and `/model`, same as every other
  * field here.
