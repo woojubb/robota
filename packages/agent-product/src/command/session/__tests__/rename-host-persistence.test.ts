@@ -29,7 +29,7 @@ function createRuntimeSession(): Record<string, unknown> {
       usedPercentage: 0,
       remainingPercentage: 100,
     }),
-    getSessionId: () => 'session_rename_tc10',
+    getSessionId: () => 'session_rename_host',
     getMessageCount: () => 0,
     getSystemMessage: vi.fn().mockReturnValue('system'),
     getToolSchemas: vi.fn().mockReturnValue([]),

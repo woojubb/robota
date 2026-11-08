@@ -32,7 +32,7 @@ import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 const testHost = createTestFrameworkHost();
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'arch-024-semantic-roles-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'semantic-roles-'));
   let cleanupRemoved = false;
   let interactive: InteractiveSession | undefined;
   const subagentSessions: TSubagentSession[] = [];

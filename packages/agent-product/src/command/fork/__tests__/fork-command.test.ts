@@ -14,7 +14,7 @@ import { executeForkCommand } from '../fork-command.js';
 import type { ICommandHostAgentJobs, ICommandHostSessionAccess } from '@robota-sdk/agent-framework';
 import type { ISubagentJobState } from '@robota-sdk/agent-interface/execution';
 
-const FORK_SESSION_ID = 'session_cli-1994-fork';
+const FORK_SESSION_ID = 'session_fork';
 const DEFAULT_FORK_NAME = 'parent-work (fork)';
 const TASK_ID = 'agent_1';
 

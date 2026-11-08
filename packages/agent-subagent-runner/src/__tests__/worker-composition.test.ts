@@ -22,7 +22,7 @@ import { sealConnectionEnvironment } from '@robota-sdk/agent-executor';
  */
 const ENTRY = fileURLToPath(new URL('./fixtures/composition-worker-entry.mjs', import.meta.url));
 const DIST = fileURLToPath(new URL('../../dist/node/index.js', import.meta.url));
-const SCRATCH_TOOL_NAME = 'arch021ScratchTool';
+const SCRATCH_TOOL_NAME = 'scratchTool';
 const TEST_TIMEOUT_MS = 30_000;
 
 interface IWorkerObservation {
@@ -39,11 +39,14 @@ interface IWorkerObservation {
 function runWorker(options: {
   start?: { cwd: string; worktree?: string; snapshotId?: string };
 }): Promise<IWorkerObservation> {
-  const recordPath = join(realpathSync(mkdtempSync(join(tmpdir(), 'arch-021-'))), 'records.jsonl');
+  const recordPath = join(
+    realpathSync(mkdtempSync(join(tmpdir(), 'worker-composition-'))),
+    'records.jsonl',
+  );
   return new Promise<IWorkerObservation>((resolve, reject) => {
     const child = spawn(process.execPath, [ENTRY, SUBAGENT_WORKER_MODE_FLAG], {
       stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
-      env: { ...process.env, ARCH_021_RECORD_PATH: recordPath },
+      env: { ...process.env, WORKER_RECORD_PATH: recordPath },
     });
     let stderr = '';
     child.stderr?.setEncoding('utf8');
@@ -101,7 +104,7 @@ function runWorker(options: {
           },
           parentConfig: {},
           parentContext: { agentsMd: '', projectNotesMd: '' },
-          providerProfile: { type: 'arch021-scratch-provider', model: 'scratch-model' },
+          providerProfile: { type: 'scratch-provider', model: 'scratch-model' },
           // The environment check the parent seals before spawning; this test compares none.
           connectionCheck: sealConnectionEnvironment([], {}),
         },
@@ -137,8 +140,8 @@ describe.skipIf(!existsSync(DIST))('the injected composition reaches the real wo
       // The line the bintest cannot reach: `parentTools: composition.createTools({ cwd:
       // subagentExecutionRoot(payload) })`. Reverting it to `[]`, or to `payload.request.cwd`,
       // changes what this observes.
-      const worktree = realpathSync(mkdtempSync(join(tmpdir(), 'arch-021-worktree-')));
-      const requestCwd = realpathSync(mkdtempSync(join(tmpdir(), 'arch-021-parent-')));
+      const worktree = realpathSync(mkdtempSync(join(tmpdir(), 'worker-worktree-')));
+      const requestCwd = realpathSync(mkdtempSync(join(tmpdir(), 'worker-parent-')));
 
       const { records } = await runWorker({ start: { cwd: requestCwd, worktree } });
 
