@@ -38,7 +38,7 @@ import type { IArtifactSealer } from '@robota-sdk/agent-core';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 const CANARY = 'CANARY-4b8d-typed-before-sealing';
-const posixOnly = process.platform === 'win32';
+const onWindows = process.platform === 'win32';
 const roots: string[] = [];
 
 afterEach(() => {
@@ -152,7 +152,7 @@ describe('migrateNodeSessionStore', () => {
     expect(before.valid_one).toMatchObject({ status: 'valid', authorship: 'unverified' });
     expect((before.corrupt_one as { status: string }).status).toBe('corrupt');
     expect((before.unsupported_one as { status: string }).status).toBe('unsupported');
-    if (!posixOnly) {
+    if (!onWindows) {
       expect(statSync(join(dir, 'valid_one.json')).mode & 0o777).toBe(0o600);
     }
   });
@@ -249,7 +249,7 @@ describe('migrateNodeSessionStore', () => {
     expect(readFileSync(join(dir, 'newer_one.json'))).toEqual(newer);
   });
 
-  it.skipIf(posixOnly)('never follows a record name that is a link', () => {
+  it('never follows a record name that is a link', () => {
     const dir = directory();
     const elsewhere = join(directory(), 'elsewhere.json');
     writeFileSync(elsewhere, envelope(record('linked')));
@@ -264,24 +264,21 @@ describe('migrateNodeSessionStore', () => {
     expect(readFileSync(elsewhere, 'utf8')).toContain(CANARY);
   });
 
-  it.skipIf(posixOnly)(
-    'refuses a record with another name, which sealing in place would leave holding the plaintext',
-    () => {
-      const dir = directory();
-      new NodeSessionStore(dir, { sealing: 'plain' }).save(record('linked_one'));
-      const backup = join(directory(), 'backup.json');
-      linkSync(join(dir, 'linked_one.json'), backup);
+  it('refuses a record with another name, which sealing in place would leave holding the plaintext', () => {
+    const dir = directory();
+    new NodeSessionStore(dir, { sealing: 'plain' }).save(record('linked_one'));
+    const backup = join(directory(), 'backup.json');
+    linkSync(join(dir, 'linked_one.json'), backup);
 
-      const result = migrateNodeSessionStore(dir, {
-        sealer: createTestArtifactSealer(),
-        apply: true,
-      });
+    const result = migrateNodeSessionStore(dir, {
+      sealer: createTestArtifactSealer(),
+      apply: true,
+    });
 
-      expect(result).toMatchObject({ sealed: 0, refused: [join(dir, 'linked_one.json')] });
-      expect(readFileSync(join(dir, 'linked_one.json'), 'utf8')).toContain(CANARY);
-      expect(statSync(backup).nlink).toBe(2);
-    },
-  );
+    expect(result).toMatchObject({ sealed: 0, refused: [join(dir, 'linked_one.json')] });
+    expect(readFileSync(join(dir, 'linked_one.json'), 'utf8')).toContain(CANARY);
+    expect(statSync(backup).nlink).toBe(2);
+  });
 
   it('keeps a forced release from crossing a migration replacement', () => {
     const dir = directory();

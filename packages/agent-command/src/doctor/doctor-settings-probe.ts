@@ -1,9 +1,9 @@
 /**
- * Settings and provider probes (OBSERVABILITY-1991).
+ * Settings and provider probes.
  *
  * Every fact here comes from an owner API — `inspectSettingsLayers` for the layers and their
  * provenance, `readProviderSettings` for the runtime-equivalent provider resolution. The probe adds
- * no reader of its own; that is the CLI-067 discipline the old `diagnose` command broke three times.
+ * no reader of its own; that is the discipline the old `diagnose` command broke three times.
  */
 import { findProviderDefinition } from '@robota-sdk/agent-core';
 import { inspectSettingsLayers, readProviderSettings } from '@robota-sdk/agent-framework';

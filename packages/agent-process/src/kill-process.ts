@@ -55,7 +55,11 @@ function signalChild(child: ChildProcess, signal: NodeJS.Signals, processGroup: 
 function forceKill(child: ChildProcess, processGroup: boolean): void {
   if (isWindows && typeof child.pid === 'number') {
     // node cannot kill a Windows process tree; taskkill /T terminates the whole tree.
-    spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    const result = spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
+      stdio: 'ignore',
+    });
+    // Without taskkill the direct child is all that can still be ended.
+    if (result.error) signalChild(child, 'SIGKILL', false);
     return;
   }
   signalChild(child, 'SIGKILL', processGroup);
@@ -109,7 +113,11 @@ export async function killProcessTree(
       return;
     }
 
-    signalChild(child, signal, processGroup);
+    // Windows has no graceful signal: `child.kill` is a forced termination of the direct child only.
+    // A shell that ends there leaves its descendants running with its stdout and stderr open, so the
+    // caller never sees `close`. The whole tree therefore ends in the first step.
+    if (isWindows) forceKill(child, processGroup);
+    else signalChild(child, signal, processGroup);
 
     graceTimer = setTimeout(() => {
       if (!hasExited(child)) forceKill(child, processGroup);

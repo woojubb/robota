@@ -25,8 +25,14 @@ function guardedDir(mode = 0o700): string {
 
 const UID = process.getuid?.() ?? 0;
 
+// Mode bits, an owner uid and a socket bound to a file path are POSIX facts. Windows reports a fixed
+// emulated mode and no uid, and Node binds a socket there only to a named pipe, never to a path in a
+// directory. The tests that read those facts run where the platform defines them; the Windows
+// counterpart, a refusal that is never a pass on an emulated value, is the last block of this file.
+const posixOnly = it.skipIf(process.platform === 'win32');
+
 describe('the evidence is what the kernel enforces, not what the peer presents', () => {
-  it('admits a directory this user owns that no other account can traverse', () => {
+  posixOnly('admits a directory this user owns that no other account can traverse', () => {
     const dir = guardedDir(0o700);
 
     const admission = admitLocalPeerDirectory(dir, { expectedUid: UID });
@@ -36,24 +42,27 @@ describe('the evidence is what the kernel enforces, not what the peer presents',
     expect(admission.binding?.ownerUid).toBe(UID);
   });
 
-  it('refuses a directory another account can enter — the whole proof is that they cannot', () => {
-    // 0o755 is the ordinary, harmless-looking mode that silently destroys the guarantee: every
-    // account on the host can now traverse to the socket, so reaching it proves nothing.
-    const dir = guardedDir(0o755);
+  posixOnly(
+    'refuses a directory another account can enter — the whole proof is that they cannot',
+    () => {
+      // 0o755 is the ordinary, harmless-looking mode that silently destroys the guarantee: every
+      // account on the host can now traverse to the socket, so reaching it proves nothing.
+      const dir = guardedDir(0o755);
 
-    const admission = admitLocalPeerDirectory(dir, { expectedUid: UID });
+      const admission = admitLocalPeerDirectory(dir, { expectedUid: UID });
 
-    expect(admission.admitted).toBe(false);
-    expect(admission.trust).toBe('unproven');
-    expect(admission.reason).toMatch(/group or other access/);
-  });
+      expect(admission.admitted).toBe(false);
+      expect(admission.trust).toBe('unproven');
+      expect(admission.reason).toMatch(/group or other access/);
+    },
+  );
 
-  it('refuses group-readable as well as world-readable', () => {
+  posixOnly('refuses group-readable as well as world-readable', () => {
     expect(admitLocalPeerDirectory(guardedDir(0o750), { expectedUid: UID }).admitted).toBe(false);
     expect(admitLocalPeerDirectory(guardedDir(0o701), { expectedUid: UID }).admitted).toBe(false);
   });
 
-  it('refuses a directory owned by another uid', () => {
+  posixOnly('refuses a directory owned by another uid', () => {
     const dir = guardedDir(0o700);
 
     // The uid is injected rather than spoofed: the decision under test is the comparison, and a
@@ -123,7 +132,7 @@ describe('the evidence is what the kernel enforces, not what the peer presents',
 });
 
 describe('the socket must be inside the directory that vouches for it', () => {
-  it('admits a socket path inside the guarded directory, before the socket exists', () => {
+  posixOnly('admits a socket path inside the guarded directory, before the socket exists', () => {
     // Bind time is the ordinary case: the guarantee is the directory, and the file is not there yet.
     const dir = guardedDir(0o700);
 
@@ -133,7 +142,7 @@ describe('the socket must be inside the directory that vouches for it', () => {
     expect(admission.binding?.socketPath).toBe(path.join(realpathSync(dir), 'peer.sock'));
   });
 
-  it('admits a real, listening socket inside the guarded directory', async () => {
+  posixOnly('admits a real, listening socket inside the guarded directory', async () => {
     // The end-to-end shape: a socket that actually exists and accepts a local connection.
     const dir = guardedDir(0o700);
     const socketPath = path.join(dir, 'live.sock');
@@ -162,7 +171,16 @@ describe('the socket must be inside the directory that vouches for it', () => {
 
     const admission = admitLocalPeerSocket(escaping, {
       expectedUid: UID,
-      // Directory validation passes; the socket then resolves somewhere else entirely.
+      // Directory validation passes, as evidence a POSIX kernel would give; the socket then resolves
+      // somewhere else entirely. The directory's evidence is injected so this containment decision
+      // is the only thing under test, and it runs on every platform.
+      platform: 'linux',
+      statAt: () => ({
+        uid: UID,
+        mode: 0o700,
+        isDirectory: () => true,
+        isSymbolicLink: () => false,
+      }),
       resolve: (target) => (target === escaping ? '/tmp/other.sock' : target),
     });
 
@@ -170,7 +188,7 @@ describe('the socket must be inside the directory that vouches for it', () => {
     expect(admission.reason).toMatch(/outside the guarded directory/);
   });
 
-  it('a socket in a world-traversable directory is refused however real it is', async () => {
+  posixOnly('a socket in a world-traversable directory is refused however real it is', async () => {
     const dir = guardedDir(0o755);
     const socketPath = path.join(dir, 'open.sock');
     const server = net.createServer();
@@ -186,7 +204,7 @@ describe('the socket must be inside the directory that vouches for it', () => {
 });
 
 describe('what this does NOT prove', () => {
-  it('cannot distinguish two processes of the SAME user, and does not claim to', () => {
+  posixOnly('cannot distinguish two processes of the SAME user, and does not claim to', () => {
     // The documented trust limit. Both admissions succeed because both processes are this user —
     // the boundary is the account, not the process, and a caller must not read it as more.
     const dir = guardedDir(0o700);
@@ -204,4 +222,52 @@ describe('what this does NOT prove', () => {
     expect(refused.trust).toBe('unproven');
     expect(['same-user-same-host', 'unproven']).toContain(refused.trust);
   });
+});
+
+describe('on a platform with no uid and mode evidence, admission is refused rather than passed', () => {
+  const OWNER_ONLY_LOOKING = {
+    uid: UID,
+    mode: 0o700,
+    isDirectory: () => true,
+    isSymbolicLink: () => false,
+  };
+
+  it('refuses evidence that looks owner-only when the platform only emulates it', () => {
+    // The injected stat is exactly what a POSIX kernel would report for a guarded directory. On
+    // Windows the same numbers would be an emulation, so reading them as proof is the failure.
+    const admission = admitLocalPeerDirectory(guardedDir(0o700), {
+      expectedUid: UID,
+      platform: 'win32',
+      statAt: () => OWNER_ONLY_LOOKING,
+    });
+
+    expect(admission.admitted).toBe(false);
+    expect(admission.trust).toBe('unproven');
+    expect(admission.binding).toBeUndefined();
+    expect(admission.reason).toMatch(/Windows/);
+  });
+
+  it('refuses a socket path there too, since its directory cannot vouch for it', () => {
+    const dir = guardedDir(0o700);
+
+    const admission = admitLocalPeerSocket(path.join(dir, 'peer.sock'), {
+      expectedUid: UID,
+      platform: 'win32',
+      statAt: () => OWNER_ONLY_LOOKING,
+    });
+
+    expect(admission.admitted).toBe(false);
+    expect(admission.reason).toMatch(/Windows/);
+  });
+
+  it.runIf(process.platform === 'win32')(
+    'refuses on the Windows host itself, without being told the platform',
+    () => {
+      const admission = admitLocalPeerDirectory(guardedDir(0o700), { expectedUid: UID });
+
+      expect(admission.admitted).toBe(false);
+      expect(admission.trust).toBe('unproven');
+      expect(admission.reason).toMatch(/Windows/);
+    },
+  );
 });

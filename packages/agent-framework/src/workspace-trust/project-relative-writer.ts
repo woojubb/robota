@@ -89,7 +89,7 @@ function withAnchoredParent<T>(
   operation: (parentDescriptor: number, filename: string) => T,
 ): T {
   if (!supportsWorkspaceProjectMutation()) {
-    // Contained — ARCH-047. Portable project mutation fails closed until a stable root-anchored
+    // Contained. Portable project mutation fails closed until a stable root-anchored
     // primitive owns equivalent semantics on every supported platform.
     refuseProjectRead('Project mutation requires stable root-anchored host support.');
   }

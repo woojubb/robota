@@ -2,6 +2,7 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { ownerOnlyGuarantee } from '@robota-sdk/agent-core/node';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import {
   createNodeHostContributionSource,
@@ -19,6 +20,12 @@ export const MARKERS = {
   mcp: 'sk-doctor-marker-mcp-9f8e7d',
   adjacent: 'sk-doctor-marker-adjacent-7c8d9e',
 } as const;
+
+/**
+ * Whether this platform asserts owner-only mode bits. A fixture reports the guarantee a real host on
+ * the same platform would, so the storage probe is checked against the facts the platform can give.
+ */
+export const PLATFORM_ASSERTS_MODES = ownerOnlyGuarantee() === 'posix-mode';
 
 export interface IDoctorFixture {
   readonly home: string;
@@ -70,7 +77,7 @@ function fixtureDeps(
     // Real filesystem facts, so the storage probe is exercised against the fixture HOME.
     inspectPath: inspectPathFacts,
     resolveCommand: (command) => resolvable.has(command.split(/\s+/)[0] ?? command),
-    ownerOnlyGuarantee: () => options.guarantee ?? 'posix-mode',
+    ownerOnlyGuarantee: () => options.guarantee ?? ownerOnlyGuarantee(),
     // The repair writers are the Node host's own: the repair tests assert on the files they leave.
     // The plugin and skill probes read the fixture HOME through the Node host's files.
     files: nodeDeps.files,

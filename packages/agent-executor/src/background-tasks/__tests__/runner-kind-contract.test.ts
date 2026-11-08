@@ -75,7 +75,7 @@ function checkConcreteRunnerKinds(): void {
 void checkConcreteRunnerKinds;
 
 /**
- * #2079: compiled by the package typecheck. `IBackgroundTaskHandle<K>` resolves `result` to the
+ * Compiled by the package typecheck. `IBackgroundTaskHandle<K>` resolves `result` to the
  * `K`-specific member of the discriminated `IBackgroundTaskResult`, so a runner started for a known
  * kind gets a correctly-narrowed result with no cast, and a cross-kind field on it is a compile error.
  */
@@ -108,7 +108,7 @@ function checkResultKindNarrowing(): void {
 void checkResultKindNarrowing;
 
 /**
- * #2079: compiled by the package typecheck. `IBackgroundTaskState<K>` resolves kind-specific fields
+ * Compiled by the package typecheck. `IBackgroundTaskState<K>` resolves kind-specific fields
  * (and `result`) to the `K`-specific member the same way `IBackgroundTaskHandle<K>` does above — a
  * caller that knows the kind statically gets a correctly-narrowed state with no cast, and a
  * cross-kind field on it is a compile error.

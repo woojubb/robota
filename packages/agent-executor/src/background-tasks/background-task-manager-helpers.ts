@@ -80,7 +80,7 @@ export function applyBackgroundTaskResultMetadataToState(
   state: IBackgroundTaskState,
   result: IBackgroundTaskResult,
 ): void {
-  // #2079: the worktree-isolation fields are agent-only on the discriminated state — their sole
+  // The worktree-isolation fields are agent-only on the discriminated state — their sole
   // producer is `worktree-subagent-runner.ts`, which only ever starts an agent-kind task.
   if (state.kind === 'agent') {
     const worktreePath = result.metadata?.['worktreePath'];
@@ -148,7 +148,7 @@ export function hasRepeatedSentence(text: string, threshold: number): boolean {
 }
 
 /**
- * MCP-004 §S1: `IToolInvocationBackgroundTaskRequest` keeps its provenance as primitive fields
+ * `IToolInvocationBackgroundTaskRequest` keeps its provenance as primitive fields
  * (data only — no nested object). This projects those same fields into `metadata` so `/tasks` and
  * every other metadata-only reader can see them without knowing the request shape, alongside
  * whatever `request.metadata` already carries.
@@ -177,7 +177,7 @@ export function createQueuedBackgroundTaskState(
   now: string,
   previewLength: number,
   /**
-   * MCP-004 §S1: `'queued'` for every runner as before; a runner declaring
+   * `'queued'` for every runner as before; a runner declaring
    * `admission: 'already-running'` constructs its state as `'running'` from the start, so
    * `background_task_created` is emitted with a state that is already running — `spawn` never
    * enqueues or transitions it (`background-task-manager.ts`).
@@ -198,7 +198,7 @@ export function createQueuedBackgroundTaskState(
     unread: false,
     ...(metadata ? { metadata } : {}),
   };
-  // #2079: switch-by-kind construction — the same pattern `decodeBackgroundTaskResult` and
+  // Switch-by-kind construction — the same pattern `decodeBackgroundTaskResult` and
   // `decodeBackgroundTaskState` use — so a kind-specific field can only ever land on its own
   // member, with no cast needed to satisfy the discriminated `IBackgroundTaskState`.
   switch (request.kind) {
@@ -209,7 +209,7 @@ export function createQueuedBackgroundTaskState(
         agentType: request.agentType,
         isolation: request.isolation,
         promptPreview: request.prompt.slice(0, previewLength),
-        // CLI-1994: carried so a surface can offer `attach` on a forked conversation's task.
+        // Carried so a surface can offer `attach` on a forked conversation's task.
         ...(request.resumeSessionId !== undefined
           ? { resumeSessionId: request.resumeSessionId }
           : {}),
@@ -241,7 +241,7 @@ export function createQueuedBackgroundTaskState(
         ...(previewSource !== undefined
           ? { commandPreview: previewSource.slice(0, previewLength) }
           : {}),
-        // FLOW-003: capture the reconstructable schedule so a resumed session can re-arm the cron job.
+        // Capture the reconstructable schedule so a resumed session can re-arm the cron job.
         schedule: {
           cronExpression: request.cronExpression,
           ...(request.agentInstruction !== undefined
@@ -276,7 +276,7 @@ function cloneBackgroundTaskResult<K extends TBackgroundTaskKind>(
 }
 
 /**
- * #2079: `state.result` is now `IBackgroundTaskResult<K>` — correlated with `state.kind` — so a
+ * `state.result` is now `IBackgroundTaskResult<K>` — correlated with `state.kind` — so a
  * clone built by spreading `state` and then overwriting `result`/`schedule` generically would let
  * TypeScript re-widen `result` to the full union and lose that correlation. The switch keeps each
  * branch's `state` (and its `result`) narrowed to its own kind throughout.

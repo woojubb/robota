@@ -33,7 +33,13 @@ describe('Hook flow integration', () => {
       PreToolUse: [
         {
           matcher: 'Bash',
-          hooks: [{ type: 'command', command: 'echo "denied" >&2; exit 2' }],
+          hooks: [
+            {
+              type: 'command',
+              // Shell-neutral: `sh` and PowerShell both run a double-quoted `node -e` argument.
+              command: `node -e "console.error('denied'); process.exit(2)"`,
+            },
+          ],
         },
       ],
     };

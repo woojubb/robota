@@ -1,5 +1,5 @@
 /**
- * Sealing the subagent transcripts a host wrote in plaintext (#3679, secure conversation): every
+ * Sealing the subagent transcripts a host wrote in plaintext (secure conversation): every
  * parent's `subagents/` directory under the log root, each line one sealed record, so `/agent read`
  * pages the same lines at the same offsets before and after, and a parent entry that is a link is
  * never followed.
@@ -64,66 +64,56 @@ function allPages(path: string, sealer?: ReturnType<typeof createTestArtifactSea
   );
 }
 
-// agent-session's `openAppendFile` refuses every log on Windows, where `lstat` reports device 0 and
-// `fstat` the volume serial for the same file, so these two cannot pass there until it is fixed.
-const sealsOnThisPlatform = process.platform !== 'win32';
-
 describe('migrateSubagentTranscripts', () => {
-  it.skipIf(!sealsOnThisPlatform)(
-    'seals every transcript in place, and every page keeps its lines and offsets',
-    async () => {
-      const base = logRoot();
-      const first = seedTranscript(base, 'parent_a', 'task_1');
-      const second = seedTranscript(base, 'parent_b', 'task_2');
-      const sealer = createTestArtifactSealer();
-      const before = allPages(first);
+  it('seals every transcript in place, and every page keeps its lines and offsets', async () => {
+    const base = logRoot();
+    const first = seedTranscript(base, 'parent_a', 'task_1');
+    const second = seedTranscript(base, 'parent_b', 'task_2');
+    const sealer = createTestArtifactSealer();
+    const before = allPages(first);
 
-      const result = await migrateSubagentTranscripts(base, { sealer, apply: true });
+    const result = await migrateSubagentTranscripts(base, { sealer, apply: true });
 
-      expect(result).toMatchObject({
-        directories: 2,
-        logs: 2,
-        lines: 14,
-        changed: [],
-        refused: [],
-      });
-      for (const path of [first, second]) {
-        const text = readFileSync(path, 'utf8');
-        expect(text).not.toContain(CANARY);
-        expect(
-          text
-            .split('\n')
-            .filter((line) => line.length > 0)
-            .every(isSealedArtifactLine),
-        ).toBe(true);
-      }
-      expect(allPages(first, sealer)).toEqual(before);
-    },
-  );
+    expect(result).toMatchObject({
+      directories: 2,
+      logs: 2,
+      lines: 14,
+      changed: [],
+      refused: [],
+    });
+    for (const path of [first, second]) {
+      const text = readFileSync(path, 'utf8');
+      expect(text).not.toContain(CANARY);
+      expect(
+        text
+          .split('\n')
+          .filter((line) => line.length > 0)
+          .every(isSealedArtifactLine),
+      ).toBe(true);
+    }
+    expect(allPages(first, sealer)).toEqual(before);
+  });
 
-  it.skipIf(!sealsOnThisPlatform)(
-    'plans without writing, and a rerun finds everything sealed',
-    async () => {
-      const base = logRoot();
-      const path = seedTranscript(base, 'parent_a', 'task_1');
-      const sealer = createTestArtifactSealer();
-      const plain = readFileSync(path);
+  it('plans without writing, and a rerun finds everything sealed', async () => {
+    const base = logRoot();
+    const path = seedTranscript(base, 'parent_a', 'task_1');
+    const sealer = createTestArtifactSealer();
+    const plain = readFileSync(path);
 
-      expect(await migrateSubagentTranscripts(base, { sealer, apply: false })).toMatchObject({
-        logs: 1,
-        lines: 7,
-      });
-      expect(readFileSync(path)).toEqual(plain);
+    expect(await migrateSubagentTranscripts(base, { sealer, apply: false })).toMatchObject({
+      logs: 1,
+      lines: 7,
+    });
+    expect(readFileSync(path)).toEqual(plain);
 
-      await migrateSubagentTranscripts(base, { sealer, apply: true });
-      const sealed = readFileSync(path);
-      expect(await migrateSubagentTranscripts(base, { sealer, apply: true })).toMatchObject({
-        logs: 0,
-        alreadySealed: 1,
-      });
-      expect(readFileSync(path)).toEqual(sealed);
-    },
-  );
+    await migrateSubagentTranscripts(base, { sealer, apply: true });
+    const sealed = readFileSync(path);
+    expect(await migrateSubagentTranscripts(base, { sealer, apply: true })).toMatchObject({
+      logs: 0,
+      alreadySealed: 1,
+    });
+    expect(readFileSync(path)).toEqual(sealed);
+  });
 
   it.skipIf(process.platform === 'win32')(
     'never follows a parent entry that is a link',

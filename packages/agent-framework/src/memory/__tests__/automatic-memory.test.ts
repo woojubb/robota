@@ -86,7 +86,7 @@ describe('automatic memory pipeline', () => {
     expect(decision).toEqual({ action: 'skip', reason: 'sensitive-content' });
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given disabled policy When capture runs Then no pending or saved entries are created',
     async () => {
@@ -115,7 +115,7 @@ describe('automatic memory pipeline', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given approval required policy When capture runs Then candidates are queued instead of saved',
     async () => {
@@ -146,7 +146,7 @@ describe('automatic memory pipeline', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given auto save policy When a high confidence candidate is captured Then memory is saved',
     async () => {
@@ -175,7 +175,7 @@ describe('automatic memory pipeline', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given a duplicate memory candidate When saving runs Then the topic entry is not repeated',
     async () => {
@@ -200,7 +200,7 @@ describe('automatic memory pipeline', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given a topic-related query When retrieval runs Then matching topics and provenance are returned',
     async () => {
@@ -236,7 +236,7 @@ describe('automatic memory pipeline', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given no relevant topics When retrieval runs Then no memory is injected',
     async () => {
@@ -259,8 +259,8 @@ describe('automatic memory pipeline', () => {
   );
 });
 
-/** NEUT-007 — locale/domain heuristics are an injectable policy, not baked-in library text. */
-describe('NEUT-007 injectable extractor policy', () => {
+/** Locale/domain heuristics are an injectable policy, not baked-in library text. */
+describe('injectable extractor policy', () => {
   const baseInput = {
     sessionId: 'session-1',
     turnId: 'turn-1',

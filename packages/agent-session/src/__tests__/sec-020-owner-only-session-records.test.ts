@@ -8,11 +8,16 @@
  *
  * Every case sets a permissive umask explicitly: under a restrictive one these pass whether the mode
  * is requested or not.
+ *
+ * Mode bits are asserted only where the platform's guarantee is `posix-mode`. On Windows inherited
+ * ACLs govern and the bits a stat reports say nothing about who can read, so there the same cases
+ * assert that the writers still produced the directory and the file.
  */
 
 import { createHash } from 'node:crypto';
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -23,6 +28,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { ownerOnlyGuarantee } from '@robota-sdk/agent-core/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { NodeSessionLogSink } from '../node-session-log-sink.js';
@@ -49,6 +55,15 @@ afterEach(() => {
 
 const mode = (path: string): number => statSync(path).mode & 0o7777;
 
+/**
+ * `path` has permission bits `expected` where the platform defines them; elsewhere only that it
+ * exists, since the mode a stat reports there is not a claim about who can read it.
+ */
+function expectMode(path: string, expected: number): void {
+  if (ownerOnlyGuarantee() === 'posix-mode') expect(mode(path)).toBe(expected);
+  else expect(existsSync(path)).toBe(true);
+}
+
 /** The sink refuses any reference whose digest is not the exact content address. */
 const createSha = (serialized: string): string =>
   createHash('sha256').update(serialized).digest('hex');
@@ -69,8 +84,8 @@ describe('NodeSessionStore', () => {
     // Measured before this change: 0755 and 0644.
     const base = join(root, 'sessions');
     new NodeSessionStore(base, { sealing: 'plain' }).save(record('a'));
-    expect(mode(base)).toBe(OWNER_ONLY_DIRECTORY);
-    expect(mode(join(base, 'a.json'))).toBe(OWNER_ONLY_FILE);
+    expectMode(base, OWNER_ONLY_DIRECTORY);
+    expectMode(join(base, 'a.json'), OWNER_ONLY_FILE);
   });
 
   it('a sessions directory pre-created at 0777 is tightened, not adopted', () => {
@@ -78,7 +93,7 @@ describe('NodeSessionStore', () => {
     mkdirSync(base);
     chmodSync(base, 0o777);
     new NodeSessionStore(base, { sealing: 'plain' }).save(record('b'));
-    expect(mode(base)).toBe(OWNER_ONLY_DIRECTORY);
+    expectMode(base, OWNER_ONLY_DIRECTORY);
   });
 
   it('a record an older version left at 0644 is narrowed on the next save', () => {
@@ -87,7 +102,7 @@ describe('NodeSessionStore', () => {
     store.save(record('c'));
     chmodSync(join(base, 'c.json'), 0o644);
     store.save(record('c'));
-    expect(mode(join(base, 'c.json'))).toBe(OWNER_ONLY_FILE);
+    expectMode(join(base, 'c.json'), OWNER_ONLY_FILE);
   });
 
   it('resume still works — save, load, list and delete are unchanged', () => {
@@ -114,8 +129,8 @@ describe('NodeSessionLogSink', () => {
     mkdirSync(logs);
     chmodSync(logs, 0o777);
     new NodeSessionLogSink(logs, { sealing: 'plain' }).append('s1', '{"a":1}\n');
-    expect(mode(logs)).toBe(OWNER_ONLY_DIRECTORY);
-    expect(mode(join(logs, 's1.jsonl'))).toBe(OWNER_ONLY_FILE);
+    expectMode(logs, OWNER_ONLY_DIRECTORY);
+    expectMode(join(logs, 's1.jsonl'), OWNER_ONLY_FILE);
   });
 
   it('a log an older version left at 0644 is narrowed before the next append', () => {
@@ -124,7 +139,7 @@ describe('NodeSessionLogSink', () => {
     sink.append('s2', 'one\n');
     chmodSync(join(logs, 's2.jsonl'), 0o644);
     sink.append('s2', 'two\n');
-    expect(mode(join(logs, 's2.jsonl'))).toBe(OWNER_ONLY_FILE);
+    expectMode(join(logs, 's2.jsonl'), OWNER_ONLY_FILE);
     expect(readFileSync(join(logs, 's2.jsonl'), 'utf8')).toBe('one\ntwo\n');
   });
 
@@ -134,8 +149,8 @@ describe('NodeSessionLogSink', () => {
     const serialized = '{"payload":true}';
     const sha256 = createSha(serialized);
     const reference = sink.writeJson('s3', sha256, serialized);
-    expect(mode(join(logs, 's3.payloads'))).toBe(OWNER_ONLY_DIRECTORY);
-    expect(mode(join(logs, reference.relativePath))).toBe(OWNER_ONLY_FILE);
+    expectMode(join(logs, 's3.payloads'), OWNER_ONLY_DIRECTORY);
+    expectMode(join(logs, reference.relativePath), OWNER_ONLY_FILE);
   });
 
   it('an existing payload is not rewritten, but IS tightened', () => {
@@ -149,7 +164,7 @@ describe('NodeSessionLogSink', () => {
     const path = join(logs, reference.relativePath);
     chmodSync(path, 0o644);
     sink.writeJson('s4', sha256, serialized);
-    expect(mode(path)).toBe(OWNER_ONLY_FILE);
+    expectMode(path, OWNER_ONLY_FILE);
     expect(readFileSync(path, 'utf8')).toBe(serialized);
   });
 
@@ -173,8 +188,8 @@ describe('the store root the host declares it owns', () => {
     chmodSync(owned, 0o755);
     const base = join(owned, 'sessions');
     new NodeSessionStore(base, { ownedRoot: owned, sealing: 'plain' }).save(record('d'));
-    expect(mode(owned)).toBe(OWNER_ONLY_DIRECTORY);
-    expect(mode(base)).toBe(OWNER_ONLY_DIRECTORY);
+    expectMode(owned, OWNER_ONLY_DIRECTORY);
+    expectMode(base, OWNER_ONLY_DIRECTORY);
   });
 
   it('without a declared root the store narrows only its own directory', () => {
@@ -184,7 +199,7 @@ describe('the store root the host declares it owns', () => {
     mkdirSync(parent);
     chmodSync(parent, 0o755);
     new NodeSessionStore(join(parent, 'sessions'), { sealing: 'plain' }).save(record('e'));
-    expect(mode(parent)).toBe(0o755);
-    expect(mode(join(parent, 'sessions'))).toBe(OWNER_ONLY_DIRECTORY);
+    expectMode(parent, 0o755);
+    expectMode(join(parent, 'sessions'), OWNER_ONLY_DIRECTORY);
   });
 });

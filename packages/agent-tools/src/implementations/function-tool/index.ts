@@ -5,7 +5,7 @@
  * with proper separation of concerns and type safety.
  *
  * Zod compatibility types and schema conversion utilities moved to
- * @robota-sdk/agent-core (CORE-015 SSOT) — import them from core.
+ * @robota-sdk/agent-core (SSOT) — import them from core.
  */
 
 // Core types

@@ -349,13 +349,15 @@ it, so a surface names an unlock only when one would help.
 
 Compaction rewrites every entry sealed, one per line, under the one sealer it is given. The file has
 no lock and writers append by path, so the new file replaces it by rename and what reached the old one
-meanwhile is caught up from its descriptor; a crash inside that window can lose those entries, which
-is accepted because the file is a derived copy of the records. Nothing that does not open is dropped,
-plaintext that reaches the new file anyway is reported rather than hidden, a catch-up that fails says
-how much it left unread, a compaction that finds the file already replaced by another abandons its
-rename rather than discard what that one caught up, one that finds it deleted puts nothing back, and
-a history that is a link or has another name is refused, since a rename would leave the plaintext
-where it points.
+meanwhile is caught up from its descriptor — before the rename on Windows, which will not replace a
+file while any handle on it is open, so a rename another handle blocks is retried and then fails with
+nothing replaced; a crash inside that window can lose those entries, which is accepted because the
+file is a derived copy of the records. Nothing that does not open is dropped, plaintext that reaches
+the new file anyway is reported rather than hidden, a catch-up that fails says how much it left unread
+(on Windows it abandons the compaction instead, replacing nothing), a compaction that finds the file
+already replaced by another abandons its rename rather than discard what that one caught up, one that
+finds it deleted puts nothing back, and a history that is a link or has another name is refused, since
+a rename would leave the plaintext where it points.
 
 ### Compaction
 

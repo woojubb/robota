@@ -9,7 +9,7 @@ import { requiresFreshApproval } from '../permission-gate.js';
 import { isProtectedPath, removesCriticalPath } from '../permission-safeguards.js';
 
 /**
- * Issue #3081 — one evaluation order for every caller: deny → ceiling → unevaluable deny → the
+ * One evaluation order for every caller: deny → ceiling → unevaluable deny → the
  * never-auto-approve set → ask-everything → bypass → allow → mode.
  */
 const where = { cwd: '/w/project', homeDirectory: '/home/me', pathProtection: { protectedDirectoryNames: ['.test-product'], protectedPaths: [], writableWorktreeContainers: ['.test-product/worktrees'] } };

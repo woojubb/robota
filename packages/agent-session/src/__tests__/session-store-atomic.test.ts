@@ -1,5 +1,5 @@
 /**
- * sessionStore atomic persistence tests.
+ * SessionStore atomic persistence tests.
  *
  * save() must write via a same-directory temp file + rename so a crash mid-write can
  * never leave a truncated/corrupt JSON in place of the previous record. Observable

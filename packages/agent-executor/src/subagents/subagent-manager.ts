@@ -21,11 +21,11 @@ import type {
 } from './types.js';
 
 /**
- * ARCH-031: the keys `toSubagentState` passes through untouched — every task-state key that is
+ * The keys `toSubagentState` passes through untouched — every task-state key that is
  * neither transformed by that hop nor deliberately withheld from a subagent job.
  */
 type TCarriedSubagentStateKey = Exclude<
-  // #2079: a subagent job is always an agent-kind task (the seam ARCH-031 fixed) — the agent-kind
+  // A subagent job is always an agent-kind task — the agent-kind
   // member of the now-discriminated `IBackgroundTaskState`, not the bare union, is the source of
   // truth for which keys a subagent state can carry.
   keyof IBackgroundTaskState<'agent'>,
@@ -37,7 +37,7 @@ type TCarriedSubagentStateKey = Exclude<
   | 'result'
   | 'error'
   // Withheld — task-only, with no subagent-job meaning.
-  // #2079: `commandPreview`/`nextFireAt`/`schedule` no longer need excluding by name — they are
+  // `commandPreview`/`nextFireAt`/`schedule` no longer need excluding by name — they are
   // structurally absent from `IBackgroundTaskState<'agent'>` now (process/scheduled-only members).
   | 'kind'
   | 'parentTaskId'
@@ -82,7 +82,7 @@ export class SubagentManager implements ISubagentManager {
 
   async spawn(request: ISubagentSpawnRequest): Promise<ISubagentJobState> {
     const state = await this.backgroundTaskManager.spawn(this.toBackgroundRequest(request));
-    // #2079: `spawn`'s generic manager port returns the full `IBackgroundTaskState` union — this
+    // `spawn`'s generic manager port returns the full `IBackgroundTaskState` union — this
     // narrows it the same way `get()` below does, rather than casting: `toBackgroundRequest` always
     // builds an agent-kind request, so the runner it dispatches to always returns an agent-kind state.
     if (state.kind !== 'agent') {
@@ -95,9 +95,8 @@ export class SubagentManager implements ISubagentManager {
   }
 
   /**
-   * ARCH-031 subsumed ARCH-025's repair here, exactly as that item said it would. The hand-written
-   * projection that dropped `usage` — in the very commit that added it — is gone; dropping `kind` is
-   * the whole transformation, and there is no key list left to forget a field from.
+   * Dropping `kind` is the whole transformation, and there is no key list to forget a field (such
+   * as `usage`) from.
    */
   async wait(taskId: string): Promise<ISubagentJobResult> {
     const { kind: _kind, ...result } = await this.backgroundTaskManager.wait(taskId);
@@ -174,7 +173,7 @@ export class SubagentManager implements ISubagentManager {
   }
 
   /**
-   * ARCH-031: a spread, not a 20-key hand-copy. `ISubagentSpawnRequest` IS
+   * A spread, not a 20-key hand-copy. `ISubagentSpawnRequest` IS
    * `Omit<IAgentBackgroundTaskRequest, 'kind'>`, so the only thing this hop adds is the discriminant
    * the seam fixes. The copy this replaced dropped `parentTaskId` and `providerProfile` and would have
    * dropped the next field added too — nothing checked it for totality.
@@ -184,7 +183,7 @@ export class SubagentManager implements ISubagentManager {
   }
 
   /**
-   * ARCH-031: the state hop of the same seam, and the last hand-written literal on it. It was a
+   * The state hop of the same seam, and the last hand-written literal on it. It was a
    * 24-key copy into a `Pick`-derived type, so the ~17 optional keys could be dropped silently —
    * adding one to `ISubagentJobState`'s `Pick<>` list compiled clean and carried nothing. Now the
    * pass-through half is the rest of the destructuring, so it is total by construction: only the
@@ -224,7 +223,7 @@ export class SubagentManager implements ISubagentManager {
     return {
       ...carried,
       type: agentType ?? carried.label,
-      // SELFHOST-012: `paused` is a scheduled-task-only status; a subagent is never a scheduled task, so this
+      // `paused` is a scheduled-task-only status; a subagent is never a scheduled task, so this
       // branch is unreachable — narrowed here only to keep the projection assignable to TSubagentJobStatus.
       status: status === 'paused' ? 'sleeping' : status,
       promptPreview: promptPreview ?? '',
@@ -277,10 +276,9 @@ function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTas
 }
 
 /**
- * ARCH-031: destructuring, not a 20-key hand-copy. Dropping `kind` is the entire transformation, and
- * the compiler now guarantees the rest is carried. The copy this replaced omitted `parentTaskId` and
- * `providerProfile`, and the CORE-025 comment it carried — "previously dropped here → dead field" —
- * recorded the third field the same hop had already lost.
+ * Destructuring, not a 20-key hand-copy. Dropping `kind` is the entire transformation, and
+ * the compiler now guarantees the rest is carried. A hand-written copy would risk omitting fields such as `parentTaskId` and
+ * `providerProfile`.
  */
 function toSubagentStartRequest(request: IAgentBackgroundTaskRequest): ISubagentSpawnRequest {
   const { kind: _kind, ...spawnRequest } = request;
@@ -288,10 +286,9 @@ function toSubagentStartRequest(request: IAgentBackgroundTaskRequest): ISubagent
 }
 
 /**
- * ARCH-031: a spread. `ISubagentJobResult` IS
+ * A spread. `ISubagentJobResult` IS
  * `Omit<IBackgroundTaskResult<'agent'>, 'kind'>`, so the only addition is the discriminant. `usage`
- * cannot be dropped here any more — there is no key list to forget it from, which is what the
- * ARCH-025 repair had to add back by hand.
+ * cannot be dropped here any more — there is no key list to forget it from, which a hand-written copy would have to add back.
  */
 function toBackgroundResult(result: ISubagentJobResult): IBackgroundTaskResult<'agent'> {
   return { kind: 'agent', ...result };

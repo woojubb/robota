@@ -13,7 +13,7 @@ import type { IFileBuiltinToolOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
-// CORE-030: defining a tool and telling the permission system what it does arrive together.
+// Defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
 
 const DEFAULT_WRITE_DESCRIPTION =
@@ -34,7 +34,7 @@ async function writeFileTool(
   const signal = editorSignal(options.signal, callSignal);
   signal?.throwIfAborted();
   const { content } = args;
-  // A relative path anchors to the containment root before it is confined or written (issue #2429).
+  // A relative path anchors to the containment root before it is confined or written.
   const filePath = options.sandboxClient
     ? args.filePath
     : resolveHostPath(args.filePath, options.cwd);

@@ -21,10 +21,12 @@ describe('resolvePlatformShell', () => {
       kind: 'powershell',
       platform: 'win32',
     });
+    // The command text sits unchanged on its own line, between the error-count mark and the
+    // exit-code passthrough.
     expect(windows.commandArgs('Write-Output ok')).toEqual([
       '-NoProfile',
       '-Command',
-      'Write-Output ok',
+      expect.stringMatching(/\nWrite-Output ok\n.*exit \$LASTEXITCODE/su),
     ]);
   });
 
@@ -58,7 +60,7 @@ describe('resolvePlatformShell', () => {
       executable: '/opt/Microsoft/PowerShell/PWSH',
       platform: 'linux' as const,
       kind: 'powershell',
-      args: ['-NoProfile', '-Command', 'sentinel'],
+      args: ['-NoProfile', '-Command', expect.stringMatching(/\nsentinel\n/u)],
     },
     {
       executable: '/windows/System32/CMD.exe',

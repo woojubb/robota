@@ -1,5 +1,5 @@
 /**
- * TERM-008: cross-platform shell tool, proven through the TEST-003 functional harness.
+ * Cross-platform shell tool, proven through the functional harness.
  *
  * Drives a REAL InteractiveSession (real agent loop + builtin tools) so the OS-aware Shell tool — and
  * its model-familiar `Bash` alias — are verified end to end after the rename, not just in isolation.
@@ -22,7 +22,7 @@ afterEach(async () => {
   harness = undefined;
 });
 
-describe('Shell tool (TERM-008) — functional, via the scripted-session harness', () => {
+describe('Shell tool — functional, via the scripted-session harness', () => {
   it(
     'runs a command through the real `Shell` tool and writes a file',
     async () => {

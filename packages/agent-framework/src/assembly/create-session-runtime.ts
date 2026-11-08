@@ -30,9 +30,8 @@ import type { Session } from '@robota-sdk/agent-session';
 /**
  * Human-readable descriptions of the built-in tools, for the system prompt.
  *
- * ARCH-035 collocated this here from the deleted `create-tools.ts`. It has exactly one consumer —
- * the prompt build below — and the internal re-export it used to carry had none at all, so a module
- * boundary existed for nobody.
+ * It lives here because it has exactly one consumer — the prompt build below — so a separate
+ * module boundary would exist for nobody.
  *
  * A LIMIT worth meeting head-on now that the list sits beside its consumer: this inventory is
  * hard-coded and is NOT derived from the tools the session actually assembled. It happens to be
@@ -52,14 +51,14 @@ export const DEFAULT_TOOL_DESCRIPTIONS = [
   'AskUserQuestion — ask the user structured questions (options/multi-select/free text) mid-task',
 ];
 
-// Re-exported so existing importers of the assembly module keep one entry point — CLI-1990's
+// Re-exported so existing importers of the assembly module keep one entry point — the
 // deferred roster included, since its one consumer is the prompt build below.
 export { buildAgentRuntime };
 export { DEFERRED_TOOL_ROSTER_HEADER, formatDeferredToolRoster } from './deferred-tool-roster.js';
 export type { IAgentRuntimeResult } from './build-runtime.js';
 
 /**
- * ARCH-040: what a live preset switch may re-apply to the system prompt.
+ * What a live preset switch may re-apply to the system prompt.
  *
  * One type rather than an inline literal at each site, because it is now written in four places —
  * the closure's parameter, the interface that declares it, the session's applier, and the host role.
@@ -104,7 +103,7 @@ export function buildBackgroundProcessTool(
 }
 
 /**
- * MCP-004 §S3: when `options.toolCallHandoff` is set AND a `tool-invocation` runner is present in
+ * When `options.toolCallHandoff` is set AND a `tool-invocation` runner is present in
  * `options.backgroundTaskRunners` (the `hasProcessRunner` pattern above, narrowed by `'adopt' in
  * runner` to the adopter port `agent-executor`'s runner also implements), REPLACES each entry in the
  * session-local `tools` array whose `getName()` is named in `toolCallHandoff.toolNames` with its
@@ -164,7 +163,7 @@ export interface ISystemPromptResult {
 
 /**
  * Build the static system-prompt params shared by the initial build and every rebuild. Persona
- * (PRESET-014) and selfVerification (PRESET-017) are composed separately per-build so their mutable
+ * and selfVerification are composed separately per-build so their mutable
  * closure values always take precedence over these static params.
  */
 function buildStaticPromptParams(
@@ -184,7 +183,7 @@ function buildStaticPromptParams(
     memoryMd: options.context.memoryMd,
     taskContext: options.context.taskContext,
     toolDescriptions: resolvedToolDescriptions,
-    // CLI-072: the prompt names the mode the gate enforces — same resolution
+    // The prompt names the mode the gate enforces — same resolution
     // as agent-session (explicit mode, else trust-level mapping, else default).
     permissionMode:
       options.permissionMode ?? TRUST_TO_MODE[options.config.defaultTrustLevel] ?? 'default',
@@ -238,7 +237,7 @@ export function buildSessionSystemPrompt(
           'BackgroundProcess — start long-running shell commands as managed background tasks',
         ]
       : defaultToolDescriptions);
-  // CLI-1990: appended AFTER the override branch, deliberately. A caller supplying its own
+  // Appended AFTER the override branch, deliberately. A caller supplying its own
   // `toolDescriptions` owns which resident tools are described, but no caller can know what this
   // session deferred — and a deferred tool the model is never told about cannot be searched for.
   const resolvedToolDescriptions = [
@@ -246,20 +245,20 @@ export function buildSessionSystemPrompt(
     ...formatDeferredToolRoster(assembledTools),
   ];
 
-  // PRESET-014: persona is mutable for the lifetime of this closure. A live preset switch can
+  // Persona is mutable for the lifetime of this closure. A live preset switch can
   // re-apply a new persona mid-session (via `rebuildSystemMessage(..., { persona })`); later
   // staleness rebuilds (no override) must keep the most recently applied persona.
   let currentPersona = options.persona;
 
   let currentOutputStyle = options.outputStyle;
 
-  // PRESET-017: selfVerification is mutable for the lifetime of this closure, mirroring persona. A
+  // selfVerification is mutable for the lifetime of this closure, mirroring persona. A
   // live preset switch can toggle the verify-before-done section mid-session (via
   // `rebuildSystemMessage(..., { selfVerification })`); later staleness rebuilds (no override) must
   // keep the most recently applied value.
   let currentSelfVerification = options.selfVerification;
 
-  // ARCH-040: language is mutable for the lifetime of this closure, mirroring persona. A live preset
+  // Language is mutable for the lifetime of this closure, mirroring persona. A live preset
   // switch re-applies the response-language section mid-session; later staleness rebuilds (no
   // override) must keep the most recently applied value.
   //
@@ -269,7 +268,7 @@ export function buildSessionSystemPrompt(
   // whole item is about; it was written, and removed for that reason.
   let currentLanguage = options.config.language;
 
-  // ARCH-040: a preset-supplied system prompt, mutable for the lifetime of this closure like the
+  // A preset-supplied system prompt, mutable for the lifetime of this closure like the
   // three above it. It SEEDS the composed prompt as a priority-4 section — the framework's own
   // `systemPrompt` option is the REPLACE seam, and a preset pointing at that would drop the
   // AGENTS.md and capability sections without saying so.
@@ -310,12 +309,12 @@ export function buildSessionSystemPrompt(
     if (overrides?.outputStyle !== undefined) {
       currentOutputStyle = overrides.outputStyle;
     }
-    // PRESET-014: a persona override mutates the retained persona so subsequent rebuilds
+    // A persona override mutates the retained persona so subsequent rebuilds
     // (e.g. staleness refresh, which passes no override) keep the latest applied persona.
     if (overrides?.persona !== undefined) {
       currentPersona = overrides.persona;
     }
-    // PRESET-017: a selfVerification override mutates the retained flag the same way, so later
+    // A selfVerification override mutates the retained flag the same way, so later
     // override-less rebuilds keep the latest applied value.
     if (overrides?.selfVerification !== undefined) {
       currentSelfVerification = overrides.selfVerification;
@@ -361,11 +360,11 @@ export function wireSessionDeps(
       return selection === 'auto' ? undefined : selection;
     };
   }
-  // PRESET-016: wire the runtime gate to the session's live flag so a preset switch can
+  // Wire the runtime gate to the session's live flag so a preset switch can
   // enable/disable subagent dispatch on this already-constructed session.
   if (agentToolDeps) {
     agentToolDeps.isParallelSubagentsEnabled = () => session.getParallelSubagentsEnabled();
-    // Issue #3081: subagents inherit what this session's gate enforces now, not the settings file.
+    // Subagents inherit what this session's gate enforces now, not the settings file.
     agentToolDeps.getParentPermissionRules = () => session.getPermissionRules();
     agentToolDeps.getParentPermissionMode = () => session.getPermissionMode();
   }

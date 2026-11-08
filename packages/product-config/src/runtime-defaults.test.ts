@@ -1,3 +1,4 @@
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { embeddedProductRuntimeDefaults, resolveProductConfig } from './index.js';
 import { expandProductRuntimeDefaults } from './node.js';
@@ -18,10 +19,13 @@ describe('non-secret artifact runtime defaults', () => {
     });
     const artifact = embeddedProductRuntimeDefaults(config);
     expect(JSON.stringify(artifact)).not.toContain('/tmp/');
-    const defaults = expandProductRuntimeDefaults(artifact, '/home/fixture');
-    expect(defaults.PRODUCT_USER_STATE_DIR).toBe(`/home/fixture/.${name}`);
-    expect(defaults.PRODUCT_CACHE_DIR).toBe(`/home/fixture/.${name}/cache`);
-    expect(defaults.PRODUCT_LOG_DIR).toBe(`/home/fixture/.${name}/logs`);
+    // Roots expand against the invocation home in the host's own path form, so the expected
+    // values are joined natively: on Windows a separator is a backslash.
+    const home = resolve('/home/fixture');
+    const defaults = expandProductRuntimeDefaults(artifact, home);
+    expect(defaults.PRODUCT_USER_STATE_DIR).toBe(join(home, `.${name}`));
+    expect(defaults.PRODUCT_CACHE_DIR).toBe(join(home, `.${name}`, 'cache'));
+    expect(defaults.PRODUCT_LOG_DIR).toBe(join(home, `.${name}`, 'logs'));
     expect(defaults.PRODUCT_PROJECT_STATE_DIR).toBe(`.${name}`);
     expect(defaults.PRODUCT_SHARED_USER_SETTINGS).toBe('[]');
   });

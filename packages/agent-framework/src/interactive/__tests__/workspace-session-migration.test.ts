@@ -1,5 +1,5 @@
 /**
- * Sealing a trusted project's plain session records and replay logs in place (#3679, secure
+ * Sealing a trusted project's plain session records and replay logs in place (secure
  * conversation), through the project's runtime-minted state storage: records sealed as their raw
  * bytes, logs one sealed record per line after their sidecars, a file that would be past the project
  * read limit sealed left plain, a file that changed or does not open left alone. Project writes are

@@ -1,6 +1,6 @@
 /**
- * TERM-003 shell-selection seam, now backed by the cross-platform SSOT resolver in agent-core
- * (TERM-008). Keep all shell choice behind this function so the call sites never change; the
+ * Shell-selection seam, now backed by the cross-platform SSOT resolver in agent-core.
+ * Keep all shell choice behind this function so the call sites never change; the
  * per-platform logic (POSIX `$SHELL`/`sh`, Windows PowerShell) lives once in `resolvePlatformShell`.
  */
 import { resolvePlatformShell } from '@robota-sdk/agent-core/node';
