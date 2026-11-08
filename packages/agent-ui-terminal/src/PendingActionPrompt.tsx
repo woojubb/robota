@@ -1,5 +1,5 @@
 /**
- * PendingActionPrompt — the TUI renderer for the unified `IActionRequest`. It derives the
+ * PendingActionPrompt (CMD-004) — the TUI renderer for the unified `IActionRequest`. It derives the
  * presentation from the request's fields (not a kind switch):
  * - no options                → free-text (TextPrompt, honoring `masked`/`placeholder`/`allowEmpty`)
  * - options, `maxSelect` > 1   → multi-select checklist (MultiSelectList)
@@ -80,7 +80,7 @@ export default function PendingActionPrompt({
   const pickerItems: IActionOption[] = request.allowFreeText
     ? [...options, FREE_TEXT_OPTION]
     : [...options];
-  // A request's declared default is where the highlight STARTS — for a write
+  // BEHAVIOR-2437: a request's declared default is where the highlight STARTS — for a write
   // confirmation built with `defaultYes: false`, a bare Enter must answer No, not Yes.
   const defaultValue = request.default?.values?.[0];
   const initialIndex =

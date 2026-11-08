@@ -50,7 +50,7 @@ describe('BackgroundTaskPanel', () => {
 
     const frame = lastFrame()!;
     expect(frame).toContain('Background work');
-    // The state word sits beside the glyph, so a reader hears it and no-color sees it.
+    // SCREEN-1992: the state word sits beside the glyph, so a reader hears it and no-color sees it.
     expect(frame).toContain('├ ⟳ working general-purpose agent');
     expect(frame).toContain('├ ✓ completed general-purpose agent · completed');
     expect(frame).toContain('└ ✗ failed general-purpose agent · failed');
@@ -59,7 +59,7 @@ describe('BackgroundTaskPanel', () => {
     expect(frame).not.toContain('agent_3');
   });
 
-  it('advertises the keyboard drill-in when not focused', () => {
+  it('advertises the keyboard drill-in when not focused (SCREEN-013/014)', () => {
     const { lastFrame } = render(
       <BackgroundTaskPanel entries={[makeEntry({ id: 'task:agent_1' })]} />,
     );
@@ -69,7 +69,7 @@ describe('BackgroundTaskPanel', () => {
     expect(frame).toContain('Ctrl+B');
   });
 
-  it('shows the move/open affordance when a row is focused', () => {
+  it('shows the move/open affordance when a row is focused (SCREEN-014)', () => {
     const { lastFrame } = render(
       <BackgroundTaskPanel
         entries={[makeEntry({ id: 'task:agent_1' }), makeEntry({ id: 'task:agent_2' })]}
@@ -81,7 +81,7 @@ describe('BackgroundTaskPanel', () => {
     expect(frame).toContain('Esc back');
   });
 
-  it('keeps a long-preview row on a single line', () => {
+  it('keeps a long-preview row on a single line (SCREEN-011)', () => {
     const longPreview =
       'Read each of the following backlog files and analyze the current status, implementation ' +
       'difficulty, dependencies, and estimated effort for every item; output a structured summary';

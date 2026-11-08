@@ -25,7 +25,7 @@ export class TuiSessionNoticeStore {
     });
   }
 
-  /** One line for the unattended interval that just ended. */
+  /** SCREEN-1992: one line for the unattended interval that just ended. */
   addAttentionRecap(line: string): void {
     this.append({ id: this.nextId(), event: 'attention-recap', message: line });
   }

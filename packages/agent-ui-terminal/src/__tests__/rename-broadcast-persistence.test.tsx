@@ -1,5 +1,5 @@
 /**
- * `/rename` persistence proof, TUI half.
+ * CMD-004 Phase 2 Stage C — TC-10 (/rename persistence proof, TUI half).
  *
  * The spec gates deleting the TUI `renameSession` mutation on a red-first proof that `/rename`
  * (1) persists HOST-side — the session executes the rename, no TUI handler involved — and
@@ -7,10 +7,10 @@
  *
  * Runs the REAL TuiInteractionChannel over a real InteractiveSession (scripted provider) with a
  * command module mirroring the real `/rename` contract (returns the `session-rename` host action
- * on the split contract).
+ * on the split contract — Stage E deleted the legacy effect union).
  *
- * Red-first evidence: without the broadcast the TUI has no signal, because the host strips the
- * applied action from the result — so the title would never update.
+ * Red-first evidence: against pre-Stage-C code the broadcast half FAILED (the TUI only reacted to
+ * the legacy effect, which Stage B strips after host execution — so the title never updated).
  */
 
 import { Text } from 'ink';
@@ -70,7 +70,7 @@ function fakeCliAdapter(): ITuiCliAdapter {
   } as unknown as ITuiCliAdapter;
 }
 
-describe('/rename persists host-side and the TUI title follows the broadcast', () => {
+describe('TC-10 — /rename persists host-side and the TUI title follows the broadcast', () => {
   let channel: TuiInteractionChannel | undefined;
 
   afterEach(async () => {
@@ -129,15 +129,15 @@ describe('/rename persists host-side and the TUI title follows the broadcast', (
     );
     await waitUntil(() => submitRef.current !== null);
 
-    await submitRef.current!('/rename Proof Title');
+    await submitRef.current!('/rename Stage C Proof');
 
     // (1) HOST persistence: the session itself performed the rename — no TUI mutation handler.
-    expect(session.getName()).toBe('Proof Title');
+    expect(session.getName()).toBe('Stage C Proof');
 
     // (2) Title update via the broadcast `session_renamed` (the dual-carry legacy effect is
     // stripped by the host applier, so this is the ONLY path that can update the title).
     await waitUntil(() => setSessionName.mock.calls.length > 0, 3000);
-    expect(setSessionName).toHaveBeenCalledWith('Proof Title');
+    expect(setSessionName).toHaveBeenCalledWith('Stage C Proof');
 
     instance.unmount();
   });

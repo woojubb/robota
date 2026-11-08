@@ -1,11 +1,11 @@
 /**
- * Screen-reader mode on the BUILT CLI binary, in a real PTY.
+ * CLI-2004 TC-11 / TC-12 — screen-reader mode on the BUILT CLI binary, in a real PTY.
  *
  * This is the only level at which the claim can be checked. A screen reader has no `aria-live`: the
  * ONLY channel to it is which bytes land in the terminal buffer, so a component test asserting on a
  * frame is asserting on something the reader never sees. Here the transcript is the evidence.
  *
- * The positive is paired with the DEFAULT-OFF proof deliberately: the same fixture, the same
+ * TC-11 pairs the positive with the DEFAULT-OFF proof deliberately: the same fixture, the same
  * binary, one flag apart. Without the negative half, "no box-drawing characters" would also pass if
  * the fixture happened to render none.
  *
@@ -37,8 +37,7 @@ const WAIT_MS = 30_000;
 const CASE_TIMEOUT_MS = 90_000;
 
 /**
- * Mark the isolated HOME as already onboarded. The test asserts on the FIRST line the process
- * writes,
+ * Mark the isolated HOME as already onboarded. TC-12 asserts on the FIRST line the process writes,
  * and the first-run welcome is a separate concern with its own onboarding copy — a returning user
  * is the case where "the first line confirms the mode" is the claim being made.
  */
@@ -46,7 +45,7 @@ function markOnboarded(homeDir: string): void {
   writeFileSync(join(homeDir, 'state', 'onboarded'), new Date().toISOString());
 }
 
-describe('screen-reader mode through the real binary', () => {
+describe('CLI-2004 screen-reader mode through the real binary', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 
@@ -62,7 +61,7 @@ describe('screen-reader mode through the real binary', () => {
   });
 
   it(
-    '--screen-reader emits no box-drawing chrome, role labels, and OSC 133 marks',
+    'TC-11: --screen-reader emits no box-drawing chrome, role labels, and OSC 133 marks',
     async () => {
       session = spawnTui({
         projectDir,
@@ -96,7 +95,7 @@ describe('screen-reader mode through the real binary', () => {
   );
 });
 
-describe('the same fixture with the mode off', () => {
+describe('CLI-2004 the same fixture with the mode off', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 
@@ -112,7 +111,7 @@ describe('the same fixture with the mode off', () => {
   });
 
   it(
-    'the SAME fixture without the flag still renders the bordered UI (default-off)',
+    'TC-11: the SAME fixture without the flag still renders the bordered UI (default-off)',
     async () => {
       session = spawnTui({
         projectDir,
@@ -173,7 +172,7 @@ describe('configured turn-mark override through the real binary', () => {
   }
 });
 
-describe('the channel the mode was enabled through', () => {
+describe('CLI-2004 the channel the mode was enabled through', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 
@@ -189,7 +188,7 @@ describe('the channel the mode was enabled through', () => {
   });
 
   it(
-    'PRODUCT_SCREEN_READER=1 with no flag announces the env channel first',
+    'TC-12: PRODUCT_SCREEN_READER=1 with no flag announces the env channel first',
     async () => {
       markOnboarded(join(projectDir, 'home'));
       session = spawnTui({
@@ -208,7 +207,7 @@ describe('the channel the mode was enabled through', () => {
   );
 
   it(
-    '--screen-reader beats PRODUCT_SCREEN_READER=0 and says so',
+    'TC-12: --screen-reader beats PRODUCT_SCREEN_READER=0 and says so',
     async () => {
       markOnboarded(join(projectDir, 'home'));
       session = spawnTui({

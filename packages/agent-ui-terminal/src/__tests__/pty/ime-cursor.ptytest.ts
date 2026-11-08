@@ -1,5 +1,5 @@
 /**
- * PTY regression for real-terminal-cursor positioning (the OS-IME evidence).
+ * CLI-062 — PTY regression for real-terminal-cursor positioning (the OS-IME evidence).
  *
  * Runs the BUILT CLI binary in a real pseudo-terminal and interprets the raw ANSI stream the
  * way a terminal emulator (and the OS IME) does. Two geometries from the implementation contract
@@ -101,7 +101,7 @@ function expectPositionedOnInputRow(result: IProbeResult): void {
   expect(result.compositionShows.at(-1)!.col).toBe(result.promptCol + 2 + COMPOSITION_WIDTH);
 }
 
-describe('IME hardware-cursor positioning through a real PTY', () => {
+describe('CLI-062 — IME hardware-cursor positioning through a real PTY', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 
@@ -141,7 +141,7 @@ describe('IME hardware-cursor positioning through a real PTY', () => {
  * someone runs the macOS cells. tmux is additionally driven as a REAL emulator in
  * ime-cursor-tmux.ptytest.ts, where the emulator reports its own cursor position back.
  */
-describe('IME cursor terminal matrix — observable cursor contract per terminal', () => {
+describe('CLI-062 terminal matrix — observable cursor contract per terminal', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 

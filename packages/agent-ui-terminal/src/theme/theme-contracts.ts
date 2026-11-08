@@ -1,5 +1,5 @@
 /**
- * The TUI's one theme token model.
+ * SCREEN-2002 — the TUI's one theme token model.
  *
  * Before this, five things decided a colour: `PALETTE` (Ink names), `ANSI` (raw SGR for the markdown
  * pipeline), `marked-terminal`'s own chalk defaults, `cli-highlight`'s `DEFAULT_THEME`, and a handful

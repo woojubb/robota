@@ -4,7 +4,7 @@ import { resolveBackgroundFocusKey } from '../background-focus-flow.js';
 
 const KEY = { upArrow: false, downArrow: false, return: false, escape: false };
 
-describe('resolveBackgroundFocusKey', () => {
+describe('resolveBackgroundFocusKey (SCREEN-014)', () => {
   it('↓ moves down, clamped at the last item', () => {
     expect(resolveBackgroundFocusKey(0, 3, { ...KEY, downArrow: true })).toEqual({
       type: 'move',

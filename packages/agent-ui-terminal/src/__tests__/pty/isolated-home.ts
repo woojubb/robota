@@ -1,5 +1,5 @@
 /**
- * Isolated HOME for PTY children.
+ * Isolated HOME for PTY children (HARNESS-025).
  *
  * A PTY test that forwards the developer's real `HOME` runs its child against whatever happens to
  * be in that home directory — a `~/state` settings file, a shell rc, an `$EDITOR` preference.

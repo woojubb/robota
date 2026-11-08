@@ -1,5 +1,5 @@
 /**
- * A read the person started is the only thing that can ask for the passphrase,
+ * #3679 3f, change 5: a read the person started is the only thing that can ask for the passphrase,
  * and only the terminal UI's action modules can say that a read was started by the person. The mint
  * is the one way to make such a request; nothing else type-checks as one.
  */

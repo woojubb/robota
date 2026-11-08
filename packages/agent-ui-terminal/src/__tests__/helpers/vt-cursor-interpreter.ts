@@ -1,10 +1,10 @@
 /**
- * Minimal VT interpreter for cursor-positioning assertions.
+ * Minimal VT interpreter for cursor-positioning assertions (CLI-062).
  *
  * Tracks the hardware cursor row/col on a rows x cols screen while consuming a raw ANSI stream,
  * recording every DECTCEM show (`ESC[?25h`) event with the cursor cell it lands on and its byte
  * offset in the stream. This is the same evidence a terminal emulator (and the OS IME) acts on —
- * ported from the IME cursor investigation PoC.
+ * ported from the CLI-062 investigation PoC (.design/investigations/2026-07-25-cli-062-ime-cursor-design.md).
  *
  * Screen bookkeeping treats every printable as width 1 (wide-char display-column math is exercised
  * by the production x computation, which the recorded `cursorTo` columns reflect directly).

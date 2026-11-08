@@ -1,10 +1,10 @@
 /**
- * Real-terminal-cursor positioning through ink's actual interactive render path.
+ * CLI-062 — real-terminal-cursor positioning through ink's actual interactive render path.
  *
  * Renders CjkTextInput inside a TransportTUI-shaped harness against a fake TTY stdout
  * (`interactive: true`), then interprets the raw ANSI stream with the same VT logic a terminal
- * emulator (and the OS IME) applies. This is the component-level half of the IME cursor contract:
- * the hardware cursor must be
+ * emulator (and the OS IME) applies. This is the component-level half of the CLI-062 contract
+ * (.design/investigations/2026-07-25-cli-062-ime-cursor-design.md): the hardware cursor must be
  * shown ON the input row at the composition column, track CJK width growth, disappear when the
  * input is unfocused (I4), propagate `undefined` on unmount (I4), and the production code must
  * write NOTHING to the real process streams (the PoC row-accounting lesson, I3).
@@ -121,7 +121,7 @@ const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 120));
 
 const INPUT_ROW = 1; // banner is row 0, input row is row 1 in the harness frame
 
-describe('real cursor positioning (interactive ink render)', () => {
+describe('CLI-062 — real cursor positioning (interactive ink render)', () => {
   const ORIGINAL_CHALK_LEVEL = chalk.level;
 
   beforeAll(() => {

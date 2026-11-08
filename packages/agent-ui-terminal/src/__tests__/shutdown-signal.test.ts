@@ -1,5 +1,5 @@
 /**
- * Interrupt-signal policy. The first Ctrl+C / signal runs the graceful
+ * CLI-075 (RUNTIME-33): interrupt-signal policy. The first Ctrl+C / signal runs the graceful
  * shutdown; a second one received while a shutdown is already in flight force-quits with 130 so a
  * user can always escape a wedged shutdown.
  */
@@ -7,7 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { handleInterrupt, FORCE_QUIT_EXIT_CODE } from '../shutdown-signal.js';
 
-describe('handleInterrupt', () => {
+describe('handleInterrupt (CLI-075 RUNTIME-33)', () => {
   it('runs the graceful path on the first interrupt (not shutting down yet)', () => {
     const graceful = vi.fn();
     const forceExit = vi.fn();

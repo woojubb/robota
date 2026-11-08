@@ -1,5 +1,5 @@
 /**
- * Key-hint footer SSOT.
+ * Key-hint footer SSOT (SCREEN-005).
  *
  * Single source of truth for prompt-footer key hints and the selection-row indicator across the
  * package's Ink prompt/selection components. Every footer call site declares its hints as

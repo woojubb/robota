@@ -1,12 +1,12 @@
 /**
- * The App's `attach` handler, as a hook rather than another closure inside `App.tsx`.
+ * CLI-1994: the App's `attach` handler, as a hook rather than another closure inside `App.tsx`.
  *
  * `App.tsx` is a file the size floor has already frozen as debt, where the rule is "split instead of
  * extending" — so the handler lives beside the other App hooks. The decision itself is neither here
  * nor there: `attachToForkedSession` asks the framework, which owns when `attach` is offered and
  * what it does.
  *
- * Attaching to a job that is still running FOLLOWS it — the entry is selected, nothing
+ * #3679 3f: attaching to a job that is still running FOLLOWS it — the entry is selected, nothing
  * else — so it reads no record: it needs no session store and asks for no passphrase, locked or not.
  * Continuing a fork that has ended is the ordinary switch: the person pressing attach on a fork
  * sealed while the keys are locked is a read they started, so this handler — one of the UI action

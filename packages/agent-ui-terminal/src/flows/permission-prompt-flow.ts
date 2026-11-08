@@ -14,7 +14,7 @@ export const PERMISSION_PROMPT_OPTIONS = [
 ] as const;
 
 /**
- * The "always" options name the SCOPE they grant — the consent pattern the enforcer
+ * Issue #2351: the "always" options name the SCOPE they grant — the consent pattern the enforcer
  * remembers (`Bash(git *)`, `Read(/w/src/**)`, `WebFetch(https://h/**)`), not the whole tool.
  */
 export function permissionPromptOptionsFor(

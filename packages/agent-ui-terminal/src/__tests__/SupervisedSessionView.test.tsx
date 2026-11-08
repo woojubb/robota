@@ -388,7 +388,7 @@ describe('supervised session view', () => {
     }
   });
 
-  it('asks about a folder not trusted yet, and starts as the answer says', async () => {
+  it('asks about a folder not trusted yet, and starts as the answer says (#3268)', async () => {
     const start = vi.fn(async () => SECOND.id);
     const view = render(
       <SupervisedSessionView

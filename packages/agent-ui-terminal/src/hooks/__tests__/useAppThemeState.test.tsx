@@ -1,5 +1,5 @@
 /**
- * What the picker submits.
+ * SCREEN-2002 TC-10 — what the picker submits.
  *
  * The picker does not write. It submits a `/theme` line, so the HOST stays the only writer of the
  * settings document. What it submits therefore matters: sending all three keys every time would
@@ -53,7 +53,7 @@ function submissionOf(toggles: IThemeToggles, appearance: IAppearanceSettings = 
  * which is the same both-ends-pinned-middle-severed shape that made the pin dead wiring one round
  * earlier, one hop further in.
  */
-describe('the motion pin reaches the picker', () => {
+describe('the motion pin reaches the picker (SCREEN-2002 TC-08)', () => {
   function pinSeenBy(
     reducedMotionOverride?: 'flag' | 'environment' | 'screen-reader',
     reducedMotion?: boolean,
@@ -100,7 +100,7 @@ describe('the motion pin reaches the picker', () => {
   });
 });
 
-describe('what the picker submits', () => {
+describe('what the picker submits (SCREEN-2002 TC-10)', () => {
   it('sends the theme ALONE when neither toggle was touched', () => {
     expect(submissionOf({ syntaxHighlighting: true, reducedMotion: false })).toBe('/theme light');
   });

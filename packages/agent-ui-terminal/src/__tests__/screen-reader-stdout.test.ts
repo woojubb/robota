@@ -1,5 +1,5 @@
 /**
- * The owned write path.
+ * SCREEN-2670 TC-02 / TC-03 / TC-04 / TC-06 / TC-11 — the owned write path.
  *
  * The unit under test is a COMMIT: what Ink writes in one synchronous run must leave the proxy
  * contiguously, with the interval BEFORE the batch and none inside it. The echo flag is consumed
@@ -82,7 +82,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('the first batch of a session is released with no park; the second is parked', () => {
+describe('TC-11: the first batch of a session is released with no park; the second is parked', () => {
   it('writes the first commit immediately and parks the next one for the whole interval', async () => {
     const parked = createParkedStdout({ stdout: fake.asSource(), preparkMs: 250 });
     commit(parked, 'first');
@@ -99,7 +99,7 @@ describe('the first batch of a session is released with no park; the second is p
   });
 });
 
-describe('the unit is a COMMIT — chunks of one run leave contiguously', () => {
+describe('TC-02: the unit is a COMMIT — chunks of one run leave contiguously', () => {
   it('parks once BEFORE the batch and puts no interval between its chunks', async () => {
     const parked = createParkedStdout({ stdout: fake.asSource(), preparkMs: 250 });
     commit(parked, 'prime');
@@ -119,7 +119,7 @@ describe('the unit is a COMMIT — chunks of one run leave contiguously', () => 
   });
 });
 
-describe('the echo release — scope is the handler`s, formation and expiry are the proxy`s', () => {
+describe('TC-03: the echo release — scope is the handler`s, formation and expiry are the proxy`s', () => {
   it('releases a batch stamped while armed without a park, and parks the next one again', async () => {
     const parked = createParkedStdout({ stdout: fake.asSource(), preparkMs: 250 });
     commit(parked, 'prime');
@@ -183,7 +183,7 @@ describe('the echo release — scope is the handler`s, formation and expiry are 
   });
 });
 
-describe('ordering, callbacks, backpressure and early release', () => {
+describe('TC-04: ordering, callbacks, backpressure and early release', () => {
   it('fires every callback exactly once, after the underlying write, with its error', async () => {
     const parked = createParkedStdout({ stdout: fake.asSource(), preparkMs: 250 });
     const seen: Array<Error | null | undefined> = [];
@@ -253,7 +253,7 @@ describe('ordering, callbacks, backpressure and early release', () => {
   });
 });
 
-describe('dimensions, resize, identity and teardown', () => {
+describe('TC-06: dimensions, resize, identity and teardown', () => {
   it('reads columns/rows/isTTY through and forwards a resize listener to the real stream', () => {
     const parked = createParkedStdout({ stdout: fake.asSource(), preparkMs: 250 });
     const ink = parked.asInkStdout();

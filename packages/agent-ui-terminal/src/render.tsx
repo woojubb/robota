@@ -109,7 +109,7 @@ export interface IRenderOptions {
   environment?: Readonly<Record<string, string | undefined>>;
   resolveProviderCredential?: TProviderCredentialResolver;
   /**
-   * The org policy, forwarded to the session so `blockedCommands` is
+   * CLI-083 (issue #2287) — the org policy, forwarded to the session so `blockedCommands` is
    * enforced on the direct CLI path as well as under `--serve`.
    *
    * DECLARED, not merely spread through. The shell forwards this with
@@ -128,13 +128,13 @@ export interface IRenderOptions {
   /** The host's way to build each external-event grant's verifier; absent, no grant opens. */
   externalEventVerifierFactory?: TInteractiveSessionOptions['externalEventVerifierFactory'];
   /**
-   * The run's grant history, handed to every session this TUI builds so a switch replays no
+   * #3189: the run's grant history, handed to every session this TUI builds so a switch replays no
    * spent token and resets no rate. DECLARED for the reason `orgPolicy` above is.
    */
   externalEventGrantHistory?: TInteractiveSessionOptions['externalEventGrantHistory'];
   providerOverride?: string | undefined;
   /**
-   * Forwarded to the session so `/provider switch` can construct the provider it switches TO.
+   * #1844: forwarded to the session so `/provider switch` can construct the provider it switches TO.
    *
    * The session cannot discover these — they are assembled at the composition root from the provider
    * packages. Without them the hot-swap throws with an empty supported-list, which is the failure
@@ -143,9 +143,9 @@ export interface IRenderOptions {
   providerDefinitions?: readonly IProviderDefinition[];
   providerType?: string | undefined;
   modelId?: string;
-  /** Resolved provider-neutral response style. */
+  /** CLI-1988: resolved provider-neutral response style. */
   outputStyle?: IOutputStylePrompt;
-  /** Resolved preset effort, forwarded to the session's `effort` seam. */
+  /** ARCH-013: resolved preset effort, forwarded to the session's `effort` seam. */
   effort?: ITuiInteractionChannelOptions['effort'];
   temperature?: number;
   maxOutputTokens?: number;
@@ -172,27 +172,27 @@ export interface IRenderOptions {
    */
   acceptedDigest?: string;
   showSessionPickerOnStart?: boolean;
-  /** Text a deep link prefilled into the composer. Never submitted on its own. */
+  /** FLOW-2006: text a deep link prefilled into the composer. Never submitted on its own. */
   initialInput?: string;
   /** Where that text came from; `external-link` renders the provenance notice. */
   initialInputOrigin?: 'external-link';
   forkSession?: boolean;
-  /** The startup session is the target of a `/cd` from this directory. */
+  /** Issue #3081: the startup session is the target of a `/cd` from this directory. */
   workspaceMovedFrom?: string;
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
-  /** The tool-call handoff policy the composition root computed for this runtime. */
+  /** MCP-004: the tool-call handoff policy the composition root computed for this runtime. */
   toolCallHandoff?: IToolCallHandoffPolicy;
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /**
-   * Subagent definitions contributed by the composition root (the capability packs
+   * ARCH-005: subagent definitions contributed by the composition root (the capability packs
    * `assembleProduct` merged). Forwarded to the session's `agentDefinitions` seam; absent ⇒ unchanged.
    */
   agentDefinitions?: readonly IAgentDefinition[];
   agentDefinitionRoots?: readonly string[];
   pluginDirectories?: { readonly user?: string; readonly project?: string };
   /**
-   * Tools contributed by the composition root (the capability packs `assembleProduct` merged)
+   * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
    * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
    * (`defaultTools: []`). Forwarded to the session's tool-composition seam; absent ⇒ unchanged.
    */
@@ -204,7 +204,7 @@ export interface IRenderOptions {
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
-  /** Optional remote-command policy (allow-by-default; local == remote). */
+  /** REMOTE-006: optional remote-command policy (allow-by-default; local == remote). */
   remoteCommandPolicy?: IRemoteCommandPolicy;
   startupUpdateNotice?: Promise<string | undefined>;
   transportRegistry?: ITransportRegistryView;
@@ -212,7 +212,7 @@ export interface IRenderOptions {
   cliAdapter: ITuiCliAdapter;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
-  /** Active preset id selected at startup (runtime state). Defaults to 'default'. */
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
   activePresetId?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
   persona?: string;
@@ -222,22 +222,22 @@ export interface IRenderOptions {
   selfVerification?: boolean;
   /**
    * Called with each live channel (including session-switch re-creations). Lets the embedding
-   * product wire process-level concerns (error routing into the live session).
+   * product wire process-level concerns (ERR-001 G1: error routing into the live session).
    */
   onChannelReady?: (channel: TuiInteractionChannel) => void;
   /**
-   * Optional durable-memory store injected by the surface (agent-cli). Forwarded to the
+   * SELFHOST-008 P6: optional durable-memory store injected by the surface (agent-cli). Forwarded to the
    * channel → `buildRuntimeSession`; absent ⇒ memory OFF (today's behavior). Enablement is surface-owned.
    */
   memoryStore?: IMemoryStore;
-  /** Optional automatic post-turn capture policy (absent ⇒ capture OFF). */
+  /** SELFHOST-008 P6: optional automatic post-turn capture policy (absent ⇒ capture OFF). */
   automaticMemory?: IAutomaticMemoryConfig;
-  /** Optional per-turn recall policy (absent ⇒ recall OFF, startup-only injection). */
+  /** SELFHOST-008 P6: optional per-turn recall policy (absent ⇒ recall OFF, startup-only injection). */
   recallMemory?: IPerTurnRecallConfig;
   /**
-   * The resolved screen-reader mode. DECLARED, not spread through — `toChannelOptions`
+   * CLI-2004: the resolved screen-reader mode. DECLARED, not spread through — `toChannelOptions`
    * below copies field by field, so an undeclared field compiles, arrives and is silently dropped
-   * (the containment hazard the `orgPolicy` comment above records). Absent ⇒ mode OFF and
+   * (the ARCH-110 containment hazard the `orgPolicy` comment above records). Absent ⇒ mode OFF and
    * today's byte stream is unchanged.
    */
   screenReader?: boolean | undefined;
@@ -245,28 +245,28 @@ export interface IRenderOptions {
   screenReaderPacing?: IScreenReaderPacingOverrides;
   /** Host-selected cursor and turn-mark overrides; absent values use terminal detection. */
   terminalCapabilities?: ITerminalCapabilityOverrides;
-  /** Which input turned the mode on — printed in the confirmation line. */
+  /** CLI-2004: which input turned the mode on — printed in the confirmation line. */
   screenReaderChannel?: TScreenReaderChannel | undefined;
-  /** Mode off, but the environment suggests a reader is running ⇒ one advisory line. */
+  /** CLI-2004: mode off, but the environment suggests a reader is running ⇒ one advisory line. */
   screenReaderHint?: boolean | undefined;
-  /** One watched source shared with the optional `/keybindings` command. */
+  /** BEHAVIOR-2003: one watched source shared with the optional `/keybindings` command. */
   keybindingsSource?: IKeybindingsSource;
   /**
-   * The theme catalogue this run renders from, shared with the optional `/theme`
+   * SCREEN-2002: the theme catalogue this run renders from, shared with the optional `/theme`
    * command. DECLARED, not spread — see the `screenReader` note above. Absent ⇒ the built-ins.
    */
   themeRegistry?: IThemeRegistry;
-  /** Reduced motion as the product shell resolved it (settings ← env ← flag). */
+  /** SCREEN-2002: reduced motion as the product shell resolved it (settings ← env ← flag). */
   reducedMotion?: boolean | undefined;
-  /** Which tier decided it, when that was not the settings. */
+  /** SCREEN-2002: which tier decided it, when that was not the settings. */
   reducedMotionOverride?: TReducedMotionOverride | undefined;
   /**
-   * The focus-reporting override the product shell resolved from its own environment.
+   * SCREEN-1992: the focus-reporting override the product shell resolved from its own environment.
    * `true` forces DECSET 1004 on, `false` is the kill switch, absent ⇒ on for an interactive TTY.
    */
   focusReporting?: boolean | undefined;
   /**
-   * Prompt history, resolved by the product shell. `promptHistory` is the session-side
+   * SCREEN-1993: prompt history, resolved by the product shell. `promptHistory` is the session-side
    * writer (forwarded to the channel like `memoryStore`); `promptHistorySource` and
    * `promptHistoryProject` feed the input area's Ctrl+R search. DECLARED, not spread through — the
    * projection below copies field by field. Absent ⇒ nothing is written and `ctrl+r` is inert.
@@ -334,7 +334,7 @@ export function toChannelOptions(
       ? { externalEventGrantHistory: options.externalEventGrantHistory }
       : {}),
     ...(options.providerDefinitions ? { providerDefinitions: options.providerDefinitions } : {}),
-    // The display model id doubles as the session's model override so `--model` actually reaches
+    // CLI-076: the display model id doubles as the session's model override so `--model` actually reaches
     // the provider chat call (header/status line == the model actually called).
     ...(options.modelId !== undefined ? { model: options.modelId } : {}),
     ...(options.effort !== undefined ? { effort: options.effort } : {}),
@@ -390,14 +390,14 @@ export function toChannelOptions(
     persona: options.persona,
     enableParallelSubagents: options.enableParallelSubagents,
     selfVerification: options.selfVerification,
-    // Forward the surface-resolved memory fields (absent ⇒ OFF).
+    // SELFHOST-008 P6: forward the surface-resolved memory fields (absent ⇒ OFF).
     ...(options.memoryStore ? { memoryStore: options.memoryStore } : {}),
     ...(options.automaticMemory ? { automaticMemory: options.automaticMemory } : {}),
     ...(options.recallMemory ? { recallMemory: options.recallMemory } : {}),
-    // Declared above AND projected here — the hand-maintained copy is the exact place an
+    // CLI-2004: declared above AND projected here — the hand-maintained copy is the exact place an
     // undeclared option disappears, so both halves are asserted by one test.
     ...(options.screenReader !== undefined ? { screenReader: options.screenReader } : {}),
-    // The session-side writer (absent ⇒ nothing is recorded).
+    // SCREEN-1993: the session-side writer (absent ⇒ nothing is recorded).
     promptHistory: options.promptHistory,
   };
 }
@@ -426,7 +426,7 @@ export async function waitForRenderAndStop<TResult>(
 }
 
 export async function renderApp(options: IRenderOptions): Promise<void> {
-  // Library Neutrality Rule: NO process-level error policy here — process survival
+  // ERR-001 / Library Neutrality Rule: NO process-level error policy here — process survival
   // is the product assembly's boundary (agent-cli installs the guards via onChannelReady).
   try {
     await options.keybindingsSource?.start();
@@ -593,7 +593,7 @@ export function createInProcessChannelFactory(
   options: IRenderOptions,
   services: IChannelServices,
 ): (resumeSessionId?: string, acceptedDigest?: string) => ITuiAppChannelPort {
-  // The move is announced by the FIRST session only — a later switch to another
+  // Issue #3081: the move is announced by the FIRST session only — a later switch to another
   // session (a `/fork` attach) did not move anywhere.
   let pendingWorkspaceMovedFrom = options.workspaceMovedFrom;
   return (resumeSessionId, acceptedDigest) => {
@@ -609,7 +609,7 @@ export function createInProcessChannelFactory(
       attention: services.attention,
     });
     // Expose each live channel (incl. session-switch re-creations) to the embedding product,
-    // e.g. for process-level error routing.
+    // e.g. for process-level error routing (ERR-001 G1).
     options.onChannelReady?.(channel);
     return channel;
   };
@@ -619,7 +619,7 @@ async function renderStartedApp(
   options: TAppShellOptions,
   compose: (services: IChannelServices) => IAppChannelComposition,
 ): Promise<void> {
-  // One resolved boolean drives Ink's own screen-reader support AND the React context
+  // CLI-2004: one resolved boolean drives Ink's own screen-reader support AND the React context
   // every component reads. Both are set here so they can never disagree.
   const screenReader = options.screenReader === true;
   if (options.announce !== false) {
@@ -630,7 +630,7 @@ async function renderStartedApp(
     });
   }
   const pacing = resolvePacing({ enabled: screenReader, overrides: options.screenReaderPacing });
-  // The pre-write park. Constructed only when the mode is on AND the interval is
+  // SCREEN-2670: the pre-write park. Constructed only when the mode is on AND the interval is
   // non-zero, so with the mode off `stdout` is not passed at all and Ink defaults to
   // `process.stdout` — the object it keys its instance map by — exactly as today.
   const parked =
@@ -638,7 +638,7 @@ async function renderStartedApp(
       ? createParkedStdout({ stdout: process.stdout, preparkMs: pacing.preparkMs })
       : undefined;
 
-  // Chalk (ink's styling engine) does not implement the NO_COLOR convention itself
+  // SCREEN-006: chalk (ink's styling engine) does not implement the NO_COLOR convention itself
   // (verified: chalk 5's vendored supports-color reads only FORCE_COLOR/TTY/TERM), so on a real
   // TTY `NO_COLOR=1` would still color every component. Sync chalk once with the package's single
   // color gate (`terminal-capabilities.ts` — the SSOT that DOES honor NO_COLOR) so gate-off means
@@ -647,11 +647,11 @@ async function renderStartedApp(
     chalk.level = 0;
   }
 
-  // One terminal-handoff controller per process (one Ink instance / App). Shared across
+  // TERM-002: one terminal-handoff controller per process (one Ink instance / App). Shared across
   // channel re-creations (session switch) so the handoff capability survives a session swap.
   const handoffController = new TerminalHandoffController();
 
-  // Focus reporting is negotiated once for the process; the tracker outlives channels.
+  // SCREEN-1992: focus reporting is negotiated once for the process; the tracker outlives channels.
   // Screen-reader mode keeps the recap (a plain notice line) — only the row countdown tick is off.
   const focusReportingSupported = supportsFocusReporting({ override: options.focusReporting });
   const focusReporting = createFocusReportingWriter({ supported: () => focusReportingSupported });
@@ -681,7 +681,7 @@ async function renderStartedApp(
     onKeystroke: () => attention.keystroke(),
   });
   // Registered once the proxy exists, because a handover holds it: what is typed while another
-  // program has the terminal never reaches the composer.
+  // program has the terminal never reaches the composer (#3679 3f).
   handoffController.setTerminalModeHooks(
     createTerminalModeHooks({
       focusReporting,

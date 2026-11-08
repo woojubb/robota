@@ -1,5 +1,5 @@
 /**
- * The commands that belong to the terminal the user sits at (`/shell`, `/editor`, `/theme`,
+ * #3189: the commands that belong to the terminal the user sits at (`/shell`, `/editor`, `/theme`,
  * `/keybindings`). A terminal attached to a workspace daemon runs these in its own process — on its
  * own terminal, in its own working directory — and sends nothing to the daemon.
  *

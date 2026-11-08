@@ -306,7 +306,7 @@ describe('WireTuiChannel', () => {
     await channel.stop();
   });
 
-  it('carries a background agent requester onto the shown permission request', async () => {
+  it('issue #3288 §1: carries a background agent requester onto the shown permission request', async () => {
     const { channel, link } = await attached();
     const requester = {
       kind: 'background-agent' as const,
@@ -694,7 +694,7 @@ describe('WireTuiChannel', () => {
   });
 });
 
-describe('WireTuiChannel history, read in pages', () => {
+describe('WireTuiChannel history, read in pages (#3189)', () => {
   it('asks for the next page after each one, and shows the history once all of it arrived', async () => {
     const { channel, link } = await attached();
     link.sent.length = 0;
@@ -865,7 +865,7 @@ describe('WireTuiChannel history, read in pages', () => {
   });
 });
 
-describe('WireTuiChannel session state', () => {
+describe('WireTuiChannel session state (#3189)', () => {
   it("shows the host's status, and labels the session by its name or else its id", async () => {
     const { channel, link } = await attached();
     const renames: string[] = [];
@@ -962,7 +962,7 @@ describe('WireTuiChannel session state', () => {
   });
 });
 
-describe('WireTuiChannel questions open at attach', () => {
+describe('WireTuiChannel questions open at attach (#3189)', () => {
   it('shows a question the host sends again only once, and answers it once', async () => {
     const { channel, link } = await attached();
     expect(types(link.sent)).toContain('get-prompts');
@@ -981,7 +981,7 @@ describe('WireTuiChannel questions open at attach', () => {
   });
 });
 
-describe('WireTuiChannel commands', () => {
+describe('WireTuiChannel commands (#3189)', () => {
   it('settles a command only on its own answer; a failure without a request settles nothing', async () => {
     const { channel, link } = await attached();
     link.sent.length = 0;
@@ -1046,7 +1046,7 @@ describe('WireTuiChannel commands', () => {
   });
 });
 
-describe('WireTuiChannel abort and queue cancel', () => {
+describe('WireTuiChannel abort and queue cancel (#3189)', () => {
   it('abort stops the host turn and turns down the questions it shows', async () => {
     const { channel, link } = await attached();
     link.push({ type: 'permission_request', event: { id: 'p1', toolName: 'Bash', toolArgs: {} } });
@@ -1098,7 +1098,7 @@ describe('WireTuiChannel abort and queue cancel', () => {
   });
 });
 
-describe('WireTuiChannel terminal-owned commands', () => {
+describe('WireTuiChannel terminal-owned commands (#3189)', () => {
   /** Stands in for `/shell`: it runs where this terminal is. */
   const shell: ITuiClientCommand = {
     name: 'shell',
@@ -1228,7 +1228,7 @@ function lastSwitchRequestId(sent: readonly TClientMessage[]): string {
   return switches.at(-1)?.requestId ?? '';
 }
 
-describe('WireTuiChannel refused session changes', () => {
+describe('WireTuiChannel refused session changes (#3189 step 5)', () => {
   it('shows why a switch was refused and settles the switch, but no command', async () => {
     const { channel, link } = await attached();
     link.sent.length = 0;
@@ -1311,7 +1311,7 @@ function lastNotice(channel: WireTuiChannel): unknown {
   return (channel.getSnapshot().history.at(-1)?.data as { content?: unknown } | undefined)?.content;
 }
 
-describe('WireTuiChannel background work and loops', () => {
+describe('WireTuiChannel background work and loops (#3189 step 3b)', () => {
   it('sends the requested transcript cursor to the host', async () => {
     const { channel, link } = await attached();
     const read = channel.readExecutionWorkspaceDetail('task-1', { offset: 20 });
@@ -1438,7 +1438,7 @@ describe('WireTuiChannel background work and loops', () => {
   });
 });
 
-describe('WireTuiChannel observing', () => {
+describe('WireTuiChannel observing (#3189 step 3b)', () => {
   async function observing(): Promise<{ channel: WireTuiChannel; link: IScriptedConnection }> {
     const link = scriptedConnection();
     const channel = new WireTuiChannel({

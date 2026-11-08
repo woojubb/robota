@@ -1,5 +1,5 @@
 /**
- * The commands a terminal attached to a workspace daemon runs in its own process.
+ * #3189 — the commands a terminal attached to a workspace daemon runs in its own process.
  *
  * The attached terminal gives them its own handoff and working directory, applies the appearance
  * patch `/theme` asks for itself, and refuses any other host action by name instead of dropping it.
@@ -66,7 +66,7 @@ const themeCatalogue: IThemeCataloguePort = {
   }),
 };
 
-describe('createTuiClientCommandHost', () => {
+describe('createTuiClientCommandHost (#3189)', () => {
   it('hands this terminal to the command and runs it in this terminal’s directory', async () => {
     const handedOff = vi.fn();
     const handoff: ITerminalHandoff = {
@@ -99,7 +99,7 @@ describe('createTuiClientCommandHost', () => {
   });
 });
 
-describe('runTuiClientCommand', () => {
+describe('runTuiClientCommand (#3189)', () => {
   it('/theme with no arguments opens this terminal’s theme picker and writes nothing', async () => {
     const theme = commandReturning('theme', {
       success: true,
@@ -229,7 +229,7 @@ describe('runTuiClientCommand', () => {
   });
 });
 
-describe('findTuiClientCommand', () => {
+describe('findTuiClientCommand (#3189)', () => {
   it('finds a client command by name, and nothing without a set', () => {
     const commands: ITuiClientCommands = {
       commands: [shellLike],

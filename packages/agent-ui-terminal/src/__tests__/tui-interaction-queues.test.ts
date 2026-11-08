@@ -137,7 +137,7 @@ describe('TuiPermissionQueue', () => {
     await expect(second).resolves.toBe(true);
   });
 
-  it('carries the requester onto the current entry', async () => {
+  it('issue #3288 §1: carries the requester onto the current entry', async () => {
     const queue = new TuiPermissionQueue(vi.fn());
     const requester = { kind: 'background-agent' as const, label: 'general-purpose', taskId: 'agent_1' };
     const pending = queue.enqueue('Glob', { pattern: '**/*' }, 'permission-1', false, undefined, requester);

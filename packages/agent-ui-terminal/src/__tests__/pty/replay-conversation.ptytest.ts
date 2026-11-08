@@ -1,11 +1,11 @@
 /**
- * Deterministic conversation through the real binary via `--session-log` (replay).
+ * INFRA-018: deterministic conversation through the real binary via `--session-log` (replay).
  *
  * Runs in the PTY vitest project against the BUILT CLI. Boots with
- * `--session-log <fixture>` so the ReplayProvider answers from a recorded log (no model
+ * `--session-log <fixture>` so the INFRA-017 ReplayProvider answers from a recorded log (no model
  * key, no network), sends a user message, and asserts the recorded assistant response renders and
- * commits to `<Static>` scrollback while the input stays pinned, end-to-end
- * on the real binary.
+ * commits to `<Static>` scrollback while the input stays pinned — closing SCREEN-010 TC-02/03
+ * end-to-end on the real binary.
  */
 
 import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
@@ -25,7 +25,7 @@ const FIXTURE = join(
   'replay-conversation.jsonl',
 );
 
-describe('replay conversation through the real binary', () => {
+describe('replay conversation through the real binary (INFRA-018)', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 
@@ -40,14 +40,14 @@ describe('replay conversation through the real binary', () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it('replays a recorded assistant turn — streams, commits to scrollback, input pinned', async () => {
+  it('TC-01/02/03: replays a recorded assistant turn — streams, commits to scrollback, input pinned', async () => {
     session = spawnTui({
       projectDir,
       homeDir: join(projectDir, 'home'),
       args: ['--session-log', FIXTURE],
     });
 
-    // Boots with the replay provider (no model key used).
+    // TC-01: boots with the replay provider (no model key used).
     await session.waitFor(/Type a message or \/help/);
     await session.waitFor(/Idle/);
 
@@ -56,10 +56,10 @@ describe('replay conversation through the real binary', () => {
     await session.sendKeys('hello');
     await session.pressEnter();
 
-    // The recorded assistant response renders and commits to scrollback.
+    // TC-02: the recorded assistant response renders and commits to scrollback.
     await session.waitFor(/REPLAYED_ANSWER_42/, 20_000);
 
-    // The input prompt re-renders at the bottom (live region) below the committed reply.
+    // TC-03: the input prompt re-renders at the bottom (live region) below the committed reply.
     await session.waitFor(/Type a message or \/help/, 20_000);
     const snap = session.snapshot();
     expect(snap).toContain('REPLAYED_ANSWER_42');

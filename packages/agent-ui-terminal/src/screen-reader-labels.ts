@@ -1,5 +1,5 @@
 /**
- * The screen-reader label vocabulary (SSOT).
+ * CLI-2004 — the screen-reader label vocabulary (SSOT).
  *
  * A screen reader has no equivalent of `aria-live`: the only channel to it is which characters land
  * in the terminal buffer, in what order. A searchable prefix on every transcript line is therefore

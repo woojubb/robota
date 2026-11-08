@@ -1,5 +1,5 @@
 /**
- * The first line the process prints.
+ * CLI-2004 — the first line the process prints.
  *
  * Two mutually exclusive lines, and never more than one:
  *  - the mode is ON  → `[Screen reader mode: on via flag|env|settings]`. It is the only

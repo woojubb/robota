@@ -27,7 +27,7 @@ interface IProps {
 }
 
 /**
- * One transcript label. In screen-reader mode it speaks the shared vocabulary and drops
+ * CLI-2004: one transcript label. In screen-reader mode it speaks the shared vocabulary and drops
  * the colour — the searchable word IS the cue there — and outside it renders exactly as before.
  */
 function EntryLabel({
@@ -117,10 +117,10 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
   );
 }
 
-/** A failed turn renders as a styled error block, not a plain system note. */
+/** ERR-001 G2: a failed turn renders as a styled error block, not a plain system note. */
 function ErrorEntryBlock({ message }: { message: TUniversalMessage }): React.ReactElement {
   const palette = usePalette();
-  // An error message is untrusted text — it carries provider responses, tool stderr and
+  // SEC-019: an error message is untrusted text — it carries provider responses, tool stderr and
   // file contents — and it reaches `<Text>` without going through the markdown renderer, so it does
   // not inherit that path's sanitization.
   const content = sanitizeTerminalText((message.content ?? '').replace(/^Error:\s*/, ''));
@@ -246,7 +246,7 @@ function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactEleme
 function EventEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
   const palette = usePalette();
   const eventData = entry.data as Record<string, TUniversalValue> | undefined;
-  // An event message is BUILT by a neutral package from untrusted parts — a skill name that
+  // SEC-019: an event message is BUILT by a neutral package from untrusted parts — a skill name that
   // may come from a plugin, a memory topic the model chose — and interpolated into a sentence. The
   // formatter cannot sanitize for a terminal (the same string reaches the GUI, where escapes are not
   // the threat and stripping them would be arbitrary), so this render site is the boundary.

@@ -12,14 +12,14 @@ import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 const testHost = createTestFrameworkHost();
 
-// Contained. Project mutation (the Write tool that produces edit checkpoints) is
+// Contained — ARCH-047. Project mutation (the Write tool that produces edit checkpoints) is
 // available only on Linux (project-relative-writer.ts refuses other hosts by design), so this
 // scenario cannot run here. It says so explicitly instead of failing on a refusal it cannot influence.
 if (process.platform !== 'linux') {
   console.log(
     JSON.stringify({
       notApplicable: true,
-      reason: 'project mutation is Linux-only; checkpoint scenario skipped on this host',
+      reason: 'ARCH-047: project mutation is Linux-only; checkpoint scenario skipped on this host',
       platform: process.platform,
     }),
   );
@@ -52,7 +52,7 @@ async function main(): Promise<void> {
     provider: script.provider,
     projectAccess,
     editCheckpointStore,
-    sessionName: 'session event rendering scenario',
+    sessionName: 'ARCH-028 scenario',
     permissionMode: 'acceptEdits',
     onSessionEventDeliveryError: (error, event) =>
       deliveryFailures.push({ message: error.message, event }),

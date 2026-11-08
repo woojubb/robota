@@ -8,7 +8,7 @@ import type { ITuiInteractionChannelOptions } from '../TuiInteractionChannel.js'
 const testHost = createTestFrameworkHost();
 
 /**
- * A preset's `effort` is resolved at startup and then dropped.
+ * ARCH-013 — a preset's `effort` is resolved at startup and then dropped.
  *
  * `TPresetEffort` is defined as `NonNullable<ICreateSessionOptions['effort']>` precisely so a preset
  * can thread onto that seam, and three of the four built-in presets set it —
@@ -26,7 +26,7 @@ function channelOptions(
   return { host: testHost, cwd: '/tmp', ...overrides } as ITuiInteractionChannelOptions;
 }
 
-describe('the TUI projection carries effort', () => {
+describe('the TUI projection carries effort (ARCH-013)', () => {
   it('forwards a resolved effort onto the session options', () => {
     // Against the defect `effort` is not a key of the target type at all, so it is simply absent.
     // Asserted over the entries rather than through a cast: the declared return type is the

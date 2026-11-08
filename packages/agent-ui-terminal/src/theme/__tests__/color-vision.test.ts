@@ -1,5 +1,5 @@
 /**
- * The daltonized built-ins are guarded, not asserted.
+ * SCREEN-2002 TC-04 — the daltonized built-ins are guarded, not asserted.
  *
  * The claim "a colour-blind user can tell these apart" is measurable, so it is measured: every pair
  * of status colours and the diff pair are simulated for protanopia and deuteranopia and required to
@@ -29,7 +29,7 @@ const DALTONIZED = [DARK_DALTONIZED_THEME, LIGHT_DALTONIZED_THEME];
  * The pairs whose DIFFERENCE IN COLOUR carries meaning — "this went well" against "this did not",
  * in the three places the product draws that distinction. Other status colours (running, waiting,
  * cancelled, denied) are told apart by their glyph and their word, which is the rule this package
- * has kept; requiring them to differ in colour too would be guarding a claim the
+ * has kept since SCREEN-005; requiring them to differ in colour too would be guarding a claim the
  * product does not make.
  */
 function meaningfulPairs(theme: ITuiTheme): [string, string, string][] {
@@ -40,7 +40,7 @@ function meaningfulPairs(theme: ITuiTheme): [string, string, string][] {
   ];
 }
 
-describe('daltonized built-ins survive simulated colour-vision deficiency', () => {
+describe('daltonized built-ins survive simulated colour-vision deficiency (SCREEN-2002 TC-04)', () => {
   it.each(
     DALTONIZED.flatMap((theme) => VISIONS.map((vision) => [theme.id, vision, theme] as const)),
   )('%s under %s: every meaningful pair stays apart', (_id, vision, theme) => {

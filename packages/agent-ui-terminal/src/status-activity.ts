@@ -1,5 +1,5 @@
 /**
- * This module is pure, so it names a colour TOKEN, not a colour. `StatusBar` resolves
+ * SCREEN-2002: this module is pure, so it names a colour TOKEN, not a colour. `StatusBar` resolves
  * the token against the live theme — a pure function that returned a chalk name could not follow one.
  */
 export type TStatusActivityKind = 'tools' | 'thinking' | 'background' | 'queued' | 'idle';

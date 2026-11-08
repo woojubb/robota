@@ -1,5 +1,5 @@
 /**
- * React glue for the terminal-handoff controller.
+ * TERM-002: React glue for the terminal-handoff controller.
  *
  * Registers the App's suspend/resume into the controller. On suspend the App renders nothing (see
  * App.tsx) so Ink unmounts its input hooks and releases raw mode, handing the real terminal to the

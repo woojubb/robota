@@ -7,7 +7,7 @@ import { IME_SUBMIT_DEFER_MS } from '../flows/defer-submit.js';
 import korean from './__fixtures__/korean-text.json';
 
 /**
- * Integration proof that the CjkTextInput defer-submit includes a trailing IME character whose stdin
+ * CLI-061 — integration proof that the CjkTextInput defer-submit includes a trailing IME character whose stdin
  * event arrives JUST AFTER Enter. This exercises the real handler + stateRef + defer wiring (not the pure
  * reducer, which by construction only sees the value captured at Enter and would be accidental-green).
  *
@@ -29,7 +29,7 @@ function Harness({ onSubmit }: { onSubmit: (value: string) => void }): React.Rea
   return <CjkTextInput value={value} onChange={setValue} onSubmit={onSubmit} focus />;
 }
 
-describe('CjkTextInput defer-submit (integration)', () => {
+describe('CLI-061 — CjkTextInput defer-submit (integration)', () => {
   it('includes a trailing syllable that arrives after Enter (greeting without its last syllable + Enter + last syllable → full greeting)', async () => {
     const onSubmit = vi.fn();
     const { stdin } = render(<Harness onSubmit={onSubmit} />);

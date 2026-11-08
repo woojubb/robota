@@ -1,7 +1,7 @@
 /**
- * PTY TUI driver.
+ * PTY TUI driver (CLI-074 TC-07/08).
  *
- * Built-CLI convenience over the shared `spawnPty` harness: spawns the built CLI in
+ * Built-CLI convenience over the shared `spawnPty` harness (TEST-007): spawns the built CLI in
  * a real pseudo-terminal so Ink renders exactly as in a user terminal, with per-key paced input
  * (expect(1)-style burst input gets bundled as a bracketed paste — the failure mode this driver
  * exists to avoid). Test-only; lives in a dedicated vitest project (*.ptytest.ts).
@@ -22,7 +22,7 @@ const AGENT_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/agent.cjs');
  * Signal the PTY child and await its ACTUAL exit before the caller removes the project dir.
  * `dispose()` sends SIGTERM (then SIGKILL after the grace window) but returns synchronously;
  * `expectExit()` resolves once the child has exited and **throws** if it has not within the timeout.
- * Awaiting this closes the race where a dying child writes under the selected state root between
+ * Awaiting this closes the INFRA-026 race where a dying child writes under the selected state root between
  * `rmSync`'s readdir and rmdir. A child that refuses to die fails the test loudly — the exit is awaited
  * at the source, never masked by a removal fallback.
  * Extracted so the compose is unit-testable with a fake session.
@@ -62,7 +62,7 @@ export interface IPtySession {
   /** ANSI-stripped output that arrived after the `since` mark. */
   snapshotSince(since: number): string;
   snapshot(): string;
-  /** Raw (un-stripped) cumulative output — for cursor/escape-sequence assertions. */
+  /** Raw (un-stripped) cumulative output — for cursor/escape-sequence assertions (CLI-062). */
   raw(): string;
   expectExit(timeoutMs?: number): Promise<number>;
   kill(): void;
@@ -70,7 +70,7 @@ export interface IPtySession {
    * Teardown that awaits ACTUAL child exit: signals the PTY child (`kill()`/`dispose()`) then awaits
    * `expectExit`, which resolves once the child has exited and **throws** if it has not within the
    * timeout (default ≥ the SIGTERM→SIGKILL grace). Await this before removing the project dir so the
-   * dying child cannot write under the selected state root between `rmSync`'s readdir and rmdir.
+   * dying child cannot write under the selected state root between `rmSync`'s readdir and rmdir (INFRA-026).
    */
   disposeAsync(timeoutMs?: number): Promise<void>;
 }
@@ -86,14 +86,14 @@ export interface ISpawnTuiOptions {
   args?: readonly string[];
   /**
    * Extra environment variables merged over the driver's minimal base env
-   * (e.g. `{ NO_COLOR: '1' }` for the no-color scenario). The base stays
+   * (e.g. `{ NO_COLOR: '1' }` for the SCREEN-006 no-color scenario). The base stays
    * explicit — real provider keys are never inherited into PTY runs.
    */
   env?: Readonly<Record<string, string>>;
 }
 
 export function writeTuiProviderSettings(projectDir: string): void {
-  // A capabilityless built CLI is Restricted and must not read project settings. PTY
+  // ARCH-042: a capabilityless built CLI is Restricted and must not read project settings. PTY
   // fixtures therefore configure the host-owned user layer under the same isolated HOME that
   // `spawnTui` derives from the fixture root.
   const settingsDir = join(projectDir, 'home', 'state');

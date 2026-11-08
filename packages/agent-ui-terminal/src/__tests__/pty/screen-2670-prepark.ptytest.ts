@@ -1,5 +1,5 @@
 /**
- * The pre-write park on the BUILT CLI binary, in a real PTY.
+ * SCREEN-2670 TC-09 — the pre-write park on the BUILT CLI binary, in a real PTY.
  *
  * A screen reader sees bytes and time, nothing else, so the claim is checked where both exist: the
  * raw PTY stream is sampled every few milliseconds and each growth is stamped. A COMMIT the park
@@ -166,7 +166,7 @@ async function settled(session: IPtySession): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, STARTUP_SETTLE_MS));
 }
 
-describe('the pre-write park through the real binary', () => {
+describe('SCREEN-2670 the pre-write park through the real binary', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 
@@ -182,7 +182,7 @@ describe('the pre-write park through the real binary', () => {
   });
 
   it(
-    'the echo is not delayed, the turn commit waits the interval after it, its chunks are contiguous, and the marks stay in order',
+    'TC-09: the echo is not delayed, the turn commit waits the interval after it, its chunks are contiguous, and the marks stay in order',
     async () => {
       session = spawnScenario(projectDir, 'park');
       await settled(session);
@@ -204,7 +204,7 @@ describe('the pre-write park through the real binary', () => {
   );
 
   it(
-    'with the interval 0 no delay is injected',
+    'TC-09: with the interval 0 no delay is injected',
     async () => {
       session = spawnScenario(projectDir, 'zero');
       await settled(session);
@@ -215,7 +215,7 @@ describe('the pre-write park through the real binary', () => {
   );
 
   it(
-    'with the mode off the park is absent — no interval, bordered UI as before',
+    'TC-09: with the mode off the park is absent — no interval, bordered UI as before',
     async () => {
       session = spawnScenario(projectDir, 'off');
       await settled(session);

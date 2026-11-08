@@ -3,7 +3,7 @@
  *
  * Arrow keys navigate the list, space toggles enabled/disabled, enter/esc closes.
  *
- * A toggle SAVES a setting. It does not start or stop anything — `registry.setEnabled`
+ * TRANS-009: a toggle SAVES a setting. It does not start or stop anything — `registry.setEnabled`
  * writes the settings file and returns, and `startAll` reads `getEnabled()` when a session starts, so
  * the change takes effect at the next start. This component used to render `[enabled]` on the way
  * back from that write, which told the user a transport was running when nothing had been started.

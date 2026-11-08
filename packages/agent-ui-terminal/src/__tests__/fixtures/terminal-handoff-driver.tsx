@@ -1,5 +1,5 @@
 /**
- * Fixture: real-terminal handoff under a PTY.
+ * TEST-007 / TERM-002 fixture: real-terminal handoff under a PTY.
  *
  * Renders a real Ink app that takes raw mode (useInput) BELOW a suspend gate — exactly like the real
  * App — and uses the real `TerminalHandoffController` + `useTerminalHandoffSuspension`. It performs an

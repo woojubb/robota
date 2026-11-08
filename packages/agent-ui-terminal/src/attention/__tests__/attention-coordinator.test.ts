@@ -53,7 +53,7 @@ function snapshot(
   } satisfies IExecutionWorkspaceSnapshot;
 }
 
-describe('AttentionCoordinator (wiring)', () => {
+describe('AttentionCoordinator (SCREEN-1992 TC-02 wiring)', () => {
   it('pushes one recap per unattended interval from the channel events it is fed', () => {
     const source = new FakeSource();
     const recaps: string[] = [];

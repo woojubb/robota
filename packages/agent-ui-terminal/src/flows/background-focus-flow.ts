@@ -1,5 +1,5 @@
 /**
- * Pure reducer for keyboard navigation of the inline background-work list.
+ * SCREEN-014: pure reducer for keyboard navigation of the inline background-work list.
  *
  * Kept out of the App component so the navigation rules are exhaustively unit-testable without
  * rendering the whole TUI. The App's `useInput` translates the resulting action into focus/selection

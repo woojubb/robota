@@ -18,7 +18,7 @@ import type {
 
 /** Debounce interval for streaming text notify (limits renderMarkdown frequency) */
 const STREAMING_DEBOUNCE_MS = 300;
-/** With no provider activity for this long while thinking, hint that the
+/** ERR-001 G3: with no provider activity for this long while thinking, hint that the
  * connection may be stalled (well under the 120s provider idle timeout). */
 const STALL_HINT_MS = 15_000;
 /**
@@ -72,9 +72,9 @@ export class TuiStateManager {
   contextState: TContextState = { percentage: 0, usedTokens: 0, maxTokens: 0 };
   executionWorkspaceSnapshot: IExecutionWorkspaceSnapshot | null = null;
   selectedExecutionEntryId: string | undefined;
-  /** Humanized message of the last failed turn; cleared when the next turn starts. */
+  /** ERR-001 G2: humanized message of the last failed turn; cleared when the next turn starts. */
   lastErrorMessage: string | null = null;
-  /** No stream/tool activity for STALL_HINT_MS while thinking. */
+  /** ERR-001 G3: no stream/tool activity for STALL_HINT_MS while thinking. */
   isStalled = false;
   private readonly sessionNoticeStore = new TuiSessionNoticeStore();
   /** Bounded render-only projection; never merged into canonical session history. */
@@ -122,7 +122,7 @@ export class TuiStateManager {
   };
 
   onToolStart = (state: IToolState): void => {
-    // A running tool is legitimate activity, not a stalled provider connection —
+    // RUNTIME-39: a running tool is legitimate activity, not a stalled provider connection —
     // suppress the dead-air hint for the duration of the tool run (re-armed in onToolEnd).
     this.clearStallTimer();
     this.activeTools = [...this.activeTools, state];
@@ -130,7 +130,7 @@ export class TuiStateManager {
   };
 
   onToolEnd = (state: IToolState): void => {
-    // Attribute by executionId first — two same-named parallel calls can finish out of
+    // #3288: attribute by executionId first — two same-named parallel calls can finish out of
     // start order, and `findLastIndex` by name alone would close the wrong (most recently
     // started, not most recently finished) running entry. Fall back to the name+running-order
     // heuristic only when the event carries no executionId (legacy fixtures / old hosts).
@@ -143,7 +143,7 @@ export class TuiStateManager {
       updated[idx] = state;
       this.activeTools = updated;
     }
-    // Re-arm the dead-air watch only once no tool is still running and the turn is
+    // RUNTIME-39: re-arm the dead-air watch only once no tool is still running and the turn is
     // still in progress — otherwise the provider is again the thing we're waiting on.
     if (this.isThinking && !this.activeTools.some((t) => t.isRunning)) {
       this.armStallTimer();
@@ -193,8 +193,8 @@ export class TuiStateManager {
   };
 
   onError = (error?: Error): void => {
-    // The partial answer is preserved as an interrupted history entry by the framework;
-    // clearing the local stream buffer here no longer loses it.
+    // The partial answer is preserved as an interrupted history entry by the framework
+    // (ERR-001); clearing the local stream buffer here no longer loses it.
     this.clearStallTimer();
     this.lastErrorMessage = error?.message ?? 'Unknown error';
     this.debouncedStreamNotify.flush();
@@ -215,7 +215,7 @@ export class TuiStateManager {
   // ── State updates from external sources ───────────────────────
 
   /**
-   * Sync history from InteractiveSession — authoritative SSOT replace (no front-windowing).
+   * Sync history from InteractiveSession — authoritative SSOT replace (SCREEN-010: no front-windowing).
    * The session history grows monotonically during a session, so Ink `<Static>` (count-based) renders
    * only the newly-appended tail; committed lines already in terminal scrollback are never re-printed.
    */
@@ -335,7 +335,7 @@ export class TuiStateManager {
   }
 
   /**
-   * Release every timer this manager owns and detach the render callback. Called by the
+   * RUNTIME-52: release every timer this manager owns and detach the render callback. Called by the
    * channel's teardown (`stop()`); after dispose the manager must never fire `onChange` or trip the
    * stall hint on a discarded session.
    */

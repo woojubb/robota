@@ -1,7 +1,7 @@
 /**
  * WaveText — renders text with a subtle wave color animation.
  * Groups of 3-4 characters share the same color, creating a soft flowing effect.
- * The ramp comes from the resolved theme's motion tokens: a calm span
+ * The ramp comes from the resolved theme's motion tokens (SCREEN-006, SCREEN-2002): a calm span
  * wide enough to be perceptible (#555→#bbb) at an unhurried 400ms cadence.
  */
 
@@ -22,15 +22,15 @@ interface IProps {
 export default function WaveText({ text }: IProps): React.ReactElement {
   // Animate only on an interactive color terminal (shared with the markdown color
   // gate via terminal-capabilities). Non-TTY / NO_COLOR / FORCE_COLOR=0 → static,
-  // no interval, no motion.
+  // no interval, no motion (SCREEN-006/008).
   //
-  // Screen-reader mode is a gate on the same interval, not a second mechanism. A colour
+  // CLI-2004: screen-reader mode is a gate on the same interval, not a second mechanism. A colour
   // ramp is silent to a reader, but the repaint it causes is not — every tick re-emits the line, and
-  // the reader announces it again. `reducedMotion` is a third input to that rule.
+  // the reader announces it again. SCREEN-2002 added `reducedMotion` as a third input to that rule.
   const screenReader = useScreenReader();
   const palette = usePalette();
   const motionTokens = useMotionTokens();
-  // The colour gate, screen-reader mode and the reduced-motion setting are ONE rule
+  // SCREEN-2002: the colour gate, screen-reader mode and the reduced-motion setting are ONE rule
   // with one owner. This is its only consumer — the package's only animation.
   const animate = useMotion();
   const [tick, setTick] = useState(0);

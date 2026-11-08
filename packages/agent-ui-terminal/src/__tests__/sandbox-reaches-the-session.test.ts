@@ -1,5 +1,5 @@
 /**
- * The TUI session consults the same sandbox the shell tools run under, so a confined
+ * Issue #3242: the TUI session consults the same sandbox the shell tools run under, so a confined
  * command the sandbox approves runs without a prompt.
  */
 

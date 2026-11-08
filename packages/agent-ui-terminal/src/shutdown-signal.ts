@@ -1,5 +1,5 @@
 /**
- * Interrupt-signal policy for the interactive TUI.
+ * Interrupt-signal policy for the interactive TUI (CLI-075 / RUNTIME-33).
  *
  * The first Ctrl+C or termination signal runs the graceful shutdown (persist session, cancel
  * background work, drain queues). A second interrupt arriving while a shutdown is already in flight

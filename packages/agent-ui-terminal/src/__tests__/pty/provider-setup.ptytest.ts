@@ -1,5 +1,5 @@
 /**
- * Real-PTY provider-setup ask suite.
+ * Real-PTY provider-setup ask suite (CMD-004 TC-09 done-gate).
  *
  * Drives the BUILT CLI binary through `/provider add` so the unified ask seam renders end-to-end on
  * a real terminal: the provider command self-asks (via the injected `askHandler` → `TuiInteractionChannel.askUser`)
@@ -21,7 +21,7 @@ import type { IPtySession } from './pty-driver.js';
 
 const SECRET = 'topsecretapikey';
 
-describe('provider setup ask through a real PTY', () => {
+describe('provider setup ask through a real PTY (CMD-004 TC-09)', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 
@@ -36,7 +36,7 @@ describe('provider setup ask through a real PTY', () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it('/provider add asks the masked API-key field and never echoes the secret', async () => {
+  it('TC-09: /provider add asks the masked API-key field and never echoes the secret', async () => {
     session = spawnTui({ projectDir, homeDir: join(projectDir, 'home') });
     await session.waitFor(/Type a message or \/help/);
 

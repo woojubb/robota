@@ -11,7 +11,7 @@ export type TRenderMarkdownExtras = Omit<
 >;
 
 /**
- * Markdown rendered with this surface's resolved appearance.
+ * SCREEN-2002 — markdown rendered with this surface's resolved appearance.
  *
  * The three inputs every render site needs — the theme, the syntax-highlighting setting and
  * screen-reader mode — are bound here instead of at each call. That is a deliberate removal of an

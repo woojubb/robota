@@ -1,5 +1,5 @@
 /**
- * The startup quiet period.
+ * CLI-2004 TC-20 — the startup quiet period.
  *
  * The bound matters more than the default: a mistyped host timing override is
  * how a session appears to hang forever, and a silently-swallowed value is how it appears to have no
@@ -38,7 +38,7 @@ function collectWarnings(): { notes: string[]; warn: (message: string) => void }
   return { notes, warn: (message: string): void => void notes.push(message) };
 }
 
-describe('resolvePacing', () => {
+describe('TC-20: resolvePacing', () => {
   it('ignores ambient Fixture Agent pacing variables without a host choice', () => {
     vi.stubEnv('PRODUCT_SCREEN_READER_STARTUP_QUIET_MS', '0');
     vi.stubEnv('PRODUCT_SCREEN_READER_PREPARK_MS', '0');
@@ -106,7 +106,7 @@ describe('resolvePacing', () => {
   });
 });
 
-describe('the startup quiet period', () => {
+describe('TC-20: the startup quiet period', () => {
   it('settles at its deadline when nothing is pressed', async () => {
     vi.useFakeTimers();
     try {
@@ -192,7 +192,7 @@ describe('the startup quiet period', () => {
   });
 });
 
-describe('resolvePacing returns preparkMs by the same discipline', () => {
+describe('SCREEN-2670 TC-01: resolvePacing returns preparkMs by the same discipline', () => {
   it('defaults to the provisional 50 and honours an explicit 0 exactly', () => {
     expect(resolvePacing({ enabled: true }).preparkMs).toBe(50);
     expect(resolvePacing({ enabled: true, overrides: prepark('0') }).preparkMs).toBe(0);

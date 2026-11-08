@@ -13,7 +13,7 @@ export interface ICjkTextInputFlowState {
   pasteBuffer: string;
 }
 
-/** A word/line delete is announced; a single-character backspace is not (it is heard). */
+/** CLI-2004: a word/line delete is announced; a single-character backspace is not (it is heard). */
 export type TCjkDeletionScope = 'word' | 'line';
 
 export type TCjkTextInputEffect =

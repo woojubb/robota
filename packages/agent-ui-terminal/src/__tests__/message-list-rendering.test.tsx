@@ -73,7 +73,7 @@ describe('MessageList rendering', () => {
     expect(output).toContain('Edit(file.ts)');
   });
 
-  // ── Status colors come from the status symbol + theme colour SSOT ─
+  // ── SCREEN-006: status colors come from the status symbol + theme colour SSOT ─
 
   it('denied tool summary renders the denied status colour (yellowBright) and glyph', () => {
     // Pin color bytes regardless of the test process's TTY detection (cjk-fallback precedent).
@@ -435,14 +435,14 @@ describe('MessageList rendering', () => {
 });
 
 /**
- * A co-driven transcript must say WHO drove each turn.
+ * PEER-007 (issue #1915) — a co-driven transcript must say WHO drove each turn.
  *
  * Before this, every user message rendered `You:`, so a peer session's message was
  * indistinguishable from the operator's own — the transcript asserted something false about who
  * spoke. The label reads the DERIVED driver id (`peer:<session-id>`) carried on the message; it is
- * display attribution and never an authorization signal.
+ * display attribution and never an authorization signal (issue #1809).
  */
-describe('MessageList driver attribution', () => {
+describe('MessageList driver attribution (PEER-007)', () => {
   it("labels a peer-driven message with the peer's id instead of You:", () => {
     const entry = messageToHistoryEntry(
       createUserMessage('deploy the staging branch', {
@@ -465,7 +465,7 @@ describe('MessageList driver attribution', () => {
     expect(chalk.reset(lastFrame() ?? '')).toContain('You:');
   });
 
-  it('labels an unattributed message You: — the transcript is unchanged', () => {
+  it('labels an unattributed message You: — the pre-PEER-007 transcript is unchanged', () => {
     const entry = messageToHistoryEntry(createUserMessage('deploy the staging branch'));
     const { lastFrame } = render(<MessageList history={[entry]} />);
 

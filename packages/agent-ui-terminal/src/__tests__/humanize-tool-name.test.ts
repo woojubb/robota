@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { humanizeToolName } from '../humanize-tool-name.js';
 
-describe('humanizeToolName', () => {
+describe('humanizeToolName (SCREEN-012)', () => {
   it('strips the neutral prefix to recover the command name', () => {
     expect(humanizeToolName('command_agent')).toBe('agent');
     expect(humanizeToolName('command_parallel')).toBe('parallel');

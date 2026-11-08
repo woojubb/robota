@@ -50,7 +50,7 @@ describe('contextual keybinding registry', () => {
       { version: 1, bindings: { 'chat-input': { submit: 'ctrl+c' } } },
       '$.bindings.chat-input.submit',
     ],
-    // Ctrl+C stays reserved in the search overlay too.
+    // SCREEN-1993: Ctrl+C stays reserved in the search overlay too.
     [
       { version: 1, bindings: { 'history-search': { execute: 'ctrl+c' } } },
       '$.bindings.history-search.execute',

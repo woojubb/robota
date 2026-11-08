@@ -28,7 +28,7 @@ export function getConfirmPromptInputAction(
 }
 
 /**
- * The typed yes/no answer.
+ * CLI-2004 — the typed yes/no answer.
  *
  * A two-option arrow menu is the worst shape for a reader: both rows are announced, and which one is
  * selected differs only by a cursor glyph and a colour. In screen-reader mode the prompt asks for a

@@ -1,13 +1,13 @@
 /**
- * Deferred submit for the CJK-IME last-character-drop race.
+ * CLI-061 — deferred submit for the CJK-IME last-character-drop race.
  *
  * IME composition is finalized by the terminal, which writes the final composed character into the pty as its
  * OWN stdin event that arrives JUST AFTER the confirming `\r`. If we submit synchronously on Enter, the trailing
  * syllable has not yet been applied to the input state, so it is dropped (a five-syllable Korean greeting loses its last syllable). Deferring the
  * submit a few milliseconds lets that trailing event land, after which we re-read the LATEST value and submit it.
  *
- * This is the same app-layer fix Gemini CLI applied on the same Ink; no framework change and
- * no upstream Ink dependency.
+ * This is the same app-layer fix Gemini CLI applied on the same Ink (PR #4987/#7556); no framework change and
+ * no upstream Ink dependency (Ink #759 stays a watch-only item).
  *
  * Injectable `schedule`/`clear` (defaulting to the real timer) keep this unit deterministically testable —
  * there is NO fake timer shipped in `src`; a test injects its own scheduler.

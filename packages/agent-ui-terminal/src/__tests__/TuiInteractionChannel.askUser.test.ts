@@ -1,5 +1,5 @@
 /**
- * Unit tests for TuiInteractionChannel.askUser() — the unified ask path (the sole
+ * Unit tests for TuiInteractionChannel.askUser() — the CMD-004 unified ask path (the sole
  * "ask the user" seam). Queue resolution + abort cancellation in isolation; no Ink render.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -8,7 +8,7 @@ vi.mock('@robota-sdk/agent-framework', async () => {
   const actual = await vi.importActual<typeof import('@robota-sdk/agent-framework')>(
     '@robota-sdk/agent-framework',
   );
-  // Construction flows through buildRuntimeSession (wraps InteractiveSession); mock both.
+  // RUNTIME-001: construction flows through buildRuntimeSession (wraps InteractiveSession); mock both.
   const makeMockSession = (): unknown => ({
     getFullHistory: vi.fn().mockReturnValue([]),
     setName: vi.fn(),

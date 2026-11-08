@@ -139,7 +139,7 @@ describe('SlashAutocomplete', () => {
     expect(frame).toContain('Run task');
   });
 
-  // Footer renders through the key-hint SSOT grammar; selected row uses the indicator.
+  // SCREEN-005: footer renders through the key-hint SSOT grammar; selected row uses the indicator.
   it('renders the footer in the shared key-hint grammar', () => {
     const { lastFrame } = render(
       <SlashAutocomplete

@@ -1,5 +1,5 @@
 /**
- * Deletion, and what was deleted.
+ * CLI-2004 — deletion, and what was deleted.
  *
  * A reader announces the line it is on. When a whole word or the whole line disappears, the only
  * thing it can say is what is LEFT — which is exactly the information you do not need. These helpers

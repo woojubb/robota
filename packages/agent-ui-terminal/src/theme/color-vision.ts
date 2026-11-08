@@ -1,5 +1,5 @@
 /**
- * Colour-vision-deficiency simulation, for the guard over the daltonized built-ins.
+ * SCREEN-2002 — colour-vision-deficiency simulation, for the guard over the daltonized built-ins.
  *
  * A daltonized theme's claim is that two colours a viewer must tell apart still differ AFTER their
  * protan or deutan confusion. That is measurable, so it is measured: simulate both deficiencies

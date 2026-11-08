@@ -1,12 +1,12 @@
 /**
- * The startup quiet period.
+ * CLI-2004 — the startup quiet period.
  *
  * A terminal has no `aria-live`. The ONLY way to influence what a reader announces is which bytes
  * land in the buffer and WHEN, which is why this wait exists at all: it lets the reader finish
  * speaking the confirmation line before the first prompt frame overwrites the region it is reading.
  * A keypress ends it early.
  *
- * THE PRE-WRITE PARK is the second wait § Decision verdict (i) adopted. It lives in
+ * THE PRE-WRITE PARK (SCREEN-2670) is the second wait § Decision verdict (i) adopted. It lives in
  * `screen-reader-stdout.ts`: an owned write path handed to Ink as `stdout`, which separates COMMITS
  * in time so a diff-based reader's snapshot can fall between two of them. This module only resolves
  * its interval. The default is PROVISIONAL: screen-reader mode runs Ink unthrottled, so no frame

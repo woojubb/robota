@@ -1,5 +1,5 @@
 /**
- * User Execution Test Scenarios — color/motion degradation and palette-token colors on
+ * SCREEN-006 User Execution Test Scenarios — color/motion degradation and palette-token colors on
  * the BUILT CLI binary in a real PTY (run by `test:pty`; requires `pnpm build:deps` first).
  *
  * Scenario 1 (NO_COLOR legibility): `NO_COLOR=1` through a replayed conversation → the raw pty
@@ -55,7 +55,7 @@ function sgrColorParams(raw: string): string[] {
   return params;
 }
 
-describe('color/motion through the real binary', () => {
+describe('SCREEN-006 color/motion through the real binary', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 
@@ -131,7 +131,7 @@ describe('color/motion through the real binary', () => {
     expect(raw).toMatch(/\x1b\[36m(?:\x1b\[[0-9;]*m)*Fixture Agent:/);
 
     // Markdown diff block carries the resolved theme's SGR pair (added line: light green on a dark
-    // green background) — the values live in the theme.
+    // green background) — SCREEN-2002 moved the values into the theme, the bytes are unchanged.
     const addedBackground = background(DARK_THEME.markdown.diffAddedBackground)('x').split('x')[0];
     const addedForeground = foreground(DARK_THEME.markdown.diffAdded)('x').split('x')[0];
     expect(raw).toContain(`${addedBackground}${addedForeground}`);

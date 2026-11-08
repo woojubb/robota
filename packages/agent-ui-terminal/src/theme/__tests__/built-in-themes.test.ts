@@ -1,9 +1,9 @@
 /**
- * The built-in themes as data, and the pairing the palette floor guards.
+ * SCREEN-2002 TC-01/TC-05 — the built-in themes as data, and the pairing the palette floor guards.
  *
- * Every leaf is a colour in the grammar, the wave ramp is four stops, status covers the seven
- * kinds, over four themes, plus the pairing `status-glyph` used to hold as a constant — a symbol
- * for every kind a
+ * Succeeds the SCREEN-006 `tui-palette.test.ts`: the same mechanics (every leaf is a colour in the
+ * grammar, the wave ramp is four stops, status covers the seven kinds), now over four themes instead
+ * of one map, plus the pairing `status-glyph` used to hold as a constant — a symbol for every kind a
  * theme colours, so a status is never colour alone.
  */
 import { describe, expect, it } from 'vitest';
@@ -43,7 +43,7 @@ function leaves(theme: ITuiTheme): [string, string][] {
   return entries;
 }
 
-describe('built-in themes', () => {
+describe('built-in themes (SCREEN-2002 TC-01)', () => {
   it.each(BUILT_IN_THEMES.map((theme) => [theme.id, theme] as const))(
     '%s: every leaf is a colour in Ink’s grammar',
     (_id, theme) => {
@@ -78,7 +78,7 @@ describe('built-in themes', () => {
   });
 });
 
-describe('status is never colour alone', () => {
+describe('status is never colour alone (SCREEN-2002 TC-05)', () => {
   it.each(KINDS)('%s has a symbol and a colour in every theme', (kind) => {
     expect(STATUS_SYMBOL[kind].length).toBeGreaterThan(0);
     for (const theme of BUILT_IN_THEMES) {
@@ -100,7 +100,7 @@ describe('status is never colour alone', () => {
 });
 
 /**
- * The settings document's default theme id and this package's default built-in are two
+ * SCREEN-2002: the settings document's default theme id and this package's default built-in are two
  * declarations of one fact, in two packages, because the dependency runs one way — `agent-framework`
  * cannot read the catalogue. A silent divergence would not crash: it would resolve to "theme
  * `<id>` is not installed" on every startup for a user who set nothing, which is the failure mode

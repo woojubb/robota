@@ -1,7 +1,7 @@
 /**
  * The startup banner, committed once to the terminal scrollback.
  *
- * Extracted from `App.tsx`: the art is ASCII, not box-drawing, so a
+ * Extracted from `App.tsx` under CLI-2004: the art is ASCII, not box-drawing, so a
  * no-box-drawing sweep passes over it unchanged — it needs its own suppression AND its own
  * assertion, and neither is reviewable while the glyphs live inline in a 600-line component.
  * `BANNER_GLYPHS` is the set a test asserts is absent in screen-reader mode.

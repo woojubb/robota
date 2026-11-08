@@ -27,7 +27,7 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
     releaseSessionClaim(): void {}
   }
 
-  // Construction flows through buildRuntimeSession (wraps InteractiveSession in agent-framework).
+  // RUNTIME-001: construction flows through buildRuntimeSession (wraps InteractiveSession in agent-framework).
   return {
     ...mod,
     InteractiveSession: FakeInteractiveSession,
@@ -53,7 +53,7 @@ describe('TuiInteractionChannel init failure surfacing', () => {
     vi.useRealTimers();
   });
 
-  it('a real init error records a session-init-error entry and sets error state', async () => {
+  it('TC-05: a real init error records a session-init-error entry and sets error state', async () => {
     const channel = new TuiInteractionChannel({
       host: testHost,
       cwd: PROJECT_DIR,

@@ -11,7 +11,7 @@ function readFromAdapter(cliAdapter: ITuiCliAdapter): IAppearanceSettings {
 }
 
 /**
- * The persisted appearance, plus a from-disk `refresh()`.
+ * SCREEN-2002 — the persisted appearance, plus a from-disk `refresh()`.
  *
  * Refresh-on-result, the shape `useStatusLineSettings` already uses: the HOST applies
  * `appearance-settings-patch` through the settings adapter, so the renderer learns about a change by

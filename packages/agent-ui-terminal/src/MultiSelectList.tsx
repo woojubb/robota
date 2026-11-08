@@ -1,5 +1,5 @@
 /**
- * Multi-select checklist: arrow-key navigation, Space toggles, Enter confirms once the
+ * Multi-select checklist (CMD-004): arrow-key navigation, Space toggles, Enter confirms once the
  * selection count is within [minSelect, maxSelect], Esc cancels. Used by PendingActionPrompt for an
  * IActionRequest whose `maxSelect` > 1.
  *
@@ -243,7 +243,7 @@ export default function MultiSelectList({
   onConfirm,
   onCancel,
 }: IMultiSelectListProps): React.ReactElement {
-  // The checklist keeps its own reducer (Space toggles, Enter confirms) — what the mode
+  // CLI-2004: the checklist keeps its own reducer (Space toggles, Enter confirms) — what the mode
   // changes is the ROW: a spoken number replaces the `> ` cursor, and typing that number toggles it.
   const screenReader = useScreenReader();
   const { cursor, setCursor, selected, toggleAt, confirmIfAllowed } = useChecklistSelection({
@@ -254,7 +254,7 @@ export default function MultiSelectList({
     onConfirm,
   });
 
-  // The checklist answers by number in the mode, through the SAME reducer every other
+  // CLI-2004: the checklist answers by number in the mode, through the SAME reducer every other
   // numbered menu uses — `multi` is what keeps it open after a toggle and makes an empty Enter the
   // commit. A local digit branch would have capped it at nine rows and skipped the shared prompt.
   const numbered = useNumberedSelection({

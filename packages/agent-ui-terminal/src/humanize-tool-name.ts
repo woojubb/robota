@@ -1,5 +1,5 @@
 /**
- * Turn a provider-safe projected tool id into the natural command name for display.
+ * SCREEN-012: turn a provider-safe projected tool id into the natural command name for display.
  *
  * Slash commands invoked by the model are projected to provider-safe tool ids prefixed with
  * the host-selected prefix (or the neutral default), optionally suffixed with a `_<8 hex>` hash when
@@ -7,7 +7,7 @@
  * For display we recover the command name: strip the prefix and a trailing projection hash. Tool
  * names that are not command projections (e.g. `Shell`, `Read`) are returned unchanged.
  *
- * ## This is where a tool label is made safe, not at each render site
+ * ## SEC-019: this is where a tool label is made safe, not at each render site
  *
  * A tool name and its first argument come from the model, from an MCP server's manifest, or from a
  * plugin — all untrusted — and they are put on the terminal as text. Sanitizing at the render sites

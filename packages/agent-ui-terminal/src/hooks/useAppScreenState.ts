@@ -27,9 +27,9 @@ export interface IAppScreenState {
   readonly screens: IUseSideEffectsResult;
   readonly workspace: IAppWorkspaceState;
   readonly statusSettings: IStatusLineCommandSettings;
-  /** The persisted appearance, re-read after every slash-command result. */
+  /** SCREEN-2002: the persisted appearance, re-read after every slash-command result. */
   readonly appearance: IAppearanceSettings;
-  /** The input area's history-search overlay is open and owns the keys. */
+  /** SCREEN-1993: the input area's history-search overlay is open and owns the keys. */
   readonly historySearchOpen: boolean;
   readonly setHistorySearchOpen: (open: boolean) => void;
 }

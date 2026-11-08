@@ -1,5 +1,5 @@
 /**
- * The token model and the style builder.
+ * SCREEN-2002 TC-01/TC-02 — the token model and the style builder.
  *
  * The load-bearing assertion is the `dark` theme against the values the package shipped before the
  * theme existed: the whole unit is only safe if a user who sets nothing sees the same colours. The
@@ -55,7 +55,7 @@ afterAll(() => {
   chalk.level = originalLevel;
 });
 
-describe('theme colour grammar', () => {
+describe('theme colour grammar (SCREEN-2002 TC-01)', () => {
   it('accepts Inks grammar and nothing else', () => {
     for (const value of [
       'cyan',
@@ -94,7 +94,7 @@ describe('theme colour grammar', () => {
   });
 });
 
-describe('the dark theme reproduces todays rendering', () => {
+describe('the dark theme reproduces todays rendering (SCREEN-2002 TC-02)', () => {
   it('keeps every Ink colour value the package shipped', () => {
     expect(DARK_THEME.colors).toEqual({
       text: {
@@ -182,7 +182,7 @@ describe('the dark theme reproduces todays rendering', () => {
   });
 
   it('THROWS on a value outside the grammar rather than answering with a default style', () => {
-    // These two answered the same question differently and silently —
+    // SCREEN-2002 work unit 3. These two answered the same question differently and silently —
     // `foreground` with its base, `background` with `chalk.reset` — so a value neither could encode
     // rendered as unstyled text in one place and as a reset in another. Unreachable while every
     // value came from a validated built-in; reachable the moment a parsed file reaches the builder,

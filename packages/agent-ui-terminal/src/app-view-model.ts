@@ -47,7 +47,7 @@ export interface IAppViewModel {
   readonly plugin: IAppPluginViewModel;
   readonly transport: IAppTransportViewModel;
   readonly sessionPicker: IAppSessionPickerViewModel;
-  /** The live theme, the resolved motion setting, and the picker over them. */
+  /** SCREEN-2002: the live theme, the resolved motion setting, and the picker over them. */
   readonly theme: IAppThemeViewModel;
   readonly contextPercentage: number;
   readonly input: IAppInputViewModel;
@@ -110,7 +110,7 @@ export interface IAppSessionAcceptanceViewModel {
 }
 
 export interface IAppInputViewModel {
-  /** The deep link's prefill, present only until the composer takes it. */
+  /** FLOW-2006: the deep link's prefill, present only until the composer takes it. */
   readonly initialValue?: string | undefined;
   /** Called by the composer the first time it seeds itself, so a remount does not re-seed. */
   readonly consumeInitialValue?: (() => void) | undefined;
@@ -127,7 +127,7 @@ export interface IAppInputViewModel {
   readonly sessionName: string | undefined;
   readonly history: readonly IHistoryEntry[];
   readonly focusBackgroundList: () => void;
-  /** The stored-prompt search surface; absent ⇒ the feature is off. */
+  /** SCREEN-1993: the stored-prompt search surface; absent ⇒ the feature is off. */
   readonly historySearch: IInputAreaHistorySearch | undefined;
 }
 

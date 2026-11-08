@@ -1,5 +1,5 @@
 /**
- * The theme picker.
+ * SCREEN-2002 — the theme picker.
  *
  * Preview-on-move: the highlighted row IS the live region's theme while the picker is open, because
  * a colour scheme cannot be judged from a swatch beside the thing it does not apply to. Escape
@@ -155,7 +155,7 @@ function useThemePickerSelection(
     [select, themes],
   );
 
-  // An arrow-key menu gets numbers and a typed answer in the mode. It applies on SELECT
+  // CLI-2004: an arrow-key menu gets numbers and a typed answer in the mode. It applies on SELECT
   // rather than on navigation — there is no highlight to hear, so a preview per keystroke would
   // just be repaints a reader has to sit through.
   const numbered = useNumberedSelection({

@@ -1,13 +1,13 @@
 /**
- * The mode's entry point.
+ * CLI-2004 TC-02 / TC-03 / TC-17 / TC-18 — the mode's entry point.
  *
- * The threading is asserted in BOTH halves, because they fail independently: Ink's own
- * `isScreenReaderEnabled` option, and the hand-maintained `toChannelOptions` projection, which can
- * drop an option silently.
- * The first line the process prints is asserted — the confirmation, the advisory, and the two
- * cases where nothing at all is printed.
- * The banner suppression is asserted separately, which the box-drawing sweep cannot see because
- * the banner is ASCII art, not box-drawing characters.
+ * TC-02 asserts BOTH halves of the threading, because they fail independently: Ink's own
+ * `isScreenReaderEnabled` option, and the hand-maintained `toChannelOptions` projection that
+ * ARCH-110 records as able to drop an option silently.
+ * TC-03/TC-18 assert the first line the process prints — the confirmation, the advisory, and the
+ * two cases where nothing at all is printed.
+ * TC-17 asserts the banner suppression, which TC-11's box-drawing sweep cannot see because the
+ * banner is ASCII art, not box-drawing characters.
  */
 
 import React from 'react';
@@ -59,7 +59,7 @@ function baseOptions(): IRenderOptions {
   };
 }
 
-describe('the mode reaches Ink AND the channel projection', () => {
+describe('TC-02: the mode reaches Ink AND the channel projection', () => {
   beforeEach(() => {
     inkRender.mockClear();
   });
@@ -83,7 +83,7 @@ describe('the mode reaches Ink AND the channel projection', () => {
     expect(inkRender.mock.calls[0]?.[1]?.isScreenReaderEnabled).toBe(false);
   });
 
-  it('toChannelOptions projects screenReader — the drop hazard', () => {
+  it('toChannelOptions projects screenReader — the ARCH-110 drop hazard', () => {
     expect(toChannelOptions({ ...baseOptions(), screenReader: true }).screenReader).toBe(true);
     expect(toChannelOptions({ ...baseOptions(), screenReader: false }).screenReader).toBe(false);
   });
@@ -93,7 +93,7 @@ describe('the mode reaches Ink AND the channel projection', () => {
   });
 });
 
-describe('keybinding source lifecycle', () => {
+describe('BEHAVIOR-2003: keybinding source lifecycle', () => {
   it('disposes the source when initialization fails before Ink starts', async () => {
     const startupFailure = new Error('watcher startup failed');
     const dispose = vi.fn();
@@ -113,7 +113,7 @@ describe('keybinding source lifecycle', () => {
   });
 });
 
-describe('the confirmation line names the channel', () => {
+describe('TC-03: the confirmation line names the channel', () => {
   it('prints the channel that actually turned the mode on', () => {
     expect(screenReaderAnnouncement({ enabled: true, channel: 'flag' })).toBe(
       '[Screen reader mode: on via flag]',
@@ -159,7 +159,7 @@ describe('the confirmation line names the channel', () => {
   });
 });
 
-describe('the advisory line, and its two negatives', () => {
+describe('TC-18: the advisory line, and its two negatives', () => {
   it('is the first line when the mode is off and a reader-shaped hint is present', () => {
     const written: string[] = [];
     writeScreenReaderAnnouncement({ enabled: false, hint: true }, (text) => written.push(text));
@@ -183,7 +183,7 @@ describe('the advisory line, and its two negatives', () => {
   });
 });
 
-describe('the ASCII banner is not committed in the mode', () => {
+describe('TC-17: the ASCII banner is not committed in the mode', () => {
   const history = [{ id: 'h1' } as unknown as IHistoryEntry];
 
   it('omits the banner item entirely when the mode is on', () => {
@@ -206,7 +206,7 @@ describe('the ASCII banner is not committed in the mode', () => {
   });
 });
 
-describe('with the mode off, render() is called with no stdout key at all', () => {
+describe('SCREEN-2670 TC-05: with the mode off, render() is called with no stdout key at all', () => {
   beforeEach(() => {
     inkRender.mockClear();
   });

@@ -1,5 +1,5 @@
 /**
- * Unit tests for the TUI terminal-handoff controller LOGIC.
+ * TERM-002: unit tests for the TUI terminal-handoff controller LOGIC.
  *
  * The real Ink suspend/resume + child-process TTY handoff can only be validated on a live terminal
  * (manual / User Execution evidence). These tests pin the controller's observable contract: TTY +
@@ -87,7 +87,7 @@ describe('TerminalHandoffController', () => {
   });
 });
 
-/** The negotiated terminal modes bracket the handoff. */
+/** SCREEN-1992 TC-06: the negotiated terminal modes bracket the handoff. */
 describe('TerminalHandoffController terminal-mode hooks', () => {
   it('runs preSuspend after suspend and postResume after resume, even when the child throws', async () => {
     const order: string[] = [];
@@ -124,7 +124,7 @@ describe('TerminalHandoffController terminal-mode hooks', () => {
   });
 
   /**
-   * `preSuspend` may be async — it drains the parked screen-reader output — and the
+   * SCREEN-2670: `preSuspend` may be async — it drains the parked screen-reader output — and the
    * screen is cleared only after it settles. Without the await, `clear` and the child would run
    * while the drain was still pending, and parked frames would land on top of the child's output.
    */

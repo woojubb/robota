@@ -1,5 +1,5 @@
 /**
- * The theme picker.
+ * SCREEN-2002 TC-10 — the theme picker.
  *
  * Preview-on-move is the behaviour worth pinning: the highlighted row IS the live region's theme
  * while the picker is open, so moving the highlight must call `preview` and LEAVING must not
@@ -52,7 +52,7 @@ async function tick(ms = 20): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-describe('the theme picker', () => {
+describe('the theme picker (SCREEN-2002 TC-10)', () => {
   it('lists every theme with its appearance and source, and marks the active one', () => {
     const frame = render(<ThemePicker picker={picker()} />).lastFrame() ?? '';
 
@@ -220,7 +220,7 @@ describe('the theme picker', () => {
   });
 });
 
-describe('the theme picker in screen-reader mode', () => {
+describe('the theme picker in screen-reader mode (SCREEN-2002 TC-10)', () => {
   function renderInMode(view: IAppThemePickerViewModel): ReturnType<typeof render> {
     return render(
       <ScreenReaderProvider enabled>
@@ -268,7 +268,7 @@ describe('the theme picker in screen-reader mode', () => {
   });
 });
 
-describe('the theme picker over files it refused', () => {
+describe('the theme picker over files it refused (SCREEN-2002 TC-11)', () => {
   const skipped = [
     { id: 'custom:broken', fileName: 'broken.json', reason: '$.overrides.colors.text.accent: bad' },
   ];
@@ -322,7 +322,7 @@ describe('the theme picker over files it refused', () => {
   });
 });
 
-describe('the toggles row names a route the mode can take', () => {
+describe('the toggles row names a route the mode can take (SCREEN-2002 TC-11)', () => {
   it('names the commands in screen-reader mode, where `s` and `m` are not bound', () => {
     const frame =
       render(

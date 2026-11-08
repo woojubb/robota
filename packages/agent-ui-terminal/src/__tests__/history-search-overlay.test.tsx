@@ -1,5 +1,5 @@
 /**
- * The reverse prompt-history search overlay inside the input area.
+ * SCREEN-1993 TC-04 — the reverse prompt-history search overlay inside the input area.
  *
  * The source is an async iterable the test releases block by block, so "the first block renders
  * before the second is yielded" and "cancel aborts the loader" are observed, not assumed.
@@ -111,7 +111,7 @@ function renderWith(
   return { ...rendered, onSubmit };
 }
 
-describe('the history-search overlay', () => {
+describe('SCREEN-1993 TC-04: the history-search overlay', () => {
   it('opens on ctrl+r, starts one loader, and renders the first block before the second lands', async () => {
     const gate = gatedSource([
       { entries: [entry('deploy the canary to eu-west', 's-current', '/here')], skippedLines: 1 },
@@ -342,7 +342,7 @@ describe('the history-search overlay', () => {
   });
 });
 
-describe('sealed prompts the overlay cannot open', () => {
+describe('#3679: sealed prompts the overlay cannot open', () => {
   it('says how many are locked as blocks land, newest first, and that an unlock searches them', async () => {
     const gate = gatedSource([
       {

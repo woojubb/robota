@@ -1,5 +1,5 @@
 /**
- * Position the REAL terminal cursor at the CJK composition point.
+ * CLI-062 — position the REAL terminal cursor at the CJK composition point.
  *
  * Mechanism (contract: .design/investigations/2026-07-25-cli-062-ime-cursor-design.md, POC-PASS):
  * the input box's absolute frame-space origin comes from walking the yoga `parentNode` chain from

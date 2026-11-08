@@ -32,7 +32,7 @@ export function formatCommandOutputSummary(
   const successValue = getBooleanValue(parsed, 'success');
   const output = buildOutputText(tool.toolResultData, parsed);
   const lines = trimTrailingBlankLines(splitOutputLines(output));
-  // These lines ARE the command's stdout and stderr — the most directly attacker-chosen
+  // SEC-019: these lines ARE the command's stdout and stderr — the most directly attacker-chosen
   // text in the whole surface. Sanitized where the summary is BUILT rather than where it is
   // rendered, because this function exists to produce display text and a second render site would
   // otherwise have to remember. `statusLabel` and `transcriptHint` are built from numbers and need

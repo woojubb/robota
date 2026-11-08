@@ -23,7 +23,7 @@ describe('isInteractiveColorTerminal', () => {
     Object.defineProperty(process.stdout, 'isTTY', { value: ORIG_TTY, configurable: true });
   });
 
-  it('NO_COLOR present disables even when empty', () => {
+  it('NO_COLOR present disables even when empty (the SCREEN-008 regression)', () => {
     vi.stubEnv('FORCE_COLOR', undefined);
     setTty(true);
     vi.stubEnv('NO_COLOR', '');
@@ -51,7 +51,7 @@ describe('isInteractiveColorTerminal', () => {
   });
 });
 
-describe('supportsImeCursorPositioning', () => {
+describe('supportsImeCursorPositioning (CLI-062)', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     Object.defineProperty(process.stdout, 'isTTY', { value: ORIG_TTY, configurable: true });
@@ -96,7 +96,7 @@ describe('supportsImeCursorPositioning', () => {
 });
 
 /**
- * IME cursor terminal matrix — capability half.
+ * CLI-062 terminal matrix — capability half.
  *
  * Terminal detection is ASSERTED here, never assumed: every emulator in the matrix is applied as
  * the environment handshake it really exports (see helpers/terminal-profiles.ts for how each row's
@@ -105,7 +105,7 @@ describe('supportsImeCursorPositioning', () => {
  * a non-macOS machine, but their env branch — including Apple_Terminal's default-off I5 branch —
  * is fully exercised by stubbing the variables those terminals set.
  */
-describe('IME cursor terminal matrix — supportsImeCursorPositioning per terminal', () => {
+describe('CLI-062 terminal matrix — supportsImeCursorPositioning per terminal', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     Object.defineProperty(process.stdout, 'isTTY', { value: ORIG_TTY, configurable: true });

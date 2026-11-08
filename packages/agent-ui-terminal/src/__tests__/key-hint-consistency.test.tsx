@@ -1,5 +1,5 @@
 /**
- * Anti-drift consistency guard — the mechanical floor for the key-hint SSOT.
+ * SCREEN-005 anti-drift consistency guard — the mechanical floor for the key-hint SSOT.
  *
  * Covers the FULL footer inventory: every component's declared hint set must (a) render exactly as
  * `formatKeyHints(<declared hints>)` (round-trip through the SSOT — a fourth footer dialect cannot
@@ -41,10 +41,10 @@ const KEY_RANK: Record<string, number> = {
   '←→': 0, // navigate
   Space: 1, // modify
   Tab: 1, // modify
-  'Ctrl+S': 1, // modify (the search scope)
+  'Ctrl+S': 1, // modify (SCREEN-1993: the search scope)
   Enter: 2, // primary
-  'Enter/Tab': 2, // primary (insert the match)
-  'Ctrl+E': 2, // primary (run the match)
+  'Enter/Tab': 2, // primary (SCREEN-1993: insert the match)
+  'Ctrl+E': 2, // primary (SCREEN-1993: run the match)
   Esc: 3, // dismiss
   'Ctrl+B/Esc': 3, // dismiss
 };
@@ -211,7 +211,7 @@ const FOOTER_INVENTORY: readonly IFooterInventoryEntry[] = [
   },
 ];
 
-describe('key-hint consistency (anti-drift guard)', () => {
+describe('key-hint consistency (SCREEN-005 anti-drift guard)', () => {
   it.each(FOOTER_INVENTORY.map((entry) => [entry.name, entry] as const))(
     '%s: rendered footer round-trips through formatKeyHints',
     (_name, entry) => {

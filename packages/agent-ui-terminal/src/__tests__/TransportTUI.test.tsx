@@ -1,5 +1,5 @@
 /**
- * The toggle surface tells the truth about what it did.
+ * TRANS-009 — the toggle surface tells the truth about what it did.
  *
  * Two defects, one place. `registry.setEnabled` writes a settings file and returns; nothing on that
  * path starts a transport, and `startAll` reads `getEnabled()` at session start. So the row used to
@@ -45,7 +45,7 @@ const flush = async (): Promise<void> => {
   await new Promise((resolve) => setImmediate(resolve));
 };
 
-describe('the surface says when a toggle applies', () => {
+describe('TRANS-009: the surface says when a toggle applies', () => {
   it('states that a toggle applies at the next start', () => {
     const { lastFrame } = render(
       <TransportTUI
@@ -71,9 +71,8 @@ describe('the surface says when a toggle applies', () => {
 
   it('names the saved setting for a disabled transport too', () => {
     // The other half of the badge's ternary. Asserting only the enabled branch leaves the disabled
-    // one uncovered by a change that rewrites both — a mutation proves a case measures the guard,
-    // not
-    // that the cases reach across it.
+    // one uncovered by the change that rewrote both — the coverage gap HARNESS-122 was made of: a
+    // mutation proves a case measures the guard, not that the cases reach across it.
     const { lastFrame } = render(
       <TransportTUI
         registry={registryWith(vi.fn().mockResolvedValue(undefined), [entry('ws', false)])}
@@ -86,7 +85,7 @@ describe('the surface says when a toggle applies', () => {
   });
 });
 
-describe('a failed save is reported, not swallowed', () => {
+describe('TRANS-009: a failed save is reported, not swallowed', () => {
   it('renders the reason when the write fails', async () => {
     const registry = registryWith(vi.fn().mockRejectedValue(new Error('EACCES: settings.json')));
     const { stdin, lastFrame } = render(<TransportTUI registry={registry} onClose={vi.fn()} />);

@@ -8,11 +8,11 @@ import {
 import korean from '../../__tests__/__fixtures__/korean-text.json';
 
 /**
- * The deferred-submit orchestration. The load-bearing property: at fire time the submit reads
+ * CLI-061 — the deferred-submit orchestration. The load-bearing property: at fire time the submit reads
  * `readLatest()` (the LIVE value), so a trailing IME character applied AFTER the schedule is included. The
  * pre-fix path submitted the value captured at Enter time — this test fails against that.
  */
-describe('scheduleDeferredSubmit', () => {
+describe('scheduleDeferredSubmit (CLI-061)', () => {
   /** A synchronous "scheduler" that captures the callback so the test fires it deterministically. */
   function manualScheduler() {
     let fired: (() => void) | undefined;

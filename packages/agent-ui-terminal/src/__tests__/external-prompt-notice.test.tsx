@@ -1,5 +1,5 @@
 /**
- * The provenance notice and the consumed-once prefill.
+ * FLOW-2006 TC-05 — the provenance notice and the consumed-once prefill.
  *
  * The notice is what keeps a prompt the user never typed from reading like one they did, and the
  * consumed-once rule is why a handoff remount cannot re-seed a prompt they already cleared.

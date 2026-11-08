@@ -11,7 +11,7 @@ import type { IProviderDefinition } from '@robota-sdk/agent-core';
 const testHost = createTestFrameworkHost();
 
 /**
- * The provider definitions must survive the whole mapping chain.
+ * #1844 — the provider definitions must survive the whole mapping chain.
  *
  * `providerDefinitions` was declared on the session options and read by `/provider switch`, and no
  * production code set it. The consequence is not a dormant field: with an empty list the hot-swap
@@ -28,7 +28,7 @@ const DEFINITIONS = [
 const renderOptions = (over: Partial<IRenderOptions> = {}): IRenderOptions =>
   ({ host: testHost, cwd: '/w', provider: {}, ...over }) as IRenderOptions;
 
-describe('provider definitions reach the session', () => {
+describe('#1844 — provider definitions reach the session', () => {
   it('render options carry them into the channel options', () => {
     const channel = toChannelOptions(renderOptions({ providerDefinitions: DEFINITIONS }));
 

@@ -1,5 +1,5 @@
 /**
- * The two writers that reach the terminal outside Ink.
+ * CLI-2004 TC-08 / TC-09 — the two writers that reach the terminal outside Ink.
  *
  * Both are asserted against the exact BYTES, because that is the only channel a screen reader has:
  * there is no `aria-live` in a terminal, so what a reader gets is what lands in the buffer.
@@ -20,7 +20,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe('the attention bell', () => {
+describe('TC-08: the attention bell', () => {
   it('emits exactly one BEL on reply completion', () => {
     const sink = collector();
     createAttentionBell({ enabled: true, write: sink.write }).replyCompleted();
@@ -73,7 +73,7 @@ describe('the attention bell', () => {
   });
 });
 
-describe('the OSC 133 turn marks', () => {
+describe('TC-09: the OSC 133 turn marks', () => {
   const A = '\x1b]133;A\x07';
   const B = '\x1b]133;B\x07';
   const C = '\x1b]133;C\x07';

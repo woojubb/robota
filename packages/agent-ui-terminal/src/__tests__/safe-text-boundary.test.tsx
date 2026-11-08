@@ -1,6 +1,6 @@
 /**
- * The SafeText boundary, asserted against the BYTES Ink writes to a tty — not against
- * `lastFrame()`. Measured: Ink itself strips OSC 52 / OSC 0 / CSI / DCS / APC from a
+ * #2222: the SafeText boundary, asserted against the BYTES Ink writes to a tty — not against
+ * `lastFrame()`. Measured on PR #2212: Ink itself strips OSC 52 / OSC 0 / CSI / DCS / APC from a
  * frame and passes SGR, OSC 8 and a bare CR, so a frame assertion is green whether or not the code
  * sanitizes. Only the stream a real terminal would receive tells the two apart.
  *
@@ -46,7 +46,7 @@ async function renderToTty(element: ReactElement): Promise<string> {
   return capture.bytes();
 }
 
-describe('SafeText boundary', () => {
+describe('SafeText boundary (#2222)', () => {
   it('a raw ink Text render LEAKS the markers to the tty stream (detector proof)', async () => {
     const bytes = await renderToTty(<RawInkText>{POISON}</RawInkText>);
     expect(bytes).toContain(']8;;https://evil.example');

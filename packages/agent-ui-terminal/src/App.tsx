@@ -45,21 +45,21 @@ interface IProps {
    */
   acceptedDigest?: string;
   showSessionPickerOnStart?: boolean;
-  /** A deep link's prefill, consumed once by the composer. */
+  /** FLOW-2006: a deep link's prefill, consumed once by the composer. */
   initialInput?: string;
   initialInputOrigin?: 'external-link';
   startupUpdateNotice?: Promise<string | undefined>;
   transportRegistry?: ITransportRegistryView;
   pluginAdapter?: ICommandPluginAdapter;
   cliAdapter: ITuiCliAdapter;
-  /** The stored-prompt source and project key for the input area's search. */
+  /** SCREEN-1993: the stored-prompt source and project key for the input area's search. */
   promptHistorySource?: IPromptHistorySource;
   promptHistoryProject?: string;
-  /** The theme catalogue this run renders from; absent ⇒ the built-ins. */
+  /** SCREEN-2002: the theme catalogue this run renders from; absent ⇒ the built-ins. */
   themeRegistry?: IThemeRegistry;
-  /** Reduced motion as the product shell resolved it (settings ← env ← flag). */
+  /** SCREEN-2002: reduced motion as the product shell resolved it (settings ← env ← flag). */
   reducedMotion?: boolean | undefined;
-  /** Which tier decided it, when that was not the settings. */
+  /** SCREEN-2002: which tier decided it, when that was not the settings. */
   reducedMotionOverride?: TReducedMotionOverride | undefined;
 }
 

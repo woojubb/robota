@@ -1,5 +1,5 @@
 /**
- * The numbered-list menu (SSOT for its grammar).
+ * CLI-2004 — the numbered-list menu (SSOT for its grammar).
  *
  * Every arrow-key menu becomes this in screen-reader mode: `N. <option>` lines followed by one
  * prompt naming the valid range. Arrow navigation and the `> ` cursor are position cues a reader

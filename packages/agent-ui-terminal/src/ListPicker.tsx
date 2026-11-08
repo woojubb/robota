@@ -84,7 +84,7 @@ export default function ListPicker<T>({
     [items, maxVisible, onCancel, onSelect],
   );
 
-  // The viewport is a sighted affordance — `↑ N more above` tells a reader nothing about
+  // CLI-2004: the viewport is a sighted affordance — `↑ N more above` tells a reader nothing about
   // where it is. The mode lists every item with its number and asks for one.
   const screenReader = useScreenReader();
   const numbered = useNumberedSelection({

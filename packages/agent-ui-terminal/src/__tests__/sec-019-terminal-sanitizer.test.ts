@@ -7,7 +7,7 @@ import {
 } from '../sanitize-terminal-text.js';
 
 /**
- * Untrusted text may not act on the terminal.
+ * SEC-019 (issue #2022) - untrusted text may not act on the terminal.
  *
  * Model output, tool output, file contents and plugin text reach Ink `<Text>`, and Ink passes control
  * sequences through. These assert the property rather than the implementation: after sanitization the
@@ -21,7 +21,7 @@ const BEL = String.fromCharCode(7);
 //
 // The exact string is the point. The first version of this table asserted only that no control byte
 // survived and that `before` was still there, and both held for a sanitizer that stripped a DCS
-// introducer and left `q#0;2;0;0;0` standing as visible text — a defect review found.
+// introducer and left `q#0;2;0;0;0` standing as visible text — the defect review found on PR #2212.
 // An assertion that a buggy implementation also satisfies is not a regression test.
 const C1 = (code: number): string => String.fromCharCode(code);
 const ATTACKS: Array<[string, string, string]> = [
@@ -80,7 +80,7 @@ function hasTerminalControl(text: string): boolean {
   return false;
 }
 
-describe('a control sequence in untrusted text is neutralized', () => {
+describe('SEC-019 - a control sequence in untrusted text is neutralized', () => {
   it.each(ATTACKS)('removes %s', (_label, payload, expected) => {
     const out = sanitizeTerminalText('before' + payload + 'after');
     // The exact output, not a property. `hasTerminalControl` is asserted as well because the two
@@ -110,7 +110,7 @@ describe('a control sequence in untrusted text is neutralized', () => {
   // so a suite built entirely from tables can supply no red proof at all. Measured on this branch:
   // reversing the fix turned 5 `it.each` cases red and the floor still reported accidental-green.
   //
-  // These two are the named proof for that defect, and they are the cases
+  // These two are the named proof for the defect review found on PR #2212, and they are the cases
   // that must go red if anyone restores the introducer-only behaviour.
 
   it('removes the whole DCS sequence, not only its two-character introducer', () => {
@@ -192,7 +192,7 @@ describe('a control sequence in untrusted text is neutralized', () => {
   });
 });
 
-describe('a sequence split across streaming chunks is still removed', () => {
+describe('SEC-019 - a sequence split across streaming chunks is still removed', () => {
   const PAYLOAD = 'A' + ESC + ']52;c;aGVsbG8=' + BEL + 'B';
 
   // EVERY split point, not a sampled one: the issue asks for exactly this.
@@ -233,7 +233,7 @@ describe('a sequence split across streaming chunks is still removed', () => {
 
   // A sequence that ENDED inside the chunk is not an incomplete tail, and treating it as one is a
   // stall rather than a leak: `push` returns the text before it and holds everything after, so the
-  // trailing content does not appear until the next chunk or the flush. Review found it
+  // trailing content does not appear until the next chunk or the flush. Found in review of PR #2212
   // — the streaming table above splits an OSC and never puts a COMPLETE sequence mid-chunk, so it
   // could not see this.
 

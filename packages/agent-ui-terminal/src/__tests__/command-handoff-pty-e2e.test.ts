@@ -1,5 +1,5 @@
 /**
- * `/shell` and `/editor` through a real terminal handoff, end-to-end
+ * TEST-007 / TERM-003 + TERM-004: `/shell` and `/editor` through a real terminal handoff, end-to-end
  * in a PTY. Drives `fixtures/command-handoff-driver.tsx` (real executors + real
  * `TerminalHandoffController`). Proves on a real TTY that the child (subshell / `$EDITOR`) receives
  * the driver's keystrokes and the command returns cleanly — the behavior only a PTY can validate
@@ -51,7 +51,7 @@ describe('command handoff PTY E2E', () => {
       const session = spawnPtyFixture(FIXTURE, {
         argv: ['shell', outputPath],
         cwd: PACKAGE_DIR,
-        // Isolated HOME — the subshell must not read the developer's `~` (a real
+        // HARNESS-025: isolated HOME — the subshell must not read the developer's `~` (a real
         // shell rc there would otherwise change what the handoff child does).
         env: createPtyEnv(),
       });
@@ -83,7 +83,7 @@ describe('command handoff PTY E2E', () => {
       const session = spawnPtyFixture(FIXTURE, {
         argv: ['editor', outputPath],
         cwd: PACKAGE_DIR,
-        // Isolated HOME — only the EDITOR override comes from the test, so a real
+        // HARNESS-025: isolated HOME — only the EDITOR override comes from the test, so a real
         // `~/.selected_editor` (or similar) on the host cannot influence the assertion.
         env: createPtyEnv({ EDITOR: `sh ${FAKE_EDITOR}` }),
       });

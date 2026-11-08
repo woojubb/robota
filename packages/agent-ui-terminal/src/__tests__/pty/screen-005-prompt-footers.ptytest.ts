@@ -1,9 +1,9 @@
 /**
- * User Execution Test Scenarios — prompt footers and key-hint affordance on the BUILT
+ * SCREEN-005 User Execution Test Scenarios — prompt footers and key-hint affordance on the BUILT
  * CLI binary in a real PTY (run by `test:pty`; requires `pnpm build:deps` first).
  *
  * Scenario 1: `/` opens the autocomplete → unified footer + `> ` indicator on the selected row.
- * Scenario 2: a replayed model turn drives an ask in each shape (single-select,
+ * Scenario 2: a replayed model turn drives a CMD-004 ask in each shape (single-select,
  *   multi-select with the dynamic `(min N)` segment, free-text) → all footers share the grammar.
  * Scenario 3: a replayed Shell tool call opens the permission prompt → footer names the real keys
  *   (`←→ Navigate · Enter Confirm`, no Esc); pressing Esc resolves nothing (documented hard-stop).
@@ -36,7 +36,7 @@ function escapeRegExp(text: string): RegExp {
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-describe('prompt footers through the real binary', () => {
+describe('SCREEN-005 prompt footers through the real binary', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 

@@ -6,7 +6,7 @@ import {
 } from './time-units.js';
 
 /**
- * The time until a sleeping schedule fires, rendered against a given clock so the
+ * SCREEN-1992: the time until a sleeping schedule fires, rendered against a given clock so the
  * row can tick once a second without the projection changing.
  */
 export function formatCountdown(nextFireAt: string, now: Date): string | undefined {

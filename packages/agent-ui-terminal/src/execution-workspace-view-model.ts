@@ -30,13 +30,13 @@ const PREVIEW_SEPARATOR = ' ';
 export interface IExecutionWorkspaceEntryRow {
   id: string;
   radio: '●' | '○';
-  /** The five-word state, rendered beside the radio and carried in the accessible text. */
+  /** SCREEN-1992: the five-word state, rendered beside the radio and carried in the accessible text. */
   state: string;
   title: string;
   subtitle?: string;
   statusLabel: string;
   preview?: string;
-  /** The status KIND; the component resolves its colour from the live theme. */
+  /** SCREEN-2002: the status KIND; the component resolves its colour from the live theme. */
   statusKind: TUiStatusKind;
   isSelected: boolean;
   accessibleText: string;
@@ -139,9 +139,9 @@ function formatStatusLabel(status: TExecutionWorkspaceStatus): string {
   return status.replace(/_/g, ' ');
 }
 
-// The view model names the status KIND, not a colour — a colour belongs to the theme
+// SCREEN-2002: the view model names the status KIND, not a colour — a colour belongs to the theme
 // resolved at render time, and the kind is what keeps an entry's colour matching the glyph shown for
-// the same status everywhere. The component resolves it through `statusGlyphColor`.
+// the same status everywhere (SCREEN-007). The component resolves it through `statusGlyphColor`.
 function getEntryStatusKind(entry: IExecutionWorkspaceEntry): TUiStatusKind {
   return workspaceStatusKind(entry.status, entry.attention);
 }

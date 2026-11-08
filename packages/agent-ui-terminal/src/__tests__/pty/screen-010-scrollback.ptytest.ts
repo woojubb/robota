@@ -1,14 +1,14 @@
 /**
- * Chat-window scrollback layout, on the real binary.
+ * SCREEN-010 TC-05: chat-window scrollback layout, on the real binary.
  *
  * Runs in the PTY vitest project against the BUILT CLI. Automates the former "manual" smoke
  * (per the never-ask-the-user-to-test rule): generates committed output larger than a small viewport
  * and asserts the committed history is emitted to the terminal's native scrollback while the input
  * prompt + status bar stay pinned at the bottom. Once committed content is in scrollback and the input
  * is pinned, native terminal scroll-back is the terminal's own behavior (not the app's), so this is
- * the automatable essence of that claim.
+ * the automatable essence of TC-05.
  *
- * The same proof holds under `--screen-reader`. Ink's `alternateScreen` defaults to
+ * CLI-2004 TC-22 adds the same proof under `--screen-reader`. Ink's `alternateScreen` defaults to
  * false and nothing in the tree sets it — this is the GUARD on that, not new behaviour: the
  * alternate screen has no scrollback, and reviewing earlier output is the whole reason a reader can
  * use this TUI at all. The flagless case above cannot serve as the guard, because it asserts on the
@@ -42,7 +42,7 @@ const PROMPT_WAIT_MS = 30_000;
 const COMMANDS_WAIT_MS = 20_000;
 const CASE_TIMEOUT_MS = 60_000;
 
-describe('chat-window scrollback layout (real binary)', () => {
+describe('SCREEN-010 chat-window scrollback layout (real binary)', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 
@@ -58,7 +58,7 @@ describe('chat-window scrollback layout (real binary)', () => {
   });
 
   it(
-    'committed history fills scrollback beyond the viewport while the input stays pinned',
+    'TC-05: committed history fills scrollback beyond the viewport while the input stays pinned',
     async () => {
       // Small viewport so the committed /help output exceeds it and scrolls into scrollback.
       session = spawnTui({ projectDir, homeDir: join(projectDir, 'home'), rows: 16 });
@@ -90,7 +90,7 @@ describe('chat-window scrollback layout (real binary)', () => {
   );
 
   it(
-    '--screen-reader never switches to the alternate screen and keeps history in scrollback',
+    'CLI-2004 TC-22: --screen-reader never switches to the alternate screen and keeps history in scrollback',
     async () => {
       session = spawnTui({
         projectDir,

@@ -86,7 +86,7 @@ describe('ConfirmPrompt', () => {
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
-  // Footer names the real keys (←→; the flow suppresses Esc, so the footer omits it —
+  // SCREEN-005: footer names the real keys (←→; the flow suppresses Esc, so the footer omits it —
   // the footer lists exactly the keys that do something).
   it('renders the footer in the shared key-hint grammar and omits Esc', () => {
     const { lastFrame } = render(<ConfirmPrompt message="Confirm?" onSelect={() => {}} />);

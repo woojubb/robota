@@ -34,7 +34,7 @@ function readFromAdapter(cliAdapter: ITuiCliAdapter): IStatusLineCommandSettings
 /**
  * Statusline settings as persisted on disk, plus a from-disk `refresh()`.
  *
- * The HOST applies `statusline-settings-patch` via the settings adapter
+ * CMD-004 Phase 2 Stage C: the HOST applies `statusline-settings-patch` via the settings adapter
  * (the TUI no longer writes settings), so the renderer refreshes by RE-READING the persisted
  * document when a command result arrives (refresh-on-result).
  */

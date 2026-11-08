@@ -1,5 +1,5 @@
 /**
- * The typed-number input wiring shared by every numbered menu.
+ * CLI-2004 — the typed-number input wiring shared by every numbered menu.
  *
  * The reducer lives in `flows/selection-flow.ts` (one owner of "what is selected"); this hook is the
  * Ink adapter around it, so six components get the same behaviour without six copies of the same

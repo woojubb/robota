@@ -26,7 +26,7 @@ interface IOptions {
   readonly sessionPickerVisible: boolean;
   readonly workspaceSwitcherVisible: boolean;
   readonly continueForkQuestionOpen?: boolean;
-  /** The history-search overlay owns Esc and the switcher key while open. */
+  /** SCREEN-1993: the history-search overlay owns Esc and the switcher key while open. */
   readonly historySearchOpen: boolean;
   readonly selectedEntry: IExecutionWorkspaceEntry | undefined;
   readonly backgroundListFocused: boolean;
@@ -40,7 +40,7 @@ interface IOptions {
   readonly recoveryError: string | undefined;
   readonly recoveryPending: boolean;
   readonly coordinationBlocked: boolean;
-  /** The theme picker owns its keys while it is open, like every sibling overlay. */
+  /** SCREEN-2002: the theme picker owns its keys while it is open, like every sibling overlay. */
   readonly themePickerVisible: boolean;
   readonly retryRecovery: () => void;
 }

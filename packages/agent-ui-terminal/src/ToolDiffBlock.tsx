@@ -19,7 +19,7 @@ export default function ToolDiffBlock({ file, lines }: IProps): React.ReactEleme
   const palette = usePalette();
   const renderMarkdown = useRenderMarkdown();
   const summary = buildToolDiffSummary({ file, lines });
-  // The `\u2502` gutter is a vertical rule a reader announces on every line it prefixes.
+  // CLI-2004: the `\u2502` gutter is a vertical rule a reader announces on every line it prefixes.
   // The mode drops it — indentation already separates the block from the surrounding transcript.
   const screenReader = useScreenReader();
   const gutter = screenReader ? '' : '\u2502 ';

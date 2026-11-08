@@ -1,7 +1,7 @@
 /**
  * The input area's three key bindings, in one place.
  *
- * Extracted from `InputArea.tsx` by responsibility: the component owns the input's state
+ * Extracted from `InputArea.tsx` (CLI-2004) by responsibility: the component owns the input's state
  * and its rendering; these three `useInput` registrations are the routing between the two, and each
  * is gated on a different combination of the same flags — which is the shape that gets copied wrong
  * when it is inline among the render code.
@@ -19,7 +19,7 @@ import type { ICommand } from '@robota-sdk/agent-interface-command';
 export interface IUseInputAreaKeysInputs {
   value: string;
   isDisabled: boolean;
-  /** The history-search overlay owns the keys while it is open. */
+  /** SCREEN-1993: the history-search overlay owns the keys while it is open. */
   searchOpen: boolean;
   isQueueCancellationDisabled: boolean;
   pendingPrompt?: string | null;
@@ -77,7 +77,7 @@ export function useInputAreaKeys(inputs: IUseInputAreaKeysInputs): void {
       );
       if (action === undefined) return;
       const direction = action === 'history-previous' ? 'previous' : 'next';
-      // ↓ on an empty input that is not browsing history falls through into the
+      // SCREEN-014: ↓ on an empty input that is not browsing history falls through into the
       // background-work list (where it is a no-op for the input today). The parent decides whether
       // there is a list to focus.
       if (

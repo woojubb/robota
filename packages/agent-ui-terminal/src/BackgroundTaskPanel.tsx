@@ -12,7 +12,7 @@ import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execu
 
 interface IProps {
   entries: IExecutionWorkspaceEntry[];
-  /** Index of the keyboard-focused row, or null when the prompt input is focused. */
+  /** Index of the keyboard-focused row (SCREEN-014), or null when the prompt input is focused. */
   focusedIndex?: number | null;
 }
 
@@ -22,14 +22,14 @@ export default function BackgroundTaskPanel({
 }: IProps): React.ReactElement | null {
   const palette = usePalette();
   const screenReader = useScreenReader();
-  // Ticks once a second only while a schedule sleeps, never in screen-reader mode.
+  // SCREEN-1992: ticks once a second only while a schedule sleeps, never in screen-reader mode.
   const now = useCountdownTick(
     entries.some((entry) => entry.nextFireAt !== undefined),
     screenReader,
   );
   if (entries.length === 0) return null;
 
-  // The hint is focus-aware — it tells you how to enter the list, then how to move/open.
+  // SCREEN-014: the hint is focus-aware — it tells you how to enter the list, then how to move/open.
   const hint =
     focusedIndex !== null ? '  ·  ↑↓ select · Enter open · Esc back' : '  ·  ↓ select · Ctrl+B all';
 
@@ -49,8 +49,8 @@ export default function BackgroundTaskPanel({
         });
         const isFocused = index === focusedIndex;
         return (
-          // One truncated line so the connector + glyph lead the row.
-          // The keyboard-focused row is inverse-highlighted.
+          // SCREEN-011: one truncated line so the connector + glyph lead the row.
+          // SCREEN-014: the keyboard-focused row is inverse-highlighted.
           <Text key={entry.id} wrap="truncate-end" inverse={isFocused}>
             {`${row.connector} `}
             <Text

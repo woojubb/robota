@@ -12,7 +12,7 @@ const ESC = String.fromCharCode(27);
 const DOWN = `${ESC}[B`;
 const ENTER = '\r';
 
-describe('PendingActionPrompt (unified action renderer)', () => {
+describe('PendingActionPrompt (CMD-004 unified action renderer)', () => {
   it('single-select: renders options and answers with the chosen value', async () => {
     const onAnswer = vi.fn();
     const request: IActionRequest = {
@@ -37,7 +37,7 @@ describe('PendingActionPrompt (unified action renderer)', () => {
     expect(onAnswer).toHaveBeenCalledWith({ type: 'answer', values: ['default'] });
   });
 
-  it('single-select: the highlight starts on the request default — a No-default confirmation answers No on Enter', async () => {
+  it('single-select: the highlight starts on the request default — a No-default confirmation answers No on Enter (BEHAVIOR-2437)', async () => {
     const onAnswer = vi.fn();
     const request: IActionRequest = {
       id: 'git-commit',
@@ -153,7 +153,7 @@ describe('PendingActionPrompt (unified action renderer)', () => {
     expect(lastFrame()).toContain('OpenAI'); // back at the picker
   });
 
-  // Multi-select footer goes through the key-hint SSOT, keeping the dynamic (min N)
+  // SCREEN-005: multi-select footer goes through the key-hint SSOT, keeping the dynamic (min N)
   // segment on the Enter hint until the selection is confirmable.
   it('multi-select footer shows the (min N) segment until satisfiable, in the shared grammar', async () => {
     const onAnswer = vi.fn();

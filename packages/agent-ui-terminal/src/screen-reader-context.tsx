@@ -1,5 +1,5 @@
 /**
- * The one place a component asks "is screen-reader mode on?".
+ * CLI-2004 — the one place a component asks "is screen-reader mode on?".
  *
  * The mode is a single resolved boolean threaded from the CLI into `renderApp`, handed to Ink as
  * `isScreenReaderEnabled` AND published here. Two sources of truth for one fact is the hazard this

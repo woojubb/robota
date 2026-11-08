@@ -19,7 +19,7 @@ function collect(stream: FocusReportingStdin): Buffer[] {
   return chunks;
 }
 
-describe('focus input filter', () => {
+describe('focus input filter (SCREEN-1992 TC-06)', () => {
   it('strips CSI I / CSI O only while negotiated and forwards everything else byte-identical', () => {
     const negotiated = filterFocusSequences(Buffer.from('a\x1b[Ob\x1b[Ic'), true);
     expect(negotiated.forwarded.toString()).toBe('abc');

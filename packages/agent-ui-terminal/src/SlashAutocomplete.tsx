@@ -67,7 +67,7 @@ function CommandRow(props: {
   showSlash: boolean;
   rowWidth: number;
   nameColWidth: number;
-  /** Row number in the mode, replacing the `> ` cursor. */
+  /** CLI-2004: row number in the mode, replacing the `> ` cursor. */
   rowNumber?: number;
 }): React.ReactElement {
   const palette = usePalette();

@@ -1,5 +1,5 @@
 /**
- * The role-derived, provider-invariant label vocabulary.
+ * CLI-2004 TC-05 — the role-derived, provider-invariant label vocabulary.
  *
  * The point of the negative assertion below is not tidiness: a label naming the vendor would make
  * the transcript differ between `agent-provider-*` packages for the same conversation, and a reader
@@ -36,7 +36,7 @@ function renderLabel(role: TUniversalMessage['role'], enabled: boolean, driverId
   return frame;
 }
 
-describe('the label vocabulary', () => {
+describe('TC-05: the label vocabulary', () => {
   it('covers all nine label kinds', () => {
     expect(Object.keys(SCREEN_READER_LABELS)).toHaveLength(9);
     expect(screenReaderLabelValues()).toEqual([
@@ -72,7 +72,7 @@ describe('the label vocabulary', () => {
   });
 });
 
-describe('RoleLabel in the mode', () => {
+describe('TC-05: RoleLabel in the mode', () => {
   it('renders `assistant:` for an assistant message — the same under every provider', () => {
     const frame = renderLabel('assistant', true);
     expect(frame).toContain('assistant:');

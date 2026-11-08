@@ -97,7 +97,7 @@ describe('TextPrompt', () => {
     expect(lastFrame()!).toContain('Too short');
   });
 
-  // Footer renders through the key-hint SSOT grammar.
+  // SCREEN-005: footer renders through the key-hint SSOT grammar.
   it('renders the footer in the shared key-hint grammar', () => {
     const { lastFrame } = render(
       <TextPrompt title="Enter value" onSubmit={() => {}} onCancel={() => {}} />,

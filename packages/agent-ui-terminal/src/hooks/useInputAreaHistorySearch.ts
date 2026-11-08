@@ -1,5 +1,5 @@
 /**
- * The input area's side of prompt-history search: the `chat-input.history-search`
+ * SCREEN-1993 — the input area's side of prompt-history search: the `chat-input.history-search`
  * open binding, and what insert and execute do to the composer.
  *
  * Insert replaces the composer text with the match (cursor at the end); execute submits the match

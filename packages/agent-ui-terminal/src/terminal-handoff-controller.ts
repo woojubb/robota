@@ -1,5 +1,5 @@
 /**
- * TUI implementation of the `ITerminalHandoff` transport contract.
+ * TERM-002: TUI implementation of the `ITerminalHandoff` transport contract.
  *
  * Manual suspend/resume (NOT Ink 7.1.0 `suspendTerminal`): while a child process owns the real
  * terminal, the App renders nothing so Ink unmounts its input hooks and releases raw mode; the Ink
@@ -19,12 +19,12 @@ export interface ITuiSuspendHooks {
 }
 
 /**
- * Terminal modes the TUI negotiated (focus reporting) are released before a child owns
+ * SCREEN-1992: terminal modes the TUI negotiated (focus reporting) are released before a child owns
  * the terminal and re-negotiated once it is reclaimed, so the child never receives `CSI I`/`CSI O`
  * and a child that reset the mode does not leave the TUI blind afterwards.
  */
 export interface ITerminalModeHooks {
-  /** May be async: it drains the parked screen-reader output before the child gets the TTY. */
+  /** May be async: SCREEN-2670 drains the parked screen-reader output before the child gets the TTY. */
   preSuspend(): void | Promise<void>;
   postResume(): void;
 }
@@ -50,7 +50,7 @@ export class TerminalHandoffController implements ITerminalHandoff {
     };
   }
 
-  /** render.tsx registers the terminal-mode bracket before `render()`. */
+  /** render.tsx registers the terminal-mode bracket (SCREEN-1992) before `render()`. */
   setTerminalModeHooks(hooks: ITerminalModeHooks | undefined): void {
     this.modeHooks = hooks;
   }

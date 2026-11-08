@@ -124,12 +124,12 @@ describe('permission prompt flow', () => {
     expect(result.effect).toEqual({ type: 'none' });
   });
 
-  // [s] option is shown
+  // CLI-030 TC-03: [s] option is shown
   it('Given PERMISSION_PROMPT_OPTIONS When inspected Then session option contains [s] hint', () => {
     expect(PERMISSION_PROMPT_OPTIONS[1]).toContain('[s]');
   });
 
-  // S key maps to allow-session
+  // CLI-030 TC-03: s key maps to allow-session
   it('Given s shortcut When applied Then allow-session decision is emitted', () => {
     const action = getPermissionPromptInputAction('s', {});
 
@@ -138,7 +138,7 @@ describe('permission prompt flow', () => {
     expect(result.effect).toEqual({ type: 'resolve', decision: 'allow-session' });
   });
 
-  // Allow-once (y) does not add to session list
+  // CLI-030 TC-04: allow-once (y) does not add to session list
   it('Given y (allow-once) shortcut When applied Then true decision is emitted (not allow-session)', () => {
     const action = getPermissionPromptInputAction('y', {});
 

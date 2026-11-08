@@ -162,7 +162,7 @@ describe('ListPicker', () => {
     expect(selected).toBe('Beta');
   });
 
-  // Default footer renders through the key-hint SSOT grammar.
+  // SCREEN-005: default footer renders through the key-hint SSOT grammar.
   it('renders the default footer in the shared key-hint grammar', () => {
     const { lastFrame } = render(
       <ListPicker
