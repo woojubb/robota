@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { chmodSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { OrganizationGitAsset, OrganizationLedger } from '../index.js';
@@ -64,8 +64,20 @@ describe('owner-controlled Git publication', () => {
         'invalid-schema',
       );
     expect(f.ledger.budgetState('global').held.timeMs).toBe(0);
-    chmodSync(f.path, 0o777);
+    // A different directory at the owner's path is a different repository, never the pinned one.
+    renameSync(f.path, `${f.path}.moved`);
+    mkdirSync(f.path);
     await expect(f.broker.apply(f.call(f.publish(fence), true))).rejects.toThrow('outcome-unknown');
+    rmSync(f.path, { recursive: true });
+    renameSync(`${f.path}.moved`, f.path);
+    // Mode bits express "owner only" on POSIX; Windows has no such bits, so the pinned identity above is
+    // the check it shares with the other platforms.
+    if (process.platform !== 'win32') {
+      chmodSync(f.path, 0o777);
+      await expect(f.broker.apply(f.call(f.publish(fence), true))).rejects.toThrow(
+        'outcome-unknown',
+      );
+    }
     expect(f.git(['rev-parse', 'refs/heads/work'])).toBe(f.initial);
   });
 
@@ -74,12 +86,17 @@ describe('owner-controlled Git publication', () => {
     const marker = join(f.directory, 'hook-ran');
     const hooks = join(f.directory, 'evil-hooks');
     mkdirSync(hooks);
-    const script = `#!/bin/sh\nprintf 'ran' > '${marker}'\nexit 0\n`;
+    // Git runs the script through its own `sh` on every platform, which reads forward slashes.
+    const script = `#!/bin/sh\nprintf 'ran' > '${marker.replaceAll('\\', '/')}'\nexit 0\n`;
     const hook = join(hooks, 'reference-transaction');
     writeFileSync(hook, script, { mode: 0o700 });
-    f.git(['config', 'core.hooksPath', hooks]);
+    f.git(['config', 'core.hooksPath', hooks.replaceAll('\\', '/')]);
     f.git(['config', 'commit.gpgSign', 'true']);
-    f.git(['config', 'gpg.program', hook]);
+    f.git(['config', 'gpg.program', hook.replaceAll('\\', '/')]);
+    // Control: the same hook does run for an ordinary ref update here, so its absence below is the owner's override.
+    f.git(['update-ref', 'refs/heads/control', f.initial]);
+    expect(existsSync(marker)).toBe(true);
+    unlinkSync(marker);
     const fence = await f.lease();
     const saved = process.env.GIT_DIR;
     process.env.GIT_DIR = '/invalid-ambient-repository';
@@ -131,7 +148,7 @@ describe('owner-controlled Git publication', () => {
     const other = new OrganizationGitAsset({
       path: f.path,
       ref: 'refs/heads/other',
-      gitPath: '/usr/bin/git',
+      gitPath: f.gitPath,
     });
     expect(() => f.ledger.reconcileGitPublication(req, other)).toThrow('operation-conflict');
     f.git(['update-ref', 'refs/heads/work', f.initial, intent.publishedOid]);
