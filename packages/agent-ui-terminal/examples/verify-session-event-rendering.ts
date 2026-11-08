@@ -31,7 +31,7 @@ function assertCondition(condition: boolean, message: string): asserts condition
 }
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'arch-028-tui-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'session-event-rendering-'));
   const agentsPath = join(cwd, 'AGENTS.md');
   writeFileSync(agentsPath, '# Initial rules\n', 'utf8');
   const script = createScriptedProvider([{ text: 'context refreshed' }]);

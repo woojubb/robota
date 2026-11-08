@@ -22,7 +22,7 @@ import { spawnTui, writeTuiProviderSettings } from './pty-driver.js';
 import type { IPtySession } from './pty-driver.js';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
-const THEME_FIXTURE = join(FIXTURES, 'screen-2002-themes.jsonl');
+const THEME_FIXTURE = join(FIXTURES, 'themes.jsonl');
 
 const PROMPT = /Type a message or \/help/;
 const SNIPPET_DONE = /SCREEN2002_SNIPPET_DONE/;

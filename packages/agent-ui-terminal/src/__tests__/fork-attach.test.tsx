@@ -31,7 +31,7 @@ import type {
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface/session';
 
-const FORK_SESSION_ID = 'session_cli-1994-fork';
+const FORK_SESSION_ID = 'session_fork';
 
 function makeForkEntry(
   overrides: Partial<IExecutionWorkspaceEntry> = {},

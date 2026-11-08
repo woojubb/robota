@@ -33,7 +33,7 @@ import type { IPtySession } from './pty-driver.js';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const REPLAY_FIXTURE = join(FIXTURES, 'replay-conversation.jsonl');
-const COLORS_FIXTURE = join(FIXTURES, 'screen-006-colors.jsonl');
+const COLORS_FIXTURE = join(FIXTURES, 'colors.jsonl');
 
 /** SGR params that set a color (foreground/background, basic/bright/extended). */
 const COLOR_PARAM = /^(?:3[0-8]|39|4[0-8]|49|9[0-7]|10[0-7])$/;
