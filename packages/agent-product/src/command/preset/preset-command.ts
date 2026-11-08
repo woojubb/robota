@@ -29,7 +29,7 @@ import type { IPresetSummary } from '../../preset/index.js';
 /**
  * What `/preset` actually needs from a registry — three members, no assertion.
  *
- * Narrower than `agent-preset`'s `IPresetRegistry` on purpose. A first version reached that
+ * Narrower than the `preset` subpath's `IPresetRegistry` on purpose. A first version reached that
  * contract with three casts, one of which (`listPresets()`) widened optional
  * `title`/`description` into required ones and would have printed `id — undefined: undefined` for a
  * host that typechecked. The fix is not a better cast: it is asking for the shape the command uses,

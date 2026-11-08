@@ -13,7 +13,7 @@ export interface IKeybindingsFilePort {
 /**
  * Opens `path` in the user's editor on the terminal the command holds, and resolves with the editor's
  * exit code. Starting a process is the host's, so a Node host passes `openFileInEditor` from
- * `@robota-sdk/agent-command/node`; without one the command says it cannot open an editor here.
+ * `@robota-sdk/agent-product/command/node`; without one the command says it cannot open an editor here.
  */
 export type TOpenFileInEditor = (path: string, cwd: string) => Promise<number>;
 

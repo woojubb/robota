@@ -121,7 +121,7 @@ const DOCTOR_UNAVAILABLE_MESSAGE =
 /**
  * Register `/doctor` over the host-composed inputs; the host decides whether to supply them. The
  * package has no host default for `deps`: a Node host passes `createNodeDoctorDeps` from
- * `@robota-sdk/agent-command/node`, and without it the command is listed and says it is unavailable.
+ * `@robota-sdk/agent-product/command/node`, and without it the command is listed and says it is unavailable.
  */
 export function createDoctorCommandModule(
   inputs: IDoctorInputs,

@@ -32,7 +32,7 @@ export interface IExternalPresetFile {
  * rejections (built-in id collision or duplicate id) are folded into `errors` against their file.
  *
  * Loading REGISTERS NOTHING. The result is a value the caller owns. The package reads no file itself:
- * `loadExternalPresetsFromDir` in `@robota-sdk/agent-preset/node` lists a directory on a Node host.
+ * `loadExternalPresetsFromDir` in `@robota-sdk/agent-product/preset/node` lists a directory on a Node host.
  */
 export function loadExternalPresetsFromFiles(
   files: readonly IExternalPresetFile[],

@@ -1,4 +1,4 @@
-// @robota-sdk/agent-command/node — the commands whose whole purpose is the host (`/shell` and
+// @robota-sdk/agent-product/command/node — the commands whose whole purpose is the host (`/shell` and
 // `/editor` hand the real terminal to a child process, and `createTerminalClientCommands` runs them
 // on an attached terminal) and the Node adapters a command takes by injection (the doctor's probes
 // and writers, the editor `/keybindings` opens). The main entry names none of them: a composition

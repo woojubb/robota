@@ -6,7 +6,7 @@ import { executePresetCommand } from '../preset-command.js';
  * `/preset` discovers through the registry the HOST resolved with.
  *
  * Startup preset resolution uses a per-call instance registry, but `/preset` would otherwise keep
- * reading `agent-preset`'s module-global one, because a command runs with only an
+ * reading the `preset` subpath's module-global one, because a command runs with only an
  * `ICommandHostContext` and had no path to the instance the shell built. That left the last mutable
  * process-global on this axis load-bearing, and it made the per-instance property — two products in one
  * process, each with its own presets — only half-true: both would have shared one registry.

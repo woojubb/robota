@@ -101,7 +101,7 @@ export interface IDoctorPathFacts {
 
 /**
  * Every side effect the runner and a repair need. The package has no host default: a Node host passes
- * `createNodeDoctorDeps` from `@robota-sdk/agent-command/node`, and a host that cannot supply these
+ * `createNodeDoctorDeps` from `@robota-sdk/agent-product/command/node`, and a host that cannot supply these
  * passes none, so `/doctor` says it is unavailable there.
  */
 export interface IDoctorDeps {

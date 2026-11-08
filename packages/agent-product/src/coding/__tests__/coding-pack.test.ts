@@ -10,7 +10,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { createCodingPack } from '../coding-pack.js';
 
 /**
- * `@robota-sdk/pack-coding` is the additive-axis proof: an `ICapabilityPack` that bundles
+ * `@robota-sdk/agent-product/coding` is the additive-axis proof: an `ICapabilityPack` that bundles
  * EXACTLY agent's current coding toolset (the built-in tools), the coding command modules, and the coding
  * subagents. The pack consumes `createDefaultTools()` and the assertion checks that composition does not
  * add, drop, or reorder that owned set.

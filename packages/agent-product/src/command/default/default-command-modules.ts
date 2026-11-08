@@ -100,7 +100,7 @@ export interface IDefaultCommandModulesOptions {
   keybindingsFilePort?: IKeybindingsFilePort;
   /**
    * How `/keybindings` opens that file in the user's editor; a Node host passes `openFileInEditor`
-   * from `@robota-sdk/agent-command/node`. Absent, `/keybindings` says it cannot open an editor here.
+   * from `@robota-sdk/agent-product/command/node`. Absent, `/keybindings` says it cannot open an editor here.
    */
   keybindingsEditor?: TOpenFileInEditor;
   /**
@@ -128,7 +128,7 @@ export interface IDefaultCommandModulesOptions {
   doctorInputs?: IDoctorInputs;
   /**
    * The probes and writers `/doctor` runs through; a Node host passes `createNodeDoctorDeps` from
-   * `@robota-sdk/agent-command/node`. Absent, `/doctor` is registered and says it is unavailable.
+   * `@robota-sdk/agent-product/command/node`. Absent, `/doctor` is registered and says it is unavailable.
    */
   doctorDeps?: IDoctorDeps;
   /** Product-owned diagnostic wording; absent keeps `/doctor` product-neutral. */

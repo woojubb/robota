@@ -24,7 +24,7 @@ sub-folds and the framework's runtime-construction seam, and returns assembled m
 boundary has three parts:
 
 1. **Dependency-graph neutrality** — declares no concrete transport/UI/CLI dependency.
-2. **Purity / no I/O** — no filesystem, `process.env`, or settings read anywhere in this package;
+2. **Purity / no I/O** — no filesystem, `process.env`, or settings read anywhere in the root entry;
    all resolved data is fed in from the shell that calls it.
 3. **No product-name conditionals** — no branch on a profile's identity in any form (equality,
    switch, string-matching, or a lookup table keyed by identity). Reading the identity as data
@@ -57,8 +57,8 @@ boundary has three parts:
 
 - Does not import a concrete transport, TUI, remote-control, or CLI — those stay wired in the
   shell and are injected into the profile as data.
-- Does not read settings, files, or env — the shell resolves those and passes in already-resolved
-  data.
+- The root entry does not read settings, files, or env — the shell resolves those and passes in
+  already-resolved data.
 - Does not read provider settings, but does construct the provider from already-resolved config.
 - Does not mutate any module-level preset registry global — it builds or adopts an
   instance-scoped registry only, so two calls never cross-contaminate.
@@ -156,8 +156,8 @@ host read, listing a directory of preset files, is on `preset/node`.
 ### Boundaries
 
 - Does **not** assemble sessions, synthesize system prompts, apply permission modes, or select
-  command modules — those belong to the assembly package, the execution-capability packages, and
-  the command-module package respectively.
+  command modules — those belong to the framework's assembly, the execution-capability packages,
+  and the `command` subpath respectively.
 - Does **not** parse CLI flags, read settings, or render active-preset UI.
 - Does **not** re-export the framework package it depends on; it consumes the framework's option
   types as the single source of truth for the option shape rather than redefining them.
@@ -183,7 +183,7 @@ than being silently dropped.
 #### External preset loading
 
 User-authored presets are loaded at runtime from a JSON file per preset, handed to the package as
-named files by the product shell; `preset/node` lists a directory of them. The package reads no file
+named files by the product shell; `preset/node` lists a directory of them. The `preset` entry reads no file
 on its own and does not choose the user's home, a product-specific storage root, or a default agent
 name. Each file is parsed and validated with a manual type-guard (no schema
 library); the untrusted effort field is validated through the framework's shared parser so external

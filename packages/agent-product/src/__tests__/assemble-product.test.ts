@@ -351,7 +351,7 @@ describe('assembleProduct — instance-scoped preset resolution (R8)', () => {
     assembleProduct(profile);
     assembleProduct(profile); // a second call must not accumulate / throw duplicate-id
 
-    // This used to ask agent-preset's module-global readers whether the assembly had leaked
+    // This used to ask the `preset` subpath's module-global readers whether the assembly had leaked
     // into them. There is no global left to leak into, so the question is now asked of a registry
     // built after the two assemblies — the property that mattered, and one that can still fail.
     const later = createPresetRegistry();

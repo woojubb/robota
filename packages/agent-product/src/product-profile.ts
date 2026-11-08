@@ -88,7 +88,7 @@ export interface IProductProfile {
    */
   presets?: readonly IPreset[];
   /**
-   * An ALREADY-BUILT instance-scoped registry (from `agent-preset`'s `createPresetRegistry`) to use
+   * An ALREADY-BUILT instance-scoped registry (from the `preset` subpath's `createPresetRegistry`) to use
    * instead of building one from {@link presets}. When supplied it WINS over `presets`.
    *
    * This is the seam for a shell that must resolve a preset BEFORE it can build the profile — a preset

@@ -17,7 +17,7 @@ const EFFORT_SELECTIONS: readonly TEffortSelection[] = ['auto', ...MODEL_EFFORT_
 /**
  * Re-exported for callers already importing it from here; the canonical definition moved
  * to `agent-framework` (`effort/effort-resolution.ts`) so headless `/goal` output (in that same
- * package) can use the same labels without a circular dependency on `agent-command`.
+ * package) can use the same labels without a circular dependency on the `command` subpath.
  */
 export { EFFORT_LEVEL_LABELS };
 

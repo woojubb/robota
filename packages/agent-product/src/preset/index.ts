@@ -1,5 +1,5 @@
 /**
- * @robota-sdk/agent-preset — IPreset contract, the instance-scoped preset registry and its
+ * @robota-sdk/agent-product/preset — IPreset contract, the instance-scoped preset registry and its
  * precedence merger, and built-in preset definitions. Depends only on `@robota-sdk/agent-framework`
  * (option types).
  *

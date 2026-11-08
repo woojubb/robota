@@ -153,7 +153,7 @@ function overlaySessionOptions(
  * What it does:
  * 1. Builds a PER-CALL instance-scoped preset registry over `profile.presets` (R8) — or adopts the
  *    instance the caller already built and handed in as `profile.presetRegistry`. Either way it
- *    never mutates agent-preset's module-level `externalPresets` global, so two products in one process do
+ *    never mutates the `preset` subpath's module-level `externalPresets` global, so two products in one process do
  *    not share one registry and repeat calls do not accumulate. `defaultPresetId` is resolved over that
  *    registry with `profile.presetContext`, so the product's `defaultPreset` is the caller's resolution.
  * 2. Merges the additive capability packs onto `profile.baseCommandModules` via `mergeCapabilityPacks`
