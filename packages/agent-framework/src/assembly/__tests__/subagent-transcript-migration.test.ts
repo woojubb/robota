@@ -65,7 +65,7 @@ function allPages(path: string, sealer?: ReturnType<typeof createTestArtifactSea
 }
 
 // agent-session's `openAppendFile` refuses every log on Windows, where `lstat` reports device 0 and
-// `fstat` the volume serial for the same file, so these two cannot pass there until it is fixed (#3857).
+// `fstat` the volume serial for the same file, so these two cannot pass there until it is fixed.
 const sealsOnThisPlatform = process.platform !== 'win32';
 
 describe('migrateSubagentTranscripts', () => {
