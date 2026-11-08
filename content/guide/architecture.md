@@ -190,7 +190,6 @@ together. See [Deployment](./deployment.md).
 | `agent-cli`                             | The `__PRODUCT_CLI_NAME__` command — a maintained agent interface built from the packages above     |
 | `agent-ui-web` (internal)               | GUI components and a session reducer over the transport wire protocol            |
 | `agent-gui-web` (internal)              | The GUI web app served by `__PRODUCT_CLI_NAME__ --serve --open` and loaded by the desktop app  |
-| `agent-transport-webrtc-web` (internal) | The browser side of a WebRTC remote-control connection                           |
 
 `agent-cli` bundles the Robota packages it uses into its own build, so installing it does not
 install the SDK packages separately. The desktop app (`apps/agent-app`) is an Electron shell: it

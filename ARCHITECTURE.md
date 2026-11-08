@@ -34,7 +34,7 @@ SDK packages (@robota-sdk/*)
   Product composition   agent-product · pack-coding · agent-capability-pack ·
                         agent-command · agent-preset · agent-subagent-runner
   Presentation          agent-ui-terminal (React + Ink)
-                        agent-ui-web · agent-gui-web · agent-transport-webrtc-web (private GUI)
+                        agent-ui-web · agent-gui-web (private GUI)
   Assembly              agent-framework: InteractiveSession, createQuery, createAgentRuntime,
                         runtime host (buildRuntimeSession / startRuntimeHost behind robota --serve)
   Transports            agent-transport (wire protocol, delivery), and the carriers built on it:
@@ -135,7 +135,7 @@ configuration or network endpoint. In particular, a provider SDK may refuse clie
   `agent-builtin-providers`, `agent-capability-pack`, `agent-transport`, `product-config`,
   `agent-plugin`, `agent-executor`, `agent-session`, `agent-transport-http`, `agent-mcp`,
   `agent-tools`, `agent-framework`, `agent-command`, `agent-preset`, `agent-product`
-- **Browser (DOM)**: `agent-ui-web`, `agent-transport-webrtc-web`, `agent-gui-web` — free of Node
+- **Browser (DOM)**: `agent-ui-web`, `agent-gui-web` — free of Node
   like the neutral packages, and they also need a DOM.
 - **Node host**: `agent-cli`, `agent-ui-terminal`, `agent-process`, `agent-file-authority`,
   `agent-local-host`, `agent-node-lock`,
@@ -164,7 +164,7 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
 - `FAMILY-SIBLINGS` — the package name hierarchy is the dependency detector:
   an `agent-<family>-<child>` package (family = the second dash segment) may depend on its parent
   `agent-<family>` and on lower families, never on a sibling `agent-<family>-<other>` at any depth
-  (`agent-transport-webrtc-web` is a sibling of `agent-transport-ws`); the bare parent never depends
+  (`agent-transport-ws` is a sibling of `agent-transport-http`); the bare parent never depends
   on a child; and the composer/foundation (`agent-framework`, `agent-core`) never depends on a
   transport or UI child (`agent-transport-*`, `agent-ui-*`). Code two siblings share belongs in the
   parent (or a parent subpath) — never in a sibling-named substrate (`-common`, `-shared`,

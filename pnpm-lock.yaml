@@ -235,9 +235,9 @@ importers:
       '@robota-sdk/agent-remote-pairing':
         specifier: workspace:^
         version: link:../../packages/agent-remote-pairing
-      '@robota-sdk/agent-transport-webrtc-web':
+      '@robota-sdk/agent-transport':
         specifier: workspace:^
-        version: link:../../packages/agent-transport-webrtc-web
+        version: link:../../packages/agent-transport
       '@robota-sdk/agent-ui-web':
         specifier: workspace:^
         version: link:../../packages/agent-ui-web
@@ -2555,43 +2555,6 @@ importers:
       node-datachannel:
         specifier: ^0.33.4
         version: 0.33.4
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-webrtc-web:
-    dependencies:
-      '@robota-sdk/agent-remote-pairing':
-        specifier: workspace:^
-        version: link:../agent-remote-pairing
-      '@robota-sdk/agent-transport':
-        specifier: workspace:^
-        version: link:../agent-transport
-      '@robota-sdk/agent-ui-web':
-        specifier: workspace:^
-        version: link:../agent-ui-web
-    devDependencies:
-      '@types/react':
-        specifier: ^19.2.17
-        version: 19.2.17
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.17)
-      react:
-        specifier: 19.2.8
-        version: 19.2.8
-      react-dom:
-        specifier: 19.2.8
-        version: 19.2.8(react@19.2.8)
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10

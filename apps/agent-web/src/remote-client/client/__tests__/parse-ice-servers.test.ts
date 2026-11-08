@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+/** @jest-environment node */
 
-import { iceHasTurn, parseIceServersParam } from '../parse-ice-servers.js';
+import { iceHasTurn, parseIceServersParam } from '../parse-ice-servers';
 
 /**
  * The browser `ice`-param decoder. The param is attacker-influenceable, so a malformed

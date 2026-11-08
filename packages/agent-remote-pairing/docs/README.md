@@ -12,7 +12,7 @@ certificate chain, the device handshake, enrollment with a one-time code, and ha
 The main entry point is isomorphic (WebCrypto only, no `node:` imports, no WebRTC dependency) and runs on
 the Node host and in the browser client; the Node-only `./local` entry point admits peers on the same
 machine and user account. The WebRTC transports (`@robota-sdk/agent-transport-webrtc` on the host,
-`@robota-sdk/agent-transport-webrtc-web` in the browser) are its callers; it opens no connection itself.
+the remote client in `apps/agent-web` in the browser) are its callers; it opens no connection itself.
 
 ## Documents
 

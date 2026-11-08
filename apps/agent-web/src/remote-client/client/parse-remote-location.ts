@@ -1,6 +1,6 @@
 import { parsePairingUrl } from '@robota-sdk/agent-remote-pairing';
 
-import { iceHasTurn, parseIceServersParam } from './parse-ice-servers.js';
+import { iceHasTurn, parseIceServersParam } from './parse-ice-servers';
 
 /**
  * Parse the browser page's own URL into its connection inputs.

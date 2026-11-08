@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
-import { createIndexedDbBackend } from '../device-credential-store.js';
+/** @jest-environment node */
+import { createIndexedDbBackend } from '../device-credential-store';
 
 describe('configured credential database', () => {
   it('opens the selected product database without retaining another instance', async () => {
-    const open = vi.fn((_name: string, _version: number) => {
+    const open = jest.fn((_name: string, _version: number) => {
       const request = { error: new Error('test stop'), onerror: undefined as undefined | (() => void) };
       queueMicrotask(() => request.onerror?.());
       return request;

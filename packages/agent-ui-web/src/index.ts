@@ -1,7 +1,7 @@
 // @robota-sdk/agent-ui-web — the GUI presentation layer for a agent session.
 // React components + a wire-protocol session reducer + a desktop shell, rendered over the transport-neutral
 // TServerMessage stream. The GUI analog of agent-ui-terminal; consumed by apps/agent-app (desktop) and the
-// browser surface (agent-transport-webrtc-web).
+// browser surface (apps/agent-web).
 
 // ── Session reducer (transport-neutral) ─────────────────────
 export { useSessionClient, useWsSession } from './hooks/useSessionClient.js';
