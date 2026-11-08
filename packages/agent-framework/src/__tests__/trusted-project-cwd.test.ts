@@ -1,4 +1,5 @@
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,6 +9,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceAuthorityRequiredError, createAgentRuntime, createQuery } from '../index.js';
 import { createTestFrameworkHost } from '../testing/framework-host.js';
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
+import { WorkspaceTrustService } from '../workspace-trust/index.js';
+import {
+  createNodeWorkspaceIdentityResolver,
+  createNodeWorkspaceTrustStore,
+} from '../workspace-trust/node-host-workspace-trust.js';
+import { createNodeWorkspaceProjectFiles } from '../workspace-trust/node-project-files.js';
 
 import type { TWorkspaceProjectAccess } from '../index.js';
 
@@ -80,6 +87,98 @@ describe('a trusted project and the host that resolves real paths', () => {
 
     it('needs no canonicalizer when the project is Restricted', () => {
       expect(() => build({}, '/workspace', undefined as never)).not.toThrow();
+    });
+  });
+});
+
+/**
+ * The trusted root is the workspace identity's spelling of the repository, and the host spells a
+ * working directory its own way. A directory the user reaches through a link, or on Windows through an
+ * 8.3 short name (`RUNNER~1`), is the same directory: it is covered, not refused as outside the root.
+ */
+describe('a trusted repository and a working directory spelled another way', () => {
+  const roots: string[] = [];
+  afterEach(() => {
+    for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  });
+
+  function scratchDirectory(prefix: string): string {
+    const directory = mkdtempSync(join(tmpdir(), prefix));
+    roots.push(directory);
+    return directory;
+  }
+
+  async function trustedRepository(): Promise<{
+    root: string;
+    access: TWorkspaceProjectAccess;
+  }> {
+    const root = scratchDirectory('trusted-spelling-');
+    execFileSync('git', ['init', '--quiet', root], { stdio: 'ignore' });
+    const service = new WorkspaceTrustService({
+      identityResolver: createNodeWorkspaceIdentityResolver(),
+      store: createNodeWorkspaceTrustStore(
+        join(scratchDirectory('trusted-spelling-store-'), 'trust.json'),
+      ),
+      projectFiles: createNodeWorkspaceProjectFiles(),
+    });
+    const access = await service.grant(root);
+    if (access.status !== 'trusted') throw new Error('The repository was not trusted.');
+    return { root, access };
+  }
+
+  /** The directory's 8.3 name, or undefined where the volume does not keep one. */
+  function windowsShortSpelling(directory: string): string | undefined {
+    const short = execFileSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        '(New-Object -ComObject Scripting.FileSystemObject).GetFolder($env:SPELLED_PATH).ShortPath',
+      ],
+      { encoding: 'utf8', env: { ...process.env, SPELLED_PATH: directory } },
+    ).trim();
+    return short.includes('~') ? short : undefined;
+  }
+
+  const host = createTestFrameworkHost();
+  const provider = createScriptedProvider([]).provider;
+  const builders = {
+    createQuery: (cwd: string, projectAccess: TWorkspaceProjectAccess) =>
+      createQuery({ host, cwd, provider, projectAccess }),
+    createAgentRuntime: (cwd: string, projectAccess: TWorkspaceProjectAccess) =>
+      createAgentRuntime({ host, cwd, provider, projectAccess }),
+  };
+
+  describe.each(Object.entries(builders))('%s', (_name, build) => {
+    it('accepts the repository root as written', async () => {
+      const { root, access } = await trustedRepository();
+      expect(() => build(root, access)).not.toThrow();
+    });
+
+    it('accepts a working directory reached through a symlink', async () => {
+      const { root, access } = await trustedRepository();
+      const alias = join(scratchDirectory('trusted-spelling-alias-'), 'repo');
+      symlinkSync(root, alias);
+      expect(() => build(alias, access)).not.toThrow();
+    });
+
+    it.skipIf(process.platform !== 'win32')(
+      'accepts a working directory spelled with an 8.3 short name (Windows only: no other platform has short names)',
+      async (context) => {
+        const { root, access } = await trustedRepository();
+        const short = windowsShortSpelling(root);
+        if (short === undefined) context.skip('this volume does not keep 8.3 short names');
+        expect(short).not.toBe(root);
+        expect(() => build(short as string, access)).not.toThrow();
+      },
+    );
+
+    it('still refuses a directory that is not in the repository', async () => {
+      const { access } = await trustedRepository();
+      expect(() => build(scratchDirectory('trusted-spelling-outside-'), access)).toThrow(
+        'Trusted project access does not cover the requested working directory.',
+      );
     });
   });
 });

@@ -10,6 +10,7 @@ import * as MainEntry from '../index.js';
 import * as NodeEntry from '../node.js';
 import { createNodeFrameworkHost } from '../node.js';
 import { createTestFrameworkHost } from '../testing/framework-host.js';
+import { createNodeWorkspaceIdentityResolver } from '../workspace-trust/node-host-workspace-trust.js';
 
 import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
@@ -64,6 +65,18 @@ describe('createNodeFrameworkHost', () => {
     symlinkSync(workspace, join(root, 'alias'));
     expect(host.canonicalizePath?.(join(root, 'alias'))).toBe(workspace);
     expect(() => host.canonicalizePath?.(join(root, 'missing'))).toThrow();
+  });
+
+  it('spells a directory the way the workspace identity does', () => {
+    const workspace = join(root, 'ws');
+    mkdirSync(workspace);
+    execFileSync('git', ['init', '--quiet', workspace], { stdio: 'ignore' });
+    symlinkSync(workspace, join(root, 'alias'));
+    for (const spelled of [workspace, join(root, 'alias')]) {
+      expect(host.canonicalizePath?.(spelled)).toBe(
+        createNodeWorkspaceIdentityResolver().resolve(spelled).worktreeRoot,
+      );
+    }
   });
 
   it('builds a workspace resolver that follows symlinks and refuses a path that leaves the root', () => {
