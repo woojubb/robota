@@ -8,7 +8,7 @@ import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transpo
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
-import { HISTORY_PAGE_MAX_BYTES } from '@robota-sdk/agent-transport';
+import { HISTORY_PAGE_MAX_BYTES, SessionResumeBridge } from '@robota-sdk/agent-transport';
 import { WebRtcTransport } from '../webrtc-transport.js';
 import { createInMemorySignalingPair, type ISignalingClient } from '../signaling.js';
 import { WebRtcDeliveryLifecycle } from '../webrtc-delivery-lifecycle.js';
@@ -287,6 +287,66 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
     await t.start();
     expect(fake.connections[0]!.config.iceServers).toEqual([]);
     await t.stop();
+  });
+
+  it('grants the bare handler its host-set role and drives by default', async () => {
+    for (const role of ['observe', undefined] as const) {
+      const [hostSig, remoteSig] = createInMemorySignalingPair();
+      const session = createStubSession();
+      const submit = vi.fn().mockResolvedValue(undefined);
+      Object.assign(session, { submit });
+      const host = new WebRtcTransport({
+        cryptoContext: testIdentity,
+        signaling: hostSig,
+        open: true,
+        openReason: 'loopback — this case is about the granted role, not pairing',
+        ...(role ? { role } : {}),
+      });
+      host.attach(session);
+
+      const reply = connectRemote(remoteSig, { type: 'get-surface-role' });
+      await host.start();
+      expect(await reply).toMatchObject({ type: 'surface_role', role: role ?? 'drive' });
+      await host.stop();
+    }
+  });
+
+  it('refuses a role that observes while the bridge-less handler would drive', async () => {
+    const [hostSig, remoteSig] = createInMemorySignalingPair();
+    const session = createStubSession();
+    const submit = vi.fn().mockResolvedValue(undefined);
+    Object.assign(session, { submit });
+    const host = new WebRtcTransport({
+      cryptoContext: testIdentity,
+      signaling: hostSig,
+      open: true,
+      openReason: 'loopback — this case is about the granted role, not pairing',
+      role: 'observe',
+    });
+    host.attach(session);
+
+    const reply = connectRemote(remoteSig, { type: 'submit', prompt: 'hi' });
+    await host.start();
+    expect(await reply).toMatchObject({
+      type: 'protocol_error',
+      message: 'Not permitted for an observer: submit',
+    });
+    expect(submit).not.toHaveBeenCalled();
+    await host.stop();
+  });
+
+  it('refuses `role` together with `resumeBridge` as a contradiction', () => {
+    const bridge = new SessionResumeBridge({ session: createStubSession() });
+    expect(
+      () =>
+        new WebRtcTransport({
+          cryptoContext: testIdentity,
+          signaling: createInMemorySignalingPair()[0],
+          secret: 'pairing-secret',
+          role: 'observe',
+          resumeBridge: bridge,
+        }),
+    ).toThrow(/`role` and `resumeBridge` are contradictory/);
   });
 
   it('TC-03: establishes an RTCDataChannel between two peers and round-trips TClient→session→TServer through the shared handler', async () => {

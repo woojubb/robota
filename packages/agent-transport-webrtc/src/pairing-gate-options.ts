@@ -94,6 +94,8 @@ export interface IPairingGateOptions {
    * (never disposes — the bridge is owned by the transport across reconnects).
    */
   readonly resumeBridge?: SessionResumeBridge;
+  /** Host-granted role of the handler this gate builds without a `resumeBridge` (the role of `role` above is the handshake's). */
+  readonly surfaceRole?: ISessionMessageHandlerOptions['role'];
   /** Host-owned usage read models exposed only after this gate accepts. */
   readonly personalUsageReporter?: ISessionMessageHandlerOptions['personalUsageReporter'];
   readonly usageReporter?: ISessionMessageHandlerOptions['usageReporter'];

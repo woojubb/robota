@@ -46,6 +46,25 @@ could then drive the session.
 Clients exchange JSON text frames typed as `TClientMessage` / `TServerMessage` from
 `@robota-sdk/agent-transport`, whose `./client` entry point also provides browser-safe decoders.
 
+## Roles
+
+A listener grants `drive` unless the host sets `role`. A read-only observer listener has its own token and the usual binder:
+
+```typescript
+const observer = new WsTransport({ role: 'observe', token: observerToken, sessionBinder });
+```
+
+A connection may ask for less than its listener grants, never for more. A client on a driving listener
+asks to observe with `?role=observe` beside `?token=`:
+
+```text
+ws://127.0.0.1:<port>/?token=<token>&role=observe
+```
+
+A request the listener cannot grant, or an unknown role, is closed (code 1008) before any session data.
+A client can send `get-surface-role` to learn its effective role. A host that needs both roles runs one
+listener per role, each with its own token.
+
 ## `WsTransport` options
 
 | Option                                                                   | Type                          | Description                                                                                          |
@@ -55,6 +74,7 @@ Clients exchange JSON text frames typed as `TClientMessage` / `TServerMessage` f
 | `token`                                                                  | `string`                      | Credential every connection must present. Omitted: one is minted per launch.                         |
 | `open` / `openReason`                                                    | `boolean` / `string`          | Run without a token; `openReason` must say why. Rejected together with `token`.                      |
 | `allowedHosts` / `allowedOrigins`                                        | `readonly string[]`           | Extra `Host` names and browser `Origin`s to accept beyond loopback.                                  |
+| `role`                                                                   | `'drive'` / `'observe'`       | Most any connection may do. Default `drive`; a client may ask for less with `?role=observe`.         |
 | `driverId` / `surface`                                                   | `TDriverId` / `TUsageSurface` | Identity recorded on turns submitted through this transport, set by the host rather than the client. |
 | `sessionDirectory`                                                       | `ISessionDirectory`           | Lets clients list, start and switch the host's sessions.                                             |
 | `sessionBinder`                                                          | `ISessionBinder`              | Gives each connection its own session binding, so one client's switch does not move the others.      |

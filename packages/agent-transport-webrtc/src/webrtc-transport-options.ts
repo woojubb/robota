@@ -15,6 +15,7 @@ import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
 import type {
   ISessionMessageHandlerOptions,
   SessionResumeBridge,
+  TSessionSurfaceRole,
 } from '@robota-sdk/agent-transport';
 
 /**
@@ -78,6 +79,11 @@ export interface IWebRtcTransportOptions {
   readonly connectionApproval?: IConnectionApproval;
   /** REMOTE-013 E4: a session-scoped resume bridge (owned by the controller across reconnects). Passed to the gate so the paired session flows through it (seq/buffer) and survives channel drops. */
   readonly resumeBridge?: SessionResumeBridge;
+  /**
+   * Host-granted role of the session surface this transport builds, `drive` unless set. An injected
+   * `resumeBridge` carries the role its host gave it, so passing both throws.
+   */
+  readonly role?: TSessionSurfaceRole;
   /** REMOTE-013 E4: fired when a PAIRED data channel drops (so the controller can run the reconnect loop). Not fired for a pre-accept failure (that is `onPairingFailed`). */
   readonly onDropped?: () => void;
   /** Observe an outbound session-event delivery failure before the carrier drops. */
