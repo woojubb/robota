@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
 import { afterAll, describe, expect, it } from 'vitest';
 
+import { InMemorySandboxClient } from '../../index.js';
 import { createDefaultTools } from '../create-default-tools.js';
 
 /**

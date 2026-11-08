@@ -5,7 +5,7 @@ import {
 } from '@robota-sdk/agent-command/node';
 import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
 import { createGitProcess } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
 import type { IEditorFileAccess, ISandboxClient } from '@robota-sdk/agent-tools';
@@ -60,7 +60,7 @@ export interface ICodingPackOptions {
  * `assembleProduct` on top of any product's base — and can OWN the product's tool surface
  * outright when the profile suppresses the framework tier with `defaultTools: []`.
  *
- * - **tools** — `createDefaultTools()` from `@robota-sdk/agent-tool-defaults`, CONSUMED rather than
+ * - **tools** — `createDefaultTools()` from `@robota-sdk/agent-tools/defaults`, CONSUMED rather than
  *   mirrored. That set is shell/bash/read/write/edit/glob/grep/webFetch/askUserQuestion,
  *   all tools that need no adapter, credential or external service. The list used to be rebuilt
  *   here from the `@robota-sdk/agent-tools` factories and held to the defaults by a NAME-equality test

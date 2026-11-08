@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
 import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { createCodingPack } from '../coding-pack.js';

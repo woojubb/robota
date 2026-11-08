@@ -54,7 +54,6 @@
     "@robota-sdk/agent-capability-pack": "workspace:^",
     "@robota-sdk/agent-command": "workspace:^",
     "@robota-sdk/agent-framework": "workspace:^",
-    "@robota-sdk/agent-tool-defaults": "workspace:^",
     "@robota-sdk/agent-tools": "workspace:^"
   },
   "devDependencies": {

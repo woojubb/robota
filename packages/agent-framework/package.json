@@ -82,7 +82,6 @@
     "@robota-sdk/agent-os": "workspace:^",
     "@robota-sdk/agent-roundtable": "workspace:^",
     "@robota-sdk/agent-session": "workspace:^",
-    "@robota-sdk/agent-tool-defaults": "workspace:^",
     "@robota-sdk/agent-tools": "workspace:^",
     "koffi": "3.3.1",
     "yaml": "^2.9.0",
