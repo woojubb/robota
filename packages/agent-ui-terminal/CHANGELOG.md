@@ -1,5 +1,18 @@
 # @robota-sdk/agent-ui-terminal
 
+## 3.2.2
+### Patch Changes
+
+- 8d05c9b: Allow compatible SDK dependencies to update independently.
+- Updated dependencies [8d05c9b]
+- Updated dependencies [be1504a]
+  - @robota-sdk/agent-framework@3.2.2
+  - @robota-sdk/agent-interface-command@3.2.2
+  - @robota-sdk/agent-interface-execution@3.2.2
+  - @robota-sdk/agent-interface-session@3.2.2
+  - @robota-sdk/agent-interface-transport@3.2.2
+  - @robota-sdk/agent-transport@3.3.0
+
 ## 3.2.1
 ### Patch Changes
 
