@@ -76,7 +76,7 @@ async function main(): Promise<void> {
 
   // The fixture's `satisfies Pick<>` above is the honest part — it declares exactly the
   // three members these executors read. The widening cast existed only because the executors demand
-  // the whole 46-member facade. S3's role ports remove the need to widen at all; until then the
+  // the whole 46-member facade. The
   // double supplies the rest so no cast is required.
   const ctx = createTestCommandHost({ overrides: context });
   const result =

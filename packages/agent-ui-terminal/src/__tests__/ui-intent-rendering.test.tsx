@@ -5,8 +5,8 @@
  * session), and the statusline re-reads its persisted settings when a command result arrives
  * (refresh-on-result — the HOST applies the patch; the TUI no longer writes settings).
  *
- * Red-first evidence: written against the pre-Stage-C hook (which still consumed legacy effects and
- * had no session subscription) — every behavioral case below failed there.
+ * Red-first evidence: a hook that consumed legacy effects and had no session subscription fails
+ * every behavioral case below.
  */
 
 import { Text } from 'ink';
@@ -102,8 +102,8 @@ function mountHarness(): IHarness {
   };
   const resultRef: { current: IUseSideEffectsResult | null } = { current: null };
 
-  // Superset options object: carries both the pre-Stage-C fields (queue, addEntry, …) and the
-  // Stage-C fields so the SAME test file compiled red (pre) and green (post).
+  // Superset options object: carries both the legacy fields (queue, addEntry, …) and the
+  // session-subscription fields so the SAME test file compiled red (pre) and green (post).
   const options = {
     cwd: '/tmp',
     uiEventPort: session,
@@ -281,7 +281,7 @@ describe('useStatusLineSettings exposes a from-disk refresh', () => {
     );
     await waitUntil(() => (instance.lastFrame() ?? '').includes('enabled:1'));
 
-    // The HOST persisted a patch (Stage B applies it via the settings adapter); the TUI refreshes.
+    // The HOST persisted a patch (the host applies it via the settings adapter); the TUI refreshes.
     doc = { statusline: { enabled: false, gitBranch: true } };
     captured.refresh?.();
     await waitUntil(() => (instance.lastFrame() ?? '').includes('enabled:0'));

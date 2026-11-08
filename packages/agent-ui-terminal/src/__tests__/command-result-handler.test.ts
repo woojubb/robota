@@ -100,7 +100,7 @@ describe('applySystemCommandResult', () => {
       data: { role: 'user', content: 'old message' },
     });
 
-    // Stage E: the transcript clear itself rides the broadcast `history_cleared` session event
+    // The transcript clear itself rides the broadcast `history_cleared` session event
     // (bound in TuiInteractionChannel and emitted while the command executes — before the result
     // returns), so by the time this renderer runs the history is already empty.
     manager.clearHistory();

@@ -59,7 +59,7 @@ describe('the theme registry', () => {
     expect(resolution.unknownId).toBeUndefined();
   });
 
-  it('carries a caller-supplied catalogue, which is how work unit 3 adds user themes', () => {
+  it('carries a caller-supplied catalogue, which is how user themes are added', () => {
     const registry = createThemeRegistry([LIGHT_THEME]);
 
     expect(registry.list()).toEqual([LIGHT_THEME]);

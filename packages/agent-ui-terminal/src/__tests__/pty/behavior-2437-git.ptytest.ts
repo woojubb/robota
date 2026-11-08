@@ -1,7 +1,7 @@
 /**
  * `/git status`, `/git diff` and `/git commit` on the BUILT CLI binary, in
  * a real PTY, over a throwaway git repository. The four User Execution scenarios of the spec, as a
- * machine runs them: read path (S1), commit path (S2), nothing staged (S3), headless cancel (S4).
+ * machine runs them: read path, commit path, nothing staged, headless cancel.
  *
  * Runs under `test:pty` against the built CLI (`pnpm --filter @robota-sdk/agent-cli build` first).
  */

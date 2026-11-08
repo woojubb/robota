@@ -35,7 +35,7 @@ export const THEME_COLOR_GRAMMAR = '<chalk name> | #rgb | #rrggbb | ansi256(n) |
  * A `Map`, not an object literal: an object built by `Object.fromEntries` inherits `Object.prototype`,
  * so a lookup of `constructor`, `toString`, `valueOf` or `__proto__` answers TRUTHY and the
  * `undefined` guard below never fires — a value that is not a colour name would be handed back as
- * though it were a style. That value becomes reachable the moment a parsed user theme (work unit 3)
+ * though it were a style. That value becomes reachable the moment a parsed user theme
  * reaches this builder.
  */
 const CHALK_STYLES = new Map<string, ChalkInstance>(

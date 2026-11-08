@@ -465,7 +465,7 @@ describe('MessageList driver attribution', () => {
     expect(chalk.reset(lastFrame() ?? '')).toContain('You:');
   });
 
-  it('labels an unattributed message You: — the pre-PEER-007 transcript is unchanged', () => {
+  it('labels an unattributed message You: — the transcript is unchanged', () => {
     const entry = messageToHistoryEntry(createUserMessage('deploy the staging branch'));
     const { lastFrame } = render(<MessageList history={[entry]} />);
 

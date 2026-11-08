@@ -4,8 +4,8 @@
  *
  * `session_renamed` updates the surface's session name (co-driving titles follow the host rename);
  * `history_cleared` empties the reconstructed transcript (a clear performed by ANY surface refreshes
- * this one). Red-first: pre-Stage-E the reducer had no case for either message — the name never
- * existed and a cleared conversation stayed rendered.
+ * this one). Red-first: a reducer with no case for either message never learns the name and
+ * leaves a cleared conversation rendered.
  */
 
 import { renderHook } from '../../testing/product-provider.js';

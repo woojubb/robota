@@ -222,7 +222,7 @@ function createCliAdapter(settingsPath: string): ITuiCliAdapter {
   };
 }
 
-describe('App session-switch channel ownership (CLI-B11)', () => {
+describe('App session-switch channel ownership', () => {
   let cwd: string;
   let created: IFakeChannel[];
   let createChannel: ReturnType<typeof vi.fn>;
@@ -391,7 +391,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     stdin.write('\r'); // select first item (newest first — equal timestamps keep list order)
     await tick();
 
-    // CLI-B11 TC-A: the switch asks the factory for exactly one channel with the id.
+    // The switch asks the factory for exactly one channel with the id.
     expect(createChannel).toHaveBeenCalledTimes(2);
     expect(createChannel).toHaveBeenNthCalledWith(2, 'session-aaaaaaaa');
   });
@@ -480,7 +480,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
   });
 
   it('App renders from the factory alone — no channel prop exists', async () => {
-    // The old no-factory fallback (B11 TC-D) is deleted with CLI-B12: createChannel
+    // The old no-factory fallback is deleted: createChannel
     // is required and `channel` is no longer a prop (enforced at the type level —
     // passing one is a compile error). This pins the runtime half: a render with
     // only the factory boots, starts the initial channel, and keeps rendering.

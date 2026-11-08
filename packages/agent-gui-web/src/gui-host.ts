@@ -96,8 +96,8 @@ export interface IGuiHost {
    */
   onOpenSettings(listener: () => void): () => void;
   /**
-   * Present only when the host can open a file in an external editor/app (the desktop app)
-   * §4c. Its absence means the Project panel's Memory section hides "Open in editor" entirely, per
+   * Present only when the host can open a file in an external editor/app (the desktop app).
+   * Its absence means the Project panel's Memory section hides "Open in editor" entirely, per
    * the design ("an 'Open in editor' action only if the host supports it").
    */
   readonly openMemoryInEditor?: (path: string) => void;

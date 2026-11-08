@@ -199,7 +199,7 @@ describe('StatusBar', () => {
 });
 
 /**
- * § Solution 13, asserted through `SessionStatusBar` (the way the App
+ * Asserted through `SessionStatusBar` (the way the App
  * reaches `StatusBar`) so the threading is covered too.
  *
  * The two halves are asserted TOGETHER on purpose: they pull in opposite directions — one field is

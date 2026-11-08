@@ -1204,7 +1204,7 @@ try {
       await page.setViewportSize({ width: 390, height: 800 });
       try {
         // The session-list-covers-the-composer overlay at a narrow width is a separate bug
-        // separate bug (the sheet-with-backdrop fix is out of scope here — this PR only owns the
+        // (the sheet-with-backdrop fix is out of scope here — this PR only owns the
         // status controls' own collapse). Close it first, the same way a person would, so this
         // scenario checks what it owns: the status chips and composer, not that unrelated overlay.
         const hideSessions = page.getByRole('button', { name: 'Hide sessions' });

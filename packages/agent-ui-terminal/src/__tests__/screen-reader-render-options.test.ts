@@ -1,7 +1,7 @@
 /**
  * The mode's entry point.
  *
-The threading is asserted in BOTH halves, because they fail independently: Ink's own
+ * The threading is asserted in BOTH halves, because they fail independently: Ink's own
  * `isScreenReaderEnabled` option, and the hand-maintained `toChannelOptions` projection, which can
  * drop an option silently.
  * The first line the process prints is asserted — the confirmation, the advisory, and the two

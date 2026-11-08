@@ -123,7 +123,7 @@ interface IConversationViewProps {
   activeTools: IActiveTool[];
   streamingText: string;
   isThinking: boolean;
-  /** This connection's own driver id (§3289 §3), threaded to every message it renders. */
+  /** This connection's own driver id, threaded to every message it renders. */
   ownDriverId: TDriverId | null;
 }
 
@@ -207,7 +207,7 @@ function UserBlock({
 }: {
   content: string;
   author?: string;
-  /** This connection's own driver id (§3289 §3): its own turns never carry a "from" label. */
+  /** This connection's own driver id: its own turns never carry a "from" label. */
   ownDriverId: TDriverId | null;
 }): React.ReactElement {
   // Display-only: show WHO drove this turn when it wasn't this

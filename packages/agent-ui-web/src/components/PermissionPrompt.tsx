@@ -43,7 +43,7 @@ interface IPermissionPromptProps {
   prompts: readonly TPendingPrompt[];
   onAnswerPermission: (id: string, result: boolean) => void;
   onAnswerAsk: (id: string, response: TActionResponse) => void;
-  /** This connection's own driver id (§3289 §3): a prompt raised by its own turn shows no requester. */
+  /** This connection's own driver id: a prompt raised by its own turn shows no requester. */
   ownDriverId?: TDriverId | null;
   layout?: 'modal' | 'dock';
   /** How long a new prompt waits before its keys answer it; tests pass their own. */

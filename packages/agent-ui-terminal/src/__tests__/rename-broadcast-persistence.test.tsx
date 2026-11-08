@@ -7,10 +7,10 @@
  *
  * Runs the REAL TuiInteractionChannel over a real InteractiveSession (scripted provider) with a
  * command module mirroring the real `/rename` contract (returns the `session-rename` host action
- * on the split contract — Stage E deleted the legacy effect union).
+ * on the split contract).
  *
- * Red-first evidence: against pre-Stage-C code the broadcast half FAILED (the TUI only reacted to
- * the legacy effect, which Stage B strips after host execution — so the title never updated).
+ * Red-first evidence: without the broadcast the TUI has no signal, because the host strips the
+ * applied action from the result — so the title would never update.
  */
 
 import { Text } from 'ink';
@@ -129,15 +129,15 @@ describe('/rename persists host-side and the TUI title follows the broadcast', (
     );
     await waitUntil(() => submitRef.current !== null);
 
-    await submitRef.current!('/rename Stage C Proof');
+    await submitRef.current!('/rename Proof Title');
 
     // (1) HOST persistence: the session itself performed the rename — no TUI mutation handler.
-    expect(session.getName()).toBe('Stage C Proof');
+    expect(session.getName()).toBe('Proof Title');
 
     // (2) Title update via the broadcast `session_renamed` (the dual-carry legacy effect is
     // stripped by the host applier, so this is the ONLY path that can update the title).
     await waitUntil(() => setSessionName.mock.calls.length > 0, 3000);
-    expect(setSessionName).toHaveBeenCalledWith('Stage C Proof');
+    expect(setSessionName).toHaveBeenCalledWith('Proof Title');
 
     instance.unmount();
   });
