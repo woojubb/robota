@@ -101,7 +101,8 @@ describe('createMcpTransport', () => {
   });
 
   it('serves a v2 client over the carrier and carries a server-to-client elicitation', async () => {
-    // #3470 depends on the stdio server reaching back into its client: unlike the v2 handler's
+    // Elicitation depends on the stdio server reaching back into its client: unlike the v2
+    // handler's
     // per-request legacy HTTP path, one stdio connection is stateful, so `elicitInput` has a
     // peer to ask. Asserted on the real carrier rather than an in-memory pair.
     const stdin = new PassThrough();

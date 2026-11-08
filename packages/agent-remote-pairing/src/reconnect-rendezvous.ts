@@ -1,12 +1,12 @@
 import type { IIdentityContext } from './identity/crypto-context.js';
 /**
- * Reconnect rendezvous derivation for session-resume (REMOTE-013 Stage E4).
+ * Reconnect rendezvous derivation for session-resume.
  *
  * **Isomorphic** (WebCrypto HKDF only). The E2-hardened relay is single-use + half-open-evicting, so a
  * reconnect cannot reuse the first-pair room. Instead both peers deterministically compute a **fresh** room
  * per reconnect from a per-device seed + a monotonic counter:
  *
- * - `reconnectSeed = HKDF(sessionKey, "seed")` — the E4 use the per-pairing `sessionKey` was reserved for.
+ * - `reconnectSeed = HKDF(sessionKey, "seed")` — derived from the per-pairing `sessionKey`.
  *   Because each pairing has its own `sessionKey`, the seed is PER-DEVICE: a revoked device's seed derives
  *   only its own (now-defunct) rooms, so it cannot squat another device's reconnect rooms.
  * - `rendezvous = HKDF(reconnectSeed, "rv" ‖ counter)` — a fresh single-use room per confirmed reconnect

@@ -1,5 +1,5 @@
 /**
- * Browser signaling client (REMOTE-009 Stage D) — the browser peer's `ISignalingClient` over the **native**
+ * Browser signaling client — the browser peer's `ISignalingClient` over the **native**
  * `WebSocket`, talking to the `@robota-sdk/remote-signaling` relay. It is the browser counterpart of the Node
  * host's `WsSignalingClient` (which imports `ws` + uses the node `.on()` API and cannot run in a browser).
  *

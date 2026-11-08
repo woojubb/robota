@@ -14,7 +14,7 @@ import { startDeviceReconnect, startHostReconnect } from '../reconnect.js';
 import type { TFrameDecodeResult } from '../frame-codec.js';
 
 /**
- * Issue #2046 — the pre-auth frame corpus. Every entry passed the old discriminator-only carrier
+ * The pre-auth frame corpus. Every entry passed the old discriminator-only carrier
  * predicates (`t` was right) and reached crypto/controller code with an empty, wrong-typed, malformed
  * or unbounded field. The owner codec rejects each one before any crypto work.
  */
@@ -79,7 +79,7 @@ const MALFORMED: ReadonlyArray<[string, unknown, (value: unknown) => TFrameDecod
     ],
   ];
 
-describe('pre-auth frame codec (issue #2046)', () => {
+describe('pre-auth frame codec', () => {
   it.each(MALFORMED)('rejects %s before any crypto work', (_label, value, decode) => {
     const result = decode(value);
     expect(result.ok).toBe(false);
@@ -119,7 +119,7 @@ describe('pre-auth frame codec (issue #2046)', () => {
   });
 });
 
-describe('async frame transitions settle the result channel (issue #2046)', () => {
+describe('async frame transitions settle the result channel', () => {
   it('a pairing handshake whose crypto rejects settles `result` instead of detaching', async () => {
     const unhandled: unknown[] = [];
     const onUnhandled = (reason: unknown): void => {

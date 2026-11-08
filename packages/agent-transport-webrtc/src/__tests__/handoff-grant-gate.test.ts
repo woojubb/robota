@@ -17,7 +17,7 @@ import type { IPeerAdmission } from '@robota-sdk/agent-interface-session-mobilit
 import type { createSessionMessageHandler } from '@robota-sdk/agent-transport';
 
 /**
- * SEC-011 (issue #1865) — the cross-device grant bound to the admitted channel.
+ * The cross-device grant bound to the admitted channel.
  *
  * Driven with a stub handshake and a stub verifier: this package must implement no cryptographic
  * policy, so what is asserted here is the GATE's ordering and fail-closed behaviour, never the
@@ -173,8 +173,8 @@ describe('what the consumer is told', () => {
 
 describe('a cross-device grant cannot become a same-host claim', () => {
   it('refuses an admission that claims same-user-same-host', async () => {
-    // #1812 pins that the two levels are different values, and this is the substitution it forbids
-    // by name: a grant proves the USER, not the machine. A verifier returning the stronger level
+    // The two levels are different values, and this is the substitution that is forbidden:
+    // a grant proves the USER, not the machine. A verifier returning the stronger level
     // would satisfy every check that wanted the kernel-enforced rendezvous.
     const onAdmission = vi.fn();
     const { gate, channel, sessionOnMessage, hs } = makeGate({

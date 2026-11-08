@@ -15,7 +15,7 @@ function aRecord(over: Partial<IInteractiveSessionRecord> = {}): IInteractiveSes
   };
 }
 
-describe('HANDOFF-001 TC-06 — a payload that did not arrive whole is refused', () => {
+describe('a payload that did not arrive whole is refused', () => {
   it('accepts the exact bytes that were sealed', () => {
     const { serialized, integrity } = sealHandoffRecord(aRecord());
 

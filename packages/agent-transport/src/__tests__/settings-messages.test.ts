@@ -1,5 +1,5 @@
 /**
- * #3282 §4a: the GUI Settings screen reads and writes through `get-settings`/`update-settings`,
+ * The GUI Settings screen reads and writes through `get-settings`/`update-settings`,
  * correlated by `requestId` and answered by `settings` or `settings_error` — the same request/error
  * shape as `get-personal-usage-report`. The host-owned reporter decides what a read or write means;
  * this layer only correlates and carries the result.
@@ -62,7 +62,7 @@ function attach(
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe('settings messages (#3282 §4a)', () => {
+describe('settings messages', () => {
   it('answers get-settings with the reporter snapshot, correlated by requestId', async () => {
     const reporter = createReporter();
     const client = attach({ reporter });
@@ -160,7 +160,7 @@ describe('settings messages (#3282 §4a)', () => {
     expect(reporter.updateSettings).not.toHaveBeenCalled();
   });
 
-  it('forwards this carrier\'s commandSurfaceLocality to both a read and a write (#3282 §4 part b-2)', async () => {
+  it('forwards this carrier\'s commandSurfaceLocality to both a read and a write', async () => {
     const reporter = createReporter();
     const client = attach({ reporter, commandSurfaceLocality: 'remote' });
     client.send({ type: 'get-settings', requestId: 'r7' });

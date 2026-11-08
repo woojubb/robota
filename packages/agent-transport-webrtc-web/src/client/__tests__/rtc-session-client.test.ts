@@ -20,7 +20,7 @@ import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-rem
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 /**
- * REMOTE-009 Step 2 — `createRtcSessionClient` answerer glue: receive the host offer → create + send an
+ * `createRtcSessionClient` answerer glue: receive the host offer → create + send an
  * answer (capturing fingerprints) → wire the data channel through the responder gate → expose the session
  * only after pairing accepts. Driven with a fake signaling + fake `RTCPeerConnection` + injected handshake.
  */
@@ -60,7 +60,7 @@ function makeHandshakeStub(sessionKey = 'k') {
   return { start, accept: () => resolveResult({ sessionKey }) };
 }
 
-describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
+describe('createRtcSessionClient (answerer glue)', () => {
   it('answers the offer, pairs, and exposes the session only post-accept', async () => {
     let onSignal: ((m: ISignalMessage) => void) | null = null;
     const sentSignals: ISignalMessage[] = [];
@@ -433,7 +433,7 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     expect(statuses.at(-1)).toBe('failed');
   });
 
-  it('REMOTE-010: threads iceServers + forceTurn (iceTransportPolicy: relay) into the peer config', () => {
+  it('threads iceServers + forceTurn (iceTransportPolicy: relay) into the peer config', () => {
     const iceServers = [{ urls: 'turn:turn.example:3478', username: 'u', credential: 'p' }];
     let peerConfig: RTCConfiguration | undefined;
     createRtcSessionClient(

@@ -1,5 +1,5 @@
 /**
- * Browser ICE-config decoder + validator (REMOTE-010). The `ice` pairing-URL query param is a base64url-encoded
+ * Browser ICE-config decoder + validator. The `ice` pairing-URL query param is a base64url-encoded
  * JSON `RTCIceServer[]`. It is **attacker-influenceable** (anyone who crafts a pairing link controls it), so the
  * decoded value MUST be validated into a well-formed `RTCIceServer[]` (sane URL schemes) and **fail closed** on
  * malformed input — never a loose cast into `RTCConfiguration`. Browser-local (agent-transport-webrtc-web takes no dependency on

@@ -3,7 +3,7 @@
  * the inbound message routing stays there; this module owns the session→`TServerMessage` fan-out).
  *
  * Used by `createSessionMessageHandler` (one subscription per channel) and by the persistent
- * `SessionResumeBridge` (REMOTE-013 E4 — a SINGLE subscription that outlives per-channel handlers).
+ * `SessionResumeBridge` (a SINGLE subscription that outlives per-channel handlers).
  */
 
 import { holdOpenPrompts } from './open-prompts.js';
@@ -76,13 +76,13 @@ export const PROTOCOL_SESSION_EVENT_CLASSIFICATION = {
 /**
  * Options for {@link subscribeSessionEvents}.
  *
- * ARCH-030: `onDeliveryError` is NOT here. Carrier-failure containment moved to the one
+ * `onDeliveryError` is NOT here. Carrier-failure containment moved to the one
  * connection-scoped {@link TOutboundDeliver} boundary this function now receives, so the fan-out and
  * every reply share a single guard instead of the fan-out having its own.
  */
 export interface ISubscribeSessionEventsOptions {
   /**
-   * CMD-004 Stage D: lazily read the SERVER-ASSIGNED driver id of THIS surface — `ui_intent` is
+   * Lazily read the SERVER-ASSIGNED driver id of THIS surface — `ui_intent` is
    * requester-routed against it (lazy because the resume bridge binds the id only after pairing).
    */
   getSurfaceDriverId?: () => TDriverId | undefined;
@@ -97,10 +97,10 @@ export interface ISubscribeSessionEventsOptions {
 
 /**
  * Subscribe the session's events and forward each as a `TServerMessage` through the connection's
- * outbound boundary; returns an unsubscribe. Exported (REMOTE-013 E4) so the persistent
+ * outbound boundary; returns an unsubscribe. Exported so the persistent
  * `SessionResumeBridge` can own a SINGLE subscription that outlives per-channel handlers.
  *
- * ARCH-030: the second parameter is the boundary, not a raw sink — a carrier `send` cannot be passed
+ * The second parameter is the boundary, not a raw sink — a carrier `send` cannot be passed
  * here, which is what keeps the fan-out and the reply paths on one guard.
  */
 export function subscribeSessionEvents(
@@ -108,15 +108,15 @@ export function subscribeSessionEvents(
   deliver: TOutboundDeliver,
   options: ISubscribeSessionEventsOptions = {},
 ): () => void {
-  // ARCH-030: no local guard wrapper any more, and no event name passed alongside the message. The name
+  // No local guard wrapper any more, and no event name passed alongside the message. The name
   // existed so the local guard could label a failure with it; the boundary labels with `message.type`,
   // the frame that could not be delivered. Keeping the argument would have been a parameter that
   // documents nothing and is read by nobody.
-  // REMOTE-014 E5: stamp the ACTIVE turn's driver id onto TURN-AUTHORED events (co-drive authorship,
+  // Stamp the ACTIVE turn's driver id onto TURN-AUTHORED events (co-drive authorship,
   // display-only), read at emit time. Only these events — background/goal/memory/execution-workspace events
   // are NOT authored by a driver turn and carry no `driverId`. `undefined` when idle or unattributed.
   const attr = (): { driverId?: TDriverId } => {
-    // ARCH-012: a plain call, not `?.() ?? undefined`. The member is required, so `null` means
+    // A plain call, not `?.() ?? undefined`. The member is required, so `null` means
     // nobody is driving — it can no longer also mean "this host cannot answer".
     const driverId = session.getActiveDriverId();
     return driverId ? { driverId } : {};
@@ -153,9 +153,9 @@ export function subscribeSessionEvents(
   const onContextFileRefreshed = (event: IContextFileRefreshedEvent): void =>
     deliver({ type: 'context_file_refreshed', event });
   const onBranchEvent = (event: IBranchEvent): void => deliver({ type: 'branch_event', event });
-  // REMOTE-007: forward the transport-neutral prompt events so a remote surface can render + answer the
+  // Forward the transport-neutral prompt events so a remote surface can render + answer the
   // SAME permission/ask prompt; `prompt_resolved` dismisses it when another surface answered first.
-  // #3189: kept while open, so a client that attaches later can ask for it with `get-prompts`.
+  // Kept while open, so a client that attaches later can ask for it with `get-prompts`.
   const receivePrompts = options.receivePrompts ?? true;
   const openPrompts = receivePrompts ? holdOpenPrompts(session) : undefined;
   const onPermissionRequest = (event: IPermissionRequestEvent): void => {
@@ -172,7 +172,7 @@ export function subscribeSessionEvents(
     openPrompts?.forget(event.id);
     deliver({ type: 'prompt_resolved', event });
   };
-  // CMD-004 Stage D: `ui_intent` is REQUESTER-ROUTED — delivered only to the surface whose
+  // `ui_intent` is REQUESTER-ROUTED — delivered only to the surface whose
   // server-assigned driver id issued the command. An UNATTRIBUTED intent (no requester id, e.g. an
   // idle model-invoked command) is unroutable and reaches every surface — never a silent drop.
   const onUiIntent = (event: IUiIntentEvent): void => {
@@ -184,12 +184,12 @@ export function subscribeSessionEvents(
     }
     deliver({ type: 'ui_intent', event });
   };
-  // CMD-004 Stage E: BROADCAST session-state events — the host executed the rename/clear; EVERY
+  // BROADCAST session-state events — the host executed the rename/clear; EVERY
   // attached surface (co-driving included) reflects it. Never requester-filtered, unlike `ui_intent`.
   const onSessionRenamed = (event: ISessionRenamedEvent): void =>
     deliver({ type: 'session_renamed', event });
   const onHistoryCleared = (): void => deliver({ type: 'history_cleared' });
-  // #3189: this surface's session is now another one; it re-reads what it shows. Only surfaces
+  // This surface's session is now another one; it re-reads what it shows. Only surfaces
   // subscribed to the session that moved hear it: a host that binds each connection to its own session
   // sends it to the connection that switched, never to the others.
   const onSessionSwitched = (event: ISessionSwitchedEvent): void => {
@@ -197,7 +197,7 @@ export function subscribeSessionEvents(
     openPrompts?.clear();
     deliver({ type: 'session_switched', event });
   };
-  // #3189: what a client that renders the whole session (the TUI) needs beside the streamed turn.
+  // What a client that renders the whole session (the TUI) needs beside the streamed turn.
   // The context window is pushed in the frame `get-context` answers with. A compaction, a skill
   // activation or a memory event adds history entries no streamed frame carries, so the client is
   // told the history changed and re-reads it with `get-history`; the entries themselves are not sent.

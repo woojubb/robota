@@ -20,10 +20,10 @@ export type TSettingsUpdateOutcome =
     };
 
 /**
- * #3282 §4a: host-owned read/write for the Settings screen, supplied by the composition root the
+ * Host-owned read/write for the Settings screen, supplied by the composition root the
  * same way `IUsageQueryReporters` supplies usage reads — this package only correlates the request
  * and carries the result. `updateSettings` applies through the SAME function the matching slash
- * command uses (issue #3282 §4: "one code path, so the behavior matches the TUI"), so whatever a
+ * command uses ("one code path, so the behavior matches the TUI"), so whatever a
  * command would refuse on this surface is refused here too.
  */
 export interface ISettingsReporter {
@@ -32,9 +32,10 @@ export interface ISettingsReporter {
     locality?: TCommandSurfaceLocality,
   ): ISettingsSnapshot | Promise<ISettingsSnapshot>;
   /**
-   * Applies through the SAME function the matching slash command uses. `locality` (#3282 §4 part
-   * b-2) is forwarded to that command exactly as the transport received it, so a command that
-   * refuses a remote surface (installing a plugin) refuses identically here.
+   * Applies through the SAME function the matching slash command uses. `locality` is forwarded to
+   * that
+   * command exactly as the transport received it, so a command that refuses a remote surface
+   * (installing a plugin) refuses identically here.
    */
   updateSettings(
     session: IProtocolSession,

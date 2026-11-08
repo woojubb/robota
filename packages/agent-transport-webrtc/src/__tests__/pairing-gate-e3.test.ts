@@ -16,7 +16,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { PairingGate, type IHostReconnectConfig } from '../pairing-gate.js';
 
 /**
- * REMOTE-012 E3 TC-05 — the host gate's E3 admission paths, in isolation with a stub channel: first-pair
+ * The host gate's device-identity admission paths, in isolation with a stub channel: first-pair
  * ENROLLMENT (pin the device key, expose the session) and mutual RECONNECT (admit a pinned device, deny an
  * unknown/revoked one) — all fail-closed.
  */
@@ -24,7 +24,7 @@ import { PairingGate, type IHostReconnectConfig } from '../pairing-gate.js';
 function stubSession(): IInteractiveSession {
   return Object.assign(createTestInteractiveSession(), {
     getMessages: vi.fn().mockReturnValue([]),
-    // ARCH-012: required. This double feeds `subscribeSessionEvents`, which calls it on every
+    // Required. This double feeds `subscribeSessionEvents`, which calls it on every
     // turn-authored event — omitting it throws the moment a case emits one.
     getActiveDriverId: () => null,
     on: vi.fn(),
@@ -77,11 +77,12 @@ async function hostConfig(over: Partial<IHostReconnectConfig> = {}): Promise<{
   };
 }
 
-describe('PairingGate E3 first-pair enrollment (REMOTE-012 TC-05)', () => {
-  it('after B3 accept, advertises the host key, pins the device key, and exposes the session', async () => {
+describe('PairingGate first-pair enrollment', () => {
+  it('after the pairing handshake accepts, advertises the host key, pins the device key, and exposes the session', async () => {
     const { cfg } = await hostConfig();
     const onAccept = vi.fn();
-    // Fake handshake that accepts immediately (isolates the enrollment path from real B3 crypto).
+    // Fake handshake that accepts immediately (isolates the enrollment path from real pairing
+    // crypto).
     const fakeHandshake = (() => ({
       result: Promise.resolve({ sessionKey: 'k' }),
       onFrame: () => {},
@@ -115,7 +116,7 @@ describe('PairingGate E3 first-pair enrollment (REMOTE-012 TC-05)', () => {
   });
 });
 
-describe('PairingGate E3 reconnect (REMOTE-012 TC-05)', () => {
+describe('PairingGate reconnect', () => {
   async function pinnedDevice(): Promise<{
     keyPair: CryptoKeyPair;
     deviceId: string;

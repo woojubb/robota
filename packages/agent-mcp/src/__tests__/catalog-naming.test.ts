@@ -1,5 +1,5 @@
 /**
- * TC-03 — canonical naming and its collisions (MCP-002).
+ * Canonical naming and its collisions.
  *
  * `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-naming.test.ts` must show: two
  * servers exposing the same tool name both resolve to distinct `<server>__<tool>` names,
@@ -142,7 +142,7 @@ describe('resolveNameCollisions', () => {
   });
 });
 
-describe('truncation keeps the server prefix (issue #3081)', () => {
+describe('truncation keeps the server prefix', () => {
   it('a long server id stays whole, so `<server>__*` still names the tool', () => {
     const serverId = 'a-rather-long-internal-server-identifier';
     const { name } = canonicalName(serverId, 'an_equally_long_tool_name_that_forces_truncation');

@@ -1,8 +1,8 @@
 /**
- * The definition registry the activation controller enumerates (MCP-001).
+ * The definition registry the activation controller enumerates.
  *
  * `MCPActivationController` was written against `IMCPActivationDefinitionRegistry.list()` and never
- * had a producer — the fourth symptom in MCP-001's Problem section. This adapter is that producer:
+ * had a producer. This adapter is that producer:
  * it turns resolved definitions into the activation requests the admission service already knows
  * how to judge, using the identity this package now computes.
  *
@@ -29,7 +29,7 @@ import type { IMCPResolvedEntry } from './types.js';
 /**
  * How a definition's origin becomes activation provenance.
  *
- * `version` is the definition fingerprint: MCP-2520 already invalidates an approval when
+ * `version` is the definition fingerprint: the admission service already invalidates an approval when
  * provenance changes, so binding the version to the fingerprint makes a rewritten definition read
  * as a new provenance generation rather than the same one.
  */

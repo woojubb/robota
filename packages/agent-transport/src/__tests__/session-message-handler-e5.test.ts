@@ -9,7 +9,7 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
 
 /**
- * REMOTE-014 E5 TC-03/05 — the protocol layer: the SERVER-ASSIGNED driver id is injected into inbound
+ * The protocol layer: the SERVER-ASSIGNED driver id is injected into inbound
  * submit/command/prompt-response (a client cannot send its own), and turn-authored events are SELECTIVELY
  * stamped with the active turn's driver (background events are never stamped).
  */
@@ -31,8 +31,8 @@ function mockSession(activeDriverId: string | null) {
   });
 }
 
-describe('session-message-handler E5 driver attribution (REMOTE-014)', () => {
-  it('TC-05: injects the SERVER-ASSIGNED driver id into submit + prompt-response (client cannot forge it)', () => {
+describe('session-message-handler driver attribution', () => {
+  it('injects the SERVER-ASSIGNED driver id into submit + prompt-response (client cannot forge it)', () => {
     const session = mockSession(null);
     const { onMessage } = createSessionMessageHandler({
       session,
@@ -66,7 +66,7 @@ describe('session-message-handler E5 driver attribution (REMOTE-014)', () => {
     );
   });
 
-  it('TC-03: SELECTIVELY stamps turn-authored events with the active driver; background events carry none', () => {
+  it('SELECTIVELY stamps turn-authored events with the active driver; background events carry none', () => {
     const session = mockSession('driver-A');
     const sent: TServerMessage[] = [];
     createSessionMessageHandler({
@@ -86,7 +86,7 @@ describe('session-message-handler E5 driver attribution (REMOTE-014)', () => {
     expect(bgEvent.driverId).toBeUndefined(); // background events are NOT turn-authored
   });
 
-  it('TC-03: an unattributed (idle) turn stamps no driverId', () => {
+  it('an unattributed (idle) turn stamps no driverId', () => {
     const session = mockSession(null); // getActiveDriverId → null
     const sent: TServerMessage[] = [];
     createSessionMessageHandler({

@@ -2,6 +2,6 @@ export { createWsTransport } from './ws-transport.js';
 export type { IWsTransport, IWsTransportOptions } from './ws-transport.js';
 export { WsTransport } from './ws-transport-configurable.js';
 export type { IWsTransportConfig } from './ws-transport-config.js';
-// TRANS-001 — payload-agnostic channel multiplexing (also usable standalone by another carrier).
+// Payload-agnostic channel multiplexing (also usable standalone by another carrier).
 export { PayloadChannelRegistry } from './payload-channels.js';
 export type { TChannelSink } from './payload-channels.js';

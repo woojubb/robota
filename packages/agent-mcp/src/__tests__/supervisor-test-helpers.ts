@@ -1,5 +1,5 @@
 /**
- * Shared, non-test helpers for the supervisor test suite (MCP-002 supervisor half).
+ * Shared, non-test helpers for the supervisor test suite.
  *
  * Not itself a `.test.ts` file, so vitest never collects it as a suite; it exists purely so
  * `connection-supervisor.test.ts`, `canonical-failed-state.test.ts`, `failure-classification.test.ts`,
@@ -176,7 +176,7 @@ interface IFakeTimer {
 
 /**
  * A hand-rolled `IMCPSupervisorClock` (preferred over `vi.useFakeTimers()` per the task brief) so
- * pending-timer counts are directly inspectable — the instrument TC-17 requires instead of
+ * pending-timer counts are directly inspectable — the instrument used instead of
  * `getActiveResourcesInfo`.
  */
 export class FakeSupervisorClock implements IMCPSupervisorClock {

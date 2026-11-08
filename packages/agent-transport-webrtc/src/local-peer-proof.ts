@@ -1,5 +1,5 @@
 /**
- * SEC-010 TC-08: joining the rendezvous proof to the channel the session will run on.
+ * Joining the rendezvous proof to the channel the session will run on.
  *
  * ## What each half proves, and why neither is enough alone
  *
@@ -24,13 +24,13 @@
  * would be a secret handed to an unproven counterpart, and this step would weaken the very thing it
  * exists to strengthen.
  *
- * BEFORE the session is exposed, because "fail closed before content" is SEC-010's first failure
+ * BEFORE the session is exposed, because "fail closed before content" is the first failure
  * rule. If the proof arrived after exposure, a peer that never presents one would have already been
  * talking to the session, and refusing it afterwards is not refusing it.
  *
  * ## This package decides nothing
  *
- * #1810 is explicit that WebRTC must not implement cryptographic policy. Single-use, expiry and
+ * WebRTC must not implement cryptographic policy. Single-use, expiry and
  * revocation belong to the grant ledger in `@robota-sdk/agent-remote-pairing/local`, which is
  * node-only; this module takes an injected `redeem` and reports what it was told. That also keeps
  * `node:fs` out of this package, and keeps the ledger testable without a data channel.

@@ -6,7 +6,7 @@ const NOW = 1_700_000_000_000;
 const GUARDED = '/run/user/1000/fixture-agent/peers';
 const OTHER = '/run/user/1000/fixture-agent/other';
 
-describe('SEC-010 — the nonce carries the kernel’s answer from the rendezvous to the channel', () => {
+describe('the nonce carries the kernel’s answer from the rendezvous to the channel', () => {
   it('honours a grant presented at the rendezvous it was issued for', () => {
     const ledger = new RendezvousGrantLedger();
     const grant = ledger.issue({ rendezvous: GUARDED, now: NOW });
@@ -18,7 +18,7 @@ describe('SEC-010 — the nonce carries the kernel’s answer from the rendezvou
     expect(grant.expiresAt).toBe(NOW + DEFAULT_GRANT_TTL_MS);
   });
 
-  it('TC-04: a second presentation is refused, and named as a replay', () => {
+  it('a second presentation is refused, and named as a replay', () => {
     // Single-use is the property that keeps the nonce from becoming what this whole item exists to
     // avoid — a copyable credential. `replayed` rather than `unknown` because an operator seeing a
     // value honoured twice is looking at a bug or an attack, not at a slow peer.
@@ -38,7 +38,7 @@ describe('SEC-010 — the nonce carries the kernel’s answer from the rendezvou
     expect(ledger.redeem('never-issued', GUARDED, NOW).rejection).toBe('unknown');
   });
 
-  it('TC-05: refuses once the window has closed', () => {
+  it('refuses once the window has closed', () => {
     const ledger = new RendezvousGrantLedger();
     const grant = ledger.issue({ rendezvous: GUARDED, now: NOW, ttlMs: 1_000 });
 
@@ -63,8 +63,8 @@ describe('SEC-010 — the nonce carries the kernel’s answer from the rendezvou
   });
 });
 
-describe('SEC-010 — concurrency, revocation and cleanup are asserted, not assumed', () => {
-  it('TC-06: two peers presenting the same nonce cannot both be admitted', () => {
+describe('concurrency, revocation and cleanup are asserted, not assumed', () => {
+  it('two peers presenting the same nonce cannot both be admitted', () => {
     // An admission race resolved by timing is an admission decision nobody made. Exactly one wins,
     // and the loser is refused rather than queued.
     const ledger = new RendezvousGrantLedger();
@@ -79,8 +79,8 @@ describe('SEC-010 — concurrency, revocation and cleanup are asserted, not assu
     expect(attempts.find((a) => !a.honoured)?.rejection).toBe('replayed');
   });
 
-  it('TC-07: revoking a rendezvous ends admissibility for its outstanding grants', () => {
-    // SEC-010: the entry IS the grant. Once the owning session is gone, nothing it handed out may
+  it('revoking a rendezvous ends admissibility for its outstanding grants', () => {
+    // The entry IS the grant. Once the owning session is gone, nothing it handed out may
     // still open a channel.
     const ledger = new RendezvousGrantLedger();
     const mine = ledger.issue({ rendezvous: GUARDED, now: NOW });

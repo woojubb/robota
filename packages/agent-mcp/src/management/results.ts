@@ -1,5 +1,5 @@
 /**
- * Pure management results — list, get, status (MCP-001).
+ * Pure management results — list, get, status.
  *
  * These are RESULTS, not effects. Every function here takes an already-resolved set and returns a
  * value; none reads a file, opens a socket, or spawns a process. That is what lets `/mcp status`
@@ -18,7 +18,7 @@ import type { IMCPDefinitionProjection } from '../definition/projection.js';
 import type { IMCPDefinitionProblem, IMCPResolvedEntry } from '../definition/types.js';
 
 /**
- * A problem that named no server at all — `resolveByPrecedence`'s `sourceProblems` (issue #2794):
+ * A problem that named no server at all — `resolveByPrecedence`'s `sourceProblems`:
  * the configuration root was not an object, declared no `mcpServers`, `mcpServers` was not an
  * object, or the source itself could not be read. Reported beside `servers` rather than folded into
  * one of them, because it belongs to no server name.

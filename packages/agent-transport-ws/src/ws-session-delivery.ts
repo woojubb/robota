@@ -15,7 +15,7 @@ import type {
 /**
  * Connection-scoped session delivery lifecycle shared by sync and async WebSocket failures.
  *
- * ARCH-030: {@link deliver} is the ONLY way out of this class. The raw sink — the `readyState` check
+ * {@link deliver} is the ONLY way out of this class. The raw sink — the `readyState` check
  * plus `socket.send` — is private, so no caller can put a frame on this socket outside the connection's
  * one outbound boundary. That is not stylistic: the previous shape exposed a public `send` that threw
  * on a closed socket, and every reply the protocol handler produced went through it unguarded.
@@ -25,7 +25,7 @@ export class WsSessionDelivery {
   private detachSink = (): void => undefined;
   private closed = false;
   /**
-   * Issue #2306: ONE drain clock for the socket. `bufferedAmount` does not distinguish text from
+   * ONE drain clock for the socket. `bufferedAmount` does not distinguish text from
    * binary, so both halves observe the same clock — a slow reader of payload frames is caught when a
    * JSON reply is attempted, and the reverse.
    */
@@ -42,7 +42,7 @@ export class WsSessionDelivery {
     this.deliver = createOutboundDelivery(
       (message) => this.rawSend(message),
       () => this.close(),
-      // ARCH-030 / issue #1734: the socket's own count of what it has accepted and not yet written.
+      // The socket's own count of what it has accepted and not yet written.
       // Read at call time — it changes underneath.
       () => this.socket.bufferedAmount,
       DEFAULT_MAX_PENDING_BYTES,
@@ -51,8 +51,8 @@ export class WsSessionDelivery {
   }
 
   /**
-   * Put a TRANS-001 payload frame on this socket, under the SAME budget and the same close policy as
-   * the text protocol (ARCH-030 / issue #1734).
+   * Put a payload frame on this socket, under the SAME budget and the same close policy as
+   * the text protocol.
    *
    * A WebSocket carries two kinds of outbound frame over one socket, and until this existed the
    * binary half went straight to `socket.send` — outside the boundary, with no budget, and with a

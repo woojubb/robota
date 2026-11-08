@@ -1,8 +1,8 @@
 /**
- * Narrow a third-party JSON schema to the part agent-core's universal subset can enforce — CORE-040.
+ * Narrow a third-party JSON schema to the part agent-core's universal subset can enforce.
  *
  * An MCP tool's `inputSchema` is authored by a THIRD-PARTY server. `validateAgainstJsonSchema` is the
- * single complete walk over the universal subset (CORE-039), and it REJECTS a node outside that
+ * single complete walk over the universal subset, and it REJECTS a node outside that
  * subset: `{ path }: unsupported schema type …`, or `… declares neither a type nor anyOf` for a node
  * carrying `oneOf` / `allOf` / `$ref`. Handing a third-party schema to it unchanged would therefore
  * refuse EVERY payload for any tool whose server used ordinary JSON Schema this repo happens not to

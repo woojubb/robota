@@ -1,6 +1,6 @@
 /**
- * What the `error` wire frame should say about a session failure, beyond its raw `message` (#3289
- * §3). A renderer maps `code` to one plain sentence with the next step, keeping `message` behind a
+ * What the `error` wire frame should say about a session failure, beyond its raw `message`.
+ * A renderer maps `code` to one plain sentence with the next step, keeping `message` behind a
  * "Details" disclosure — see `agent-ui-web`'s `SessionNotices`.
  *
  * Walks wrapped layers (`originalError`/`cause`, a few deep) because a higher-level catch can wrap the

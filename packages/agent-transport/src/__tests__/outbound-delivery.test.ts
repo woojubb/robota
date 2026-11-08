@@ -1,5 +1,5 @@
 /**
- * ARCH-030 — the connection-scoped outbound delivery boundary.
+ * The connection-scoped outbound delivery boundary.
  *
  * Every case here was RED before the boundary existed. The two escape hatches it closes are different
  * and both had to be covered: a reply resolving from a Promise continuation escaped as an
@@ -143,14 +143,14 @@ describe('createOutboundDelivery', () => {
 
     createSessionMessageHandler({
       session,
-      // @ts-expect-error ARCH-030: only `createOutboundDelivery` produces a `TOutboundDeliver`. If this
+      // @ts-expect-error: only `createOutboundDelivery` produces a `TOutboundDeliver`. If this
       // ever compiles, the brand is gone and a twelfth reply family can reach the wire unguarded.
       deliver: rawSend,
     });
   });
 });
 
-describe('reply families that resolve after the carrier disconnected (ARCH-030)', () => {
+describe('reply families that resolve after the carrier disconnected', () => {
   /** The five families whose reply lands from a Promise continuation. */
   const asynchronousFamilies: ReadonlyArray<{
     readonly name: string;
@@ -333,7 +333,7 @@ describe('reply families that resolve after the carrier disconnected (ARCH-030)'
 });
 
 /**
- * ARCH-030 / issue #1734 — the boundary can be ASKED about backpressure, and never invents an answer.
+ * The boundary can be ASKED about backpressure, and never invents an answer.
  *
  * `deliver` returning is not delivery: both carriers hand this boundary a fire-and-forget sink, so a
  * frame that has "been sent" may be sitting in a socket buffer the boundary cannot see. Before this,
@@ -343,7 +343,7 @@ describe('reply families that resolve after the carrier disconnected (ARCH-030)'
  * These pin the two things that make the number worth having: it comes from the carrier, and
  * "cannot say" is distinguishable from "nothing pending".
  */
-describe('outbound backpressure reporting (ARCH-030 / issue #1734)', () => {
+describe('outbound backpressure reporting', () => {
   it('reports the carrier own reading, not a count the boundary kept', () => {
     let carrierPending = 0;
     const deliver = createOutboundDelivery(
@@ -405,7 +405,7 @@ describe('outbound backpressure reporting (ARCH-030 / issue #1734)', () => {
   });
 });
 
-describe('ARCH-030: the byte budget the boundary enforces itself', () => {
+describe('the byte budget the boundary enforces itself', () => {
   it('refuses and closes when the carrier is holding more than the budget', () => {
     // The contract case the reopened scope names: a peer that accepted frames and stopped reading.
     // Detected by what the CARRIER is still holding, not by anything this boundary counted.
@@ -465,10 +465,10 @@ describe('ARCH-030: the byte budget the boundary enforces itself', () => {
 });
 
 /**
- * Issue #2306: the byte budget bounds how MUCH a peer holds, not how LONG. A peer that reads just
+ * The byte budget bounds how MUCH a peer holds, not how LONG. A peer that reads just
  * slowly enough to stay under 8 MiB forever is never over it. These pin the drain-time budget.
  */
-describe('#2306: the drain-time budget the boundary enforces itself', () => {
+describe('the drain-time budget the boundary enforces itself', () => {
   function build(maxPendingMs: number): {
     deliver: TOutboundDeliver;
     sent: TServerMessage[];

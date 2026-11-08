@@ -36,7 +36,7 @@ function requestMethods(server: IMockMcpServer): (string | undefined)[] {
   return server.requests.map((request) => request.body?.['method'] as string | undefined);
 }
 
-describe('openMcpSession — initialize (TC-01)', () => {
+describe('openMcpSession — initialize', () => {
   let server: IMockMcpServer | undefined;
 
   afterEach(async () => {

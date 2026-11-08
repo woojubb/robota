@@ -52,7 +52,7 @@ function admitTurn(
   session: IHttpTransportSession,
   claims: ITurnClaims,
 ): Response | { claim: string } {
-  // RUNTIME-38: the session is single-threaded (one turn at a time) and shared across requests, so a
+  // The session is single-threaded (one turn at a time) and shared across requests, so a
   // concurrent /submit would cross-subscribe to the same emitter and interleave two clients' events.
   //
   // The route CLAIMS the turn rather than asking whether one is running, and that difference is the

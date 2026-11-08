@@ -1,7 +1,7 @@
 /**
- * TC-11 — pure management results and the registry the activation controller enumerates.
+ * Pure management results and the registry the activation controller enumerates.
  *
- * The registry half closes MCP-001's fourth Problem symptom: `MCPActivationController` was written
+ * The registry half supplies the producer `MCPActivationController` needs: it was written
  * against a definition registry that had no producer, so `/mcp` could only ever see activation
  * decisions it was handed.
  */
@@ -88,7 +88,7 @@ describe('listServers / getServer / statusOf', () => {
     expect(status.servers).toHaveLength(3);
   });
 
-  // BEHAVIOR-2794 (issue #2794 / #3073): a source-level problem names no server, so it cannot live
+  // A source-level problem names no server, so it cannot live
   // inside `entries` — `listServers`/`statusOf` take it as a second, optional argument and carry it
   // through unfiltered rather than dropping it because there is nowhere in `IMCPResolvedEntry[]` to
   // put it.
@@ -111,7 +111,7 @@ describe('listServers / getServer / statusOf', () => {
     expect(status.sourceProblems).toEqual(sourceProblems);
   });
 
-  // BEHAVIOR-2794 fail-closed, end to end within this package (owner direction, PR #3076 review):
+  // Fail-closed, end to end within this package (owner direction):
   // `resolveByPrecedence`'s output fed straight into `statusOf`/`listServers` shows BOTH the managed
   // source problem AND the resulting blocked entry with its own value-free, referencing reason —
   // "status/list show both the source problem and the blocked entries".

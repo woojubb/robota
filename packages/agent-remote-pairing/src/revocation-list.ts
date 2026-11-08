@@ -1,6 +1,6 @@
 import type { IIdentityContext } from './identity/crypto-context.js';
 /**
- * SEC-011 (issue #1865): how a revocation REACHES the machine doing the checking.
+ * How a revocation REACHES the machine doing the checking.
  *
  * `verifyDeviceCertificate` already accepts `revokedDeviceIds` and refuses a listed device with an
  * intact signature. What was undecided is where that list comes from — and the item names this as

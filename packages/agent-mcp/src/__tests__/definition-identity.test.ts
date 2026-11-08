@@ -1,7 +1,7 @@
 /**
- * TC-10 — activation identity and fingerprint.
+ * Activation identity and fingerprint.
  *
- * MCP-2520 invalidates an approval when either value changes, so these assertions are about what
+ * The admission service invalidates an approval when either value changes, so these assertions are about what
  * SHOULD invalidate (anything that changes what runs or where it came from) and what should not
  * (rotating a secret's value — the operator approved the server, not the credential).
  */

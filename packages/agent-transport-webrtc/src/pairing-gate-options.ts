@@ -1,6 +1,6 @@
 import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 /**
- * The contract a `PairingGate` is constructed with (REMOTE-008 / -012 / -013, SEC-010, SEC-011).
+ * The contract a `PairingGate` is constructed with.
  *
  * Separated from the gate itself because they are different responsibilities: this file says what a
  * caller must supply, and `pairing-gate.ts` says what the machine does with it. Keeping them
@@ -30,7 +30,7 @@ export interface IPairingChannel {
   send(data: string): void;
   close(): void;
   /**
-   * ARCH-030 / issue #1734: this channel's own count of what it has accepted and not yet written.
+   * This channel's own count of what it has accepted and not yet written.
    *
    * Optional for the same reason `IDataChannelSink.bufferedAmount` is — the slice is structural and a
    * test double may omit it — while a real `RTCDataChannel` always has it. It is here so the resume
@@ -40,7 +40,10 @@ export interface IPairingChannel {
   readonly bufferedAmount?: number;
 }
 
-/** E3 host reconnect/enrollment config. When present, the gate runs reactive (first-frame) mode detection. */
+/**
+ * Host reconnect/enrollment config. When present, the gate runs reactive (first-frame) mode
+ * detection.
+ */
 export interface IHostReconnectConfig {
   readonly hostIdentityId: string;
   /** base64url SPKI advertised to a device at first-pair enrollment. */
@@ -81,14 +84,14 @@ export interface IPairingGateOptions {
   readonly remoteFingerprint: string;
   /** Handshake timeout (ms); fail closed on expiry. */
   readonly timeoutMs?: number;
-  /** REMOTE-008: fired once admission accepts + the session is exposed. Carries the first-pair result (E4). */
+  /** Fired once admission accepts + the session is exposed. Carries the first-pair result. */
   readonly onAccept?: (result?: IPairingResult) => void;
-  /** REMOTE-008: fired once admission rejects/times out + the channel closes (host lifecycle → teardown). */
+  /** Fired once admission rejects/times out + the channel closes (host lifecycle → teardown). */
   readonly onReject?: () => void;
-  /** REMOTE-012 E3: host reconnect/enrollment config. Absent → B4 first-pair-only behavior (unchanged). */
+  /** Host reconnect/enrollment config. Absent → first-pair-only behavior. */
   readonly reconnect?: IHostReconnectConfig;
   /**
-   * REMOTE-013 E4: a session-scoped {@link SessionResumeBridge}. When set, the paired session flows through the
+   * A session-scoped {@link SessionResumeBridge}. When set, the paired session flows through the
    * bridge (seq-stamped + buffered) instead of a fresh `createSessionMessageHandler`, so the session survives a channel
    * drop and can replay on reconnect. Accept ATTACHES the channel as the bridge's sink; cleanup DETACHES it
    * (never disposes — the bridge is owned by the transport across reconnects).
@@ -102,19 +105,19 @@ export interface IPairingGateOptions {
   readonly storedSessionUsageReporter?: ISessionMessageHandlerOptions['storedSessionUsageReporter'];
   /** Trusted carrier-owned surface; WebRTC assigns `remote`. */
   readonly surface?: ISessionMessageHandlerOptions['surface'];
-  /** #3282 §4 part b-2: WebRTC assigns `remote` — it proves no locality. */
+  /** WebRTC assigns `remote` — it proves no locality. */
   readonly commandSurfaceLocality?: ISessionMessageHandlerOptions['commandSurfaceLocality'];
   /**
    * Post-accept session-frame delivery failure; owning transport performs drop cleanup.
    *
-   * ARCH-030: was `TServerMessage['type'] | string`, which is just `string` — a union that reads as a
+   * Was `TServerMessage['type'] | string`, which is just `string` — a union that reads as a
    * narrowing and is not one. Stated as what it is.
    */
   readonly onDeliveryError?: (error: Error, event: string) => void;
-  /** SEC-010: require a rendezvous nonce before exposing the session. Absent → unchanged behavior. */
+  /** Require a rendezvous nonce before exposing the session. Absent → unchanged behavior. */
   readonly localPeer?: ILocalPeerProof;
   /**
-   * SEC-011 (issue #1865): require a verified cross-device hand-off grant before exposing the
+   * Require a verified cross-device hand-off grant before exposing the
    * session. Absent → unchanged behavior.
    *
    * Independent of `localPeer` rather than exclusive with it, and demanded AFTER it when both are

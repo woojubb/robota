@@ -1,5 +1,5 @@
 /**
- * Signaling port (REMOTE-002). The WebRTC transport is decoupled from any concrete signaling server via this
+ * Signaling port. The WebRTC transport is decoupled from any concrete signaling server via this
  * port: it exchanges opaque SDP/ICE blobs by rendezvous id. The port carries **only** SDP offers/answers + ICE
  * candidates — never session content — so a signaling server (or the in-memory test pair) is content-blind.
  */

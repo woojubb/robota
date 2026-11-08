@@ -1,6 +1,5 @@
 /**
- * TC-18 — every catalog entry carries its provenance, and adopted/adapted are both populated
- * (MCP-002).
+ * Every catalog entry carries its provenance, and adopted/adapted are both populated.
  *
  * Every entry carries its originating server id, the negotiated `protocolVersion` and
  * `serverInfo.version`. `adopted` and `adapted` are both populated with reasons — not only

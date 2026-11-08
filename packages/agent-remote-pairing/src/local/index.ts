@@ -1,5 +1,5 @@
 /**
- * `@robota-sdk/agent-remote-pairing/local` — SEC-010 local-peer admission.
+ * `@robota-sdk/agent-remote-pairing/local` — local-peer admission.
  *
  * A separate entry point because it is NODE-ONLY: the main entry is isomorphic (WebCrypto, no Node
  * built-ins) and runs in the browser remote client, while this needs the filesystem. A browser has

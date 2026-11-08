@@ -22,7 +22,7 @@ export interface IHttpTransportOptions {
   /** Optional: base path prefix for routes. */
   basePath?: string;
   /**
-   * SEC-008: what a peer must present. Omitted means SECURE — a credential is minted and
+   * What a peer must present. Omitted means SECURE — a credential is minted and
    * `getAdmissionToken()` returns it for the host to hand to its client.
    *
    * This transport previously had no gate at all, so omitting the option used to mean "anyone may
@@ -75,7 +75,7 @@ export function createHttpTransport(options?: IHttpTransportOptions): IHttpTrans
         onStreamFailure: options?.onStreamFailure,
         attribution: options?.attribution,
       });
-      // TRANS-002 (issue #2480): `basePath` was declared and advertised but never read, so routes
+      // `basePath` was declared and advertised but never read, so routes
       // always mounted at root. It is honored here — or absent, in which case the routes ARE the app.
       app = options?.basePath ? new Hono().route(options.basePath, routes) : routes;
     },

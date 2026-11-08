@@ -1,5 +1,5 @@
 /**
- * ARCH-030 / issue #1734 — the replay path's backpressure budget REACHES production.
+ * The replay path's backpressure budget REACHES production.
  *
  * `IAttachOptions.pendingBytes` existed with zero production callers: the bridge could take a
  * carrier's backpressure reading and nothing gave it one, so the replay burst — the case the
@@ -47,7 +47,7 @@ function channelHolding(bytes: () => number): IPairingChannel & { sent: string[]
   };
 }
 
-describe('attachSession + the replay budget (ARCH-030)', () => {
+describe('attachSession + the replay budget', () => {
   it('attributes direct admitted WebRTC submissions to the remote surface', async () => {
     const base = fakeSession().session;
     const submit = vi.fn().mockResolvedValue(undefined);

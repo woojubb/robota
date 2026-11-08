@@ -5,7 +5,7 @@ import { createHttpTransport } from '../http-transport.js';
 import type { IHttpTransportSession } from '../http-session.js';
 
 /**
- * Issue #2480 (TRANS-002): `basePath` was declared and advertised but never read, so routes always
+ * `basePath` was declared and advertised but never read, so routes always
  * mounted at root. It is honored now.
  */
 describe('createHttpTransport basePath', () => {

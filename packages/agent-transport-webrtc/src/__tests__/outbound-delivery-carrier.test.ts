@@ -1,12 +1,12 @@
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 const testIdentity = createIdentityContext('test-product');
 /**
- * ARCH-030 at the WebRTC carrier.
+ * The outbound-delivery boundary at the WebRTC carrier.
  *
- * The item named WebRTC as affected, and its stated reason was wrong in a way worth recording: the
- * PAIRED-with-resume-bridge path was already guarded (the bridge routed replies through its own
- * try/catch). The genuinely unguarded WebRTC exposure was the BARE `createSessionMessageHandler` — `PairingGate`'s
- * no-`resumeBridge` branch, taken after the handshake accepts, and `WebRtcTransport`'s no-secret
+ * The PAIRED-with-resume-bridge path is already guarded (the bridge routes replies through its own
+ * try/catch). The unguarded WebRTC exposure is the BARE `createSessionMessageHandler` —
+ * `PairingGate`'s no-`resumeBridge` branch, taken after the handshake accepts, and
+ * `WebRtcTransport`'s no-secret
  * branch, which is the same construction. This suite drives the gate's branch with a stubbed
  * handshake, the way `pairing-gate.test.ts` does, because that is the one that ships by default.
  */
@@ -106,7 +106,7 @@ async function acceptedGate(session: IInteractiveSession): Promise<{
   return { gate, channelClose: close, drop, deliveryErrors };
 }
 
-describe('PairingGate bare-handler branch + the outbound boundary (ARCH-030)', () => {
+describe('PairingGate bare-handler branch + the outbound boundary', () => {
   it('a command resolving after the channel dropped reports once and leaks no rejection', async () => {
     let releaseCommand: (() => void) | undefined;
     const commandGate = new Promise<void>((resolve) => {
@@ -133,13 +133,15 @@ describe('PairingGate bare-handler branch + the outbound boundary (ARCH-030)', (
     expect(deliveryErrors).toEqual([
       { message: 'RTCDataChannel is not open', event: 'command_result' },
     ]);
-    // Carrier cleanup ran: the gate closed its channel on the delivery failure. Before ARCH-030 the
+    // Carrier cleanup ran: the gate closed its channel on the delivery failure. Without the
+    // boundary the
     // reply threw from a Promise continuation and none of this happened.
     expect(channelClose).toHaveBeenCalledTimes(1);
   });
 
   // As on the WS side, this is not the boundary latch's own proof — `PairingGate.handleSessionDeliveryError`
-  // returns early once its state is `closed`, so the single report predates ARCH-030. It pins that the
+  // returns early once its state is `closed`, so the single report does not come from the latch. It
+  // pins that the
   // boundary above it did not change what the gate observes. The latch is red-proved in the protocol suite.
   it('reports once for a burst of replies after the drop', async () => {
     const session = createTestInteractiveSession();

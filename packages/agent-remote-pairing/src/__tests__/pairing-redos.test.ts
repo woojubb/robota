@@ -1,7 +1,8 @@
 /**
- * SEC-003 alert 46 — `extractDtlsFingerprint` must be linear, and must not bind SDP free text.
+ * `extractDtlsFingerprint` must be linear, and must not bind SDP free text.
  *
- * This is the one alert in the class with a genuinely **remote** source rather than a library one: the SDP is
+ * This is the one polynomial-ReDoS case with a genuinely **remote** source rather than a library
+ * one: the SDP is
  * delivered by the (untrusted, content-blind) signaling relay, and `extractDtlsFingerprint` runs on it BEFORE the
  * pairing confirmation — it produces the very value that confirmation binds.
  */
@@ -15,7 +16,10 @@ import { extractDtlsFingerprint, extractDtlsFingerprintAttribute } from '../pair
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
-/** Larger than the other SEC-003 pumps: this regex is quadratic in the SDP length, and an SDP is a whole frame. */
+/**
+ * Larger than the other ReDoS pumps: this regex is quadratic in the SDP length, and an SDP is a
+ * whole frame.
+ */
 const PUMP_CHARS = 400_000;
 const BUDGET_MS = 250;
 const RED_TIMEOUT_MS = 120_000;

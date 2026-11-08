@@ -24,7 +24,7 @@ type TSessionQueryMessage = Extract<
 >;
 
 /**
- * #3189: the most serialized history one `history` frame carries. Well under the tightest outbound
+ * The most serialized history one `history` frame carries. Well under the tightest outbound
  * budget (an attached terminal's, 1 MiB), so a client reading page after page is never mistaken for
  * one that stopped reading.
  */
@@ -55,7 +55,7 @@ export function handleSessionQueryMessage(
   msg: TSessionQueryMessage,
 ): void {
   if (msg.type === 'get-messages') {
-    // #3288 §2: `display` rides the same frame as `messages` — a reload/reconnect/resume replay
+    // `display` rides the same frame as `messages` — a reload/reconnect/resume replay
     // needs both in one round trip, and there is no reason a client would ever want one without
     // the other (the raw messages already have to be fetched to build the projection).
     deliver({ type: 'messages', messages: session.getMessages(), display: session.getMessagesDisplay() });

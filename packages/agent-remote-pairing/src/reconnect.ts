@@ -1,6 +1,6 @@
 import type { IIdentityContext } from './identity/crypto-context.js';
 /**
- * Mutual trusted-device reconnect handshake (REMOTE-012 Stage E3) — the dual of the B3 first-pair handshake,
+ * Mutual trusted-device reconnect handshake — the dual of the first-pair handshake,
  * but authenticating a previously-pinned device/host pair by asymmetric signatures instead of a shared
  * secret. Transport-agnostic: the caller supplies `send` and feeds inbound frames via `onFrame`; the returned
  * promise is the ONLY accept signal, and the caller MUST close the channel if it rejects (fail closed).
@@ -41,7 +41,7 @@ interface ISettle {
 }
 
 /**
- * Run one fallible async frame transition so that a rejection SETTLES the controller (issue #2046).
+ * Run one fallible async frame transition so that a rejection SETTLES the controller.
  * Every spawned operation — resolver, crypto, storage — used to be `void`-detached, so a throw became
  * an unhandled rejection while `result` stayed pending until the timeout.
  */

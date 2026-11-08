@@ -1,5 +1,5 @@
 /**
- * #3189: a history larger than an attached terminal's backpressure budget reaches that terminal
+ * A history larger than an attached terminal's backpressure budget reaches that terminal
  * whole, over a real socket, without the connection being cut.
  *
  * The carrier here is wired as the supervised attach carrier is: every reply goes through
@@ -162,7 +162,7 @@ function isHistory(frame: TServerMessage): frame is Extract<TServerMessage, { ty
   return frame.type === 'history';
 }
 
-describe('a history larger than the attached-surface budget (#3189)', () => {
+describe('a history larger than the attached-surface budget', () => {
   let server: Server | undefined;
   let dir: string | undefined;
 

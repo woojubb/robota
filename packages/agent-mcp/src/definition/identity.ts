@@ -1,7 +1,7 @@
 /**
- * Activation identity and fingerprint for a resolved definition (MCP-001).
+ * Activation identity and fingerprint for a resolved definition.
  *
- * MCP-2520's admission service treats a changed `definitionFingerprint` or `securityIdentity` as
+ * The admission service treats a changed `definitionFingerprint` or `securityIdentity` as
  * `stale` and refuses the activation until it is approved again. Until now nothing computed those
  * values from a definition — the caller passed whatever string it liked, so the invalidation was a
  * contract with no producer. This module is that producer.

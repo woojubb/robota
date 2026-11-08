@@ -25,7 +25,7 @@ function guardedDir(mode = 0o700): string {
 
 const UID = process.getuid?.() ?? 0;
 
-describe('SEC-010 — the evidence is what the kernel enforces, not what the peer presents', () => {
+describe('the evidence is what the kernel enforces, not what the peer presents', () => {
   it('admits a directory this user owns that no other account can traverse', () => {
     const dir = guardedDir(0o700);
 
@@ -122,7 +122,7 @@ describe('SEC-010 — the evidence is what the kernel enforces, not what the pee
   });
 });
 
-describe('SEC-010 — the socket must be inside the directory that vouches for it', () => {
+describe('the socket must be inside the directory that vouches for it', () => {
   it('admits a socket path inside the guarded directory, before the socket exists', () => {
     // Bind time is the ordinary case: the guarantee is the directory, and the file is not there yet.
     const dir = guardedDir(0o700);
@@ -185,7 +185,7 @@ describe('SEC-010 — the socket must be inside the directory that vouches for i
   });
 });
 
-describe('SEC-010 — what this does NOT prove', () => {
+describe('what this does NOT prove', () => {
   it('cannot distinguish two processes of the SAME user, and does not claim to', () => {
     // The documented trust limit. Both admissions succeed because both processes are this user —
     // the boundary is the account, not the process, and a caller must not read it as more.

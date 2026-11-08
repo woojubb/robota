@@ -27,8 +27,8 @@ describe('a streamSSE that throws synchronously', () => {
     const session = createTestInteractiveSession();
     const app = createAgentRoutes({
       sessionFactory: () => session,
-      // SEC-008: admission is not under test here, and the reason it is open says so.
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      // Admission is not under test here, and the reason it is open says so.
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
     const post = () =>
       app.request('/submit', {

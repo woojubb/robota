@@ -1,5 +1,5 @@
 /**
- * Transport seam: ADMIT, then CONSTRUCT (spec § Decision, MCP-002).
+ * Transport seam: ADMIT, then CONSTRUCT (spec § Decision).
  *
  * Every transport contributes a typed admission step whose result is the only thing the
  * constructor accepts. HTTP admits a URL through the host's egress (`IMCPHttpEgress`, the SSRF

@@ -13,7 +13,7 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 /**
- * ARCH-004 RUNTIME-13 — `stop()` must resolve even with a client still connected.
+ * `stop()` must resolve even with a client still connected.
  *
  * Before the fix, `stop()` did `wss.close(cb)`, whose callback fires only after every client socket is gone,
  * so a live client made `stop()` hang forever. The fix sends a close frame to each client and terminates any
@@ -37,7 +37,7 @@ afterEach(async () => {
   while (started.length) await started.pop()!.stop();
 });
 
-describe('WsTransport lifecycle (ARCH-004 RUNTIME-13)', () => {
+describe('WsTransport lifecycle', () => {
   it('accepts only the protocol session roles required by the carrier', () => {
     const transport = new WsTransport({
       open: true,
@@ -52,7 +52,7 @@ describe('WsTransport lifecycle (ARCH-004 RUNTIME-13)', () => {
       port: 17800,
       maxRetries: 40,
       open: true,
-      openReason: 'SEC-008: this case is about the stop() lifecycle, not admission',
+      openReason: 'this case is about the stop() lifecycle, not admission',
     });
     t.attach(mockSession());
     await t.start();
@@ -121,7 +121,7 @@ describe('WsTransport lifecycle (ARCH-004 RUNTIME-13)', () => {
         new WsTransport({
           port: 0,
           open: true,
-          openReason: 'ARCH-011 lifecycle conformance',
+          openReason: 'lifecycle conformance',
         }),
       createSession: mockSession,
       assertReady: (transport) => {

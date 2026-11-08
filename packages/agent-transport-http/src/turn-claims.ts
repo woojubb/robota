@@ -1,5 +1,5 @@
 /**
- * RUNTIME-38 — who currently holds the one turn a session can run.
+ * Who currently holds the one turn a session can run.
  *
  * Split out of `routes.ts`, which had grown past its size ceiling: routing is one job and deciding
  * whether a second turn may start on a session is another, and the second is the only part of that

@@ -1,5 +1,5 @@
 /**
- * HANDOFF-001 (#1811): what actually gets built and sent, and how the destination knows it arrived
+ * What actually gets built and sent, and how the destination knows it arrived
  * whole.
  *
  * Session mobility decides whether a source can offer a session and what its inventory says.
