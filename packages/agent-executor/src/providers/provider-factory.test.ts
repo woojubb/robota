@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolveProfileApiKey, createProviderFromProfile } from './provider-factory.js';
-// ARCH-111: these two are `agent-core`'s, and this file names their owner like every other consumer.
+// These two are `agent-core`'s, and this file names their owner like every other consumer.
 // Importing them from the module under test was how the duplicate surface stayed reachable.
 import {
   normalizeProviderConfig,
@@ -188,7 +188,7 @@ describe('createProviderFromProfile', () => {
   });
 });
 
-describe('#2347: both profile branches resolve through the injected resolver', () => {
+describe('both profile branches resolve through the injected resolver', () => {
   const resolve = createRecordEnvResolver({ INJECTED_KEY: 'from-injected-resolver' });
 
   it('resolves an $ENV: apiKey reference through the resolver, not the process environment', () => {

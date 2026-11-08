@@ -23,7 +23,7 @@ import type {
 
 const testHost = createTestFrameworkHost();
 
-// SEC-003 (js/insecure-temporary-file): `mkdtempSync` yields a 0700 directory with an unpredictable
+// CodeQL `js/insecure-temporary-file`: `mkdtempSync` yields a 0700 directory with an unpredictable
 // name, so no other user can pre-create or read the paths this suite writes under it.
 const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-command-memory-')));
 const memoryStores = new Map<string, Promise<IMemoryStore>>();
@@ -305,7 +305,7 @@ describe('executeMemoryCommand', () => {
     expect(result?.message).toContain(join('.fixture-state', 'memory', 'MEMORY.md'));
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'persists index and topic entries through slash invocation',
     async () => {
@@ -324,7 +324,7 @@ describe('executeMemoryCommand', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')('uses the same handler for model invocation', async () => {
     const cwd = makeProject();
     const session = await createInteractiveSession(cwd);
@@ -354,7 +354,7 @@ describe('executeMemoryCommand', () => {
     expect(existsSync(join(cwd, '.fixture-state', 'memory', 'MEMORY.md'))).toBe(false);
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')('lists queued automatic memory candidates', async () => {
     const cwd = makeProject();
     await seedPendingMemory(cwd);
@@ -368,7 +368,7 @@ describe('executeMemoryCommand', () => {
     expect(result?.message).toContain('Use pnpm for package scripts.');
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'approves and saves a pending candidate while recording audit events',
     async () => {
@@ -394,7 +394,7 @@ describe('executeMemoryCommand', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'rejects a pending candidate while recording an audit event',
     async () => {
@@ -458,7 +458,7 @@ describe('executeMemoryCommand', () => {
       expect(existsSync(join(cwd, '.fixture-state', 'memory', 'MEMORY.md'))).toBe(false);
     });
 
-    // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+    // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
     it.runIf(process.platform === 'linux')(
       'still saves a memory the user adds by hand',
       async () => {

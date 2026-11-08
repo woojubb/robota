@@ -87,7 +87,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   private readonly allocatedTaskIds = new Set<string>();
   private readonly queue: string[] = [];
   /**
-   * CORE-024: task ids currently holding a concurrency slot. Keyed by id (not a count) so
+   * Task ids currently holding a concurrency slot. Keyed by id (not a count) so
    * acquire/release are idempotent — a scheduled task releases on `sleeping` and re-acquires on
    * `waking` without ever double-counting, and a terminal transition from either state is safe.
    */
@@ -481,7 +481,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     this.allocatedTaskIds.add(id);
     const deferred = createDeferred();
     void deferred.promise.catch(() => undefined);
-    // MCP-004 §S1: a runner may declare `admission: 'already-running'` — its work already runs
+    // A runner may declare `admission: 'already-running'` — its work already runs
     // outside any manager-provisioned resource (an adopted, in-flight call), so it is admitted
     // directly rather than queued. `validateBackgroundTaskRequest` above already required the
     // runner to exist, so the lookup here cannot miss.
@@ -577,7 +577,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     this.emit({ type: 'background_task_closed', taskId });
   }
 
-  // SELFHOST-012: non-destructive pause of a scheduled task — croner `.pause()`, not the irreversible `.stop()`
+  // Non-destructive pause of a scheduled task — croner `.pause()`, not the irreversible `.stop()`
   // that `cancel` uses. A paused schedule holds no concurrency slot (like `sleeping`).
   async pauseScheduledTask(taskId: string): Promise<void> {
     this.assertNoRestoreInProgress();
@@ -617,13 +617,13 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     }
     await handle.editSchedule(patch);
     const { label, ...schedulePatch } = patch;
-    // Keep the reconstructable schedule (FLOW-003) + list view in sync with the in-place re-arm.
+    // Keep the reconstructable schedule + list view in sync with the in-place re-arm.
     // `schedule` is scheduled-only on the discriminated state; `editScheduledTask` only ever
     // reaches a scheduled task (`requireScheduledTask`), but the kind check lets TS narrow the write.
     if (task.state.kind === 'scheduled' && task.state.schedule) {
       task.state.schedule = { ...task.state.schedule, ...schedulePatch };
     }
-    // CMD-009: the label is the list view's rendering of the instruction, so it moves with it.
+    // The label is the list view's rendering of the instruction, so it moves with it.
     if (label !== undefined) task.state.label = label;
     task.state.updatedAt = this.now();
     this.emit({ type: 'background_task_updated', task: cloneBackgroundTaskState(task.state) });
@@ -692,7 +692,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     };
   }
 
-  /** CORE-024: acquire/release a concurrency slot for a task (idempotent, set-keyed by id). */
+  /** Acquire/release a concurrency slot for a task (idempotent, set-keyed by id). */
   private acquireSlot(taskId: string): void {
     this.slotHolders.add(taskId);
   }
@@ -782,7 +782,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   }
 
   /**
-   * MCP-004 §S1: the `admission: 'already-running'` counterpart to `startTask` — no `queued`→
+   * The `admission: 'already-running'` counterpart to `startTask` — no `queued`→
    * `running` transition (the state was already constructed `running`), no concurrency slot
    * (`acquireSlot` is never called, so `releaseSlot` on completion is the pre-existing idempotent
    * no-op for a task that never held one). The handle is bound before this returns, so `cancel()`
@@ -843,7 +843,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
     this.watchdogs.clear(task);
     const cancelled = markBackgroundTaskCancelled(task, reason, this.now());
-    // CORE-024: releaseSlot is idempotent — safe whether the task held a slot (running/waking) or
+    // releaseSlot is idempotent — safe whether the task held a slot (running/waking) or
     // not (queued/sleeping), replacing the wasActive count guard.
     this.releaseSlot(task.state.id);
     task.reject(createRunnerError(task.state.error?.message ?? 'Background task cancelled'));
@@ -855,7 +855,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
     this.applyRunnerEventToState(task, event);
     if (event.type === 'background_task_sleeping') {
-      // CORE-024 (RUNTIME-17): a sleeping schedule spawns nothing — release its slot so other
+      // A sleeping schedule spawns nothing — release its slot so other
       // tasks can drain. Without this, maxConcurrent sleeping schedules wedge the budget forever.
       // The status/nextFireAt change is already surfaced via background_task_updated.
       this.releaseSlot(task.state.id);
@@ -863,10 +863,10 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       return;
     }
     if (event.type === 'background_task_waking') {
-      // CORE-024: re-acquire a slot for the in-flight fire (idempotent; a wake may briefly push
+      // Re-acquire a slot for the in-flight fire (idempotent; a wake may briefly push
       // the holder count over maxConcurrent, which only pauses queue draining until it sleeps).
       this.acquireSlot(task.state.id);
-      // FLOW-001: propagate a manager-level wake so an upper layer can re-enter the agent loop.
+      // Propagate a manager-level wake so an upper layer can re-enter the agent loop.
       this.emit({
         type: 'background_task_waking',
         taskId: task.state.id,
@@ -918,7 +918,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   }
 
   /**
-   * ARCH-053: observers are notified only after the authoritative transition is committed, so a
+   * Observers are notified only after the authoritative transition is committed, so a
    * throwing observer is isolated, delivery continues to the rest, and the failure is reported.
    */
   private emit(event: TBackgroundTaskEvent): void {

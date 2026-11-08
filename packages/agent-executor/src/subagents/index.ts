@@ -1,7 +1,6 @@
 export { subagentExecutionRoot } from './execution-root.js';
-// ARCH-037: a consumer of `subagentExecutionRoot` could not NAME what it must pass. Same
-// defect ARCH-025 fixed for `IScheduleEditPatch`, on a function ARCH-031 changed one branch
-// later — which is why this landed with a mechanical check rather than another note.
+// A consumer of `subagentExecutionRoot` must be able to NAME what it must pass, so the
+// envelope type is exported; a mechanical check guards this rather than a note.
 export type { ISubagentExecutionEnvelope } from './execution-root.js';
 export { SubagentManager } from './subagent-manager.js';
 export {

@@ -1,5 +1,5 @@
 /**
- * FLOW-004 (monitor): turns a process's output stream into agent-wake signals.
+ * Monitor: turns a process's output stream into agent-wake signals.
  *
  * Buffers partial lines across chunks, matches each complete line against a regular
  * expression, and — on a match — produces an agent-wake instruction carrying the matched

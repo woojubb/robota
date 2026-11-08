@@ -4,7 +4,7 @@ import { endWithProcess, withChildSession } from '@robota-sdk/agent-core/node';
 import { killProcessTree } from '@robota-sdk/agent-process';
 import { Cron, type CronOptions } from 'croner';
 
-/** POSIX children are spawned detached so a process-group kill reaps grandchildren (CORE-023). */
+/** POSIX children are spawned detached so a process-group kill reaps grandchildren. */
 const SPAWN_DETACHED = process.platform !== 'win32';
 
 import {
@@ -42,14 +42,14 @@ interface IScheduledTaskState {
   shellExecutable?: string;
   logs: string[];
   cancelled: boolean;
-  /** SELFHOST-012: non-destructively paused via croner `.pause()`; a paused schedule fires nothing. */
+  /** Non-destructively paused via croner `.pause()`; a paused schedule fires nothing. */
   paused: boolean;
-  /** SCREEN-1992: at least one fire ran — distinguishes a finished one-shot from a never-fired one. */
+  /** At least one fire ran — distinguishes a finished one-shot from a never-fired one. */
   fired: boolean;
   job: Cron;
   emit: (event: TBackgroundTaskRunnerEvent) => void;
   resolve: (result: IBackgroundTaskResult<'scheduled'>) => void;
-  /** CORE-023: the in-flight fired child, tracked so cancel can kill it instead of orphaning it. */
+  /** The in-flight fired child, tracked so cancel can kill it instead of orphaning it. */
   currentChild?: ChildProcess;
   onChildIdle?: () => void;
   checkOwnership?: () => boolean;
@@ -163,7 +163,7 @@ function startScheduledTask(
     cancel: async () => {
       state.cancelled = true;
       state.job.stop();
-      // CORE-023: kill an in-flight fired child instead of orphaning it (the child was
+      // Kill an in-flight fired child instead of orphaning it (the child was
       // previously a local var with no reference held anywhere).
       if (state.currentChild) {
         await killProcessTree(state.currentChild, { processGroup: SPAWN_DETACHED });
@@ -174,7 +174,7 @@ function startScheduledTask(
         output: createLimitedOutputCapture({ limitBytes: DEFAULT_OUTPUT_LIMIT_BYTES }).getOutput(),
       });
     },
-    // SELFHOST-012: non-destructive pause — croner `.pause()` keeps the job re-armable (unlike `.stop()`).
+    // Non-destructive pause — croner `.pause()` keeps the job re-armable (unlike `.stop()`).
     pause: (): Promise<void> => {
       if (!active || state.cancelled)
         return Promise.reject(
@@ -184,7 +184,7 @@ function startScheduledTask(
       state.job.pause();
       return Promise.resolve();
     },
-    // SELFHOST-012: resume the same job and re-announce the next fire time.
+    // Resume the same job and re-announce the next fire time.
     resume: (): Promise<void> => {
       if (!active || state.cancelled)
         return Promise.reject(
@@ -196,7 +196,7 @@ function startScheduledTask(
       if (pending > 0n) void Promise.resolve().then(drain);
       return Promise.resolve();
     },
-    // SELFHOST-012: re-arm in place — rebuild the Cron from the patched expression while keeping this task's
+    // Re-arm in place — rebuild the Cron from the patched expression while keeping this task's
     // identity (same taskId + handle). Instruction/command changes are picked up by the fire closure.
     editSchedule: (patch: IScheduleEditPatch): Promise<void> => {
       if (!active || state.cancelled)
@@ -295,7 +295,7 @@ function runOneFire(state: IScheduledTaskState): void {
   if (state.checkOwnership && !state.checkOwnership()) return;
   state.fired = true;
 
-  // FLOW-001: carry the agent-wake instruction (if any) so an upper layer can wake the agent loop.
+  // Carry the agent-wake instruction (if any) so an upper layer can wake the agent loop.
   state.emit(
     state.request.agentInstruction !== undefined
       ? { type: 'background_task_waking', instruction: state.request.agentInstruction }
@@ -335,7 +335,7 @@ function runOneFire(state: IScheduledTaskState): void {
   );
   state.currentChild = child;
 
-  // CORE-024 (RUNTIME-18): croner `protect: true` skips a fire while the previous one still runs,
+  // Croner `protect: true` skips a fire while the previous one still runs,
   // so a hung fire starves EVERY future fire. A per-fire timeout kills the hung child (process
   // group) so `close` fires, the schedule re-sleeps, and the next cron tick runs.
   const fireTimeout =
@@ -369,7 +369,7 @@ function runOneFire(state: IScheduledTaskState): void {
     clearFireTimeout();
     const tracked = state.currentChild === child;
     if (tracked) state.currentChild = undefined;
-    // SELFHOST-012: a fire in flight when pause() lands still completes; don't re-announce sleeping for a
+    // A fire in flight when pause() lands still completes; don't re-announce sleeping for a
     // now-paused schedule (it would drive an illegal paused→sleeping transition upstream).
     if (!state.cancelled && !state.paused) {
       emitSleeping(state);
@@ -396,10 +396,10 @@ function resumeHeldWakes(state: IScheduledTaskState): void {
 }
 
 /**
- * Re-arm after a fire (or on start). SCREEN-1992: when the cron has no next run — a one-shot
+ * Re-arm after a fire (or on start). When the cron has no next run — a one-shot
  * `in <N>` / ISO schedule that has just fired — the schedule is finished, so the handle resolves
- * and the manager moves the task to `completed`. Before this, such a task stayed `running` with
- * no `nextFireAt` forever, because only `cancel` ever resolved the handle.
+ * and the manager moves the task to `completed`. Without this, such a task would stay `running` with
+ * no `nextFireAt` forever, because only `cancel` would ever resolve the handle.
  */
 function emitSleeping(state: IScheduledTaskState): void {
   const nextRun = state.job.nextRun();

@@ -246,7 +246,7 @@ describe('BackgroundTaskManager', () => {
     expect(manager.get(created.id)?.metadata).toEqual(created.metadata);
   });
 
-  it('a sleeping scheduled task releases its concurrency slot (CORE-024 RUNTIME-17)', async () => {
+  it('a sleeping scheduled task releases its concurrency slot', async () => {
     // A scheduled runner that goes to sleep immediately after start (like the real cron runner).
     const scheduledStarted: IStartedTask<'scheduled'>[] = [];
     const scheduledRunner: IBackgroundTaskRunner<'scheduled'> = {

@@ -2,11 +2,11 @@
  * Background-task runtime SPI (runner/manager ports, handles, error class).
  *
  * The task DATA contracts (statuses, states, events, requests, results, log pages) moved
- * to `@robota-sdk/agent-interface-execution` (INFRA-025 SSOT) — imported and re-exported
+ * to `@robota-sdk/agent-interface-execution` (SSOT) — imported and re-exported
  * here for intra-package use; the package's PUBLIC index does not re-export them.
  */
 
-// ARCH-037: sourced from the `agent-core` SSOT, not from `agent-interface-transport`'s
+// Sourced from the `agent-core` SSOT, not from `agent-interface-transport`'s
 // pass-through re-export, which is deleted. Re-exported at the end of this file for the package's
 // own barrel chain — a type this file genuinely consumes, not a second name for someone else's.
 import type { TObserverFailureReporter } from './observer-delivery.js';
@@ -110,17 +110,17 @@ interface IBaseBackgroundTaskHandle {
   cancel(reason?: string): Promise<void>;
   send?(input: IBackgroundTaskInput): Promise<void>;
   readLog?(cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
-  /** SELFHOST-012: non-destructive pause of a recurring schedule (croner `.pause()`, not `.stop()`). Present
+  /** Non-destructive pause of a recurring schedule (croner `.pause()`, not `.stop()`). Present
    * only on runners that support it (the scheduled runner); a paused job does not fire until `resume()`. */
   pause?(): Promise<void>;
-  /** SELFHOST-012: resume a paused schedule, re-arming the same job (same task id + cadence). */
+  /** Resume a paused schedule, re-arming the same job (same task id + cadence). */
   resume?(): Promise<void>;
-  /** SELFHOST-012: re-arm the schedule in place from a patched cron expression / instruction (same task id). */
+  /** Re-arm the schedule in place from a patched cron expression / instruction (same task id). */
   editSchedule?(patch: IScheduleEditPatch): Promise<void>;
 }
 
 /**
- * #2079: parameterized like {@link IBackgroundTaskStart} — a runner that declares kind `K` resolves
+ * Parameterized like {@link IBackgroundTaskStart} — a runner that declares kind `K` resolves
  * its handle's `result` to the `K`-specific member of `IBackgroundTaskResult`, so a caller that
  * starts a known-kind runner gets a correctly-narrowed result without a cast, and accessing a
  * cross-kind field on it is a compile error. The manager's dynamic dispatch (a heterogeneous
@@ -140,12 +140,12 @@ export interface IPreparedBackgroundTaskHandle<K extends TBackgroundTaskKind> {
   abort(): void;
 }
 
-/** SELFHOST-012: an in-place schedule edit — any provided field replaces the current value; identity is kept. */
+/** An in-place schedule edit — any provided field replaces the current value; identity is kept. */
 export interface IScheduleEditPatch {
   cronExpression?: string;
   agentInstruction?: string;
   command?: string;
-  /** CMD-009: the list-view label summarizes the instruction, so an edit may refresh it too. */
+  /** The list-view label summarizes the instruction, so an edit may refresh it too. */
   label?: string;
 }
 
@@ -163,7 +163,7 @@ interface IKindedBackgroundTaskRunner<K extends TBackgroundTaskKind> {
     },
   ): IPreparedBackgroundTaskHandle<K>;
   /**
-   * MCP-004 §S1: how the manager admits a spawned task of this runner's kind. `'queued'` (the
+   * How the manager admits a spawned task of this runner's kind. `'queued'` (the
    * default when absent) enqueues and waits for a concurrency slot, as every runner did before this
    * unit. `'already-running'` declares that `start()` adopts work that is ALREADY running outside
    * the manager (nothing to queue, no manager-provisioned resource to bound) — `spawn` starts it
@@ -179,7 +179,7 @@ export type IBackgroundTaskRunner<K extends TBackgroundTaskKind = TBackgroundTas
   K extends TBackgroundTaskKind ? IKindedBackgroundTaskRunner<K> : never;
 
 /**
- * MCP-004 §S1: the port a `tool-invocation` runner exposes so the wrapper (`agent-framework`, S3)
+ * The port a `tool-invocation` runner exposes so the wrapper (`agent-framework`)
  * can hand it an already-running tool call BEFORE `manager.spawn()` is called — the runner's
  * `start()` looks the token up in the registry `adopt()` populates. The runner owns this registry as
  * an INSTANCE, never a module singleton, so multiple manager instances (tests, multiple sessions in
@@ -226,7 +226,7 @@ export interface IBackgroundTaskManager {
   nextScheduledFireOnOrAfter?(cronExpression: string, firstAllowedAt: Date): Date | null;
   cancel(taskId: string, reason?: string): Promise<void>;
   close(taskId: string): Promise<void>;
-  // SELFHOST-012: non-destructive schedule lifecycle (scheduled tasks only).
+  // Non-destructive schedule lifecycle (scheduled tasks only).
   pauseScheduledTask(taskId: string): Promise<void>;
   resumeScheduledTask(taskId: string): Promise<void>;
   editScheduledTask(taskId: string, patch: IScheduleEditPatch): Promise<void>;
@@ -244,7 +244,7 @@ export interface IBackgroundTaskManagerOptions {
   idFactory?: TBackgroundTaskIdFactory;
   eventSink?: TBackgroundTaskEventListener;
   /**
-   * ARCH-053: receives every observer (eventSink/listener) failure. Defaults to a `console.warn`
+   * Receives every observer (eventSink/listener) failure. Defaults to a `console.warn`
    * line; a Node host passes `reportObserverFailureAsProcessWarning` from
    * `@robota-sdk/agent-executor/node` to surface it as a process warning. Never invoked from inside the failing observer's own
    * delivery, never allowed to be silent.
