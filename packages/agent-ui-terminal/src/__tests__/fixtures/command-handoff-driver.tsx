@@ -14,11 +14,10 @@
  *
  * Markers: `@@READY canHandoff=…@@`, `@@CMD_DONE@@`, `@@INPUT_READY n@@` (the input hook has mounted
  * for the n-th time: 2 once the TUI has taken the terminal back), `@@INPUT_AFTER_HANDOFF …@@`. Each is
- * also appended, without the `@@`, as a line to `<outputPath>.events`, which is what a test waits on:
- * a Windows pseudo-console redraws its screen and may never show a marker that a later frame erased. A JSON result
+ * also recorded as an event (`pty/fixture-event-log.ts`), which is what a test waits on. A JSON result
  * `{ success, exitCode?, message }` is written to outputPath.
  */
-import { appendFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 
 import { executeEditorCommand, executeShellCommand } from '@robota-sdk/agent-product/command/node';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
@@ -27,6 +26,7 @@ import React from 'react';
 
 import { useTerminalHandoffSuspension } from '../../hooks/useTerminalHandoffSuspension.js';
 import { TerminalHandoffController } from '../../terminal-handoff-controller.js';
+import { recordFixtureEvent } from '../pty/fixture-event-log.js';
 import { readOneLineScript } from './read-one-line-script.js';
 
 import type {
@@ -74,10 +74,8 @@ function CommandApp(): React.ReactElement {
   );
 }
 
-const EVENTS_PATH = OUTPUT_PATH ? `${OUTPUT_PATH}.events` : undefined;
-
 function marker(line: string): void {
-  if (EVENTS_PATH) appendFileSync(EVENTS_PATH, `${line.replace(/\s+/g, ' ')}\n`, 'utf8');
+  recordFixtureEvent(OUTPUT_PATH, line);
   process.stdout.write(`\r\n@@${line}@@\r\n`);
 }
 
