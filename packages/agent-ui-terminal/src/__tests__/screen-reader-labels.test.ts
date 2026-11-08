@@ -2,7 +2,7 @@
  * CLI-2004 TC-05 — the role-derived, provider-invariant label vocabulary.
  *
  * The point of the negative assertion below is not tidiness: a label naming the vendor would make
- * the transcript differ between vendors for the same conversation, and a reader
+ * the transcript differ between `agent-provider-*` packages for the same conversation, and a reader
  * grepping their scrollback for "assistant:" would find nothing after switching providers.
  */
 

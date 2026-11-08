@@ -7,7 +7,7 @@
  *
  * PROVIDER-INVARIANT BY CONSTRUCTION. The label derives from the message ROLE, never from the
  * vendor behind it — `assistant:`, not the provider's product name — so the transcript reads
- * identically under every vendor. `screenReaderLabelValues()` exists so a test can
+ * identically under every `agent-provider-*`. `screenReaderLabelValues()` exists so a test can
  * assert that negative mechanically instead of trusting review.
  *
  * All nine are lowercase. The reference this vocabulary is modelled on Title-Cases two of its nine;
