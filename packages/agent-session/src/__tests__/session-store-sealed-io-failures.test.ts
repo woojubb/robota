@@ -1,5 +1,5 @@
 /**
- * What the user's session store does when the disk fails it part-way (#3679, secure conversation).
+ * What the user's session store does when the disk fails it part-way (secure conversation).
  *
  * A failure a healthy disk never shows, so it is injected: reading the file already at a session's
  * path fails after it was opened. Only "no such file" means there is nothing to protect, so anything

@@ -1,8 +1,8 @@
 /**
- * Issue #2429 — a relative `filePath` reaches the permission gate resolved against the session root,
+ * A relative `filePath` reaches the permission gate resolved against the session root,
  * so an absolute pattern can judge it, and the tool receives the same canonical path.
  *
- * Before: `Read(/root/secrets/**)` in `deny` against `secrets/key` was UNEVALUABLE (CORE-049 refuses
+ * Before: `Read(/root/secrets/**)` in `deny` against `secrets/key` was UNEVALUABLE (the gate refuses
  * to guess the base) — a prompt, not a deny — while the tool went on to open `<cwd>/secrets/key`.
  */
 import { registerToolPermissionProfile } from '@robota-sdk/agent-core';
@@ -102,7 +102,7 @@ describe('canonicaliseToolArguments', () => {
   });
 });
 
-describe('the wrapper canonicalises before the gate and the tool (issue #2429)', () => {
+describe('the wrapper canonicalises before the gate and the tool', () => {
   it('an absolute deny pattern denies a relative path that resolves under it', async () => {
     const execute = vi.fn().mockResolvedValue({ success: true, data: 'leaked' });
     const promptForApprovalFn = vi.fn().mockResolvedValue('allow-once');

@@ -1,5 +1,5 @@
 /**
- * #3679 step 3c — a spill store given a sealing keeps every spilled tool result sealed on disk,
+ * A spill store given a sealing keeps every spilled tool result sealed on disk,
  * bound to its reference, and reads it back itself; one that says `'plain'` writes the result as it
  * is. A spilled result is conversation content, and the directory it sits in is open to every program
  * of the same user.

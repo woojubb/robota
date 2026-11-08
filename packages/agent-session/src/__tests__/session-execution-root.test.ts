@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Session } from '../session.js';
 
 /**
- * ARCH-010 — the session's execution root is a required field, and required is enforced at RUNTIME.
+ * The session's execution root is a required field, and required is enforced at RUNTIME.
  *
  * `Session` used to read `process.cwd()` in its constructor. That ambient value became the session's
  * identity everywhere it matters — every hook input, `CLAUDE_PROJECT_DIR`, the permission enforcer's
@@ -46,7 +46,7 @@ function construct(cwd: unknown): () => Session {
     } as never);
 }
 
-describe('a session must be told where it runs (ARCH-010)', () => {
+describe('a session must be told where it runs', () => {
   it('REFUSES to construct with no execution root', () => {
     expect(construct(undefined)).toThrow(/requires `cwd`/i);
   });
@@ -66,7 +66,7 @@ describe('a session must be told where it runs (ARCH-010)', () => {
     expect(construct('workspace')).toThrow(/ABSOLUTE/);
   });
 
-  it('judges absoluteness by the path text, so a Windows root is a root on any host (issue #3693)', () => {
+  it('judges absoluteness by the path text, so a Windows root is a root on any host', () => {
     expect(construct('C:\\work\\project')).not.toThrow();
     expect(construct('D:/work')).not.toThrow();
     expect(construct('\\\\server\\share\\work')).not.toThrow();
