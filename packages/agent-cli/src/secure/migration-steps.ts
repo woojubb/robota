@@ -1,5 +1,5 @@
 /**
- * The steps of `secure migrate` that convert the conversation stores (#3679), after the prompt
+ * The steps of `secure migrate` that convert the conversation stores, after the prompt
  * history: the user's session records, the subagent transcripts, the trusted projects' state (their
  * records, replay logs, edit checkpoints and pending memory candidates), and the leftovers nothing
  * reads again. Each store's format stays with the store — these call the converters the SDK packages

@@ -1,5 +1,5 @@
 /**
- * #3679 3f PR 3a — every listener product code opens is named here with its row of
+ * Every listener product code opens is named here with its row of
  * `SECURE_SURFACES`, and opens through `startListener` at the product call site the row lists.
  *
  * A new product listener fails the first test until it is named. Product call sites also carry the

@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from './helpers/product-runtime.js';
 /**
- * #3282 §1 — a `/provider switch` that fails must change nothing on disk.
+ * A `/provider switch` that fails must change nothing on disk.
  *
  * Before this change, `provider-command-profile-operations.ts`'s `buildProviderSwitch` wrote the new
  * `currentProvider` to the target settings file BEFORE the `provider-hot-swap` host action tried to
@@ -44,7 +44,7 @@ function homeWithSettings(settings: unknown): { home: string; settingsPath: stri
   return { home, settingsPath };
 }
 
-describe('#3282: a failing /provider switch changes nothing on disk', () => {
+describe('a failing /provider switch changes nothing on disk', () => {
   it('leaves settings.json exactly as it was, and does not claim success', async () => {
     const before = {
       currentProvider: 'anthropic',

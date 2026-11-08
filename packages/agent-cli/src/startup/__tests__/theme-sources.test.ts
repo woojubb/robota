@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * SCREEN-2002 TC-11 — where theme files come from, and what happens to the ones that are wrong.
+ * Where theme files come from, and what happens to the ones that are wrong.
  *
  * The user directory is HOME-only, the plugin directories come from the installed plugins, and a
  * file that does not parse is skipped by name with its diagnostic rather than taking its neighbours

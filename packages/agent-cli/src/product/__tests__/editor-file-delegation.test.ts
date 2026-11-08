@@ -1,5 +1,5 @@
 /**
- * Issue #3550 item 4 — the product's own tool surface under a real permission gate: an editor slot
+ * The product's own tool surface under a real permission gate: an editor slot
  * makes Read, Write and Edit go through the editor only after the gate allowed the call, and a call
  * the gate refuses never reaches the editor.
  */

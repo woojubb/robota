@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * #3189 — a client's command never stops or restarts a supervised session, the workspace daemon
+ * A client's command never stops or restarts a supervised session, the workspace daemon
  * included. A command that asks the host to exit or restart (`/reset`, `/language`, a provider switch)
  * keeps its saved change, and the client that ran it is told which command stops or starts the
  * session itself. A plain `--serve` still ends on it.
@@ -181,7 +181,7 @@ function settingsAdapter(): NonNullable<ICommandHostAdapters['settings']> & {
   return { read: () => ({}), write: vi.fn(), delete: vi.fn(() => true) };
 }
 
-describe('a command in a served runtime (#3189)', () => {
+describe('a command in a served runtime', () => {
   it.each(['SIGTERM', 'SIGINT'] as const)(
     'retains %s while the runtime host is starting',
     async (signal) => {

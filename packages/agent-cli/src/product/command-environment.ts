@@ -1,5 +1,5 @@
 /**
- * Credentials the runtime holds for itself stay out of the commands it runs (issue #3429).
+ * Credentials the runtime holds for itself stay out of the commands it runs.
  *
  * The runtime resolves provider credentials from its startup environment snapshot, so the live
  * `process.env` — what every tool, hook and background command inherits — can drop them. Withholding

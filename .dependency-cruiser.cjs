@@ -50,7 +50,7 @@ module.exports = {
     },
 
     // ==========================================================
-    // Secure conversations (#3679 3f, decided design change 5)
+    // Secure conversations
     // ==========================================================
     {
       name: 'user-read-request-mint',

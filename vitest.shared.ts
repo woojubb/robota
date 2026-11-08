@@ -77,7 +77,7 @@ const WORKER_HEAP_MB = positiveIntEnv('VITEST_WORKER_HEAP_MB', 512);
  * `mkdtemp` and passes `cwd` still writes to **the repository being pushed from**, because `GIT_DIR`
  * outranks `cwd`.
  *
- * Measured on 2026-08-05 (HARNESS-075). One test file, run twice against a throwaway clone:
+ * Measured on 2026-08-05. One test file, run twice against a throwaway clone:
  *
  * ```
  * GIT_DIR=… npx vitest run scan-promotion-ancestry.test.mjs   -> branches created in the CLONE
@@ -117,9 +117,9 @@ for (const name of GIT_AMBIENT_ENV) delete process.env[name];
  * `createContributionSourcesForProjectAccess`, `UpdateCheckCache` — so any test that constructs a
  * session without threading a home reads whatever `~/.claude` and the configured user state directory (plus `~/.claude/skills`)
  * happen to hold on the machine running it. Its result then moves with the machine rather than with
- * the code, in BOTH directions: issue #2300 was filed from a suite that passed locally because the
- * developer had 13 unrelated skills installed and failed on CI, where there are none; issue #2383 is
- * the same mechanism inverted, red locally because of a `SessionStart` hook and green on CI.
+ * the code, in BOTH directions: a suite can pass locally because the
+ * developer has 13 unrelated skills installed and fail on CI, where there are none; or, the same
+ * mechanism inverted, fail locally because of a `SessionStart` hook and pass on CI.
  *
  * That is not a property of any one test file, so a fix in one test file would protect one test
  * file. It lives in the shared ceiling for the same reason the ambient-git scrub above does: this is

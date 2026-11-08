@@ -23,7 +23,7 @@ const routeTool = createZodFunctionTool(
   'Choose the team that should handle the ticket',
   z.object({ team: z.enum(['billing', 'bugs', 'sales']) }),
   async (args) => {
-    decision = args.team; // typed as 'billing' | 'bugs' | 'sales' (SDK-009 inference)
+    decision = args.team; // typed as 'billing' | 'bugs' | 'sales' (inferred)
     return `routed to ${args.team}`;
   },
 );

@@ -97,7 +97,7 @@ export function createTestTelemetryRuntime(home: string): ICliRuntimeContext {
     const value = process.env[key];
     if (value !== undefined) selected[key] = value;
   }
-  // A provider credential leaves process.env when startup runs (issue #3429); like an embedding host,
+  // A provider credential leaves process.env when startup runs; like an embedding host,
   // a later in-process call keeps the value it was given rather than reading it back from there.
   for (const key of ['PRODUCT_LIVE_TRACE_TEST_KEY', 'PRODUCT_LIVE_CONTENT_TEST_KEY']) {
     const value = process.env[key] ?? rememberedCredentials.get(key);

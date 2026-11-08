@@ -1,5 +1,5 @@
 /**
- * Which projects `secure migrate` writes (#3679): the roots a state root remembers — trust grants,
+ * Which projects `secure migrate` writes: the roots a state root remembers — trust grants,
  * session-record working directories, prompt-history projects — are only candidates; one is written
  * only when the trust service says it is trusted now, on a host that can write project state, and
  * every other root that holds project state is listed with why, and never written.

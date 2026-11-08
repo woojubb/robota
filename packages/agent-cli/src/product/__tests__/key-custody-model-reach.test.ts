@@ -1,5 +1,5 @@
 /**
- * #3679 3f, change 5: nothing the model runs can open the passphrase prompt. In a secure TUI session
+ * Nothing the model runs can open the passphrase prompt. In a secure TUI session
  * whose keys are locked, every command the model may invoke and every tool the session gives it is
  * run, and the gate's terminal, the session's terminal handoff and the keys stay untouched.
  *

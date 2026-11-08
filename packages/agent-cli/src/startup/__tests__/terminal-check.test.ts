@@ -15,7 +15,7 @@ describe('warnIfTerminalAppOnMacOS', () => {
     vi.unstubAllEnvs();
   });
 
-  it('TC-04: warns on darwin + Apple_Terminal', () => {
+  it('warns on darwin + Apple_Terminal', () => {
     const restore = stubPlatform('darwin');
     vi.stubEnv('TERM_PROGRAM', 'Apple_Terminal');
     const { terminal, errors } = createCapturingTerminal();
@@ -24,7 +24,7 @@ describe('warnIfTerminalAppOnMacOS', () => {
     expect(errors.join('\n')).toContain('Terminal.app');
   });
 
-  it('TC-04: silent on darwin + iTerm', () => {
+  it('silent on darwin + iTerm', () => {
     const restore = stubPlatform('darwin');
     vi.stubEnv('TERM_PROGRAM', 'iTerm.app');
     const { terminal, errors } = createCapturingTerminal();
@@ -33,7 +33,7 @@ describe('warnIfTerminalAppOnMacOS', () => {
     expect(errors).toHaveLength(0);
   });
 
-  it('TC-04: silent on non-darwin platforms', () => {
+  it('silent on non-darwin platforms', () => {
     const restore = stubPlatform('linux');
     vi.stubEnv('TERM_PROGRAM', 'Apple_Terminal');
     const { terminal, errors } = createCapturingTerminal();

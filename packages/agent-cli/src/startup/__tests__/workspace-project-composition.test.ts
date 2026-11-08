@@ -102,7 +102,7 @@ describe('CLI workspace project composition', () => {
     expect(existsSync(join(cwd, PRODUCT_PROJECT_STATE_DIRECTORIES.sessions))).toBe(false);
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'derives project readers and state only from the supplied trusted authority',
     async () => {
@@ -256,7 +256,7 @@ describe('CLI workspace project composition', () => {
       },
     );
 
-    // ARCH-047: project mutation is Linux-only, so the project store can only be exercised there.
+    // Project mutation is Linux-only, so the project store can only be exercised there.
     it.runIf(process.platform === 'linux')(
       "stays in each trusted project on Linux, and one project's memory is not another's",
       async () => {

@@ -1,5 +1,5 @@
 /**
- * #3101 (B2): how another local session's workspace relates to this one's.
+ * How another local session's workspace relates to this one's.
  *
  * A session publishes a workspace claim with its rendezvous entry. The reader does not take the
  * claim as written: it resolves the claimed path and reads git there itself, and a claim that

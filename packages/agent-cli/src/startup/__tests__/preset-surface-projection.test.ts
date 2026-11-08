@@ -9,12 +9,12 @@ import type { IPresetSurfaceOptions } from '../preset-surface-options.js';
 import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
 
 /**
- * ARCH-041 — the projection is declared ONCE.
+ * The projection is declared ONCE.
  *
  * `IPresetSurfaceOptions` claimed that "adding a field here now reaches every surface at once, which
  * is the only property that makes this worth extracting". It did not hold: `print-mode.ts` and
  * `serve-mode.ts` each declared their own copy, and the three had already drifted — `model` was on
- * print mode's copy and on neither of the others. That is the shape ARCH-013 was filed about,
+ * print mode's copy and on neither of the others. That is the same drift,
  * surviving the extraction meant to end it.
  *
  * WHERE THE ENFORCEMENT ACTUALLY IS, stated because the first draft of this file implied otherwise:
@@ -32,7 +32,7 @@ import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
  * The two `model` cases below are ordinary runtime assertions and do fail on their condition:
  * dropping the projection turns the first red.
  */
-describe('the preset surface projection is declared once (ARCH-041)', () => {
+describe('the preset surface projection is declared once', () => {
   it('both mode surfaces accept every field of the shared projection', () => {
     // If either mode re-declares its own shape, a field the shared type has and the copy lacks makes
     // these assignments stop compiling — which is the failure this case exists to cause.
@@ -72,18 +72,18 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     expect(serve.model).toBe('some-model');
   });
 
-  it('projects `model` from the resolved preset (ARCH-040 / ARCH-041)', () => {
+  it('projects `model` from the resolved preset', () => {
     // The field that measured the drift. It reaches the shared projection now, so it arrives at all
     // three surfaces rather than at the one someone remembered.
     const resolved = { model: 'preset-model', agentName: 'acme-bot' } as IResolvedPresetOptions;
     expect(buildPresetSurfaceOptions(createTestProductRuntime(), resolved, 'acme', 'default').model).toBe('preset-model');
   });
 
-  it('projects the model group’s other two dials (ARCH-040 Group E)', () => {
+  it('projects the model group’s other two dials', () => {
     // `temperature` and `maxOutputTokens` were applied by the live `/preset` path through
     // `applyModelOptions` and by NOTHING at startup — one session holding two answers for the same
-    // preset depending on when it was chosen, which is exactly what `effort` did before ARCH-013
-    // stage 1. They reach the session's agent config at construction now, on the same two channels
+    // preset depending on when it was chosen, which is exactly what `effort` did before it was
+    // projected at startup. They reach the session's agent config at construction now, on the same two channels
     // `applyModelOptions` writes, so the two answers are one answer.
     const resolved = { temperature: 0.2, maxOutputTokens: 4096 } as IResolvedPresetOptions;
     const surface = buildPresetSurfaceOptions(createTestProductRuntime(), resolved, 'acme', 'default');
@@ -110,7 +110,7 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     expect(surface.effort).toBe('auto');
   });
 
-  it('projects `language` (ARCH-040 Group F)', () => {
+  it('projects `language`', () => {
     // Decided as a PROMPT instruction rather than a provider parameter — and the framework already
     // composes a response-language section, so this wires the existing mechanism. A preset stating a
     // language is more specific than the ambient `config.language`, so it wins at the session level.

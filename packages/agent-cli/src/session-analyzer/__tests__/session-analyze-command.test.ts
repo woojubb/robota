@@ -1,8 +1,8 @@
 /**
- * OBS-001 integration tests: the `session analyze` command must read sessions from the
+ * Integration tests: the `session analyze` command must read sessions from the
  * PROJECT store (cwd/the configured project directory/sessions) — where print/TUI actually persist them — as well as
  * the user level, and its --last/--session flags must work. These cover the two integration
- * bugs that the parser/reporter unit tests could not catch (TC-01/02/06/07).
+ * bugs that the parser/reporter unit tests could not catch.
  */
 
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
@@ -23,7 +23,7 @@ function sessionRecord(id: string, cwd: string): unknown {
     cwd,
     createdAt: t(0),
     updatedAt: t(20_000),
-    // TRANS-007: `messages` is required by the contract. The store now decodes, so a fixture without
+    // `messages` is required by the contract. The store now decodes, so a fixture without
     // it is a corrupt record rather than a partial one.
     messages: [],
     history: [
@@ -38,7 +38,7 @@ function sessionRecord(id: string, cwd: string): unknown {
 
 function writeSession(sessionsDir: string, id: string, cwd: string): void {
   mkdirSync(sessionsDir, { recursive: true });
-  // TRANS-007: the store persists the versioned envelope, so a fixture that writes the bare record
+  // The store persists the versioned envelope, so a fixture that writes the bare record
   // is a pre-envelope file and now loads as `unsupported` — which is correct, and not what this
   // suite is testing.
   writeFileSync(
@@ -48,7 +48,7 @@ function writeSession(sessionsDir: string, id: string, cwd: string): void {
   );
 }
 
-describe('runSessionAnalyze integration (OBS-001)', () => {
+describe('runSessionAnalyze integration', () => {
   let home: string;
   let project: string;
   let stdout: string[];
@@ -97,7 +97,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     }
   }
 
-  it('TC-01: analyzes the most recent PROJECT-level session (the real storage location)', async () => {
+  it('analyzes the most recent PROJECT-level session (the real storage location)', async () => {
     writeSession(join(project, '.test-product', 'sessions'), 'session_1781000001000_aaa', project);
 
     await run([]);
@@ -108,7 +108,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     expect(out).toMatch(/Timing|LLM|Tool|Slow/i);
   });
 
-  it('TC-02: --last aggregates multiple sessions (flag is delivered, not rejected)', async () => {
+  it('--last aggregates multiple sessions (flag is delivered, not rejected)', async () => {
     const dir = join(project, '.test-product', 'sessions');
     writeSession(dir, 'session_1781000001000_aaa', project);
     writeSession(dir, 'session_1781000002000_bbb', project);
@@ -120,7 +120,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     expect(stderr.join('')).not.toContain('Unknown option');
   });
 
-  it('TC-06: no sessions in either location → stderr error + exit 1', async () => {
+  it('no sessions in either location → stderr error + exit 1', async () => {
     await run([]);
 
     expect(exitCode).toBe(1);
@@ -129,7 +129,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     expect(err).toContain('configured user or authorized project session stores');
   });
 
-  it('TC-07: --session <prefix> selects a specific session', async () => {
+  it('--session <prefix> selects a specific session', async () => {
     const dir = join(project, '.test-product', 'sessions');
     writeSession(dir, 'session_1781000001000_aaa', project);
     writeSession(dir, 'session_1781000002000_bbb', project);
@@ -195,7 +195,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     expect(stdout.join('')).toContain(`cwd: ${home}`);
   });
 
-  it('TC-07b: --session with an unknown id → error + exit 1', async () => {
+  it('--session with an unknown id → error + exit 1', async () => {
     writeSession(join(project, '.test-product', 'sessions'), 'session_1781000001000_aaa', project);
 
     await run(['--session', 'doesnotexist']);
@@ -236,7 +236,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     expect(out).toMatch(/Analyzed 2 session/i);
   });
 
-  // ANALYTICS-001: --usage reports token usage broken down by source.
+  // --usage reports token usage broken down by source.
   it('--usage reports per-source token usage with a top consumer', async () => {
     const id = 'session_1781000005000_use';
     const usageSnapshot = (total: number, source?: Record<string, unknown>): unknown => ({

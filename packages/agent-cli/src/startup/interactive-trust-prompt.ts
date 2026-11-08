@@ -1,6 +1,6 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * An interactive start in an untrusted workspace asks whether to trust it (issue #3268), the way the
+ * An interactive start in an untrusted workspace asks whether to trust it, the way the
  * headless refusal tells a run with no one to ask. It asks before anything from the project is
  * composed, so "no" starts Restricted exactly as before and "yes" starts Trusted with no restart.
  */
@@ -86,7 +86,7 @@ export function trustQuestionFor(
   return {
     folder: access.displayPath ?? cwd,
     // The source rows only: the header and the closing note describe the listing, not the folder.
-    // #3282 §3: this is what `trust status --json` and the desktop dialog show — a row whose state
+    // This is what `trust status --json` and the desktop dialog show — a row whose state
     // could not be determined (every row, on a host without Linux's pinned handle-walk) says nothing
     // worth showing there, unlike the full terminal preview (`formatProjectContributionPreview`
     // itself, still complete — the TUI's own interactive prompt and plain `trust status` keep it).

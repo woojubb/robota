@@ -1,7 +1,7 @@
 import type { ISubagentWorkerEntry } from '@robota-sdk/agent-subagent-runner';
 
 /**
- * DIST-006: how `the product` starts a copy of ITSELF in subagent-worker mode.
+ * How `the product` starts a copy of ITSELF in subagent-worker mode.
  *
  * This is composition-root knowledge by construction: the only party that knows how a process is
  * packaged is that process. The seam this replaced asked a library to find a worker file on disk,
@@ -49,7 +49,7 @@ function resolveSourceExecArgv(entry: string): readonly string[] | undefined {
 const DISABLE_INSPECTOR_SIGNAL = '--disable-sigusr1';
 
 /**
- * #3679: Node opens an inspector on SIGUSR1, and any same-user process can send that signal and then
+ * Node opens an inspector on SIGUSR1, and any same-user process can send that signal and then
  * attach to the debugger to read or drive the copy — a daemon outlives its window, a worker holds the
  * session's credential. The entry a copy re-enters closes this too, but only once it runs; the flag
  * closes it from the copy's first instruction. It is a Node flag (added 22.14/23.7), so it is added

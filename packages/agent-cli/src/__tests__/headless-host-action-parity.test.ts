@@ -1,5 +1,5 @@
 /**
- * CMD-004 Stage D — headless/programmatic HOST-ACTION PARITY for the transport core.
+ * Headless/programmatic HOST-ACTION PARITY for the transport core.
  *
  * The LSP `workspace/executeCommand` model the spec adopts: a command's host actions are executed
  * by the SESSION (the host) via the injected `ICommandHostAdapters` — with ZERO surfaces attached.
@@ -62,7 +62,7 @@ function headlessSession(adapters: ICommandHostAdapters): InteractiveSession {
   });
 }
 
-describe('CMD-004 Stage D — host-action parity with ZERO attached surfaces (headless)', () => {
+describe('host-action parity with ZERO attached surfaces (headless)', () => {
   it('/language ko writes via the settings adapter and requests a restart — no surface anywhere', async () => {
     const write = vi.fn();
     const requestRestart = vi.fn();
@@ -94,7 +94,10 @@ describe('CMD-004 Stage D — host-action parity with ZERO attached surfaces (he
   });
 });
 
-/** A command emitting a direct (Stage-E shape) host action — used through the programmatic driver. */
+/**
+ * A command emitting a direct (split-contract shape) host action — used through the programmatic
+ * driver.
+ */
 const RELOAD_LANGUAGE_MODULE: ICommandModule = {
   name: 'parity',
   systemCommands: [
@@ -122,7 +125,7 @@ function commandOutputs(events: readonly InteractionEvent[]): string[] {
     .map((e) => e.output);
 }
 
-describe('CMD-004 Stage D — programmatic driver surface (no adapters wired)', () => {
+describe('programmatic driver surface (no adapters wired)', () => {
   let cwd: string;
   let driver: IAgentDriver | undefined;
 

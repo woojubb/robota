@@ -4,12 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 /**
- * INFRA-042 — nightly mutation testing (Stryker) over the highest-value CORE packages.
+ * Nightly mutation testing (Stryker) over the highest-value CORE packages.
  *
  * WHY: coverage proves a line RAN; mutation proves its behaviour is ASSERTED. Stryker mutates the
  * source (flip `>`→`>=`, drop a statement, negate a condition) and re-runs the suite; a mutant that
- * SURVIVES means no test noticed — i.e. an accidental-green test that does not pin behaviour (the
- * class that recurred as ARCH-004 RUNTIME-14 and CORE-026 RUNTIME-12; common-mistakes #82).
+ * SURVIVES means no test noticed — i.e. an accidental-green test that does not pin behaviour.
  *
  * SCOPE: deliberately bounded — mutation runs the suite once per mutant, far too expensive for
  * per-PR CI, so it runs nightly (mutation-nightly.yml) over one core package at a time. Select the
@@ -18,17 +17,17 @@ import { dirname, join } from 'node:path';
  * ADVISORY (v1): `thresholds.break` is null — Stryker NEVER fails the run on a low score. The score
  * and the surviving-mutant report are the maintained artefact; surviving mutants become
  * test-hardening work items. Ratchet the threshold up (and eventually set `break`) over time. This
- * mirrors the regression-red-proof advisory-first rollout (ci.yml, HARNESS-041).
+ * mirrors the regression-red-proof advisory-first rollout (ci.yml).
  */
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 /**
- * Per-target mutation scope: the highest-value core logic named in INFRA-042, each paired with its
- * package's own vitest config so only that package's suite runs.
+ * Per-target mutation scope: the highest-value core logic the nightly job targets, each paired with
+ * its package's own vitest config so only that package's suite runs.
  */
 const TARGETS = {
-  // agent-core permission gate + policy + mode resolvers (the CORE-025 enforcement path).
+  // agent-core permission gate + policy + mode resolvers (the enforcement path).
   'agent-core': {
     package: 'agent-core',
     mutate: [
@@ -38,7 +37,7 @@ const TARGETS = {
       '!packages/agent-core/src/permissions/**/*.{test,spec}.ts',
     ],
   },
-  // agent-session permission-enforcer (the CORE-025 policy-enforcement seam).
+  // agent-session permission-enforcer (the policy-enforcement seam).
   'agent-session': {
     package: 'agent-session',
     mutate: ['packages/agent-session/src/permission-enforcer.ts'],

@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * SEC-020 (issue #2021) — `the product init` keeps runtime session data out of Git.
+ * `the product init` keeps runtime session data out of Git.
  *
  * The claim is about what GIT does, so the last case asks git rather than reading the file back. A
  * test that asserts the file's TEXT proves the writer wrote what it was told to write, which is the
@@ -38,9 +38,9 @@ function createTerminal(): { terminal: ITerminalOutput; output(): string } {
   };
 }
 
-// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+// Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
 describe.runIf(process.platform === 'linux')(
-  'SEC-020 — test-product init writes targeted runtime-data ignore rules',
+  'test-product init writes targeted runtime-data ignore rules',
   () => {
     let cwd: string;
     let projectAccess: ITrustedWorkspaceProjectAccess;
@@ -72,7 +72,7 @@ describe.runIf(process.platform === 'linux')(
       return output();
     }
 
-    it('TC-24: creates .test-product/.gitignore with the four runtime-data entries', async () => {
+    it('creates .test-product/.gitignore with the four runtime-data entries', async () => {
       const output = await init();
       const text = readFileSync(join(cwd, IGNORE_PATH), 'utf8');
       for (const entry of ['sessions/', 'logs/', 'checkpoints/', 'settings.local.json']) {
@@ -81,14 +81,14 @@ describe.runIf(process.platform === 'linux')(
       expect(output).toContain('Created: .test-product/.gitignore');
     });
 
-    it('TC-25: does NOT ignore project memory, which is a decision rather than an omission', async () => {
+    it('does NOT ignore project memory, which is a decision rather than an omission', async () => {
       // `.agents/memory/` is checked in by design in this repository and project memory is the same
       // kind of artefact. Ignoring it by default would make that choice for every user of the CLI.
       await init();
       expect(readFileSync(join(cwd, IGNORE_PATH), 'utf8')).not.toContain('memory/');
     });
 
-    it('TC-26: running init twice changes nothing and says so', async () => {
+    it('running init twice changes nothing and says so', async () => {
       await init();
       const first = readFileSync(join(cwd, IGNORE_PATH), 'utf8');
       const output = await init();
@@ -96,7 +96,7 @@ describe.runIf(process.platform === 'linux')(
       expect(output).toContain('already covers runtime session data');
     });
 
-    it('TC-27: a line the user added by hand survives, and a missing entry is added', async () => {
+    it('a line the user added by hand survives, and a missing entry is added', async () => {
       await init();
       const path = join(cwd, IGNORE_PATH);
       writeFileSync(path, '# mine\nscratch/\nsessions/\n', 'utf8');
@@ -108,7 +108,7 @@ describe.runIf(process.platform === 'linux')(
       expect(output).toContain('Updated: .test-product/.gitignore');
     });
 
-    it('TC-28: git itself ignores the transcripts and tracks the reviewable settings', async () => {
+    it('git itself ignores the transcripts and tracks the reviewable settings', async () => {
       const git = (...args: string[]): string =>
         execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
       git('init', '-q', '.');

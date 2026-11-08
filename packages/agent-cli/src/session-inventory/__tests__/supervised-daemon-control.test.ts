@@ -80,7 +80,7 @@ describe('supervised daemon control', () => {
     });
   });
 
-  it('marks a daemon that runs Restricted, so a start asking for other access does not reuse it (#3268)', async () => {
+  it('marks a daemon that runs Restricted, so a start asking for other access does not reuse it', async () => {
     await withControl({ url: () => URL_WITH_TOKEN, restricted: true }, async (root) => {
       expect(await listSupervisedSessions(root, undefined, { includeDaemon: true })).toEqual([
         { id: ID, liveness: 'alive', control: 'available', activity: 'idle', daemon: true, restricted: true },

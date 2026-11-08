@@ -11,7 +11,7 @@ import {
 import { NodeFileSystem } from '@robota-sdk/agent-framework/node';
 
 // `BundlePluginLoader` is now a TYPE here and nothing more: this module names it in
-// `IPluginServices` but no longer constructs one — the composition root does (PLG-021).
+// `IPluginServices` but no longer constructs one — the composition root does.
 import type { BundlePluginLoader, IMarketplaceManifest } from '@robota-sdk/agent-framework';
 import type {
   ICommandAvailablePlugin,
@@ -33,8 +33,8 @@ interface IPluginServices {
    * A factory rather than an instance, because `BundlePluginLoader` captures the map in its
    * constructor. A cached instance answers with the map as it was when the services object was
    * built, and `enable`/`disable` on this same adapter write to disk without touching it — so
-   * "disable then reload" in one process would keep loading the plugin just disabled. That is
-   * PLG-021 again, one step over: not a MISSING map, a STALE one.
+   * "disable then reload" in one process would keep loading the plugin just disabled. The failure is
+   * a STALE map, not a MISSING one.
    */
   createLoader: () => BundlePluginLoader;
   settingsStore: NodeHostPluginSettingsStore;
@@ -45,7 +45,7 @@ interface IPluginServices {
 /**
  * Variables a git subprocess may inherit. Everything else is dropped.
  *
- * SEC-017 (issue #2019). Argv stops the SHELL from reading attacker-controlled text; it does not stop
+ * Argv stops the SHELL from reading attacker-controlled text; it does not stop
  * GIT itself. `GIT_SSH_COMMAND`, `GIT_EXTERNAL_DIFF`, `GIT_PROXY_COMMAND` and `GIT_ASKPASS` each name a
  * program git executes, so an inherited one turns `git clone` into "run whatever that variable says" —
  * the same outcome the string-shell port had, reached through a different door. An ALLOWLIST rather
@@ -124,7 +124,7 @@ function createPluginServices(cwd: string, runtime: ICliRuntimeContext): IPlugin
     fs,
     onWarning: writeWarning,
   });
-  // PLG-021 / issue #2025: the enablement state was never unreachable here — `settingsStore` is
+  // The enablement state was never unreachable here — `settingsStore` is
   // built above and knows exactly which plugins the user disabled. It simply was not passed, and
   // the loader's optional map defaults to `{}`, which means "nothing disabled". Read PER CALL, so a
   // disable made through this same adapter is visible to the next load.

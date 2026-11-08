@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from './helpers/product-runtime.js';
 /**
- * CLI-083 (issue #2287) — the org policy is actually LOADED, not merely forwardable.
+ * The org policy is actually LOADED, not merely forwardable.
  *
  * The projection tests assert that each shell carries an `orgPolicy` it is given. They are all green
  * when nobody gives one — which was the state of this repository for three months: `48ebec353` added
@@ -67,7 +67,7 @@ afterEach(() => {
   for (const home of homes.splice(0)) rmSync(home, { recursive: true, force: true });
 });
 
-describe('CLI-083: the loaded policy is SURFACED, not only consumed in place', () => {
+describe('the loaded policy is SURFACED, not only consumed in place', () => {
   it('returns the policy from `buildCommandSetup`, so the session path can be fed', () => {
     // Found in review: the first version of this change loaded the policy and handed it only to
     // `createDefaultCommandModules`. That reaches the provider checks and leaves the SESSION-level
@@ -96,7 +96,7 @@ describe('CLI-083: the loaded policy is SURFACED, not only consumed in place', (
   });
 });
 
-describe('CLI-083: a policy file on disk reaches the enforcement', () => {
+describe('a policy file on disk reaches the enforcement', () => {
   it('blocks a provider switch forbidden only by ~/.test-product/org-policy.json', async () => {
     const home = homeWithPolicy({ allowedProviders: ['anthropic'], adminContact: 'ops@x' });
     vi.stubEnv('HOME', home);
@@ -134,11 +134,10 @@ describe('CLI-083: a policy file on disk reaches the enforcement', () => {
   });
 });
 
-describe('issue #2023: an unreadable policy is presented, not thrown at the user', () => {
+describe('an unreadable policy is presented, not thrown at the user', () => {
   it('writes the message and exits 1 instead of escaping as an unhandled exception', () => {
-    // Review finding on PR #2324: `loadOrgPolicy` throws now, and its only production caller did not
-    // catch it — so a corrupted `the configured user root/org-policy.json` crashed the CLI with a stack trace. That
-    // is the outcome the comment this change replaced was protecting against, and a stack trace does
+    // `loadOrgPolicy` throws, and its only production caller must catch it — otherwise a corrupted
+    // `the configured user root/org-policy.json` crashes the CLI with a stack trace, which does
     // not tell an administrator which file to fix.
     const home = homeWithRawPolicy('{"allowedProviders": ["anthropic"');
     vi.stubEnv('HOME', home);

@@ -1,5 +1,5 @@
 /**
- * Capability: one agent definition → many channels (SELFHOST-013).
+ * Capability: one agent definition → many channels.
  *
  * The runtime needs no "gateway" to serve one agent over many surfaces. You build ONE session from one definition
  * (`createAgentRuntime(...).createSession(...)` / `buildRuntimeSession`), then bind it to as many transports as

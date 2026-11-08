@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * `the product init` prompt-matrix tests (CLI-065).
+ * `the product init` prompt-matrix tests.
  *
  * `--yes` (and CI=true) must skip every Y/n prompt and apply the documented
  * defaults: overwrite N (idempotent "Init cancelled."), migrate N, provider
@@ -46,7 +46,7 @@ function createTerminal(): { terminal: ITerminalOutput; output(): string } {
   };
 }
 
-describe('runInitCommand prompt matrix (CLI-065)', () => {
+describe('runInitCommand prompt matrix', () => {
   let cwd: string;
   let promptSpy: ReturnType<typeof vi.fn<(question: string) => Promise<string>>>;
   let projectAccess: ITrustedWorkspaceProjectAccess;
@@ -76,9 +76,9 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     return { agentsMd, settings };
   }
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
-    'TC-01: yes + existing files → no prompt, "Init cancelled.", files untouched',
+    'yes + existing files → no prompt, "Init cancelled.", files untouched',
     async () => {
       const { agentsMd, settings } = seedExistingFiles();
       const { terminal, output } = createTerminal();
@@ -99,9 +99,9 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
-    'TC-02: yes + .claude present in clean dir → migration skipped, plain template written',
+    'yes + .claude present in clean dir → migration skipped, plain template written',
     async () => {
       mkdirSync(join(cwd, '.claude'), { recursive: true });
       writeFileSync(
@@ -129,9 +129,9 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
-    'TC-03: CI=true behaves like --yes (defaults, no prompts)',
+    'CI=true behaves like --yes (defaults, no prompts)',
     async () => {
       seedExistingFiles();
       const { terminal, output } = createTerminal();
@@ -149,9 +149,9 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
-    'TC-04: non-TTY without yes → error names the question and suggests --yes',
+    'non-TTY without yes → error names the question and suggests --yes',
     async () => {
       seedExistingFiles();
       const { terminal } = createTerminal();
@@ -178,9 +178,9 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
-    'TC-05: TTY without yes → prompts fire as before (interactive regression)',
+    'TTY without yes → prompts fire as before (interactive regression)',
     async () => {
       seedExistingFiles();
       const { terminal, output } = createTerminal();
@@ -200,9 +200,9 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
-    'TC-05: TTY overwrite y + migrate n imports nothing and recreates files',
+    'TTY overwrite y + migrate n imports nothing and recreates files',
     async () => {
       seedExistingFiles();
       mkdirSync(join(cwd, '.claude'), { recursive: true });
@@ -232,7 +232,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'provider setup prompt is skipped with yes (default N)',
     async () => {
@@ -254,7 +254,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'provider setup prompt skips with a notice on non-TTY instead of failing a completed init',
     async () => {

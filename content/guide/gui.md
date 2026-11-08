@@ -48,8 +48,7 @@ The desktop app is released as installers on
 `__PRODUCT_ARTIFACT_PREFIX__-desktop-<version>-<arch>`: a `.dmg` or `.zip` for macOS, an `.exe` for Windows, and an
 `.AppImage` or `.deb` for Linux. It is not published to npm.
 
-The installers are **not code-signed** yet (tracked in
-[#3349](__PROJECT_REPOSITORY_URL__/issues/3349)), so the operating system stops or warns on the
+The installers are **not code-signed** yet, so the operating system stops or warns on the
 first launch:
 
 - **macOS** refuses to open it. After the first attempt, open **System Settings → Privacy & Security**
@@ -234,8 +233,7 @@ A `__PRODUCT_CLI_NAME__ --serve --open` runtime is separate from the daemon, so 
   device stays in the terminal. Typing one of them in the GUI says what to use instead.
 - **Show Advisor settings, or sandbox options beyond on and off, on a screen.** Use `/advisor` and
   `/sandbox`.
-- **Install a signed desktop app.** The installers remain unsigned
-  ([#3349](__PROJECT_REPOSITORY_URL__/issues/3349)).
+- **Install a signed desktop app.** The installers remain unsigned.
 
 ## Troubleshooting
 

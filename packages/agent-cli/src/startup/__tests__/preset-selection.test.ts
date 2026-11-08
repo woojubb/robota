@@ -99,11 +99,11 @@ describe('test-product Agent external preset source', () => {
 });
 
 describe('selectPresetId', () => {
-  it('TC-03: honors settings.preset when no --preset flag is given', () => {
+  it('honors settings.preset when no --preset flag is given', () => {
     expect(selectPresetId({ preset: undefined }, 'default')).toBe('default');
   });
 
-  it('TC-04: --preset flag overrides settings.preset', () => {
+  it('--preset flag overrides settings.preset', () => {
     expect(selectPresetId({ preset: 'x' }, 'default')).toBe('x');
   });
 
@@ -113,21 +113,21 @@ describe('selectPresetId', () => {
 });
 
 describe('resolveShellPreset', () => {
-  it('TC-05: --model flows through cliOverrides into the resolved bundle', () => {
+  it('--model flows through cliOverrides into the resolved bundle', () => {
     const resolved = resolveCliPreset(makeArgs({ model: 'm' }), undefined);
     expect(resolved.model).toBe('m');
   });
 
-  it('TC-02: unknown preset id throws with the available preset list', () => {
+  it('unknown preset id throws with the available preset list', () => {
     expect(() => resolveCliPreset(makeArgs({ preset: '__nope__' }), undefined)).toThrow(/default/);
   });
 
-  it('TC-01: default preset with no flags resolves to a no-op (no model injected)', () => {
+  it('default preset with no flags resolves to a no-op (no model injected)', () => {
     const resolved = resolveCliPreset(makeArgs(), undefined);
     expect(resolved).toEqual({});
   });
 
-  it('ARCH-008: returns the registry it resolved over, the id, and the override context', () => {
+  it('returns the registry it resolved over, the id, and the override context', () => {
     // The whole value travels into the profile, so the kernel resolves the SAME id over the SAME
     // registry with the SAME overrides — `product.defaultPreset` is this `options` object's equal.
     const resolution = resolveShellPreset(
@@ -143,7 +143,7 @@ describe('resolveShellPreset', () => {
     );
   });
 
-  it('ARCH-008: resolves external presets from the instance registry, not the module global', () => {
+  it('resolves external presets from the instance registry, not the module global', () => {
     const external: IPreset = {
       id: 'shell-scoped',
       title: 't',

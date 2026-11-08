@@ -78,7 +78,7 @@ describe('hosted worker command expansion', () => {
             env: Record<string, string>;
           };
           expect(observation.cwd).toBe(worker);
-          // The broker token authenticates the worker's provider, never its commands (#3429).
+          // The broker token authenticates the worker's provider, never its commands.
           expect(observation.env.OPENAI_API_KEY).toBeUndefined();
           expect(observation.env.CLAUDE_SKILL_DIR).toBe(skill);
           expect(JSON.stringify(observation)).not.toContain('runtime-management-canary');

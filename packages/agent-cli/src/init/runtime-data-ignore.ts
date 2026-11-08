@@ -1,6 +1,6 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * `the product init` keeps runtime session data out of Git (SEC-020, issue #2021).
+ * `the product init` keeps runtime session data out of Git.
  *
  * Its own module rather than a helper inside the command, for two reasons that agree. It is a
  * separate responsibility — the command decides what a NEW project looks like, this decides what

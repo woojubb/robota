@@ -1,4 +1,4 @@
-/** MCP-2525 public scenario: a real session submits only an admitted MCP result to its provider. */
+/** Public scenario: a real session submits only an admitted MCP result to its provider. */
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

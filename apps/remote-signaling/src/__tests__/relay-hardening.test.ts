@@ -4,7 +4,7 @@ import { SignalingRelay, type ISignalingPeer } from '../relay.js';
 import type { IClock, IScheduler } from '../rate-limiter.js';
 
 /**
- * REMOTE-004 B2 — the relay's abuse controls (rate limit, single-use rendezvous, half-open TTL, concurrency cap)
+ * The relay's abuse controls (rate limit, single-use rendezvous, half-open TTL, concurrency cap)
  * are enforced INSIDE the relay and exercised here with injected clock + scheduler and in-memory fake peers — no
  * network, no real timers.
  */
@@ -72,7 +72,7 @@ function signalFrames(peer: { readonly sent: string[] }): Record<string, unknown
     .filter((f) => f.type === 'signal');
 }
 
-describe('SignalingRelay abuse-hardening (REMOTE-004 B2)', () => {
+describe('SignalingRelay abuse-hardening', () => {
   it('bounds distinct source buckets and admits a new source only after an idle bucket refills', () => {
     let now = 1_000;
     const relay = new SignalingRelay({
@@ -97,7 +97,7 @@ describe('SignalingRelay abuse-hardening (REMOTE-004 B2)', () => {
     expect(lastFrame(refused)).toEqual({ type: 'error', reason: 'empty-rendezvous' });
   });
 
-  it('TC-03: rate-limits join floods per source and never relays a rejected join', () => {
+  it('rate-limits join floods per source and never relays a rejected join', () => {
     const relay = new SignalingRelay({
       rateLimit: { burst: 2, refillPerMs: 0 },
       clock: frozenClock,
@@ -109,7 +109,7 @@ describe('SignalingRelay abuse-hardening (REMOTE-004 B2)', () => {
     expect(lastFrame(p)).toEqual({ type: 'error', reason: 'rate-limited' });
   });
 
-  it('TC-04: single-use — a new distinct peer is refused after the lifetime count reaches 2, even after a leave', () => {
+  it('single-use — a new distinct peer is refused after the lifetime count reaches 2, even after a leave', () => {
     const relay = new SignalingRelay({ scheduler: createFakeScheduler().scheduler });
     const a = fakePeer();
     const b = fakePeer();
@@ -121,7 +121,7 @@ describe('SignalingRelay abuse-hardening (REMOTE-004 B2)', () => {
     expect(lastFrame(c)).toEqual({ type: 'error', reason: 'rendezvous-full' });
   });
 
-  it('TC-04: idempotent re-join by an already-admitted peer is allowed', () => {
+  it('idempotent re-join by an already-admitted peer is allowed', () => {
     const relay = new SignalingRelay({ scheduler: createFakeScheduler().scheduler });
     const a = fakePeer();
     join(relay, a);
@@ -129,7 +129,7 @@ describe('SignalingRelay abuse-hardening (REMOTE-004 B2)', () => {
     expect(lastFrame(a)).toEqual({ type: 'joined', rendezvous: 'r' });
   });
 
-  it('TC-04: a half-open (one-peer) rendezvous expires after its TTL and the lone peer is closed', () => {
+  it('a half-open (one-peer) rendezvous expires after its TTL and the lone peer is closed', () => {
     const fake = createFakeScheduler();
     const relay = new SignalingRelay({ scheduler: fake.scheduler });
     const a = fakePeer();
@@ -140,7 +140,7 @@ describe('SignalingRelay abuse-hardening (REMOTE-004 B2)', () => {
     expect(relay.rendezvousCount).toBe(0);
   });
 
-  it('TC-04: the TTL timer is cancelled once the second peer joins', () => {
+  it('the TTL timer is cancelled once the second peer joins', () => {
     const fake = createFakeScheduler();
     const relay = new SignalingRelay({ scheduler: fake.scheduler });
     const a = fakePeer();
@@ -153,7 +153,7 @@ describe('SignalingRelay abuse-hardening (REMOTE-004 B2)', () => {
     expect(b.closed).toBe(false);
   });
 
-  it('TC-04: caps concurrent rendezvous (max-rendezvous)', () => {
+  it('caps concurrent rendezvous (max-rendezvous)', () => {
     const relay = new SignalingRelay({
       maxRendezvous: 1,
       scheduler: createFakeScheduler().scheduler,
@@ -182,8 +182,8 @@ describe('SignalingRelay abuse-hardening (REMOTE-004 B2)', () => {
   });
 });
 
-describe('SignalingRelay per-connection message rate (REMOTE-011 E2)', () => {
-  it('TC-01: throttles a signal flood from one joined peer and does NOT fan out the rejected frame', () => {
+describe('SignalingRelay per-connection message rate', () => {
+  it('throttles a signal flood from one joined peer and does NOT fan out the rejected frame', () => {
     const relay = new SignalingRelay({
       messageRate: { burst: 2, refillPerMs: 0 }, // 2 signals, no refill
       rateLimit: { burst: 5, refillPerMs: 0 },
@@ -204,7 +204,7 @@ describe('SignalingRelay per-connection message rate (REMOTE-011 E2)', () => {
     expect(lastFrame(a)).toEqual({ type: 'error', reason: 'message-rate-limited' });
   });
 
-  it('TC-01: the message bucket is per-connection — one peer flooding does not throttle the other', () => {
+  it('the message bucket is per-connection — one peer flooding does not throttle the other', () => {
     const relay = new SignalingRelay({
       messageRate: { burst: 1, refillPerMs: 0 },
       rateLimit: { burst: 5, refillPerMs: 0 },
@@ -225,7 +225,7 @@ describe('SignalingRelay per-connection message rate (REMOTE-011 E2)', () => {
     expect(lastFrame(a)).toEqual({ type: 'signal', kind: 'ice', data: {} });
   });
 
-  it('TC-06: a peer message bucket is evicted on remove() (bounded by live connections)', () => {
+  it('a peer message bucket is evicted on remove() (bounded by live connections)', () => {
     const relay = new SignalingRelay({
       clock: frozenClock,
       scheduler: createFakeScheduler().scheduler,

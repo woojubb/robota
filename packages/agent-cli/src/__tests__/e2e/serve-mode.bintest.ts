@@ -1,6 +1,6 @@
 import { createBuiltInBinaryEnvironment } from '../helpers/product-runtime.js';
 /**
- * RUNTIME-001 — black-box e2e for the real `the product --serve` headless runtime host.
+ * Black-box e2e for the real `the product --serve` headless runtime host.
  *
  * This is the agent-runnable proof of the production user scenario that the GUI drives (apps/agent-app spawns
  * `the product --serve` as a loopback sidecar): a real CLI process serves the shared `startRuntimeHost` over an
@@ -10,9 +10,9 @@ import { createBuiltInBinaryEnvironment } from '../helpers/product-runtime.js';
  * over the wire, exactly as apps/agent-app does in production.
  *
  * Coverage (each a scenario the owner would otherwise verify by hand):
- *   TC-A  the token gate rejects an unauthenticated connection BEFORE any session data is emitted;
- *   TC-B  an authenticated client submits a turn and observes the recorded reply end-to-end;
- *   TC-C  SIGTERM shuts the runtime host down cleanly (graceful exit, no hang).
+ * - the token gate rejects an unauthenticated connection BEFORE any session data is emitted;
+ * - an authenticated client submits a turn and observes the recorded reply end-to-end;
+ * - SIGTERM shuts the runtime host down cleanly (graceful exit, no hang).
  *
  * Determinism comes from `--session-log` (the replay provider): no model key is used. The client speaks the
  * raw WS protocol with the Node global `WebSocket` — the same wire a browser client uses — so this test takes
@@ -148,7 +148,7 @@ async function waitForServer(port: number, budgetMs: number): Promise<void> {
   }
 }
 
-describe('built-in --serve black-box runtime host (RUNTIME-001)', () => {
+describe('built-in --serve black-box runtime host', () => {
   let binCwd: string;
   let homeDir: string;
   let child: ChildProcess;
@@ -182,7 +182,7 @@ describe('built-in --serve black-box runtime host (RUNTIME-001)', () => {
     for (const d of [binCwd, homeDir]) rmSync(d, { recursive: true, force: true });
   });
 
-  it('TC-A: rejects an unauthenticated connection before emitting any session data', async () => {
+  it('rejects an unauthenticated connection before emitting any session data', async () => {
     const { frames, closed } = await driveClient(
       url('wrong-token'),
       () => {
@@ -197,7 +197,7 @@ describe('built-in --serve black-box runtime host (RUNTIME-001)', () => {
   });
 
   it(
-    'TC-B: an authenticated client runs a turn and observes the recorded reply end-to-end',
+    'an authenticated client runs a turn and observes the recorded reply end-to-end',
     async () => {
       const { frames, timedOut } = await driveClient(
         url(),
@@ -216,7 +216,7 @@ describe('built-in --serve black-box runtime host (RUNTIME-001)', () => {
   );
 
   it(
-    'TC-C: SIGTERM shuts the runtime host down cleanly (graceful exit, no hang)',
+    'SIGTERM shuts the runtime host down cleanly (graceful exit, no hang)',
     async () => {
       const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
         (resolve) => {

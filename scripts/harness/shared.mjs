@@ -6,7 +6,7 @@ export const ROOT_MARKER = '::root::';
 const ROOT_ENV = 'HARNESS_ROOT';
 
 /**
- * The ONE workspace-root resolver every harness script uses (issue #2413).
+ * The ONE workspace-root resolver every harness script uses.
  *
  * Convention: a scan reads the checkout it LIVES in — `<script dir>/../..` — unless an explicit
  * override names another root: `HARNESS_ROOT=<path>` in the environment or `--root <path>` /

@@ -1,5 +1,5 @@
 /**
- * SEC-010 composition (#1862): the live rendezvous — issuing grants and answering redemptions.
+ * Composition: the live rendezvous — issuing grants and answering redemptions.
  *
  * `local-peer-rendezvous.ts` decides WHERE the guarded directory is and proves it. This holds the
  * ledger for that directory and produces the port the WebRTC gate consumes, which is the last hop
@@ -7,7 +7,7 @@
  *
  * ## Why this is the composition root's job and not the transport's
  *
- * #1810 is explicit that WebRTC must implement no cryptographic policy: the gate holds a state
+ * WebRTC must implement no cryptographic policy: the gate holds a state
  * machine and asks an injected `redeem`. Someone has to own the ledger, know which rendezvous it
  * belongs to, and revoke it on the way out — and that someone is whoever knows this process's
  * lifecycle. That is here.
@@ -17,7 +17,7 @@
  * The ledger speaks `TLocalPeerTrust` (`same-user-same-host` | `unproven`); the gate consumes
  * `IPeerAdmission` with `TPeerTrust` (which also has `token-only`). They overlap but are not the
  * same vocabulary, and the missing member is the point: a local rendezvous can never produce
- * `token-only`, because possession of a token is exactly the evidence SEC-010 rejected. So the
+ * `token-only`, because possession of a token is not evidence of a local peer. So the
  * translation is written out rather than widened — a structural cast would compile today and
  * silently start emitting a trust level this path cannot justify the day either union changes.
  */
@@ -101,7 +101,7 @@ export function openLocalPeerRendezvous(options: IOpenRendezvousOptions): ILocal
 /**
  * Bind a rendezvous to a process lifetime.
  *
- * SEC-010 says the entry IS the grant: once the owning session is gone, nothing it handed out may
+ * The entry IS the grant: once the owning session is gone, nothing it handed out may
  * still be admitted. Relying on the grant TTL instead would leave a window equal to that TTL after
  * exit — small, but the whole point of the mechanism is that the window is closed by the session
  * ending rather than by a clock.

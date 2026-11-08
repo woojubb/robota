@@ -188,7 +188,7 @@ describe('test-product daemon', () => {
     expect(none.out()).toBe(`No daemon is running in ${workspace}.\n`);
   });
 
-  it('starts a daemon Restricted when a person chose that, in either flag order (#3268)', async () => {
+  it('starts a daemon Restricted when a person chose that, in either flag order', async () => {
     for (const args of [
       ['start', '--json', '--restricted-workspace'],
       ['start', '--restricted-workspace', '--json'],
@@ -209,7 +209,7 @@ describe('test-product daemon', () => {
     expect(h.err()).toContain('cannot be started Restricted. Run: test-product daemon stop');
   });
 
-  it('reuses a running Restricted daemon for a Restricted start, as a relaunched app asks (#3268)', async () => {
+  it('reuses a running Restricted daemon for a Restricted start, as a relaunched app asks', async () => {
     const h = harness([daemonRow(LIVE, { restricted: true })]);
     expect(await runDaemonCommand(['start', '--json', '--restricted-workspace'], h.options)).toBe(0);
     expect(h.launch).not.toHaveBeenCalled();
@@ -217,7 +217,7 @@ describe('test-product daemon', () => {
     expect(h.out()).toBe(`${JSON.stringify({ id: LIVE, url: URL_WITH_TOKEN })}\n`);
   });
 
-  it('does not quietly hand a plain start a Restricted daemon in a folder trusted since (#3268)', async () => {
+  it('does not quietly hand a plain start a Restricted daemon in a folder trusted since', async () => {
     const h = harness([daemonRow(LIVE, { restricted: true })], { trusted: vi.fn(async () => true) });
     expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(1);
     expect(h.connect).not.toHaveBeenCalled();
@@ -226,7 +226,7 @@ describe('test-product daemon', () => {
     );
   });
 
-  it('hands a plain start the Restricted daemon of a folder that is not trusted, outside Git included (#3268)', async () => {
+  it('hands a plain start the Restricted daemon of a folder that is not trusted, outside Git included', async () => {
     const h = harness([daemonRow(LIVE, { restricted: true })]);
     expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(0);
     expect(h.trusted).toHaveBeenCalledWith(workspace);

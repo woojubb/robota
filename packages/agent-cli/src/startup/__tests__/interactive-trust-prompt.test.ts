@@ -1,7 +1,7 @@
 import { createTestProductEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { resolveCliRuntimeContext } from '../product-bootstrap.js';
 /**
- * Issue #3268: an interactive start in an untrusted workspace asks whether to trust it, before the
+ * An interactive start in an untrusted workspace asks whether to trust it, before the
  * project is composed; a run no one is at, or whose access was decided for it, is not asked.
  */
 import { execFileSync } from 'node:child_process';
@@ -17,7 +17,7 @@ import { resolveInitialCliWorkspaceProjectAccess } from '../workspace-project-co
 import { runWorkspaceTrustCommand } from '../workspace-trust-command.js';
 import { approveTestWorkspace, stopTestWorkspaceBroker } from '../../__tests__/helpers/approve-test-workspace.js';
 
-// #3282 §3: `inspectPreTrustProjectPaths` reports every path as `unavailable` unless run on Linux (see
+// `inspectPreTrustProjectPaths` reports every path as `unavailable` unless run on Linux (see
 // its own doc comment), which makes the filtering `trustQuestionFor` does deterministic to assert only
 // on Linux without a mock. The mock defaults to the real implementation (call-through) so every other
 // test in this file, which never varies path state, is unaffected; only the two tests below that need a
@@ -190,7 +190,7 @@ describe('askToTrustWorkspace when the grant fails', () => {
   });
 });
 
-describe('trustQuestionFor — #3282 §3 rows with an unknown state are omitted', () => {
+describe('trustQuestionFor — rows with an unknown state are omitted', () => {
   it('lists only rows whose kind is known, in the same order', async () => {
     const repo = untrustedRepository();
     const access = await resolveInitialCliWorkspaceProjectAccess(repo, { productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }) });
@@ -295,7 +295,7 @@ describe('test-product trust status --json', () => {
         loads: string[];
       };
       expect(report).toMatchObject({ state: 'untrusted', workspace: repo, askable: true });
-      // #3282 §3: a row appears only when its state is known. Only Linux's pinned handle-walk can
+      // A row appears only when its state is known. Only Linux's pinned handle-walk can
       // tell a not-yet-created `the configured project directory/settings.json` apart from one it cannot describe safely, so
       // elsewhere every candidate is unknown before trust and `loads` reports none of them — no
       // `[unavailable]` noise, rather than a claim about every path this platform cannot verify.

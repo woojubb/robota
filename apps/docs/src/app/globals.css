@@ -30,7 +30,7 @@
   --card: #0d0d14;
   --card-foreground: #d4d4d8;
 
-  /* Accents — unified brand palette (BRAND-001) */
+  /* Accents — unified brand palette */
   --primary: #2dd4a7; /* emerald/teal */
   --primary-dim: color-mix(in srgb, var(--accent) 12%, transparent);
   --primary-glow: color-mix(in srgb, var(--accent) 20%, transparent);
@@ -98,7 +98,7 @@
     background: rgba(255, 255, 255, 0.14);
   }
 
-  /* Visible keyboard focus indicator on all interactive elements (DOCS-002 a11y) */
+  /* Visible keyboard focus indicator on all interactive elements (a11y) */
   a:focus-visible,
   button:focus-visible,
   [tabindex]:focus-visible {
@@ -110,7 +110,7 @@
 /* ─── Prose / markdown content ─────────────────────────────────────────── */
 
 /* Layered as components so Tailwind utilities (the later `utilities` layer) can override
-   individual prose defaults — matching the precedence the pre-DOCS-021 inline styles had.
+   individual prose defaults — matching the precedence the inline styles had.
    Unlayered rules would beat every utility class regardless of specificity. */
 @layer components {
   .prose {

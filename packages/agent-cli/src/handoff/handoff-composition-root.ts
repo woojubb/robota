@@ -1,5 +1,5 @@
 /**
- * Where handoff orchestration meets domain authority and wire codecs (HANDOFF-001, issue #1864).
+ * Where handoff orchestration meets domain authority and wire codecs.
  *
  * Session mobility owns handoff orchestration, offers, and authority transactions. `agent-transport`
  * seals and verifies payload bytes and owns chunking; `agent-session` decodes the restored record.

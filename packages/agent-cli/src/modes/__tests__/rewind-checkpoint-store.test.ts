@@ -343,7 +343,7 @@ describe('a session built with the CLI options for a trusted workspace', () => {
     expect(readFileSync(filePath, 'utf8')).toBe('second');
   });
 
-  // ARCH-047: project mutation is Linux-only, so a checkpoint is only really written and restored there.
+  // Project mutation is Linux-only, so a checkpoint is only really written and restored there.
   it.runIf(process.platform === 'linux')(
     '/rewind restores the file a later turn changed',
     async () => {

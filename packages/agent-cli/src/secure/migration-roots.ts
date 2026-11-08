@@ -1,5 +1,5 @@
 /**
- * Which projects a `secure migrate` may write (#3679). Nothing registers the projects a state root
+ * Which projects a `secure migrate` may write. Nothing registers the projects a state root
  * served, so the candidates come from what the state root remembers — the workspace-trust grants,
  * the working directory every user session record names (opened: the keys are unlocked), and the
  * project every prompt-history entry names. A candidate is only a candidate: it is written only when

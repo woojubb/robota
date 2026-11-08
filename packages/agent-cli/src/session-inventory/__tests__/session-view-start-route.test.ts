@@ -79,7 +79,7 @@ describe('session view background start route', () => {
     }
   });
 
-  it('asks about a folder not trusted yet, then starts it Trusted or Restricted as answered (#3268)', async () => {
+  it('asks about a folder not trusted yet, then starts it Trusted or Restricted as answered', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-view-route-trust-'));
     const cwd = join(scratch, 'viewer');
     const home = join(scratch, 'home');
@@ -89,7 +89,7 @@ describe('session view background start route', () => {
     const previousExitCode = process.exitCode;
     vi.mocked(launchSupervisedSession).mockResolvedValue('8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4');
     vi.mocked(runSessionViewCommand).mockImplementation(async (_argv, options) => {
-      // The question names the folder and what trust would load. #3282 §3: a row appears only when
+      // The question names the folder and what trust would load. A row appears only when
       // its state is known — only Linux's pinned handle-walk can tell a not-yet-created
       // `.test-product/settings.json` apart from one it cannot describe safely, so elsewhere `loads`
       // reports none of the candidate paths before trust.

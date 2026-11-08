@@ -1,6 +1,6 @@
 import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 /**
- * Issue #3268: a daemon a person chose to start Restricted (the desktop app asked them) passes the
+ * A daemon a person chose to start Restricted (the desktop app asked them) passes the
  * trust admission and is launched Restricted; without that choice an untrusted workspace is refused.
  */
 import { execFileSync } from 'node:child_process';

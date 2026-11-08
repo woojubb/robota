@@ -293,7 +293,7 @@ export async function startCliCore(
   // Telemetry settings may hold collector credentials: they leave process.env before anything else
   // runs, so no child process inherits them. Only the supervised session launch hands them over.
 
-  // FLOW-2006: `the product open <url>` is decided BEFORE the working directory is read and before the
+  // `the product open <url>` is decided BEFORE the working directory is read and before the
   // workspace is resolved — it is the one invocation that changes which directory the process is
   // about, and resolving trust for the directory the user happened to start in would be answering
   // the wrong question. On success it has already chdir'd and stripped its two argv tokens.
@@ -338,7 +338,7 @@ async function runCliCore(
 ): Promise<void> {
   const productRuntime = resolveCliRuntimeContext(options);
   const cwd = process.cwd();
-  // Issue #3082: read from argv (or the embedder's option) before anything is composed, like the
+  // Read from argv (or the embedder's option) before anything is composed, like the
   // access decision it forces to Restricted.
   const safeMode = optionArgv(process.argv).includes(SAFE_MODE_FLAG) || options.safeMode === true;
   let projectAccess = await resolveStartupWorkspaceProjectAccess(process.argv, cwd, {
@@ -436,7 +436,7 @@ async function runCliCore(
   const terminal = new PrintTerminal();
 
   if (args.reset) {
-    // Destructive-action contract (CLI-070): confirm in TTY, require --yes otherwise.
+    // Destructive-action contract: confirm in TTY, require --yes otherwise.
     process.exitCode = await runResetConfig(terminal, {
       productRuntime,
       yes: args.yes,
@@ -456,7 +456,7 @@ async function runCliCore(
     !optionArgv(process.argv).includes(RESTRICTED_WORKSPACE_FLAG) &&
     requiresHeadlessWorkspaceTrust(projectAccess)
   ) {
-    // #3282 §3: `--serve --open` opens a browser for whoever ran it — someone is at this terminal,
+    // `--serve --open` opens a browser for whoever ran it — someone is at this terminal,
     // unlike every other headless start here. With a TTY to ask on, this asks instead of refusing.
     if (args.serve && args.open && canAskServeOpenTrustQuestion(projectAccess)) {
       const answer = await askServeOpenTrustQuestion(projectAccess, cwd, { productRuntime });
@@ -483,7 +483,7 @@ async function runCliCore(
     !optionArgv(process.argv).includes(RESTRICTED_WORKSPACE_FLAG) &&
     requiresHeadlessWorkspaceTrust(projectAccess)
   ) {
-    // #3282 §3: `--serve --open` opens a browser for whoever ran it — someone is at this terminal,
+    // `--serve --open` opens a browser for whoever ran it — someone is at this terminal,
     // unlike every other headless start here. With a TTY to ask on, this asks instead of refusing.
     if (args.serve && args.open && canAskServeOpenTrustQuestion(projectAccess)) {
       const answer = await askServeOpenTrustQuestion(projectAccess, cwd, { productRuntime });
@@ -513,7 +513,7 @@ async function runCliCore(
   if (subcommandWord(args) === 'eval') {
     // Normally unreachable — the pre-parse interceptor above handles `eval`.
     // Kept as a defensive fallthrough for non-argv invocations.
-    // CLI-078 (issue #2443): `eval` is the documented shell exception to `assembleProduct` — it
+    // `eval` is the documented shell exception to `assembleProduct` — it
     // needs no preset, packs, transports or session; see `eval-command.ts` for the equivalence boundary.
     const composition = createInitialCliWorkspaceComposition(cwd, startupOptions);
     process.exitCode = await runEvalCommand(process.argv.slice(3), cwd, {
@@ -557,7 +557,7 @@ async function runCliCore(
   // A person at a terminal starting a new TUI session: asked about trust, and about web search.
   const interactiveStart =
     startsNewTuiSession(args) && process.stdin.isTTY === true && process.stdout.isTTY === true;
-  // Issue #3268: a person starting a TUI session is asked, before the project is composed, rather
+  // A person starting a TUI session is asked, before the project is composed, rather
   // than left in a Restricted session no one mentioned.
   projectAccess = await askToTrustWorkspace(projectAccess, cwd, {
     productRuntime,
@@ -583,7 +583,7 @@ async function runCliCore(
   const selectedPresetId = preset.presetId;
 
   const shellExecutable = resolveProductShellExecutable(productRuntime.environment);
-  // Issues #3081, #3082: the containment choice is named, and `the product doctor` reports the same value.
+  // The containment choice is named, and `the product doctor` reports the same value.
   const sandbox = createProductSandbox({
     productRuntime,
     cwd,
@@ -619,7 +619,7 @@ async function runCliCore(
           env: productRuntime.environment,
         });
   const keybindingsSource = tuiSources?.keybindingsSource;
-  // #3679 3f: the local unlock gate is the TUI's alone, and exists only in secure mode.
+  // The local unlock gate is the TUI's alone, and exists only in secure mode.
   const keyCustody =
     presentation !== undefined && tuiSurface ? productKeyCustody(productRuntime) : undefined;
   const theme = tuiSources?.theme;
@@ -719,7 +719,7 @@ async function runCliCore(
   for (const { file, error } of outputStyleLoadErrors) {
     terminal.writeError(`Skipped output style "${file}": ${error}`);
   }
-  // SCREEN-2002: a theme file that was refused says so ONCE, here, with the path that refused it.
+  // A theme file that was refused says so ONCE, here, with the path that refused it.
   // Silence would leave a user editing a file the run has already decided to ignore.
   for (const { fileName, reason } of theme?.skipped ?? []) {
     terminal.writeError(`Skipped theme "${fileName}": ${reason}`);
@@ -743,25 +743,25 @@ async function runCliCore(
       terminal.writeLine(outputStyleNotice);
     }
   }
-  // #3189: a served runtime lets its clients list, start and switch the sessions it saves.
+  // A served runtime lets its clients list, start and switch the sessions it saves.
   const serveSessionDirectory =
     args.serve && !args.noSessionPersistence
       ? createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>()
       : undefined;
-  // #3282 §4a: built from the SAME `commandHostAdapters`/`workspaceComposition` objects the rest of
+  // Built from the SAME `commandHostAdapters`/`workspaceComposition` objects the rest of
   // this function keeps mutating (e.g. `commandHostAdapters.sandbox` below) — safe because the
   // reporter reads them lazily, per connection, long after startup finishes populating them.
   const settingsReporter = createSettingsReporter({
     commandHostAdapters,
     settingsSources: workspaceComposition.settingsSources,
     settingsStores: workspaceComposition.settingsStores,
-    // #3282 §4b: the "Providers & Models" section reads/filters the same way `/model`'s wire
+    // The "Providers & Models" section reads/filters the same way `/model`'s wire
     // projection does — same provider definitions, same org-policy allowlist.
     providerDefinitions,
     orgPolicy,
     environment: productRuntime.environment,
   });
-  // REMOTE-008: the shell owns/injects transport wiring; `/remote-control` is its declarative trigger.
+  // The shell owns/injects transport wiring; `/remote-control` is its declarative trigger.
   const {
     registry: transportRegistry,
     wsTransport,
@@ -828,7 +828,7 @@ async function runCliCore(
   };
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry, usageReporters, productRuntime);
-  // CMD-007: this product stores `/cost budget` in `the configured project directory/budget.json`; commands see only its port.
+  // This product stores `/cost budget` in `the configured project directory/budget.json`; commands see only its port.
   commandHostAdapters.costBudget = createFileCostBudgetAdapter(cwd, productRuntime);
   commandHostAdapters.sandbox = createSandboxCommandAdapter(sandbox, {
     read: () => readSettings(productUserSettingsPath(productRuntime)),
@@ -870,7 +870,7 @@ async function runCliCore(
     providerConnectionHost.shutdown();
     return;
   }
-  // #3282 §3: no usable provider, but this is `--serve` (a daemon's child is too) — continue with a
+  // No usable provider, but this is `--serve` (a daemon's child is too) — continue with a
   // placeholder that never calls a model instead of the normal, validated settings read below, which
   // would throw the same "No provider configuration found" this run already tolerated.
   const setupRequired = projectSetup.setupRequired !== undefined;
@@ -912,7 +912,7 @@ async function runCliCore(
       terminal.writeLine(notice.trimEnd());
     }
   }
-  // CLI-078 (issue #2443): these are the fold's INPUTS. The modes below never read them — they bind
+  // These are the fold's INPUTS. The modes below never read them — they bind
   // to the identities `assembleProduct` returns (`bindAssembledCollaborators`), like every other
   // product-owned collaborator.
   const backgroundTaskRunnerInput = createBackgroundTaskRunners(shellExecutable);
@@ -930,14 +930,14 @@ async function runCliCore(
     persistTranscripts: !args.noSessionPersistence,
   });
 
-  // ARCH-005 S2: the ONE composition call. Everything product-specific about `the product` is declared as DATA
+  // The ONE composition call. Everything product-specific about `the product` is declared as DATA
   // in `createSelectedProductProfile` and folded by the product-neutral `assembleProduct`. What remains below is
   // product SHELL only: notices, session-resume UX, memory UX, and mode dispatch.
   //
-  // INFRA-018: `--session-log` injects a replay provider that overrides settings-based construction — it
+  // `--session-log` injects a replay provider that overrides settings-based construction — it
   // replays the recorded log deterministically instead of calling a model. Provider settings/model still
   // come from the configured profile (no key is ever used).
-  // ARCH-109: that parenthesis was true of this process and false of its children until
+  // That parenthesis was true of this process and false of its children until
   // `subagent-provider-reproduction.ts` made it hold session-wide.
   const product = assembleProduct(
     createSelectedProductProfile({
@@ -947,7 +947,7 @@ async function runCliCore(
       providerDefinitions,
       providerSettings: { ...providerSettings, model: modelId },
       ...(args.sessionLog ? { provider: loadReplayProvider(args.sessionLog) } : {}),
-      // #3282 §3: setup mode overrides with the same seam `--session-log` replay uses — the
+      // Setup mode overrides with the same seam `--session-log` replay uses — the
       // placeholder never calls a model, so nothing below needs to construct a real one.
       ...(setupRequired ? { provider: createSetupPlaceholderProvider() } : {}),
       preset,
@@ -977,7 +977,7 @@ async function runCliCore(
           notice: (message) =>
             args.printMode ? process.stderr.write(`${message}\n`) : terminal.writeLine(message),
         });
-  // CLI-078 (issue #2443): the collaborators every mode receives are the ones assembly returned.
+  // The collaborators every mode receives are the ones assembly returned.
   const { backgroundTaskRunners: assembledBackgroundTaskRunners, subagentRunnerFactory } =
     bindAssembledCollaborators(product, {
       backgroundTaskRunners: backgroundTaskRunnerInput,
@@ -992,10 +992,10 @@ async function runCliCore(
     process.exit(1);
   }
 
-  // ARCH-007 (B1): the kernel's RUNTIME SEAM. `commandModules`, `agentDefinitions`, `toolOptions` and
-  // `permissionMode` bind here; the runner collaborators bind to `product` just above (CLI-078). The one
+  // The kernel's RUNTIME SEAM. `commandModules`, `agentDefinitions`, `toolOptions` and
+  // `permissionMode` bind here; the runner collaborators bind to `product` just above. The one
   // surface that does NOT pass through this assembly is `the product eval`, a documented shell exception —
-  // see `eval/eval-command.ts` § CLI-078 for its equivalence boundary.
+  // see `eval/eval-command.ts` for its equivalence boundary.
   const {
     commandModules,
     agentDefinitions,
@@ -1098,8 +1098,8 @@ async function runCliCore(
   if (startupResume.kind === 'exit') process.exit(startupResume.code);
   const resumeSessionId = startupResume.resumeSessionId;
 
-  // SELFHOST-008 P6: one memory switch (default OFF), resolved once and threaded into print/serve/TUI.
-  // Precedence there is settings ← flag ← env (env wins). CLI-2004's screen-reader switch below is
+  // One memory switch (default OFF), resolved once and threaded into print/serve/TUI.
+  // Precedence there is settings ← flag ← env (env wins). The screen-reader switch below is
   // deliberately the OTHER way round (the flag wins) — see both resolvers' SPEC entries.
   const memorySessionOptions = resolveMemorySurfaceOptions({
     productRuntime,
@@ -1141,7 +1141,7 @@ async function runCliCore(
     }),
   );
 
-  // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
+  // --goal runs an autonomous headless goal even without an explicit -p.
   if (args.printMode || args.goal) {
     const printRun = runPrintMode(
       productRuntime,
@@ -1277,7 +1277,7 @@ async function runCliCore(
     return;
   }
 
-  // RUNTIME-001: the headless runtime host. `apps/agent-app` (GUI) spawns `the product --serve` instead of the ink
+  // The headless runtime host. `apps/agent-app` (GUI) spawns `the product --serve` instead of the ink
   // TUI — both the TUI and this entry drive the SAME runtime; the GUI does not control the CLI. No ink is
   // rendered; the WS sidecar is served by the shared `startRuntimeHost`. Placed after the runtime block so it
   // reuses the exact provider/session/transport assembly.
@@ -1323,7 +1323,7 @@ async function runCliCore(
       bindTransports,
       ...(serveSessionDirectory !== undefined ? { sessionDirectory: serveSessionDirectory } : {}),
       ...(serveHttp !== undefined ? { http: serveHttp } : {}),
-      // GUI-007 + SEC-001: point the served monitor at the live WS port AND carry the resolved auth token in
+      // Point the served monitor at the live WS port AND carry the resolved auth token in
       // the `ws-url` (`?token=`) — zero-config authentication for the CLI's own localhost-origin monitor.
       getMonitorWsUrl: () => {
         if (wsTransport.boundPort === undefined) return undefined;
@@ -1352,11 +1352,11 @@ async function runCliCore(
   if (!presentation || !theme)
     throw new Error('Interactive presentation unavailable in headless runtime');
   warnIfTerminalAppOnMacOS(terminal, productRuntime.environment);
-  // ERR-001 G1: interactive mode only — the process must survive transient failures.
+  // Interactive mode only — the process must survive transient failures.
   presentation.installTuiProcessGuards(productRuntime.config.identity.cliName);
-  // CMD-004 Phase 2 (Stage B): late-bound TUI-mode process adapter (host-executed exit/restart).
+  // Late-bound TUI-mode process adapter (host-executed exit/restart).
   commandHostAdapters.process = createTuiProcessAdapter();
-  // Issue #3081: `/cd` starts the product again in the target directory, resuming this conversation.
+  // `/cd` starts the product again in the target directory, resuming this conversation.
   commandHostAdapters.workspace = createWorkspaceMoveAdapter({
     productRuntime,
     providerDefinitions,
@@ -1455,7 +1455,7 @@ async function runCliCore(
     startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
     bindTransports: bindTuiTransports,
-    // One grant history for the run: every session the TUI switches to shares it (#3189).
+    // One grant history for the run: every session the TUI switches to shares it.
     ...(externalEvents !== undefined
       ? {
           externalEventVerifierFactory: createExternalEventVerifier,
@@ -1464,11 +1464,11 @@ async function runCliCore(
           ),
         }
       : {}),
-    // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command
+    // Remote-control enable/stop run HOST-side via the `remoteControl` command
     // host adapter (wired above) — no TUI-prop wiring remains.
-    // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
+    // Surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...memorySessionOptions,
-    // CLI-2004, SCREEN-1992, SCREEN-1993: the presentation every TUI entry resolves alike.
+    // The presentation every TUI entry resolves alike.
     ...resolveTuiRenderFields({
       productRuntime,
       screenReader,
@@ -1486,7 +1486,7 @@ async function runCliCore(
     }),
     reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
     keybindingsSource,
-    // SCREEN-2002: the same registry the `/theme` command lists from, so a switch and a listing can
+    // The same registry the `/theme` command lists from, so a switch and a listing can
     // never disagree about which themes exist.
     themeRegistry: theme.registry,
     reducedMotion: theme.reducedMotion,

@@ -1,5 +1,5 @@
 /**
- * A session a peer pushed here is a peer's record (#3679 step 3e): a store that seals never tags it as
+ * A session a peer pushed here is a peer's record: a store that seals never tags it as
  * this owner's, not even over an id this store holds as the owner's, so its first resume asks.
  */
 

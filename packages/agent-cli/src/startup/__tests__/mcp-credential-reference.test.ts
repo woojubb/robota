@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 /**
- * Issue #3429 — a credential the user deliberately references in a user-level MCP definition still
+ * A credential the user deliberately references in a user-level MCP definition still
  * resolves while a provider profile uses it too; only what MCP children inherit is filtered.
  */
 describe('a user MCP definition referencing a provider credential', () => {

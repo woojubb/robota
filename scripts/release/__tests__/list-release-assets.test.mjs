@@ -11,7 +11,7 @@ import { matchReleaseAssets } from '../list-release-assets.mjs';
 const CLI = fileURLToPath(new URL('../list-release-assets.mjs', import.meta.url));
 
 /**
- * #3356 — `for f in $pattern` (the previous inline logic in release-desktop-app.yml, duplicated across
+ * `for f in $pattern` (the previous inline logic in release-desktop-app.yml, duplicated across
  * its "Assert packaged artifacts" and "Generate SHA-256 checksums" steps) glob-expands correctly but
  * then WORD-SPLITS the result, so a matched filename with a space becomes two array entries. These
  * cases exist specifically to prove `matchReleaseAssets` — and the NUL-delimited CLI stream bash reads

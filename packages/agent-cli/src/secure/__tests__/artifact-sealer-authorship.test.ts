@@ -1,5 +1,5 @@
 /**
- * The authorship side of the port as the product sealers offer it (#3679 step 3e). Only the sealer
+ * The authorship side of the port as the product sealers offer it. Only the sealer
  * over the key holder can tag, since only it reaches unlocked keys; the write-only and process-local
  * sealers hold no secret and offer neither tags nor unlock notices. A store subscribes to unlocks to
  * tag what it wrote while locked, and the sealer holds that subscription weakly, so a store nothing

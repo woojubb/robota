@@ -28,7 +28,7 @@ const e3Runtime = createTestRuntimeContext('/tmp/remote-control-e3-test');
 /**
  * The REAL registry, not `{ register: () => {} }`.
  *
- * Issue #2043: these suites used to stub `register` with a no-op, which removed the one rule the
+ * These suites used to stub `register` with a no-op, which removed the one rule the
  * reconnect path breaks — `register` refuses a duplicate `transport.name`, and every
  * `WebRtcTransport` is named `webrtc`. A double whose refusal is the defect cannot fail on it, so
  * the reconnect tests passed while every reconnect registration threw in production.
@@ -48,7 +48,7 @@ function realRegistry(): TransportRegistry {
 }
 
 /**
- * REMOTE-012 E3 TC-05/08 — the controller wires a reconnect config from the host identity + trusted-device
+ * The controller wires a reconnect config from the host identity + trusted-device
  * store, its `onEnroll` pins a device, `resolveDevicePublicKey` reads it back, and `listDevices`/`revokeDevice`
  * delegate to the store.
  */
@@ -105,7 +105,7 @@ function build(
       captured.hooks = hooks;
       const transport = {
         name: 'webrtc',
-        // Issue #2043: the real `WebRtcTransport` declares `lifecycle: { kind: 'service' }` and has no
+        // The real `WebRtcTransport` declares `lifecycle: { kind: 'service' }` and has no
         // `waitForCompletion`, and `TransportRegistry.register` refuses a transport whose shape
         // disagrees. This stub omitted it and nothing noticed, because `register` was a no-op double
         // — the `as unknown as` cast hid the missing member from the compiler, and the no-op hid it
@@ -132,7 +132,7 @@ function stubSession(): IProtocolSession {
   });
 }
 
-describe('RemoteControlController E3 wiring (REMOTE-012)', () => {
+describe('RemoteControlController device-identity wiring', () => {
   it('passes a reconnect config carrying the host identity; onEnroll pins + resolve reads back', async () => {
     const store = memoryStore();
     const identity = await hostIdentity();

@@ -1,5 +1,5 @@
 /**
- * ERR-001 G1 — TUI process survival boundary: unhandled rejections and uncaught
+ * TUI process survival boundary: unhandled rejections and uncaught
  * exceptions route into the live session instead of killing the process; without a
  * live channel they fall back to stderr; headless mode (guards not installed) keeps
  * bin.ts fail-fast semantics via areTuiProcessGuardsActive().
@@ -18,7 +18,7 @@ function listenerCount(event: 'unhandledRejection' | 'uncaughtException'): numbe
   return process.listeners(event as 'uncaughtException').length;
 }
 
-describe('process guards (ERR-001 G1)', () => {
+describe('process guards', () => {
   const baseRejection = listenerCount('unhandledRejection');
   const baseException = listenerCount('uncaughtException');
   let stderrSpy: ReturnType<typeof vi.fn>;
@@ -81,11 +81,11 @@ describe('process guards (ERR-001 G1)', () => {
 });
 
 /**
- * CORE-020 (RUNTIME-34) — the IME crash-swallow heuristic must be scoped to interactive
+ * The IME crash-swallow heuristic must be scoped to interactive
  * TUI mode. Previously any error whose message contained 'slice'/'charCodeAt' was
  * swallowed BEFORE the guard check, masking real crashes in headless mode.
  */
-describe('classifyUncaughtException (CORE-020)', () => {
+describe('classifyUncaughtException', () => {
   it('headless (guards inactive): every error rethrows — including IME-looking ones', () => {
     expect(classifyUncaughtException(new Error('Cannot read slice of undefined'), false)).toBe(
       'rethrow',

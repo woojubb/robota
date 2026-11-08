@@ -1,5 +1,5 @@
 /**
- * #3189 — the served runtime's session directory: what each client's view lists, when a client may
+ * The served runtime's session directory: what each client's view lists, when a client may
  * not leave its session, and that a switch or a new session moves that client alone.
  */
 
@@ -164,7 +164,7 @@ async function deleteRefusalOf(change: Promise<void>): Promise<TSessionDeleteRef
   return error.code;
 }
 
-describe('serve session directory (#3189)', () => {
+describe('serve session directory', () => {
   it('offers a safe local terminal remedy before asking about a sandbox snapshot', async () => {
     const digest = 'a'.repeat(64);
     const store = storeOf([{
@@ -250,7 +250,7 @@ describe('serve session directory (#3189)', () => {
         id: 'elsewhere',
         outcome: { status: 'valid', record: record('elsewhere', '2026-09-25T00:00:00Z', '/other') },
       },
-      // #3289 §1: this workspace's own unreadable record carries the peeked `cwd` that let it be
+      // This workspace's own unreadable record carries the peeked `cwd` that let it be
       // told apart from a legacy record of another folder in the same store.
       { id: 'broken', outcome: { status: 'corrupt', issues: [], cwd: CWD } },
     ]);
@@ -354,7 +354,7 @@ describe('serve session directory (#3189)', () => {
     expect(buildSession).not.toHaveBeenCalled();
   });
 
-  // #3679 step 3e: no client can say yet that a record nobody vouched for is the owner's.
+  // No client can say yet that a record nobody vouched for is the owner's.
   describe('records a store that seals does not verify as the owner’s', () => {
     const unverified = (id: string, updatedAt: string): ISessionListEntry => ({
       id,
@@ -658,7 +658,7 @@ describe('serve session directory (#3189)', () => {
     expect(binding.session.current.id).toBe('a');
   });
 
-  describe('reusing an empty session (#3289 §1)', () => {
+  describe('reusing an empty session', () => {
     it('reuses an existing empty session instead of building another', async () => {
       const store = storeOf([
         { id: 'a', outcome: { status: 'valid', record: record('a', '2026-09-01T00:00:00Z') } },
@@ -743,7 +743,7 @@ describe('serve session directory (#3189)', () => {
     });
   });
 
-  describe('renaming a session from the list (#3289 §1)', () => {
+  describe('renaming a session from the list', () => {
     it('persists the new name onto a stored session that is not current', async () => {
       const store = STORED();
       const { directory } = served(fakeSession('a'), store);
@@ -799,7 +799,7 @@ describe('serve session directory (#3189)', () => {
     });
   });
 
-  describe('deleting a session from the list (#3289 §1)', () => {
+  describe('deleting a session from the list', () => {
     it('removes a stored session that is not live', async () => {
       const store = STORED();
       const { directory } = served(fakeSession('a'), store);

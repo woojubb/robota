@@ -1,9 +1,9 @@
 /**
- * PEER-006 (issue #1863, stage 4) — the join between the carrier and the session ingress.
+ * The join between the carrier and the session ingress.
  *
  * Every piece below this file was built and merged, and none of them touched each other: the
  * contracts and ledger in `agent-interface-transport` / `agent-transport`, the session
- * ingress in `agent-framework`, discovery in PEER-004, and the unix-socket carrier in PEER-005. This
+ * ingress in `agent-framework`, discovery, and the unix-socket carrier. This
  * module owns exactly the wiring, and deliberately re-decides nothing any of them settled.
  *
  * ## Why the wire ack is the IMMEDIATE one

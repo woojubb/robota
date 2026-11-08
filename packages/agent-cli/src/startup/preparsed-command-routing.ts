@@ -242,7 +242,7 @@ export async function runPreparsedCliCommand(
     process.exitCode = 0;
     return true;
   }
-  // OBSERVABILITY-1991: the doctor is matched BEFORE the shared composition below, and composes its
+  // the doctor is matched BEFORE the shared composition below, and composes its
   // own inside a failure boundary — a configuration broken enough to throw here must still be
   // diagnosable, and `--repair <id>` / `--yes` must never reach the strict global parser.
   if (isDoctorCommandName(argv[SUBCOMMAND_INDEX])) {
@@ -592,7 +592,7 @@ export async function runPreparsedCliCommand(
     ...options,
     projectAccess,
   });
-  // Issue #3429: every route from here may run commands, and the provider reads its credential from
+  // Every route from here may run commands, and the provider reads its credential from
   // the startup snapshot, so the live environment those commands inherit drops it now.
   withholdProviderCredentials(
     composition.settingsSources,

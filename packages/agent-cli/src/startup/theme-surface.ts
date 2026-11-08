@@ -1,6 +1,6 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * SCREEN-2002 — the run's theme surface, assembled once.
+ * The run's theme surface, assembled once.
  *
  * One registry reaches two consumers: the `/theme` command, through its catalogue port, and
  * `renderApp`. They must be the same instance or a listing and a switch can disagree about which

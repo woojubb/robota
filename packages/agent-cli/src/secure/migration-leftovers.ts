@@ -1,6 +1,6 @@
 /**
- * What earlier runs left behind that may hold conversation content and that nothing reads again
- * (#3679), for `secure migrate` to delete — never seal — once no other product process is running:
+ * What earlier runs left behind that may hold conversation content and that nothing reads again,
+ * for `secure migrate` to delete — never seal — once no other product process is running:
  *
  * - sessions handed over to this side and kept aside until saved (`handoff/<sender>/<id>.json`), and
  *   the partial files of transfers that never finished (`.partial-*`);

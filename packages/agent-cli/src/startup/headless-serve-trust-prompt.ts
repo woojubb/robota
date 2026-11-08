@@ -1,6 +1,6 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * Issue #3282 §3: `the product --serve --open` opens a browser for whoever ran it — unlike a daemon-launched
+ * `the product --serve --open` opens a browser for whoever ran it — unlike a daemon-launched
  * or scripted `--serve`, a person is at this terminal. In an untrusted folder, with a TTY to ask on,
  * this asks the same three-way question `pnpm gui:dev`'s sidecar wrapper (`sidecar-trust.mjs`) asks,
  * instead of refusing outright the way every other headless start does (see

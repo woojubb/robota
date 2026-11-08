@@ -34,7 +34,7 @@ export function defaultCreateResumeBridge(
   return new SessionResumeBridge({
     session,
     surface: 'remote',
-    // #3282 §4 part b-2: this is the reconnectable WebRTC path, so it can never prove locality.
+    // This is the reconnectable WebRTC path, so it can never prove locality.
     commandSurfaceLocality: 'remote',
     // The bridge buffers a frame before it is sent, over a data channel that carries a fraction of
     // the inbound limit: an app view or tool result over a history page is refused, not buffered.

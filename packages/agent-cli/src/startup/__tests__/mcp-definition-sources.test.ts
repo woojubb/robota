@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * MCP-002: `resolveMcpDefinitions` sources every settings layer's `mcpServers` object and resolves
+ * `resolveMcpDefinitions` sources every settings layer's `mcpServers` object and resolves
  * precedence across them — the one thing neither `agent-framework`'s settings inspection nor
  * `agent-mcp`'s decoder/precedence modules do on their own.
  */
@@ -119,7 +119,7 @@ describe('resolveMcpDefinitions', () => {
     expect(problems).toHaveLength(1);
     expect(problems[0]).toMatchObject({ name: '', source: 'user', origin: settingsPath });
     expect(problems[0]?.reason).toContain('invalid JSON');
-    // BEHAVIOR-2794 (issue #2794 / #3073): the same problem also reaches the dedicated
+    // The same problem also reaches the dedicated
     // source-problem channel, not just the flat `problems` list used for startup diagnostics.
     expect(sourceProblems).toEqual(problems);
   });
@@ -145,7 +145,7 @@ describe('resolveMcpDefinitions', () => {
     expect(sourceProblems).toEqual([]);
   });
 
-  // BEHAVIOR-2794 (issue #2794 / #3073): the `user` tier is NOT the managed tier, so its source
+  // The `user` tier is NOT the managed tier, so its source
   // problem stays purely informational — `project` (a higher-precedence tier here) resolves exactly
   // as if the broken `user` layer were absent. This is NOT the fail-closed case; that one needs the
   // MANAGED tier specifically, exercised separately below.
@@ -188,7 +188,7 @@ describe('resolveMcpDefinitions', () => {
     });
   });
 
-  // BEHAVIOR-2794 fail-closed (owner direction, PR #3076 review): an unreadable MANAGED source is
+  // Fail-closed: an unreadable MANAGED source is
   // the one tier whose source problem is NOT purely informational — it blocks every name that would
   // otherwise resolve from a lower tier, here a `project`-scoped server, because the unreadable
   // managed policy might have defined that exact name.
@@ -227,7 +227,7 @@ describe('resolveMcpDefinitions', () => {
     expect(entries[0]?.problem?.reason).toContain('managed');
   });
 
-  // Secret-free parse errors (PR #3076 review): Node's JSON.parse can echo a fragment of the source
+  // Secret-free parse errors: Node's JSON.parse can echo a fragment of the source
   // text into its error message for a malformed value — including a secret sitting beside it. This
   // must never reach `sourceProblems`/`problems`, which feed both the startup diagnostic and (via
   // `mcp-client-composition.ts`) the live `/mcp status` command.
@@ -264,7 +264,7 @@ describe('resolveMcpDefinitions', () => {
     expect(problems[0]?.reason).toMatch(/^invalid JSON/);
   });
 
-  // PR #3076 re-review: a managed file that parses CLEANLY to something other than a plain object
+  // A managed file that parses CLEANLY to something other than a plain object
   // (`null`, `[]`, a bare string, ...) previously read as "absent" (`!isPlainObject(parsed) ||
   // parsed['mcpServers'] === undefined` short-circuited on the FIRST branch and returned `undefined`)
   // — fail-open, because a truncated write or the wrong file swapped in for the managed policy still

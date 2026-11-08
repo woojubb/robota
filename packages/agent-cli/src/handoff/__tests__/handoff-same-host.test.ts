@@ -1,5 +1,5 @@
 /**
- * The hand-off test plan (TC-01…TC-10) end to end over a real carrier: two sessions on one host,
+ * The hand-off test plan end to end over a real carrier: two sessions on one host,
  * real sockets in the guarded rendezvous, the real grant signed with this device's key, the channel
  * grant gate, the receiving operator's approval, the file carrier for the payload, and the real wire
  * composition. Nothing here is a double of the protocol; only the operator and the store are scripted.
@@ -334,7 +334,7 @@ function manyMessages(): IInteractiveSessionRecord['messages'] {
   return Array.from({ length: 400 }, (_, index) => message(index, 'x'.repeat(200)));
 }
 
-describe('TC-10 / TC-01: a full hand-off between two sessions over the peer channel', () => {
+describe('a full hand-off between two sessions over the peer channel', () => {
   it('moves the session, saves it unstarted, and leaves only the destination in charge', async () => {
     const approver = operator(true);
     const { a, saved, outcomes } = await sessions({ approver });
@@ -348,7 +348,7 @@ describe('TC-10 / TC-01: a full hand-off between two sessions over the peer chan
     // Saved exactly as sealed: the record crossed intact and decoded back to what was sent.
     expect(saved).toHaveLength(1);
     expect(saved[0]).toEqual(record());
-    // TC-01: the manifest arrived with its inventory and integrity.
+    // The manifest arrived with its inventory and integrity.
     await expect.poll(() => outcomes.length).toBe(1);
     const arrived = outcomes[0];
     expect(arrived?.received).toBe(true);
@@ -483,7 +483,7 @@ describe('where the payload waits until it is saved', () => {
   }, 30_000);
 });
 
-describe('TC-02: the source lets go only on durable persistence', () => {
+describe('the source lets go only on durable persistence', () => {
   it('sends no acknowledgement when the save did not land', async () => {
     const { a } = await sessions({ approver: operator(true), persist: () => false });
     const { result, onReadOnly } = push(a);
@@ -496,7 +496,7 @@ describe('TC-02: the source lets go only on durable persistence', () => {
   }, 30_000);
 });
 
-describe('TC-03: the connection drops while the payload is moving', () => {
+describe('the connection drops while the payload is moving', () => {
   it('leaves the source in charge and nothing kept at the destination', async () => {
     const { a, saved } = await sessions({ approver: operator(true) });
     let chunks = 0;
@@ -526,7 +526,7 @@ describe('TC-03: the connection drops while the payload is moving', () => {
   }, 30_000);
 });
 
-describe('TC-04 / TC-05: the acknowledgement is lost after the destination saved it', () => {
+describe('the acknowledgement is lost after the destination saved it', () => {
   it('keeps the source in charge; the re-delivered ack completes it; the same transfer again is not saved twice', async () => {
     const persisted: IInteractiveSessionRecord[] = [];
     const { a } = await sessions({
@@ -555,20 +555,20 @@ describe('TC-04 / TC-05: the acknowledgement is lost after the destination saved
     expect(source.isAuthoritative()).toBe(true);
     expect(first.onReadOnly).not.toHaveBeenCalled();
 
-    // TC-04: the acknowledgement, delivered late, finishes the transfer — once.
+    // The acknowledgement, delivered late, finishes the transfer — once.
     const ack = (lost as { ack: Parameters<typeof source.applyAck>[0] }).ack;
     expect(source.applyAck(ack).phase).toBe('committed');
     expect(source.applyAck(ack).phase).toBe('committed');
     expect(first.onReadOnly).toHaveBeenCalledTimes(1);
 
-    // TC-05: the same hand-off pushed again is answered with the saved acknowledgement.
+    // The same hand-off pushed again is answered with the saved acknowledgement.
     const again = push(a);
     expect((await again.result).outcome.phase).toBe('committed');
     expect(persisted).toHaveLength(1);
   }, 30_000);
 });
 
-describe('TC-06: a corrupt payload', () => {
+describe('a corrupt payload', () => {
   it('is discarded by the carrier, never staged, and the source keeps the session', async () => {
     const { a, saved } = await sessions({ approver: operator(true) });
     const { result, onReadOnly } = push(a, {
@@ -592,7 +592,7 @@ describe('TC-06: a corrupt payload', () => {
   }, 30_000);
 });
 
-describe('TC-07: the destination has no provider credential of its own', () => {
+describe('the destination has no provider credential of its own', () => {
   it('fails at commit, before anything is saved, with the source unaffected', async () => {
     const persist = vi.fn(() => true);
     const { a } = await sessions({
@@ -603,14 +603,14 @@ describe('TC-07: the destination has no provider credential of its own', () => {
     const { result, onReadOnly } = push(a);
     const { outcome, source } = await result;
     expect(outcome.refusal).toBe('destination-cannot-resume');
-    expect(outcome.detail).toContain('SEC-009');
+    expect(outcome.detail).toContain('never transferred');
     expect(persist).not.toHaveBeenCalled();
     expect(source.isAuthoritative()).toBe(true);
     expect(onReadOnly).not.toHaveBeenCalled();
   }, 30_000);
 });
 
-describe('TC-08: a turn in flight', () => {
+describe('a turn in flight', () => {
   it('is refused before any channel is opened', async () => {
     const { a } = await sessions({ approver: operator(true) });
     const { result, openChannel } = push(a, {
@@ -631,7 +631,7 @@ describe('TC-08: a turn in flight', () => {
   });
 });
 
-describe('TC-09: every way the destination does not take it leaves the source in charge', () => {
+describe('every way the destination does not take it leaves the source in charge', () => {
   it('a receiver whose operator did not approve refuses, before a byte of the session moves', async () => {
     const approver = operator(false);
     const { a, saved } = await sessions({ approver });
