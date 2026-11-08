@@ -123,10 +123,10 @@ describe('WorktreeSubagentRunner', () => {
 
     const result = await runner.start(createJob('worktree')).result;
 
-    // The runner no longer rewrites `request.cwd` to the worktree. The request keeps what the
+    // ARCH-031: the runner no longer rewrites `request.cwd` to the worktree. The request keeps what the
     // CALLER asked for; the worktree the runner PREPARED rides on the envelope, and
     // `subagentExecutionRoot` is the single answer to which of the two the child runs in. Rewriting cwd
-    // as well gave that rule two carriers that could disagree — the duplication `subagentExecutionRoot` exists to prevent.
+    // as well gave that rule two carriers that could disagree — the duplication ARCH-010 exists to prevent.
     expect(captured.getJob()?.request.cwd).toBe('/repo');
     expect(captured.getJob()?.worktree?.path).toBe(TEST_WORKTREE.worktreePath);
     expect(subagentExecutionRoot(captured.getJob()!)).toBe(TEST_WORKTREE.worktreePath);
@@ -328,7 +328,7 @@ describe('WorktreeSubagentRunner', () => {
 });
 
 /**
- * `/fork` runs in a worktree by default, so a handle the worktree runner rebuilds must
+ * #3679 step 3b: `/fork` runs in a worktree by default, so a handle the worktree runner rebuilds must
  * keep what the inner runner's handle offers for its transcript — the paged read, the paths and the
  * in-memory fact that the transcript is sealed — or the parent can neither read the log nor say it is
  * sealed.
@@ -407,7 +407,7 @@ describe('WorktreeSubagentRunner keeps the transcript of the handle it wraps', (
 });
 
 /**
- * What a runner refuses before it starts a job — a sealing projection that cannot hand
+ * #3679 step 3b: what a runner refuses before it starts a job — a sealing projection that cannot hand
  * the child what it needs — must leave nothing behind, and `/fork` isolates in a worktree by default,
  * so those checks run before a worktree is prepared or any worktree hook fires.
  */

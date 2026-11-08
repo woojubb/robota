@@ -17,7 +17,7 @@ import type {
 } from '@robota-sdk/agent-interface-execution';
 
 /**
- * Imported and re-exported here for INTRA-PACKAGE use only. The owner is
+ * ARCH-031: imported and re-exported here for INTRA-PACKAGE use only. The owner is
  * `agent-interface-execution`; this package's PUBLIC index does not re-export them, because a
  * pass-through re-export of another package's symbols is banned. Consumers import from the owner.
  */
@@ -33,7 +33,7 @@ export interface ISubagentJobStart {
   taskId: string;
   request: ISubagentSpawnRequest;
   /**
-   * The worktree a runner PREPARED for this job, when it isolated one. Runner-produced, so
+   * ARCH-031: the worktree a runner PREPARED for this job, when it isolated one. Runner-produced, so
    * it lives on the envelope rather than on the request, which models what the caller asked for — the
    * worktree does not exist at the moment a request is built. The execution root is read through
    * {@link subagentExecutionRoot}, the single answer to "which directory does this run in".

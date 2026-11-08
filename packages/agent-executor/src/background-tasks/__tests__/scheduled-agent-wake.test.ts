@@ -1,5 +1,5 @@
 /**
- * The scheduled-task wake-event foundation.
+ * FLOW-001 (Layer 1): the scheduled-task wake-event foundation.
  * - The scheduled request may carry an `agentInstruction` and omit `command`.
  * - The runner's `background_task_waking` event carries that instruction.
  * - The manager propagates a manager-level `background_task_waking { taskId, instruction }`
@@ -66,8 +66,8 @@ function driveFire(
   emit?.(waking);
 }
 
-describe('scheduled agent-wake foundation', () => {
-  it('scheduled runner accepts an agentInstruction-only request (no command)', () => {
+describe('FLOW-001 scheduled agent-wake foundation', () => {
+  it('TC-01: scheduled runner accepts an agentInstruction-only request (no command)', () => {
     const emitted: TBackgroundTaskRunnerEvent[] = [];
     const runner = createScheduledTaskRunner();
     const handle = runner.start({
@@ -82,7 +82,7 @@ describe('scheduled agent-wake foundation', () => {
     return handle.cancel();
   });
 
-  it('manager propagates background_task_waking with the agent instruction', async () => {
+  it('TC-02: manager propagates background_task_waking with the agent instruction', async () => {
     const { runner, started } = createFakeScheduledRunner();
     const events: TBackgroundTaskEvent[] = [];
     const manager = new BackgroundTaskManager({
@@ -103,7 +103,7 @@ describe('scheduled agent-wake foundation', () => {
     });
   });
 
-  it('a shell-only wake carries no instruction (no regression)', async () => {
+  it('TC-03: a shell-only wake carries no instruction (no regression)', async () => {
     const { runner, started } = createFakeScheduledRunner();
     const events: TBackgroundTaskEvent[] = [];
     const manager = new BackgroundTaskManager({
@@ -126,7 +126,7 @@ describe('scheduled agent-wake foundation', () => {
   });
 });
 
-describe('one-shot schedules reach a terminal state', () => {
+describe('SCREEN-1992 one-shot schedules reach a terminal state (TC-08)', () => {
   it('a one-shot agent-wake schedule fires once and then resolves its handle (manager → completed)', async () => {
     vi.useFakeTimers();
     try {

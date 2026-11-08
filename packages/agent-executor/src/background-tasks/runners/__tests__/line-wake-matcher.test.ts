@@ -1,5 +1,5 @@
 /**
- * Monitor: the line→wake matcher turns matching process output lines into
+ * FLOW-004 (monitor): the line→wake matcher turns matching process output lines into
  * agent-wake instructions, buffers partial lines across chunks, and coalesces bursts.
  */
 
@@ -7,8 +7,8 @@ import { describe, expect, it } from 'vitest';
 
 import { createLineWakeMatcher } from '../line-wake-matcher.js';
 
-describe('createLineWakeMatcher', () => {
-  it('a matching line emits a wake whose instruction includes the matched line', () => {
+describe('createLineWakeMatcher (FLOW-004)', () => {
+  it('TC-01: a matching line emits a wake whose instruction includes the matched line', () => {
     const wakes: string[] = [];
     const matcher = createLineWakeMatcher({
       matchPattern: 'ERROR',
@@ -23,7 +23,7 @@ describe('createLineWakeMatcher', () => {
     expect(wakes[0]).toContain('ERROR: build failed');
   });
 
-  it('non-matching output produces no wake', () => {
+  it('TC-02: non-matching output produces no wake', () => {
     const wakes: string[] = [];
     const matcher = createLineWakeMatcher({
       matchPattern: 'ERROR',
@@ -36,7 +36,7 @@ describe('createLineWakeMatcher', () => {
     expect(wakes).toHaveLength(0);
   });
 
-  it('an incomplete line is buffered until its newline arrives', () => {
+  it('TC-02b: an incomplete line is buffered until its newline arrives', () => {
     const wakes: string[] = [];
     const matcher = createLineWakeMatcher({
       matchPattern: 'ERROR',
@@ -50,7 +50,7 @@ describe('createLineWakeMatcher', () => {
     expect(wakes).toHaveLength(1);
   });
 
-  it('a burst of matching lines coalesces within the cooldown window', () => {
+  it('TC-03: a burst of matching lines coalesces within the cooldown window', () => {
     const wakes: string[] = [];
     let clock = 1_000;
     const matcher = createLineWakeMatcher({

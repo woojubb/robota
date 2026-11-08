@@ -128,7 +128,7 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
 }
 
 /**
- * The worktree identity goes on the ENVELOPE, not back onto the request.
+ * ARCH-031: the worktree identity goes on the ENVELOPE, not back onto the request.
  *
  * The request models what the CALLER asked for, and the worktree does not exist when a caller builds
  * one — `prepare()` creates it here, inside the runner. This function is the ONLY producer of that
@@ -137,7 +137,7 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
  * `subagentExecutionRoot` guards.
  *
  * `request.cwd` is deliberately NOT rewritten any more. Setting both it and `worktreePath` gave the
- * execution root two carriers that could disagree, which is the duplication `subagentExecutionRoot` exists to
+ * execution root two carriers that could disagree, which is the duplication ARCH-010 exists to
  * prevent; the envelope plus `subagentExecutionRoot` is the single answer.
  *
  * The branch RELOCATES rather than disappears. It was on the request, where a caller could not know
@@ -267,7 +267,7 @@ function fireWorktreeHook(
       removed,
     },
   };
-  // `.catch(() => undefined)` made a failing worktree hook indistinguishable from one
+  // CORE-029: `.catch(() => undefined)` made a failing worktree hook indistinguishable from one
   // that ran. Fire-and-forget is deliberate — these are notifications, not vetoes
   // (packages/agent-cli/docs/design/subagent-wiring.md) — so the result stays unawaited, but the
   // failure is now sayable. Same shape as the session hooks in agent-session.

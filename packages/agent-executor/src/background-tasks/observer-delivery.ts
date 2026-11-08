@@ -1,5 +1,5 @@
 /**
- * Observer-failure contract for background lifecycle owners.
+ * ARCH-053 (#2157): observer-failure contract for background lifecycle owners.
  *
  * A lifecycle owner (task manager, job-group orchestrator) emits an event only AFTER the
  * authoritative state transition is committed. A throwing observer must therefore never unwind
@@ -47,7 +47,7 @@ export function reportObserverFailureAsConsoleWarning<TEvent>(
   failure: IObserverFailure<TEvent>,
   code: string = OBSERVER_FAILURE_WARNING_CODE,
 ): void {
-  // eslint-disable-next-line no-console -- the default must be visible on every runtime.
+  // eslint-disable-next-line no-console -- ARCH-053: the default must be visible on every runtime.
   console.warn(`[${code}] ${describeObserverFailure(failure)}`);
 }
 

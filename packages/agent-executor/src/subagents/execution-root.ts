@@ -1,7 +1,7 @@
 import type { ISubagentSpawnRequest } from './types.js';
 
 /**
- * The directory a spawned subagent actually runs in.
+ * The directory a spawned subagent actually runs in. ARCH-010.
  *
  * `ISubagentSpawnRequest.cwd` has always been REQUIRED, but neither runner read it: the in-process
  * one had no session option to pass it to, and the child-process worker called `createDefaultTools()`
@@ -16,7 +16,7 @@ import type { ISubagentSpawnRequest } from './types.js';
  * about which root a subagent runs in can disagree — and a subagent running in a root nobody intended
  * is exactly the defect this closes.
  *
- * Reads the runner ENVELOPE, not the request. The worktree does not exist when a caller
+ * ARCH-031: reads the runner ENVELOPE, not the request. The worktree does not exist when a caller
  * builds a request — `ISubagentWorktreeAdapter.prepare()` creates it inside the runner — so the
  * worktree identity is runner-produced and belongs on `ISubagentJobStart`. It used to be written back
  * onto the request, which also meant the runner overwrote `request.cwd` with the same path, giving

@@ -79,7 +79,7 @@ function createResolvedRunner(output: string): ISubagentRunner {
   };
 }
 
-/** A runner whose result carries the `usage` field the contract declares. */
+/** A runner whose result carries the ANALYTICS-001 `usage` field the contract declares. */
 function createUsageReportingRunner(output: string, usage: ITokenUsage): ISubagentRunner {
   return {
     start(job: ISubagentJobStart): ISubagentJobHandle {
@@ -129,7 +129,7 @@ describe('SubagentManager', () => {
     expect(completed?.result).toBe('done');
   });
 
-  // `ISubagentJobResult.usage` is declared and populated end to end, but
+  // ARCH-025: `ISubagentJobResult.usage` is declared (ANALYTICS-001) and populated end to end, but
   // `wait()` projected `{ taskId, output, metadata }` and dropped it — so its readers saw `undefined`
   // structurally, always. The field was born dropped: the commit that added `usage` to
   // `toBackgroundResult` never touched `wait()`.
@@ -194,7 +194,7 @@ describe('SubagentManager', () => {
     expect(controlled.started[0]?.cancelReason).toBe('stop first');
   });
 
-  // `send` steers a running job, so it reaches the job's own handle with the prompt, and a
+  // #3679 3f: `send` steers a running job, so it reaches the job's own handle with the prompt, and a
   // send with nothing to say never does — an empty turn would fail the job it was meant to steer.
   it('hands a sent prompt to the running job', async () => {
     const controlled = createControllableRunner();
@@ -255,7 +255,7 @@ describe('SubagentManager', () => {
 });
 
 /**
- * Whether a subagent's transcript is sealed is the runner's handle's to say, and the
+ * #3679 step 3b: whether a subagent's transcript is sealed is the runner's handle's to say, and the
  * manager projects it into the task state, which is persisted: a task restored in a later session,
  * a job-group result and a hook all say the same thing as the live task.
  */

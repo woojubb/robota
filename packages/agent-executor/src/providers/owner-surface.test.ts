@@ -1,12 +1,12 @@
 /**
- * `agent-core`'s provider helpers have one exporter, and it is not this package.
+ * ARCH-111 — `agent-core`'s provider helpers have one exporter, and it is not this package.
  *
  * A `grep` would pass the moment someone re-added the export with different whitespace, and a runtime
  * `expect(mod.normalizeProviderConfig).toBeUndefined()` would pass against a package that failed to
  * build at all. These are TYPE-level assertions: if either name returns to this package's surface the
  * assignment stops compiling, so `tsgo --noEmit` fails before any test runs.
  *
- * The duplicate they replace was created "so existing consumers are unaffected"
+ * The duplicate they replace was created by ARCH-PROVIDER-003 "so existing consumers are unaffected"
  * — a backward-compatibility guarantee this repository does not make. What it bought instead was
  * `agent-framework` importing `createProviderFromConfig` from here while `agent-product` imported the
  * same function from `agent-core`, both compiling, with nothing able to notice.
@@ -53,7 +53,7 @@ const createFromConfigIsCores: 'createProviderFromConfig' extends keyof typeof C
 const profileHelperStays: 'resolveProfileApiKey' extends keyof typeof Executor ? true : false =
   true;
 
-describe('one owner for the core provider helpers', () => {
+describe('ARCH-111: one owner for the core provider helpers', () => {
   // Written as three plain cases rather than one `it.each`. A parameterised title is `'%s …'` in the
   // source and interpolated at run time, so `check-regression-red-proof.mjs` — which matches the
   // titles a diff ADDED against the titles that ran — cannot recognise it as an added case. It

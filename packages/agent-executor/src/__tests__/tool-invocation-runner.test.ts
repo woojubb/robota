@@ -1,6 +1,6 @@
 /**
- * The `tool-invocation` runner, exercised through the real `BackgroundTaskManager`
- * (not a mock of it), including the unknown-token validation refusal.
+ * MCP-004 §S1 — the `tool-invocation` runner, exercised through the real `BackgroundTaskManager`
+ * (not a mock of it): TC-03 through TC-07, TC-20, and the unknown-token validation refusal.
  *
  * The wrapper that COMMITS to a handoff (`agent-framework`, a later seam) is not present here — each
  * test plays its role by calling `runner.adopt(token, work)` directly before `manager.spawn(...)`,
@@ -111,7 +111,7 @@ describe('createToolInvocationBackgroundTaskRunner', () => {
     vi.useRealTimers();
   });
 
-  it('emits exactly one background_task_completed whose output is the tool text', async () => {
+  it('TC-03: emits exactly one background_task_completed whose output is the tool text', async () => {
     const runner = createToolInvocationBackgroundTaskRunner();
     const { sink: eventSink, events } = createEventCollector();
     const manager = new BackgroundTaskManager({ runners: [runner], eventSink });
@@ -146,7 +146,7 @@ describe('createToolInvocationBackgroundTaskRunner', () => {
     expect(result.output).toBe(JSON.stringify({ pages: 42 }));
   });
 
-  it('exactly one delivery regardless of when the adopted promise settles', async () => {
+  it('TC-04: exactly one delivery regardless of when the adopted promise settles', async () => {
     const timings = [
       'before-spawn',
       'same-tick-as-spawn',
@@ -185,7 +185,7 @@ describe('createToolInvocationBackgroundTaskRunner', () => {
     }
   });
 
-  it('cancel invokes abort and emits exactly one cancelled event; a late settle emits nothing', async () => {
+  it('TC-05: cancel invokes abort and emits exactly one cancelled event; a late settle emits nothing', async () => {
     const runner = createToolInvocationBackgroundTaskRunner();
     const { sink: eventSink, events } = createEventCollector();
     const manager = new BackgroundTaskManager({ runners: [runner], eventSink });
@@ -212,7 +212,7 @@ describe('createToolInvocationBackgroundTaskRunner', () => {
     expect(eventsOfType(events, 'background_task_cancelled')).toHaveLength(1);
   });
 
-  it('an adopted promise that rejects emits exactly one background_task_failed, never a completion', async () => {
+  it('TC-06: an adopted promise that rejects emits exactly one background_task_failed, never a completion', async () => {
     const runner = createToolInvocationBackgroundTaskRunner();
     const { sink: eventSink, events } = createEventCollector();
     const manager = new BackgroundTaskManager({ runners: [runner], eventSink });
@@ -233,7 +233,7 @@ describe('createToolInvocationBackgroundTaskRunner', () => {
     expect(eventsOfType(events, 'background_task_completed')).toHaveLength(0);
   });
 
-  it('manager.shutdown() invokes abort, leaves the task cancelled with the shutdown message, and arms no timer', async () => {
+  it('TC-07: manager.shutdown() invokes abort, leaves the task cancelled with the shutdown message, and arms no timer', async () => {
     vi.useFakeTimers();
     const runner = createToolInvocationBackgroundTaskRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
@@ -252,7 +252,7 @@ describe('createToolInvocationBackgroundTaskRunner', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('with maxConcurrent 1 and a process task holding the slot, an admitted tool-invocation task still runs immediately and holds no slot', async () => {
+  it('TC-20: with maxConcurrent 1 and a process task holding the slot, an admitted tool-invocation task still runs immediately and holds no slot', async () => {
     const processRunner = createNeverSettlingProcessRunner();
     const toolRunner = createToolInvocationBackgroundTaskRunner();
     const manager = new BackgroundTaskManager({
