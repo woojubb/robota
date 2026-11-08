@@ -22,7 +22,7 @@ export default defineConfig({
     'qwen/index': 'src/qwen/index.ts',
     'gemma/index': 'src/gemma/index.ts',
     'openai-compatible/index': 'src/openai-compatible/index.ts',
-    'builtin/index': 'src/builtin/index.ts'
+    'builtin/index': 'src/builtin/index.ts',
   },
   format: { esm: {}, cjs: {} },
   outDir: 'dist',

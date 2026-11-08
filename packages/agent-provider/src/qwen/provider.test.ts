@@ -822,9 +822,9 @@ describe('QwenProvider', () => {
     }
 
     expect(chunks.length).toBeGreaterThan(0);
-    expect(chunks.every((chunk) => chunk.metadata?.['providerRequestId'] === 'req_qwen_stream')).toBe(
-      true,
-    );
+    expect(
+      chunks.every((chunk) => chunk.metadata?.['providerRequestId'] === 'req_qwen_stream'),
+    ).toBe(true);
   });
 
   it('carries the server-returned request ID onto the assembled chat-completions streaming message when withResponse is available', async () => {
