@@ -1,5 +1,5 @@
 /**
- * Issue #3550 item 4 — an editor that has the workspace open carries `Read`/`Write`/`Edit`, after the
+ * An editor that has the workspace open carries `Read`/`Write`/`Edit`, after the
  * tool's own path guard; `Glob`/`Grep` keep the disk and say so; without an editor nothing changes.
  */
 import {

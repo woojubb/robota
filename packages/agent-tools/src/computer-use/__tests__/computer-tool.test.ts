@@ -47,8 +47,8 @@ describe('createComputerTool', () => {
     ]);
   });
 
-  // TC-01: perceive round-trips screenshot() through the injected driver.
-  it('TC-01: ComputerView round-trips screenshot() through the driver', async () => {
+  // Perceive round-trips screenshot() through the injected driver.
+  it('ComputerView round-trips screenshot() through the driver', async () => {
     const driver = new ScriptedComputerDriver({ screenshots: [SHOT_A] });
     const tool = createComputerViewTool({ driver });
 
@@ -60,8 +60,8 @@ describe('createComputerTool', () => {
     expect(driver.actions).toHaveLength(0);
   });
 
-  // TC-01: each mutating action round-trips through act() and returns the resulting screenshot.
-  it('TC-01: Computer round-trips each mutating action and returns the screenshot', async () => {
+  // Each mutating action round-trips through act() and returns the resulting screenshot.
+  it('Computer round-trips each mutating action and returns the screenshot', async () => {
     const cases: Array<{ args: Record<string, unknown>; expected: TComputerAction }> = [
       { args: { type: 'click', x: 10, y: 20 }, expected: { type: 'click', x: 10, y: 20 } },
       {
@@ -137,8 +137,8 @@ describe('createComputerTool', () => {
     expect(driver.actions).toHaveLength(0);
   });
 
-  // TC-03: takeover suspends the action loop and pauses perception.
-  it('TC-03: takeover suspends the loop and pauses perception until resume', async () => {
+  // Takeover suspends the action loop and pauses perception.
+  it('takeover suspends the loop and pauses perception until resume', async () => {
     const driver = new ScriptedComputerDriver({ screenshots: [SHOT_A] });
     const view = createComputerViewTool({ driver });
     const act = createComputerActTool({ driver });
@@ -169,9 +169,9 @@ describe('createComputerTool', () => {
     expect(perceiveAfter.screenshot).toEqual(SHOT_A);
   });
 
-  // TC-05: swapping the driver needs no agent-tools change — a second, independent driver
+  // Swapping the driver needs no agent-tools change — a second, independent driver
   // satisfies IComputerDriver and drives the same factory unchanged.
-  it('TC-05: a second driver satisfies IComputerDriver and drives the factory unchanged', async () => {
+  it('a second driver satisfies IComputerDriver and drives the factory unchanged', async () => {
     const recorded: TComputerAction[] = [];
     const secondDriver: IComputerDriver = {
       async screenshot(): Promise<IComputerScreenshot> {

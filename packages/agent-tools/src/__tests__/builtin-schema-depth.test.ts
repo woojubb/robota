@@ -4,7 +4,7 @@ import { askUserQuestionTool } from '../builtins/ask-user-question-tool';
 import { createComputerTool } from '../computer-use/computer-tool';
 
 /**
- * CORE-039 — the schemas two SHIPPED built-in tools actually advertise.
+ * The schemas two SHIPPED built-in tools actually advertise.
  *
  * Both were broken in the field: `Computer`'s act tool reached the model as
  * `action: { type: 'object' }` with all eleven action fields absent, and `AskUserQuestion` as

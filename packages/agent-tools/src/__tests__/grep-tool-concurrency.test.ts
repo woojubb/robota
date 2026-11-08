@@ -1,5 +1,5 @@
 /**
- * CLI-042 — grep-tool bounded-concurrency evidence.
+ * Grep-tool bounded-concurrency evidence.
  *
  * Instruments the file streams with an in-flight counter (plus a small timer
  * delay so overlap is observable) and asserts concurrent reads remain bounded.
@@ -51,7 +51,7 @@ interface IGrepResult {
   error?: string;
 }
 
-// ARCH-010 — the context-free `grepTool` singleton is gone and the root is a required argument, so the
+// The context-free `grepTool` singleton is gone and the root is a required argument, so the
 // tool is built against the fixture this suite creates. The root is the scan's boundary, so it has to be
 // the fixture: bound anywhere wider, the in-flight counts below would be measuring somebody else's files.
 async function runGrep(root: string, args: Record<string, unknown>): Promise<IGrepResult> {
@@ -61,7 +61,7 @@ async function runGrep(root: string, args: Record<string, unknown>): Promise<IGr
   return (typeof data === 'string' ? JSON.parse(data) : data) as IGrepResult;
 }
 
-describe('grepTool bounded concurrency (CLI-042)', () => {
+describe('grepTool bounded concurrency', () => {
   const FILE_COUNT = 120;
   let fixtureDir: string;
 
@@ -79,7 +79,7 @@ describe('grepTool bounded concurrency (CLI-042)', () => {
     rmSync(fixtureDir, { recursive: true, force: true });
   });
 
-  it('TC-05: reads files concurrently but never exceeds the p-limit bound', async () => {
+  it('reads files concurrently but never exceeds the p-limit bound', async () => {
     readTracker.inFlight = 0;
     readTracker.maxInFlight = 0;
     readTracker.enabled = true;

@@ -9,11 +9,7 @@ import type { IToolInvocationResult } from '../types/tool-result.js';
  * Returns a JSON-serialized IToolInvocationResult error when filePath is outside cwd, or when NO
  * containment root is configured. Returns undefined only when the path is inside a configured root.
  *
- * This sentence used to end "or cwd is not set" — the fail-open default ARCH-010 removed. It sat
- * directly above the two functions that implement the distinction, which is the worst place for a
- * comment to say the opposite of the code.
- *
- * SEC-006: containment is decided on the CANONICAL (symlink-resolved) paths, via the shared
+ * Containment is decided on the CANONICAL (symlink-resolved) paths, via the shared
  * `isPathInside` SSOT in agent-core. A purely lexical `resolve()` + `startsWith` comparison let
  * `<cwd>/link/secret` through when `link -> /etc`, because `resolve` does not consult the filesystem
  * and so cannot see a symlink — while the subsequent `readFile`/`writeFile` followed the link out of
@@ -31,10 +27,10 @@ import type { IToolInvocationResult } from '../types/tool-result.js';
  * `checkPathWithinCwd` turns a `false` into the tool-result error a tool RETURNS; the enumerating
  * tools (`Glob`, `Grep`) instead SKIP the entry mid-walk and must not fabricate an error per file.
  * Both ask this one question, which asks agent-core's `isPathInside` SSOT — so there is no second
- * containment rule that could disagree with the first (SEC-006's stated defect, SEC-007 keeping it
- * true as the guard's reach widens).
+ * containment rule that could disagree with the first (a second rule is the defect to avoid as
+ * the guard's reach widens).
  *
- * `cwd === undefined` means no containment root is configured, and the answer is NO — ARCH-010.
+ * `cwd === undefined` means no containment root is configured, and the answer is NO.
  *
  * This used to return `true` there: with no root, everything was inside it. A guard whose default is
  * "allow" is not a guard, it is a guard that has to be remembered, and the architecture audit found
@@ -56,11 +52,11 @@ export function isWithinCwd(filePath: string, cwd: string | undefined): boolean 
 
 /**
  * Where a RELATIVE host path the model supplied is anchored: the containment root, never
- * `process.cwd()` (issue #2429). `Read`/`Write`/`Edit` declare `filePath` absolute, but nothing
+ * `process.cwd()`. `Read`/`Write`/`Edit` declare `filePath` absolute, but nothing
  * makes the model comply, and `isPathInside` canonicalises a relative candidate against the PROCESS
  * directory — so a relative path was confined to one root and judged against another. Same rule as
  * `resolveSearchRoot` for the enumerating tools. With no root there is nothing to anchor to; the path
- * is returned as written and `checkPathWithinCwd` refuses it (ARCH-010).
+ * is returned as written and `checkPathWithinCwd` refuses it.
  */
 export function resolveHostPath(filePath: string, cwd: string | undefined): string {
   if (cwd === undefined) return filePath;
@@ -75,7 +71,7 @@ export function checkPathWithinCwd(filePath: string, cwd: string | undefined): s
       error:
         `Access denied: "${filePath}" cannot be checked because no containment root is ` +
         'configured for this tool. This is an assembly bug, not a path problem — the tool was ' +
-        'constructed without a `cwd`, so it has no boundary to enforce (ARCH-010).',
+        'constructed without a `cwd`, so it has no boundary to enforce.',
     };
     return JSON.stringify(result);
   }
@@ -147,7 +143,7 @@ async function openWithinCwdWindows(
 /**
  * Open a host file so that containment is decided on the file actually opened, not on a path checked
  * before the open — a path swapped for a link between the two would otherwise be followed out of the
- * root (issue #3252).
+ * root.
  *
  * - macOS opens the canonical path with `O_NOFOLLOW_ANY`: a canonical path contains no links, so a
  *   link appearing anywhere along it after canonicalisation makes the open fail instead of follow.
@@ -204,14 +200,14 @@ export async function openWithinCwd(
 }
 
 /**
- * Resolve an LLM-supplied search root for an ENUMERATING tool, and refuse one that escapes (SEC-007).
+ * Resolve an LLM-supplied search root for an ENUMERATING tool, and refuse one that escapes.
  *
  * A relative `requested` anchors to the CONTAINMENT ROOT, not to `process.cwd()`: anchoring them to
  * two different directories is how a "contained" search silently starts somewhere else. `error`
  * carries the tool-result JSON to return, or is `undefined` when the root is allowed.
  *
  * With no root there is nothing to anchor to, so this refuses rather than reaching for the process
- * directory (ARCH-010). The previous `cwd ?? process.cwd()` was that reach: harmless once the guard
+ * directory. The previous `cwd ?? process.cwd()` was that reach: harmless once the guard
  * below refuses anyway, but it read as a supported fallback, which is the pattern being removed.
  */
 export function resolveSearchRoot(

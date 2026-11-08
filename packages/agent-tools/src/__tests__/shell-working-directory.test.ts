@@ -1,11 +1,11 @@
 /**
- * SEC-007 — the shell tool's `cwd`: a DEFAULT, deliberately not a boundary.
+ * The shell tool's `cwd`: a DEFAULT, deliberately not a boundary.
  *
- * The sweep that produced SEC-007 found `Shell` spawning with an unguarded `cwd`. Applying the file
+ * `Shell` spawns with an unguarded `cwd`. Applying the file
  * tools' containment guard here was rejected on the merits: this tool runs an arbitrary command, so a
  * `cwd` guard is undone by the first `cd ..` — it would constrain nothing while READING as a boundary
- * in review, which is precisely the failure SEC-006's R9 recorded ("'the guard is still there' is not
- * a verdict"). The real boundary is the permission layer and the sandbox seam.
+ * in review, which is precisely the failure "'the guard is still there' is not
+ * a verdict" names. The real boundary is the permission layer and the sandbox seam.
  *
  * What WAS wrong is separate and is fixed here: the tool ignored the containment root it was
  * constructed with and ran every command in `process.cwd()`. An assembly could scope its file tools
@@ -64,7 +64,7 @@ afterAll(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-describe('Shell — the configured containment root is the DEFAULT working directory (SEC-007)', () => {
+describe('Shell — the configured containment root is the DEFAULT working directory', () => {
   it(
     'runs in the configured cwd, not the host process cwd',
     async () => {
@@ -93,7 +93,7 @@ describe('Shell — the configured containment root is the DEFAULT working direc
   it(
     'runs in the host process cwd when that is the configured root',
     async () => {
-      // ARCH-010 made `cwd` REQUIRED, so "no root configured" is no longer constructible through the
+      // `cwd` is REQUIRED, so "no root configured" is no longer constructible through the
       // factory — a caller that means the host process directory now says so where a reader can see it.
       // The observable this case was always about is unchanged: that directory is where the command runs.
       const result = await runTool(createShellTool({ cwd: process.cwd() }), { command: PRINT_CWD });
@@ -103,7 +103,7 @@ describe('Shell — the configured containment root is the DEFAULT working direc
   );
 });
 
-describe('CONTROL — Shell is NOT path-contained, and that is the decision (SEC-007)', () => {
+describe('CONTROL — Shell is NOT path-contained, and that is the decision', () => {
   it(
     'an explicit out-of-root workingDirectory still runs',
     async () => {

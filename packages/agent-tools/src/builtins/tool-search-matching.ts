@@ -1,5 +1,5 @@
 /**
- * What a `ToolSearch` query matches, and in what order (CLI-1990 § Solution 4).
+ * What a `ToolSearch` query matches, and in what order.
  *
  * Pure functions over schemas, with no catalog and no tool-execution context, because the ranking is
  * the half worth testing on its own: given the same deferred set and the same query, the same tools
