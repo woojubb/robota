@@ -1,7 +1,7 @@
 /**
- * TOOL-004 — a builtin tool's model-facing DESCRIPTION must agree with its SCHEMA and RUNTIME.
+ * A builtin tool's model-facing DESCRIPTION must agree with its SCHEMA and RUNTIME.
  *
- * NEUT-002 (`builtin-descriptions.test.ts`) checks the override seam and product-neutral wording;
+ * `builtin-descriptions.test.ts` checks the override seam and product-neutral wording;
  * nothing there compared the parameter NAMES a description uses with the names the schema accepts,
  * so `Read` said `file_path` while accepting `filePath`, and `Shell` asked for a `description`
  * parameter it has no property for and promised a 30,000-character truncation it does not perform.
@@ -87,7 +87,7 @@ function modelFacingTexts(tool: FunctionTool): string[] {
   ];
 }
 
-describe('builtin descriptions name only parameters their schema accepts (TOOL-004)', () => {
+describe('builtin descriptions name only parameters their schema accepts', () => {
   for (const { name, tool } of BUILTINS) {
     const propertyNames = new Set(Object.keys(schemaProperties(tool)));
     const vocabulary = schemaVocabulary(tool);
@@ -108,7 +108,7 @@ describe('builtin descriptions name only parameters their schema accepts (TOOL-0
   }
 });
 
-describe('Shell describes only mechanisms it enforces (TOOL-004)', () => {
+describe('Shell describes only mechanisms it enforces', () => {
   const description = createShellTool({ cwd: ROOT }).getDescription();
   const propertyNames = Object.keys(schemaProperties(createShellTool({ cwd: ROOT })));
 

@@ -13,8 +13,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.114.0",
     "@robota-sdk/agent-framework": "workspace:^",
-    "@robota-sdk/agent-provider-anthropic": "workspace:^",
+    "@robota-sdk/agent-provider": "workspace:^",
     "@robota-sdk/agent-tool-defaults": "workspace:^",
     "next": "^15.5.28",
     "react": "19.2.8",

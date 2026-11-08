@@ -6,7 +6,7 @@ import {
 } from '@robota-sdk/agent-executor';
 import { killProcessTree } from '@robota-sdk/agent-process';
 
-/** POSIX children are forked detached so a process-group kill reaps grandchildren (CORE-023). */
+/** POSIX children are forked detached so a process-group kill reaps grandchildren. */
 const SPAWN_DETACHED = process.platform !== 'win32';
 
 /** Resolve when the child exits or after `ms` — lets the graceful IPC cancel land before signalling. */
@@ -45,11 +45,11 @@ export interface IChildProcessRuntime {
 }
 
 /**
- * DIST-006: the tail of the child's stderr, kept so a death before the first IPC message can say
+ * The tail of the child's stderr, kept so a death before the first IPC message can say
  * WHY. Bounded — a runaway child must not be able to grow the parent's memory through this.
  */
 const STDERR_TAIL_LIMIT = 4096;
-// ARCH-056: the shared bounded-output contract in tail mode, not a locally rediscovered slice.
+// The shared bounded-output contract in tail mode, not a locally rediscovered slice.
 const stderrTails = new WeakMap<ChildProcess, IBoundedOutput>();
 
 /** Attach a bounded stderr reader. Without it a failed start reports only an exit code. */
@@ -79,7 +79,7 @@ export function handleWorkerMessage(
   resolveOnce: (result: ISubagentWorkerResultMessage) => void,
   rejectOnce: (error: Error) => void,
   emit?: (event: TBackgroundTaskRunnerEvent) => void,
-  // Issue #3288 §1: a child's tool call needs a human's approval. Its own callback, distinct from
+  // A child's tool call needs a human's approval. Its own callback, distinct from
   // `emit`, because answering it is a REQUEST/RESPONSE the caller must complete (asking the parent's
   // own approver and sending back a `permission_response`), not a fire-and-forget observation.
   onPermissionRequest?: (message: ISubagentWorkerPermissionRequestMessage) => void,
@@ -159,7 +159,7 @@ export async function cancelChildProcess(
   runtime: IChildProcessRuntime,
   reason?: string,
 ): Promise<void> {
-  // CORE-023: graceful IPC cancel first (preKill), then SIGTERM→grace→SIGKILL over the process
+  // Graceful IPC cancel first (preKill), then SIGTERM→grace→SIGKILL over the process
   // group — the previous path signalled SIGTERM only and never escalated, so a worker ignoring
   // SIGTERM survived forever.
   await killProcessTree(runtime.child, {

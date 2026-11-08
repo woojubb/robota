@@ -1,5 +1,5 @@
 /**
- * CLI-062 — the one matrix cell where a REAL terminal emulator answers back.
+ * The one matrix cell where a REAL terminal emulator answers back.
  *
  * Every other cell reads the cursor out of the byte stream our own VT interpreter replays. tmux is
  * a full, independent terminal emulator that can be driven headlessly AND queried: it runs the
@@ -168,7 +168,7 @@ function sleepSync(ms: number): void {
 }
 
 describe.skipIf(TMUX === undefined)(
-  'CLI-062 terminal matrix — tmux, a real emulator reporting its own cursor',
+  'IME cursor terminal matrix — tmux, a real emulator reporting its own cursor',
   () => {
     let run: ITmuxRun;
 

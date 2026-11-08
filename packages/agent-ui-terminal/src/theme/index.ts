@@ -1,4 +1,4 @@
-/** SCREEN-2002 — the theme module's internal surface (the package exports nothing from here yet). */
+/** The theme module's internal surface (the package exports nothing from here yet). */
 /**
  * The colour DATA is deliberately NOT re-exported — neither the individual themes nor the array that
  * holds them. The anti-drift floor forbids naming them outside `src/theme/`, and a barrel re-export

@@ -18,7 +18,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -54,7 +54,7 @@ function filesUnder(dir: string): string[] {
   const found: string[] = [];
   const walk = (current: string, prefix: string): void => {
     for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const relative = join(prefix, entry.name);
+      const relative = posix.join(prefix, entry.name);
       if (entry.isDirectory()) walk(join(current, entry.name), relative);
       else found.push(relative);
     }
@@ -227,7 +227,7 @@ describe('an EditCheckpointStore given state held outside the project', () => {
     expect(summary?.fileCount).toBe(1);
   });
 
-  // ARCH-047: restoring writes the project's files back, and project mutation is Linux-only.
+  // Restoring writes the project's files back, and project mutation is Linux-only.
   it.runIf(process.platform === 'linux')(
     'still restores the project file from the pre-image it kept elsewhere',
     async () => {

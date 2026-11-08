@@ -64,7 +64,7 @@ describe('ExecutionWorkspaceSwitcher', () => {
 
     const frame = lastFrame()!;
     expect(frame).toContain('Execution workspace');
-    // SCREEN-1992: the state word sits beside the radio.
+    // The state word sits beside the radio.
     expect(frame).toContain('○ completed Main thread');
     expect(frame).toContain('● working Explore agent');
     expect(frame).toContain('Inspect task layer');
@@ -113,8 +113,8 @@ describe('ExecutionWorkspaceSwitcher', () => {
   });
 });
 
-// SCREEN-005: switcher footer + focused-row cursor go through the key-hint/indicator SSOT.
-describe('ExecutionWorkspaceSwitcher affordance (SCREEN-005)', () => {
+// Switcher footer + focused-row cursor go through the key-hint/indicator SSOT.
+describe('ExecutionWorkspaceSwitcher affordance', () => {
   it('renders the footer in the shared key-hint grammar (navigate → primary → dismiss)', () => {
     const { lastFrame } = render(
       <ExecutionWorkspaceSwitcher

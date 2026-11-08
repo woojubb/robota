@@ -4,7 +4,6 @@
 @import '@robota-sdk/agent-ui-web/styles/surface.css';
 
 @source "../../../../packages/agent-ui-web/src";
-@source "../../../../packages/agent-transport-webrtc-web/src";
 
 @custom-variant dark (&:is(.dark *));
 

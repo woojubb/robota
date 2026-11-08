@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 /**
+ * Two rules about the text of tracked files, so AGENTS.md holds without depending on review.
  * The repository is global: everything in it is English, and Korean text lives only in localization
- * data. This check fails when a tracked file outside that data contains Hangul, so the rule in
- * AGENTS.md holds without depending on review.
+ * data. And code, tests and messages carry no tracker references (backlog IDs, issue or PR numbers,
+ * stage labels): the tracker and git hold the history, a comment states the invariant.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -51,6 +52,49 @@ export function findLanguageViolations(files, read) {
   return violations;
 }
 
+/** Where tracker references are checked, and the files that quote them as data on purpose. */
+const TRACKER_SCOPE = /^(?:packages|apps|scripts|examples|\.github)\//u;
+const TRACKER_DATA = Object.freeze([
+  /(?:^|\/)CHANGELOG\.md$/u,
+  /\.(?:record\.json|jsonl)$/u,
+  /^scripts\/release\/__tests__\/generate-release-notes\.test\.mjs$/u,
+]);
+
+/**
+ * Prefixes of standards and of user-content test data; any other prefix followed by digits is a
+ * backlog ID. A standard this rejects belongs here, not reworded. Lowercase names and file names
+ * that carry an ID are a separate cleanup and are not checked.
+ */
+const NOT_BACKLOG = new Set([
+  ...['SHA', 'HMAC-SHA', 'SHA3', 'BLAKE2', 'UTF', 'ISO', 'SLIP', 'CWE', 'CVE', 'ECMA', 'ECDSA'],
+  ...['AES', 'RSA', 'RSA-OAEP', 'EC', 'PKCS', 'FIPS', 'CRC', 'TLS', 'RFC', 'OWASP', 'ES', 'SP'],
+  ...['JSON-RPC', 'CLI-BL'],
+]);
+const BACKLOG_ID =
+  /(?<![\w/.])((?:[A-Z][A-Z0-9]*-)*[A-Z][A-Z0-9]{1,20})-[A-Z]?\d{2,4}[a-z]?(?![\w-])/gu;
+const ISSUE_REFERENCE =
+  /\b(?:[Ii]ssues?|[Pp][Rr]s?|pull|[Ff]ix(?:es)?|[Cc]loses?|[Rr]esolves?) ?#\d+\b|(?<=^|[\s(,[])#[1-9]\d{3}(?![\w-])/u;
+const STAGE_LABEL = /\b[Ss]tage[- ][A-E]\d?\b|\bstage-[a-e]\b|\bwork unit \d+\b|§\s?\d{3,4}\b/u;
+
+/** Every line of code, tests or scripts holding a tracker reference, as `{ file, line, text }`. */
+export function findTrackerReferences(files, read) {
+  const violations = [];
+  for (const file of files) {
+    if (!TRACKER_SCOPE.test(file) || TRACKER_DATA.some((pattern) => pattern.test(file))) continue;
+    const text = read(file);
+    if (text === undefined) continue;
+    text.split('\n').forEach((content, index) => {
+      const backlog = [...content.matchAll(BACKLOG_ID)].some(
+        ([, prefix]) => !NOT_BACKLOG.has(prefix),
+      );
+      if (backlog || ISSUE_REFERENCE.test(content) || STAGE_LABEL.test(content)) {
+        violations.push({ file, line: index + 1, text: content.trim() });
+      }
+    });
+  }
+  return violations;
+}
+
 function readText(root, file) {
   const bytes = readFileSync(path.join(root, file));
   // A NUL byte marks a binary file; it has no prose to check.
@@ -63,25 +107,39 @@ function main() {
   const files = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8' })
     .split('\0')
     .filter(Boolean);
-  const violations = findLanguageViolations(files, (file) => {
+  const read = (file) => {
     try {
       return readText(root, file);
     } catch {
       // allow-fallback: a tracked path deleted in the working tree has nothing to check
       return undefined;
     }
-  });
-  if (violations.length === 0) {
-    console.log(`repository language: ${files.length} tracked files checked, no Korean outside localization data`);
-    return;
+  };
+  const rules = [
+    [
+      findLanguageViolations(files, read),
+      'contain Korean outside localization data. Write code, comments and documentation in English, ' +
+        'and move user-facing Korean text into a localization data file (see AGENTS.md).',
+    ],
+    [
+      findTrackerReferences(files, read),
+      'carry a tracker reference (backlog ID, issue or PR number, stage label). State the reason ' +
+        'in the comment, title or message instead; the tracker and git hold the history.',
+    ],
+  ];
+  for (const [violations, advice] of rules) {
+    for (const { file, line, text } of violations)
+      console.error(`${file}:${line}: ${text.slice(0, 160)}`);
+    if (violations.length > 0) {
+      console.error(`\nrepository text: ${violations.length} line(s) ${advice}`);
+      process.exitCode = 1;
+    }
   }
-  for (const { file, line, text } of violations) console.error(`${file}:${line}: ${text.slice(0, 160)}`);
-  console.error(
-    `\nrepository language: ${violations.length} line(s) contain Korean outside localization data. ` +
-      'Write code, comments and documentation in English, and move user-facing Korean text into a ' +
-      'localization data file (see AGENTS.md).',
-  );
-  process.exitCode = 1;
+  if (process.exitCode !== 1) {
+    console.log(
+      `repository text: ${files.length} tracked files checked, no Korean outside localization data, no tracker references`,
+    );
+  }
 }
 
 if (isEntryPoint(import.meta)) main();

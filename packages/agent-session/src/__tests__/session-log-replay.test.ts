@@ -23,7 +23,7 @@ const assistantMessage = {
 };
 
 describe('session log replay support', () => {
-  it('ARCH-042: rejects an empty Node session-log path before deriving sidecar authority', () => {
+  it('rejects an empty Node session-log path before deriving sidecar authority', () => {
     expect(() => new NodeSessionLogSource('', { sealing: 'plain' })).toThrow(/log-file path/i);
     expect(() => new NodeSessionLogSource('   ', { sealing: 'plain' })).toThrow(/log-file path/i);
   });
@@ -64,9 +64,9 @@ describe('session log replay support', () => {
     expect(JSON.parse(payload)).toBe('x'.repeat(128));
   });
 
-  // ARCH-049 containment: external-payload reads refuse off Linux (see external-payload-resolver.test.ts).
+  // Containment: external-payload reads refuse off Linux (see external-payload-resolver.test.ts).
   it.skipIf(process.platform !== 'linux')(
-    'ARCH-014: loadSessionLogEntries hydrates externalized values before replay',
+    'loadSessionLogEntries hydrates externalized values before replay',
     () => {
       const logDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-log-hydration-')));
       const logger = new FileSessionLogger(new NodeSessionLogSink(logDir, { sealing: 'plain' }), {
@@ -224,7 +224,7 @@ describe('session log replay support', () => {
     expect(result).toEqual({ ok: true, issues: [] });
   });
 
-  it('ARCH-014: rejects an unresolved normalized response as replay-incomplete', () => {
+  it('rejects an unresolved normalized response as replay-incomplete', () => {
     const shared = {
       schemaVersion: 1,
       timestamp: '2026-08-15T00:00:00.000Z',
@@ -270,7 +270,7 @@ describe('session log replay support', () => {
     ).toThrow(SessionLogDecodeError);
   });
 
-  it('ARCH-014: validator applies the resolver reference-shape contract', () => {
+  it('validator applies the resolver reference-shape contract', () => {
     expect(() =>
       validateSessionReplayLogEntries([
         {

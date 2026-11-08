@@ -58,6 +58,7 @@ export const OWNER_INPUT: Readonly<Record<TClientMessage['type'], boolean>> = {
   resume: false,
   ack: false,
   'get-settings': false,
+  'get-surface-role': false,
 };
 
 /**

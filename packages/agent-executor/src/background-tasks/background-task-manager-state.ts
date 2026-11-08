@@ -93,7 +93,7 @@ export function markBackgroundTaskCancelled(
   reason: string | undefined,
   now: string,
 ): { task: IBackgroundTaskState } {
-  // CORE-024: `wasActive` was dropped — slot accounting is now id-keyed and idempotent
+  // `wasActive` was dropped — slot accounting is now id-keyed and idempotent
   // (releaseSlot), so the caller no longer needs a was-it-active flag to decide the decrement.
   task.state.status = transitionBackgroundTaskStatus(task.state.status, 'CANCEL');
   task.state.error = {
@@ -106,13 +106,13 @@ export function markBackgroundTaskCancelled(
   return { task: cloneBackgroundTaskState(task.state) };
 }
 
-/** SELFHOST-012: non-destructive pause — `paused` is non-terminal; the schedule stops firing but is kept. */
+/** Non-destructive pause — `paused` is non-terminal; the schedule stops firing but is kept. */
 export function markBackgroundTaskPaused(
   task: ITrackedBackgroundTask,
   now: string,
 ): IBackgroundTaskState {
   task.state.status = transitionBackgroundTaskStatus(task.state.status, 'PAUSE');
-  // #2079: `nextFireAt` is scheduled-only on the discriminated state; pause is only ever called on
+  // `nextFireAt` is scheduled-only on the discriminated state; pause is only ever called on
   // a scheduled task (the manager's `requireScheduledTask` guard), but the kind check here is what
   // lets TypeScript narrow `task.state` to write it.
   if (task.state.kind === 'scheduled') task.state.nextFireAt = undefined; // no pending fire while paused
@@ -120,7 +120,7 @@ export function markBackgroundTaskPaused(
   return cloneBackgroundTaskState(task.state);
 }
 
-/** SELFHOST-012: resume a paused schedule back to `sleeping`; the runner's re-emitted sleeping sets nextFireAt. */
+/** Resume a paused schedule back to `sleeping`; the runner's re-emitted sleeping sets nextFireAt. */
 export function markBackgroundTaskResumed(
   task: ITrackedBackgroundTask,
   now: string,
@@ -152,14 +152,14 @@ export function applyBackgroundTaskRunnerStateEvent(
     if (task.state.status !== 'sleeping') {
       task.state.status = transitionBackgroundTaskStatus(task.state.status, 'SLEEP');
     }
-    // #2079: `nextFireAt` is scheduled-only on the discriminated state — `background_task_sleeping`
+    // `nextFireAt` is scheduled-only on the discriminated state — `background_task_sleeping`
     // is only emitted by the scheduled runner, but the kind check is what lets TypeScript narrow.
     if (task.state.kind === 'scheduled') task.state.nextFireAt = event.nextFireAt;
     task.state.updatedAt = now;
     return cloneBackgroundTaskState(task.state);
   }
   if (event.type === 'background_task_waking') {
-    // A scheduled task wakes from 'sleeping' → 'running'. A monitor (FLOW-004, `process`-kind) is
+    // A scheduled task wakes from 'sleeping' → 'running'. A monitor (`process`-kind) is
     // already 'running' and fires wakes on output matches without changing status — keep it as-is.
     if (task.state.status === 'sleeping') {
       task.state.status = transitionBackgroundTaskStatus(task.state.status, 'WAKE');

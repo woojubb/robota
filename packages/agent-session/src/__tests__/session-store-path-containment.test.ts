@@ -1,7 +1,7 @@
 /**
- * Issue #2240 — a session id cannot address a file outside the store, on any of the three sinks.
+ * A session id cannot address a file outside the store, on any of the three sinks.
  *
- * SEC-006 put the id validation at ONE point (`filePath`) so `save`, `load` and `delete` are covered
+ * The id validation sits at ONE point (`filePath`) so `save`, `load` and `delete` are covered
  * by construction. These cases drive each public sink with a traversal-shaped id and assert the same
  * refusal, so the single point of validation stays the single point: a future refactor that gives
  * one sink its own path building would fail here, not in a code-scanning alert.
@@ -43,7 +43,7 @@ function record(id: string): IInteractiveSessionRecord {
 /** The shapes an attacker reaches for: a parent hop, a nested path, a Windows separator, dot-only. */
 const TRAVERSAL_IDS = ['../escape', '..', '.', 'a/b', 'a\\b', '../../etc/passwd', 'x/../../y'];
 
-describe('NodeSessionStore refuses ids that would leave the store (issue #2240)', () => {
+describe('NodeSessionStore refuses ids that would leave the store', () => {
   it('load refuses every traversal shape before touching the filesystem', () => {
     const { store } = newStore();
     for (const id of TRAVERSAL_IDS) {

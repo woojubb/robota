@@ -29,11 +29,11 @@
   },
   "devDependencies": {
     "@electron/asar": "^3.4.1",
-    "@robota-sdk/agent-framework": "npm:@robota-sdk/agent-framework@3.2.1",
+    "@robota-sdk/agent-framework": "npm:@robota-sdk/agent-framework@3.2.3",
     "@robota-sdk/agent-gui-web": "workspace:^",
     "@robota-sdk/agent-keyring": "npm:@robota-sdk/agent-keyring@3.2.1",
-    "@robota-sdk/agent-session": "npm:@robota-sdk/agent-session@3.2.1",
-    "@robota-sdk/agent-ui-web": "npm:@robota-sdk/agent-ui-web@3.2.1",
+    "@robota-sdk/agent-session": "npm:@robota-sdk/agent-session@3.2.3",
+    "@robota-sdk/agent-ui-web": "npm:@robota-sdk/agent-ui-web@3.3.1",
     "@types/ws": "^8.18.1",
     "electron": "^43.5.0",
     "electron-builder": "26.15.7",
@@ -44,7 +44,7 @@
   "dependencies": {
     "@robota-sdk/agent-cli": "workspace:^",
     "@robota-sdk/agent-local-host": "workspace:^",
-    "@robota-sdk/agent-transport": "npm:@robota-sdk/agent-transport@3.2.1",
+    "@robota-sdk/agent-transport": "npm:@robota-sdk/agent-transport@3.3.1",
     "@robota-sdk/product-config": "npm:@robota-sdk/product-config@3.2.1",
     "ws": "^8.21.1"
   },

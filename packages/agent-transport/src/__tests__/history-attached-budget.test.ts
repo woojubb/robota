@@ -11,7 +11,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { createConnection, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -158,6 +158,17 @@ function connect(path: string): Promise<IClient> {
   });
 }
 
+/**
+ * A local IPC endpoint for the directory: a Unix socket inside it, or on Windows a named pipe
+ * (Windows `listen` accepts only a pipe name, never a filesystem path, and refuses a path with
+ * EACCES). The directory name is unique, so the pipe name is too.
+ */
+function ipcEndpoint(directory: string): string {
+  return process.platform === 'win32'
+    ? `\\\\.\\pipe\\${basename(directory)}`
+    : join(directory, 's.sock');
+}
+
 function isHistory(frame: TServerMessage): frame is Extract<TServerMessage, { type: 'history' }> {
   return frame.type === 'history';
 }
@@ -176,7 +187,7 @@ describe('a history larger than the attached-surface budget', () => {
     const session = emittingSession(history);
     const cuts: Error[] = [];
     dir = mkdtempSync(join(tmpdir(), 'rh-'));
-    const path = join(dir, 's.sock');
+    const path = ipcEndpoint(dir);
     server = createServer((socket) => serve(session, socket, (error) => cuts.push(error)));
     await new Promise<void>((done) => server!.listen(path, done));
     const client = await connect(path);

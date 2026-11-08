@@ -10,6 +10,7 @@ import { applyDoctorRepair, planDoctorRepair } from '../doctor-repair.js';
 import { runDoctor } from '../doctor-runner.js';
 import {
   MARKERS,
+  PLATFORM_ASSERTS_MODES,
   createDoctorFixture,
   fixtureProviderDefinition,
   installBrokenHome,
@@ -44,7 +45,7 @@ const CLEAN_SETTINGS = {
   },
 };
 
-describe('runDoctor (OBSERVABILITY-1991)', () => {
+describe('runDoctor', () => {
   it('uses neutral provider and trust guidance unless the host supplies its own commands', async () => {
     const f = fixture({ env: {} });
     const neutral = await runDoctor(f.inputs, f.deps);
@@ -115,7 +116,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(output).not.toContain('PreToolUse/prompt');
   });
 
-  it('TC-05/TC-02: names every failing path and cause in the broken HOME and exits 1', async () => {
+  it('names every failing path and cause in the broken HOME and exits 1', async () => {
     const f = fixture({ env: { FIXTURE_DOCTOR_MARKER: MARKERS.env } });
     installBrokenHome(f);
     const report = await runDoctor(f.inputs, f.deps);
@@ -150,13 +151,13 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(byId(report, 'mcp.activation').status).toBe('not-configured');
     expect(byId(report, 'mcp.connection').status).toBe('not-probed');
     expect(byId(report, 'hooks.execution').status).toBe('not-probed');
-    expect(byId(report, 'storage.user').status).toBe('ok');
+    expect(byId(report, 'storage.user').status).toBe(PLATFORM_ASSERTS_MODES ? 'ok' : 'not-probed');
     expect(byId(report, 'storage.project').status).toBe('not-configured');
     expect(byId(report, 'workspace.trust').status).toBe('warn');
     expect(report.repairable).toEqual(['settings.user.fixture-product']);
   });
 
-  it('TC-03: no rendered line carries a marker secret from any input', async () => {
+  it('no rendered line carries a marker secret from any input', async () => {
     const f = fixture({ env: { FIXTURE_DOCTOR_MARKER: MARKERS.env } });
     installBrokenHome(f);
     // Overwrite the schema-invalid layer with a syntax error beside a secret (the parser-snippet case).
@@ -167,7 +168,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(byId(report, 'settings.user.claude').cause).toContain('invalid-json');
   });
 
-  it('TC-03: masks the resolved credential and inactive-profile literals in a clean configuration', async () => {
+  it('masks the resolved credential and inactive-profile literals in a clean configuration', async () => {
     const f = fixture({ env: { FIXTURE_DOCTOR_MARKER: MARKERS.env } });
     f.mkdir('.fixture-product');
     f.mkdir('.fixture-product/sessions');
@@ -180,7 +181,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(byId(report, 'provider.resolution').cause).toContain('fixture (fixture-model)');
   });
 
-  it('TC-03: a parse error in a settings layer never renders the file excerpt around the fault', async () => {
+  it('a parse error in a settings layer never renders the file excerpt around the fault', async () => {
     const f = fixture({ env: {} });
     f.mkdir('.fixture-product');
     f.mkdir('.fixture-product/sessions');
@@ -215,7 +216,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     });
   });
 
-  it('TC-04: derives the reachability host from profile baseURL, then defaults.baseURL, then endpoint', async () => {
+  it('derives the reachability host from profile baseURL, then defaults.baseURL, then endpoint', async () => {
     const profile = fixture({ env: {} });
     profile.write(
       '.fixture-product/settings.json',
@@ -276,7 +277,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(byId(noneReport, 'provider.reachability')).toMatchObject({ status: 'warn' });
   });
 
-  it('TC-04: an unreachable host is warn, not fail, so an offline doctor still exits 0', async () => {
+  it('an unreachable host is warn, not fail, so an offline doctor still exits 0', async () => {
     const f = fixture({ env: {}, reachable: false });
     f.mkdir('.fixture-product');
     f.mkdir('.fixture-product/sessions');
@@ -292,7 +293,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(report.exitCode).toBe(0);
   });
 
-  it('TC-05: a missing user storage root is warn and repairable; non-posix mode is not-probed', async () => {
+  it('a missing user storage root is warn and repairable; non-posix mode is not-probed', async () => {
     const missing = fixture({ env: {} });
     const report = await runDoctor(missing.inputs, missing.deps);
     expect(byId(report, 'storage.user')).toMatchObject({ status: 'warn', repair: 'storage.user' });
@@ -304,15 +305,22 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(byId(await runDoctor(win.inputs, win.deps), 'storage.user').status).toBe('not-probed');
   });
 
-  it('TC-05: a too-open storage directory is warn and repairable', async () => {
-    const f = fixture({ env: {} });
-    f.mkdir('.fixture-product', 0o755);
-    f.mkdir('.fixture-product/sessions', 0o755);
-    const report = await runDoctor(f.inputs, f.deps);
-    expect(byId(report, 'storage.user')).toMatchObject({ status: 'warn', repair: 'storage.user' });
-  });
+  // Only a platform that asserts mode bits can see a directory as too open.
+  it.skipIf(!PLATFORM_ASSERTS_MODES)(
+    'a too-open storage directory is warn and repairable',
+    async () => {
+      const f = fixture({ env: {} });
+      f.mkdir('.fixture-product', 0o755);
+      f.mkdir('.fixture-product/sessions', 0o755);
+      const report = await runDoctor(f.inputs, f.deps);
+      expect(byId(report, 'storage.user')).toMatchObject({
+        status: 'warn',
+        repair: 'storage.user',
+      });
+    },
+  );
 
-  it('TC-07: repair rewrites only an empty user settings file, re-reads before writing, and is idempotent', async () => {
+  it('repair rewrites only an empty user settings file, re-reads before writing, and is idempotent', async () => {
     const f = fixture({ env: {} });
     installBrokenHome(f);
     const path = join(f.home, '.fixture-product', 'settings.json');
@@ -364,18 +372,22 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(again).toMatchObject({ applied: false });
   });
 
-  it('TC-07: storage repair creates owner-only directories and is refused once clean', async () => {
+  it('storage repair creates owner-only directories and is refused once clean', async () => {
     const f = fixture({ env: {} });
     const applied = await applyDoctorRepair('storage.user', f.inputs, f.deps, async () => true);
     expect(applied.applied).toBe(true);
-    expect(statSync(join(f.home, '.fixture-product', 'sessions')).mode & 0o077).toBe(0);
-    expect(byId(await runDoctor(f.inputs, f.deps), 'storage.user').status).toBe('ok');
+    if (PLATFORM_ASSERTS_MODES) {
+      expect(statSync(join(f.home, '.fixture-product', 'sessions')).mode & 0o077).toBe(0);
+    }
+    expect(byId(await runDoctor(f.inputs, f.deps), 'storage.user').status).toBe(
+      PLATFORM_ASSERTS_MODES ? 'ok' : 'not-probed',
+    );
     expect(
       await applyDoctorRepair('storage.user', f.inputs, f.deps, async () => true),
     ).toMatchObject({ applied: false });
   });
 
-  it('TC-07: a repair writes through the host-supplied writers, never through a writer of the package', async () => {
+  it('a repair writes through the host-supplied writers, never through a writer of the package', async () => {
     const f = fixture({ env: {} });
     installBrokenHome(f);
     const path = join(f.home, '.fixture-product', 'settings.json');
@@ -403,7 +415,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(existsSync(join(f.home, '.fixture-product', 'sessions'))).toBe(false);
   });
 
-  it('TC-05 (skills): a skill definition session discovery throws on is a fail check, not a warning', async () => {
+  it('skills: a skill definition session discovery throws on is a fail check, not a warning', async () => {
     const f = fixture({ env: {} });
     f.mkdir('.fixture-product');
     f.mkdir('.fixture-product/sessions');
@@ -414,22 +426,20 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     );
     f.write('.fixture-product/skills/no-frontmatter/SKILL.md', 'just text\n');
     const report = await runDoctor(f.inputs, f.deps);
-    expect(
-      byId(report, `skill.${join('.fixture-product', 'skills', 'bad-effort', 'SKILL.md')}`),
-    ).toMatchObject({
+    // A check id names the file the way every host does, with `/` on every platform.
+    expect(byId(report, 'skill..fixture-product/skills/bad-effort/SKILL.md')).toMatchObject({
       status: 'fail',
       cause: 'frontmatter-invalid',
       detail: [expect.stringContaining('effort: expected one of')],
     });
     expect(JSON.stringify(report)).not.toContain('received "extreme"');
-    expect(
-      byId(report, `skill.${join('.fixture-product', 'skills', 'no-frontmatter', 'SKILL.md')}`)
-        .status,
-    ).toBe('warn');
+    expect(byId(report, 'skill..fixture-product/skills/no-frontmatter/SKILL.md').status).toBe(
+      'warn',
+    );
     expect(report.exitCode).toBe(1);
   });
 
-  it('TC-05 (workspace.trust): a trust service that swallowed an error is a fail check naming the cause', async () => {
+  it('workspace.trust: a trust service that swallowed an error is a fail check naming the cause', async () => {
     const f = fixture({ env: {} });
     const report = await runDoctor(
       {
@@ -452,7 +462,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(untrusted).toMatchObject({ status: 'warn', cause: 'untrusted' });
   });
 
-  it('TC-05: reports the quarantined provider endpoint without printing either credential', async () => {
+  it('reports the quarantined provider endpoint without printing either credential', async () => {
     const f = fixture({ env: {} });
     f.mkdir('.fixture-product');
     f.mkdir('.fixture-product/sessions');

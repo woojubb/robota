@@ -1,5 +1,5 @@
 /**
- * Sealed session records at the edges of what a store may conclude (#3679, secure conversation).
+ * Sealed session records at the edges of what a store may conclude (secure conversation).
  *
  * A file the same OS user can write may hold ciphertext but is never a trust anchor, so each case
  * here asks one question a store must answer without guessing: what it remembers and when, what it
@@ -47,7 +47,7 @@ function record(id: string, text = CANARY): IInteractiveSessionRecord {
 }
 
 /**
- * A valid outcome as a store that seals reports it (#3679 step 3e): it says whose the record is and
+ * A valid outcome as a store that seals reports it: it says whose the record is and
  * which stored bytes it came from. Saves here state no provenance, so the records are unverified.
  */
 function sealedValid(value: IInteractiveSessionRecord, authorship = 'unverified') {

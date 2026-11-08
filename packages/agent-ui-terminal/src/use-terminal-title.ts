@@ -6,7 +6,7 @@ import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 /**
  * Set the terminal's window title from the session name.
  *
- * Split out of `App.tsx` under SEC-019 (issue #2022) by responsibility: this is the one place the TUI
+ * Split out of `App.tsx` by responsibility: this is the one place the TUI
  * writes an escape sequence to stdout directly rather than through Ink, which makes it the one place
  * where a value is interpolated INTO terminal syntax rather than rendered as content. Keeping it
  * inside a 600-line component is what let it sit unexamined next to code that never touches an

@@ -1,5 +1,5 @@
 /**
- * A session that logs before its first save, with keys that are locked (#3679, secure conversation).
+ * A session that logs before its first save, with keys that are locked (secure conversation).
  *
  * `Session` writes `session_init` to the replay log before the first persist. With a sealing log sink
  * that line is sealed, and the first persist reads the store to keep the members of a record it does
@@ -7,7 +7,7 @@
  * not a record to protect: the save writes the snapshot beside the log and destroys nothing. It used
  * to be refused, on every turn, as "not overwritten".
  *
- * ARCH-047: a project write needs the Linux stable-root host, so these cases are Linux-only like the
+ * A project write needs the Linux stable-root host, so these cases are Linux-only like the
  * rest of the project store's tests.
  */
 import { existsSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync } from 'node:fs';

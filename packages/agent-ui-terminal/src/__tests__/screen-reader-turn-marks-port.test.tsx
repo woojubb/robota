@@ -1,5 +1,5 @@
 /**
- * SCREEN-2670 TC-07 — the OSC 133 turn marks travel through the owned write path.
+ * The OSC 133 turn marks travel through the owned write path.
  *
  * The marks are positional: the terminal records the line they arrive on. Written to
  * `process.stdout` directly they would land between a parked batch and its release, on the wrong
@@ -40,7 +40,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe('TC-07: the turn marks go through the port, ordered with the turn they belong to', () => {
+describe('the turn marks go through the port, ordered with the turn they belong to', () => {
   it('emits prompt-start on mount and the B/C pair when a turn starts, all through the port', () => {
     const { rerender } = render(
       <ScreenReaderPacingProvider port={port}>

@@ -1,5 +1,5 @@
 /**
- * TEST-007 / TERM-002 fixture: real-terminal handoff under a PTY.
+ * Fixture: real-terminal handoff under a PTY.
  *
  * Renders a real Ink app that takes raw mode (useInput) BELOW a suspend gate — exactly like the real
  * App — and uses the real `TerminalHandoffController` + `useTerminalHandoffSuspension`. It performs an
@@ -18,6 +18,7 @@ import React from 'react';
 
 import { useTerminalHandoffSuspension } from '../../hooks/useTerminalHandoffSuspension.js';
 import { TerminalHandoffController } from '../../terminal-handoff-controller.js';
+import { readOneLineScript } from './read-one-line-script.js';
 
 const OUTPUT_PATH = process.argv[2];
 const controller = new TerminalHandoffController();
@@ -59,7 +60,7 @@ async function main(): Promise<void> {
   const exitCode = await controller.runWithTerminal(async () => {
     marker('HANDOFF_STARTED');
     return await new Promise<number>((resolve) => {
-      const child = spawn('sh', ['-c', 'IFS= read -r line; printf "CHILD_GOT:[%s]\\n" "$line"'], {
+      const child = spawn(process.execPath, ['-e', readOneLineScript('CHILD_GOT')], {
         stdio: 'inherit',
       });
       child.on('exit', (code) => resolve(code ?? 0));

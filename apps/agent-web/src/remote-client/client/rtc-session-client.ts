@@ -1,0 +1,459 @@
+import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
+/**
+ * Browser data-channel session client. The browser is the WebRTC ANSWERER: it joins the
+ * relay by rendezvous, answers the host's offer over a native `RTCPeerConnection`, runs the pairing handshake
+ * as RESPONDER over the data channel ({@link ResponderGate}), and — only after pairing accepts — exchanges
+ * `TServerMessage`/`TClientMessage`s with the host session.
+ *
+ * It exposes the SAME `{ onMessage, onStatusChange, send }` contract as `createWsSessionClient`, so the existing
+ * `useWsSession` reducer + `SessionMonitor` consume it unchanged — the single swap is WebSocket → data channel.
+ * The channel-binding fingerprints come from the SDP: the HOST (remote) fp from the received offer, the LOCAL fp
+ * from our own answer (`extractDtlsFingerprint`) — matching the Node responder oracle in
+ * `agent-transport-webrtc/src/__tests__/pairing-e2e.test.ts`.
+ */
+
+import {
+  deriveIdentityId,
+  deriveReconnectRendezvous,
+  deriveReconnectSeed,
+  exportPublicKey,
+  extractDtlsFingerprint,
+  generateIdentityKeyPair,
+  importPublicKey,
+} from '@robota-sdk/agent-remote-pairing';
+
+import { ResponderGate, type IDeviceIdentityConfig } from './rtc-responder-gate';
+import { createRtcSignalingClient, type ISignalingClient } from './rtc-signaling';
+
+import type { IDeviceCredentialStore } from './device-credential-store';
+import type { startDeviceReconnect, startPairingHandshake } from '@robota-sdk/agent-remote-pairing';
+import type { TServerMessage, TClientMessage } from '@robota-sdk/agent-transport';
+
+/**
+ * Connection lifecycle for the RTC client (superset of the WS client's statuses). After this side's
+ * pairing accepts, the host's operator still decides whether to admit the connection:
+ * `awaiting-approval` until the host's session answers, `refused` when the host closes the channel
+ * instead.
+ */
+export type TRtcConnectionStatus =
+  | 'disconnected'
+  | 'connecting'
+  | 'pairing'
+  | 'awaiting-approval'
+  | 'connected'
+  | 'refused'
+  | 'failed';
+
+export interface IRtcSessionClientCallbacks {
+  onMessage: (msg: TServerMessage) => void;
+  onStatusChange: (status: TRtcConnectionStatus) => void;
+}
+
+export interface IRtcSessionClient {
+  connect: () => void;
+  disconnect: () => void;
+  send: (msg: TClientMessage) => void;
+  status: () => TRtcConnectionStatus;
+}
+
+export interface IRtcSessionClientOptions {
+  readonly cryptoContext: IIdentityContext;
+  /** Relay URL (from config / the page). */
+  readonly relayUrl: string;
+  /** Rendezvous id + high-entropy secret from the pairing URL fragment. */
+  readonly rendezvous: string;
+  readonly secret: string;
+  /** Optional ICE servers (STUN/TURN); omitted → host candidates only. */
+  readonly iceServers?: RTCIceServer[];
+  /** Restrict ICE to relay candidates (`iceTransportPolicy: 'relay'`); requires a TURN server. */
+  readonly forceTurn?: boolean;
+  /** Browser credential store. When set, first-pair ENROLLS this device (pins the host key +
+   *  advertises the device key) so a later reconnect can skip re-pairing. Absent → first-pair-only
+   * behavior. */
+  readonly deviceCredentials?: IDeviceCredentialStore;
+  /** Per-room wait during a reconnect probe (default 4s); tests inject a small value. */
+  readonly reconnectRoomWaitMs?: number;
+  /** Waits out a reconnect room (default: a timer); tests inject one they release themselves. */
+  readonly sleep?: (ms: number) => Promise<void>;
+  /** Injection seams (default to the real implementations) — for tests. */
+  readonly createSignaling?: typeof createRtcSignalingClient;
+  readonly createPeer?: (config?: RTCConfiguration) => RTCPeerConnection;
+  readonly startHandshake?: typeof startPairingHandshake;
+  readonly startReconnect?: typeof startDeviceReconnect;
+  readonly generateDeviceKeyPair?: () => Promise<CryptoKeyPair>;
+}
+
+/** Stable origin for the credential-store key (falls back to the raw url if it does not parse). */
+function originOf(relayUrl: string): string {
+  try {
+    return new URL(relayUrl).origin;
+  } catch {
+    return relayUrl;
+  }
+}
+
+export function createRtcSessionClient(
+  options: IRtcSessionClientOptions,
+  callbacks: IRtcSessionClientCallbacks,
+): IRtcSessionClient {
+  let signaling: ISignalingClient | null = null;
+  let peer: RTCPeerConnection | null = null;
+  let gate: ResponderGate | null = null;
+  let localFingerprint: string | undefined;
+  let remoteFingerprint: string | undefined;
+  let status: TRtcConnectionStatus = 'disconnected';
+  let currentChannel: RTCDataChannel | null = null;
+
+  const setStatus = (s: TRtcConnectionStatus): void => {
+    status = s;
+    callbacks.onStatusChange(s);
+  };
+
+  const fail = (): void => {
+    if (status !== 'failed') setStatus('failed');
+  };
+
+  // Resume state.
+  let lastSeq = 0; // highest applied server seq — sent as `resume{lastSeq}` on reconnect
+  let everConnected = false; // a drop is only reconnectable after a first successful connect
+  let reconnecting = false;
+  let reconnectAttempts = 0;
+  /**
+   * Which reconnect loop is the live one. A loop that was succeeded — its connection accepted and
+   * then dropped again, starting another — may still be asleep in a room wait; on waking it must
+   * stop, not tear down the peer the newer loop is using.
+   */
+  let reconnectGeneration = 0;
+  const sleep =
+    options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  let reconnectCtx: {
+    relayOrigin: string;
+    hostIdentityId: string;
+    seed: string;
+    deviceKeyPair: CryptoKeyPair;
+    deviceId: string;
+    pinnedHostPublicKey: CryptoKey;
+  } | null = null;
+  const ACK_EVERY = 16; // ack roughly every N applied messages (frees the host buffer)
+  const MAX_RECONNECT_ATTEMPTS = 8; // bounded backoff ceiling → surface `failed`
+  /**
+   * When set, `wireDataChannel` builds a RECONNECT-mode gate (device reconnect) instead of
+   * first-pair.
+   */
+  let activeReconnectIdentity: IDeviceIdentityConfig | null = null;
+  /** The counter of the room the current reconnect attempt is using (for resync-on-success). */
+  let activeReconnectCounter = 0;
+
+  /**
+   * Intercept server messages to (i) drop duplicates by `seq` (idempotent apply on resume),
+   * (ii) advance `lastSeq` + periodically `ack`, and (iii) turn a `resume_gap` into a full `get-messages` refresh.
+   */
+  const onServerMessage = (msg: TServerMessage & { seq?: number }): void => {
+    // The host sends nothing on an accepted channel until its operator admits it, so its first
+    // session frame — the answer to our opening request — is the admission.
+    if (status === 'awaiting-approval') {
+      everConnected = true;
+      // Only an admitted connection restores the reconnect budget: one that keeps dropping before
+      // the host answers would otherwise ask the operator again and again.
+      reconnectAttempts = 0;
+      setStatus('connected');
+    }
+    if (msg.type === 'resume_gap') {
+      lastSeq = 0;
+      gate?.send({ type: 'get-messages' });
+      return;
+    }
+    if (typeof msg.seq === 'number') {
+      if (msg.seq <= lastSeq) return; // already applied → drop (dedup)
+      lastSeq = msg.seq;
+      if (lastSeq % ACK_EVERY === 0) gate?.send({ type: 'ack', seq: lastSeq });
+    }
+    callbacks.onMessage(msg);
+  };
+
+  /**
+   * Build the device-identity config for first-pair enrollment — a fresh device keypair whose
+   * public key is advertised to the host, and an `onEnrollHost` that pins the host's key + persists the
+   * credential (keyed by relay origin + host identity). Reconnect INITIATION (reusing a stored credential) is
+   * elsewhere; this only enrolls. Returns undefined when no credential store is configured.
+   */
+  async function buildDeviceIdentity(): Promise<IDeviceIdentityConfig | undefined> {
+    const store = options.deviceCredentials;
+    if (!store) return undefined;
+    const deviceKeyPair = await (
+      options.generateDeviceKeyPair ?? (() => generateIdentityKeyPair(false))
+    )();
+    const devicePublicSpki = await exportPublicKey(deviceKeyPair.publicKey);
+    const relayOrigin = originOf(options.relayUrl);
+    return {
+      deviceKeyPair,
+      deviceId: await deriveIdentityId(devicePublicSpki),
+      devicePublicSpki,
+      onEnrollHost: (hostPublicSpki: string, sessionKey?: string) => {
+        void (async (): Promise<void> => {
+          const hostIdentityId = await deriveIdentityId(hostPublicSpki);
+          // Derive + persist the reconnect seed (from the pairing sessionKey) + counter 0, so a
+          // future drop can rediscover the host at the rotating rendezvous and resume without re-pairing.
+          const reconnectSeed = sessionKey ? await deriveReconnectSeed(options.cryptoContext, sessionKey) : undefined;
+          await store.save(relayOrigin, hostIdentityId, {
+            deviceKeyPair,
+            hostPublicSpki,
+            ...(reconnectSeed ? { reconnectSeed, reconnectCounter: 0 } : {}),
+          });
+          // Capture what a WARM reconnect (same page session) needs to rediscover + re-authenticate the host.
+          if (reconnectSeed) {
+            reconnectCtx = {
+              relayOrigin,
+              hostIdentityId,
+              seed: reconnectSeed,
+              deviceKeyPair,
+              deviceId: await deriveIdentityId(devicePublicSpki),
+              pinnedHostPublicKey: await importPublicKey(hostPublicSpki),
+            };
+          }
+        })();
+      },
+    };
+  }
+
+  function makeGate(
+    channel: RTCDataChannel,
+    deviceIdentity?: IDeviceIdentityConfig,
+  ): ResponderGate {
+    return new ResponderGate({
+      cryptoContext: options.cryptoContext,
+      channel: { send: (d) => channel.send(d), close: () => channel.close() },
+      secret: options.secret,
+      localFingerprint: localFingerprint as string,
+      remoteFingerprint: remoteFingerprint as string,
+      onMessage: onServerMessage,
+      onAccept: () => {
+        // Our side accepted; the host operator has yet to admit this connection.
+        setStatus('awaiting-approval');
+        reconnecting = false;
+        // On a RECONNECT, resume the tail after the last applied seq + advance the counter
+        // (resync-on-success = used-room + 1); on a fresh connect, ask for full history (mirrors the WS client).
+        if (deviceIdentity?.reconnect) {
+          gate?.send({ type: 'resume', lastSeq });
+          // A resume with nothing to replay is not answered; this is, so admission is seen either way.
+          gate?.send({ type: 'get-executing' });
+          activeReconnectIdentity = null;
+          void persistCounter(activeReconnectCounter + 1);
+        } else {
+          gate?.send({ type: 'get-messages' });
+        }
+      },
+      onReject: fail,
+      ...(deviceIdentity ? { deviceIdentity } : {}),
+      ...(options.startHandshake ? { startHandshake: options.startHandshake } : {}),
+      ...(options.startReconnect ? { startReconnect: options.startReconnect } : {}),
+    });
+  }
+
+  function wireDataChannel(channel: RTCDataChannel): void {
+    if (!remoteFingerprint || !localFingerprint) {
+      // Fingerprints must be known before the channel opens (post-answer). If not, fail closed.
+      fail();
+      try {
+        channel.close();
+      } catch {
+        /* noop */
+      }
+      return;
+    }
+    setStatus('pairing');
+    // The host closes the channel when its operator refuses the connection (or cannot be asked).
+    // Only this connection's channel speaks for it: a torn-down one may close late.
+    currentChannel = channel;
+    channel.onclose = (): void => {
+      if (channel === currentChannel && status === 'awaiting-approval') setStatus('refused');
+    };
+
+    // Reconnect: the device identity is already captured (`activeReconnectIdentity`), so build the
+    // gate synchronously in RECONNECT mode — on accept it verifies the host + sends `resume{lastSeq}`.
+    if (activeReconnectIdentity) {
+      gate = makeGate(channel, activeReconnectIdentity);
+      channel.onmessage = (event: MessageEvent): void => {
+        const data = event.data;
+        gate?.onInbound(typeof data === 'string' ? data : String(data));
+      };
+      return;
+    }
+
+    if (!options.deviceCredentials) {
+      // First-pair-only path — synchronous.
+      gate = makeGate(channel);
+      channel.onmessage = (event: MessageEvent): void => {
+        const data = event.data;
+        gate?.onInbound(typeof data === 'string' ? data : String(data));
+      };
+      return;
+    }
+
+    // Device-identity path — the device keypair is async, so buffer inbound frames until the gate
+    // exists (data channels do
+    // not buffer pre-subscription, and the enrollment build is a microtask or two).
+    const buffered: string[] = [];
+    channel.onmessage = (event: MessageEvent): void => {
+      const data = typeof event.data === 'string' ? event.data : String(event.data);
+      if (gate) gate.onInbound(data);
+      else buffered.push(data);
+    };
+    void (async (): Promise<void> => {
+      const deviceIdentity = await buildDeviceIdentity();
+      gate = makeGate(channel, deviceIdentity);
+      for (const data of buffered) gate.onInbound(data);
+    })();
+  }
+
+  async function handleOffer(offer: RTCSessionDescriptionInit): Promise<void> {
+    if (!peer) return;
+    remoteFingerprint = extractDtlsFingerprint(offer.sdp ?? '');
+    await peer.setRemoteDescription(offer);
+    const answer = await peer.createAnswer();
+    await peer.setLocalDescription(answer);
+    localFingerprint = extractDtlsFingerprint(peer.localDescription?.sdp ?? answer.sdp ?? '');
+    signaling?.send({ kind: 'answer', data: peer.localDescription ?? answer });
+  }
+
+  /** Tear down the current peer + signaling (keeping the resume state) — used before a reconnect attempt. */
+  function teardownPeer(): void {
+    gate?.close();
+    gate = null;
+    try {
+      peer?.close();
+    } catch {
+      /* noop */
+    }
+    peer = null;
+    signaling?.close();
+    signaling = null;
+  }
+
+  /** Persist the advanced reconnect counter (resync-on-success). Best-effort. */
+  async function persistCounter(counter: number): Promise<void> {
+    const store = options.deviceCredentials;
+    if (!store || !reconnectCtx) return;
+    const cred = await store.get(reconnectCtx.relayOrigin, reconnectCtx.hostIdentityId);
+    if (cred)
+      await store.save(reconnectCtx.relayOrigin, reconnectCtx.hostIdentityId, {
+        ...cred,
+        reconnectCounter: counter,
+      });
+  }
+
+  /** Open a peer + signaling at `rendezvous`. A drop after a successful connect triggers the reconnect loop. */
+  function connectAt(rendezvous: string): void {
+    setStatus(reconnecting ? 'pairing' : 'connecting');
+    const createPeer = options.createPeer ?? ((c) => new RTCPeerConnection(c));
+    const peerConfig: RTCConfiguration = {};
+    if (options.iceServers) peerConfig.iceServers = options.iceServers;
+    if (options.forceTurn) peerConfig.iceTransportPolicy = 'relay'; // browser equivalent of the host's forceTurn
+    const p = createPeer(Object.keys(peerConfig).length > 0 ? peerConfig : undefined);
+    peer = p;
+    p.onicecandidate = (event): void => {
+      if (event.candidate) signaling?.send({ kind: 'ice', data: event.candidate.toJSON() });
+    };
+    p.ondatachannel = (event): void => wireDataChannel(event.channel);
+    // A connection drop AFTER a first successful connect, with a stored credential, self-heals via reconnect.
+    p.onconnectionstatechange = (): void => {
+      const s = p.connectionState;
+      const dropped = s === 'failed' || s === 'disconnected' || s === 'closed';
+      // A refusal is not a drop to recover from: reconnecting would only ask the operator again.
+      if (status === 'refused') return;
+      // A first connection lost before the host admitted it has nothing to resume.
+      if ((s === 'failed' || s === 'closed') && status === 'awaiting-approval' && !everConnected) {
+        fail();
+        return;
+      }
+      if (dropped && everConnected && reconnectCtx && !reconnecting) {
+        void startReconnect();
+      }
+    };
+
+    signaling = (options.createSignaling ?? createRtcSignalingClient)({
+      url: options.relayUrl,
+      rendezvous,
+      onError: reconnecting ? () => undefined : fail, // during reconnect, a room miss is not fatal (loop retries)
+    });
+    let chain: Promise<void> = Promise.resolve();
+    // One offer per connection: a later offer would add fingerprints the DTLS layer would also accept.
+    let offerTaken = false;
+    signaling.onSignal((message) => {
+      chain = chain
+        .then(async () => {
+          if (message.kind === 'offer') {
+            if (offerTaken) return;
+            offerTaken = true;
+            await handleOffer(message.data as RTCSessionDescriptionInit);
+          } else if (message.kind === 'ice' && peer) {
+            await peer.addIceCandidate(message.data as RTCIceCandidateInit);
+          }
+        })
+        .catch(() => (reconnecting ? undefined : fail()));
+    });
+  }
+
+  /**
+   * Warm reconnect loop: on a drop, probe `rendezvous(counter)` then `rendezvous(counter+1)`
+   * (the 2-room window), reconnecting via the device reconnect and resuming. Bounded attempts →
+   * `failed`.
+   */
+  async function startReconnect(): Promise<void> {
+    if (!reconnectCtx || reconnecting) return;
+    const ctx = reconnectCtx;
+    reconnecting = true;
+    const generation = ++reconnectGeneration;
+    // Still this loop's turn: no accept ended it, and no newer loop or disconnect replaced it.
+    const live = (): boolean => reconnecting && generation === reconnectGeneration;
+    while (reconnectAttempts < MAX_RECONNECT_ATTEMPTS && live()) {
+      reconnectAttempts += 1;
+      const cred = await options.deviceCredentials?.get(ctx.relayOrigin, ctx.hostIdentityId);
+      const base = cred?.reconnectCounter ?? 0;
+      for (const counter of [base, base + 1]) {
+        if (!live()) return;
+        activeReconnectCounter = counter;
+        activeReconnectIdentity = {
+          deviceKeyPair: ctx.deviceKeyPair,
+          deviceId: ctx.deviceId,
+          devicePublicSpki: '', // unused on reconnect (no enrollment)
+          onEnrollHost: () => undefined,
+          reconnect: {
+            hostIdentityId: ctx.hostIdentityId,
+            pinnedHostPublicKey: ctx.pinnedHostPublicKey,
+          },
+        };
+        const rendezvous = await deriveReconnectRendezvous(options.cryptoContext, ctx.seed, counter);
+        if (!live()) return;
+        teardownPeer();
+        connectAt(rendezvous);
+        await sleep(options.reconnectRoomWaitMs ?? 4_000);
+        if (!live()) return; // accepted (onAccept cleared `reconnecting`), or replaced
+      }
+    }
+    if (!live()) return;
+    // Exhausted the window without a resume → surface failure (the operator re-pairs via QR).
+    reconnecting = false;
+    activeReconnectIdentity = null;
+    fail();
+  }
+
+  return {
+    connect(): void {
+      if (peer) return; // already connecting
+      activeReconnectIdentity = null;
+      connectAt(options.rendezvous);
+    },
+    disconnect(): void {
+      reconnecting = false;
+      reconnectGeneration += 1;
+      activeReconnectIdentity = null;
+      teardownPeer();
+      setStatus('disconnected');
+    },
+    send(msg: TClientMessage): void {
+      gate?.send(msg);
+    },
+    status: () => status,
+  };
+}

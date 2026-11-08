@@ -1,10 +1,10 @@
 /**
- * Authorship and claims in the PROJECT session store (#3679 step 3e). The user's directory store has
+ * Authorship and claims in the PROJECT session store. The user's directory store has
  * the full set in agent-session; the two share one records core, and these prove the project adapter
  * routes through it — in particular that a claimed id is answered before the store's own replay-log
  * fallback, since a log carries no authorship and anyone of the same user can write one.
  *
- * ARCH-047: a project write needs the Linux stable-root host, so the cases that write are Linux-only;
+ * A project write needs the Linux stable-root host, so the cases that write are Linux-only;
  * the read cases make their files by hand and run everywhere.
  */
 

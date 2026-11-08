@@ -28,8 +28,7 @@ graph TD
     TOOLS[agent-tools]
     PLUG[agent-plugin]
     MCP[agent-mcp<br/>MCP client]
-    PROV[agent-provider-anthropic / -openai / -openai-compatible /<br/>-gemini / -bytedance]
-    BIP[agent-builtin-providers]
+    PROV[agent-provider<br/>one subpath per vendor + builtin]
     SA[agent-session-analytics]
     OTEL[agent-telemetry-otel<br/>OTel span and metric projection]
   end
@@ -56,7 +55,7 @@ graph TD
 
   subgraph Presentation["Presentation"]
     TTUI[agent-ui-terminal<br/>React + Ink]
-    TGUI[agent-ui-web · agent-gui-web ·<br/>agent-transport-webrtc-web · private]
+    TGUI[agent-ui-web · agent-gui-web ·<br/>private]
   end
 
   subgraph Composition["Product composition"]
@@ -87,7 +86,6 @@ graph TD
   %% Building blocks
   CORE --> TOOLS & PLUG & MCP & PROV & SA
   PROC --> TOOLS
-  PROV --> BIP
   IFA & IFS --> SA
   IFA & CORE --> OTEL
 
@@ -126,7 +124,7 @@ graph TD
   CORE & FW --> WF
 
   %% Composition roots
-  FW & CMD & PROD & PACK & SUB & MCP & BIP & SA --> CLI
+  FW & CMD & PROD & PACK & SUB & MCP & PROV & SA --> CLI
   TTUI & TCAR & TWEBRTC & TGUI & WF --> CLI
   KR --> CLI
   TGUI --> APP

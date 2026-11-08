@@ -1,5 +1,5 @@
 /**
- * TUI-owned PTY harness (TEST-007; relocated internally by BOUNDARY-2655).
+ * TUI-owned PTY harness.
  *
  * One reusable pseudo-terminal driver for end-to-end tests. Spawns a process in a real PTY (via
  * the prebuilt `@homebridge/node-pty-prebuilt-multiarch`, so Ink renders and reads input exactly as
@@ -14,6 +14,7 @@
  * exact failure mode this harness exists to avoid.
  */
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 
 import { spawn } from '@homebridge/node-pty-prebuilt-multiarch';
 
@@ -28,7 +29,7 @@ const DEFAULT_PER_KEY_DELAY_MS = 35;
 const DEFAULT_WAIT_TIMEOUT_MS = 15_000;
 const DEFAULT_EXIT_TIMEOUT_MS = 10_000;
 const OUTPUT_TAIL_LENGTH = 2000;
-/** CORE-023: grace before escalating a lingering PTY child from SIGTERM to SIGKILL. */
+/** Grace before escalating a lingering PTY child from SIGTERM to SIGKILL. */
 const PTY_KILL_GRACE_MS = 2000;
 
 export interface IPtyRunOptions {
@@ -95,7 +96,7 @@ export function spawnPty(options: IPtyRunOptions): IPtyRunSession {
     cols: options.cols ?? 100,
     rows: options.rows ?? 32,
     cwd: options.cwd,
-    // HARNESS-025: the default HOME is a throwaway directory, never the developer's real one — a
+    // The default HOME is a throwaway directory, never the developer's real one — a
     // Configured state and HOME are both isolated so the run cannot depend on the developer profile.
     env: createPtyEnv(options.env ?? {}),
   });
@@ -176,7 +177,7 @@ export function spawnPty(options: IPtyRunOptions): IPtyRunSession {
       } catch {
         // allow-fallback: process already exited — kill on a dead pty is a no-op by design
       }
-      // CORE-023: mirror the killProcessTree escalation pattern — a child that ignores SIGTERM
+      // Mirror the killProcessTree escalation pattern — a child that ignores SIGTERM
       // is force-killed after the grace window. Keep this test-local lifecycle implementation
       // independent of @robota-sdk/agent-process.
       const graceTimer = setTimeout(() => {
@@ -204,8 +205,10 @@ export interface ISpawnFixtureOptions {
 
 let tsxEsmHookPath: string | undefined;
 function resolveTsxEsmHook(): string {
-  // Lazily resolved so built-CLI consumers (which never run a TSX fixture) don't require tsx.
-  tsxEsmHookPath ??= createRequire(import.meta.url).resolve('tsx/esm');
+  // Lazily resolved so built-CLI consumers (which never run a TSX fixture) don't require tsx. `--import`
+  // takes a module specifier, so the path goes in as a `file:` URL: a bare Windows path (`d:\...`) reads
+  // as a URL with the scheme `d:` and the ESM loader refuses it.
+  tsxEsmHookPath ??= pathToFileURL(createRequire(import.meta.url).resolve('tsx/esm')).href;
   return tsxEsmHookPath;
 }
 

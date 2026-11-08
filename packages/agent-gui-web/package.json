@@ -24,14 +24,14 @@
     "build:types": "pnpm run build"
   },
   "dependencies": {
-    "@robota-sdk/agent-ui-web": "npm:@robota-sdk/agent-ui-web@3.2.1",
+    "@robota-sdk/agent-ui-web": "npm:@robota-sdk/agent-ui-web@3.3.1",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@robota-sdk/agent-core": "npm:@robota-sdk/agent-core@3.2.1",
-    "@robota-sdk/agent-framework": "npm:@robota-sdk/agent-framework@3.2.1",
-    "@robota-sdk/agent-transport-ws": "npm:@robota-sdk/agent-transport-ws@3.2.1",
+    "@robota-sdk/agent-core": "npm:@robota-sdk/agent-core@3.2.2",
+    "@robota-sdk/agent-framework": "npm:@robota-sdk/agent-framework@3.2.3",
+    "@robota-sdk/agent-transport-ws": "npm:@robota-sdk/agent-transport-ws@3.3.1",
     "@robota-sdk/product-config": "npm:@robota-sdk/product-config@3.2.1",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/react": "^16.1.0",

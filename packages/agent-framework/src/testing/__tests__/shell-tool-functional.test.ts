@@ -1,5 +1,5 @@
 /**
- * TERM-008: cross-platform shell tool, proven through the TEST-003 functional harness.
+ * Cross-platform shell tool, proven through the functional harness.
  *
  * Drives a REAL InteractiveSession (real agent loop + builtin tools) so the OS-aware Shell tool — and
  * its model-familiar `Bash` alias — are verified end to end after the rename, not just in isolation.
@@ -11,6 +11,7 @@ import { resolvePlatformShell } from '@robota-sdk/agent-core/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
+import { writeTextCommand } from '../shell-command-fixture.js';
 
 const TEST_TIMEOUT = 20_000;
 
@@ -21,14 +22,19 @@ afterEach(async () => {
   harness = undefined;
 });
 
-describe('Shell tool (TERM-008) — functional, via the scripted-session harness', () => {
+describe('Shell tool — functional, via the scripted-session harness', () => {
   it(
     'runs a command through the real `Shell` tool and writes a file',
     async () => {
       harness = scriptedSession({
         turns: [
           {
-            toolCalls: [{ name: 'Shell', args: { command: 'echo shell-fn > {{cwd}}/shell.txt' } }],
+            toolCalls: [
+              {
+                name: 'Shell',
+                args: { command: writeTextCommand('{{cwd}}/shell.txt', 'shell-fn') },
+              },
+            ],
           },
           { text: 'done' },
         ],
@@ -48,7 +54,11 @@ describe('Shell tool (TERM-008) — functional, via the scripted-session harness
     async () => {
       harness = scriptedSession({
         turns: [
-          { toolCalls: [{ name: 'Bash', args: { command: 'echo bash-fn > {{cwd}}/bash.txt' } }] },
+          {
+            toolCalls: [
+              { name: 'Bash', args: { command: writeTextCommand('{{cwd}}/bash.txt', 'bash-fn') } },
+            ],
+          },
           { text: 'done' },
         ],
       });

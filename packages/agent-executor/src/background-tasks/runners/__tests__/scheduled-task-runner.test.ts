@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { nextScheduledFireOnOrAfter } from '../scheduled-fire-time.js';
 import { createScheduledTaskRunner } from '../scheduled-task-runner.js';
+import { NODE_BINARY_ENV, nodeCommand } from './node-shell-command.js';
 import type {
   IBackgroundTaskHandle,
   IBackgroundTaskStart,
@@ -12,6 +13,8 @@ import type {
 } from '../../types.js';
 
 const TEST_TIMEOUT_MS = 15_000;
+const HELD_WAKES_DEADLINE_MS = 25_000;
+const HELD_WAKES_TEST_TIMEOUT_MS = HELD_WAKES_DEADLINE_MS + 5_000;
 
 describe('nextScheduledFireOnOrAfter', () => {
   it('selects the first cron slot after a boundary between slots', () => {
@@ -32,13 +35,6 @@ describe('nextScheduledFireOnOrAfter', () => {
     ).toBe('2026-09-24T00:20:00.000Z');
   });
 });
-
-/** The absolute node binary reaches the child through the task env; the command stays a literal. */
-const NODE_BINARY_ENV = 'PRODUCT_TEST_NODE';
-
-function nodeCommand(script: string): string {
-  return `"$${NODE_BINARY_ENV}" -e ${JSON.stringify(script)}`;
-}
 
 function isAlive(pid: number): boolean {
   try {
@@ -217,7 +213,10 @@ describe('createScheduledTaskRunner', () => {
         await vi.advanceTimersByTimeAsync(3000);
         vi.useRealTimers();
         prepared.activate();
-        const deadline = Date.now() + 8000;
+        // Three fires run one after another, and each starts a shell and then node: PowerShell takes
+        // seconds to start the first time on a loaded Windows runner. The loop leaves at the sixth
+        // line, so a generous deadline costs nothing where the shell starts fast.
+        const deadline = Date.now() + HELD_WAKES_DEADLINE_MS;
         let lines: string[] = [];
         while (Date.now() < deadline) {
           await new Promise((resolve) => setTimeout(resolve, 25));
@@ -235,7 +234,7 @@ describe('createScheduledTaskRunner', () => {
         rmSync(directory, { recursive: true, force: true });
       }
     },
-    TEST_TIMEOUT_MS,
+    HELD_WAKES_TEST_TIMEOUT_MS,
   );
 
   it('holds every wake until a prepared restore is activated, then delivers it asynchronously', async () => {
@@ -352,7 +351,7 @@ describe('createScheduledTaskRunner', () => {
   it(
     'emits background_task_sleeping synchronously on start with a strictly-future nextFireAt',
     async () => {
-      // BEHAVIOR-003: the initial sleeping event is emitted synchronously inside start(),
+      // The initial sleeping event is emitted synchronously inside start(),
       // so the previous "wait 200ms then compare to Date.now()" was a flake — if start ran just
       // before a cron boundary, the 200ms wait crossed it and the (correct-at-emit) nextFireAt
       // fell behind the moved wall clock. Pin the clock so nextFireAt is computed against a known
@@ -427,7 +426,7 @@ describe('createScheduledTaskRunner', () => {
   );
 
   it(
-    'kills a hung fire after timeoutMs so subsequent fires still run (CORE-024 RUNTIME-18)',
+    'kills a hung fire after timeoutMs so subsequent fires still run',
     async () => {
       const runner = createScheduledTaskRunner();
       const emittedEvents: TBackgroundTaskRunnerEvent[] = [];
@@ -504,7 +503,7 @@ describe('createScheduledTaskRunner', () => {
     TEST_TIMEOUT_MS,
   );
 
-  // SELFHOST-012 TC-02: a paused schedule does not fire, and resumes correctly with the same task id.
+  // A paused schedule does not fire, and resumes correctly with the same task id.
   it(
     'does not fire while paused (croner .pause(), not .stop()) and fires again after resume',
     async () => {
@@ -555,7 +554,7 @@ describe('createScheduledTaskRunner', () => {
     TEST_TIMEOUT_MS,
   );
 
-  // SELFHOST-012 TC-03: edit re-arms the schedule in place (same task id) with the new cadence.
+  // Edit re-arms the schedule in place (same task id) with the new cadence.
   it('edits a schedule in place — new cadence applies, same task id', async () => {
     vi.useFakeTimers();
     try {
@@ -588,8 +587,8 @@ describe('createScheduledTaskRunner', () => {
     }
   });
 
-  // SELFHOST-012 (review CONSIDER): editing while paused re-pauses the rebuilt job and emits no sleeping while
-  // paused; resuming then announces the NEW cadence. Locks in the `if (state.paused)` re-pause + no-emit guards.
+  // Editing while paused re-pauses the rebuilt job and emits no sleeping while paused; resuming
+  // then announces the NEW cadence. Locks in the `if (state.paused)` re-pause + no-emit guards.
   it('edit while paused stays paused (no sleeping emit) and resumes with the new cadence', async () => {
     vi.useFakeTimers();
     try {

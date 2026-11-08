@@ -1,4 +1,4 @@
-import { join, relative, resolve } from 'node:path';
+import { join, posix, relative, resolve } from 'node:path';
 
 import { CheckpointTree } from '@robota-sdk/agent-session';
 import { assertSessionSealing } from '@robota-sdk/agent-session/node';
@@ -185,7 +185,9 @@ export class EditCheckpointStore implements IEditCheckpointStore {
     const kind = this.authorityIO.inspectKind(relativePath);
     if (kind === 'link' || kind === 'directory' || kind === 'other') return;
 
-    const snapshotFile = join(
+    // The manifest records the snapshot name with `/` on every platform, so a manifest written on
+    // one host names the same file when another reads it.
+    const snapshotFile = posix.join(
       SNAPSHOT_DIR,
       `${String(this.activeTurn.manifest.files.length + 1).padStart(SNAPSHOT_PAD, '0')}.content`,
     );

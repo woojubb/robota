@@ -24,6 +24,13 @@
  * an audit record cannot name the process on the other end. Admission does not need that; a future
  * diagnostic might, and would need a native addon to get it.
  *
+ * POSIX ONLY, AND REFUSED ELSEWHERE ON PURPOSE. The evidence is a uid and mode bits. Windows reports
+ * a fixed emulated mode and no uid for every file, owner-only access there is an ACL, and Node cannot
+ * bind a Unix socket to a file path in a directory at all. So where the platform has no such
+ * evidence the answer is a refusal that says so — not a pass on an emulated value, and not a refusal
+ * that blames a "mode 666" nobody set. A Windows carrier proves owner-only access with its own ACL
+ * check, which this module does not attempt.
+ *
  * NODE-ONLY, DELIBERATELY. The rest of this package is isomorphic (WebCrypto, no Node built-ins) and
  * runs in the browser client. This file needs `node:fs`, so it lives behind the `/local`
  * subpath — a browser has no local peers and no filesystem to be judged.
@@ -86,6 +93,11 @@ export interface IGuardedDirectoryOptions {
   readonly statAt?: (target: string) => IStatLike;
   /** Symlink resolver, injected so the resolution step itself can be exercised. */
   readonly resolve?: (target: string) => string;
+  /**
+   * Whose file semantics the evidence carries. Injected so the platform with no uid and mode
+   * evidence is reachable from any host; the running platform when absent.
+   */
+  readonly platform?: string;
 }
 
 /**
@@ -134,6 +146,13 @@ export function admitLocalPeerDirectory(
   }
   if (!info.isDirectory()) {
     return refuseLocalPeer(`${resolved} is not a directory, so it cannot guard a rendezvous.`);
+  }
+  if ((options.platform ?? process.platform) === 'win32') {
+    return refuseLocalPeer(
+      `the rendezvous directory ${resolved} is on Windows, where a file reports no owner uid and an ` +
+        'emulated mode, so owner-only access cannot be read from it. This admission does not exist ' +
+        'there; the answer is a refusal, never a pass on an emulated value.',
+    );
   }
   if (info.uid !== options.expectedUid) {
     return refuseLocalPeer(

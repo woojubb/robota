@@ -1,7 +1,7 @@
 /**
- * TEST-009 Phase 3: a CLI flag's interactive-TUI effect, observed through a real PTY.
+ * A CLI flag's interactive-TUI effect, observed through a real PTY.
  *
- * The headless flag matrix (Phase 1) asserts request/output effects; this asserts the *rendered*
+ * The headless flag matrix asserts request/output effects; this asserts the *rendered*
  * effect a flag has on the live TUI. `--permission-mode <mode>` is shown in the status bar whenever it
  * is not the default — so booting with `plan` / `acceptEdits` must render that mode. Runs in the
  * dedicated PTY project against the BUILT CLI binary (`pnpm --filter @robota-sdk/agent-cli build`).
@@ -17,7 +17,7 @@ import { spawnTui, writeTuiProviderSettings } from './pty-driver.js';
 
 import type { IPtySession } from './pty-driver.js';
 
-describe('CLI flag → TUI rendering through a real PTY (TEST-009 Phase 3)', () => {
+describe('CLI flag → TUI rendering through a real PTY', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 

@@ -1,13 +1,12 @@
 /**
- * ERR-001 G2/G3 — TUI error-state reducer: last-error message lifecycle and the
- * dead-air stall hint timer.
+ * TUI error-state reducer: last-error message lifecycle and the dead-air stall hint timer.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TuiStateManager } from '../tui-state-manager';
 
-describe('TuiStateManager — error state (ERR-001 G2)', () => {
+describe('TuiStateManager — error state', () => {
   it('records the error message on onError and clears it when the next turn starts', () => {
     const manager = new TuiStateManager();
 
@@ -26,7 +25,7 @@ describe('TuiStateManager — error state (ERR-001 G2)', () => {
   });
 });
 
-describe('TuiStateManager — dead-air stall hint (ERR-001 G3)', () => {
+describe('TuiStateManager — dead-air stall hint', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -72,7 +71,7 @@ describe('TuiStateManager — dead-air stall hint (ERR-001 G3)', () => {
   });
 });
 
-describe('TuiStateManager — stall hint suppressed during tool execution (RUNTIME-39)', () => {
+describe('TuiStateManager — stall hint suppressed during tool execution', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -131,7 +130,7 @@ describe('TuiStateManager — stall hint suppressed during tool execution (RUNTI
   });
 });
 
-describe('TuiStateManager — dispose (RUNTIME-52)', () => {
+describe('TuiStateManager — dispose', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });

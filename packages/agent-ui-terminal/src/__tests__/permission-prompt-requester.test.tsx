@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import PermissionPrompt from '../PermissionPrompt.js';
 
-describe('issue #3288 §1: a background agent names itself on its own permission request', () => {
+describe('a background agent names itself on its own permission request', () => {
   it('says which background agent is asking, instead of an unattributed prompt', () => {
     const frame = render(
       <PermissionPrompt

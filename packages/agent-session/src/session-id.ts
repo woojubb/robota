@@ -1,7 +1,7 @@
 import { randomId } from '@robota-sdk/agent-core';
 
 /**
- * SEC-006 — session ids are used as PATH SEGMENTS (`<baseDir>/<id>.json`, `<logDir>/<id>.jsonl`,
+ * Session ids are used as PATH SEGMENTS (`<baseDir>/<id>.json`, `<logDir>/<id>.jsonl`,
  * `<rootDir>/<id>/` for checkpoints), and a host may take one from an untrusted source such as an HTTP
  * request body. Without a guard, an id of `../../x` escapes the store directory on both read and write.
  *

@@ -50,7 +50,7 @@ describe('contextual keybinding registry', () => {
       { version: 1, bindings: { 'chat-input': { submit: 'ctrl+c' } } },
       '$.bindings.chat-input.submit',
     ],
-    // SCREEN-1993: Ctrl+C stays reserved in the search overlay too.
+    // Ctrl+C stays reserved in the search overlay too.
     [
       { version: 1, bindings: { 'history-search': { execute: 'ctrl+c' } } },
       '$.bindings.history-search.execute',
@@ -212,12 +212,20 @@ describe('contextual keybinding registry', () => {
       import.meta.url,
     );
     const schema = JSON.parse(readFileSync(schemaPath, 'utf8')) as {
-      $id: string;
+      $id?: string;
+      title: string;
       properties: { bindings: { properties: Record<string, { $ref: string }> } };
       $defs: Record<string, { properties?: Record<string, unknown> }>;
     };
 
-    expect(schema.$id).toBe('__PROJECT_DOCS_URL__/schemas/keybindings.schema.json');
+    // The Windows CI job runs this suite inside a generated product workspace. The generator rewrites
+    // the placeholders in every file, this one included, and drops the schema's `$id`; the repository's
+    // own copy keeps both. The placeholders are spelled in pieces so the generator leaves them alone.
+    const displayNamePlaceholder = ['__PRODUCT', 'DISPLAY', 'NAME__'].join('_');
+    const docsUrlPlaceholder = ['__PROJECT', 'DOCS', 'URL__'].join('_');
+    const generated = !schema.title.includes(displayNamePlaceholder);
+    if (generated) expect(schema.$id).toBeUndefined();
+    else expect(schema.$id).toBe(`${docsUrlPlaceholder}/schemas/keybindings.schema.json`);
     expect(Object.keys(schema.properties.bindings.properties)).toEqual(
       Object.keys(KEYBINDING_ACTIONS),
     );

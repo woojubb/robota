@@ -23,7 +23,7 @@ import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
 
 const PARENT = 'parent';
-const CANARY = 'SENSITIVE-FORK-RESULT-8194';
+const CANARY = 'SENSITIVE-FORK-RESULT-CANARY';
 const updatedAt = '2026-01-01T00:00:00.000Z';
 
 afterEach(() => {

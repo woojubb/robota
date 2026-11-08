@@ -45,7 +45,7 @@ const request = {
   permissionPolicy: 'inherit-allowlist' as const,
 };
 
-describe('deliverToObservers (ARCH-053)', () => {
+describe('deliverToObservers', () => {
   it('isolates a throwing observer, keeps delivering, and reports each failure', () => {
     const seen: string[] = [];
     const failures: IObserverFailure<string>[] = [];
@@ -99,7 +99,7 @@ describe('deliverToObservers (ARCH-053)', () => {
   });
 });
 
-describe('BackgroundTaskManager observer isolation (ARCH-053)', () => {
+describe('BackgroundTaskManager observer isolation', () => {
   it('warns on the console with the host warning code when no reporter or sink is supplied', async () => {
     const warnings = captureConsoleWarnings();
     const manager = new BackgroundTaskManager({

@@ -8,6 +8,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '../../testing/index.js';
+import { writeTextCommand } from '../../testing/shell-command-fixture.js';
 
 const TEST_TIMEOUT = 20_000;
 
@@ -26,7 +27,12 @@ describe('autonomous goal (framework functional)', () => {
         turns: [
           // iteration 1: do real work, then report "continue"
           {
-            toolCalls: [{ name: 'Bash', args: { command: 'echo 2026-06-27 > {{cwd}}/GOAL.txt' } }],
+            toolCalls: [
+              {
+                name: 'Bash',
+                args: { command: writeTextCommand('{{cwd}}/GOAL.txt', '2026-06-27') },
+              },
+            ],
           },
           {
             toolCalls: [

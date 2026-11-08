@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, posix, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -20,7 +20,7 @@ function repositoryFiles(): IMetadataFile[] {
     if (!existsSync(directory)) continue;
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
-      const path = join(root, entry.name, 'SKILL.md');
+      const path = posix.join(root, entry.name, 'SKILL.md');
       if (existsSync(join(REPOSITORY_ROOT, path))) files.push({ path, profile: 'skill' });
     }
   }
@@ -30,7 +30,7 @@ function repositoryFiles(): IMetadataFile[] {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
       files.push({
-        path: join(root, entry.name),
+        path: posix.join(root, entry.name),
         profile: root.endsWith('/commands') ? 'skill' : 'agent',
       });
     }

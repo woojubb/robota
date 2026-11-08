@@ -76,7 +76,7 @@ describe('Read opens once and reads what it checked', () => {
     expect(result.output).toContain('checked');
   });
 
-  it('words a missing file, a directory and a FIFO as before, without blocking on the FIFO', async () => {
+  it('words a missing file and a directory as before', async () => {
     expect(await read(root, join(root, 'absent.txt'))).toMatchObject({
       success: false,
       error: `File not found: ${join(root, 'absent.txt')}`,
@@ -86,10 +86,17 @@ describe('Read opens once and reads what it checked', () => {
       success: false,
       error: `Path is not a file: ${join(root, 'dir')}`,
     });
-    spawnSync('mkfifo', [join(root, 'pipe')]);
-    expect(await read(root, join(root, 'pipe'))).toMatchObject({
-      success: false,
-      error: `Path is not a file: ${join(root, 'pipe')}`,
-    });
   });
+
+  // A FIFO is a filesystem entry only on POSIX; Windows named pipes live in a separate namespace.
+  it.skipIf(process.platform === 'win32')(
+    'words a FIFO as not a file, without blocking on it',
+    async () => {
+      spawnSync('mkfifo', [join(root, 'pipe')]);
+      expect(await read(root, join(root, 'pipe'))).toMatchObject({
+        success: false,
+        error: `Path is not a file: ${join(root, 'pipe')}`,
+      });
+    },
+  );
 });

@@ -114,7 +114,7 @@ describe('InputArea contextual keybindings', () => {
     },
   );
 
-  // SCREEN-1993 TC-05: the open key and every overlay action are rebindable through the document,
+  // The open key and every overlay action are rebindable through the document,
   // and the footer lists the live keys rather than the defaults.
   it('rebinds the history-search open key and its actions through the document', async () => {
     const onSubmit = vi.fn();

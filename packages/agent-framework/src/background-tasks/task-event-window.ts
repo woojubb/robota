@@ -1,5 +1,5 @@
 /**
- * #3679 3f, live follow: the window of a fork job's recent events.
+ * Live follow: the window of a fork job's recent events.
  *
  * A surface that follows a running fork needs what the job is doing now, from the first moment it
  * looks — not only from then on. The parent already receives every event the job emits, so it keeps

@@ -1,5 +1,5 @@
 /**
- * CMD-004 Phase 2 Stage C (TC-04): `/settings` still opens the settings screen — now rendered from
+ * `/settings` still opens the settings screen — now rendered from
  * the requester-routed `ui_intent` session event (the legacy `settings-tui-requested` effect
  * branch is deleted from the TUI). Observed through a real PTY against the BUILT CLI binary
  * (`pnpm --filter @robota-sdk/agent-cli build`).
@@ -15,7 +15,7 @@ import { spawnTui, writeTuiProviderSettings } from './pty-driver.js';
 
 import type { IPtySession } from './pty-driver.js';
 
-describe('/settings opens the settings screen via ui_intent (CMD-004 Stage C)', () => {
+describe('/settings opens the settings screen via ui_intent', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 

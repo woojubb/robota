@@ -1,8 +1,8 @@
 /**
- * SCREEN-2002 — the theme catalogue, and the port the command layer asks through.
+ * The theme catalogue, and the port the command layer asks through.
  *
- * The registry is the only thing that turns an ID into a theme. Work unit 1 put the built-ins
- * behind `listBuiltInThemes()`; work unit 3 adds user and plugin themes to the same list, and
+ * The registry is the only thing that turns an ID into a theme. The built-ins sit
+ * behind `listBuiltInThemes()`; user and plugin themes are added to the same list, and
  * nothing downstream has to learn where a theme came from — a row carries its `source` so the
  * picker and `/theme list` can SAY where it came from, which is a different question.
  *

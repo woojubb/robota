@@ -14,7 +14,7 @@ import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
 import koreanText from './__fixtures__/korean-text.json';
 
 /**
- * ARCH-010 — the context-free `editTool` singleton is gone and the containment root is a required
+ * The context-free `editTool` singleton is gone and the containment root is a required
  * constructor argument, so the tool is built against the tmpdir fixture below. That fixture is the only
  * directory these cases edit; a wider root would let this suite rewrite files outside its own fixture.
  */

@@ -1,5 +1,5 @@
 /**
- * SCREEN-014 regression: the workspace callbacks must keep a stable identity across re-renders.
+ * The workspace callbacks must keep a stable identity across re-renders.
  *
  * A fresh `readExecutionWorkspaceDetail` closure every render made App's detail-loading `useEffect`
  * re-run on every render and `setState`-loop ("Maximum update depth exceeded") the moment a
@@ -69,7 +69,7 @@ async function tick(ms = 25): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-describe('useTuiChannel callback stability (SCREEN-014 regression)', () => {
+describe('useTuiChannel callback stability', () => {
   it('keeps readExecutionWorkspaceDetail + selectExecutionWorkspaceEntry stable across re-renders', async () => {
     const channel = makeFakeChannel();
     const seen: Array<{ read: unknown; select: unknown }> = [];

@@ -1,5 +1,5 @@
 /**
- * SCREEN-1992: whether the user is at the terminal.
+ * Whether the user is at the terminal.
  *
  * Two sources feed one boolean. Focus reporting (DECSET 1004) was REQUESTED, not confirmed — a
  * terminal that does not implement the mode discards the request and never answers — so focus

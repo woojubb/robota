@@ -310,9 +310,12 @@ describe('generated workspace package remapping', () => {
     const entries = {};
     for (const peer of peers) {
       const name = `@robota-sdk/${peer}`;
-      await mkdir(path.join(source, 'packages', peer));
-      // The developing SDK can move independently of the product's pinned package.
-      await writeFile(path.join(source, 'packages', peer, 'package.json'), JSON.stringify({ name, version: '9.0.0' }));
+      // agent-tools stands for a retired package: still pinned in the registry, gone from the workspace.
+      if (peer !== 'agent-tools') {
+        await mkdir(path.join(source, 'packages', peer));
+        // The developing SDK can move independently of the product's pinned package.
+        await writeFile(path.join(source, 'packages', peer, 'package.json'), JSON.stringify({ name, version: '9.0.0' }));
+      }
       entries[name] = { specifier: `npm:${name}@3.0.0`, version: '3.0.0' };
     }
     const artifact = kind === 'registry' ? '0.0.1' : 'file:../../vendor/workflow.tgz';
@@ -342,6 +345,7 @@ describe('generated workspace package remapping', () => {
     const lock = parseDocument(await readFile(path.join(root, 'out/pnpm-lock.yaml'), 'utf8')).toJSON();
     expect(actual.devDependencies['@cedar/agent-core']).toBe('npm:@robota-sdk/agent-core@3.0.0');
     expect(actual.devDependencies['@robota-sdk/agent-core']).toBe('npm:@robota-sdk/agent-core@3.0.0');
+    expect(actual.devDependencies['@cedar/agent-tools']).toBe('npm:@robota-sdk/agent-tools@3.0.0');
     expect(lock.importers['packages/agent-cli'].devDependencies['@cedar/agent-core']).toEqual({ specifier: 'npm:@robota-sdk/agent-core@3.0.0', version: '/@robota-sdk/agent-core@3.0.0' });
     expect(lock.packages[key]).toEqual(snapshot);
     snapshot.peerDependencies['@robota-sdk/agent-core'] = '~4.0.0';

@@ -1,5 +1,5 @@
 /**
- * #3231: the TUI builds a new channel on every session switch, and it may do so before the old
+ * The TUI builds a new channel on every session switch, and it may do so before the old
  * session's turn has ended. A checkpoint store holds one turn in progress, so a store shared across
  * channels would let the old turn close the new session's turn. Each channel gets its own.
  */
@@ -48,7 +48,7 @@ function fakeCliAdapter(settingsPath: string): ITuiCliAdapter {
   };
 }
 
-describe('#3231: the in-process channel factory', () => {
+describe('the in-process channel factory', () => {
   const channels: ITuiAppChannelPort[] = [];
   let cwd: string | undefined;
 

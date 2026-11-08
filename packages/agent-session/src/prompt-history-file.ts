@@ -158,7 +158,15 @@ export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHisto
       throw error;
     }
     try {
-      let position = fstatSync(descriptor).size;
+      const opened = fstatSync(descriptor);
+      // POSIX fails the first read of a directory; Windows opens one and reads it as empty, which
+      // would show a path that is not a history file as a history with nothing in it.
+      if (opened.isDirectory()) {
+        throw Object.assign(new Error('EISDIR: illegal operation on a directory, read'), {
+          code: 'EISDIR',
+        });
+      }
+      let position = opened.size;
       // The bytes after the last newline seen so far: a line the previous block cut in half.
       let carry = Buffer.alloc(0);
       // The first block yielded holds the end of the file, and so any append still in progress.

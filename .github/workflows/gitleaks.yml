@@ -66,7 +66,9 @@ jobs:
       - name: Install gitleaks
         run: |
           set -euo pipefail
-          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+          # GitHub release downloads fail intermittently (HTTP 504); the checksum below still verifies the file.
+          curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
             -o "$RUNNER_TEMP/gitleaks.tar.gz"
           echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks

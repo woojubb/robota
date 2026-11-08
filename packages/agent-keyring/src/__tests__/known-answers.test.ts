@@ -30,6 +30,7 @@ import {
   KNOWN_SEALING_PUBLIC_KEY_HEX,
 } from './helpers.js';
 
+// Read as stored: .gitattributes keeps this fixture on LF, which the byte-for-byte comparison relies on.
 const fixtureText = readFileSync(
   fileURLToPath(new URL('./fixtures/keyring-v1.json', import.meta.url)),
   'utf8',

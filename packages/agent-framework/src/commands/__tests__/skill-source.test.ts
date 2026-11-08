@@ -9,6 +9,7 @@ import {
   createNodeHostContributionSourcesFixture,
   createTestSkillCommandSource,
 } from '../../testing/contribution-source-fixture.js';
+import { inJsonString } from '../../testing/logged-json.js';
 
 function createSkillDir(base: string, dirName: string, content: string): void {
   const dir = join(base, dirName);
@@ -335,7 +336,7 @@ describe('SkillCommandSource multi-path', () => {
     );
     const { result, warnings } = captureWarnings(() => source.getCommands());
     expect(result.map((c) => c.name)).not.toContain('denied');
-    expect(warnings).toContain(file);
+    expect(warnings).toContain(inJsonString(file));
     expect(warnings).toContain('disable-model-invocation');
   });
 

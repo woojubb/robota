@@ -105,6 +105,52 @@ class PausableWriteDuplex extends Duplex {
   }
 }
 
+/**
+ * A real connected stream that reports the peer's end in the same turn of the event loop as the data
+ * it carried, ahead of whatever the reader scheduled for that turn: the order a Windows socket reports
+ * a peer that wrote and closed, even to a reader that paused. Sockets of other platforms report the
+ * end one turn later, so the order is made here and the test holds everywhere.
+ */
+class EndsRightBehindItsData extends Duplex {
+  #writes = 0;
+  readonly #socket: Socket;
+
+  constructor(socket: Socket) {
+    super();
+    this.#socket = socket;
+    socket.on('data', (chunk: Buffer) => {
+      // The client's opening and its proof are the first two writes: what arrives after them carries
+      // the custody notice, and the end is queued ahead of anything the reader queues while handling it.
+      if (this.#writes >= 2) {
+        setImmediate(() => {
+          this.push(null);
+          // A socket reads once more after the end, which ends a paused one whose buffer is empty.
+          this.read(0);
+        });
+      }
+      this.push(chunk);
+    });
+    socket.on('error', (error) => this.destroy(error));
+    socket.on('close', () => this.destroy());
+  }
+
+  override _read(): void {}
+
+  override _write(
+    chunk: Buffer,
+    _encoding: BufferEncoding,
+    callback: (error?: Error | null) => void,
+  ): void {
+    this.#writes += 1;
+    this.#socket.write(chunk, callback);
+  }
+
+  override _destroy(error: Error | null, callback: (error: Error | null) => void): void {
+    this.#socket.destroy();
+    callback(error);
+  }
+}
+
 beforeAll(async () => {
   ({ owner, sealingPublicKey } = await keyrings());
 });
@@ -325,8 +371,11 @@ describe('what a runtime sends from inside admit', () => {
 });
 
 describe('what a runtime sends right behind its custody notice', () => {
-  /** A certified runtime, by hand, that writes the notice and a session message in one write. */
-  async function behindTheNotice(finish: (socket: Socket, bytes: Buffer) => void) {
+  /** A certified runtime, by hand, that writes the notice and its session messages in one write. */
+  async function behindTheNotice(
+    finish: (socket: Socket, bytes: Buffer) => void,
+    payloads: readonly string[] = [textDelta('behind')],
+  ) {
     const identity = createRuntimeIdentity();
     const exchange = startSpawnerExchange();
     exchange.complete(identity.answerSpawnerExchange(exchange.message)).spawnerKey.wipe();
@@ -337,10 +386,12 @@ describe('what a runtime sends right behind its custody notice', () => {
           op: 'custody',
           state: { unlocked: false, certified: true },
         });
-        const message = Buffer.from(JSON.stringify({ type: 'text_delta', delta: 'behind' }));
         finish(
           socket,
-          Buffer.concat([frame(link.seal('owner', notice)), frame(link.seal('session', message))]),
+          Buffer.concat([
+            frame(link.seal('owner', notice)),
+            ...payloads.map((payload) => frame(link.seal('session', Buffer.from(payload)))),
+          ]),
         );
       }),
     );
@@ -366,6 +417,42 @@ describe('what a runtime sends right behind its custody notice', () => {
     await until(() => received.length === 1, 1_000);
     expect(received).toEqual([{ type: 'text_delta', delta: 'behind' }]);
     await client.closed;
+  });
+
+  describe('when the stream ends in the turn the open resolved, before the caller has had its own', () => {
+    const behindAndEnded = async (payloads: readonly string[]) => {
+      const port = await behindTheNotice((socket, bytes) => socket.end(bytes), payloads);
+      const client = await openOwnerLink(new EndsRightBehindItsData(await connect(port)), owner);
+      const received: unknown[] = [];
+      client.session.onMessage((message) => received.push(message));
+      return { client, received };
+    };
+
+    it('delivers every message that came before the end, in order, and only then reports the end', async () => {
+      const { client, received } = await behindAndEnded([textDelta('one'), textDelta('two')]);
+      await client.closed;
+      expect(received).toEqual([
+        { type: 'text_delta', delta: 'one' },
+        { type: 'text_delta', delta: 'two' },
+      ]);
+    });
+
+    it('delivers nothing more once a listener closed the link', async () => {
+      const { client, received } = await behindAndEnded([textDelta('one'), textDelta('two')]);
+      client.session.onMessage(() => client.close());
+      await client.closed;
+      expect(received).toEqual([{ type: 'text_delta', delta: 'one' }]);
+    });
+
+    it('ends the link at a message that does not decode and reads none behind it', async () => {
+      const { client, received } = await behindAndEnded([
+        textDelta('one'),
+        'not a message',
+        textDelta('three'),
+      ]);
+      await client.closed;
+      expect(received).toEqual([{ type: 'text_delta', delta: 'one' }]);
+    });
   });
 });
 

@@ -7,6 +7,7 @@ import { scriptedSession, ScriptedSessionHarness } from '@robota-sdk/agent-frame
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { recordGoalCassette } from '../record-goal-cassette-operation.mjs';
+import { writeTextCommand } from '../../src/testing/shell-command-fixture.js';
 import {
   buildGoalObjective,
   GOAL_CASSETTE_PATH,
@@ -27,7 +28,7 @@ it('records an injected offline provider through the real goal loop and replays 
   const toCassette = join(directory, 'nested', 'goal.cassette.json');
   const originalCassette = readFileSync(GOAL_CASSETTE_PATH);
   const scripted = createScriptedProvider([
-    { toolCalls: [{ name: 'Bash', args: { command: "printf 'done' > GOAL.txt" } }] },
+    { toolCalls: [{ name: 'Bash', args: { command: writeTextCommand('GOAL.txt', 'done') } }] },
     {
       toolCalls: [
         { name: 'report_goal_status', args: { status: 'satisfied', reason: 'file written' } },

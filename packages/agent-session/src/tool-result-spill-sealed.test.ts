@@ -1,5 +1,5 @@
 /**
- * #3679 step 3c — a spill store given a sealing keeps every spilled tool result sealed on disk,
+ * A spill store given a sealing keeps every spilled tool result sealed on disk,
  * bound to its reference, and reads it back itself; one that says `'plain'` writes the result as it
  * is. A spilled result is conversation content, and the directory it sits in is open to every program
  * of the same user.
@@ -24,6 +24,7 @@ import { PROCESS_OWNER_RECORD_NAME } from '@robota-sdk/agent-core/node';
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { expectKilled } from './__tests__/killed-child-helpers.js';
 import {
   NodeToolResultSpillStore,
   sweepStaleToolResultSpillDirectories,
@@ -294,7 +295,7 @@ describe('a sealing spill store', () => {
       { encoding: 'utf8', timeout: 30_000 },
     );
 
-    expect(child.signal, child.stderr).toBe('SIGKILL');
+    expectKilled(child);
     const [left] = readdirSync(root);
     expect(storeDirectory(root).results).toEqual([expect.stringMatching(/\.sealed$/u)]);
     expect(sweepStaleToolResultSpillDirectories(root)).toEqual([left]);

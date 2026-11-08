@@ -96,7 +96,7 @@ describe('ProjectMemoryStore', () => {
     expect(memory.truncated).toBe(true);
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given a memory item When appending Then index and topic files are created',
     async () => {
@@ -119,7 +119,7 @@ describe('ProjectMemoryStore', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given the same memory item already exists When appending again Then duplicate entries are skipped',
     async () => {

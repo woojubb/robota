@@ -1,5 +1,5 @@
 /**
- * TEST-007 / TERM-003 + TERM-004: `/shell` and `/editor` through a real terminal handoff, end-to-end
+ * `/shell` and `/editor` through a real terminal handoff, end-to-end
  * in a PTY. Drives `fixtures/command-handoff-driver.tsx` (real executors + real
  * `TerminalHandoffController`). Proves on a real TTY that the child (subshell / `$EDITOR`) receives
  * the driver's keystrokes and the command returns cleanly — the behavior only a PTY can validate
@@ -19,7 +19,7 @@ import { spawnPtyFixture } from './pty/spawn-pty.js';
 import type { IPtyRunSession } from './pty/spawn-pty.js';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/command-handoff-driver.tsx', import.meta.url));
-const FAKE_EDITOR = fileURLToPath(new URL('./fixtures/fake-editor.sh', import.meta.url));
+const FAKE_EDITOR = fileURLToPath(new URL('./fixtures/fake-editor.cjs', import.meta.url));
 const PACKAGE_DIR = fileURLToPath(new URL('../..', import.meta.url));
 const TEST_TIMEOUT_MS = 30_000;
 
@@ -51,7 +51,7 @@ describe('command handoff PTY E2E', () => {
       const session = spawnPtyFixture(FIXTURE, {
         argv: ['shell', outputPath],
         cwd: PACKAGE_DIR,
-        // HARNESS-025: isolated HOME — the subshell must not read the developer's `~` (a real
+        // Isolated HOME — the subshell must not read the developer's `~` (a real
         // shell rc there would otherwise change what the handoff child does).
         env: createPtyEnv(),
       });
@@ -83,9 +83,9 @@ describe('command handoff PTY E2E', () => {
       const session = spawnPtyFixture(FIXTURE, {
         argv: ['editor', outputPath],
         cwd: PACKAGE_DIR,
-        // HARNESS-025: isolated HOME — only the EDITOR override comes from the test, so a real
+        // Isolated HOME — only the EDITOR override comes from the test, so a real
         // `~/.selected_editor` (or similar) on the host cannot influence the assertion.
-        env: createPtyEnv({ EDITOR: `sh ${FAKE_EDITOR}` }),
+        env: createPtyEnv({ EDITOR: `node ${FAKE_EDITOR}` }),
       });
       sessions.push(session);
 

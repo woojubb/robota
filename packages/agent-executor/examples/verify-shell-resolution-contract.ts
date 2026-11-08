@@ -104,6 +104,11 @@ async function assertUnknownShellZeroSpawns(): Promise<number> {
   return spawnAttempts;
 }
 
+/** PowerShell exits 1 for any failed native command, so the resolver wraps the command in lines that re-raise its exit code. */
+function withExitCodePassthrough(command: string): string {
+  return `$errorCountBefore = $Error.Count\n${command}\nif (-not $? -and $LASTEXITCODE -and $Error.Count -eq $errorCountBefore) { exit $LASTEXITCODE }`;
+}
+
 async function main(): Promise<void> {
   const rows = matrix.map(({ name, command, options, ...request }) => ({
     name,
@@ -114,7 +119,7 @@ async function main(): Promise<void> {
     {
       name: 'windows-default',
       executable: 'powershell.exe',
-      args: ['-NoProfile', '-Command', 'sentinel-powershell'],
+      args: ['-NoProfile', '-Command', withExitCodePassthrough('sentinel-powershell')],
     },
     {
       name: 'windows-bash',
@@ -124,7 +129,7 @@ async function main(): Promise<void> {
     {
       name: 'posix-pwsh',
       executable: '/opt/microsoft/pwsh',
-      args: ['-NoProfile', '-Command', 'sentinel-pwsh'],
+      args: ['-NoProfile', '-Command', withExitCodePassthrough('sentinel-pwsh')],
     },
     {
       name: 'posix-cmd',

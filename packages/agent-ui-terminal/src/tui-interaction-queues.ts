@@ -16,7 +16,7 @@ interface IPermissionQueueEntry {
   toolArgs: TToolArgs;
   canPersistProjectPermission?: boolean;
   requestedByPeer?: string;
-  /** Issue #3288 §1: a background agent's own request, forwarded to the person. */
+  /** A background agent's own request, forwarded to the person. */
   requester?: TPermissionRequester;
   resolve: (result: TPermissionResultValue) => void;
   id?: string;

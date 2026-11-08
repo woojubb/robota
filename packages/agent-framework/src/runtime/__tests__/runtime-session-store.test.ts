@@ -59,7 +59,7 @@ async function completeTurn(session: InteractiveSession, prompt: string): Promis
   return (await handle.completed).response;
 }
 
-describe('ARCH-023 agent runtime session-store inheritance', () => {
+describe('agent runtime session-store inheritance', () => {
   const sessions: InteractiveSession[] = [];
   const scratchDirs: string[] = [];
 
@@ -144,7 +144,7 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     ).toBe(projectAccess);
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'inherits the runtime default store and resumes through it',
     async () => {
@@ -159,7 +159,7 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
       });
       const first = track(firstRuntime.createSession({ bare: true }));
 
-      await expect(completeTurn(first, 'remember ARCH-023')).resolves.toBe('stored context');
+      await expect(completeTurn(first, 'remember store')).resolves.toBe('stored context');
       const sessionId = first.getSession().getSessionId();
       await first.shutdown();
 
@@ -174,9 +174,9 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
       });
       const second = track(secondRuntime.createSession({ bare: true, resumeSessionId: sessionId }));
 
-      await expect(completeTurn(second, 'recall ARCH-023')).resolves.toBe('restored context');
+      await expect(completeTurn(second, 'recall store')).resolves.toBe('restored context');
       const requestContents = (secondProvider.requests[0] ?? []).map((message) => message.content);
-      expect(requestContents).toContain('remember ARCH-023');
+      expect(requestContents).toContain('remember store');
       expect(requestContents).toContain('stored context');
       expect(second.getSession().getSessionId()).toBe(sessionId);
     },

@@ -24,28 +24,39 @@ module.exports = {
     },
 
     // ==========================================================
-    // Provider packages must not depend on each other
+    // agent-provider: importing one vendor subpath never loads another vendor
     // ==========================================================
     {
-      name: 'no-provider-cross-deps',
-      severity: 'error',
-      comment: 'A provider package must not depend on another provider package (FAMILY-SIBLINGS).',
-      from: {
-        path: '^packages/agent-provider-([^/]+)/',
-        pathNot: '^packages/agent-provider-openai/',
-      },
-      to: { path: '^packages/agent-provider-', pathNot: '^packages/agent-provider-$1/' },
-    },
-    {
-      name: 'no-openai-provider-cross-deps',
+      name: 'provider-vendors-are-isolated',
       severity: 'error',
       comment:
-        'agent-provider-openai may use the OpenAI wire-protocol base in agent-provider-openai-compatible ' +
-        'and no other provider package (FAMILY-SIBLINGS exception).',
-      from: { path: '^packages/agent-provider-openai/' },
+        'A vendor subpath of agent-provider imports no other vendor subpath, so a consumer that imports one ' +
+        'vendor never bundles another vendor or its SDK. Only the OpenAI-compatible base is shared (below), ' +
+        'google is the alias of gemini, and builtin composes the others.',
+      from: { path: '^packages/agent-provider/src/(anthropic|bytedance|gemini|openai-compatible)/' },
       to: {
-        path: '^packages/agent-provider-',
-        pathNot: '^packages/agent-provider-(openai|openai-compatible)/',
+        path: '^packages/agent-provider/src/(anthropic|bytedance|gemini|google|openai|deepseek|qwen|gemma|openai-compatible|builtin)/',
+        pathNot: '^packages/agent-provider/src/$1/',
+      },
+    },
+    {
+      name: 'provider-openai-family-shares-only-the-base',
+      severity: 'error',
+      comment:
+        'openai, deepseek, qwen and gemma build on the OpenAI-compatible protocol base and import no other vendor.',
+      from: { path: '^packages/agent-provider/src/(openai|deepseek|qwen|gemma)/' },
+      to: {
+        path: '^packages/agent-provider/src/(anthropic|bytedance|gemini|google|openai|deepseek|qwen|gemma|builtin)/',
+        pathNot: '^packages/agent-provider/src/$1/',
+      },
+    },
+    {
+      name: 'provider-google-alias-imports-only-gemini',
+      severity: 'error',
+      comment: 'The google subpath is the deprecated alias of gemini and imports nothing else.',
+      from: { path: '^packages/agent-provider/src/google/' },
+      to: {
+        path: '^packages/agent-provider/src/(anthropic|bytedance|openai|deepseek|qwen|gemma|openai-compatible|builtin)/',
       },
     },
 

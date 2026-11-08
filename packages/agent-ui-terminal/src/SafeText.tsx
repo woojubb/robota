@@ -1,10 +1,9 @@
 /**
- * `SafeText` — the ONE way a string reaches the terminal from this package (#2222).
+ * `SafeText` — the ONE way a string reaches the terminal from this package.
  *
- * SEC-019 fixed every render site that was found to put untrusted text — model output, tool stdout,
- * file contents, plugin-supplied names — on the terminal through Ink's `<Text>`. Six review rounds
- * found three sites nobody had covered, because "sanitized" was a property of individual lines of
- * code, and a site added later by someone who never read SEC-019 is covered by nothing.
+ * Untrusted text — model output, tool stdout, file contents, plugin-supplied names — must not reach
+ * the terminal through Ink's `<Text>`. "Sanitized" as a property of individual lines of code leaves
+ * sites uncovered, and a site added later by someone who never read this is covered by nothing.
  *
  * This component makes the boundary structural: every string child is passed through
  * `sanitizeTerminalText` before Ink sees it, and the `tui-safe-text-boundary` scan refuses any other
@@ -46,7 +45,7 @@ export function SafeText(props: TInkTextProps): React.JSX.Element {
  * `renderMarkdown` sanitizes the untrusted markdown BEFORE `marked-terminal` styles it, and the
  * SGR colour in its output (the theme's diff pairs, heading emphasis) is the renderer's
  * own, not the model's. Routing that output through `SafeText` would strip the styling the renderer
- * just applied — the SCREEN-006 diff colours vanished exactly that way. The boundary still holds:
+ * just applied — the diff colours vanish exactly that way. The boundary still holds:
  * the only string that reaches this component is one the renderer built from sanitized text, and
  * the `tui-safe-text-boundary` scan keeps every other module off Ink's `Text`.
  *

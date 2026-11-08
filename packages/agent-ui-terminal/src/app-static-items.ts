@@ -1,5 +1,5 @@
 /**
- * SCREEN-010 / CLI-2004 — what gets committed to the terminal's native scrollback.
+ * What gets committed to the terminal's native scrollback.
  *
  * The App renders exactly this list inside a single Ink `<Static>`, so each item is written once and
  * never repainted. Building the list is a pure function so the ONE decision that varies — whether

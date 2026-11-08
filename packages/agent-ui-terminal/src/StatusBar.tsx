@@ -14,7 +14,7 @@ import type { TModelEffortSelection, TPermissionMode } from '@robota-sdk/agent-c
 const CONTEXT_YELLOW_THRESHOLD = 70;
 const CONTEXT_RED_THRESHOLD = 90;
 
-/** Segment separator between status-bar fields (SCREEN-006: single SSOT, was repeated inline 6x). */
+/** Segment separator between status-bar fields (single SSOT, was repeated inline 6x). */
 const SEP = '  |  ';
 
 interface IProps {
@@ -132,7 +132,7 @@ function ModeText({ permissionMode }: { permissionMode: TPermissionMode }): Reac
 }
 
 /**
- * CLI-2004 verdict (l): outside the mode the `default` mode is hidden as noise. In the mode it is
+ * Outside the screen-reader mode the `default` mode is hidden as noise. In the mode it is
  * ALWAYS rendered — with no key-based cycling to announce, the status line is the only place a
  * reader can find which permission mode it is in, and a hidden `default` leaves nothing to find.
  */
@@ -187,7 +187,7 @@ function StatusLeft(props: IStatusLeftProps): React.ReactElement {
   const palette = usePalette();
   const shouldShowGitBranch =
     props.showGitBranch && props.gitBranch !== undefined && props.gitBranch.length > 0;
-  // CLI-2004 § Solution 13: one rule applied to fields of different VOLATILITY. The activity text
+  // One rule applied to fields of different VOLATILITY. The activity text
   // and the context percentage re-render on their own cadence and on every token, so a reader
   // reviewing the status line would re-announce them continuously while the operator types — they
   // are suppressed. The permission mode, the preset and the model change only when the operator

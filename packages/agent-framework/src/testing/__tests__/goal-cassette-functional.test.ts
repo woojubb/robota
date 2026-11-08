@@ -23,27 +23,32 @@ afterEach(async () => {
   h = undefined;
 });
 
-describe('goal against a real recorded model (cassette)', () => {
-  it(
-    'a real Qwen run drives the goal to satisfied: it wrote the file and signalled completion',
-    async () => {
-      h = scriptedSession({ cassette: GOAL_CASSETTE_PATH });
+// The cassette records a model driving a POSIX shell, and a replay runs the recorded commands as
+// written, so a Windows run needs a recording made against PowerShell.
+describe.skipIf(process.platform === 'win32')(
+  'goal against a real recorded model (cassette)',
+  () => {
+    it(
+      'a real Qwen run drives the goal to satisfied: it wrote the file and signalled completion',
+      async () => {
+        h = scriptedSession({ cassette: GOAL_CASSETTE_PATH });
 
-      const goal = await h.runGoal(buildGoalObjective(h.cwd), {
-        maxIterations: GOAL_MAX_ITERATIONS,
-      });
+        const goal = await h.runGoal(buildGoalObjective(h.cwd), {
+          maxIterations: GOAL_MAX_ITERATIONS,
+        });
 
-      // The recorded real model reached satisfaction...
-      expect(goal.status).toBe('satisfied');
-      expect(goal.stopReason).toBe('satisfied');
-      // ...by actually creating the file...
-      expect(h.exists('GOAL.txt')).toBe(true);
-      expect(h.readFile('GOAL.txt')).toContain('done');
-      // ...and using the real tools, including the structured completion signal.
-      const toolNames = h.toolCalls().map((call) => call.name);
-      expect(toolNames).toContain('Bash');
-      expect(toolNames).toContain('report_goal_status');
-    },
-    TEST_TIMEOUT,
-  );
-});
+        // The recorded real model reached satisfaction...
+        expect(goal.status).toBe('satisfied');
+        expect(goal.stopReason).toBe('satisfied');
+        // ...by actually creating the file...
+        expect(h.exists('GOAL.txt')).toBe(true);
+        expect(h.readFile('GOAL.txt')).toContain('done');
+        // ...and using the real tools, including the structured completion signal.
+        const toolNames = h.toolCalls().map((call) => call.name);
+        expect(toolNames).toContain('Bash');
+        expect(toolNames).toContain('report_goal_status');
+      },
+      TEST_TIMEOUT,
+    );
+  },
+);

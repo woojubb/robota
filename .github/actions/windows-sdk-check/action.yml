@@ -29,7 +29,13 @@ runs:
           [ "$dir" = packages/agent-file-authority ] || test_filters+=(--filter "./$dir")
         done < "$RUNNER_TEMP/windows-sdk-paths"
         if [ "$INSTALL_SDK" = true ]; then
-          pnpm install --frozen-lockfile --filter robota-monorepo "${build_filters[@]}"
+          # The native modules' install scripts download prebuilt binaries from GitHub release assets, and
+          # those downloads fail intermittently. A failed install script runs again on the next install, so retry.
+          for attempt in 1 2 3 4; do
+            pnpm install --frozen-lockfile --filter robota-monorepo "${build_filters[@]}" && break
+            if [ "$attempt" = 4 ]; then exit 1; fi
+            sleep $((attempt * 20))
+          done
         fi
         pnpm -r "${build_filters[@]}" run build
         pnpm --filter './packages/agent-file-authority' exec vitest run --no-file-parallelism

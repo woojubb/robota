@@ -8,7 +8,7 @@ Next.js app. See [`SPEC.md`](./SPEC.md) for the app's scope and boundaries.
 
 - `/` — redirects to `/remote`.
 - `/remote` — browser remote client for the configured CLI remote control (`RemoteClient` from
-  `@robota-sdk/agent-transport-webrtc-web/client`). It takes no environment variables; everything comes
+  `src/remote-client`). It takes no environment variables; everything comes
   from its URL. Set the CLI's `transports.webrtc.options.clientUrl` to this page with the signaling relay in
   the `relay` query parameter (for example `https://web.example.com/remote?relay=wss://relay.example.com`;
   optional `ice` and `forceTurn` parameters configure STUN/TURN). The pairing link the configured CLI prints adds the

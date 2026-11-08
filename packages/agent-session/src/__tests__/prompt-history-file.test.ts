@@ -36,7 +36,7 @@ async function collect(
   return blocks;
 }
 
-describe('NodePromptHistoryFile (SCREEN-1993 TC-01)', () => {
+describe('NodePromptHistoryFile', () => {
   it('appends one JSON line per entry with owner-only directory and file modes', () => {
     const root = temp();
     const path = join(root, '.agent', 'history.jsonl');

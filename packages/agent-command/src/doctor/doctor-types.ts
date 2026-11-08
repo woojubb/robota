@@ -1,5 +1,5 @@
 /**
- * The doctor's evidence model (OBSERVABILITY-1991).
+ * The doctor's evidence model.
  *
  * `fail` is the only status that raises the exit code — the diagnostic command contract shipped
  * with. `not-configured` names an absent optional capability out loud instead of treating

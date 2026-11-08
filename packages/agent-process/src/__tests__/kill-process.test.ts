@@ -8,7 +8,7 @@
  */
 import { spawn } from 'node:child_process';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_KILL_GRACE_MS, killProcessTree } from '../kill-process';
 
@@ -114,18 +114,53 @@ describe('killProcessTree', () => {
     expect(grandchildPid).toBeGreaterThan(0);
 
     await killProcessTree(child, { graceMs: 600, processGroup: true });
-    await new Promise((r) => setTimeout(r, 200));
 
-    // The grandchild PID must be dead — kill -0 throws ESRCH for a reaped process.
-    const grandchildAlive = ((): boolean => {
-      try {
-        process.kill(grandchildPid, 0);
-        return true;
-      } catch {
-        return false;
-      }
-    })();
-    expect(grandchildAlive).toBe(false);
+    // The grandchild PID must disappear — kill -0 throws ESRCH once a killed process is reaped, which a
+    // loaded runner can delay.
+    await vi.waitFor(() => expect(() => process.kill(grandchildPid, 0)).toThrow(), {
+      timeout: 5000,
+      interval: 50,
+    });
+  });
+
+  it('ends a descendant that holds the stdio pipes open, so the child closes', async () => {
+    // A shell that runs a program leaves that program holding the shell's stdout. Ending only the
+    // direct child leaves it running and the pipes open, so `close` never arrives and a caller that
+    // waits on it (a scheduled fire, a background process) waits forever.
+    const grandchildScript = 'setInterval(() => {}, 1000)';
+    const parentScript = [
+      "const { spawn } = require('node:child_process');",
+      `const g = spawn(process.execPath, ['-e', ${JSON.stringify(grandchildScript)}], { stdio: 'inherit' });`,
+      "process.stdout.write('ready ' + g.pid + '\\n');",
+      'setInterval(() => {}, 1000);',
+    ].join('\n');
+    const child = track(spawn(process.execPath, ['-e', parentScript], { detached: isPosix }));
+
+    let grandchildPid = 0;
+    child.stdout?.on('data', (chunk: Buffer) => {
+      const match = /ready (\d+)/.exec(chunk.toString('utf8'));
+      if (match) grandchildPid = Number(match[1]);
+    });
+    for (let i = 0; i < 50 && grandchildPid === 0; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(grandchildPid).toBeGreaterThan(0);
+
+    const closed = new Promise<void>((resolve) => child.once('close', () => resolve()));
+    await killProcessTree(child, { graceMs: 5000, processGroup: isPosix });
+    await Promise.race([
+      closed,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('child never closed: a descendant survived')), 5000),
+      ),
+    ]);
+
+    // A killed grandchild stays visible to `kill(pid, 0)` as a zombie until its new parent reaps it, which
+    // a loaded or containerized runner can delay, so wait for it to disappear.
+    await vi.waitFor(() => expect(() => process.kill(grandchildPid, 0)).toThrow(), {
+      timeout: 5000,
+      interval: 50,
+    });
   });
 
   it('runs preKill before signalling and tolerates a throwing preKill', async () => {

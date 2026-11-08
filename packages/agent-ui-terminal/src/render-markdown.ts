@@ -20,14 +20,14 @@ export interface IRenderMarkdownOptions {
   color?: boolean;
   codeBlockWidth?: number;
   /**
-   * SCREEN-2002: the resolved theme. Absent ⇒ the `dark` built-in, which is byte-identical to what
+   * The resolved theme. Absent ⇒ the `dark` built-in, which is byte-identical to what
    * this renderer produced before themes existed.
    */
   theme?: ITuiTheme;
-  /** SCREEN-2002: `false` renders code blocks as plain indented text, with no highlight SGR. */
+  /** `false` renders code blocks as plain indented text, with no highlight SGR. */
   syntaxHighlighting?: boolean;
   /**
-   * CLI-2004: flatten tables to `Header: value` sentences. A box-drawn grid is unreadable aloud —
+   * Flatten tables to `Header: value` sentences. A box-drawn grid is unreadable aloud —
    * a reader announces the rules, not the relationship between a heading and its cell.
    */
   screenReader?: boolean;
@@ -115,7 +115,7 @@ function renderDiffCodeBlock(
 }
 
 /**
- * CLI-2004 — flatten a table to `Header: value` lines.
+ * Flatten a table to `Header: value` lines.
  *
  * The cell and row hooks tag their output with separators marked's own renderers never emit, so the
  * table hook can recover the grid it was given. Reconstructing it from the RENDERED strings is the
@@ -155,7 +155,7 @@ function createTerminalRenderer(
   theme: ITuiTheme,
   syntaxHighlighting: boolean,
 ): Renderer {
-  // SCREEN-2002: both dependencies are told what to colour with. Left to their own defaults, a
+  // Both dependencies are told what to colour with. Left to their own defaults, a
   // daltonized theme would still get green/red code blocks from cli-highlight's own theme.
   const renderer = new TerminalRendererConstructor(markdownRendererOptions(theme.markdown), {
     ignoreIllegals: true,
@@ -188,7 +188,7 @@ function createTerminalRenderer(
  * Returns the rendered string (may include ANSI escape codes).
  */
 export function renderMarkdown(md: string, options: IRenderMarkdownOptions = {}): string {
-  // SEC-019 (issue #2022): the untrusted string is sanitized BEFORE parsing, never after. The
+  // The untrusted string is sanitized BEFORE parsing, never after. The
   // renderer ADDS ANSI — colours, bold, code-block framing — so filtering its output would strip the
   // repository's own presentation along with the attacker's. Filtering its input removes what
   // arrived from outside and leaves what is generated after.

@@ -34,7 +34,7 @@ SDK packages (@robota-sdk/*)
   Product composition   agent-product · pack-coding · agent-capability-pack ·
                         agent-command · agent-preset · agent-subagent-runner
   Presentation          agent-ui-terminal (React + Ink)
-                        agent-ui-web · agent-gui-web · agent-transport-webrtc-web (private GUI)
+                        agent-ui-web · agent-gui-web (private GUI)
   Assembly              agent-framework: InteractiveSession, createQuery, createAgentRuntime,
                         runtime host (buildRuntimeSession / startRuntimeHost behind robota --serve)
   Transports            agent-transport (wire protocol, delivery), and the carriers built on it:
@@ -46,8 +46,7 @@ SDK packages (@robota-sdk/*)
                         agent-provider-replay (private: replays recorded provider responses in tests)
   Building blocks       agent-tools · agent-plugin · agent-mcp · agent-session-analytics ·
                         agent-telemetry-otel ·
-                        agent-provider-{anthropic,openai,openai-compatible,gemini,bytedance} ·
-                        agent-builtin-providers
+                        agent-provider (one subpath per vendor; vendor SDKs are optional peers)
   Contracts (type-only) agent-interface-{session,session-mobility,command,execution,
                         analytics,transport,tui}
   Foundation            agent-core
@@ -70,7 +69,7 @@ product-to-product links remain local. Upgrading the product's SDK is an explici
 and coordinated changes can be checked against packed SDK artifacts in an isolated workspace.
 
 > **What the rows do not show.** Providers are injected: `agent-framework` never depends on an
-> `agent-provider-*` package; the composition root constructs the provider and hands it in.
+> `agent-provider` subpath; the composition root constructs the provider and hands it in.
 > The transport family builds on `agent-core`, the contract packages and `agent-remote-pairing`,
 > not on `agent-framework`; `agent-ui-terminal` depends on both. `agent-subagent-runner` sits above the
 > framework because it assembles child sessions through it. `agent-mcp` depends only on
@@ -130,12 +129,11 @@ configuration or network endpoint. In particular, a provider SDK may refuse clie
   `agent-interface-execution`, `agent-interface-session`, `agent-interface-session-mobility`,
   `agent-interface-transport`, `agent-interface-tui`, `agent-core`, `agent-organization`,
   `agent-remote-pairing`, `agent-roundtable`, `agent-roundtable-robota`, `agent-session-analytics`,
-  `agent-telemetry-otel`, `agent-provider-anthropic`, `agent-provider-openai`,
-  `agent-provider-openai-compatible`, `agent-provider-gemini`, `agent-provider-bytedance`,
-  `agent-builtin-providers`, `agent-capability-pack`, `agent-transport`, `product-config`,
+  `agent-telemetry-otel`, `agent-provider`, `agent-capability-pack`, `agent-transport`,
+  `product-config`,
   `agent-plugin`, `agent-executor`, `agent-session`, `agent-transport-http`, `agent-mcp`,
   `agent-tools`, `agent-framework`, `agent-command`, `agent-preset`, `agent-product`
-- **Browser (DOM)**: `agent-ui-web`, `agent-transport-webrtc-web`, `agent-gui-web` — free of Node
+- **Browser (DOM)**: `agent-ui-web`, `agent-gui-web` — free of Node
   like the neutral packages, and they also need a DOM.
 - **Node host**: `agent-cli`, `agent-ui-terminal`, `agent-process`, `agent-file-authority`,
   `agent-local-host`, `agent-node-lock`,
@@ -164,15 +162,14 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
 - `FAMILY-SIBLINGS` — the package name hierarchy is the dependency detector:
   an `agent-<family>-<child>` package (family = the second dash segment) may depend on its parent
   `agent-<family>` and on lower families, never on a sibling `agent-<family>-<other>` at any depth
-  (`agent-transport-webrtc-web` is a sibling of `agent-transport-ws`); the bare parent never depends
+  (`agent-transport-ws` is a sibling of `agent-transport-http`); the bare parent never depends
   on a child; and the composer/foundation (`agent-framework`, `agent-core`) never depends on a
   transport or UI child (`agent-transport-*`, `agent-ui-*`). Code two siblings share belongs in the
   parent (or a parent subpath) — never in a sibling-named substrate (`-common`, `-shared`,
   `-protocol`, `-defaults`, `-builtin`). Judged over `dependencies` + `peerDependencies`; the
-  `agent-interface-*` family is judged once, by `INTERFACE-DEPS`. One exception:
-  `agent-provider-openai` builds on `agent-provider-openai-compatible` (its `/shared` subpath), because
-  the OpenAI wire protocol is the base both implement and there is no `agent-provider` parent to hold
-  it. `pnpm deps:check` enforces the provider part of this rule.
+  `agent-interface-*` family is judged once, by `INTERFACE-DEPS`. `pnpm deps:check` enforces the
+  provider part of this rule inside `agent-provider`: a vendor subpath imports no other vendor, and
+  `openai`, `deepseek`, `qwen` and `gemma` share only the `openai-compatible` base.
 - `UNDECLARED-IMPORT` — every `@robota-sdk/*` workspace package a production source file imports is
   declared in one of the importing package's `dependencies`, `peerDependencies` or
   `devDependencies`; "undeclared" is absence from all three, so a manifest rule such as

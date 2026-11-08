@@ -1,7 +1,7 @@
 import { Readable } from 'node:stream';
 
 /**
- * SCREEN-1992: the stdin proxy handed to Ink's `render({ stdin })`.
+ * The stdin proxy handed to Ink's `render({ stdin })`.
  *
  * Ink tokenizes `ESC [ I` as a keypress and every `useInput` listener would receive `[I`, so the
  * composer would type it. The proxy sits in front of the real stdin, strips the two focus sequences

@@ -1,5 +1,5 @@
 /**
- * TEST-007 / TERM-003 + TERM-004 fixture: run the real `/shell` and `/editor` command executors
+ * Fixture: run the real `/shell` and `/editor` command executors
  * through the real `TerminalHandoffController` on a real PTY.
  *
  * A real Ink app (input hooks below a suspend gate, like the App) provides the live handoff; a minimal
@@ -24,6 +24,7 @@ import React from 'react';
 
 import { useTerminalHandoffSuspension } from '../../hooks/useTerminalHandoffSuspension.js';
 import { TerminalHandoffController } from '../../terminal-handoff-controller.js';
+import { readOneLineScript } from './read-one-line-script.js';
 
 import type {
   ICommandHostTerminalHandoff,
@@ -32,8 +33,11 @@ import type {
 
 const MODE = process.argv[2];
 const OUTPUT_PATH = process.argv[3];
-/** Reads one line from the handed-off terminal and echoes it back, proving the child owned the TTY. */
-const SHELL_COMMAND = 'IFS= read -r line; printf "SHELL_GOT:[%s]\\n" "$line"';
+/**
+ * Reads one line from the handed-off terminal and echoes it back, proving the child owned the TTY.
+ * A `node -e` command runs the same in `sh` and in PowerShell, the shell `/shell` resolves on Windows.
+ */
+const SHELL_COMMAND = `node -e "${readOneLineScript('SHELL_GOT')}"`;
 
 const controller = new TerminalHandoffController();
 let resolveInputAfterHandoff: ((input: string) => void) | undefined;
@@ -74,10 +78,9 @@ async function main(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 300));
   marker(`READY canHandoff=${controller.canHandoffTerminal}`);
 
-  // ARCH-029: the fixture's `satisfies Pick<>` above is the honest part — it declares exactly the
-  // three members these executors read. The widening cast existed only because the executors demand
-  // the whole 46-member facade. S3's role ports remove the need to widen at all; until then the
-  // double supplies the rest so no cast is required.
+  // The fixture's `satisfies Pick<>` above is the honest part — it declares exactly the three
+  // members these executors read. The widening cast existed only because the executors demand the
+  // whole 46-member facade. The double supplies the rest so no cast is required.
   const ctx = createTestCommandHost({ overrides: context });
   const result =
     MODE === 'editor'

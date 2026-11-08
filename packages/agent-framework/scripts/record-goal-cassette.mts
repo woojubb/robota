@@ -8,7 +8,7 @@
  * Run once (needs the key):
  *   TEST_QWEN_KEY=… pnpm --filter @robota-sdk/agent-framework exec tsx --conditions=source scripts/record-goal-cassette.mts
  */
-import { createQwenProviderDefinition } from '@robota-sdk/agent-provider-openai-compatible';
+import { createQwenProviderDefinition } from '@robota-sdk/agent-provider/qwen';
 
 import { recordGoalCassette } from './record-goal-cassette-operation.mjs';
 import { GOAL_CASSETTE_PATH } from '../src/testing/__fixtures__/goal-cassette-fixture.js';

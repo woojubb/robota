@@ -1,5 +1,5 @@
 /**
- * SCREEN-2002 TC-13 — themes, user theme files and plugin theme files, through the BUILT binary in
+ * Themes, user theme files and plugin theme files, through the BUILT binary in
  * a real PTY (run by `test:pty`; requires `pnpm build:deps` first).
  *
  * What only this level can show: that the theme a user chooses reaches the terminal's actual bytes
@@ -100,7 +100,7 @@ function seedThemeFiles(homeDir: string): void {
   );
 }
 
-describe('SCREEN-2002 themes through the real binary', () => {
+describe('themes through the real binary', () => {
   let projectDir: string;
   let homeDir: string;
   let session: IPtySession | undefined;
@@ -203,7 +203,7 @@ describe('SCREEN-2002 themes through the real binary', () => {
       await session.waitForSince(escapeMark, PROMPT, STEP_MS);
       const restored = sgrVocabulary(session.raw().slice(escapeRawMark));
       // The symmetric guard: a post-escape slice carrying no SGR at all would satisfy the filter
-      // below without measuring anything, which is the fail-toward-green shape S3 also had.
+      // below without measuring anything, which is the fail-toward-green shape.
       expect(restored.size).toBeGreaterThan(0);
       expect(previewed.filter((sequence) => restored.has(sequence))).toEqual([]);
       expect(session.snapshotSince(escapeMark)).not.toContain('Applied: theme');
@@ -282,7 +282,7 @@ describe('SCREEN-2002 themes through the real binary', () => {
       const listed = session.snapshotSince(mark);
       // The pin is reported, not silently obeyed.
       // What THIS RUN does, and what is saved — two facts, never one in place of the other. This
-      // line is the defect TC-13 found: it read `reduced motion: off (… pinned by flag)`.
+      // line once read `reduced motion: off (… pinned by flag)`.
       expect(listed).toContain('reduced motion: on for this run (pinned by flag; saved off)');
       // Colour is untouched by the motion decision.
       expect(sgrVocabulary(session.raw().slice(rawMark)).size).toBeGreaterThan(MINIMUM_SGR_VARIETY);

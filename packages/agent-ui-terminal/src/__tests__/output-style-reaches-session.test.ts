@@ -21,7 +21,7 @@ const STYLE: IOutputStylePrompt = {
 const renderOptions = (over: Partial<IRenderOptions> = {}): IRenderOptions =>
   ({ host: testHost, cwd: '/w', provider: {}, ...over }) as IRenderOptions;
 
-describe('CLI-1988 output-style projection', () => {
+describe('output-style projection', () => {
   it('preserves the resolved style from render options through the TUI session options', () => {
     const channel = toChannelOptions(renderOptions({ outputStyle: STYLE }));
     expect(channel.outputStyle).toBe(STYLE);

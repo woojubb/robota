@@ -118,8 +118,10 @@ directory permissions to judge.
 
 **What this proves, and what it does not.** Reaching a socket inside an owner-only (mode 0700), user-owned
 directory means the peer is on this machine as this user, because the kernel refuses the traversal to anyone else
-— the evidence is not an artifact the peer supplies, so there is nothing to copy. It does NOT distinguish two
-processes of the same user; the boundary is the account.
+— the evidence is not an artifact the peer supplies, so there is nothing to copy. That evidence exists only where the
+platform reports real uids and mode bits and binds a socket to a path; on Windows, which emulates both, admission
+refuses rather than reading an emulated value, and a Windows carrier proves owner-only access with its own ACL check.
+It does NOT distinguish two processes of the same user; the boundary is the account.
 
 **Why the grant ledger is part of the proof rather than a convenience.** The directory check establishes the
 environment at the rendezvous, but the session's messages travel over a different carrier. Without a binding, a

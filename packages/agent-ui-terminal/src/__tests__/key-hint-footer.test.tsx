@@ -1,5 +1,5 @@
 /**
- * SCREEN-005: key-hint footer SSOT unit tests — formatter grammar, separator constant, indicator
+ * Key-hint footer SSOT unit tests — formatter grammar, separator constant, indicator
  * constants, and the KeyHintFooter render contract (dim, leading pad, nothing when empty).
  */
 import React from 'react';

@@ -1,13 +1,13 @@
 /**
- * CLI-062 — fallback-path pinning guard.
+ * Fallback-path pinning guard.
  *
  * When real-cursor positioning is NOT active (capability off — the default in this test process:
  * stdout is not a TTY and PRODUCT_IME_CURSOR is unset), CjkTextInput's rendering must stay
- * byte-identical to the pre-CLI-062 behavior (invariant I4: guard fail → today's visuals, drawn
+ * byte-identical to the previous behavior (invariant I4: guard fail → today's visuals, drawn
  * inverse cursor included). The expected strings below are literal captures of the component's
- * output BEFORE the CLI-062 change (chalk.level forced to 3 so the inverse-cursor bytes are pinned,
- * not stripped). If this test breaks, the `<Box ref>` wrapper or the drawn-cursor gating changed
- * the fallback rendering — that is a regression, not a snapshot to refresh.
+ * output BEFORE the IME cursor positioning was added (chalk.level forced to 3 so the inverse-cursor
+ * bytes are pinned, not stripped). If this test breaks, the `<Box ref>` wrapper or the drawn-cursor
+ * gating changed the fallback rendering — that is a regression, not a snapshot to refresh.
  */
 
 import chalk from 'chalk';
@@ -23,7 +23,7 @@ const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 30));
 
 const ORIGINAL_CHALK_LEVEL = chalk.level;
 
-describe('CLI-062 — fallback rendering is byte-identical to pre-change output', () => {
+describe('fallback rendering is byte-identical to pre-change output', () => {
   beforeAll(() => {
     chalk.level = 3;
   });
