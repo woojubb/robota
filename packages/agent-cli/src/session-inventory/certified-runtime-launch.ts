@@ -1,5 +1,5 @@
 import { openRegisteredOwnerLink, openRegisteredSpawnerLink } from './owner-link-client.js';
-import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from './supervised-session-control.js';
+import { listSupervisedSessions, resolveSupervisedDirectory, stopStartedSupervisedSession } from './supervised-session-control.js';
 import { launchRuntimeProcess, type ISupervisedLaunchOptions } from './supervised-session-launch.js';
 
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
@@ -15,7 +15,10 @@ async function withinDeadline<T>(action: Promise<T>): Promise<T> {
   }
 }
 
-/** The caller holds its owner handover and any workspace start lock until this returns. */
+/**
+ * The caller holds its owner handover and any workspace start lock until this returns. A launch that
+ * fails after the runtime was proved returns only once that runtime is gone.
+ */
 export async function launchCertifiedRuntime(
   cwd: string,
   options: ISupervisedLaunchOptions & { readonly handover: IOwnerHandover; readonly daemonRole?: boolean },
@@ -50,7 +53,7 @@ export async function launchCertifiedRuntime(
     return { id: started.id, generation: row.generation };
   } catch (error) {
     if (provenGeneration !== undefined) {
-      try { await stopSupervisedSession(started.id, root, provenGeneration); } catch { /* The runtime may already have exited. */ }
+      try { await stopStartedSupervisedSession(started.id, root, provenGeneration); } catch { /* It may already be gone, or refuse to leave; the launch's own failure is what the caller needs. */ }
     }
     throw error;
   } finally {
