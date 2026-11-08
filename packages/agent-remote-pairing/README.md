@@ -114,7 +114,8 @@ one.
 
 `admitLocalPeerDirectory` and `admitLocalPeerSocket` admit a peer that reached a socket inside an
 owner-only (mode `0700`) directory created with `ensureGuardedDirectory`: the operating system already
-proved it is this user on this machine. `RendezvousGrantLedger` issues single-use, short-lived nonces at
+proved it is this user on this machine. Windows reports no owner uid and only an emulated mode, so
+both refuse there. `RendezvousGrantLedger` issues single-use, short-lived nonces at
 that rendezvous, which the channel's pairing must present back, so the admission cannot be handed to
 another connection.
 
