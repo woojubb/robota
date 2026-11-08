@@ -94,10 +94,13 @@ describe('agent-product entry isolation', () => {
     },
   );
 
-  it.each(NEUTRAL_ENTRIES)('the neutral entry %s reaches no Node-only entry', (start) => {
-    const reached = [...reachableFrom(start)];
-    expect(
-      reached.filter((file) => NODE_ONLY.includes(file) || ownerOf(file) === 'coding'),
-    ).toEqual([]);
-  });
+  it.each(NEUTRAL_ENTRIES.map((file) => [path.relative(SRC, file), file]))(
+    'the neutral entry %s reaches no Node-only entry',
+    (_name, start) => {
+      const reached = [...reachableFrom(start)];
+      expect(
+        reached.filter((file) => NODE_ONLY.includes(file) || ownerOf(file) === 'coding'),
+      ).toEqual([]);
+    },
+  );
 });
