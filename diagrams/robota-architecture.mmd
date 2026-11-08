@@ -25,7 +25,7 @@ graph TD
   end
 
   subgraph Blocks["Building blocks"]
-    TOOLS[agent-tools]
+    TOOLS[agent-tools<br/>+ ./defaults default tool set]
     PLUG[agent-plugin]
     MCP[agent-mcp<br/>MCP client]
     PROV[agent-provider<br/>one subpath per vendor + builtin]
@@ -37,7 +37,6 @@ graph TD
     SESS[agent-session]
     REPLAY[agent-provider-replay<br/>private · test replay]
     EXEC[agent-executor]
-    TD[agent-tool-defaults]
     RTR[agent-roundtable-robota<br/>Session/Robota roundtable participants]
   end
 
@@ -96,11 +95,10 @@ graph TD
   IFCE & IFS --> SESS
   PROC --> EXEC
   IFCE & IFT --> EXEC
-  TOOLS --> TD
   CORE & SESS & RT --> RTR
 
   %% Assembly (providers are injected by the composition root, never imported)
-  CORE & SESS & EXEC & TOOLS & TD & OS & RT --> FW
+  CORE & SESS & EXEC & TOOLS & OS & RT --> FW
   IFA & IFCE & IFS & IFM & IFT --> FW
   PROV -. injected .-> FW
 
@@ -119,7 +117,7 @@ graph TD
   PRESET --> CMD & PROD
   EXEC & PROC --> SUB
   CAP --> PROD & PACK
-  CMD & TD --> PACK
+  CMD & TOOLS --> PACK
 
   CORE & FW --> WF
 

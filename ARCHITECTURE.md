@@ -41,11 +41,12 @@ SDK packages (@robota-sdk/*)
                         subpath each: ws · http · mcp · acp · webrtc ·
                         link (the owner link: proven admission to a local runtime);
                         carrier libraries are optional peers
-  Runtime               agent-session · agent-executor · agent-tool-defaults ·
+  Runtime               agent-session · agent-executor ·
                         agent-roundtable-robota (runs a session or agent as a roundtable participant and
                         selectors) ·
                         agent-provider-replay (private: replays recorded provider responses in tests)
-  Building blocks       agent-tools · agent-plugin · agent-mcp · agent-session-analytics ·
+  Building blocks       agent-tools (its ./defaults entry is the default tool set, Node only) ·
+                        agent-plugin · agent-mcp · agent-session-analytics ·
                         agent-telemetry-otel ·
                         agent-provider (one subpath per vendor; vendor SDKs are optional peers)
   Contracts (type-only) agent-interface-{session,session-mobility,command,execution,
@@ -138,7 +139,7 @@ configuration or network endpoint. In particular, a provider SDK may refuse clie
 - **Browser (DOM)**: `agent-ui-web`, `agent-gui-web` — free of Node
   like the neutral packages, and they also need a DOM.
 - **Node host**: `agent-cli`, `agent-ui-terminal`, `agent-os`, `agent-local-host`,
-  `agent-organization-host`, `agent-tool-defaults`, `pack-coding`, `agent-subagent-runner`,
+  `agent-organization-host`, `pack-coding`, `agent-subagent-runner`,
   `agent-provider-replay`, `agent-keyring` — they exist to drive a Node host
   (a terminal, child processes, the file system, listeners, stdio, local sockets, `node:crypto` key
   custody), so their main entry is Node-only.

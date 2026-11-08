@@ -5,7 +5,8 @@
 Owns the tool factory constructors, tool result types, sandbox execution ports, and sandbox
 workspace manifest contracts for the Robota SDK: ergonomic tool-construction factories that build
 `@robota-sdk/agent-core`'s `FunctionTool`, plus a set of built-in CLI tools (shell, bash, read,
-write, edit, glob, grep, web-fetch, ask-user-question) used by the agent CLI.
+write, edit, glob, grep, web-fetch, ask-user-question) used by the agent CLI. The Node-only
+`./defaults` entry assembles the SDK's own default tool set from them (`createDefaultTools`).
 
 ## Boundaries
 
@@ -21,6 +22,13 @@ write, edit, glob, grep, web-fetch, ask-user-question) used by the agent CLI.
 - Owns no host default. The main entry is platform-neutral: it runs in a browser, a Web Worker, Node,
   Deno and Bun. What touches a host (processes, the file system, the network egress policy, the OS
   sandbox) is on `./node`, and a neutral entry takes a host's pieces by injection.
+- `./defaults` implements no tool itself: every factory it calls is owned by the other entries of
+  this package. It must never import `agent-framework` or any higher layer; the dependency runs the
+  other way.
+- Does not decide when a session should decline the default tier — that is the caller's decision,
+  expressed by passing its own tool set instead. `./defaults` provides no extension point (no
+  registry, merge, or override); a caller that wants a different or additional surface composes it
+  at the composition root rather than configuring this package.
 
 ## Contract
 
@@ -106,6 +114,33 @@ deliberately not the same outcome. The tool itself refuses to run if the runtime
 deferred-tools catalog into it, rather than silently reporting an empty result for a search that
 never happened.
 
+### Default tool set (`./defaults`)
+
+The tools every product session gets when its composition root supplies no tool list of its own.
+It holds only tools that need no external service, credential or adapter; a tool that does is built
+by the composition root that owns the adapter, so a default tool never fails for a missing key or
+silently degrades.
+
+- `cwd` is a required option: it is the execution root every host file tool is contained by. File
+  tools routed to a sandbox with its own filesystem hand their paths to that sandbox, where `cwd`
+  does not confine them. An editor's file access reaches only the host file tools and searches,
+  never the commands, and is not passed when a separate sandbox carries the files. A context-free
+  tool construction is the shape of bug this contract exists to prevent.
+- `createDefaultTools` is pure and side-effect-free at construction: the same options always
+  produce the same tool list, with no registry, no lazy initialization and no I/O. Every call builds
+  fresh tools, never the module-level instances.
+- Every tool this tier returns is resident (no deferred loading) — the tier is small enough that
+  deferring any of it would be a net loss, and it alone satisfies the "at least one resident tool"
+  invariant owned by `agent-core` whenever the tier is present. Tool search is not part of this
+  tier; session assembly adds it, and only when the assembled set actually contains a deferred tool.
+- It throws nothing of its own: it has no runtime validation branch and no I/O. Failures a caller
+  sees at use time (e.g. path-containment refusals) come from the tools themselves.
+- The tier is a composition leaf, imported only at composition roots. `agent-framework` offers it
+  to a session only through its host: the composition root passes `createDefaultTools` to
+  `createNodeFrameworkHost`, and the session asks `host.createDefaultTools`. The framework imports
+  it nowhere in its runtime code and never re-exports it — a re-export would restore the direct
+  dependency that keeping the tier out of the framework removed.
+
 ### Extension points
 
 - `createFunctionTool` / `createZodFunctionTool` build custom tools from a plain schema or a Zod
@@ -173,3 +208,11 @@ tool results. Edit admits file content under the same per-operation ceiling as R
 running its string operations, and rejects a replacement whose output would exceed it, but reports
 either as an ordinary failed tool result rather than a thrown error, consistent with the rest of
 Edit's error handling.
+
+## Design decisions
+
+- The default tier has no plug-in seam: one would recreate library-level authority over a
+  product-level tool decision, which keeping the tier out of the framework removed. The one type it
+  owns is a parameter object describing what the caller must supply, not a domain concept; every
+  type it references is owned and exported by its owner entry instead of being re-exported from
+  `./defaults`, so the entry never becomes a second name for someone else's contract.
