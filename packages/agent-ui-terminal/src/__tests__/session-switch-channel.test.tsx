@@ -530,7 +530,7 @@ describe('App session-switch channel ownership', () => {
     initialStartIntent = true;
     const { lastFrame } = renderApp({ showSessionPickerOnStart: false });
 
-    await tick(100);
+    await waitForSessionPicker(lastFrame);
     expect(lastFrame()).toContain('Select a session to resume');
   });
 

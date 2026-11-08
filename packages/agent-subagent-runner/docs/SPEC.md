@@ -31,7 +31,9 @@ extra dependency.
 - **Result flush before exit.** The worker must not exit until its terminal IPC message has
   actually flushed, because `process.send` is asynchronous — exiting first would let the parent's
   process-exit handler race the result and misreport a successful run as a crash, losing its usage
-  payload.
+  payload. The parent does not rest on that alone: the exit event is not ordered against the IPC
+  channel, so it judges that no result came only once the channel has closed, which happens after
+  every message the channel holds has been delivered.
 - **`usage` is validated at the IPC boundary**, not merely `output` — a malformed usage object is
   rejected as a malformed message rather than spread verbatim into the parent's accounting.
 - **A crash surfaces its cause.** When the child exits before producing a result, the rejection

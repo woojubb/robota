@@ -43,7 +43,9 @@ export function createSendChannel(child: ChildProcess): (prompt: string) => Prom
     }
   });
   const gone = (): void => settleAll('The job ended before it took the prompt.');
-  child.once('exit', gone);
+  // Not `exit`: that event is not ordered against the channel, so an answer the child had already
+  // sent could still be unread and its prompt would be reported as dropped. The channel reports
+  // `disconnect` only after every message it holds has been delivered.
   child.once('disconnect', gone);
   child.once('error', gone);
   return (prompt) =>
