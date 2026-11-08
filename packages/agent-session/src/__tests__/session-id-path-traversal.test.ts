@@ -55,7 +55,7 @@ describe('SessionStore — session id path traversal', () => {
   let store: NodeSessionStore;
 
   beforeEach(() => {
-    root = realpathSync(mkdtempSync(join(tmpdir(), 'sec006-store-')));
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'store-path-traversal-')));
     baseDir = join(root, 'sessions');
     store = new NodeSessionStore(baseDir, { sealing: 'plain' });
   });
@@ -108,7 +108,7 @@ describe('FileSessionLogger — session id path traversal', () => {
   let logDir: string;
 
   beforeEach(() => {
-    root = realpathSync(mkdtempSync(join(tmpdir(), 'sec006-log-')));
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'log-path-traversal-')));
     logDir = join(root, 'logs');
   });
   afterEach(() => {
@@ -135,7 +135,7 @@ describe('NodeSessionLogSink direct path boundaries', () => {
   let logDir: string;
 
   beforeEach(() => {
-    root = realpathSync(mkdtempSync(join(tmpdir(), 'sec006-direct-log-sink-')));
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'direct-log-sink-path-traversal-')));
     logDir = join(root, 'logs');
   });
   afterEach(() => {
