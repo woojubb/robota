@@ -12,8 +12,8 @@ import { createTestFrameworkHost } from '../src/testing/framework-host.js';
 
 const testHost = createTestFrameworkHost();
 
-const LARGE_RESPONSE = `ARCH_014_LARGE:${'x'.repeat(40 * 1024)}`;
-const SENTINEL_RESPONSE = 'ARCH_014_SENTINEL';
+const LARGE_RESPONSE = `EXTERNAL_PAYLOAD_LARGE:${'x'.repeat(40 * 1024)}`;
+const SENTINEL_RESPONSE = 'EXTERNAL_PAYLOAD_SENTINEL';
 const EXPECTED_SHA256 = '42bc9897b0c5ebe94994f5ef0b494461e1133116821ed9141c0d2043a0168193';
 
 interface IExternalReferenceView {
@@ -26,7 +26,7 @@ let replaySession: InteractiveSession | undefined;
 let replayWorkspace: string | undefined;
 
 try {
-  sourceWorkspace = mkdtempSync(join(tmpdir(), 'agent-arch-014-source-'));
+  sourceWorkspace = mkdtempSync(join(tmpdir(), 'agent-source-workspace-'));
   const sourceWorkspacePath = sourceWorkspace;
   const sourceProvider = createScriptedProvider([
     { text: LARGE_RESPONSE },
@@ -36,7 +36,7 @@ try {
     host: testHost,
     cwd: sourceWorkspacePath,
     provider: sourceProvider,
-    resumeSessionId: 'arch-014-source',
+    resumeSessionId: 'source-session',
     sessionLogSink: new NodeSessionLogSink(join(sourceWorkspacePath, 'state', 'logs'), {
       sealing: 'plain',
     }),
@@ -46,7 +46,7 @@ try {
   await submitAndWait(sourceSession, 'first recorded turn');
   await submitAndWait(sourceSession, 'second recorded turn');
 
-  const transcriptPath = join(sourceWorkspacePath, 'state', 'logs', 'arch-014-source.jsonl');
+  const transcriptPath = join(sourceWorkspacePath, 'state', 'logs', 'source-session.jsonl');
   const entries = readFileSync(transcriptPath, 'utf8')
     .split('\n')
     .filter((line) => line.trim().length > 0)
@@ -61,7 +61,7 @@ try {
   const replayProvider = createReplayProviderFromSource(
     new NodeSessionLogSource(transcriptPath, { sealing: 'plain' }),
   );
-  replayWorkspace = mkdtempSync(join(tmpdir(), 'agent-arch-014-replay-'));
+  replayWorkspace = mkdtempSync(join(tmpdir(), 'agent-replay-workspace-'));
   const replayWorkspacePath = replayWorkspace;
   replaySession = new InteractiveSession({
     host: testHost,

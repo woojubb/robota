@@ -80,7 +80,7 @@ describe('containment is judged on the canonical path', () => {
   const fs = new NodeFileSystem();
 
   beforeEach(() => {
-    const base = realpathSync(mkdtempSync(join(tmpdir(), 'sec-018-')));
+    const base = realpathSync(mkdtempSync(join(tmpdir(), 'path-containment-')));
     root = join(base, 'plugins');
     outside = join(base, 'outside');
     mkdirSync(root, { recursive: true });

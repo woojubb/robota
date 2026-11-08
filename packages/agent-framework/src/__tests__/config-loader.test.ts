@@ -387,16 +387,16 @@ describe('loadConfig', () => {
     writeJson(join(projectDir, 'settings.json'), {
       currentProvider: 'openai',
       providers: {
-        openai: { type: 'openai', model: 'm', apiKey: '$ENV:TEST_SEC_009_KEY' },
+        openai: { type: 'openai', model: 'm', apiKey: '$ENV:TEST_PROVIDER_KEY' },
       },
     });
 
     const config = await loadConfig(cwd, {
-      TEST_SEC_009_KEY: 'sk-must-not-cross-a-process-boundary',
+      TEST_PROVIDER_KEY: 'sk-must-not-cross-a-process-boundary',
     });
 
     expect(config.provider.apiKey).toBe('sk-must-not-cross-a-process-boundary');
-    expect(config.provider.apiKeyEnv).toBe('TEST_SEC_009_KEY');
+    expect(config.provider.apiKeyEnv).toBe('TEST_PROVIDER_KEY');
   });
 
   it('records no credential origin when the profile stores a literal key', async () => {

@@ -10,14 +10,14 @@ const provider = null as unknown as IAIProvider;
 const session = null as unknown as Session;
 
 const standardPermission: IInteractiveSessionStandardOptions = {
-  cwd: '/tmp/arch-017',
+  cwd: '/tmp/prompt-options',
   provider,
   // @ts-expect-error session-level permission callbacks are obsolete.
   permissionHandler: async () => true,
 };
 
 const standardAsk: IInteractiveSessionStandardOptions = {
-  cwd: '/tmp/arch-017',
+  cwd: '/tmp/prompt-options',
   provider,
   // @ts-expect-error session-level ask callbacks are obsolete.
   askHandler: async () => ({ type: 'cancelled' }),
@@ -38,6 +38,6 @@ const injectedAsk: IInteractiveSessionInjectedOptions = {
 void [standardPermission, standardAsk, injectedPermission, injectedAsk];
 
 it('keeps obsolete prompt options rejected by the public type contract', () => {
-  expect(standardPermission.cwd).toBe('/tmp/arch-017');
+  expect(standardPermission.cwd).toBe('/tmp/prompt-options');
   expect(injectedPermission.session).toBe(session);
 });

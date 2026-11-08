@@ -25,7 +25,7 @@ async function createTracker(): Promise<{
   events: IBranchEvent[];
   order: string[];
 }> {
-  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'arch-020-branch-events-')));
+  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'branch-events-')));
   roots.push(cwd);
   const events: IBranchEvent[] = [];
   const order: string[] = [];
@@ -41,7 +41,7 @@ async function createTracker(): Promise<{
   });
   const tracker = new SessionHistoryTracker(
     { cwd, projectAccess: access },
-    () => 'session-arch-020',
+    () => 'session-branch-events',
     () => false,
     () => order.push('persist'),
     vi.fn(),
