@@ -13,8 +13,8 @@ import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
  * leaves the root, and every `@path` read would be refused. Such a directory is bound as the host's
  * real path of it, in the spelling the project's identity uses. A directory already inside the root
  * as written keeps its spelling, as does one in a restricted session (no root to relate to), under a
- * host with no canonicalizer, or that cannot be resolved: the entry points that bind a trusted
- * decision refuse a directory they cannot place.
+ * host with no canonicalizer, or that cannot be resolved (or whose authority is no longer live): the
+ * entry points that bind a trusted decision refuse a directory they cannot place.
  */
 export function resolveSessionWorkspaceCwd(
   cwd: string,
@@ -24,12 +24,12 @@ export function resolveSessionWorkspaceCwd(
   if (cwd === '' || projectAccess.status !== 'trusted' || host.canonicalizePath === undefined) {
     return cwd;
   }
-  const root = getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot;
-  if (isWorkspacePathContained(root, cwd)) return cwd;
   try {
-    return host.canonicalizePath(cwd);
+    const root = getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot;
+    return isWorkspacePathContained(root, cwd) ? cwd : host.canonicalizePath(cwd);
   } catch {
-    // allow-fallback: the directory cannot be resolved, so it keeps the spelling it was given.
+    // allow-fallback: an authority that is no longer live, or a directory that cannot be resolved,
+    // leaves the spelling it was given; a later read refuses it for that reason.
     return cwd;
   }
 }

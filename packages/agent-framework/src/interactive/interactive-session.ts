@@ -819,7 +819,9 @@ export class InteractiveSession
       ) !== undefined;
     // Initialization reads the project from the directory the session is bound to.
     const initOptions =
-      options.cwd === this.workspace.cwd ? options : { ...options, cwd: this.workspace.cwd };
+      (options.cwd ?? '') === this.workspace.cwd
+        ? options
+        : { ...options, cwd: this.workspace.cwd };
     const result = await initializeInteractiveSessionAsync(initOptions, {
       sandboxSnapshotId: this.sandboxSnapshotId,
       resumeSessionId: this.resumeSessionId,
