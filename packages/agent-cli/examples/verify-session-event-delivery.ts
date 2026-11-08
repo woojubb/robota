@@ -40,7 +40,7 @@ async function completeTurn(session: InteractiveSession, prompt: string): Promis
 }
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'arch-020-028-protocol-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'session-event-delivery-'));
   const agentsPath = join(cwd, 'AGENTS.md');
   const editPath = join(cwd, 'event-delivery.txt');
   writeFileSync(agentsPath, '# Initial rules\n', 'utf8');

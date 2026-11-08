@@ -37,7 +37,7 @@ const SETTINGS_JSON = JSON.stringify({
 
 /** A HOME with a real `the configured user root/org-policy.json`, which is the only thing `loadOrgPolicy` reads. */
 function homeWithPolicy(policy: unknown): string {
-  const home = realpathSync(mkdtempSync(join(tmpdir(), 'cli-083-home-')));
+  const home = realpathSync(mkdtempSync(join(tmpdir(), 'org-policy-home-')));
   homes.push(home);
   mkdirSync(join(home, '.test-product'), { recursive: true });
   writeFileSync(join(home, '.test-product', 'org-policy.json'), JSON.stringify(policy), 'utf8');
@@ -86,7 +86,7 @@ describe('the loaded policy is SURFACED, not only consumed in place', () => {
   });
 
   it('returns undefined when there is no policy file, so absence stays distinguishable', () => {
-    const home = realpathSync(mkdtempSync(join(tmpdir(), 'cli-083-surface-none-')));
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'org-policy-surface-none-')));
     homes.push(home);
     mkdirSync(join(home, '.test-product'), { recursive: true });
     writeFileSync(join(home, '.test-product', 'settings.json'), SETTINGS_JSON, 'utf8');
@@ -118,7 +118,7 @@ describe('a policy file on disk reaches the enforcement', () => {
   it('allows the same switch when no policy file exists — the read is what differs', async () => {
     // The control. Without it, a build that refused every switch for an unrelated reason would
     // satisfy the case above.
-    const home = realpathSync(mkdtempSync(join(tmpdir(), 'cli-083-nopolicy-')));
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'org-policy-absent-')));
     homes.push(home);
     mkdirSync(join(home, '.test-product'), { recursive: true });
     writeFileSync(join(home, '.test-product', 'settings.json'), SETTINGS_JSON, 'utf8');
