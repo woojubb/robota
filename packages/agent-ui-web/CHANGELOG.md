@@ -1,5 +1,18 @@
 # @robota-sdk/agent-ui-web
 
+## 3.3.2
+### Patch Changes
+
+- 327999e: The contract packages are now one package, `@robota-sdk/agent-interface`, with one subpath per family: `session` (and `session/testing`), `session-mobility`, `command`, `execution`, `analytics`, `transport` (and `transport/testing`) and `tui`. Import the subpath of the family you use (`@robota-sdk/agent-interface/session`); there is no root export. `@robota-sdk/agent-core` is now an optional peer dependency: `analytics` and `tui` need nothing, and a project that imports another family installs `agent-core` itself (the SDK packages that import those families declare it). The exported names and signatures are unchanged. `@robota-sdk/agent-interface-session`, `-session-mobility`, `-command`, `-execution`, `-analytics`, `-transport` and `-tui` no longer receive releases. The SDK packages that import a contract depend on `@robota-sdk/agent-interface`.
+- Updated dependencies [1f900da]
+- Updated dependencies [661b834]
+- Updated dependencies [327999e]
+- Updated dependencies [16795cb]
+- Updated dependencies [bf901d7]
+  - @robota-sdk/agent-core@3.2.3
+  - @robota-sdk/agent-transport@3.4.0
+  - @robota-sdk/agent-interface@3.3.0
+
 ## 3.3.1
 ### Patch Changes
 

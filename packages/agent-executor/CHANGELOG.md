@@ -1,5 +1,19 @@
 # @robota-sdk/agent-executor
 
+## 3.2.3
+### Patch Changes
+
+- 327999e: The contract packages are now one package, `@robota-sdk/agent-interface`, with one subpath per family: `session` (and `session/testing`), `session-mobility`, `command`, `execution`, `analytics`, `transport` (and `transport/testing`) and `tui`. Import the subpath of the family you use (`@robota-sdk/agent-interface/session`); there is no root export. `@robota-sdk/agent-core` is now an optional peer dependency: `analytics` and `tui` need nothing, and a project that imports another family installs `agent-core` itself (the SDK packages that import those families declare it). The exported names and signatures are unchanged. `@robota-sdk/agent-interface-session`, `-session-mobility`, `-command`, `-execution`, `-analytics`, `-transport` and `-tui` no longer receive releases. The SDK packages that import a contract depend on `@robota-sdk/agent-interface`.
+- 913d334: The host primitives are now one package, `@robota-sdk/agent-os`, with one subpath each: `file-authority` (and `file-authority/testing`), `node-lock` and `process`. Import the subpath you use (`@robota-sdk/agent-os/process`); there is no root export, and a bundle that imports `process` contains no native binding. Koffi is now an optional peer dependency pinned to `3.3.1`: a project that imports `file-authority` or `node-lock` installs it itself, and a project that imports only `process` installs nothing. The exported names and signatures are unchanged. `@robota-sdk/agent-file-authority`, `@robota-sdk/agent-node-lock` and `@robota-sdk/agent-process` no longer receive releases. The framework, session, tools, executor and subagent-runner packages depend on `@robota-sdk/agent-os`; the packages that used the file authority or the lock declare `koffi` themselves, so their installs are unchanged.
+- Updated dependencies [1f900da]
+- Updated dependencies [327999e]
+- Updated dependencies [913d334]
+- Updated dependencies [bf901d7]
+- Updated dependencies [44f28ee]
+  - @robota-sdk/agent-core@3.2.3
+  - @robota-sdk/agent-interface@3.3.0
+  - @robota-sdk/agent-os@3.3.0
+
 ## 3.2.2
 ### Patch Changes
 

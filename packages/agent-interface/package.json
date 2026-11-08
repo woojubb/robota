@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-interface",
-  "version": "3.2.3",
+  "version": "3.3.0",
   "description": "Type contracts for the Robota SDK, one subpath per family: session, session-mobility, command, execution, analytics, transport and tui",
   "type": "module",
   "exports": {

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-product",
-  "version": "3.2.3",
+  "version": "3.3.0",
   "description": "Product assembly for the Robota SDK: assembleProduct over IProductProfile, plus one subpath each for the capability-pack contract, presets, slash-command modules and the coding capability pack",
   "type": "module",
   "main": "dist/index.js",
