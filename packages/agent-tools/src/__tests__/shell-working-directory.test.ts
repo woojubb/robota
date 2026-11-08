@@ -51,7 +51,9 @@ async function runTool(tool: FunctionTool, args: TToolParameters): Promise<ITool
 }
 
 beforeAll(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'sec007-shell-')));
+  // `realpathSync.native` spells a path as the shell does: unlike the JS `realpathSync` it expands the
+  // 8.3 short names Windows gives a temporary directory (`RUNNER~1`).
+  root = realpathSync.native(mkdtempSync(join(tmpdir(), 'sec007-shell-')));
   workdir = join(root, 'workdir');
   sibling = join(root, 'sibling');
   mkdirSync(workdir, { recursive: true });
@@ -68,8 +70,10 @@ describe('Shell — the configured containment root is the DEFAULT working direc
     async () => {
       const result = await runTool(createShellTool({ cwd: workdir }), { command: PRINT_CWD });
       expect(result.success).toBe(true);
-      expect(realpathSync(result.output.trim())).toBe(workdir);
-      expect(realpathSync(result.output.trim())).not.toBe(realpathSync(process.cwd()));
+      expect(realpathSync.native(result.output.trim())).toBe(workdir);
+      expect(realpathSync.native(result.output.trim())).not.toBe(
+        realpathSync.native(process.cwd()),
+      );
     },
     SPAWN_TIMEOUT_MS,
   );
@@ -81,7 +85,7 @@ describe('Shell — the configured containment root is the DEFAULT working direc
         command: PRINT_CWD,
         workingDirectory: sibling,
       });
-      expect(realpathSync(result.output.trim())).toBe(sibling);
+      expect(realpathSync.native(result.output.trim())).toBe(sibling);
     },
     SPAWN_TIMEOUT_MS,
   );
@@ -93,7 +97,7 @@ describe('Shell — the configured containment root is the DEFAULT working direc
       // factory — a caller that means the host process directory now says so where a reader can see it.
       // The observable this case was always about is unchanged: that directory is where the command runs.
       const result = await runTool(createShellTool({ cwd: process.cwd() }), { command: PRINT_CWD });
-      expect(realpathSync(result.output.trim())).toBe(realpathSync(process.cwd()));
+      expect(realpathSync.native(result.output.trim())).toBe(realpathSync.native(process.cwd()));
     },
     SPAWN_TIMEOUT_MS,
   );
@@ -110,7 +114,7 @@ describe('CONTROL — Shell is NOT path-contained, and that is the decision (SEC
         workingDirectory: sibling,
       });
       expect(result.success).toBe(true);
-      expect(realpathSync(result.output.trim())).toBe(sibling);
+      expect(realpathSync.native(result.output.trim())).toBe(sibling);
     },
     SPAWN_TIMEOUT_MS,
   );
@@ -124,7 +128,7 @@ describe('CONTROL — Shell is NOT path-contained, and that is the decision (SEC
         command: CD_SIBLING_AND_PRINT_CWD,
       });
       expect(result.success).toBe(true);
-      expect(realpathSync(result.output.trim())).toBe(sibling);
+      expect(realpathSync.native(result.output.trim())).toBe(sibling);
     },
     SPAWN_TIMEOUT_MS,
   );
