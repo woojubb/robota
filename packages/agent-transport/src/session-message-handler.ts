@@ -21,7 +21,6 @@ import {
 } from './background-messages.js';
 import { handleLoopControlMessage, isLoopControlMessage } from './loop-control-messages.js';
 import { parseClientMessage } from './message-parser.js';
-import { isObserverMessageType } from './observer-messages.js';
 import { handleProjectReadMessage, isProjectReadMessage } from './project-read-messages.js';
 import {
   handleSessionDeleteMessage,
@@ -38,13 +37,14 @@ import {
   pendingFrame,
 } from './session-query-messages.js';
 import { handleSettingsMessage, isSettingsMessage } from './settings-messages.js';
+import { handleSurfaceRoleMessage } from './surface-role.js';
 import { handleUsageQueryMessage } from './usage-messages.js';
 
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession, TProjectReadCapableSession } from './protocol-session.js';
 import type { ISettingsReporter } from './settings-messages.js';
 import type { IUsageQueryReporters } from './usage-messages.js';
-import type { TClientMessage } from './wire-messages.js';
+import type { TClientMessage, TSessionSurfaceRole } from './wire-messages.js';
 import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface-command';
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 import type { ISessionDirectory, TDriverId } from '@robota-sdk/agent-interface-session';
@@ -54,13 +54,6 @@ import type { ISessionDirectory, TDriverId } from '@robota-sdk/agent-interface-s
 export { subscribeSessionEvents } from './session-events.js';
 export type { ISubscribeSessionEventsOptions } from './session-events.js';
 export { parseClientMessage } from './message-parser.js';
-
-/**
- * What a connected surface may do. `drive` sends prompts, answers questions and controls the session.
- * `observe` is read-only: it follows this session's conversation and state, but never submits, answers,
- * controls, or reads another session's records, and it never counts as a surface that can answer.
- */
-export type TSessionSurfaceRole = 'drive' | 'observe';
 
 export interface ISessionMessageHandlerOptions {
   /** IProtocolSession to expose — `Partial<ISessionProjectRead>` is probed, not assumed (#3282 §4c). */
@@ -182,10 +175,7 @@ function createMessageHandler(
   return (data: string): void => {
     const msg = parseClientMessage(data, deliver);
     if (!msg) return;
-    if (role === 'observe' && !isObserverMessageType(msg.type)) {
-      deliver({ type: 'protocol_error', message: `Not permitted for an observer: ${msg.type}` });
-      return;
-    }
+    if (handleSurfaceRoleMessage(role, msg, deliver)) return;
     handleClientMessage(
       session,
       deliver,
