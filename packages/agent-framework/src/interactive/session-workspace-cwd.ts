@@ -1,16 +1,20 @@
+import { getWorkspaceProjectIdentity } from '../workspace-trust/index.js';
+import { isWorkspacePathContained } from '../workspace-trust/project-reader-path.js';
+
 import type { IFrameworkHost } from '../host/framework-host.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 
 /**
  * The directory a session works in.
  *
- * Under a trusted project it is the host's real path of the directory it was given, in the spelling
- * the project's identity uses. The prompt and context start directories are the path from the
- * identity's root to this directory, so a symlink or a Windows 8.3 short name left as written would
- * turn into a path that leaves the root, and every `@path` read would be refused. A restricted
- * session has no root to relate to, a host with no canonicalizer cannot say where the directory
- * really is, and a directory that cannot be resolved keeps its spelling: the entry points that bind a
- * trusted decision refuse such a directory themselves.
+ * The prompt and context start directories are the path from the trusted project's root to this
+ * directory. A directory spelled another way than the root (a symlink, or on Windows an 8.3 short
+ * name) is accepted by the trust check on its real path, but left as written it gives a path that
+ * leaves the root, and every `@path` read would be refused. Such a directory is bound as the host's
+ * real path of it, in the spelling the project's identity uses. A directory already inside the root
+ * as written keeps its spelling, as does one in a restricted session (no root to relate to), under a
+ * host with no canonicalizer, or that cannot be resolved: the entry points that bind a trusted
+ * decision refuse a directory they cannot place.
  */
 export function resolveSessionWorkspaceCwd(
   cwd: string,
@@ -20,6 +24,8 @@ export function resolveSessionWorkspaceCwd(
   if (cwd === '' || projectAccess.status !== 'trusted' || host.canonicalizePath === undefined) {
     return cwd;
   }
+  const root = getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot;
+  if (isWorkspacePathContained(root, cwd)) return cwd;
   try {
     return host.canonicalizePath(cwd);
   } catch {
