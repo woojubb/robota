@@ -62,6 +62,10 @@ const LOWER_STAGE = ['stage', '-c'].join('');
 const PRE_ID = ['pre-SEC', '-020'].join('');
 const PR_GLUED = ['PR', '#12'].join('');
 const FIXES = ['Fixes', ' #12'].join('');
+const HYPHEN_ID = ['arch', '-020'].join('');
+const UNDERSCORE_ID = ['SEC', '_009_KEY'].join('');
+const GLUED_ID = ['screen', '006', 'Path'].join('');
+const NAMED_ID = ['sec', '-017'].join('');
 
 describe('tracker reference check', () => {
   it('flags a backlog ID, an issue or PR number and a stage label, with the line', () => {
@@ -82,6 +86,30 @@ describe('tracker reference check', () => {
       'packages/a/src/c.ts:1',
       'packages/a/src/d.ts:1',
     ]);
+  });
+
+  it('flags an ID in any case or spelling, and one in a file name even when the file is data', () => {
+    const files = {
+      'packages/a/src/a.test.ts': `mkdtempSync('${HYPHEN_ID}-home-');\n`,
+      'packages/a/src/b.ts': `const key = '${UNDERSCORE_ID}';\nconst ${GLUED_ID} = 1;\n`,
+      [`packages/a/src/${NAMED_ID}-scrub.test.ts`]: 'export {};\n',
+      [`packages/a/fixtures/${NAMED_ID}.jsonl`]: `${BACKLOG}\n`,
+    };
+    const violations = findTrackerReferences(Object.keys(files), (file) => files[file]);
+    expect(violations.map(({ file, line }) => `${file}:${line}`)).toEqual([
+      'packages/a/src/a.test.ts:1',
+      'packages/a/src/b.ts:1',
+      'packages/a/src/b.ts:2',
+      `packages/a/src/${NAMED_ID}-scrub.test.ts:1`,
+      `packages/a/fixtures/${NAMED_ID}.jsonl:1`,
+    ]);
+  });
+
+  it.each([
+    'an aarch64 build on x86_64, the architecture and a secure screen-reader mode',
+    'cli-2 and tc-1 are too short, mcp-12345 and sec-123456 too long, secretary20 is a word',
+  ])('allows lookalikes of the backlog prefixes: %s', (line) => {
+    expect(findTrackerReferences(['packages/a/src/x.ts'], () => line)).toEqual([]);
   });
 
   it.each([
