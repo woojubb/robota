@@ -86,7 +86,7 @@ export class WorkspaceTrustService {
     try {
       identity = this.#identityResolver.resolve(cwd);
     } catch (error) {
-      // OBSERVABILITY-1991: keep the swallowed error's name and message so a doctor can name the cause.
+      // keep the swallowed error's name and message so a doctor can name the cause.
       return createRestrictedWorkspaceProjectAccess(
         'identity-unavailable',
         undefined,

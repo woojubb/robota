@@ -22,7 +22,7 @@ import { NodeFileSystem } from '../../adapters/node-file-system.js';
 const nodeFs = new NodeFileSystem();
 
 /**
- * SEC-018 - the two remaining sinks, each driven rather than assumed.
+ * The two remaining sinks, each driven rather than assumed.
  *
  * `regression-red-proof` reported `accidental-green-fail (all-pass)` for `marketplace-registry.ts` and
  * `marketplace-client.ts`: reversing the guards changed nothing, because no test reached either sink.
@@ -35,7 +35,7 @@ function writeJson(path: string, data: unknown): void {
   writeFileSync(path, JSON.stringify(data, null, 2), 'utf-8');
 }
 
-describe('SEC-018 - the marketplace-wide cleanup refuses a path outside the plugin cache', () => {
+describe('the marketplace-wide cleanup refuses a path outside the plugin cache', () => {
   let base: string;
   let pluginsDir: string;
 
@@ -117,7 +117,7 @@ describe('SEC-018 - the marketplace-wide cleanup refuses a path outside the plug
   });
 });
 
-describe('SEC-018 - a marketplace manifest name cannot select a destination outside its root', () => {
+describe('a marketplace manifest name cannot select a destination outside its root', () => {
   let base: string;
   let pluginsDir: string;
   let mockExec: Mock;
@@ -166,7 +166,7 @@ describe('SEC-018 - a marketplace manifest name cannot select a destination outs
   });
 });
 
-describe('SEC-018 - known_marketplaces.json installLocation is a hint, not a fact', () => {
+describe('known_marketplaces.json installLocation is a hint, not a fact', () => {
   let base: string;
   let pluginsDir: string;
   let mockExec: Mock;

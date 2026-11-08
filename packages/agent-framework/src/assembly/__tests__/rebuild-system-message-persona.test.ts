@@ -10,9 +10,9 @@ import type { ITerminalOutput } from '@robota-sdk/agent-session';
 const testHost = createTestFrameworkHost();
 
 /**
- * PRESET-014: the `rebuildSystemMessage` closure returned by `buildSessionSystemPrompt` tracks a
- * mutable persona. A persona override re-applies a new persona (TC-01) and is retained for
- * subsequent override-less rebuilds — the staleness-refresh path (TC-02).
+ * The `rebuildSystemMessage` closure returned by `buildSessionSystemPrompt` tracks a
+ * mutable persona. A persona override re-applies a new persona and is retained for
+ * subsequent override-less rebuilds — the staleness-refresh path.
  */
 
 const NOOP_TERMINAL: ITerminalOutput = {
@@ -103,15 +103,15 @@ function buildRebuilder(
   return rebuildSystemMessage;
 }
 
-describe('rebuildSystemMessage persona override (PRESET-014)', () => {
-  it('TC-01: an override persona is reflected in the rebuilt system message', () => {
+describe('rebuildSystemMessage persona override', () => {
+  it('an override persona is reflected in the rebuilt system message', () => {
     const rebuild = buildRebuilder('INITIAL_PERSONA');
     const result = rebuild('A1', 'C1', { persona: 'NEW_PERSONA_X' });
     expect(result).toContain('NEW_PERSONA_X');
     expect(result).not.toContain('INITIAL_PERSONA');
   });
 
-  it('TC-02: a later override-less rebuild retains the previously overridden persona', () => {
+  it('a later override-less rebuild retains the previously overridden persona', () => {
     const rebuild = buildRebuilder('INITIAL_PERSONA');
     rebuild('A1', 'C1', { persona: 'NEW_PERSONA_X' });
     // Staleness refresh passes no override — the latest persona must persist.
@@ -120,14 +120,14 @@ describe('rebuildSystemMessage persona override (PRESET-014)', () => {
   });
 });
 
-describe('rebuildSystemMessage selfVerification override (PRESET-017)', () => {
-  it('TC-03: a selfVerification override is reflected in the rebuilt system message', () => {
+describe('rebuildSystemMessage selfVerification override', () => {
+  it('a selfVerification override is reflected in the rebuilt system message', () => {
     const rebuild = buildSelfVerificationRebuilder();
     const result = rebuild('A1', 'C1', { selfVerification: true });
     expect(result).toContain('selfVerification=true');
   });
 
-  it('TC-03: a later override-less rebuild retains the previously overridden flag', () => {
+  it('a later override-less rebuild retains the previously overridden flag', () => {
     const rebuild = buildSelfVerificationRebuilder(false);
     rebuild('A1', 'C1', { selfVerification: true });
     // Staleness refresh passes no override — the latest flag must persist.

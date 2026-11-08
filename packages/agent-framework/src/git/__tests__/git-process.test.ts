@@ -1,5 +1,5 @@
 /**
- * BEHAVIOR-2437 TC-04 — the seam against a REAL temporary repository: argv-only (metacharacters are
+ * The seam against a REAL temporary repository: argv-only (metacharacters are
  * data), exit codes as data, stdin closed (a hook that reads it gets EOF), timeout / abort / missing
  * executable / oversized output as typed failures, and the hook-nesting environment policy.
  */
@@ -97,7 +97,7 @@ describe('gitEnvironment', () => {
     }
   });
 
-  it('forces the C locale regardless of the source environment (#3282 §4c review)', () => {
+  it('forces the C locale regardless of the source environment', () => {
     // `isNotAGitRepositoryFailure` pattern-matches git's English stderr text; a host whose own LANG
     // is set to something git has translations for must not change that text.
     const source: NodeJS.ProcessEnv = { PATH: '/usr/bin', LANG: 'fr_FR.UTF-8', LC_ALL: 'de_DE.UTF-8' };

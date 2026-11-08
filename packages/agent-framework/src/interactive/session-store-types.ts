@@ -6,7 +6,7 @@ import type {
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
 
-// Session persistence contracts SSOT relocated to @robota-sdk/agent-interface-session (DATA-001).
+// Session persistence contracts SSOT relocated to @robota-sdk/agent-interface-session.
 export type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,

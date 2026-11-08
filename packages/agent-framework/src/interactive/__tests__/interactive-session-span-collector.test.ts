@@ -1,10 +1,10 @@
 /**
- * SELFHOST-004 P6: the LIVE span→history path over a real event bus (not a constructed record).
+ * The LIVE span→history path over a real event bus (not a constructed record).
  *
  * `collectSpanEntries` subscribes to a session's `ObservableEventService`; a `FunctionTool` wired to
  * that same bus emits `SPAN_EVENTS.COMPLETED` on execution, and the collector projects it into a
  * record span entry via `createSpanEntry`. This proves the emit → collect → entry chain that the
- * interactive turn drains onto `history` — the piece P1–P5 built the seam for but did not yet wire.
+ * interactive turn drains onto `history`.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -24,7 +24,7 @@ function makeTool(name: string): FunctionTool {
   return new FunctionTool(schema, async () => 'ok');
 }
 
-describe('SELFHOST-004 P6 — collectSpanEntries over a live bus', () => {
+describe('collectSpanEntries over a live bus', () => {
   it('captures a span entry when a bus-wired tool executes', async () => {
     const bus = new ObservableEventService();
     const collector = collectSpanEntries(bus);

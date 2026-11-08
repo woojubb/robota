@@ -1,5 +1,5 @@
 /**
- * SCREEN-2002 TC-07 — the appearance settings reader, its defaults and its guard.
+ * The appearance settings reader, its defaults and its guard.
  *
  * The load-bearing property is INDEPENDENCE: three flat keys, each falling back on its own. A
  * document with one bad key still applies the other two, because a user can only correct what they
@@ -39,7 +39,7 @@ afterEach(() => {
   rmSync(TMP_BASE, { recursive: true, force: true });
 });
 
-describe('reading the appearance settings (SCREEN-2002 TC-07)', () => {
+describe('reading the appearance settings', () => {
   it('answers with the defaults when the document says nothing', () => {
     expect(readAppearanceSettings({})).toEqual({
       theme: 'dark',
@@ -88,7 +88,7 @@ describe('reading the appearance settings (SCREEN-2002 TC-07)', () => {
   });
 });
 
-describe('the appearance patch guard (SCREEN-2002 TC-07)', () => {
+describe('the appearance patch guard', () => {
   it('accepts a sparse patch of the right types', () => {
     expect(isAppearanceSettingsPatch({})).toBe(true);
     expect(isAppearanceSettingsPatch({ theme: 'light' })).toBe(true);
@@ -105,7 +105,7 @@ describe('the appearance patch guard (SCREEN-2002 TC-07)', () => {
   });
 });
 
-describe('applying an appearance patch (SCREEN-2002 TC-07)', () => {
+describe('applying an appearance patch', () => {
   it('writes the three keys flat and leaves every other setting alone', () => {
     const path = settingsFile({ language: 'ko', statusline: { enabled: false } });
 

@@ -1,5 +1,5 @@
 /**
- * #3189: the session names itself once, after its first turn that ran.
+ * The session names itself once, after its first turn that ran.
  *
  * Naming used to happen in the in-process terminal, so a session driven by any other client stayed
  * unnamed, and a terminal attached to a served session could not name it. The session owns it now,

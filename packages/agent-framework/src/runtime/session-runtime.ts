@@ -37,7 +37,7 @@ export interface IAgentRuntimeConfig {
   transportRegistry?: ITransportRegistryView;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   orgPolicy?: IOrgPolicy;
-  /** REMOTE-006: optional remote-command policy. Absent → allow (local == remote); provide one only to restrict. */
+  /** Optional remote-command policy. Absent → allow (local == remote); provide one only to restrict. */
   remoteCommandPolicy?: IRemoteCommandPolicy;
 }
 
@@ -63,7 +63,7 @@ export interface IHeadlessSessionOptions {
   additionalTools?: IToolWithEventService[];
   /** Resume an existing persisted session by ID. Requires sessionStore to be configured. */
   resumeSessionId?: string;
-  /** Request structured output from the provider for this session (issue #2056: incl. `json_schema`). */
+  /** Request structured output from the provider for this session (incl. `json_schema`). */
   responseFormat?: TSessionResponseFormat;
 }
 

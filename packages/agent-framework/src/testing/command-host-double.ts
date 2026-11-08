@@ -9,7 +9,7 @@ import type { IMemoryStore } from '../memory/types.js';
 import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface-session';
 
 /**
- * ARCH-029: a conformant, cast-free `ICommandHostContext` double.
+ * A conformant, cast-free `ICommandHostContext` double.
  *
  * ## Why this exists
  *
@@ -18,10 +18,10 @@ import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface-sess
  * until now there was nothing honest to reach for. A 46-member contract with 32 optional members
  * means a partial object satisfies the compiler while proving nothing about the real host.
  *
- * ARCH-012 solved the identical problem one layer over, and the mechanism that actually killed its
- * 37 casts was **a conformant double placed where every consumer can reach it** — not a runtime
- * capability host. This is that double for the command axis. It lives beside the contract it doubles
- * (`agent-framework` owns `ICommandHostContext`), behind the already-exported `./testing` subpath, so
+ * The identical problem one layer over was solved by **a conformant double placed where every
+ * consumer can reach it** — not a runtime capability host. This is that double for the command
+ * axis. It lives beside the contract it doubles (`agent-framework` owns `ICommandHostContext`),
+ * behind the already-exported `./testing` subpath, so
  * all three consumer packages reach it with no new dependency edge.
  *
  * ## The property that matters
@@ -146,7 +146,7 @@ export function createTestSessionRuntime(
     getPermissionRules: () => ({ allow: [], deny: [], ask: [] }),
     getRecentPermissionDenials: () => [],
     retryPermissionDenial: () => undefined,
-    // ARCH-040 Group C: recorded rather than ignored, so a case can assert the live re-application
+    // Recorded rather than ignored, so a case can assert the live re-application
     // happened. A double that silently swallows a permission change would let the seam regress green.
     applyPresetToolLists: (preset) => {
       appliedPresetToolLists.push(preset);
@@ -156,7 +156,7 @@ export function createTestSessionRuntime(
     getSessionTokenUsage: () => undefined,
     getModelId: () => undefined,
     getModelEffort: () => 'high',
-    // CLI-1990: no tools by default, so a fixture that does not care about the tool surface reports
+    // No tools by default, so a fixture that does not care about the tool surface reports
     // zero schema tokens rather than a made-up figure. A case that does care overrides it.
     getOfferedToolSchemas: () => [],
     addTools: async () => [],
@@ -199,14 +199,14 @@ export function createTestCommandHost(
     getCommandInvocationSource: () => 'user',
     clearConversationHistory: () => {},
     getSessionUsage: () => [],
-    // CLI-1994: "this host wrote a copy" — a stable id and the default fork name, nothing on disk.
+    // "this host wrote a copy" — a stable id and the default fork name, nothing on disk.
     forkSession: (input) =>
       Promise.resolve({
         sessionId: `test-command-host-${doublesCreated}-fork`,
         name: input?.name ?? `test-command-host-${doublesCreated} (fork)`,
       }),
     // `undefined` is "no interactive renderer is attached" — the headless case, which every
-    // command must already handle as a cancellation rather than a silent guess (CMD-004).
+    // command must already handle as a cancellation rather than a silent guess.
     getUserInteraction: () => undefined,
     getActiveOutputStyleId: () => 'default',
     applyPersona: () => {},
@@ -214,7 +214,7 @@ export function createTestCommandHost(
     applyResponseLanguage: () => {},
     applyOutputStyle: () => {},
     applyPresetSystemPrompt: () => {},
-    // An empty array is "every name matched" (INFRA-032), not "nothing was applied".
+    // An empty array is "every name matched", not "nothing was applied".
     applyCommandModuleSelection: () => [],
     getAutoCompactThresholdSource: () => 'session',
     setAutoCompactThreshold: () => {},

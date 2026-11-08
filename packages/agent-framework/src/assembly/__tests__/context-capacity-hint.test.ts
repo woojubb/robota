@@ -1,5 +1,5 @@
 /**
- * NEUT-005 wave 2 — surface-derived context-capacity hint.
+ * Surface-derived context-capacity hint.
  *
  * The zero-dependency core emits a product-neutral hard-capacity notice and exposes the
  * `IAgentConfig.contextCapacityHint` seam. This framework tier derives a concrete, actionable
@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import { deriveContextCapacityHint } from '../context-capacity-hint.js';
 
-describe('deriveContextCapacityHint (NEUT-005)', () => {
+describe('deriveContextCapacityHint', () => {
   it('names an alternate role-bearing command id so the notice is actionable', () => {
     expect(deriveContextCapacityHint('reduce-context-alt')).toBe(
       'Run /reduce-context-alt and retry.',

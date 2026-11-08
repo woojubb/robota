@@ -1,5 +1,5 @@
 /**
- * ARCH-005 — the robota slice of session assembly, split out of `create-session-runtime.ts`.
+ * The robota slice of session assembly, split out of `create-session-runtime.ts`.
  *
  * Owns the subagent/background-dispatch wiring: the agent-definition roster (built-ins composed with any
  * composition-root-contributed `agentDefinitions`), the agent-tool deps, the `SubagentManager`, and the
@@ -59,10 +59,10 @@ export function buildAgentRuntime(
   let agentDefinitions: IAgentDefinition[] = [];
   let backgroundTaskManager: IBackgroundTaskManager;
 
-  // PRESET-004: a preset opting into parallel subagents activates the agent runtime
+  // A preset opting into parallel subagents activates the agent runtime
   // (subagent/background dispatch) exactly like an explicit enableAgentRuntime.
   if (options.enableAgentRuntime || options.enableParallelSubagents) {
-    // ARCH-005: the subagent roster is INJECTABLE — pack-contributed definitions compose into the
+    // The subagent roster is INJECTABLE — pack-contributed definitions compose into the
     // built-in tier ahead of `BUILT_IN_AGENTS`. Precedence: discovered > injected > built-in.
     const builtInTier = options.agentDefinitions
       ? [...options.agentDefinitions, ...BUILT_IN_AGENTS]
@@ -93,14 +93,14 @@ export function buildAgentRuntime(
       agentDefinitions,
       commandSemanticRoles: options.commandSemanticRoles,
       modelCommandToolPrefix: options.modelCommandToolPrefix,
-      // ARCH-033/ARCH-034: the parent's session-shaped choices, carried to the runner because a
+      // The parent's session-shaped choices, carried to the runner because a
       // runner that rebuilds the tool surface in ANOTHER process has no other way to learn them.
       // The in-process runner ignores all three — it receives `tools` already assembled — which is
       // exactly why they were missing: the sibling that needed them is not the one being read here.
       sessionTiers: { includeGoalTool: options.includeGoalTool === true },
       ...(options.sandboxClient !== undefined ? { sandboxClient: options.sandboxClient } : {}),
       ...(options.sandboxType !== undefined ? { sandboxType: options.sandboxType } : {}),
-      // CLI-1994: where a fork job's record lives, so the in-process runner can restore it.
+      // Where a fork job's record lives, so the in-process runner can restore it.
       ...(options.resumeSessionStore !== undefined
         ? { resumeSessionStore: options.resumeSessionStore }
         : {}),

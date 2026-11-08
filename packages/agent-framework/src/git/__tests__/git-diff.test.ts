@@ -1,4 +1,4 @@
-/** BEHAVIOR-2437 TC-02 — `/git diff`: the closed grammar and the exact argv sequence per branch. */
+/** `/git diff`: the closed grammar and the exact argv sequence per branch. */
 import { describe, expect, it } from 'vitest';
 
 import { executeGitDiff, gitDiffArgv, parseGitDiffArgs, GIT_DIFF_USAGE } from '../git-diff.js';

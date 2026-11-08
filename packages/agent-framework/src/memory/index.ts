@@ -1,10 +1,10 @@
 /**
  * Project memory barrel — the SDK-local facade the top-level entrypoint re-exports.
  *
- * - SELFHOST-008: neutral durable-memory port (`IMemoryStore`) + filesystem reference adapter;
- *   P4 adds the semantic decorator (the surface injects the concrete adapter); P6 exposes the
- *   surface-owned automatic-capture policy shape.
- * - NEUT-007: the candidate extractor's locale/domain heuristics are an injectable
+ * - Neutral durable-memory port (`IMemoryStore`) + filesystem reference adapter; the semantic
+ *   decorator (the surface injects the concrete adapter); the surface-owned automatic-capture
+ *   policy shape.
+ * - The candidate extractor's locale/domain heuristics are an injectable
  *   `IMemoryExtractorPolicy`; the bilingual/dev set is the exported, documented default.
  */
 export {

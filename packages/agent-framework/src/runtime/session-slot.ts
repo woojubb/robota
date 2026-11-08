@@ -1,5 +1,5 @@
 /**
- * #3189 — the runtime host's current session, behind one stable object.
+ * The runtime host's current session, behind one stable object.
  *
  * A host that can change its session keeps every consumer on this slot instead of on a session:
  * transports, supervised control and the rename hook close over the slot once, and each call reaches

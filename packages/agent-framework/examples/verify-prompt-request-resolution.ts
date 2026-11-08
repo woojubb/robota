@@ -142,7 +142,7 @@ async function main(): Promise<void> {
   assertCondition(result !== undefined, 'scenario did not produce a result');
   assertCondition(!existsSync(cwd), 'scenario cleanup did not remove its temporary directory');
   process.stdout.write(
-    `${JSON.stringify({ scenario: 'ARCH-017', ...result, cleanupRemoved: true })}\n`,
+    `${JSON.stringify({ scenario: 'prompt-resolution', ...result, cleanupRemoved: true })}\n`,
   );
 }
 

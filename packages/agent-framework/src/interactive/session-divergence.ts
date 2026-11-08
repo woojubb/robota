@@ -1,5 +1,5 @@
 /**
- * What a running session does when it can no longer save its own record (#3679 step 3e).
+ * What a running session does when it can no longer save its own record.
  *
  * The store refuses to save a claimed id over a file something it cannot verify changed, and must:
  * merging it would hand the session content nobody vouched for, and overwriting it would destroy what

@@ -16,7 +16,7 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
+describe('inspectSkillSources', () => {
   it('reports discovered skills and the entries discovery silently skips, per root', () => {
     const home = mkdtempSync(join(tmpdir(), 'agent-skill-inspection-'));
     roots.push(home);

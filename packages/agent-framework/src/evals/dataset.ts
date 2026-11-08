@@ -1,5 +1,5 @@
 /**
- * SELFHOST-011 P3 — pure dataset-TEXT parser for eval cases.
+ * Pure dataset-TEXT parser for eval cases.
  *
  * The consumer supplies the corpus TEXT (they own the file/source); the library only parses it into the neutral
  * `IEvalCase[]` shape. There is deliberately NO file I/O here — the surface reads bytes (the `agent eval` CLI

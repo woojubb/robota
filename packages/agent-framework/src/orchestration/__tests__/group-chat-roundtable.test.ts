@@ -43,7 +43,7 @@ const outByType = (s: IRecordedSpawn): string => ({ a: 'A', b: 'B' })[s.type] ??
 const alternateUntilThree: SelectNextStep = (history, last) =>
   history.length >= 3 ? null : last === 'a' ? 'b' : 'a';
 
-describe('issue #3273 — runGroupChat runs on exactly one Roundtable core run', () => {
+describe('runGroupChat runs on exactly one Roundtable core run', () => {
   it('creates exactly one Roundtable and calls run() exactly once', async () => {
     const { manager } = fakeManager(outByType);
     vi.mocked(createRoundtable).mockClear();

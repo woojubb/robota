@@ -1,6 +1,6 @@
 /**
- * #3282 §4c: the Project panel's "Changes" section — the workspace's git status turned into the
- * panel's shape: a plain-word status per file (never a raw `MM`/`??` code, per the #3277 "usable by
+ * The Project panel's "Changes" section — the workspace's git status turned into the
+ * panel's shape: a plain-word status per file (never a raw `MM`/`??` code, per the "usable by
  * anyone" principle) with the lines added/removed since HEAD, and an explicit `repository: false` for
  * a folder that is not a git repository at all — the panel's one plain sentence — rather than an error.
  *
@@ -15,7 +15,7 @@ import { GIT_STATUS_ARGS, parseStatusRecords } from './git-status.js';
 
 import type { IGitProcessPort } from './git-process.js';
 
-/** Never a raw XY code — the #3277 "usable by anyone" principle applies to this panel too. */
+/** Never a raw XY code — the "usable by anyone" principle applies to this panel too. */
 export type TProjectFileStatus =
   | 'Added'
   | 'Modified'
@@ -49,7 +49,7 @@ export type TProjectGitStatusResult =
   | { ok: true; repository: false }
   | { ok: false; message: string };
 
-/** Bounds the panel's file list — #3282 §4c "bound every output: file count, diff lines and bytes". */
+/** Bounds the panel's file list — "bound every output: file count, diff lines and bytes". */
 export const MAX_STATUS_FILES = 200;
 
 const NOT_A_REPOSITORY_PATTERN = /not a git repository/i;
@@ -153,7 +153,7 @@ export async function readProjectGitStatus(
   const parsed = parseStatusRecords(outcome.stdout);
   // Cut to the file-count cap BEFORE asking for numstat counts: a numstat request for every
   // changed file in a workspace with thousands of them (a huge rebase, a generated-file dump) would
-  // be pure waste when only the first MAX_STATUS_FILES rows are ever shown (review: #3282 §4c).
+  // be pure waste when only the first MAX_STATUS_FILES rows are ever shown.
   const truncated = parsed.records.length > MAX_STATUS_FILES;
   const records = truncated ? parsed.records.slice(0, MAX_STATUS_FILES) : parsed.records;
 

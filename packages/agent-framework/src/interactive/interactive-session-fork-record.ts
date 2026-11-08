@@ -1,5 +1,5 @@
 /**
- * CLI-1994: the record an in-session fork writes.
+ * The record an in-session fork writes.
  *
  * A fork is a COPY of the live conversation under a fresh id — the same thing the startup
  * `--fork-session` produces, built from the live session instead of from a stored record so it can
@@ -12,7 +12,7 @@
  *
  * Writing the record is the caller's job (`InteractiveSession.forkSession` saves it through the
  * session store). Nothing here reads the store, so the source record is untouched by construction —
- * `fork-record.test.ts` TC-02 measures that rather than trusting this sentence.
+ * `fork-record.test.ts` measures that rather than trusting this sentence.
  */
 
 import { createSessionId } from '../assembly/create-session.js';
@@ -176,7 +176,7 @@ export function writeForkedSessionRecord(input: IWriteForkedSessionRecordInput):
 }
 
 /**
- * A moved conversation's copy under a name no other record in `sessionStore` holds (issue #3081).
+ * A moved conversation's copy under a name no other record in `sessionStore` holds.
  * The copy often lands in the same store as its source — every Restricted move, and a move within
  * one worktree — and a name lookup matches the first record, so a shared name would make
  * `--resume <name>` pick either one.

@@ -11,7 +11,7 @@ import type { ITerminalOutput } from '../types.js';
 import type { TToolArgs } from '@robota-sdk/agent-core';
 
 /**
- * Issue #2351: the permission pattern a "don't ask again" answer for this invocation grants — the
+ * The permission pattern a "don't ask again" answer for this invocation grants — the
  * scope the enforcer remembers, so every prompt surface prints the same words.
  *
  * The rule is owned by agent-session and exposed through the framework for terminal prompts.
@@ -20,7 +20,7 @@ export function consentScopeFor(toolName: string, toolArgs: TToolArgs): string {
   return sessionConsentScopeFor(toolName, toolArgs);
 }
 
-// Issue #2351: the session option names the SCOPE it grants, computed the same way the enforcer
+// The session option names the SCOPE it grants, computed the same way the enforcer
 // remembers it, so the user reads exactly what "don't ask again" will cover.
 function permissionOptions(scope: string): string[] {
   return ['Allow once', `Allow ${scope} for this session`, 'Deny'];

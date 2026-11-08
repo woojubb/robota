@@ -1,5 +1,5 @@
 /**
- * ARCH-029: the `IAgentJobHostContext` role ports.
+ * The `IAgentJobHostContext` role ports.
  *
  * See `session-roles.ts` for why this is a separate file.
  */
@@ -21,17 +21,17 @@ import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
 /** Starting, steering and ending subagent jobs. */
 export interface IAgentJobDispatch {
   /**
-   * #3282 §4: the agent switcher's roster — `definedIn` is a plain-words location (a discovered
+   * The agent switcher's roster — `definedIn` is a plain-words location (a discovered
    * file's path, or "Built-in") a person picking an agent can read.
    */
   listAgentDefinitions(): Array<{ name: string; description: string; definedIn: string }>;
   /**
-   * #3282 §4: the agent type `/agent <name>` (no prompt) currently selects — the agent switcher
+   * The agent type `/agent <name>` (no prompt) currently selects — the agent switcher
    * shows it checked. Never throws; a host without the agent runtime just has the fallback default.
    */
   getDefaultAgentType(): string;
   /**
-   * #3282 §4: `/agent <name>` (bare, no prompt) sets this — the agent type used as the default
+   * `/agent <name>` (bare, no prompt) sets this — the agent type used as the default
    * `agentType` whenever one is not otherwise named. Throws if the agent runtime is unavailable.
    */
   setDefaultAgentType(agentType: string): void;
@@ -43,7 +43,7 @@ export interface IAgentJobDispatch {
     prompt: string;
     model?: string;
     isolation?: TBackgroundTaskIsolation;
-    /** CLI-1994: the forked session record the job restores before its first turn (id only). */
+    /** The forked session record the job restores before its first turn (id only). */
     resumeSessionId?: string;
   }): Promise<ISubagentJobState>;
   sendAgentJob(taskId: string, prompt: string): Promise<void>;
@@ -69,8 +69,8 @@ export interface IAgentJobSchedules {
   listSelfPacedLoops?(): readonly ISessionLoopState[];
   stopSelfPacedLoop?(loopId: string, reason?: string): Promise<void>;
   /**
-   * FLOW-005: schedule a recurring/one-shot agent wake. On each cron fire the agent loop
-   * re-enters with `agentInstruction` (FLOW-001/002). `cronExpression` may be a standard cron
+   * Schedule a recurring/one-shot agent wake. On each cron fire the agent loop
+   * re-enters with `agentInstruction`. `cronExpression` may be a standard cron
    * string or an ISO timestamp (one-shot).
    */
   spawnScheduledWake(input: {
@@ -88,13 +88,13 @@ export interface IAgentJobSchedules {
     /** Absolute expiry for a session loop; persisted with its stable identity. */
     sessionLoopExpiresAt?: string;
   }): Promise<IBackgroundTaskState>;
-  /** SELFHOST-012: list the caller's scheduled tasks (each carries cadence, `nextFireAt`, and status). */
+  /** List the caller's scheduled tasks (each carries cadence, `nextFireAt`, and status). */
   listSchedules(): IBackgroundTaskState[];
-  /** SELFHOST-012: non-destructively pause a scheduled task — it stops firing until `resumeSchedule`. */
+  /** Non-destructively pause a scheduled task — it stops firing until `resumeSchedule`. */
   pauseSchedule(taskId: string): Promise<void>;
-  /** SELFHOST-012: resume a paused scheduled task, re-armed with the same identity. */
+  /** Resume a paused scheduled task, re-armed with the same identity. */
   resumeSchedule(taskId: string): Promise<void>;
-  /** SELFHOST-012: edit a scheduled task's cron / instruction in place (same task id). */
+  /** Edit a scheduled task's cron / instruction in place (same task id). */
   editSchedule(taskId: string, patch: IScheduleEditPatch): Promise<void>;
 }
 
@@ -117,8 +117,8 @@ export class MonitorCommandRefusedError extends Error {
 /** Output-driven wakes. */
 export interface IAgentJobMonitors {
   /**
-   * FLOW-005: monitor a process's output and wake the agent with `agentInstruction` when a
-   * line matches `matchPattern` (FLOW-004). When the model asked for it, the command is first
+   * Monitor a process's output and wake the agent with `agentInstruction` when a
+   * line matches `matchPattern`. When the model asked for it, the command is first
    * decided by the shell tool's gate; a refusal rejects with {@link MonitorCommandRefusedError}.
    */
   spawnMonitorWake(input: {

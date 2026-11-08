@@ -40,7 +40,7 @@ function install(
 const MANIFEST = (name: string) =>
   JSON.stringify({ name, version: '1.0.0', description: 'doctor fixture' });
 
-describe('BundlePluginLoader.inspectPluginsSync (OBSERVABILITY-1991 TC-05)', () => {
+describe('BundlePluginLoader.inspectPluginsSync', () => {
   it('reports an absent cache directory without inventing plugins', () => {
     const dir = pluginsDir();
     const inspection = new BundlePluginLoader(dir, undefined, nodeFs).inspectPluginsSync();

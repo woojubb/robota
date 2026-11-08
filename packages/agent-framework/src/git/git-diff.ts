@@ -1,5 +1,5 @@
 /**
- * BEHAVIOR-2437: `/git diff` — a closed grammar, not a pass-through for git flags.
+ * `/git diff` — a closed grammar, not a pass-through for git flags.
  *
  * `/git diff` (unstaged) · `/git diff --staged` (index vs HEAD) · `/git diff <rev>` (worktree vs rev)
  * · `/git diff <a>..<b>` (two revisions), each optionally followed by `-- <path>…`. Every revision is

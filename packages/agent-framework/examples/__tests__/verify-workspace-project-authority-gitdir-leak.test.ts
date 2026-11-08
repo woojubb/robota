@@ -7,9 +7,9 @@ const SCENARIO_PATH = fileURLToPath(
   new URL('../verify-workspace-project-authority.ts', import.meta.url),
 );
 
-/** BEHAVIOR-2650: a git hook exports GIT_* vars into its own process tree, which `spawnSync`/ */
+/** A git hook exports GIT_* vars into its own process tree, which `spawnSync`/ */
 /** `execFileSync` inherit by default — this must not leak into the scenario's nested `git -C` calls. */
-describe('ARCH-042 scenario — GIT_DIR/GIT_WORK_TREE leak (BEHAVIOR-2650)', () => {
+describe('GIT_DIR/GIT_WORK_TREE leak', () => {
   it('passes even when the ambient environment carries a hook-exported GIT_DIR/GIT_WORK_TREE', () => {
     const leakedGitDir = execFileSync('git', ['rev-parse', '--absolute-git-dir'], {
       encoding: 'utf8',
@@ -30,6 +30,9 @@ describe('ARCH-042 scenario — GIT_DIR/GIT_WORK_TREE leak (BEHAVIOR-2650)', () 
       },
     );
 
-    expect(JSON.parse(output)).toMatchObject({ scenario: 'ARCH-042', cleanupRemoved: true });
+    expect(JSON.parse(output)).toMatchObject({
+      scenario: 'workspace-project-authority',
+      cleanupRemoved: true,
+    });
   }, 45_000);
 });

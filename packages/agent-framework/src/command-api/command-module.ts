@@ -4,7 +4,7 @@ import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { ICommandHostWorkspace } from './host-roles.js';
 
 /**
- * CMD-008: a session requirement is a DEMAND SWITCH, not a registration gate. Declaring one does
+ * A session requirement is a DEMAND SWITCH, not a registration gate. Declaring one does
  * not gate the module on runtime capability being available; it makes the session projection
  * enable that facility (`'runtime'` → `enableAgentRuntime: true`) so the module's commands
  * can rely on it. Pinned by `interactive/__tests__/command-module-session-requirements.test.ts`.

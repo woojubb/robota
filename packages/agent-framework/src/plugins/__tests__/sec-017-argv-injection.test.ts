@@ -10,7 +10,7 @@ import { MarketplaceClient } from '../marketplace-client.js';
 import type { TExecFn } from '../marketplace-types.js';
 
 /**
- * SEC-017 (issue #2019) — a marketplace URL is an ARGUMENT, never syntax.
+ * A marketplace URL is an ARGUMENT, never syntax.
  *
  * The port used to be `(command: string, …)` and the production adapter passed that string to
  * `execSync`, which always runs its argument through a shell. So a source URL containing `;` or
@@ -21,7 +21,7 @@ import type { TExecFn } from '../marketplace-types.js';
  * A `toContain('git clone')` assertion over a joined string passes just as well when the URL has
  * been folded back into a shell line — which is the defect, not the fix.
  */
-describe('SEC-017 — hostile marketplace input reaches the port as a literal argument', () => {
+describe('hostile marketplace input reaches the port as a literal argument', () => {
   let pluginsDir: string;
   let mockExec: Mock;
   let client: MarketplaceClient;

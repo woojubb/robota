@@ -15,7 +15,7 @@ import {
 
 import type { IPrepareWorkspaceMoveInput } from '../interactive-session-workspace-move.js';
 
-/** Issue #3081 — what the session decides before a `/cd`. */
+/** What the session decides before a `/cd`. */
 let root: string;
 let from: string;
 let to: string;

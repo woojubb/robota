@@ -1,6 +1,6 @@
 /**
  * Sealing in place the edit checkpoints a trusted project kept in plaintext, for a host migrating its
- * state once it seals (#3679). Read and written through the project's runtime-minted `checkpoints`
+ * state once it seals. Read and written through the project's runtime-minted `checkpoints`
  * storage, so only as the store itself would.
  *
  * A sealing store reads a plain checkpoint only below every sealed one (a plain manifest numbered

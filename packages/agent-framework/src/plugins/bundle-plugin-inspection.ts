@@ -1,5 +1,5 @@
 /**
- * Read-only classification of what `BundlePluginLoader` found (OBSERVABILITY-1991): the skip
+ * Read-only classification of what `BundlePluginLoader` found: the skip
  * vocabulary, hook-schema issues and typed `.mcp.json` server entries. Nothing here reads a file —
  * the loader hands over what it already parsed, so a pre-session doctor and the session itself
  * describe the same document.
@@ -31,7 +31,7 @@ const JSON_POSITION = /position (\d+)/;
 
 /**
  * The owner error's class plus the parser offset when it reported one — never its message text,
- * which a JSON parser fills with a quoted snippet of the file (OBSERVABILITY-1991 redaction rule).
+ * which a JSON parser fills with a quoted snippet of the file.
  */
 export function skipDetail(error: Error | undefined): string {
   if (error === undefined) return 'Error';

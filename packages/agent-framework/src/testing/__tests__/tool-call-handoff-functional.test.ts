@@ -1,5 +1,5 @@
 /**
- * MCP-004 §S3 — tool-call handoff functional test (TC-24; TC-10's functional clause).
+ * Tool-call handoff functional test.
  *
  * Drives a REAL `InteractiveSession` through `scriptedSession()`: a main-turn tool call to a fake
  * slow MCP-like tool exceeds the (short, real-timer) threshold and is handed to a `tool-invocation`
@@ -7,7 +7,7 @@
  * feed BEFORE the turn's next model step, and one `background_task_completed` follows once the
  * underlying call actually finishes.
  *
- * TC-10's functional clause ("a subagent's tool call to the same tool is NOT handed off") is not
+ * The clause "a subagent's tool call to the same tool is NOT handed off" is not
  * re-driven here: it is the same derivation point (`createSubagentSession`'s `filterTools`) already
  * exercised end to end in `src/__tests__/create-subagent-session.test.ts` (real `createSubagentSession`,
  * a real `ToolCallHandoffTool` instance, asserting the child's tool list holds the unwrapped tool).
@@ -76,7 +76,7 @@ afterEach(async () => {
   h = undefined;
 });
 
-describe('tool-call handoff (framework functional, MCP-004)', () => {
+describe('tool-call handoff (framework functional)', () => {
   it(
     'a main-turn call past the threshold is handed off before the next model step, and completes exactly once',
     async () => {

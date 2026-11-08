@@ -1,9 +1,9 @@
 /**
- * SELFHOST-008 P2/P3: the two per-turn durable-memory hooks the execution controller calls — the
+ * The two per-turn durable-memory hooks the execution controller calls — the
  * post-turn auto-capture and the turn-start recall — over the ONE injected `IMemoryStore` (SSOT with
  * startup injection and `/memory`).
  *
- * Split out of `interactive-session.ts` (CLI-1994) along the seam the two members already drew: they
+ * Split out of `interactive-session.ts` along the seam the two members already drew: they
  * read the two surface-supplied policies, the shared store and the session id, and nothing else in
  * the class touches the controller or the turn counter they keep between them.
  */
@@ -24,7 +24,7 @@ export interface ISessionTurnMemoryDeps {
   /** The session's durable-memory port — the SAME instance startup and `/memory` read through. */
   readonly getMemoryStore: () => IMemoryStore;
   readonly getSessionId: () => string;
-  /** MEM-2055: provenance for what a recall actually used, recorded on the session's history tracker. */
+  /** Provenance for what a recall actually used, recorded on the session's history tracker. */
   readonly recordUsedMemoryReferences: (references: readonly IMemoryReference[]) => void;
 }
 
@@ -35,7 +35,7 @@ export class SessionTurnMemory {
   constructor(private readonly deps: ISessionTurnMemoryDeps) {}
 
   /**
-   * SELFHOST-008 P2 — post-turn auto-capture, invoked by the execution controller's `finally` (before
+   * Post-turn auto-capture, invoked by the execution controller's `finally` (before
    * persistSession) when an `automaticMemory` policy was supplied. Extracts + evaluates + curates
    * through the SAME injected `IMemoryStore`, returning the `IMemoryEvent`s for the controller to
    * record. The controller guards this call (a capture failure never breaks the turn).
@@ -57,13 +57,13 @@ export class SessionTurnMemory {
   }
 
   /**
-   * SELFHOST-008 P3 — per-turn recall, invoked by the execution controller at turn START (query = the
+   * Per-turn recall, invoked by the execution controller at turn START (query = the
    * turn input) when a `recallMemory` policy was supplied. Recalls query-relevant durable memory
    * through the SAME injected `IMemoryStore` and renders it under a DISTINCT `<recalled-memory>`
    * label. `context` is '' when there is nothing to recall. The controller guards this call (recall
    * failure skips injection, never breaks the turn) and injects `context` EPHEMERALLY (never
    * persisted). `events` are NOT recorded here — this runs before the turn's own messages reach
-   * history, so the controller records them itself once those messages are already there (MEM-2055).
+   * history, so the controller records them itself once those messages are already there.
    */
   async recall(query: string): Promise<{ context: string; events: IMemoryEvent[] }> {
     if (!this.deps.recallMemory) return { context: '', events: [] };

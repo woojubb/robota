@@ -1,5 +1,5 @@
 /**
- * TEST-003: the functional session harness validates itself by driving a REAL InteractiveSession
+ * The functional session harness validates itself by driving a REAL InteractiveSession
  * (real agent loop + builtin tools + events + persistence) through the deterministic scripted
  * provider — no CLI, no live LLM. This is the reference for how a framework capability is proven.
  */
@@ -19,7 +19,7 @@ afterEach(async () => {
   harness2 = undefined;
 });
 
-describe('ScriptedSessionHarness (TEST-003)', () => {
+describe('ScriptedSessionHarness', () => {
   it(
     'drives a real multi-turn loop: a Bash tool call writes a file, then text ends the turn',
     async () => {

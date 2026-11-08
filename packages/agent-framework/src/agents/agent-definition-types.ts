@@ -23,7 +23,7 @@ export interface IAgentDefinition {
   effort?: TModelEffort;
 
   /**
-   * SELFHOST-006: opaque role key for per-role model routing. When a `TRoleModelMap` is configured
+   * Opaque role key for per-role model routing. When a `TRoleModelMap` is configured
    * and no explicit `model` alias is set, the subagent resolves its model from the role's fallback
    * chain (primary first). Defaults to `name` when omitted. Opaque string — no fixed vocabulary.
    */
@@ -39,7 +39,7 @@ export interface IAgentDefinition {
   disallowedTools?: string[];
 
   /**
-   * #3282 §4: where this definition came from, in plain words a person picking an agent can read —
+   * Where this definition came from, in plain words a person picking an agent can read —
    * a discovered file's path (`AgentDefinitionLoader`), or absent for the built-in tier (a pack
    * injection composed ahead of `BUILT_IN_AGENTS` included — see `buildAgentRuntime`). A reader that
    * wants a label for every agent, built-in included, falls back to `DEFAULT_AGENT_DEFINED_IN`.

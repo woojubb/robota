@@ -1,5 +1,5 @@
 /**
- * Issue #3288 §1: a background agent's permission prompt is attributed to it ("Background agent
+ * A background agent's permission prompt is attributed to it ("Background agent
  * <type> wants to …") so the GUI/TUI can show WHO is asking, not just an unattributed prompt. The
  * child-process runner already binds this (`permissionApprover` in
  * `child-process-subagent-runner.ts`, built from the parent's own job record — never from anything
@@ -81,7 +81,7 @@ function makeDeps(
   return { deps, cwd };
 }
 
-describe('in-process subagent permission requests are attributed (#3288 §1)', () => {
+describe('in-process subagent permission requests are attributed', () => {
   it("binds this job's requester identity onto the parent's approver, like the child-process runner", async () => {
     const contexts: (IPermissionAskContext | undefined)[] = [];
     const permissionHandler = vi.fn(

@@ -61,7 +61,7 @@ function hasModelInvocableCommandDescriptor(
 }
 
 /**
- * SELFHOST-005: ensure a guardrail hook definition exists when guardrails are registered, so the
+ * Ensure a guardrail hook definition exists when guardrails are registered, so the
  * `GuardrailExecutor` actually fires. Appends a `PreToolUse` guardrail group (matcher '' = all tools)
  * unless a guardrail hook is already declared anywhere in the config (idempotent — no double-run).
  */
@@ -154,15 +154,15 @@ export async function createSession(
 
   const hookTypeExecutors = buildHookTypeExecutors(options);
 
-  // SELFHOST-005: registering guardrails only adds the EXECUTOR; the guardrail set fires only if a
+  // Registering guardrails only adds the EXECUTOR; the guardrail set fires only if a
   // { type: 'guardrail' } hook definition exists on an enforcing event. When guardrails are registered
   // and the config declares none, auto-inject a PreToolUse guardrail group (matcher '' = all tools) so
-  // the gate actually runs — otherwise P3 would be inert. Idempotent: skipped if the user already
-  // declared a guardrail hook.
+  // the gate actually runs — otherwise the guardrail would be inert. Idempotent: skipped if the
+  // user already declared a guardrail hook.
   const resolvedHooks = resolveGuardrailHooks(options.config.hooks, options.guardrails);
 
-  // Issue #2245: a declared hook type with no executor would validate and then deny every tool
-  // call (SEC-016). Refuse it here, before any turn, naming the type and the option it needs.
+  // A declared hook type with no executor would validate and then deny every tool
+  // call. Refuse it here, before any turn, naming the type and the option it needs.
   assertConfiguredHookTypesExecutable(resolvedHooks, hookTypeExecutors, hookSources);
 
   const { agentToolDeps, agentDefinitions, backgroundTaskManager } = buildAgentRuntime(
@@ -182,7 +182,7 @@ export async function createSession(
     tools,
   );
 
-  // MCP-004 §S3: replaces the selected entries in the session-local `tools` array in place.
+  // Replaces the selected entries in the session-local `tools` array in place.
   buildToolCallHandoff(options, backgroundTaskManager, sessionId, cwd, tools);
 
   const { finalSystemMessage, rebuildSystemMessage } = buildSessionSystemPrompt(
@@ -193,7 +193,7 @@ export async function createSession(
     backgroundProcessToolDeps,
     modelVisibleSkills,
     agentDefinitions,
-    // CLI-1990: the assembled set, so the prompt can name what is deferred (and therefore
+    // The assembled set, so the prompt can name what is deferred (and therefore
     // searchable). Passed here rather than recomputed: this is the list the session actually holds.
     tools,
   );
@@ -205,7 +205,7 @@ export async function createSession(
         .map((t) => t.toolName)
     : [];
 
-  // ARCH-040 Group C (issue #1934): one translation, shared with the live `/preset` re-application,
+  // One translation, shared with the live `/preset` re-application,
   // so the two paths cannot disagree about what the same preset permits.
   // The rules independent of any preset. Kept as its own value because the enforcer needs it to
   // re-apply a preset live: deriving it later from `mergedPermissions` would already include this
@@ -218,13 +218,13 @@ export async function createSession(
     ],
     deny: options.config.permissions.deny ?? [],
   };
-  // Issue #3081: ask rules are not a preset's to change; they pass through untouched.
+  // Ask rules are not a preset's to change; they pass through untouched.
   const mergedPermissions = {
     ...applyPresetToolLists(presetFreePermissions, options),
     ask: [...(options.config.permissions.ask ?? [])],
   };
 
-  // Issue #2351: the enforcer hands over the CONSENT SCOPE pattern (`Bash(git *)`,
+  // The enforcer hands over the CONSENT SCOPE pattern (`Bash(git *)`,
   // `Read(/w/src/**)`), which is persisted as-is; a bare tool name still widens to `Tool(*)`.
   const persistProjectPermission = options.persistProjectPermission;
   const onProjectAllowTool = persistProjectPermission
@@ -244,7 +244,7 @@ export async function createSession(
     provider,
     systemMessage: finalSystemMessage,
     terminal: options.terminal,
-    // ARCH-010: the same root the tools, hooks and skill source were bound to above. It used to be
+    // The same root the tools, hooks and skill source were bound to above. It used to be
     // computed here and then re-derived inside `Session` from `process.cwd()`, so the two could
     // disagree the moment a caller supplied `options.cwd`.
     cwd,
@@ -260,12 +260,12 @@ export async function createSession(
     checkpointHistory: options.checkpointHistory,
     sessionId,
     permissionHandler: options.permissionHandler,
-    // Issue #3082: a sandbox that confines commands in place may let a confined one skip the prompt
+    // A sandbox that confines commands in place may let a confined one skip the prompt
     // — for the shell tools it wraps, and no other command-running tool.
     ...(options.sandboxClient?.autoApproves !== undefined
       ? { commandSandbox: sandboxApprovalFor(options.sandboxClient) }
       : {}),
-    // Issue #3082: `auto` mode asks the session's own model; an organization can turn the mode off.
+    // `auto` mode asks the session's own model; an organization can turn the mode off.
     ...(options.disableAutoMode === true
       ? {}
       : {
@@ -275,7 +275,7 @@ export async function createSession(
             readGitRemotes: options.host.readGitRemotes,
           }),
         }),
-    // CMD-005: model-invoked tools solicit structured answers through this port.
+    // Model-invoked tools solicit structured answers through this port.
     ...(options.ask ? { ask: options.ask } : {}),
     ...(onProjectAllowTool === undefined ? {} : { onProjectAllowTool }),
     onTextDelta: options.onTextDelta,
@@ -307,7 +307,7 @@ export async function createSession(
 
 /**
  * The id every session this package assembles gets. Exported for the one other producer of a
- * session record — the in-session fork (`interactive-session-fork-record.ts`, CLI-1994) — so the
+ * session record — the in-session fork (`interactive-session-fork-record.ts`) — so the
  * `session_<uuid>` form is written here once rather than a second time beside it.
  */
 export function createSessionId(): string {

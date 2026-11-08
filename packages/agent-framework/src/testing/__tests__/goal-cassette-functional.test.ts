@@ -1,5 +1,5 @@
 /**
- * GOAL-001 functional test against a REAL recorded model run (TEST-005).
+ * Functional test of the goal loop against a REAL recorded model run.
  *
  * Replays a committed cassette of an actual Qwen run of the goal loop — real prompts, the model's
  * real decision to use Bash and call `report_goal_status` — deterministically, with no key and no
@@ -23,7 +23,7 @@ afterEach(async () => {
   h = undefined;
 });
 
-describe('GOAL-001 against a real recorded model (cassette)', () => {
+describe('goal against a real recorded model (cassette)', () => {
   it(
     'a real Qwen run drives the goal to satisfied: it wrote the file and signalled completion',
     async () => {

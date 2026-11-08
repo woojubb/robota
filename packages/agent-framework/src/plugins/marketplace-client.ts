@@ -121,7 +121,7 @@ export class MarketplaceClient {
       throw new Error(`Marketplace "${name}" already exists`);
     }
 
-    // SEC-018: `name` comes from a REMOTE marketplace manifest and selects this rename destination.
+    // `name` comes from a REMOTE marketplace manifest and selects this rename destination.
     // A manifest named `../../escaped-market` placed the marketplace outside its root.
     assertSafePluginSegment(name, 'marketplace name');
     const finalDir = joinPath(this.marketplacesDir, name);
@@ -146,11 +146,11 @@ export class MarketplaceClient {
   /**
    * The registry entry for `name`, with its `installLocation` proven inside the marketplaces root.
    *
-   * SEC-018. `known_marketplaces.json` is the sibling of `installed_plugins.json`, and its
+   * `known_marketplaces.json` is the sibling of `installed_plugins.json`, and its
    * `installLocation` reaches three sinks: a recursive delete in `removeMarketplace`, a
    * delete-then-copy in `updateMarketplace`'s local branch, and `git -C <dir> pull` in its git
-   * branch. All three were unguarded while the other registry's `installPath` was guarded twice —
-   * the principle was established and the sibling file was never enumerated.
+   * branch. All three must be guarded exactly as the other registry's `installPath` is —
+   * the sibling file is part of the same boundary.
    *
    * Checked once, where the entry is read, rather than at each of the three sinks: three call sites
    * are three chances to miss one, which is how this was missed in the first place.
@@ -170,7 +170,7 @@ export class MarketplaceClient {
 
     removeInstalledPluginsForMarketplace(this.pluginsDir, name, this.fs, this.onWarning);
 
-    // SEC-018: proven contained above; the registry value is a hint, not a fact.
+    // Proven contained above; the registry value is a hint, not a fact.
     if (this.fs.existsSync(entry.installLocation)) {
       this.fs.rmSync(entry.installLocation, { recursive: true, force: true });
     }

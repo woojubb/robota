@@ -1,5 +1,5 @@
 /**
- * Background task / scheduled wake — framework functional test (TEST-004, FLOW-002/003).
+ * Background task / scheduled wake — framework functional test.
  *
  * A background-task completion or a scheduled fire re-enters the agent loop as a non-user
  * `agent-wakeup` turn. This drives that path through the REAL session (scripted provider, no CLI):

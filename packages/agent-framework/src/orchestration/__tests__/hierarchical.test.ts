@@ -46,7 +46,7 @@ const delegateOnceThenDone: PlanDelegation = (_out, round) =>
       ]
     : null;
 
-describe('SELFHOST-001 P3 — hierarchical orchestration', () => {
+describe('hierarchical orchestration', () => {
   it('runs the manager, delegates to workers, threads their output back, then finishes', async () => {
     const { manager, spawns } = fakeManager(outByType);
     const { events, names } = capturingEvents();

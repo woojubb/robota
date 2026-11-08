@@ -17,7 +17,7 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-describe('createQuery canonical permission adapter (ARCH-017)', () => {
+describe('createQuery canonical permission adapter', () => {
   it('subscribes to permission_request and settles an allowed tool through the registry', async () => {
     const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'arch-017-query-')));
     roots.push(cwd);

@@ -73,7 +73,7 @@ export class BundlePluginLoader {
   /**
    * Load all discovered and enabled bundle plugins (sync).
    *
-   * OBSERVABILITY-1991: a projection of {@link inspectPluginsSync} — the discovery runs once and the
+   * a projection of {@link inspectPluginsSync} — the discovery runs once and the
    * skipped plugins are reported here by name, out loud, exactly as before; a diagnostic that wants the
    * skip records instead of log lines reads the inspection. Behaviour is unchanged: a plugin whose
    * `hooks/hooks.json` fails the settings hooks schema still loads (report-only; runtime enforcement
@@ -176,7 +176,7 @@ export class BundlePluginLoader {
     }
     const manifestPath = joinPath(versionDir, '.claude-plugin', 'plugin.json');
 
-    // CORE-029: one broken plugin used to take down ALL of them. `readManifest` throws on
+    // One broken plugin used to take down ALL of them. `readManifest` throws on
     // unparseable JSON, that throw escaped discovery, and the caller answered with a bare
     // `catch {}` — so a single malformed manifest silently disabled every installed plugin and the
     // user's hooks just did not run. A plugin that cannot be read is skipped, by name, out loud;

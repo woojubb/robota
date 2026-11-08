@@ -1,5 +1,5 @@
 /**
- * RUNTIME-003 — `ITurnHandle.completed` always settles.
+ * `ITurnHandle.completed` always settles.
  *
  * The handle is only useful if waiting on it is safe, and the dangerous cases are the ones where the
  * submission is ACCEPTED and then never runs. A session runs one turn at a time and queues the rest,
@@ -91,7 +91,7 @@ async function reasonOf(completed: Promise<unknown>): Promise<string> {
   ]);
 }
 
-describe('RUNTIME-003: a submission that never runs still answers its caller', () => {
+describe('a submission that never runs still answers its caller', () => {
   it('says `coalesced` when a later input from the same driver replaces it', async () => {
     const controller = createController();
     const first = controller.turns.begin();
@@ -139,7 +139,7 @@ describe('RUNTIME-003: a submission that never runs still answers its caller', (
   });
 });
 
-describe('RUNTIME-003: an acceptance callback cannot strand the turn it was told about', () => {
+describe('an acceptance callback cannot strand the turn it was told about', () => {
   it('fails the accepted turn when onAccepted throws', async () => {
     const controller = createController();
     let accepted: Promise<unknown> | undefined;
@@ -171,7 +171,7 @@ describe('RUNTIME-003: an acceptance callback cannot strand the turn it was told
   });
 });
 
-describe('RUNTIME-003: the identity survives the whole queued path', () => {
+describe('the identity survives the whole queued path', () => {
   // Review found the gap that once made the queued half inert: the entry `submit()` built had no
   // top-level identity. The cases above build entries directly, so this group also proves the real
   // public acceptance wiring carries its required id and rejects forged resume authority.
@@ -294,7 +294,7 @@ describe('RUNTIME-003: the identity survives the whole queued path', () => {
   });
 });
 
-describe('RUNTIME-006: turn identity is required only on internal accepted-turn paths', () => {
+describe('turn identity is required only on internal accepted-turn paths', () => {
   it('public submit forwards only public options into the internal new-turn path', async () => {
     class PublicBoundarySession extends InteractiveSession {
       interceptNewTurn(handler: (...args: unknown[]) => unknown): void {
@@ -341,9 +341,9 @@ describe('RUNTIME-006: turn identity is required only on internal accepted-turn 
     type PublicSubmitOptions = NonNullable<Parameters<InteractiveSession['submit']>[3]>;
     const publicOptions: PublicSubmitOptions = { driverId: 'owner' };
 
-    // @ts-expect-error RUNTIME-006: callers cannot express queued-turn resume authority.
+    // @ts-expect-error callers cannot express queued-turn resume authority.
     const forgedPublicOptions: PublicSubmitOptions = { resumeTurnId: 'forged' };
-    // @ts-expect-error RUNTIME-006: every queued entry has already been assigned an identity.
+    // @ts-expect-error every queued entry has already been assigned an identity.
     const missingQueueIdentity: IQueuedInput = { input: 'missing id', options: {} };
 
     const turns = new SessionExecutionController(
@@ -352,11 +352,11 @@ describe('RUNTIME-006: turn identity is required only on internal accepted-turn 
       { emit: vi.fn() } as never,
     ).turns;
     expect('completionOf' in turns).toBe(false);
-    // @ts-expect-error RUNTIME-006: settlement cannot silently ignore a missing identity.
+    // @ts-expect-error settlement cannot silently ignore a missing identity.
     turns.settle(undefined, {} as never);
-    // @ts-expect-error RUNTIME-006: failure cannot silently ignore a missing identity.
+    // @ts-expect-error failure cannot silently ignore a missing identity.
     turns.fail(undefined, new Error('missing identity'));
-    // @ts-expect-error RUNTIME-006: refusal cannot silently ignore a missing identity.
+    // @ts-expect-error refusal cannot silently ignore a missing identity.
     turns.refuse(undefined, 'cancelled');
 
     expect(publicOptions.driverId).toBe('owner');

@@ -1,5 +1,5 @@
 /**
- * Fixtures for the tests of a running session over a store that seals (#3679 step 3e): records the
+ * Fixtures for the tests of a running session over a store that seals: records the
  * owner wrote (tagged), records something else wrote with the public key only (untagged), and a
  * session that exposes its initialization.
  */

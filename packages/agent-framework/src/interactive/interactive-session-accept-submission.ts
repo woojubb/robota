@@ -4,12 +4,12 @@
  * Two decisions, resolved together because they are made at the same instant and travel on the same
  * options object:
  *
- *  - REMOTE-014 E5 **attribution**: the SERVER-ASSIGNED driver id (display-only). A human turn
+ *  - **attribution**: the SERVER-ASSIGNED driver id (display-only). A human turn
  *    defaults to the owner; an agent-wakeup/goal turn to the reserved agent id — never the owner,
  *    because an autonomous action must not be mis-attributed to the operator.
- *  - RUNTIME-003 **identity**: a submission is identified when it is accepted, not when it starts
+ *  - **identity**: a submission is identified when it is accepted, not when it starts
  *    running. Otherwise a queued one has no identity for the whole time its caller waits on it.
- *    RUNTIME-006 keeps queued resumption out of this new-submission function, so every call mints
+ *    Queued resumption stays out of this new-submission function, so every call mints
  *    exactly one identity and a queued entry carries it directly to execution.
  *
  * Split out of `interactive-session.ts`, which had grown past its size ratchet.
@@ -35,8 +35,8 @@ export interface IAcceptedSubmission {
    *
    * Handed back as part of acceptance rather than exported separately, because the entry it builds
    * must carry the `turnId` minted above: every refusal path settles by that id, and an entry
-   * without one leaves its caller waiting forever — which is how the queued half of RUNTIME-003
-   * shipped inert in its first draft. Same-driver input coalesces to the tail (1-deep today); a
+   * without one leaves its caller waiting forever — which is how a queued submission goes
+   * inert. Same-driver input coalesces to the tail (1-deep today); a
    * different driver appends without clobbering.
    */
   readonly queueBehindRunningTurn: (
@@ -48,7 +48,7 @@ export function acceptSubmission(
   options: ITurnOptions,
   execCtrl: SessionExecutionController,
 ): IAcceptedSubmission {
-  // PEER-002 (#1809): a peer turn has no default. Falling through to the owner would attribute
+  // A peer turn has no default. Falling through to the owner would attribute
   // another session's message to the operator — the same mis-attribution the agent id exists to
   // prevent for autonomous turns, and worse here because a peer is a different party entirely.
   // There is no id we could invent that would be true, so the caller must supply one.

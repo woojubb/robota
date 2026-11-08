@@ -19,7 +19,7 @@ export function createMainThreadDetailPage(
     timestamp: entry.timestamp.toISOString(),
     sourceId: entry.type,
   }));
-  // SCREEN-1992: the blocking question leads the first page, so a peek answers "what does it need".
+  // The blocking question leads the first page, so a peek answers "what does it need".
   if (input.pendingRequest !== undefined && offset === 0) {
     records.unshift({
       id: `${input.entryId}:pending`,

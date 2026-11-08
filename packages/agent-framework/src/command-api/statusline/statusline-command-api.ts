@@ -1,7 +1,7 @@
 import type { ISettingsDocumentStore, TSettingsData } from '../../config/settings-store-types.js';
 import type { ICommand } from '../types.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-// Status-line command settings contracts SSOT relocated to @robota-sdk/agent-interface-command (DATA-001).
+// Status-line command settings contracts SSOT relocated to @robota-sdk/agent-interface-command.
 import type {
   IStatusLineCommandSettings,
   TStatusLineCommandSettingsPatch,

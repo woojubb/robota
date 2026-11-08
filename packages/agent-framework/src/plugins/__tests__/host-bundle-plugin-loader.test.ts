@@ -1,5 +1,5 @@
 /**
- * PLG-021 / issue #2025 — a loader built through the composition root honours `enabledPlugins`.
+ * A loader built through the composition root honours `enabledPlugins`.
  *
  * The defect these pin is not "the filter is broken". `BundlePluginLoader.isDisabled` was correct all
  * along, and `bundle-plugin-loader.test.ts` proves it. The defect is that every production site
@@ -43,7 +43,7 @@ function createPlugin(pluginsDir: string, market: string, name: string): void {
   writeJson(join(metaDir, 'plugin.json'), manifest);
 }
 
-describe('createHostBundlePluginLoader (PLG-021 / issue #2025)', () => {
+describe('createHostBundlePluginLoader', () => {
   let root: string;
   let pluginsDir: string;
   let settingsPath: string;
@@ -143,7 +143,7 @@ describe('createHostBundlePluginLoader (PLG-021 / issue #2025)', () => {
 });
 
 /**
- * PLG-021, one step over: a CACHED loader answers with the map as it was when it was built.
+ * A CACHED loader answers with the map as it was when it was built.
  *
  * `BundlePluginLoader` captures the enablement map in its constructor. So an adapter that builds one
  * loader and reuses it keeps loading a plugin that was disabled through that same adapter afterwards
@@ -152,7 +152,7 @@ describe('createHostBundlePluginLoader (PLG-021 / issue #2025)', () => {
  * These pin the difference between the two shapes so the per-call factory in
  * `default-plugin-command-adapter.ts` cannot quietly become a cached instance again.
  */
-describe('a cached loader goes stale where a per-call one does not (PLG-021)', () => {
+describe('a cached loader goes stale where a per-call one does not', () => {
   let root: string;
   let pluginsDir: string;
   let settingsPath: string;

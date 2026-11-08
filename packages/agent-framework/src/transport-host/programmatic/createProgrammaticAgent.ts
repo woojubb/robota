@@ -1,6 +1,6 @@
 /**
  * createProgrammaticAgent — the in-process implementation of the client-side agent contract
- * (`IAgentDriver`, INFRA-020; introduced as the programmatic driver in INFRA-019).
+ * (`IAgentDriver`).
  *
  * Wraps `createInteractiveRuntime` with a {@link ProgrammaticInteractionChannel} so a caller can drive
  * the real agent structurally: `start()`, `send(text)` (awaits the whole turn), then read assistant

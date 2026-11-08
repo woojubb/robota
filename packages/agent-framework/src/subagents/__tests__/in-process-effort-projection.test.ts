@@ -65,7 +65,7 @@ describe('in-process subagent trace context', () => {
   });
 });
 
-describe('in-process subagent effort projection (BEHAVIOR-009)', () => {
+describe('in-process subagent effort projection', () => {
   it('uses the request effort when present and the definition effort otherwise', () => {
     const session = {
       run: vi.fn().mockResolvedValue('done'),
@@ -116,7 +116,7 @@ describe('the permission mode a subagent starts in', () => {
   });
 });
 
-describe('the parent rules a subagent inherits (issue #3081)', () => {
+describe('the parent rules a subagent inherits', () => {
   it('are the rules the parent gate enforces now, read at each spawn', () => {
     const session = {
       run: vi.fn().mockResolvedValue('done'),

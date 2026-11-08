@@ -1,5 +1,5 @@
 /**
- * CONFIG-002: `updateModelInSettings` writes the active model into
+ * `updateModelInSettings` writes the active model into
  * `providers[currentProvider]`. When the settings file names no active profile there is nothing
  * the canonical loader would accept, so the writer refuses instead of emitting the legacy flat
  * `provider` shape that `loadConfig()` rejects.

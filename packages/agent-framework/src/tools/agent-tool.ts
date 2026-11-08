@@ -16,7 +16,7 @@ import { SubagentManager } from '@robota-sdk/agent-executor';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
-// CORE-030: defining a tool and telling the permission system what it does arrive together.
+// Defining a tool and telling the permission system what it does arrive together.
 import './tool-permission-profiles.js';
 import { runManagedAgentBatch } from './agent-tool-batch.js';
 import { requireToolExecutionRoot } from './execution-root.js';
@@ -75,7 +75,7 @@ export function createAgentToolPromptDescription(
 }
 
 /**
- * NEUT-003: the `subagent_type` schema description is DERIVED from the agent
+ * The `subagent_type` schema description is DERIVED from the agent
  * definitions available to this session instead of hardcoding built-in names
  * (which drifts against custom/injected registries).
  */
@@ -158,7 +158,7 @@ export function retrieveAgentToolDeps(key: object): IAgentToolDeps | undefined {
 /**
  * Resolve an agent type name to an IAgentDefinition.
  * Checks custom registry first so project/user definitions can override built-ins.
- * NEUT-003: an injected `deps.builtInAgents` set REPLACES the module built-ins
+ * An injected `deps.builtInAgents` set REPLACES the module built-ins
  * (an empty array removes them entirely).
  */
 function resolveAgentDefinition(
@@ -196,7 +196,7 @@ function createSpawnRequest(
   toolCallId?: string,
 ): ISubagentSpawnRequest {
   return {
-    // ARCH-031: stated, not inherited from a default applied mid-projection.
+    // Stated, not inherited from a default applied mid-projection.
     permissionPolicy: DEFAULT_BACKGROUND_PERMISSION_POLICY,
     agentType,
     label,
@@ -255,7 +255,7 @@ async function runManagedAgent(
  */
 export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZodFunctionTool> {
   const manager = createSubagentManager(deps);
-  // NEUT-003: derive the subagent_type description from this session's actual definitions.
+  // Derive the subagent_type description from this session's actual definitions.
   const agentTypeNames = (deps.agentDefinitions ?? deps.builtInAgents ?? BUILT_IN_AGENTS).map(
     (definition) => definition.name,
   );
@@ -267,7 +267,7 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
     async (params, context) => {
       const args = params as TAgentArgs;
       const toolCallId = (context as IToolExecutionContext | undefined)?.executionId;
-      // PRESET-016 runtime gate: refuse dispatch without spawning anything when the active preset
+      // Runtime gate: refuse dispatch without spawning anything when the active preset
       // has disabled parallel subagents on this (already-constructed) session.
       if (deps.isParallelSubagentsEnabled !== undefined && !deps.isParallelSubagentsEnabled()) {
         return stringifyParallelSubagentsDisabled();

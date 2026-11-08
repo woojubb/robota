@@ -1,5 +1,5 @@
 /**
- * Leaf module for the output-format vocabulary (issue #2052: the ONE owner of the type and the
+ * Leaf module for the output-format vocabulary (the ONE owner of the type and the
  * runtime constant together).
  *
  * Split out of `headless-runner.ts` so `headless-output.ts` can depend on {@link TOutputFormat}

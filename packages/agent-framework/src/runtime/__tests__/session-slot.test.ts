@@ -1,5 +1,5 @@
 /**
- * #3189 — the session slot: one stable session object whose calls, listeners and switch notice
+ * The session slot: one stable session object whose calls, listeners and switch notice
  * follow whichever session is current.
  */
 
@@ -47,7 +47,7 @@ function emittingSession(
   });
 }
 
-describe('SessionSlot (#3189)', () => {
+describe('SessionSlot', () => {
   it('moves registered listeners onto the replacing session', async () => {
     const first = emittingSession('s-1');
     const second = emittingSession('s-2');

@@ -12,14 +12,14 @@ import type { ISessionRecord } from '@robota-sdk/agent-session';
 import type { IInteractiveSessionStore } from '../session-store-types.js';
 
 /**
- * SELFHOST-014 TC-03 — an imported artifact resumes through the EXISTING `loadSessionRecord` path (no new resume
+ * An imported artifact resumes through the EXISTING `loadSessionRecord` path (no new resume
  * machinery): export → deserialize → store.save → loadSessionRecord rehydrates history/goal identically.
  */
 
 /**
  * A record that actually satisfies the contract.
  *
- * TRANS-006: this was a stub cast through `as unknown as ISessionRecord` — a message with no `id`,
+ * This was a stub cast through `as unknown as ISessionRecord` — a message with no `id`,
  * `timestamp` or `state`, and a history entry carrying a `text` member the contract does not
  * declare. It passed because the import path validated the envelope and one field. Now that the
  * importer decodes, a fixture that is not a record cannot pretend to be one, and the cast that let
@@ -67,7 +67,7 @@ function newStore(): NodeSessionStore {
   });
 }
 
-describe('imported session artifact resumes via loadSessionRecord (TC-03)', () => {
+describe('imported session artifact resumes via loadSessionRecord', () => {
   it('rehydrates history + goal from an imported artifact through the existing resume path', () => {
     const source = record('sess_resume');
     const artifact = serializeSessionArtifact(source);
@@ -83,9 +83,8 @@ describe('imported session artifact resumes via loadSessionRecord (TC-03)', () =
       (store as unknown as IInteractiveSessionStore).load('sess_resume', { hold: true }),
     );
 
-    // TRANS-006 recorded an asymmetry here — the import decoded and the store did not, so a record
-    // that came back through the store carried ISO strings. TRANS-007 made the store decode too, so
-    // the expectation is now the in-memory fixture, and this line is the evidence the gap closed.
+    // The import and the store both decode, so a record that comes back through the store carries
+    // decoded values, not ISO strings. The expectation is the in-memory fixture.
     expect(resumed.history).toEqual(source.history);
     expect(resumed.goal).toEqual(source.goal);
     expect(deserializeSessionArtifact(artifact).history?.[0]?.timestamp).toBeInstanceOf(Date);

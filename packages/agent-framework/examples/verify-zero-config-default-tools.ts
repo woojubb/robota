@@ -10,12 +10,12 @@ import { createTestFrameworkHost } from '../src/testing/framework-host.js';
 const testHost = createTestFrameworkHost();
 
 /**
- * ARCH-035 S-1 — a zero-config session still receives the default tool tier, and
+ * A zero-config session still receives the default tool tier, and
  * `IAgentRuntime.createSession` stays SYNCHRONOUS.
  *
- * Both halves matter, and the second is the trap. ARCH-035 moved the default tool set into
- * `@robota-sdk/agent-tool-defaults` and made `agent-framework` reach it by dynamic `import()`, which
- * turned the assembly `createSession` async. `IAgentRuntime.createSession` survives synchronous only
+ * Both halves matter, and the second is the trap. The default tool set lives in
+ * `@robota-sdk/agent-tool-defaults` and `agent-framework` reaches it by dynamic `import()`, which
+ * makes the assembly `createSession` async. `IAgentRuntime.createSession` survives synchronous only
  * because it does NOT call that function — it constructs the session directly and the assembly happens
  * later behind `initializeInteractiveSessionAsync`. That indirection is load-bearing rather than
  * incidental: an implementer propagating async "until it compiles" would very plausibly make this
@@ -28,8 +28,8 @@ const testHost = createTestFrameworkHost();
  * provider's recorded request is the observable channel — the same data a user sees in
  * the host-configured session log path.
  */
-const PROMPT = 'ARCH-035 zero-config default tools';
-const RESPONSE = 'ARCH-035 ok';
+const PROMPT = 'zero-config default tools';
+const RESPONSE = 'zero-config session ok';
 
 /** The tier a zero-config session must receive. Measured before the extraction, asserted after it. */
 const EXPECTED_TOOLS = [
@@ -110,7 +110,7 @@ async function main(): Promise<void> {
   assertCondition(result !== undefined, 'scenario did not produce a result');
   assertCondition(!existsSync(cwd), 'scenario cleanup did not remove its temporary directory');
   process.stdout.write(
-    `${JSON.stringify({ scenario: 'ARCH-035', ...result, cleanupRemoved: true })}\n`,
+    `${JSON.stringify({ scenario: 'zero-config-tools', ...result, cleanupRemoved: true })}\n`,
   );
 }
 

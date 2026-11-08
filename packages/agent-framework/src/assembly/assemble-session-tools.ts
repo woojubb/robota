@@ -1,5 +1,5 @@
 /**
- * ARCH-006 — the session's TOOL assembly, split out of `createSession`.
+ * The session's TOOL assembly, split out of `createSession`.
  *
  * One cohesive concern: resolve the default tool tier, compose the contributed tiers on top, collapse the
  * result to one entry per tool name, and apply the session-context wrappers (edit checkpoints, reversible
@@ -51,7 +51,7 @@ function dedupeToolsByName(tools: readonly IToolWithEventService[]): IToolWithEv
 }
 
 /**
- * Whether this session has anything to search FOR (CLI-1990).
+ * Whether this session has anything to search FOR.
  *
  * The search tool is added only when some assembled tool declares `deferLoading` — a session of ten
  * resident built-ins gets exactly the ten it gets today, and no eleventh tool appears in a prompt
@@ -78,7 +78,7 @@ export function assembleSessionTools(
   sessionAccess: () => IAdvisorSessionAccess | undefined = () => undefined,
 ): IAssembledSessionTools {
   // The default tool tier is INJECTABLE. `options.defaultTools` REPLACES the host's tier outright
-  // (an empty array suppresses every framework default), mirroring NEUT-003's `builtInAgents` seam for
+  // (an empty array suppresses every framework default), mirroring the `builtInAgents` seam for
   // subagents. Absent ⇒ the tier is whatever the host builds (`host.createDefaultTools`), WITH the
   // session context (cwd → the working-directory path guard, sandbox client) — which is why a name
   // collision must never silently displace it (see `dedupeToolsByName`).
@@ -94,12 +94,12 @@ export function assembleSessionTools(
       ...(options.sandboxClient !== undefined ? { sandboxClient: options.sandboxClient } : {}),
     }) ??
     [];
-  // Issue #3081: what matters is where FILE writes land, not whether a sandbox exists. A shared-
+  // What matters is where FILE writes land, not whether a sandbox exists. A shared-
   // filesystem sandbox confines commands but writes files on the host, so those edits still need
   // checkpoints and are not contained in any provider snapshot.
   const filesInSandbox = routesFilesThroughSandbox(options.sandboxClient);
   const checkpointAvailable = options.editCheckpointRecorder !== undefined && !filesInSandbox;
-  // CLI-1990: the DECLARED set — every tier the session was configured with, before the framework
+  // The DECLARED set — every tier the session was configured with, before the framework
   // adds anything of its own. Dedupe keeps the first entry for a name, so the surviving tool carries
   // its own residency marker; nothing here rewrites one.
   // The host's Advisor tool is bound to this session here, before any wrapper hides it.

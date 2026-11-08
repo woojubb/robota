@@ -1,11 +1,11 @@
 /**
- * CMD-005 TC-02/TC-04: the model-issued AskUserQuestion, proven through the TEST-003 functional
+ * The model-issued AskUserQuestion, proven through the functional
  * harness.
  *
  * Drives a REAL InteractiveSession (real agent loop + builtin tools): the scripted model calls the
  * AskUserQuestion tool; the harness plays the interactive user by SUBSCRIBING to the session's
- * transport-neutral `ask_request` event and answering via `resolveAsk` (REMOTE-007) — the same seam a
- * TUI/remote surface resolves. Verifies the CMD-004 → CMD-005 chain end to end — ask_request event →
+ * transport-neutral `ask_request` event and answering via `resolveAsk` — the same seam a
+ * TUI/remote surface resolves. Verifies the chain end to end — ask_request event →
  * resolveAsk → tool result — and the headless fail-closed path (each question `cancelled`) when no
  * surface is subscribed.
  */
@@ -41,7 +41,7 @@ function askToolResult(h: ScriptedSessionHarness): Record<string, unknown> {
   return JSON.parse(invocation.output) as Record<string, unknown>;
 }
 
-describe('AskUserQuestion tool (CMD-005) — functional, via the scripted-session harness', () => {
+describe('AskUserQuestion tool — functional, via the scripted-session harness', () => {
   it(
     'routes a model-issued question to the askHandler and returns the answer as the tool result',
     async () => {
@@ -90,9 +90,9 @@ describe('AskUserQuestion tool (CMD-005) — functional, via the scripted-sessio
   );
 
   it(
-    'fails closed (each question cancelled, never guesses) when no surface is subscribed — headless contract (REMOTE-007)',
+    'fails closed (each question cancelled, never guesses) when no surface is subscribed — headless contract',
     async () => {
-      // REMOTE-007: the framework now always wires the transport-neutral ask default, so a model
+      // The framework now always wires the transport-neutral ask default, so a model
       // question with NO subscribed surface fails closed to per-question `cancelled` (not the old
       // static `unavailable`). The model still continues autonomously — cancellation is data, not an error.
       harness = scriptedSession({

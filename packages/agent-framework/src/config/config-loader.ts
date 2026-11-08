@@ -38,12 +38,12 @@ const DEFAULTS: IResolvedConfig = {
  * Raise the loader's read-phase error for a classified layer.
  *
  * The classification itself lives in `settings-inspection.ts` (`readSettingsLayers`) so the doctor
- * and the loader read one implementation (OBSERVABILITY-1991); the errors raised here are the ones
+ * and the loader read one implementation; the errors raised here are the ones
  * this loader has always raised, at the same layer:
  * - an existing but empty file is corrupt, not absent (`settings-io.readSettings` reaches
  *   `JSON.parse('')` for the same file, and a crash during write is precisely how a settings file
  *   becomes empty);
- * - a corrupt layer is refused rather than skipped — CONFIG-002 / issue #2023: returning `undefined`
+ * - a corrupt layer is refused rather than skipped: returning `undefined`
  *   let a truncated project file that had carried a deny list come back as a config with none;
  * - an unreadable existing file propagates the reader's own error.
  */
@@ -106,7 +106,7 @@ function resolveEnvRefs(
 }
 
 /**
- * SEC-009: resolving a `$ENV:` reference here is correct — an in-process provider needs the secret
+ * Resolving a `$ENV:` reference here is correct — an in-process provider needs the secret
  * — but it DISCARDED the variable name, so every later caller saw only the resolved value. A caller
  * that has to serialize the config then had no way to carry the reference instead of the secret,
  * which is how the plaintext credential reached the subagent IPC start payload on every
@@ -157,7 +157,7 @@ function resolveActiveProviderProfile(merged: TEnvResolvedSettings): IResolvedCo
     apiKey:
       profile.apiKeyRef === undefined ? (profile.apiKey ?? DEFAULTS.provider.apiKey) : undefined,
     ...(profile.apiKeyRef !== undefined && { apiKeyRef: profile.apiKeyRef }),
-    // SEC-009: this projection is field-by-field, so the credential's ORIGIN has to be copied
+    // This projection is field-by-field, so the credential's ORIGIN has to be copied
     // deliberately. Resolving `$ENV:` and recording the variable name upstream achieved nothing
     // while this line was missing — the resolved config the subagent runner serializes had only
     // the secret, which is the whole defect.

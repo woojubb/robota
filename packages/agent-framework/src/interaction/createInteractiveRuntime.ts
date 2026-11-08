@@ -86,10 +86,10 @@ function wireSessionEvents(session: IInteractiveSession, channel: IInteractionCh
     channel.setBusy(false);
   };
 
-  // REMOTE-007: this runtime is a subscribed surface. It answers the transport-neutral `ask_request`
+  // This runtime is a subscribed surface. It answers the transport-neutral `ask_request`
   // by rendering through the channel's unified `askUser` and replying via `resolveAsk` — replacing the
   // old injected `askHandler`. Subscribing makes `getUserInteraction()` present, so commands that ask
-  // (CMD-004) reach the channel exactly as before. (This runtime injects no permission surface, so
+  // reach the channel exactly as before. (This runtime injects no permission surface, so
   // permission prompts fail closed just as they did without a permissionHandler.)
   const onAskRequest: IInteractiveSessionEvents['ask_request'] = ({ id, request }) => {
     void Promise.resolve(channel.askUser(request))
@@ -169,7 +169,7 @@ export function createInteractiveRuntimeWithSessionFactory(
       return;
     }
 
-    // CMD-004: commands solicit any needed input themselves via the injected ask seam
+    // Commands solicit any needed input themselves via the injected ask seam
     // (getUserInteraction → channel.askUser); the runtime just dispatches with the typed args.
     const { name, args } = parsed;
     const result = await session.executeCommand(name, args.join(' '));
@@ -196,13 +196,13 @@ export function createInteractiveRuntimeWithSessionFactory(
     },
 
     async stop(): Promise<void> {
-      // Best-effort disposal (CORE-013 convention): a channel stop failure must not skip the
+      // Best-effort disposal: a channel stop failure must not skip the
       // session shutdown, and stop() itself never rejects for cleanup errors.
       try {
         unwireEvents?.();
         await channel.stop();
       } catch {
-        // allow-fallback: best-effort disposal IS the contract — session shutdown below must still run (CORE-013 convention)
+        // allow-fallback: best-effort disposal IS the contract — session shutdown below must still run
         /* collected nowhere to log here; session shutdown still runs */
       }
       await session?.shutdown();

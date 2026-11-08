@@ -1,5 +1,5 @@
 /**
- * The subagent transcript (#3679 step 3b): one rule for where a subagent's log is, used by the child
+ * The subagent transcript: one rule for where a subagent's log is, used by the child
  * that writes it and the parent that reads it, and the parent's paged read (R1 — `/agent read`,
  * `/background read`, the transport and the task-detail view).
  *

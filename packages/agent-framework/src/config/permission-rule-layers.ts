@@ -1,6 +1,6 @@
 /**
  * The permission rules each settings layer declares, read fresh so `/permissions` names the file a
- * rule lives in as it is now, not as it was at startup (issue #3082).
+ * rule lives in as it is now, not as it was at startup.
  */
 import { readSettingsLayers } from './settings-inspection.js';
 
@@ -35,7 +35,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * #3282 §4a: remove one declared pattern from whichever writable `stores` entry matches the
+ * Remove one declared pattern from whichever writable `stores` entry matches the
  * removal's `scope` — the same settings document `/permissions` would read the rule from. Returns
  * `false` (writes nothing) when no store matches the scope, or the pattern is not actually present.
  */

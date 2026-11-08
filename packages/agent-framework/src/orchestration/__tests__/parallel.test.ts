@@ -37,7 +37,7 @@ function fourStepSpec(maxConcurrency?: number): IParallelOrchestrationSpec {
   };
 }
 
-describe('SELFHOST-001 P2 — parallel orchestration', () => {
+describe('parallel orchestration', () => {
   it('runs every step and returns results in original order with a joined aggregate', async () => {
     const { manager, spawns } = fakeManager((s: IRecordedSpawn) => `out:${s.prompt}`);
     const result = await runParallel(fourStepSpec(), { manager, context: TEST_CONTEXT });

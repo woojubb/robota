@@ -1,5 +1,5 @@
 /**
- * MCP-004 §S3 — the tool-call handoff wrapper.
+ * The tool-call handoff wrapper.
  *
  * Wraps ONE tool so a call that outruns `IToolCallHandoffPolicy.thresholdMs` is handed to a
  * `tool-invocation` background task instead of blocking the turn. Every other member delegates to
@@ -11,8 +11,8 @@
  * needs to be public — only the policy shape (`ICreateSessionOptions.toolCallHandoff`) does.
  *
  * The wrapper owns NO budget timer past the threshold and never reaches the MCP invoker: the
- * supervisor's `toolCallMs` (S2, `agent-mcp`) is the one enforcer. `budgetMs` here is informational —
- * it only sizes the spawned task's `maxRuntimeMs` for `/tasks`.
+ * supervisor's `toolCallMs` (in `agent-mcp`) is the one enforcer. `budgetMs` here is informational
+ * — it only sizes the spawned task's `maxRuntimeMs` for `/tasks`.
  */
 
 import { randomId } from '@robota-sdk/agent-core';
@@ -47,7 +47,7 @@ export interface IToolCallHandoffDeps {
   readonly budgetMs: number;
   readonly provenance: IToolCallHandoffProvenance;
   /**
-   * The diagnostic sink for the one declared fallback (MCP-004 § Fallback: admission refused after
+   * The diagnostic sink for the one declared fallback (admission refused after
    * the threshold fired). An embedding host that supplied `ICreateSessionOptions.sessionLogger`
    * observes the refusal as a `sessionLogger.log(sessionId, 'tool_call_handoff_refused', …)` call —
    * the same seam `build-runtime.ts` already uses to report `background_task_event`. Absent ⇒
@@ -144,7 +144,7 @@ export function isToolCallHandoff(tool: IToolWithEventService): tool is ToolCall
  *
  * `createSubagentSession`'s `filterTools` maps every parent tool through this before the deny/allow
  * steps, so in-process subagents and forks — the two callers of that one derivation point — never
- * hold a wrapper (MCP-004 § Decision: "Subagents: rejected by construction").
+ * hold a wrapper ("Subagents: rejected by construction").
  */
 export function unwrapToolCallHandoff(tool: IToolWithEventService): IToolWithEventService {
   return isToolCallHandoff(tool) ? tool.getInnerTool() : tool;
@@ -266,7 +266,7 @@ async function executeToolCallHandoff(
       },
     };
   } catch (spawnError) {
-    // allow-fallback: admission refused — continue the in-flight call in the foreground and report the refusal (MCP-004 § Fallback)
+    // allow-fallback: admission refused — continue the in-flight call in the foreground and report the refusal
     release();
     const reason = spawnError instanceof Error ? spawnError.message : String(spawnError);
     deps.sessionLogger?.log(deps.sessionId, 'tool_call_handoff_refused', { toolName, reason });

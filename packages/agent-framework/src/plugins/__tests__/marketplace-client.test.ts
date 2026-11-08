@@ -74,7 +74,7 @@ describe('MarketplaceClient', () => {
       const name = client.addMarketplace(source);
 
       expect(name).toBe('test-marketplace');
-      // SEC-017 (issue #2019): executable and ARGUMENT VECTOR asserted separately. A
+      // Executable and ARGUMENT VECTOR asserted separately. A
       // `stringContaining` assertion over one command string passes equally well when the URL has
       // been folded back into a shell line, which is the defect this port removes.
       expect(mockExec).toHaveBeenCalledWith(

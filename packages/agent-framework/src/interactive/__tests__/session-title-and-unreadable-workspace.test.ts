@@ -1,5 +1,5 @@
 /**
- * #3289 §1 — a stable session title, unreadable records filtered to this workspace, and an existing
+ * A stable session title, unreadable records filtered to this workspace, and an existing
  * empty session reused instead of piling up another one.
  */
 
@@ -45,7 +45,7 @@ function record(overrides: Partial<IInteractiveSessionRecord> = {}): IInteractiv
   };
 }
 
-describe('session title (#3289 §1)', () => {
+describe('session title', () => {
   it('is the first user message, one line, Markdown markers stripped', () => {
     const store = new NodeSessionStore(newStoreDir(), { sealing: 'plain' });
     store.save(
@@ -93,7 +93,7 @@ describe('session title (#3289 §1)', () => {
   });
 });
 
-describe('listUnreadableSessionsForWorkspace (#3289 §1)', () => {
+describe('listUnreadableSessionsForWorkspace', () => {
   it('reports only unreadable records whose raw cwd matches this workspace', () => {
     const dir = newStoreDir();
     const store = new NodeSessionStore(dir, { sealing: 'plain' });
@@ -129,7 +129,7 @@ describe('listUnreadableSessionsForWorkspace (#3289 §1)', () => {
   });
 });
 
-describe('resolveReusableEmptySessionId (#3289 §1)', () => {
+describe('resolveReusableEmptySessionId', () => {
   it('finds an existing empty session of this workspace with no client on it', () => {
     const store = new NodeSessionStore(newStoreDir(), { sealing: 'plain' });
     store.save(record({ id: 'session_empty', messages: [], updatedAt: '2026-05-05T00:05:00.000Z' }));

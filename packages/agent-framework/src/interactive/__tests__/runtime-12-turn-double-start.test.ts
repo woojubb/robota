@@ -6,7 +6,7 @@ import {
 } from '../../testing/scripted-session-harness.js';
 
 /**
- * CORE-026 RUNTIME-12 — turn double-start race.
+ * Turn double-start race.
  *
  * `submit()` gates on `execCtrl.executing`, but the flag used to be set only AFTER the awaited
  * `checkAndRefreshContextIfStale` (which always awaits a context-file refresh), leaving a window where two
@@ -52,7 +52,7 @@ vi.mock('../interactive-session-post-turn-memory.js', () => ({
   },
 }));
 
-describe('CORE-026 RUNTIME-12 — no turn double-start', () => {
+describe('no turn double-start', () => {
   let harness: ScriptedSessionHarness | undefined;
 
   afterEach(async () => {

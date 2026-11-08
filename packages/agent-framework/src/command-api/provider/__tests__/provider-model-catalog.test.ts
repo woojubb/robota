@@ -1,5 +1,5 @@
 /**
- * #3282 §2 — `buildModelListSnapshot` / `resolveModelListSelection`.
+ * `buildModelListSnapshot` / `resolveModelListSelection`.
  *
  * The one shared source the `/model` command and the session's `listModels()` wire projection both
  * build from, so unit coverage here is coverage for both callers at once.
@@ -142,7 +142,7 @@ describe('buildModelListSnapshot', () => {
     expect(snapshot.groups).toEqual([]);
   });
 
-  it('#3282 §2 review: omits a profile an org-policy allowlist excludes', () => {
+  it('omits a profile an org-policy allowlist excludes', () => {
     const providers: Record<string, IProviderProfileSettings> = {
       anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
       'my-openai': { type: 'openai', model: 'gpt-5.1' },

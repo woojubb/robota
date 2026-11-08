@@ -1,5 +1,5 @@
 /**
- * Which calls an OS sandbox may approve without a prompt (issue #3082): only the shell tools, which
+ * Which calls an OS sandbox may approve without a prompt: only the shell tools, which
  * run their command through the sandbox. Another tool that takes a command line — a background
  * process, a model-invoked slash command — runs outside it, so the sandbox has nothing to say.
  */

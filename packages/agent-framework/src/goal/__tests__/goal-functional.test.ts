@@ -1,5 +1,5 @@
 /**
- * GOAL-001 functional test at the FRAMEWORK level (TEST-003 reference).
+ * Functional test of the autonomous goal at the FRAMEWORK level.
  *
  * Drives the autonomous goal loop end to end through a REAL InteractiveSession + the deterministic
  * scripted provider — no CLI, no live LLM. This is the canonical example of verifying a feature
@@ -18,7 +18,7 @@ afterEach(async () => {
   harness = undefined;
 });
 
-describe('GOAL-001 autonomous goal (framework functional)', () => {
+describe('autonomous goal (framework functional)', () => {
   it(
     'pursues the objective across turns: writes a file, then signals satisfied → exit reason satisfied',
     async () => {

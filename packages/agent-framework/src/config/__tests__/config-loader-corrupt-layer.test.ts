@@ -1,5 +1,5 @@
 /**
- * CONFIG-002 (issue #2023) — a corrupt settings layer is an error, not an absence.
+ * A corrupt settings layer is an error, not an absence.
  *
  * `readJsonSource` returned `undefined` for a file it could not parse, and `loadConfig` skips a
  * layer whose raw value is `undefined`. So a corrupt layer never reached `SettingsSchema`: shape
@@ -46,7 +46,7 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-describe('CONFIG-002: a corrupt layer is an error, not an absence', () => {
+describe('a corrupt layer is an error, not an absence', () => {
   it('throws SettingsParseError for a layer that is not JSON', async () => {
     const source = hostSourceWith('{"permissions": {"deny": ["Bash(rm -rf');
 

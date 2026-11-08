@@ -99,7 +99,7 @@ export class BundlePluginInstaller {
     // Determine version
     const version = this.resolveVersion(entry, marketplaceName);
 
-    // SEC-018: all three become path components, and `version` comes from a remote manifest entry.
+    // All three become path components, and `version` comes from a remote manifest entry.
     // Checked before the join so a malformed value cannot reach any sink — the target is used for a
     // recursive delete during cleanup as well as for the write.
     assertSafePluginSegment(marketplaceName, 'marketplace name');
@@ -144,7 +144,7 @@ export class BundlePluginInstaller {
       throw new Error(`Plugin "${pluginId}" is not installed`);
     }
 
-    // SEC-018: `installPath` is a HINT read from installed_plugins.json, and it drives a recursive
+    // `installPath` is a HINT read from installed_plugins.json, and it drives a recursive
     // delete. The marketplace-wide cleanup guards the identical value/sink pair; this single-plugin
     // path is the SECOND sink on the same value and was missed in the first pass.
     //
@@ -238,7 +238,7 @@ export class BundlePluginInstaller {
 
     try {
       if (typeof source === 'string') {
-        // SEC-018: `source` comes from the REMOTE marketplace manifest and is joined onto the
+        // `source` comes from the REMOTE marketplace manifest and is joined onto the
         // marketplace clone. `../../../../etc` pointed outside it, and the result is `cpSync`-ed into
         // the plugin cache and then loaded as plugin code.
         const marketplaceDir = this.marketplaceClient.getMarketplaceDir(marketplaceName);

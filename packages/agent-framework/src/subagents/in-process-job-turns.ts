@@ -1,5 +1,5 @@
 /**
- * #3679 3f: the turns of an in-process job.
+ * The turns of an in-process job.
  *
  * A job a surface follows is steered with `send`: the prompt runs as the job's next turn, after the
  * turn in flight (a session runs one turn at a time), and the job ends only once every turn it

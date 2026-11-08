@@ -111,7 +111,7 @@ export function persistSession(
 ): void {
   try {
     const sessionId = session.getSessionId();
-    // TRANS-007: this reads the stored record to preserve members it does not own, so a load that
+    // This reads the stored record to preserve members it does not own, so a load that
     // failed for any reason OTHER than "no record" must not be treated as "no record" — writing
     // then replaces a file this build merely cannot read with a fresh one, and that file is the
     // only copy.

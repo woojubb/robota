@@ -376,7 +376,7 @@ describe('InteractiveSession background task integration', () => {
     });
   });
 
-  it("attributes a completed background agent task's token usage to its source in the parent log (ANALYTICS-001 P2)", async () => {
+  it("attributes a completed background agent task's token usage to its source in the parent log", async () => {
     const runner: IBackgroundTaskRunner<'agent'> = {
       kind: 'agent',
       start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
@@ -406,7 +406,7 @@ describe('InteractiveSession background task integration', () => {
     const created = await manager.spawn(createAgentRequest('Find files'));
     await manager.wait(created.id);
 
-    // Phase 2: the completed task's usage is appended to the parent log as a source-attributed
+    // The completed task's usage is appended to the parent log as a source-attributed
     // usage-summary, so the usage report attributes those tokens to the task (not the main thread).
     const history = interactiveSession.getFullHistory();
     const backgroundUsage = history.find(

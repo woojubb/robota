@@ -12,7 +12,7 @@ function controller(): SessionExecutionController {
   } as unknown as SessionExecutionController;
 }
 
-describe('PEER-002 — a peer turn is never attributed to the operator (#1809)', () => {
+describe('a peer turn is never attributed to the operator', () => {
   it('refuses a peer turn that carries no driver id', () => {
     // Falling through to the owner default would put another session's message in the transcript
     // under the operator's name. There is no id we could invent here that would be true, so this

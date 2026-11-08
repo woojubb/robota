@@ -31,7 +31,7 @@ export const MEMORY_COMMAND_ARGUMENT_HINT =
 export const MEMORY_COMMAND_USAGE =
   'Usage: memory list | memory show [topic] | memory add <user|feedback|project|reference> <topic> <text> | memory correct <user|feedback|project|reference> <topic> <text> | memory forget <topic> | memory pending | memory approve <id> | memory reject <id> | memory used';
 
-// SELFHOST-008 P1R: the `/memory` command consumes the segregated durable-memory port role interfaces
+// The `/memory` command consumes the segregated durable-memory port role interfaces
 // (`IDurableMemoryReader` + `IMemoryWriter` + `IMemoryCurationQueue`) directly — the prior
 // `ICommandProjectMemoryStore`/`ICommandPendingMemoryStore` were a duplicate decomposition of the same
 // stores and are removed. `createCommandMemoryStores` returns the INJECTED `IMemoryStore` so a swapped
@@ -123,7 +123,7 @@ export function buildMemoryCommandSubcommands(source = 'memory'): ICommand[] {
  * The durable-memory port the `/memory` command reads/writes through — the SAME `IMemoryStore`
  * instance the session uses for startup injection and capture.
  *
- * ARCH-029 TC-09: this used to fall back to `createFileSystemMemoryStore(context.getCwd(), now)`
+ * This used to fall back to `createFileSystemMemoryStore(context.getCwd(), now)`
  * when the host injected none. That default was redundant, not load-bearing —
  * `InteractiveSession.getMemoryStore()` already did `??= createFileSystemMemoryStore(this.getCwd())`
  * itself, so the framework was re-deriving what the one production host already owned. With the

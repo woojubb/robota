@@ -11,7 +11,7 @@ import { createTestFrameworkHost } from '../../testing/framework-host.js';
 const testHost = createTestFrameworkHost();
 
 /**
- * #3289 §3 — "Project memory is unavailable without a workspace project authority." named an
+ * "Project memory is unavailable without a workspace project authority." named an
  * internal concept (a "workspace project authority") a person cannot act on. `getMemoryStore()`
  * throws before touching the filesystem, so this needs no session initialization.
  */

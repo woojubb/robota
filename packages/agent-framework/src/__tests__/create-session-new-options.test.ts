@@ -721,12 +721,12 @@ describe('createSession — subagent runner factory option', () => {
   });
 });
 
-describe('createSession — PRESET-004 execution capabilities', () => {
+describe('createSession — execution capabilities', () => {
   beforeEach(() => {
     sessionCtorCalls.length = 0;
   });
 
-  it('TC-08: enableParallelSubagents activates the agent runtime + subagent dispatch', async () => {
+  it('enableParallelSubagents activates the agent runtime + subagent dispatch', async () => {
     const { createSession } = await import('../assembly/create-session.js');
     const subagentRunnerFactory = vi.fn().mockReturnValue({ start: vi.fn() });
 
@@ -749,7 +749,7 @@ describe('createSession — PRESET-004 execution capabilities', () => {
     expect(deps.tools.map((tool: { getName: () => string }) => tool.getName())).toContain('Bash');
   });
 
-  it('TC-08 (control): without enableParallelSubagents the runtime stays off', async () => {
+  it('control: without enableParallelSubagents the runtime stays off', async () => {
     const { createSession } = await import('../assembly/create-session.js');
     const subagentRunnerFactory = vi.fn().mockReturnValue({ start: vi.fn() });
 
@@ -766,7 +766,7 @@ describe('createSession — PRESET-004 execution capabilities', () => {
     expect(subagentRunnerFactory).not.toHaveBeenCalled();
   });
 
-  it('TC-09: selfVerification is accepted and threaded onto the assembly options', async () => {
+  it('selfVerification is accepted and threaded onto the assembly options', async () => {
     const { createSession } = await import('../assembly/create-session.js');
     const options = {
       host: testHost,
@@ -781,7 +781,7 @@ describe('createSession — PRESET-004 execution capabilities', () => {
     // The flag is a real, typed option on ICreateSessionOptions (threaded for executor/framework).
     expect(options.selfVerification).toBe(true);
     // Assembling with the flag set is accepted and does not reject.
-    // ARCH-035: `createSession` is async now, so a synchronous `.not.toThrow()` would only assert that
+    // `createSession` is async now, so a synchronous `.not.toThrow()` would only assert that
     // building the PROMISE did not throw — the assembly it is meant to cover happens after the await,
     // and the ctor-call assertion below would read zero. `rejects` is what actually covers it.
     await expect(createSession(options)).resolves.toBeDefined();

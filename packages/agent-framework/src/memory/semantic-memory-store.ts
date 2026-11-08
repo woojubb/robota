@@ -57,8 +57,8 @@ export class SemanticMemoryStore implements IMemoryStore {
           // stable id). This is a surface-adapter responsibility — the neutral decorator passes the input through.
           await this.adapter.index(input);
         } catch {
-          // allow-fallback: semantic index is best-effort over the authoritative durable keyword write (SELFHOST-008 P4
-          // declared degradation); an index failure keeps the durable entry (keyword-recallable, re-indexable) and never
+          // allow-fallback: semantic index is best-effort over the authoritative durable keyword write (declared
+          // degradation); an index failure keeps the durable entry (keyword-recallable, re-indexable) and never
           // throws out of append.
         }
       }
@@ -127,8 +127,8 @@ export class SemanticMemoryStore implements IMemoryStore {
       return { content: sections.join('\n\n'), references, truncated };
     } catch {
       // allow-fallback: on a semantic-backend error, recall degrades to the always-present keyword base recall (a
-      // genuine equivalent mechanism, not a fabricated result) so a turn's recall is never broken (SELFHOST-008 P4
-      // declared degradation).
+      // genuine equivalent mechanism, not a fabricated result) so a turn's recall is never broken (declared
+      // degradation).
       return this.base.recall(query, budget);
     }
   }

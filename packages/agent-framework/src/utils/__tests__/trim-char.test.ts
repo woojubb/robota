@@ -1,5 +1,5 @@
 /**
- * SEC-003 — the linear trimmers must be *exactly* the regexes they replaced.
+ * The linear trimmers must be *exactly* the regexes they replaced.
  *
  * The equivalence is checked exhaustively rather than by example: every string over the relevant alphabet up to
  * length 12 is compared against the original `replace(/^[c]+|[c]+$/g, '')` / `replace(/[c]+$/, '')`. That is the

@@ -72,7 +72,7 @@ export interface IInteractiveSessionStandardOptions {
   cwd: string;
   provider: IAIProvider;
   /**
-   * #3282 §3: `provider` is a placeholder that never calls a model — a host started this session
+   * `provider` is a placeholder that never calls a model — a host started this session
    * without a configured provider (a served runtime's first run). `getStatusSnapshot()` reports it so
    * a client can show a setup screen instead of a composer, and `submit()` refuses a turn outright
    * instead of reaching the placeholder. Cleared once `/provider switch` (or the setup flow's own
@@ -124,7 +124,7 @@ export interface IInteractiveSessionStandardOptions {
   editCheckpointStore?: IEditCheckpointStore;
   sessionName?: string;
   /**
-   * #3189: name the session once, after its first turn, with its own provider, unless it already has
+   * Name the session once, after its first turn, with its own provider, unless it already has
    * a name. Off unless set: a one-shot print run has no use for a title.
    */
   autoName?: boolean;
@@ -146,7 +146,7 @@ export interface IInteractiveSessionStandardOptions {
   checkRestoredRecord?: (record: IInteractiveSessionRecord) => void;
   forkSession?: boolean;
   /**
-   * Issue #3081: this session is the target of a `/cd` from this directory. The resumed record's
+   * This session is the target of a `/cd` from this directory. The resumed record's
    * system prompt is kept (so a provider's prompt cache survives) and one message announces the new
    * directory and the instructions that now apply there.
    */
@@ -169,8 +169,8 @@ export interface IInteractiveSessionStandardOptions {
   /** Override the model from config. When set, takes precedence over config.provider.model. */
   model?: string;
   /**
-   * Reasoning-effort dial resolved from the active preset (PRESET-008). ARCH-013: this key did not
-   * exist, so a preset's `effort` reached nothing at startup while `/preset` applied it mid-session.
+   * Reasoning-effort dial resolved from the active preset. Without this key a preset's
+   * `effort` reaches nothing at startup while `/preset` applies it mid-session.
    * Typed FROM the seam, not re-declared beside it — that is how the two drift apart again.
    */
   effort?: ICreateSessionOptions['effort'];
@@ -180,19 +180,19 @@ export interface IInteractiveSessionStandardOptions {
   appendSystemPrompt?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
   persona?: string;
-  /** `systemPrompt` REPLACES the composed prompt; `presetSystemPrompt` SEEDS it (ARCH-040). */
+  /** `systemPrompt` REPLACES the composed prompt; `presetSystemPrompt` SEEDS it. */
   systemPrompt?: string;
   presetSystemPrompt?: string;
   /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
   language?: string;
   /** Runtime-composed background task runners. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
-  /** MCP-004 §S3: hand a main-turn tool call exceeding its threshold to a background task. */
+  /** Hand a main-turn tool call exceeding its threshold to a background task. */
   toolCallHandoff?: ICreateSessionOptions['toolCallHandoff'];
   /** Runtime shell override for subagent execution. */
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /**
-   * ARCH-005: subagent definitions contributed by the composition root (e.g. the capability packs
+   * Subagent definitions contributed by the composition root (e.g. the capability packs
    * `assembleProduct` merged). Composed INTO the built-in tier ahead of `BUILT_IN_AGENTS`; precedence is
    * discovered project/user definitions > these > `BUILT_IN_AGENTS`. Absent ⇒ unchanged behavior.
    */
@@ -207,12 +207,12 @@ export interface IInteractiveSessionStandardOptions {
   /** Shell exec function for preprocessing `` !`cmd` `` patterns in skills — injected from composition root. */
   shellExec?: TShellExecFn;
   /**
-   * REMOTE-006: optional command-execution policy for remote-origin (`source==='remote'`) commands arriving over a
+   * Optional command-execution policy for remote-origin (`source==='remote'`) commands arriving over a
    * transport. **Allow by default** — local == remote; injected only so a consumer can opt into a restriction.
    */
   remoteCommandPolicy?: IRemoteCommandPolicy;
   /**
-   * TERM-001: transport-provided terminal-handoff capability. When present, the session can hand the
+   * Transport-provided terminal-handoff capability. When present, the session can hand the
    * real terminal to a child process (e.g. `/shell`, `$EDITOR`) and restore the display. Absent /
    * `canHandoffTerminal === false` for transports with no interactive TTY (headless).
    */
@@ -220,7 +220,7 @@ export interface IInteractiveSessionStandardOptions {
   /** Builds each external-event grant's verifier; absent, the session opens no grant. */
   externalEventVerifierFactory?: TExternalEventVerifierFactory;
   /**
-   * The run's grant history, shared by every session a run builds (#3189): a session switch replays
+   * The run's grant history, shared by every session a run builds: a session switch replays
    * no spent token and resets no rate. Absent, the history lives and ends with the session.
    */
   externalEventGrantHistory?: ExternalEventGrantHistory;
@@ -238,27 +238,27 @@ export interface IInteractiveSessionStandardOptions {
   reversibleExecution?: IReversibleExecutionOptions;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
-  /** ARCH-033: the name a child process uses to rebuild a sandbox like this one. */
+  /** The name a child process uses to rebuild a sandbox like this one. */
   sandboxType?: string;
   /**
-   * SELFHOST-008: optional durable-memory store injected by the surface. Threads to startup-memory
+   * Optional durable-memory store injected by the surface. Threads to startup-memory
    * injection; absence leaves project memory inaccessible.
    */
   memoryStore?: IMemoryStore;
   /**
-   * SCREEN-1993: optional prompt-history projection. When present, every turn the owner typed is
+   * Optional prompt-history projection. When present, every turn the owner typed is
    * appended (`{ at, sessionId, project, text }`) through the writer; absent ⇒ nothing is written.
    * Enablement and the project key are surface-owned.
    */
   promptHistory?: IPromptHistoryOptions;
   /**
-   * SELFHOST-008 P2: optional automatic post-turn memory-capture policy. When present, the dormant
+   * Optional automatic post-turn memory-capture policy. When present, the dormant
    * capture pipeline is wired into the live turn (awaited in the controller's finally before persist),
    * gated by this policy (default reference policy = approval_required = queue). Absent ⇒ capture OFF.
    */
   automaticMemory?: IAutomaticMemoryConfig;
   /**
-   * SELFHOST-008 P3: optional per-turn durable-memory recall policy. When present, each turn recalls
+   * Optional per-turn durable-memory recall policy. When present, each turn recalls
    * query-relevant memory (query = the turn input) and injects it EPHEMERALLY into that turn's model call
    * (never persisted). Absent ⇒ recall OFF (startup-only injection, unchanged). The budget is surface-owned.
    */
@@ -271,7 +271,7 @@ export interface IInteractiveSessionStandardOptions {
   sandboxSnapshotId?: string;
   /** Name reported to the underlying ConversationAgent agent config. Defaults to 'agent'. */
   agentName?: string;
-  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  /** Active preset id selected at startup (runtime state). Defaults to 'default'. */
   activePresetId?: string;
   /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
   enableParallelSubagents?: boolean;
@@ -284,14 +284,14 @@ export interface IInteractiveSessionStandardOptions {
   /** Scheduling is a current host decision, never restored permission or plugin authority. */
   toolExecutionPolicy?: ICreateSessionOptions['toolExecutionPolicy'];
   /**
-   * ARCH-006: REPLACES the host's default tool tier (`host.createDefaultTools`); `[]` suppresses every
-   * default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's
+   * REPLACES the host's default tool tier (`host.createDefaultTools`); `[]` suppresses every
+   * default so a product's capability packs can own the whole tool surface. Mirrors the
    * `builtInAgents` seam for subagents. Absent ⇒ the tier the host builds, or none when it lends none.
    */
   defaultTools?: readonly IToolWithEventService[];
-  /** SELFHOST-005 guardrail REGISTRY (name → function). ARCH-013 S3; see create-session-projection. */
+  /** Guardrail REGISTRY (name → function); see create-session-projection. */
   guardrails?: Record<string, TGuardrail>;
-  /** Request structured output from the provider for this session (issue #2056: incl. `json_schema`). */
+  /** Request structured output from the provider for this session (incl. `json_schema`). */
   responseFormat?: TSessionResponseFormat;
 }
 
@@ -308,7 +308,7 @@ export interface IInteractiveSessionInjectedOptions {
   observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   cwd: string;
   provider?: IAIProvider;
-  /** #3282 §3 — see {@link IInteractiveSessionStandardOptions.setupRequired}. */
+  /** See {@link IInteractiveSessionStandardOptions.setupRequired}. */
   setupRequired?: boolean;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
@@ -343,12 +343,12 @@ export interface IInteractiveSessionInjectedOptions {
   /** Host adapters available to composed command modules. */
   commandHostAdapters?: ICommandHostAdapters;
   commandProductVocabulary?: ICommandProductVocabulary;
-  /** TERM-001: transport-provided terminal-handoff capability (see standard options). */
+  /** Transport-provided terminal-handoff capability (see standard options). */
   terminalHandoff?: ITerminalHandoff;
   /** Builds each external-event grant's verifier; absent, the session opens no grant. */
   externalEventVerifierFactory?: TExternalEventVerifierFactory;
   /**
-   * The run's grant history, shared by every session a run builds (#3189): a session switch replays
+   * The run's grant history, shared by every session a run builds: a session switch replays
    * no spent token and resets no rate. Absent, the history lives and ends with the session.
    */
   externalEventGrantHistory?: ExternalEventGrantHistory;
@@ -358,5 +358,5 @@ export interface IInteractiveSessionInjectedOptions {
 export type TInteractiveSessionOptions =
   IInteractiveSessionStandardOptions | IInteractiveSessionInjectedOptions;
 
-/** ARCH-040: split out by responsibility; re-exported so no consumer has to know it moved. */
+/** Split out by responsibility; re-exported so no consumer has to know it moved. */
 export type { IInitOptions } from './interactive-session-init-options.js';

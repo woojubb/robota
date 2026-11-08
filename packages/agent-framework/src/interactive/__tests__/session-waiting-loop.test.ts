@@ -1,5 +1,5 @@
 /**
- * #3189 — Esc on an idle prompt stops the self-paced loop waiting for its wake. The rule is the
+ * Esc on an idle prompt stops the self-paced loop waiting for its wake. The rule is the
  * session's, so every client, attached or in-process, gets the same answer.
  */
 
@@ -32,7 +32,7 @@ function sessionWith(loops: ISessionLoopState[]): {
   return { session, stop };
 }
 
-describe('InteractiveSession.stopWaitingSelfPacedLoop (#3189)', () => {
+describe('InteractiveSession.stopWaitingSelfPacedLoop', () => {
   it('does nothing when no loop is waiting', async () => {
     const { session, stop } = sessionWith([loop('loop_a', 'running'), loop('loop_b', 'stopped')]);
 

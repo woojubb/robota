@@ -1,5 +1,5 @@
 /**
- * Slash-command execution — framework functional test (TEST-004).
+ * Slash-command execution — framework functional test.
  *
  * Runs a `/command` through the REAL session command pipeline (scripted provider, no CLI): the
  * composed command module's execute runs and returns its result.

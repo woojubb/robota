@@ -1,12 +1,11 @@
 /**
  * Settings-layer inspection — the read-only view of every settings source the runtime merge chain
- * reads, with a structured state per layer and per-key provenance over the merged document
- * (OBSERVABILITY-1991).
+ * reads, with a structured state per layer and per-key provenance over the merged document.
  *
  * This module and `config-loader.ts` share ONE reader: `readSettingsLayers` classifies each source
  * exactly once, `loadConfig` throws from that classification in the order it always has, and
  * `inspectSettingsLayers` projects the same classification into facts a diagnostic may render. A
- * diagnostic that re-read the files with its own parser is the CLI-067 defect class this module
+ * diagnostic that re-read the files with its own parser is the defect class this module
  * replaces.
  *
  * Inspection results carry facts, never file content: an `invalid-json` cause holds the byte offset
@@ -123,7 +122,7 @@ function readLayer(source: TSettingsSource): IReadSettingsLayer {
   try {
     return { source, state: 'ok', raw: JSON.parse(trimmed) as TUniversalValue };
   } catch (error) {
-    // allow-fallback: a corrupt layer is classified with its offset, never treated as absent (CONFIG-002)
+    // allow-fallback: a corrupt layer is classified with its offset, never treated as absent
     const failure = error instanceof Error ? error : new Error(String(error));
     return {
       source,

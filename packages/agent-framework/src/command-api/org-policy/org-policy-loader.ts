@@ -9,7 +9,7 @@ import type { IUniversalObjectValue, TUniversalValue } from '@robota-sdk/agent-c
  * Read the organization policy from a file on this host, or `null` when none is deployed. This is the
  * Node reader: a platform without a file system hands its policy to the session as an object.
  *
- * **`null` means "no policy file", and nothing else** (issue #2023). Every enforcement site spells
+ * **`null` means "no policy file", and nothing else**. Every enforcement site spells
  * its guard `orgPolicy?.<field> && <violation>`, so `null` is read as "no restrictions" — which is
  * correct for an administrator who deployed no policy and catastrophic for one whose policy file was
  * truncated by a partial write or mangled by a sync tool. Returning `null` for both made those two
@@ -22,7 +22,7 @@ import type { IUniversalObjectValue, TUniversalValue } from '@robota-sdk/agent-c
  * without throwing. What throws is a file an administrator put there that cannot be read, which is
  * their error to see.
  *
- * `settings-io.ts` (CLI-069) and the trusted-device store answer the same question the same way, one
+ * `settings-io.ts` and the trusted-device store answer the same question the same way, one
  * and two files over. This loader was the one that did not.
  */
 export function loadOrgPolicy(policyPath: string): IOrgPolicy | null {

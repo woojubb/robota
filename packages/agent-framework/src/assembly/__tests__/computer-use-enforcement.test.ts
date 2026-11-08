@@ -15,7 +15,7 @@ import type {
 } from '@robota-sdk/agent-tools';
 
 /**
- * SELFHOST-010 TC-02 / TC-07 / TC-08 — functional enforcement through the EXISTING PermissionEnforcer.
+ * Functional enforcement through the EXISTING PermissionEnforcer.
  *
  * The `ComputerView`/`Computer` tools are wrapped by the real `PermissionEnforcer` (the SAME path used for
  * Shell/Read — no new gate). This proves the security floor at the dispatch level: a mutating `Computer`
@@ -79,9 +79,9 @@ function getTools(driver: IComputerDriver): {
   return { view, computer };
 }
 
-describe('computer-use enforcement through PermissionEnforcer (SELFHOST-010)', () => {
-  // TC-07: a mutating Computer action in default mode is NOT dispatched to the driver without approval.
-  it('TC-07: Computer is not dispatched to the driver in default mode absent approval', async () => {
+describe('computer-use enforcement through PermissionEnforcer', () => {
+  // A mutating Computer action in default mode is NOT dispatched to the driver without approval.
+  it('Computer is not dispatched to the driver in default mode absent approval', async () => {
     const { driver, actions } = makeRecordingDriver();
     const { computer } = getTools(driver);
     const wrapped = wrap(computer, 'default');
@@ -94,8 +94,8 @@ describe('computer-use enforcement through PermissionEnforcer (SELFHOST-010)', (
     expect(actions).toHaveLength(0);
   });
 
-  // TC-07/08: read-only perception auto-runs — ComputerView dispatches screenshot() and never a mutation.
-  it('TC-02/08: ComputerView auto-runs and dispatches only screenshot(), never a mutation', async () => {
+  // Read-only perception auto-runs — ComputerView dispatches screenshot() and never a mutation.
+  it('ComputerView auto-runs and dispatches only screenshot(), never a mutation', async () => {
     for (const mode of ['plan', 'default'] as TPermissionMode[]) {
       const { driver, actions, screenshotCalls } = makeRecordingDriver();
       const { view } = getTools(driver);
@@ -110,8 +110,8 @@ describe('computer-use enforcement through PermissionEnforcer (SELFHOST-010)', (
     }
   });
 
-  // TC-02: a Computer mutation in plan mode is denied and not dispatched.
-  it('TC-02: Computer is denied in plan mode and not dispatched', async () => {
+  // A Computer mutation in plan mode is denied and not dispatched.
+  it('Computer is denied in plan mode and not dispatched', async () => {
     const { driver, actions } = makeRecordingDriver();
     const { computer } = getTools(driver);
     const wrapped = wrap(computer, 'plan');
@@ -124,8 +124,8 @@ describe('computer-use enforcement through PermissionEnforcer (SELFHOST-010)', (
     expect(actions).toHaveLength(0);
   });
 
-  // TC-07: auto-execution of a mutation occurs ONLY under bypassPermissions (an explicit user choice).
-  it('TC-07: Computer auto-runs only under bypassPermissions', async () => {
+  // Auto-execution of a mutation occurs ONLY under bypassPermissions (an explicit user choice).
+  it('Computer auto-runs only under bypassPermissions', async () => {
     const { driver, actions } = makeRecordingDriver();
     const { computer } = getTools(driver);
     const wrapped = wrap(computer, 'bypassPermissions');

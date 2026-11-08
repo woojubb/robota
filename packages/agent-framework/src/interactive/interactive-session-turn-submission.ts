@@ -31,7 +31,7 @@ export class StoppedWakeSubmissionError extends Error {
  * An allowlist, not a convenience. `submit` is reachable from untyped callers — a transport frame, a
  * JavaScript consumer — and a wholesale spread would carry whatever they sent into the internal turn
  * options, including `resumeTurnId`, which lets a caller name an EXISTING turn's identity instead of
- * being minted one. RUNTIME-006 removed that option for exactly that reason and a test pins it, so
+ * being minted one. That option is not accepted for exactly that reason and a test pins it, so
  * every field here is one somebody decided a caller may set.
  */
 export function publicTurnOptions(options: ISubmitOptions): ITurnOptions {
