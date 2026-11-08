@@ -1,7 +1,7 @@
 import {
   StableFileAuthorityError,
   type TStableFileAuthorityErrorCode,
-} from '@robota-sdk/agent-file-authority';
+} from '@robota-sdk/agent-os/file-authority';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
@@ -20,8 +20,8 @@ const authority = vi.hoisted(() => ({
   error: undefined as unknown,
 }));
 
-vi.mock('@robota-sdk/agent-file-authority', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@robota-sdk/agent-file-authority')>();
+vi.mock('@robota-sdk/agent-os/file-authority', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@robota-sdk/agent-os/file-authority')>();
   return {
     ...actual,
     createStableRootedFileReader: (rootDirectory: string) => {

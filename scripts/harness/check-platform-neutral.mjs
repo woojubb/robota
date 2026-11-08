@@ -414,10 +414,18 @@ function classificationProblems(lists, packages) {
       problems.push(`${short} is not in any ARCHITECTURE.md "Runtime platforms" list`);
       continue;
     }
-    const nodeOnly = isNodeOnly(new Map(entries).get('.'));
+    const root = new Map(entries).get('.');
+    const nodeOnly =
+      root === undefined
+        ? entries.every(([, conditions]) => isNodeOnly(conditions))
+        : isNodeOnly(root);
+    const [subject, maps, mapsNot] =
+      root === undefined
+        ? ['its subpaths', 'map', 'do not map']
+        : ['its "." export', 'maps', 'does not map'];
     if (NODE_ONLY_LISTS.has(label) !== nodeOnly)
       problems.push(
-        `${short} is listed as ${label}, but its "." export ${nodeOnly ? 'maps' : 'does not map'} browser: null`,
+        `${short} is listed as ${label}, but ${subject} ${nodeOnly ? maps : mapsNot} browser: null`,
       );
   }
   for (const name of listed.keys())

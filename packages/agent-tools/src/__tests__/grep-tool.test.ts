@@ -142,7 +142,7 @@ describe('grepTool', () => {
       expect(first.success).toBe(true);
       expect(second.output).toBe(first.output);
     }
-  });
+  }, 60_000);
 
   it('directory output preserves per-file blocks in file-enumeration order', async () => {
     // The path result gives the actual enumeration order. Build an independent

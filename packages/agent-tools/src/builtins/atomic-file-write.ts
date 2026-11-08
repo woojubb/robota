@@ -1,6 +1,6 @@
 import { dirname, relative, resolve, sep } from 'node:path';
 
-import { createStableRootedFileWriter } from '@robota-sdk/agent-file-authority';
+import { createStableRootedFileWriter } from '@robota-sdk/agent-os/file-authority';
 
 function rootRelativeSegments(rootDirectory: string, filePath: string): readonly string[] {
   const root = resolve(rootDirectory);

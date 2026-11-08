@@ -156,13 +156,15 @@ describe('declared builtin invocation outcomes', () => {
     }
   });
 
+  // Two real shells are started one after the other; on a loaded Windows runner each start takes
+  // seconds, so the default limit is too tight for what is a sequence of process launches.
   it('keeps nonzero command exits as successful domain outcomes with an exit code', async () => {
     for (const tool of [createShellTool({ cwd: root }), createBashTool({ cwd: root })]) {
       const result = await tool.execute({ command: 'exit 7' });
       expect(result.success).toBe(true);
       expect(JSON.parse(String(result.data))).toMatchObject({ success: true, exitCode: 7 });
     }
-  });
+  }, 60_000);
 
   it('keeps headless questions as successful unavailable responses', async () => {
     const result = await createAskUserQuestionTool().execute({
@@ -189,8 +191,7 @@ describe('declared builtin invocation outcomes', () => {
           pathAuthority: 'stable-root' as const,
           readTextFile: async () => {
             reads += 1;
-            if (action === 'read' || action === 'edit-read')
-              throw new Error('Editor read refused');
+            if (action === 'read' || action === 'edit-read') throw new Error('Editor read refused');
             return 'BUFFER alpha';
           },
           writeTextFile: async () => {

@@ -21,12 +21,12 @@ runs:
       run: |
         set -euo pipefail
         node -e 'const p=JSON.parse(process.env.SDK_PLAN).windowsChecks ?? []; if (!Array.isArray(p) || p.some(x => typeof x !== "string" || !/^packages\/[a-z0-9][a-z0-9._-]*$/.test(x))) throw Error("Invalid Windows SDK selection"); process.stdout.write(p.join("\n"))' > "$RUNNER_TEMP/windows-sdk-paths"
-        build_filters=(--filter "{packages/agent-file-authority}..." --filter "{packages/agent-keyring}..." --filter "{packages/agent-transport-link}...")
+        build_filters=(--filter "{packages/agent-os}..." --filter "{packages/agent-keyring}..." --filter "{packages/agent-transport-link}...")
         test_filters=()
         while IFS= read -r dir || [ -n "$dir" ]; do
           [ -z "$dir" ] && continue
           build_filters+=(--filter "{$dir}...")
-          [ "$dir" = packages/agent-file-authority ] || test_filters+=(--filter "./$dir")
+          [ "$dir" = packages/agent-os ] || test_filters+=(--filter "./$dir")
         done < "$RUNNER_TEMP/windows-sdk-paths"
         if [ "$INSTALL_SDK" = true ]; then
           # The native modules' install scripts download prebuilt binaries from GitHub release assets, and
@@ -38,11 +38,11 @@ runs:
           done
         fi
         pnpm -r "${build_filters[@]}" run build
-        pnpm --filter './packages/agent-file-authority' exec vitest run --no-file-parallelism
-        pnpm --filter './packages/agent-file-authority' qualify:native
+        pnpm --filter './packages/agent-os' exec vitest run --no-file-parallelism
+        pnpm --filter './packages/agent-os' qualify:native
         pnpm --filter './packages/agent-transport-link' exec vitest run --no-file-parallelism src/__tests__/spawner-pair-process.test.ts
         qualifier="$RUNNER_TEMP/native-qualification.exe"
-        pnpm --filter './packages/agent-file-authority' qualify:bun:build -- "$qualifier"
+        pnpm --filter './packages/agent-os' qualify:bun:build -- "$qualifier"
         "$qualifier"
         pnpm --filter './packages/agent-keyring' smoke:bun
         pnpm --filter './packages/agent-transport-link' smoke:bun

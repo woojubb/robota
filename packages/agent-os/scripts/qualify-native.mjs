@@ -2,9 +2,12 @@ import { mkdirSync, mkdtempSync, renameSync, rmSync, symlinkSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createStableRootedFileReader, StableFileAuthorityError } from '../dist/node/index.js';
+import {
+  createStableRootedFileReader,
+  StableFileAuthorityError,
+} from '../dist/file-authority/index.js';
 
-const fixture = mkdtempSync(join(tmpdir(), 'agent-file-authority-qualification-'));
+const fixture = mkdtempSync(join(tmpdir(), 'agent-os-file-authority-qualification-'));
 const root = join(fixture, 'root');
 const originalRoot = join(fixture, 'root-original');
 const outside = join(fixture, 'outside');

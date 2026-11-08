@@ -3,7 +3,7 @@ import {
   listWindowsRootedDirectory,
   createStableRootedFileWriter,
   StableFileAuthorityError,
-} from '@robota-sdk/agent-file-authority';
+} from '@robota-sdk/agent-os/file-authority';
 
 import {
   inspectProjectKindFromHandle,
@@ -51,7 +51,7 @@ function readStableBytes(
 }
 
 /**
- * The project file operations of a Node host: reads through `@robota-sdk/agent-file-authority`'s
+ * The project file operations of a Node host: reads through `@robota-sdk/agent-os/file-authority`'s
  * stable rooted reader and, for listings, a rooted handle walk on Linux and Windows or the portable
  * no-follow walk elsewhere; writes through the anchored writer, which Linux alone can prove and every
  * other platform refuses. The workspace trust service takes this as `projectFiles`.
