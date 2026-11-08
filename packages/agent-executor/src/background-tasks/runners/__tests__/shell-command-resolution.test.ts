@@ -16,7 +16,7 @@ describe('resolveBackgroundTaskShellCommand', () => {
       request: { command: 'sentinel' },
       options: { env: {}, platform: 'win32' as const },
       executable: 'powershell.exe',
-      args: ['-NoProfile', '-Command', expect.stringMatching(/^sentinel\n/u)],
+      args: ['-NoProfile', '-Command', expect.stringMatching(/\nsentinel\n/u)],
     },
     {
       name: 'Windows explicit bash',
@@ -30,7 +30,7 @@ describe('resolveBackgroundTaskShellCommand', () => {
       request: { command: 'sentinel', shell: '/usr/local/bin/pwsh' },
       options: { env: { SHELL: '/bin/bash' }, platform: 'linux' as const },
       executable: '/usr/local/bin/pwsh',
-      args: ['-NoProfile', '-Command', expect.stringMatching(/^sentinel\n/u)],
+      args: ['-NoProfile', '-Command', expect.stringMatching(/\nsentinel\n/u)],
     },
     {
       name: 'mixed-case cmd path',

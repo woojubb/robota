@@ -104,9 +104,9 @@ async function assertUnknownShellZeroSpawns(): Promise<number> {
   return spawnAttempts;
 }
 
-/** PowerShell exits 1 for any failed native command, so the resolver follows the command with a line that re-raises its exit code. */
+/** PowerShell exits 1 for any failed native command, so the resolver wraps the command in lines that re-raise its exit code. */
 function withExitCodePassthrough(command: string): string {
-  return `${command}\nif ($LASTEXITCODE -and -not $?) { exit $LASTEXITCODE }`;
+  return `$errorCountBefore = $Error.Count\n${command}\nif (-not $? -and $LASTEXITCODE -and $Error.Count -eq $errorCountBefore) { exit $LASTEXITCODE }`;
 }
 
 async function main(): Promise<void> {
