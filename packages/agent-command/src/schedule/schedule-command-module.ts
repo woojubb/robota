@@ -1,5 +1,5 @@
 /**
- * FLOW-005: the `/schedule` + `/monitor` command module — surfaces agent-wake scheduling
+ * The `/schedule` + `/monitor` command module — surfaces agent-wake scheduling
  * and process monitoring to users (and the model as tools).
  */
 

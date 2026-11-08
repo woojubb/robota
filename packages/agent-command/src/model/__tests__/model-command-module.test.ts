@@ -33,7 +33,7 @@ function buildOptions(): IProviderCommandModuleOptions {
   };
 }
 
-describe('createModelCommandModule (#3282 §2)', () => {
+describe('createModelCommandModule', () => {
   it('is user-only: never model-invocable', () => {
     const entry = createModelCommandEntry();
     expect(entry.modelInvocable).toBe(false);

@@ -35,7 +35,7 @@ export interface ILoopCommandOptions {
 }
 
 /**
- * #3288 §1: who invoked `/loop`, and how to ask them. `ui` is the injected "ask the user" port
+ * Who invoked `/loop`, and how to ask them. `ui` is the injected "ask the user" port
  * (absent for a headless/automation host — see `ICommandHostUserInteraction`); `source` is the
  * command's own invocation source. Defaults to `{ ui: undefined, source: 'user' }` when the caller
  * omits it, matching every pre-existing (headless) call site: proceed unconfirmed, the same as
@@ -199,7 +199,7 @@ const HEADLESS_REFUSAL =
   'interactive session, or give the loop its own prompt: /loop <prompt>';
 
 /**
- * #3288 §1: every form that falls back to the host's default maintenance prompt — bare `/loop` or an
+ * Every form that falls back to the host's default maintenance prompt — bare `/loop` or an
  * interval-only `/loop <N><s|m|h|d>` — keeps working on its own for up to 7 days: a standing
  * commitment the operator never typed, gated the same way regardless of which form reached it.
  * Returns the refusal/decline result to return in place of creating the loop, or `undefined` to
@@ -361,7 +361,7 @@ async function createLoop(
       else pendingCreates.set(host, remaining);
     }
   }
-  // #3288 §1: an interval-only form (`/loop 5m`) that fell back to the host's default prompt is
+  // An interval-only form (`/loop 5m`) that fell back to the host's default prompt is
   // gated exactly like the bare form — it is the SAME standing commitment (up to 7 days, unattended),
   // only on a fixed cadence instead of self-paced. An explicit prompt (`/loop 5m check the build`)
   // never reaches here with `useDefaultPrompt` true, so it is never gated.
@@ -403,7 +403,7 @@ async function createLoop(
   }
   const rounded = cadence.milliseconds !== parsed.requestedMs ? ' (rounded up)' : '';
   // `spawnScheduledWake` always spawns a scheduled-kind task; the kind check lets TypeScript
-  // narrow to the member that carries `nextFireAt` (#2079).
+  // narrow to the member that carries `nextFireAt`.
   const nextFire =
     task.kind === 'scheduled' && task.nextFireAt && task.nextFireAt >= firstAllowedAt
       ? ` Next fire: ${task.nextFireAt}.`

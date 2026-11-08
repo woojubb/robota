@@ -1,5 +1,5 @@
 /**
- * SCREEN-2002 TC-09 — `/theme`.
+ * `/theme`.
  *
  * Three properties carry this command. It emits EXACTLY ONE patch per invocation, so a submission
  * cannot half-apply. An unknown id writes NOTHING — not the theme, and not the toggles submitted
@@ -68,7 +68,7 @@ function patchOf(result: { hostActions?: readonly unknown[] }): TAppearanceSetti
   return action.patch;
 }
 
-describe('/theme without a catalogue (SCREEN-2002 TC-09)', () => {
+describe('/theme without a catalogue', () => {
   it('reports its unavailability instead of failing silently or writing anything', () => {
     const result = executeThemeCommand(undefined, 'light');
 
@@ -78,7 +78,7 @@ describe('/theme without a catalogue (SCREEN-2002 TC-09)', () => {
   });
 });
 
-describe('/theme with no argument (SCREEN-2002 TC-09)', () => {
+describe('/theme with no argument', () => {
   it('asks the surface for the picker rather than changing anything', () => {
     const result = executeThemeCommand(catalogue(), '   ');
 
@@ -88,7 +88,7 @@ describe('/theme with no argument (SCREEN-2002 TC-09)', () => {
   });
 });
 
-describe('/theme list (SCREEN-2002 TC-09)', () => {
+describe('/theme list', () => {
   it('marks the active theme and names each source, and writes nothing', () => {
     const result = executeThemeCommand(catalogue({ theme: 'light' }), 'list');
 
@@ -101,7 +101,7 @@ describe('/theme list (SCREEN-2002 TC-09)', () => {
   });
 
   it('reports what THIS RUN does and what is saved, never one in place of the other', () => {
-    // SCREEN-2002 TC-13 found this at the PTY level: reporting the persisted value beside the tier
+    // Found at the PTY level: reporting the persisted value beside the tier
     // printed `reduced motion: off (… pinned by flag)` on a `--reduced-motion` run — a line that
     // contradicts itself, and that answers "is motion reduced right now" with the wrong word.
     const pinnedOn = executeThemeCommand(catalogue({ reducedMotion: false }, 'flag', true), 'list');
@@ -121,7 +121,7 @@ describe('/theme list (SCREEN-2002 TC-09)', () => {
   });
 });
 
-describe('/theme <id> (SCREEN-2002 TC-09)', () => {
+describe('/theme <id>', () => {
   it('emits exactly one patch naming the theme', () => {
     const result = executeThemeCommand(catalogue(), 'dark-daltonized');
 
@@ -157,7 +157,7 @@ describe('/theme <id> (SCREEN-2002 TC-09)', () => {
   });
 });
 
-describe('the motion inversion (SCREEN-2002 TC-09)', () => {
+describe('the motion inversion', () => {
   it('reads `motion on` as animation, which is reducedMotion FALSE', () => {
     expect(patchOf(executeThemeCommand(catalogue({ reducedMotion: true }), 'motion on'))).toEqual({
       reducedMotion: false,
@@ -182,7 +182,7 @@ describe('the motion inversion (SCREEN-2002 TC-09)', () => {
   });
 });
 
-describe('/theme syntax (SCREEN-2002 TC-09)', () => {
+describe('/theme syntax', () => {
   it('toggles highlighting without touching the theme', () => {
     expect(patchOf(executeThemeCommand(catalogue(), 'syntax off'))).toEqual({
       syntaxHighlighting: false,
@@ -190,7 +190,7 @@ describe('/theme syntax (SCREEN-2002 TC-09)', () => {
   });
 });
 
-describe('a malformed argument (SCREEN-2002 TC-09)', () => {
+describe('a malformed argument', () => {
   it.each(['motion', 'syntax', 'motion yes', 'syntax enable', 'light motion', 'light nonsense on'])(
     'refuses %o with the usage line rather than guessing',
     (args) => {

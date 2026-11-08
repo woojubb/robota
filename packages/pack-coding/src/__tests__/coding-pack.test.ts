@@ -10,14 +10,14 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { createCodingPack } from '../coding-pack.js';
 
 /**
- * ARCH-005 S1 — `@robota-sdk/pack-coding` is the additive-axis proof: an `ICapabilityPack` that bundles
+ * `@robota-sdk/pack-coding` is the additive-axis proof: an `ICapabilityPack` that bundles
  * EXACTLY agent's current coding toolset (the built-in tools), the coding command modules, and the coding
  * subagents. The pack consumes `createDefaultTools()` and the assertion checks that composition does not
  * add, drop, or reorder that owned set.
  *
- * ARCH-006 — the pack is built by a FACTORY that takes the session's working directory, because a pack
- * whose file tools are constructed with no `cwd` would have carried a disarmed path guard before
- * ARCH-010. The leaf now refuses a missing root; the pack still requires one. The sandbox property is
+ * The pack is built by a FACTORY that takes the session's working directory, because a pack
+ * whose file tools are constructed with no `cwd` would have carried a disarmed path guard if the leaf
+ * accepted it. The leaf now refuses a missing root; the pack still requires one. The sandbox property is
  * asserted directly below, not assumed.
  */
 
@@ -46,15 +46,15 @@ async function invoke(
 
 describe("codingPack — contributes exactly agent's current coding toolset", () => {
   it('contributes the default tool set itself, not a copy of it', () => {
-    // ARCH-035 replaced a NAME-equality pin here. That pin compared this pack's hand-built list against
-    // `createDefaultTools()` and could not fail once the two were kept in sync by hand — it is the pin
-    // that let ARCH-021's first TC-05 pass while being unable to fail, because comparing tool names
+    // A NAME-equality pin used to sit here. It compared this pack's hand-built list against
+    // `createDefaultTools()` and could not fail once the two were kept in sync by hand — it could not
+    // fail, because comparing tool names
     // cannot distinguish a pack-composed surface from an imported-default one.
     //
     // The pack CONSUMES the set now, so the interesting question changed. Name equality is no longer
     // evidence of anything — it is guaranteed by construction. What is worth asserting is that nothing
     // was added, dropped or reordered on the way through, and that the pack still supplies no adapter,
-    // so the adapter-gated tools stay absent. ARCH-010 — the root is required and is `CWD` on both
+    // so the adapter-gated tools stay absent. The root is required and is `CWD` on both
     // sides, so the two are assembled alike.
     const expected = createDefaultTools({ cwd: CWD });
     const packTools = createCodingPack({ cwd: CWD }).tools ?? [];
@@ -92,7 +92,7 @@ describe("codingPack — contributes exactly agent's current coding toolset", ()
   });
 });
 
-describe('codingPack — the file tools are SCOPED to the supplied cwd (ARCH-006)', () => {
+describe('codingPack — the file tools are SCOPED to the supplied cwd', () => {
   it('DENIES a Read outside the working directory', async () => {
     const result = await invoke(createCodingPack({ cwd: CWD }), 'Read', {
       filePath: '/etc/hostname',
@@ -123,12 +123,12 @@ describe('codingPack — the file tools are SCOPED to the supplied cwd (ARCH-006
     expect(result.error).toContain('outside the working directory');
   });
 
-  // SEC-007 — the reachability floor. Glob and Grep were registered as MODULE-LEVEL SINGLETONS here,
+  // The reachability floor. Glob and Grep were registered as MODULE-LEVEL SINGLETONS here,
   // which are context-free by construction: this pack made `cwd` required so the file-tool guard
   // could not be disarmed by omission, and then contributed two tools that could enumerate (and, in
   // Grep's `content` mode, READ) anywhere on the host. Asserting the containment through the PACK,
   // not through the tool factory, is what pins that the fix is actually wired up.
-  it('DENIES a Glob rooted outside the working directory (SEC-007)', async () => {
+  it('DENIES a Glob rooted outside the working directory', async () => {
     const result = await invoke(createCodingPack({ cwd: CWD }), 'Glob', {
       pattern: '*',
       path: '/etc',
@@ -138,7 +138,7 @@ describe('codingPack — the file tools are SCOPED to the supplied cwd (ARCH-006
     expect(result.error).toContain('outside the working directory');
   });
 
-  it('DENIES a Grep rooted outside the working directory (SEC-007)', async () => {
+  it('DENIES a Grep rooted outside the working directory', async () => {
     const result = await invoke(createCodingPack({ cwd: CWD }), 'Grep', {
       pattern: 'root',
       path: '/etc',
@@ -164,7 +164,7 @@ describe('codingPack — the file tools are SCOPED to the supplied cwd (ARCH-006
   });
 });
 
-/** Issue #3550 item 4 — the pack hands the caller's editor access to the file tools it builds. */
+/** The pack hands the caller's editor access to the file tools it builds. */
 describe('codingPack — an editor access reaches its file tools', () => {
   it("Read returns the editor's text and Write lands in the editor", async () => {
     const requests: string[] = [];

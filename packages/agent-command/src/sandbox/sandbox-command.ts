@@ -1,5 +1,5 @@
 /**
- * `/sandbox`: see how shell commands are confined and change it (issue #3082).
+ * `/sandbox`: see how shell commands are confined and change it.
  *
  * The OS sandbox is live — the choice applies to the next command — and is saved in the user
  * settings so the next session starts the same way.

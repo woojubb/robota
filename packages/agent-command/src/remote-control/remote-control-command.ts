@@ -6,7 +6,7 @@ import type {
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 /**
- * `/remote-control` (REMOTE-008) — enable/stop P2P remote control and report status.
+ * `/remote-control` — enable/stop P2P remote control and report status.
  *
  * The command is a declarative trigger: `enable` and `stop` return typed HOST ACTIONS
  * (`remote-control-enable` / `remote-control-stop`) executed by the session via the composition-root

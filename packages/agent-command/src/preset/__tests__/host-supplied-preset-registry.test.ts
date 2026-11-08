@@ -3,12 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { executePresetCommand } from '../preset-command.js';
 
 /**
- * ARCH-009 — `/preset` discovers through the registry the HOST resolved with.
+ * `/preset` discovers through the registry the HOST resolved with.
  *
- * ARCH-008 moved startup preset resolution onto a per-call instance registry, but `/preset` kept
+ * Startup preset resolution uses a per-call instance registry, but `/preset` would otherwise keep
  * reading `agent-preset`'s module-global one, because a command runs with only an
  * `ICommandHostContext` and had no path to the instance the shell built. That left the last mutable
- * process-global on this axis load-bearing, and it made ARCH-008's R8 property — two products in one
+ * process-global on this axis load-bearing, and it made the per-instance property — two products in one
  * process, each with its own presets — only half-true: both would have shared one registry.
  *
  * The registry arrives in the host-ADAPTER bag, the path `/permission-mode` and `/plugin` already take
@@ -45,7 +45,7 @@ function hostWithPresets(ids: string[]) {
   };
 }
 
-describe('ARCH-009 — /preset reads the host-supplied registry', () => {
+describe('/preset reads the host-supplied registry', () => {
   it('lists the host registry, not the built-ins', async () => {
     const { context } = hostWithPresets(['acme-reviewer']);
 

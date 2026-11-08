@@ -1,5 +1,5 @@
 /**
- * The DESTINATION half of a session hand-off (HANDOFF-001, issue #1864).
+ * The DESTINATION half of a session hand-off.
  *
  * Its whole job is to be unable to lie about two things: that the payload it holds is the one that
  * was sent, and that the transfer is on disk before it says so.
@@ -14,10 +14,10 @@
  *
  * ## The credential is resolved here, and it is allowed to fail
  *
- * Provider credentials are `never-transferred` (SEC-009: a resolved secret must not cross a process
+ * Provider credentials are `never-transferred` (a resolved secret must not cross a process
  * boundary, and a machine boundary is strictly worse). So the destination resolves its OWN, at
  * commit, and a machine without one fails LOUDLY at that moment rather than silently on the user's
- * next turn. That is TC-07, and it is the reason `commit` takes a resolver rather than a flag.
+ * next turn. That is the reason `commit` takes a resolver rather than a flag.
  *
  * ## `persisted` is produced, never assumed
  *
@@ -120,7 +120,7 @@ export class HandoffDestination {
           `${verdict.expectedBytes ?? manifest.integrity.byteLength} byte(s), ${verdict.actualBytes ?? 0} arrived`,
       );
     }
-    // TRANS-006: integrity is not validity. The digest proves the bytes that arrived are the bytes
+    // Integrity is not validity. The digest proves the bytes that arrived are the bytes
     // that were sent; it says nothing about whether they are a session record. A source on a
     // different build, a partially written record, or a crafted payload all produce an intact
     // transfer of an invalid record — and `staged` is a promise that this machine could commit it.
@@ -151,8 +151,8 @@ export class HandoffDestination {
       // Loud, and at commit. The source has not moved: no acknowledgement exists to move it.
       return this.discard(
         'destination-cannot-resume',
-        'this machine resolved no provider credential. Credentials are never transferred ' +
-          '(SEC-009), so the destination must supply its own — the session stays on the source.',
+        'this machine resolved no provider credential. Credentials are never transferred, ' +
+          'so the destination must supply its own — the session stays on the source.',
       );
     }
     if (!(await this.options.persist(this.requireRecord()))) {

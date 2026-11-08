@@ -78,7 +78,7 @@ function buildContext(commands: ICommandListEntry[]) {
 }
 
 describe('formatCommandHelpMessage — example field', () => {
-  it('TC-01: includes Example line for compact command', () => {
+  it('includes Example line for compact command', () => {
     const context = buildContext([
       {
         name: 'compact',
@@ -95,7 +95,7 @@ describe('formatCommandHelpMessage — example field', () => {
     expect(output).toContain('Example: /compact Summarize the current context');
   });
 
-  it('TC-02: includes Example line for provider command', () => {
+  it('includes Example line for provider command', () => {
     const context = buildContext([
       {
         name: 'provider',
@@ -112,7 +112,7 @@ describe('formatCommandHelpMessage — example field', () => {
     expect(output).toContain('Example: /provider switch production');
   });
 
-  it('TC-03: omits Example line for commands without example', () => {
+  it('omits Example line for commands without example', () => {
     const context = buildContext([
       {
         name: 'help',

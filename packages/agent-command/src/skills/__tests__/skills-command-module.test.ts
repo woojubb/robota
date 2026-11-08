@@ -62,7 +62,7 @@ function makeParentSession() {
     }),
     injectMessage: vi.fn(),
     getSessionId: vi.fn().mockReturnValue('parent-session-id'),
-    // SELFHOST-004 P6: the span collector subscribes to the session bus each turn.
+    // The span collector subscribes to the session bus each turn.
     getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
     getSystemMessage: vi.fn().mockReturnValue('# system'),
     getToolSchemas: vi.fn().mockReturnValue([]),
@@ -70,7 +70,7 @@ function makeParentSession() {
 }
 
 function createMockContext(overrides?: ICreateTestCommandHostOptions['overrides']) {
-  // ARCH-029: overrides over a conformant host rather than a 20-member literal asserting it IS one.
+  // Overrides over a conformant host rather than a 20-member literal asserting it IS one.
   return createTestCommandHost({
     overrides: {
       getSession: vi.fn(),

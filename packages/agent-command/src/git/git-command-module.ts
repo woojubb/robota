@@ -1,5 +1,5 @@
 /**
- * BEHAVIOR-2437: `/git` — one command whose `execute` parses its verb (`status` | `diff` | `commit`),
+ * `/git` — one command whose `execute` parses its verb (`status` | `diff` | `commit`),
  * with the three verbs on `subcommands` for `/help` and autocomplete. Host-only (`modelInvocable:
  * false`); the confirmation lives in the `commit` verb, because `requiresPermission` is not enforced
  * on the user path (`SystemCommandExecutor.executeCommand` calls `execute` directly).

@@ -1,5 +1,5 @@
 /**
- * #3679 3f: `/unlock` and `/lock` — credential actions for the person at this terminal only. Never
+ * `/unlock` and `/lock` — credential actions for the person at this terminal only. Never
  * model-invocable, refused from any surface that is not that person's, and `/unlock` reads the
  * passphrase on the host's terminal inside the handoff, never through the session's input.
  */

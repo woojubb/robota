@@ -57,7 +57,7 @@ export async function buildProviderSwitch(
     return { message: `Already using provider "${profileName}".`, success: true };
   }
   const profile = providers[profileName];
-  // #3282: the hot-swap this returns as a `hostActions` entry builds this exact profile against
+  // The hot-swap this returns as a `hostActions` entry builds this exact profile against
   // these exact definitions (`resolveUserSettingsProviderSwitch` in agent-framework). Validating it
   // HERE, before anything is written, means a switch that would fail changes nothing on disk — the
   // previous behavior wrote `currentProvider` unconditionally and let a downstream hot-swap failure

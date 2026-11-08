@@ -11,7 +11,7 @@ import type { IProviderSetupInput } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { IProviderSetupFlowState } from './provider-setup-flow.js';
 
-/** Build the per-step `IActionRequest` for the current setup step (CMD-004 inline ask). */
+/** Build the per-step `IActionRequest` for the current setup step. */
 function toProviderSetupStepRequest(
   flow: IProviderSetupFlowState,
   errorMessage?: string,
@@ -34,7 +34,7 @@ function toProviderSetupStepRequest(
 }
 
 /**
- * Drive the setup-step engine through inline `ui.ask` calls (CMD-004), re-asking the same step when a
+ * Drive the setup-step engine through inline `ui.ask` calls, re-asking the same step when a
  * step fails validation (the error is surfaced in the request description). The `complete` sink differs
  * between the add and edit paths.
  */

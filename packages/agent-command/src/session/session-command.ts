@@ -31,7 +31,7 @@ export const CD_COMMAND_DESCRIPTION = 'Move this session to another working dire
 export const CD_COMMAND_USAGE = 'Usage: /cd <directory>';
 
 /**
- * `/cd <directory>` (issue #3081) requests the host-executed move. The checks — no turn running, no
+ * `/cd <directory>` requests the host-executed move. The checks — no turn running, no
  * live background task, the target exists, no `Cd(...)` deny rule — run where the session state is,
  * when the host applies the action.
  */
@@ -54,7 +54,7 @@ export async function executeClearCommand(
     }
   }
 
-  // CMD-004 Stage E: the clear mutation runs host-side and the session broadcasts `history_cleared`
+  // The clear mutation runs host-side and the session broadcasts `history_cleared`
   // to every attached surface — the result carries no separate notification.
   clearConversationHistory(context);
   return { success: true, message: CLEAR_COMMAND_MESSAGE };
@@ -91,7 +91,7 @@ type TCostCommandContext = ICommandHostSessionAccess &
   ICommandHostAdapterAccess;
 
 /**
- * CMD-007 (issue #2058): the budget lives behind `ICommandCostBudgetAdapter`, composed by the shell.
+ * The budget lives behind `ICommandCostBudgetAdapter`, composed by the shell.
  * This package owns no path literal and no filesystem call for it any more — atomic/symlink-safe
  * writing is the adapter's policy (agent-cli's file adapter keeps the O_NOFOLLOW guard).
  */

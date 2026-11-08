@@ -37,7 +37,7 @@ const REMOTE_INSTALL_REFUSAL =
   'desktop app or the page opened here — not from a remote device.';
 
 /**
- * #3282 §4 part b-2: the same rule the GUI's Settings screen applies before it ever sends the
+ * The same rule the GUI's Settings screen applies before it ever sends the
  * write — installing/uninstalling stays local-surface-only because it runs third-party code.
  * `getCommandSurfaceLocality` absent (an older host, a test double, the in-process TUI) reads as
  * `'local'`, matching the allow-by-default posture the rest of the command layer already uses.
@@ -172,7 +172,7 @@ function executeUninstallCommand(
   );
 }
 
-/** #3282 §4 part b-2: the Settings screen's Plugins section reads through this, like `/mcp status`. */
+/** The Settings screen's Plugins section reads through this, like `/mcp status`. */
 async function executeListInstalledCommand(
   context: ICommandHostAdapterAccess,
 ): Promise<ICommandResult> {

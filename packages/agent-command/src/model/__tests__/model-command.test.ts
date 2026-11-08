@@ -1,7 +1,7 @@
 /**
- * #3282 §2 — `/model`.
+ * `/model`.
  *
- * `buildProviderSwitch` (#3282 §1 fix, PR #3297) validates a cross-profile switch BEFORE writing
+ * `buildProviderSwitch` validates a cross-profile switch BEFORE writing
  * settings, so a switch that would fail changes nothing on disk. `/model` follows the same shape for
  * its cross-profile branch, and for the same-profile branch goes one step further: it performs the
  * live hot-swap itself (via `applyModelOptions`, the same seam `/effort` and `/preset` use) and
@@ -238,7 +238,7 @@ describe('/model', () => {
     expect(writeTargetSettings).not.toHaveBeenCalled();
   });
 
-  // #3459: the host withholds its own credentials from `process.env`; the profile's `$ENV:` key is
+  // The host withholds its own credentials from `process.env`; the profile's `$ENV:` key is
   // checked against the snapshot it hands the command instead.
   it('switches to a profile whose key is only in the host snapshot', async () => {
     const writeTargetSettings = vi.fn();

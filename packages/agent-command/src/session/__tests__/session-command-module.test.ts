@@ -226,7 +226,7 @@ describe('createSessionCommandModule', () => {
     });
   });
 
-  it('CMD-004: confirms before clearing and proceeds on yes', async () => {
+  it('confirms before clearing and proceeds on yes', async () => {
     const clearConversationHistory = vi.fn();
     const context = {
       ...createCommandContext(),
@@ -245,7 +245,7 @@ describe('createSessionCommandModule', () => {
     expect(result?.success).toBe(true);
   });
 
-  it('CMD-004: cancels the clear when the user declines', async () => {
+  it('cancels the clear when the user declines', async () => {
     const clearConversationHistory = vi.fn();
     const context = {
       ...createCommandContext(),
@@ -264,10 +264,10 @@ describe('createSessionCommandModule', () => {
     expect(result?.message).toBe('Clear cancelled.');
   });
 
-  it('ARCH-029 TC-09: /clear takes the host path only — it never reaches past it into the runtime', async () => {
+  it('/clear takes the host path only — it never reaches past it into the runtime', async () => {
     // The deleted fallback called `getSession().clearHistory()` when the host member was absent.
     // Those are not the same operation: the host's clear also broadcasts `history_cleared` to
-    // every attached surface (CMD-004 Stage E), so the fallback cleared ONE surface and left the
+    // every attached surface, so the fallback cleared ONE surface and left the
     // others still showing the transcript. With the member required there is one path, and this
     // pins that the runtime is not reached behind the host's back.
     const runtime = createRuntime();
@@ -300,7 +300,7 @@ describe('createSessionCommandModule', () => {
       injectMessage: vi.fn(),
       getSystemMessage: vi.fn().mockReturnValue('system'),
       getToolSchemas: vi.fn().mockReturnValue([]),
-      // SELFHOST-004 P6: the span collector subscribes to the session bus each turn.
+      // The span collector subscribes to the session bus each turn.
       getEventService: () => ({ subscribe: () => {}, unsubscribe: () => {} }),
     };
     const session = new InteractiveSession({
@@ -444,7 +444,7 @@ describe('createSessionCommandModule', () => {
   });
 
   /**
-   * CMD-007 (issue #2058): the command talks to an injected `ICommandCostBudgetAdapter` and never to
+   * The command talks to an injected `ICommandCostBudgetAdapter` and never to
    * the filesystem — so the tests hold the budget in memory, with no casts and no temp directory.
    * The file adapter's own policy (atomic write, symlink refusal) is tested where it lives, in agent-cli.
    */
@@ -676,7 +676,7 @@ describe('createSessionCommandModule', () => {
   });
 });
 
-describe('/cd (issue #3081)', () => {
+describe('/cd', () => {
   it('requests the host-executed move with the path as typed, and is user-only', async () => {
     const module = createSessionCommandModule();
     const entry = module.commandSources?.[0]?.getCommands().find((item) => item.name === 'cd');

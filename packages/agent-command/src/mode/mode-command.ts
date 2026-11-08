@@ -17,7 +17,7 @@ import type {
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 /**
- * Ask the user to pick a permission mode (CMD-004 inline ask). Returns the chosen mode name, or
+ * Ask the user to pick a permission mode inline. Returns the chosen mode name, or
  * `undefined` when no interactive renderer is attached or the user cancelled — the caller then reports
  * the current mode instead of changing it (never a silent guess).
  */

@@ -43,7 +43,7 @@ export async function buildProviderDuplicate(
       return { message: 'Provider duplicate cancelled.', success: true };
     }
     const value = response.text ?? '';
-    // Re-ask on validation failure, surfacing the reason (CMD-004 re-ask loop replaces the closure).
+    // Re-ask on validation failure, surfacing the reason (a re-ask loop).
     const validationMessage = validateDuplicateProfileName(value, defaultName, options);
     if (validationMessage !== undefined) {
       errorMessage = validationMessage;
@@ -94,7 +94,7 @@ function completeProviderDuplicate(
 }
 
 /**
- * #3282 §4b: the direct, non-interactive delete itself — no replacement ask (the interactive
+ * The direct, non-interactive delete itself — no replacement ask (the interactive
  * per-profile menu's Delete, `buildProviderDelete` below, still offers one); refuses instead when the
  * profile is the one in use. Never asks to CONFIRM either — its caller in `provider-command-execution`
  * does that first, when a human can answer, before reaching this function; this function itself is
@@ -153,7 +153,7 @@ export async function buildProviderDelete(
       success: false,
     };
   }
-  // #3282 §2: the GUI renders this confirm on its shared ConfirmDialog (id 'provider-delete') with
+  // The GUI renders this confirm on its shared ConfirmDialog (id 'provider-delete') with
   // this exact title — kept in the quoted-name form the TUI's inline picker shows the same way.
   const response = await ui.ask(
     confirmAction('provider-delete', `Delete profile "${profileName}"?`),

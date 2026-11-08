@@ -19,7 +19,7 @@ export function spawnInherited(
     const child = spawn(command, [...args], { cwd, stdio: 'inherit', env: process.env });
     child.on('error', reject);
     child.on('exit', (code, signal) => {
-      // RUNTIME-53: a signal-terminated child reports code=null; resolving 0 there is a false
+      // A signal-terminated child reports code=null; resolving 0 there is a false
       // success. Translate to the shell convention 128 + signal number so callers see the failure.
       if (code !== null) {
         resolve(code);

@@ -1,5 +1,5 @@
 /**
- * TERM-004: `/editor` — compose a message/prompt in `$EDITOR` via the terminal-handoff capability,
+ * `/editor` — compose a message/prompt in `$EDITOR` via the terminal-handoff capability,
  * then return the saved text. The temp file is pre-filled with any args and removed afterward.
  *
  * The buffer is the composed message, so it is owner-only: a directory only the owner can enter,

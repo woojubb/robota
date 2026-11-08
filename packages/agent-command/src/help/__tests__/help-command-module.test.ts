@@ -64,7 +64,7 @@ function createCommandHostContext() {
           modelInvocable: true,
           runner: 'runtime',
         },
-        // SEC-008: `plugin` installs and enables code, so it is NOT model-invocable — the fixture says
+        // `plugin` installs and enables code, so it is NOT model-invocable — the fixture says
         // what the real command says rather than the value that happened to compile.
         {
           name: 'plugin',

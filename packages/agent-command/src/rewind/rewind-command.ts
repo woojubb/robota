@@ -249,7 +249,7 @@ async function rollback(
   }
 }
 
-// SELFHOST-007: branching time-travel handlers.
+// Branching time-travel handlers.
 async function fork(
   context: TRewindCommandContext,
   checkpointId: string | undefined,
@@ -322,7 +322,7 @@ export async function executeRewindCommand(
     return rollback(context, args[CHECKPOINT_ID_INDEX]);
   }
 
-  // SELFHOST-007: branching time-travel subcommands.
+  // Branching time-travel subcommands.
   if (subcommand === 'fork') {
     return fork(context, args[CHECKPOINT_ID_INDEX]);
   }
