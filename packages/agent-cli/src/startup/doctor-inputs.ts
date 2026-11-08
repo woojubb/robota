@@ -1,5 +1,5 @@
 /**
- * The shell's half of the doctor (OBSERVABILITY-1991): compose what the runner cannot know — the
+ * The shell's half of the doctor: compose what the runner cannot know — the
  * workspace composition this CLI would build, the plugin scope layout, and the checks only the host
  * can make — inside the doctor's own failure boundary, so a composition that throws becomes a `fail`
  * check instead of an exit. Shared by the pre-parse route and by `/doctor`.

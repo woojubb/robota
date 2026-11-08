@@ -536,7 +536,7 @@ describe('KeyHolder — the verified sealing key', () => {
 });
 
 /**
- * #3679 step 3b: a subagent child seals to the grant it was started with; when the parent's first
+ * A subagent child seals to the grant it was started with; when the parent's first
  * unlock verifies its key (or a later one verifies another), the parent tells its running children.
  * This is the holder's half: one call each time the verified key is set to a different value.
  */

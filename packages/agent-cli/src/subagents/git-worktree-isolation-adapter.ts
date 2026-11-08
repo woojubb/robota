@@ -142,8 +142,8 @@ function normalizeShortId(value: string): string {
  * Remove every leading and trailing `-`, by index scan.
  *
  * Not `replace(/^-+|-+$/g, '')`: the trailing half has no start anchor, so the engine retries the run from every
- * offset inside it and each retry re-scans to the end — 3.1 s on a 100 K dash run (`js/polynomial-redos`,
- * SEC-003). `-` survives the collapse in {@link sanitizePathSegment} (it is inside the kept class), so a long run
+ * offset inside it and each retry re-scans to the end — 3.1 s on a 100 K dash run (`js/polynomial-redos`).
+ * `-` survives the collapse in {@link sanitizePathSegment} (it is inside the kept class), so a long run
  * does reach here.
  */
 function trimDashes(value: string): string {

@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * #3282 §3 — a served runtime with no provider configured starts in setup mode instead of exiting:
+ * A served runtime with no provider configured starts in setup mode instead of exiting:
  * `buildServeSessionOptions` forwards `setupRequired` into the session options, and a session built
  * that way refuses a submitted turn, reports `setupRequired` in its status, and — once `/provider add`
  * configures the first profile ever — hot-swaps into it and clears the flag, live, no restart.
@@ -29,7 +29,7 @@ import type { TActionResponse } from '@robota-sdk/agent-core';
 
 const testHost = createTestFrameworkHost();
 
-describe('#3282 §3 — a served runtime starts in setup mode with no provider', () => {
+describe('a served runtime starts in setup mode with no provider', () => {
   it('buildServeSessionOptions forwards setupRequired', () => {
     const options = buildServeSessionOptions({
       host: testHost,

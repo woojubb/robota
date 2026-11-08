@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * #3189 — serve mode keeps its sessions in a pool: the directory is attached to it before the
+ * Serve mode keeps its sessions in a pool: the directory is attached to it before the
  * transports start, a switched-to session is built with the runtime's own options, a switch moves
  * only the client that made it, what belongs to the run stays on the primary session, the supervised
  * status covers every live session, and stopping the runtime drains the pool.
@@ -161,7 +161,7 @@ function serveOptions(
               cwd: overrides.cwd ?? '/work/project',
               createdAt: '2026-09-01T00:00:00Z',
               updatedAt: '2026-09-01T00:00:00Z',
-              // Non-empty (#3289 §1): an EMPTY stored session is what `newSession()` now reuses
+              // Non-empty: an EMPTY stored session is what `newSession()` now reuses
               // instead of building fresh, which is a different scenario than this one covers.
               messages: [
                 {
@@ -197,7 +197,7 @@ const byId = (id: string): IFake => {
   return found;
 };
 
-describe('serve mode session pool wiring (#3189)', () => {
+describe('serve mode session pool wiring', () => {
   it('passes the accepted digest and cancellation to the served builder and rechecks the claimed workspace', async () => {
     const digest = 'a'.repeat(64);
     const record = {
@@ -329,7 +329,7 @@ describe('serve mode session pool wiring (#3189)', () => {
     }
   });
 
-  it('tells its owner whether the daemon runs Restricted (#3268)', async () => {
+  it('tells its owner whether the daemon runs Restricted', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'serve-daemon-'));
     for (const restricted of [true, false]) {
       const directory = createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>();

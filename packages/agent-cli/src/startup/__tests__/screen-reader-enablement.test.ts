@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * CLI-2004 TC-01 — the screen-reader enablement resolver and its flag pair.
+ * The screen-reader enablement resolver and its flag pair.
  *
  * The precedence here is a DELIBERATE inversion of `resolveMemoryEnablement`'s env-wins rule:
  * settings ← env ← flag (flag wins). A per-invocation flag must be able to turn the mode on for one
@@ -19,7 +19,7 @@ import {
 } from '../screen-reader-enablement.js';
 import { parseCliArgs, printHelp } from '../../utils/cli-args.js';
 
-describe('resolveScreenReaderEnablement — CLI-2004 TC-01', () => {
+describe('resolveScreenReaderEnablement', () => {
   it('is OFF with no settings, env or flag', () => {
     expect(resolveScreenReaderEnablement({})).toEqual({ enabled: false, channel: undefined });
   });
@@ -153,7 +153,7 @@ describe('the advisory line is withheld from an operator who said no', () => {
   });
 });
 
-describe('--screen-reader / --no-screen-reader (§ Solution 2)', () => {
+describe('--screen-reader / --no-screen-reader', () => {
   let originalArgv: string[];
 
   beforeEach(() => {

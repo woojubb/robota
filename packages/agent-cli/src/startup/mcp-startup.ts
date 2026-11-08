@@ -1,11 +1,11 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * MCP-002: the ONE place that turns product startup inputs into a live `IMcpClientComposition`,
+ * The ONE place that turns product startup inputs into a live `IMcpClientComposition`,
  * completing the reachability step — sourcing (`mcp-definition-sources.ts`)
- * → workspace projection (`mcp-workspace.ts`) → composition (`mcp-client-composition.ts`, MCP-002's
+ * → workspace projection (`mcp-workspace.ts`) → composition (`mcp-client-composition.ts`, the
  * existing manager wiring) → the `/mcp` adapter and connected tools `cli.ts` consumes.
  *
- * MCP-004 S3 adds: reading `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` beside `mcpServers`
+ * It also reads `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` beside `mcpServers`
  * (`mcp-settings.ts`), setting the supervisor's `toolCallMs` from the resolved `callTimeoutMs`, and
  * — via {@link IMcpStartupComposition.buildToolCallHandoff} — producing the per-mode
  * `toolCallHandoff` session-option contribution once `connect()` has resolved. `print` never
@@ -91,7 +91,7 @@ export interface IComposeMcpClientForStartupInput {
   readonly reportDiagnostic: (message: string) => void;
   /** Overridable for tests; defaults to the real node host workspace-trust store. */
   readonly inspectTrust?: (cwd: string) => Promise<IMcpWorkspaceTrustSnapshot>;
-  /** MCP-004 S3: which runtime this composition serves — gates `toolCallHandoff` (§ Modes). */
+  /** Which runtime this composition serves — gates `toolCallHandoff` (§ Modes). */
   readonly mode: TMcpStartupMode;
   /**
    * Whether a surface that answers `ask_request` attaches to this host's sessions: the TUI, or
@@ -109,7 +109,7 @@ export interface IComposeMcpClientForStartupInput {
 }
 
 /**
- * MCP-002's composition plus MCP-004 S3's per-mode `toolCallHandoff` builder. `buildToolCallHandoff`
+ * The composition plus the per-mode `toolCallHandoff` builder. `buildToolCallHandoff`
  * reads `connect()`'s already-resolved tool provenance (`IMcpClientComposition.connectedToolProvenance`)
  * — call it AFTER `await connect()`, exactly where `cli.ts` builds each mode's session options.
  */
@@ -174,7 +174,7 @@ export function mcpHeadersHelperEnvironment(
 
 /**
  * Compose the product's live MCP client for one startup: source every layer's `mcpServers`,
- * resolve `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` (MCP-004 S3) from the SAME layers, report
+ * resolve `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` from the SAME layers, report
  * every problem, resolve the workspace-trust snapshot, and hand it all to
  * `createMcpClientComposition`.
  *
@@ -190,7 +190,7 @@ export async function composeMcpClientForStartup(
     pluginMcpCandidates(input.productRuntime, input.cwd, input.projectAccess),
   );
   for (const problem of problems) {
-    // A source-level problem (`name === ''`, issue #2794) names no server, so "MCP definition """
+    // A source-level problem (`name === ''`) names no server, so "MCP definition """
     // reads as a nameless server rather than the source itself; it gets its own wording.
     input.reportDiagnostic(
       problem.name === ''
@@ -198,9 +198,9 @@ export async function composeMcpClientForStartup(
         : `MCP definition "${problem.name}" from ${problem.source} (${problem.origin}) was refused: ${problem.reason}`,
     );
   }
-  // A blocked entry (PR #3076 review) never appears in `problems` above — its reason is synthesized
+  // A blocked entry never appears in `problems` above — its reason is synthesized
   // by `resolveByPrecedence` itself, not by a source's own decode — so it would otherwise vanish with
-  // no diagnostic at all, exactly the same silent disappearance issue #2794 was about. Value-free:
+  // no diagnostic at all, a silent disappearance. Value-free:
   // names the server and that the managed source is why it did not activate, never the managed
   // source's file content.
   for (const entry of entries) {

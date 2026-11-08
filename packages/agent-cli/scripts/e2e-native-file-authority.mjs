@@ -139,8 +139,8 @@ export function resolveNativeFixtureWorkspace(cwd, env) {
 }
 
 /**
- * Whether this host can prove a project-relative write stays under the trusted workspace root
- * (ARCH-047). The proof walks descriptor-relative paths through `/proc/self/fd`, which only Linux
+ * Whether this host can prove a project-relative write stays under the trusted workspace root.
+ * The proof walks descriptor-relative paths through `/proc/self/fd`, which only Linux
  * provides — see `supportsWorkspaceProjectMutation` in
  * `packages/agent-framework/src/workspace-trust/project-relative-writer.ts`, the CLI-internal
  * function this mirrors. Everywhere else, `trustedSessionStore`

@@ -1,12 +1,11 @@
 /**
- * CMD-004 Phase 2 (TC-03) — WS e2e: a remote `command` message must apply its host action HOST-SIDE.
+ * WS e2e: a remote `command` message must apply its host action HOST-SIDE.
  *
- * Pre-Stage-B, `session-message-handler.ts` answers a remote command with `command_result` carrying only
- * `message`/`success`/`data` and drops `result.effects` on the floor — a remote `/language ko`
- * replied "Language set" and wrote NOTHING. These tests were recorded FAILING against that state
- * (accidental-green rule; RED run kept in the spec's Evidence Log). Stage B executes host actions in
- * the session's `executeCommand` pipeline via `ICommandHostAdapters` BEFORE the result is sent, and
- * forwards command-issued `ui_intent` events (stamped with the REMOTE-014 E5 server-assigned driver
+ * `session-message-handler.ts` answers a remote command with `command_result` only after the host
+ * has applied the command's host actions; a remote `/language ko` must not reply "Language set"
+ * and write NOTHING. The session's `executeCommand` pipeline executes host actions via
+ * `ICommandHostAdapters` BEFORE the result is sent, and
+ * forwards command-issued `ui_intent` events (stamped with the server-assigned driver
  * id) so the requesting surface can render screen-navigation intents.
  */
 
@@ -77,7 +76,7 @@ async function waitForCommandResult(
   >;
 }
 
-describe('CMD-004 TC-03 — remote command host-action application over the WS handler', () => {
+describe('remote command host-action application over the WS handler', () => {
   it('a remote /language change WRITES via the settings adapter and requests a restart host-side', async () => {
     const write = vi.fn();
     const requestRestart = vi.fn();
@@ -90,7 +89,7 @@ describe('CMD-004 TC-03 — remote command host-action application over the WS h
     const result = await waitForCommandResult(sent);
 
     expect(result.success).toBe(true);
-    // Host-side application — the exact assertion that FAILS pre-Stage-B (effects dropped).
+    // Host-side application — the exact assertion that fails when host actions are dropped.
     expect(write).toHaveBeenCalledTimes(1);
     expect(write).toHaveBeenCalledWith(expect.objectContaining({ language: 'ko' }));
     expect(requestRestart).toHaveBeenCalledTimes(1);
@@ -102,7 +101,7 @@ describe('CMD-004 TC-03 — remote command host-action application over the WS h
     onMessage(JSON.stringify({ type: 'command', name: 'settings', args: '' }));
     await waitForCommandResult(sent);
 
-    // Pre-Stage-B there is NO ui_intent server message at all (silent drop on remote surfaces).
+    // Remote surfaces learn of intents only through this `ui_intent` server message.
     const intents = sent.filter((m) => m.type === 'ui_intent');
     expect(intents).toEqual([
       {

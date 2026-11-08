@@ -1,5 +1,5 @@
 /**
- * The canary for `secure migrate` (#3679): one unique string typed into every conversation store a
+ * The canary for `secure migrate`: one unique string typed into every conversation store a
  * state root keeps in plaintext — session records, the prompt history, a subagent transcript and its
  * sidecars (a nested one too), a kept-aside hand-off, a crashed write's temp file, an earlier build's
  * `/editor` buffer and a gone process's scratch; on Linux also a trusted project's records, replay

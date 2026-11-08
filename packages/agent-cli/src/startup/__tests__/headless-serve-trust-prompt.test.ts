@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * Issue #3282 §3: `the product --serve --open` asks the same trust question the TUI does, but with the
+ * `the product --serve --open` asks the same trust question the TUI does, but with the
  * `pnpm gui:dev` sidecar wrapper's three-way answer (trust / start Restricted / quit) instead of the
  * TUI's plain yes-means-trust-no-means-Restricted, since a headless start also needs a way to not start
  * at all.

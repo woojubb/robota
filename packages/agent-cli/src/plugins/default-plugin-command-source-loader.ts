@@ -17,7 +17,7 @@ const PLUGIN_SOURCE_NAME = 'plugin';
 
 
 /**
- * Issue #2487 (PLG-021 residual): `install --scope project` writes under the project's own plugin
+ * `install --scope project` writes under the project's own plugin
  * directory, but this loader read only the user-level one, so a project-scope install was invisible
  * to the session that made it. Project scope is listed first — the more specific one wins when a
  * plugin is present in both.
@@ -63,7 +63,7 @@ export function reloadPluginCommandSource(
     return 0;
   }
   try {
-    // PLG-021 / issue #2025: the reload path reported plugins as reloaded while a disabled plugin's
+    // The reload path reported plugins as reloaded while a disabled plugin's
     // commands came back with them, because the bare loader defaults its enablement map to `{}`.
     // allow-fallback: plugin load failure is non-fatal — clear source and return empty
     const plugins = loadHostBundlePluginsFromScopes(

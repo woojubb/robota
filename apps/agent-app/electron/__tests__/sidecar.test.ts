@@ -29,8 +29,8 @@ import {
 
 /** The Electron-free shell logic: which command, how the daemon is started, and what its answer may be. */
 
-/** GUI-003 TC-03 — the bundled-runtime command resolution (packaged vs dev). */
-describe('resolveSidecarCommand (GUI-003)', () => {
+/** The bundled-runtime command resolution (packaged vs dev). */
+describe('resolveSidecarCommand', () => {
   const productIdentity = embeddedProductIdentity(resolveProductConfig({ environment: desktopProductEnvironment('cedar') }));
 
   it('packaged: resolves the bundled binary under resourcesPath (posix)', () => {
@@ -81,7 +81,7 @@ describe('resolveSidecarCommand (GUI-003)', () => {
   });
 });
 
-describe('buildDaemonStartSpawn (#3189)', () => {
+describe('buildDaemonStartSpawn', () => {
   it('asks the CLI to start or reuse the daemon, with the base environment and no secret of its own', () => {
     const invocation = buildDaemonStartSpawn('/opt/agent', { PATH: '/usr/bin', UNSET: undefined });
     expect(invocation.command).toBe('/opt/agent');
@@ -90,7 +90,7 @@ describe('buildDaemonStartSpawn (#3189)', () => {
     expect(invocation.env).not.toHaveProperty('PRODUCT_WS_TOKEN');
   });
 
-  it('starts it Restricted when the person chose that (#3268)', () => {
+  it('starts it Restricted when the person chose that', () => {
     expect(buildDaemonStartSpawn('/opt/agent', {}, { restricted: true }).args).toEqual([
       'daemon',
       'start',
@@ -100,8 +100,8 @@ describe('buildDaemonStartSpawn (#3189)', () => {
   });
 });
 
-/** #3268 — the window asks about a folder not trusted yet before a daemon starts there. */
-describe('parseTrustStatusOutput (#3268)', () => {
+/** The window asks about a folder not trusted yet before a daemon starts there. */
+describe('parseTrustStatusOutput', () => {
   const status = (fields: Record<string, unknown>): string =>
     `${JSON.stringify({ state: 'untrusted', workspace: '/work/repo', askable: true, loads: [], ...fields })}\n`;
 
@@ -169,7 +169,7 @@ describe('parseTrustedProviderEnvironmentReferences', () => {
   });
 });
 
-describe('parseDaemonStartOutput (#3189)', () => {
+describe('parseDaemonStartOutput', () => {
   const url = 'ws://127.0.0.1:51234?token=0123abcd';
 
   it('reads the one JSON line into the id, URL and port', () => {
@@ -211,7 +211,7 @@ describe('parseDaemonStartOutput (#3189)', () => {
   });
 });
 
-describe('describeDaemonStartFailure (#3189)', () => {
+describe('describeDaemonStartFailure', () => {
   it('shows what the CLI said, which names the fix', () => {
     expect(
       describeDaemonStartFailure({
@@ -233,7 +233,7 @@ describe('describeDaemonStartFailure (#3189)', () => {
   });
 });
 
-describe('#3186 — why the daemon could not start', () => {
+describe('why the daemon could not start', () => {
   it('keeps only the tail of the CLI error output, so the fatal screen can say why', () => {
     let tail = '';
     tail = appendOutputTail(tail, 'x'.repeat(OUTPUT_TAIL_LIMIT));
@@ -243,8 +243,8 @@ describe('#3186 — why the daemon could not start', () => {
   });
 });
 
-/** #3189 — a daemon that stops while the window is open is reattached by starting again. */
-describe('createDaemonAttachment (#3189)', () => {
+/** A daemon that stops while the window is open is reattached by starting again. */
+describe('createDaemonAttachment', () => {
   const at = (port: number): TDaemonStart => ({
     ok: true,
     endpoint: { id: 'd', url: `ws://127.0.0.1:${port}?token=t`, port },
@@ -295,7 +295,7 @@ describe('createDaemonAttachment (#3189)', () => {
   });
 });
 
-describe('buildPickedFiles (#3282 §4d — the composer attach dialog)', () => {
+describe('buildPickedFiles (the composer attach dialog)', () => {
   it('pairs each chosen path with its basename and injected size', () => {
     const sizes: Record<string, number> = {
       '/repo/src/a.ts': 120,
@@ -319,7 +319,7 @@ describe('buildPickedFiles (#3282 §4d — the composer attach dialog)', () => {
   });
 });
 
-describe('resolveOpenPathTarget (#3282 §4c — the Project panel Memory "Open in editor")', () => {
+describe('resolveOpenPathTarget (the Project panel Memory "Open in editor")', () => {
   const cwd = `${sep}repo`;
 
   it('resolves a workspace-relative path against cwd', () => {
@@ -349,7 +349,7 @@ describe('resolveOpenPathTarget (#3282 §4c — the Project panel Memory "Open i
   });
 });
 
-describe('buildContentSecurityPolicy (#3189)', () => {
+describe('buildContentSecurityPolicy', () => {
   it("lets the page reach only the daemon's loopback port", () => {
     expect(buildContentSecurityPolicy(4321)).toContain('connect-src ws://127.0.0.1:4321;');
   });
@@ -359,7 +359,7 @@ describe('buildContentSecurityPolicy (#3189)', () => {
   });
 });
 
-describe('#3354: which folder the app works on', () => {
+describe('which folder the app works on', () => {
   const folders = new Set(['/work/alpha', '/work/beta']);
   const isDirectory = (path: string) => folders.has(path);
 

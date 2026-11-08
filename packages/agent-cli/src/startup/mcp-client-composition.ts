@@ -1,8 +1,8 @@
 /**
- * MCP-002 product composition: agent-cli COMPOSES `@robota-sdk/agent-mcp`'s manager, it does not
+ * Product composition: agent-cli COMPOSES `@robota-sdk/agent-mcp`'s manager, it does not
  * own any protocol, catalog, retry or trust-policy logic itself.
  *
- * This is the one place in the product that turns MCP-001's resolved definitions into:
+ * This is the one place in the product that turns the resolved MCP definitions into:
  *
  * 1. the `/mcp` command port (`ICommandMCPActivationAdapter`, wired via
  *    `IStartCliOptions.mcpActivationAdapter` in `./command-setup.ts`) — a thin projection over
@@ -15,7 +15,7 @@
  *    (`ICreateSessionOptions.additionalTools`), so nothing MCP-specific reaches `agent-framework`.
  *
  * What this module deliberately does NOT do: decode raw `mcpServers` config, resolve precedence, or
- * decide trust — `agent-mcp` (MCP-001) already owns all of that, `MCPActivationAdmissionService`
+ * decide trust — `agent-mcp` already owns all of that, `MCPActivationAdmissionService`
  * already decides admission, and none of it is duplicated here. `mcp-startup.ts` supplies the
  * resolved definitions from the product's settings sources and separately forwards host-owned
  * stdio authority. This module never derives execution authority from those definitions.
@@ -90,8 +90,8 @@ import type {
 /**
  * Operational defaults for the five supervisor timeouts (`agent-mcp`'s SPEC leaves the numbers to
  * the caller; nothing about their VALUES is protocol logic). Overridable via
- * {@link IMcpClientCompositionDeps.timeouts}. `toolCallMs` here is the MCP-002 placeholder value —
- * a caller that cares about MCP-004's tool-call budget uses {@link buildMcpClientTimeouts} instead of
+ * {@link IMcpClientCompositionDeps.timeouts}. `toolCallMs` here is a placeholder value —
+ * a caller that cares about the tool-call budget uses {@link buildMcpClientTimeouts} instead of
  * this constant directly.
  */
 const DEFAULT_MCP_CLIENT_TIMEOUTS: IMCPTimeouts = {
@@ -103,9 +103,9 @@ const DEFAULT_MCP_CLIENT_TIMEOUTS: IMCPTimeouts = {
 };
 
 /**
- * MCP-004 S3: the five supervisor timeouts with `toolCallMs` set from the resolved
+ * The five supervisor timeouts with `toolCallMs` set from the resolved
  * `mcp.callTimeoutMs` setting (`mcp-settings.ts`) — `startupMs`, `perCallMs`, `globalDefaultMs` and
- * `idleMs` keep their MCP-002 defaults untouched. The one caller, `mcp-startup.ts`, passes the result
+ * `idleMs` keep their defaults untouched. The one caller, `mcp-startup.ts`, passes the result
  * as {@link IMcpClientCompositionDeps.timeouts}.
  */
 export function buildMcpClientTimeouts(callTimeoutMs: number): IMCPTimeouts {
@@ -173,14 +173,14 @@ export interface IMcpHeadersHelperHost {
 export interface IMcpClientCompositionDeps {
   readonly skillApprovalStore?: IMcpSkillApprovalStore;
   readonly resultReadToolName?: string;
-  /** MCP-001's resolved definitions — see the module doc for why this is injected, not sourced. */
+  /** The resolved MCP definitions — see the module doc for why this is injected, not sourced. */
   readonly resolvedEntries: readonly IMCPResolvedEntry[];
   /** Host source/enablement revalidation; missing or changed definitions must refuse new dispatch. */
   readonly isDefinitionCurrent?: (
     definition: IMCPServerDefinitionResolved,
   ) => boolean | Promise<boolean>;
   /**
-   * Every problem that named no server at all (issue #2794): a config root that is not an object,
+   * Every problem that named no server at all: a config root that is not an object,
    * no `mcpServers`, `mcpServers` not an object, or a layer that failed to parse. Surfaced through
    * `activationAdapter.sourceProblems()` so `/mcp status` can say which source could not be read,
    * beside the servers that did resolve — not only as a one-time startup diagnostic.
@@ -261,7 +261,7 @@ export interface IMcpClientCompositionDeps {
 }
 
 /**
- * MCP-004 S3: one connected tool's handoff-relevant provenance — everything
+ * One connected tool's handoff-relevant provenance — everything
  * `IToolCallHandoffProvenance` (`@robota-sdk/agent-framework`) needs beyond `permissionMode`, which
  * is a session-level input `mcp-startup.ts` supplies, not a per-server fact this module holds.
  */
@@ -289,7 +289,7 @@ export interface IMcpClientComposition {
    * Provenance for every tool the most recent `connect()` call returned, and every tool a later
    * in-session sign-in connected, keyed by the tool's exposed canonical name (`getName()`). Empty
    * until `connect()` resolves at least once. `mcp-startup.ts` reads this once, after `connect()`,
-   * to build MCP-004's `toolCallHandoff` policy, so a tool connected later is not handed off.
+   * to build the `toolCallHandoff` policy, so a tool connected later is not handed off.
    */
   readonly connectedToolProvenance: ReadonlyMap<string, IMcpConnectedToolProvenance>;
   /**
@@ -327,7 +327,7 @@ export interface IMcpServerConnection {
 /**
  * Narrows a source-scoped `IMCPDefinitionProblem` (`name === ''`) to the command layer's port shape.
  *
- * `blockedServerNames` (PR #3076 review): a MANAGED-tier problem is the one case where
+ * `blockedServerNames`: a MANAGED-tier problem is the one case where
  * `resolveByPrecedence` also blocked lower-tier entries — those names would otherwise vanish from
  * `/mcp status` with no explanation, since `MCPActivationController.list()` only ever offers resolved
  * candidates. `managedTier` is a parameter (not re-imported from `@robota-sdk/agent-mcp` here) so the
@@ -357,7 +357,7 @@ interface IMcpRuntimeStatus {
 /**
  * Narrows `agent-mcp`'s internal activation summary to the command layer's secret-free port shape,
  * and — for an `allowed` server — merges this process's live connection outcome and tool names
- * (#3282 §4 part b-2) so `/mcp status` and the Settings screen's MCP Servers section read the same
+ * so `/mcp status` and the Settings screen's MCP Servers section read the same
  * one source. `runtime` is absent for a caller with no connection bookkeeping (a narrower or older
  * composition): the merged fields are then simply absent, same as "not attempted yet".
  */
@@ -423,7 +423,7 @@ interface IConnectServerContext {
   /** Servers that did not start for a reason the user can fix, and which action fixes it. */
   readonly unavailable: Map<string, TMCPUserAction>;
   /**
-   * #3282 §4 part b-2: the plain reason a server did not connect, for the Settings screen's MCP
+   * The plain reason a server did not connect, for the Settings screen's MCP
    * Servers section. Keyed by server id; cleared on a successful (re)connect. Distinct from
    * `unavailable` (a user-fixable admission reason) — this is a genuine connection/refusal failure
    * for an ADMITTED server.
@@ -712,11 +712,11 @@ async function connectOneServer(
 
 /**
  * Composes `@robota-sdk/agent-mcp`'s definition registry, activation controller and per-server
- * connection supervisors into the two things this product needs from MCP-002.
+ * connection supervisors into the two things this product needs from `agent-mcp`.
  */
 /**
  * The `/mcp` command port: a thin projection over `MCPActivationController`, plus the source-scoped
- * problems (issue #2794) `MCPActivationController.list()` structurally cannot carry — it is keyed by
+ * problems `MCPActivationController.list()` structurally cannot carry — it is keyed by
  * server id, and a source-level problem names no server.
  */
 function buildActivationAdapter(
@@ -730,7 +730,7 @@ function buildActivationAdapter(
     list: () => controller.list().map((summary) => toCommandSummary(summary, runtime)),
     sourceProblems: () => {
       // Recomputed on each call rather than captured once: `resolvedEntries` is this composition's
-      // input for its whole lifetime (MCP-002 does not mutate it), so this is only ever the same
+      // input for its whole lifetime (`agent-mcp` does not mutate it), so this is only ever the same
       // list — but reading it lazily here, beside `controller.list()` above, keeps both projections
       // built the same way (on read) rather than one eager and one lazy for no reason.
       const blockedServerNames = resolvedEntries
@@ -978,7 +978,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   const unavailableServers = new Map<string, TMCPUserAction>();
   /** Servers whose connection discovered successfully: connected, with or without tools. */
   const discovered = new Set<string>();
-  /** #3282 §4 part b-2: the plain reason an admitted server did not connect, by server id. */
+  /** The plain reason an admitted server did not connect, by server id. */
   const connectionFailures = new Map<string, string>();
 
   const skillCommandSource = createMcpSkillCommandSource(skillRegistry);
@@ -1034,7 +1034,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   /** A sign-in's tools, by server, until the session says which it took. */
   const pendingProvenance = new Map<string, Map<string, IMcpConnectedToolProvenance>>();
   /**
-   * #3282 §4 part b-2: a `reload()`'s tools, staged under its own token until the session says
+   * A `reload()`'s tools, staged under its own token until the session says
    * (`reloadToolsAdded`) which it took — the same staging `pendingProvenance`/`toolsAdded` does for
    * a sign-in. Tokened, not a bare value, because a reload is not scoped to one server the way a
    * sign-in is: `/mcp reload` runs inline (unblocked by the mid-turn gate) and an `update-settings`
@@ -1283,7 +1283,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   }
 
   /**
-   * #3282 §4 part b-2: the Settings screen's "Reload servers" button and `/mcp reload`. Single-
+   * The Settings screen's "Reload servers" button and `/mcp reload`. Single-
    * flight: a call that arrives while one is outstanding — its connection pass still running, or
    * its provenance still unacknowledged — joins it and gets its exact result, rather than starting
    * a second connection pass (which could connect the same not-yet-connected server twice, and race

@@ -1,9 +1,9 @@
 import { createTestProductRuntime } from './helpers/product-runtime.js';
 /**
- * ARCH-005 S2 — the EQUIVALENCE bar for collapsing `cli.ts`'s hand-wired composition root into
+ * The EQUIVALENCE bar for collapsing `cli.ts`'s hand-wired composition root into
  * `assembleProduct(createSelectedProductProfile(…))`.
  *
- * Every literal below was captured from the PRE-CHANGE assembly (commit `378c585e9`, ARCH-005 S1 on
+ * Every literal below was captured from the PRE-CHANGE assembly (commit `378c585e9` on
  * develop) by running the old hand-wired path and dumping its resolved values. The assertions then re-derive
  * the same values through the NEW profile-driven assembly. A drift in the assembled runtime — a lost command
  * module, a changed provider surface, a different preset resolution, a missing subagent — fails here.
@@ -63,21 +63,21 @@ const PRODUCT_DEFAULT_AGENT_NAME = productDefaultAgentName(createTestProductRunt
  * This is a SET equality, not a floor, so a module added on purpose is recorded here in the same
  * change that adds it — which is the point: the baseline exists to make an accidental gain or loss
  * visible, and an entry appearing without a reason in the diff is the thing it catches.
- * `agent-command-peers` was added by PEER-004 (issue #1863); `agent-command-handoff` by
- * HANDOFF-001 (issue #1864); `agent-command-fork` by CLI-1994 (issue #1994), which registers `/fork`
+ * `agent-command-peers` exposes `/peers`; `agent-command-handoff` exposes `/handoff`;
+ * `agent-command-fork` registers `/fork`
  * beside `/background` because the two spawn the same kind of child and differ only in what context
  * it starts from.
- * `agent-command-mcp-activation` was added by MCP-2520 to expose the explicit trust-admission
- * lifecycle without constructing or connecting an MCP client. `agent-command-doctor` was added by
- * OBSERVABILITY-1991: `/doctor` shares the pre-session doctor runner with `the product doctor`.
- * `agent-command-output-style` was added by CLI-1988 to expose provider-neutral response-style
+ * `agent-command-mcp-activation` exposes the explicit trust-admission
+ * lifecycle without constructing or connecting an MCP client. `agent-command-doctor`:
+ * `/doctor` shares the pre-session doctor runner with `the product doctor`.
+ * `agent-command-output-style` exposes provider-neutral response-style
  * selection through the same command host used by interactive and headless surfaces.
  * `agent-command-events` lists and revokes the session's external-event grants.
- * `agent-command-effort` was added by FLOW-008 to expose active model-effort selection through the
+ * `agent-command-effort` exposes active model-effort selection through the
  * same command host used by interactive and headless surfaces.
  * `agent-command-advisor` exposes `/advisor`, which chooses the model the main model may consult.
  * `agent-command-devices` exposes `/devices`, this device's identity among the user's devices.
- * `agent-command-model` was added by #3282 §2 to expose `/model`, choosing the model itself.
+ * `agent-command-model` exposes `/model`, choosing the model itself.
  */
 const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-skills',
@@ -95,7 +95,7 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-shell',
   'agent-command-editor',
   'agent-command-git',
-  // #3186: registered without a terminal too, so a host without one says where they work.
+  // Registered without a terminal too, so a host without one says where they work.
   'agent-command-keybindings',
   'agent-command-theme',
   'agent-command-doctor',
@@ -204,9 +204,9 @@ function assembleProductFixture(
     PRODUCT_PACK_COMMAND_MODULE_NAMES,
   );
 
-  // ARCH-008: the SHIPPED shell resolution — one per-call registry, one resolve, handed whole to the
+  // The SHIPPED shell resolution — one per-call registry, one resolve, handed whole to the
   // profile. Re-deriving it here (a fresh `createPresetRegistry` + a hand-built context) is exactly the
-  // S2 F4 hole that let a mutation pass 247 tests, so this calls `resolveShellPreset` instead.
+  // hole that let a mutation pass 247 tests, so this calls `resolveShellPreset` instead.
   const preset = resolveShellPreset(
     overrides.externalPresets ?? [],
     args,
@@ -247,14 +247,14 @@ function assembleProductFixture(
   };
 }
 
-describe('ARCH-005 S2 — the assembled test-product runtime matches the pre-change baseline', () => {
+describe('the assembled test-product runtime matches the pre-change baseline', () => {
   it('supplies test-product Agent provider recovery guidance through the product profile', () => {
     const { product } = assembleProductFixture();
     const options = product.buildRuntimeOptions({ session: { host: testHost, cwd: process.cwd(), session: {} as never } });
 
     expect(options.providerErrorGuidance?.authentication).toContain('/provider');
     expect(options.providerErrorGuidance?.authentication).toContain(join(EQUIVALENCE_CWD, '.test-product', 'settings.json'));
-    // #3275/#3289: the rate-limit guidance used to name a `/model` command that was never
+    // The rate-limit guidance used to name a `/model` command that was never
     // registered — the real command is `/provider`.
     expect(options.providerErrorGuidance?.rateLimit).toContain('/provider');
     expect(options.providerErrorGuidance?.rateLimit).not.toContain('/model');
@@ -269,7 +269,7 @@ describe('ARCH-005 S2 — the assembled test-product runtime matches the pre-cha
     );
   });
 
-  it('composes /mode alongside /permissions in the default set — CLI-079 (issue #2444)', () => {
+  it('composes /mode alongside /permissions in the default set', () => {
     // The agent-cli SPEC once said the default CLI does NOT compose `/mode` while the code did; the
     // set-equality above would catch a silent loss, but only through a baseline a reader must diff.
     // This pins the product decision by name so a future "tidy /mode away" reads as a decision.
@@ -280,7 +280,7 @@ describe('ARCH-005 S2 — the assembled test-product runtime matches the pre-cha
   });
 
   it('derives the same module-NAME superset the kernel actually merges (no drift)', () => {
-    // The shell reports INFRA-032 unknown names from `mergedCommandModuleNames` BEFORE assembling (so the
+    // The shell reports unknown names from `mergedCommandModuleNames` BEFORE assembling (so the
     // notice survives the init/--configure early-returns). That shortcut is only valid while the derived
     // names equal the real merged product's names — asserted here so the two cannot drift apart.
     const { moduleNameSuperset, product } = assembleProductFixture();
@@ -330,7 +330,7 @@ describe('ARCH-005 S2 — the assembled test-product runtime matches the pre-cha
     expect(commandModules.map((m) => m.name)).toContain('agent-command-workflows');
   });
 
-  it('still reports an unmatched preset module name (INFRA-032 notice), and none when matched', () => {
+  it('still reports an unmatched preset module name (unknown-module notice), and none when matched', () => {
     // "editor" is the short form; the built module name is agent-command-editor → unmatched.
     expect(assembleProductFixture({ disabledCommandModules: ['editor'] }).unknownModuleNames).toEqual([
       { name: 'editor', kind: 'disabled' },
@@ -401,7 +401,7 @@ describe('ARCH-005 S2 — the assembled test-product runtime matches the pre-cha
   });
 
   it('leaves the tool set and identity defaults untouched', () => {
-    // ARCH-010 — `createDefaultTools` now requires the root. This case reads tool NAMES only and never
+    // `createDefaultTools` now requires the root. This case reads tool NAMES only and never
     // executes a tool, so the root is inert; it is the same `EQUIVALENCE_CWD` the session cases above
     // use, rather than a real workspace the assertion has no business pointing at.
     expect(createDefaultTools({ cwd: EQUIVALENCE_CWD }).map((t) => t.getName())).toEqual(
@@ -431,7 +431,7 @@ describe('ARCH-005 S2 — the assembled test-product runtime matches the pre-cha
 
   it('resolves presets identically (built-ins reachable through the instance registry)', () => {
     const { product } = assembleProductFixture();
-    // ARCH-009: the comparison partner used to be agent-preset's module-global resolver. It is now a
+    // The comparison partner used to be agent-preset's module-global resolver. It is now a
     // registry constructed with no external presets, which is the same built-ins by construction —
     // and the registry a host that supplies none gets.
     const builtIns = createPresetRegistry();
@@ -445,18 +445,18 @@ describe('ARCH-005 S2 — the assembled test-product runtime matches the pre-cha
   });
 });
 
-/* ── ARCH-008 — ONE preset resolution path ────────────────────────────────────────────────────────── */
+/* ── ONE preset resolution path ────────────────────────────────────────────────────────── */
 
 /** An external preset with a posture no built-in has, so a resolution can be traced to its source. */
 const ARCH_008_EXTERNAL: IPreset = {
   id: 'arch-008-external',
-  title: 'ARCH-008 probe',
+  title: 'external probe',
   description: 'external preset used to trace which registry a resolution came from',
   persona: 'arch-008 persona',
   autonomy: 'act-first',
 };
 
-describe('ARCH-008 — test-product resolves presets through the kernel’s per-call registry', () => {
+describe('test-product resolves presets through the kernel’s per-call registry', () => {
   it('assembles the product over the SAME registry instance the shell resolved with', () => {
     // Not "an equivalent registry" — the same object. Two equivalent registries are two resolution
     // paths that agree today and can diverge tomorrow; this is what makes it one path.
@@ -521,7 +521,7 @@ describe('ARCH-008 — test-product resolves presets through the kernel’s per-
       ),
     ).toBeDefined();
     // …and a registry built afterwards still starts at the built-ins, so nothing accumulated anywhere
-    // a later host would read. Before ARCH-009 this asked the module-global registry; there is none.
+    // a later host would read. There is no module-global registry to ask.
     expect(
       createPresetRegistry()
         .listPresets()
@@ -530,10 +530,9 @@ describe('ARCH-008 — test-product resolves presets through the kernel’s per-
   });
 
   it('resolves test-product’s startup preset from the shell’s list, by VALUE not by id', () => {
-    // ARCH-008 wrote this as "same id in the module-global registry and in the shell's list; a
-    // resolution that read the global returns FROM-THE-GLOBAL". ARCH-009 deleted the global, so that
-    // spelling could no longer fail on the condition it named — the defect class this repository
-    // scans for, and it would have sat inside the change that removed the condition.
+    // A spelling like "same id in a module-global registry and in the shell's list; a resolution
+    // that read the global returns FROM-THE-GLOBAL" cannot fail now that no global exists, which is
+    // the defect class this repository scans for.
     //
     // What survives is the half that can still fail: the VALUE comes from the list the shell handed
     // over. Asserting the value rather than "something resolved" is what makes a wrong source visible;

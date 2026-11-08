@@ -1,5 +1,5 @@
 /**
- * MCP-002 (TC-21) — agent-cli COMPOSES `@robota-sdk/agent-mcp`'s manager; it owns no protocol,
+ * Agent-cli COMPOSES `@robota-sdk/agent-mcp`'s manager; it owns no protocol,
  * catalog, retry or trust-policy logic of its own. Three properties prove that boundary:
  *
  * 1. A resolved, admitted HTTP definition's discovered tool reaches the generic dynamic-tool path
@@ -339,7 +339,7 @@ describe('createMcpClientComposition', () => {
     }
   });
 
-  it('records connected-tool provenance (serverId, sourceName, securityIdentity) for MCP-004', async () => {
+  it('records connected-tool provenance (serverId, sourceName, securityIdentity)', async () => {
     const entries = [resolvedEntry()];
     const approvalStore = approvedApprovalStore(entries);
     const diagnostics = diagnosticsSink();
@@ -405,7 +405,7 @@ describe('createMcpClientComposition', () => {
   });
 });
 
-describe('MCP Servers section runtime status (#3282 §4 part b-2)', () => {
+describe('MCP Servers section runtime status', () => {
   it('list() reports a connected server as connected, with its tool names', async () => {
     const entries = [resolvedEntry()];
     const approvalStore = approvedApprovalStore(entries);
@@ -597,7 +597,7 @@ describe('MCP Servers section runtime status (#3282 §4 part b-2)', () => {
     await composition.shutdown();
   });
 
-  it('two overlapping reload() calls join one connection pass and both callers get the same result (#3282 §4 part b-2 review)', async () => {
+  it('two overlapping reload() calls join one connection pass and both callers get the same result', async () => {
     const entries = [
       resolvedEntry({ name: 'weather' }),
       resolvedEntry({
@@ -662,7 +662,7 @@ describe('MCP Servers section runtime status (#3282 §4 part b-2)', () => {
     await composition.shutdown();
   });
 
-  it("a late reloadToolsAdded from a reload() that a later call already superseded doesn't clear the later one's provenance (#3282 §4 part b-2 review)", async () => {
+  it("a late reloadToolsAdded from a reload() that a later call already superseded doesn't clear the later one's provenance", async () => {
     // Two servers, each fixed on a different reload: A on the first call, B only on the second.
     function flakyServer(name: string, succeedsFromAttempt: number): IMcpServerConnection {
       let attempts = 0;
@@ -751,12 +751,12 @@ describe('MCP Servers section runtime status (#3282 §4 part b-2)', () => {
   });
 });
 
-// --- MCP-004 (TC-18): `toolCallMs` is a fifth, independently-set timeout — `buildMcpClientTimeouts`
+// --- `toolCallMs` is a fifth, independently-set timeout — `buildMcpClientTimeouts`
 // sets it from the resolved `mcp.callTimeoutMs`, and the composition passes the result straight
-// through to the supervisor, leaving the other four MCP-002 defaults untouched.
+// through to the supervisor, leaving the other four defaults untouched.
 
-describe('buildMcpClientTimeouts (TC-18)', () => {
-  it('sets toolCallMs from callTimeoutMs while the other four keep their MCP-002 defaults', () => {
+describe('buildMcpClientTimeouts', () => {
+  it('sets toolCallMs from callTimeoutMs while the other four keep their defaults', () => {
     const timeouts = buildMcpClientTimeouts(900_000);
 
     expect(timeouts).toEqual({
@@ -974,7 +974,7 @@ describe('OAuth remote servers', () => {
   });
 });
 
-describe('stdio client host authority (MCP-2522)', () => {
+describe('stdio client host authority', () => {
   const roots: string[] = [];
   afterEach(() => {
     for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
@@ -1088,7 +1088,7 @@ describe('stdio client host authority (MCP-2522)', () => {
   });
 });
 
-// --- Static import-boundary check (TC-21): the product composes the manager, it does not import
+// --- Static import-boundary check: the product composes the manager, it does not import
 // the protocol SDK directly. Mirrors `agent-mcp`'s own `definition-no-side-effects.test.ts`.
 
 const CLI_SRC = path.resolve(import.meta.dirname, '..', '..');
@@ -1116,7 +1116,7 @@ function importSpecifiersOf(file: string): string[] {
   return specifiers;
 }
 
-describe('agent-cli imports no MCP protocol SDK directly (TC-21)', () => {
+describe('agent-cli imports no MCP protocol SDK directly', () => {
   it('finds source files to check', () => {
     expect(tsSourceFiles(CLI_SRC).length).toBeGreaterThan(0);
   });

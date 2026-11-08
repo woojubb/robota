@@ -28,7 +28,7 @@ async function confirmViaReadline(question: string): Promise<boolean> {
 }
 
 /**
- * CLI-070 confirmation matrix for the destructive `--reset` flag:
+ * Confirmation matrix for the destructive `--reset` flag:
  * `--yes` → delete; TTY without `--yes` → y/N prompt (default N);
  * non-TTY without `--yes` → refuse with exit 1, file untouched.
  * Returns the process exit code.

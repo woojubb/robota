@@ -241,7 +241,7 @@ describe('detached supervised runtime', () => {
     }
   }, 30_000);
 
-  it('#3282 §3: a child that dies before readiness reports its benign stderr exactly', async () => {
+  it('a child that dies before readiness reports its benign stderr exactly', async () => {
     let child: ChildProcess | undefined;
     try {
       await expect(launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
@@ -257,7 +257,7 @@ describe('detached supervised runtime', () => {
     }
   }, 10_000);
 
-  it('#3282 §3: the reported stderr has no ANSI codes and no secret, env or pattern-matched', async () => {
+  it('the reported stderr has no ANSI codes and no secret, env or pattern-matched', async () => {
     const envSecret = 'sk-test-env-credential-abcdefgh12345';
     let child: ChildProcess | undefined;
     let message = '';

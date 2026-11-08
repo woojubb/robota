@@ -16,7 +16,7 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-/** Issue #3429 — a trust granted at startup admits project credentials, which are then withheld. */
+/** A trust granted at startup admits project credentials, which are then withheld. */
 describe('admitStartupTrustDecision', () => {
   it('withholds a project profile credential once the workspace is trusted', async () => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-admit-trust-')));

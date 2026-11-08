@@ -2,7 +2,7 @@
   "name": "robota-capability-sandboxed-tools",
   "version": "0.1.0",
   "private": true,
-  "description": "Robota capability demo \u2014 run the agent's file and shell tools inside a sandbox instead of on the host, and see why a sandboxed parent cannot spawn child-process subagents (ARCH-033)",
+  "description": "Robota capability demo \u2014 run the agent's file and shell tools inside a sandbox instead of on the host, and see why a sandboxed parent cannot spawn child-process subagents",
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",

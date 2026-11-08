@@ -1,6 +1,6 @@
 /**
  * How a run's command line and terminal become the startup resume decision, and how that decision
- * reaches the terminal UI (#3679). Kept apart from `cli-core.ts` so what makes a "yes" work — who can
+ * reaches the terminal UI. Kept apart from `cli-core.ts` so what makes a "yes" work — who can
  * be asked, and the accepted digest reaching the session — is one tested place.
  */
 
@@ -56,7 +56,7 @@ export function startupResumeInput(options: {
     cwd: options.cwd,
     continueMode: options.request.continueMode,
     resumeId: options.request.resumeId,
-    // #3289 §1: a served/daemon runtime's own launch reuses an existing empty session of this
+    // A served/daemon runtime's own launch reuses an existing empty session of this
     // workspace instead of adding another one — nothing else can be bound to anything yet.
     reuseEmptySession: options.surface.serve && !options.request.noSessionPersistence,
     interactive: canAskAtStartup(options.surface),

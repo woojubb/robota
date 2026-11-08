@@ -1,6 +1,6 @@
 /**
  * Which saved session a run starts in when a store that seals says some records are not verified as
- * the owner's (#3679). The stores are real sealing stores over the agent-core sealer double: owner
+ * the owner's. The stores are real sealing stores over the agent-core sealer double: owner
  * records are written by the store while unlocked (tagged); unverified ones are planted with the
  * public side alone, as any program of the same user can.
  */

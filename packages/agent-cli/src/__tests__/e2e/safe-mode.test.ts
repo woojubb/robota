@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../helpers/product-runtime.js';
 /**
- * Issue #3082 — `--safe-mode` starts the product with every customization off, so a misbehaving
+ * `--safe-mode` starts the product with every customization off, so a misbehaving
  * instruction file, skill, plugin, hook or MCP server can be ruled out in one run.
  */
 

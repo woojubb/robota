@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * #3356 — one shared glob-matcher for release-desktop-app.yml's two asset-matching steps ("Assert
+ * One shared glob-matcher for release-desktop-app.yml's two asset-matching steps ("Assert
  * packaged artifacts exist and are non-trivial" and "Generate SHA-256 checksums for this OS's
  * installers"), which used to each carry their own copy of
  * `for pattern in $ASSETS; do for f in $pattern; do found+=("$f"); done; done`.

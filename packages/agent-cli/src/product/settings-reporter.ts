@@ -1,6 +1,6 @@
 /**
- * #3282 §4a/§4b — the GUI Settings screen's typed read/write, wired into the WS transport the same
- * way `reportCurrentSessionUsage` wires usage reads. §4b adds the "Providers & Models" section:
+ * The GUI Settings screen's typed read/write, wired into the WS transport the same
+ * way `reportCurrentSessionUsage` wires usage reads. It also adds the "Providers & Models" section:
  * its list read from `buildProviderProfilesSnapshot`, its writes (`providerProfile`, `providerModel`,
  * `deleteProviderProfile`) routed through `/provider switch|delete` and `/model`, same as every other
  * field here.
@@ -49,9 +49,9 @@ export interface ICreateSettingsReporterOptions {
   readonly commandHostAdapters: ICommandHostAdapters;
   readonly settingsSources: readonly TSettingsSource[];
   readonly settingsStores: readonly ISettingsDocumentStore[];
-  /** #3282 §4b: reads/builds the "Providers & Models" section and its writes' `switch`/`model` path. */
+  /** Reads/builds the "Providers & Models" section and its writes' `switch`/`model` path. */
   readonly providerDefinitions?: readonly IProviderDefinition[];
-  /** #3282 §4b: the same allowlist `buildModelListSnapshot` filters by — never offer what it refuses. */
+  /** The same allowlist `buildModelListSnapshot` filters by — never offer what it refuses. */
   readonly orgPolicy?: IOrgPolicy | null;
   /** The startup environment snapshot `$ENV:` credential references are checked against. */
   readonly environment?: Readonly<Record<string, string | undefined>>;
@@ -113,7 +113,7 @@ function mcpScopeLabel(source: unknown): string {
   return source === 'project' || source === 'local' ? 'This project' : 'All projects';
 }
 
-/** `data.servers` as `/mcp status` shapes it (`ICommandMCPActivationSummary[]`, #3282 §4 part b-2). */
+/** `data.servers` as `/mcp status` shapes it (`ICommandMCPActivationSummary[]`). */
 function asMcpServers(value: unknown): ISettingsMcpServer[] {
   if (!Array.isArray(value)) return [];
   return value.filter(isRecord).map((entry) => {
@@ -205,7 +205,7 @@ async function buildSnapshot(
   const language = asString(settingsDocument['language']);
 
   // `displayName` is the plain label `@robota-sdk/agent-framework`'s own `PERMISSION_MODE_LABELS`
-  // (#3282 §2) sets for every mode — reused here rather than kept as a second table.
+  // sets for every mode — reused here rather than kept as a second table.
   const permissionModeChoices: ISettingsChoice[] = buildPermissionModeSubcommands().map((sub) => ({
     id: sub.name,
     label: sub.displayName ?? sub.name,
@@ -217,7 +217,7 @@ async function buildSnapshot(
   const mcpData = isRecord(mcpResult?.data) ? mcpResult.data : {};
   const pluginsData = isRecord(pluginsResult?.data) ? pluginsResult.data : {};
 
-  // #3282 §4b: the SAME merged read `/provider`'s own command reads (`readMergedProviderSettings`
+  // The SAME merged read `/provider`'s own command reads (`readMergedProviderSettings`
   // over these `settingsSources`) — never just `commandHostAdapters.settings.read()`, which is the
   // raw user-scope document and would miss a profile defined at another settings layer.
   const providerSettings = readMergedProviderSettings(settingsSources);
@@ -258,7 +258,7 @@ async function buildSnapshot(
     mcp: { servers: asMcpServers(mcpData['servers']) },
     plugins: {
       plugins: asPlugins(pluginsData['plugins']),
-      // #3282 §4 part b-2: install/uninstall run third-party code, so they stay local-surface-only.
+      // Install/uninstall run third-party code, so they stay local-surface-only.
       canInstall: locality !== 'remote',
     },
     providers: providersSection,
@@ -382,7 +382,7 @@ async function applyPatch(
       if (!removed) return failure('invalid', 'That rule was already gone.');
       return succeed(session, options, locality);
     }
-    // #3282 §4 part b-2: MCP servers and plugins. Every write below goes through the exact command
+    // MCP servers and plugins. Every write below goes through the exact command
     // its slash counterpart uses (`/mcp approve|reject|reload`, `/plugin enable|disable|install|
     // uninstall`, `/reload-plugins`) — never a bespoke adapter call — so a refusal the command gives
     // is the refusal reported here too.
@@ -442,7 +442,7 @@ async function applyPatch(
       }
       return succeed(session, options, locality);
     }
-    // #3282 §4b: "Use" — the exact path `/provider switch <profile>` runs (validate, hot-swap,
+    // "Use" — the exact path `/provider switch <profile>` runs (validate, hot-swap,
     // persist), so a switch that would fail changes nothing on disk here either.
     case 'providerProfile': {
       const result = await session.executeCommand('provider', `switch ${patch.profileName}`, 'remote');
@@ -451,7 +451,7 @@ async function applyPatch(
       }
       return succeed(session, options, locality);
     }
-    // #3282 §4b: "Model" — `profileName` is switched to FIRST (a no-op success when it is already
+    // "Model" — `profileName` is switched to FIRST (a no-op success when it is already
     // current, exactly like "Use"), then `/model <id>` runs against it: two profiles of the same
     // provider type can share a catalog id, and resolving by id alone would silently prefer whichever
     // profile is already current instead of the row this was clicked on.
@@ -466,7 +466,7 @@ async function applyPatch(
       }
       return succeed(session, options, locality);
     }
-    // #3282 §4b: "Delete" — `/provider delete <profile>`'s direct, non-interactive form: refuses
+    // "Delete" — `/provider delete <profile>`'s direct, non-interactive form: refuses
     // (never an interactive replacement ask) when the profile is the one in use. `--confirmed`: the
     // GUI's "Delete…" button already confirmed through its own ConfirmDialog before sending this
     // patch — a modal write has nowhere to render a follow-up ask, unlike a plainly-typed

@@ -169,7 +169,7 @@ function buildPackagesSection(locale: string): SidebarItem {
  * Build the full sidebar tree, locale-aware.
  *
  * Hrefs are locale-prefixed (`/en/guide`, `/ko/guide`, …): the site is a static export
- * whose pages only exist under `/<locale>/…`, so locale-less hrefs 404 (DOCS-002).
+ * whose pages only exist under `/<locale>/…`, so locale-less hrefs 404.
  */
 export function buildSidebar(locale: string = 'en'): SidebarItem[] {
   return [

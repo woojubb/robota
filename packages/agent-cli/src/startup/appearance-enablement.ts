@@ -1,5 +1,5 @@
 /**
- * SCREEN-2002 — the appearance a run renders with (agent-cli owned).
+ * The appearance a run renders with (agent-cli owned).
  *
  * Two of the three appearance settings are read and passed through unchanged; the third,
  * `reducedMotion`, is the one a single run can override, so it gets a precedence chain:

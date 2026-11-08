@@ -1,5 +1,5 @@
 /**
- * #3189 — a served runtime binds its transports to a session slot, and the per-session usage report
+ * A served runtime binds its transports to a session slot, and the per-session usage report
  * reads the slot's current session: the report follows a switch rather than failing on the slot.
  */
 

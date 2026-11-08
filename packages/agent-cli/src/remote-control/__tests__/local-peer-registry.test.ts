@@ -23,7 +23,7 @@ import {
 } from '../local-peer-registry.js';
 
 /**
- * #1863 — discovery over the guarded rendezvous.
+ * Discovery over the guarded rendezvous.
  *
  * The directory's permissions do the security work; these tests are about the part that is NOT
  * security: telling a live session from a file a crashed one left behind.
@@ -48,7 +48,7 @@ function starts(map: Record<number, string | undefined>) {
   return (pid: number): string | undefined => map[pid];
 }
 
-describe('#1863 — announcing and withdrawing', () => {
+describe('announcing and withdrawing', () => {
   it('publishes an entry a peer can read back', () => {
     const guardedDirectory = scratch();
     const opts = { guardedDirectory, readStartTime: starts({ 100: 'T1' }), now: () => 5 };
@@ -92,7 +92,7 @@ describe('#1863 — announcing and withdrawing', () => {
   });
 });
 
-describe('#1863 — telling a live session from a crashed one', () => {
+describe('telling a live session from a crashed one', () => {
   it('prunes proven dead entries while preserving unknown and live announcements', () => {
     const guardedDirectory = scratch();
     const announced = { guardedDirectory, readStartTime: starts({ 100: 'T1', 200: 'T2', 300: 'T3' }) };
@@ -272,7 +272,7 @@ describe('#1863 — telling a live session from a crashed one', () => {
   });
 });
 
-describe('#1863 — a malformed entry is not a peer', () => {
+describe('a malformed entry is not a peer', () => {
   it('skips unparseable and shape-invalid files rather than surfacing them', () => {
     const guardedDirectory = scratch();
     writeFileSync(join(guardedDirectory, 'broken.peer.json'), '{not json', 'utf8');
@@ -283,7 +283,7 @@ describe('#1863 — a malformed entry is not a peer', () => {
   });
 });
 
-describe('#2726 — peer activity is evidence, not liveness', () => {
+describe('peer activity is evidence, not liveness', () => {
   it('shows only a fresh, valid observation from a confirmed live process', () => {
     const guardedDirectory = scratch();
     let now = 1_000;

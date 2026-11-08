@@ -223,7 +223,7 @@ describe('TUI external event grants', () => {
   });
 });
 
-describe('grants across a switch on a run-level history (#3189)', () => {
+describe('grants across a switch on a run-level history', () => {
   it('a revoke survives the switch without taking the other grants or the switch down', async () => {
     const history = createExternalEventGrantHistory();
     const submit = vi.fn(async () => ({

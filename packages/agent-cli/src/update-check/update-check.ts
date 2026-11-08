@@ -251,6 +251,6 @@ async function fetchLatestVersion(options: {
 }
 
 function buildPackageMetadataUrl(registryUrl: string, packageName: string): string {
-  // `trimTrailingChars` rather than `/\/+$/`: an unanchored trailing-run regex is quadratic (SEC-003).
+  // `trimTrailingChars` rather than `/\/+$/`: an unanchored trailing-run regex is quadratic.
   return `${trimTrailingChars(registryUrl, '/')}/${encodeURIComponent(packageName)}`;
 }

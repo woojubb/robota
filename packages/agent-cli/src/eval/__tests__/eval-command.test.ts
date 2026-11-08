@@ -1,5 +1,5 @@
 /**
- * SELFHOST-011 P2 — `the product eval` exit-code contract (TC-03, the CI gate).
+ * `the product eval` exit-code contract (the CI gate).
  *
  * `runEvalCommand` returns 1 on a failing eval and 0 on a passing one. Tests inject `loadDefinition` + `runFn`
  * so no filesystem module or live provider is touched.
@@ -49,7 +49,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('runEvalCommand — exit-code contract (TC-03)', () => {
+describe('runEvalCommand — exit-code contract', () => {
   it('returns 0 when every metric passes the threshold', async () => {
     const code = await runEvalCommand(['demo.mjs'], '/tmp', {
       loadDefinition: () => Promise.resolve(definition()),

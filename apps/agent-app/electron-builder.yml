@@ -1,4 +1,4 @@
-# GUI-003 — electron-builder config for the generated desktop product.
+# Electron-builder config for the generated desktop product.
 # Bundles the selected host-arch CLI runtime (copied to resources-bin/ by scripts/bundle-runtime.mjs) as an
 # extraResource, so the installed app is self-contained (zero external install).
 #

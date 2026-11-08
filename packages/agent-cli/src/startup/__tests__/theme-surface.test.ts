@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * SCREEN-2002 TC-08 — the run's theme surface.
+ * The run's theme surface.
  *
  * Its job is to hand ONE registry to two consumers and to carry the motion decision to both. The
  * assertion that matters is the second one: the picker renders `reducedMotionOverride`, and a fold
@@ -30,7 +30,7 @@ afterEach(() => {
   for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-describe('the theme surface (SCREEN-2002 TC-08)', () => {
+describe('the theme surface', () => {
   it('hands the SAME registry to the command port and the renderer', () => {
     const surface = createThemeSurface({productRuntime: createTestProductRuntime('test-product', { HOME: emptyHome() }),
       cwd: undefined,
@@ -117,7 +117,7 @@ describe('the theme surface (SCREEN-2002 TC-08)', () => {
   });
 });
 
-describe('the theme surface over real theme files (SCREEN-2002 TC-11)', () => {
+describe('the theme surface over real theme files', () => {
   it('puts user themes in the same registry as the built-ins, and skips beside them', () => {
     const home = emptyHome();
     const directory = join(home, '.test-product', 'themes');

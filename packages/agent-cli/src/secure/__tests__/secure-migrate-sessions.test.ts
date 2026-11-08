@@ -1,5 +1,5 @@
 /**
- * The sessions `secure migrate` sealed from plaintext (#3679): sealing says nothing about who wrote a
+ * The sessions `secure migrate` sealed from plaintext: sealing says nothing about who wrote a
  * file any program of the user could have written, so they stay unverified unless the person, asked
  * once at the end of a finished run, marks them as theirs. Driven as a person at a terminal would, as
  * `secure-migrate.test.ts` drives the rest of the command.

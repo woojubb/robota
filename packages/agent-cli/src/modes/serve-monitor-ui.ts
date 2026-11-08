@@ -1,5 +1,5 @@
 /**
- * GUI-007 — serve the GUI web app (`packages/agent-gui-web`, copied to this package's
+ * Serve the GUI web app (`packages/agent-gui-web`, copied to this package's
  * `dist/web`) over a localhost-only HTTP server, injecting the live `ws-url` into `index.html`. This is the
  * CLI OWNING and SERVING its own GUI (a localhost-origin surface) — the secure replacement for a deployed
  * page reaching into `localhost`. Kept SEPARATE from the WS transport (a neutral library must not serve a UI).
@@ -45,7 +45,7 @@ export interface IMonitorUiServer {
 }
 
 /**
- * #3289 §3: what `--serve --open` prints once the page is up. "The product", not "web monitor" — the
+ * What `--serve --open` prints once the page is up. "The product", not "web monitor" — the
  * person opening it is looking at their own running session, not a separate observability tool.
  */
 export function servedAtMessage(url: string, runtime: ICliRuntimeContext): string {
@@ -107,7 +107,7 @@ export async function startMonitorUiServer(
   const server = createServer((req, res) => {
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Cache-Control', 'no-store');
-    // Defense-in-depth (SEC-001): reject a non-loopback Host so a DNS-rebinding page cannot read the
+    // Defense-in-depth: reject a non-loopback Host so a DNS-rebinding page cannot read the
     // token-carrying index.html from this server, mirroring the WS transport's upgrade check.
     if (!isLoopbackHostHeader(req.headers.host)) {
       res.writeHead(403).end('Forbidden host');
@@ -170,7 +170,7 @@ export async function startMonitorUiServer(
       }
     }
     // A malformed percent-encoding (e.g. `GET /%`) must NOT crash the serve host via an uncaught URIError —
-    // SEC-001 treats localhost as hostile, so a co-resident process must not DoS the running agent.
+    // Localhost is treated as hostile, so a co-resident process must not DoS the running agent.
     let rawPath: string;
     try {
       rawPath = decodeURIComponent((req.url ?? '/').split('?')[0]);
@@ -181,7 +181,7 @@ export async function startMonitorUiServer(
     const relPath = isSession
       ? rawPath === sessionPath ? '/index.html' : `/${rawPath.slice(sessionPath.length)}`
       : rawPath;
-    // Structural containment (SEC-006): split the URL path into segments and admit only plain names.
+    // Structural containment: split the URL path into segments and admit only plain names.
     // A request cannot escape `webRoot` because it is never given a component that traverses — `..`,
     // `.` and embedded separators are rejected outright rather than normalized away afterwards.
     // This replaces a normalize-then-compare-prefix guard which was correct but only ACCIDENTALLY so:
@@ -213,8 +213,8 @@ export async function startMonitorUiServer(
     }
     // Only a regular FILE may be served. `existsSync` is also true for a directory, and
     // `readFileSync(<dir>)` throws EISDIR synchronously inside this request callback — an uncaught
-    // exception that takes the whole serve host down. SEC-001 treats localhost as hostile, so a
-    // co-resident process must not be able to DoS the running agent with `GET /assets` (SEC-006).
+    // exception that takes the whole serve host down. Localhost is treated as hostile, so a
+    // co-resident process must not be able to DoS the running agent with `GET /assets`.
     //
     // The path is resolved EXACTLY ONCE, into a file descriptor, and the kind-check and the read both
     // operate on that descriptor. A path-based `stat` followed by a path-based `read` would be two

@@ -1,5 +1,5 @@
 /**
- * ARCH-005 S3 — the external-consumer proof.
+ * The external-consumer proof.
  *
  * This package is installed from `pnpm pack` tarballs into a directory OUTSIDE the agent runtime monorepo. Every
  * import below resolves to a published package in `node_modules` — there is no workspace link, no path
@@ -18,7 +18,7 @@ import { runModeC } from './mode-c.js';
 import { runModeD } from './mode-d.js';
 
 process.stdout.write(
-  'ARCH-005 S3 — external-consumer proof of the published agent runtime product-composition surface\n' +
+  'external-consumer proof of the published agent runtime product-composition surface\n' +
     `consumer package: ${process.cwd()}\n`,
 );
 

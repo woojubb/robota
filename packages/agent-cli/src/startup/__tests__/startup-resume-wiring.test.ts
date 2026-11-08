@@ -1,6 +1,6 @@
 /**
  * How a run's surface and terminal decide whether the startup question is asked, and how a "yes"
- * reaches the session (#3679). The question is written on stderr and answered on stdin, so both must
+ * reaches the session. The question is written on stderr and answered on stdin, so both must
  * be a terminal: a run whose stderr is redirected would wait on a question nobody sees.
  */
 

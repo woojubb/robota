@@ -40,7 +40,7 @@ const definitions: IProviderDefinition[] = [
   },
 ];
 
-describe('test-product doctor route (OBSERVABILITY-1991 TC-01)', () => {
+describe('test-product doctor route', () => {
   it('parses only --repair <id> and --yes; anything else is an error, not a global-parser rejection', () => {
     expect(parseDoctorRouteArgs([])).toEqual({ yes: false });
     expect(parseDoctorRouteArgs(['--repair', 'x', '--yes'])).toEqual({ repair: 'x', yes: true });

@@ -27,7 +27,7 @@ export const SECURE_EDITOR_UNAVAILABLE =
 
 /**
  * The capability packs `the product` composes. Removing one genuinely removes its capability from the product —
- * its command modules, its subagents AND (since ARCH-006) its tools, because the profile hands the packs
+ * its command modules, its subagents AND its tools, because the profile hands the packs
  * the whole tool surface (see {@link PACKS_OWN_TOOL_SURFACE}).
  *
  * A FACTORY over the session context, not a constant: `pack-coding`'s file tools are scoped to the `cwd`
@@ -50,7 +50,7 @@ export function createProductCapabilityPacks(
 }
 
 /**
- * ARCH-006: `the product`'s packs OWN its tool surface. The shell passes this as the session's `defaultTools`,
+ * `the product`'s packs OWN its tool surface. The shell passes this as the session's `defaultTools`,
  * which REPLACES `agent-framework`'s `createDefaultTools()` tier — so every tool the product runs comes from a
  * pack, and dropping a pack drops its tools from the product. Exported as the single named declaration of
  * that decision rather than an anonymous `[]` at the call site.
@@ -76,7 +76,7 @@ export interface IProductProfileInput {
   /** Pre-built provider that overrides `providerSettings` — `--session-log` replay uses this. */
   provider?: IAIProvider;
   /**
-   * The shell's single preset resolution (ARCH-008) — the per-call registry it ran over, the selected id,
+   * The shell's single preset resolution — the per-call registry it ran over, the selected id,
    * and the override context. Taken as ONE value so the profile cannot carry a registry/id/context other
    * than the ones the shell actually resolved with; `assembleProduct` adopts the same registry and replays
    * the same context, so `product.defaultPreset` IS `preset.options`.

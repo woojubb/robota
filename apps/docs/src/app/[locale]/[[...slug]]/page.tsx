@@ -185,7 +185,7 @@ function HomePage({
         </p>
 
         <div className="flex flex-wrap gap-3">
-          {/* Hero CTAs — min-h-11 keeps the primary tap targets at >= 44px (DOCS-002) */}
+          {/* Hero CTAs — min-h-11 keeps the primary tap targets at >= 44px */}
           <a
             href="getting-started"
             className="inline-flex min-h-11 items-center gap-1.5 rounded bg-primary px-5 [font-family:var(--font-display)] text-[0.85rem] font-semibold tracking-[0.02em] text-[var(--primary-foreground)] no-underline shadow-[0_0_24px_color-mix(in_srgb,var(--accent)_20%,transparent)] transition-shadow"

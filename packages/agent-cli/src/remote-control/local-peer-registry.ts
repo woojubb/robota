@@ -1,5 +1,5 @@
 /**
- * #1863: how one live session learns another is reachable.
+ * How one live session learns another is reachable.
  *
  * A session announces itself by writing one file into the guarded rendezvous directory; discovery
  * is reading that directory. The directory's permissions do the security work — only this user on

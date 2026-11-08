@@ -1,8 +1,8 @@
-# DIST-003 — Node-less installer for the selected CLI (Windows PowerShell).
+# Node-less installer for the selected CLI (Windows PowerShell).
 #
 # Select the installation script URL from PROJECT_INSTALL_SCRIPT_URL.
 #
-# Downloads the DIST-002 windows-x64 release binary, integrity-verifies its SHA-256, installs it to
+# Downloads the windows-x64 release binary, integrity-verifies its SHA-256, installs it to
 # configured user state root/bin, adds that dir to the USER PATH, and confirms via the absolute path. No Node.js.
 $ErrorActionPreference = 'Stop'
 

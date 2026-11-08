@@ -57,10 +57,10 @@ export function createCliUsageTransportRegistry(
   projectStore: IInteractiveSessionStore,
   projectTrusted: boolean,
   open: boolean,
-  /** #3189: binds each client to the sessions it lists, starts and switches (serve mode only). */
+  /** Binds each client to the sessions it lists, starts and switches (serve mode only). */
   sessionBinder?: ISessionBinder<IProtocolSession>,
   daemon = false,
-  /** #3282 §4a: host-owned read/write for the GUI Settings screen. */
+  /** Host-owned read/write for the GUI Settings screen. */
   settingsReporter?: ISessionMessageHandlerOptions['settingsReporter'],
   /** A token handed over outside the environment (a supervised daemon's pipe); never written back to it. */
   transportToken?: string,

@@ -31,8 +31,8 @@ export interface IProjectSetupRoutingOptions {
 
 /**
  * The result of routing: `handled` means the caller returns immediately (init/`--configure` ran, or a
- * hard provider-configuration failure already reported itself and exited). `setupRequired` (issue
- * #3282 §3) means startup continues, but with no usable provider — set only for `--serve` (which a
+ * hard provider-configuration failure already reported itself and exited). `setupRequired`
+ * means startup continues, but with no usable provider — set only for `--serve` (which a
  * daemon-launched child also is), never for the TUI or print mode, which keep exiting as before.
  */
 export interface IProjectSetupRoutingResult {
@@ -89,7 +89,7 @@ export async function routeProjectSetup(
       settingsAccess,
     );
   } catch (error) {
-    // #3282 §3: a served runtime (including a daemon's child, which is also `--serve`) starts in
+    // A served runtime (including a daemon's child, which is also `--serve`) starts in
     // setup mode instead of exiting — the GUI walks a first-run person through configuring a
     // provider. The TUI and print mode are unchanged: a person with no GUI still needs the terminal
     // message to know what happened.

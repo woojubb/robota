@@ -168,7 +168,7 @@ describe('edit checkpoints of a run that persists no session', () => {
     expect(readdirSync(productRuntime.layout.userPaths.ephemeralCheckpoints)).toHaveLength(1);
   });
 
-  // ARCH-047: writing under the project is Linux-only, so the project directory is only reachable there.
+  // Writing under the project is Linux-only, so the project directory is only reachable there.
   it.runIf(process.platform === 'linux')(
     'are the project directory’s without the flag, which is what the flag changes',
     async () => {

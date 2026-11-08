@@ -19,7 +19,7 @@ const COST_BUDGET_FILE = costBudgetFile(createTestProductRuntime());
 
 
 /**
- * CMD-007 (issue #2058): the file adapter owns this product's budget storage policy — the path, the
+ * The file adapter owns this product's budget storage policy — the path, the
  * unconditional (no check-then-use) write, and the symlink refusal — moved here from the command.
  */
 describe('createFileCostBudgetAdapter', () => {

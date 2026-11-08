@@ -7,7 +7,7 @@ import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 /**
  * Adapt a live protocol session to the existing per-session usage report. A served runtime binds its
- * transports to a session slot (#3189); the report is about the slot's current session.
+ * transports to a session slot; the report is about the slot's current session.
  */
 export function reportCurrentSessionUsage(session: IProtocolSession): IUsageBySourceReport {
   const target = session instanceof SessionSlot ? (session.current as IProtocolSession) : session;

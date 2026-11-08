@@ -3,12 +3,12 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * Persistence for the CLI update-check cache: where it lives, how it is read, how it is written.
  *
  * Split out of `update-check.ts` under the anti-monolith ratchet — that file sits on its frozen
- * 305-line baseline, and routing the write through the owner-only writer (issue #2229) needed one
+ * 305-line baseline, and routing the write through the owner-only writer needed one
  * line more than it had. The cluster carved out here is the cohesive one: a path, a codec, and the
  * two IO calls, with the policy and formatting left behind.
  *
- * The write goes through `writeOwnerOnlyFile` because SEC-020 (issue #2021) made every writer into
- * the CLI's own store owner-only and scoped this one out, leaving it the single file created there
+ * The write goes through `writeOwnerOnlyFile` because every writer into
+ * the CLI's own store is owner-only and this one was scoped out, leaving it the single file created there
  * at 0644 under a permissive umask. The store directory is the confidentiality boundary; the file
  * mode is the layer beneath it, so it carries no exception. `writeOwnerOnlyFile` also creates the
  * parent owner-only and sets the mode at CREATION rather than chmod-ing after, so the file never

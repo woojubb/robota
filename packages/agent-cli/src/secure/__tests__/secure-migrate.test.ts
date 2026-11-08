@@ -1,5 +1,5 @@
 /**
- * `secure migrate [--dry-run]` and `secure compact` (#3679), driven as a person at a terminal would:
+ * `secure migrate [--dry-run]` and `secure compact`, driven as a person at a terminal would:
  * a scripted secret terminal for the passphrase and a scripted answer to the plan. Secure mode is
  * turned on through the predicate's own seam for legacy migration tests; real
  * child processes stand in for the other product processes a migration must see.

@@ -4,7 +4,7 @@
  * The consumer hand-writes an `IPreset` against the published contract and passes it in the profile. Two
  * things must hold: the RESOLVED options reflect the preset (persona / model / permission posture, and the
  * posture reaches the runtime session options), and the preset does NOT leak — `assembleProduct` builds a
- * PER-CALL instance-scoped registry (ARCH-005 R8) without mutating an independently owned built-in registry.
+ * PER-CALL instance-scoped registry without mutating an independently owned built-in registry.
  */
 
 import { createPresetRegistry } from '@robota-sdk/agent-preset';
@@ -101,7 +101,7 @@ export function runModeB(): void {
     'bypassPermissions',
   );
 
-  section('B4 — R8: the preset does NOT leak into a second assembleProduct call');
+  section('B4 — the preset does NOT leak into a second assembleProduct call');
   const second = assembleProduct({ id: 'acme-other-tool', providerDefinitions });
   check(
     "the second product's registry does not know the first product's preset",

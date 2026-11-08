@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { resolveSelfForkWorkerEntry } from '../self-fork-worker-entry.js';
 
 /**
- * DIST-006. This function decides the arguments every subagent spawn uses, and it is the successor
+ * This function decides the arguments every subagent spawn uses, and it is the successor
  * to a seam that was wrong twice. The built-binary bintest cannot cover it: that test hardcodes
  * `[bundle, flag]` and never calls this resolver, so breaking it — returning `args: []`
  * unconditionally, say — leaves the bintest green while every shipped subagent spawns a bare `node`
@@ -38,7 +38,7 @@ afterEach(() => {
 });
 
 /**
- * #3679: a copy started under a Node that accepts it disables the SIGUSR1 inspector from its first
+ * A copy started under a Node that accepts it disables the SIGUSR1 inspector from its first
  * instruction; on an older Node there is nothing to add.
  */
 const INSPECTOR_SIGNAL_OFF = process.allowedNodeEnvironmentFlags.has('--disable-sigusr1')

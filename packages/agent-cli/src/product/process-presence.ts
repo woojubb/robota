@@ -1,6 +1,6 @@
 /**
  * Which product processes are using this state root's conversation stores right now, and whether a
- * `secure migrate` is running over them (#3679).
+ * `secure migrate` is running over them.
  *
  * Nothing else ties a store to a live process: the stores have no cross-process lock, and the
  * supervised registry covers daemons only. So each side marks itself under `<userRoot>/presence/`, in a

@@ -1,5 +1,5 @@
 /**
- * GUI-002 — Electron main process (Node). Thin shell: ask the configured CLI to start this workspace's daemon
+ * Electron main process (Node). Thin shell: ask the configured CLI to start this workspace's daemon
  * (or reuse the live one), load the GUI web app (agent-gui-web) in a hardened BrowserWindow, and hand the
  * page the daemon's loopback address in plain mode. Secure mode instead admits the native owner
  * through a session port and confirms runtime lock before the window or app closes.
@@ -143,7 +143,7 @@ mkdirSync(desktopUserData, { recursive: true, mode: 0o700 });
 app.setPath('userData', desktopUserData);
 
 /**
- * #3354: the folder this window works on. Every CLI run — trust status, the grant, the daemon start —
+ * The folder this window works on. Every CLI run — trust status, the grant, the daemon start —
  * happens in it, so the daemon serves the folder the person chose, not wherever the app was launched.
  * Unset only until the first window picks one.
  */
@@ -168,7 +168,7 @@ function isDirectory(path: string): boolean {
   }
 }
 
-// GUI-003: packaged → the configured bundled runtime; dev/e2e → explicit fixture override / configured PATH CLI.
+// Packaged → the configured bundled runtime; dev/e2e → explicit fixture override / configured PATH CLI.
 const productCli = (): string =>
   resolveSidecarCommand({
     isPackaged: app.isPackaged,
@@ -326,7 +326,7 @@ async function readTrustQuestion(): Promise<ITrustQuestion | undefined> {
   return { folder: restrictedRoot, loads: [] };
 }
 
-/** Asked and not answered yet: no daemon starts until the person answers (issue #3268). */
+/** Asked and not answered yet: no daemon starts until the person answers. */
 let pendingTrust: ITrustQuestion | undefined;
 let pendingTrustCandidate: string | undefined;
 
@@ -396,7 +396,7 @@ async function releasePendingTrustCandidate(): Promise<void> {
 }
 
 /**
- * #3354: everything that depends on the open folder — the first start, a folder switch, a reconnect and
+ * Everything that depends on the open folder — the first start, a folder switch, a reconnect and
  * a trust answer — runs one at a time. Otherwise a grant clicked while a switch is under way would land
  * on a folder whose question nobody saw, or a reconnect's trust read for the previous folder would leave
  * its question or provider references behind on the new one.
@@ -450,7 +450,7 @@ function lockNavigation(win: BrowserWindow): void {
 }
 
 /**
- * #3282 §4a: "Settings…" — id `open-settings` so `apps/agent-app/e2e/run-e2e.mjs` can click it
+ * "Settings…" — id `open-settings` so `apps/agent-app/e2e/run-e2e.mjs` can click it
  * directly (`Menu.getApplicationMenu()?.getMenuItemById('open-settings')?.click()`), the reliable
  * path in CI/headless Linux where a native accelerator key event may not reach the app the same way.
  */
@@ -630,7 +630,7 @@ function folderMenuItems(): MenuItemConstructorOptions[] {
 /**
  * A complete standard application menu — setting one at all REPLACES Electron's own default, so this
  * covers every role a person expects (Edit's cut/copy/paste keeps the composer's normal shortcuts
- * working), not only the Settings item #3282 §4a adds.
+ * working), not only the Settings item.
  */
 function buildMenu(win: BrowserWindow): Menu {
   const isMac = process.platform === 'darwin';
@@ -728,7 +728,7 @@ function useFolder(folder: string): void {
 }
 
 /**
- * Switch to another folder (#3354). The first folder's daemon keeps running — daemons are per folder —
+ * Switch to another folder. The first folder's daemon keeps running — daemons are per folder —
  * and the window attaches to the chosen folder's daemon, starting it when none is live. Every answer
  * about the previous folder (its trust question, a Restricted choice, its admitted provider references)
  * is dropped first, so the new folder is asked about afresh. With no window open (macOS), a new window
@@ -991,7 +991,7 @@ ipcMain.handle('agent-gui:trust-question', (): ITrustQuestion | null =>
   conversationMode === 'secure' ? null : pendingTrust ?? null);
 
 /**
- * The composer's attach button (#3282 §4d): a native multi-file dialog, scoped to this window so it
+ * The composer's attach button: a native multi-file dialog, scoped to this window so it
  * is modal to it rather than the whole app. Cancelling answers an empty list, same as picking nothing.
  */
 ipcMain.handle('agent-gui:pick-files', async (event): Promise<IPickedFile[]> => {
@@ -1013,7 +1013,7 @@ ipcMain.handle('agent-gui:pick-files', async (event): Promise<IPickedFile[]> => 
 });
 
 /**
- * The Project panel's Memory "Open in editor" (#3282 §4c): opens a project-relative path — as the
+ * The Project panel's Memory "Open in editor": opens a project-relative path — as the
  * local daemon itself reported it — in the OS default app for it. `resolveOpenPathTarget` refuses a
  * path that resolves outside this workspace before anything is opened.
  */
@@ -1090,7 +1090,7 @@ function reportFatal(sender: WebContents, detail: string | undefined): void {
   if (!sender.isDestroyed()) sender.send('agent-gui:state', 'fatal', detail);
 }
 
-// INFRA-040: the rejection is ROUTED. `createWindow` starts the daemon and loads the renderer; if that
+// The rejection is ROUTED. `createWindow` starts the daemon and loads the renderer; if that
 // fails the app has no window and, before this, no message either — the process just sat there. `.catch`
 // after `.then`, not `.then(fn, onRejected)`, because the second argument handles a rejection of
 // `whenReady()` alone and would let a `createWindow` failure float on unchanged.
@@ -1182,7 +1182,7 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// #3354: on macOS the app outlives its last window; clicking the Dock icon opens a new one on the same
+// On macOS the app outlives its last window; clicking the Dock icon opens a new one on the same
 // folder, which reattaches to that folder's live daemon.
 app.on('activate', () => {
   if (!app.isReady() || BrowserWindow.getAllWindows().length > 0) return;

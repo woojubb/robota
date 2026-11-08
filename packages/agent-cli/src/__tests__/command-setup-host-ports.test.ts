@@ -1,5 +1,5 @@
 /**
- * #3693: the command package holds no host default, so the commands that need one only work because
+ * The command package holds no host default, so the commands that need one only work because
  * `buildCommandSetup` passes it in. The registry's descriptors do not show that (they omit `execute`),
  * so this runs the commands the setup builds:
  *

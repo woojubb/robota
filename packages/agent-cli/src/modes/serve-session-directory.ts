@@ -1,5 +1,5 @@
 /**
- * #3189 — the sessions a served runtime keeps, one view of them per client.
+ * The sessions a served runtime keeps, one view of them per client.
  *
  * `the product --serve` keeps several sessions live in a pool. Each client connection binds to it and
  * gets a view of its own: its directory lists the workspace's stored sessions, says which one THIS
@@ -46,8 +46,8 @@ import type {
 } from '@robota-sdk/agent-interface-session';
 
 /**
- * The members of a session the directory reads: its id, whether a prompt waits on it, and — #3289
- * §1 — everything {@link isSessionBusy} needs to tell a session with work in progress (a running
+ * The members of a session the directory reads: its id, whether a prompt waits on it, and
+ * everything {@link isSessionBusy} needs to tell a session with work in progress (a running
  * turn, a pending prompt, a live background task, an unexpired self-paced loop) from one it may
  * delete. `listSelfPacedLoops` stays optional, exactly as `isSessionBusy` itself takes it, because it
  * is not part of the base session capability set.
@@ -170,7 +170,7 @@ export function createServeSessionDirectory<
     return {
       currentSessionId: current.getSession().getSessionId(),
       sessions,
-      // #3289 §1: only unreadable records this workspace can claim as its own — a store shared
+      // Only unreadable records this workspace can claim as its own — a store shared
       // across workspaces (the user-level store) holds legacy records from every folder ever worked
       // in there, and a brand-new folder must not be told about all of them.
       unreadableSessionIds: listUnreadableSessionsForWorkspace(target.store, target.cwd).map(
@@ -339,7 +339,7 @@ export function createServeSessionDirectory<
       },
       async newSession() {
         invalidate();
-        // #3289 §1: reuse an existing empty session of this workspace that no other client is on and
+        // Reuse an existing empty session of this workspace that no other client is on and
         // has no work of its own in progress, rather than adding another one to the list every time
         // this is pressed, or joining someone into a background task/loop still running on it.
         const reusable = resolveReusableEmptySessionId(target.store, target.cwd, {

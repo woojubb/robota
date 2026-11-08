@@ -4,7 +4,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * The CLI only selects the preset id and forwards CLI flags as overrides; the
  * precedence merge lives entirely inside the resolver (agent-preset), never here.
  *
- * ARCH-008: the shell resolves over the kernel's PER-CALL instance registry (`createPresetRegistry`,
+ * The shell resolves over the kernel's PER-CALL instance registry (`createPresetRegistry`,
  * R8) — not `agent-preset`'s module-global `resolvePreset`. {@link resolveShellPreset} returns the
  * registry it resolved over together with the id and the override context, and `createSelectedProductProfile`
  * takes that whole result, so `assembleProduct` adopts the SAME registry and replays the SAME context.
@@ -67,7 +67,7 @@ function buildPresetCliOverrides(args: TShellPresetArgs): IResolvedPresetOptions
       : {}),
     ...(args.language !== undefined ? { language: args.language } : {}),
     ...(args.permissionMode !== undefined ? { permissionMode: args.permissionMode } : {}),
-    // ARCH-040 Group C (issue #1934): the tool lists go through the RESOLVER like every other
+    // The tool lists go through the RESOLVER like every other
     // override, so `--allowed-tools` and a preset's list combine by the decided rule — allowlist
     // replaces, denylist unions — rather than by whichever spread happens to come last at a shell.
     // Before the lists reached a surface at all this did not matter; the moment they do, a shell
@@ -82,7 +82,7 @@ function buildPresetCliOverrides(args: TShellPresetArgs): IResolvedPresetOptions
 }
 
 /**
- * The shell's ONE preset resolution (ARCH-008) — the registry it ran over, the id it picked, the
+ * The shell's ONE preset resolution — the registry it ran over, the id it picked, the
  * override layers it applied, and the resolved option bundle every shell surface binds to.
  *
  * Carried as a single value (rather than four loose locals) so the profile cannot be handed a registry,
@@ -107,7 +107,7 @@ export interface IShellPresetResolution {
  * @throws Error when the selected id matches no preset in the registry.
  */
 /**
- * PRESET-002/004/007/011 + ARCH-008/ARCH-009 — the shell's ONE preset resolution.
+ * The shell's ONE preset resolution.
  *
  * `loadProductExternalPresets` reads `the configured user root/presets/*.json` (per-file problems are warnings, never
  * fatal) and REGISTERS NOTHING — it returns the presets it loaded. This builds the kernel's per-call
@@ -119,7 +119,7 @@ export interface IShellPresetResolution {
  * One registry, one load, no process state: the two surfaces cannot disagree because there is only
  * one of them.
  *
- * (Moved here from `cli.ts` by CLI-083: it describes this function, and the caller only needs to
+ * (Kept here rather than in `cli.ts`: it describes this function, and the caller only needs to
  * know that resolution happens before command setup.)
  */
 export function resolveShellPreset(

@@ -1,5 +1,5 @@
 /**
- * The leftovers `secure migrate` deletes (#3679): kept-aside hand-offs and partial transfers, the
+ * The leftovers `secure migrate` deletes: kept-aside hand-offs and partial transfers, the
  * `/editor` buffers earlier builds left in the shared temporary directory once idle for a day, and
  * the scratch directories of gone processes. The SDK's spill directories there are listed, never
  * removed, and a link is never followed.

@@ -1,7 +1,7 @@
 /**
- * GUI-002 — Electron preload (runs in an isolated context). Exposes a narrow, named surface to the
+ * Electron preload (runs in an isolated context). Exposes a narrow, named surface to the
  * renderer via `contextBridge`, never a raw Node API: the loopback endpoint and lifecycle signals, the
- * trust question/answer, and (#3282 §4d) the composer's native "Attach files" dialog and resolving a
+ * trust question/answer, and the composer's native "Attach files" dialog and resolving a
  * dropped/picked `File` to its real path. The endpoint (which carries the auth nonce) is never placed
  * on `window` as a plain value that page script could read off a global before the bridge is set up.
  */
@@ -31,14 +31,14 @@ const api = {
       : ipcRenderer.invoke('agent-gui:trust-answer', choice),
   /** Tell the main process the session is live. The daemon is the CLI's to supervise, so nothing acts on it yet. */
   signalReady: (): void => ipcRenderer.send('agent-gui:ready'),
-  /** The composer's attach button (#3282 §4d): a native multi-file dialog with real paths. */
+  /** The composer's attach button: a native multi-file dialog with real paths. */
   pickFiles: (): Promise<IPickedFile[]> => ipcRenderer.invoke('agent-gui:pick-files'),
   /**
-   * The real filesystem path a dropped or picked `File` represents (#3282 §4d) — empty when the
+   * The real filesystem path a dropped or picked `File` represents — empty when the
    * object is not backed by one. A plain browser page has no equivalent; only this bridge does.
    */
   getPathForFile: (file: File): string => (remoteMode ? '' : webUtils.getPathForFile(file)),
-  /** The Project panel's Memory "Open in editor" (#3282 §4c): open a project-relative path in the OS
+  /** The Project panel's Memory "Open in editor": open a project-relative path in the OS
    *  default app for it. */
   openPath: (path: string): Promise<{ error?: string }> =>
     runtimeMode === 'secure'
@@ -52,7 +52,7 @@ const api = {
     ipcRenderer.on('agent-gui:state', listener);
     return () => ipcRenderer.removeListener('agent-gui:state', listener);
   },
-  /** #3282 §4a: the App menu's "Settings…" (⌘,/Ctrl+,) asked the page to open the Settings screen. */
+  /** The App menu's "Settings…" (⌘,/Ctrl+,) asked the page to open the Settings screen. */
   onOpenSettings: (cb: () => void): (() => void) => {
     const listener = (): void => cb();
     ipcRenderer.on('agent-gui:open-settings', listener);

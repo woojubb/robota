@@ -16,14 +16,14 @@ import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 const testHost = createTestFrameworkHost();
 
-// Contained — ARCH-047. Project mutation (the Write tool that produces edit checkpoints) is
+// Contained. Project mutation (the Write tool that produces edit checkpoints) is
 // available only on Linux (project-relative-writer.ts refuses other hosts by design), so this
 // scenario cannot run here. It says so explicitly instead of failing on a refusal it cannot influence.
 if (process.platform !== 'linux') {
   console.log(
     JSON.stringify({
       notApplicable: true,
-      reason: 'ARCH-047: project mutation is Linux-only; checkpoint scenario skipped on this host',
+      reason: 'project mutation is Linux-only; checkpoint scenario skipped on this host',
       platform: process.platform,
     }),
   );
@@ -166,7 +166,7 @@ async function main(): Promise<void> {
     assertCondition(deliveryErrors.length === 0, 'primary protocol delivery failed');
 
     result = {
-      scenario: 'ARCH-020+ARCH-028-protocol',
+      scenario: 'session-event-protocol-delivery',
       planEvents: planFrames.map((frame) => frame.event.type),
       contextRefreshFiles: contextFrames.map((frame) => frame.event.filePath.replace(cwd, '<cwd>')),
       branchEvents: branchFrames.map((frame) => ({

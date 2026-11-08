@@ -7,7 +7,7 @@ import { readSettings } from '@robota-sdk/agent-framework/node';
 import { productUserSettingsPath } from '../product/user-settings.js';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
-/** Read a raw (untyped) value under `transports.webrtc.options.<key>` — for structured values (REMOTE-010). */
+/** Read a raw (untyped) value under `transports.webrtc.options.<key>` — for structured values. */
 export function readWebrtcRawOption(productRuntime: ICliRuntimeContext, key: string): unknown {
   const settings = readSettings(productUserSettingsPath(productRuntime));
   const transports = settings.transports;

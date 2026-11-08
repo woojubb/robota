@@ -1,7 +1,7 @@
 /**
- * PEER-004 (#1863) — the composition leaf that makes this session discoverable, and reads the others.
+ * The composition leaf that makes this session discoverable, and reads the others.
  *
- * The rendezvous directory (#1810/#1862) and the registry (#1863) were both built and called by
+ * The rendezvous directory and the registry were both built and called by
  * nothing: measured on this tree before this file existed, no source outside those modules and their
  * tests referenced `announcePeer` or `openLocalPeerRendezvous`. A discovery layer nobody can reach is
  * one nobody can catch being wrong, so this is the piece that turns two landed leaves into behaviour.
@@ -40,7 +40,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * The summary shape, DERIVED from the port rather than imported beside it.
  *
- * The framework's root barrel is at its frozen size (ARCH-038, #1806) and pre-existing debt may
+ * The framework's root barrel is at its frozen size and pre-existing debt may
  * shrink but never grow, so two more re-export lines are not available. Deriving costs nothing in
  * coupling — this module must satisfy that exact port anyway — and it is stricter than a second
  * import would be: the type cannot drift from the adapter it feeds, because it IS the adapter's.

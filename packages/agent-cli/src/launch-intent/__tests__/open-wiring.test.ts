@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { printHelp } from '../../utils/cli-help.js';
 import { OPEN_SUBCOMMAND } from '../open-invocation.js';
 
-describe('TC-06: `open` is wired where it must be, and claimed nowhere else', () => {
+describe('`open` is wired where it must be, and claimed nowhere else', () => {
   it('local CLI bootstrap resolves launch before any local cwd read or argv parse', () => {
     const cli = new URL('../../cli-core.ts', import.meta.url);
     const source = readFileSyncUtf8(cli);

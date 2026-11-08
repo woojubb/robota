@@ -2,9 +2,9 @@ import { setGlobalLoggerSink } from '@robota-sdk/agent-core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * CORE-029 / NEUT-010 — the runtime's diagnostics reach a user in this product.
+ * The runtime's diagnostics reach a user in this product.
  *
- * Review of #1595 made the point that mattered: `agent-core` defaults to a silent sink and nothing
+ * A review made the point that mattered: `agent-core` defaults to a silent sink and nothing
  * in the repository installed one, so adding a WARNING for an unregistered model changed nothing an
  * operator could observe. A guard nobody can hear is the same defect as no guard.
  *
@@ -52,7 +52,7 @@ describe('the CLI installs a destination for runtime diagnostics', () => {
     await import('../bin.js');
     const core = await import('@robota-sdk/agent-core');
 
-    // The exact diagnostic NEUT-010 added: a model nobody registered.
+    // The unregistered-model diagnostic: a model nobody registered.
     core.getModelContextWindow('some-other-vendor/model-x');
 
     expect(written.some((line) => line.includes('some-other-vendor/model-x'))).toBe(true);

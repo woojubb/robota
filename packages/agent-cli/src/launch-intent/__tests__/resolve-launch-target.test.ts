@@ -1,4 +1,4 @@
-/** FLOW-2006 TC-03 — resolution: trusted-only targets, worktree grouping, and every refusal. */
+/** Resolution: trusted-only targets, worktree grouping, and every refusal. */
 import { describe, expect, it } from 'vitest';
 
 import { remoteSlug, resolveLaunchTarget } from '../resolve-launch-target.js';

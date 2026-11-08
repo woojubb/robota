@@ -186,7 +186,7 @@ try {
     throw new Error(`${error.message}; packaged runtime stderr: ${stderr}`);
   }
 
-  // TC-02a: authed nonce connection → the session `messages` snapshot arrives (handshake complete).
+  // Authed nonce connection → the session `messages` snapshot arrives (handshake complete).
   const authed = await drive(
     url(),
     () => {},
@@ -194,11 +194,11 @@ try {
     8000,
   );
   check(
-    'TC-02a: bundled runtime accepts the launch nonce (handshake → messages snapshot)',
+    'bundled runtime accepts the launch nonce (handshake → messages snapshot)',
     authed.frames.some((m) => m.type === 'messages'),
   );
 
-  // TC-04: wrong token → closed before any session data.
+  // Wrong token → closed before any session data.
   const bad = await drive(
     url('wrong'),
     () => {},
@@ -206,11 +206,11 @@ try {
     3000,
   );
   check(
-    'TC-04: wrong nonce is rejected before any session data',
+    'wrong nonce is rejected before any session data',
     bad.closed && !bad.frames.some((m) => m.type === 'messages'),
   );
 
-  // TC-02a: clean SIGTERM shutdown.
+  // Clean SIGTERM shutdown.
   const exited = await new Promise((res) => {
     const timer = setTimeout(() => res({ timeout: true }), 8000);
     child.once('exit', (code, signal) => {
@@ -224,7 +224,7 @@ try {
       ? exited.code === 0 || (exited.code === null && exited.signal === 'SIGTERM')
       : exited.code === 0 && exited.signal === null;
   check(
-    'TC-02a: SIGTERM shuts the bundled runtime down cleanly',
+    'SIGTERM shuts the bundled runtime down cleanly',
     !exited.timeout && successfulShutdown,
   );
 } catch (error) {
@@ -252,5 +252,5 @@ try {
   }
 }
 
-console.log(ok ? '\nGUI-003 bundled-runtime e2e PASSED' : '\nGUI-003 bundled-runtime e2e FAILED');
+console.log(ok ? '\nbundled-runtime e2e PASSED' : '\nbundled-runtime e2e FAILED');
 process.exit(ok ? 0 : 1);

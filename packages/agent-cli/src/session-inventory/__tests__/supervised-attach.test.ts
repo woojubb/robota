@@ -479,7 +479,7 @@ describe('attach handshake approval', () => {
   });
 });
 
-describe('attach bindings (#3189)', () => {
+describe('attach bindings', () => {
   it('binds each admitted connection in its own role and releases it when that connection closes', async () => {
     const directory: ISessionDirectory = {
       listSessions: vi.fn(),
