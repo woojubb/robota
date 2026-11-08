@@ -16,6 +16,7 @@ import {
 
 interface IToolCall {
   readonly id: string;
+  readonly type: string;
   readonly function: { readonly name: string; readonly arguments: string };
 }
 interface IResponse {
@@ -70,8 +71,8 @@ describe('the PowerShell goal cassette', () => {
       const translated = powershell.interactions[index]!;
       const recordedCalls = recorded.response.toolCalls ?? [];
       const translatedCalls = translated.response.toolCalls ?? [];
-      expect(translatedCalls.map((call) => [call.id, call.function.name])).toEqual(
-        recordedCalls.map((call) => [call.id, call.function.name]),
+      expect(translatedCalls.map((call) => [call.id, call.type, call.function.name])).toEqual(
+        recordedCalls.map((call) => [call.id, call.type, call.function.name]),
       );
       recordedCalls.forEach((call, callIndex) => {
         if (call.function.name === 'Bash') return;
