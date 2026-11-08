@@ -3,12 +3,12 @@
  * nothing for `abort()` to reach, so the caller's signal is what stops the skill's preparation and
  * refuses the turn it would have submitted.
  */
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
@@ -72,7 +72,7 @@ describe('a command cancelled before its skill submits a turn', () => {
   });
 
   async function build() {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-command-signal-')));
+    const cwd = makeCanonicalTempDir('agent-command-signal-');
     dirs.push(cwd);
     const skillDir = join(cwd, '.agents', 'skills', 'audit');
     mkdirSync(skillDir, { recursive: true });

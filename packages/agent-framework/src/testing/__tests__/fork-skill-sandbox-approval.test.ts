@@ -4,12 +4,12 @@
  * sandbox, and the fork consults that sandbox: a confined command it approves needs no one to ask.
  */
 
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { makeCanonicalTempDir } from '../canonical-temp-dir.js';
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 import { createNodeHostContributionSourcesFixture } from '../contribution-source-fixture.js';
 import { createTrustedProjectAccessFixture } from '../trusted-project-state-fixture.js';
@@ -45,7 +45,7 @@ afterEach(async () => {
 });
 
 async function runForkSkill(sandboxClient?: TSandboxClient): Promise<boolean> {
-  workspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-fork-sandbox-')));
+  workspace = makeCanonicalTempDir('agent-fork-sandbox-');
   const skillDir = join(workspace, '.agents', 'skills', 'run-tests');
   mkdirSync(skillDir, { recursive: true });
   writeFileSync(

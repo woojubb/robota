@@ -1,9 +1,9 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { executeSkill } from '../skill-executor.js';
 import { createSkillExecutionPort } from '../skill-execution-port.js';
 import { PluginCommandSource } from '../plugin-source.js';
@@ -46,7 +46,7 @@ const skillsModule = {
 const roots: string[] = [];
 
 function tempRoot(): string {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-skill-dir-')));
+  const root = makeCanonicalTempDir('agent-skill-dir-');
   roots.push(root);
   return root;
 }

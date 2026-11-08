@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { makeCanonicalTempDir } from '../testing/canonical-temp-dir.js';
 import { WorkspaceAuthorityRequiredError, createAgentRuntime, createQuery } from '../index.js';
 import { createTestFrameworkHost } from '../testing/framework-host.js';
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
@@ -33,7 +34,7 @@ describe('a trusted project and the host that resolves real paths', () => {
   });
 
   async function trustedRoot(): Promise<{ root: string; access: TWorkspaceProjectAccess }> {
-    const root = realpathSync(mkdtempSync(join(tmpdir(), 'trusted-project-cwd-')));
+    const root = makeCanonicalTempDir('trusted-project-cwd-');
     roots.push(root);
     return { root, access: await createTrustedProjectAccessFixture(root) };
   }

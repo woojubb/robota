@@ -4,20 +4,12 @@
  * would put what is kept there outside the project.
  */
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  realpathSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-  existsSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { makeCanonicalTempDir } from '../testing/canonical-temp-dir.js';
 import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
 import { workspaceProjectStateDirectoryPath } from './node-project-state-directory.js';
 import { getWorkspaceProjectStateStorage } from './project-state-storage.js';
@@ -33,7 +25,7 @@ let root: string;
 const extras: string[] = [];
 
 beforeEach(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'node-project-state-directory-')));
+  root = makeCanonicalTempDir('node-project-state-directory-');
 });
 
 afterEach(() => {
@@ -63,7 +55,7 @@ describe('workspaceProjectStateDirectoryPath', () => {
 
   it('refuses a directory reached through a link, which could lie outside the project', async () => {
     mkdirSync(join(root, '.agent'));
-    const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'project-state-elsewhere-')));
+    const elsewhere = makeCanonicalTempDir('project-state-elsewhere-');
     extras.push(elsewhere);
     symlinkSync(elsewhere, join(root, '.agent', 'sessions'), 'dir');
     const storage = await createTrustedProjectStateFixture(root, 'sessions');
@@ -118,7 +110,7 @@ describe('workspaceProjectStateDirectoryPath on a layout the host spelled with t
 
   it('refuses a link at an intermediate segment of a backslash-spelled layout', async () => {
     mkdirSync(join(root, '.agent'));
-    const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'project-state-elsewhere-')));
+    const elsewhere = makeCanonicalTempDir('project-state-elsewhere-');
     extras.push(elsewhere);
     symlinkSync(elsewhere, join(root, '.agent', 'sessions'), 'dir');
     const storage = await storageOver('.agent\\sessions');
@@ -129,7 +121,7 @@ describe('workspaceProjectStateDirectoryPath on a layout the host spelled with t
   });
 
   it('refuses a link at the first segment of a backslash-spelled layout', async () => {
-    const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'project-state-elsewhere-')));
+    const elsewhere = makeCanonicalTempDir('project-state-elsewhere-');
     extras.push(elsewhere);
     symlinkSync(elsewhere, join(root, '.agent'), 'dir');
     const storage = await storageOver('.agent\\sessions');

@@ -1,9 +1,9 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { createNodeHostSettingsSource } from '../../config/node-host-settings-source.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
@@ -14,7 +14,7 @@ const files = createTestFrameworkHost().files?.sync;
 
 const roots: string[] = [];
 function tempRoot(): string {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'session-plugin-skills-')));
+  const root = makeCanonicalTempDir('session-plugin-skills-');
   roots.push(root);
   return root;
 }
