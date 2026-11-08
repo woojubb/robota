@@ -2,7 +2,10 @@ import React from 'react';
 import { render } from 'ink-testing-library';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createLoopCommandEntry, createRemoteControlCommandEntry } from '@robota-sdk/agent-command';
+import {
+  createLoopCommandEntry,
+  createRemoteControlCommandEntry,
+} from '@robota-sdk/agent-product/command';
 import InputArea from '../InputArea.js';
 import { KeybindingsProvider } from '../keybindings/keybindings-context.js';
 import { parseKeybindingsDocument } from '../keybindings/keybinding-registry.js';

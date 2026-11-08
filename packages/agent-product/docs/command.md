@@ -1,16 +1,13 @@
-# @robota-sdk/agent-command
-
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
+# @robota-sdk/agent-product/command
 
 The slash-command (`/cmd`) implementations for agents, as command modules you register with an
-`agent-framework` runtime. The configured CLI builds its command set from this package; your own agent can
+`agent-framework` runtime. The configured CLI builds its command set from this subpath; your own agent can
 take the whole default set, a filtered subset, or individual modules.
 
 ## Installation
 
 ```bash
-npm install @robota-sdk/agent-command
+npm install @robota-sdk/agent-product
 ```
 
 ## Quick start
@@ -20,8 +17,8 @@ npm install @robota-sdk/agent-command
 typo instead of silently ignoring it.
 
 ```typescript
-import { createDefaultCommandModules } from '@robota-sdk/agent-command';
-import type { IProviderCommandSettingsAdapter } from '@robota-sdk/agent-command';
+import { createDefaultCommandModules } from '@robota-sdk/agent-product/command';
+import type { IProviderCommandSettingsAdapter } from '@robota-sdk/agent-product/command';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import type { IFrameworkHost } from '@robota-sdk/agent-framework';
@@ -52,7 +49,7 @@ import {
   createExitCommandModule,
   createHelpCommandModule,
   createModeCommandModule,
-} from '@robota-sdk/agent-command';
+} from '@robota-sdk/agent-product/command';
 
 const modules = [createHelpCommandModule(), createModeCommandModule(), createExitCommandModule()];
 ```
@@ -60,7 +57,7 @@ const modules = [createHelpCommandModule(), createModeCommandModule(), createExi
 ## Commands
 
 The default set covers these commands, except `/shell` and `/editor`, which are on
-`@robota-sdk/agent-command/node` (see below). Modules, which `enabledCommandModules` and
+`@robota-sdk/agent-product/command/node` (see below). Modules, which `enabledCommandModules` and
 `disabledCommandModules` select by name, are named `agent-command-<area>`: for example,
 `agent-command-session` provides `/clear` through `/validate-session`, and `agent-command-schedule`
 provides `/schedule`, `/monitor`, and `/loop`.
@@ -85,7 +82,7 @@ them it is listed and says it is unavailable on that host. `/shell`, `/editor`, 
 `/theme` belong to the terminal the user sits at: a terminal attached to a workspace daemon runs them
 itself (see `createTerminalClientCommands`).
 
-## `@robota-sdk/agent-command/node`
+## `@robota-sdk/agent-product/command/node`
 
 The main entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun and names no
 Node module. What starts a process, reads the file system or the network for a command, or runs a
@@ -113,7 +110,7 @@ What a command does when the host supplies none of it:
 | `keybindingsEditor`   | `/keybindings` answers that the editor is unavailable here, and creates no file                     |
 | `providerEnvironment` | `/provider` and `/model` read a `$ENV:` credential reference as unset                               |
 
-For what each command does and its arguments, see the [CLI guide](../../content/guide/cli.md#slash-commands).
+For what each command does and its arguments, see the [CLI guide](../../../content/guide/cli.md#slash-commands).
 
 ## Project access
 
@@ -128,9 +125,9 @@ authority-backed store is refused explicitly.
 - `@robota-sdk/agent-framework` — `ICommandModule`, command host contracts, and the shared command APIs
 - `@robota-sdk/agent-interface-command`, `@robota-sdk/agent-interface-execution`,
   `@robota-sdk/agent-interface-session` — command, execution, and session contracts
-- `@robota-sdk/agent-preset` — presets listed and switched by `/preset`
+- the `preset` subpath of this package — presets listed and switched by `/preset`
 
 ## Documentation
 
-- [docs/SPEC.md](./docs/SPEC.md) — package contract and per-command guarantees
-- [CLI guide](../../content/guide/cli.md) — using the commands in the configured CLI
+- [SPEC.md](./SPEC.md) — package contract and per-command guarantees
+- [CLI guide](../../../content/guide/cli.md) — using the commands in the configured CLI

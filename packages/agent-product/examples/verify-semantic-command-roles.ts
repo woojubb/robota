@@ -26,7 +26,7 @@ import {
   createAgentCommandModule,
   createCompactCommandModule,
   createSkillsCommandModule,
-} from '../src/index.js';
+} from '../src/command/index.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 const testHost = createTestFrameworkHost();

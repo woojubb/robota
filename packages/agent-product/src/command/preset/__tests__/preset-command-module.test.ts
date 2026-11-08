@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '../../../preset/index.js';
 import type {
   ICommandHostContext,
   ICommandSessionRuntime,

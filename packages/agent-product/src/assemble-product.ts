@@ -1,10 +1,10 @@
-import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
+import { mergeCapabilityPacks } from './capability-pack/index.js';
 import { createProviderFromConfig } from '@robota-sdk/agent-core';
 import { buildRuntimeSession } from '@robota-sdk/agent-framework';
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from './preset/index.js';
 
 import type { IAssembledProduct, IBuildRuntimeInput, IProductProfile } from './product-profile.js';
-import type { TCompositionFieldPolicy } from '@robota-sdk/agent-capability-pack';
+import type { TCompositionFieldPolicy } from './capability-pack/index.js';
 import type {
   FunctionTool,
   IAIProvider,
@@ -17,7 +17,7 @@ import type {
   ICommandModule,
   TInteractiveSessionOptions,
 } from '@robota-sdk/agent-framework';
-import type { IPresetRegistry, IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import type { IPresetRegistry, IResolvedPresetOptions } from './preset/index.js';
 
 export const PRODUCT_PROFILE_FIELD_POLICIES = {
   id: 'surfaced',

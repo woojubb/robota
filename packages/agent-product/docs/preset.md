@@ -1,28 +1,25 @@
-# @robota-sdk/agent-preset
-
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
+# @robota-sdk/agent-product/preset
 
 Presets and output styles for the Robota SDK. A preset is a named bundle of
 `@robota-sdk/agent-framework` session option overrides: persona, model and effort, permission
 posture, command-module selection, execution capabilities and autonomy. An output style is a named
-set of instructions for how responses are written. This package owns both contracts, the built-in
+set of instructions for how responses are written. This subpath owns both contracts, the built-in
 presets and styles, and the registries that resolve them.
 
 ## Installation
 
 ```bash
-npm install @robota-sdk/agent-preset @robota-sdk/agent-framework
+npm install @robota-sdk/agent-product @robota-sdk/agent-framework
 ```
 
 The main entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun and reads no
-file. The one reader of the file system, `loadExternalPresetsFromDir`, is on `@robota-sdk/agent-preset/node`,
+file. The one reader of the file system, `loadExternalPresetsFromDir`, is on `@robota-sdk/agent-product/preset/node`,
 which requires Node.js 22.12 or later.
 
 ## Presets
 
 ```typescript
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '@robota-sdk/agent-product/preset';
 
 // A registry holds its own list: the built-ins plus any external presets you pass.
 // Two registries in one process never see each other's presets.
@@ -63,7 +60,10 @@ External presets are JSON files your product chooses. The main entry reads no fi
 candidate files, and a failed read is that file's error, not a crash.
 
 ```typescript
-import { createPresetRegistry, loadExternalPresetsFromFiles } from '@robota-sdk/agent-preset';
+import {
+  createPresetRegistry,
+  loadExternalPresetsFromFiles,
+} from '@robota-sdk/agent-product/preset';
 
 const { presets, loaded, errors } = loadExternalPresetsFromFiles([
   {
@@ -77,11 +77,11 @@ const registry = createPresetRegistry(presets);
 console.log(loaded);
 ```
 
-On Node, `loadExternalPresetsFromDir` from `@robota-sdk/agent-preset/node` lists a directory and does
+On Node, `loadExternalPresetsFromDir` from `@robota-sdk/agent-product/preset/node` lists a directory and does
 the same:
 
 ```typescript
-import { loadExternalPresetsFromDir } from '@robota-sdk/agent-preset/node';
+import { loadExternalPresetsFromDir } from '@robota-sdk/agent-product/preset/node';
 
 const { presets } = loadExternalPresetsFromDir('/path/to/my-app/presets');
 ```
@@ -102,7 +102,7 @@ replace a built-in style. `loadOutputStylesFromSources` returns the styles plus 
 `parseOutputStyleFile` parses one file.
 
 ```typescript
-import { createOutputStyleRegistry } from '@robota-sdk/agent-preset';
+import { createOutputStyleRegistry } from '@robota-sdk/agent-product/preset';
 
 const styles = createOutputStyleRegistry([
   {
@@ -123,7 +123,7 @@ const terse = styles.getOutputStyle('terse');
 console.log(terse?.instructions);
 ```
 
-## `@robota-sdk/agent-preset/node`
+## `@robota-sdk/agent-product/preset/node`
 
 | Export                       | What it does                                                             |
 | ---------------------------- | ------------------------------------------------------------------------ |
@@ -132,19 +132,19 @@ console.log(terse?.instructions);
 ## Where it sits
 
 ```
-agent-framework   ← session option types this package overrides
+agent-framework   ← session option types this subpath overrides
     ↑
-agent-preset      ← this package
+preset            ← this subpath
     ↑
-agent-cli, agent-command, agent-product   ← create registries and apply presets
+agent-cli, command, the package root   ← create registries and apply presets
 ```
 
-This package depends only on `@robota-sdk/agent-framework` and does not re-export it.
+This subpath depends only on `@robota-sdk/agent-framework` and does not re-export it.
 
 ## Documentation
 
-- [docs/SPEC.md](./docs/SPEC.md) — package contract, precedence and design decisions
+- [SPEC.md](./SPEC.md) — contract, precedence and design decisions
 
 ## License
 
-This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../../LICENSE) or a [commercial license](../../../COMMERCIAL.md). See [LICENSING.md](../../../LICENSING.md).

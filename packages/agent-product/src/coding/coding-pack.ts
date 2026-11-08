@@ -1,13 +1,13 @@
-import { createGitCommandModule } from '@robota-sdk/agent-command';
+import { createGitCommandModule } from '../command/index.js';
 import {
   createEditorCommandModule,
   createShellCommandModule,
-} from '@robota-sdk/agent-command/node';
+} from '../command/node.js';
 import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
 import { createGitProcess } from '@robota-sdk/agent-framework/node';
 import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
-import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
+import type { ICapabilityPack } from '../capability-pack/index.js';
 import type { IEditorFileAccess, ISandboxClient } from '@robota-sdk/agent-tools';
 
 /**

@@ -3,7 +3,7 @@ import type {
   ICapabilityPackMetadata,
   IRejectedCapability,
   IRejectedCapabilityPack,
-} from '@robota-sdk/agent-capability-pack';
+} from './capability-pack/index.js';
 import type {
   FunctionTool,
   IAIProvider,
@@ -26,7 +26,7 @@ import type {
   IPreset,
   IResolvePresetContext,
   IResolvedPresetOptions,
-} from '@robota-sdk/agent-preset';
+} from './preset/index.js';
 
 /**
  * A declarative "this is my product" object — the sole argument of {@link assembleProduct}. Everything

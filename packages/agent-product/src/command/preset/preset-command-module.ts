@@ -1,4 +1,4 @@
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '../../preset/index.js';
 
 import { executePresetCommand } from './preset-command.js';
 

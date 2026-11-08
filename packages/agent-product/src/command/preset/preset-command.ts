@@ -1,6 +1,6 @@
 import { selectAction } from '@robota-sdk/agent-core';
 import { applyPresetToSession } from '@robota-sdk/agent-framework';
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '../../preset/index.js';
 
 import type {
   ICommandHostAdapterAccess,
@@ -10,7 +10,7 @@ import type {
   ICommandHostUserInteraction,
 } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
-import type { IPresetSummary } from '@robota-sdk/agent-preset';
+import type { IPresetSummary } from '../../preset/index.js';
 
 /**
  * The registry `/preset` discovers through.

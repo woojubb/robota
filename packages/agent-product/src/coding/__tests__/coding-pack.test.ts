@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
+import { mergeCapabilityPacks } from '../../capability-pack/index.js';
 import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
 import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { afterAll, describe, expect, it } from 'vitest';

@@ -4,7 +4,7 @@
  * The attached terminal gives them its own handoff and working directory, applies the appearance
  * patch `/theme` asks for itself, and refuses any other host action by name instead of dropping it.
  */
-import { createTerminalClientCommands } from '@robota-sdk/agent-command/node';
+import { createTerminalClientCommands } from '@robota-sdk/agent-product/command/node';
 import { describe, expect, it, vi } from 'vitest';
 
 import {

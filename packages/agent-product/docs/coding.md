@@ -1,17 +1,14 @@
-# @robota-sdk/pack-coding
-
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
+# @robota-sdk/agent-product/coding
 
 Robota's coding capability as a single
-[`ICapabilityPack`](../agent-capability-pack/README.md): the built-in coding tools, the coding command
+[`ICapabilityPack`](./capability-pack.md): the built-in coding tools, the coding command
 modules, and the coding subagents in one unit that `assembleProduct` can add to any product. The
 The host CLI can compose it for its coding assistant.
 
 ## Installation
 
 ```bash
-npm install @robota-sdk/pack-coding
+npm install @robota-sdk/agent-product
 ```
 
 ## Usage
@@ -19,8 +16,8 @@ npm install @robota-sdk/pack-coding
 ```ts
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { createCodingPack } from '@robota-sdk/pack-coding';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createCodingPack } from '@robota-sdk/agent-product/coding';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 declare const providerDefinitions: readonly IProviderDefinition[];
@@ -43,9 +40,9 @@ void session;
 The pack bundles:
 
 - **tools** — `Shell`, `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebFetch`,
-  `AskUserQuestion` (from `@robota-sdk/agent-tool-defaults`' `createDefaultTools`).
-- **commandModules** — `/shell`, `/editor` (from `@robota-sdk/agent-command/node`), and `/git` (from
-  `@robota-sdk/agent-command`).
+  `AskUserQuestion` (from `@robota-sdk/agent-tools/defaults`' `createDefaultTools`).
+- **commandModules** — `/shell`, `/editor` (from `@robota-sdk/agent-product/command/node`), and `/git` (from
+  `@robota-sdk/agent-product/command`).
 - **subagents** — `general-purpose`, `Explore`, `Plan` (agent-framework's built-in agents).
 
 `createCodingPack` passes its `cwd` and optional `sandboxClient` straight to the default tool factory,
@@ -57,7 +54,7 @@ shell for the tools and `/shell`) and `editorTemporaryDirectoryPrefix` (for `/ed
 There is deliberately **no context-free `codingPack` constant**. The tool layer refuses a missing
 execution root, and this factory also requires `cwd` so each pack's file tools are scoped to the
 session that constructs it. That matters most when a product hands its whole tool surface to packs by
-passing `defaultTools: []` in the session options. See [`docs/SPEC.md`](./docs/SPEC.md).
+passing `defaultTools: []` in the session options. See [SPEC.md](./SPEC.md).
 
 ## License
 
