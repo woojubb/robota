@@ -176,6 +176,46 @@ describe('rewriteAppendFile replacing as win32 (release first)', () => {
     expect(linesOf(path)).toEqual(['ONE', 'TWO']);
   });
 
+  it('says a file deleted while it waits was removed, and puts nothing back', async () => {
+    const root = directory();
+    const path = join(root, 'history.jsonl');
+    writeFileSync(path, 'one\n');
+    let pauses = 0;
+
+    const result = await rewriteAppendFile(path, upperCase, {
+      platform: 'win32',
+      pause: async () => {
+        pauses += 1;
+        if (pauses === 1) rmSync(path);
+      },
+    });
+
+    expect(result).toEqual({ status: 'removed' });
+    expect(readdirSync(root)).toEqual([]);
+  });
+
+  it('says another file took the name while it waits, and replaces nothing', async () => {
+    const root = directory();
+    const path = join(root, 'history.jsonl');
+    writeFileSync(path, 'one\n');
+    let pauses = 0;
+
+    const result = await rewriteAppendFile(path, upperCase, {
+      platform: 'win32',
+      pause: async () => {
+        pauses += 1;
+        if (pauses !== 1) return;
+        writeFileSync(join(root, 'theirs.tmp'), 'theirs\n');
+        rmSync(path);
+        renameSync(join(root, 'theirs.tmp'), path);
+      },
+    });
+
+    expect(result).toEqual({ status: 'replaced' });
+    expect(readFileSync(path, 'utf8')).toBe('theirs\n');
+    expect(readdirSync(root)).toEqual(['history.jsonl']);
+  });
+
   it('abandons the rewrite, replacing nothing, when the catch-up fails', async () => {
     const root = directory();
     const path = join(root, 'history.jsonl');

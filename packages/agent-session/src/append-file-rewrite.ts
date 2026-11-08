@@ -364,6 +364,9 @@ async function replaceAfterCatchUp(
     const dropped = await catchUp(held.descriptor as number, progress, rewriter, out, pause);
     droppedTail = dropped || droppedTail;
     fsyncSync(newDescriptor);
+    // The catch-up waits, so the path is looked at again: the file may have gone or been replaced since.
+    const named = namedNow(path, held.descriptor as number);
+    if (named !== 'same') return { status: named };
     closeSync(held.descriptor as number);
     held.descriptor = undefined;
     try {
