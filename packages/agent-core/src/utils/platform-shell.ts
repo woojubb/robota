@@ -78,12 +78,25 @@ function posixShell(command: string, platform: NodeJS.Platform): IPlatformShell 
   };
 }
 
+/**
+ * `powershell -Command` exits 1 whenever the last command is a native program that failed, so the
+ * program's own exit code never reaches the caller — and a hook's exit code 2, the block verdict,
+ * would read as an ordinary failure. Raising `$LASTEXITCODE` once the command is done keeps it. A
+ * cmdlet failure, whose `$LASTEXITCODE` is not the last command's, keeps exit 1, and a command that
+ * ends well keeps exit 0. A newline, not `;`, separates it so a trailing comment cannot swallow it.
+ */
+const POWERSHELL_EXIT_CODE_PASSTHROUGH = '\nif ($LASTEXITCODE -and -not $?) { exit $LASTEXITCODE }';
+
 function powerShell(command: string, platform: NodeJS.Platform): IPlatformShell {
   return {
     command,
     kind: 'powershell',
     platform,
-    commandArgs: (cmd: string): string[] => ['-NoProfile', '-Command', cmd],
+    commandArgs: (cmd: string): string[] => [
+      '-NoProfile',
+      '-Command',
+      `${cmd}${POWERSHELL_EXIT_CODE_PASSTHROUGH}`,
+    ],
     interactiveArgs: ['-NoProfile'],
     label: `PowerShell on ${platform}`,
     syntaxHint:

@@ -72,7 +72,7 @@ describe('executor runner shell contract', () => {
     createManagedShellProcessRunner().start(processTask('/opt/pwsh'));
     expect(vi.mocked(spawnMock).mock.calls[0]?.slice(0, 2)).toEqual([
       '/opt/pwsh',
-      ['-NoProfile', '-Command', 'sentinel'],
+      ['-NoProfile', '-Command', expect.stringMatching(/^sentinel\n/u)],
     ]);
   });
 
