@@ -68,9 +68,11 @@ does not own session lifecycle, conversation history, or agent runtime state.
   a schedule or a goal alone (no running background task or loop) still opens the rail, and a
   schedule's Pause/Resume and Delete, and a goal's Cancel, run the same command/control paths their
   slash commands already use — the panel adds no write this package did not already expose.
-- **The client follows the host's role.** The session client learns its effective role from the
-  host when it connects and, while it observes, sends nothing an observer may not send, so no part of
-  the surface can send a mutation by accident; the host remains the authority.
+- **The surface follows the host's role.** The session client learns its effective role from the
+  host when it connects and, while it observes, sends nothing an observer may not send; the surface
+  then offers only what an observer can do: the conversation, its work and the project's reads, with
+  no composer, answers, session switching or control that changes the session or its work. The host
+  remains the authority; hiding a control is presentation, not enforcement.
 - The title bar and the page title both name the workspace folder the session works in, once the
   host has said one; the desktop window follows the page title.
 - A pending permission or ask prompt is visible whatever view is open, because a gated turn waits
