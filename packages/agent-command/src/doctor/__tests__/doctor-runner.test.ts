@@ -10,6 +10,7 @@ import { applyDoctorRepair, planDoctorRepair } from '../doctor-repair.js';
 import { runDoctor } from '../doctor-runner.js';
 import {
   MARKERS,
+  PLATFORM_ASSERTS_MODES,
   createDoctorFixture,
   fixtureProviderDefinition,
   installBrokenHome,
@@ -150,7 +151,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(byId(report, 'mcp.activation').status).toBe('not-configured');
     expect(byId(report, 'mcp.connection').status).toBe('not-probed');
     expect(byId(report, 'hooks.execution').status).toBe('not-probed');
-    expect(byId(report, 'storage.user').status).toBe('ok');
+    expect(byId(report, 'storage.user').status).toBe(PLATFORM_ASSERTS_MODES ? 'ok' : 'not-probed');
     expect(byId(report, 'storage.project').status).toBe('not-configured');
     expect(byId(report, 'workspace.trust').status).toBe('warn');
     expect(report.repairable).toEqual(['settings.user.fixture-product']);
@@ -304,13 +305,20 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(byId(await runDoctor(win.inputs, win.deps), 'storage.user').status).toBe('not-probed');
   });
 
-  it('TC-05: a too-open storage directory is warn and repairable', async () => {
-    const f = fixture({ env: {} });
-    f.mkdir('.fixture-product', 0o755);
-    f.mkdir('.fixture-product/sessions', 0o755);
-    const report = await runDoctor(f.inputs, f.deps);
-    expect(byId(report, 'storage.user')).toMatchObject({ status: 'warn', repair: 'storage.user' });
-  });
+  // Only a platform that asserts mode bits can see a directory as too open.
+  it.skipIf(!PLATFORM_ASSERTS_MODES)(
+    'TC-05: a too-open storage directory is warn and repairable',
+    async () => {
+      const f = fixture({ env: {} });
+      f.mkdir('.fixture-product', 0o755);
+      f.mkdir('.fixture-product/sessions', 0o755);
+      const report = await runDoctor(f.inputs, f.deps);
+      expect(byId(report, 'storage.user')).toMatchObject({
+        status: 'warn',
+        repair: 'storage.user',
+      });
+    },
+  );
 
   it('TC-07: repair rewrites only an empty user settings file, re-reads before writing, and is idempotent', async () => {
     const f = fixture({ env: {} });
@@ -368,8 +376,12 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     const f = fixture({ env: {} });
     const applied = await applyDoctorRepair('storage.user', f.inputs, f.deps, async () => true);
     expect(applied.applied).toBe(true);
-    expect(statSync(join(f.home, '.fixture-product', 'sessions')).mode & 0o077).toBe(0);
-    expect(byId(await runDoctor(f.inputs, f.deps), 'storage.user').status).toBe('ok');
+    if (PLATFORM_ASSERTS_MODES) {
+      expect(statSync(join(f.home, '.fixture-product', 'sessions')).mode & 0o077).toBe(0);
+    }
+    expect(byId(await runDoctor(f.inputs, f.deps), 'storage.user').status).toBe(
+      PLATFORM_ASSERTS_MODES ? 'ok' : 'not-probed',
+    );
     expect(
       await applyDoctorRepair('storage.user', f.inputs, f.deps, async () => true),
     ).toMatchObject({ applied: false });
@@ -414,18 +426,16 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     );
     f.write('.fixture-product/skills/no-frontmatter/SKILL.md', 'just text\n');
     const report = await runDoctor(f.inputs, f.deps);
-    expect(
-      byId(report, `skill.${join('.fixture-product', 'skills', 'bad-effort', 'SKILL.md')}`),
-    ).toMatchObject({
+    // A check id names the file the way every host does, with `/` on every platform.
+    expect(byId(report, 'skill..fixture-product/skills/bad-effort/SKILL.md')).toMatchObject({
       status: 'fail',
       cause: 'frontmatter-invalid',
       detail: [expect.stringContaining('effort: expected one of')],
     });
     expect(JSON.stringify(report)).not.toContain('received "extreme"');
-    expect(
-      byId(report, `skill.${join('.fixture-product', 'skills', 'no-frontmatter', 'SKILL.md')}`)
-        .status,
-    ).toBe('warn');
+    expect(byId(report, 'skill..fixture-product/skills/no-frontmatter/SKILL.md').status).toBe(
+      'warn',
+    );
     expect(report.exitCode).toBe(1);
   });
 
