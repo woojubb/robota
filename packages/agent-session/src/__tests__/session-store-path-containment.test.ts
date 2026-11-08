@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 function newStore(): { store: NodeSessionStore; root: string; baseDir: string } {
-  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'sec-2240-')));
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'path-containment-')));
   dirs.push(root);
   const baseDir = path.join(root, 'sessions');
   return { store: new NodeSessionStore(baseDir, { sealing: 'plain' }), root, baseDir };

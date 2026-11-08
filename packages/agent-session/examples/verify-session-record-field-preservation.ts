@@ -14,7 +14,7 @@ import { NodeSessionStore } from '../src/node.js';
 
 import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
 
-const SESSION_ID = 'arch-015-public-sdk';
+const SESSION_ID = 'public-sdk';
 const CREATED_AT = '2026-08-01T00:00:00.000Z';
 const STALE_UPDATED_AT = '2026-08-01T01:00:00.000Z';
 const PRESERVED_FIELDS = [
@@ -34,7 +34,7 @@ const PRESERVED_FIELDS = [
 ] as const satisfies readonly (keyof IInteractiveSessionRecord)[];
 
 class OfflineProvider extends AbstractAIProvider {
-  override readonly name = 'arch-015-offline';
+  override readonly name = 'offline-record-preservation';
   override readonly version = '1.0.0';
 
   override async chat(
@@ -45,7 +45,7 @@ class OfflineProvider extends AbstractAIProvider {
     return {
       id: `example-${Date.now()}-4`,
       role: 'assistant',
-      content: `arch-015:${typeof content === 'string' ? content : ''}`,
+      content: `echo:${typeof content === 'string' ? content : ''}`,
       timestamp: new Date(),
       state: 'complete',
     };
@@ -195,7 +195,7 @@ function assertCondition(condition: boolean, message: string): void {
 }
 
 async function main(): Promise<void> {
-  const scratchDir = mkdtempSync(join(tmpdir(), 'arch-015-example-'));
+  const scratchDir = mkdtempSync(join(tmpdir(), 'record-preservation-example-'));
   let cleanupRemoved = false;
   let output: Omit<Record<string, unknown>, 'cleanupRemoved'> | undefined;
 
@@ -245,13 +245,13 @@ async function main(): Promise<void> {
     );
     assertCondition(reloaded?.createdAt === CREATED_AT, 'createdAt changed');
     assertCondition(
-      assistantResponse === 'arch-015:preserve-record-fields',
+      assistantResponse === 'echo:preserve-record-fields',
       'unexpected provider response',
     );
 
     output = {
       scenario: 'session-record-field-preservation',
-      provider: 'arch-015-offline',
+      provider: 'offline-record-preservation',
       assistantResponse,
       preservedFields: PRESERVED_FIELDS,
       preservedCount: PRESERVED_FIELDS.length,
