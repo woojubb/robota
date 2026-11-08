@@ -1,5 +1,20 @@
 # @robota-sdk/agent-framework
 
+## 3.2.2
+### Patch Changes
+
+- 8d05c9b: Allow compatible SDK dependencies to update independently.
+- Updated dependencies [8d05c9b]
+  - @robota-sdk/agent-executor@3.2.2
+  - @robota-sdk/agent-interface-command@3.2.2
+  - @robota-sdk/agent-interface-execution@3.2.2
+  - @robota-sdk/agent-interface-session@3.2.2
+  - @robota-sdk/agent-interface-session-mobility@3.2.2
+  - @robota-sdk/agent-interface-transport@3.2.2
+  - @robota-sdk/agent-session@3.2.2
+  - @robota-sdk/agent-tool-defaults@3.2.2
+  - @robota-sdk/agent-tools@3.2.2
+
 ## 3.2.1
 ### Patch Changes
 

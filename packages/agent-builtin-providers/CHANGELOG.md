@@ -1,5 +1,16 @@
 # @robota-sdk/agent-builtin-providers
 
+## 3.2.2
+### Patch Changes
+
+- 8d05c9b: Allow compatible SDK dependencies to update independently.
+- Updated dependencies [8d05c9b]
+  - @robota-sdk/agent-provider-anthropic@3.2.2
+  - @robota-sdk/agent-provider-bytedance@3.2.2
+  - @robota-sdk/agent-provider-gemini@3.2.2
+  - @robota-sdk/agent-provider-openai@3.2.2
+  - @robota-sdk/agent-provider-openai-compatible@3.2.2
+
 ## 3.2.1
 ### Patch Changes
 

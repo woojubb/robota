@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-provider-openai",
-  "version": "3.2.1",
+  "version": "3.2.2",
   "description": "OpenAI provider implementation for Robota SDK",
   "type": "module",
   "publishConfig": {
