@@ -180,7 +180,7 @@ describe('the listener scan itself', () => {
       'packages/x/src/a.d.ts',
       'packages/x/dist/a.js',
       'apps/remote-signaling/src/server.ts',
-      'packages/agent-transport-webrtc/src/datachannel-loader.ts',
+      'packages/agent-transport/src/webrtc/datachannel-loader.ts',
       'scripts/harness/a.mjs',
     ];
     expect(covered.filter((path) => !isProductSource(path))).toEqual([]);

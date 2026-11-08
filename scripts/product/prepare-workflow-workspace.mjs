@@ -73,7 +73,7 @@ async function main() {
   // The deployed default-branch schedule still builds only the CLI closure. Until it adopts the
   // separate SDK check, prepare those SDK artifacts for its existing Windows qualification steps.
   if (environment.GITHUB_WORKFLOW === 'Windows development' && environment.WINDOWS_SDK_SEPARATE !== 'true') {
-    const filters = ['{packages/agent-file-authority}...', '{packages/agent-keyring}...', '{packages/agent-transport-link}...']
+    const filters = ['{packages/agent-os}...', '{packages/agent-keyring}...', '{packages/agent-transport}...']
       .flatMap((value) => ['--filter', value]);
     for (const args of [['install', '--frozen-lockfile', '--filter', 'robota-monorepo', ...filters], ['-r', ...filters, 'run', 'build']]) {
       const result = spawnSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', args, {

@@ -83,7 +83,7 @@ The real power is in the transport layer. The same `InteractiveSession` can be e
 - **MCP** — to be called by Claude Code or other MCP-compatible tools
 - **Headless** — for CI/CD and scripted use cases
 
-Install `@robota-sdk/agent-transport/http` and `@hono/node-server` to serve HTTP requests.
+Install `@robota-sdk/agent-transport`, `hono` and `@hono/node-server` to serve HTTP requests.
 
 ```typescript
 import { createHttpTransport } from '@robota-sdk/agent-transport/http';
