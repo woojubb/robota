@@ -279,7 +279,7 @@ jobs:
     needs: scope
     if: github.event_name == 'pull_request' && needs.scope.outputs.sdk_windows == 'true' && needs.scope.outputs.native == 'false'
     runs-on: windows-2025
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
