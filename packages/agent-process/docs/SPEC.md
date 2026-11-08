@@ -21,8 +21,9 @@ exited, following this escalation:
 2. An optional pre-kill hook runs first (e.g. a graceful IPC `cancel` message before any signal);
    if it throws or rejects, that is swallowed and escalation still proceeds.
 3. The initial signal (default `SIGTERM`) is sent to the whole process group on POSIX, requiring
-   the caller to have spawned the child `detached: true` so it is a group leader; Windows signals
-   the child directly.
+   the caller to have spawned the child `detached: true` so it is a group leader. Windows has no
+   graceful signal, so the whole tree is force-ended at once (`taskkill /T /F`): ending only the
+   direct child would leave a shell's descendants running with its pipes open.
 4. If the process has not exited after the grace window, it is force-killed (`SIGKILL` on POSIX,
    `taskkill /T /F` on Windows).
 5. The promise settles on the real `exit` event — never synchronously, and never on the
