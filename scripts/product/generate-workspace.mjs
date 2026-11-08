@@ -737,12 +737,15 @@ async function connectExternalWorkflowPeers(sourceRoot, outputDirectory, package
   const original = parseDocument(sourceLock).toJSON();
   const lockPath = path.join(outputDirectory, 'pnpm-lock.yaml');
   const lock = parseDocument(await readFile(lockPath, 'utf8')).toJSON();
+  // A pinned registry package may no longer exist in the workspace; it maps by the same scope rule.
+  const productNameOf = (name) => packageMap.get(name) ??
+    (name.startsWith(`${PRODUCT_SCOPE}/`) ? `${scope}${name.slice(PRODUCT_SCOPE.length)}` : undefined);
   // Product names change, but registry aliases and their immutable package snapshots do not.
   for (const [dir, importer] of Object.entries(original.importers ?? {})) {
     let product;
     for (const section of ['dependencies', 'devDependencies', 'optionalDependencies']) {
       for (const [name, entry] of Object.entries(importer[section] ?? {})) {
-        const mapped = packageMap.get(name);
+        const mapped = productNameOf(name);
         const alias = entry.specifier?.startsWith(`npm:${PRODUCT_SCOPE}/`);
         const example = dir.startsWith('examples/') && mapped && validRange(entry.specifier) &&
           !entry.version?.startsWith('link:');
@@ -780,7 +783,7 @@ async function connectExternalWorkflowPeers(sourceRoot, outputDirectory, package
   importer.devDependencies['@robota-sdk/workflows'] = original.importers['packages/agent-cli'].devDependencies['@robota-sdk/workflows'];
   const peerAliases = {};
   for (const peer of Object.keys(workflow.peerDependencies)) {
-    const productName = packageMap.get(peer);
+    const productName = productNameOf(peer);
     const entry = original.importers['packages/agent-cli'].devDependencies[peer];
     const version = entry?.specifier?.replace(`npm:${peer}@`, '');
     if (!productName || entry?.specifier !== `npm:${peer}@${version}` || valid(version) !== version ||
