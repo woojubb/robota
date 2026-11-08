@@ -272,7 +272,8 @@ export interface ITrustedWorkspaceProjectAccess {
 }
 
 /**
- * The owner error behind an `identity-unavailable` or `store-unavailable` trust state. Name and message only — never file content.
+ * The owner error behind an `identity-unavailable` or `store-unavailable` trust state. Name and
+ * message only — never file content.
  */
 export interface IWorkspaceTrustCause {
   readonly name: string;

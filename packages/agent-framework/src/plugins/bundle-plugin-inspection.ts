@@ -31,7 +31,7 @@ const JSON_POSITION = /position (\d+)/;
 
 /**
  * The owner error's class plus the parser offset when it reported one — never its message text,
- * which a JSON parser fills with a quoted snippet of the file redaction rule.
+ * which a JSON parser fills with a quoted snippet of the file.
  */
 export function skipDetail(error: Error | undefined): string {
   if (error === undefined) return 'Error';

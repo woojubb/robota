@@ -158,8 +158,7 @@ export async function createSession(
   // { type: 'guardrail' } hook definition exists on an enforcing event. When guardrails are registered
   // and the config declares none, auto-inject a PreToolUse guardrail group (matcher '' = all tools) so
   // the gate actually runs — otherwise the guardrail would be inert. Idempotent: skipped if the
-  // user already
-  // declared a guardrail hook.
+  // user already declared a guardrail hook.
   const resolvedHooks = resolveGuardrailHooks(options.config.hooks, options.guardrails);
 
   // A declared hook type with no executor would validate and then deny every tool

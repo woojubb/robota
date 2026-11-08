@@ -12,8 +12,7 @@
  *
  * The wrapper owns NO budget timer past the threshold and never reaches the MCP invoker: the
  * supervisor's `toolCallMs` (in `agent-mcp`) is the one enforcer. `budgetMs` here is informational
- * —
- * it only sizes the spawned task's `maxRuntimeMs` for `/tasks`.
+ * — it only sizes the spawned task's `maxRuntimeMs` for `/tasks`.
  */
 
 import { randomId } from '@robota-sdk/agent-core';

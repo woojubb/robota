@@ -56,7 +56,7 @@ export interface ILoadedBundlePlugin {
   pluginDir: string;
 }
 
-/** Why a discovered plugin was not loaded inspection. */
+/** Why a discovered plugin was not loaded. */
 export type TBundlePluginSkipReason =
   'manifest-unreadable' | 'manifest-invalid' | 'disabled' | 'load-failed' | 'revision-unselected';
 
