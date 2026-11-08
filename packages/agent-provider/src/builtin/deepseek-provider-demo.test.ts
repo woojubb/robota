@@ -3,8 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 import { expect, it } from 'vitest';
 
-const packageRoot = fileURLToPath(new URL('..', import.meta.url));
-const example = new URL('../examples/deepseek-provider-demo.mjs', import.meta.url);
+const packageRoot = fileURLToPath(new URL('../..', import.meta.url));
+const example = new URL('../../examples/deepseek-provider-demo.mjs', import.meta.url);
 
 it('verifies real offline definitions/composition and reports a catalog mismatch as failure', () => {
   const success = spawnSync(process.execPath, [fileURLToPath(example)], {
@@ -27,7 +27,7 @@ it('verifies real offline definitions/composition and reports a catalog mismatch
       '--input-type=module',
       '-e',
       `
-    import { createDeepSeekProviderDefinition } from '../deepseek/index';
+    import { createDeepSeekProviderDefinition } from '@robota-sdk/agent-provider/deepseek';
     const catalog = createDeepSeekProviderDefinition().modelCatalog;
     const entry = catalog.entries.find((value) => value.id === 'deepseek-v4-flash');
     entry.lifecycle = 'deprecated';

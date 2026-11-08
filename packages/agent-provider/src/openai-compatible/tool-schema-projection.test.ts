@@ -13,9 +13,9 @@ import {
 import { loadToolSchemaProjectionFixtures } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DeepSeekProvider } from '../../deepseek';
-import { GemmaProvider } from '../../gemma';
-import { QwenProvider } from '../../qwen';
+import { DeepSeekProvider } from '../deepseek';
+import { GemmaProvider } from '../gemma';
+import { QwenProvider } from '../qwen';
 
 import type { IToolSchema, ILogger, TUniversalMessage } from '@robota-sdk/agent-core';
 
