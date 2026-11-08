@@ -11,7 +11,7 @@ import { SettingsPluginsSection } from './SettingsPluginsSection.js';
 import { SettingsProvidersSection } from './SettingsProvidersSection.js';
 
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
-import type { ISettingsPermissionRule, ISettingsPlugin } from '@robota-sdk/agent-interface-session';
+import type { ISettingsPermissionRule, ISettingsPlugin } from '@robota-sdk/agent-interface/session';
 
 interface ISettingsSectionDefinition {
   id: string;

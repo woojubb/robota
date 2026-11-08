@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-ui-web",
-  "version": "3.3.1",
+  "version": "3.3.2",
   "description": "Browser-safe React session presentation, wire reducer, WebSocket client and runtime-host contract for consumer-owned agent renderers.",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "type": "module",
@@ -66,10 +66,8 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-interface-command": "workspace:^",
-    "@robota-sdk/agent-interface-execution": "workspace:^",
-    "@robota-sdk/agent-interface-session": "workspace:^",
-    "@robota-sdk/agent-interface-transport": "workspace:^",
+    "@robota-sdk/agent-core": "workspace:^",
+    "@robota-sdk/agent-interface": "workspace:^",
     "@robota-sdk/agent-transport": "workspace:^",
     "lucide-react": "^1.26.0",
     "pretendard": "^1.3.9",

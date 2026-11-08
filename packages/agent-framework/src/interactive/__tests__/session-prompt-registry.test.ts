@@ -14,7 +14,7 @@ import type {
   IAskRequestEvent,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /**
  * The transport-neutral pending-prompt registry. A stub emitter with a

@@ -1,7 +1,7 @@
 /**
  * The machinery behind the admission decision.
  *
- * The SHAPE of the decision is a contract and lives in `@robota-sdk/agent-interface-transport`; an
+ * The SHAPE of the decision is a contract and lives in `@robota-sdk/agent-interface/transport`; an
  * interface package is inert by rule, so the types are declared there and produced here, in the
  * package every transport already shares.
  *
@@ -13,7 +13,7 @@ import { constantTimeEqual, randomHex } from '@robota-sdk/agent-core';
 import type {
   ITransportAdmission,
   ITransportAdmissionConfig,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 /** Bytes of entropy per minted token. 32 bytes = 256 bits, hex-encoded to 64 characters. */
 const TOKEN_BYTES = 32;

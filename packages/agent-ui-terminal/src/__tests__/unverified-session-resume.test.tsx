@@ -8,7 +8,7 @@
  * picker and prompt.
  */
 
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -34,7 +34,7 @@ import type {
   ISessionListingEntry,
   IOwnerSessionDirectory,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const TICK_MS = 30;
 const FRAME_DEADLINE_MS = 3000;

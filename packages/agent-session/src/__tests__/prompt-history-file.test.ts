@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { NodePromptHistoryFile, parsePromptHistoryLine } from '../prompt-history-file.js';
 
-import type { IPromptHistoryBlock, IPromptHistoryEntry } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistoryBlock, IPromptHistoryEntry } from '@robota-sdk/agent-interface/session';
 
 const roots: string[] = [];
 function temp(): string {

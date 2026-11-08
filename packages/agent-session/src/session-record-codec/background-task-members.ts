@@ -37,7 +37,7 @@ import type {
   TBackgroundTaskPermissionDenialReason,
   TBackgroundTaskStatus,
   TBackgroundTaskTimeoutReason,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 export const TASK_KINDS = [
   'agent',
@@ -81,7 +81,7 @@ const TASK_ERROR_CATEGORIES = [
   'provider',
   'process',
 ] as const satisfies readonly TBackgroundTaskErrorCategory[];
-/** Mirrors the SSOT `TBackgroundTaskPermissionDenialReason` (`agent-interface-execution`). */
+/** Mirrors the SSOT `TBackgroundTaskPermissionDenialReason` (`agent-interface/execution`). */
 const TASK_PERMISSION_DENIAL_REASONS = [
   'denied-by-person',
   'no-approver',

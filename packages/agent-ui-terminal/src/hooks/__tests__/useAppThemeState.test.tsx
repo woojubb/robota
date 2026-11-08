@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { useAppThemeState } from '../useAppThemeState.js';
 
 import type { IThemeToggles } from '../useAppThemeState.js';
-import type { IAppearanceSettings } from '@robota-sdk/agent-interface-command';
+import type { IAppearanceSettings } from '@robota-sdk/agent-interface/command';
 
 const PERSISTED: IAppearanceSettings = {
   theme: 'dark',

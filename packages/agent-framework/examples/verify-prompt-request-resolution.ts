@@ -11,7 +11,7 @@ import type {
   IAskRequestEvent,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

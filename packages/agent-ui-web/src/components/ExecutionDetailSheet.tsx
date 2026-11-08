@@ -7,7 +7,7 @@ import type { TExecutionDetailStatus } from '../hooks/use-execution-detail.js';
 import type {
   IExecutionDetailRecord,
   IExecutionWorkspaceEntry,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 const STATUS_TAG_TONE: Record<string, string> = {
   warning: 'bg-warning/15 text-warning',

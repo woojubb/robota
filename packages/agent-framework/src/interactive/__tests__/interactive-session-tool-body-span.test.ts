@@ -14,7 +14,7 @@ import { collectSpanEntries } from '../interactive-session-execution.js';
 import { InteractiveSession } from '../interactive-session.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
-import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface/analytics';
 
 const testHost = createTestFrameworkHost();
 

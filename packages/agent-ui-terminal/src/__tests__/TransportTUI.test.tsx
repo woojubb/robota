@@ -20,7 +20,7 @@ import TransportTUI from '../TransportTUI.js';
 import type {
   ITransportEntry,
   ITransportSettingsRegistryView,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 function entry(name: string, enabled: boolean): ITransportEntry {
   return {

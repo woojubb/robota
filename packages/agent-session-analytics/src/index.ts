@@ -26,7 +26,7 @@ export type { IPersonalUsageSnapshot } from './personal-usage.js';
 export type {
   IPersonalUsageReport,
   IPersonalUsageRequest,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 export type {
   TUsageAnalysisInput,
   IUsageSourceTotals,

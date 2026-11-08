@@ -32,7 +32,7 @@ import { persistSessionRename } from '../interactive-session-rename.js';
 import { loadSessionRecord } from '../interactive-session-restore.js';
 import { listResumableSessionSummaries, listUnreadableSessions } from '../session-persistence.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const SESSION_ID = 'sess_routing';
 

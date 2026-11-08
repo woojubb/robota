@@ -1,4 +1,4 @@
-import type { ISessionPendingExecution } from '@robota-sdk/agent-interface-session';
+import type { ISessionPendingExecution } from '@robota-sdk/agent-interface/session';
 import type { IToolWaitRequest, TToolParameters, TUniversalMessage } from '@robota-sdk/agent-core';
 import { addIssue, atKey } from './decode-outcome.js';
 import type { TDecodeIssues } from './decode-outcome.js';

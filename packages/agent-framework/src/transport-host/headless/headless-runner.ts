@@ -19,7 +19,7 @@ import type { IHeadlessOutput } from './headless-output.js';
 import type { IHeadlessSession } from './headless-session.js';
 import type { IModelEffortResolution } from '../../effort/effort-resolution.js';
 import type { IProviderErrorGuidance } from '../../utils/error-humanizer.js';
-import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface-session';
+import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface/session';
 import type { TOutputFormat } from './headless-output-format.js';
 
 export { OUTPUT_FORMATS } from './headless-output-format.js';

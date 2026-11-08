@@ -21,13 +21,16 @@ import type {
   IBackgroundTaskDeniedToolCalls,
   ISubagentJobResult,
   TBackgroundTaskPermissionDenialReason,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 /**
  * How long a spawned worker may take to say anything at all. Generous — it covers process
  * start plus module load of a bundled CLI — but finite, because the alternative is a silent hang.
  */
 const DEFAULT_HANDSHAKE_BUDGET_MS = 30_000;
+
+/** How long a worker's channel may stay open after its exit before the job is judged to have no result. */
+const EXIT_CHANNEL_CLOSE_BUDGET_MS = 5_000;
 
 /**
  * Cancels a spawned child that will never be sent `start` — the job failed between the spawn and the
@@ -102,6 +105,9 @@ class ChildProcessSubagentResultController {
   private ready = false;
   private readonly timeoutTimer?: ReturnType<typeof setTimeout>;
   private readonly handshakeTimer: ReturnType<typeof setTimeout>;
+  /** The "no result" verdict a worker's exit is waiting to give once its channel has closed. */
+  private exitVerdict?: () => void;
+  private exitVerdictTimer?: ReturnType<typeof setTimeout>;
   private readonly handshakeBudgetMs: number;
   /** The start payload, or `undefined` when building it failed and the job was already rejected. */
   private readonly payload: Promise<ISubagentWorkerStartPayload | undefined>;
@@ -280,18 +286,31 @@ class ChildProcessSubagentResultController {
 
   private readonly onExit = (code: number | null, signal: NodeJS.Signals | null): void => {
     if (this.settled) return;
+    const { child } = this.options.runtime;
     // Read the tail here, at `'exit'`. Review proposed deferring to `'close'` on the
     // theory that the pipe has not drained yet; measured, that is not the mechanism. When a child
     // calls `process.exit()` its pending pipe writes are TRUNCATED, so the last line is never
     // written at all — lost 10/10 at `'close'` just as at `'exit'`. When a child ends naturally the
     // tail is already complete — present 40/40 at `'exit'` across 1k–400k lines. Waiting buys
-    // nothing in either case, and a wait whose stated reason is false is worse than no wait.
-    this.rejectOnce(
-      new BackgroundTaskError(
-        'crash',
-        formatEarlyExitMessage(code, signal, readChildStderrTail(this.options.runtime.child)),
-      ),
+    // nothing for stderr in either case, and a wait whose stated reason is false is worse than no wait.
+    const crash = new BackgroundTaskError(
+      'crash',
+      formatEarlyExitMessage(code, signal, readChildStderrTail(child)),
     );
+    // The IPC channel is a different matter. `'exit'` is not ordered against it: a `result` the
+    // worker had already written and flushed can still be unread when the exit is reported (a worker
+    // that sent its answer and exited cleanly was settled as a crash, exit code 0, with the answer
+    // in the pipe). The channel dispatches every message it holds before it reports `'disconnect'`,
+    // so a verdict of "no result" waits for that. The budget only keeps a channel that never closes
+    // from leaving the job pending.
+    if (!child.connected) {
+      this.rejectOnce(crash);
+      return;
+    }
+    this.exitVerdict = () => this.rejectOnce(crash);
+    child.once('disconnect', this.exitVerdict);
+    this.exitVerdictTimer = setTimeout(this.exitVerdict, EXIT_CHANNEL_CLOSE_BUDGET_MS);
+    this.exitVerdictTimer.unref?.();
   };
 
   private readonly resolveOnce = (result: ISubagentWorkerResultMessage): void => {
@@ -344,6 +363,7 @@ class ChildProcessSubagentResultController {
   private clearTimers(): void {
     if (this.timeoutTimer) clearTimeout(this.timeoutTimer);
     clearTimeout(this.handshakeTimer);
+    clearTimeout(this.exitVerdictTimer);
   }
 
   private cleanup(): void {
@@ -351,6 +371,7 @@ class ChildProcessSubagentResultController {
     child.off('message', this.onMessage);
     child.off('error', this.onError);
     child.off('exit', this.onExit);
+    if (this.exitVerdict) child.off('disconnect', this.exitVerdict);
   }
 }
 

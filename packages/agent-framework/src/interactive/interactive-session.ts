@@ -1,4 +1,4 @@
-import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface/session';
 import type { ICommandProductVocabulary } from '../command-api/host-context-types.js';
 import {
   basenamePath,
@@ -7,7 +7,7 @@ import {
   randomId,
   utf8ByteLength,
 } from '@robota-sdk/agent-core';
-import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 import { loadSessionForUpdate } from '@robota-sdk/agent-session';
 
 import { requireFrameworkHost } from '../host/require-framework-host.js';
@@ -38,6 +38,7 @@ import { applyModelFallback } from '../routing/model-fallback-chain.js';
 import { persistSessionRename } from './interactive-session-rename.js';
 import { loadSessionRecord, resumeRefusal } from './interactive-session-restore.js';
 import { SessionRecordClaim } from './session-record-claim.js';
+import { resolveSessionWorkspaceCwd } from './session-workspace-cwd.js';
 import { isSessionAuthorshipRefusedError } from './session-authorship-gate.js';
 import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-tools.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
@@ -151,7 +152,7 @@ import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type {
   IBackgroundTaskState,
   IExecutionPendingRequest,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IGoalState,
   IRuntimeToolInvokeOptions,
@@ -169,8 +170,8 @@ import type {
   TProjectMemoryRead,
   TProjectStatusRead,
   TWaitingLoopStopOutcome,
-} from '@robota-sdk/agent-interface-session';
-import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/session';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface/transport';
 import type { IPermissionAskContext, Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IWorkspaceMoveInstructions } from './interactive-session-workspace-move.js';
@@ -383,10 +384,15 @@ export class InteractiveSession
     this.resolveDefaultLoopPrompt = options.resolveDefaultLoopPrompt;
     this.userSettingsSources = options.userSettingsSources ?? [];
     this.sessionLoopsDisabled = options.disableSessionLoops ?? false;
+    const projectAccess =
+      options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable');
     this.workspace = Object.freeze({
-      cwd: ('cwd' in options ? options.cwd : undefined) ?? '',
-      projectAccess:
-        options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable'),
+      cwd: resolveSessionWorkspaceCwd(
+        ('cwd' in options ? options.cwd : undefined) ?? '',
+        projectAccess,
+        host,
+      ),
+      projectAccess,
     });
     this.sessionName = options.sessionName;
     if ('outputStyle' in options && options.outputStyle !== undefined) {
@@ -811,7 +817,12 @@ export class InteractiveSession
         options.projectSettingsPaths,
         options.host,
       ) !== undefined;
-    const result = await initializeInteractiveSessionAsync(options, {
+    // Initialization reads the project from the directory the session is bound to.
+    const initOptions =
+      (options.cwd ?? '') === this.workspace.cwd
+        ? options
+        : { ...options, cwd: this.workspace.cwd };
+    const result = await initializeInteractiveSessionAsync(initOptions, {
       sandboxSnapshotId: this.sandboxSnapshotId,
       resumeSessionId: this.resumeSessionId,
       pendingRestoreMessages: this.pendingRestoreMessages,

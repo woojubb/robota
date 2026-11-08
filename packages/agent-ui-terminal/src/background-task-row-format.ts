@@ -3,7 +3,7 @@ import { formatExecutionWorkspaceEntryRow } from './execution-workspace-view-mod
 import { STATUS_SYMBOL, workspaceStatusKind } from './status-glyph.js';
 
 import type { TUiStatusKind } from './status-glyph.js';
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface/execution';
 
 /**
  * The row's leading connector. The plain form: `├`/`└` draw a tree a sighted reader

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-session",
-  "version": "3.2.3",
+  "version": "3.2.4",
   "description": "Session for the Robota SDK: permission-gated tool execution, hooks, context tracking, compaction and persistence",
   "type": "module",
   "main": "dist/index.js",
@@ -81,10 +81,9 @@
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:^",
-    "@robota-sdk/agent-file-authority": "workspace:^",
-    "@robota-sdk/agent-interface-execution": "workspace:^",
-    "@robota-sdk/agent-interface-session": "workspace:^",
-    "@robota-sdk/agent-node-lock": "workspace:^"
+    "@robota-sdk/agent-interface": "workspace:^",
+    "@robota-sdk/agent-os": "workspace:^",
+    "koffi": "3.3.1"
   },
   "devDependencies": {
     "eslint": "^8.57.1",

@@ -12,7 +12,7 @@ import { WorkspaceProjectSessionStore } from './workspace-session-store.js';
 
 import type { IHostToolResultSpillStore, IInteractiveSessionStore } from './session-store-types.js';
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
-import type { IPromptHistorySource, IPromptHistoryWriter } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistorySource, IPromptHistoryWriter } from '@robota-sdk/agent-interface/session';
 import type {
   INodeSessionStoreOptions,
   INodeToolResultSpillStoreOptions,

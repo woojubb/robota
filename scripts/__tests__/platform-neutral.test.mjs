@@ -354,4 +354,21 @@ describe('platform-neutral entry check', () => {
       ].sort(),
     );
   });
+
+  it('judges a package without a root export by its subpaths', async () => {
+    const hostOnly = { './a': { source: './src/index.ts', browser: null, default: './dist/a.js' } };
+    const mixed = { ...hostOnly, './b': { source: './src/index.ts', default: './dist/b.js' } };
+    const packages = {
+      host: { exports: hostOnly, files: { 'src/index.ts': '' } },
+      mixed: { exports: mixed, files: { 'src/index.ts': '' } },
+    };
+    expect(
+      await checkPlatformNeutral(
+        workspace({ packages, lists: { neutral: ['mixed'], host: ['host'] } }),
+      ),
+    ).toEqual([]);
+    expect(
+      await checkPlatformNeutral(workspace({ packages, lists: { neutral: ['host', 'mixed'] } })),
+    ).toEqual(['host is listed as Platform-neutral, but its subpaths map browser: null']);
+  });
 });

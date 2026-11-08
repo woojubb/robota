@@ -21,7 +21,7 @@ import type {
   IThemeCatalogueEntry,
   IThemeCataloguePort,
   TReducedMotionOverride,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 
 /**
  * A theme file that was found and refused. It is carried BESIDE the themes rather than among them,

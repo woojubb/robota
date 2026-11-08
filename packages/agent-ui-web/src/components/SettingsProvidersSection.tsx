@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 import { PopupMenu } from './PopupMenu.js';
 
-import type { ISettingsProviderProfile, ISettingsSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISettingsProviderProfile, ISettingsSnapshot } from '@robota-sdk/agent-interface/session';
 import type { TModelListSnapshot } from '../hooks/session-client-types.js';
 
 const BUTTON =

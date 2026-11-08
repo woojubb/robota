@@ -26,7 +26,7 @@ import { usePalette } from './theme/index.js';
 import type {
   ITransportEntry,
   ITransportSettingsRegistryView,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 const TRANSPORT_NAME_WIDTH = 18;
 

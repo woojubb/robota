@@ -15,7 +15,7 @@ import { formatCommandBackgroundTask } from '../../command-api/background/backgr
 import { SessionBackgroundTaskTracker } from '../interactive-session-background-tracker.js';
 
 import type { IToolResult } from '@robota-sdk/agent-core';
-import type { IToolInvocationBackgroundTaskRequest } from '@robota-sdk/agent-interface-execution';
+import type { IToolInvocationBackgroundTaskRequest } from '@robota-sdk/agent-interface/execution';
 
 function createSpawnedToolInvocationTask() {
   const runner = createToolInvocationBackgroundTaskRunner();

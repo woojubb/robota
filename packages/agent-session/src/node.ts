@@ -1,4 +1,4 @@
-export { createProcessOperationLock } from '@robota-sdk/agent-node-lock';
+export { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
 // @robota-sdk/agent-session/node — what only a Node host can provide: the file-system store, log
 // sink and source, the spill store and prompt-history file, and the process hooks. The main entry is
 // platform-neutral (ARCHITECTURE.md "Runtime platforms") and takes each of these by injection.

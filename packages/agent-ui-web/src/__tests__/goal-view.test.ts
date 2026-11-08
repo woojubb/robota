@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { describeGoalStatus } from '../goal-view.js';
 
-import type { IGoalState } from '@robota-sdk/agent-interface-session';
+import type { IGoalState } from '@robota-sdk/agent-interface/session';
 
 function goal(overrides: Partial<IGoalState> = {}): IGoalState {
   return {

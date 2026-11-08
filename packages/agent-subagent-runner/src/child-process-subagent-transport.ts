@@ -4,7 +4,7 @@ import {
   type ISubagentJobStart,
   type TBackgroundTaskRunnerEvent,
 } from '@robota-sdk/agent-executor';
-import { killProcessTree } from '@robota-sdk/agent-process';
+import { killProcessTree } from '@robota-sdk/agent-os/process';
 
 /** POSIX children are forked detached so a process-group kill reaps grandchildren. */
 const SPAWN_DETACHED = process.platform !== 'win32';

@@ -6,7 +6,7 @@
  * host-role members read one capability and one flag, and nothing else in the class touches either.
  */
 
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface/session';
 
 export class SessionTerminalHandoffGate {
   /** Guards handoff exclusivity (one handoff at a time). */

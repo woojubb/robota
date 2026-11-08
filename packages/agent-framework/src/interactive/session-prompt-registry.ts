@@ -30,14 +30,14 @@ import { buildDiffState } from './interactive-session-streaming.js';
 
 import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IActionRequest, TActionResponse, TToolArgs } from '@robota-sdk/agent-core';
-import type { IExecutionPendingRequest } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionPendingRequest } from '@robota-sdk/agent-interface/execution';
 import type {
   IAskRequestEvent,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
   TDriverId,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { IPermissionAskContext } from '@robota-sdk/agent-session';
 
 /**

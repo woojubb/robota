@@ -3,7 +3,7 @@
 import { RefreshCw, Trash2 } from 'lucide-react';
 import React, { useId, useState } from 'react';
 
-import type { ISettingsPlugin, ISettingsSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISettingsPlugin, ISettingsSnapshot } from '@robota-sdk/agent-interface/session';
 
 function PluginRow({
   plugin,

@@ -1,10 +1,10 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { makeCanonicalTempDir } from '../canonical-temp-dir.js';
 import { retrieveAgentToolDeps } from '../../tools/agent-tool.js';
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 import { createTrustedProjectAccessFixture } from '../trusted-project-state-fixture.js';
@@ -76,7 +76,7 @@ function seedAgent(): void {
 
 describe('fork skill model through a real scripted child Session', () => {
   it('applies a skill model for one child request without changing agent or parent defaults', async () => {
-    workspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-skill-model-')));
+    workspace = makeCanonicalTempDir('agent-skill-model-');
     seedAgent();
     seedSkill('override', 'skill-model');
     seedSkill('inherit');
@@ -166,7 +166,7 @@ describe('fork skill model through a real scripted child Session', () => {
   }, 20_000);
 
   it('starts the session without an inject skill carrying a model', async () => {
-    workspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-invalid-skill-model-')));
+    workspace = makeCanonicalTempDir('agent-invalid-skill-model-');
     const directory = join(workspace, '.agents', 'skills', 'invalid');
     mkdirSync(directory, { recursive: true });
     writeFileSync(

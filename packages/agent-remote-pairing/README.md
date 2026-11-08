@@ -74,7 +74,7 @@ const { sessionKey } = await handshake.result;
 ```
 
 In practice you rarely call this directly: `WebRtcTransport` in
-[`@robota-sdk/agent-transport-webrtc`](../agent-transport-webrtc/README.md) runs the host side when you
+[`@robota-sdk/agent-transport-webrtc`](../agent-transport/docs/webrtc.md) runs the host side when you
 give it a `secret`, and the browser client in `apps/agent-web` (`src/remote-client`) runs the
 responder side.
 

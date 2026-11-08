@@ -73,12 +73,12 @@ import type {
   ICreateSessionOptions,
   ILivePromptTracePort,
 } from '@robota-sdk/agent-framework';
-import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
+import type { TReducedMotionOverride } from '@robota-sdk/agent-interface/command';
 import type {
   IInteractiveSessionStore,
   IPromptHistorySource,
-} from '@robota-sdk/agent-interface-session';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/session';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface/transport';
 
 export interface IRenderOptions {
   /** The platform the TUI's sessions run on; `{}` is a host with nothing to lend. */

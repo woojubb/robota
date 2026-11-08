@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ExecutionDetailSheet } from '../ExecutionDetailSheet.js';
 
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface/execution';
 
 /**
  * Opening an Agents panel entry shows what it was asked, its transcript (paged) and its

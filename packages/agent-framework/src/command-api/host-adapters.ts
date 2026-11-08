@@ -2,7 +2,7 @@ import type {
   ICommandPluginAdapter,
   ICommandSource,
   TCommandInvocationSource,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 import type { IPresetApplicationOptions } from './preset/preset-application-types.js';
 import type { ICommandSessionModel } from './session-roles.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
@@ -16,7 +16,7 @@ import type {
   TUniversalValue,
 } from '@robota-sdk/agent-core';
 import type { IPermissionDenial } from '@robota-sdk/agent-session';
-import type { TWorkspaceRelation } from '@robota-sdk/agent-interface-session-mobility';
+import type { TWorkspaceRelation } from '@robota-sdk/agent-interface/session-mobility';
 
 export interface ICommandSettingsDocument {
   [key: string]: TUniversalValue;

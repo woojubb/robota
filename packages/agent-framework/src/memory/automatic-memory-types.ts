@@ -1,6 +1,6 @@
 import type { TMemoryType } from './project-memory-store.js';
-// IMemoryReference / IMemoryEvent SSOT relocated to @robota-sdk/agent-interface-session.
-import type { IMemoryEvent, IMemoryReference } from '@robota-sdk/agent-interface-session';
+// IMemoryReference / IMemoryEvent SSOT relocated to @robota-sdk/agent-interface/session.
+import type { IMemoryEvent, IMemoryReference } from '@robota-sdk/agent-interface/session';
 
 export type { IMemoryEvent, IMemoryReference };
 

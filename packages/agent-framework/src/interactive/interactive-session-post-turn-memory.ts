@@ -13,7 +13,7 @@
  */
 
 import type { IExecutionResult } from './types.js';
-import type { IMemoryEvent, TTurnSource } from '@robota-sdk/agent-interface-session';
+import type { IMemoryEvent, TTurnSource } from '@robota-sdk/agent-interface/session';
 
 export interface IPostTurnMemoryInput {
   readonly capture?: (input: {

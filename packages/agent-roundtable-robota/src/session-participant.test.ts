@@ -10,7 +10,7 @@ import type {
   TExecutionJournalRecord,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import {
   createRoundtable,
   loadRoundtable,

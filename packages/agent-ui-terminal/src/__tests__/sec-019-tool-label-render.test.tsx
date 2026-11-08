@@ -37,7 +37,7 @@ import MessageList from '../MessageList.js';
 import StreamingIndicator from '../StreamingIndicator.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+import type { IToolState } from '@robota-sdk/agent-interface/session';
 
 const ESC = String.fromCharCode(27);
 const BEL = String.fromCharCode(7);

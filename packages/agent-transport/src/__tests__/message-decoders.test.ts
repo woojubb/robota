@@ -1,4 +1,4 @@
-import { SESSION_CHANGE_REFUSAL_CODES } from '@robota-sdk/agent-interface-session';
+import { SESSION_CHANGE_REFUSAL_CODES } from '@robota-sdk/agent-interface/session';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -119,7 +119,7 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     requestId: 'command-1',
   },
   // `display` is optional (an older host may not send it) and foreign-owned
-  // (`IHistoryDisplaySegment`, `agent-interface-session`) — checked shallowly here, same as
+  // (`IHistoryDisplaySegment`, `agent-interface/session`) — checked shallowly here, same as
   // `tool_start`'s `state`, per this file's own header.
   messages: {
     type: 'messages',

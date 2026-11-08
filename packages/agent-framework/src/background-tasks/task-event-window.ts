@@ -21,7 +21,7 @@ import type {
   IExecutionDetailRecord,
   TExecutionDetailRecordKind,
 } from './execution-workspace-types.js';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface/execution';
 
 /** Most rows a window keeps. */
 export const TASK_EVENT_WINDOW_MAX_ROWS = 80;

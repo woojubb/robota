@@ -11,7 +11,7 @@ import {
   createSystemMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 
 import {
   isAbortError,
@@ -40,7 +40,7 @@ import type {
   IToolPermissionDecisionObservation,
   TRawProviderCallTraceObservation,
 } from './interactive-session-execution.js';
-import type { IPeerTurnContext, TTurnSource } from '@robota-sdk/agent-interface-session';
+import type { IPeerTurnContext, TTurnSource } from '@robota-sdk/agent-interface/session';
 
 /**
  * The per-turn optional inputs to a prompt turn: the ephemeral recall block and

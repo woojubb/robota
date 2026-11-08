@@ -9,7 +9,7 @@
  * channel in its useState initializer and replaces it on every switch.
  */
 
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -29,7 +29,7 @@ import type { ITuiAppChannelPort } from '../tui-app-channel-port.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const TICK_MS = 30;
 const FRAME_DEADLINE_MS = 3000;
@@ -530,7 +530,7 @@ describe('App session-switch channel ownership', () => {
     initialStartIntent = true;
     const { lastFrame } = renderApp({ showSessionPickerOnStart: false });
 
-    await tick(100);
+    await waitForSessionPicker(lastFrame);
     expect(lastFrame()).toContain('Select a session to resume');
   });
 

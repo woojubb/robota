@@ -14,8 +14,8 @@ import type { IThemeColors } from './theme/index.js';
 import type {
   TExecutionAttention,
   TExecutionWorkspaceStatus,
-} from '@robota-sdk/agent-interface-execution';
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/execution';
+import type { IToolState } from '@robota-sdk/agent-interface/session';
 
 export type TUiStatusKind =
   'running' | 'success' | 'error' | 'denied' | 'waiting' | 'cancelled' | 'idle';

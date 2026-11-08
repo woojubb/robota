@@ -29,7 +29,7 @@ import type { IKeyInput } from '../keybindings/keybinding-registry.js';
 import type {
   IPromptHistoryEntry,
   IPromptHistorySource,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** What the surface injects to turn the overlay on; absent ⇒ `ctrl+r` does nothing. */
 export interface IHistorySearchSurface {

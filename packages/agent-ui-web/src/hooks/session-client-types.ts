@@ -1,7 +1,7 @@
 import type { TAppToolArguments, TAppToolOutcome, TAppView } from '../app-view/types.js';
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
 import type { TPendingPrompt } from './prompt-state.js';
-import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
+import type { TActionResponse } from '@robota-sdk/agent-interface/transport';
 import type {
   IDiffLine,
   IToolAppViewRef,
@@ -10,12 +10,12 @@ import type {
   TDriverId,
   TPermissionResultValue,
   TSettingsPatch,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type {
   IBackgroundTaskState,
   IExecutionDetailRecord,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IWireAgentDefinitionSummary,
   TServerMessage,

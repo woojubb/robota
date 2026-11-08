@@ -6,9 +6,9 @@
 The shared protocol layer under every agent runtime transport. It defines the transport-neutral wire messages
 (`TClientMessage` / `TServerMessage`), the session bridge that turns those messages into calls on a live
 session, and the delivery helpers a carrier needs (backpressure, resumable delivery, channel framing,
-handoff payload chunking). The WebSocket and WebRTC transports carry its wire protocol, and the HTTP and
-MCP transports use its admission and token-verification helpers. It opens no socket or listener of its
-own.
+handoff payload chunking). The carriers that put that protocol on a wire live in the same package, one
+subpath each: WebSocket, HTTP, MCP, ACP, WebRTC and the owner link. The root, `./client` and `./node` open
+no socket or listener; only a carrier subpath does.
 
 ## Installation
 
@@ -16,7 +16,9 @@ own.
 npm install @robota-sdk/agent-transport
 ```
 
-Requires Node.js 22.12 or later. The root and `./client` entry points also run in the browser.
+Requires Node.js 22.12 or later. The root and `./client` entry points also run in the browser. The carrier
+libraries are optional peer dependencies: install the ones for the carriers you import (see
+[Carriers](#carriers)).
 
 ## Entry points
 
@@ -26,8 +28,8 @@ Requires Node.js 22.12 or later. The root and `./client` entry points also run i
 | `@robota-sdk/agent-transport/client` | browser and Node | Only the wire message types and the runtime decoders (`decodeServerMessage`, `decodeClientMessage`, `decodeFrame`)                                                                                                                                                                        |
 | `@robota-sdk/agent-transport/node`   | Node only        | OAuth access-token verification (`createAccessTokenVerifier`), the bearer resource-server gate, file transfer, the stdio carrier bridge, handoff integrity (`sealHandoffRecord`, `verifyHandoffPayload`)                                                                                  |
 
-Anything that needs a Node built-in or the network lives under `./node`, so a browser bundle that
-imports the root or `./client` never pulls one in.
+Anything that needs a Node built-in or the network lives under `./node` or a carrier subpath, so a browser
+bundle that imports the root or `./client` never pulls one in.
 
 ## Usage: bridging a connection to a session
 
@@ -91,17 +93,23 @@ The receiver checks the bytes against `offer.manifest.integrity` with `verifyHan
 parsing them. A payload too large for one frame can be split with `chunkHandoffPayload` and reassembled
 with `HandoffChunkAssembler`.
 
-## Transport packages
+## Carriers
 
-Each carrier is its own package, so an application installs only the protocol dependencies it uses.
+Each carrier is its own subpath, so an application bundles and installs only the protocol library it uses.
+A carrier imports this package's root and nothing from another carrier.
 
-| Transport | Package                                                                     | What it does                                                                      |
-| --------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| WebSocket | [`@robota-sdk/agent-transport-ws`](../agent-transport-ws/README.md)         | Serves a session on a loopback WebSocket server (token-authenticated by default)  |
-| HTTP      | [`@robota-sdk/agent-transport-http`](../agent-transport-http/README.md)     | Hono routes for submitting prompts and reading session state over HTTP + SSE      |
-| MCP       | [`@robota-sdk/agent-transport-mcp`](../agent-transport-mcp/README.md)       | Exposes a session as an MCP server over stdio or Streamable HTTP                  |
-| ACP       | [`@robota-sdk/agent-transport-acp`](../agent-transport-acp/README.md)       | Runs a session as an Agent Client Protocol agent over stdio, for editors          |
-| WebRTC    | [`@robota-sdk/agent-transport-webrtc`](../agent-transport-webrtc/README.md) | Carries a session peer-to-peer over a pairing-gated data channel (Node host side) |
+| Import path                          | What it does                                                                      | Install alongside                                                                                              |
+| ------------------------------------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-transport/ws`     | Serves a session on a loopback WebSocket server (token-authenticated by default)  | `ws`                                                                                                           |
+| `@robota-sdk/agent-transport/http`   | Hono routes for submitting prompts and reading session state over HTTP + SSE      | `hono`                                                                                                         |
+| `@robota-sdk/agent-transport/mcp`    | Exposes a session as an MCP server over stdio or Streamable HTTP                  | `@modelcontextprotocol/server`, `@modelcontextprotocol/node`                                                   |
+| `@robota-sdk/agent-transport/acp`    | Runs a session as an Agent Client Protocol agent over stdio, for editors          | `@agentclientprotocol/sdk`, `zod`                                                                              |
+| `@robota-sdk/agent-transport/webrtc` | Carries a session peer-to-peer over a pairing-gated data channel (Node host side) | `@robota-sdk/agent-remote-pairing`, `ws`, `bittorrent-dht`, `multicast-dns`, `nostr-tools`, `node-datachannel` |
+| `@robota-sdk/agent-transport/link`   | Carries the owner link of `agent-keyring` over a local control socket             | `@robota-sdk/agent-keyring`                                                                                    |
+
+Every carrier subpath is Node only except `http`, which reaches no Node built-in. Usage of each is in
+[docs/](./docs/README.md): [ws](./docs/ws.md), [http](./docs/http.md), [mcp](./docs/mcp.md),
+[acp](./docs/acp.md), [webrtc](./docs/webrtc.md) and [link](./docs/link.md).
 
 The headless (non-interactive text / JSON / stream-JSON) transport and `TransportRegistry`, which
 starts and stops a set of transports together, live in `@robota-sdk/agent-framework`. The terminal UI is
@@ -114,8 +122,10 @@ starts and stops a set of transports together, live in `@robota-sdk/agent-framew
   `-transport` (contract packages)
 - `jose` (access-token signature verification under `./node`)
 
-The protocol libraries (`ws`, `hono`, `@modelcontextprotocol/server`, `node-datachannel`) are
-dependencies of the individual transport packages, not of this one.
+The carrier libraries (`ws`, `hono`, `@modelcontextprotocol/server` and `@modelcontextprotocol/node`,
+`@agentclientprotocol/sdk` and `zod`, `bittorrent-dht`, `multicast-dns`, `nostr-tools`,
+`node-datachannel`) and the `@robota-sdk/agent-remote-pairing` and `@robota-sdk/agent-keyring` packages are
+optional peer dependencies, needed only by the carrier subpath that names them.
 
 ## Documentation
 

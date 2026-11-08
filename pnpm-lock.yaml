@@ -443,24 +443,36 @@ importers:
         specifier: ^8.21.1
         version: 8.21.1
     devDependencies:
-      '@robota-sdk/agent-interface-session':
+      '@robota-sdk/agent-core':
         specifier: workspace:^
-        version: link:../../packages/agent-interface-session
+        version: link:../../packages/agent-core
+      '@robota-sdk/agent-interface':
+        specifier: workspace:^
+        version: link:../../packages/agent-interface
       '@robota-sdk/agent-remote-pairing':
         specifier: workspace:^
         version: link:../../packages/agent-remote-pairing
-      '@robota-sdk/agent-transport-webrtc':
+      '@robota-sdk/agent-transport':
         specifier: workspace:^
-        version: link:../../packages/agent-transport-webrtc
+        version: link:../../packages/agent-transport
       '@types/node':
         specifier: ^22.19.21
         version: 22.19.21
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      bittorrent-dht:
+        specifier: ^11.0.12
+        version: 11.0.12
+      multicast-dns:
+        specifier: ^7.2.5
+        version: 7.2.5
       node-datachannel:
         specifier: ^0.33.4
         version: 0.33.4
+      nostr-tools:
+        specifier: ^2.25.2
+        version: 2.25.2(patch_hash=cwhzskwbpwfbe2z3roazz7mtuy)(typescript@6.0.3)
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
@@ -485,9 +497,9 @@ importers:
       '@robota-sdk/agent-provider':
         specifier: workspace:^
         version: link:../../packages/agent-provider
-      '@robota-sdk/agent-tool-defaults':
+      '@robota-sdk/agent-tools':
         specifier: workspace:^
-        version: link:../../packages/agent-tool-defaults
+        version: link:../../packages/agent-tools
       next:
         specifier: ^15.5.24
         version: 15.5.28(@babel/core@7.29.7)(@types/node@22.19.21)(react-dom@19.2.8)(react@19.2.8)
@@ -996,28 +1008,6 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
-  packages/agent-capability-pack:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-      '@robota-sdk/agent-framework':
-        specifier: workspace:^
-        version: link:../agent-framework
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
   packages/agent-cli:
     dependencies:
       '@agentclientprotocol/sdk':
@@ -1308,43 +1298,6 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/agent-command:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-      '@robota-sdk/agent-framework':
-        specifier: workspace:^
-        version: link:../agent-framework
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:^
-        version: link:../agent-interface-command
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:^
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:^
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-preset':
-        specifier: workspace:^
-        version: link:../agent-preset
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
-
   packages/agent-core:
     dependencies:
       jssha:
@@ -1393,15 +1346,12 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:^
         version: link:../agent-core
-      '@robota-sdk/agent-interface-execution':
+      '@robota-sdk/agent-interface':
         specifier: workspace:^
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-transport':
+        version: link:../agent-interface
+      '@robota-sdk/agent-os':
         specifier: workspace:^
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-process':
-        specifier: workspace:^
-        version: link:../agent-process
+        version: link:../agent-os
       croner:
         specifier: ^10.0.1
         version: 10.0.1
@@ -1422,25 +1372,6 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/agent-file-authority:
-    dependencies:
-      koffi:
-        specifier: 3.3.1
-        version: 3.3.1
-    devDependencies:
-      '@types/node':
-        specifier: ^20.19.43
-        version: 20.19.43
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
   packages/agent-framework:
     dependencies:
       '@robota-sdk/agent-core':
@@ -1449,39 +1380,24 @@ importers:
       '@robota-sdk/agent-executor':
         specifier: workspace:^
         version: link:../agent-executor
-      '@robota-sdk/agent-file-authority':
+      '@robota-sdk/agent-interface':
         specifier: workspace:^
-        version: link:../agent-file-authority
-      '@robota-sdk/agent-interface-analytics':
+        version: link:../agent-interface
+      '@robota-sdk/agent-os':
         specifier: workspace:^
-        version: link:../agent-interface-analytics
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:^
-        version: link:../agent-interface-command
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:^
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:^
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-session-mobility':
-        specifier: workspace:^
-        version: link:../agent-interface-session-mobility
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:^
-        version: link:../agent-interface-transport
+        version: link:../agent-os
       '@robota-sdk/agent-roundtable':
         specifier: workspace:^
         version: link:../agent-roundtable
       '@robota-sdk/agent-session':
         specifier: workspace:^
         version: link:../agent-session
-      '@robota-sdk/agent-tool-defaults':
-        specifier: workspace:^
-        version: link:../agent-tool-defaults
       '@robota-sdk/agent-tools':
         specifier: workspace:^
         version: link:../agent-tools
+      koffi:
+        specifier: 3.3.1
+        version: 3.3.1
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
@@ -1490,6 +1406,12 @@ importers:
         version: 4.6.7
     devDependencies:
       '@modelcontextprotocol/client':
+        specifier: ^2.3.0
+        version: 2.3.0
+      '@modelcontextprotocol/node':
+        specifier: ^2.1.0
+        version: 2.1.0(@modelcontextprotocol/server@2.3.0)(hono@4.13.14)
+      '@modelcontextprotocol/server':
         specifier: ^2.3.0
         version: 2.3.0
       '@robota-sdk/agent-provider':
@@ -1501,9 +1423,9 @@ importers:
       '@robota-sdk/agent-session-analytics':
         specifier: workspace:^
         version: link:../agent-session-analytics
-      '@robota-sdk/agent-transport-mcp':
+      '@robota-sdk/agent-transport':
         specifier: workspace:^
-        version: link:../agent-transport-mcp
+        version: link:../agent-transport
       openai:
         specifier: ^6.0.0
         version: 6.0.0(ws@8.21.1)(zod@4.6.7)
@@ -1584,115 +1506,14 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/agent-interface-analytics:
+  packages/agent-interface:
     devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-interface-command:
-    dependencies:
       '@robota-sdk/agent-core':
         specifier: workspace:^
         version: link:../agent-core
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-interface-execution:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-interface-session:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-      '@robota-sdk/agent-interface-analytics':
-        specifier: workspace:^
-        version: link:../agent-interface-analytics
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:^
-        version: link:../agent-interface-command
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:^
-        version: link:../agent-interface-execution
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-interface-session-mobility:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:^
-        version: link:../agent-interface-session
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-interface-transport:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-interface-tui:
-    devDependencies:
+      '@types/node':
+        specifier: ^20.19.43
+        version: 20.19.43
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
@@ -1789,25 +1610,6 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/agent-node-lock:
-    dependencies:
-      koffi:
-        specifier: 3.3.1
-        version: 3.3.1
-    devDependencies:
-      '@types/node':
-        specifier: ^20.19.43
-        version: 20.19.43
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
   packages/agent-organization:
     devDependencies:
       '@types/node':
@@ -1848,6 +1650,27 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
+  packages/agent-os:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.19.43
+        version: 20.19.43
+      koffi:
+        specifier: 3.3.1
+        version: 3.3.1
+      rimraf:
+        specifier: ^5.0.10
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.14
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+
   packages/agent-plugin:
     dependencies:
       '@robota-sdk/agent-core':
@@ -1873,61 +1696,24 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/agent-preset:
-    dependencies:
-      '@robota-sdk/agent-framework':
-        specifier: workspace:^
-        version: link:../agent-framework
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-process:
-    devDependencies:
-      '@types/node':
-        specifier: ^20.19.43
-        version: 20.19.43
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
   packages/agent-product:
     dependencies:
-      '@robota-sdk/agent-capability-pack':
-        specifier: workspace:^
-        version: link:../agent-capability-pack
       '@robota-sdk/agent-core':
         specifier: workspace:^
         version: link:../agent-core
       '@robota-sdk/agent-framework':
         specifier: workspace:^
         version: link:../agent-framework
-      '@robota-sdk/agent-interface-transport':
+      '@robota-sdk/agent-interface':
         specifier: workspace:^
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-preset':
+        version: link:../agent-interface
+      '@robota-sdk/agent-tools':
         specifier: workspace:^
-        version: link:../agent-preset
+        version: link:../agent-tools
     devDependencies:
+      '@types/node':
+        specifier: ^22.19.21
+        version: 22.19.21
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
@@ -1939,7 +1725,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-provider:
     dependencies:
@@ -2037,9 +1823,9 @@ importers:
       '@robota-sdk/agent-session':
         specifier: workspace:^
         version: link:../agent-session
-      '@robota-sdk/agent-tool-defaults':
+      '@robota-sdk/agent-tools':
         specifier: workspace:^
-        version: link:../agent-tool-defaults
+        version: link:../agent-tools
       tsdown:
         specifier: ^0.22.14
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
@@ -2052,18 +1838,15 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:^
         version: link:../agent-core
-      '@robota-sdk/agent-file-authority':
+      '@robota-sdk/agent-interface':
         specifier: workspace:^
-        version: link:../agent-file-authority
-      '@robota-sdk/agent-interface-execution':
+        version: link:../agent-interface
+      '@robota-sdk/agent-os':
         specifier: workspace:^
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:^
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-node-lock':
-        specifier: workspace:^
-        version: link:../agent-node-lock
+        version: link:../agent-os
+      koffi:
+        specifier: 3.3.1
+        version: 3.3.1
     devDependencies:
       eslint:
         specifier: ^8.57.1
@@ -2086,12 +1869,9 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:^
         version: link:../agent-core
-      '@robota-sdk/agent-interface-analytics':
+      '@robota-sdk/agent-interface':
         specifier: workspace:^
-        version: link:../agent-interface-analytics
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:^
-        version: link:../agent-interface-session
+        version: link:../agent-interface
     devDependencies:
       rimraf:
         specifier: ^5.0.10
@@ -2117,12 +1897,12 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: workspace:^
         version: link:../agent-framework
-      '@robota-sdk/agent-interface-execution':
+      '@robota-sdk/agent-interface':
         specifier: workspace:^
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-process':
+        version: link:../agent-interface
+      '@robota-sdk/agent-os':
         specifier: workspace:^
-        version: link:../agent-process
+        version: link:../agent-os
     devDependencies:
       '@types/node':
         specifier: ^22.19.21
@@ -2145,9 +1925,9 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:^
         version: link:../agent-core
-      '@robota-sdk/agent-interface-analytics':
+      '@robota-sdk/agent-interface':
         specifier: workspace:^
-        version: link:../agent-interface-analytics
+        version: link:../agent-interface
     devDependencies:
       '@opentelemetry/api':
         specifier: ^1.9.1
@@ -2171,39 +1951,17 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/agent-tool-defaults:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-      '@robota-sdk/agent-tools':
-        specifier: workspace:^
-        version: link:../agent-tools
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
-
   packages/agent-tools:
     dependencies:
-      '@robota-sdk/agent-file-authority':
+      '@robota-sdk/agent-os':
         specifier: workspace:^
-        version: link:../agent-file-authority
-      '@robota-sdk/agent-process':
-        specifier: workspace:^
-        version: link:../agent-process
+        version: link:../agent-os
       fast-glob:
         specifier: ^3.3.3
         version: 3.3.3
+      koffi:
+        specifier: 3.3.1
+        version: 3.3.1
       p-limit:
         specifier: ^7.3.0
         version: 7.3.0
@@ -2232,241 +1990,52 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:^
         version: link:../agent-core
-      '@robota-sdk/agent-interface-analytics':
+      '@robota-sdk/agent-interface':
         specifier: workspace:^
-        version: link:../agent-interface-analytics
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:^
-        version: link:../agent-interface-command
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:^
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:^
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-session-mobility':
-        specifier: workspace:^
-        version: link:../agent-interface-session-mobility
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:^
-        version: link:../agent-interface-transport
+        version: link:../agent-interface
       jose:
         specifier: 6.2.3
         version: 6.2.3
     devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      tsx:
-        specifier: ^4.23.1
-        version: 4.23.1
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-acp:
-    dependencies:
       '@agentclientprotocol/sdk':
         specifier: 1.9.0
         version: 1.9.0(zod@4.6.7)
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:^
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:^
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-transport':
-        specifier: workspace:^
-        version: link:../agent-transport
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      '@types/node':
-        specifier: ^20.19.43
-        version: 20.19.43
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-http:
-    dependencies:
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:^
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:^
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-transport':
-        specifier: workspace:^
-        version: link:../agent-transport
-      hono:
-        specifier: '>=4.13.11 <5.0.0'
-        version: 4.13.14
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-link:
-    dependencies:
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:^
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-keyring':
-        specifier: workspace:^
-        version: link:../agent-keyring
-      '@robota-sdk/agent-transport':
-        specifier: workspace:^
-        version: link:../agent-transport
-    devDependencies:
-      '@types/node':
-        specifier: ^20.19.43
-        version: 20.19.43
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-mcp:
-    dependencies:
+      '@modelcontextprotocol/client':
+        specifier: ^2.3.0
+        version: 2.3.0
       '@modelcontextprotocol/node':
         specifier: ^2.1.0
         version: 2.1.0(@modelcontextprotocol/server@2.3.0)(hono@4.13.14)
       '@modelcontextprotocol/server':
         specifier: ^2.3.0
         version: 2.3.0
-      '@robota-sdk/agent-interface-session':
+      '@robota-sdk/agent-keyring':
         specifier: workspace:^
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:^
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-transport':
-        specifier: workspace:^
-        version: link:../agent-transport
-    devDependencies:
-      '@modelcontextprotocol/client':
-        specifier: ^2.3.0
-        version: 2.3.0
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-webrtc:
-    dependencies:
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:^
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-session-mobility':
-        specifier: workspace:^
-        version: link:../agent-interface-session-mobility
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:^
-        version: link:../agent-interface-transport
+        version: link:../agent-keyring
       '@robota-sdk/agent-remote-pairing':
         specifier: workspace:^
         version: link:../agent-remote-pairing
-      '@robota-sdk/agent-transport':
-        specifier: workspace:^
-        version: link:../agent-transport
+      '@types/node':
+        specifier: ^20.19.43
+        version: 20.19.43
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       bittorrent-dht:
         specifier: ^11.0.12
         version: 11.0.12
+      hono:
+        specifier: '>=4.13.11 <5.0.0'
+        version: 4.13.14
       multicast-dns:
         specifier: ^7.2.5
         version: 7.2.5
-      nostr-tools:
-        specifier: ^2.25.2
-        version: 2.25.2(patch_hash=cwhzskwbpwfbe2z3roazz7mtuy)(typescript@6.0.3)
-      ws:
-        specifier: ^8.21.1
-        version: 8.21.1
-    devDependencies:
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
       node-datachannel:
         specifier: ^0.33.4
         version: 0.33.4
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-ws:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:^
-        version: link:../agent-core
-      '@robota-sdk/agent-interface-analytics':
-        specifier: workspace:^
-        version: link:../agent-interface-analytics
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:^
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:^
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-transport':
-        specifier: workspace:^
-        version: link:../agent-transport
-      ws:
-        specifier: ^8.21.1
-        version: 8.21.1
-    devDependencies:
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
+      nostr-tools:
+        specifier: ^2.25.2
+        version: 2.25.2(patch_hash=cwhzskwbpwfbe2z3roazz7mtuy)(typescript@6.0.3)
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
@@ -2482,6 +2051,12 @@ importers:
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+      ws:
+        specifier: ^8.21.1
+        version: 8.21.1
+      zod:
+        specifier: '>=4.6.7 <5.0.0'
+        version: 4.6.7
 
   packages/agent-ui-terminal:
     dependencies:
@@ -2491,24 +2066,9 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: workspace:^
         version: link:../agent-framework
-      '@robota-sdk/agent-interface-analytics':
+      '@robota-sdk/agent-interface':
         specifier: workspace:^
-        version: link:../agent-interface-analytics
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:^
-        version: link:../agent-interface-command
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:^
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:^
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:^
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-interface-tui':
-        specifier: workspace:^
-        version: link:../agent-interface-tui
+        version: link:../agent-interface
       '@robota-sdk/agent-transport':
         specifier: workspace:^
         version: link:../agent-transport
@@ -2534,9 +2094,9 @@ importers:
       '@homebridge/node-pty-prebuilt-multiarch':
         specifier: ^0.14.1
         version: 0.14.1
-      '@robota-sdk/agent-command':
+      '@robota-sdk/agent-product':
         specifier: workspace:^
-        version: link:../agent-command
+        version: link:../agent-product
       '@types/react':
         specifier: ^19.2.17
         version: 19.2.17
@@ -2561,18 +2121,12 @@ importers:
 
   packages/agent-ui-web:
     dependencies:
-      '@robota-sdk/agent-interface-command':
+      '@robota-sdk/agent-core':
         specifier: workspace:^
-        version: link:../agent-interface-command
-      '@robota-sdk/agent-interface-execution':
+        version: link:../agent-core
+      '@robota-sdk/agent-interface':
         specifier: workspace:^
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:^
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:^
-        version: link:../agent-interface-transport
+        version: link:../agent-interface
       '@robota-sdk/agent-transport':
         specifier: workspace:^
         version: link:../agent-transport
@@ -2609,37 +2163,6 @@ importers:
         version: 19.2.8(react@19.2.8)
       rimraf:
         specifier: ^5.0.0
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/pack-coding:
-    dependencies:
-      '@robota-sdk/agent-capability-pack':
-        specifier: workspace:^
-        version: link:../agent-capability-pack
-      '@robota-sdk/agent-command':
-        specifier: workspace:^
-        version: link:../agent-command
-      '@robota-sdk/agent-framework':
-        specifier: workspace:^
-        version: link:../agent-framework
-      '@robota-sdk/agent-tool-defaults':
-        specifier: workspace:^
-        version: link:../agent-tool-defaults
-      '@robota-sdk/agent-tools':
-        specifier: workspace:^
-        version: link:../agent-tools
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14

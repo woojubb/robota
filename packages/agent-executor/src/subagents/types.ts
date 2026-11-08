@@ -14,11 +14,11 @@ import type {
   ISubagentSpawnRequest,
   TSubagentJobMode,
   TSubagentJobStatus,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 /**
  * Imported and re-exported here for INTRA-PACKAGE use only. The owner is
- * `agent-interface-execution`; this package's PUBLIC index does not re-export them, because a
+ * `agent-interface/execution`; this package's PUBLIC index does not re-export them, because a
  * pass-through re-export of another package's symbols is banned. Consumers import from the owner.
  */
 export type {

@@ -12,7 +12,7 @@ import {
 
 import type { ICommand } from '../command-api/types.js';
 import type { TModelEffort } from '@robota-sdk/agent-core';
-import type { ISkillContentActivation } from '@robota-sdk/agent-interface-command';
+import type { ISkillContentActivation } from '@robota-sdk/agent-interface/command';
 
 /** Options passed to the fork execution callback */
 export interface IForkExecutionOptions {

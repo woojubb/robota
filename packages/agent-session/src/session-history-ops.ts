@@ -31,7 +31,7 @@ import type {
   IInteractiveSessionRecord,
   TSessionLoadOutcome,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const logger = createLogger('SessionHistoryOps');
 
@@ -175,7 +175,7 @@ export interface IPersistContext {
   systemPrompt: string;
   toolSchemas: IToolSchema[];
   sessionStore: IInteractiveSessionStore;
-  conversation: import('@robota-sdk/agent-interface-session').ISessionConversationSnapshot;
+  conversation: import('@robota-sdk/agent-interface/session').ISessionConversationSnapshot;
   getFullHistory: () => Array<{
     id: string;
     timestamp: Date;

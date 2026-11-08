@@ -12,7 +12,7 @@ import type {
   IExecutionDetailPage,
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 export interface IExecutionDetailState {
   page: IExecutionDetailPage | null;

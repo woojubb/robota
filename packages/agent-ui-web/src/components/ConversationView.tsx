@@ -30,7 +30,7 @@ import type {
   ICommandOutputEntry,
   TConversationEntry,
 } from '../hooks/useSessionClient.js';
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { TDriverId } from '@robota-sdk/agent-interface/session';
 
 /** The plain text of a react-markdown children tree — used to copy a code block's real source. */
 function nodeText(node: React.ReactNode): string {

@@ -8,10 +8,10 @@ import type { IAppOverlays } from './useAppOverlays.js';
 import type { IAppScreenState } from './useAppScreenState.js';
 import type { IAppSubmissionState } from './useAppSubmissionState.js';
 import type { ITuiChannelState } from './useTuiChannel.js';
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
-import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface-session';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface/command';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
+import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface/session';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface/transport';
 
 interface IOptions {
   readonly cwd: string;

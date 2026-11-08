@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { useSessionClient } from '../useSessionClient.js';
 
 import type { TMakeSessionClient } from '../useSessionClient.js';
-import type { IDiffLine, IToolState } from '@robota-sdk/agent-interface-session';
+import type { IDiffLine, IToolState } from '@robota-sdk/agent-interface/session';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 function setup(): {

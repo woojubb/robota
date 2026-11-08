@@ -1,11 +1,11 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface/session';
+import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-interface/execution';
 
 import { createHeadlessRunner } from '../headless-runner.js';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface/execution';
 import type { IModelEffortResolution } from '../../../effort/effort-resolution.js';
 
 /** The streams a Node composition root hands the headless runner; tests spy on them. */

@@ -6,7 +6,7 @@ import type { IAttachedSessionConnection } from '../attached-session-connection.
 import type { ITuiClientCommand, ITuiClientCommands } from '../wire-tui-client-commands.js';
 import type { TAttachedSessionEnd } from '../attached-session-connection.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { ISessionStatusSnapshot, IUiIntentEvent } from '@robota-sdk/agent-interface-session';
+import type { ISessionStatusSnapshot, IUiIntentEvent } from '@robota-sdk/agent-interface/session';
 import type {
   IWireHistoryEntry,
   TClientMessage,

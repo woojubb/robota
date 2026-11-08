@@ -115,8 +115,9 @@ does not own session lifecycle, conversation history, or agent runtime state.
 - Does not own the wire protocol framing (message types) — that belongs to the transport package.
 - Does not own the transport-facing contract types (interaction/event/workspace) — those belong to
   the transport-interface package.
-- Does not own session/runtime contracts or agent-core types, and has no dependency on the
-  agent framework, session, or core packages.
+- Does not own session/runtime contracts or agent-core types, and imports nothing from the
+  agent framework, session, or core packages (it declares `agent-core` only so the contract types
+  resolve).
 - Does not own the CLI sidecar server.
 - Does not own the WebRTC remote peer or pairing flow — that is a separate package that consumes
   this package's reducer and components and widens the status union.

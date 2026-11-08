@@ -4,7 +4,7 @@ import {
   createLoopCommandEntry,
   createMCPActivationCommandEntry,
   createRemoteControlCommandEntry,
-} from '@robota-sdk/agent-command';
+} from '@robota-sdk/agent-product/command';
 import {
   appendPromptHistory,
   createPasteLabelChange,
@@ -19,7 +19,7 @@ import {
   resolveTabCompletion,
   shouldSubmitInput,
 } from '../flows/input-area-flow.js';
-import type { ICommand } from '@robota-sdk/agent-interface-command';
+import type { ICommand } from '@robota-sdk/agent-interface/command';
 import {
   createAssistantMessage,
   createSystemMessage,

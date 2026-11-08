@@ -24,7 +24,7 @@ import type {
   ITransportCompletionRecord,
   ITransportFailureRecord,
   ITransportLifecycleRegistryView,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 /** Normalized, explicitly discriminated input for every `InteractiveSession` construction path. */
 export type SessionRecipe = TInteractiveSessionOptions;

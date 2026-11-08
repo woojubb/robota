@@ -1,4 +1,4 @@
-import type { ILivePromptTraceBatch, IProviderCallTraceEntry } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch, IProviderCallTraceEntry } from '@robota-sdk/agent-interface/analytics';
 
 import { genAiProviderName, label } from './projection.js';
 import type { TOtelAttributes, TOtelProjectionMode } from './projection.js';

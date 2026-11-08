@@ -1,8 +1,8 @@
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
 import type { TClientMessage } from './wire-messages.js';
-import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface-command';
-import type { ISettingsSnapshot, TSettingsPatch } from '@robota-sdk/agent-interface-session';
+import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface/command';
+import type { ISettingsSnapshot, TSettingsPatch } from '@robota-sdk/agent-interface/session';
 
 type TSettingsMessage = Extract<TClientMessage, { type: 'get-settings' | 'update-settings' }>;
 

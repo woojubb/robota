@@ -51,7 +51,7 @@ import type {
   ISessionSaveOptions,
   TSessionAdoptResult,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** Every read a store makes of a record, and the check before a save. */
 export type TReadPurpose =

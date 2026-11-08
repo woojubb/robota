@@ -55,7 +55,7 @@ import type {
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 import type {
   IExecutionResult,
   IGoalState,
@@ -65,7 +65,7 @@ import type {
   ITerminalHandoff,
   IToolSummary,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** Options for {@link scriptedSession}. Provide exactly one of `turns`, `cassette`, or `record`. */
 export interface IScriptedSessionOptions {

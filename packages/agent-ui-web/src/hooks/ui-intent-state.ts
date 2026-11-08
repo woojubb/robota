@@ -14,7 +14,7 @@
 
 import { excludedCommandMessage } from './excluded-commands.js';
 
-import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
+import type { TCommandUiIntent } from '@robota-sdk/agent-interface/command';
 
 /** The command a user runs for the screen an intent asks for — how the info line is labelled. */
 export function uiIntentCommandName(intent: TCommandUiIntent): string {

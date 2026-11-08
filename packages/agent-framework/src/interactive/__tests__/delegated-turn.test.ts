@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { ConnectionAuthority } from '@robota-sdk/agent-interface-session-mobility';
+import { ConnectionAuthority } from '@robota-sdk/agent-interface/session-mobility';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';

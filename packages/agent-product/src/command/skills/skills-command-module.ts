@@ -1,0 +1,76 @@
+import { SkillCommandSource } from '@robota-sdk/agent-framework';
+import { createSkillReadCommandEntry, createSkillReadSystemCommand } from './skill-read-command.js';
+
+import {
+  executeSkillsCommand,
+  SKILLS_COMMAND_DESCRIPTION,
+  SKILLS_COMMAND_MODEL_DESCRIPTION,
+} from './skills-command.js';
+
+import type {
+  ICommandModule,
+  IContributionSource,
+  ISystemCommand,
+  ISkillRootDescriptor,
+} from '@robota-sdk/agent-framework';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface/command';
+
+export interface ISkillsCommandModuleOptions {
+  readonly contributionSources: readonly IContributionSource[];
+  readonly skillRoots?: readonly ISkillRootDescriptor[];
+}
+
+export function createSkillsCommandEntry(): ICommand {
+  return {
+    name: 'skills',
+    displayName: 'Skills',
+    description: SKILLS_COMMAND_DESCRIPTION,
+    // Model-invocable: activating a skill is how the model follows one; a skill's own
+    // `disable-model-invocation` frontmatter still refuses it per skill.
+    modelDescription: SKILLS_COMMAND_MODEL_DESCRIPTION,
+    source: 'skills',
+    modelInvocable: true,
+    userInvocable: true,
+    argumentHint: '[list | <skill-name> [args]]',
+    safety: 'read-only',
+  };
+}
+
+function createSkillsSystemCommand(): ISystemCommand {
+  const entry = createSkillsCommandEntry();
+  return {
+    name: entry.name,
+    semanticRole: 'skillActivation',
+    ...(entry.modelDescription !== undefined ? { modelDescription: entry.modelDescription } : {}),
+    displayName: entry.displayName,
+    description: entry.description,
+    requiresPermission: false,
+    userInvocable: true,
+    modelInvocable: true,
+    argumentHint: entry.argumentHint,
+    safety: entry.safety,
+    lifecycle: 'inline',
+    execute: executeSkillsCommand,
+  };
+}
+
+export class SkillsCommandSource implements ICommandSource {
+  readonly name = 'skills';
+
+  getCommands(): ICommand[] {
+    return [createSkillsCommandEntry(), createSkillReadCommandEntry()];
+  }
+}
+
+export function createSkillsCommandModule(options: ISkillsCommandModuleOptions): ICommandModule {
+  const commandSources: ICommandSource[] = [new SkillsCommandSource()];
+  commandSources.push(
+    new SkillCommandSource(options.contributionSources, options.skillRoots ?? []),
+  );
+
+  return {
+    name: 'agent-command-skills',
+    commandSources,
+    systemCommands: [createSkillsSystemCommand(), createSkillReadSystemCommand()],
+  };
+}

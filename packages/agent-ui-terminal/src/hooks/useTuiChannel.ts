@@ -23,8 +23,8 @@ import type {
   IExecutionDetailPage,
   IExecutionDetailCursor,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
-import type { ISessionListingEntry, IToolState } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/execution';
+import type { ISessionListingEntry, IToolState } from '@robota-sdk/agent-interface/session';
 
 export interface ITuiChannelState {
   uiEventPort: ITuiSessionUiEventPort;

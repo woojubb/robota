@@ -1,21 +1,21 @@
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
 import { PeerMessageIngress } from '../peer-message-ingress.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
-import type { ISubmitOptions } from '@robota-sdk/agent-interface-session';
+import type { ISubmitOptions } from '@robota-sdk/agent-interface/session';
 import type {
   IPeerMessage,
   IPeerMessageIngress,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 const testHost = createTestFrameworkHost();
 
@@ -33,7 +33,7 @@ let root: string;
 let workspace: string;
 
 beforeEach(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'message-turn-')));
+  root = makeCanonicalTempDir('message-turn-');
   workspace = join(root, 'project');
   mkdirSync(workspace, { recursive: true });
   writeFileSync(join(workspace, 'notes.txt'), 'NOTES-CONTENT');

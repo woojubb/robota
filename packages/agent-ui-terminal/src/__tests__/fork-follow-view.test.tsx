@@ -23,7 +23,7 @@ import type {
   IExecutionDetailRecord,
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 function forkEntry(overrides: Partial<IExecutionWorkspaceEntry> = {}): IExecutionWorkspaceEntry {
   return {

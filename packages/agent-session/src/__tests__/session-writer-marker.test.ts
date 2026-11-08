@@ -4,7 +4,7 @@
  * is refused with `has_writer`, naming the process that holds it.
  */
 
-import { createProcessOperationLock } from '@robota-sdk/agent-node-lock';
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -35,7 +35,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { NodeSessionStore } from '../session-store.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 function newStoreDir(): string {
   return realpathSync(mkdtempSync(path.join(tmpdir(), 'writer-marker-')));

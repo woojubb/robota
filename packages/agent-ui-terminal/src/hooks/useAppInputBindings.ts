@@ -9,8 +9,8 @@ import { useScreenReaderTurnSignals } from './useScreenReaderTurnSignals.js';
 
 import type { IPendingPermissionRequest } from '../types.js';
 import type { IActionRequest, TSessionEndReason } from '@robota-sdk/agent-core';
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface/execution';
+import type { IToolState } from '@robota-sdk/agent-interface/session';
 
 interface IOptions {
   readonly isThinking: boolean;

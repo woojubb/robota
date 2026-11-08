@@ -10,7 +10,7 @@
 import { gitFailureMessage } from './git-process.js';
 
 import type { IGitProcessPort } from './git-process.js';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 export const GIT_DIFF_USAGE =
   'Usage: /git diff [--staged | <rev> | <a>..<b>] [-- <path> ...] — other git flags are not accepted here.';

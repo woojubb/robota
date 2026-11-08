@@ -4,7 +4,7 @@
  * that was written sealed must not report it as gone.
  */
 
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { render } from 'ink-testing-library';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -15,13 +15,13 @@ import { TuiCliAdapterProvider } from '../tui-cli-adapter-context.js';
 
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface/execution';
 import type {
   IInteractiveSessionStore,
   ISessionListEntry,
   ISessionListingEntry,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 function storeOf(
   load: (id: string) => TSessionLoadOutcome,

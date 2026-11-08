@@ -7,7 +7,7 @@
 import type {
   ITransportSavedConfig,
   ITransportSettingsRepository,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 /** Holds transport settings in memory — tests, and hosts with no settings file. */
 export function createMemoryTransportSettingsRepository(

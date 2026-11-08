@@ -5,7 +5,7 @@
  * this layer only correlates and carries the result.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createOutboundDelivery } from '../outbound-delivery.js';
@@ -13,7 +13,7 @@ import { createSessionMessageHandler } from '../session-message-handler.js';
 
 import type { ISettingsReporter, TSettingsUpdateOutcome } from '../settings-messages.js';
 import type { TClientMessage, TServerMessage } from '../wire-messages.js';
-import type { ISettingsSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISettingsSnapshot } from '@robota-sdk/agent-interface/session';
 
 const snapshot: ISettingsSnapshot = {
   language: { current: 'en', recommended: [], appliesNote: 'Takes effect after a restart.' },

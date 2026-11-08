@@ -20,7 +20,7 @@ import type {
   TSubprocessTraceClass,
   TToolParameters,
 } from '@robota-sdk/agent-core';
-import type { IProviderCallTraceEntry } from '@robota-sdk/agent-interface-analytics';
+import type { IProviderCallTraceEntry } from '@robota-sdk/agent-interface/analytics';
 
 export interface IOtelTracingOptions {
   /** The host's tracer; spans are recorded on it and never exported by this package. */

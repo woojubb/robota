@@ -9,7 +9,7 @@ import { InteractiveSession } from '../interactive-session.js';
 import { createSessionStub } from './helpers/session-stub.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
-import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
+import type { ISessionLoopState } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

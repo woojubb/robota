@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 
 import { describeUiIntentForGui, guiScreenForUiIntent } from '../ui-intent-state.js';
 
-import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
+import type { TCommandUiIntent } from '@robota-sdk/agent-interface/command';
 
 /**
  * Intents with no GUI screen — `show-session-picker`, `show-settings`, `show-plugin-manager` and

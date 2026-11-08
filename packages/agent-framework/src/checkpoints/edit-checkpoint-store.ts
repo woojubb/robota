@@ -49,7 +49,7 @@ import type {
   IWorkspaceProjectMutation,
 } from '../workspace-trust/index.js';
 import type { TArtifactSealing } from '@robota-sdk/agent-core';
-import type { IActiveBranchPointer } from '@robota-sdk/agent-interface-session';
+import type { IActiveBranchPointer } from '@robota-sdk/agent-interface/session';
 
 const SNAPSHOT_PAD = 6;
 /** The default branch a session's checkpoints belong to. */

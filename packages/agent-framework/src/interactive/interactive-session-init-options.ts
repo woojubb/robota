@@ -50,7 +50,7 @@ import type {
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
+import type { ICompactEvent } from '@robota-sdk/agent-interface/session';
 import type { ISessionLogSink } from '@robota-sdk/agent-session';
 import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
 

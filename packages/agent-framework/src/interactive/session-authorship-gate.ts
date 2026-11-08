@@ -7,7 +7,7 @@
  * they decide whether it is theirs, so every word here is fixed text and the session id.
  */
 
-import type { TSessionLoadOutcome, TSessionProvenance } from '@robota-sdk/agent-interface-session';
+import type { TSessionLoadOutcome, TSessionProvenance } from '@robota-sdk/agent-interface/session';
 
 /**
  * Why a claimed record was not resumed: nothing shows the owner wrote it; not the bytes they accepted;

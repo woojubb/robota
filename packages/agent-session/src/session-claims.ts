@@ -19,7 +19,7 @@ import type {
   IProcessMarkerHolder,
   TProcessOwnerLiveness,
 } from '@robota-sdk/agent-core';
-import type { ISessionClaim, TSessionLoadOutcome } from '@robota-sdk/agent-interface-session';
+import type { ISessionClaim, TSessionLoadOutcome } from '@robota-sdk/agent-interface/session';
 
 /** Why a claim, a lend or a write was refused. */
 export type TSessionClaimRefusal =

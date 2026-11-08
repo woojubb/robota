@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-ui-terminal",
-  "version": "3.2.2",
+  "version": "3.2.3",
   "description": "Terminal UI package (React + Ink) for the Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
@@ -47,12 +47,7 @@
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-framework": "workspace:^",
-    "@robota-sdk/agent-interface-analytics": "workspace:^",
-    "@robota-sdk/agent-interface-command": "workspace:^",
-    "@robota-sdk/agent-interface-execution": "workspace:^",
-    "@robota-sdk/agent-interface-session": "workspace:^",
-    "@robota-sdk/agent-interface-transport": "workspace:^",
-    "@robota-sdk/agent-interface-tui": "workspace:^",
+    "@robota-sdk/agent-interface": "workspace:^",
     "@robota-sdk/agent-transport": "workspace:^",
     "chalk": "^5.6.2",
     "ink": "^7.1.1",
@@ -63,7 +58,7 @@
   },
   "devDependencies": {
     "@homebridge/node-pty-prebuilt-multiarch": "^0.14.1",
-    "@robota-sdk/agent-command": "workspace:^",
+    "@robota-sdk/agent-product": "workspace:^",
     "@types/react": "^19.2.17",
     "ink-testing-library": "^4.0.0",
     "rimraf": "^5.0.10",

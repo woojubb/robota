@@ -16,10 +16,10 @@ import type {
   IRunTraceSpan,
   IRunTraceTurn,
   IUsageBySourceReport,
-} from '@robota-sdk/agent-interface-analytics';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/analytics';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
-// The trace/cost read-model is a boundary contract owned by `agent-interface-analytics`
+// The trace/cost read-model is a boundary contract owned by `agent-interface/analytics`
 // (it crosses the sidecar boundary via a TServerMessage carrier). Re-exported here for consumers that
 // import it alongside the reducer that produces it.
 export type {
@@ -27,7 +27,7 @@ export type {
   IRunTraceSpan,
   IRunTraceTurn,
   IUsageBySourceReport,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 
 /** The `type` of the per-turn usage history entry (agent-framework `createUsageSummaryEntry`). */
 const USAGE_SUMMARY_ENTRY_TYPE = 'usage-summary';
@@ -86,7 +86,7 @@ function roundPercentage(part: number, whole: number): number {
  * The reducer walks in order, buffering spans, and flushes the buffer as the turn's spans at each
  * usage-summary boundary — grouping sub-turn spans under their owning turn. Spans after the last
  * usage-summary (an in-progress turn) form a trailing timeline entry. Pure: no I/O, stays within the
- * declared `agent-core`, `agent-interface-analytics` and `agent-interface-session` dependencies
+ * declared `agent-core`, `agent-interface/analytics` and `agent-interface/session` dependencies
  * (NO `agent-plugin` read — enforcement lives elsewhere).
  */
 export function summarizeUsageBySource(input: TUsageAnalysisInput): IUsageBySourceReport {

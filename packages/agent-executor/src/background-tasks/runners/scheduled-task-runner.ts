@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 
 import { endWithProcess, withChildSession } from '@robota-sdk/agent-core/node';
-import { killProcessTree } from '@robota-sdk/agent-process';
+import { killProcessTree } from '@robota-sdk/agent-os/process';
 import { Cron, type CronOptions } from 'croner';
 
 /** POSIX children are spawned detached so a process-group kill reaps grandchildren. */

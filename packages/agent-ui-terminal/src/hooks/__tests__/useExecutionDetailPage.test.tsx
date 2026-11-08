@@ -9,7 +9,7 @@ import type {
   IExecutionDetailPage,
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 const entry: IExecutionWorkspaceEntry = {
   id: 'task:fork',

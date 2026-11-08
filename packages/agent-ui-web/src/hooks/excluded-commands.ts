@@ -7,7 +7,7 @@
  * surface simply has not built yet (see `ui-intent-state.ts`).
  */
 
-import type { TCommandRunner, TCommandSurface } from '@robota-sdk/agent-interface-command';
+import type { TCommandRunner, TCommandSurface } from '@robota-sdk/agent-interface/command';
 
 /** The minimum a catalog entry needs for the exclusion check below. */
 export interface IExcludableCommandEntry {

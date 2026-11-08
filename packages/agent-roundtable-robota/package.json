@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-roundtable-robota",
-  "version": "3.2.3",
+  "version": "3.2.4",
   "description": "Run Robota Session and Robota agents as agent-roundtable participants and selectors",
   "type": "module",
   "main": "dist/index.js",
@@ -58,7 +58,7 @@
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-session": "workspace:^",
-    "@robota-sdk/agent-tool-defaults": "workspace:^",
+    "@robota-sdk/agent-tools": "workspace:^",
     "tsdown": "^0.22.14",
     "vitest": "^3.2.6"
   },

@@ -17,7 +17,7 @@ import type {
 import type {
   TPermissionRequester,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export type { ISpinner, ITerminalOutput };
 export type { TPermissionRequester };
@@ -32,7 +32,7 @@ export interface ICommandSandboxApproval {
 }
 
 /**
- * Permission handler result (the union is OWNED by `agent-interface-session` as
+ * Permission handler result (the union is OWNED by `agent-interface/session` as
  * `TPermissionResultValue`; this name is the session-layer alias, not a second declaration):
  * - true: allow this invocation
  * - false: deny this invocation

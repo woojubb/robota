@@ -2,7 +2,7 @@ import React from 'react';
 
 import { SettingsLanguageField, SettingsPopupField } from './SettingsFields.js';
 
-import type { ISettingsSnapshot, TSettingsPatch } from '@robota-sdk/agent-interface-session';
+import type { ISettingsSnapshot, TSettingsPatch } from '@robota-sdk/agent-interface/session';
 
 /**
  * Language, output style and preset — reusing the exact choices and descriptions the runtime

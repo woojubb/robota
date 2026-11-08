@@ -3,7 +3,7 @@
  * counts as a surface that can answer a prompt, and cannot submit, answer, or control anything.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -13,7 +13,7 @@ import {
 import { createSessionMessageHandler } from '../session-message-handler.js';
 
 import type { TClientMessage, TServerMessage } from '../wire-messages.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 type TListener = (...args: unknown[]) => void;
 

@@ -3,7 +3,7 @@ import React, { useId } from 'react';
 
 import { SettingsPopupField } from './SettingsFields.js';
 
-import type { ISettingsPermissionRule, ISettingsSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISettingsPermissionRule, ISettingsSnapshot } from '@robota-sdk/agent-interface/session';
 
 const KIND_LABEL: Readonly<Record<ISettingsPermissionRule['kind'], string>> = {
   allow: 'Allow',

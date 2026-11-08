@@ -4,7 +4,7 @@
  * The attached terminal gives them its own handoff and working directory, applies the appearance
  * patch `/theme` asks for itself, and refuses any other host action by name instead of dropping it.
  */
-import { createTerminalClientCommands } from '@robota-sdk/agent-command/node';
+import { createTerminalClientCommands } from '@robota-sdk/agent-product/command/node';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -24,8 +24,8 @@ import type {
   IThemeCataloguePort,
   TAppearanceSettingsPatch,
   TCommandHostAction,
-} from '@robota-sdk/agent-interface-command';
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/command';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface/session';
 
 /** Stands in for `/shell`: hands the terminal to a "child" that runs in the host's directory. */
 const shellLike: ITuiClientCommand = {

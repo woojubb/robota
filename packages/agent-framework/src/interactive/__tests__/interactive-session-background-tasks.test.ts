@@ -1,4 +1,4 @@
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
 import { summarizeUsageBySource } from '@robota-sdk/agent-session-analytics';
 import { describe, expect, it, vi } from 'vitest';
@@ -19,7 +19,7 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskResult,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 const testHost = createTestFrameworkHost();
 

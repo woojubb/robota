@@ -46,14 +46,14 @@ import type {
   TSessionStatus,
 } from './session-client-types.js';
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
-import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
+import type { TActionResponse } from '@robota-sdk/agent-interface/transport';
 import type {
   IHistoryDisplaySegment,
   IToolState,
   TDriverId,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-session';
-import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/session';
+import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface/execution';
 import type { TServerMessage, TSessionSurfaceRole } from '@robota-sdk/agent-transport';
 
 export type {

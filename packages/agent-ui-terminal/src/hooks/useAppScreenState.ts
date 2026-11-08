@@ -11,8 +11,8 @@ import type { ITuiChannelState } from './useTuiChannel.js';
 import type {
   IAppearanceSettings,
   IStatusLineCommandSettings,
-} from '@robota-sdk/agent-interface-command';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/command';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 interface IOptions {
   readonly state: ITuiChannelState;

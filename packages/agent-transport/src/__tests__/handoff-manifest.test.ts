@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { sealHandoffRecord, verifyHandoffPayload } from '../node/handoff-manifest.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 function aRecord(over: Partial<IInteractiveSessionRecord> = {}): IInteractiveSessionRecord {
   return {

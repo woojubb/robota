@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-tools",
-  "version": "3.2.2",
-  "description": "Zod-validated function tools, built-in tool factories and sandbox ports for the Robota SDK",
+  "version": "3.3.0",
+  "description": "Zod-validated function tools, built-in tool factories, sandbox ports and the default tool set for the Robota SDK",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -29,6 +29,18 @@
         "default": "./dist/node.cjs"
       }
     },
+    "./defaults": {
+      "source": "./src/defaults/index.ts",
+      "browser": null,
+      "import": {
+        "types": "./dist/defaults.d.ts",
+        "default": "./dist/defaults.js"
+      },
+      "require": {
+        "types": "./dist/defaults.d.cts",
+        "default": "./dist/defaults.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "engines": {
@@ -51,9 +63,9 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-file-authority": "workspace:^",
-    "@robota-sdk/agent-process": "workspace:^",
+    "@robota-sdk/agent-os": "workspace:^",
     "fast-glob": "^3.3.3",
+    "koffi": "3.3.1",
     "p-limit": "^7.3.0",
     "zod": "^4.6.7"
   },

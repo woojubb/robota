@@ -3,7 +3,7 @@ import { EFFORT_LEVEL_LABELS } from '../../effort/effort-resolution.js';
 import type { TOutputFormat } from './headless-output-format.js';
 import type { IHeadlessSession } from './headless-session.js';
 import type { IModelEffortResolution } from '../../effort/effort-resolution.js';
-import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface-session';
+import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface/session';
 
 /** Exit code for a goal that stopped cleanly without being satisfied. */
 export const GOAL_NOT_SATISFIED_EXIT_CODE = 2;

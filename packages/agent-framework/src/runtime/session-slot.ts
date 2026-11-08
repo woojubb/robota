@@ -11,7 +11,7 @@ import type {
   IInteractiveSession,
   IInteractiveSessionEvents,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { InteractiveSession } from '../interactive/interactive-session.js';
 
 /** Upper bound on a graceful session shutdown so a wedged subsystem cannot block exit or a switch. */

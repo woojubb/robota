@@ -39,7 +39,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { IConnectionEnvironmentCheck, ISubagentJobStart } from '@robota-sdk/agent-executor';
 import type { IAgentDefinition, IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
-import type { ISerializableProviderProfile } from '@robota-sdk/agent-interface-execution';
+import type { ISerializableProviderProfile } from '@robota-sdk/agent-interface/execution';
 
 /** The parent-decided fields of a start payload, ready to spread onto it. */
 export interface IProjectedParentState {

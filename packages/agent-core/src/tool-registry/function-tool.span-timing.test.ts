@@ -21,7 +21,7 @@ import type { TToolParameters } from '../interfaces/tool';
  * `SPAN_EVENTS.COMPLETED` event whose SINGLE payload carries `spanId` AND `durationMs` AND `op`
  * together (not each fact in isolation) — the correlatable unit a consuming layer turns into a record
  * span entry. They also pin the no-cycle invariant: the payload is raw scalars, referencing no
- * transport type, so `agent-core` depends on neither `agent-interface-transport` nor `agent-plugin`.
+ * transport type, so `agent-core` depends on neither `agent-interface/transport` nor `agent-plugin`.
  */
 
 /** Minimal capturing event service (records every emit). */

@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { NodePromptHistoryFile } from '../prompt-history-file.js';
 
-import type { IPromptHistoryBlock, IPromptHistoryEntry } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistoryBlock, IPromptHistoryEntry } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-8be1-a-prompt-the-person-typed';
 const roots: string[] = [];

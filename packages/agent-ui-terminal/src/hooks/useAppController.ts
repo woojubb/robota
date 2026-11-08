@@ -18,12 +18,12 @@ import type { IAppThemeViewModel } from './useAppThemeState.js';
 import type { ITuiChannelState } from './useTuiChannel.js';
 import type { IThemeRegistry } from '../theme/theme-registry.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
-import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface-session';
-import type { IPromptHistorySource } from '@robota-sdk/agent-interface-session';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+import type { TReducedMotionOverride } from '@robota-sdk/agent-interface/command';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface/command';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
+import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface/session';
+import type { IPromptHistorySource } from '@robota-sdk/agent-interface/session';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface/transport';
 
 export interface IUseAppControllerOptions {
   cwd: string;

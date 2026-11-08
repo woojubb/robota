@@ -6,7 +6,7 @@
  * If a feature works, these tests pass. If a feature breaks, these fail.
  */
 
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { describe, it, expect, vi } from 'vitest';
 
 import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
@@ -15,7 +15,7 @@ import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { TInteractiveSessionOptions } from '../interactive-session.js';
 import type { IExecutionResult, IToolState } from '../types.js';
-import type { IUsageObservation } from '@robota-sdk/agent-interface-analytics';
+import type { IUsageObservation } from '@robota-sdk/agent-interface/analytics';
 
 const testHost = createTestFrameworkHost();
 

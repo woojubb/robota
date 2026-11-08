@@ -28,8 +28,8 @@ import TextPrompt, { TEXT_PROMPT_FOOTER_HINTS } from '../TextPrompt.js';
 import HistorySearchOverlay, { HISTORY_SEARCH_FOOTER_HINTS } from '../HistorySearchOverlay.js';
 import { formatKeyHints, type IKeyHint } from '../key-hint-footer.js';
 
-import type { ICommand } from '@robota-sdk/agent-interface-command';
-import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
+import type { ICommand } from '@robota-sdk/agent-interface/command';
+import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface/execution';
 
 /**
  * Footer ordering contract: navigate → modify → primary → dismiss (docs/SPEC.md "Interaction

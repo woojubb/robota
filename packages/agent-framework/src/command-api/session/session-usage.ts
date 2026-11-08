@@ -5,7 +5,7 @@
  */
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IUsageSource } from '@robota-sdk/agent-interface-analytics';
+import type { IUsageSource } from '@robota-sdk/agent-interface/analytics';
 
 export interface ISessionUsageRecord {
   readonly promptTokens: number;

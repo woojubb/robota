@@ -24,7 +24,7 @@ import type { IProviderDefinition, TProviderCredentialField } from '@robota-sdk/
 import type {
   ISettingsProviderProfile,
   ISettingsProvidersSection,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** The provider's plain display name — never its internal `type` id, unless nothing else is known. */
 function providerLabel(

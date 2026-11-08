@@ -21,7 +21,7 @@ import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

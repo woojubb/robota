@@ -5,7 +5,7 @@
  * Wraps `createInteractiveRuntime` with a {@link ProgrammaticInteractionChannel} so a caller can drive
  * the real agent structurally: `start()`, `send(text)` (awaits the whole turn), then read assistant
  * replies / tool calls / errors as data — no terminal, no PTY, no scraping. The observation accessors
- * delegate to the shared `read*` helpers in `@robota-sdk/agent-interface-transport`, so the
+ * delegate to the shared `read*` helpers in `@robota-sdk/agent-interface/transport`, so the
  * filter/derivation logic is not re-implemented here.
  */
 
@@ -14,7 +14,7 @@ import {
   readErrors,
   readLastAssistantText,
   readToolCalls,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 import { ProgrammaticInteractionChannel } from './ProgrammaticInteractionChannel.js';
 import { createInteractiveRuntime } from '../../interaction/createInteractiveRuntime.js';
@@ -26,7 +26,7 @@ import type { IFrameworkHost } from '../../host/framework-host.js';
 import type { IInteractiveRuntime } from '../../interaction/InteractiveRuntime.js';
 import type { TWorkspaceProjectAccess } from '../../workspace-trust/types.js';
 import type { IAIProvider, TActionResponse, TPermissionMode } from '@robota-sdk/agent-core';
-import type { IAgentDriver, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IAgentDriver, IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 export interface ICreateProgrammaticAgentOptions {
   /** The platform the agent's session runs on; `{}` is a host with nothing to lend. */

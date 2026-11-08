@@ -8,7 +8,7 @@ import { useScreenReader } from './screen-reader-context.js';
 import { statusGlyphColor } from './status-glyph.js';
 import { usePalette } from './theme/index.js';
 
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface/execution';
 
 interface IProps {
   entries: IExecutionWorkspaceEntry[];

@@ -19,7 +19,7 @@ import {
 import type {
   IBackgroundTaskState,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 const ENTRY = 'task:agent_1';
 const NOW = (): string => '2026-11-05T00:00:00.000Z';

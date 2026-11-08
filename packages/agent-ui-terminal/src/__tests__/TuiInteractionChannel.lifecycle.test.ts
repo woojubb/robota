@@ -75,12 +75,12 @@ import { TUI_SESSION_EVENT_CLASSIFICATION } from '../tui-session-events.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface/transport';
 import type {
   IExecutionResult,
   IInteractiveSession,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

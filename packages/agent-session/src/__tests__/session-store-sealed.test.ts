@@ -13,7 +13,7 @@
  *   - a store with no sealer is the store it always was.
  */
 
-import { createProcessOperationLock } from '@robota-sdk/agent-node-lock';
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
 
 import {
   chmodSync,
@@ -43,7 +43,7 @@ import { StoredSessionRecords } from '../stored-session-record.js';
 
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-7c2e91-secret-conversation-text';
 

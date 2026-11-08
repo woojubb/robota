@@ -14,7 +14,7 @@ import type { IResolvedConfig } from '../../config/config-types.js';
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
-import type { ISubmitOptions, TPermissionResultValue } from '@robota-sdk/agent-interface-session';
+import type { ISubmitOptions, TPermissionResultValue } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

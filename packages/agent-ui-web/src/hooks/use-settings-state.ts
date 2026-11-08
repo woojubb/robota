@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import type { IWsSessionState } from './session-client-types.js';
 import type { TClientMessage } from '../client/ws-session-client.js';
-import type { ISettingsSnapshot, TSettingsPatch } from '@robota-sdk/agent-interface-session';
+import type { ISettingsSnapshot, TSettingsPatch } from '@robota-sdk/agent-interface/session';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 type TSettingsState = Pick<

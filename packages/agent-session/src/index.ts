@@ -119,7 +119,7 @@ export type {
   IInteractiveSessionStore,
   IInteractiveSessionRecord as ISessionRecord,
   IInteractiveSessionStore as ISessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 // Neutral checkpoint tree (branching time-travel) — pure, I/O-free.
 export { CheckpointTree } from './checkpoint-tree.js';

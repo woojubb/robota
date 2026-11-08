@@ -27,7 +27,7 @@ import type {
   IInteractiveSessionRecord,
   ISessionClaim,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-claims-0b7f-owner-text';
 const FORGED = 'CANARY-claims-77ac-forged-text';

@@ -2,7 +2,7 @@
  * The pure half of reverse prompt-history search: filtering with match ranges,
  * collapse-to-newest dedup, the scope cycle and the run split a match is rendered from.
  */
-import type { IPromptHistoryEntry } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistoryEntry } from '@robota-sdk/agent-interface/session';
 
 export type THistorySearchScope = 'all' | 'session' | 'project';
 

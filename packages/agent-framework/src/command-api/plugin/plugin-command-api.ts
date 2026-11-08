@@ -1,8 +1,8 @@
 import type { TCommandUiIntent } from '../effects.js';
 import type { ICommandHostAdapterAccess } from '../host-roles.js';
 import type { ICommand } from '../types.js';
-// Plugin command adapter contracts SSOT relocated to @robota-sdk/agent-interface-command.
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
+// Plugin command adapter contracts SSOT relocated to @robota-sdk/agent-interface/command.
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface/command';
 
 export type {
   TPluginInstallScope,
@@ -11,7 +11,7 @@ export type {
   ICommandMarketplaceSource,
   ICommandPluginReloadResult,
   ICommandPluginAdapter,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 
 export const PLUGIN_COMMAND_DESCRIPTION =
   'Inspect or manage installed plugins and marketplaces; returns operation status. User-only because installing and enabling contributions activates code.';

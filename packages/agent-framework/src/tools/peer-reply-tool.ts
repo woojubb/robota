@@ -18,7 +18,7 @@ import './tool-permission-profiles.js';
 
 import type { ILocalPeerSendResult } from '../command-api/host-adapters.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
-import type { IPeerTurnContext } from '@robota-sdk/agent-interface-session';
+import type { IPeerTurnContext } from '@robota-sdk/agent-interface/session';
 
 export const PEER_REPLY_TOOL_NAME = 'peer_reply';
 

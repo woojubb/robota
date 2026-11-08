@@ -11,7 +11,7 @@ import { createOutboundDelivery } from '../outbound-delivery.js';
 import { classifySessionErrorForWire } from '../session-error-classification.js';
 import { subscribeSessionEvents } from '../session-events.js';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 /**
  * The `error` wire frame gains a typed `code`/`provider`/`retryAfterSeconds` alongside the

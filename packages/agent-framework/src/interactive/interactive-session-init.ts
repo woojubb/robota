@@ -1,4 +1,4 @@
-import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface/session';
 import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 /**
  * Session initialization helpers for InteractiveSession.
@@ -52,7 +52,7 @@ import type {
   TToolArgs,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
+import type { ICompactEvent } from '@robota-sdk/agent-interface/session';
 import type { Session } from '@robota-sdk/agent-session';
 
 const logger = createLogger('InteractiveSessionInit');

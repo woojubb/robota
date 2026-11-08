@@ -3,14 +3,14 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { TransportRegistry } from '../transport-registry';
 import { createFileTransportSettingsRepository } from '../transport-settings-repository.js';
 import { bindTransportAdapter } from '../bind-transport-adapter.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transport';
 
 function makeTransport(
   name: string,

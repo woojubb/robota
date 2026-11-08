@@ -32,8 +32,8 @@ import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/execution';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 export interface IUseForkAttachOptions {
   /**

@@ -8,19 +8,19 @@ import type {
   IPersonalUsageReport,
   IPersonalUsageRequest,
   IUsageBySourceReport,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 import type {
   ICommandListEntry,
   ICommandResult,
   ICommandSkillListEntry,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 import type {
   IBackgroundJobGroupState,
   IExecutionDetailCursor,
   IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
   TBackgroundJobGroupEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IBackgroundTaskInput,
   IBackgroundTaskListFilter,
@@ -28,7 +28,7 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IAskRequestEvent,
   IBranchEvent,
@@ -54,13 +54,13 @@ import type {
   TProjectMemoryRead,
   TProjectStatusRead,
   TWaitingLoopStopOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type {
   ISessionConversationRead,
   TDriverId,
   TTurnSource,
-} from '@robota-sdk/agent-interface-session';
-import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/session';
+import type { TActionResponse } from '@robota-sdk/agent-interface/transport';
 
 /**
  * What a connected surface may do. `drive` sends prompts, answers questions and controls the session.

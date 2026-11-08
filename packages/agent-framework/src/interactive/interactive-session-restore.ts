@@ -1,4 +1,4 @@
-import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface/session';
 /**
  * Session restore helpers for InteractiveSession.
  *
@@ -28,13 +28,13 @@ import type {
   IBackgroundTaskState,
   TBackgroundTaskEvent,
   TBackgroundTaskStatus,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IGoalState,
   IPlanArtifact,
   IActiveBranchPointer,
   ISessionLoopState,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { Session } from '@robota-sdk/agent-session';
 
 /** Inject a saved message into a session, preserving all fields including toolCalls. */

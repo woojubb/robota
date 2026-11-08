@@ -11,8 +11,8 @@ import type {
   IExternalEventGrant,
   TAccessTokenRefusal,
   TExternalEventAuditRecord,
-} from '@robota-sdk/agent-interface-transport';
-import type { ISubmitOptions, ITurnHandle } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/transport';
+import type { ISubmitOptions, ITurnHandle } from '@robota-sdk/agent-interface/session';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 const testHost = createTestFrameworkHost();

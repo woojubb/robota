@@ -1,8 +1,8 @@
-import { isSessionChangeRefusal, isSessionDeleteRefusal } from '@robota-sdk/agent-interface-session';
+import { isSessionChangeRefusal, isSessionDeleteRefusal } from '@robota-sdk/agent-interface/session';
 
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { TClientMessage } from './wire-messages.js';
-import type { ISessionDirectory } from '@robota-sdk/agent-interface-session';
+import type { ISessionDirectory } from '@robota-sdk/agent-interface/session';
 
 type TSessionDirectoryMessage = Extract<
   TClientMessage,

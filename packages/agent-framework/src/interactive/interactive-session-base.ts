@@ -65,7 +65,7 @@ import type {
   TCommandSurfaceLocality,
 } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
-import type { ISkillResource } from '@robota-sdk/agent-interface-command';
+import type { ISkillResource } from '@robota-sdk/agent-interface/command';
 import type {
   IContextReferenceAddResult,
   IContextReferenceClearResult,
@@ -76,7 +76,7 @@ import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry, TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
 import type { IScheduleEditPatch } from '@robota-sdk/agent-executor';
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface/execution';
 import type {
   IBackgroundTaskInput,
   IBackgroundTaskListFilter,
@@ -84,12 +84,12 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
   ISubagentJobState,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IHistoryDisplaySegment,
   ISessionLoopState,
   TDriverId,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { Session } from '@robota-sdk/agent-session';
 
 export abstract class InteractiveSessionBase {

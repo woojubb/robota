@@ -13,7 +13,7 @@
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** The stored record, or a failure naming the outcome that was not `valid`. */
 export function loadedRecord(

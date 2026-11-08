@@ -11,7 +11,7 @@ import {
   type TFileAdmission,
 } from '../node/file-transfer.js';
 
-import type { IFileFrameChannel, IFileOffer } from '@robota-sdk/agent-interface-session-mobility';
+import type { IFileFrameChannel, IFileOffer } from '@robota-sdk/agent-interface/session-mobility';
 
 /** Two ends of an in-memory channel. Frames arrive asynchronously, in order; `sent` records one side. */
 function channelPair(): { a: IFileFrameChannel & { sent: string[] }; b: IFileFrameChannel } {

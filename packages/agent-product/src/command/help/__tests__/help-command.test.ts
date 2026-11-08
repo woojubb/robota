@@ -1,0 +1,130 @@
+import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-framework';
+import type { ICommandListEntry } from '@robota-sdk/agent-interface/command';
+import { formatCommandHelpMessage } from '@robota-sdk/agent-framework';
+import { describe, expect, it } from 'vitest';
+import {
+  createTestCommandHost,
+  createTestSessionRuntime,
+} from '@robota-sdk/agent-framework/testing';
+
+function createCommandSessionRuntime() {
+  return createTestSessionRuntime({
+    clearHistory: () => undefined,
+    compact: async () => undefined,
+    getContextState: () => ({
+      maxTokens: 100,
+      usedTokens: 10,
+      usedPercentage: 10,
+      remainingPercentage: 90,
+    }),
+    getPermissionMode: () => 'default',
+    setPermissionMode: () => undefined,
+    getSessionId: () => 'session_1',
+    getMessageCount: () => 0,
+    getSessionAllowedTools: () => [],
+    getAutoCompactThreshold: () => false,
+    getFullHistory: () => [],
+    getHistory: () => [],
+  });
+}
+
+function createCheckpoint() {
+  return {
+    id: 'checkpoint_1',
+    sessionId: 'session_1',
+    sequence: 1,
+    prompt: 'prompt',
+    createdAt: '2026-05-25T00:00:00.000Z',
+    fileCount: 0,
+  };
+}
+
+function buildContext(commands: ICommandListEntry[]) {
+  const checkpoint = createCheckpoint();
+  return createTestCommandHost({
+    overrides: {
+      getSession: () => createCommandSessionRuntime(),
+      getContextState: () => ({
+        maxTokens: 100,
+        usedTokens: 10,
+        usedPercentage: 10,
+        remainingPercentage: 90,
+      }),
+      getAutoCompactThreshold: () => 0.8,
+      compactContext: async () => undefined,
+      getCwd: () => '/workspace',
+      listCommands: () => commands,
+      listEditCheckpoints: () => [],
+      restoreEditCheckpoint: async () => ({
+        target: checkpoint,
+        restoredCheckpointCount: 0,
+        restoredFileCount: 0,
+        removedCheckpointCount: 0,
+      }),
+      rollbackEditCheckpoint: async () => ({
+        target: checkpoint,
+        restoredCheckpointCount: 0,
+        restoredFileCount: 0,
+        removedCheckpointCount: 0,
+      }),
+      getUsedMemoryReferences: () => [],
+      recordMemoryEvent: () => undefined,
+      listBackgroundTasks: () => [],
+      readBackgroundTaskLog: async (taskId) => ({ taskId, lines: [] }),
+      cancelBackgroundTask: async () => undefined,
+      closeBackgroundTask: async () => undefined,
+    },
+  });
+}
+
+describe('formatCommandHelpMessage — example field', () => {
+  it('includes Example line for compact command', () => {
+    const context = buildContext([
+      {
+        name: 'compact',
+        displayName: 'Compact Context',
+        description: 'Compress context window',
+        example: '/compact Summarize the current context',
+        modelInvocable: true,
+        runner: 'runtime',
+      },
+    ]);
+
+    const output = formatCommandHelpMessage(context);
+
+    expect(output).toContain('Example: /compact Summarize the current context');
+  });
+
+  it('includes Example line for provider command', () => {
+    const context = buildContext([
+      {
+        name: 'provider',
+        displayName: 'Provider Setup',
+        description: 'Manage provider profiles',
+        example: '/provider switch production',
+        modelInvocable: true,
+        runner: 'runtime',
+      },
+    ]);
+
+    const output = formatCommandHelpMessage(context);
+
+    expect(output).toContain('Example: /provider switch production');
+  });
+
+  it('omits Example line for commands without example', () => {
+    const context = buildContext([
+      {
+        name: 'help',
+        displayName: 'Help',
+        description: 'Show available commands',
+        modelInvocable: true,
+        runner: 'runtime',
+      },
+    ]);
+
+    const output = formatCommandHelpMessage(context);
+
+    expect(output).not.toContain('Example:');
+  });
+});

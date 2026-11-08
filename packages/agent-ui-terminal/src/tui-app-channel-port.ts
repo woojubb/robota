@@ -9,17 +9,17 @@ import type {
   TSessionEndReason,
   TPermissionMode,
 } from '@robota-sdk/agent-core';
-import type { ICommand } from '@robota-sdk/agent-interface-command';
+import type { ICommand } from '@robota-sdk/agent-interface/command';
 import type {
   IExecutionDetailPage,
   IExecutionDetailCursor,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IInteractiveSessionEvents,
   ISessionListingEntry,
   IToolState,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export interface ITuiCommandQueryPort {
   getCommands(filter?: string): ICommand[];

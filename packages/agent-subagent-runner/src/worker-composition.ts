@@ -200,7 +200,7 @@ export type TSandboxClientFactory = (snapshotId: string) => Promise<TProjectedSa
  * What the factory hands back, expressed STRUCTURALLY rather than as `ISandboxClient`.
  *
  * This package is the neutral runner: it depends on `agent-core`, `agent-executor`,
- * `agent-framework`, `agent-interface-execution` and `agent-process` — deliberately not on
+ * `agent-framework`, `agent-interface/execution` and `agent-os` — deliberately not on
  * `agent-tools`, where `ISandboxClient` lives. Importing that type to describe a value this package
  * only ever passes through would add a dependency edge for a pass-through, which is the shape
  * this package already avoids on the provider axis.

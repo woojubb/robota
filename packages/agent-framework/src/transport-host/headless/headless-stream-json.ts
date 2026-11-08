@@ -2,10 +2,10 @@ import { randomId } from '@robota-sdk/agent-core';
 
 import type { IHeadlessOutput } from './headless-output.js';
 import type { IHeadlessSession } from './headless-session.js';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
-import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-interface-execution';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
-import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
+import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-interface/execution';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface/execution';
+import type { IExecutionResult } from '@robota-sdk/agent-interface/session';
 
 type TSlashCommandExecution =
   | { readonly kind: 'not-slash' }

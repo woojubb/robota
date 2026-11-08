@@ -15,7 +15,7 @@ import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 /** Bound each displayed line without splitting a UTF-16 surrogate pair. */
 const LINE_LENGTH = 4096;

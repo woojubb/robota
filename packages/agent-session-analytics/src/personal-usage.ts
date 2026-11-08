@@ -12,8 +12,8 @@ import type {
   IPersonalUsageRequest,
   IPersonalUsageTotals,
   IUsageSource,
-} from '@robota-sdk/agent-interface-analytics';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/analytics';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const SHORT_PERIOD_DAYS = 7;
 const LONG_PERIOD_DAYS = 30;

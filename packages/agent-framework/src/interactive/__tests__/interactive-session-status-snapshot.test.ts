@@ -9,7 +9,7 @@ import { InteractiveSession } from '../interactive-session.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { TInteractiveSessionOptions } from '../interactive-session.js';
-import type { IGoalState } from '@robota-sdk/agent-interface-session';
+import type { IGoalState } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

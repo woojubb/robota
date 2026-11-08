@@ -1,4 +1,4 @@
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
 import { createScheduledTaskRunner } from '@robota-sdk/agent-executor/node';
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
@@ -17,7 +17,7 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import type { TExecutionJournalRecord } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import { InteractiveSession } from '../interactive-session.js';
 import { persistSession } from '../interactive-session-persistence.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';

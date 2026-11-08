@@ -1,7 +1,7 @@
 /**
  * A session change the host declined, with a code the client can branch on.
  *
- * The SHAPE is a contract (`ISessionChangeRefusal` in `@robota-sdk/agent-interface-session`); the
+ * The SHAPE is a contract (`ISessionChangeRefusal` in `@robota-sdk/agent-interface/session`); the
  * class lives here, beside the code that throws it, because an interface package is inert by rule.
  */
 
@@ -13,7 +13,7 @@ import type {
   ISessionDeleteRefusal,
   TSessionChangeRefusalCode,
   TSessionDeleteRefusalCode,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export type { TSessionChangeRefusalCode, TSessionDeleteRefusalCode };
 

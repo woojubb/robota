@@ -6,12 +6,12 @@
  * and the input is gone. A consumer forced to regex-match a message to tell those apart still has
  * the string-matching this change exists to remove.
  *
- * The SHAPE is a contract (`ITurnNotRunError` in `@robota-sdk/agent-interface-session`); the class
+ * The SHAPE is a contract (`ITurnNotRunError` in `@robota-sdk/agent-interface/session`); the class
  * lives here, beside the code that throws it, because an interface package is inert by rule — a
  * class declaration in it is a runtime construct the contract must not carry.
  */
 
-import type { ITurnNotRunError, TTurnNotRunReason } from '@robota-sdk/agent-interface-session';
+import type { ITurnNotRunError, TTurnNotRunReason } from '@robota-sdk/agent-interface/session';
 
 export class TurnNotRunError extends Error implements ITurnNotRunError {
   override readonly name = 'TurnNotRunError' as const;

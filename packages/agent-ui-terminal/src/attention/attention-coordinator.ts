@@ -1,7 +1,7 @@
 import { IntervalRecap } from './interval-recap.js';
 
 import type { IAttentionSource } from './attention-tracker.js';
-import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface/execution';
 
 /**
  * Joins the attention level to the recap accumulator for one channel.

@@ -18,7 +18,7 @@ import {
   started,
 } from './helpers/sealed-session-fixtures.js';
 
-import type { IAgentBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
+import type { IAgentBackgroundTaskState } from '@robota-sdk/agent-interface/execution';
 import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
 

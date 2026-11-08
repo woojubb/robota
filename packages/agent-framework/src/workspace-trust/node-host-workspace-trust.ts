@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 
 import {
@@ -8,6 +8,7 @@ import {
   writeOwnerOnlyFile,
 } from '@robota-sdk/agent-core/node';
 
+import { canonicalRealPath } from './canonical-real-path.js';
 import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
 import { WorkspaceTrustService } from './workspace-trust-service.js';
 
@@ -54,11 +55,9 @@ function runGit(cwd: string, args: readonly string[], environment?: NodeJS.Proce
   }
 }
 
-function canonicalPath(value: string, expandWindowsAlias = false): string {
+function canonicalPath(value: string): string {
   try {
-    return expandWindowsAlias && process.platform === 'win32'
-      ? realpathSync.native(value)
-      : realpathSync(value);
+    return canonicalRealPath(value);
   } catch (error) {
     throw new Error(`Git workspace identity is unavailable for ${value}`, { cause: error });
   }
@@ -192,7 +191,6 @@ export function createNodeWorkspaceIdentityResolver(environment?: NodeJS.Process
       const commonDirValue = runGit(canonicalCwd, ['rev-parse', '--git-common-dir'], environment);
       const commonDir = canonicalPath(
         isAbsolute(commonDirValue) ? commonDirValue : join(canonicalCwd, commonDirValue),
-        true,
       );
       const repositoryKey = repositoryIdentityKey(commonDir);
       return Object.freeze({

@@ -35,7 +35,7 @@ import { NodeSessionLogSink } from '../node-session-log-sink.js';
 import { NodeSessionStore } from '../session-store.js';
 import { loadedOrMissing } from './store-load-helpers.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const PERMISSIVE_UMASK = 0o022;
 const OWNER_ONLY_FILE = 0o600;

@@ -15,7 +15,7 @@ import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import type {
   IPromptHistoryEntry,
   IPromptHistoryWriter,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 const testHost = createTestFrameworkHost();

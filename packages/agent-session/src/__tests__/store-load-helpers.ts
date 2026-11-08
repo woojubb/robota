@@ -10,7 +10,7 @@
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** The stored record when there is one, `undefined` for `missing` — a failure for the other two. */
 export function loadedOrMissing(
