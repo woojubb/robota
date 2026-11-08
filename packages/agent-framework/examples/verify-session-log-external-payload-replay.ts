@@ -14,7 +14,7 @@ const testHost = createTestFrameworkHost();
 
 const LARGE_RESPONSE = `EXTERNAL_PAYLOAD_LARGE:${'x'.repeat(40 * 1024)}`;
 const SENTINEL_RESPONSE = 'EXTERNAL_PAYLOAD_SENTINEL';
-const EXPECTED_SHA256 = '42bc9897b0c5ebe94994f5ef0b494461e1133116821ed9141c0d2043a0168193';
+const EXPECTED_SHA256 = 'acae1f2d169f1e67b2c9aee5709252ca79e2c42330fce7bd5c73ef2c0ef905e5';
 
 interface IExternalReferenceView {
   readonly relativePath: string;
@@ -84,7 +84,7 @@ try {
   if (sentinel !== SENTINEL_RESPONSE) throw new Error('Sentinel response was not replay call 2.');
   const byteLength = Buffer.byteLength(largeResponse);
   const sha256 = createHash('sha256').update(largeResponse).digest('hex');
-  if (byteLength !== 40_975 || sha256 !== EXPECTED_SHA256) {
+  if (byteLength !== 40_983 || sha256 !== EXPECTED_SHA256) {
     throw new Error(`Large response integrity mismatch: ${byteLength} bytes, ${sha256}.`);
   }
 
