@@ -1,5 +1,27 @@
 # @robota-sdk/agent-product
 
+## 3.3.0
+### Minor Changes
+
+- 02619fa: The product-assembly packages are now one package, `@robota-sdk/agent-product`. Its root export is unchanged; the rest are subpaths: `capability-pack` (was `@robota-sdk/agent-capability-pack`), `preset` and `preset/node` (was `@robota-sdk/agent-preset` and its `./node`), `command` and `command/node` (was `@robota-sdk/agent-command` and its `./node`) and `coding` (was `@robota-sdk/pack-coding`). Import the subpath you use (`@robota-sdk/agent-product/preset`). The root, `capability-pack`, `preset` and `command` stay platform-neutral; `preset/node`, `command/node` and `coding` are Node only and map `browser: null`. The exported names and signatures are unchanged, and a consumer's install does not grow: every package the merged manifest names is already installed with `@robota-sdk/agent-framework`, which each of the old packages required. `@robota-sdk/agent-capability-pack`, `@robota-sdk/agent-preset`, `@robota-sdk/agent-command` and `@robota-sdk/pack-coding` no longer receive releases.
+
+### Patch Changes
+
+- 327999e: The contract packages are now one package, `@robota-sdk/agent-interface`, with one subpath per family: `session` (and `session/testing`), `session-mobility`, `command`, `execution`, `analytics`, `transport` (and `transport/testing`) and `tui`. Import the subpath of the family you use (`@robota-sdk/agent-interface/session`); there is no root export. `@robota-sdk/agent-core` is now an optional peer dependency: `analytics` and `tui` need nothing, and a project that imports another family installs `agent-core` itself (the SDK packages that import those families declare it). The exported names and signatures are unchanged. `@robota-sdk/agent-interface-session`, `-session-mobility`, `-command`, `-execution`, `-analytics`, `-transport` and `-tui` no longer receive releases. The SDK packages that import a contract depend on `@robota-sdk/agent-interface`.
+- Updated dependencies [1f900da]
+- Updated dependencies [86fc3d4]
+- Updated dependencies [327999e]
+- Updated dependencies [913d334]
+- Updated dependencies [589df44]
+- Updated dependencies [87449a3]
+- Updated dependencies [16795cb]
+- Updated dependencies [bf901d7]
+- Updated dependencies [f377a57]
+  - @robota-sdk/agent-core@3.2.3
+  - @robota-sdk/agent-framework@3.2.4
+  - @robota-sdk/agent-interface@3.3.0
+  - @robota-sdk/agent-tools@3.3.0
+
 ## 3.2.3
 ### Patch Changes
 

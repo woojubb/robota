@@ -1,5 +1,18 @@
 # @robota-sdk/agent-tools
 
+## 3.3.0
+### Minor Changes
+
+- 87449a3: The default tool set is now the Node-only `defaults` subpath of `@robota-sdk/agent-tools`: import `createDefaultTools` from `@robota-sdk/agent-tools/defaults`. It maps `browser: null` like `./node`, and the root and `./node` entries are unchanged. The exported names and signatures are unchanged, and a consumer's install does not grow: the subpath adds no dependency to the package. `@robota-sdk/agent-tool-defaults` no longer receives releases.
+
+### Patch Changes
+
+- 913d334: The host primitives are now one package, `@robota-sdk/agent-os`, with one subpath each: `file-authority` (and `file-authority/testing`), `node-lock` and `process`. Import the subpath you use (`@robota-sdk/agent-os/process`); there is no root export, and a bundle that imports `process` contains no native binding. Koffi is now an optional peer dependency pinned to `3.3.1`: a project that imports `file-authority` or `node-lock` installs it itself, and a project that imports only `process` installs nothing. The exported names and signatures are unchanged. `@robota-sdk/agent-file-authority`, `@robota-sdk/agent-node-lock` and `@robota-sdk/agent-process` no longer receive releases. The framework, session, tools, executor and subagent-runner packages depend on `@robota-sdk/agent-os`; the packages that used the file authority or the lock declare `koffi` themselves, so their installs are unchanged.
+- f377a57: On Windows, Read and Edit now refuse a file that was swapped for a link to somewhere outside the working directory between the containment check and the open, as they already did on Linux and macOS.
+- Updated dependencies [913d334]
+- Updated dependencies [44f28ee]
+  - @robota-sdk/agent-os@3.3.0
+
 ## 3.2.2
 ### Patch Changes
 
