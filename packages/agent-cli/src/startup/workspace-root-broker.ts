@@ -261,13 +261,27 @@ async function clearCrashedEndpoint(endpoint: string): Promise<void> {
 }
 
 /** The user-state root a broker serves, identified by the directory object present at startup. */
-function ownerRoot(historyFile: string): () => boolean {
+function ownerRoot(historyFile: string): { present(): boolean; close(): void } {
   const path = dirname(historyFile);
   mkdirSync(path, { recursive: true, mode: 0o700 });
-  const started = statSync(path, { bigint: true });
-  return () => {
-    const now = statSync(path, { bigint: true, throwIfNoEntry: false });
-    return now !== undefined && now.isDirectory() && now.dev === started.dev && now.ino === started.ino;
+  // Holding the directory open keeps its inode allocated, so a directory created later at the same
+  // path cannot reuse it (ext4 reuses a freed inode at once). Windows cannot open a directory as a
+  // file, and its file IDs carry a reuse sequence.
+  const held = process.platform === 'win32'
+    ? undefined : openSync(path, constants.O_RDONLY | constants.O_DIRECTORY);
+  const started = held === undefined ? statSync(path, { bigint: true }) : fstatSync(held, { bigint: true });
+  return {
+    present(): boolean {
+      try {
+        const now = statSync(path, { bigint: true, throwIfNoEntry: false });
+        return now !== undefined && now.isDirectory() && now.dev === started.dev && now.ino === started.ino;
+      } catch {
+        return false;
+      }
+    },
+    close(): void {
+      if (held !== undefined) closeSync(held);
+    },
   };
 }
 
@@ -282,7 +296,6 @@ export async function startWorkspaceRootBroker(
   historyFile?: string,
 ): Promise<{ close(): Promise<void> }> {
   privateEndpoint(endpoint, false);
-  const ownerPresent = historyFile === undefined ? undefined : ownerRoot(historyFile);
   const lock = createProcessOperationLock(lockDirectory).tryAcquire('workspace-root-broker');
   if (lock === undefined) throw new Error('A root broker already owns this namespace.');
   try {
@@ -699,8 +712,10 @@ export async function startWorkspaceRootBroker(
     throw error;
   }
   const bound = process.platform === 'win32' ? undefined : lstatSync(endpoint);
+  let owner: ReturnType<typeof ownerRoot> | undefined;
   try {
     privateEndpoint(endpoint, true);
+    if (historyFile !== undefined) owner = ownerRoot(historyFile);
   } catch (error) {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     let cleanupConfirmed = process.platform === 'win32';
@@ -724,6 +739,7 @@ export async function startWorkspaceRootBroker(
         if (closed) return;
         closed = true;
         clearInterval(ownerCheck);
+        owner?.close();
         for (const socket of sockets) socket.destroy();
         await tail;
         await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -751,8 +767,8 @@ export async function startWorkspaceRootBroker(
     },
   };
   // Unreferenced: the check never keeps a host alive; a broker process stays up on its server alone.
-  const ownerCheck = ownerPresent === undefined ? undefined : setInterval(() => {
-    if (!ownerPresent()) void broker.close().catch(() => undefined);
+  const ownerCheck = owner === undefined ? undefined : setInterval(() => {
+    if (owner?.present() === false) void broker.close().catch(() => undefined);
   }, OWNER_CHECK_MS);
   ownerCheck?.unref();
   return broker;
