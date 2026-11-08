@@ -1,0 +1,19 @@
+/**
+ * @robota-sdk/agent-provider/openai
+ *
+ * Provides Provider implementation for using OpenAI API.
+ */
+
+// Export main provider (new architecture)
+export { OpenAIProvider } from './provider';
+
+// Export types and utilities
+export * from './types';
+export * from './adapter';
+export * from './provider-definition';
+
+// Export payload logging interfaces only (implementations are in separate subpaths)
+export type { IPayloadLogger, IPayloadLoggerOptions } from './interfaces/payload-logger';
+
+// Export modular components (optional - for advanced users)
+// export { OpenAIResponseParser } from './parsers/response-parser';

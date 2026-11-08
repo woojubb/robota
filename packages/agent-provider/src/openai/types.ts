@@ -1,0 +1,262 @@
+import type { IPayloadLogger } from './interfaces/payload-logger';
+import type { IExecutor, ILogger, TProviderOptionValueBase } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
+
+export type TOpenAIApiSurface = 'responses' | 'chat-completions';
+
+export interface IOpenAIJsonSchemaDefinition {
+  name: string;
+  description?: string;
+  schema?: Record<string, TOpenAIProviderOptionValue>;
+  strict?: boolean;
+}
+
+export interface IOpenAIResponsesReasoningOptions {
+  effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+  summary?: 'auto' | 'concise' | 'detailed';
+}
+
+export interface IOpenAINativeWebToolsOptions {
+  webSearch?: boolean;
+  webFetch?: boolean;
+}
+
+/** A JSON value sent through {@link IOpenAIProviderOptions.extraBody}. */
+export type TOpenAIExtraBodyValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly TOpenAIExtraBodyValue[]
+  | { readonly [key: string]: TOpenAIExtraBodyValue };
+
+/** Top-level request-body fields sent through {@link IOpenAIProviderOptions.extraBody}. */
+export type TOpenAIExtraBody = Readonly<Record<string, TOpenAIExtraBodyValue>>;
+
+/**
+ * Valid provider option value types
+ */
+export type TOpenAIProviderOptionValue =
+  | string
+  | number
+  | boolean
+  | undefined
+  | null
+  | IOpenAIJsonSchemaDefinition
+  | IOpenAINativeWebToolsOptions
+  | IOpenAIResponsesReasoningOptions
+  | TOpenAIExtraBody
+  | OpenAI
+  | IPayloadLogger
+  | ILogger
+  | IExecutor
+  | TProviderOptionValueBase
+  | TOpenAIProviderOptionValue[]
+  | { [key: string]: TOpenAIProviderOptionValue };
+
+/**
+ * OpenAI provider options
+ */
+export interface IOpenAIProviderOptions {
+  /** Emit one operation ID per model request, preserved by SDK retries, for durable company gateways. */
+  durableOperations?: boolean;
+  /**
+   * Additional provider-specific options
+   */
+  [key: string]: TOpenAIProviderOptionValue;
+
+  /**
+   * OpenAI API key (required when client is not provided)
+   */
+  apiKey?: string;
+
+  /**
+   * OpenAI organization ID (optional)
+   */
+  organization?: string;
+
+  /**
+   * API request timeout (milliseconds)
+   */
+  timeout?: number;
+
+  /**
+   * Whether to request token usage on streaming turns via
+   * `stream_options: { include_usage: true }` (default `true`). Set `false` for
+   * OpenAI-compatible endpoints that reject `stream_options`; usage is then absent
+   * on streaming turns for this provider.
+   */
+  includeStreamUsage?: boolean;
+
+  /**
+   * API base URL (default: `'https://api.openai.com/v1'`).
+   *
+   * Point this at ANY OpenAI-compatible endpoint — this provider is a protocol
+   * client, not an OpenAI-vendor lock:
+   *
+   * - AI gateways: Vercel AI Gateway, LiteLLM, OpenRouter, …
+   * - Hosted compatibles: Azure OpenAI, Groq, Together, …
+   * - Local/self-hosted: vLLM, Ollama, LM Studio, …
+   *
+   * Setting `baseURL` switches the default {@link apiSurface} to
+   * `'chat-completions'` for broad endpoint compatibility (official OpenAI calls
+   * default to the Responses API). Model slugs are passed through verbatim, so
+   * gateway-namespaced ids like `anthropic/claude-sonnet-4-5` or
+   * `meta-llama/llama-3.1-70b` work as `defaultModel`/`model` values — streaming
+   * and tool calling ride the same chat-completions protocol.
+   *
+   * @example
+   * ```ts
+   * // Vercel AI Gateway with a non-OpenAI model slug
+   * new OpenAIProvider({
+   *   apiKey: process.env.AI_GATEWAY_API_KEY,
+   *   baseURL: 'https://ai-gateway.vercel.sh/v1',
+   *   defaultModel: 'anthropic/claude-sonnet-4-5',
+   * });
+   * ```
+   */
+  baseURL?: string;
+
+  /**
+   * Default model used when chat options do not provide a model.
+   */
+  defaultModel?: string;
+
+  /**
+   * API surface to use for direct OpenAI calls.
+   *
+   * Defaults to Responses for official OpenAI calls. Profiles with baseURL use
+   * Chat Completions by default for OpenAI-compatible endpoint compatibility.
+   */
+  apiSurface?: TOpenAIApiSurface;
+
+  /**
+   * Response format (default: 'text')
+   * - 'text': Plain text response
+   * - 'json_object': JSON object mode (requires system message)
+   * - 'json_schema': Structured Outputs with schema validation
+   */
+  responseFormat?: 'text' | 'json_object' | 'json_schema';
+
+  /**
+   * JSON schema for structured outputs (required when responseFormat is 'json_schema')
+   */
+  jsonSchema?: IOpenAIJsonSchemaDefinition;
+
+  /**
+   * Responses API reasoning controls. Hidden reasoning is never exposed in message
+   * content; only explicit summaries/encrypted items requested here are represented.
+   */
+  reasoning?: IOpenAIResponsesReasoningOptions;
+
+  /**
+   * Whether OpenAI should store Responses API results. Defaults to OpenAI API behavior.
+   */
+  store?: boolean;
+
+  /**
+   * Include encrypted reasoning items for stateless reasoning continuation.
+   */
+  includeEncryptedReasoning?: boolean;
+
+  /**
+   * Opt into strict custom function parameter validation where supported.
+   *
+   * The tool schema is rewritten for strict mode on the way out — every object node,
+   * nested ones included, is closed and given a complete `required` list. That transformation is
+   * lossy, so it runs ONLY when this flag is on; with it off the schema is forwarded exactly as
+   * authored.
+   *
+   * What "lossy" means for a caller: strict mode has no way to say "optional", so a field the
+   * schema marked optional becomes required and gains a `null` branch. The model must then supply
+   * the key explicitly, with `null` standing for "not provided". A tool whose handler distinguishes
+   * an absent key from a null value will see the difference.
+   *
+   * Both surfaces declare the functions strict (`strict: true` on each tool), so an OpenAI-compatible
+   * endpoint that rejects that field needs `strictTools` left off.
+   */
+  strictTools?: boolean;
+
+  /**
+   * Requests the native parallel function-call generation policy: on Chat Completions only with
+   * tools, on Responses with every request.
+   * Captured at construction; undefined omits the wire field. Does not guarantee call count,
+   * argument validity or execution order. Explicit values cannot be used with an executor.
+   */
+  readonly parallelToolCalls?: boolean;
+
+  /**
+   * JSON fields merged as top-level fields into every request body on both API surfaces, for
+   * endpoint-specific options this provider does not model (for example a gateway's upstream
+   * options). Copied at construction; an empty object is the same as omitting it. Fields the
+   * provider manages and non-JSON values are rejected, and it cannot be used with an executor.
+   */
+  readonly extraBody?: TOpenAIExtraBody;
+
+  /**
+   * Hosted web search on OpenAI's own Responses API: `{ webSearch: true }` adds a `web_search` tool
+   * to each request that may use tools, and OpenAI runs the searches. Any other surface (Chat
+   * Completions, or a custom `baseURL`) rejects it at construction, before a request is sent.
+   * OpenAI offers no separate hosted web fetch here, so `webFetch: true` is rejected too.
+   */
+  nativeWebTools?: IOpenAINativeWebToolsOptions;
+
+  /**
+   * OpenAI client instance (optional: will be created from apiKey if not provided)
+   */
+  client?: OpenAI;
+
+  /**
+   * Payload logger that receives a summary of each Chat Completions request (model, message
+   * count, whether tools were sent, temperature, max tokens) for debugging — not prompt or
+   * response content. Not called on the Responses API surface.
+   *
+   * Use different implementations based on your environment:
+   * - FilePayloadLogger (`@robota-sdk/agent-provider/openai/node`): Node.js file-based logging
+   * - ConsolePayloadLogger (`@robota-sdk/agent-provider/openai/loggers`): console logging on any runtime
+   * - Custom: Implement IPayloadLogger interface
+   *
+   * @example
+   * ```typescript
+   * // Node.js
+   * import { FilePayloadLogger } from '@robota-sdk/agent-provider/openai/node';
+   * const provider = new OpenAIProvider({
+   *   client: openaiClient,
+   *   payloadLogger: new FilePayloadLogger({ logDir: './logs/openai' })
+   * });
+   *
+   * // Browser
+   * import { ConsolePayloadLogger } from '@robota-sdk/agent-provider/openai/loggers';
+   * const provider = new OpenAIProvider({
+   *   client: openaiClient,
+   *   payloadLogger: new ConsolePayloadLogger()
+   * });
+   * ```
+   */
+  payloadLogger?: IPayloadLogger;
+
+  /**
+   * Optional executor for handling AI requests
+   *
+   * When provided, the provider delegates every chat call to this executor instead of calling the
+   * API itself — for example to route calls through your own server. Implement `IExecutor` from
+   * `@robota-sdk/agent-core`; `LocalExecutor` is the in-process one.
+   *
+   * @example
+   * ```typescript
+   * import { LocalExecutor } from '@robota-sdk/agent-core';
+   *
+   * const executor = new LocalExecutor();
+   * executor.registerProvider('openai', new OpenAIProvider({ apiKey: 'sk-...' }));
+   *
+   * const provider = new OpenAIProvider({ executor });
+   * ```
+   */
+  executor?: IExecutor;
+
+  /**
+   * Logger instance for internal OpenAI provider logging
+   * @defaultValue SilentLogger
+   */
+  logger?: ILogger;
+}
