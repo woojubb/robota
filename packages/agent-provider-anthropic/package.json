@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-provider-anthropic",
-  "version": "3.2.2",
+  "version": "3.2.3",
   "description": "Anthropic Claude provider implementation for Robota SDK",
   "type": "module",
   "publishConfig": {

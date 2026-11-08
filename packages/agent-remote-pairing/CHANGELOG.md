@@ -1,5 +1,10 @@
 # @robota-sdk/agent-remote-pairing
 
+## 3.2.2
+### Patch Changes
+
+- Drop dangling tracker references (deleted backlog IDs, stage labels and closed issue numbers) from shipped comments, type declarations and runtime messages, so agents reading this package are not sent after tickets that no longer exist. No behavior change.
+
 ## 3.2.1
 
 ## 3.2.0

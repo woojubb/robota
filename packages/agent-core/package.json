@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-core",
-  "version": "3.2.1",
+  "version": "3.2.2",
   "description": "Foundation of the Robota SDK: the Robota agent engine and the provider, tool, plugin and permission contracts",
   "type": "module",
   "main": "dist/index.js",
