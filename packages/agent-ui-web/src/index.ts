@@ -23,7 +23,7 @@ export type {
   TSessionListing,
   TSessionsError,
 } from './hooks/session-client-types.js';
-// Issue #3280 §5: a host that can restart the runtime calls this before reloading the page, so the
+// A host that can restart the runtime calls this before reloading the page, so the
 // first session listing after reconnecting can switch back to the session the person was in.
 export { rememberSessionForRestore } from './hooks/use-session-directory.js';
 
@@ -46,7 +46,7 @@ export type {
 export { applyPromptEvent, permissionResponse, askResponse } from './hooks/prompt-state.js';
 export type { TPendingPrompt } from './hooks/prompt-state.js';
 
-// ── UI-intent (command screen-request) state — CMD-004 Stage D ──
+// ── UI-intent (command screen-request) state — ──
 export { describeUiIntentForGui, guiScreenForUiIntent } from './hooks/ui-intent-state.js';
 
 // ── Presentation components ─────────────────────────────────
@@ -60,12 +60,12 @@ export { SessionSurface, CenteredChrome } from './components/SessionSurface.js';
 export type { IComposerHandle, IPickedFile } from './components/Composer.js';
 export { SessionSidebar } from './components/SessionSidebar.js';
 export { SessionMonitor } from './components/SessionMonitor.js';
-// #3282 §4a: the shared modal-shell primitive (also consumed by #3282 §2's mode-change confirmation
-// and #3289 §1's session-delete confirmation) and the Settings screen it backs.
+// The shared modal-shell primitive (also consumed by the mode-change confirmation
+// and the session-delete confirmation) and the Settings screen it backs.
 export { Dialog, ConfirmDialog } from './components/Dialog.js';
 export type { IDialogProps, IConfirmDialogProps } from './components/Dialog.js';
 export { SettingsScreen } from './components/SettingsScreen.js';
-// #3282 §4e: the Help sheet `/help` opens instead of the terminal-style text list.
+// The Help sheet `/help` opens instead of the terminal-style text list.
 export { HelpSheet } from './components/HelpSheet.js';
 // Pieces of a surface's chrome, not roots: render them inside a `agent-ui` scope.
 export { ProductMark, ProductWordmark } from './components/Brand.js';

@@ -28,7 +28,7 @@ const RECORD_KIND_LABEL: Record<IExecutionDetailRecord['kind'], string> = {
 };
 
 /**
- * #3288 §1: opening an Agents panel entry — status, what it was asked (one line, from its
+ * Opening an Agents panel entry — status, what it was asked (one line, from its
  * headline), its transcript so far (paginated via `onLoadMore`) and, once it has one, its result.
  * `entry === null` renders nothing; the caller owns showing/hiding this over the panel.
  */

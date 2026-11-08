@@ -1,9 +1,9 @@
 /**
- * #3282 §4e — built-in commands left out of the GUI on purpose (the design decisions in
+ * Built-in commands left out of the GUI on purpose (the design decisions in
  * `packages/agent-gui-web/docs/SPEC.md` group them by reason). The `/` menu never lists one of these
  * (`command-menu.ts`), and typing one by hand anyway is caught before it reaches the session
  * (`useSessionClient.ts`'s `send`) and answered with the plain sentence here — never the session's own
- * refusal, and never the generic "not available on this surface" line CMD-004 uses for a screen this
+ * refusal, and never the generic "not available on this surface" line used for a screen this
  * surface simply has not built yet (see `ui-intent-state.ts`).
  */
 

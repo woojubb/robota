@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 /**
- * #3282 §2 (part 2) — the model, mode and effort pop-up menus under the composer: a HIG pop-up menu
+ * The model, mode and effort pop-up menus under the composer: a HIG pop-up menu
  * per control, grouped/labelled per the decided design, with a checkmark on the current value.
  * Choosing a model/mode/effort runs the same path the equivalent typed command would (`onSilentCommand`
  * for a plain apply — the label itself confirms the change, no conversation card); "Manage providers…"
- * (the model menu's last item) opens Settings at the Providers & Models section instead (#3282 §4b,
- * `onManageProviders`).
+ * (the model menu's last item) opens Settings at the Providers & Models section instead
+ * (`onManageProviders`).
  */
 import { render } from '../../testing/product-provider.js';
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
@@ -284,14 +284,14 @@ describe('StatusRow — effort control', () => {
 });
 
 /**
- * #3289 §2 — below `md` (768px, the same breakpoint the session-list sheet collapses at) the status
+ * Below `md` (768px, the same breakpoint the session-list sheet collapses at) the status
  * chips collapse to their icon alone: at 390px CSS px they used to truncate to "d…"/"claude-…"/"a…".
  * jsdom does not evaluate media queries, so this asserts the responsive classes themselves (`hidden`
  * by default, `md:inline` restoring the text at the wider breakpoint) rather than actual layout — the
  * e2e scenario at 390×800 in `web-e2e.mjs` is what actually renders the collapse and checks nothing
  * overflows or covers the composer.
  */
-describe('StatusRow — collapses to icons below the md breakpoint (#3289 §2)', () => {
+describe('StatusRow — collapses to icons below the md breakpoint', () => {
   it("hides each chip's value text by default and restores it only at md and up", () => {
     render(<StatusRow {...baseProps()} />);
 

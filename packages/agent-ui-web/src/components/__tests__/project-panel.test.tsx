@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3282 §4c — the Project panel: lists changed files with a plain-word status and +N/-M counts,
+ * The Project panel: lists changed files with a plain-word status and +N/-M counts,
  * clicking one shows its diff via `DiffLines`, Refresh re-requests the status, and a non-repository
  * folder shows one plain sentence instead of a file list.
  */
@@ -132,7 +132,7 @@ describe('ProjectPanel', () => {
     );
     // The row was already expanded by the first click; this rerender only supplies its diff — no
     // second click (a second click here would toggle the (still-open, same-component) row closed).
-    // DiffLines prefixes an added line with "+ " (#3288's convention).
+    // DiffLines prefixes an added line with "+ ".
     expect(screen.getByText('+ new line')).toBeTruthy();
   });
 

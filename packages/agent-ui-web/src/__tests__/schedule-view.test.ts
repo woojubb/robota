@@ -1,5 +1,5 @@
 /**
- * #3282 §4 part b-3 — plain-words schedule presentation: never an ISO string or a cron expression.
+ * Plain-words schedule presentation: never an ISO string or a cron expression.
  */
 import { describe, expect, it, vi } from 'vitest';
 

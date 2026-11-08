@@ -19,7 +19,7 @@ interface ISettingsSectionDefinition {
 }
 
 /**
- * The Settings screen's sections (#3282 §4). Adding a later section (Advisor) is one entry here plus
+ * The Settings screen's sections. Adding a later section (Advisor) is one entry here plus
  * one component in the switch below — nothing else in this file changes.
  */
 const SECTIONS: readonly ISettingsSectionDefinition[] = [
@@ -36,7 +36,7 @@ type TPendingPluginAction =
   | { kind: 'uninstall'; plugin: ISettingsPlugin };
 
 /**
- * A large modal sheet with a section sidebar on the left and content on the right (#3282 §4a) — the
+ * A large modal sheet with a section sidebar on the left and content on the right — the
  * GUI's Settings screen, opened by the sidebar's gear button, the desktop app's ⌘, menu item, or
  * `/settings` (its `show-settings` `ui_intent` calls `state.openSettings()`, wired in
  * `useSessionClient`). Every change applies at once; there is no Save button. Esc and the Close
@@ -56,7 +56,7 @@ export function SettingsScreen({ state }: { state: IWsSessionState }): React.Rea
   const [pendingPluginAction, setPendingPluginAction] = useState<TPendingPluginAction | null>(null);
   const [mcpReloading, setMcpReloading] = useState(false);
   const [pluginsReloading, setPluginsReloading] = useState(false);
-  // #3282 §4b: the profile a pending "Delete…" confirms, or null when none is pending.
+  // The profile a pending "Delete…" confirms, or null when none is pending.
   const [pendingProviderDelete, setPendingProviderDelete] = useState<string | null>(null);
 
   // Each time the screen opens, land on the section the opener asked for (`/plugin` → Plugins,

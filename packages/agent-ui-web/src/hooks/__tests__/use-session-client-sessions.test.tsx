@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3189 — the GUI reducer keeps the host's session list beside the conversation: it asks for it on
+ * The GUI reducer keeps the host's session list beside the conversation: it asks for it on
  * connect and whenever it may have changed, keeps only the latest answer, starts and switches
  * sessions through their wire messages, and re-reads everything the session shows after a switch.
  */
@@ -67,11 +67,11 @@ const listing = (currentSessionId: string) => ({
   unreadableSessionIds: ['broken'],
 });
 
-describe('#3189 — session list, start and switch in the GUI reducer', () => {
+describe('session list, start and switch in the GUI reducer', () => {
   it('asks for the session list on connect, beside the commands and status', () => {
     const { wire, connect } = setup();
     connect();
-    // #3280 §2: also asks for the queue — a reconnect to the same session gets no `session_switched`
+    // Also asks for the queue — a reconnect to the same session gets no `session_switched`
     // to trigger that ask otherwise, so a stale `queuedPrompt` from before a drop would linger.
     expect(wire.map((m) => m.type)).toEqual([
       // The role comes first, so its reply precedes the listing the reconnect restore reads.
@@ -80,7 +80,7 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
       'get-status',
       'get-pending',
       'list-sessions',
-      // #3282 §4 part b-3: the Agents panel's Scheduled group also loads on connect.
+      // The Agents panel's Scheduled group also loads on connect.
       'get-background-tasks',
     ]);
   });
@@ -153,10 +153,10 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
       'get-status',
       'get-commands',
       'get-execution-workspace',
-      // #3280 §2: the queued-message row is per-session state too — a switch re-reads it.
+      // The queued-message row is per-session state too — a switch re-reads it.
       'get-pending',
       'list-sessions',
-      // #3282 §4 part b-3: schedules are per-session state too — a switch re-reads it.
+      // Schedules are per-session state too — a switch re-reads it.
       'get-background-tasks',
     ]);
   });
@@ -201,7 +201,7 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
       tone: 'info',
       content: expect.stringMatching(/cannot list sessions/),
     });
-    // Never the generic "not available on this surface" line (#3282 §4e).
+    // Never the generic "not available on this surface" line.
     const content = (result.current.messages.at(-1) as { content?: string }).content ?? '';
     expect(content).not.toMatch(/not available on this surface/i);
   });
@@ -221,7 +221,7 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
     act(() => result.current.send({ type: 'command', name: 'agent' }));
     // A still-genuinely-unsupported intent: every intent with a real GUI screen (session picker,
     // settings, plugin manager, agent switcher) now suppresses the reply's conversation card by
-    // design (#3282 §4), so this generic in-flight-pairing test needs one that still does not.
+    // design, so this generic in-flight-pairing test needs one that still does not.
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-theme-picker' } } } as TServerMessage);
     act(() => result.current.switchSession('b'));
     deliver({ type: 'protocol_error', message: 'Stop the running turn first.' });
@@ -261,13 +261,13 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
   });
 });
 
-describe('#3189 step 5 — a refused session change and a pool-capable host', () => {
+describe('a refused session change and a pool-capable host', () => {
   it('session_change_failed shows the reason and answers the change, not a command', () => {
     const { result, wire, deliver } = setup();
     act(() => result.current.send({ type: 'command', name: 'agent' }));
     // A still-genuinely-unsupported intent: every intent with a real GUI screen (session picker,
     // settings, plugin manager, agent switcher) now suppresses the reply's conversation card by
-    // design (#3282 §4), so this generic in-flight-pairing test needs one that still does not.
+    // design, so this generic in-flight-pairing test needs one that still does not.
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-theme-picker' } } } as TServerMessage);
     act(() => result.current.switchSession('b'));
     deliver({
@@ -358,7 +358,7 @@ describe('#3189 step 5 — a refused session change and a pool-capable host', ()
   });
 });
 
-describe("#3280 §5 — remembering the session across a desktop Reconnect's reload", () => {
+describe("remembering the session across a desktop Reconnect's reload", () => {
   const liveListing = (currentSessionId: string) => ({
     ...listing(currentSessionId),
     sessions: listing(currentSessionId).sessions.map((row) => ({
@@ -426,7 +426,7 @@ describe("#3280 §5 — remembering the session across a desktop Reconnect's rel
   });
 });
 
-describe('#3289 §1 — renaming and deleting a row from the list', () => {
+describe('renaming and deleting a row from the list', () => {
   it('sends rename-session on the wire and refreshes the listing once it lands', () => {
     const { result, wire, connect, deliver } = setup();
     connect();
@@ -500,7 +500,7 @@ describe('#3289 §1 — renaming and deleting a row from the list', () => {
   });
 });
 
-describe('#3828 — the client follows the host role', () => {
+describe('the client follows the host role', () => {
   const RESTORE_KEY = 'test-product.restoreSessionId';
   const liveListing = (currentSessionId: string) => ({
     ...listing(currentSessionId),

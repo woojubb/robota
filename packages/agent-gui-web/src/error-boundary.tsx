@@ -20,7 +20,7 @@ export class ErrorBoundary extends React.Component<
 
   override render(): React.ReactNode {
     if (this.state.error) {
-      // #3289 §3: nothing above this boundary (agent-gui-web's `main.tsx`, the desktop app) supplies
+      // Nothing above this boundary (agent-gui-web's `main.tsx`, the desktop app) supplies
       // a `main` landmark, and this screen replaces everything below it — so it owns the page's one
       // `main` itself, same as `CenteredChrome`'s starting/fatal/trust screens.
       return (

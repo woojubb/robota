@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { copyToClipboard } from '../clipboard.js';
 
 /**
- * #3289 §2 — the async Clipboard API first, and (for a page that denies it) an `execCommand('copy')`
+ * The async Clipboard API first, and (for a page that denies it) an `execCommand('copy')`
  * fallback through an offscreen textarea. Rejects only once both have failed.
  */
 

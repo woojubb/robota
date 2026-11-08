@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3280 §2 — a prompt the host queued behind a running turn is reducer state (`queuedPrompt`), not
+ * A prompt the host queued behind a running turn is reducer state (`queuedPrompt`), not
  * `'intentionally-not-rendered'`: the composer shows it, and it clears once the server reports
  * `pending: null`.
  */
@@ -27,7 +27,7 @@ function setup(): {
   return { result, deliver: (msg) => act(() => onMessage?.(msg)) };
 }
 
-describe('#3280 §2 — the queued-message reducer state', () => {
+describe('the queued-message reducer state', () => {
   it('starts with nothing queued', () => {
     const { result } = setup();
     expect(result.current.queuedPrompt).toBeNull();

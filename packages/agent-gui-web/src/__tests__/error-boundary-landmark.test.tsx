@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3289 §3 — the error screen `ErrorBoundary` shows, in place of everything below it, renders
+ * The error screen `ErrorBoundary` shows, in place of everything below it, renders
  * exactly one `main` landmark, same as every other pre-session/fatal screen this issue covers.
  * Nothing above `ErrorBoundary` (agent-gui-web's `main.tsx`, the desktop app) supplies one.
  */
@@ -16,7 +16,7 @@ function Bomb(): React.ReactElement {
   throw new Error('boom');
 }
 
-describe('ErrorBoundary renders exactly one main landmark on the error screen (#3289 §3)', () => {
+describe('ErrorBoundary renders exactly one main landmark on the error screen', () => {
   it('once a render error below it is caught', () => {
     // React logs the error to the console as part of catching it; the assertion is on the landmark,
     // not the console, so a spy just keeps the test's own output quiet.

@@ -1,5 +1,5 @@
 /**
- * #3186 — the seam between the GUI web app and whatever hosts it.
+ * The seam between the GUI web app and whatever hosts it.
  *
  * The same build runs in the desktop app, in a browser tab the configured CLI serves (`--serve --open`),
  * and in the Vite dev server. The desktop app attaches to the workspace's configured local daemon and hands the
@@ -15,7 +15,7 @@ import type { TMakeSessionClient } from '@robota-sdk/agent-ui-web/client';
 /** The runtime's state as the desktop host reports it. A browser host has no process to report. */
 export type TGuiHostState = 'starting' | 'ready' | 'fatal';
 
-/** What a person is asked before anything starts in a folder not trusted yet (issue #3268). */
+/** What a person is asked before anything starts in a folder not trusted yet. */
 export interface IGuiTrustQuestion {
   readonly folder: string;
   /** The project sources trust would load, one row each. */
@@ -26,7 +26,7 @@ export interface IGuiTrustQuestion {
 export type TGuiTrustChoice = 'trust' | 'restricted' | 'quit';
 
 /**
- * One file the desktop host's native "Attach files" dialog returned (#3282 §4d), with its real size.
+ * One file the desktop host's native "Attach files" dialog returned, with its real size.
  * Kept in structural sync with `IPickedFile` in `apps/agent-app/electron/sidecar.ts` — the two are not
  * imported across the Electron/browser boundary, same as `IGuiTrustQuestion`/`ITrustQuestion` above.
  */
@@ -47,9 +47,9 @@ export interface IDesktopBridge {
   answerTrust(choice: TGuiTrustChoice): Promise<{ error?: string }>;
   pickFiles(): Promise<IPickedFile[]>;
   getPathForFile(file: File): string;
-  /** #3282 §4a: the App menu's "Settings…" (⌘,/Ctrl+,) asked to open the Settings screen. */
+  /** The App menu's "Settings…" (⌘,/Ctrl+,) asked to open the Settings screen. */
   onOpenSettings(listener: () => void): () => void;
-  /** #3282 §4c: the Project panel's Memory "Open in editor" — opens `path` in the OS default app. */
+  /** The Project panel's Memory "Open in editor" — opens `path` in the OS default app. */
   openPath(path: string): Promise<{ error?: string }>;
 }
 
@@ -78,26 +78,26 @@ export interface IGuiHost {
   readonly answerTrust?: (choice: TGuiTrustChoice) => Promise<{ error?: string }>;
   /**
    * Present when the host can open a native multi-file picker with real filesystem paths (the desktop
-   * app) — #3282 §4d. Its absence means the composer's attach button falls back to a plain HTML file
+   * app). Its absence means the composer's attach button falls back to a plain HTML file
    * input, whose picks a plain browser can never resolve to a path (rule 3: shown plainly, attached
    * nothing).
    */
   readonly pickFiles?: () => Promise<readonly IPickedFile[]>;
   /**
    * Present when the host can resolve a dropped or picked `File` to its real filesystem path (the
-   * desktop app, via Electron's `webUtils.getPathForFile`) — #3282 §4d. Its absence means a drop's
+   * desktop app, via Electron's `webUtils.getPathForFile`). Its absence means a drop's
    * files can never become `@`-references either — only the button's native dialog can, on desktop.
    */
   readonly getPathForFile?: (file: File) => string;
   /**
-   * #3282 §4a: the host's own entry point for Settings, beside the gear button every surface has
+   * The host's own entry point for Settings, beside the gear button every surface has
    * (the desktop app's ⌘,/Ctrl+, menu item). A browser host has none — its no-op still returns an
    * unsubscribe function, so a caller never has to branch on whether this host offers one.
    */
   onOpenSettings(listener: () => void): () => void;
   /**
-   * Present only when the host can open a file in an external editor/app (the desktop app) — #3282
-   * §4c. Its absence means the Project panel's Memory section hides "Open in editor" entirely, per
+   * Present only when the host can open a file in an external editor/app (the desktop app).
+   * Its absence means the Project panel's Memory section hides "Open in editor" entirely, per
    * the design ("an 'Open in editor' action only if the host supports it").
    */
   readonly openMemoryInEditor?: (path: string) => void;

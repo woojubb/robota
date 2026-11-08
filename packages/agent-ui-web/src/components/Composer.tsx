@@ -28,7 +28,7 @@ export interface IComposerHandle {
   focus: () => void;
 }
 
-/** The draft as persisted: the typed text plus any attachment chips (#3282 §4d). */
+/** The draft as persisted: the typed text plus any attachment chips. */
 interface IStoredDraft {
   readonly text: string;
   readonly attachments: readonly IDraftAttachment[];
@@ -37,7 +37,7 @@ interface IStoredDraft {
 const EMPTY_DRAFT: IStoredDraft = { text: '', attachments: [] };
 
 /**
- * #3282 §4e: a command whose whole job is opening a GUI screen — choosing it from the `/` menu runs
+ * A command whose whole job is opening a GUI screen — choosing it from the `/` menu runs
  * it at once (its `ui_intent` opens the screen the normal way) instead of filling the draft and
  * waiting for Enter, since there is nothing useful to type after it. `help` never reaches the
  * session at all (`useSessionClient.ts`'s `send` opens the Help sheet locally). Every other command
@@ -55,14 +55,14 @@ function menuGroupLabel(item: ICommandMenuItem): 'Commands' | 'Skills' {
 }
 
 /**
- * #3280 §4: the unsent draft survives a Chat → Usage → Chat switch (the composer unmounts), a page
+ * The unsent draft survives a Chat → Usage → Chat switch (the composer unmounts), a page
  * reload, and a desktop relaunch — `localStorage`, not `sessionStorage`, since only `localStorage`
  * survives a closed window/tab being reopened. Namespaced (the configured draft prefix, matching
  * the configured restore key in `use-session-directory.ts`) so a page hosting other state under the
  * same origin does not collide. Per session id when one is known; a single fallback key before the
  * first status arrives (the gap is brief and is reconciled once it does — see the effect below).
  *
- * #3282 §4d: the stored value is now JSON (`IStoredDraft`), not the bare text string it used to be —
+ * The stored value is now JSON (`IStoredDraft`), not the bare text string it used to be —
  * `parseStoredDraft` treats anything that does not parse as that shape (including a draft saved
  * before this change shipped) as plain text with no attachments, so an old stored draft still loads.
  */
@@ -141,38 +141,38 @@ const ComposerInstance = forwardRef<
     catalog: TCommandCatalog | null;
     status: TSessionStatus | null;
     /**
-     * False while the transport is not `connected` (issue #3280 §5): Enter and Send refuse to submit,
+     * False while the transport is not `connected`: Enter and Send refuse to submit,
      * and nothing typed is cleared or lost — the composer never sends into a socket that is not there.
-     * #3282 §2 (part 2): the status chips and the `/` command menu are disabled the same way.
+     * The status chips and the `/` command menu are disabled the same way.
      */
     connected?: boolean;
-    /** #3280 §2: a turn (or a blocking command) is running — Send becomes Stop and Esc stops it too. */
+    /** A turn (or a blocking command) is running — Send becomes Stop and Esc stops it too. */
     running: boolean;
     onStop: () => void;
-    /** #3280 §2: the prompt queued behind the running turn, or null when none is queued. */
+    /** The prompt queued behind the running turn, or null when none is queued. */
     queued: IQueuedPrompt | null;
     onCancelQueue: () => void;
     /**
      * Opens the host's native multi-file dialog with real filesystem paths — present only on the
-     * desktop app (#3282 §4d). Its absence means the attach button falls back to a plain HTML file
+     * desktop app. Its absence means the attach button falls back to a plain HTML file
      * picker, whose picks a browser can never resolve to a path (rule 3: shown plainly, nothing
      * attached).
      */
     pickFiles?: () => Promise<readonly IPickedFile[]>;
     /**
      * Resolves a dropped or picked `File` to its real filesystem path — present only on the desktop
-     * app, via Electron's `webUtils.getPathForFile` (#3282 §4d). Its absence means a drop can never
+     * app, via Electron's `webUtils.getPathForFile`. Its absence means a drop can never
      * become an `@`-reference either.
      */
     getPathForFile?: (file: File) => string;
-    /** #3282 §2 (part 2): the model control's pop-up menu — null until requested. */
+    /** The model control's pop-up menu — null until requested. */
     modelList?: TModelListSnapshot | null;
     onRequestModelList?: () => void;
     /** Applies a model/mode/effort choice without a conversation card (the control's label confirms it). */
     onSilentCommand?: (name: string, args?: string) => void;
     /**
-     * #3282 §4b: "Manage providers…" opens Settings at the Providers & Models section. Defaults to
-     * dispatching the bare `/provider` command (the pre-#3282-§4b behavior) for a caller that has not
+     * "Manage providers…" opens Settings at the Providers & Models section. Defaults to
+     * dispatching the bare `/provider` command (the legacy behavior) for a caller that has not
      * wired Settings — every shipped caller passes its own `state.openSettings('providers')`.
      */
     onManageProviders?: () => void;
@@ -238,25 +238,25 @@ const ComposerInstance = forwardRef<
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState(0);
   const [dismissed, setDismissed] = useState(false);
-  // #3282 §2 (part 2): the slash menu is disabled while disconnected — none of its commands could run.
+  // The slash menu is disabled while disconnected — none of its commands could run.
   const menu = dismissed || !connected ? null : commandMenuFor(catalog, draft);
   useEffect(() => {
     setSelected(0);
     setDismissed(false);
   }, [draft]);
-  // #3282 §4e: the menu can hold more rows than fit in its scroll area — keyboard navigation (below)
+  // The menu can hold more rows than fit in its scroll area — keyboard navigation (below)
   // must keep the highlighted row in view, not just move the highlight off-screen.
   const menuOptionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   useEffect(() => {
     menuOptionRefs.current[selected]?.scrollIntoView?.({ block: 'nearest' });
   }, [selected, menu]);
-  /** #3280 §4: every draft change is persisted at once, so a reload or relaunch loses nothing. */
+  /** Every draft change is persisted at once, so a reload or relaunch loses nothing. */
   const setDraft = (value: string): void => {
     stateRef.current = { ...stateRef.current, text: value };
     setDraftState(value);
     if (draftMode === 'persistent') writeDraft(browserNamespace, sessionIdRef.current, stateRef.current);
   };
-  /** #3282 §4d: attachment chips persist alongside the text, under the same per-session draft key. */
+  /** Attachment chips persist alongside the text, under the same per-session draft key. */
   const setAttachments = (
     updater: readonly IDraftAttachment[] | ((current: readonly IDraftAttachment[]) => readonly IDraftAttachment[]),
   ): void => {
@@ -265,7 +265,7 @@ const ComposerInstance = forwardRef<
     setAttachmentsState(next);
     if (draftMode === 'persistent') writeDraft(browserNamespace, sessionIdRef.current, stateRef.current);
   };
-  // #3280 §4: a session switch shows THAT session's own saved draft, never what was typed for
+  // A session switch shows THAT session's own saved draft, never what was typed for
   // another one. The session id becoming known for the very FIRST time (the fallback key was in use
   // until now) instead carries over what is already typed, rather than discarding it. A transient
   // `undefined` mid-switch, once a real id has already been seen, is not a change at all: stay bound
@@ -413,7 +413,7 @@ const ComposerInstance = forwardRef<
     chooseMenuItem(item);
     return true;
   };
-  /** #3280 §2: Edit puts the queued text back in the draft and cancels the queue behind it (the wire
+  /** Edit puts the queued text back in the draft and cancels the queue behind it (the wire
    *  has no per-message cancel — only a whole-queue clear). Offered only when exactly one prompt is
    *  queued: with more than one, `cancel-queue` would still drop every one of them, but only the
    *  shown prompt's text is known here, so "Edit" would silently lose the rest — the row offers only
@@ -432,7 +432,7 @@ const ComposerInstance = forwardRef<
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      {/* #3282 §4d rule 7: the drop target is announced even to someone who cannot drag a file —
+      {/* The drop target is announced even to someone who cannot drag a file —
           the attach button beside the textarea is how they reach the same result. */}
       <p id="composer-attach-hint" className="sr-only">
         Drag files here, or use Attach files, to add them to your message.
@@ -493,7 +493,7 @@ const ComposerInstance = forwardRef<
           className="gui-rise absolute bottom-full left-0 right-0 mb-2 max-h-[320px] overflow-y-auto rounded-2xl bg-popover p-1.5 shadow-2xl shadow-black/35"
         >
           {menu.map((item, index) => {
-            // #3282 §4e: "Commands" then "Skills" — a header appears once, above the first row of
+            // "Commands" then "Skills" — a header appears once, above the first row of
             // its group (the menu always lists every command before every skill, so a group's rows
             // are contiguous).
             const showGroupHeader = index === 0 || menuGroupLabel(menu[index - 1]!) !== menuGroupLabel(item);
@@ -590,10 +590,10 @@ const ComposerInstance = forwardRef<
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            // #3280 §4: an Enter that only finishes an IME (Korean/Japanese/Chinese) composition must
+            // An Enter that only finishes an IME (Korean/Japanese/Chinese) composition must
             // not submit or accept the menu — `isComposing` (or `keyCode` 229, on browsers that
             // predate it) marks it; the keystroke is left alone so the browser commits the composition
-            // normally, matching the guard the free-text prompt field uses (#3280 §3).
+            // normally, matching the guard the free-text prompt field uses.
             if (e.key === 'Enter' && (e.nativeEvent.isComposing || e.keyCode === 229)) return;
             if (menu) {
               if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -612,9 +612,9 @@ const ComposerInstance = forwardRef<
                 return;
               }
             }
-            // #3280 §2: Esc stops a running turn — but only once the menu (handled above) is out of
+            // Esc stops a running turn — but only once the menu (handled above) is out of
             // the way, so dismissing the `/` menu never doubles as an abort. Not while disconnected:
-            // an abort could not reach the host either (issue #3280 §5).
+            // an abort could not reach the host either.
             if (e.key === 'Escape' && running && connected) {
               e.preventDefault();
               onStop();
@@ -632,7 +632,7 @@ const ComposerInstance = forwardRef<
           <button
             type="button"
             aria-label="Attach files"
-            // #3282 §2 (part 2): the attach button follows the same disconnected rule as the status
+            // The attach button follows the same disconnected rule as the status
             // chips and the `/` menu — a short "Reconnecting…" tooltip in place of its usual one.
             title={connected ? 'Attach files' : 'Reconnecting…'}
             disabled={!connected}
@@ -729,4 +729,4 @@ export function GoalBar({
 }
 
 // `StatusRow` (model/mode/effort pop-up menus) and its `ContextRing` moved to `StatusControls.tsx`
-// (#3282 §2 part 2) — imported above.
+// — imported above.

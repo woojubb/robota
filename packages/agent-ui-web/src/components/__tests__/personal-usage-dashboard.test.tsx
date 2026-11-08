@@ -12,7 +12,7 @@ import type {
 } from '../personal-usage-dashboard-types.js';
 
 /**
- * #3289 §4 — Personal usage shows a priced total, session names instead of raw ids, and plain
+ * Personal usage shows a priced total, session names instead of raw ids, and plain
  * labels instead of internal terms. These tests exercise the presentation only: the cost-aggregation
  * fix and the report's own `sessionFirstSeen` derivation are covered in `agent-session-analytics`'s
  * own tests. The report is content-free; a session's name comes from this workspace's own local

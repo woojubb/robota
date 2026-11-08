@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 /**
- * #3288 §1: the Agents panel — clicking an entry opens it (the main thread instead returns to the
+ * The Agents panel — clicking an entry opens it (the main thread instead returns to the
  * conversation, which this desktop layout already shows beside the panel), a running/queued entry
  * offers Stop, and a task's true outcome is labeled instead of a blanket "Done": a clean completion
  * says "Done", a cancelled one says "Stopped", a completed one that still had a tool call refused
  * along the way says "Needs permission" (distinct from "Needs you" — nothing is waiting on the
  * operator right now, the run is already over).
  *
- * #3282 §4 part b-3 — the Agents panel's "Scheduled" group and Goal row: plain times (never an ISO
+ * The Agents panel's "Scheduled" group and Goal row: plain times (never an ISO
  * string or a cron expression), Pause/Resume, a confirmed Delete, and Cancel goal.
  */
 import { render } from '../../testing/product-provider.js';
@@ -70,7 +70,7 @@ const mainThread = createEntry({
   state: 'working',
 });
 
-describe('AgentActivityPanel — open, and true status (#3288 §1)', () => {
+describe('AgentActivityPanel — open, and true status', () => {
   it('opens a background task on click', () => {
     const onSelect = vi.fn();
     const task = createEntry();

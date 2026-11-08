@@ -9,14 +9,14 @@ import { ConversationView } from '../ConversationView.js';
 import type { IActiveTool, TConversationEntry } from '../../hooks/useSessionClient.js';
 
 /**
- * #3289 §3 — the conversation is the page's `main` landmark, and a message's driver label reads in
+ * The conversation is the page's `main` landmark, and a message's driver label reads in
  * plain words: nothing for a turn from the SAME KIND of surface as this connection's own, a plain
  * phrase naming the kind for a turn from a different one, and never the raw server-assigned driver id.
  * The server hands every WebSocket connection of one process the same id, so two tabs of one browser
  * cannot be told apart — the label therefore compares KINDS of surface (terminal, desktop app,
  * browser, remote device), not specific windows.
  *
- * #3288 — letting people review what the agent changed and ran: a tool row expands to its diff or
+ * Letting people review what the agent changed and ran: a tool row expands to its diff or
  * output, a turn's changed files get one summary row, internal/command-projection tools are shown
  * (or hidden) correctly, and a long path is never cut in the middle of the filename.
  */
@@ -197,14 +197,14 @@ describe('a message carries a driver label only when it came from a different ki
     expect(screen.getByText('from the terminal')).toBeTruthy();
   });
 
-  it('labels the agent\'s own wake-up as "Automatic — loop" (#3288 §1), never "from automatic" — always, even though a browser connection could never learn it as its own id', () => {
+  it('labels the agent\'s own wake-up as "Automatic — loop", never "from automatic" — always, even though a browser connection could never learn it as its own id', () => {
     renderConversation([userMessage('hi', 'agent')], 'browser');
     expect(screen.getByText('Automatic — loop')).toBeTruthy();
     expect(screen.queryByText(/from automatic/)).toBeNull();
   });
 });
 
-describe('#3288: expandable tool rows', () => {
+describe('expandable tool rows', () => {
   it('an Edit row expands to show its diff', () => {
     renderConversation([
       {
@@ -261,7 +261,7 @@ describe('#3288: expandable tool rows', () => {
   });
 });
 
-describe('#3288: paths are never truncated mid-filename', () => {
+describe('paths are never truncated mid-filename', () => {
   it('shows the full filename even for a very long directory path', () => {
     const longPath =
       'packages/agent-ui-web/src/components/very/deeply/nested/directory/structure/goes/here/ConversationView.tsx';
@@ -277,7 +277,7 @@ describe('#3288: paths are never truncated mid-filename', () => {
   });
 });
 
-describe('#3288: internal tools and command projections', () => {
+describe('internal tools and command projections', () => {
   it('hides the internal goal-signal tool entirely', () => {
     renderConversation([
       {
@@ -316,7 +316,7 @@ describe('#3288: internal tools and command projections', () => {
   });
 });
 
-describe('#3288: Changed files summary row', () => {
+describe('Changed files summary row', () => {
   it('lists each changed file with +N/-M, and a click opens its diff', () => {
     renderConversation([
       {
@@ -341,7 +341,7 @@ describe('#3288: Changed files summary row', () => {
   });
 });
 
-describe('#3288: chronology — tool rows render where they happened relative to the text', () => {
+describe('chronology — tool rows render where they happened relative to the text', () => {
   it('renders entries in the order the conversation array carries them', () => {
     renderConversation([
       { id: 'm1', role: 'assistant', content: 'checking first' },

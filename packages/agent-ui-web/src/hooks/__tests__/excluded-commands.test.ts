@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { excludedCommandMessage, isExcludedCommand } from '../excluded-commands.js';
 
-describe('isExcludedCommand (#3282 §4e)', () => {
+describe('isExcludedCommand', () => {
   it('excludes every named command on the exclusion list', () => {
     for (const name of ['theme', 'keybindings', 'editor', 'statusline', 'shell', 'exit', 'devices']) {
       expect(isExcludedCommand({ name })).toBe(true);
@@ -29,7 +29,7 @@ describe('isExcludedCommand (#3282 §4e)', () => {
   });
 });
 
-describe('excludedCommandMessage (#3282 §4e)', () => {
+describe('excludedCommandMessage', () => {
   it('gives every named exclusion its own plain sentence, never the raw command name alone', () => {
     const names = ['theme', 'keybindings', 'editor', 'statusline', 'shell', 'exit', 'devices'];
     const messages = names.map(excludedCommandMessage);

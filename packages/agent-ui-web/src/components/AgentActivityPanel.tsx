@@ -31,22 +31,22 @@ import type { IGoalState } from '@robota-sdk/agent-interface-session';
 
 interface IAgentActivityPanelProps {
   tasks: readonly IExecutionWorkspaceEntry[];
-  /** #3282 §4 part b-3: the "Scheduled" group — every `kind: 'scheduled'` background task. */
+  /** The "Scheduled" group — every `kind: 'scheduled'` background task. */
   schedules?: readonly IBackgroundTaskState<'scheduled'>[];
-  /** #3282 §4 part b-3: the current goal (`/goal`), or null/absent when none is set. */
+  /** The current goal (`/goal`), or null/absent when none is set. */
   goal?: IGoalState | null;
   onPauseSchedule?: (taskId: string) => void;
   onResumeSchedule?: (taskId: string) => void;
   onDeleteSchedule?: (taskId: string) => void;
   onCancelGoal?: () => void;
   className?: string;
-  /** #3288 §1: open a non-main-thread entry's detail sheet. */
+  /** Open a non-main-thread entry's detail sheet. */
   onSelect?: (entry: IExecutionWorkspaceEntry) => void;
-  /** #3288 §1: the main thread entry was clicked — the conversation beside this panel is it. */
+  /** The main thread entry was clicked — the conversation beside this panel is it. */
   onReturnToConversation?: () => void;
-  /** #3288 §1: Stop was clicked on a running/queued entry. */
+  /** Stop was clicked on a running/queued entry. */
   onStop?: (entry: IExecutionWorkspaceEntry) => void;
-  /** #3288 §1: the entry whose detail sheet is currently open, for a highlighted row. */
+  /** The entry whose detail sheet is currently open, for a highlighted row. */
   selectedEntryId?: string;
 }
 
@@ -221,7 +221,7 @@ function AgentCard({
   );
 }
 
-/** #3282 §4 part b-3: one row of the "Scheduled" group — what it runs, when next, status, controls. */
+/** One row of the "Scheduled" group — what it runs, when next, status, controls. */
 function ScheduleCard({
   task,
   onPause,
@@ -281,7 +281,7 @@ function ScheduleCard({
   );
 }
 
-/** #3282 §4 part b-3: the current goal — objective, plain-word status, and Cancel. */
+/** The current goal — objective, plain-word status, and Cancel. */
 function GoalCard({
   goal,
   onCancel,

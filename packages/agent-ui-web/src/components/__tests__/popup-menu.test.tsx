@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3282 §2 (part 2) — `PopupMenu`, the shared HIG pop-up menu primitive behind the model, mode and
+ * `PopupMenu`, the shared HIG pop-up menu primitive behind the model, mode and
  * effort controls: `role="menu"` with `menuitemradio` entries carrying `aria-checked`, optional
  * labelled sections, and full keyboard support (arrows move focus, Enter/Space activates, Esc closes
  * and returns focus to the trigger that opened it).
