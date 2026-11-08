@@ -212,12 +212,17 @@ describe('contextual keybinding registry', () => {
       import.meta.url,
     );
     const schema = JSON.parse(readFileSync(schemaPath, 'utf8')) as {
-      $id: string;
+      $id?: string;
+      title: string;
       properties: { bindings: { properties: Record<string, { $ref: string }> } };
       $defs: Record<string, { properties?: Record<string, unknown> }>;
     };
 
-    expect(schema.$id).toBe('__PROJECT_DOCS_URL__/schemas/keybindings.schema.json');
+    // The Windows CI job runs this suite inside a generated product workspace, where the generator has
+    // already replaced the placeholders and dropped `$id`; the repository's own copy keeps both.
+    const generated = !schema.title.includes('__PRODUCT_DISPLAY_NAME__');
+    if (generated) expect(schema.$id).toBeUndefined();
+    else expect(schema.$id).toBe('__PROJECT_DOCS_URL__/schemas/keybindings.schema.json');
     expect(Object.keys(schema.properties.bindings.properties)).toEqual(
       Object.keys(KEYBINDING_ACTIONS),
     );
