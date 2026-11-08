@@ -1,5 +1,14 @@
 # @robota-sdk/agent-subagent-runner
 
+## 3.2.2
+### Patch Changes
+
+- 8d05c9b: Allow compatible SDK dependencies to update independently.
+- Updated dependencies [8d05c9b]
+  - @robota-sdk/agent-executor@3.2.2
+  - @robota-sdk/agent-framework@3.2.2
+  - @robota-sdk/agent-interface-execution@3.2.2
+
 ## 3.2.1
 ### Patch Changes
 

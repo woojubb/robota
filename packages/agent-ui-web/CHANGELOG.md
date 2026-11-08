@@ -1,5 +1,23 @@
 # @robota-sdk/agent-ui-web
 
+## 3.3.0
+### Minor Changes
+
+- 5b02d9c: While observing, `SessionSurface` renders read-only: the conversation and its work without a composer or any control that changes the session.
+- c869802: The session client learns its role from the host when it connects and, while observing, sends nothing an observer may not send.
+
+### Patch Changes
+
+- 8d05c9b: Allow compatible SDK dependencies to update independently.
+- be1504a: Recognize the `surface_role` server message.
+- Updated dependencies [8d05c9b]
+- Updated dependencies [be1504a]
+  - @robota-sdk/agent-interface-command@3.2.2
+  - @robota-sdk/agent-interface-execution@3.2.2
+  - @robota-sdk/agent-interface-session@3.2.2
+  - @robota-sdk/agent-interface-transport@3.2.2
+  - @robota-sdk/agent-transport@3.3.0
+
 ## 3.2.1
 ### Patch Changes
 
