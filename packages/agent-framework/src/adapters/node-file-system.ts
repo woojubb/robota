@@ -5,7 +5,6 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  realpathSync as nodeRealpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -23,6 +22,8 @@ import {
   stat,
   writeFile,
 } from 'node:fs/promises';
+
+import { canonicalRealPath } from '../workspace-trust/canonical-real-path.js';
 
 import type { IDirent, IFileSystem, IFileSystemAsync, IStats } from '@robota-sdk/agent-core';
 
@@ -70,8 +71,10 @@ export class NodeFileSystem implements IFileSystem {
     renameSync(oldPath, newPath);
   }
 
+  // The spelling the workspace identity uses, so a path judged against a trusted root is compared in
+  // one form (see `canonicalRealPath`).
   realpathSync(path: string): string {
-    return nodeRealpathSync(path);
+    return canonicalRealPath(path);
   }
 
   get constants(): { F_OK: number; R_OK: number; W_OK: number } {

@@ -74,9 +74,9 @@ describe('createNodeFrameworkHost', () => {
     execFileSync('git', ['init', '--quiet', workspace], { stdio: 'ignore' });
     symlinkSync(workspace, join(root, 'alias'));
     for (const spelled of [workspace, join(root, 'alias')]) {
-      expect(host.canonicalizePath?.(spelled)).toBe(
-        createNodeWorkspaceIdentityResolver().resolve(spelled).worktreeRoot,
-      );
+      const { worktreeRoot } = createNodeWorkspaceIdentityResolver().resolve(spelled);
+      expect(host.canonicalizePath?.(spelled)).toBe(worktreeRoot);
+      expect(host.files?.sync.realpathSync(spelled)).toBe(worktreeRoot);
     }
   });
 

@@ -10,6 +10,7 @@ import { makeCanonicalTempDir } from '../testing/canonical-temp-dir.js';
 import { WorkspaceAuthorityRequiredError, createAgentRuntime, createQuery } from '../index.js';
 import { createTestFrameworkHost } from '../testing/framework-host.js';
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
+import { windowsShortSpelling } from '../testing/windows-short-name.js';
 import { WorkspaceTrustService } from '../workspace-trust/index.js';
 import {
   createNodeWorkspaceIdentityResolver,
@@ -125,21 +126,6 @@ describe('a trusted repository and a working directory spelled another way', () 
     const access = await service.grant(root);
     if (access.status !== 'trusted') throw new Error('The repository was not trusted.');
     return { root, access };
-  }
-
-  /** The directory's 8.3 name, or undefined where the volume does not keep one. */
-  function windowsShortSpelling(directory: string): string | undefined {
-    const short = execFileSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        '(New-Object -ComObject Scripting.FileSystemObject).GetFolder($env:SPELLED_PATH).ShortPath',
-      ],
-      { encoding: 'utf8', env: { ...process.env, SPELLED_PATH: directory } },
-    ).trim();
-    return short.includes('~') ? short : undefined;
   }
 
   const host = createTestFrameworkHost();
