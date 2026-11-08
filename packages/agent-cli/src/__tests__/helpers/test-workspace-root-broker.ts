@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 /** Run the broker in another process so synchronous project operations can use IPC. */
 export async function startTestBroker(endpoint: string, lockDirectory: string, history: string): Promise<{
   close(): Promise<void>;
+  readonly exited: Promise<void>;
 }> {
   const loader = new URL('../../../node_modules/tsx/dist/loader.mjs', import.meta.url).href;
   const bin = fileURLToPath(new URL('../../bin.ts', import.meta.url));
@@ -11,6 +12,7 @@ export async function startTestBroker(endpoint: string, lockDirectory: string, h
     '--import', loader, '--conditions=product-source', bin,
     '--internal-root-broker', endpoint, lockDirectory, history,
   ], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
+  const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
   let stderr = '';
   child.stderr?.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
   try {
@@ -31,6 +33,7 @@ export async function startTestBroker(endpoint: string, lockDirectory: string, h
   }
   let closing: Promise<void> | undefined;
   return {
+    exited,
     close: () => closing ??= new Promise<void>((resolve) => {
       if (child.exitCode !== null || child.signalCode !== null) { resolve(); return; }
       child.once('close', () => resolve());
