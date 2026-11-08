@@ -80,7 +80,7 @@ await server.connect(new StdioServerTransport());
 
 For a loopback HTTP endpoint with a bearer token, or a remote endpoint behind OAuth, the package also
 exports `createMcpHttpHost()` and `createMcpRemoteHttpHost()`; see the
-[package README](../../packages/agent-transport-mcp/README.md).
+[package README](../../packages/agent-transport/docs/mcp.md).
 
 ## From the CLI
 

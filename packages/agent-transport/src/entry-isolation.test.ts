@@ -25,26 +25,29 @@ function resolvedRelative(file: string, specifier: string): string {
 }
 
 describe('agent-transport entry isolation', () => {
-  it.each(CARRIERS)('%s imports no other carrier and no sibling transport package', (carrier) => {
-    const own = path.join(SRC, carrier);
-    for (const file of sourceFilesUnder(own)) {
-      for (const specifier of specifiersOf(file)) {
-        expect(
-          /^@robota-sdk\/agent-transport-/.test(specifier),
-          `${file} imports ${specifier}`,
-        ).toBe(false);
-        if (!specifier.startsWith('.')) continue;
-        const target = resolvedRelative(file, specifier);
-        for (const other of CARRIERS) {
-          if (other === carrier) continue;
+  it.each(CARRIERS)(
+    '%s imports no other carrier, no sibling transport package and not its own package by name',
+    (carrier) => {
+      const own = path.join(SRC, carrier);
+      for (const file of sourceFilesUnder(own)) {
+        for (const specifier of specifiersOf(file)) {
           expect(
-            path.relative(path.join(SRC, other), target).startsWith('..'),
+            /^@robota-sdk\/agent-transport(?:-|\/|$)/.test(specifier),
             `${file} imports ${specifier}`,
-          ).toBe(true);
+          ).toBe(false);
+          if (!specifier.startsWith('.')) continue;
+          const target = resolvedRelative(file, specifier);
+          for (const other of CARRIERS) {
+            if (other === carrier) continue;
+            expect(
+              path.relative(path.join(SRC, other), target).startsWith('..'),
+              `${file} imports ${specifier}`,
+            ).toBe(true);
+          }
         }
       }
-    }
-  });
+    },
+  );
 
   it('the root, client and node entries import no carrier', () => {
     for (const file of sourceFilesUnder(SRC, [...CARRIERS])) {
