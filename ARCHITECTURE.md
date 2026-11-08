@@ -50,7 +50,8 @@ SDK packages (@robota-sdk/*)
   Contracts (type-only) agent-interface-{session,session-mobility,command,execution,
                         analytics,transport,tui}
   Foundation            agent-core
-  Leaves                agent-process · agent-file-authority · agent-remote-pairing ·
+  Leaves                agent-os (file-authority, node-lock and process primitives; Koffi is an
+                        optional peer) · agent-remote-pairing ·
                         agent-keyring (key custody and public-key sealing on node:crypto) ·
                         agent-organization (public canonical JSON and budget contracts) ·
                         agent-organization-host (private Node broker and durable authority) ·
@@ -135,8 +136,7 @@ configuration or network endpoint. In particular, a provider SDK may refuse clie
   `agent-tools`, `agent-framework`, `agent-command`, `agent-preset`, `agent-product`
 - **Browser (DOM)**: `agent-ui-web`, `agent-gui-web` — free of Node
   like the neutral packages, and they also need a DOM.
-- **Node host**: `agent-cli`, `agent-ui-terminal`, `agent-process`, `agent-file-authority`,
-  `agent-local-host`, `agent-node-lock`,
+- **Node host**: `agent-cli`, `agent-ui-terminal`, `agent-os`, `agent-local-host`,
   `agent-organization-host`, `agent-tool-defaults`, `pack-coding`, `agent-subagent-runner`,
   `agent-transport-ws`, `agent-transport-mcp`, `agent-transport-acp`, `agent-transport-webrtc`,
   `agent-transport-link`, `agent-provider-replay`, `agent-keyring` — they exist to drive a Node host

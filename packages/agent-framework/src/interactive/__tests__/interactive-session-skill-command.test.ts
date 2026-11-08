@@ -1,10 +1,11 @@
 import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
-import { mkdirSync, mkdtempSync, writeFileSync, realpathSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
@@ -132,7 +133,7 @@ describe('InteractiveSession skill activation common API', () => {
   });
 
   it('submits non-fork skills into the parent session', async () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-user-skill-common-api-')));
+    const cwd = makeCanonicalTempDir('agent-user-skill-common-api-');
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
@@ -181,7 +182,7 @@ describe('InteractiveSession skill activation common API', () => {
   });
 
   it('activates model-invocable skills through the SDK path without submitting a user turn', async () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-model-skill-')));
+    const cwd = makeCanonicalTempDir('agent-model-skill-');
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
@@ -215,7 +216,7 @@ describe('InteractiveSession skill activation common API', () => {
   });
 
   it('executes named user skills through the SDK path', async () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-user-skill-')));
+    const cwd = makeCanonicalTempDir('agent-user-skill-');
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
@@ -264,7 +265,7 @@ describe('InteractiveSession skill activation common API', () => {
   });
 
   it('does not route natural-language skill directives outside the command tool path', async () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-natural-language-skill-')));
+    const cwd = makeCanonicalTempDir('agent-natural-language-skill-');
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
@@ -283,7 +284,7 @@ describe('InteractiveSession skill activation common API', () => {
   });
 
   it('does not record skill activation for prompt-only skill references', async () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-prompt-only-skill-')));
+    const cwd = makeCanonicalTempDir('agent-prompt-only-skill-');
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
@@ -300,7 +301,7 @@ describe('InteractiveSession skill activation common API', () => {
   });
 
   it('persists skill activation events in the session record', async () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-persisted-skill-')));
+    const cwd = makeCanonicalTempDir('agent-persisted-skill-');
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     let savedRecord: IInteractiveSessionRecord | undefined;
@@ -332,7 +333,7 @@ describe('InteractiveSession skill activation common API', () => {
   });
 
   it('runs context: fork skills through an isolated subagent session', async () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-fork-skill-common-api-')));
+    const cwd = makeCanonicalTempDir('agent-fork-skill-common-api-');
     createTempSkill(cwd, 'audit', [
       'context: fork',
       'agent: Explore',
@@ -439,7 +440,7 @@ describe('a fork skill run as a command with a cancel signal', () => {
   };
 
   async function forkSession() {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-fork-skill-signal-')));
+    const cwd = makeCanonicalTempDir('agent-fork-skill-signal-');
     createTempSkill(cwd, 'audit', ['context: fork']);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({

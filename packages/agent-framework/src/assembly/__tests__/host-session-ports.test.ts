@@ -4,12 +4,13 @@
  * its host lends, wherever it builds one. A member the host leaves out stays out. These cases watch
  * what reaches the real `Session` constructor.
  */
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { createSession } from '../create-session.js';
 import { createSubagentSession } from '../create-subagent-session.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
@@ -65,7 +66,7 @@ let root: string;
 let workspace: string;
 beforeEach(() => {
   constructed.length = 0;
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'node-session-ports-')));
+  root = makeCanonicalTempDir('node-session-ports-');
   workspace = join(root, 'ws');
   mkdirSync(workspace);
   writeFileSync(join(workspace, 'note.txt'), 'note');

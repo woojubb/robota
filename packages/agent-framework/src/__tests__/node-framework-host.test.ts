@@ -1,15 +1,17 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { makeCanonicalTempDir } from '../testing/canonical-temp-dir.js';
 import * as MainEntry from '../index.js';
 import * as NodeEntry from '../node.js';
 import { createNodeFrameworkHost } from '../node.js';
 import { createTestFrameworkHost } from '../testing/framework-host.js';
+import { createNodeWorkspaceIdentityResolver } from '../workspace-trust/node-host-workspace-trust.js';
 
 import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
@@ -35,7 +37,7 @@ const MEMBERS: Record<keyof IFrameworkHost, true> = {
 
 let root: string;
 beforeEach(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'node-framework-host-')));
+  root = makeCanonicalTempDir('node-framework-host-');
 });
 afterEach(() => {
   rmSync(root, { recursive: true, force: true });
@@ -64,6 +66,18 @@ describe('createNodeFrameworkHost', () => {
     symlinkSync(workspace, join(root, 'alias'));
     expect(host.canonicalizePath?.(join(root, 'alias'))).toBe(workspace);
     expect(() => host.canonicalizePath?.(join(root, 'missing'))).toThrow();
+  });
+
+  it('spells a directory the way the workspace identity does', () => {
+    const workspace = join(root, 'ws');
+    mkdirSync(workspace);
+    execFileSync('git', ['init', '--quiet', workspace], { stdio: 'ignore' });
+    symlinkSync(workspace, join(root, 'alias'));
+    for (const spelled of [workspace, join(root, 'alias')]) {
+      const { worktreeRoot } = createNodeWorkspaceIdentityResolver().resolve(spelled);
+      expect(host.canonicalizePath?.(spelled)).toBe(worktreeRoot);
+      expect(host.files?.sync.realpathSync(spelled)).toBe(worktreeRoot);
+    }
   });
 
   it('builds a workspace resolver that follows symlinks and refuses a path that leaves the root', () => {

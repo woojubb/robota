@@ -5,10 +5,11 @@
  */
 
 import { createHook } from 'node:async_hooks';
-import { mkdirSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { mkdirSync, rmSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { InteractiveSession } from '../../interactive/interactive-session.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -79,10 +80,10 @@ describe('startRuntimeHost', () => {
     else process.env.USERPROFILE = savedProfile;
   }
   beforeEach(() => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'runtime-host-')));
+    cwd = makeCanonicalTempDir('runtime-host-');
     // Keep the Node home used for plugin directory resolution isolated from the developer's home.
     // The runtime has no ambient user settings source, so this no longer admits hooks by itself.
-    homeRoot = realpathSync(mkdtempSync(join(tmpdir(), 'runtime-host-home-')));
+    homeRoot = makeCanonicalTempDir('runtime-host-home-');
     home = join(homeRoot, 'home');
     mkdirSync(home);
     savedHome = process.env.HOME;

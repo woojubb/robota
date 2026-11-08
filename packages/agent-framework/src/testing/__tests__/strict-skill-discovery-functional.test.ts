@@ -1,9 +1,9 @@
-import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { makeCanonicalTempDir } from '../canonical-temp-dir.js';
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 import { createTrustedProjectAccessFixture } from '../trusted-project-state-fixture.js';
 import { createNodeHostContributionSourcesFixture } from '../contribution-source-fixture.js';
@@ -62,7 +62,7 @@ describe('strict skill discovery through a real session', () => {
   it(
     'omits disabled skills from the provider prompt and refuses model activation',
     async () => {
-      workspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-strict-skills-')));
+      workspace = makeCanonicalTempDir('agent-strict-skills-');
       seedSkill(workspace, 'visible-strict-skill', 'false', 'Visible skill body.');
       seedSkill(workspace, 'private-strict-skill', 'true', PRIVATE_BODY);
       harness = scriptedSession({
@@ -94,7 +94,7 @@ describe('strict skill discovery through a real session', () => {
   it(
     'starts the session without a skill whose authority metadata is malformed',
     async () => {
-      workspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-strict-skills-')));
+      workspace = makeCanonicalTempDir('agent-strict-skills-');
       seedSkill(workspace, 'malformed-strict-skill', 'treu', PRIVATE_BODY);
       seedSkill(workspace, 'visible-strict-skill', 'false', 'Visible skill body.');
       harness = scriptedSession({

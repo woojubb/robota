@@ -4,7 +4,7 @@
  * is refused with `has_writer`, naming the process that holds it.
  */
 
-import { createProcessOperationLock } from '@robota-sdk/agent-node-lock';
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';

@@ -3,7 +3,6 @@
 // `host`; this builds the host a Node composition root passes.
 
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 
 import {
@@ -25,6 +24,7 @@ import { NodeFileSystem, NodeFileSystemAsync } from './adapters/node-file-system
 import { createGitProcess } from './git/node-git-process.js';
 import { readNodeGitRemotes } from './git/read-git-remotes.js';
 import { validateWorkspaceSessionReplayLog } from './interactive/workspace-session-replay-validation.js';
+import { canonicalRealPath } from './workspace-trust/canonical-real-path.js';
 import { supportsWorkspaceProjectMutation } from './workspace-trust/project-relative-writer.js';
 
 import type { IFrameworkHost } from './host/framework-host.js';
@@ -51,7 +51,7 @@ export function createNodeFrameworkHost(options: ICreateNodeFrameworkHostOptions
     homeDirectory: homedir(),
     createWorkspacePathResolver: (cwd) => createNodeWorkspacePathResolver(cwd),
     // Throws on a missing directory, as the session's own checks always did.
-    canonicalizePath: (path) => realpathSync(path),
+    canonicalizePath: canonicalRealPath,
     registerExitFlush: registerProcessExitFlush,
     env: processEnvResolver,
     files: {

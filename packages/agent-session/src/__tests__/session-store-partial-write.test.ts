@@ -12,7 +12,7 @@ import path from 'node:path';
 
 import { createProcessMarkers } from '@robota-sdk/agent-core/node';
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
-import { createProcessOperationLock } from '@robota-sdk/agent-node-lock';
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { NodeSessionStore } from '../session-store.js';

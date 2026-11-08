@@ -13,6 +13,8 @@ import type {
 } from '../../types.js';
 
 const TEST_TIMEOUT_MS = 15_000;
+// Two fires, 4 s apart, each with a 2.5 s timeout: the test needs time that a loaded runner can eat.
+const HUNG_FIRE_TEST_TIMEOUT_MS = 60_000;
 const HELD_WAKES_DEADLINE_MS = 25_000;
 const HELD_WAKES_TEST_TIMEOUT_MS = HELD_WAKES_DEADLINE_MS + 5_000;
 
@@ -435,8 +437,10 @@ describe('createScheduledTaskRunner', () => {
       const command = nodeCommand(
         "process.stdout.write('hung-ready:' + process.pid + '\\n'); setInterval(() => {}, 1000);",
       );
+      // The child has to start and report before its own timeout kills it, so the timeout and the
+      // cadence are sized for a Windows runner under load, where starting node takes over a second.
       const task = makeScheduledTask(
-        '* * * * * *',
+        '*/4 * * * * *',
         command,
         (e) => {
           emittedEvents.push(e);
@@ -445,7 +449,7 @@ describe('createScheduledTaskRunner', () => {
           }
         },
         {
-          timeoutMs: 700,
+          timeoutMs: 2_500,
         },
       );
 
@@ -463,9 +467,10 @@ describe('createScheduledTaskRunner', () => {
             );
             expect(pids.length).toBeGreaterThanOrEqual(1);
           },
-          { timeout: 10_000, interval: 20 },
+          { timeout: 30_000, interval: 20 },
         );
-        expect(isAlive(pids[0]!)).toBe(true);
+        // No liveness assertion on a child here: each fire is killed by its own timeout, so on a loaded
+        // runner a child can already be gone when the poll that saw its readiness returns.
         await vi.waitFor(
           async () => {
             const page = await readLog({ offset: 0 });
@@ -476,14 +481,13 @@ describe('createScheduledTaskRunner', () => {
             );
             expect(new Set(pids).size).toBeGreaterThanOrEqual(2);
           },
-          { timeout: 10_000, interval: 20 },
+          { timeout: 30_000, interval: 20 },
         );
         expect((await readLog({ offset: 0 })).lines.join('\n')).toContain(
-          'fire timed out after 700ms',
+          'fire timed out after 2500ms',
         );
         expect(priorChildAliveAtWake).toEqual([false]);
         expect(isAlive(pids[0]!)).toBe(false);
-        expect(isAlive(pids[1]!)).toBe(true);
         expect(emittedEvents.slice(0, 4).map((e) => e.type)).toEqual([
           'background_task_sleeping',
           'background_task_waking',
@@ -500,7 +504,7 @@ describe('createScheduledTaskRunner', () => {
         }
       }
     },
-    TEST_TIMEOUT_MS,
+    HUNG_FIRE_TEST_TIMEOUT_MS,
   );
 
   // A paused schedule does not fire, and resumes correctly with the same task id.

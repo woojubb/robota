@@ -32,7 +32,7 @@ import { spawn } from 'node:child_process';
 
 import { createBoundedOutput, subprocessTraceEnvironment } from '@robota-sdk/agent-core';
 import { resolvePlatformShell, withChildSession } from '@robota-sdk/agent-core/node';
-import { killProcessTree } from '@robota-sdk/agent-process';
+import { killProcessTree } from '@robota-sdk/agent-os/process';
 import { z } from 'zod';
 
 /** POSIX children are spawned detached so a process-group kill reaps grandchildren. */

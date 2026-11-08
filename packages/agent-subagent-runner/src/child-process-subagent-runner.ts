@@ -16,7 +16,7 @@ import {
   resolveSubagentTranscriptPath,
 } from '@robota-sdk/agent-framework/node';
 import { CommandExecutor, HttpExecutor, withChildSession } from '@robota-sdk/agent-core/node';
-import { DEFAULT_KILL_GRACE_MS } from '@robota-sdk/agent-process';
+import { DEFAULT_KILL_GRACE_MS } from '@robota-sdk/agent-os/process';
 
 import {
   preflightStartPayloadSealing,

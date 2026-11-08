@@ -5,7 +5,7 @@ graph TD
 
   subgraph Leaves["Leaves (no @robota-sdk dependency)"]
     PROC[agent-process]
-    FA[agent-file-authority]
+    OS[agent-os<br/>file-authority · node-lock · process]
     KR[agent-keyring<br/>key custody and sealing]
     PAIR[agent-remote-pairing]
     RT[agent-roundtable<br/>turn scheduling, no runtime]
@@ -92,7 +92,7 @@ graph TD
   %% Runtime
   CORE --> SESS & EXEC
   CORE & SESS --> REPLAY
-  FA --> SESS
+  OS --> SESS
   IFCE & IFS --> SESS
   PROC --> EXEC
   IFCE & IFT --> EXEC
@@ -100,7 +100,7 @@ graph TD
   CORE & SESS & RT --> RTR
 
   %% Assembly (providers are injected by the composition root, never imported)
-  CORE & SESS & EXEC & TOOLS & TD & FA & RT --> FW
+  CORE & SESS & EXEC & TOOLS & TD & OS & RT --> FW
   IFA & IFCE & IFS & IFM & IFT --> FW
   PROV -. injected .-> FW
 
