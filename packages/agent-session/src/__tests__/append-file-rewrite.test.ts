@@ -250,6 +250,25 @@ describe('rewriteAppendFile replacing as win32 (release first)', () => {
     expect(readdirSync(root)).toEqual(['history.jsonl']);
   });
 
+  it('says the file was removed when it is deleted while a blocked rename waits', async () => {
+    const root = directory();
+    const path = join(root, 'history.jsonl');
+    writeFileSync(path, 'one\n');
+    rename.failures.push('EPERM');
+    let pauses = 0;
+
+    const result = await rewriteAppendFile(path, upperCase, {
+      platform: 'win32',
+      pause: async () => {
+        pauses += 1;
+        if (pauses === 3) rmSync(path);
+      },
+    });
+
+    expect(result).toEqual({ status: 'removed' });
+    expect(readdirSync(root)).toEqual([]);
+  });
+
   it('says the file was replaced when another file has taken the name by the retry', async () => {
     const root = directory();
     const path = join(root, 'history.jsonl');

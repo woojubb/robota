@@ -377,6 +377,7 @@ async function replaceAfterCatchUp(
     }
     await pause();
     const reopened = openAppendFile(path);
+    if (reopened.status === 'missing') return { status: 'removed' };
     if (reopened.status !== 'open') return reopened;
     if (!isSameFileIdentity(fstatSync(reopened.descriptor, { bigint: true }), identity)) {
       closeSync(reopened.descriptor);
