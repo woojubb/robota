@@ -6,7 +6,7 @@
  * (the session command-pipeline path is covered by the framework functional tests with a fake
  * handoff).
  */
-import { mkdtempSync, readFileSync, rmSync, realpathSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,6 +47,31 @@ function readResult(outputPath: string): IResult {
   return JSON.parse(readFileSync(outputPath, 'utf8')) as IResult;
 }
 
+function readEvents(eventsPath: string): string[] {
+  return existsSync(eventsPath) ? readFileSync(eventsPath, 'utf8').split('\n') : [];
+}
+
+/**
+ * Waits for the fixture to record `event`. It reads the fixture's events file rather than the
+ * terminal: a Windows pseudo-console redraws its screen and can drop text that a later frame erased,
+ * and a marker lost that way fails the test although the fixture did what it should.
+ */
+async function waitForEvent(
+  session: IPtyRunSession,
+  eventsPath: string,
+  event: string,
+): Promise<void> {
+  const deadline = Date.now() + PHASE_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (readEvents(eventsPath).includes(event)) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(
+    `Fixture event timeout (${PHASE_TIMEOUT_MS}ms) for ${event}\n--- events ---\n` +
+      `${readEvents(eventsPath).join('\n')}\n--- terminal ---\n${session.snapshot().slice(-2000)}`,
+  );
+}
+
 /**
  * Types `text` into the handed-off child and gives the terminal back, waiting for each side to say
  * it owns the terminal before sending keys to it. Neither wait can be a sleep: keys sent before the
@@ -55,17 +80,19 @@ function readResult(outputPath: string): IResult {
  */
 async function typeIntoChildAndResume(
   session: IPtyRunSession,
+  eventsPath: string,
   childReady: string,
   text: string,
 ): Promise<void> {
-  await session.waitFor('READY canHandoff=true', PHASE_TIMEOUT_MS);
+  await waitForEvent(session, eventsPath, 'READY canHandoff=true');
+  // The child says so on the terminal it now owns, where nothing redraws over it.
   await session.waitFor(childReady, PHASE_TIMEOUT_MS);
   await session.sendKeys(text, 10);
   session.write('\r');
-  await session.waitFor('CMD_DONE', PHASE_TIMEOUT_MS);
-  await session.waitFor('INPUT_READY 2', PHASE_TIMEOUT_MS);
+  await waitForEvent(session, eventsPath, 'CMD_DONE');
+  await waitForEvent(session, eventsPath, 'INPUT_READY 2');
   session.write('r');
-  await session.waitFor('INPUT_AFTER_HANDOFF r', PHASE_TIMEOUT_MS);
+  await waitForEvent(session, eventsPath, 'INPUT_AFTER_HANDOFF r');
 }
 
 describe('command handoff PTY E2E', () => {
@@ -84,7 +111,12 @@ describe('command handoff PTY E2E', () => {
       });
       sessions.push(session);
 
-      await typeIntoChildAndResume(session, 'SHELL_GOT_READY', 'shell-input');
+      await typeIntoChildAndResume(
+        session,
+        `${outputPath}.events`,
+        'SHELL_GOT_READY',
+        'shell-input',
+      );
       expect(await session.expectExit(PHASE_TIMEOUT_MS)).toBe(0);
 
       expect(session.snapshot()).toContain('SHELL_GOT:[shell-input]');
@@ -110,7 +142,12 @@ describe('command handoff PTY E2E', () => {
       });
       sessions.push(session);
 
-      await typeIntoChildAndResume(session, 'EDITOR_READY', 'composed-in-editor');
+      await typeIntoChildAndResume(
+        session,
+        `${outputPath}.events`,
+        'EDITOR_READY',
+        'composed-in-editor',
+      );
       expect(await session.expectExit(PHASE_TIMEOUT_MS)).toBe(0);
 
       const result = readResult(outputPath);

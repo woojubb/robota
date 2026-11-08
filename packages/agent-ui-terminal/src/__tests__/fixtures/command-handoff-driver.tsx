@@ -13,10 +13,12 @@
  * taken from argv: argv only selects the mode, so no process input becomes shell text.
  *
  * Markers: `@@READY canHandoff=…@@`, `@@CMD_DONE@@`, `@@INPUT_READY n@@` (the input hook has mounted
- * for the n-th time: 2 once the TUI has taken the terminal back), `@@INPUT_AFTER_HANDOFF …@@`. A JSON result
+ * for the n-th time: 2 once the TUI has taken the terminal back), `@@INPUT_AFTER_HANDOFF …@@`. Each is
+ * also appended, without the `@@`, as a line to `<outputPath>.events`, which is what a test waits on:
+ * a Windows pseudo-console redraws its screen and may never show a marker that a later frame erased. A JSON result
  * `{ success, exitCode?, message }` is written to outputPath.
  */
-import { writeFileSync } from 'node:fs';
+import { appendFileSync, writeFileSync } from 'node:fs';
 
 import { executeEditorCommand, executeShellCommand } from '@robota-sdk/agent-command/node';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
@@ -72,7 +74,10 @@ function CommandApp(): React.ReactElement {
   );
 }
 
+const EVENTS_PATH = OUTPUT_PATH ? `${OUTPUT_PATH}.events` : undefined;
+
 function marker(line: string): void {
+  if (EVENTS_PATH) appendFileSync(EVENTS_PATH, `${line.replace(/\s+/g, ' ')}\n`, 'utf8');
   process.stdout.write(`\r\n@@${line}@@\r\n`);
 }
 
@@ -114,12 +119,12 @@ async function main(): Promise<void> {
 
 process.on('uncaughtException', (error) => {
   writeResult({ success: false, message: String(error) });
-  process.stdout.write(`\r\n@@ERROR ${String(error)}@@\r\n`);
+  marker(`ERROR ${String(error)}`);
   process.exit(1);
 });
 
 void main().catch((error) => {
   writeResult({ success: false, message: String(error) });
-  process.stdout.write(`\r\n@@ERROR ${String(error)}@@\r\n`);
+  marker(`ERROR ${String(error)}`);
   process.exit(1);
 });
