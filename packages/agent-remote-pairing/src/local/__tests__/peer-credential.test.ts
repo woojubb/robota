@@ -17,7 +17,7 @@ afterAll(() => {
 });
 
 function guardedDir(mode = 0o700): string {
-  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'peer-credential-')));
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'sec-010-')));
   scratch.push(dir);
   chmodSync(dir, mode);
   return dir;
