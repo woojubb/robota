@@ -17,7 +17,7 @@
  */
 import { writeFileSync } from 'node:fs';
 
-import { executeEditorCommand, executeShellCommand } from '@robota-sdk/agent-command/node';
+import { executeEditorCommand, executeShellCommand } from '@robota-sdk/agent-product/command/node';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 import { Box, Text, render, useInput } from 'ink';
 import React from 'react';

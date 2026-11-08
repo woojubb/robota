@@ -1,10 +1,10 @@
-import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
+import { mergeCapabilityPacks } from './capability-pack/index.js';
 import { createProviderFromConfig } from '@robota-sdk/agent-core';
 import { buildRuntimeSession } from '@robota-sdk/agent-framework';
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from './preset/index.js';
 
 import type { IAssembledProduct, IBuildRuntimeInput, IProductProfile } from './product-profile.js';
-import type { TCompositionFieldPolicy } from '@robota-sdk/agent-capability-pack';
+import type { TCompositionFieldPolicy } from './capability-pack/index.js';
 import type {
   FunctionTool,
   IAIProvider,
@@ -17,7 +17,7 @@ import type {
   ICommandModule,
   TInteractiveSessionOptions,
 } from '@robota-sdk/agent-framework';
-import type { IPresetRegistry, IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import type { IPresetRegistry, IResolvedPresetOptions } from './preset/index.js';
 
 export const PRODUCT_PROFILE_FIELD_POLICIES = {
   id: 'surfaced',
@@ -153,7 +153,7 @@ function overlaySessionOptions(
  * What it does:
  * 1. Builds a PER-CALL instance-scoped preset registry over `profile.presets` (R8) — or adopts the
  *    instance the caller already built and handed in as `profile.presetRegistry`. Either way it
- *    never mutates agent-preset's module-level `externalPresets` global, so two products in one process do
+ *    never mutates the `preset` subpath's module-level `externalPresets` global, so two products in one process do
  *    not share one registry and repeat calls do not accumulate. `defaultPresetId` is resolved over that
  *    registry with `profile.presetContext`, so the product's `defaultPreset` is the caller's resolution.
  * 2. Merges the additive capability packs onto `profile.baseCommandModules` via `mergeCapabilityPacks`

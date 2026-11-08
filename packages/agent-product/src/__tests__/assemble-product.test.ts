@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { FunctionTool } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { InteractiveSession, WorkspaceTrustService } from '@robota-sdk/agent-framework';
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '../preset/index.js';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { PRODUCT_PROFILE_FIELD_POLICIES, assembleProduct } from '../assemble-product.js';
@@ -13,7 +13,7 @@ import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IProductProfile } from '../product-profile.js';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
-import type { IPreset } from '@robota-sdk/agent-preset';
+import type { IPreset } from '../preset/index.js';
 import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IAgentDefinition, ICommandModule } from '@robota-sdk/agent-framework';
 
@@ -351,7 +351,7 @@ describe('assembleProduct — instance-scoped preset resolution (R8)', () => {
     assembleProduct(profile);
     assembleProduct(profile); // a second call must not accumulate / throw duplicate-id
 
-    // This used to ask agent-preset's module-global readers whether the assembly had leaked
+    // This used to ask the `preset` subpath's module-global readers whether the assembly had leaked
     // into them. There is no global left to leak into, so the question is now asked of a registry
     // built after the two assemblies — the property that mattered, and one that can still fail.
     const later = createPresetRegistry();

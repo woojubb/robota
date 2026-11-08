@@ -58,12 +58,8 @@ graph TD
   end
 
   subgraph Composition["Product composition"]
-    PRESET[agent-preset]
-    CMD[agent-command]
-    CAP[agent-capability-pack]
     SUB[agent-subagent-runner]
-    PROD[agent-product]
-    PACK[pack-coding]
+    PROD[agent-product<br/>assembleProduct + capability-pack · preset · command · coding subpaths]
   end
 
   WF["External @robota-sdk/workflows/command"]
@@ -113,16 +109,14 @@ graph TD
   TCORE & PAIR --> TGUI
 
   %% Product composition
-  FW --> PRESET & CMD & CAP & SUB & PROD
-  PRESET --> CMD & PROD
+  FW --> SUB & PROD
+  TOOLS --> PROD
   EXEC & PROC --> SUB
-  CAP --> PROD & PACK
-  CMD & TOOLS --> PACK
 
   CORE & FW --> WF
 
   %% Composition roots
-  FW & CMD & PROD & PACK & SUB & MCP & PROV & SA --> CLI
+  FW & PROD & SUB & MCP & PROV & SA --> CLI
   TTUI & TCAR & TWEBRTC & TGUI & WF --> CLI
   KR --> CLI
   TGUI --> APP

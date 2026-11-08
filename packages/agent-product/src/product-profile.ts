@@ -3,7 +3,7 @@ import type {
   ICapabilityPackMetadata,
   IRejectedCapability,
   IRejectedCapabilityPack,
-} from '@robota-sdk/agent-capability-pack';
+} from './capability-pack/index.js';
 import type {
   FunctionTool,
   IAIProvider,
@@ -26,7 +26,7 @@ import type {
   IPreset,
   IResolvePresetContext,
   IResolvedPresetOptions,
-} from '@robota-sdk/agent-preset';
+} from './preset/index.js';
 
 /**
  * A declarative "this is my product" object — the sole argument of {@link assembleProduct}. Everything
@@ -88,7 +88,7 @@ export interface IProductProfile {
    */
   presets?: readonly IPreset[];
   /**
-   * An ALREADY-BUILT instance-scoped registry (from `agent-preset`'s `createPresetRegistry`) to use
+   * An ALREADY-BUILT instance-scoped registry (from the `preset` subpath's `createPresetRegistry`) to use
    * instead of building one from {@link presets}. When supplied it WINS over `presets`.
    *
    * This is the seam for a shell that must resolve a preset BEFORE it can build the profile — a preset

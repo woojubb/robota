@@ -31,8 +31,8 @@ Composition roots
         │ built from
         ▼
 SDK packages (@robota-sdk/*)
-  Product composition   agent-product · pack-coding · agent-capability-pack ·
-                        agent-command · agent-preset · agent-subagent-runner
+  Product composition   agent-product (the capability-pack contract, presets, slash-command
+                        modules and the coding pack are its subpaths) · agent-subagent-runner
   Presentation          agent-ui-terminal (React + Ink)
                         agent-ui-web · agent-gui-web (private GUI)
   Assembly              agent-framework: InteractiveSession, createQuery, createAgentRuntime,
@@ -132,14 +132,14 @@ configuration or network endpoint. In particular, a provider SDK may refuse clie
   `agent-interface-execution`, `agent-interface-session`, `agent-interface-session-mobility`,
   `agent-interface-transport`, `agent-interface-tui`, `agent-core`, `agent-organization`,
   `agent-remote-pairing`, `agent-roundtable`, `agent-roundtable-robota`, `agent-session-analytics`,
-  `agent-telemetry-otel`, `agent-provider`, `agent-capability-pack`, `agent-transport`,
+  `agent-telemetry-otel`, `agent-provider`, `agent-transport`,
   `product-config`,
   `agent-plugin`, `agent-executor`, `agent-session`, `agent-mcp`,
-  `agent-tools`, `agent-framework`, `agent-command`, `agent-preset`, `agent-product`
+  `agent-tools`, `agent-framework`, `agent-product`
 - **Browser (DOM)**: `agent-ui-web`, `agent-gui-web` — free of Node
   like the neutral packages, and they also need a DOM.
 - **Node host**: `agent-cli`, `agent-ui-terminal`, `agent-os`, `agent-local-host`,
-  `agent-organization-host`, `pack-coding`, `agent-subagent-runner`,
+  `agent-organization-host`, `agent-subagent-runner`,
   `agent-provider-replay`, `agent-keyring` — they exist to drive a Node host
   (a terminal, child processes, the file system, listeners, stdio, local sockets, `node:crypto` key
   custody), so their main entry is Node-only.

@@ -4,7 +4,7 @@ import {
   createLoopCommandEntry,
   createMCPActivationCommandEntry,
   createRemoteControlCommandEntry,
-} from '@robota-sdk/agent-command';
+} from '@robota-sdk/agent-product/command';
 import {
   appendPromptHistory,
   createPasteLabelChange,
