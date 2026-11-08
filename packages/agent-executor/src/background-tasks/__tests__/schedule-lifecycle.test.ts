@@ -1,5 +1,5 @@
 /**
- * SELFHOST-012 P1 — manager schedule-lifecycle verbs (pause/resume/edit) + list view.
+ * Manager schedule-lifecycle verbs (pause/resume/edit) + list view.
  * Uses a fake scheduled runner whose handle records the lifecycle calls and drives the sleeping event.
  */
 
@@ -16,7 +16,7 @@ import type {
   IScheduleEditPatch,
 } from '../types.js';
 
-/** #2079: narrows a manager snapshot to the scheduled-kind member for these schedule-only assertions. */
+/** Narrows a manager snapshot to the scheduled-kind member for these schedule-only assertions. */
 function asScheduled(
   state: IBackgroundTaskState | undefined,
 ): IBackgroundTaskState<'scheduled'> {
@@ -94,8 +94,8 @@ async function spawnScheduled(): Promise<{
   return { manager, handles, emits, id: created.id };
 }
 
-describe('SELFHOST-012 manager schedule lifecycle', () => {
-  it('pauseScheduledTask sets status paused, clears nextFireAt, calls handle.pause (TC-02/TC-04)', async () => {
+describe('manager schedule lifecycle', () => {
+  it('pauseScheduledTask sets status paused, clears nextFireAt, calls handle.pause', async () => {
     const { manager, handles, id } = await spawnScheduled();
     expect(manager.get(id)?.status).toBe('sleeping');
 
@@ -109,7 +109,7 @@ describe('SELFHOST-012 manager schedule lifecycle', () => {
     expect(listed?.status).toBe('paused');
   });
 
-  it('resumeScheduledTask returns to sleeping and refreshes nextFireAt (TC-02)', async () => {
+  it('resumeScheduledTask returns to sleeping and refreshes nextFireAt', async () => {
     const { manager, handles, id } = await spawnScheduled();
     await manager.pauseScheduledTask(id);
     await manager.resumeScheduledTask(id);
@@ -119,7 +119,7 @@ describe('SELFHOST-012 manager schedule lifecycle', () => {
     expect(asScheduled(manager.get(id)).nextFireAt).toBe('2030-01-02T00:00:00.000Z');
   });
 
-  it('editScheduledTask calls handle.editSchedule and updates the persisted schedule (TC-03)', async () => {
+  it('editScheduledTask calls handle.editSchedule and updates the persisted schedule', async () => {
     const { manager, handles, id } = await spawnScheduled();
     await manager.editScheduledTask(id, { cronExpression: '*/5 * * * *' });
 
@@ -128,7 +128,7 @@ describe('SELFHOST-012 manager schedule lifecycle', () => {
     expect(manager.get(id)?.id).toBe(id); // same identity
   });
 
-  it('editScheduledTask with a label refreshes the list label, not the schedule (CMD-009)', async () => {
+  it('editScheduledTask with a label refreshes the list label, not the schedule', async () => {
     const { manager, id } = await spawnScheduled();
     await manager.editScheduledTask(id, { agentInstruction: 'ping', label: 'Scheduled: ping' });
 

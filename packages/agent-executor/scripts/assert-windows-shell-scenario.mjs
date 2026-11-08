@@ -33,30 +33,30 @@ if (
   !Array.isArray(value.rows) ||
   value.rows.map((row) => row.name).join(',') !== expectedNames.join(',')
 ) {
-  throw new Error('ARCH-026 artifact shell rows are missing or out of order');
+  throw new Error('artifact shell rows are missing or out of order');
 }
 for (const [index, row] of value.rows.entries()) {
   if (row.requestedExecutableBasename !== expectedRequestedBasenames[index]) {
-    throw new Error(`ARCH-026 requested executable mismatch for ${row.name}`);
+    throw new Error(`requested executable mismatch for ${row.name}`);
   }
   if (
     row.managed?.success !== true ||
     row.scheduled?.success !== true ||
     row.scheduled?.fires !== 1
   ) {
-    throw new Error(`ARCH-026 runner evidence failed for ${row.name}`);
+    throw new Error(`runner evidence failed for ${row.name}`);
   }
   if (
     row.managed.executableBasename !== expectedObservedBasenames[index] ||
     row.scheduled.executableBasename !== expectedObservedBasenames[index]
   ) {
-    throw new Error(`ARCH-026 observed executable mismatch for ${row.name}`);
+    throw new Error(`observed executable mismatch for ${row.name}`);
   }
   if (
     row.managed.output !== expectedSentinels[index] ||
     row.scheduled.output !== expectedSentinels[index]
   ) {
-    throw new Error(`ARCH-026 sentinel evidence failed for ${row.name}`);
+    throw new Error(`sentinel evidence failed for ${row.name}`);
   }
 }
 const summary = value.summary;
@@ -67,6 +67,6 @@ if (
   summary?.scheduledHandlesCancelled !== true ||
   summary?.environmentRestored !== true
 ) {
-  throw new Error('ARCH-026 artifact summary failed closed validation');
+  throw new Error('artifact summary failed closed validation');
 }
 process.stdout.write(`${JSON.stringify(value)}\n`);

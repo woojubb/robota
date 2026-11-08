@@ -1,6 +1,6 @@
 /**
- * TERM-004: editor-selection seam. Resolves `$VISUAL` → `$EDITOR` → `vi` (POSIX-first; a Windows
- * default is a TERM-007 concern). Splits on whitespace so `"code -w"` / `"subl -w"` style values work.
+ * Editor-selection seam. Resolves `$VISUAL` → `$EDITOR` → `vi` (POSIX-first; a Windows
+ * default is a separate concern). Splits on whitespace so `"code -w"` / `"subl -w"` style values work.
  */
 export interface IResolvedEditor {
   command: string;

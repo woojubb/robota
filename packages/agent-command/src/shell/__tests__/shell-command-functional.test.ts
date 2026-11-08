@@ -1,10 +1,10 @@
 /**
- * TERM-003: `/shell` — framework functional test.
+ * `/shell` — framework functional test.
  *
  * Drives the command through a REAL InteractiveSession (scripted provider) with an injected fake
  * terminal-handoff capability: the command routes a one-shot shell command through `runWithTerminal`
  * (suspend → spawn shell with inherited stdio → restore) and reports its exit code; and is
- * unavailable when no interactive terminal exists. (Real interactive input is manual — TERM-002.)
+ * unavailable when no interactive terminal exists. (Real interactive input is checked manually.)
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
