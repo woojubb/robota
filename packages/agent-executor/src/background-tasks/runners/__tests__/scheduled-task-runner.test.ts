@@ -13,6 +13,8 @@ import type {
 } from '../../types.js';
 
 const TEST_TIMEOUT_MS = 15_000;
+const HELD_WAKES_DEADLINE_MS = 25_000;
+const HELD_WAKES_TEST_TIMEOUT_MS = HELD_WAKES_DEADLINE_MS + 5_000;
 
 describe('nextScheduledFireOnOrAfter', () => {
   it('selects the first cron slot after a boundary between slots', () => {
@@ -211,7 +213,10 @@ describe('createScheduledTaskRunner', () => {
         await vi.advanceTimersByTimeAsync(3000);
         vi.useRealTimers();
         prepared.activate();
-        const deadline = Date.now() + 8000;
+        // Three fires run one after another, and each starts a shell and then node: PowerShell takes
+        // seconds to start the first time on a loaded Windows runner. The loop leaves at the sixth
+        // line, so a generous deadline costs nothing where the shell starts fast.
+        const deadline = Date.now() + HELD_WAKES_DEADLINE_MS;
         let lines: string[] = [];
         while (Date.now() < deadline) {
           await new Promise((resolve) => setTimeout(resolve, 25));
@@ -229,7 +234,7 @@ describe('createScheduledTaskRunner', () => {
         rmSync(directory, { recursive: true, force: true });
       }
     },
-    TEST_TIMEOUT_MS,
+    HELD_WAKES_TEST_TIMEOUT_MS,
   );
 
   it('holds every wake until a prepared restore is activated, then delivers it asynchronously', async () => {
