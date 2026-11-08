@@ -6,7 +6,7 @@ import { createShellTool, createBashTool } from '../builtins/shell-tool';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 
 /**
- * `cwd` is required. For `Shell` it is the DEFAULT WORKING DIRECTORY and deliberately not a
+ * ARCH-010 made `cwd` required. For `Shell` it is the DEFAULT WORKING DIRECTORY and deliberately not a
  * containment boundary (see the shell-tool file header), so the host process directory is what these
  * cases already ran in — it is now said out loud instead of being the implicit fallback. Nothing here
  * reads or writes a file: the cases assert names, the OS-aware description, and one `echo` round-trip.
@@ -43,7 +43,7 @@ describe('createShellTool / createBashTool', () => {
   }, 60_000);
 
   /**
-   * An explicit timeout, because this case SPAWNS A REAL SHELL and vitest's 10 s default is
+   * SEC-007: an explicit timeout, because this case SPAWNS A REAL SHELL and vitest's 10 s default is
    * sized for in-process units. The `windows-shell` CI job exists to run exactly this test against
    * PowerShell, whose cold start on a Windows runner is routinely several seconds on its own — and it
    * flaked at precisely that wall (`Test timed out in 10000ms`, file duration 10.19 s) on a commit

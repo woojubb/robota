@@ -1,5 +1,5 @@
 /**
- * Edit must refuse a file that exceeds its per-operation input ceiling
+ * Issue #2875 — Edit must refuse a file that exceeds its per-operation input ceiling
  * before materializing the whole content, including a source with no stable size
  * (a growing regular file, or a named pipe). A refusal must leave the file unmodified.
  */

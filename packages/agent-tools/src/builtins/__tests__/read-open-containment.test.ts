@@ -17,7 +17,7 @@ import { createReadTool } from '../read-tool.js';
 
 /**
  * Run `swap.run` just BEFORE the tool opens `swap.path` — after the containment check has passed, the
- * moment a check that is separate from the open is exposed.
+ * moment a check that is separate from the open is exposed (issue #3252).
  */
 const swap = vi.hoisted(() => ({
   path: undefined as string | undefined,

@@ -1,5 +1,5 @@
 /**
- * Computer-use driver port + perceive→act contract (v1).
+ * SELFHOST-010: computer-use driver port + perceive→act contract (v1).
  *
  * Mirrors the sandbox port precedent (`ISandboxClient` in `../sandbox/types.ts`): the port + the typed
  * action contract live in `agent-tools`, and the tool factory (`createComputerTool({ driver })`) composes
@@ -152,7 +152,7 @@ export interface IComputerToolOptions {
  * Duck-typed browser-page port for the zero-dep `PageComputerDriver` reference adapter (mirror
  * `IE2BSandboxAdapter`). It is a STRUCTURAL description of a browser-page-shaped object (Playwright/CDP
  * page); the surface passes the real page. Declaring it here keeps `agent-tools` free of any browser SDK
- * import — the neutrality invariant.
+ * import — the neutrality invariant (TC-06).
  */
 export interface IBrowserPageMouseAdapter {
   click(

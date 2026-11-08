@@ -88,7 +88,7 @@ describe('agent-tools entry surfaces', () => {
 });
 
 /**
- * Each tool module tells the permission system what its tool does as it loads, so a tool
+ * CORE-030: each tool module tells the permission system what its tool does as it loads, so a tool
  * has a classification on whichever entry carries it. Each case loads one entry into a fresh module
  * registry and asks the permission system about a tool that entry defines.
  */

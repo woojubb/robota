@@ -39,7 +39,7 @@ const CORPUS: IRetrievalCorpusFile[] = [
   { path: 'c.ts', content: '' },
 ];
 
-describe('repo-map index build + persistence', () => {
+describe('SELFHOST-003 P2 — repo-map index build + persistence', () => {
   it('buildRepoMapIndex parses the corpus once into a versioned index', () => {
     const parse = vi.fn(fakeParser(PARSED).parse);
     const index = buildRepoMapIndex({ parser: { parse }, corpus: CORPUS });
@@ -101,7 +101,7 @@ describe('repo-map index build + persistence', () => {
   });
 });
 
-describe('incremental re-index (updateRepoMapIndex)', () => {
+describe('SELFHOST-003 P3 — incremental re-index (updateRepoMapIndex)', () => {
   // b.ts modified: `bar` now also references `foo`.
   const MODIFIED: Record<string, IRetrievalParsedFile> = {
     ...PARSED,

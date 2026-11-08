@@ -2,9 +2,9 @@
  * The `Shell`/`Bash` tools' MODEL-FACING DESCRIPTION — the text that tells the model which shell it is
  * writing for and which sibling tool to prefer.
  *
- * Split out of `shell-tool.ts` when documenting the containment decision pushed that file
+ * Split out of `shell-tool.ts` (SEC-007) when documenting the containment decision pushed that file
  * past the anti-monolith limit. The split is by responsibility: this module owns a model-facing
- * CONTRACT (neutral, mechanism-only default text a consumer overrides at the composition
+ * CONTRACT (NEUT-002 — neutral, mechanism-only default text a consumer overrides at the composition
  * root), while `shell-tool.ts` owns process execution. They change for entirely different reasons.
  */
 
@@ -12,7 +12,7 @@ import type { IPlatformShell } from '@robota-sdk/agent-core/node';
 
 /**
  * Dedicated-tool routing hints, keyed by the sibling tool's registered name. A hint is only
- * emitted when that sibling is actually part of the registered tool set — the
+ * emitted when that sibling is actually part of the registered tool set (NEUT-002) — the
  * description must not route the model to tools that do not exist in a given assembly.
  */
 const SIBLING_ROUTING_HINTS: ReadonlyArray<{ toolName: string; hint: string }> = [
@@ -43,7 +43,7 @@ export function buildShellToolDescription(
         ]
       : [];
 
-  // Every sentence here describes a mechanism THIS tool enforces. Each command runs in
+  // TOOL-004: every sentence here describes a mechanism THIS tool enforces. Each command runs in
   // `workingDirectory` (default: the configured root) with no state carried between calls; there is
   // no `description` parameter; output truncation belongs to whichever layer applies it, not here.
   return [

@@ -41,9 +41,9 @@ function makeAdapter(): RepoMapRetrievalAdapter {
   return new RepoMapRetrievalAdapter({ parser: fakeParser(PARSED), corpus: CORPUS });
 }
 
-describe('RepoMapRetrievalAdapter', () => {
-  // Repo-map ranking for a given active-file set.
-  it('ranks the most central symbols; active files personalize the ranking', async () => {
+describe('SELFHOST-003 P1 — RepoMapRetrievalAdapter', () => {
+  // TC-02: repo-map ranking for a given active-file set.
+  it('TC-02: ranks the most central symbols; active files personalize the ranking', async () => {
     const adapter = makeAdapter();
 
     const plain = await adapter.retrieve({ tokenBudget: 1000 });
@@ -67,8 +67,8 @@ describe('RepoMapRetrievalAdapter', () => {
     expect(result.symbols[0].name).toBe('foo');
   });
 
-  // The contract returns ranked results and never exceeds the token budget.
-  it('truncates to the token budget most-relevant-first, never exceeding it', async () => {
+  // TC-01: the contract returns ranked results and never exceeds the token budget.
+  it('TC-01: truncates to the token budget most-relevant-first, never exceeding it', async () => {
     const adapter = makeAdapter();
 
     const full = await adapter.retrieve({ tokenBudget: 1000 });
@@ -92,9 +92,9 @@ describe('RepoMapRetrievalAdapter', () => {
   });
 });
 
-describe('createRetrievalTool', () => {
-  // Swapping the adapter needs no agent-tools change — a fake adapter drives the tool.
-  it('works with any IRetrievalAdapter (fake adapter, not the repo-map one)', async () => {
+describe('SELFHOST-003 P1 — createRetrievalTool', () => {
+  // TC-05: swapping the adapter needs no agent-tools change — a fake adapter drives the tool.
+  it('TC-05: works with any IRetrievalAdapter (fake adapter, not the repo-map one)', async () => {
     const fake: IRetrievalAdapter = {
       retrieve: async () => ({
         symbols: [{ file: 'x.ts', name: 'widget', kind: 'class', line: 42, score: 9, tokens: 4 }],

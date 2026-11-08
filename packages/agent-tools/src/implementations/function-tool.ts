@@ -10,7 +10,7 @@ const InvocationResultSchema = z.discriminatedUnion('success', [
   z.object({ success: z.literal(false), output: z.string(), error: z.string().min(1) }),
 ]);
 
-// The concrete `FunctionTool` class is owned by @robota-sdk/agent-core (SSOT).
+// The concrete `FunctionTool` class is owned by @robota-sdk/agent-core (DATA-005 SSOT).
 // These factories construct core's `FunctionTool`; agent-tools owns only the factories
 // and the Zod-flavored wrapper.
 
@@ -33,7 +33,7 @@ export function createFunctionTool(
 }
 
 /**
- * What a tool declares about itself beyond its callable shape.
+ * What a tool declares about itself beyond its callable shape (CLI-1990).
  *
  * Optional, and omission is a declaration too: a tool that says nothing is RESIDENT — its schema is
  * sent on every request, which is what every tool in the tree does today.
@@ -79,8 +79,8 @@ export function createZodFunctionTool<S extends ZodType>(
     parameters: TToolParameters,
     context?: IToolExecutionContext,
   ): Promise<TUniversalValue> => {
-    // Use Zod for runtime validation — the executor receives the PARSED, schema-typed value:
-    // the runtime guarantee and the compile-time type now flow together.
+    // Use Zod for runtime validation — the executor receives the PARSED, schema-typed value
+    // (SDK-009): the runtime guarantee and the compile-time type now flow together.
     const parseResult = zodSchema.safeParse(parameters);
     if (!parseResult.success) {
       throw new ValidationError(`Zod validation failed: ${parseResult.error}`);

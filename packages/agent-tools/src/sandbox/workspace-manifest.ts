@@ -25,7 +25,7 @@ export async function applyWorkspaceManifest(
     return sandboxClient.applyManifest(manifest, options);
   }
 
-  // Past this point the built-in applicator is what runs, and it applies
+  // TOOL-005 / issue #2027. Past this point the built-in applicator is what runs, and it applies
   // ENTRIES only — it has no mechanism for `environment` or `permissions`. Before this check it
   // applied the entries and returned success, so a caller that had asked for an environment
   // allowlist or a read/write policy got a sandbox with neither and no way to find out.
@@ -37,7 +37,7 @@ export async function applyWorkspaceManifest(
   //
   // The delegating branch above is deliberately untouched: a client that implements `applyManifest`
   // is claiming ownership of the whole manifest, and this function cannot know what it honoured.
-  // Making that claim observable needs a wider apply result.
+  // Making that claim observable needs a wider apply result and is tracked separately on #2027.
   refuseUnenforceableManifestControls(manifest);
   // The same fail-closed order for the host: a manifest that needs host files and was given none is
   // refused before its first entry is applied, so it never leaves a half-built workspace behind.
@@ -270,7 +270,7 @@ async function runSandboxCommand(sandboxClient: ISandboxClient, command: string)
  * Remove every trailing `/`, by index scan.
  *
  * Not `replace(/\/+$/, '')`: that run has no start anchor, so the engine retries it from every offset inside the
- * run and each retry re-scans to the end — 3.0 s on a 100 K run (`js/polynomial-redos`). The backslash
+ * run and each retry re-scans to the end — 3.0 s on a 100 K run (`js/polynomial-redos`, SEC-003). The backslash
  * conversion in {@link normalizeSandboxRoot} manufactures such a run from a Windows-style path.
  */
 function trimTrailingSlashes(value: string): string {

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { collectGlobMatches, globFileTool } from '../builtins/glob-tool.js';
 
 /**
- * CPU/IO budget: the old `globFileTool` called `fg(pattern)` — the promise form —
+ * Issue #2875 (CPU/IO budget): the old `globFileTool` called `fg(pattern)` — the promise form —
  * which materializes EVERY match into an array before stating any of them, then only slices to
  * `limit` at the very end. A pattern like `**\/*` under a huge tree allocated and statted the whole
  * match set no matter how small `limit` was. `collectGlobMatches` streams matches instead and stops

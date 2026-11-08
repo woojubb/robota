@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { AGENT_TOOL_PERMISSION_PROFILES } from '../tool-permission-profiles.js';
 
 /**
- * What THIS package says its tools do.
+ * CORE-030 — what THIS package says its tools do.
  *
  * The classification used to live in `@robota-sdk/agent-core`'s permission matrix, keyed on a closed
  * union of product tool names. That put a product's tool inventory in the vendor-neutral foundation
@@ -16,7 +16,7 @@ import { AGENT_TOOL_PERMISSION_PROFILES } from '../tool-permission-profiles.js';
  * without any setup: the registration is a side effect of the tools existing.
  */
 
-describe('this package classifies every tool it defines', () => {
+describe('CORE-030 — this package classifies every tool it defines', () => {
   it('reads are inspection, so they run unapproved even in plan mode', () => {
     for (const tool of ['Read', 'Glob', 'Grep', 'WebFetch', 'CodebaseRetrieval']) {
       expect(AGENT_TOOL_PERMISSION_PROFILES[tool]?.riskClass, tool).toBe('inspect');
@@ -60,7 +60,7 @@ describe('this package classifies every tool it defines', () => {
     }
   });
 
-  it('ComputerView is decided like a read, Computer like a shell', () => {
+  it('SELFHOST-010 — ComputerView is decided like a read, Computer like a shell', () => {
     expect(AGENT_TOOL_PERMISSION_PROFILES['ComputerView']?.riskClass).toBe(
       AGENT_TOOL_PERMISSION_PROFILES['Read']?.riskClass,
     );
@@ -97,10 +97,10 @@ describe('this package classifies every tool it defines', () => {
 });
 
 /**
- * The kind is declared WITH the key, by this package, for every tool it
+ * CORE-049 (issue #2350) — the kind is declared WITH the key, by this package, for every tool it
  * defines. A missing declaration is red HERE, not a silent fallback to the string glob.
  */
-describe('this package declares the kind of every argument it scopes patterns to', () => {
+describe('CORE-049 — this package declares the kind of every argument it scopes patterns to', () => {
   it('declares the kind the argument actually is', () => {
     const expected: Record<string, string> = {
       WebFetch: 'url',
@@ -151,7 +151,7 @@ describe('this package declares the kind of every argument it scopes patterns to
 });
 
 /**
- * `ToolSearch` has a registered profile.
+ * CLI-1990 TC-17 — `ToolSearch` has a registered profile.
  *
  * This closes the gap the spec's § Decision verdict (g) names. A rule may legitimately name a tool
  * that is not loaded — the gate decides by NAME and never consults the registry — but an
@@ -160,7 +160,7 @@ describe('this package declares the kind of every argument it scopes patterns to
  * answerable, and profiles register at module import, so a deferred BUILT-IN keeps its own profile
  * after deferral for exactly the same reason.
  */
-describe('the ToolSearch permission profile', () => {
+describe('CLI-1990 TC-17 — the ToolSearch permission profile', () => {
   it('is registered with a riskClass, so a rule naming it is evaluable', () => {
     expect(AGENT_TOOL_PERMISSION_PROFILES['ToolSearch']?.riskClass).toBe('inspect');
   });

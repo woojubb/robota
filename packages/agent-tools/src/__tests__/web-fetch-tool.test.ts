@@ -1,5 +1,5 @@
 /**
- * Web-fetch-tool.ts — classifyFetchError and fetch behaviour tests
+ * CLI-041 TC-03: web-fetch-tool.ts — classifyFetchError and fetch behaviour tests
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -7,7 +7,7 @@ import { classifyFetchError } from '../builtins/web-fetch-tool.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 
 // ---------------------------------------------------------------------------
-// classifyFetchError — error classification
+// TC-03: classifyFetchError — error classification
 // ---------------------------------------------------------------------------
 
 describe('classifyFetchError', () => {

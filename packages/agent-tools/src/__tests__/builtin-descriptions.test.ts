@@ -1,5 +1,5 @@
 /**
- * Builtin tool descriptions are a model-facing contract:
+ * NEUT-002 — builtin tool descriptions are a model-facing contract:
  * - mechanism-only text (no foreign product/workflow policy),
  * - cross-tool references derived from names that actually exist here,
  * - a description-override seam on every builtin factory.
@@ -18,8 +18,8 @@ import { createShellTool } from '../builtins/shell-tool.js';
 import { createWriteTool } from '../builtins/write-tool.js';
 
 /**
- * The containment root is a required constructor argument and there are no module-level
- * singletons to read descriptions from. Every case here asks a tool for its DESCRIPTION
+ * ARCH-010 made the containment root a required constructor argument and deleted the module-level
+ * singletons this file used to read descriptions from. Every case here asks a tool for its DESCRIPTION
  * and never touches the filesystem, so the root is inert — it is named once, here, so that inertness is
  * visible rather than implied, and it is a private directory made under the OS temp directory rather
  * than the repo, so a case that ever did reach the disk could not read the source tree.
@@ -29,7 +29,7 @@ afterAll(() => rmSync(DESCRIPTION_ROOT, { recursive: true, force: true }));
 /** A second inert root, used only to show the default description does not vary with it. */
 const OTHER_DESCRIPTION_ROOT = join(DESCRIPTION_ROOT, 'neut002-other-root');
 
-describe('builtin descriptions carry no foreign product policy', () => {
+describe('builtin descriptions carry no foreign product policy (NEUT-002)', () => {
   it('Write does not forbid documentation/README files (workflow policy, not mechanism)', () => {
     expect(createWriteTool({ cwd: DESCRIPTION_ROOT }).getDescription()).not.toMatch(
       /NEVER create documentation|README files/i,
@@ -53,7 +53,7 @@ describe('builtin descriptions carry no foreign product policy', () => {
   });
 });
 
-describe('description override seam on every builtin factory', () => {
+describe('description override seam on every builtin factory (NEUT-002)', () => {
   const OVERRIDE = 'custom description for this deployment';
 
   it('createShellTool / createBashTool accept a description override', async () => {
@@ -93,7 +93,7 @@ describe('description override seam on every builtin factory', () => {
     expect(
       mod.createGlobTool({ cwd: DESCRIPTION_ROOT, description: OVERRIDE }).getDescription(),
     ).toBe(OVERRIDE);
-    // There is no singleton to compare against. The claim that matters:
+    // ARCH-010 deleted the singleton this used to compare against. The claim it stood for survives:
     // omitting `description` yields the built-in default, and the containment root does not alter it.
     const defaultDescription = mod.createGlobTool({ cwd: DESCRIPTION_ROOT }).getDescription();
     expect(defaultDescription).not.toBe(OVERRIDE);
@@ -130,7 +130,7 @@ describe('description override seam on every builtin factory', () => {
   });
 });
 
-describe('shell routing hints derive from the registered tool set', () => {
+describe('shell routing hints derive from the registered tool set (NEUT-002)', () => {
   it('default description keeps all dedicated-tool routing hints (default assembly unchanged)', () => {
     const description = createShellTool({ cwd: DESCRIPTION_ROOT }).getDescription();
     expect(description).toContain('Use Glob');
@@ -161,7 +161,7 @@ describe('shell routing hints derive from the registered tool set', () => {
   });
 });
 
-describe('grep description derives the shell tool name', () => {
+describe('grep description derives the shell tool name (NEUT-002)', () => {
   it('createGrepTool({ shellToolName }) names that tool in the default text', async () => {
     const mod = await import('../builtins/grep-tool.js');
     const description = mod

@@ -1,5 +1,5 @@
 /**
- * What the permission system is told about the tools THIS package defines.
+ * What the permission system is told about the tools THIS package defines. CORE-030.
  *
  * The classification used to live in `@robota-sdk/agent-core`'s `permission-mode.ts`, as a matrix
  * keyed on a closed union of product tool names — a vendor-neutral foundation holding a product's
@@ -21,7 +21,7 @@ import { registerToolPermissionProfile, type IToolPermissionProfile } from '@rob
  * Every tool this package defines, and what the permission system needs to know about it.
  *
  * `argument.key` is which argument a pattern like `Read(/src/**)` is matched against, and
- * `argument.kind` how (a URL is parsed, a path is segment-wise, a command is a glob). A tool without
+ * `argument.kind` how (CORE-049: a URL is parsed, a path is segment-wise, a command is a glob). A tool without
  * one cannot be narrowed by an argument pattern at all — the gate treats such a pattern as
  * unevaluable and prompts rather than proceeding, which is why the ones that CAN be narrowed say so.
  */
@@ -38,13 +38,13 @@ export const AGENT_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPermis
   // Asking the user changes nothing, and prompting for permission to prompt is not a decision
   // anyone wants to make.
   AskUserQuestion: { riskClass: 'inspect' },
-  // Loading a withheld tool SCHEMA is not calling the tool — the tool it loads is gated on
+  // CLI-1990: loading a withheld tool SCHEMA is not calling the tool — the tool it loads is gated on
   // its own name when the model actually calls it, exactly as it would be were it never deferred.
   // Classified so a rule naming `ToolSearch` is evaluable rather than falling to 'unevaluable' →
   // prompt, which in plan mode is a refusal to let the agent discover what it may read.
   // `query` is the narrowable argument, matched as text.
   ToolSearch: { argument: { key: 'query', kind: 'text' }, riskClass: 'inspect' },
-  // Looking at the screen is perception, decided like a read.
+  // SELFHOST-010: looking at the screen is perception, decided like a read.
   ComputerView: { riskClass: 'inspect' },
 
   // Workspace changes: what `acceptEdits` exists to stop asking about.
@@ -53,10 +53,10 @@ export const AGENT_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPermis
 
   // Arbitrary execution, where the blast radius is not bounded by a path.
   Shell: { argument: { key: 'command', kind: 'command' }, riskClass: 'execute', aliases: ['Bash'] },
-  // A model-familiar alias of the same implementation, so the same classification — and
+  // TERM-008: a model-familiar alias of the same implementation, so the same classification — and
   // a rule naming either name governs both.
   Bash: { argument: { key: 'command', kind: 'command' }, riskClass: 'execute', aliases: ['Shell'] },
-  // A GUI mutation is not a file edit, so `acceptEdits` must not cover it — which is
+  // SELFHOST-010: a GUI mutation is not a file edit, so `acceptEdits` must not cover it — which is
   // exactly what classifying it as execution rather than modification says.
   Computer: { riskClass: 'execute' },
 };

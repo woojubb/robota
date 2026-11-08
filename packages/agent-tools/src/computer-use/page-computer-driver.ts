@@ -1,10 +1,10 @@
 /**
- * `PageComputerDriver` — a zero-dependency reference adapter (mirror `E2BSandboxClient`).
+ * SELFHOST-010: `PageComputerDriver` — a zero-dependency reference adapter (mirror `E2BSandboxClient`).
  *
  * It implements `IComputerDriver` by duck-typing a browser-page-shaped object via the locally-declared
  * `IBrowserPageAdapter` (`./types.ts`) — it imports NO heavy browser SDK (no Playwright/Puppeteer/CDP). The
  * surface passes the real page object, exactly as the sandbox surface passes a real E2B sandbox to
- * `E2BSandboxClient`. This keeps `agent-tools` neutral: the environment lives in the surface.
+ * `E2BSandboxClient`. This keeps `agent-tools` neutral (TC-06): the environment lives in the surface.
  *
  * Takeover: `beginTakeover()` pauses perception (subsequent `screenshot()` returns `undefined` and further
  * actions are held) until `endTakeover()` resumes — the halt-for-user loop-suspension shape.

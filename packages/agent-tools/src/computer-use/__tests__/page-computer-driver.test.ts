@@ -57,7 +57,7 @@ class RecordingBrowserPage implements IBrowserPageAdapter {
 }
 
 describe('PageComputerDriver', () => {
-  // The zero-dep reference adapter satisfies IComputerDriver by duck-typing a page — no browser SDK.
+  // TC-05: the zero-dep reference adapter satisfies IComputerDriver by duck-typing a page — no browser SDK.
   it('drives a duck-typed page and returns base64 screenshots', async () => {
     const page = new RecordingBrowserPage();
     const driver = new PageComputerDriver({ page });

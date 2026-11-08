@@ -5,7 +5,7 @@ import { createBashTool, createEditTool, createReadTool, createWriteTool } from 
 import type { ISandboxRunOptions, IToolInvocationResult } from '../index.js';
 
 /**
- * `cwd` — the HOST working-directory root — is a required constructor argument. Every tool
+ * ARCH-010 made `cwd` — the HOST working-directory root — a required constructor argument. Every tool
  * below is built with a sandbox client, and the sandbox seam is taken BEFORE the host path guard, so
  * this root is never consulted: it names the sandbox root the fixtures use so the two read consistently
  * rather than pointing the host guard at somewhere real that no case here can reach.

@@ -1,5 +1,5 @@
 /**
- * shellTool — execute a host shell command via child_process.spawn.
+ * ShellTool — execute a host shell command via child_process.spawn (TERM-008).
  *
  * Cross-platform: the shell is resolved per OS through `resolvePlatformShell()` (POSIX `sh`/`bash`,
  * Windows PowerShell). The tool name is `Shell` and its description is built dynamically from the
@@ -8,19 +8,19 @@
  * Returns an IToolInvocationResult JSON string. A non-zero exit is returned as success:true with
  * exitCode set (the command ran, it just exited non-zero — the LLM decides what to do with that).
  *
- * ## Why `workingDirectory` is NOT path-contained (a deliberate decision, not an omission)
+ * ## SEC-007 — why `workingDirectory` is NOT path-contained (a deliberate decision, not an omission)
  *
- * `Read`/`Write`/`Edit` are contained by `checkPathWithinCwd`, and the same guard covers `Glob`
+ * `Read`/`Write`/`Edit` are contained by `checkPathWithinCwd`, and SEC-007 extended that to `Glob`
  * and `Grep`. This tool is deliberately excluded, and the reason is what the tool IS: it runs an
  * arbitrary command in a shell. A guard on `cwd` is undone by the first `cd ..` — or by an absolute
  * path in the command itself — so it would constrain nothing an attacker-controlled command cannot
  * trivially step around, while LOOKING like a boundary in the code and in review.
  *
- * That appearance is the actual hazard. The lesson is "'the guard is still there' is not a
+ * That appearance is the actual hazard. SEC-006's R9 lesson was "'the guard is still there' is not a
  * verdict": a check that reads as containment but is not one is worse than no check, because the next
  * reviewer stops asking. The real boundary for this tool is the permission layer (every invocation is
- * permission-gated at call time) and the sandbox seam below — which is why
- * `js/indirect-command-line-injection` at the spawn site is a false positive on those same grounds.
+ * permission-gated at call time) and the sandbox seam below — which is why SEC-006 already recorded
+ * `js/indirect-command-line-injection` at the spawn site as a false positive on those same grounds.
  *
  * What the containment root DOES do here: it supplies the DEFAULT working directory. Binding a tool
  * to a session root and then silently running its commands in `process.cwd()` was a real defect — an
@@ -35,7 +35,7 @@ import { resolvePlatformShell, withChildSession } from '@robota-sdk/agent-core/n
 import { killProcessTree } from '@robota-sdk/agent-process';
 import { z } from 'zod';
 
-/** POSIX children are spawned detached so a process-group kill reaps grandchildren. */
+/** POSIX children are spawned detached so a process-group kill reaps grandchildren (CORE-023). */
 const SPAWN_DETACHED = process.platform !== 'win32';
 
 import { buildShellToolDescription } from './shell-tool-description.js';
@@ -47,11 +47,11 @@ import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool, ISubprocessTraceEnv } from '@robota-sdk/agent-core';
 import type { IPlatformShell } from '@robota-sdk/agent-core/node';
 
-// Defining a tool and telling the permission system what it does arrive together.
+// CORE-030: defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
 
 const DEFAULT_TIMEOUT_MS = 120_000; // 2 minutes
-/** Most bytes retained per stream while the child runs (head); the rest is dropped. */
+/** ARCH-056: most bytes retained per stream while the child runs (head); the rest is dropped. */
 const MAX_CAPTURED_OUTPUT_BYTES = 2_000_000;
 // The wrapper is the detached group's leader, so its group ID cannot be reused while it watches
 // the owner pipe. EOF proves owner death without a PID lookup. Its background watcher signals that
@@ -124,23 +124,23 @@ async function runShell(
 ): Promise<string> {
   const { command, timeout: rawTimeout = DEFAULT_TIMEOUT_MS, workingDirectory } = args;
   const timeout = Math.min(rawTimeout, 600_000);
-  // The configured root is the DEFAULT working directory (see the file header for why it is
+  // SEC-007: the configured root is the DEFAULT working directory (see the file header for why it is
   // not a boundary). Without this, an assembly that scoped its file tools to a workspace still ran
   // every shell command in whatever directory the host process was started in.
   //
-  // There is no third `?? process.cwd()` link in this chain. `options.cwd` is required,
-  // so that link would be unreachable — and an unreachable fallback still reads as a supported one, which
+  // ARCH-010 removed a third `?? process.cwd()` link from this chain. `options.cwd` is required now,
+  // so that link was unreachable — and an unreachable fallback still reads as a supported one, which
   // is how the ambient-root habit spreads. A caller that means the process directory says so.
   const effectiveCwd = workingDirectory ?? options.cwd;
   if (effectiveCwd === undefined) {
     // Only reachable from a caller that skipped the type — `options.cwd` is required. Refusing beats
     // letting `spawn` silently inherit the process directory, which was the last ambient root in this
-    // package and the one contract violation that produced no message at all.
+    // package and the one contract violation that produced no message at all (ARCH-010).
     return JSON.stringify({
       success: false,
       output: '',
       error:
-        'Shell tool has no working directory: it was constructed without a `cwd`. This ' +
+        'Shell tool has no working directory: it was constructed without a `cwd` (ARCH-010). This ' +
         'is an assembly bug — the tool would otherwise run in whatever directory the host process ' +
         'was started in.',
     });
@@ -178,7 +178,7 @@ async function runShell(
   }
 
   return new Promise<string>((resolve) => {
-    // Memory is bounded WHILE the child writes, not capped after a ten-minute buffer.
+    // ARCH-056: memory is bounded WHILE the child writes, not capped after a ten-minute buffer.
     const stdoutOutput = createBoundedOutput({ maxBytes: MAX_CAPTURED_OUTPUT_BYTES });
     const stderrOutput = createBoundedOutput({ maxBytes: MAX_CAPTURED_OUTPUT_BYTES });
 
@@ -248,7 +248,7 @@ async function runShell(
 
     const timer = setTimeout(() => {
       timedOut = true;
-      // Kill the whole process group with SIGTERM→grace→SIGKILL so grandchildren
+      // CORE-023: kill the whole process group with SIGTERM→grace→SIGKILL so grandchildren
       // are reaped, not just the shell. Fire-and-forget: settle promptly, escalate in background.
       void killProcessTree(child, { processGroup: SPAWN_DETACHED });
       settle({
@@ -266,8 +266,8 @@ async function runShell(
       resolve(JSON.stringify(result));
     }
 
-    // The run-scoped signal must terminate the underlying work — completing
-    // silently after an abort is a cancellation-contract violation. Process-group
+    // CORE-018: the run-scoped signal must terminate the underlying work — completing
+    // silently after an abort is a cancellation-contract violation. CORE-023: process-group
     // kill reaps grandchildren the bare SIGTERM left orphaned.
     function onAbort(): void {
       void killProcessTree(child, { processGroup: SPAWN_DETACHED });
@@ -326,7 +326,7 @@ export interface IShellToolOptions extends ISandboxBuiltinToolOptions {
   /** Host-selected executable; absence uses the neutral platform/SHELL default. */
   shellExecutable?: string;
   /**
-   * Registered names of the sibling tools available in this assembly. When provided,
+   * Registered names of the sibling tools available in this assembly (NEUT-002). When provided,
    * the default description's dedicated-tool routing hints are restricted to this set; when
    * omitted, the full default hint set is used. Ignored when `description` overrides the text.
    */
@@ -335,8 +335,8 @@ export interface IShellToolOptions extends ISandboxBuiltinToolOptions {
 
 /**
  * Build a host-shell command tool under a given registered name. Both `Shell` and the
- * model-familiar `Bash` are registered as aliases of this one OS-aware implementation:
- * the shell is resolved per OS and the description names the active shell so the
+ * model-familiar `Bash` are registered as aliases of this one OS-aware implementation
+ * (TERM-008): the shell is resolved per OS and the description names the active shell so the
  * model writes the right syntax regardless of which alias it calls.
  */
 function createHostShellTool(name: string, options: IShellToolOptions): FunctionTool {

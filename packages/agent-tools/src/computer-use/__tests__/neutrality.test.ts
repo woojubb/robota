@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 /**
- * Neutrality: `agent-tools`' computer-use carries the driver PORT + a zero-dep reference adapter
+ * TC-06 (neutrality): `agent-tools`' computer-use carries the driver PORT + a zero-dep reference adapter
  * that DUCK-TYPES a page — never a heavy browser SDK and never a concrete target (URL/host). This asserts
  * the invariant mechanically over the shipped `computer-use/` source (excluding tests).
  */
@@ -43,7 +43,7 @@ function collectShippedFiles(dir: string): string[] {
   return files;
 }
 
-describe('computer-use neutrality', () => {
+describe('computer-use neutrality (TC-06)', () => {
   const files = collectShippedFiles(COMPUTER_USE_DIR);
 
   it('ships source files to check', () => {

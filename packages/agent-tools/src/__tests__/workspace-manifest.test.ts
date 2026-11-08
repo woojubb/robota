@@ -335,7 +335,7 @@ describe('workspace manifest host files', () => {
   });
 });
 
-describe('unenforceable manifest security controls', () => {
+describe('unenforceable manifest security controls (TOOL-005 / issue #2027)', () => {
   function manifestWithOneEntry(): IWorkspaceManifest {
     return { entries: { 'task.md': { type: 'file', content: 'Solve this task.\n' } } };
   }
@@ -410,7 +410,7 @@ describe('unenforceable manifest security controls', () => {
 
   // This records an ACCEPTED HOLE, not coverage: a delegating client still receives `environment`,
   // and this function still cannot tell whether it honoured it. Making that observable needs a wider
-  // apply result, which is a published type.
+  // apply result, which is a published type — tracked on issue #2027.
   it('leaves the delegating path alone — a client owning applyManifest is not second-guessed', async () => {
     const manifest = { ...manifestWithOneEntry(), environment: { TOKEN: 'secret' } };
     let received: IWorkspaceManifest | undefined;

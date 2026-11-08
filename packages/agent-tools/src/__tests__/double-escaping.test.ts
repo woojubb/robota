@@ -1,5 +1,5 @@
 /**
- * `js/double-escaping` regression floor for `WebFetch`'s HTML-to-text conversion.
+ * SEC-004 — `js/double-escaping` regression floor for `WebFetch`'s HTML-to-text conversion.
  *
  * The decoder used to be a CHAIN of `.replace()` calls with `&amp;` first, so each pass re-scanned
  * the previous pass's output: `&amp;lt;` became `&lt;` and then `<`. A page that deliberately
@@ -22,7 +22,7 @@ function encodeForDisplay(text: string): string {
     .replace(/'/g, '&#39;');
 }
 
-describe('WebFetch HTML entity decoding is single-pass', () => {
+describe('SEC-004 — WebFetch HTML entity decoding is single-pass', () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {

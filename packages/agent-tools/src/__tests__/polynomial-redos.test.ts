@@ -1,5 +1,5 @@
 /**
- * `js/polynomial-redos` regression floor for `agent-tools`.
+ * SEC-003 — `js/polynomial-redos` regression floor for `agent-tools`.
  *
  * Two sites: the flagged sandbox-root normaliser (alert 47) and `WebFetch`'s HTML-to-text conversion, which
  * CodeQL did **not** flag and which is the only quadratic in this slice whose input is a live response body from
@@ -44,7 +44,7 @@ function recordingClient(): { client: ISandboxClient; paths: string[] } {
   };
 }
 
-describe('sandbox root normalisation', () => {
+describe('SEC-003 alert 47 — sandbox root normalisation', () => {
   it(
     'normalises a pumped separator run in linear time',
     async () => {
@@ -86,7 +86,7 @@ describe('sandbox root normalisation', () => {
   });
 });
 
-describe('WebFetch HTML-to-text (unflagged, remote-sourced)', () => {
+describe('SEC-003 sweep — WebFetch HTML-to-text (unflagged, remote-sourced)', () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {

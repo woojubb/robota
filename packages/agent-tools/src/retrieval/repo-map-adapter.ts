@@ -1,5 +1,5 @@
 /**
- * Neutral repo-map ranking adapter — mirrors `InMemorySandboxClient`.
+ * SELFHOST-003: neutral repo-map ranking adapter — mirrors `InMemorySandboxClient`.
  *
  * Ranks a corpus of source files by graph centrality relative to the active files / mentioned
  * identifiers, within a token budget. It is a NEUTRAL mechanism: it works on ANY repo given a corpus
@@ -7,7 +7,7 @@
  * injected as the duck-typed `IRetrievalSourceParser` (like `E2BSandboxClient` duck-types the E2B SDK),
  * and the corpus is supplied from the surface.
  *
- * Index build + persistence: the corpus is parsed ONCE into an `IRepoMapIndex` at construction
+ * P2 (index build + persistence): the corpus is parsed ONCE into an `IRepoMapIndex` at construction
  * (or supplied prebuilt/persisted via `{ index }`), so `retrieve()` ranks without re-parsing.
  *
  * Ranking model (aider repo-map style): a definition's score is the weighted number of references to it
@@ -30,7 +30,7 @@ import type {
 } from './types.js';
 
 /**
- * Construct from EITHER a prebuilt/persisted `index` OR a `parser` + `corpus` (parsed once at
+ * Construct from EITHER a prebuilt/persisted `index` (P2) OR a `parser` + `corpus` (parsed once at
  * construction). At least one form must be supplied (else the constructor throws); if both are given,
  * `index` takes precedence.
  */
@@ -39,7 +39,7 @@ export interface IRepoMapRetrievalAdapterOptions {
   parser?: IRetrievalSourceParser;
   /** The corpus to index, supplied from the surface — required when building from a corpus. */
   corpus?: IRetrievalCorpusFile[];
-  /** A prebuilt/persisted index — rank over this without re-parsing. */
+  /** A prebuilt/persisted index (SELFHOST-003 P2) — rank over this without re-parsing. */
   index?: IRepoMapIndex;
 }
 

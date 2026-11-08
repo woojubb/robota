@@ -45,7 +45,7 @@ export {
   routesFilesThroughSandbox,
 } from './sandbox/index';
 
-// Codebase retrieval (port + types + neutral repo-map ranking adapter; tool added below)
+// SELFHOST-003: codebase retrieval (port + types + neutral repo-map ranking adapter; tool added below)
 export type {
   IRetrievalSymbol,
   IRetrievalParsedFile,
@@ -72,7 +72,7 @@ export {
   REPO_MAP_INDEX_VERSION,
 } from './retrieval/index';
 
-// Computer-use (driver port + types + perceive/act tool factory + zero-dep reference adapter).
+// SELFHOST-010: computer-use (driver port + types + perceive/act tool factory + zero-dep reference adapter).
 // The test-support ScriptedComputerDriver is NOT exported here — it lives under computer-use/testing/.
 export type {
   IBrowserPageAdapter,
@@ -104,11 +104,11 @@ export {
   PageComputerDriver,
 } from './computer-use/index';
 
-// FunctionTool and ToolRegistry classes are owned by @robota-sdk/agent-core (SSOT).
+// FunctionTool and ToolRegistry classes are owned by @robota-sdk/agent-core (DATA-005 SSOT).
 // agent-tools exposes only the factories that construct core's FunctionTool.
 export { createFunctionTool, createZodFunctionTool } from './implementations/function-tool';
 export type { IFunctionToolResidencyOptions } from './implementations/function-tool';
-// zodToJsonSchema and the Zod compatibility types moved to @robota-sdk/agent-core (SSOT).
+// zodToJsonSchema and the Zod compatibility types moved to @robota-sdk/agent-core (CORE-015 SSOT).
 export type {
   IFunctionToolValidationOptions,
   IFunctionToolExecutionMetadata,
@@ -117,7 +117,7 @@ export type {
 
 // Built-in tools that need no host: the model asks the user, and searches the deferred tool catalog.
 export { askUserQuestionTool, createAskUserQuestionTool } from './builtins/ask-user-question-tool';
-// The resident tool that loads deferred schemas on demand, and its pure match/rank half.
+// CLI-1990: the resident tool that loads deferred schemas on demand, and its pure match/rank half.
 export {
   toolSearchTool,
   createToolSearchTool,

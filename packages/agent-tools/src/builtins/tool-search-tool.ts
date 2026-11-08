@@ -1,5 +1,5 @@
 /**
- * ToolSearch — the model-facing half of client-side tool deferral.
+ * ToolSearch — the model-facing half of client-side tool deferral (CLI-1990 § Solution 4).
  *
  * A tool that declares `deferLoading` is withheld from the request entirely while the tool-search
  * policy is engaged, so the model never sees its schema. This tool is how the model gets it back:
@@ -19,8 +19,8 @@
  * - an unknown entry in `names` throws, naming the entry, and loads nothing — asking for a tool that
  *   does not exist is a mistake to correct, not an empty search.
  *
- * `unavailableSources` is present and empty by default. The connection and capability
- * supervisor fills it with servers that failed or need auth, so a model told "nothing matched" can
+ * `unavailableSources` is present and empty from day one. MCP-003 (the connection and capability
+ * supervisor) fills it with servers that failed or need auth, so a model told "nothing matched" can
  * tell that apart from "the server holding it is down" — without a contract change here.
  */
 
@@ -39,7 +39,7 @@ import type {
   IToolSchema,
 } from '@robota-sdk/agent-core';
 
-// Defining a tool and telling the permission system what it does arrive together.
+// CORE-030: defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
 
 /**

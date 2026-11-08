@@ -1,5 +1,5 @@
 /**
- * What an OS-level sandbox lets a command touch, written once per backend.
+ * What an OS-level sandbox lets a command touch, written once per backend (issue #3082).
  *
  * The same policy becomes bubblewrap arguments on Linux and a Seatbelt profile on macOS:
  * - the whole filesystem is readable except the `denyRead` paths;

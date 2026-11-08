@@ -1,4 +1,4 @@
-// Computer-use — driver port + perceive/act contract + tool factory + zero-dep reference adapter.
+// SELFHOST-010: computer-use — driver port + perceive/act contract + tool factory + zero-dep reference adapter.
 //
 // NOTE: the test-support `ScriptedComputerDriver` is deliberately NOT exported here — it lives under
 // `./testing/scripted-computer-driver.ts` and is imported by tests via a relative path (test-support, never

@@ -44,6 +44,6 @@ export function refuseUnenforceableManifestControls(manifest: IWorkspaceManifest
       'enforce. The built-in applicator applies entries only. Supply a sandbox client that ' +
       'implements applyManifest and honours these fields, or remove them from the manifest — they ' +
       'were previously accepted and silently ignored, which reported a sandbox policy that was ' +
-      'never applied.',
+      'never applied (issue #2027).',
   );
 }

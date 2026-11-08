@@ -1,11 +1,11 @@
 /**
- * askUserQuestionTool — let the model ask the user structured questions mid-turn.
+ * AskUserQuestionTool — let the model ask the user structured questions mid-turn (CMD-005).
  *
- * Built on the ask seam: each question maps onto the `IActionRequest` SSOT and is issued
+ * Built on the CMD-004 ask seam: each question maps onto the `IActionRequest` SSOT and is issued
  * through the injected `IToolExecutionContext.ask` port; the attached environment renders it (Ink
  * dialog, web modal, programmatic pre-answer) and the answers return as the tool result.
  *
- * Contract points:
+ * Contract points (spec CMD-005):
  * - 1–4 questions per call, asked sequentially (the channel's ask queue renders one at a time).
  * - Cancellation is data, not an exception: a dismissed question yields `{ cancelled: true }` and the
  *   remaining unasked questions of the same call are marked cancelled too (no per-item re-prompt).
@@ -22,7 +22,7 @@ import type { IBuiltinToolDescriptionOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool, IActionRequest, IToolExecutionContext } from '@robota-sdk/agent-core';
 
-// Defining a tool and telling the permission system what it does arrive together.
+// CORE-030: defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
 
 const MAX_QUESTIONS = 4;

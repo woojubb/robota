@@ -1,6 +1,6 @@
 import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 /**
- * OS-level confinement of shell commands over the host filesystem: bubblewrap on
+ * OS-level confinement of shell commands over the host filesystem (issue #3082): bubblewrap on
  * Linux and WSL2, Seatbelt (`sandbox-exec`) on macOS. Other platforms have no backend; the client
  * reports that instead of pretending.
  *

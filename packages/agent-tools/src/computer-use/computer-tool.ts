@@ -1,5 +1,5 @@
 /**
- * The `ComputerView` (perceive) + `Computer` (act) tools — mirror the `create*tool(options)`
+ * SELFHOST-010: the `ComputerView` (perceive) + `Computer` (act) tools — mirror the `create*Tool(options)`
  * pattern, split along the permission boundary.
  *
  * `createComputerTool({ driver })` registers BOTH tool names over one injected `IComputerDriver`. The split
@@ -25,7 +25,7 @@ import type {
 } from './types.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
-// Defining a tool and telling the permission system what it does arrive together.
+// CORE-030: defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
 
 /** The tool-boundary result shape returned (as JSON) by both `ComputerView` and `Computer`. */

@@ -1,5 +1,5 @@
 /**
- * createZodFunctionTool executor args are typed as the schema's inferred object.
+ * SDK-009: createZodFunctionTool executor args are typed as the schema's inferred object.
  * The runtime already validated with safeParse; the type now flows with it, so strict
  * consumers (noUncheckedIndexedAccess) need no defensive `String(args['x'] ?? '')` casts.
  */
@@ -17,7 +17,7 @@ const PersonaSchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
-describe('createZodFunctionTool type inference', () => {
+describe('createZodFunctionTool type inference (SDK-009)', () => {
   it('types executor args as z.infer<S> — direct property access, no casts', async () => {
     let seen: { personaId: string; round: number } | undefined;
     const tool = createZodFunctionTool(

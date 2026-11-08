@@ -2,7 +2,7 @@
  * WebFetchTool — fetch a URL and return its content as text.
  *
  * HTML is stripped to plain text for readability. Fetches through the shared egress boundary
- * (`fetchWithEgressPolicy`): loopback / private / link-local / metadata destinations are
+ * (`fetchWithEgressPolicy`, #2026): loopback / private / link-local / metadata destinations are
  * refused, redirects are re-validated, and the response is capped while streaming.
  *
  * After an HTML page, the tool checks once per origin whether the site publishes an llms.txt index
@@ -20,7 +20,7 @@ import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 import type { IEgressDeps, IEgressPolicy } from '@robota-sdk/agent-core/node';
 
-// Defining a tool and telling the permission system what it does arrive together.
+// CORE-030: defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -39,7 +39,7 @@ const WebFetchSchema = z.object({
 
 type TWebFetchArgs = z.infer<typeof WebFetchSchema>;
 
-/** The egress policy this tool fetches under, and the deps a test injects (fetch, DNS lookup). */
+/** #2026: the egress policy this tool fetches under, and the deps a test injects (fetch, DNS lookup). */
 export interface IWebFetchEgressOptions {
   policy?: IEgressPolicy;
   deps?: IEgressDeps;
@@ -116,7 +116,7 @@ function stripTags(html: string): string {
 /**
  * The character entities {@link htmlToText} decodes, and the single alternation that matches them.
  *
- * `js/double-escaping`: decoding these by CHAINED `.replace()` calls with `&amp;` first
+ * SEC-004 (`js/double-escaping`): decoding these by CHAINED `.replace()` calls with `&amp;` first
  * decodes twice. `&amp;lt;` — how a page encodes the literal text `&lt;` so a browser DISPLAYS it —
  * became `&lt;` after the `&amp;` pass and then `<` after the `&lt;` pass, so a page reading
  * `&amp;lt;script&amp;gt;` came back out of a tag-stripping converter as `<script>`. One pass over
@@ -241,7 +241,7 @@ async function runWebFetch(
   }
 
   try {
-    // Destination safety, redirect re-validation, the deadline (composed with the
+    // #2026: destination safety, redirect re-validation, the deadline (composed with the CORE-018
     // run-scoped signal) and the streaming byte cap all live in the shared egress boundary.
     const response = await fetchWithEgressPolicy(
       url,

@@ -1,5 +1,5 @@
 /**
- * The seccomp filter bubblewrap loads when a confined command has no network.
+ * The seccomp filter bubblewrap loads when a confined command has no network (issue #3082).
  *
  * `--unshare-net` removes every network interface, but a Unix socket is a file: a daemon listening
  * on one outside the sandbox (a container engine, the session bus, an ssh agent) is still reachable
