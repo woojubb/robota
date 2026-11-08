@@ -1,5 +1,5 @@
 /**
- * CLI-1990 TC-05 — the `ToolSearch` builtin: what a query matches, what `limit` does, and the order.
+ * The `ToolSearch` builtin: what a query matches, what `limit` does, and the order.
  *
  * The tool is driven through its real `FunctionTool.execute`, against a stub `IDeferredToolCatalog`
  * standing in for the runtime's port, so what is asserted is the tool's own contract rather than a
@@ -85,7 +85,7 @@ function loadedNames(outcome: IToolSearchOutcome): string[] {
   return outcome.loaded.map((entry) => entry.name);
 }
 
-describe('CLI-1990 TC-05 — ToolSearch', () => {
+describe('ToolSearch', () => {
   it('registers under the name the execution layer names in its unknown-tool remedy', () => {
     expect(TOOL_SEARCH_NAME).toBe(TOOL_SEARCH_TOOL_NAME);
     expect(TOOL_SEARCH_NAME).toBe('ToolSearch');
@@ -200,7 +200,7 @@ describe('CLI-1990 TC-05 — ToolSearch', () => {
     expect(loaded).toEqual([[BY_NAME.name, 'NoSuchTool']]);
   });
 
-  it('carries unavailableSources from day one so MCP-003 fills it without a contract change', async () => {
+  it('carries unavailableSources from day one so the connection supervisor can fill it without a contract change', async () => {
     const { catalog } = createCatalog();
     expect(await search({ query: 'postgres' }, catalog)).toHaveProperty('unavailableSources', []);
   });

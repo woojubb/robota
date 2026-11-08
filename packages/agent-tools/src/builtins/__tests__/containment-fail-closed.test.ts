@@ -4,7 +4,7 @@ import { createReadTool } from '../read-tool.js';
 import { checkPathWithinCwd, isWithinCwd } from '../path-guard.js';
 
 /**
- * ARCH-010 — the containment guard used to be FAIL-OPEN: with no root configured it answered
+ * The containment guard used to be FAIL-OPEN: with no root configured it answered
  * "allowed" and every builtin let the path through.
  *
  * That default is why the strongest multi-sighting in the architecture audit exists. `pack-coding`
@@ -19,7 +19,7 @@ import { checkPathWithinCwd, isWithinCwd } from '../path-guard.js';
  */
 const OUTSIDE = '/etc/hostname';
 
-describe('containment is fail-closed without a root (ARCH-010)', () => {
+describe('containment is fail-closed without a root', () => {
   it('isWithinCwd REFUSES when no containment root is configured', () => {
     // Was `true`. Nothing about "I do not know where the boundary is" means "inside it".
     expect(isWithinCwd(OUTSIDE, undefined)).toBe(false);

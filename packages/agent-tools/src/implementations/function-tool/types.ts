@@ -1,6 +1,6 @@
 import type { TToolParameters, TUniversalValue } from '@robota-sdk/agent-core';
 
-// Zod compatibility types and schema conversion moved to @robota-sdk/agent-core (CORE-015 SSOT):
+// Zod compatibility types and schema conversion moved to @robota-sdk/agent-core (SSOT):
 // IZodSchema, IZodSchemaDef, IZodParseResult, ISchemaConversionOptions, zodToJsonSchema.
 
 /**

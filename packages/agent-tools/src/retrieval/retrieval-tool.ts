@@ -1,5 +1,5 @@
 /**
- * SELFHOST-003: the `CodebaseRetrieval` tool — mirrors the `create*Tool(options)` pattern.
+ * The `CodebaseRetrieval` tool — mirrors the `create*tool(options)` pattern.
  *
  * Composes over the injected `IRetrievalAdapter` (via `IRetrievalToolOptions`). It carries NO corpus and
  * NO domain content itself — the adapter (built from a surface-supplied parser + corpus) does the
@@ -14,7 +14,7 @@ import { createZodFunctionTool } from '../implementations/function-tool';
 import type { IRetrievalRankedSymbol, IRetrievalToolOptions } from './types.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
-// CORE-030: defining a tool and telling the permission system what it does arrive together.
+// Defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
 
 /** Default token budget when the caller does not specify one. */

@@ -1,5 +1,5 @@
 /**
- * Issue #3082 — OS-level confinement of shell commands. The policy builders are checked on every
+ * OS-level confinement of shell commands. The policy builders are checked on every
  * platform; the real bubblewrap cases run where bubblewrap can start a sandbox, and exercise the
  * shell tool end to end so the confinement is what a model's command actually gets.
  */
@@ -191,7 +191,7 @@ describe('OsSandboxClient', () => {
     expect(client.autoApproves('npm test')).toBe(false);
   });
 
-  it('always hides the host paths it was given, whatever the settings deny (issue #3429)', () => {
+  it('always hides the host paths it was given, whatever the settings deny', () => {
     const client = testSandbox({
       root: '/w',
       availability: available,
@@ -205,7 +205,7 @@ describe('OsSandboxClient', () => {
     expect(client.status().settings.denyRead).toEqual([]);
   });
 
-  it('tells its watchers each change until they stop watching (issue #3256)', () => {
+  it('tells its watchers each change until they stop watching', () => {
     const client = testSandbox({ root: '/w', availability: available });
     const seen: boolean[] = [];
     const unwatch = client.watchSettings((settings) => seen.push(settings.autoAllowBashIfSandboxed));

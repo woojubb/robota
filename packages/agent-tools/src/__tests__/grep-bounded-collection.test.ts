@@ -22,7 +22,7 @@ const { collectFiles } = await import('../builtins/grep-search.js');
 const { createGrepTool } = await import('../builtins/grep-tool.js');
 
 /**
- * Issue #2875 (CPU/IO budget): `collectFiles` used to walk and `stat` every file under the search
+ * CPU/IO budget: `collectFiles` used to walk and `stat` every file under the search
  * root before `headLimit` ever got a chance to truncate anything — memory and stat fan-out scaled
  * with the whole tree, not with any limit. These tests drive the walk with a small `maxFiles`
  * override (the real default, `DEFAULT_MAX_COLLECTED_FILES`, is too large to exercise cheaply) and
