@@ -42,7 +42,13 @@ import type { IArtifactSealer } from '@robota-sdk/agent-core';
 const CANARY = 'CANARY-a91e-what-the-subagent-read';
 const SESSION = 'task_7';
 const NO_PAUSE = async (): Promise<void> => {};
-const posixOnly = process.platform === 'win32';
+const onWindows = process.platform === 'win32';
+/**
+ * Whether the platform lets a file be replaced while a handle on it is open. Windows does not: a
+ * writer holding the log blocks the rename, and what is appended by path is caught up before it
+ * (`append-file-rewrite.ts`), so the cases about an append after the rename have a Windows twin.
+ */
+const REPLACES_OPEN_FILES = !onWindows;
 const roots: string[] = [];
 
 afterEach(() => {
@@ -162,7 +168,7 @@ describe('migrateSessionLogDirectory', () => {
     const sealedLines = nonEmptyLines(logPath(logs));
     expect(sealedLines).toHaveLength(lines.length);
     expect(sealedLines.every(isSealedArtifactLine)).toBe(true);
-    if (!posixOnly) expect(statSync(logPath(logs)).mode & 0o777).toBe(0o600);
+    if (!onWindows) expect(statSync(logPath(logs)).mode & 0o777).toBe(0o600);
   });
 
   it('keeps a nested reference resolving through the payload source on its own', async () => {
@@ -245,48 +251,81 @@ describe('migrateSessionLogDirectory', () => {
     expect(contents(logs, sealer)).toEqual(before);
   });
 
-  it('catches up a line a writer appends to the log while it is replaced', async () => {
-    const logs = logDirectory();
-    seedPlainLog(logs);
-    const sealer = createTestArtifactSealer();
-    const writer = openSync(logPath(logs), 'a');
-    const late = JSON.stringify({ note: `${CANARY} appended meanwhile` });
-    let pauses = 0;
-    try {
+  it.runIf(REPLACES_OPEN_FILES)(
+    'catches up a line a writer appends to the log while it is replaced',
+    async () => {
+      const logs = logDirectory();
+      seedPlainLog(logs);
+      const sealer = createTestArtifactSealer();
+      const writer = openSync(logPath(logs), 'a');
+      const late = JSON.stringify({ note: `${CANARY} appended meanwhile` });
+      let pauses = 0;
+      try {
+        const result = await migrateSessionLogDirectory(logs, {
+          sealer,
+          apply: true,
+          pause: async () => {
+            pauses += 1;
+            if (pauses === 1) writeSync(writer, `${late}\n`);
+          },
+        });
+        expect(result.changed).toEqual([]);
+      } finally {
+        closeSync(writer);
+      }
+      expect(withCanary(logs)).toEqual([]);
+      const opened = new NodeSessionLogSource(logPath(logs), { sealing: { sealer } }).readText();
+      expect(opened).toContain(late);
+    },
+  );
+
+  it.runIf(onWindows)(
+    'catches up a line appended to the log by path while it waits for the log to be quiet',
+    async () => {
+      const logs = logDirectory();
+      seedPlainLog(logs);
+      const sealer = createTestArtifactSealer();
+      const late = JSON.stringify({ note: `${CANARY} appended meanwhile` });
+      let appended = false;
+
       const result = await migrateSessionLogDirectory(logs, {
         sealer,
         apply: true,
         pause: async () => {
-          pauses += 1;
-          if (pauses === 1) writeSync(writer, `${late}\n`);
+          if (appended) return;
+          appended = true;
+          appendFileSync(logPath(logs), `${late}\n`);
         },
       });
+
       expect(result.changed).toEqual([]);
-    } finally {
-      closeSync(writer);
-    }
-    expect(withCanary(logs)).toEqual([]);
-    const opened = new NodeSessionLogSource(logPath(logs), { sealing: { sealer } }).readText();
-    expect(opened).toContain(late);
-  });
+      expect(withCanary(logs)).toEqual([]);
+      expect(new NodeSessionLogSource(logPath(logs), { sealing: { sealer } }).readText()).toContain(
+        late,
+      );
+    },
+  );
 
-  it('reports, for a rerun, a plain line that reaches the replaced log by path', async () => {
-    const logs = logDirectory();
-    seedPlainLog(logs);
-    let appended = false;
+  it.runIf(REPLACES_OPEN_FILES)(
+    'reports, for a rerun, a plain line that reaches the replaced log by path',
+    async () => {
+      const logs = logDirectory();
+      seedPlainLog(logs);
+      let appended = false;
 
-    const result = await migrateSessionLogDirectory(logs, {
-      sealer: createTestArtifactSealer(),
-      apply: true,
-      pause: async () => {
-        if (appended) return;
-        appended = true;
-        appendFileSync(logPath(logs), `{"note":"${CANARY} from an older build"}\n`);
-      },
-    });
+      const result = await migrateSessionLogDirectory(logs, {
+        sealer: createTestArtifactSealer(),
+        apply: true,
+        pause: async () => {
+          if (appended) return;
+          appended = true;
+          appendFileSync(logPath(logs), `{"note":"${CANARY} from an older build"}\n`);
+        },
+      });
 
-    expect(result.changed).toEqual([logPath(logs)]);
-  });
+      expect(result.changed).toEqual([logPath(logs)]);
+    },
+  );
 
   it('leaves a sidecar that changed after it was read, for the next run', async () => {
     const logs = logDirectory();
@@ -310,7 +349,7 @@ describe('migrateSessionLogDirectory', () => {
     expect(readFileSync(path, 'utf8')).toBe('"rewritten meanwhile"');
   });
 
-  it.skipIf(posixOnly)('refuses a sidecar with another name, and leaves it plain', async () => {
+  it('refuses a sidecar with another name, and leaves it plain', async () => {
     const logs = logDirectory();
     seedPlainLog(logs);
     const path = readdirSync(payloads(logs))
@@ -366,6 +405,8 @@ describe('migrateSessionLogDirectory', () => {
         commits += 1;
         if (commits !== sidecars + 1) return;
         writeFileSync(`${logPath(logs)}.theirs`, readFileSync(logPath(logs)));
+        // Removed first: Windows will not rename over the log this migration still has open.
+        rmSync(logPath(logs));
         renameSync(`${logPath(logs)}.theirs`, logPath(logs));
       },
     });
@@ -395,40 +436,75 @@ describe('migrateSessionLogDirectory', () => {
     expect(existsSync(logPath(logs))).toBe(false);
   });
 
-  it('reports a log whose catch-up failed, with how much of the replaced file was left unread', async () => {
+  it.runIf(onWindows)('abandons the log, leaving it plain, when the catch-up fails', async () => {
     const logs = logDirectory();
     seedPlainLog(logs);
     const inner = createTestArtifactSealer();
     let failing = false;
-    // A sealer that stops working once the log has been replaced: what the catch-up seals fails.
     const sealer: IArtifactSealer = Object.assign(Object.create(inner) as IArtifactSealer, {
       sealLine: (line: string, context: Parameters<IArtifactSealer['sealLine']>[1]) => {
-        if (failing) throw Object.assign(new Error('the sealer failed'), { name: 'SealerFailure' });
+        if (failing) throw new Error('the sealer failed');
         return inner.sealLine(line, context);
       },
     });
-    const writer = openSync(logPath(logs), 'a');
-    const late = `{"note":"${CANARY} appended late"}\n`;
+    const before = readFileSync(logPath(logs), 'utf8');
     let pauses = 0;
-    try {
-      const result = await migrateSessionLogDirectory(logs, {
+
+    await expect(
+      migrateSessionLogDirectory(logs, {
         sealer,
         apply: true,
         pause: async () => {
           pauses += 1;
           if (pauses !== 1) return;
-          writeSync(writer, late);
+          appendFileSync(logPath(logs), `{"note":"${CANARY} appended late"}\n`);
           failing = true;
         },
-      });
+      }),
+    ).rejects.toThrow('the sealer failed');
 
-      expect(result.catchUpFailed).toEqual([
-        { path: logPath(logs), unreadBytes: Buffer.byteLength(late), reason: 'SealerFailure' },
-      ]);
-    } finally {
-      closeSync(writer);
-    }
+    expect(readFileSync(logPath(logs), 'utf8').startsWith(before)).toBe(true);
+    expect(readdirSync(logs).filter((name) => name.endsWith('.tmp'))).toEqual([]);
   });
+
+  it.runIf(REPLACES_OPEN_FILES)(
+    'reports a log whose catch-up failed, with how much of the replaced file was left unread',
+    async () => {
+      const logs = logDirectory();
+      seedPlainLog(logs);
+      const inner = createTestArtifactSealer();
+      let failing = false;
+      // A sealer that stops working once the log has been replaced: what the catch-up seals fails.
+      const sealer: IArtifactSealer = Object.assign(Object.create(inner) as IArtifactSealer, {
+        sealLine: (line: string, context: Parameters<IArtifactSealer['sealLine']>[1]) => {
+          if (failing)
+            throw Object.assign(new Error('the sealer failed'), { name: 'SealerFailure' });
+          return inner.sealLine(line, context);
+        },
+      });
+      const writer = openSync(logPath(logs), 'a');
+      const late = `{"note":"${CANARY} appended late"}\n`;
+      let pauses = 0;
+      try {
+        const result = await migrateSessionLogDirectory(logs, {
+          sealer,
+          apply: true,
+          pause: async () => {
+            pauses += 1;
+            if (pauses !== 1) return;
+            writeSync(writer, late);
+            failing = true;
+          },
+        });
+
+        expect(result.catchUpFailed).toEqual([
+          { path: logPath(logs), unreadBytes: Buffer.byteLength(late), reason: 'SealerFailure' },
+        ]);
+      } finally {
+        closeSync(writer);
+      }
+    },
+  );
 
   it('leaves alone, and reports, a sealed sidecar that does not open for its session', async () => {
     const logs = logDirectory();
@@ -448,32 +524,29 @@ describe('migrateSessionLogDirectory', () => {
     expect(readFileSync(join(payloads(logs), 'theirs.sealed'))).toEqual(Buffer.from(theirs));
   });
 
-  it.skipIf(posixOnly)(
-    'never follows a log, a sidecar directory or a sidecar that is a link',
-    async () => {
-      const logs = logDirectory();
-      mkdirSync(logs, { recursive: true });
-      const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'session-log-elsewhere-')));
-      roots.push(elsewhere);
-      writeFileSync(join(elsewhere, 'log.jsonl'), `{"note":"${CANARY}"}\n`);
-      mkdirSync(join(elsewhere, 'payloads'));
-      writeFileSync(join(elsewhere, 'payloads', 'p.json'), `"${CANARY}"`);
-      symlinkSync(join(elsewhere, 'log.jsonl'), logPath(logs));
-      symlinkSync(join(elsewhere, 'payloads'), payloads(logs));
-      mkdirSync(join(logs, 'other.payloads'));
-      symlinkSync(join(elsewhere, 'payloads', 'p.json'), join(logs, 'other.payloads', 'p.json'));
+  it('never follows a log, a sidecar directory or a sidecar that is a link', async () => {
+    const logs = logDirectory();
+    mkdirSync(logs, { recursive: true });
+    const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'session-log-elsewhere-')));
+    roots.push(elsewhere);
+    writeFileSync(join(elsewhere, 'log.jsonl'), `{"note":"${CANARY}"}\n`);
+    mkdirSync(join(elsewhere, 'payloads'));
+    writeFileSync(join(elsewhere, 'payloads', 'p.json'), `"${CANARY}"`);
+    symlinkSync(join(elsewhere, 'log.jsonl'), logPath(logs));
+    symlinkSync(join(elsewhere, 'payloads'), payloads(logs));
+    mkdirSync(join(logs, 'other.payloads'));
+    symlinkSync(join(elsewhere, 'payloads', 'p.json'), join(logs, 'other.payloads', 'p.json'));
 
-      const result = await migrateSessionLogDirectory(logs, {
-        sealer: createTestArtifactSealer(),
-        apply: true,
-      });
+    const result = await migrateSessionLogDirectory(logs, {
+      sealer: createTestArtifactSealer(),
+      apply: true,
+    });
 
-      expect([...result.refused].sort()).toEqual(
-        [logPath(logs), payloads(logs), join(logs, 'other.payloads', 'p.json')].sort(),
-      );
-      expect(withCanary(elsewhere)).toHaveLength(2);
-    },
-  );
+    expect([...result.refused].sort()).toEqual(
+      [logPath(logs), payloads(logs), join(logs, 'other.payloads', 'p.json')].sort(),
+    );
+    expect(withCanary(elsewhere)).toHaveLength(2);
+  });
 
   it('finds nothing in a directory that does not exist', async () => {
     const result = await migrateSessionLogDirectory(join(logDirectory(), 'missing'), {

@@ -17,6 +17,14 @@
  * 4. The new file is read once more. A plain line there is plaintext an older build appended by path
  *    after the rename; it is counted for the caller to report, never hidden.
  *
+ * Windows will not replace a file while any handle on it is open, this process's own included, so
+ * there the order changes: the catch-up of step 3 runs before the rename, then the old descriptor is
+ * released and the rename is made, retried a few times while another handle still holds the file. A
+ * writer that holds the file open therefore blocks the rename instead of appending after it, and a
+ * catch-up that fails abandons the rewrite with nothing replaced. What cannot be caught there is an
+ * append that lands between the last read of the old file and the rename, an instant no platform
+ * primitive closes; step 4 still reports plaintext that reaches the new file afterwards.
+ *
  * Just before the rename the path must still name the file that was opened: another rewrite that
  * renamed its own file in meanwhile holds what was appended since, and renaming over it would lose
  * that, so the rewrite is abandoned instead (a rewrite that renames in the instant between that look
@@ -55,6 +63,10 @@ const WRITE_BATCH_BYTES = 1024 * 1024;
 const QUIET_PASSES = 2;
 const DEFAULT_PAUSE_MS = 20;
 const TEMPORARY_SUFFIX_BYTES = 6;
+/** Renames tried where an open handle blocks the replacement (Windows) before the failure is raised. */
+const BUSY_RENAME_ATTEMPTS = 10;
+/** What a rename over a file another handle holds open fails with on Windows. */
+const BUSY_RENAME_CODES: ReadonlySet<string> = new Set(['EPERM', 'EBUSY', 'EACCES']);
 
 /** Why a file was left as it is. */
 export type TAppendFileRefusal =
@@ -234,6 +246,8 @@ export interface IRewriteAppendFileOptions {
   readonly beforeCommit?: () => void;
   /** Waits between catch-up passes over the replaced file; defaults to a short timer. */
   readonly pause?: () => Promise<void>;
+  /** Test seam: the platform whose rename rules apply; defaults to this one. */
+  readonly platform?: string;
 }
 
 /** A catch-up that failed after the rename: what of the replaced file it never carried over. */
@@ -320,6 +334,58 @@ function waitBriefly(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, DEFAULT_PAUSE_MS));
 }
 
+/** The old file's descriptor, held until it is released for a rename that cannot replace an open file. */
+interface IHeldFile {
+  descriptor: number | undefined;
+}
+
+/**
+ * The replacement where the platform will not replace an open file (Windows), as the module
+ * documentation describes: catch up, release the old descriptor, rename. A file another handle still
+ * holds open fails the rename; the old file is then opened again, checked to be the same one, caught
+ * up with what was appended meanwhile, and the rename retried. Returns whether the old file ended in
+ * an unfinished sealed append that was dropped, or what stood in the way of the replacement.
+ */
+async function replaceAfterCatchUp(
+  path: string,
+  temporary: string,
+  held: IHeldFile,
+  progress: { read: number },
+  rewriter: IAppendFileRewriter,
+  out: BatchedWriter,
+  newDescriptor: number,
+  pause: () => Promise<void>,
+): Promise<
+  { readonly droppedTail: boolean } | Exclude<TAppendFileRewrite, { status: 'rewritten' }>
+> {
+  const identity = fstatSync(held.descriptor as number, { bigint: true });
+  let droppedTail = false;
+  for (let attempt = 1; ; attempt += 1) {
+    const dropped = await catchUp(held.descriptor as number, progress, rewriter, out, pause);
+    droppedTail = dropped || droppedTail;
+    fsyncSync(newDescriptor);
+    closeSync(held.descriptor as number);
+    held.descriptor = undefined;
+    try {
+      renameSync(temporary, path);
+      return { droppedTail };
+    } catch (error) {
+      const code = errorCode(error);
+      if (code === undefined || !BUSY_RENAME_CODES.has(code) || attempt >= BUSY_RENAME_ATTEMPTS) {
+        throw error;
+      }
+    }
+    await pause();
+    const reopened = openAppendFile(path);
+    if (reopened.status !== 'open') return reopened;
+    if (!isSameFileIdentity(fstatSync(reopened.descriptor, { bigint: true }), identity)) {
+      closeSync(reopened.descriptor);
+      return { status: 'replaced' };
+    }
+    held.descriptor = reopened.descriptor;
+  }
+}
+
 /** Rewrites the file at `path` through `rewriter`, as the module documentation describes. */
 export async function rewriteAppendFile(
   path: string,
@@ -329,11 +395,13 @@ export async function rewriteAppendFile(
   const opened = openAppendFile(path);
   if (opened.status !== 'open') return opened;
   const oldDescriptor = opened.descriptor;
+  const held: IHeldFile = { descriptor: oldDescriptor };
   const directory = dirname(path);
   const temporary = join(
     directory,
     `.${basename(path)}.${process.pid}.${randomBytes(TEMPORARY_SUFFIX_BYTES).toString('hex')}.tmp`,
   );
+  const pause = options.pause ?? waitBriefly;
   let newDescriptor: number | undefined;
   let committed = false;
   try {
@@ -359,27 +427,37 @@ export async function rewriteAppendFile(
     options.beforeCommit?.();
     const named = namedNow(path, oldDescriptor);
     if (named !== 'same') return { status: named };
-    renameSync(temporary, path);
-    committed = true;
-    flushDirectory(directory);
     const progress = { read: snapshotEnd };
     let droppedTail = false;
     let catchUpFailed: IAppendFileCatchUpFailure | undefined;
-    try {
-      droppedTail = await catchUp(
-        oldDescriptor,
+    if ((options.platform ?? process.platform) === 'win32') {
+      const replacement = await replaceAfterCatchUp(
+        path,
+        temporary,
+        held,
         progress,
         rewriter,
         out,
-        options.pause ?? waitBriefly,
+        newDescriptor,
+        pause,
       );
-    } catch (error) {
-      catchUpFailed = {
-        unreadBytes: Math.max(0, fstatSync(oldDescriptor).size - progress.read),
-        reason: error instanceof Error ? error.name : 'unknown',
-      };
+      if ('status' in replacement) return replacement;
+      committed = true;
+      droppedTail = replacement.droppedTail;
+    } else {
+      renameSync(temporary, path);
+      committed = true;
+      flushDirectory(directory);
+      try {
+        droppedTail = await catchUp(oldDescriptor, progress, rewriter, out, pause);
+      } catch (error) {
+        catchUpFailed = {
+          unreadBytes: Math.max(0, fstatSync(oldDescriptor).size - progress.read),
+          reason: error instanceof Error ? error.name : 'unknown',
+        };
+      }
+      fsyncSync(newDescriptor);
     }
-    fsyncSync(newDescriptor);
     return {
       status: 'rewritten',
       droppedTail,
@@ -388,7 +466,7 @@ export async function rewriteAppendFile(
     };
   } finally {
     if (newDescriptor !== undefined) closeSync(newDescriptor);
-    closeSync(oldDescriptor);
+    if (held.descriptor !== undefined) closeSync(held.descriptor);
     if (!committed) removeQuietly(temporary);
   }
 }
