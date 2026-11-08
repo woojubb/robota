@@ -1,5 +1,5 @@
 /**
- * Compacting the prompt-history file (#3679, secure conversation): every entry, plain or sealed,
+ * Compacting the prompt-history file (secure conversation): every entry, plain or sealed,
  * rewritten one per line under the one sealer it is given, swapped in by rename while terminals may
  * still be appending by path. The snapshot ends at the last newline, what is appended meanwhile is
  * caught up from the replaced file, what does not open is carried over as it is, and a plain line

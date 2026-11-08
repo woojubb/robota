@@ -1,6 +1,6 @@
 /**
- * #3679 — a record an older version wrote at 0644 is repaired to owner-only the next time the store
- * reads it. SEC-020's owner-only write already tightens a record it REWRITES; a session that is only
+ * A record an older version wrote at 0644 is repaired to owner-only the next time the store
+ * reads it. The owner-only write already tightens a record it REWRITES; a session that is only
  * resumed or listed was never rewritten, so its world-readable mode survived. `load` (which `list`
  * routes through) now tightens on read, so browsing or resuming a legacy session repairs it.
  */
@@ -20,14 +20,14 @@ const record = {
   messages: [],
 };
 
-describe.skipIf(process.platform === 'win32')('SessionStore legacy mode repair (#3679)', () => {
+describe.skipIf(process.platform === 'win32')('SessionStore legacy mode repair', () => {
   it('load() tightens a world-readable legacy record to owner-only', () => {
     const baseDir = mkdtempSync(join(tmpdir(), 'agent-store-legacy-'));
     try {
       const store = new NodeSessionStore(baseDir, { sealing: 'plain' });
       store.save(record);
       const path = join(baseDir, 'legacy.json');
-      chmodSync(path, 0o644); // simulate a record written by a pre-SEC-020 build
+      chmodSync(path, 0o644); // simulate a record written by an older build
       expect(statSync(path).mode & 0o777).toBe(0o644);
 
       expect(store.load('legacy').status).toBe('valid');

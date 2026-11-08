@@ -1,6 +1,6 @@
 /**
- * Rewriting a file other processes append to by path, without losing what they append meanwhile
- * (#3679): the prompt history's compaction and the sealing of a plain session log in place both go
+ * Rewriting a file other processes append to by path, without losing what they append meanwhile:
+ * the prompt history's compaction and the sealing of a plain session log in place both go
  * through here, so the two agree on what a snapshot is and how a late append is caught up.
  *
  * Such a file has no lock, so it cannot be rewritten in place. The new file is written beside it and
@@ -237,7 +237,7 @@ export interface IAppendFileRewriter {
 }
 
 export interface IRewriteAppendFileOptions {
-  /** An ancestor of the file the host also owns, tightened along with the directory (SEC-020). */
+  /** An ancestor of the file the host also owns, tightened along with the directory. */
   readonly ownedRoot?: string;
   /**
    * Runs once the snapshot is rewritten and flushed, just before the new file replaces the old.

@@ -1,5 +1,5 @@
 /**
- * #3679 — repairing a legacy record's mode is best-effort on the read path. A record owned by
+ * Repairing a legacy record's mode is best-effort on the read path. A record owned by
  * another account (EPERM) or on a chmod-ignoring mount makes `chmodSync` throw; because `list`
  * routes through `load`, a throw there would crash the whole resume picker. `load` must swallow a
  * failed repair and still return the record, upholding `outcomeForListedId`'s invariant.
@@ -35,7 +35,7 @@ const record = {
   messages: [],
 };
 
-describe.skipIf(process.platform === 'win32')('SessionStore legacy repair is non-fatal (#3679)', () => {
+describe.skipIf(process.platform === 'win32')('SessionStore legacy repair is non-fatal', () => {
   it('load() and list() still return the record when the mode repair throws', () => {
     const baseDir = mkdtempSync(join(tmpdir(), 'agent-store-foreign-'));
     try {

@@ -1,5 +1,5 @@
 /**
- * Sealed session records (#3679, secure conversation) — what NodeSessionStore writes and concludes
+ * Sealed session records (secure conversation) — what NodeSessionStore writes and concludes
  * when it is given an artifact sealer.
  *
  * Every case reads the BYTES on disk or drives a real load path, because the claim is about what is
@@ -91,7 +91,7 @@ function record(id: string, text = CANARY, updatedAt = '2026-08-01T01:00:00.000Z
 }
 
 /**
- * A valid outcome as a store that seals reports it (#3679 step 3e): it says whose the record is and
+ * A valid outcome as a store that seals reports it: it says whose the record is and
  * which stored bytes it came from. Saves here state no provenance, so the records are unverified.
  */
 function sealedValid(value: IInteractiveSessionRecord, authorship = 'unverified') {

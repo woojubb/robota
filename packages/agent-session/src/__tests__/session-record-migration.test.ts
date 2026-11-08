@@ -1,5 +1,5 @@
 /**
- * Sealing a host-filesystem session store's plain records in place (#3679, secure conversation): the
+ * Sealing a host-filesystem session store's plain records in place (secure conversation): the
  * raw bytes of every plain record sealed under its stem, so the store reports the same status after
  * opening them; what is already sealed, or sealed so it does not open here, left as it is; a replace
  * made only while the file still holds what was read; and planning writes nothing.

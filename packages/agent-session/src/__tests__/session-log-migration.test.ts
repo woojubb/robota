@@ -1,5 +1,5 @@
 /**
- * Sealing a host-filesystem directory of plain session logs in place (#3679, secure conversation):
+ * Sealing a host-filesystem directory of plain session logs in place (secure conversation):
  * one sealed record per non-empty plain line, sidecars sealed under the names they had so every
  * reference — nested ones too — still resolves, sidecars before their log, a log being appended to
  * caught up, and whatever does not open or is not a regular file left alone.
