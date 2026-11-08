@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-provider",
-  "version": "3.2.3",
+  "version": "3.3.0",
   "description": "AI provider implementations for the Robota SDK: Anthropic, OpenAI, Gemini, DeepSeek, Qwen, Gemma, ByteDance and the OpenAI-compatible protocol base, one subpath per vendor",
   "type": "module",
   "sideEffects": false,

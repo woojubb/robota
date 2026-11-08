@@ -1,5 +1,29 @@
 # @robota-sdk/agent-framework
 
+## 3.2.4
+### Patch Changes
+
+- 86fc3d4: On Windows, a working directory spelled with an 8.3 short name (`RUNNER~1`) is no longer refused as outside its trusted root. `createNodeFrameworkHost().canonicalizePath`, the Node file system's `realpathSync` and the workspace identity now resolve a directory the same way, and a session in a trusted project works in that spelling of its directory, so a directory reached by its short name (or, on any platform, through a symlink) reads `@path` references and project context from the right place instead of failing on the first prompt.
+- 327999e: The contract packages are now one package, `@robota-sdk/agent-interface`, with one subpath per family: `session` (and `session/testing`), `session-mobility`, `command`, `execution`, `analytics`, `transport` (and `transport/testing`) and `tui`. Import the subpath of the family you use (`@robota-sdk/agent-interface/session`); there is no root export. `@robota-sdk/agent-core` is now an optional peer dependency: `analytics` and `tui` need nothing, and a project that imports another family installs `agent-core` itself (the SDK packages that import those families declare it). The exported names and signatures are unchanged. `@robota-sdk/agent-interface-session`, `-session-mobility`, `-command`, `-execution`, `-analytics`, `-transport` and `-tui` no longer receive releases. The SDK packages that import a contract depend on `@robota-sdk/agent-interface`.
+- 913d334: The host primitives are now one package, `@robota-sdk/agent-os`, with one subpath each: `file-authority` (and `file-authority/testing`), `node-lock` and `process`. Import the subpath you use (`@robota-sdk/agent-os/process`); there is no root export, and a bundle that imports `process` contains no native binding. Koffi is now an optional peer dependency pinned to `3.3.1`: a project that imports `file-authority` or `node-lock` installs it itself, and a project that imports only `process` installs nothing. The exported names and signatures are unchanged. `@robota-sdk/agent-file-authority`, `@robota-sdk/agent-node-lock` and `@robota-sdk/agent-process` no longer receive releases. The framework, session, tools, executor and subagent-runner packages depend on `@robota-sdk/agent-os`; the packages that used the file authority or the lock declare `koffi` themselves, so their installs are unchanged.
+- 589df44: The provider packages are now one package, `@robota-sdk/agent-provider`, with one subpath per vendor: `anthropic`, `openai`, `gemini`, `google`, `bytedance`, `deepseek`, `qwen`, `gemma`, `openai-compatible` and `builtin`. Import the subpath of the vendor you use (`@robota-sdk/agent-provider/anthropic`); the vendor SDKs (`@anthropic-ai/sdk`, `openai`, `@google/genai`) are optional peers, so installing the package adds only the SDK you install yourself, and a bundle that imports one subpath contains no other vendor. The abstract classes, interfaces and helpers you implement to write your own provider are unchanged. `@robota-sdk/agent-provider-anthropic`, `-openai`, `-openai-compatible`, `-gemini`, `-bytedance` and `@robota-sdk/agent-builtin-providers` no longer receive releases. The shipped type comment of the framework package names the new import path.
+- 87449a3: The default tool set is now the Node-only `defaults` subpath of `@robota-sdk/agent-tools`: import `createDefaultTools` from `@robota-sdk/agent-tools/defaults`. It maps `browser: null` like `./node`, and the root and `./node` entries are unchanged. The exported names and signatures are unchanged, and a consumer's install does not grow: the subpath adds no dependency to the package. `@robota-sdk/agent-tool-defaults` no longer receives releases.
+- 16795cb: The transport carriers are now subpaths of `@robota-sdk/agent-transport`: `ws`, `http`, `mcp`, `acp`, `webrtc` and `link`, next to the existing root, `client` and `node`. Import the subpath of the carrier you use (`@robota-sdk/agent-transport/ws`); a bundle that imports one carrier contains no other carrier, and the root and `client` entries still run in the browser. Every carrier except `http` is Node only and maps `browser: null`. The carrier libraries (`ws`, `hono`, `@modelcontextprotocol/server` and `@modelcontextprotocol/node`, `@agentclientprotocol/sdk` and `zod`, `bittorrent-dht`, `multicast-dns`, `nostr-tools`, `node-datachannel`) and the `@robota-sdk/agent-remote-pairing` and `@robota-sdk/agent-keyring` packages that `webrtc` and `link` build on are optional peer dependencies: install the ones for the carriers you import. The exported names and signatures are unchanged. `@robota-sdk/agent-transport-ws`, `-http`, `-mcp`, `-acp`, `-webrtc` and `-link` no longer receive releases.
+- Updated dependencies [1f900da]
+- Updated dependencies [327999e]
+- Updated dependencies [913d334]
+- Updated dependencies [87449a3]
+- Updated dependencies [bf901d7]
+- Updated dependencies [44f28ee]
+- Updated dependencies [f377a57]
+- Updated dependencies [6953fad]
+  - @robota-sdk/agent-core@3.2.3
+  - @robota-sdk/agent-interface@3.3.0
+  - @robota-sdk/agent-executor@3.2.3
+  - @robota-sdk/agent-session@3.2.4
+  - @robota-sdk/agent-os@3.3.0
+  - @robota-sdk/agent-tools@3.3.0
+
 ## 3.2.3
 ### Patch Changes
 
