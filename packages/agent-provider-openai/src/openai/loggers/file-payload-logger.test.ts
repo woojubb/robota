@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'fs';
+import * as path from 'path';
 import { FilePayloadLogger } from './file-payload-logger';
 import type { ILogger } from '@robota-sdk/agent-core';
 import type { IOpenAILogData } from '../types/api-types';
@@ -122,7 +123,9 @@ describe('FilePayloadLogger', () => {
       await logger.logPayload(payload, 'chat');
 
       expect(fs.promises.writeFile).toHaveBeenCalledWith(
-        expect.stringContaining(`${LOG_DIR}/openai-chat-`),
+        // The logger joins with the platform separator (backslashes on Windows), so the
+        // expectation does too.
+        expect.stringContaining(path.join(LOG_DIR, 'openai-chat-')),
         expect.any(String),
         // Payload logs hold prompt content, so they must be owner-only.
         { encoding: 'utf8', mode: 0o600 },
