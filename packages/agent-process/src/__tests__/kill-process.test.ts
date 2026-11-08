@@ -1,9 +1,9 @@
 /**
- * CORE-023 — killProcessTree escalation tests against real child processes.
+ * killProcessTree escalation tests against real child processes.
  *
  * These spawn actual processes (some SIGTERM-ignoring via `trap '' TERM`) and assert the
  * SIGTERM → grace → SIGKILL escalation settles on the real exit event, and that a detached
- * child's grandchild is reaped by the process-group kill (the CORE-018 grandchild-survival
+ * child's grandchild is reaped by the process-group kill (the grandchild-survival
  * regression this helper exists to fix).
  */
 import { spawn } from 'node:child_process';
@@ -51,7 +51,7 @@ afterEach(() => {
   spawned.length = 0;
 });
 
-describe('killProcessTree (CORE-023)', () => {
+describe('killProcessTree', () => {
   it('exposes the shared grace default', () => {
     expect(DEFAULT_KILL_GRACE_MS).toBe(2000);
   });
@@ -97,41 +97,36 @@ describe('killProcessTree (CORE-023)', () => {
     expect(elapsed).toBeGreaterThanOrEqual(200);
   });
 
-  it.runIf(isPosix)(
-    'reaps a grandchild via the process-group kill (CORE-018 regression)',
-    async () => {
-      // The shell (direct child) backgrounds `sleep` (grandchild) and prints its PID. A non-group
-      // SIGTERM would kill only the shell and orphan the sleep; a process-group kill reaps both.
-      // Asserting on the exact grandchild PID (not a pgrep pattern) is collision-free under load.
-      const child = track(
-        spawn('sh', ['-c', `sleep 120 & echo ready $!; wait`], { detached: true }),
-      );
+  it.runIf(isPosix)('reaps a grandchild via the process-group kill', async () => {
+    // The shell (direct child) backgrounds `sleep` (grandchild) and prints its PID. A non-group
+    // SIGTERM would kill only the shell and orphan the sleep; a process-group kill reaps both.
+    // Asserting on the exact grandchild PID (not a pgrep pattern) is collision-free under load.
+    const child = track(spawn('sh', ['-c', `sleep 120 & echo ready $!; wait`], { detached: true }));
 
-      let grandchildPid = 0;
-      child.stdout?.on('data', (chunk: Buffer) => {
-        const match = /ready (\d+)/.exec(chunk.toString('utf8'));
-        if (match) grandchildPid = Number(match[1]);
-      });
-      for (let i = 0; i < 20 && grandchildPid === 0; i++) {
-        await new Promise((r) => setTimeout(r, 100));
+    let grandchildPid = 0;
+    child.stdout?.on('data', (chunk: Buffer) => {
+      const match = /ready (\d+)/.exec(chunk.toString('utf8'));
+      if (match) grandchildPid = Number(match[1]);
+    });
+    for (let i = 0; i < 20 && grandchildPid === 0; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(grandchildPid).toBeGreaterThan(0);
+
+    await killProcessTree(child, { graceMs: 600, processGroup: true });
+    await new Promise((r) => setTimeout(r, 200));
+
+    // The grandchild PID must be dead — kill -0 throws ESRCH for a reaped process.
+    const grandchildAlive = ((): boolean => {
+      try {
+        process.kill(grandchildPid, 0);
+        return true;
+      } catch {
+        return false;
       }
-      expect(grandchildPid).toBeGreaterThan(0);
-
-      await killProcessTree(child, { graceMs: 600, processGroup: true });
-      await new Promise((r) => setTimeout(r, 200));
-
-      // The grandchild PID must be dead — kill -0 throws ESRCH for a reaped process.
-      const grandchildAlive = ((): boolean => {
-        try {
-          process.kill(grandchildPid, 0);
-          return true;
-        } catch {
-          return false;
-        }
-      })();
-      expect(grandchildAlive).toBe(false);
-    },
-  );
+    })();
+    expect(grandchildAlive).toBe(false);
+  });
 
   it('runs preKill before signalling and tolerates a throwing preKill', async () => {
     const order: string[] = [];
