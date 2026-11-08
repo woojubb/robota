@@ -29,8 +29,8 @@ const DALTONIZED = [DARK_DALTONIZED_THEME, LIGHT_DALTONIZED_THEME];
  * The pairs whose DIFFERENCE IN COLOUR carries meaning — "this went well" against "this did not",
  * in the three places the product draws that distinction. Other status colours (running, waiting,
  * cancelled, denied) are told apart by their glyph and their word, which is the rule this package
- * has kept; requiring them to differ in colour too would be guarding a claim the
- * product does not make.
+ * has kept; requiring them to differ in colour too would be guarding a claim the product does not
+ * make.
  */
 function meaningfulPairs(theme: ITuiTheme): [string, string, string][] {
   return [

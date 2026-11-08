@@ -3,8 +3,7 @@
  *
  * Every leaf is a colour in the grammar, the wave ramp is four stops, status covers the seven
  * kinds, over four themes, plus the pairing `status-glyph` used to hold as a constant — a symbol
- * for every kind a
- * theme colours, so a status is never colour alone.
+ * for every kind a theme colours, so a status is never colour alone.
  */
 import { describe, expect, it } from 'vitest';
 

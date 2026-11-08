@@ -6,9 +6,8 @@
  * byte-identical to the previous behavior (invariant I4: guard fail → today's visuals, drawn
  * inverse cursor included). The expected strings below are literal captures of the component's
  * output BEFORE the IME cursor positioning was added (chalk.level forced to 3 so the inverse-cursor
- * bytes are pinned,
- * not stripped). If this test breaks, the `<Box ref>` wrapper or the drawn-cursor gating changed
- * the fallback rendering — that is a regression, not a snapshot to refresh.
+ * bytes are pinned, not stripped). If this test breaks, the `<Box ref>` wrapper or the drawn-cursor
+ * gating changed the fallback rendering — that is a regression, not a snapshot to refresh.
  */
 
 import chalk from 'chalk';

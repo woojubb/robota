@@ -44,7 +44,7 @@ async function waitUntil(predicate: () => boolean, deadlineMs = READY_DEADLINE_M
 
 /** Mirrors the real session-command `/rename` contract: NO mutation in the command, host action only. */
 const renameModule: ICommandModule = {
-  name: 'stage-c-rename-proof',
+  name: 'rename-proof',
   systemCommands: [
     {
       name: 'rename',

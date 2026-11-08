@@ -1,6 +1,5 @@
 /**
- * TUI error-state reducer: last-error message lifecycle and the
- * dead-air stall hint timer.
+ * TUI error-state reducer: last-error message lifecycle and the dead-air stall hint timer.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

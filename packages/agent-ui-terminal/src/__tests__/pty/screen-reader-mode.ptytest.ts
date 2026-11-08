@@ -38,9 +38,8 @@ const CASE_TIMEOUT_MS = 90_000;
 
 /**
  * Mark the isolated HOME as already onboarded. The test asserts on the FIRST line the process
- * writes,
- * and the first-run welcome is a separate concern with its own onboarding copy — a returning user
- * is the case where "the first line confirms the mode" is the claim being made.
+ * writes, and the first-run welcome is a separate concern with its own onboarding copy — a
+ * returning user is the case where "the first line confirms the mode" is the claim being made.
  */
 function markOnboarded(homeDir: string): void {
   writeFileSync(join(homeDir, 'state', 'onboarded'), new Date().toISOString());

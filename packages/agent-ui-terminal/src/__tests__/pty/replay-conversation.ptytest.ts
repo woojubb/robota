@@ -1,11 +1,10 @@
 /**
  * Deterministic conversation through the real binary via `--session-log` (replay).
  *
- * Runs in the PTY vitest project against the BUILT CLI. Boots with
- * `--session-log <fixture>` so the ReplayProvider answers from a recorded log (no model
- * key, no network), sends a user message, and asserts the recorded assistant response renders and
- * commits to `<Static>` scrollback while the input stays pinned, end-to-end
- * on the real binary.
+ * Runs in the PTY vitest project against the BUILT CLI. Boots with `--session-log <fixture>` so the
+ * ReplayProvider answers from a recorded log (no model key, no network), sends a user message, and
+ * asserts the recorded assistant response renders and commits to `<Static>` scrollback while the
+ * input stays pinned, end-to-end on the real binary.
  */
 
 import { mkdtempSync, rmSync, realpathSync } from 'node:fs';

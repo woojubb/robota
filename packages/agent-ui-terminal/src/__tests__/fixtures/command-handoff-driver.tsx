@@ -78,10 +78,9 @@ async function main(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 300));
   marker(`READY canHandoff=${controller.canHandoffTerminal}`);
 
-  // The fixture's `satisfies Pick<>` above is the honest part — it declares exactly the
-  // three members these executors read. The widening cast existed only because the executors demand
-  // the whole 46-member facade. The
-  // double supplies the rest so no cast is required.
+  // The fixture's `satisfies Pick<>` above is the honest part — it declares exactly the three
+  // members these executors read. The widening cast existed only because the executors demand the
+  // whole 46-member facade. The double supplies the rest so no cast is required.
   const ctx = createTestCommandHost({ overrides: context });
   const result =
     MODE === 'editor'

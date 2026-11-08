@@ -72,8 +72,7 @@ describe('the surface says when a toggle applies', () => {
   it('names the saved setting for a disabled transport too', () => {
     // The other half of the badge's ternary. Asserting only the enabled branch leaves the disabled
     // one uncovered by a change that rewrites both — a mutation proves a case measures the guard,
-    // not
-    // that the cases reach across it.
+    // not that the cases reach across it.
     const { lastFrame } = render(
       <TransportTUI
         registry={registryWith(vi.fn().mockResolvedValue(undefined), [entry('ws', false)])}
