@@ -157,9 +157,18 @@ jobs:
             exit 1
           fi
       - name: Build workspace
-        timeout-minutes: 10
+        timeout-minutes: 15
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
-        run: pnpm install --frozen-lockfile && pnpm -r --filter "{packages/agent-cli}..." run build
+        shell: bash
+        run: |
+          # The native modules' install scripts download prebuilt binaries from GitHub release assets, and those
+          # downloads fail intermittently. A failed install script runs again on the next install, so retry.
+          for attempt in 1 2 3 4; do
+            pnpm install --frozen-lockfile && break
+            if [ "$attempt" = 4 ]; then exit 1; fi
+            sleep $((attempt * 20))
+          done
+          pnpm -r --filter "{packages/agent-cli}..." run build
 
       - name: Setup Bun
         timeout-minutes: 10
@@ -235,7 +244,7 @@ jobs:
           fi
 
       - name: Package and exercise the unsigned desktop product
-        timeout-minutes: 10
+        timeout-minutes: 15
         if: github.event_name == 'pull_request'
         shell: bash
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
@@ -244,7 +253,12 @@ jobs:
         run: |
           pnpm --filter './apps/agent-app' build
           pnpm --filter './apps/agent-app' bundle:runtime
-          pnpm --filter './apps/agent-app' exec electron-builder --dir --publish never -c.mac.notarize=false -c.mac.identity=null
+          # electron-builder downloads Electron and its helper tools from GitHub releases, which fail intermittently.
+          for attempt in 1 2 3 4; do
+            pnpm --filter './apps/agent-app' exec electron-builder --dir --publish never -c.mac.notarize=false -c.mac.identity=null && break
+            if [ "$attempt" = 4 ]; then exit 1; fi
+            sleep $((attempt * 20))
+          done
           pnpm --filter './apps/agent-app' test:e2e:packaged
           pnpm --filter './apps/agent-app' test:e2e:bundled
 

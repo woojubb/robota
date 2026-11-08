@@ -4,7 +4,7 @@
  */
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
@@ -32,8 +32,10 @@ async function invoke(
 
 describe('a relative filePath anchors to the containment root (issue #2429)', () => {
   it('resolveHostPath joins a relative path onto the root and keeps an absolute one', () => {
-    expect(resolveHostPath('a/b.txt', '/root')).toBe('/root/a/b.txt');
-    expect(resolveHostPath('/abs/b.txt', '/root')).toBe('/abs/b.txt');
+    const anchor = resolve('/root');
+    const absolute = resolve('/abs/b.txt');
+    expect(resolveHostPath('a/b.txt', anchor)).toBe(join(anchor, 'a', 'b.txt'));
+    expect(resolveHostPath(absolute, anchor)).toBe(absolute);
     expect(resolveHostPath('a/b.txt', undefined)).toBe('a/b.txt');
   });
 

@@ -1,4 +1,13 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -38,7 +47,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 
 import { createEditTool } from '../edit-tool.js';
 
-describe.runIf(process.platform === 'linux' || process.platform === 'darwin')('Edit read containment', () => {
+describe('Edit read containment', () => {
   let base = '';
   afterEach(() => {
     swap.file = undefined;
@@ -62,19 +71,34 @@ describe.runIf(process.platform === 'linux' || process.platform === 'darwin')('E
       symlinkSync(outside, parent);
     };
 
-    const result = await createEditTool({ cwd: root }).execute({ filePath: file, oldString: 'needle', newString: 'changed' });
+    const result = await createEditTool({ cwd: root }).execute({
+      filePath: file,
+      oldString: 'needle',
+      newString: 'changed',
+    });
 
     expect(swap.file).toBeUndefined();
-    expect(JSON.parse(String(result.data))).toMatchObject({ success: false, error: expect.stringMatching(/Access denied/) });
+    expect(JSON.parse(String(result.data))).toMatchObject({
+      success: false,
+      error: expect.stringMatching(/Access denied/),
+    });
     expect(readFileSync(join(outside, 'note.txt'), 'utf8')).toBe('outside needle');
   });
 
-  it('allows an ordinary edit when the selected containment root is the filesystem root', async () => {
-    base = realpathSync(mkdtempSync(join(tmpdir(), 'edit-root-')));
-    const file = join(base, 'note.txt');
-    writeFileSync(file, 'old');
-    const result = await createEditTool({ cwd: '/' }).execute({ filePath: file, oldString: 'old', newString: 'new' });
-    expect(JSON.parse(String(result.data))).toMatchObject({ success: true });
-    expect(readFileSync(file, 'utf8')).toBe('new');
-  });
+  // `/` is the filesystem root only where there is one root; a Windows path names a drive.
+  it.skipIf(process.platform === 'win32')(
+    'allows an ordinary edit when the selected containment root is the filesystem root',
+    async () => {
+      base = realpathSync(mkdtempSync(join(tmpdir(), 'edit-root-')));
+      const file = join(base, 'note.txt');
+      writeFileSync(file, 'old');
+      const result = await createEditTool({ cwd: '/' }).execute({
+        filePath: file,
+        oldString: 'old',
+        newString: 'new',
+      });
+      expect(JSON.parse(String(result.data))).toMatchObject({ success: true });
+      expect(readFileSync(file, 'utf8')).toBe('new');
+    },
+  );
 });
