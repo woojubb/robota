@@ -18,12 +18,15 @@
  * system covers the tokens it flows into; this limit is recorded rather than claimed away.
  */
 import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
 const SRC_ROOT = fileURLToPath(new URL('..', import.meta.url));
+
+/** Path of a source file under `src/` with `/` separators, so one expectation holds on Windows too. */
+const sourcePath = (file: string): string => relative(SRC_ROOT, file).split(sep).join('/');
 
 /** `src/theme/` holds the token data and the one chalk boundary; nothing else may. */
 const THEME_DIR = 'theme';
@@ -102,7 +105,7 @@ function scanFile(filePath: string, pattern: RegExp): IFinding[] {
   lines.forEach((line, index) => {
     for (const match of line.matchAll(pattern)) {
       findings.push({
-        file: relative(SRC_ROOT, filePath),
+        file: sourcePath(filePath),
         line: index + 1,
         match: match[0],
       });
@@ -118,9 +121,7 @@ function formatFindings(findings: IFinding[]): string {
 describe('SCREEN-006 palette consistency floor', () => {
   const allFiles = collectSourceFiles(SRC_ROOT);
   // `src/theme/` is the one place a colour value or a chalk colour call may appear.
-  const sourceFiles = allFiles.filter(
-    (file) => !relative(SRC_ROOT, file).split('/').includes(THEME_DIR),
-  );
+  const sourceFiles = allFiles.filter((file) => !sourcePath(file).split('/').includes(THEME_DIR));
 
   it('scans a non-empty source inventory', () => {
     expect(sourceFiles.length).toBeGreaterThan(0);
@@ -168,7 +169,7 @@ describe('SCREEN-006 palette consistency floor', () => {
     const consumers = sourceFiles.filter((file) =>
       /\buseMotion\(\)/u.test(blankComments(readFileSync(file, 'utf8'))),
     );
-    expect(consumers.map((file) => relative(SRC_ROOT, file)).sort()).toEqual(['WaveText.tsx']);
+    expect(consumers.map((file) => sourcePath(file)).sort()).toEqual(['WaveText.tsx']);
   });
 
   /**
@@ -231,7 +232,7 @@ describe('SCREEN-006 palette consistency floor', () => {
   it('SCREEN-2002: the markdown renderer has one consumer, which binds the appearance', () => {
     const importers = sourceFiles
       .map((file) => ({
-        file: relative(SRC_ROOT, file),
+        file: sourcePath(file),
         source: blankComments(readFileSync(file, 'utf8')),
       }))
       .filter(({ file }) => file !== 'render-markdown.ts')

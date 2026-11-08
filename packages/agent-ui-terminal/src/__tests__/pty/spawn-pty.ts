@@ -14,6 +14,7 @@
  * exact failure mode this harness exists to avoid.
  */
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 
 import { spawn } from '@homebridge/node-pty-prebuilt-multiarch';
 
@@ -204,8 +205,10 @@ export interface ISpawnFixtureOptions {
 
 let tsxEsmHookPath: string | undefined;
 function resolveTsxEsmHook(): string {
-  // Lazily resolved so built-CLI consumers (which never run a TSX fixture) don't require tsx.
-  tsxEsmHookPath ??= createRequire(import.meta.url).resolve('tsx/esm');
+  // Lazily resolved so built-CLI consumers (which never run a TSX fixture) don't require tsx. `--import`
+  // takes a module specifier, so the path goes in as a `file:` URL: a bare Windows path (`d:\...`) reads
+  // as a URL with the scheme `d:` and the ESM loader refuses it.
+  tsxEsmHookPath ??= pathToFileURL(createRequire(import.meta.url).resolve('tsx/esm')).href;
   return tsxEsmHookPath;
 }
 
