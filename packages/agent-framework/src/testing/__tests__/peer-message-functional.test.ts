@@ -1,8 +1,8 @@
 /**
- * Peer session-to-session messaging — framework functional test (PEER-002, #1809).
+ * Peer session-to-session messaging — framework functional test.
  *
- * #1809's acceptance criteria ask for exactly this level: "framework-level functional coverage
- * exercises a two-session conversation with deterministic providers". So this drives TWO REAL
+ * Framework-level functional coverage means exercising a two-session conversation with
+ * deterministic providers. So this drives TWO REAL
  * sessions (scripted provider, no CLI, no network) and passes messages between them the way a
  * composition root would — through the session's peer-message entry point, not through `submit`
  * with a hand-set option.
@@ -106,7 +106,7 @@ describe('peer session-to-session messaging (framework functional)', () => {
   it(
     'attribution names the peer, and never the operator',
     async () => {
-      // Before PEER-002 this turn would have defaulted to the owner, putting another session's
+      // Without peer attribution this turn would default to the owner, putting another session's
       // message in the transcript under the operator's name.
       bob = scriptedSession({ turns: [{ text: 'ok' }] });
 

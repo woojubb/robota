@@ -13,7 +13,7 @@ function usageSurface(driverId: string | undefined): IUsageObservation['surface'
   return 'unknown';
 }
 
-/** DATA-2577: project a started turn into the canonical content-free analytics observation. */
+/** Project a started turn into the canonical content-free analytics observation. */
 export function createUsageObservationEntry(input: {
   turnId: string;
   outcome: IUsageObservation['outcome'];

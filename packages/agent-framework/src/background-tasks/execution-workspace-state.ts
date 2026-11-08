@@ -1,5 +1,5 @@
 /**
- * SCREEN-1992 — the normalized state word and the one-line headline every workspace entry carries.
+ * The normalized state word and the one-line headline every workspace entry carries.
  *
  * Derived here, once, from the detailed task/group/main-thread state so no surface re-derives
  * "needs input" from `status` × `attention` on its own. The table is total over every status the
@@ -80,7 +80,7 @@ export function taskHeadline(state: IBackgroundTaskState): IExecutionHeadline | 
 }
 
 /**
- * #2079: the kind-specific preview fields the discriminated `IBackgroundTaskState` now carries —
+ * The kind-specific preview fields the discriminated `IBackgroundTaskState` now carries —
  * a scheduled task's own wake instruction (fuller than its truncated `commandPreview`), an agent's
  * prompt preview, or the process/tool-invocation/scheduled command preview.
  */

@@ -8,7 +8,7 @@ import type { IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
 const request: IActionRequest = { id: 'q', title: 'Pick' };
 const answer: TActionResponse = { type: 'answer', values: ['x'] };
 
-describe('createUserInteractionPort (CMD-004 ask seam)', () => {
+describe('createUserInteractionPort (ask seam)', () => {
   it('returns undefined when no ask handler is attached (no interactive renderer)', () => {
     expect(createUserInteractionPort(undefined, () => 'user')).toBeUndefined();
   });
@@ -22,7 +22,7 @@ describe('createUserInteractionPort (CMD-004 ask seam)', () => {
     expect(res).toEqual(answer);
   });
 
-  it('resolves cancelled WITHOUT calling the handler for model-invoked commands (TC-07 deadlock guard)', async () => {
+  it('resolves cancelled WITHOUT calling the handler for model-invoked commands (deadlock guard)', async () => {
     const handler = vi.fn(async () => answer);
     const port = createUserInteractionPort(handler, () => 'model');
     if (!port) throw new Error('expected a port');

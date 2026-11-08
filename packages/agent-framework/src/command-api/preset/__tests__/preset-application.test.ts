@@ -31,14 +31,14 @@ interface IRuntimeSpies {
 /**
  * Build a minimal ICommandHostContext whose runtime records permission-mode / active-preset /
  * model-option writes. `includeActivePreset: false` omits the optional `setActivePresetId` to
- * exercise the defensive optional-chaining path (PRESET-012 TC-05). `includeApplyModelOptions:
- * false` omits the optional `applyModelOptions` to exercise the PRESET-013 optional path (TC-06).
- * `includeApplyPersona: false` omits the optional `applyPersona` to exercise the PRESET-014
- * optional path (TC-05). `includeApplyCommandModuleSelection: false` omits the optional
- * `applyCommandModuleSelection` to exercise the PRESET-015 optional path (TC-06).
+ * exercise the defensive optional-chaining path. `includeApplyModelOptions:
+ * false` omits the optional `applyModelOptions` to exercise the optional path.
+ * `includeApplyPersona: false` omits the optional `applyPersona` to exercise the
+ * optional path. `includeApplyCommandModuleSelection: false` omits the optional
+ * `applyCommandModuleSelection` to exercise the optional path.
  * `includeSetParallelSubagentsEnabled: false` omits the optional `setParallelSubagentsEnabled` to
- * exercise the PRESET-016 optional path (TC-06). `includeApplySelfVerification: false` omits the
- * optional `applySelfVerification` to exercise the PRESET-017 optional path (TC-05).
+ * exercise the optional path. `includeApplySelfVerification: false` omits the
+ * optional `applySelfVerification` to exercise the optional path.
  */
 function createContext(
   includeActivePreset = true,
@@ -62,7 +62,7 @@ function createContext(
     return spy;
   };
 
-  // ARCH-029 TC-06: every runtime member is now REQUIRED, so "a runtime without member X" is no
+  // Every runtime member is now REQUIRED, so "a runtime without member X" is no
   // longer a representable host. What the `include*` flags used to model — the caller surviving a
   // host that does not participate in a group — is now modelled the way the design says it must be:
   // the member is PRESENT and does nothing. The distinction the contract keeps is between a value
@@ -128,20 +128,20 @@ function createContext(
   return { context, spies };
 }
 
-describe('applyPresetToSession (PRESET-012)', () => {
-  it('TC-01: applies permissionMode to the live runtime', async () => {
+describe('applyPresetToSession', () => {
+  it('applies permissionMode to the live runtime', async () => {
     const { context, spies } = createContext();
     await applyPresetToSession(context, 'careful-reviewer', { permissionMode: 'default' });
     expect(spies.setPermissionMode).toHaveBeenCalledWith('default');
   });
 
-  it('TC-02: records the active preset id', async () => {
+  it('records the active preset id', async () => {
     const { context, spies } = createContext();
     await applyPresetToSession(context, 'careful-reviewer', { permissionMode: 'default' });
     expect(spies.setActivePresetId).toHaveBeenCalledWith('careful-reviewer');
   });
 
-  it('TC-03: no permissionMode → setPermissionMode not called, group skipped', async () => {
+  it('no permissionMode → setPermissionMode not called, group skipped', async () => {
     const { context, spies } = createContext();
     const result = await applyPresetToSession(context, 'x', {});
     expect(spies.setPermissionMode).not.toHaveBeenCalled();
@@ -149,13 +149,13 @@ describe('applyPresetToSession (PRESET-012)', () => {
     expect(result.applied).not.toContain('permissionMode');
   });
 
-  it('TC-04: permissionMode present → group reported as applied', async () => {
+  it('permissionMode present → group reported as applied', async () => {
     const { context } = createContext();
     const result = await applyPresetToSession(context, 'x', { permissionMode: 'acceptEdits' });
     expect(result.applied).toContain('permissionMode');
   });
 
-  it('ARCH-029: a runtime whose setActivePresetId does NOTHING still applies the rest', async () => {
+  it('a runtime whose setActivePresetId does NOTHING still applies the rest', async () => {
     // Rewritten, not kept. The old title read "runtime without setActivePresetId" and the member is
     // now required, so that host is unrepresentable — and the body only asserted that the FIXTURE
     // had not installed a spy, which is a fact about the helper rather than about production code.
@@ -172,8 +172,8 @@ describe('applyPresetToSession (PRESET-012)', () => {
   });
 });
 
-describe('applyPresetToSession model group (PRESET-013)', () => {
-  it('TC-04: effort + temperature applied → applyModelOptions called, result.applied lists them', async () => {
+describe('applyPresetToSession model group', () => {
+  it('effort + temperature applied → applyModelOptions called, result.applied lists them', async () => {
     const { context, spies } = createContext();
     const result = await applyPresetToSession(context, 'careful-reviewer', {
       effort: 'high',
@@ -191,7 +191,7 @@ describe('applyPresetToSession model group (PRESET-013)', () => {
     expect(result.applied).toContain('maxOutputTokens');
   });
 
-  it('TC-05: only permissionMode → applyModelOptions not called, model groups skipped', async () => {
+  it('only permissionMode → applyModelOptions not called, model groups skipped', async () => {
     const { context, spies } = createContext();
     const result = await applyPresetToSession(context, 'x', { permissionMode: 'default' });
 
@@ -202,8 +202,8 @@ describe('applyPresetToSession model group (PRESET-013)', () => {
     expect(result.skipped).toContain('maxOutputTokens');
   });
 
-  it('ARCH-029: an inert applyModelOptions still leaves the model group applied', async () => {
-    // ARCH-029: rewritten. The old title said "without <member>" and the member is now required,
+  it('an inert applyModelOptions still leaves the model group applied', async () => {
+    // Rewritten. The old title said "without <member>" and the member is now required,
     // so that host is unrepresentable; the old body asserted only that the FIXTURE had installed
     // no spy. What survives is the value-level distinction the contract keeps: the member is
     // PRESENT and inert, and the group is still reported as applied.
@@ -216,7 +216,7 @@ describe('applyPresetToSession model group (PRESET-013)', () => {
   });
 });
 
-describe('applyPresetToSession identity group (ARCH-040)', () => {
+describe('applyPresetToSession identity group', () => {
   // The REVERSE divergence, and the one nobody had named: startup applied the preset's `agentName`
   // and the live path did not, so switching to the SAME preset mid-session left the old name. One
   // preset, two answers, decided by WHEN it was chosen. Owner decision 2026-08-20: `/preset` renames.
@@ -237,7 +237,7 @@ describe('applyPresetToSession identity group (ARCH-040)', () => {
   });
 });
 
-describe('applyPresetToSession language group (ARCH-040)', () => {
+describe('applyPresetToSession language group', () => {
   // `language` had no seam anywhere and was the last of the ten fields to be decidable from an
   // existing mechanism: the framework already composes a response-language prompt section, so the
   // owner's decision — a prompt instruction, not a provider parameter — wires what is there rather
@@ -269,7 +269,7 @@ describe('applyPresetToSession language group (ARCH-040)', () => {
   });
 });
 
-describe('applyPresetToSession seeding-prompt group (ARCH-040)', () => {
+describe('applyPresetToSession seeding-prompt group', () => {
   it('re-applies the preset system prompt through the live rebuild seam', async () => {
     const { context } = createContext();
     const applyPresetSystemPrompt = vi.fn();
@@ -295,8 +295,8 @@ describe('applyPresetToSession seeding-prompt group (ARCH-040)', () => {
   });
 });
 
-describe('applyPresetToSession persona group (PRESET-014)', () => {
-  it('TC-03: persona present → applyPersona called with it, result.applied lists persona', async () => {
+describe('applyPresetToSession persona group', () => {
+  it('persona present → applyPersona called with it, result.applied lists persona', async () => {
     const { context, spies } = createContext();
     const result = await applyPresetToSession(context, 'careful-reviewer', { persona: 'P' });
 
@@ -304,7 +304,7 @@ describe('applyPresetToSession persona group (PRESET-014)', () => {
     expect(result.applied).toContain('persona');
   });
 
-  it('TC-04: no persona → applyPersona not called, persona group skipped', async () => {
+  it('no persona → applyPersona not called, persona group skipped', async () => {
     const { context, spies } = createContext();
     const result = await applyPresetToSession(context, 'x', {});
 
@@ -313,8 +313,8 @@ describe('applyPresetToSession persona group (PRESET-014)', () => {
     expect(result.applied).not.toContain('persona');
   });
 
-  it('ARCH-029: an inert applyPersona still leaves the persona group applied', async () => {
-    // ARCH-029: rewritten. The old title said "without <member>" and the member is now required,
+  it('an inert applyPersona still leaves the persona group applied', async () => {
+    // Rewritten. The old title said "without <member>" and the member is now required,
     // so that host is unrepresentable; the old body asserted only that the FIXTURE had installed
     // no spy. What survives is the value-level distinction the contract keeps: the member is
     // PRESENT and inert, and the group is still reported as applied.
@@ -327,8 +327,8 @@ describe('applyPresetToSession persona group (PRESET-014)', () => {
   });
 });
 
-describe('applyPresetToSession command-module group (PRESET-015)', () => {
-  it('TC-04: disabledCommandModules → applyCommandModuleSelection called with (undefined, [x]), applied lists commandModules', async () => {
+describe('applyPresetToSession command-module group', () => {
+  it('disabledCommandModules → applyCommandModuleSelection called with (undefined, [x]), applied lists commandModules', async () => {
     const { context, spies } = createContext();
     const result = await applyPresetToSession(context, 'careful-reviewer', {
       disabledCommandModules: ['x'],
@@ -338,7 +338,7 @@ describe('applyPresetToSession command-module group (PRESET-015)', () => {
     expect(result.applied).toContain('commandModules');
   });
 
-  it('TC-05: no command-module fields → not called, commandModules group skipped', async () => {
+  it('no command-module fields → not called, commandModules group skipped', async () => {
     const { context, spies } = createContext();
     const result = await applyPresetToSession(context, 'x', {});
 
@@ -347,12 +347,12 @@ describe('applyPresetToSession command-module group (PRESET-015)', () => {
     expect(result.applied).not.toContain('commandModules');
   });
 
-  it('ARCH-029: an inert applyCommandModuleSelection reports no unknowns, as a VALUE', async () => {
-    // ARCH-029: rewritten. The old title said "without <member>" and the member is now required,
+  it('an inert applyCommandModuleSelection reports no unknowns, as a VALUE', async () => {
+    // Rewritten. The old title said "without <member>" and the member is now required,
     // so that host is unrepresentable; the old body asserted only that the FIXTURE had installed
     // no spy. What survives is the value-level distinction the contract keeps: the member is
     // PRESENT and inert, and the group is still reported as applied.
-    // The empty array is now unambiguous: it means "every name matched" (INFRA-032), not "the seam
+    // The empty array is now unambiguous: it means "every name matched", not "the seam
     // was absent so nothing could be detected". Those two readings were indistinguishable before.
     const { context } = createContext(true, true, true, false);
 
@@ -365,7 +365,7 @@ describe('applyPresetToSession command-module group (PRESET-015)', () => {
     expect(result.applied).toContain('commandModules');
   });
 
-  it('INFRA-032: unknowns returned by the seam are carried on result.unknownCommandModules', async () => {
+  it('unknowns returned by the seam are carried on result.unknownCommandModules', async () => {
     const { context, spies } = createContext();
     spies.applyCommandModuleSelection?.mockReturnValue([{ name: 'editor', kind: 'disabled' }]);
     const result = await applyPresetToSession(context, 'careful-reviewer', {
@@ -376,15 +376,15 @@ describe('applyPresetToSession command-module group (PRESET-015)', () => {
     expect(result.applied).toContain('commandModules');
   });
 
-  it('INFRA-032: command-module group skipped → unknownCommandModules is empty', async () => {
+  it('command-module group skipped → unknownCommandModules is empty', async () => {
     const { context } = createContext();
     const result = await applyPresetToSession(context, 'x', {});
     expect(result.unknownCommandModules).toEqual([]);
   });
 });
 
-describe('applyPresetToSession parallel-subagents gate (PRESET-016)', () => {
-  it('TC-05: enableParallelSubagents:false → setParallelSubagentsEnabled(false), applied lists it', async () => {
+describe('applyPresetToSession parallel-subagents gate', () => {
+  it('enableParallelSubagents:false → setParallelSubagentsEnabled(false), applied lists it', async () => {
     const { context, spies } = createContext();
     const result = await applyPresetToSession(context, 'careful-reviewer', {
       enableParallelSubagents: false,
@@ -394,7 +394,7 @@ describe('applyPresetToSession parallel-subagents gate (PRESET-016)', () => {
     expect(result.applied).toContain('enableParallelSubagents');
   });
 
-  it('TC-06: omitted → not called, group skipped', async () => {
+  it('omitted → not called, group skipped', async () => {
     const { context, spies } = createContext();
     const result = await applyPresetToSession(context, 'x', {});
 
@@ -403,8 +403,8 @@ describe('applyPresetToSession parallel-subagents gate (PRESET-016)', () => {
     expect(result.applied).not.toContain('enableParallelSubagents');
   });
 
-  it('ARCH-029: an inert setParallelSubagentsEnabled still leaves the gate applied', async () => {
-    // ARCH-029: rewritten. The old title said "without <member>" and the member is now required,
+  it('an inert setParallelSubagentsEnabled still leaves the gate applied', async () => {
+    // Rewritten. The old title said "without <member>" and the member is now required,
     // so that host is unrepresentable; the old body asserted only that the FIXTURE had installed
     // no spy. What survives is the value-level distinction the contract keeps: the member is
     // PRESENT and inert, and the group is still reported as applied.
@@ -419,8 +419,8 @@ describe('applyPresetToSession parallel-subagents gate (PRESET-016)', () => {
   });
 });
 
-describe('applyPresetToSession self-verification group (PRESET-017)', () => {
-  it('TC-04: selfVerification:true → applySelfVerification(true), applied lists it', async () => {
+describe('applyPresetToSession self-verification group', () => {
+  it('selfVerification:true → applySelfVerification(true), applied lists it', async () => {
     const { context, spies } = createContext();
     const result = await applyPresetToSession(context, 'careful-reviewer', {
       selfVerification: true,
@@ -430,7 +430,7 @@ describe('applyPresetToSession self-verification group (PRESET-017)', () => {
     expect(result.applied).toContain('selfVerification');
   });
 
-  it('TC-05: omitted → not called, group skipped', async () => {
+  it('omitted → not called, group skipped', async () => {
     const { context, spies } = createContext();
     const result = await applyPresetToSession(context, 'x', {});
 
@@ -439,8 +439,8 @@ describe('applyPresetToSession self-verification group (PRESET-017)', () => {
     expect(result.applied).not.toContain('selfVerification');
   });
 
-  it('ARCH-029: an inert applySelfVerification still leaves the group applied', async () => {
-    // ARCH-029: rewritten. The old title said "without <member>" and the member is now required,
+  it('an inert applySelfVerification still leaves the group applied', async () => {
+    // Rewritten. The old title said "without <member>" and the member is now required,
     // so that host is unrepresentable; the old body asserted only that the FIXTURE had installed
     // no spy. What survives is the value-level distinction the contract keeps: the member is
     // PRESENT and inert, and the group is still reported as applied.

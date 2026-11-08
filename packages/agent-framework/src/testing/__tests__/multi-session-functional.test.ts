@@ -1,5 +1,5 @@
 /**
- * Multi-session capability — framework functional test (TEST-004).
+ * Multi-session capability — framework functional test.
  *
  * Drives resume and fork through REAL InteractiveSessions sharing one workspace store (scripted
  * provider, no CLI, no live LLM): a second session resumes the first's persisted conversation, and

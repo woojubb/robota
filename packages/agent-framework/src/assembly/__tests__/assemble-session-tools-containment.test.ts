@@ -7,7 +7,7 @@ import type { IEditCheckpointRecorder } from '../../checkpoints/edit-checkpoint-
 import type { ICreateSessionOptions } from '../create-session-types.js';
 
 /**
- * Issue #3081 — checkpointing follows where FILE writes land. A shared-filesystem sandbox confines
+ * Checkpointing follows where FILE writes land. A shared-filesystem sandbox confines
  * commands but writes files on the host, so those edits still need checkpoints.
  */
 function options(sandboxClient: InMemorySandboxClient): ICreateSessionOptions {

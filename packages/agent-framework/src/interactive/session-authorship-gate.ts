@@ -1,6 +1,5 @@
 /**
- * The gate every resume over a store that seals passes, and the fixed words it refuses in (#3679
- * step 3e).
+ * The gate every resume over a store that seals passes, and the fixed words it refuses in.
  *
  * Sealing needs only the public key, so a record that opens says nothing about who wrote it. The gate
  * is keyed on the outcome the resume restores from: a record the store calls unverified is refused

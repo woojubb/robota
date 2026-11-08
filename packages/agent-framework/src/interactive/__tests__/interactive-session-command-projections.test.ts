@@ -45,7 +45,7 @@ describe('toCommandListEntry: runner and surfaces', () => {
   });
 });
 
-/** #3189: an attached client completes arguments and subcommands from the catalog alone. */
+/** An attached client completes arguments and subcommands from the catalog alone. */
 describe('toCommandListEntry: argument hint and subcommands', () => {
   it('carries the argument hint and each subcommand a command declares', () => {
     const entry = toCommandListEntry({

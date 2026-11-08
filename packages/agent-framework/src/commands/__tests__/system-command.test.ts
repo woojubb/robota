@@ -16,7 +16,7 @@ import type { IAgentJobHostContext } from '../../command-api/host-context.js';
 import { createTestAgentJobHost } from '../../testing/agent-job-host-double.js';
 
 /**
- * ARCH-029: session-runtime overrides and host overrides are SEPARATE parameters.
+ * Session-runtime overrides and host overrides are SEPARATE parameters.
  *
  * One `Record<string, unknown>` used to be spread into both. Excess-property checking does not
  * apply to a spread, so a host member landed silently on the session runtime too — and the only
@@ -61,13 +61,13 @@ function createMockSession(
     closeAgentJob: vi.fn(),
   };
 
-  // ARCH-029 TC-06: the session runtime is built from the published double, so the fixture
+  // The session runtime is built from the published double, so the fixture
   // answers all 18 members. The rest of the old literal was never session-runtime members at
   // all — they are host and agent-job members, and the single mixed object is what let the
   // fixture get the contract STRUCTURE wrong with nothing able to tell.
   const underlying = createTestSessionRuntime({
     clearHistory: vi.fn(),
-    // ARCH-029: these two were MISSING while the cast was in place — the fixture claimed to be a
+    // These two were MISSING while the cast was in place — the fixture claimed to be a
     // conformant ICommandSessionRuntime without them. Turning the check on surfaced it.
     getHistory: vi.fn().mockReturnValue([]),
     getFullHistory: vi.fn().mockReturnValue([]),
@@ -86,7 +86,7 @@ function createMockSession(
     ...overrides?.session,
   });
 
-  // ARCH-029: overrides over a conformant host. The literal this replaced also carried
+  // Overrides over a conformant host. The literal this replaced also carried
   // `_underlying`, a field the contract does not declare and nothing in this file reads —
   // the cast hid surplus as readily as it hid omissions.
   return createTestCommandHost({
@@ -100,7 +100,7 @@ function createMockSession(
       listEditCheckpoints: spies.listEditCheckpoints,
       restoreEditCheckpoint: spies.restoreEditCheckpoint,
       rollbackEditCheckpoint: spies.rollbackEditCheckpoint,
-      // ARCH-029: the agent-job members are `IAgentJobHostContext`'s, reached through this getter —
+      // The agent-job members are `IAgentJobHostContext`'s, reached through this getter —
       // the cast let the fixture hang them directly off `ICommandHostContext`, so it had the contract
       // STRUCTURE wrong and nothing could tell.
       getAgentJobCapability: () => createTestAgentJobHost(spies),
@@ -240,7 +240,7 @@ describe('SystemCommandExecutor', () => {
     expect(result!.message).toBe('custom result');
   });
 
-  it('TC-01: replaceCommands swaps the entire command set (prior commands removed)', () => {
+  it('replaceCommands swaps the entire command set (prior commands removed)', () => {
     const executor = new SystemCommandExecutor([
       { name: 'old', description: 'Old command', execute: () => ({ success: true, message: '' }) },
     ]);

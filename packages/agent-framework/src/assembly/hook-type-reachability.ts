@@ -1,14 +1,14 @@
 /**
- * A configured hook type the session cannot execute is refused at assembly (issue #2245).
+ * A configured hook type the session cannot execute is refused at assembly.
  *
  * The settings schema accepts `prompt`, `agent` and `guardrail` hook definitions, but their
  * executors exist only when the embedder supplies `providerFactory`, `sessionFactory` or
  * `guardrails` to `createSession` — options no settings file can express. Such a config validated,
- * and since PreToolUse fails closed on an unregistered executor (SEC-016), it then denied every tool
+ * and since PreToolUse fails closed on an unregistered executor, it then denied every tool
  * call in the session and in every child-process subagent. Loud, but late, and after the product had
  * told the user the config was valid.
  *
- * The schema is not the place to refuse: SELFHOST-005 made `guardrail` parse precisely so a settings
+ * The schema is not the place to refuse: `guardrail` parses precisely so a settings
  * file can declare it for an embedder that registers guardrails. Only the composition root knows both
  * what the config declares and which executors it actually built, so the disagreement is settled
  * here, at startup, before any turn runs — with the type and the option it needs in the message.

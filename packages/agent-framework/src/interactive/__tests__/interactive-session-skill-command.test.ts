@@ -33,7 +33,7 @@ vi.mock('../../assembly/create-subagent-session.js', () => ({
 }));
 
 /**
- * ARCH-010 — a `Session` now carries its execution root and exposes it as `getCwd()`; a fork reads the
+ * A `Session` now carries its execution root and exposes it as `getCwd()`; a fork reads the
  * PARENT's root instead of re-deriving one, so this double has to answer. It reports the same directory
  * the `InteractiveSession` under test is given (each case's own tmpdir), which is what a real parent
  * session in that position would hold. The default is only for the case that constructs no `cwd` at all.

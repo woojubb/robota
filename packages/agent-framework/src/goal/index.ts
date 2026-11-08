@@ -1,5 +1,5 @@
 /**
- * GOAL-001: autonomous objective-pursuit loop.
+ * Autonomous objective-pursuit loop.
  *
  * Public surface of the goal module: the completion-signal tool, the pure decision controller,
  * and the prompt builders. Goal state contract types (`IGoalState`, `IGoalEvent`, …) live in

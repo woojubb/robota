@@ -1,8 +1,8 @@
 /**
- * TERM-001: the terminal-handoff ORCHESTRATION the framework owns — exclusivity and the fast-fail
+ * The terminal-handoff ORCHESTRATION the framework owns — exclusivity and the fast-fail
  * when no interactive terminal is available — over the transport-provided suspend/resume.
  *
- * Split out of `interactive-session.ts` (CLI-1994) along the seam the members already drew: the two
+ * Split out of `interactive-session.ts` along the seam the members already drew: the two
  * host-role members read one capability and one flag, and nothing else in the class touches either.
  */
 

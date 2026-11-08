@@ -14,7 +14,7 @@ import { MAX_PENDING_QUEUE_DEPTH } from '../interactive-session-pending-queue.js
 import { SessionPromptRegistry } from '../session-prompt-registry.js';
 
 /**
- * REMOTE-014 E5 — the co-drive queue (same-driver coalesce vs cross-driver append + drop-newest + wakeTaskId
+ * The co-drive queue (same-driver coalesce vs cross-driver append + drop-newest + wakeTaskId
  * release) and the prompt registry's requester/answerer attribution.
  */
 
@@ -26,8 +26,8 @@ function controller(): SessionExecutionController {
 /**
  * A queue entry, WITH the identity a real one always carries.
  *
- * These fixtures once built entries without a `turnId`. RUNTIME-006 now makes that state
- * unrepresentable: an accepted queued entry always carries the identity every refusal settles.
+ * A queued entry without a `turnId` is unrepresentable:
+ * an accepted queued entry always carries the identity every refusal settles.
  */
 let mintedTurns = 0;
 function entry(input: string, driverId: string, wakeTaskId?: string): IQueuedInput {
@@ -39,7 +39,7 @@ function entry(input: string, driverId: string, wakeTaskId?: string): IQueuedInp
   };
 }
 
-describe('co-drive queue (REMOTE-014 TC-01)', () => {
+describe('co-drive queue', () => {
   it('same-driver submits COALESCE (tail-replace, 1-deep); a different driver APPENDS (no clobber)', () => {
     const c = controller();
     expect(c.enqueuePending(entry('a1', OWNER_DRIVER_ID))).toBe('queued');
@@ -84,7 +84,7 @@ describe('co-drive queue (REMOTE-014 TC-01)', () => {
     expect(c.pendingCount()).toBe(MAX_PENDING_QUEUE_DEPTH);
   });
 
-  it('clearPendingQueue releases EVERY entry’s wakeTaskId (CORE-024) and returns the cleared drivers', () => {
+  it('clearPendingQueue releases EVERY entry’s wakeTaskId and returns the cleared drivers', () => {
     const c = controller();
     c.wakeTaskIds.add('t1');
     c.wakeTaskIds.add('t2');
@@ -98,7 +98,7 @@ describe('co-drive queue (REMOTE-014 TC-01)', () => {
   });
 });
 
-describe('prompt registry attribution (REMOTE-014 TC-04)', () => {
+describe('prompt registry attribution', () => {
   it('stamps requesterDriverId (active turn) on the request and answererDriverId on resolve', () => {
     let activeDriver: string | null = 'driver-A';
     const permission: IPermissionRequestEvent[] = [];

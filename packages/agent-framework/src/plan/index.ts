@@ -1,5 +1,5 @@
 /**
- * SELFHOST-002: explicit plan-mode.
+ * Explicit plan-mode.
  *
  * Public surface of the plan module: the pure phase controller. The plan artifact + approval-event
  * contract types (`IPlanArtifact`, `IPlanApprovalEvent`, …) live in

@@ -1,5 +1,5 @@
 /**
- * #3679 3f: the log of an in-process job, as a surface that follows it reads it.
+ * The log of an in-process job, as a surface that follows it reads it.
  *
  * A child-process job writes a transcript file; an in-process job has none, only the session it runs.
  * Its log is that session's conversation from where the job began — the prefix a fork inherited is the

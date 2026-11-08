@@ -1,5 +1,5 @@
 /**
- * TRANS-007 — renaming a session on disk, and saying so when it cannot be done.
+ * Renaming a session on disk, and saying so when it cannot be done.
  *
  * This lives in its own module for two reasons. `interactive-session.ts` is at its size ratchet, so
  * the logic had to move rather than grow there. And it was wrong in place: the rename sat inside a

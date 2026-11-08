@@ -1,10 +1,10 @@
 /**
- * INFRA-019: in-process programmatic driving of the REAL agent.
+ * In-process programmatic driving of the REAL agent.
  *
  * Drives `createProgrammaticAgent` (→ `createInteractiveRuntime` → a real `InteractiveSession`) with
  * the deterministic scripted provider. No terminal, no PTY, no mocks of the framework loop: a message
  * is pushed in-process and the structured `InteractionEvent` stream is asserted as data. This is the
- * in-process form of "drive the agent at will" (TEST-008 north star).
+ * in-process form of "drive the agent at will".
  */
 
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -46,7 +46,7 @@ class TrustedProjectStore implements IWorkspaceTrustStore {
   }
 }
 
-describe('programmatic in-process agent driver (INFRA-019)', () => {
+describe('programmatic in-process agent driver', () => {
   let cwd: string;
   let driver: IAgentDriver | undefined;
 
@@ -60,14 +60,14 @@ describe('programmatic in-process agent driver (INFRA-019)', () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  it('TC-01/02: send() drives a real turn and the scripted assistant reply is captured as data', async () => {
+  it('send() drives a real turn and the scripted assistant reply is captured as data', async () => {
     const scripted = createScriptedProvider([{ text: 'DRIVEN_ANSWER_42' }]);
     driver = createProgrammaticAgent({ host: testHost, provider: scripted.provider, cwd });
 
     await driver.start();
     await driver.send('hello');
 
-    // TC-02: the reply is captured structurally — no terminal involved.
+    // The reply is captured structurally — no terminal involved.
     expect(driver.lastAssistantText()).toBe('DRIVEN_ANSWER_42');
     expect(driver.assistantReplies()).toEqual(['DRIVEN_ANSWER_42']);
 
@@ -84,7 +84,7 @@ describe('programmatic in-process agent driver (INFRA-019)', () => {
     expect(contents.some((c) => c.includes('hello'))).toBe(true);
   });
 
-  it('TC-03: a scripted tool-call turn runs the real tool loop and is captured in toolCalls()', async () => {
+  it('a scripted tool-call turn runs the real tool loop and is captured in toolCalls()', async () => {
     const target = join(cwd, 'greet.txt');
     writeFileSync(target, 'Hello, world\n', 'utf8');
 
@@ -164,7 +164,7 @@ describe('programmatic in-process agent driver (INFRA-019)', () => {
     expect(firstRequest.some((content) => content.includes(canary))).toBe(true);
   });
 
-  it('TC-04: queueUserAction pre-answers an askUser; empty queue resolves to cancelled', async () => {
+  it('queueUserAction pre-answers an askUser; empty queue resolves to cancelled', async () => {
     const scripted = createScriptedProvider([{ text: 'noop' }]);
     driver = createProgrammaticAgent({ host: testHost, provider: scripted.provider, cwd });
     await driver.start();

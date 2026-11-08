@@ -38,9 +38,9 @@ export interface IWorkspaceSnapshotDeps {
   histTracker: Pick<SessionHistoryTracker, 'getHistory'>;
   bgTracker: Pick<SessionBackgroundTaskTracker, 'getTaskSnapshots' | 'getGroupSnapshots'> &
     Partial<Pick<SessionBackgroundTaskTracker, 'isRestoredTerminalTask'>>;
-  /** SCREEN-1992: the parked permission/ask the main thread waits on, when the session has one. */
+  /** The parked permission/ask the main thread waits on, when the session has one. */
   pendingRequest?: () => IExecutionPendingRequest | undefined;
-  /** #3288 §1: this session's self-paced loops, for the `pending`/`running` ones' own entries. */
+  /** This session's self-paced loops, for the `pending`/`running` ones' own entries. */
   selfPacedLoops?: () => readonly IExecutionSelfPacedLoopSummary[];
 }
 
@@ -104,7 +104,7 @@ export async function readWorkspaceDetail(
   cursor?: IExecutionDetailCursor,
   pendingRequest?: IExecutionPendingRequest,
   /**
-   * #3288 §1: a `pending`/`running` self-paced loop's OWN entry has no `IBackgroundTaskState` of its
+   * A `pending`/`running` self-paced loop's OWN entry has no `IBackgroundTaskState` of its
    * own to read (see `execution-workspace-projection.ts`'s module note) — `bgTracker.readTaskDetail`
    * would throw "Unknown background task" for it. Checked before falling through to that, so a loop
    * entry reads from its own durable state instead.
@@ -130,7 +130,7 @@ export async function readWorkspaceDetail(
 }
 
 /**
- * #3288 §1: a self-paced loop's detail page, built from its own durable state — never from a
+ * A self-paced loop's detail page, built from its own durable state — never from a
  * background-task record, which it may not have one of at all (see `readWorkspaceDetail`). One page,
  * no cursor: the loop's own state is small and fixed-shape, not a growing transcript.
  *

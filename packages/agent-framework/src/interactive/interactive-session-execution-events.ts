@@ -63,7 +63,7 @@ export function projectToolExecution(
   const streamingState = { activeTools, history };
   const cwd = callbacks.getCwd();
   if (event.type === 'start') {
-    // #3288: the framework classifies a tool call as it starts — a projected `/command` tool gets
+    // The framework classifies a tool call as it starts — a projected `/command` tool gets
     // its source command name, and the internal goal-signal tool is flagged so surfaces can hide it.
     // Neither is hardcoded downstream: agent-ui-web never sees the projection prefix or the constant.
     const toolState = applyToolStart(

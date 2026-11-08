@@ -1,8 +1,8 @@
 /**
- * TEST-009 Phase 2: conversation + slash-command flows driven through `IAgentDriver`.
+ * Conversation + slash-command flows driven through `IAgentDriver`.
  *
  * Exercises the in-process driver (`createProgrammaticAgent`) against the REAL framework loop with the
- * scripted provider: multi-turn context, a slash command producing a `command-result`, and the CMD-004
+ * scripted provider: multi-turn context, a slash command producing a `command-result`, and the
  * ask seam (a command self-asks via `getUserInteraction()`, pre-answered through `queueUserAction`).
  * All assertions read the shared `InteractionEvent` stream the contract exposes.
  */
@@ -49,7 +49,7 @@ const PING_MODULE: ICommandModule = {
   ],
 };
 
-/** A `/danger` command that self-asks for confirmation via the CMD-004 ask seam. */
+/** A `/danger` command that self-asks for confirmation via the ask seam. */
 const CONFIRM_MODULE: ICommandModule = {
   name: 'danger',
   systemCommands: [
@@ -72,7 +72,7 @@ const CONFIRM_MODULE: ICommandModule = {
   ],
 };
 
-describe('IAgentDriver conversation + slash flows (TEST-009 Phase 2)', () => {
+describe('IAgentDriver conversation + slash flows', () => {
   let cwd: string;
   let driver: IAgentDriver | undefined;
 

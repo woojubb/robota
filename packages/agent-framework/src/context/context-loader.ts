@@ -29,7 +29,7 @@ export interface ILoadedContext {
 export const AGENTS_FILENAME = 'AGENTS.md';
 export const CLAUDE_FILENAME = 'CLAUDE.md';
 
-/** NEUT-004: context-load behavior toggles (settings-driven at the composition root). */
+/** Context-load behavior toggles (settings-driven at the composition root). */
 export interface ILoadContextOptions {
   /**
    * Active-task context injection. The directory must be selected by the host; no
@@ -128,7 +128,7 @@ export async function loadContext(
   const compactInstructions = extractCompactInstructions(projectNotesMd);
   const startupMemory = await memoryStore?.loadStartupMemory();
   const memoryMd = startupMemory?.content || undefined;
-  // NEUT-004: task-context injection is off-switchable; disabled ⇒ no scan is performed.
+  // Task-context injection is off-switchable; disabled ⇒ no scan is performed.
   const taskContextEnabled =
     options.taskContext?.enabled !== false && Boolean(options.taskContext?.dir);
   const loadedTaskContext =

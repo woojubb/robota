@@ -20,11 +20,11 @@ export interface ICommandSessionInfo {
 }
 
 /**
- * ARCH-029 TC-09 — one path, chosen because the member is required rather than possibly absent.
+ * One path, chosen because the member is required rather than possibly absent.
  *
  * This used to branch: call the host's richer clear when present, otherwise reach past it into
  * `getSession().clearHistory()`. Those are not the same operation — the host's version also
- * broadcasts `history_cleared` to every attached surface (CMD-004 Stage E), so the fallback
+ * broadcasts `history_cleared` to every attached surface, so the fallback
  * silently cleared the transcript on ONE surface and left the others showing it. That divergence
  * is what an absence-guarded default buys, and why the member being required removes the guard
  * rather than keeping it "just in case".
@@ -38,17 +38,17 @@ export function parseSessionNameArgument(args: string): string | undefined {
   return name.length > 0 ? name : undefined;
 }
 
-/** CMD-004: `/rename` requests the HOST-executed rename (direct-on-session; `session_renamed` broadcast follows). */
+/** `/rename` requests the HOST-executed rename (direct-on-session; `session_renamed` broadcast follows). */
 export function createSessionRenameHostAction(name: string): TCommandHostAction {
   return { type: 'session-rename', name };
 }
 
-/** CMD-004: `/resume` asks the REQUESTING surface to open its session picker (UI intent). */
+/** `/resume` asks the REQUESTING surface to open its session picker (UI intent). */
 export function createShowSessionPickerIntent(): TCommandUiIntent {
   return { type: 'show-session-picker' };
 }
 
-/** CMD-004: `/exit` requests the HOST-executed session exit (process adapter; works on every surface). */
+/** `/exit` requests the HOST-executed session exit (process adapter; works on every surface). */
 export function createSessionExitHostAction(): TCommandHostAction {
   return { type: 'session-exit' };
 }
@@ -62,7 +62,7 @@ export function readCommandSessionInfo(context: ICommandHostSessionAccess): ICom
 }
 
 /**
- * ARCH-029 TC-08 — the one computed path, and its only owner.
+ * The one computed path, and its only owner.
  *
  * This used to be the ELSE branch of an override hook: `validateCurrentSessionReplayLog?.()` was
  * optional, and no production host implemented it, so this branch was the only code that ever ran.

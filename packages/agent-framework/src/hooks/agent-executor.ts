@@ -4,7 +4,7 @@
  * Creates a subagent session with maxTurns and timeout limits,
  * runs hook input as the initial prompt, and parses the result.
  *
- * Outcomes (SEC-015): `ok: true` → `allow`; `ok: false` → `deny` with its reason; a non-boolean or
+ * Outcomes: `ok: true` → `allow`; `ok: false` → `deny` with its reason; a non-boolean or
  * missing `ok`, or an unparseable response → `error`/`malformed-response`; a session failure →
  * `error`/`transport-failure`. The last two used to share exit code 1.
  */

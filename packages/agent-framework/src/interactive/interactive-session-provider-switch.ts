@@ -38,7 +38,7 @@ export async function resolveUserSettingsProviderSwitchAsync(
   return { settings, provider };
 }
 
-/** ARCH-043 residual: lazy switching is deliberately limited to explicit user-owned settings. */
+/** Lazy switching is deliberately limited to explicit user-owned settings. */
 export function resolveUserSettingsProviderSwitch(
   profileName: string,
   providerDefinitions: readonly IProviderDefinition[],

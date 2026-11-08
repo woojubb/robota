@@ -30,7 +30,7 @@ export function createNodeHostSettingsStore(
       }
     },
     write: (settings: TSettingsData): void => {
-      // SEC-020: the directory was created with no mode, and `mode` on the write below applies
+      // The directory was created with no mode, and `mode` on the write below applies
       // only at creation — so the settings directory was 0755 and a file an older version left
       // at 0644 stayed there through every rewrite.
       ensureOwnerOnlyDirectory(dirname(path));

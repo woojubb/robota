@@ -46,7 +46,7 @@ export function injectSavedMessage(session: Session, msg: TUniversalMessage): vo
  * Restore session history and messages from a persisted session record.
  *
  * Returns the loaded history, any pending messages that need injection once the session is ready,
- * and — since TRANS-007 — WHY the record is empty when it is empty.
+ * and WHY the record is empty when it is empty.
  *
  * The empty shape used to be returned for every failure: a damaged file produced a result
  * indistinguishable from a brand-new session, and the user saw their conversation, goal, plan and
@@ -64,7 +64,7 @@ export function loadSessionRecord(
    */
   outcome: TSessionLoadOutcome,
 ): {
-  /** TRANS-007: what the store concluded. `missing` is a new session; the rest are not. */
+  /** What the store concluded. `missing` is a new session; the rest are not. */
   loadOutcome: TSessionLoadOutcome;
   history: IHistoryEntry[];
   sessionName: string | undefined;
@@ -84,7 +84,7 @@ export function loadSessionRecord(
   plan: IPlanArtifact | undefined;
   activeBranch: IActiveBranchPointer | undefined;
   /**
-   * CLI-1994: the ASSEMBLED system message the record was persisted with. Every persist writes it
+   * The ASSEMBLED system message the record was persisted with. Every persist writes it
    * (`interactive-session-persistence.ts`) and, until this item, nothing read it back. A fork
    * inherits it verbatim — that is what "a copy of the conversation" means for the prompt half.
    * `undefined` for a record written without one, which then rebuilds the prompt as before.
@@ -148,7 +148,7 @@ export function loadSessionRecord(
   let pendingRestoreMessages: TUniversalMessage[] | null = null;
   let pendingRestoreConversation: ISessionConversationSnapshot | null = null;
 
-  // CLI-073: forks restore the conversation too — the SPEC promises
+  // Forks restore the conversation too — the SPEC promises
   // "new session (fresh UUID) but restores context"; only the session id is new.
   if (record.messages) {
     if (record.pendingExecution) {
@@ -275,10 +275,10 @@ export interface ISessionRecordRestoreResult {
 }
 
 /**
- * CLI-1994: restore a persisted record into an ALREADY CONSTRUCTED session — the path a subagent
+ * Restore a persisted record into an ALREADY CONSTRUCTED session — the path a subagent
  * runner takes for a fork job, in this process or in a child process.
  *
- * The runner receives only `resumeSessionId` (ARCH-044: the conversation never crosses the wire);
+ * The runner receives only `resumeSessionId` (the conversation never crosses the wire);
  * this is where the id becomes the conversation. It is the same injection the startup fork uses
  * (`loadSessionRecord` over an existing session), plus the prompt half: the child inherits the
  * parent's ASSEMBLED system message rather than the subagent prompt it was constructed with.
@@ -317,7 +317,7 @@ function reconcileRestoredBackgroundTasks(
   const syntheticEvents: TBackgroundTaskEvent[] = [];
   const backgroundTasks = tasks.map((task) => {
     if (isRestoredTerminalStatus(task.status)) return task;
-    // FLOW-003: a sleeping scheduled wake that carries a reconstructable schedule is re-armed
+    // A sleeping scheduled wake that carries a reconstructable schedule is re-armed
     // (re-spawned) by the background tracker on subscribe — keep it as-is rather than failing it.
     if (isReArmableScheduledTask(task)) return task;
     const reconciled: IBackgroundTaskState = {

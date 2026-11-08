@@ -5,8 +5,8 @@ import {
   type IRemoteCommandPolicy,
 } from '../remote-command-policy.js';
 
-describe('createDefaultRemoteCommandPolicy (REMOTE-006 — allow-by-default, local == remote)', () => {
-  it('allows a non-read-only command from a remote origin by default (was denied under REMOTE-003)', () => {
+describe('createDefaultRemoteCommandPolicy (allow-by-default, local == remote)', () => {
+  it('allows a non-read-only command from a remote origin by default', () => {
     const policy = createDefaultRemoteCommandPolicy();
     expect(policy.isAllowed('shell', false)).toBe(true); // non-read-only → allowed (local == remote)
     expect(policy.isAllowed('status', true)).toBe(true); // read-only → allowed

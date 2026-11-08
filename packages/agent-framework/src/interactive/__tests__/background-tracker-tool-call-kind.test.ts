@@ -1,6 +1,6 @@
 /**
- * MCP-004 §S3 (TC-12's third clause) — the tracker and `/tasks` already render any `IBackgroundTaskState`
- * generically (`task.kind`, `task.commandPreview`), and S1's helpers (`agent-executor`) project the
+ * The tracker and `/tasks` already render any `IBackgroundTaskState`
+ * generically (`task.kind`, `task.commandPreview`), and the `agent-executor` helpers project the
  * tool-call handoff's provenance into exactly those fields. This proves the render, not a new code
  * path: no production change was needed in either file this test exercises.
  */
@@ -43,7 +43,7 @@ function createSpawnedToolInvocationTask() {
   return { manager, request };
 }
 
-describe('MCP-004 TC-12: a tool-invocation task renders through the existing generic views', () => {
+describe('a tool-invocation task renders through the existing generic views', () => {
   it('formatCommandBackgroundTask (background-command-api.ts) renders the kind, tool name and server', async () => {
     const { manager, request } = createSpawnedToolInvocationTask();
     const state = await manager.spawn(request);

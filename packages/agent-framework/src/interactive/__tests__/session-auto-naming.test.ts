@@ -1,5 +1,5 @@
 /**
- * #3189 — the session names itself once, after its first turn that ran, with the provider it uses
+ * The session names itself once, after its first turn that ran, with the provider it uses
  * then. A failed turn or a failed title generation leaves the next turn to try again.
  */
 
@@ -74,7 +74,7 @@ async function runTurn(session: InteractiveSession, input: string): Promise<void
   await handle.completed;
 }
 
-describe('InteractiveSession auto-naming (#3189)', () => {
+describe('InteractiveSession auto-naming', () => {
   it('names the session after its first turn', async () => {
     const provider = fakeProvider('refactor-auth-middleware');
     const renamed = vi.fn();

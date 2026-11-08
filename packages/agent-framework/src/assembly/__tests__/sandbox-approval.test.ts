@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { sandboxApprovalFor } from '../sandbox-approval.js';
 
-/** Issue #3082 — the sandbox approves only the calls it confines. */
+/** The sandbox approves only the calls it confines. */
 describe('sandboxApprovalFor', () => {
   it('approves the shell tools and nothing else that takes a command', () => {
     const approval = sandboxApprovalFor({

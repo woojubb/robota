@@ -133,7 +133,7 @@ function observeCanaries(projectAccess: TWorkspaceProjectAccess, userHome: strin
     projectAccess,
     createDefaultUserContributionSources(userHome),
   )) {
-    const text = source.readText('AGENTS.md', 'run ARCH-042 public authority scenario');
+    const text = source.readText('AGENTS.md', 'run public authority scenario');
     if (text?.includes(CONTEXT_CANARY) === true) observed.push(CONTEXT_CANARY);
   }
   if (projectAccess.status === 'trusted') {
@@ -141,7 +141,7 @@ function observeCanaries(projectAccess: TWorkspaceProjectAccess, userHome: strin
     for (const source of createWorkspaceProjectSettingsSources(reader, [
       { scope: 'project', relativePath: '.fixture-state/settings.json' },
     ])) {
-      const text = readSettingsSourceText(source, 'run ARCH-042 public authority scenario');
+      const text = readSettingsSourceText(source, 'run public authority scenario');
       if (text?.includes(SETTINGS_CANARY) === true) observed.push(SETTINGS_CANARY);
     }
   }
@@ -164,7 +164,7 @@ async function main(): Promise<void> {
   let granted = false;
   let result:
     | {
-        scenario: 'ARCH-042';
+        scenario: 'workspace-project-authority';
         restricted: {
           status: 'restricted';
           reason: 'WorkspaceAuthorityRequired';
@@ -224,7 +224,7 @@ async function main(): Promise<void> {
     assertCondition(scripted.requests.length === 0, 'the offline scenario made a provider request');
 
     result = {
-      scenario: 'ARCH-042',
+      scenario: 'workspace-project-authority',
       restricted: {
         status: 'restricted',
         reason: restrictedRuntime.projectAccess.reason,

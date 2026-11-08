@@ -1,5 +1,5 @@
 /**
- * Reading and replacing a trusted project's state files for a store's migration (#3679), over the
+ * Reading and replacing a trusted project's state files for a store's migration, over the
  * anchored writer every project write goes through. A file is read back only up to the project read
  * limit. A replace is made only while the file still holds what was read, under no other name; many
  * files are replaced at once by staging each beside its file, flushed, before any is put in place. The

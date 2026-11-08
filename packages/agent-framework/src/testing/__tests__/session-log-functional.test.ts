@@ -1,5 +1,5 @@
 /**
- * TEST-003/005: verify a feature through the framework's OWN durable session log.
+ * Verify a feature through the framework's OWN durable session log.
  *
  * When the framework runs it writes a real JSONL transcript ({cwd}/.agent/logs/{sessionId}.jsonl).
  * The harness exposes it via transcript()/logEntries(), so a functional test can assert on what the

@@ -1,6 +1,5 @@
 /**
- * A running session's claim on its record, and what the session may do while it holds it (#3679
- * step 3e).
+ * A running session's claim on its record, and what the session may do while it holds it.
  *
  * Sealing needs only the public key, so a record that opens says nothing about who wrote it. A
  * session therefore restores only from the read its claim makes — never from an earlier check that

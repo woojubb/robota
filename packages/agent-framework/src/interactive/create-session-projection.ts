@@ -20,7 +20,7 @@ function getCommandSemanticRoles(
 /**
  * The single place `IInitOptions` becomes `ICreateSessionOptions`.
  *
- * ARCH-013: the product declares `buildRuntimeSession` its one session-construction seam, but the
+ * The product declares `buildRuntimeSession` its one session-construction seam, but the
  * OPTION surface reaching it was mapped by hand inside the initializer, mixed in with config merging
  * and path resolution. A projection that is not separately addressable is one nothing can check, and
  * that is how `guardrails` and `effort` came to be declared, consumed, and never
@@ -85,7 +85,7 @@ export function buildCreateSessionOptions(
     ...(options.transcriptPath !== undefined ? { transcriptPath: options.transcriptPath } : {}),
     permissionHandler: options.permissionHandler,
     ...(persistProjectPermission === undefined ? {} : { persistProjectPermission }),
-    // CMD-005: the channel's unified ask renderer doubles as the model-question seam for tools.
+    // The channel's unified ask renderer doubles as the model-question seam for tools.
     ...(options.askHandler ? { ask: options.askHandler } : {}),
     provider: options.provider,
     onTextDelta: options.onTextDelta,
@@ -111,11 +111,11 @@ export function buildCreateSessionOptions(
     ...(options.outputStyle !== undefined ? { outputStyle: options.outputStyle } : {}),
     ...(options.persona !== undefined ? { persona: options.persona } : {}),
     ...(options.systemPrompt ? { systemPromptBuilder: () => options.systemPrompt! } : {}),
-    // ARCH-013 stage 3 — the consumer-supplied guardrail registry, and the one place it was lost.
+    // The consumer-supplied guardrail registry, and the one place it could be lost.
     //
     // The CONSUMING end already worked: `create-session.ts` installs a `PreToolUse` guardrail hook
     // whenever the registry is non-empty. It could not be SET, because this projection dropped it —
-    // so the documented capability (SELFHOST-005) was UNREACHABLE from every public surface rather
+    // so the documented capability was UNREACHABLE from every public surface rather
     // than merely unused. The repo ships no implementation of it; it is an extension port, which is
     // precisely why a broken chain removed the capability instead of leaving it idle.
     //
@@ -128,7 +128,7 @@ export function buildCreateSessionOptions(
     // Nothing needed reconciling — the registry simply had no way in.
     //
     // Conditional spreads for consistency with the ~15 optional keys around them, NOT because the
-    // ARCH-029 spread hazard applies: review measured that it cannot fire here.
+    // spread hazard applies: review measured that it cannot fire here.
     // `exactOptionalPropertyTypes` is set nowhere in this repo, the consumer branches on truthiness,
     // and this object is passed straight into `createSession` rather than spread over a base. An
     // earlier revision of this comment cited that hazard as the reason — the right shape justified by
@@ -137,11 +137,11 @@ export function buildCreateSessionOptions(
     backgroundTaskRunners: options.backgroundTaskRunners,
     ...(options.toolCallHandoff !== undefined ? { toolCallHandoff: options.toolCallHandoff } : {}),
     subagentRunnerFactory: options.subagentRunnerFactory,
-    // CLI-1994: the fork job's record store reaches the runner through the agent runtime.
+    // The fork job's record store reaches the runner through the agent runtime.
     ...(options.resumeSessionStore !== undefined
       ? { resumeSessionStore: options.resumeSessionStore }
       : {}),
-    // ARCH-005: composition-root-contributed subagent definitions (capability packs).
+    // Composition-root-contributed subagent definitions (capability packs).
     ...(options.agentDefinitions ? { agentDefinitions: options.agentDefinitions } : {}),
     ...(options.agentDefinitionRoots !== undefined
       ? { agentDefinitionRoots: options.agentDefinitionRoots }
@@ -175,14 +175,14 @@ export function buildCreateSessionOptions(
     reversibleExecution: options.reversibleExecution,
     sandboxClient: options.sandboxClient,
     ...(options.disableAutoMode === true ? { disableAutoMode: true } : {}),
-    // ARCH-033: projected beside the client, never derived from it — a client's class name is not a
+    // Projected beside the client, never derived from it — a client's class name is not a
     // registry key, and guessing one is how a child ends up looking sandboxed while sharing nothing.
     sandboxType: options.sandboxType,
     agentName: options.agentName,
     ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
     ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
-    ...(options.defaultTools ? { defaultTools: options.defaultTools } : {}), // ARCH-006
-    // GOAL-001: every interactive session exposes the goal completion-signal tool so /goal and
+    ...(options.defaultTools ? { defaultTools: options.defaultTools } : {}),
+    // Every interactive session exposes the goal completion-signal tool so /goal and
     // --goal can drive autonomous pursuit. It is inert unless a goal is active.
     includeGoalTool: true,
     includeSessionLoopDecisionTool: true,

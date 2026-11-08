@@ -102,11 +102,11 @@ export class SessionBackgroundTaskTracker {
     private readonly emitTaskEvent: (event: TBackgroundTaskEvent) => void,
     private readonly emitGroupEvent: (event: TBackgroundJobGroupEvent) => void,
     private readonly persistSession: () => void,
-    // FLOW-002: invoked when a background task fires a wake carrying an agent instruction.
+    // Invoked when a background task fires a wake carrying an agent instruction.
     private readonly onWake?: (instruction: string, taskId: string) => void,
-    // FLOW-003: append a user-visible system note (e.g. a missed-wake notice) to history.
+    // Append a user-visible system note (e.g. a missed-wake notice) to history.
     private readonly appendSystemNote?: (message: string) => void,
-    // ANALYTICS-001 (Phase 2): append a structured history entry (a source-attributed usage summary).
+    // Append a structured history entry (a source-attributed usage summary).
     private readonly appendHistoryEntry?: (entry: IHistoryEntry) => void,
     private readonly sessionLoopsDisabled = false,
     private readonly onSessionLoopRearmed?: (task: IBackgroundTaskState) => void,
@@ -175,7 +175,7 @@ export class SessionBackgroundTaskTracker {
       }
       this.recordTaskEvent(event);
       this.emitTaskEvent(event);
-      // FLOW-002: a wake carrying an instruction re-enters the agent loop with a non-user turn.
+      // A wake carrying an instruction re-enters the agent loop with a non-user turn.
       if (event.type === 'background_task_waking' && event.instruction !== undefined) {
         this.onWake?.(event.instruction, event.taskId);
       }
@@ -197,7 +197,7 @@ export class SessionBackgroundTaskTracker {
   }
 
   /**
-   * FLOW-003: re-spawn restored sleeping scheduled wakes so they fire again after a resume,
+   * Re-spawn restored sleeping scheduled wakes so they fire again after a resume,
    * and surface a one-time note for any whose fire time elapsed while the CLI was closed.
    */
   private reArmRestoredSchedules(
@@ -225,7 +225,7 @@ export class SessionBackgroundTaskTracker {
     }
     const schedules: IBackgroundTaskState<'scheduled'>[] = [];
     for (const { task, disposition } of restoredTasks) {
-      // SELFHOST-012: re-arm both `sleeping` and `paused` scheduled tasks (shared predicate — must agree with
+      // Re-arm both `sleeping` and `paused` scheduled tasks (shared predicate — must agree with
       // the restore reconciliation). A paused one is re-spawned then immediately paused again so a restart keeps
       // it paused (not silently running).
       if (!isReArmableScheduledTask(task) || !task.schedule) continue;
@@ -645,13 +645,13 @@ export class SessionBackgroundTaskTracker {
   }
 
   /**
-   * ANALYTICS-001 (Phase 2): when a background agent task completes with token usage, append a
+   * When a background agent task completes with token usage, append a
    * source-attributed usage-summary to the parent history so the usage report attributes those tokens
    * to that task (not the main thread).
    */
   private recordCompletedTaskUsage(event: TBackgroundTaskEvent): void {
     if (event.type !== 'background_task_completed') return;
-    // #2079: `usage` exists only on the agent-kind state/result member, correlated with
+    // `usage` exists only on the agent-kind state/result member, correlated with
     // `event.task.kind` now — narrowing on the task's own kind narrows `result` (and unlocks
     // `agentType` below) in one step, rather than narrowing `result.kind` alone.
     if (event.task.kind !== 'agent') return;

@@ -1,5 +1,5 @@
 /**
- * CMD-004 Phase 2 — the host-action executor for the `executeCommand` pipeline.
+ * The host-action executor for the `executeCommand` pipeline.
  *
  * The SESSION layer (the host) applies a command's `hostActions` via the injected
  * `ICommandHostAdapters` (or directly on the session) BEFORE the command result is returned, so
@@ -217,7 +217,7 @@ async function applyOneHostAction(
         if (!isAppearanceSettingsPatch(action.patch))
           return actionErrorFailure(action.type, new Error('invalid appearance settings patch'));
         const document = settings.read();
-        // SCREEN-2002: three FLAT keys, written BY NAME rather than by spreading the patch. These
+        // Three FLAT keys, written BY NAME rather than by spreading the patch. These
         // keys sit at the document's root, beside the provider profiles and their credentials, so a
         // spread would let any extra key the guard let through reach them. The guard refuses
         // unknown keys; writing by name means it does not have to be the only thing that does.
@@ -264,7 +264,7 @@ async function applyOneHostAction(
 
 /**
  * Resolve the `ui_intent` requester: the command-origin driver id passed into `executeCommand`
- * (REMOTE-014 E5 server-assigned rule) wins; a local `'user'` command defaults to the owner; a
+ * (the server-assigned rule) wins; a local `'user'` command defaults to the owner; a
  * model-invoked command falls back to the ACTIVE turn's driver (`activeDriverId` is a turn
  * attribute — correct only for that path); a remote command without an injected id stays
  * unattributed (a client-sent id is never trusted).

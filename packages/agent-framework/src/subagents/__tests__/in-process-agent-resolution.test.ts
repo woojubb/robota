@@ -9,12 +9,12 @@ import type { ISubagentJobStart } from '@robota-sdk/agent-executor';
 const testHost = createTestFrameworkHost();
 
 /**
- * Issue #1854 — the ORDER both runners resolve an agent type in, and the fact that this one reads
+ * The ORDER both runners resolve an agent type in, and the fact that this one reads
  * `agentDefinitions` at all.
  *
  * Reported in review: the first cut documented `agentDefinitions` on the shared deps type and wired
  * it only in `agent-subagent-runner`, so a caller that supplied it here saw it silently ignored. A
- * field one implementer honours and the other drops is the asymmetry ARCH-034 was about.
+ * field one implementer honours and the other drops is an asymmetry between the two runners.
  *
  * Every case asserts on `Unknown agent type` specifically rather than on "did not throw": resolution
  * happens before session construction, so a type that RESOLVES may still fail later for reasons that
@@ -43,7 +43,7 @@ function job(agentType: string): ISubagentJobStart {
 
 const named = (name: string) => ({ name, description: `${name} agent`, systemPrompt: 'go' });
 
-describe('in-process subagent agent-type resolution (issue #1854)', () => {
+describe('in-process subagent agent-type resolution', () => {
   it('resolves a type named ONLY by the parent’s roster', () => {
     const runner = createInProcessSubagentRunner(
       deps({ agentDefinitions: [named('acme-reviewer')] }),

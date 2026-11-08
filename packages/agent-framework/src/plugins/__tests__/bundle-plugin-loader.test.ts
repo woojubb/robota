@@ -464,7 +464,7 @@ Just content, no frontmatter.
   });
 
   it('skips a plugin whose plugin.json is invalid JSON, and still loads its neighbours', async () => {
-    // CORE-029: this case used to assert `rejects.toThrow()` — the defect written down as a
+    // This case used to assert `rejects.toThrow()` — the defect written down as a
     // contract. The throw escaped discovery, and the only caller answered it with a bare
     // `catch {}`, so ONE malformed manifest silently disabled EVERY installed plugin and the user's
     // hooks simply did not run. A broken plugin is now skipped, by name, out loud.

@@ -33,7 +33,7 @@ function register(
   registry.register(bindTransportAdapter(transport, createTestInteractiveSession()));
 }
 
-describe('TransportRegistry.stopAll (best-effort, CORE-013)', () => {
+describe('TransportRegistry.stopAll (best-effort)', () => {
   it('stops every transport even when one stop fails, and collects the error', async () => {
     const registry = new TransportRegistry(
       createFileTransportSettingsRepository(

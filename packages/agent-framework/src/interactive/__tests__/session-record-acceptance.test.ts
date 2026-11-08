@@ -1,6 +1,6 @@
 /**
  * When a running session's accepted record becomes the owner's, and what a store view cannot switch
- * off (#3679 step 3e).
+ * off.
  *
  * A person who says a record nobody vouched for is theirs names its exact bytes (`acceptedDigest`).
  * The session raises those bytes to the owner's once, and only after it has restored from them: a

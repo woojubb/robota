@@ -145,7 +145,7 @@ describe('IHistoryEntry cross-package integration', () => {
     expect(persistedHistory.length).toBeGreaterThan(0);
 
     // Simulate restore: the port returns an OUTCOME, so the double wraps the saved record rather
-    // than returning it bare (TRANS-007). Returning the record here used to work because `load`'s
+    // than returning it bare. Returning the record here used to work because `load`'s
     // contract was `record | undefined`; a double that still does so now reports `undefined.status`.
     mockSessionStore.load.mockReturnValue({ status: 'valid', record: savedRecord });
 
@@ -160,9 +160,9 @@ describe('IHistoryEntry cross-package integration', () => {
     expect(restoredHistory).toEqual(persistedHistory);
   });
 
-  // ── TC-03/T-08: tool_use+tool_result round-trip via SessionStore ────────────
+  // ── tool_use+tool_result round-trip via SessionStore ────────────
 
-  it('TC-03/T-08: tool_use+tool_result pairs round-trip through persist→load→restore with structure intact', () => {
+  it('tool_use+tool_result pairs round-trip through persist→load→restore with structure intact', () => {
     const toolCalls = [
       {
         id: 'call-abc',

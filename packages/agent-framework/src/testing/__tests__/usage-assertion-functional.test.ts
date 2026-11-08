@@ -1,5 +1,5 @@
 /**
- * ANALYTICS-001: token-usage assertions through the TEST-003 functional harness.
+ * Token-usage assertions through the functional harness.
  *
  * Drives a REAL InteractiveSession with a scripted provider that reports token usage, then asserts
  * the per-source usage breakdown and a budget — the mechanism that turns wrong/excessive token usage
@@ -19,7 +19,7 @@ afterEach(async () => {
   harness = undefined;
 });
 
-describe('Token-usage assertions (ANALYTICS-001) via the scripted-session harness', () => {
+describe('Token-usage assertions via the scripted-session harness', () => {
   it(
     'reports per-source usage and supports a budget assertion',
     async () => {

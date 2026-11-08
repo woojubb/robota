@@ -62,14 +62,14 @@ export interface IHeadlessInteractionChannelOptions {
   output: IHeadlessOutput;
   outputFormat: TOutputFormat;
   /**
-   * CLI-076: the resolved model id (the same value the CLI header displays). Forwarded verbatim to the
+   * The resolved model id (the same value the CLI header displays). Forwarded verbatim to the
    * session so an explicit `--model` override actually reaches the provider chat call. Absent ⇒ the
    * session resolves the model from config (no silent substitution of the requested model).
    */
   model?: string;
-  /** CLI-1988: resolved provider-neutral response style. */
+  /** Resolved provider-neutral response style. */
   outputStyle?: IOutputStylePrompt;
-  /** ARCH-013: resolved preset effort, threaded to the session's `effort` seam. */
+  /** Resolved preset effort, threaded to the session's `effort` seam. */
   effort?: ICreateSessionOptions['effort'];
   /** Provider generation options resolved by the print/goal preset. */
   temperature?: number;
@@ -79,7 +79,7 @@ export interface IHeadlessInteractionChannelOptions {
   presetSystemPrompt?: string;
   /** Structured response policy, including JSON schema requests. */
   responseFormat?: ICreateSessionOptions['responseFormat'];
-  /** FLOW-008: startup source/effective metadata projected into headless results. */
+  /** Startup source/effective metadata projected into headless results. */
   effortResolution?: IModelEffortResolution;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
@@ -100,7 +100,7 @@ export interface IHeadlessInteractionChannelOptions {
   systemPrompt?: string;
   /** Name reported to the underlying agent config (resolved by the CLI, e.g. preset agentName). */
   agentName?: string;
-  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  /** Active preset id selected at startup (runtime state). Defaults to 'default'. */
   activePresetId?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
   persona?: string;
@@ -111,7 +111,7 @@ export interface IHeadlessInteractionChannelOptions {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /**
-   * ARCH-005: subagent definitions contributed by the composition root (the capability packs
+   * Subagent definitions contributed by the composition root (the capability packs
    * `assembleProduct` merged). Forwarded to the session's `agentDefinitions` seam; absent ⇒ unchanged.
    */
   agentDefinitions?: readonly IAgentDefinition[];
@@ -119,7 +119,7 @@ export interface IHeadlessInteractionChannelOptions {
   agentDefinitionRoots?: readonly string[];
   pluginDirectories?: { readonly user?: string; readonly project?: string };
   /**
-   * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
+   * Tools contributed by the composition root (the capability packs `assembleProduct` merged)
    * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
    * (`defaultTools: []`). Forwarded to the session's tool-composition seam; absent ⇒ unchanged.
    */
@@ -132,13 +132,13 @@ export interface IHeadlessInteractionChannelOptions {
   /** Host-owned shell adapter used only when a skill explicitly requests shell interpolation. */
   shellExec: TShellExecFn;
   /**
-   * SELFHOST-008 P6: optional durable-memory store injected by the surface (agent-cli). Forwarded into
+   * Optional durable-memory store injected by the surface (agent-cli). Forwarded into
    * `buildRuntimeSession`; absent ⇒ memory OFF (today's behavior). Enablement/policy is surface-owned.
    */
   memoryStore?: IMemoryStore;
-  /** SELFHOST-008 P6: optional automatic post-turn capture policy (absent ⇒ capture OFF). */
+  /** Optional automatic post-turn capture policy (absent ⇒ capture OFF). */
   automaticMemory?: IAutomaticMemoryConfig;
-  /** SELFHOST-008 P6: optional per-turn recall policy (absent ⇒ recall OFF, startup-only injection). */
+  /** Optional per-turn recall policy (absent ⇒ recall OFF, startup-only injection). */
   recallMemory?: IPerTurnRecallConfig;
   /** The run's edit checkpoint store, so a print run's edits can be rewound when it is resumed. */
   editCheckpointStore?: IEditCheckpointStore;
@@ -170,7 +170,7 @@ export class HeadlessInteractionChannel {
   }
 
   /**
-   * GOAL-001: run an autonomous goal to completion (or a stop condition) in headless mode.
+   * Run an autonomous goal to completion (or a stop condition) in headless mode.
    * Mirrors {@link run} but drives the framework goal loop instead of a single prompt.
    */
   async runGoal(objective: string, options: { maxIterations?: number } = {}): Promise<void> {
@@ -187,7 +187,7 @@ export class HeadlessInteractionChannel {
   }
 
   private createSession(): InteractiveSession {
-    // RUNTIME-001: build through the shared construction seam (agent-framework), not a private
+    // Build through the shared construction seam (agent-framework), not a private
     // `buildRuntimeSession` — one recipe kernel across the TUI, print, and --serve.
     return buildRuntimeSession({
       host: this.opts.host,
@@ -226,16 +226,16 @@ export class HeadlessInteractionChannel {
         ? { contributionSources: this.opts.contributionSources }
         : {}),
       ...(this.opts.skillRoots !== undefined ? { skillRoots: this.opts.skillRoots } : {}),
-      // Issue #3081: `default`, not bypass — a wider mode is the caller's explicit choice.
+      // `default`, not bypass — a wider mode is the caller's explicit choice.
       permissionMode: this.opts.permissionMode ?? 'default',
       baselinePermissionAllow: this.opts.baselinePermissionAllow,
-      // CMD-004 / REMOTE-007 D4a: headless subscribes to none of the session's `ask_request` surface,
+      // Headless subscribes to none of the session's `ask_request` surface,
       // so getUserInteraction() is gated to undefined (the framework's event-emitting ask default is
       // always present, but the command port's PRESENCE follows the live listener count). Each command
       // then applies its explicit no-human path (e.g. /mode reports current, /exit and /clear proceed —
       // never a silent guess).
       maxTurns: this.opts.maxTurns,
-      // CLI-076: forward the resolved model so an explicit `--model` override takes effect instead of being
+      // Forward the resolved model so an explicit `--model` override takes effect instead of being
       // silently dropped (which fell through to the session's config/default model).
       ...(this.opts.model !== undefined ? { model: this.opts.model } : {}),
       ...(this.opts.effort !== undefined ? { effort: this.opts.effort } : {}),
@@ -293,7 +293,7 @@ export class HeadlessInteractionChannel {
       ...(this.opts.selfVerification !== undefined
         ? { selfVerification: this.opts.selfVerification }
         : {}),
-      // SELFHOST-008 P6: forward the surface-resolved memory fields only when present (absent ⇒ OFF).
+      // Forward the surface-resolved memory fields only when present (absent ⇒ OFF).
       ...(this.opts.memoryStore ? { memoryStore: this.opts.memoryStore } : {}),
       ...(this.opts.automaticMemory ? { automaticMemory: this.opts.automaticMemory } : {}),
       ...(this.opts.recallMemory ? { recallMemory: this.opts.recallMemory } : {}),

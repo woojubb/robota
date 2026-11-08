@@ -1,5 +1,5 @@
 /**
- * NEUT-005 wave 2 — surface-derived context-capacity hint.
+ * Surface-derived context-capacity hint.
  *
  * The zero-dependency `agent-core` layer emits a product-neutral hard-capacity notice and exposes
  * the `IAgentConfig.contextCapacityHint` seam (a surface tier injects its own concrete remediation

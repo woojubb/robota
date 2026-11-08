@@ -28,7 +28,7 @@ export interface ICommandSettingsAdapter<
   read(): TSettings;
   write(settings: TSettings): void;
   /**
-   * CMD-004 Phase 2: delete the settings document (the host-executed `settings-reset` action).
+   * Delete the settings document (the host-executed `settings-reset` action).
    * Returns `true` when a document existed and was removed. Optional — a composition that does not
    * wire it makes the reset action fail EXPLICITLY in the command result (no-fallback), never a
    * silent skip.
@@ -71,7 +71,7 @@ export interface IPermissionRuleLayer {
   readonly ask: readonly string[];
 }
 
-/** One rule to remove from the settings layer it was declared in (#3282 §4a). */
+/** One rule to remove from the settings layer it was declared in. */
 export interface IPermissionRuleRemoval {
   /** The `scope` of the {@link IPermissionRuleLayer} the rule was read from. */
   readonly scope: string;
@@ -83,7 +83,7 @@ export interface IPermissionRuleRemoval {
 export interface ICommandPermissionRulesAdapter {
   readLayers(): readonly IPermissionRuleLayer[];
   /**
-   * #3282 §4a: remove one declared rule from its settings layer. Optional — a host with no write
+   * Remove one declared rule from its settings layer. Optional — a host with no write
    * target for any layer (read-only rule discovery) makes rule removal fail EXPLICITLY wherever it
    * is offered, never a silent no-op. Returns `false` when no writable layer matched the removal.
    */
@@ -138,10 +138,10 @@ export interface ICommandEffortAdapter {
 }
 
 /**
- * REMOTE-008: view of `/remote-control` state, so the command can report status without touching the
- * transport. CMD-004 Phase 2 supersedes the original status-only design: the enable/stop ACTIONS are
- * now host-executed through this adapter (wired at the composition root) instead of surface-rendered
- * legacy command effects, so they work on every surface (remote/headless included).
+ * View of `/remote-control` state, so the command can report status without touching the
+ * transport. The enable/stop ACTIONS are host-executed through this adapter (wired at the
+ * composition root) instead of surface-rendered command effects, so they work on every surface
+ * (remote/headless included).
  */
 export type TRemoteControlStatus =
   | { readonly state: 'off' }
@@ -149,7 +149,7 @@ export type TRemoteControlStatus =
   | { readonly state: 'awaiting-pairing'; readonly pairingUrl: string }
   | { readonly state: 'paired' };
 
-/** A trusted device summary for `/remote-control devices` (public data only; REMOTE-012 E3). */
+/** A trusted device summary for `/remote-control devices` (public data only). */
 export interface IRemoteTrustedDeviceSummary {
   readonly deviceId: string;
   readonly label: string;
@@ -158,9 +158,9 @@ export interface IRemoteTrustedDeviceSummary {
 
 export interface ICommandRemoteControlAdapter {
   getStatus(): TRemoteControlStatus;
-  /** REMOTE-012 E3: enrolled trusted devices (for `/remote-control devices`). Absent → TOFU not available. */
+  /** Enrolled trusted devices (for `/remote-control devices`). Absent → TOFU not available. */
   listDevices?(): IRemoteTrustedDeviceSummary[];
-  /** REMOTE-012 E3: revoke a trusted device by id (for `/remote-control revoke <id>`); returns true if removed. */
+  /** Revoke a trusted device by id (for `/remote-control revoke <id>`); returns true if removed. */
   revokeDevice?(deviceId: string): boolean;
   /**
    * Where the host keeps its identity key, in one line for the operator (for `/remote-control
@@ -168,17 +168,17 @@ export interface ICommandRemoteControlAdapter {
    */
   describeKeyStorage?(): string | undefined;
   /**
-   * CMD-004 Phase 2: enable remote control (host-executed `remote-control-enable` action). Resolves
+   * Enable remote control (host-executed `remote-control-enable` action). Resolves
    * to the user-facing message (pairing QR/link, or a fail-closed notice) which the host folds into
    * the command result. Absent ⇒ the action fails explicitly in the result (no-fallback).
    */
   enable?(): string | Promise<string>;
-  /** CMD-004 Phase 2: stop remote control; resolves to the user-facing message (see {@link enable}). */
+  /** Stop remote control; resolves to the user-facing message (see {@link enable}). */
   stop?(): string | Promise<string>;
 }
 
 /**
- * MCP-2520 — public, secret-free view of one resolved MCP definition. The command layer can show
+ * Public, secret-free view of one resolved MCP definition. The command layer can show
  * this value and request a decision, but it cannot construct or connect an MCP client.
  */
 export interface ICommandMCPActivationSummary {
@@ -192,7 +192,7 @@ export interface ICommandMCPActivationSummary {
   readonly definitionFingerprint: string;
   readonly securityIdentity: string;
   /**
-   * #3282 §4 part b-2: this process's live connection outcome for an `allowed` server — absent for
+   * This process's live connection outcome for an `allowed` server — absent for
    * one that is not `allowed`, or has not been attempted yet. `'failed'`'s reason is
    * {@link connectionFailureReason}; a connected server's tool names are {@link toolNames}.
    */
@@ -203,12 +203,12 @@ export interface ICommandMCPActivationSummary {
 }
 
 /**
- * A definition-source-level problem — issue #2794: a configuration root that is not an object, no
+ * A definition-source-level problem: a configuration root that is not an object, no
  * `mcpServers` key, `mcpServers` not an object, or a source that could not be parsed at all. It
  * names no server, so it cannot be an `ICommandMCPActivationSummary`; this is its own carrier so
  * `/mcp status` can say which source could not be read, beside the servers that did resolve.
  *
- * `blockedServerNames` (PR #3076 review): when this problem is in the MANAGED tier, `agent-mcp`'s
+ * `blockedServerNames`: when this problem is in the MANAGED tier, `agent-mcp`'s
  * `resolveByPrecedence` fails closed and blocks every name that would otherwise have resolved from a
  * lower tier — those names would otherwise vanish from `/mcp status` with no explanation, since a
  * blocked entry is `unresolved` and `ICommandMCPActivationAdapter.list()` only ever offers resolved
@@ -342,7 +342,7 @@ export interface ICommandMCPActivationAdapter {
    */
   readonly userActionSurface?: 'session' | 'terminal';
   /**
-   * Every source-level problem from the most recent resolution (issue #2794). Optional so an older
+   * Every source-level problem from the most recent resolution. Optional so an older
    * or narrower adapter implementation still satisfies this interface; a caller that wants to render
    * source problems treats a missing method the same as an empty list.
    */
@@ -366,7 +366,7 @@ export interface ICommandMCPActivationAdapter {
    */
   oauthToolsAdded?(serverId: string, added: readonly string[]): void;
   /**
-   * #3282 §4 part b-2: `/mcp reload` and the Settings screen's "Reload servers" button. Retries
+   * `/mcp reload` and the Settings screen's "Reload servers" button. Retries
    * every allowed server that is not currently connected; a server already connected is left
    * running. Never rejects: a server that still cannot connect keeps its `list()` failure reason.
    * Absent: the host offers no reload (the button/command then say so).
@@ -395,7 +395,7 @@ export interface ICommandMCPActivationAdapter {
 }
 
 /**
- * PEER-004 (#1863): a live session this one can address, as the operator sees it.
+ * A live session this one can address, as the operator sees it.
  *
  * Display data only. `sessionId` names the peer for a later `send`; `liveness` is carried rather
  * than filtered so the operator can tell "I could not determine" from "not running" — a host with no
@@ -426,7 +426,7 @@ export interface ILinkedDeviceSummary {
 }
 
 /**
- * PEER-004: what `/peers` reads. The registry, the guarded directory and the liveness rule all live
+ * What `/peers` reads. The registry, the guarded directory and the liveness rule all live
  * in the composition root — a command never touches the filesystem, for the same reason it never
  * constructs a transport.
  */
@@ -451,7 +451,7 @@ export interface ICommandLocalPeersAdapter {
    */
   readonly localDiscoveryOff?: string;
   /**
-   * PEER-006: hand `text` to another announced session, and report what came back.
+   * Hand `text` to another announced session, and report what came back.
    *
    * Returns a delivery state rather than throwing, because "the peer refused it" and "the carrier
    * broke" are both answers the operator needs, and an exception would flatten them into one.
@@ -493,7 +493,7 @@ export type TLocalPeerFilePreparation =
   | { readonly ok: false; readonly reason: string };
 
 /**
- * PEER-006: what the sender learns, in the vocabulary the operator reads.
+ * What the sender learns, in the vocabulary the operator reads.
  *
  * Deliberately not the transport's ack type: the command layer must not import the wire contract to
  * print a sentence, and `pending` — the honest answer while a message waits behind a running turn —
@@ -505,7 +505,7 @@ export interface ILocalPeerSendResult {
 }
 
 /**
- * ARCH-009 — the discovery half of a preset registry, named HERE rather than imported.
+ * The discovery half of a preset registry, named HERE rather than imported.
  *
  * `agent-preset` depends on `agent-framework`, not the other way round, so importing its
  * `IPresetRegistry` would invert the layering to describe a value this package only hands to a
@@ -522,9 +522,9 @@ export interface ILocalPeerSendResult {
 export interface ICommandPresetRegistryAdapter {
   /**
    * `title` and `description` are REQUIRED, because `/preset list` renders both. Optional members
-   * here would let a conforming host typecheck and then print `id — undefined: undefined`; review of
-   * ARCH-009 reported exactly that. A port requires what its consumer needs, and variation belongs in
-   * the VALUE, not in whether the member exists.
+   * here would let a conforming host typecheck and then print `id — undefined: undefined`. A port
+   * requires what its consumer needs, and variation belongs in the VALUE, not in whether the
+   * member exists.
    */
   listPresets(): readonly { id: string; title: string; description: string }[];
   /** PRESENCE only — `/preset` asks whether the id is known, never what it holds. */
@@ -537,7 +537,7 @@ export interface ICommandPresetRegistryAdapter {
   resolvePreset(id: string, context?: unknown): IPresetApplicationOptions;
 }
 
-/** CLI-1988: the command-facing projection of the host's provider-neutral output-style registry. */
+/** The command-facing projection of the host's provider-neutral output-style registry. */
 export interface ICommandOutputStyleSummary {
   readonly id: string;
   readonly name: string;
@@ -546,14 +546,14 @@ export interface ICommandOutputStyleSummary {
   readonly source?: string;
 }
 
-/** CLI-1988: discovery and resolution only; commands never read style files or own persistence. */
+/** Discovery and resolution only; commands never read style files or own persistence. */
 export interface ICommandOutputStyleRegistryAdapter {
   listOutputStyles(): readonly ICommandOutputStyleSummary[];
   getOutputStyle(id: string): IOutputStylePrompt | undefined;
 }
 
 /**
- * HANDOFF-001 (issue #1864): what a hand-off looks like to the operator, in the operator's words.
+ * What a hand-off looks like to the operator, in the operator's words.
  *
  * Deliberately not the wire package's `THandoffPhase`. The command layer must not import the wire
  * contract to print a sentence, and the two vocabularies answer different questions — `staged` is a
@@ -634,7 +634,7 @@ export interface ICommandCostBudget {
 }
 
 /**
- * CMD-007 (issue #2058): the narrow storage port `/cost budget` reads and writes through.
+ * The narrow storage port `/cost budget` reads and writes through.
  *
  * The command used to own the budget file's location and the filesystem calls itself, which made a
  * reusable command package responsible for a product's storage location and symlink policy. The
@@ -656,7 +656,7 @@ export interface ICommandHostAdapters {
   effort?: ICommandEffortAdapter;
   /** The live advisor: `/advisor` changes its target without touching the session's tools. */
   advisor?: ICommandAdvisorAdapter;
-  /** CMD-007 (issue #2058). Absent on a host with no budget storage — `/cost budget` then says so. */
+  /** Absent on a host with no budget storage — `/cost budget` then says so. */
   costBudget?: ICommandCostBudgetAdapter;
   process?: ICommandProcessAdapter;
   permissionMode?: ICommandPermissionModeAdapter;
@@ -667,16 +667,16 @@ export interface ICommandHostAdapters {
   mcpActivation?: ICommandMCPActivationAdapter;
   localPeers?: ICommandLocalPeersAdapter;
   /**
-   * ARCH-009 — the instance registry the host resolved with, so in-session `/preset` discovers THIS
+   * The instance registry the host resolved with, so in-session `/preset` discovers THIS
    * product's presets. Its absence is why `agent-preset` had to keep a module-global registry: a
    * command runs with an `ICommandHostContext` and nothing else, so this bag is the path from the
    * shell to the command.
    */
   presetRegistry?: ICommandPresetRegistryAdapter;
-  /** CLI-1988 — the instance-scoped output-style catalog resolved by the composition root. */
+  /** The instance-scoped output-style catalog resolved by the composition root. */
   outputStyleRegistry?: ICommandOutputStyleRegistryAdapter;
   /**
-   * HANDOFF-001 (issue #1864). Absent on a host with no carrier — `/handoff` then says so rather
+   * Absent on a host with no carrier — `/handoff` then says so rather
    * than offering a transfer it cannot perform.
    */
   handoff?: ICommandHandoffAdapter;

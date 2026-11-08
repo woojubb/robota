@@ -61,7 +61,7 @@ vi.mock('../../config/config-loader.js', () => ({
   }),
 }));
 
-// PLG-021: the module under test builds its loader through the composition root now.
+// The module under test builds its loader through the composition root now.
 vi.mock('../../plugins/index.js', () => ({
   createHostBundlePluginLoader: vi.fn().mockImplementation(() => ({
     loadPluginsSync: vi.fn().mockReturnValue([]),

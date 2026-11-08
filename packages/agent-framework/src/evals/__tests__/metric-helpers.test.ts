@@ -14,7 +14,7 @@ import { runEval } from '../runner.js';
 import type { IEvalCase, TEvalRunFn } from '../eval-types.js';
 import type { IExecutionResult, IToolSummary } from '../../interactive/types.js';
 
-/** SELFHOST-011 P3 — neutral metric helpers + dataset parser + shared formatter. */
+/** Neutral metric helpers + dataset parser + shared formatter. */
 
 function result(response: string, toolSummaries: IToolSummary[] = []): IExecutionResult {
   return {
@@ -25,7 +25,7 @@ function result(response: string, toolSummaries: IToolSummary[] = []): IExecutio
   };
 }
 
-describe('metric helpers — mechanism only, over IExecutionResult (TC-01)', () => {
+describe('metric helpers — mechanism only, over IExecutionResult', () => {
   it('includesText / regexMatch / responseIsJson / usedTool', () => {
     expect(includesText('index.ts').score(result('see index.ts'))).toBe(true);
     expect(includesText('nope').score(result('see index.ts'))).toBe(false);
@@ -61,7 +61,7 @@ describe('metric helpers — mechanism only, over IExecutionResult (TC-01)', () 
   });
 });
 
-describe('parseEvalCases (TC-02)', () => {
+describe('parseEvalCases', () => {
   it('parses json + jsonl into IEvalCase[]', () => {
     expect(parseEvalCases('[{"input":"a","expected":"x"},{"input":"b"}]', 'json')).toEqual([
       { input: 'a', expected: 'x' },
@@ -92,7 +92,7 @@ describe('regexMatch — stateless across cases (review CONSIDER)', () => {
   });
 });
 
-describe('formatEvalReport (TC-03)', () => {
+describe('formatEvalReport', () => {
   it('renders per-case lines + an overall PASS/FAIL line', async () => {
     const runFn: TEvalRunFn = () => Promise.resolve(result('ok'));
     const report = await runEval(

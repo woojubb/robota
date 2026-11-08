@@ -44,7 +44,7 @@ function buildStepRequest(
   prompt: string,
 ): ISubagentSpawnRequest {
   return {
-    // ARCH-031: stated, not inherited from a default applied mid-projection.
+    // Stated, not inherited from a default applied mid-projection.
     permissionPolicy: DEFAULT_BACKGROUND_PERMISSION_POLICY,
     agentType: step.agentType,
     label: step.label,

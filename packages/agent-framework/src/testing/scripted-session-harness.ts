@@ -1,5 +1,5 @@
 /**
- * TEST-003: framework-level functional session harness.
+ * Framework-level functional session harness.
  *
  * Builds a REAL {@link InteractiveSession} — real agent loop, builtin tools, persistence, events —
  * driven by the deterministic scripted provider (no CLI, no network, no live LLM), in an isolated
@@ -72,19 +72,19 @@ export interface IScriptedSessionOptions {
   /** Scripted assistant turns replayed deterministically through the real loop. */
   turns?: readonly TScriptedTurn[];
   /**
-   * CMD-005: answer model-issued questions (AskUserQuestion) programmatically. When set, the harness
-   * subscribes to the session's `ask_request` event and answers via `resolveAsk` (REMOTE-007). Absent ⇒
+   * Answer model-issued questions (AskUserQuestion) programmatically. When set, the harness
+   * subscribes to the session's `ask_request` event and answers via `resolveAsk`. Absent ⇒
    * nothing subscribes, so a model-issued question fails closed (each question `cancelled`) — the
    * headless no-human path.
    */
   askHandler?: IUserInteraction['ask'];
   /**
-   * Path to a recorded cassette (TEST-005). Replays a real model's captured prompts + tool-use
+   * Path to a recorded cassette. Replays a real model's captured prompts + tool-use
    * deterministically through the real loop. The workspace path is rewritten/scrubbed automatically.
    */
   cassette?: string;
   /**
-   * Record mode (TEST-005): drive the session with a REAL provider and capture every interaction to
+   * Record mode: drive the session with a REAL provider and capture every interaction to
    * `toCassette` for later deterministic replay. Used in a one-off keyed record run, not in CI.
    */
   record?: { provider: IAIProvider; toCassette: string };
@@ -113,7 +113,7 @@ export interface IScriptedSessionOptions {
   resumeSessionId?: string;
   /** Fork the resumed session into a new id while restoring its context (multi-session). */
   forkSession?: boolean;
-  /** Issue #3081: the session is the target of a `/cd` from this directory. */
+  /** The session is the target of a `/cd` from this directory. */
   workspaceMovedFrom?: string;
   /** Command modules composed into the session (e.g. the `/goal` module). */
   commandModules?: readonly ICommandModule[];
@@ -140,13 +140,13 @@ export interface IScriptedSessionOptions {
   maxTurns?: number;
   /** Model override (e.g. when recording against a real provider whose model differs). */
   model?: string;
-  /** TERM-001: inject a (fake) terminal-handoff capability to exercise the handoff orchestration. */
+  /** Inject a (fake) terminal-handoff capability to exercise the handoff orchestration. */
   terminalHandoff?: ITerminalHandoff;
   /** Additional tools registered alongside the default CLI tools (e.g. a fake slow MCP-like tool). */
   additionalTools?: IToolWithEventService[];
-  /** Runtime-composed background task runners (e.g. the `tool-invocation` runner, MCP-004). */
+  /** Runtime-composed background task runners (e.g. the `tool-invocation` runner). */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
-  /** MCP-004 §S3: hand a main-turn tool call exceeding its threshold to a background task. */
+  /** Hand a main-turn tool call exceeding its threshold to a background task. */
   toolCallHandoff?: IToolCallHandoffPolicy;
 }
 
@@ -163,7 +163,7 @@ const COLLECTED_EVENTS: readonly TInteractiveEventName[] = [
   'goal_event',
   'turn_source',
   'user_message',
-  // MCP-004 §S3 (TC-24): the tracker's forwarded background-task lifecycle events.
+  // The tracker's forwarded background-task lifecycle events.
   'background_task_event',
 ];
 
@@ -296,7 +296,7 @@ export class ScriptedSessionHarness {
       }) as IInteractiveSessionEvents[typeof name]);
     }
 
-    // REMOTE-007: the harness plays the interactive user by SUBSCRIBING to the transport-neutral
+    // The harness plays the interactive user by SUBSCRIBING to the transport-neutral
     // `ask_request` event (the same seam a TUI/remote surface uses) and answering via `resolveAsk`,
     // rather than injecting a one-surface `askHandler`. With no `askHandler`, nothing subscribes, so a
     // model-issued question fails closed (each question `cancelled`) — the headless no-human path.
@@ -382,7 +382,7 @@ export class ScriptedSessionHarness {
   }
 
   /**
-   * FLOW-002: inject a background/scheduled wake (a non-user `agent-wakeup` turn) and resolve once
+   * Inject a background/scheduled wake (a non-user `agent-wakeup` turn) and resolve once
    * that turn settles. Mirrors a background task completion or a scheduled fire re-entering the
    * agent loop. Coalesces by `sourceTaskId` exactly as the real wake path does.
    *
@@ -396,7 +396,7 @@ export class ScriptedSessionHarness {
     return this.nextSettledTurn();
   }
 
-  /** PEER-002 (#1809): deliver a message from ANOTHER SESSION; see `peerTurnOptions`. */
+  /** Deliver a message from ANOTHER SESSION; see `peerTurnOptions`. */
   async submitPeer(text: string, peerSessionId: string): Promise<IExecutionResult> {
     const settled = this.nextSettledTurn();
     await this.session.submit(text, undefined, undefined, peerTurnOptions(peerSessionId));
@@ -455,7 +455,7 @@ export class ScriptedSessionHarness {
   }
 
   /**
-   * Neutral session-log accessor (INFRA-025): the id + full history in the shape analysis
+   * Neutral session-log accessor: the id + full history in the shape analysis
    * tooling consumes. Usage assertions compose it with `summarizeUsageBySource` from
    * `@robota-sdk/agent-session-analytics` in the TEST — the harness itself carries no
    * analytics dependency.
@@ -533,7 +533,7 @@ export class ScriptedSessionHarness {
   }
 }
 
-/** Build a live, isolated, scripted functional-test session (TEST-003). */
+/** Build a live, isolated, scripted functional-test session. */
 export function scriptedSession(options: IScriptedSessionOptions): ScriptedSessionHarness {
   return new ScriptedSessionHarness(options);
 }

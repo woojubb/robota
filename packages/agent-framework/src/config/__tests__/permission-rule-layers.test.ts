@@ -1,5 +1,5 @@
 /**
- * #3282 §4a: the Settings screen's rule Remove button rewrites the same settings document
+ * The Settings screen's rule Remove button rewrites the same settings document
  * `/permissions` reads the rule from — `removePermissionRule` is the one function both paths call.
  */
 import { describe, expect, it } from 'vitest';
@@ -31,7 +31,7 @@ function createStore(
   };
 }
 
-describe('removePermissionRule (#3282 §4a)', () => {
+describe('removePermissionRule', () => {
   it('removes the pattern from the matching scope and leaves the rest of the document untouched', () => {
     const userStore = createStore('user', {
       language: 'en',

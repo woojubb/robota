@@ -1,5 +1,5 @@
 /**
- * SEC-007 — the trust framing that must accompany project memory wherever it is injected.
+ * The trust framing that must accompany project memory wherever it is injected.
  *
  * ## Why this exists
  *
@@ -16,11 +16,10 @@
  * So model-authored text re-entered the conversation wearing the operator's voice, and the loop
  * closes: text the model writes on turn N is read back as instruction on turn N+1.
  *
- * SEC-006 described the `<recalled-memory>` tags as carrying a "this is data, not instruction"
- * framing that the adapter erased. **They did not.** They were bare delimiters whose stated purpose
- * was to distinguish per-turn recall from the startup index — a disambiguation between two memory
- * sources, not a trust downgrade. Nothing anywhere told the model this content was data. This module
- * is that missing framing, written once so the two injection paths cannot drift apart.
+ * The `<recalled-memory>` tags alone are bare delimiters whose purpose is to distinguish per-turn
+ * recall from the startup index — a disambiguation between two memory sources, not a trust
+ * downgrade. Nothing else tells the model this content is data. This module is that framing,
+ * written once so the two injection paths cannot drift apart.
  *
  * ## What this is and is not
  *

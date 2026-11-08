@@ -1,5 +1,5 @@
 /**
- * The one way a session store is decorated (#3679 step 3e): a view that replaces some of the port's
+ * The one way a session store is decorated: a view that replaces some of the port's
  * calls and forwards every other member exactly as the store has it.
  *
  * The members are listed once, held by the compiler to the port's own keys, so a member added to the

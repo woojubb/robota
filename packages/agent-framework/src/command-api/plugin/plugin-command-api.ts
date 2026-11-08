@@ -1,7 +1,7 @@
 import type { TCommandUiIntent } from '../effects.js';
 import type { ICommandHostAdapterAccess } from '../host-roles.js';
 import type { ICommand } from '../types.js';
-// Plugin command adapter contracts SSOT relocated to @robota-sdk/agent-interface-command (DATA-001).
+// Plugin command adapter contracts SSOT relocated to @robota-sdk/agent-interface-command.
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 
 export type {
@@ -20,7 +20,7 @@ export const PLUGIN_COMMAND_ARGUMENT_HINT =
 export const RELOAD_PLUGINS_COMMAND_DESCRIPTION =
   'After installing, enabling or disabling plugins, refresh the command list, skill routing and model skill catalogue. Returns the loaded resource count; hook changes need a new session. User-only because this activates installed code.';
 
-/** CMD-004: `/plugin manage` asks the REQUESTING surface to open its plugin manager (UI intent). */
+/** `/plugin manage` asks the REQUESTING surface to open its plugin manager (UI intent). */
 export function createShowPluginManagerIntent(): TCommandUiIntent {
   return { type: 'show-plugin-manager' };
 }

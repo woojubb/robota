@@ -17,7 +17,7 @@ import type {
 } from '@robota-sdk/agent-interface-execution';
 
 /**
- * ARCH-031: the third declaration of the seam's field family, now DERIVED like the other two.
+ * The third declaration of the seam's field family, now DERIVED like the other two.
  *
  * What the spawner owns, and therefore omits from what a caller may set: `kind` (fixed by the seam),
  * `parentSessionId` (taken from `options.sessionId`) and `metadata` (built from `options.origin`). A
@@ -97,7 +97,7 @@ function createAgentRequest(
   options: ICreateExecutionWorkspaceTaskSpawnerOptions,
   request: ISpawnAgentTaskRequest,
 ): IAgentBackgroundTaskRequest {
-  // ARCH-031: a spread with the spawner's own overrides, NOT a hand-written key list. The list this
+  // A spread with the spawner's own overrides, NOT a hand-written key list. The list this
   // replaced omitted `providerProfile` the moment the derivation introduced it — a caller could set it
   // and get a silent no-op, which is precisely the defect class this item exists to remove, recreated by
   // its own fix and caught at the done gate. A spread cannot forget a key.

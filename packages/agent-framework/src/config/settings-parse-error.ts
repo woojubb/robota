@@ -1,5 +1,5 @@
 /**
- * CLI-069: an EXISTING settings file that fails to parse is an error condition,
+ * An EXISTING settings file that fails to parse is an error condition,
  * never silently equated with a missing file (forbidden-fallback class). Thrown
  * by the settings readers; session start propagates it (fail fast, exit 1),
  * reporting consumers (e.g. diagnose) catch it and present it as a finding.

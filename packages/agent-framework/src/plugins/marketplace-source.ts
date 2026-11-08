@@ -3,7 +3,7 @@ import type { TMarketplaceSource } from './marketplace-types.js';
 /**
  * Where a marketplace's bytes come from.
  *
- * Split out of `marketplace-client.ts` under SEC-018 (issue #2020), by responsibility rather than by
+ * Split out of `marketplace-client.ts` by responsibility rather than by
  * line count: the client MANAGES registered marketplaces — register, update, remove, and the
  * containment rules that govern each — while this answers a single question about a source
  * descriptor. It is a total function over the source union with no filesystem or process access,

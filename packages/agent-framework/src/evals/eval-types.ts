@@ -1,5 +1,5 @@
 /**
- * SELFHOST-011 P1 — neutral evals-as-code contracts.
+ * Neutral evals-as-code contracts.
  *
  * An eval is `{ dataset of cases } × { metrics that score a run } × { pass threshold }` (the shape shared by
  * Mastra scorers / Google ADK evalsets / OpenAI Agents traces). ConversationAgent's library layer stays NEUTRAL: it ships
@@ -23,7 +23,7 @@ export interface IMetric {
   readonly name: string;
   /** A required assertion must score 1 in every case, independently of the aggregate threshold. */
   readonly required?: boolean;
-  // SELFHOST-011 P3: the eval CASE is threaded in (optional, backward-compatible — an existing `(result) => …`
+  // The eval CASE is threaded in (optional, backward-compatible — an existing `(result) => …`
   // metric still satisfies this) so a per-case metric (e.g. `exactMatch()`) can read `evalCase.expected`.
   score(result: IExecutionResult, evalCase?: IEvalCase): number | boolean;
 }
@@ -63,7 +63,7 @@ export interface IEvalCaseResult {
 /**
  * The eval report: per-case results, the aggregate `overallScore` (mean of every case×metric normalized score),
  * the resolved `threshold`, and the overall `passed` verdict (all runs completed, aggregate threshold met and every required assertion passes). This verdict is what
- * the `agent eval` CI gate (P2) maps to a process exit code.
+ * the `agent eval` CI gate maps to a process exit code.
  */
 export interface IEvalReport {
   readonly name?: string;

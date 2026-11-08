@@ -1,9 +1,9 @@
 /**
- * SELFHOST-011 P3 — optional NEUTRAL eval metric helpers (mechanism only).
+ * Optional NEUTRAL eval metric helpers (mechanism only).
  *
  * Each factory returns a pure `IMetric` over the SSOT `IExecutionResult`; the CONSUMER supplies the content (the
  * expected value / substring / pattern / tool name), so there is NO opinionated or domain metric set here (that
- * would be the Mastra-style erosion SELFHOST-011 Alternative-1 rejected + HARNESS-034 fences). These just save a
+ * would be the Mastra-style erosion this design rejects). These just save a
  * consumer from hand-writing the most common trivial checks.
  */
 

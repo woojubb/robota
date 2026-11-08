@@ -1,5 +1,5 @@
 /**
- * REMOTE-007 (B4-2a) — InteractiveSession transport-neutral permission/ask WIRING.
+ * InteractiveSession transport-neutral permission/ask WIRING.
  *
  * The registry's parking/fail-closed/drain logic is unit-tested in session-prompt-registry.test.ts.
  * These tests prove the InteractiveSession glue: the ask default emits through the REAL session
@@ -36,8 +36,8 @@ function createSessionStub(): Session {
   } as unknown as Session;
 }
 
-describe('InteractiveSession transport-neutral ask flow (REMOTE-007)', () => {
-  it('TC-04c: getUserInteraction() returns undefined with no ask_request listener (headless contract preserved)', () => {
+describe('InteractiveSession transport-neutral ask flow', () => {
+  it('getUserInteraction() returns undefined with no ask_request listener (headless contract preserved)', () => {
     const session = new InteractiveSession({
       host: testHost,
       cwd: process.cwd(),
@@ -47,7 +47,7 @@ describe('InteractiveSession transport-neutral ask flow (REMOTE-007)', () => {
     expect(session.getUserInteraction()).toBeUndefined();
   });
 
-  it('TC-04c: subscribing a surface to ask_request makes the command port PRESENT (per-call gate)', () => {
+  it('subscribing a surface to ask_request makes the command port PRESENT (per-call gate)', () => {
     const session = new InteractiveSession({
       host: testHost,
       cwd: process.cwd(),
@@ -99,7 +99,7 @@ describe('InteractiveSession transport-neutral ask flow (REMOTE-007)', () => {
     await expect(pending).resolves.toEqual({ type: 'cancelled' });
   });
 
-  it('TC-03c: abort() drains a parked ask (the awaiting caller settles cancelled — no hang)', async () => {
+  it('abort() drains a parked ask (the awaiting caller settles cancelled — no hang)', async () => {
     const session = new InteractiveSession({
       host: testHost,
       cwd: process.cwd(),
@@ -115,7 +115,7 @@ describe('InteractiveSession transport-neutral ask flow (REMOTE-007)', () => {
     expect(resolved).toHaveLength(1);
   });
 
-  it('TC-03c: cancelQueue() also drains parked prompts', async () => {
+  it('cancelQueue() also drains parked prompts', async () => {
     const session = new InteractiveSession({
       host: testHost,
       cwd: process.cwd(),
@@ -138,7 +138,7 @@ describe('InteractiveSession transport-neutral ask flow (REMOTE-007)', () => {
   });
 });
 
-describe('SCREEN-1992 main-thread needs-input (TC-05)', () => {
+describe('main-thread needs-input', () => {
   it('a parked ask flips the main-thread entry to needs-input with a question headline, and settling clears it', async () => {
     const session = new InteractiveSession({
       host: testHost,

@@ -1,7 +1,7 @@
 /**
  * Settings-layer composition: how a later layer combines with an earlier one.
  *
- * Split out of `config-loader.ts` by CONFIG-003. The loader's job is to READ layers and RESOLVE the
+ * Split out of `config-loader.ts`. The loader's job is to READ layers and RESOLVE the
  * result; deciding what a later layer may do to an earlier one is a different question, and it is
  * the one with a security boundary in it — `mergeHooks` is why a project cannot delete a user's
  * guard. Keeping that decision in a file named for it means the next reader of "can a project
@@ -12,7 +12,7 @@ import type { TEnvResolvedSettings } from './config-types.js';
 import type { THooksConfig, TProviderCredentialReference } from '@robota-sdk/agent-core';
 
 /**
- * How a later layer combines with an earlier one for a given top-level key (OBSERVABILITY-1991).
+ * How a later layer combines with an earlier one for a given top-level key.
  *
  * Declared beside `mergeLayer` because that function is the only place these rules are executed;
  * `settings-inspection.ts` reads this table to report provenance instead of describing the merge a
@@ -56,7 +56,7 @@ export interface ISettingsLayerWithSource {
  * list-type fields — with ONE exception, stated here because the previous version of this comment
  * described two behaviours and the function performed three.
  *
- * **`hooks` is merged per event, never replaced (CONFIG-003).** It is not a list-type field: it is an
+ * **`hooks` is merged per event, never replaced.** It is not a list-type field: it is an
  * object keyed by lifecycle event, so it fell through the top-level spread and neither documented
  * rule covered it. A project settings layer declaring one `PostToolUse` hook therefore deleted
  * every user-global hook, including `PreToolUse` security guards — a lower-trust layer
@@ -66,7 +66,7 @@ export interface ISettingsLayerWithSource {
  *
  * A project layer can therefore ADD hooks and can never REMOVE one it did not declare.
  *
- * **A deliberate disable is order-scoped (issue #2320).** A layer's `disabledHooks` names hook-group
+ * **A deliberate disable is order-scoped.** A layer's `disabledHooks` names hook-group
  * `id`s, and it removes only groups declared by LATER layers — the ones below it in trust, since the
  * layers are read user-then-project. So a user layer can turn off a named project hook, and a
  * project layer naming a user's guard changes nothing: the guard was merged before the disable was
@@ -149,7 +149,7 @@ function mergePermissions(
 ): TEnvResolvedSettings['permissions'] {
   if (base === undefined && override === undefined) return undefined;
   return {
-    // Every list UNIONS (issue #3081). An allow list is no longer "the complete permitted set" —
+    // Every list UNIONS. An allow list is no longer "the complete permitted set" —
     // deny and ask rules, the never-auto-approve set and a caller's ceiling all outrank it — and
     // replacing let a checked-in project file silently discard the user's own rules.
     allow: unionPatterns(base?.allow, override?.allow),
@@ -223,7 +223,7 @@ function mergeHooks(
  * > forgot to repeat it.
  *
  * `permission-enforcer.ts` cites the same rule when it explains why a newly applied denial outranks
- * an earlier "always allow", and ARCH-040's record calls it settled. Settings-layer merging was the
+ * an earlier "always allow". Settings-layer merging was the
  * exception: `layer.permissions?.deny ?? merged.permissions?.deny` meant a project layer declaring
  * ANY deny silently dropped every deny the user had configured — the lower-trust layer relaxing the
  * higher-trust policy, which is the trust direction inverted.
@@ -243,7 +243,7 @@ function unionPatterns(
   return [...new Set([...base, ...layer])];
 }
 
-/** This layer's hooks minus the groups an EARLIER layer disabled by id (issue #2320). */
+/** This layer's hooks minus the groups an EARLIER layer disabled by id. */
 function withoutDisabledGroups(
   hooks: TEnvResolvedSettings['hooks'],
   disabledIds: ReadonlySet<string>,

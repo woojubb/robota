@@ -6,7 +6,7 @@
  */
 
 /**
- * NEUT-003: caller-supplied replacement for the framework suffix. A string is
+ * Caller-supplied replacement for the framework suffix. A string is
  * used verbatim; a function receives the assembly context. Omitted keeps the
  * documented default suffixes below.
  */
@@ -22,10 +22,10 @@ export interface ISubagentPromptOptions {
   agentsMd?: string;
   /** When true, use fork worker suffix instead of standard subagent suffix. */
   isForkWorker: boolean;
-  /** Replaces the framework suffix (NEUT-003). Omitted keeps the defaults. */
+  /** Replaces the framework suffix. Omitted keeps the defaults. */
   suffix?: TSubagentSuffix;
   /**
-   * CLI-1990: the deferred-tool roster lines for this child's tool set (`formatDeferredToolRoster`).
+   * The deferred-tool roster lines for this child's tool set (`formatDeferredToolRoster`).
    * Empty or omitted when nothing is deferred, which leaves the prompt byte-identical to before.
    */
   toolRoster?: readonly string[];
@@ -82,7 +82,7 @@ export function assembleSubagentPrompt(options: ISubagentPromptOptions): string 
     parts.push(options.agentsMd);
   }
 
-  // CLI-1990: the deferred half of the child's tool surface. Empty when nothing is deferred, so a
+  // The deferred half of the child's tool surface. Empty when nothing is deferred, so a
   // subagent with no deferred tool gets the prompt it always got.
   if (options.toolRoster !== undefined && options.toolRoster.length > 0) {
     parts.push(options.toolRoster.join('\n'));

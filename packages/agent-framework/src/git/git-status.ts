@@ -1,5 +1,5 @@
 /**
- * BEHAVIOR-2437: `/git status` — `git status --porcelain=v2 -z --branch`, parsed into the branch and
+ * `/git status` — `git status --porcelain=v2 -z --branch`, parsed into the branch and
  * the staged, unstaged, untracked (and, when present, conflicted) path sets.
  *
  * `-z` is what makes a path with a space, a quote, a newline or a non-ASCII character ONE element,

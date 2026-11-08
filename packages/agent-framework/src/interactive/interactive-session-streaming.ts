@@ -25,14 +25,14 @@ export const STREAMING_FLUSH_INTERVAL_MS = 16;
 const DEFAULT_START_LINE = 1;
 const EDIT_DIFF_CONTEXT_LINES = 3;
 /**
- * #3288 review SHOULD 3: a diff preview's remove/add side (Edit) or whole-file preview (Write) is
+ * A diff preview's remove/add side (Edit) or whole-file preview (Write) is
  * capped this many lines before it is truncated — one shared constant so neither builder can flood
  * the wire or the renderer with an unbounded change.
  */
 const MAX_DIFF_LINES = 500;
 
 /**
- * #3288: the workspace-relative form of an absolute path, for DISPLAY only (`firstArg` is untouched —
+ * The workspace-relative form of an absolute path, for DISPLAY only (`firstArg` is untouched —
  * this is additive). Containment check mirrors `edit-checkpoint-store.ts`'s `captureFile`: a path
  * outside `cwd` (or an ambiguous resolve, e.g. across drives) is shown unchanged, absolute.
  */
@@ -76,7 +76,7 @@ interface IToolEndEvent {
   appView?: IToolAppViewRef;
 }
 
-/** #3288 §2: exported so the history-replay projector can extract a path arg the same way live does. */
+/** Exported so the history-replay projector can extract a path arg the same way live does. */
 export function getStringArg(
   args: TToolArgs | undefined,
   snake: string,
@@ -128,13 +128,13 @@ function resolveEditStartLine(
 }
 
 /**
- * #3288 review MUST 1: whether `filePath` may be read at all to build a diff preview — the ONE guard
+ * Whether `filePath` may be read at all to build a diff preview — the ONE guard
  * every disk read in this file goes through, for both the pre-approval permission-request preview
  * (`session-prompt-registry.ts`, before the person has agreed to anything) and the post-execution
  * `tool_end` context read (which had the same gap before this file grew a pre-approval caller).
  *
  * `cwd === undefined` refuses (no workspace to confine reads to — mirrors `agent-tools`'
- * `checkPathWithinCwd`'s ARCH-010 fail-closed default). Containment is decided on CANONICAL
+ * `checkPathWithinCwd`'s fail-closed default). Containment is decided on CANONICAL
  * (symlink-resolved) paths via `isPathInside`, the repo's one SSOT for this (`agent-core`'s
  * `path-containment.ts`): a purely lexical `resolve()`/`startsWith` check would let a symlink SITTING
  * inside the workspace but POINTING outside it through, exactly the defect that SSOT exists to close.
@@ -153,11 +153,11 @@ function isSafeToReadForDiff(
  * actual read — the containment root (`cwd`), never `process.cwd()`. `isPathInside` and
  * `fs.readFileSync` each canonicalize a relative candidate against the PROCESS's own directory when
  * given one on their own, so passing the raw (possibly relative) `filePath` straight to both checked
- * it against one root while reading it from another — the same #2429 defect
+ * it against one root while reading it from another — the same defect
  * `agent-tools/path-guard.ts`'s `resolveHostPath` exists to close. Resolving once, here, and reusing
  * the result for every downstream call keeps the two decisions from disagreeing. With no `cwd` there
  * is nothing to anchor to; the path is returned as written, and `isSafeToReadForDiff` then refuses it
- * (ARCH-010 fail-closed).
+ * (fail-closed).
  */
 function resolveFilePathForDiffRead(cwd: string | undefined, filePath: string): string {
   return cwd === undefined ? filePath : resolvePath(cwd, filePath);
@@ -193,7 +193,7 @@ function buildEditDiffState(
   };
 }
 
-/** #3288: Write has no "old" side to diff against — the whole new content is shown as additions. */
+/** Write has no "old" side to diff against — the whole new content is shown as additions. */
 function buildWriteDiffState(
   event: { toolArgs?: TToolArgs },
   cwd: string | undefined,
@@ -223,7 +223,7 @@ function buildWriteDiffState(
 }
 
 /**
- * #3288: the ONE diff builder — Edit and Write both go through here, at `tool_end` AND at a
+ * The ONE diff builder — Edit and Write both go through here, at `tool_end` AND at a
  * permission-request preview (`session-prompt-registry.ts`, before the tool has run). No other file
  * builds a diff; a surface renders whatever `diffLines`/`diffFile` this attaches to the wire state.
  */
@@ -239,7 +239,7 @@ export function buildDiffState(
 }
 
 /**
- * #3288 review SHOULD 3: one side (all-removed or all-added lines) of an Edit diff, capped at
+ * One side (all-removed or all-added lines) of an Edit diff, capped at
  * `MAX_DIFF_LINES` with a trailing truncation marker — mirrors Write's own cap so neither an
  * enormous `old_string` nor an enormous `new_string` can flood the wire or the renderer.
  */
@@ -392,14 +392,14 @@ export function applyToolStart(
     toolName: string;
     toolArgs?: TToolArgs;
     executionId?: string;
-    /** #3288: the `/command` this call projects, when it is a model-command-projection tool. */
+    /** The `/command` this call projects, when it is a model-command-projection tool. */
     commandName?: string;
-    /** #3288: true for an internal signal tool (e.g. goal-status) — never shown as a call. */
+    /** True for an internal signal tool (e.g. goal-status) — never shown as a call. */
     internal?: boolean;
   },
   /** Shown beside the tool name instead of its first argument (the Advisor's model). */
   label?: string,
-  /** #3288: the session's cwd, so a path argument can also get a workspace-relative display form. */
+  /** The session's cwd, so a path argument can also get a workspace-relative display form. */
   cwd?: string,
 ): IToolState {
   const firstArg = label ?? extractFirstArg(event.toolArgs);
@@ -440,7 +440,7 @@ export function withoutAppView<T extends { appView?: IToolAppViewRef }>(
 export function applyToolEnd(
   state: IStreamingState,
   event: IToolEndEvent,
-  /** #3288: the session's cwd, threaded to `buildDiffState` for a workspace-relative `diffFile`. */
+  /** The session's cwd, threaded to `buildDiffState` for a workspace-relative `diffFile`. */
   cwd?: string,
   /** The host's file access, threaded to `buildDiffState` for an Edit diff's context lines. */
   files?: IFrameworkHost['files'],
@@ -451,7 +451,7 @@ export function applyToolEnd(
       ? 'error'
       : 'success';
 
-  // #3288: a tool_end is attributed by executionId first — two same-named parallel calls can finish
+  // A tool_end is attributed by executionId first — two same-named parallel calls can finish
   // out of start order, and matching by name alone would close whichever running call of that name
   // was found first, regardless of which one actually finished. Falls back to the name+running
   // heuristic only when the event carries no executionId (legacy fixtures / old hosts).

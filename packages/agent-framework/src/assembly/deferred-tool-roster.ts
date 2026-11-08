@@ -1,5 +1,5 @@
 /**
- * The deferred half of a session's tool surface, as system-prompt lines (CLI-1990 § Solution 6).
+ * The deferred half of a session's tool surface, as system-prompt lines.
  *
  * Split from `create-session-runtime.ts` on a real seam rather than for line count: that module
  * ASSEMBLES the prompt from many contributors, while this one DERIVES one contributor from the

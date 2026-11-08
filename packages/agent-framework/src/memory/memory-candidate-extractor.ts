@@ -16,7 +16,7 @@ export interface IMemoryExtractorTrigger {
 }
 
 /**
- * NEUT-007: extractor POLICY — trigger phrases and classification vocabulary are
+ * Extractor POLICY — trigger phrases and classification vocabulary are
  * locale/domain policy, injectable by the composition root. The library holds no
  * baked-in locale/domain heuristics beyond the documented default below.
  */

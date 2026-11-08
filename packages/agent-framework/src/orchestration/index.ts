@@ -1,10 +1,10 @@
 /**
- * Multi-agent orchestration mechanism (SELFHOST-001).
+ * Multi-agent orchestration mechanism.
  *
  * agent-core owns the neutral contracts + event-type unions; this layer
  * IMPLEMENTS the mechanism over `agent-executor`'s `ISubagentRunner` port
- * (surfaced as `ISubagentManager`). P1 ships `sequential`; P2 adds `parallel`
- * (bounded concurrency + aggregation) and `handoff` (control-transfer); P3 adds
+ * (surfaced as `ISubagentManager`). It ships `sequential`, `parallel`
+ * (bounded concurrency + aggregation), `handoff` (control-transfer),
  * `hierarchical` (manager-delegation) and `group-chat` (turn-taking). The
  * framework NEVER depends on `agent-subagent-runner` (that would be a cycle);
  * the concrete runner is injected at the `agent-cli` composition root.

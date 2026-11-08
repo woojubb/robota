@@ -15,7 +15,7 @@ import type {
 } from '../host-roles.js';
 import type { TAutoCompactThresholdSource } from '../host-context-types.js';
 import type { IContextWindowState } from '@robota-sdk/agent-core';
-// Issue #2052: owned by agent-session (`ContextWindowTracker`), not redeclared here.
+// Owned by agent-session (`ContextWindowTracker`), not redeclared here.
 import type { TAutoCompactThreshold } from '@robota-sdk/agent-session';
 export type {
   IContextReferenceAddResult,
@@ -61,7 +61,7 @@ export function setCommandAutoCompactThreshold(
   threshold: TAutoCompactThreshold,
   source: TAutoCompactThresholdSource,
 ): void {
-  // ARCH-029 TC-09: one path. The branch this replaced fell back to
+  // One path. The branch this replaced fell back to
   // `getSession().setAutoCompactThreshold(threshold)` when the host member was absent — and the two
   // were NOT the same operation: the fallback silently dropped `source`, so a session-scoped change
   // was recorded as whatever the reader assumed. Exactly the `clearConversationHistory` shape.

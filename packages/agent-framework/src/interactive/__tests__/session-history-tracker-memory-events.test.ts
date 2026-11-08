@@ -31,7 +31,7 @@ function makeEvent(type: IMemoryEvent['type']): IMemoryEvent {
 }
 
 describe('SessionHistoryTracker — memory events', () => {
-  it('TC-01: saved event appends a visible history entry and emits', () => {
+  it('saved event appends a visible history entry and emits', () => {
     const { tracker, emitMemoryEvent, persist } = createTracker();
     tracker.recordMemoryEvent(makeEvent('memory_candidate_saved'));
 
@@ -46,7 +46,7 @@ describe('SessionHistoryTracker — memory events', () => {
   });
 
   it.each(['memory_candidate_approved', 'memory_candidate_rejected', 'memory_retrieved'] as const)(
-    'TC-01: %s is a visible type with a history entry',
+    '%s is a visible type with a history entry',
     (type) => {
       const { tracker } = createTracker();
       tracker.recordMemoryEvent(makeEvent(type));
@@ -58,7 +58,7 @@ describe('SessionHistoryTracker — memory events', () => {
     'memory_candidate_extracted',
     'memory_candidate_queued',
     'memory_candidate_skipped',
-  ] as const)('TC-02: internal type %s does not append history but still emits', (type) => {
+  ] as const)('internal type %s does not append history but still emits', (type) => {
     const { tracker, emitMemoryEvent } = createTracker();
     tracker.recordMemoryEvent(makeEvent(type));
     expect(tracker.getState().history).toHaveLength(0);

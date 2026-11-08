@@ -1,5 +1,5 @@
 /**
- * Issue #3693 — `Session` is platform-neutral and reads nothing from the machine, so the framework
+ * `Session` is platform-neutral and reads nothing from the machine, so the framework
  * hands it the home directory, the workspace resolver, the path canonicalizer and the hook executors
  * its host lends, wherever it builds one. A member the host leaves out stays out. These cases watch
  * what reaches the real `Session` constructor.

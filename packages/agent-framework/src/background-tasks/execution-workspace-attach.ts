@@ -1,5 +1,5 @@
 /**
- * CLI-1994, #3679 3f: what attaching to an execution-workspace entry does.
+ * What attaching to an execution-workspace entry does.
  *
  * Beside `execution-workspace-projection.ts` deliberately: the projection decides when the `attach`
  * control is OFFERED, and this module decides when it is HONOURED. Both read ONE table,

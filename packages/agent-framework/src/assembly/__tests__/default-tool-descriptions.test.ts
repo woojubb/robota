@@ -16,15 +16,15 @@ import type { ITerminalOutput } from '@robota-sdk/agent-session';
 const testHost = createTestFrameworkHost();
 
 /**
- * ARCH-035 SPLIT this file rather than moving it. The tool-assembly cases went to
- * `@robota-sdk/agent-tool-defaults` with the aggregator; these two stayed, because
+ * This file was split rather than moved. The tool-assembly cases live in
+ * `@robota-sdk/agent-tool-defaults` with the aggregator; these two stay, because
  * `DEFAULT_TOOL_DESCRIPTIONS` stayed — its only consumer builds the system prompt synchronously.
  *
  * What these cases do NOT check, stated because the gap is the point: nothing here ties a description
  * to a tool that is actually assembled. The list is hard-coded and the coupling is now cross-package.
  * Filed separately; asserting it here would be asserting the defect.
  *
- * CLI-1990 adds the one part that IS derived — the deferred roster below. It has to be: which tools
+ * The deferred roster below is the one part that IS derived. It has to be: which tools
  * a session withholds is a per-session fact, and a deferred tool the model is never told about
  * cannot be searched for, so the roster is the only thing making the withheld half reachable.
  */
@@ -94,7 +94,7 @@ const DEFERRED_A = tool('postgres_query', 'Run a SQL statement against the prima
 const DEFERRED_B = tool('sheets_read', 'Read a range from a spreadsheet.', true);
 const RESIDENT = tool('Read', 'read file contents with line numbers');
 
-describe('CLI-1990 TC-16 — the deferred roster reaches the assembled system prompt', () => {
+describe('the deferred roster reaches the assembled system prompt', () => {
   it('names each deferred tool as `name — description` under the roster header', () => {
     const prompt = promptFor([RESIDENT, DEFERRED_A, DEFERRED_B]);
     expect(prompt).toContain(DEFERRED_TOOL_ROSTER_HEADER);

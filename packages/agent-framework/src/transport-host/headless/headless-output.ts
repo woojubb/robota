@@ -24,7 +24,7 @@ export interface IHeadlessOutput {
 }
 
 /**
- * #3282 §2 — the same plain wording `/effort` itself reports (`EFFORT_LEVEL_LABELS`), replacing the
+ * The same plain wording `/effort` itself reports (`EFFORT_LEVEL_LABELS`), replacing the
  * earlier `Model effort: requested=…, effective=…, source=…, disposition=…` internal-field dump for
  * headless `/goal` output. `not-applied` means the model has no matching native control at all — the
  * earlier fields carried no information a person could act on for that case, so it gets its own plain

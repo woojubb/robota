@@ -1,5 +1,5 @@
 /**
- * Resuming, renaming and autosaving a sealed session around a lock (#3679, secure conversation).
+ * Resuming, renaming and autosaving a sealed session around a lock (secure conversation).
  *
  * The defect these exist for: a resume that ignores what the store said starts an EMPTY session
  * under the sealed session's id, and after an unlock the first autosave replaces the sealed
@@ -266,7 +266,7 @@ describe("a refused save says why, in the store's own words", () => {
     expect(errors[0]?.message).not.toMatch(/unlock/i);
   });
 
-  // #3679 step 3e: the session claims its id, and while the keys are locked a sealed file it cannot
+  // The session claims its id, and while the keys are locked a sealed file it cannot
   // open may be the owner's own other process's write, so only the unlock can tell; the store says
   // the keys are locked, and the session decides at the unlock (see `session-divergence.test.ts`).
   it('tells a process that runs the session that the locked keys stand in the way of a changed file', async () => {

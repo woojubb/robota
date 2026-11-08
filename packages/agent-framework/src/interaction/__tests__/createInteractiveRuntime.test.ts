@@ -30,7 +30,7 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
     listRuntimeTools: vi.fn().mockResolvedValue([]),
     invokeRuntimeTool: vi.fn().mockResolvedValue({ success: true }),
     readToolAppView: vi.fn().mockReturnValue(undefined),
-    // ARCH-012: required now — the optional form let this double read as "no active driver".
+    // Required now — the optional form let this double read as "no active driver".
     getPendingCount: vi.fn().mockReturnValue(0),
     getActiveDriverId: vi.fn().mockReturnValue(null),
     submit: vi.fn().mockResolvedValue(undefined),
@@ -53,7 +53,7 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
     executeCommand: vi.fn().mockResolvedValue(null),
     listCommands: vi.fn().mockReturnValue([] as ICommandListEntry[]),
     listSkills: vi.fn().mockReturnValue([]),
-    // #3282 §2: no configured profiles in this double — a case that cares overrides it.
+    // No configured profiles in this double — a case that cares overrides it.
     listModels: vi.fn().mockReturnValue({ groups: [], currentModel: 'test-model' }),
     getStatusSnapshot: vi.fn().mockReturnValue({
       sessionId: 'test-session',
@@ -225,7 +225,7 @@ describe('createInteractiveRuntime', () => {
     expect(channel.events[0]).toEqual({ type: 'command-result', name: 'help', output: 'ok' });
   });
 
-  it('Given slash command with no args When submitted Then executeCommand called directly (CMD-004: command self-asks)', async () => {
+  it('Given slash command with no args When submitted Then executeCommand called directly (command self-asks)', async () => {
     vi.mocked(session.executeCommand).mockResolvedValue({ message: 'switched', success: true });
 
     const mod = makeCommandModule('mode');
@@ -331,7 +331,7 @@ describe('createInteractiveRuntime', () => {
     await runtime.stop();
 
     expect(channel.stopped).toBe(true);
-    // 6 display events + 1 REMOTE-007 ask_request subscription (unwired on stop).
+    // 6 display events + 1 ask_request subscription (unwired on stop).
     expect(session.off).toHaveBeenCalledTimes(7);
   });
 

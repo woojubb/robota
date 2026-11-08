@@ -1,5 +1,5 @@
 /**
- * TRANS-010 (issue #2480): the file-backed `ITransportSettingsRepository`, a Node adapter exported
+ * The file-backed `ITransportSettingsRepository`, a Node adapter exported
  * from `@robota-sdk/agent-framework/node`.
  *
  * It is the ONLY place the transport package touches the framework settings file helpers; the

@@ -37,7 +37,7 @@ const threeStepSpec: IHandoffOrchestrationSpec = {
 const followToPrefix: ResolveHandoff = (output) =>
   output.startsWith('to:') ? output.slice('to:'.length) : null;
 
-describe('SELFHOST-001 P2 — handoff orchestration', () => {
+describe('handoff orchestration', () => {
   it('transfers control per the policy, threads prior output, returns the final output in order', async () => {
     const outByType: Record<string, string> = {
       triage: 'to:specialist',

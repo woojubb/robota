@@ -1,5 +1,5 @@
 /**
- * Issue #3248: a `context: fork` skill runs in a subagent session that carries no background policy,
+ * A `context: fork` skill runs in a subagent session that carries no background policy,
  * so the parent's own gate decides its calls. Its inherited shell tools run under the parent's
  * sandbox, and the fork consults that sandbox: a confined command it approves needs no one to ask.
  */

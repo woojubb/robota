@@ -1,5 +1,5 @@
 /**
- * BEHAVIOR-2437: the port every `/git` verb runs git through, and the words a failed run is reported
+ * The port every `/git` verb runs git through, and the words a failed run is reported
  * in.
  *
  * The port is argv only: no user token is ever parsed as shell syntax, output is capped, the child is

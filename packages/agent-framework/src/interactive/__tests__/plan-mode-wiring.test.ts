@@ -6,12 +6,12 @@ import {
 } from '../../testing/scripted-session-harness.js';
 
 /**
- * SELFHOST-002 P2 (TC-04): headless integration of the plan-mode wiring on a REAL InteractiveSession
+ * Headless integration of the plan-mode wiring on a REAL InteractiveSession
  * driven by an injected (scripted) provider — no API key. Asserts the artifact/approval round-trip
  * (plan_event lifecycle) and that approval APPLIES the controller's mode decision via
  * `setPermissionMode` (plan → acceptEdits), keeping the existing `plan` mode as the mutation block.
  */
-describe('SELFHOST-002 P2 — InteractiveSession plan-mode wiring', () => {
+describe('InteractiveSession plan-mode wiring', () => {
   let harness: ScriptedSessionHarness | undefined;
 
   afterEach(async () => {

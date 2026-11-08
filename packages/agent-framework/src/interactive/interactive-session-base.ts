@@ -103,7 +103,7 @@ export abstract class InteractiveSessionBase {
   protected abstract getProjectAccess(): TWorkspaceProjectAccess;
   /** The host's reader for a session's project log; the subclass owns the host. */
   protected abstract getSessionReplayValidator(): IFrameworkHost['validateSessionReplayLog'];
-  /** SCREEN-1992: the parked permission/ask the main thread waits on; the subclass owns the registry. */
+  /** The parked permission/ask the main thread waits on; the subclass owns the registry. */
   protected abstract getPendingRequest(): IExecutionPendingRequest | undefined;
 
   isExecuting(): boolean {
@@ -122,7 +122,7 @@ export abstract class InteractiveSessionBase {
     this.execCtrl.clearPendingQueue();
   }
 
-  // CMD-004 Phase 2: `originDriverId` is the command-origin driver id (REMOTE-014 E5 server-assigned
+  // `originDriverId` is the command-origin driver id (server-assigned
   // rule) carried through the chain so `ui_intent` events route to the requesting surface.
   async executeCommand(
     name: string,
@@ -148,7 +148,7 @@ export abstract class InteractiveSessionBase {
     return readSessionUsageRecords(this.histTracker.getHistory());
   }
   /**
-   * ARCH-029 TC-08: one replay-validation path with no fallback branch. The reader is the host's
+   * One replay-validation path with no fallback branch. The reader is the host's
    * (`validateSessionReplayLog`); the session holds no keys of its own, so a sealed project log is
    * reported as sealed (`ArtifactLockedError`, `no-keys`) instead of being opened. A host that
    * supplies no reader leaves the session unable to read its log, and this says so as an error.
@@ -218,7 +218,7 @@ export abstract class InteractiveSessionBase {
       .filter((e) => e.category === 'chat')
       .map((e) => e.data as TUniversalMessage);
   }
-  /** #3288 §2: `getMessages()`'s chat entries, projected for a reload/reconnect/resume replay. */
+  /** `getMessages()`'s chat entries, projected for a reload/reconnect/resume replay. */
   getMessagesDisplay(): IHistoryDisplaySegment[] {
     return projectHistoryForDisplay(this.histTracker.getHistory(), {
       cwd: this.getCwd(),
@@ -245,7 +245,7 @@ export abstract class InteractiveSessionBase {
     await this.ensureInitialized();
     return this.histTracker.rollbackEditCheckpoint(checkpointId);
   }
-  // SELFHOST-007: branching time-travel.
+  // Branching time-travel.
   listCheckpointBranches(): string[] {
     return this.histTracker.listCheckpointBranches();
   }
@@ -334,7 +334,7 @@ export abstract class InteractiveSessionBase {
     );
   }
   /**
-   * #3288 §1: this session's self-paced loops, summarized for the execution workspace. Overridden
+   * This session's self-paced loops, summarized for the execution workspace. Overridden
    * by {@link InteractiveSession} (the only subclass with self-paced loops at all); the default
    * here keeps a hypothetical other subclass working with none, rather than requiring one.
    */
@@ -342,7 +342,7 @@ export abstract class InteractiveSessionBase {
     return [];
   }
   /**
-   * #3288 §1: a single self-paced loop's own durable state, for its detail page (`readWorkspaceDetail`
+   * A single self-paced loop's own durable state, for its detail page (`readWorkspaceDetail`
    * — its entry has no `IBackgroundTaskState` of its own to read). Overridden by
    * {@link InteractiveSession}; the default here keeps a hypothetical other subclass working with
    * none, matching {@link getSelfPacedLoopWorkspaceSummaries}.
@@ -492,7 +492,7 @@ export abstract class InteractiveSessionBase {
     });
   }
 
-  // SELFHOST-012: non-destructive schedule lifecycle over the existing scheduler (no new scheduler).
+  // Non-destructive schedule lifecycle over the existing scheduler (no new scheduler).
   listSchedules(): IBackgroundTaskState[] {
     return this.bgTracker
       .getManagerOrThrow()

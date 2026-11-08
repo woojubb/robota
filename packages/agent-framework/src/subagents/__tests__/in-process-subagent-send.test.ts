@@ -1,5 +1,5 @@
 /**
- * An in-process job takes follow-up input and shows its own turns (#3679 3f, live follow).
+ * An in-process job takes follow-up input and shows its own turns (live follow).
  *
  * A job a surface follows is steered with `send`: the prompt runs as the job's next turn, after the
  * turn in flight, and the job ends only once every turn it accepted has run — so what the job

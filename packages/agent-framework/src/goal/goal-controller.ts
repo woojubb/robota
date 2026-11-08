@@ -1,5 +1,5 @@
 /**
- * GOAL-001: autonomous objective-pursuit controller.
+ * Autonomous objective-pursuit controller.
  *
  * Pure decision logic (no session/IO dependency) so it is unit-testable in isolation. It owns the
  * goal state machine: it reads the deterministic completion signal from a finished turn, advances

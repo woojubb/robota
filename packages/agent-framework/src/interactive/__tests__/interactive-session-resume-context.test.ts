@@ -1,9 +1,9 @@
 /**
- * RESUME-001: Session resume context recovery tests.
- * TC-01: contextReferences round-trip through save/resume
- * TC-02: context estimated via syncContextFromHistory() on resume (single SSOT method)
- * TC-04: listContextReferences() = system refs + restored user refs, no duplicates
- * TC-06: listInjectionContextReferences() prevents duplicate context injection
+ * Session resume context recovery tests.
+ * contextReferences round-trip through save/resume
+ * Context estimated via syncContextFromHistory() on resume (single SSOT method)
+ * listContextReferences() = system refs + restored user refs, no duplicates
+ * listInjectionContextReferences() prevents duplicate context injection
  */
 
 import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
@@ -47,7 +47,7 @@ function createMockSession(options?: { sessionId?: string }) {
 function createMockSessionStore(records: Record<string, unknown> = {}) {
   const store = new Map<string, unknown>(Object.entries(records));
   return withHoldReadClaim({
-    // TRANS-007: the port returns an outcome, so a double that returns a record (or `undefined`)
+    // The port returns an outcome, so a double that returns a record (or `undefined`)
     // no longer satisfies it. The cast at the call site hid that from the compiler; the tests found
     // it at runtime instead.
     load: vi.fn((id: string) => {
@@ -75,8 +75,8 @@ function contextRef(sourcePath: string): IContextReferenceItem {
   };
 }
 
-describe('RESUME-001: session resume context recovery', () => {
-  describe('TC-01: contextReferences round-trip through save/resume', () => {
+describe('session resume context recovery', () => {
+  describe('contextReferences round-trip through save/resume', () => {
     it('listContextReferences() returns saved user context refs after resume', () => {
       const userRefs: IContextReferenceItem[] = [
         contextRef('/project/AGENTS.md'),
@@ -136,7 +136,7 @@ describe('RESUME-001: session resume context recovery', () => {
     });
   });
 
-  describe('TC-02: context estimated via syncContextFromHistory() — single SSOT method', () => {
+  describe('context estimated via syncContextFromHistory() — single SSOT method', () => {
     it('emits context_update event after resume with restored messages', () => {
       const mockSession = createMockSession({ sessionId: 'emit-test' });
       const mockStore = createMockSessionStore({
@@ -255,7 +255,7 @@ describe('RESUME-001: session resume context recovery', () => {
     });
   });
 
-  describe('TC-04: listContextReferences() = system refs + saved user refs, no duplicates', () => {
+  describe('listContextReferences() = system refs + saved user refs, no duplicates', () => {
     it('user refs from session record appear alongside any present refs', () => {
       const userRefs: IContextReferenceItem[] = [contextRef('/project/src/utils.ts')];
       const mockSession = createMockSession({ sessionId: 'session-refs' });
@@ -289,7 +289,7 @@ describe('RESUME-001: session resume context recovery', () => {
     });
   });
 
-  describe('TC-06: no duplicate context refs after resume', () => {
+  describe('no duplicate context refs after resume', () => {
     it('listContextReferences() contains each path exactly once after resume with overlapping refs', () => {
       const userRefs: IContextReferenceItem[] = [
         contextRef('/project/src/feature.ts'),

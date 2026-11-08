@@ -1,5 +1,5 @@
 /**
- * GOAL-001: the structured completion-signal tool.
+ * The structured completion-signal tool.
  *
  * While an autonomous goal is active the agent reports its assessment by calling
  * `report_goal_status({ status, reason })`. The {@link GoalController} reads this call

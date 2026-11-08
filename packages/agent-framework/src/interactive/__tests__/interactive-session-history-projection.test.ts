@@ -22,7 +22,7 @@ import type { IHistoryEntry, IToolCall, TUniversalMessagePart } from '@robota-sd
 import type { IHistoryDisplaySegment } from '@robota-sdk/agent-interface-session';
 
 /**
- * #3288 §2: the server-side history-to-display projector — turns stored chat history (assistant
+ * The server-side history-to-display projector — turns stored chat history (assistant
  * `toolCalls` and their paired `role: 'tool'` results) into the same chronological display shapes a
  * live stream produces, for a reload/reconnect/session-resume replay.
  */
