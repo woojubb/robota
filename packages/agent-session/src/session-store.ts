@@ -53,7 +53,7 @@ import type {
   ISessionStoreScan,
   TSessionLoadOutcome,
   TSessionRestoreCommitOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 function errnoCode(error: unknown): unknown {
   return typeof error === 'object' && error !== null

@@ -12,7 +12,7 @@
  */
 import { Buffer } from 'node:buffer';
 
-import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface-session';
+import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface/session';
 import type { ITrustRoot } from '@robota-sdk/agent-keyring';
 
 import type {

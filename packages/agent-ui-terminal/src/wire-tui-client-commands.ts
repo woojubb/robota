@@ -22,8 +22,8 @@ import type {
   ICommandResult,
   TAppearanceSettingsPatch,
   TCommandUiIntent,
-} from '@robota-sdk/agent-interface-command';
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/command';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface/session';
 
 /** What a client-run command may use: this terminal's handoff and working directory. */
 export type TTuiClientCommandHost = ICommandHostTerminalHandoff & ICommandHostWorkspace;

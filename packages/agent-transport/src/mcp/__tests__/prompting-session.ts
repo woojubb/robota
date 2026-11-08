@@ -5,7 +5,7 @@
  * settles when a surface answers, fails closed at once when nobody listens, and is settled closed
  * when the last listener for its kind detaches.
  */
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { vi } from 'vitest';
 
 import type {
@@ -13,7 +13,7 @@ import type {
   IInteractiveSession,
   IPermissionRequestEvent,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export const PERMISSION_TOOL = {
   name: 'fixture_write',

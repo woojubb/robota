@@ -3,7 +3,7 @@ import type {
   ICommandHostAdapterAccess,
   ICommandHostWorkspace,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 /** The user-settings key `/advisor` saves the default advisor under. */
 export const ADVISOR_SETTING_KEY = 'advisorModel';

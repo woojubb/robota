@@ -17,7 +17,7 @@ import {
 
 import type { IGitProcessPort } from '@robota-sdk/agent-framework';
 import type { IUserInteraction } from '@robota-sdk/agent-core';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 const GIT_COMMIT_CONVENTIONAL_TYPES: readonly string[] = [
   'build',

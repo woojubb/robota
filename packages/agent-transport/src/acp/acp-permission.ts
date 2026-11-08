@@ -15,7 +15,7 @@ import type {
   IDiffLine,
   IPermissionRequestEvent,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const OPTION = {
   allowOnce: 'allow-once',

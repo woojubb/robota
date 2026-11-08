@@ -4,7 +4,7 @@
  * session binder is asked for the effective role.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { WebSocket } from 'ws';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,7 +16,7 @@ import type {
   IInteractiveSession,
   ISessionBinder,
   ISessionBinding,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { IProtocolSession, TServerMessage } from '../../index';
 
 function mockSession(): IInteractiveSession & { submit: ReturnType<typeof vi.fn> } {

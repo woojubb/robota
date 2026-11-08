@@ -3,7 +3,7 @@ import type {
   ICommandHostWorkspace,
   ICommandSkillListEntry,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 export const SKILLS_COMMAND_DESCRIPTION = 'List registered skills, or activate one by name';
 

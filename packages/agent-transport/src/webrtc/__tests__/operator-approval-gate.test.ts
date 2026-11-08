@@ -1,6 +1,6 @@
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 const testIdentity = createIdentityContext('test-product');
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import {
   deriveIdentityId,
   exportPublicKey,

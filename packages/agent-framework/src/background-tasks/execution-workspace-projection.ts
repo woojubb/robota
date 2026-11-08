@@ -34,7 +34,7 @@ import type {
   IBackgroundTaskResult,
   IBackgroundTaskState,
   TBackgroundPrimitive,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 const SUCCESS_EXIT_CODE = 0;
 

@@ -17,7 +17,7 @@
 import {
   SESSION_CHANGE_REFUSAL_CODES,
   SESSION_DELETE_REFUSAL_CODES,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 import type { TBackgroundControlAction, TClientMessage, TServerMessage } from './wire-messages.js';
 

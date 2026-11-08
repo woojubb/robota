@@ -14,7 +14,7 @@ import {
 } from '../flows/input-area-flow.js';
 import { useKeybindingActions } from '../keybindings/keybindings-context.js';
 
-import type { ICommand } from '@robota-sdk/agent-interface-command';
+import type { ICommand } from '@robota-sdk/agent-interface/command';
 
 export interface IUseInputAreaKeysInputs {
   value: string;

@@ -67,9 +67,9 @@ import type { IHistoryEntry, IRunTraceContext, TToolArgs } from '@robota-sdk/age
 import type {
   IProviderCallTraceEntry,
   IToolBodyTraceEntry,
-} from '@robota-sdk/agent-interface-analytics';
-import type { IPeerTurnContext, TDriverId, TTurnSource } from '@robota-sdk/agent-interface-session';
-import type { ICompactEvent, IToolAppViewRef } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/analytics';
+import type { IPeerTurnContext, TDriverId, TTurnSource } from '@robota-sdk/agent-interface/session';
+import type { ICompactEvent, IToolAppViewRef } from '@robota-sdk/agent-interface/session';
 
 export type { TTurnSource };
 

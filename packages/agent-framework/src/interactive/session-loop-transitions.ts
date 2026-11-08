@@ -1,6 +1,6 @@
 /** Pure lifecycle decisions for a session-owned, self-paced repeat. Persistence is the caller's job. */
 
-import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
+import type { ISessionLoopState } from '@robota-sdk/agent-interface/session';
 
 const LIFETIME_MS = 7 * 24 * 60 * 60_000;
 export const SELF_PACED_FALLBACK_SECONDS = 20 * 60;

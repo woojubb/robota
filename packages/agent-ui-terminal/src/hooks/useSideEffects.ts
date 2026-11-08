@@ -15,12 +15,12 @@
  *    persisted settings (refresh-on-result — the host applied any patch via the settings adapter).
  */
 
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import type { IUseSideEffectsOptions, IUseSideEffectsResult } from './side-effects-types.js';
 import type { ITuiSessionUiEventPort } from '../tui-app-channel-port.js';
-import type { ISessionRenamedEvent, IUiIntentEvent } from '@robota-sdk/agent-interface-session';
+import type { ISessionRenamedEvent, IUiIntentEvent } from '@robota-sdk/agent-interface/session';
 
 interface IUiEventHandlers {
   setSessionName: (name: string) => void;

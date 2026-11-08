@@ -11,7 +11,7 @@
  */
 import type { Duplex } from 'node:stream';
 
-import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface-session';
+import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface/session';
 
 import {
   KeyringError,

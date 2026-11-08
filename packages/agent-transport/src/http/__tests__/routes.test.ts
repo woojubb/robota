@@ -4,12 +4,12 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { createAgentRoutes } from '../routes.js';
 import { createHttpTransport } from '../http-transport.js';
 import type { IHttpTransportSession } from '../http-session.js';
-import type { IInteractiveSession, ITurnHandle } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession, ITurnHandle } from '@robota-sdk/agent-interface/session';
 
 /**
  * Built on the PUBLISHED conformant double, not a cast.

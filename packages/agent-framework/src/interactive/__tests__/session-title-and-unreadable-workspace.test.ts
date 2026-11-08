@@ -17,7 +17,7 @@ import {
   resolveReusableEmptySessionId,
 } from '../session-persistence.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const dirs: string[] = [];
 

@@ -14,11 +14,11 @@ import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { TCommandInvocationSource } from '../commands/index.js';
 import type { TModelEffort } from '@robota-sdk/agent-core';
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface/execution';
 import type {
   ISubagentJobState,
   TBackgroundTaskIsolation,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type { Session } from '@robota-sdk/agent-session';
 
 /** Retrieve agent tool deps or throw. */

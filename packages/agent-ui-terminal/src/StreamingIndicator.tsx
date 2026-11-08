@@ -20,7 +20,7 @@ import { usePalette } from './theme/index.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
 
 import type { IThemeColors } from './theme/index.js';
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+import type { IToolState } from '@robota-sdk/agent-interface/session';
 
 function getToolStyle(
   t: IToolState,

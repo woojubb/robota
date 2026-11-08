@@ -14,7 +14,7 @@ import {
 
 import type { IFakeSession } from './acp-test-harness.js';
 import type { IAcpTransportOptions, IAcpTransportSession } from '../acp-types.js';
-import type { IHistoryDisplaySegment } from '@robota-sdk/agent-interface-session';
+import type { IHistoryDisplaySegment } from '@robota-sdk/agent-interface/session';
 
 type ICommandListEntry = ReturnType<NonNullable<IAcpTransportSession['listCommands']>>[number];
 type ICommandSkillListEntry = ReturnType<NonNullable<IAcpTransportSession['listSkills']>>[number];

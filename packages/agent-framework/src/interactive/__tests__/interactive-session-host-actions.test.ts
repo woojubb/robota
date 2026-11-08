@@ -21,7 +21,7 @@ import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandHostAdapters } from '../../command-api/host-adapters.js';
 import type { ICommandModule, ICommandResult } from '../../commands/index.js';
-import type { IUiIntentEvent } from '@robota-sdk/agent-interface-session';
+import type { IUiIntentEvent } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

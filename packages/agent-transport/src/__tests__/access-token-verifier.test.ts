@@ -9,7 +9,7 @@ import type {
   TAccessTokenAdmission,
   TAccessTokenAlgorithm,
   TAccessTokenRefusal,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 import type { CryptoKey, JWK } from 'jose';
 
 const ISSUER = 'https://auth.example.com';

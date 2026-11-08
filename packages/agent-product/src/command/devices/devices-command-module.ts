@@ -23,7 +23,7 @@ import type {
   ICommandModule,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandResult, ICommandSource } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandResult, ICommandSource } from '@robota-sdk/agent-interface/command';
 
 const SHORT_ID_CHARS = 10;
 const USAGE = 'Usage: /devices [list|init [name]|add|join [name]|revoke <device-id>|recover]';

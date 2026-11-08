@@ -60,7 +60,7 @@ import type {
   ISessionSaveOptions,
   TSessionAdoptResult,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /**
  * How a session store is built. `sealing` is required: every store states whether it keeps its

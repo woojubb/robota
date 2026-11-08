@@ -81,8 +81,7 @@
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:^",
-    "@robota-sdk/agent-interface-execution": "workspace:^",
-    "@robota-sdk/agent-interface-session": "workspace:^",
+    "@robota-sdk/agent-interface": "workspace:^",
     "@robota-sdk/agent-os": "workspace:^",
     "koffi": "3.3.1"
   },

@@ -295,7 +295,7 @@ under `<user-state>/credentials`.
 - [MCP and external events](./mcp.md)
 - [CLI reference](./cli.md)
 - [Permissions and hooks](./permissions-and-hooks.md) — the rules a peer's turn runs under
-- [`@robota-sdk/agent-interface-session-mobility` SPEC](../../packages/agent-interface-session-mobility/docs/SPEC.md) — how peer messages and hand-offs carry (no) authority
+- [`@robota-sdk/agent-interface-session-mobility` SPEC](../../packages/agent-interface/docs/SPEC.md) — how peer messages and hand-offs carry (no) authority
 - [`@robota-sdk/agent-remote-pairing`](../../packages/agent-remote-pairing/docs/README.md) — device identity, enrollment and pairing
 - [`@robota-sdk/agent-transport-webrtc`](../../packages/agent-transport/docs/webrtc.md) — the WebRTC transport and device mesh
 - [Signaling relay](../../apps/remote-signaling/docs/README.md) and [browser client deployment](../../apps/agent-web/docs/DEPLOYMENT.md)

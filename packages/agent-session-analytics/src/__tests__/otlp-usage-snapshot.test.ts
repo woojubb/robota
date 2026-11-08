@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createOtlpUsageSnapshot } from '../otlp-usage-snapshot.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 describe('OTLP usage snapshot projection', () => {
   it('uses each caller-selected service identity across repeated and concurrent projections', async () => {

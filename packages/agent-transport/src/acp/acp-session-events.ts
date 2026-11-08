@@ -11,7 +11,7 @@ import type {
   IInteractiveSessionEvents,
   ISessionEvents,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /**
  * - `stream`: forwarded to the editor as a session update while a prompt runs.

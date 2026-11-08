@@ -5,7 +5,7 @@
  */
 
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';

@@ -12,12 +12,12 @@ import type { ITuiAppChannelPort } from './tui-app-channel-port.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { ISessionSwitchOptions } from './types.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
-import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface-session';
-import type { IPromptHistorySource } from '@robota-sdk/agent-interface-session';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+import type { TReducedMotionOverride } from '@robota-sdk/agent-interface/command';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface/command';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
+import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface/session';
+import type { IPromptHistorySource } from '@robota-sdk/agent-interface/session';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface/transport';
 
 interface IProps {
   cwd: string;

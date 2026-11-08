@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import type { IMeshAdmission, TMeshCapability } from '@robota-sdk/agent-interface-session-mobility';
+import type { IMeshAdmission, TMeshCapability } from '@robota-sdk/agent-interface/session-mobility';
 import {
   DEVICE_CAPABILITIES,
   type IDeviceMeshAdmission,

@@ -5,7 +5,7 @@ import { scriptedSession, type ScriptedSessionHarness } from '@robota-sdk/agent-
 import { createDevicesCommandModule } from '../devices-command-module.js';
 
 import type { IDevicesCommandPort } from '../devices-command-port.js';
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface/session';
 
 const DEVICE_A = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 const DEVICE_B = 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';

@@ -24,7 +24,7 @@ import type { IArtifactSealerDouble } from '@robota-sdk/agent-core/testing';
 import type {
   IInteractiveSessionRecord,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-project-authorship-3a5c-owner';
 const FORGED = 'CANARY-project-authorship-e41d-forged';

@@ -13,7 +13,7 @@ import type {
   ICommandHostSessionAccess,
 } from '@robota-sdk/agent-framework';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 /** Switch the mode, or the refusal to show when the session will not enter it. */
 export function tryWritePermissionMode(

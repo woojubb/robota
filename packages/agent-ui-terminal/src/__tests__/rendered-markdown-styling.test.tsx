@@ -20,7 +20,7 @@ import ToolDiffBlock from '../ToolDiffBlock.js';
 import { DARK_THEME } from '../theme/built-in-themes.js';
 import { foreground } from '../theme/index.js';
 
-import type { IDiffLine } from '@robota-sdk/agent-interface-session';
+import type { IDiffLine } from '@robota-sdk/agent-interface/session';
 
 /** The opening SGR a theme colour produces, for an assertion about the rendered bytes. */
 function openCode(color: string): string {

@@ -15,7 +15,7 @@ directory — is either behind the `./node` subpath or an injected port; the pac
 default, so a composition root decides what a session may touch.
 
 The package also owns the **runtime codec** for the persisted session record: the record's type
-is owned by `agent-interface-session`, but a decoder is a mechanism, and an interface package
+is owned by `agent-interface/session`, but a decoder is a mechanism, and an interface package
 publishes contracts and vocabulary rather than mechanisms. The codec lives beside the
 persistence paths that consume it (the store, the artifact envelope, the replay path).
 
@@ -33,7 +33,7 @@ persistence paths that consume it (the store, the artifact envelope, the replay 
 - Owns the file-persistence _primitive_ and the stored form of a record (whoever builds a store
   states whether it seals, with a sealer or `'plain'`; there is no default), not the record or port
   shape: `NodeSessionStore` (on `./node`) implements the store port and record type declared in
-  `agent-interface-session`.
+  `agent-interface/session`.
 - No dependency on tool-registry or provider packages — tool and provider assembly, workspace
   trust, and project-path interpretation are the consuming layer's responsibility. This package
   never imports or reconstructs a workspace authority from a path.

@@ -8,7 +8,7 @@ import type {
   IAppearanceSettings,
   IThemeAppearanceState,
   TReducedMotionOverride,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 
 /** The tier that pinned motion for this run and what it pinned — the contract's own pair. */
 type IReducedMotionPin = NonNullable<IThemeAppearanceState['reducedMotionPin']>;

@@ -13,7 +13,7 @@ import type { TSettingsData } from '../config/settings-store-types.js';
 import type {
   ITransportSavedConfig,
   ITransportSettingsRepository,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

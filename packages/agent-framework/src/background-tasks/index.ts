@@ -33,7 +33,7 @@ export {
 //     `agent-ui-terminal`, `agent-transport` and `agent-cli`. None of the first three can even
 //     resolve `@robota-sdk/agent-executor` under pnpm's strict layout; `agent-product`'s permitted
 //     set is "agent-framework + agent-preset + agent-capability-pack + type-only
-//     agent-interface-transport + agent-core types" (`.agents/project-structure.md`).
+//     agent-interface/transport + agent-core types" (`.agents/project-structure.md`).
 //
 // Deleting the block turned `pnpm typecheck` red, which is how this was established rather than
 // assumed. An earlier revision named two packages; a line-based search had missed the two whose

@@ -32,7 +32,7 @@ import type {
   IPromptHistoryReadOptions,
   IPromptHistorySource,
   IPromptHistoryWriter,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const KIB = 1024;
 const DEFAULT_BLOCK_KIB = 64;

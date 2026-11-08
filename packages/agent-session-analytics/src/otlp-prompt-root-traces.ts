@@ -1,6 +1,6 @@
 import { calculateModelCost, MODEL_PRICES } from '@robota-sdk/agent-core';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const MAX_UINT64 = (1n << 64n) - 1n;
 const TRACE_ID = /^(?!0{32}$)[0-9a-f]{32}$/;

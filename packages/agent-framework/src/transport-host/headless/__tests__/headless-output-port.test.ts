@@ -1,4 +1,4 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { MockInstance } from 'vitest';
@@ -6,7 +6,7 @@ import type { MockInstance } from 'vitest';
 import { createHeadlessRunner } from '../headless-runner.js';
 
 import type { IHeadlessOutput } from '../headless-runner.js';
-import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface-session';
+import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface/session';
 
 /**
  * The headless runner owns no streams: everything it prints goes to the `output` it was given, and

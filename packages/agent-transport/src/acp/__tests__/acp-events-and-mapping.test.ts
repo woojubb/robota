@@ -8,7 +8,7 @@ import { acpToolKind, acpToolTitle } from '../acp-tool-mapping.js';
 import { createFakeSession } from './acp-test-harness.js';
 
 import type { TAcpSubscribedEvent } from '../acp-session-events.js';
-import type { TInteractiveEventName } from '@robota-sdk/agent-interface-session';
+import type { TInteractiveEventName } from '@robota-sdk/agent-interface/session';
 
 describe('session event policy', () => {
   it('decides every session event, so a new one cannot be silently dropped', () => {

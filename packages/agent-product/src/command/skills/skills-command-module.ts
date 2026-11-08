@@ -13,7 +13,7 @@ import type {
   ISystemCommand,
   ISkillRootDescriptor,
 } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface/command';
 
 export interface ISkillsCommandModuleOptions {
   readonly contributionSources: readonly IContributionSource[];

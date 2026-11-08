@@ -12,7 +12,7 @@ import {
 } from './scalars.js';
 
 import type { TDecodeIssues } from './decode-outcome.js';
-import type { ISessionLoopState, TSessionLoopPhase } from '@robota-sdk/agent-interface-session';
+import type { ISessionLoopState, TSessionLoopPhase } from '@robota-sdk/agent-interface/session';
 
 const PHASES: readonly TSessionLoopPhase[] = [
   'waiting',

@@ -7,7 +7,7 @@ import { requireToolExecutionRoot } from './execution-root.js';
 import './tool-permission-profiles.js';
 
 import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
-import type { TBackgroundPrimitive } from '@robota-sdk/agent-interface-execution';
+import type { TBackgroundPrimitive } from '@robota-sdk/agent-interface/execution';
 
 const DEFAULT_PROCESS_TIMEOUT_MS = 120_000;
 

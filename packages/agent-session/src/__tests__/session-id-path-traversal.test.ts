@@ -22,7 +22,7 @@ import { FileSessionLogger } from '../session-logger.js';
 import { NodeSessionLogSink } from '../node-session-log-sink.js';
 import { NodeSessionStore } from '../session-store.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import { loadedOrMissing } from './store-load-helpers.js';
 
 const TRAVERSAL_IDS = [

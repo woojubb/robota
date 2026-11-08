@@ -50,8 +50,8 @@ import type { InteractiveSession } from '@robota-sdk/agent-framework';
 import type {
   IExecutionDetailCursor,
   IExecutionDetailPage,
-} from '@robota-sdk/agent-interface-execution';
-import type { ICommandInfo, TPermissionResultValue } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/execution';
+import type { ICommandInfo, TPermissionResultValue } from '@robota-sdk/agent-interface/session';
 
 const SESSION_INIT_POLL_MS = 200;
 const SESSION_INIT_TIMEOUT_MS = 15000;

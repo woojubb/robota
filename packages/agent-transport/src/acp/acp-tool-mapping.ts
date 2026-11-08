@@ -1,7 +1,7 @@
 /** How a session tool call is described to an editor. */
 
 import type { ToolCallStatus, ToolKind } from '@agentclientprotocol/sdk';
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+import type { IToolState } from '@robota-sdk/agent-interface/session';
 
 const TOOL_KINDS: Readonly<Record<string, ToolKind>> = {
   Read: 'read',

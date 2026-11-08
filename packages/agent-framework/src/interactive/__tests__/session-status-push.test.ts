@@ -9,7 +9,7 @@ import { InteractiveSession } from '../interactive-session.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandModule } from '../../commands/index.js';
-import type { ISessionStatusSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISessionStatusSnapshot } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

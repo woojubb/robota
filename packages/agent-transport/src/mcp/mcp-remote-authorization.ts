@@ -18,7 +18,7 @@ import {
   serveProtectedResourceMetadata,
 } from '../node/index';
 
-import type { IAccessTokenVerifier } from '@robota-sdk/agent-interface-transport';
+import type { IAccessTokenVerifier } from '@robota-sdk/agent-interface/transport';
 import type {
   IBearerRefusalRecord,
   TBearerRefusal,

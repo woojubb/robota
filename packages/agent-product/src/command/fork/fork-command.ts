@@ -16,8 +16,8 @@
  */
 
 import type { ICommandHostAgentJobs, ICommandHostSessionAccess } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
-import type { TBackgroundTaskIsolation } from '@robota-sdk/agent-interface-execution';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
+import type { TBackgroundTaskIsolation } from '@robota-sdk/agent-interface/execution';
 
 /** What `/fork` needs from its host: the copy-writer and the job dispatcher. */
 export type TForkCommandContext = ICommandHostSessionAccess & ICommandHostAgentJobs;

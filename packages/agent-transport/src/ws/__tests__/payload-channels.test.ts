@@ -7,7 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { PayloadChannelRegistry } from '../payload-channels.js';
 
-import type { IBinaryFrame } from '@robota-sdk/agent-interface-transport';
+import type { IBinaryFrame } from '@robota-sdk/agent-interface/transport';
 
 /**
  * Consumer-declared channels on the payload-agnostic carrier.

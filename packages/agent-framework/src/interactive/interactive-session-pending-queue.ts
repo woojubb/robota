@@ -8,7 +8,7 @@
  */
 
 import type { IQueuedInput } from './interactive-session-execution-contracts.js';
-import type { TDriverId, TTurnNotRunReason } from '@robota-sdk/agent-interface-session';
+import type { TDriverId, TTurnNotRunReason } from '@robota-sdk/agent-interface/session';
 
 /**
  * Max co-drive queue depth — beyond this, drop-newest with an attributed notice.

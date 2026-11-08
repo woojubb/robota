@@ -11,11 +11,11 @@ import { PeerMessageIngress } from '../peer-message-ingress.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
-import type { ISubmitOptions } from '@robota-sdk/agent-interface-session';
+import type { ISubmitOptions } from '@robota-sdk/agent-interface/session';
 import type {
   IPeerMessage,
   IPeerMessageIngress,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 const testHost = createTestFrameworkHost();
 

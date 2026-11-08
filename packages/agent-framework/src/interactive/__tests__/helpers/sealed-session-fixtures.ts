@@ -28,7 +28,7 @@ import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { TInteractiveSessionOptions } from '../../interactive-session.js';
 
 const testHost = createTestFrameworkHost();

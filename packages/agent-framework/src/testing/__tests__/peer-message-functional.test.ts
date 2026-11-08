@@ -16,7 +16,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { PeerMessageIngress } from '../../interactive/peer-message-ingress.js';
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 
-import type { IPeerMessageIngress } from '@robota-sdk/agent-interface-session-mobility';
+import type { IPeerMessageIngress } from '@robota-sdk/agent-interface/session-mobility';
 
 const TEST_TIMEOUT = 30_000;
 /** Holds the turn at its provider call until the test releases it, and says when it got there. */

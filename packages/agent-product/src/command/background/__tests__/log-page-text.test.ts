@@ -19,7 +19,7 @@ import type {
 import type {
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 type TPageFor = (taskId: string, cursor?: IBackgroundTaskLogCursor) => IBackgroundTaskLogPage;
 

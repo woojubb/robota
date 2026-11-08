@@ -12,7 +12,7 @@ import type { ElicitRequestFormParams, ElicitResult } from '@modelcontextprotoco
 import type {
   IAskRequestEvent,
   IPermissionRequestEvent,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 type TActionRequest = IAskRequestEvent['request'];
 type TActionResponse = Parameters<IMcpTransportSession['resolveAsk']>[1];

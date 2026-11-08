@@ -32,7 +32,7 @@ import type {
   ISessionClaim,
   ISessionSaveOptions,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { SealedSessionUnreadableError, Session } from '@robota-sdk/agent-session';
 
 /** What the claim asks of the session it belongs to. */

@@ -7,7 +7,7 @@ import {
   extractDtlsFingerprint,
   extractDtlsFingerprintAttribute,
 } from '@robota-sdk/agent-remote-pairing';
-import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transport';
 
 import type { IProtocolSession } from '../index';
 

@@ -4,7 +4,7 @@
  * released when the connection closes. Without a binder every connection shares the attached session.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { WebSocket } from 'ws';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,7 +17,7 @@ import type {
   ISessionBinding,
   ISessionDirectory,
   TSessionBindingRole,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { IProtocolSession, TServerMessage } from '../../index';
 
 type TListener = (...args: unknown[]) => void;

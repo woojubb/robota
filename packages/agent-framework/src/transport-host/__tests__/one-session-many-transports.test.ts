@@ -1,4 +1,4 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,8 +10,8 @@ import { TransportRegistry } from '../transport-registry';
 import { createFileTransportSettingsRepository } from '../transport-settings-repository.js';
 import { bindTransportAdapter } from '../bind-transport-adapter.js';
 
-import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 /**
  * The load-bearing "one agent definition → many channels" DIP claim: the registry fans a

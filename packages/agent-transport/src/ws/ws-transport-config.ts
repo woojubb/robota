@@ -7,9 +7,9 @@
  * what the transport DOES with those decisions.
  */
 
-import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
-import type { ISessionBinder, TDriverId } from '@robota-sdk/agent-interface-session';
-import type { ITransportLifecycleError } from '@robota-sdk/agent-interface-transport';
+import type { TUsageSurface } from '@robota-sdk/agent-interface/analytics';
+import type { ISessionBinder, TDriverId } from '@robota-sdk/agent-interface/session';
+import type { ITransportLifecycleError } from '@robota-sdk/agent-interface/transport';
 import type {
   IProtocolSession,
   ISessionMessageHandlerOptions,

@@ -11,13 +11,13 @@
  * nothing on the way in. What can fail is a peer over budget going unclosed.
  */
 import { DEFAULT_MAX_PENDING_BYTES, SessionResumeBridge } from '../../index';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { attachSession } from '../session-attachment.js';
 
 import type { IPairingChannel } from '../pairing-gate-options.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 function fakeSession(): {
   session: IInteractiveSession;

@@ -18,7 +18,7 @@ import type {
   ICommandMCPActivationSummary,
   ICommandMCPOAuthStatus,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 type TOAuthState = ICommandMCPOAuthStatus['state'];
 

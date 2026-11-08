@@ -22,7 +22,7 @@ import type { IArtifactContext, IArtifactSealer } from '@robota-sdk/agent-core';
 import type {
   IInteractiveSessionRecord,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** What a listing says about a sealed file that does not open; fixed, so it can carry no content. */
 export const DOES_NOT_OPEN_MESSAGE =

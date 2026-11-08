@@ -3,7 +3,7 @@ import type { IActionRequest, TActionResponse, TToolArgs } from '@robota-sdk/age
 import type {
   TPermissionRequester,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 interface IUserActionQueueEntry {
   presentedRequest: IActionRequest;

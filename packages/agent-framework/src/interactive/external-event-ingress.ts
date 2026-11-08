@@ -1,5 +1,5 @@
 import { base64UrlDecode, utf8ByteLength, utf8Decode } from '@robota-sdk/agent-core';
-import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
+import { isTurnNotRunError } from '@robota-sdk/agent-interface/session';
 
 import { DEFAULT_PEER_TURN_RATE_WINDOWS, PeerTurnRateLimiter } from './peer-turn-rate-limit.js';
 
@@ -7,7 +7,7 @@ import type {
   ISubmitOptions,
   ITurnHandle,
   TTurnNotRunReason,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type {
   IAccessTokenVerifier,
   IAccessTokenVerifierConfig,
@@ -15,7 +15,7 @@ import type {
   TExternalEventAuditRecord,
   TExternalEventRefusal,
   TExternalEventSettlementOutcome,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 /**

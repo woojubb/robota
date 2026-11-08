@@ -53,7 +53,7 @@ import type {
   ISessionClaimOptions,
   ISessionLoadOptions,
   ISessionSaveOptions,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

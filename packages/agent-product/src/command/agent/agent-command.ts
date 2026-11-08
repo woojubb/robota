@@ -5,8 +5,8 @@ import { formatBackgroundLogPage } from '../background/log-page-text.js';
 
 import type { IAgentRunRequest } from './agent-command-parser.js';
 import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
-import type { ISubagentJobState } from '@robota-sdk/agent-interface-execution';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
+import type { ISubagentJobState } from '@robota-sdk/agent-interface/execution';
 
 function formatError<TError>(error: TError): string {
   return error instanceof Error ? error.message : String(error);

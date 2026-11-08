@@ -28,7 +28,7 @@ import type {
   IAgentBackgroundTaskState,
   IExecutionWorkspaceEntry,
   TBackgroundTaskStatus,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 const testHost = createTestFrameworkHost();
 

@@ -29,14 +29,14 @@ import {
 
 import type { IWsTransportConfig } from './ws-transport-config.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-import type { ISessionBinder, ISessionBinding } from '@robota-sdk/agent-interface-session';
+import type { ISessionBinder, ISessionBinding } from '@robota-sdk/agent-interface/session';
 import type {
   IChannelDescriptor,
   IConfigurableTransport,
   IPayloadChannel,
   IPayloadChannelHost,
   TChannelEventMap,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 import type { IProtocolSession, TSessionSurfaceRole } from '../index';
 import type { RawData, WebSocket } from 'ws';
 

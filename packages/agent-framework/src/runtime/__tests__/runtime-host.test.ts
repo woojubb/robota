@@ -17,11 +17,11 @@ import { buildRuntimeSession, startRuntimeHost } from '../runtime-host.js';
 import { SessionSlot } from '../session-slot.js';
 import { listResumableSessionSummaries } from '../../interactive/session-persistence.js';
 import { createNodeHostSessionStore } from '../../interactive/node-session-stores.js';
-import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
+import { createTransportFailedOutcome } from '@robota-sdk/agent-interface/transport';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface-transport';
+import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface/transport';
 
 const testHost = createTestFrameworkHost();
 

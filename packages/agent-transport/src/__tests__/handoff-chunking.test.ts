@@ -9,7 +9,7 @@ import {
 import { sealHandoffRecord, verifyHandoffPayload } from '../node/handoff-manifest.js';
 import koreanText from './__fixtures__/korean-text.json';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const ID = 'handoff_1';
 

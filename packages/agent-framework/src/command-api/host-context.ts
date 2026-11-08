@@ -21,7 +21,7 @@ export type {
  *
  * Each interface below is a CAPABILITY, and the three exported names commands used to reference are
  * now empty `extends` aggregates over them. It is the same shape the session contract has one layer over
- * (`IInteractiveSession` at `agent-interface-session/src/session-contracts.ts`), and it is what
+ * (`IInteractiveSession` at `agent-interface/src/session/session-contracts.ts`), and it is what
  * lets a command declare only the role it uses: a role port is a SUPERTYPE of the aggregate, so a
  * command narrowing its declared parameter still satisfies `ISystemCommand.execute` by
  * contravariance — sound, not method bivariance.
@@ -61,7 +61,7 @@ export type {
   ICommandHostUserInteraction,
   ICommandHostWorkspace,
 } from './host-roles.js';
-export type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface-command';
+export type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface/command';
 
 export type {
   IAgentJobDispatch,

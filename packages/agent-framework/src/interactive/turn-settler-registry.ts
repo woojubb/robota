@@ -11,7 +11,7 @@ import { randomId } from '@robota-sdk/agent-core';
 import { TurnNotRunError } from './turn-not-run-error.js';
 
 import type { IExecutionResult } from './types.js';
-import type { TTurnNotRunReason } from '@robota-sdk/agent-interface-session';
+import type { TTurnNotRunReason } from '@robota-sdk/agent-interface/session';
 
 export class TurnSettlerRegistry {
   /**

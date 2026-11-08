@@ -8,7 +8,7 @@ import type {
   ISystemCommand,
   ICommandOutputStyleRegistryAdapter,
 } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandResult, ICommandSource } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandResult, ICommandSource } from '@robota-sdk/agent-interface/command';
 
 const OUTPUT_STYLE_DESCRIPTION = 'List or switch the active provider-neutral response style';
 const OUTPUT_STYLE_ARGUMENT_HINT = 'list | <style-id>';

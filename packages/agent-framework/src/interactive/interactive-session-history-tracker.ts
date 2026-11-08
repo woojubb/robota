@@ -40,7 +40,7 @@ import type { IPromptFileReferenceRecord } from '../context/prompt-file-referenc
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IWorkspacePolicy } from '../workspace-trust/index.js';
 import type { IHistoryEntry, TUniversalValue } from '@robota-sdk/agent-core';
-import type { IActiveBranchPointer, IBranchEvent } from '@robota-sdk/agent-interface-session';
+import type { IActiveBranchPointer, IBranchEvent } from '@robota-sdk/agent-interface/session';
 export { BRANCH_OPERATION_EVENT_MATRIX } from './session-branch-events.js';
 export type { IHistoryTrackerState } from './session-history-state.js';
 

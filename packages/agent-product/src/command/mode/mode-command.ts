@@ -14,7 +14,7 @@ import type {
   ICommandHostSessionAccess,
   ICommandHostUserInteraction,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 /**
  * Ask the user to pick a permission mode inline. Returns the chosen mode name, or

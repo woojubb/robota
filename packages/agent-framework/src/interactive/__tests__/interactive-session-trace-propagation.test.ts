@@ -10,7 +10,7 @@ import { InteractiveSession } from '../interactive-session.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IRunTraceContext } from '@robota-sdk/agent-core';
-import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface/analytics';
 
 const testHost = createTestFrameworkHost();
 

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { IAppSessionAcceptanceViewModel } from '../app-view-model.js';
 import type { TSessionSwitch } from '../types.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface-session';
+import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface/session';
 
 export const RESUME_CANCELLED_NOTICE = 'Session resume cancelled.';
 const OWNER_REFUSAL = 'The session could not be resumed.';

@@ -25,7 +25,7 @@ import type {
   ICommandHostWorkspace,
   ICommandModule,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult, IThemeCataloguePort } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult, IThemeCataloguePort } from '@robota-sdk/agent-interface/command';
 
 /** A command the terminal runs itself, with the terminal's own handoff and working directory. */
 export interface ITerminalClientCommand {

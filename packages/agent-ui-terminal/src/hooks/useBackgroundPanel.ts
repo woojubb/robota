@@ -19,8 +19,8 @@ import type {
   IExecutionDetailPage,
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/execution';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 export interface IUseBackgroundPanelOptions {
   /** Which entry the switcher has selected; resolved against the snapshot below. */

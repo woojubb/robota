@@ -3,10 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { createOutboundDelivery, DEFAULT_MAX_PENDING_BYTES } from '../outbound-delivery.js';
 import { createSessionMessageHandler } from '../session-message-handler.js';
 import { SessionResumeBridge } from '../session-resume-bridge.js';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { IPersonalUsageReport } from '@robota-sdk/agent-interface-analytics';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
+import type { IPersonalUsageReport } from '@robota-sdk/agent-interface/analytics';
 
 /**
  * The persistent SessionResumeBridge: a monotonic seq CONTINUOUS across a

@@ -19,7 +19,7 @@ import { useTerminalCapabilityOverrides } from '../terminal-capabilities-context
 import { createTurnMarkWriter } from '../terminal-marks.js';
 
 import type { IAttentionBell } from '../attention-bell.js';
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+import type { IToolState } from '@robota-sdk/agent-interface/session';
 
 export interface IUseScreenReaderTurnSignalsInputs {
   enabled: boolean;

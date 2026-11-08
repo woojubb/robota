@@ -29,7 +29,7 @@ import {
   writeOwnerRecord,
 } from './helpers/sealed-session-fixtures.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 afterEach(cleanUpSealedSessionFixtures);
 

@@ -15,7 +15,7 @@ import type {
   ITransportSavedConfig,
   ITransportSettingsRepository,
   TBoundConfigurableTransport,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 export class TransportSettingsView {
   constructor(private readonly repository: ITransportSettingsRepository) {}

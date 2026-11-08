@@ -12,7 +12,7 @@ import type {
   ICommandSandboxStatus,
   TSandboxCommandMode,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 export const SANDBOX_MODES: readonly {
   readonly mode: TSandboxCommandMode;

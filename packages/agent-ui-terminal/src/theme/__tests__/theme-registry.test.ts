@@ -14,7 +14,7 @@ import {
   formatUnknownThemeNotice,
 } from '../theme-registry.js';
 
-import type { IAppearanceSettings } from '@robota-sdk/agent-interface-command';
+import type { IAppearanceSettings } from '@robota-sdk/agent-interface/command';
 
 const APPEARANCE: IAppearanceSettings = {
   theme: 'dark',

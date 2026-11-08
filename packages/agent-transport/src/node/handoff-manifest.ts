@@ -14,8 +14,8 @@
 
 import { createHash } from 'node:crypto';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
-import type { IHandoffIntegrity } from '@robota-sdk/agent-interface-session-mobility';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
+import type { IHandoffIntegrity } from '@robota-sdk/agent-interface/session-mobility';
 
 /**
  * Serialize a record and describe what was serialized.

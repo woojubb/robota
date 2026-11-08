@@ -32,9 +32,9 @@ import type {
   IEventService,
   TEventListener,
 } from '@robota-sdk/agent-core';
-import type { IUsageSource, ISpanEntry } from '@robota-sdk/agent-interface-analytics';
+import type { IUsageSource, ISpanEntry } from '@robota-sdk/agent-interface/analytics';
 import type { IProviderCallTraceObservation } from '@robota-sdk/agent-session';
-import type { ILivePromptQueueSummary } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptQueueSummary } from '@robota-sdk/agent-interface/analytics';
 import { LiveQueueSummary } from './interactive-session-queue-summary.js';
 
 export { createUsageObservationEntry } from './interactive-session-usage-observation.js';
@@ -163,7 +163,7 @@ export function createSourceUsageSummaryEntry(
  * event (`ISpanCompletionEventData`), mirroring `createUsageSummaryEntry`. This is the ONLY place the
  * event's joined `spanId + durationMs + op` becomes a record-side `IHistoryEntry<ISpanEntry>` — so
  * `agent-core` surfaces raw timing while `agent-framework` (which already depends on transport) owns
- * the record projection. No `agent-core → agent-interface-transport` edge; no `agent-plugin` edge.
+ * the record projection. No `agent-core → agent-interface/transport` edge; no `agent-plugin` edge.
  */
 export function createSpanEntry(event: ISpanCompletionEventData): IHistoryEntry<ISpanEntry> {
   return {

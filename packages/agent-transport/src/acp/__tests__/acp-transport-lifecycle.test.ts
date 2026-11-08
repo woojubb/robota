@@ -1,6 +1,6 @@
 import { PassThrough } from 'node:stream';
 
-import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';
+import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface/transport/testing';
 import { describe, expect, it } from 'vitest';
 
 import { createAcpTransport } from '../acp-transport.js';

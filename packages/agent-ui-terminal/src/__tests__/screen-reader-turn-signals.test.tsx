@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BELL, LONG_TOOL_BELL_MS } from '../attention-bell.js';
 import { useScreenReaderTurnSignals } from '../hooks/useScreenReaderTurnSignals.js';
 
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+import type { IToolState } from '@robota-sdk/agent-interface/session';
 
 function tool(overrides: Partial<IToolState> = {}): IToolState {
   return { toolName: 'Bash', firstArg: 'ls', isRunning: true, ...overrides };

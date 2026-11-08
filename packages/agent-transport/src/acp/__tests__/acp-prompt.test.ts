@@ -11,7 +11,7 @@ import {
 
 import type { IFakeSession } from './acp-test-harness.js';
 import type { IAcpTransportOptions } from '../acp-types.js';
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+import type { IToolState } from '@robota-sdk/agent-interface/session';
 
 const open: { stop(): Promise<void> }[] = [];
 afterEach(async () => {

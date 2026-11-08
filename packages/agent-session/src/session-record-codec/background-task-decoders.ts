@@ -37,7 +37,7 @@ import type {
   IProcessBackgroundTaskState,
   IScheduledBackgroundTaskState,
   IToolInvocationBackgroundTaskState,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 /**
  * The base members shared by every kind — identical across the four discriminated members,

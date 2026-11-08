@@ -8,7 +8,7 @@ import '../tools/tool-permission-profiles.js';
 
 import type { TSelfPacedLoopDecision } from './session-loop-transitions.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
-import type { IToolSummary } from '@robota-sdk/agent-interface-session';
+import type { IToolSummary } from '@robota-sdk/agent-interface/session';
 
 export const LOOP_DECISION_TOOL_NAME = 'report_loop_decision';
 

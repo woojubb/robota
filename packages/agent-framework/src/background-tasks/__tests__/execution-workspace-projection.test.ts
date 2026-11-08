@@ -22,7 +22,7 @@ import type {
   TBackgroundTaskKind,
   TBackgroundTaskMode,
   TBackgroundTaskStatus,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 /**
  * A plain (non-discriminated) overrides bag for this fixture builder, deliberately looser

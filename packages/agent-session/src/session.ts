@@ -1,6 +1,6 @@
 import { decodeInteractiveSessionRecord } from './session-record-codec/index.js';
 import { assertSynchronousCheckpoint } from './synchronous-checkpoint.js';
-import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface/session';
 import {
   TRUST_TO_MODE,
   ObservableEventService,
@@ -41,7 +41,7 @@ import type {
   TSessionExecutionResult,
 } from './session-recoverable.js';
 import { SessionRuntimeTools, linkCancellation } from './session-runtime-tools.js';
-import type { IRuntimeToolInvokeOptions } from '@robota-sdk/agent-interface-session';
+import type { IRuntimeToolInvokeOptions } from '@robota-sdk/agent-interface/session';
 
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { ContextWindowTracker } from './context-window-tracker.js';
@@ -78,7 +78,7 @@ import type {
   ISubprocessTraceEnv,
 } from '@robota-sdk/agent-core';
 import type { ConversationAgent } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 export type {
   ICompactEvent,

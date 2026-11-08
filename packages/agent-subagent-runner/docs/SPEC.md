@@ -17,7 +17,7 @@ extra dependency.
 - Does not own where a worker file lives on disk — that is a packaging-step concern the
   composition root states (it supplies how to start a copy of itself, not a path).
 - Does not own subagent lifecycle state machines (those live in `agent-executor`) or provider
-  creation contracts (owned by `agent-interface-execution`); provider config crosses the process
+  creation contracts (owned by `agent-interface/execution`); provider config crosses the process
   boundary as a serialized profile and is reconstructed in the worker.
 - No hard-defaulted concrete git/filesystem adapter: worktree isolation is optional wrapping, and
   when enabled the adapter is a required injected port, not a built-in default.

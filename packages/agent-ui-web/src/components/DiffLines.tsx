@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 
-import type { IDiffLine } from '@robota-sdk/agent-interface-session';
+import type { IDiffLine } from '@robota-sdk/agent-interface/session';
 
 /**
  * Renders a unified diff already built server-side (the ONE diff builder, in

@@ -20,7 +20,7 @@ import type {
   TInteractiveSessionOptions,
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-framework';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface/transport';
 import type {
   IPresetRegistry,
   IPreset,

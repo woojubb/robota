@@ -11,7 +11,7 @@ import type { ISpanCompletionEventData } from '@robota-sdk/agent-core';
  * `IHistoryEntry<ISpanEntry>`. These tests prove the JOIN survives the projection (spanId + op +
  * durationMs travel together into `data`) and that the entry is classified so the read-model reducer
  * can find it (`category: 'event'`, `type: 'span'`). Because this builder lives in `agent-framework`
- * (which already depends on transport), `agent-core` never depends on `agent-interface-transport`.
+ * (which already depends on transport), `agent-core` never depends on `agent-interface/transport`.
  */
 describe('createSpanEntry projects the span-completion event', () => {
   const event: ISpanCompletionEventData = {

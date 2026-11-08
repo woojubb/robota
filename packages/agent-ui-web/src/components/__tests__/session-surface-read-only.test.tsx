@@ -12,7 +12,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { SessionSurface } from '../SessionSurface.js';
 
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface/execution';
 import type { IWsSessionState } from '../../hooks/useSessionClient.js';
 
 const original = Element.prototype.scrollIntoView;

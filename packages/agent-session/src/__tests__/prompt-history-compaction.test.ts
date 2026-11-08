@@ -35,7 +35,7 @@ import { NodePromptHistoryFile, PROMPT_HISTORY_OWNER_ID } from '../prompt-histor
 import { StoredLines } from '../stored-append-lines.js';
 
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
-import type { IPromptHistoryEntry } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistoryEntry } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-31d7-typed-prompt';
 const roots: string[] = [];

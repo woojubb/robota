@@ -5,7 +5,7 @@
  */
 
 import { RequestError } from '@agentclientprotocol/sdk';
-import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
+import { isTurnNotRunError } from '@robota-sdk/agent-interface/session';
 
 import { permissionDecision, permissionOptions } from './acp-permission.js';
 import { subscribeAcpEvents } from './acp-session-events.js';
@@ -18,7 +18,7 @@ import type {
   IPermissionRequestEvent,
   ISubmitOptions,
   TDriverId,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export interface IAcpTurnContext {
   readonly session: IAcpTransportSession;

@@ -1,4 +1,4 @@
-import type { IActiveBranchPointer } from '@robota-sdk/agent-interface-session';
+import type { IActiveBranchPointer } from '@robota-sdk/agent-interface/session';
 
 export interface IEditCheckpointRecorder {
   captureFile(filePath: string): Promise<void> | void;

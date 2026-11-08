@@ -19,7 +19,7 @@ import {
 } from '../interactive-session-streaming.js';
 
 import type { IHistoryEntry, IToolCall, TUniversalMessagePart } from '@robota-sdk/agent-core';
-import type { IHistoryDisplaySegment } from '@robota-sdk/agent-interface-session';
+import type { IHistoryDisplaySegment } from '@robota-sdk/agent-interface/session';
 
 /**
  * The server-side history-to-display projector — turns stored chat history (assistant

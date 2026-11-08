@@ -1,11 +1,11 @@
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 const testIdentity = createIdentityContext('test-product');
-import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface/transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 import type { IProtocolSession } from '../../index';
 
 import { HISTORY_PAGE_MAX_BYTES, SessionResumeBridge } from '../../index';

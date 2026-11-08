@@ -10,7 +10,7 @@ import type {
   IThemeAppearanceState,
   IThemeCatalogueEntry,
   IThemeCataloguePort,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 
 const THEME_DESCRIPTION =
   'List, preview or switch the terminal colour theme, and toggle syntax highlighting and motion';

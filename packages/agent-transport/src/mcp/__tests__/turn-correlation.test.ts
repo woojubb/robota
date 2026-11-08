@@ -13,12 +13,12 @@
  */
 
 import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
-import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
+import { isTurnNotRunError } from '@robota-sdk/agent-interface/session';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { createAgentMcpServer } from '../mcp-server.js';
 
@@ -187,7 +187,7 @@ describe('what the MCP adapter treats as a tool error', () => {
   });
 
   it('narrows on the declared NAME, not on the constructor', async () => {
-    // The refusal is declared in `@robota-sdk/agent-interface-transport` as a SHAPE and constructed
+    // The refusal is declared in `@robota-sdk/agent-interface/transport` as a SHAPE and constructed
     // in `@robota-sdk/agent-framework` — a package this one does not depend on and must not. An
     // `instanceof` check against a class it cannot import would send every real refusal down the
     // branch above.

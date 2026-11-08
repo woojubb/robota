@@ -28,7 +28,7 @@ import type { ISubagentJobStart } from '@robota-sdk/agent-executor';
 import type {
   ILivePromptContentBatch,
   ILivePromptTraceBatch,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 
 const testHost = createTestFrameworkHost();
 

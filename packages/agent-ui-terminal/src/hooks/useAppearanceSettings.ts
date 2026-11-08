@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { useTuiCliAdapter } from '../tui-cli-adapter-context.js';
 
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
-import type { IAppearanceSettings } from '@robota-sdk/agent-interface-command';
+import type { IAppearanceSettings } from '@robota-sdk/agent-interface/command';
 
 function readFromAdapter(cliAdapter: ITuiCliAdapter): IAppearanceSettings {
   return readAppearanceSettings(cliAdapter.readSettings(cliAdapter.getUserSettingsPath()));

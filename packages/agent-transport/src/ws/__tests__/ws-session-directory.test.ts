@@ -3,14 +3,14 @@
  * list, start and switch the host's sessions through it.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { WebSocket } from 'ws';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createWsTransport } from '../ws-transport.js';
 import { WsTransport } from '../ws-transport-configurable.js';
 
-import type { ISessionDirectory, ISessionListing } from '@robota-sdk/agent-interface-session';
+import type { ISessionDirectory, ISessionListing } from '@robota-sdk/agent-interface/session';
 import type { TServerMessage } from '../../index';
 
 const listing: ISessionListing = {

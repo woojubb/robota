@@ -34,7 +34,7 @@ import type {
 import type {
   IThemeCatalogueEntry,
   IThemeCataloguePort,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 
 /** User-local storage lives in a private per-run directory, never a fixed name under /tmp. */
 const USER_LOCAL_STORAGE_ROOT = mkdtempSync(join(tmpdir(), 'agent-test-test-'));

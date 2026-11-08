@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { TuiCliAdapterProvider } from '../../tui-cli-adapter-context.js';
 import { useFollowHistory } from '../useFollowHistory.js';
 
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface/execution';
 import type { ITuiCliAdapter } from '../../tui-cli-adapter.js';
 import type { IKeyCustodyPort } from '../../key-custody/key-custody-port.js';
 

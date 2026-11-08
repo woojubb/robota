@@ -1,4 +1,4 @@
-import type { ISerializableProviderProfile } from '@robota-sdk/agent-interface-execution';
+import type { ISerializableProviderProfile } from '@robota-sdk/agent-interface/execution';
 
 /**
  * The worker is handed its provider credential through the environment only so it can build its

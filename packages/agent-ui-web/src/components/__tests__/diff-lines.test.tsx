@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { DiffLines } from '../DiffLines.js';
 
-import type { IDiffLine } from '@robota-sdk/agent-interface-session';
+import type { IDiffLine } from '@robota-sdk/agent-interface/session';
 
 /**
  * A diff long enough to need it folds behind "Show more", instead of

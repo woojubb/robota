@@ -13,8 +13,8 @@ import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/execution';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 export interface IAppWorkspaceState {
   readonly background: IAppBackgroundViewModel;

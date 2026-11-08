@@ -1,6 +1,6 @@
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 const testIdentity = createIdentityContext('test-product');
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -13,7 +13,7 @@ import { PairingGate, type IPairingGateOptions } from '../pairing-gate.js';
 import { type ILocalPeerProof } from '../local-peer-proof.js';
 
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
-import type { IPeerAdmission } from '@robota-sdk/agent-interface-session-mobility';
+import type { IPeerAdmission } from '@robota-sdk/agent-interface/session-mobility';
 import type { createSessionMessageHandler } from '../../index';
 
 /**

@@ -1,6 +1,6 @@
 import { MINUTES_PER_HOUR, MS_PER_MINUTE } from './time-units.js';
 
-import type { TExecutionNormalizedState } from '@robota-sdk/agent-interface-execution';
+import type { TExecutionNormalizedState } from '@robota-sdk/agent-interface/execution';
 
 /**
  * One line for what happened while the user was away.

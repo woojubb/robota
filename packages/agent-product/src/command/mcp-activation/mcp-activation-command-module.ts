@@ -1,7 +1,7 @@
 import { executeMCPActivationCommand } from './mcp-activation-command.js';
 
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface/command';
 
 export function createMCPActivationCommandEntry(): ICommand {
   return {

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useId, useState } from 'react';
 
-import type { ISettingsChoice } from '@robota-sdk/agent-interface-session';
+import type { ISettingsChoice } from '@robota-sdk/agent-interface/session';
 
 const SELECT_CLASS =
   'min-w-[160px] flex-shrink-0 rounded-lg border border-border bg-raised px-2.5 py-1.5 text-[13.5px] text-foreground';

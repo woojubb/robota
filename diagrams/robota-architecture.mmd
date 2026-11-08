@@ -15,13 +15,8 @@ graph TD
     CORE[agent-core<br/>Robota engine · tool/plugin/provider contracts · permissions]
   end
 
-  subgraph Contracts["agent-interface-* (type-only contracts)"]
-    IFA[agent-interface-analytics]
-    IFTUI[agent-interface-tui]
-    IFCE[agent-interface-command · agent-interface-execution]
-    IFS[agent-interface-session]
-    IFM[agent-interface-session-mobility]
-    IFT[agent-interface-transport]
+  subgraph Contracts["agent-interface (type-only contracts)"]
+    IF[agent-interface<br/>one subpath per family]
   end
 
   subgraph Blocks["Building blocks"]
@@ -74,38 +69,36 @@ graph TD
   end
 
   %% Contracts
-  CORE --> IFCE & IFS & IFM & IFT
-  IFA & IFCE --> IFS
-  IFS --> IFM
+  CORE --> IF
 
   %% Building blocks
   CORE --> TOOLS & PLUG & MCP & PROV & SA
   PROC --> TOOLS
-  IFA & IFS --> SA
-  IFA & CORE --> OTEL
+  IF --> SA
+  IF & CORE --> OTEL
 
   %% Runtime
   CORE --> SESS & EXEC
   CORE & SESS --> REPLAY
   OS --> SESS
-  IFCE & IFS --> SESS
+  IF --> SESS
   PROC --> EXEC
-  IFCE & IFT --> EXEC
+  IF --> EXEC
   CORE & SESS & RT --> RTR
 
   %% Assembly (providers are injected by the composition root, never imported)
   CORE & SESS & EXEC & TOOLS & OS & RT --> FW
-  IFA & IFCE & IFS & IFM & IFT --> FW
+  IF --> FW
   PROV -. injected .-> FW
 
   %% Transports
-  CORE & IFA & IFCE & IFS & IFM & IFT --> TCORE
+  CORE & IF --> TCORE
   TCORE --> TCAR & THTTP & TWEBRTC
   TCORE & KR --> TLINK
   PAIR --> TWEBRTC
 
   %% Presentation
-  FW & TCORE & IFTUI --> TTUI
+  FW & TCORE & IF --> TTUI
   TCORE & PAIR --> TGUI
 
   %% Product composition

@@ -1,5 +1,5 @@
 import type { ITuiSessionUiEventPort } from '../tui-app-channel-port.js';
-import type { IStatusLineCommandSettings as TStatusLineSettings } from '@robota-sdk/agent-interface-command';
+import type { IStatusLineCommandSettings as TStatusLineSettings } from '@robota-sdk/agent-interface/command';
 
 export type { TStatusLineSettings };
 

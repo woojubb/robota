@@ -8,7 +8,7 @@ import {
   permissionElicitation,
 } from '../mcp-prompt-forms.js';
 
-import type { IAskRequestEvent } from '@robota-sdk/agent-interface-session';
+import type { IAskRequestEvent } from '@robota-sdk/agent-interface/session';
 
 type TAsk = IAskRequestEvent['request'];
 const ask = (fields: Omit<TAsk, 'id'>): TAsk => ({ id: 'a1', ...fields });

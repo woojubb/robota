@@ -17,7 +17,7 @@ import { createAcpAgent } from './acp-agent.js';
 import type { IAcpTransport, IAcpTransportOptions, IAcpTransportSession } from './acp-types.js';
 import type { AgentConnection } from '@agentclientprotocol/sdk';
 import type { Writable } from 'node:stream';
-import type { ITransportLifecycleError } from '@robota-sdk/agent-interface-transport';
+import type { ITransportLifecycleError } from '@robota-sdk/agent-interface/transport';
 import type { IStdioCarrier } from '../node/index';
 
 /**

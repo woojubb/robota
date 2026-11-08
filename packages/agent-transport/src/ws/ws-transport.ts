@@ -7,12 +7,12 @@
 
 import { createOutboundDelivery, createSessionMessageHandler } from '../index';
 
-import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { TUsageSurface } from '@robota-sdk/agent-interface/analytics';
+import type { TDriverId } from '@robota-sdk/agent-interface/session';
 import type {
   ITransportAdapter,
   ITransportLifecycleError,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 import type {
   IProtocolSession,
   ISessionMessageHandlerOptions,

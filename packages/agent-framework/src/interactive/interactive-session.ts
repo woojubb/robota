@@ -1,4 +1,4 @@
-import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface/session';
 import type { ICommandProductVocabulary } from '../command-api/host-context-types.js';
 import {
   basenamePath,
@@ -7,7 +7,7 @@ import {
   randomId,
   utf8ByteLength,
 } from '@robota-sdk/agent-core';
-import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 import { loadSessionForUpdate } from '@robota-sdk/agent-session';
 
 import { requireFrameworkHost } from '../host/require-framework-host.js';
@@ -152,7 +152,7 @@ import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type {
   IBackgroundTaskState,
   IExecutionPendingRequest,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IGoalState,
   IRuntimeToolInvokeOptions,
@@ -170,8 +170,8 @@ import type {
   TProjectMemoryRead,
   TProjectStatusRead,
   TWaitingLoopStopOutcome,
-} from '@robota-sdk/agent-interface-session';
-import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/session';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface/transport';
 import type { IPermissionAskContext, Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IWorkspaceMoveInstructions } from './interactive-session-workspace-move.js';

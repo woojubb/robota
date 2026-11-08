@@ -2,7 +2,7 @@
  * Tests for WebSocket transport handler.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { describe, it, expect, vi } from 'vitest';
 import { decodeFrame, decodeServerMessage } from '../message-decoders.js';
@@ -10,20 +10,20 @@ import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createSessionMessageHandler } from '../session-message-handler.js';
 import { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from '../session-events.js';
 import type { TServerMessage } from '../wire-messages.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { ICommandListEntry } from '@robota-sdk/agent-interface-command';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
+import type { ICommandListEntry } from '@robota-sdk/agent-interface/command';
 import type {
   IBackgroundJobGroupState,
   IExecutionWorkspaceEvent,
   IExecutionWorkspaceSnapshot,
   TBackgroundJobGroupEvent,
   TExecutionWorkspaceUpdateCause,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 const backgroundTask: IBackgroundTaskState = {
   id: 'task_1',

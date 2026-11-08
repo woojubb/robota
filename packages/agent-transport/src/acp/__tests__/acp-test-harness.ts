@@ -3,7 +3,7 @@
 import { PassThrough, Readable, Writable } from 'node:stream';
 
 import { client, ndJsonStream } from '@agentclientprotocol/sdk';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { vi } from 'vitest';
 
 import type { Mock } from 'vitest';
@@ -24,7 +24,7 @@ import type {
   IInteractiveSessionEvents,
   ITurnHandle,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export const SESSION_ID = 'robota-session-1';
 export const WORKSPACE = '/workspace';

@@ -61,7 +61,7 @@ import type {
   IUnknownCommandModuleName,
   TProviderEnvironment,
 } from '@robota-sdk/agent-framework';
-import type { IThemeCataloguePort } from '@robota-sdk/agent-interface-command';
+import type { IThemeCataloguePort } from '@robota-sdk/agent-interface/command';
 
 export interface IDefaultCommandModulesOptions {
   cwd: string;

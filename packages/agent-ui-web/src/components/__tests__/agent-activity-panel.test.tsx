@@ -17,8 +17,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentActivityPanel } from '../AgentActivityPanel.js';
 
-import type { IBackgroundTaskState, IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
-import type { IGoalState } from '@robota-sdk/agent-interface-session';
+import type { IBackgroundTaskState, IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface/execution';
+import type { IGoalState } from '@robota-sdk/agent-interface/session';
 
 afterEach(cleanup);
 

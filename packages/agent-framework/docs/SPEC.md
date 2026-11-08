@@ -3,7 +3,7 @@
 ## Purpose
 
 `@robota-sdk/agent-framework` is the assembly layer of the Robota SDK. It composes `agent-core`,
-`agent-session`, `agent-tools`, `agent-executor`, and the `agent-interface-transport` type contracts
+`agent-session`, `agent-tools`, `agent-executor`, and the `agent-interface/transport` type contracts
 into a single, provider-neutral SDK surface. `InteractiveSession` is the primary entry point,
 preserving observed tool outcomes across live and restored presentation without replaying effects; a
 `createQuery({ host, cwd, provider })` factory covers single-shot prompt use; `createAgentRuntime()` composes a

@@ -2,11 +2,11 @@
  * Background-task runtime SPI (runner/manager ports, handles, error class).
  *
  * The task DATA contracts (statuses, states, events, requests, results, log pages) moved
- * to `@robota-sdk/agent-interface-execution` (SSOT) — imported and re-exported
+ * to `@robota-sdk/agent-interface/execution` (SSOT) — imported and re-exported
  * here for intra-package use; the package's PUBLIC index does not re-export them.
  */
 
-// Sourced from the `agent-core` SSOT, not from `agent-interface-transport`'s
+// Sourced from the `agent-core` SSOT, not from `agent-interface/transport`'s
 // pass-through re-export, which is deleted. Re-exported at the end of this file for the package's
 // own barrel chain — a type this file genuinely consumes, not a second name for someone else's.
 import type { TObserverFailureReporter } from './observer-delivery.js';
@@ -25,7 +25,7 @@ import type {
   TBackgroundTaskEvent,
   TBackgroundTaskEventListener,
   TBackgroundTaskRequest,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 export type {
   TBackgroundTaskKind,
@@ -58,7 +58,7 @@ export type {
   IBackgroundTaskListFilter,
   TBackgroundTaskEvent,
   TBackgroundTaskEventListener,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 export class BackgroundTaskError extends Error implements IBackgroundTaskError {
   readonly category: TBackgroundTaskErrorCategory;

@@ -60,7 +60,7 @@ import type {
 import type {
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 /** POSIX children are forked detached so a process-group kill reaps grandchildren. */
 const SPAWN_DETACHED = process.platform !== 'win32';

@@ -41,14 +41,14 @@ import type {
   TCommandInvocationSource,
   TCommandSurfaceLocality,
   ISkillResource,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 import type {
   IBackgroundTaskListFilter,
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
-} from '@robota-sdk/agent-interface-execution';
-import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/execution';
+import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface/session';
 
 /** Reaching the live session, and the whole-conversation operations that sit beside it. */
 export interface ICommandHostSessionAccess {

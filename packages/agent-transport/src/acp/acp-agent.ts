@@ -4,7 +4,7 @@ import { realpathSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 
 import { agent, PROTOCOL_VERSION, RequestError } from '@agentclientprotocol/sdk';
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 
 import { editorFileAccess } from './acp-editor-files.js';
 import { promptText } from './acp-prompt-text.js';

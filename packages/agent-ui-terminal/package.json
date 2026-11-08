@@ -47,12 +47,7 @@
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-framework": "workspace:^",
-    "@robota-sdk/agent-interface-analytics": "workspace:^",
-    "@robota-sdk/agent-interface-command": "workspace:^",
-    "@robota-sdk/agent-interface-execution": "workspace:^",
-    "@robota-sdk/agent-interface-session": "workspace:^",
-    "@robota-sdk/agent-interface-transport": "workspace:^",
-    "@robota-sdk/agent-interface-tui": "workspace:^",
+    "@robota-sdk/agent-interface": "workspace:^",
     "@robota-sdk/agent-transport": "workspace:^",
     "chalk": "^5.6.2",
     "ink": "^7.1.1",

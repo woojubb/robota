@@ -20,7 +20,7 @@ import {
 } from '../session-record-codec/index.js';
 
 import type { IParameterSchema } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import type { TSessionRecordDecodeOutcome } from '../session-record-codec/index.js';
 
 /** A record with every optional field populated and every nested contract family present. */

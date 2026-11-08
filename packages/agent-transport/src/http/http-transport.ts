@@ -16,7 +16,7 @@ import type {
   ITransportAdapter,
   ITransportAdmissionConfig,
   ITransportLifecycleError,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 export interface IHttpTransportOptions {
   /** Optional: base path prefix for routes. */

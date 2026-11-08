@@ -7,7 +7,7 @@
  * inbound listener. Guarding only the first would have left six families still escaping.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it } from 'vitest';
 
 import { createOutboundDelivery, createPendingStallClock } from '../outbound-delivery.js';
@@ -15,7 +15,7 @@ import { createSessionMessageHandler } from '../session-message-handler.js';
 
 import type { TOutboundDeliver } from '../outbound-delivery.js';
 import type { TServerMessage } from '../wire-messages.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 interface ICarrierProbe {
   readonly deliver: TOutboundDeliver;

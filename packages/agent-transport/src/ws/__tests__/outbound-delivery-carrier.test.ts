@@ -6,7 +6,7 @@
  * half that matters, because the carrier's cleanup is idempotent and useless unless called.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { createSessionMessageHandler } from '../../index';
 import { describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
@@ -14,7 +14,7 @@ import { WebSocket } from 'ws';
 import { WsSessionDelivery } from '../ws-session-delivery.js';
 import { DEFAULT_MAX_PENDING_BYTES, DEFAULT_MAX_PENDING_MS } from '../../index';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 /** Collect unhandled rejections while `run` executes, then drain the queue Node reports them on. */
 async function withUnhandledRejectionCapture(run: () => void | Promise<void>): Promise<unknown[]> {

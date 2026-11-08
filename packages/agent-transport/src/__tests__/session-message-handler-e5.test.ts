@@ -1,12 +1,12 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { describe, it, expect, vi } from 'vitest';
 
 import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createSessionMessageHandler } from '../session-message-handler.js';
 import type { TServerMessage } from '../wire-messages.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface/execution';
 
 /**
  * The protocol layer: the SERVER-ASSIGNED driver id is injected into inbound

@@ -31,7 +31,7 @@ import type { TArtifactSealing } from '@robota-sdk/agent-core';
 import type {
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
@@ -46,7 +46,7 @@ import type {
   ISessionStoreScan,
   TSessionLoadOutcome,
   TSessionRestoreCommitOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { ISessionStoreOptions, TStoredSessionFile } from '@robota-sdk/agent-session/node';
 
 function assertNamespace(

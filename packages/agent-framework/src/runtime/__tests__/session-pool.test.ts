@@ -3,7 +3,7 @@
  * idle sessions closed after a grace, busy ones kept, and a cap that never closes the primary.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { isSessionBusy, SessionPool } from '../session-pool.js';
@@ -12,7 +12,7 @@ import type {
   IInteractiveSession,
   IInteractiveSessionEvents,
   ISessionLoopState,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { ISessionPoolOptions } from '../session-pool.js';
 
 interface IPoolTestSession extends IInteractiveSession {

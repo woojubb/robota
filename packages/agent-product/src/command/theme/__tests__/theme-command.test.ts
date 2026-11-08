@@ -17,7 +17,7 @@ import type {
   IThemeCatalogueEntry,
   IThemeCataloguePort,
   TReducedMotionOverride,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 
 const THEMES: IThemeCatalogueEntry[] = [
   { id: 'dark', name: 'Dark', appearance: 'dark', source: 'built-in' },

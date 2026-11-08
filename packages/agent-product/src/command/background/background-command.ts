@@ -12,7 +12,7 @@ import { formatBackgroundLogPage } from './log-page-text.js';
 import { registeredUnlockCommand } from '../key-custody/registered-unlock-command.js';
 
 import type { ICommandHostBackgroundTasks, ICommandHostCatalog } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 function parseCommandParts(args: string): string[] {
   return args.trim().split(/\s+/).filter(Boolean);

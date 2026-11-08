@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SettingsScreen } from '../SettingsScreen.js';
 
 import type { IWsSessionState } from '../../hooks/session-client-types.js';
-import type { ISettingsSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISettingsSnapshot } from '@robota-sdk/agent-interface/session';
 
 afterEach(cleanup);
 

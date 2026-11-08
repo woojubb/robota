@@ -1,8 +1,8 @@
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 const testIdentity = createIdentityContext('test-product');
 import { SessionResumeBridge } from '../../index';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 import { describe, expect, it, vi } from 'vitest';
 
 import { PairingGate } from '../pairing-gate.js';

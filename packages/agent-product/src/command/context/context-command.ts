@@ -26,8 +26,8 @@ import type {
   TAutoCompactThreshold,
   TAutoCompactThresholdSource,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
-import type { IContextReferenceItem } from '@robota-sdk/agent-interface-session';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
+import type { IContextReferenceItem } from '@robota-sdk/agent-interface/session';
 
 import { formatAutoCompactLine, formatThreshold } from './auto-compact-format.js';
 

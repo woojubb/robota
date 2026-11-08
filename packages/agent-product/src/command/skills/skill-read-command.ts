@@ -1,4 +1,4 @@
-import type { ICommand, ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandResult } from '@robota-sdk/agent-interface/command';
 import type { ICommandHostCatalog, ISystemCommand } from '@robota-sdk/agent-framework';
 
 export function createSkillReadCommandEntry(): ICommand {

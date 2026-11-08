@@ -30,7 +30,7 @@ import type {
   IToolWithEventService,
   TToolParameters,
 } from '@robota-sdk/agent-core';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface/execution';
 
 const TEST_TIMEOUT = 20_000;
 const THRESHOLD_MS = 50;

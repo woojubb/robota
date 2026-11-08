@@ -19,7 +19,7 @@ import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
   IInteractiveSessionEvents,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export interface ISessionAutoNamingPort {
   on<E extends TInteractiveEventName>(event: E, handler: IInteractiveSessionEvents[E]): void;

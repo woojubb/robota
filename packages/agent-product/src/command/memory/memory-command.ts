@@ -16,8 +16,8 @@ import type {
   ICommandHostWorkspace,
   IMemoryStore,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
-import type { IMemoryEvent } from '@robota-sdk/agent-interface-session';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
+import type { IMemoryEvent } from '@robota-sdk/agent-interface/session';
 
 const SUBCOMMAND_INDEX = 0;
 const TYPE_INDEX = 1;

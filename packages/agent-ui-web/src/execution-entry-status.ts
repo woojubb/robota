@@ -11,7 +11,7 @@ import type {
   IExecutionWorkspaceEntry,
   TExecutionAttention,
   TExecutionWorkspaceStatus,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 export type TExecutionStatusTone = 'warning' | 'destructive' | 'success' | 'muted';
 

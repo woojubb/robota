@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
-import type { ICommand } from '@robota-sdk/agent-interface-command';
+import type { ICommand } from '@robota-sdk/agent-interface/command';
 
 import { createSkillExecutionPort } from '../skill-execution-port.js';
 import { createDefaultUserContributionSources, createNodeHostContributionSource } from '../../contributions/node-host-contribution-source.js';

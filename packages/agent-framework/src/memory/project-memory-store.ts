@@ -5,8 +5,8 @@ import { MemoryTopicLifecycle } from './memory-topic-lifecycle.js';
 import { assertWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
-// TMemoryType SSOT relocated to @robota-sdk/agent-interface-session.
-import type { TMemoryType } from '@robota-sdk/agent-interface-session';
+// TMemoryType SSOT relocated to @robota-sdk/agent-interface/session.
+import type { TMemoryType } from '@robota-sdk/agent-interface/session';
 
 export type { TMemoryType };
 

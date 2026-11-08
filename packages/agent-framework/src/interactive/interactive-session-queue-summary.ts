@@ -1,4 +1,4 @@
-import type { ILivePromptQueueSummary } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptQueueSummary } from '@robota-sdk/agent-interface/analytics';
 
 /** Fixed-size measurement only; queue observations never grant tool ownership or authority. */
 export class LiveQueueSummary {

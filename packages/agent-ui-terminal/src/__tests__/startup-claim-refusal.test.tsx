@@ -24,7 +24,7 @@ import App from '../App.js';
 
 import type { ITuiAppChannelPort } from '../tui-app-channel-port.js';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 const HELD_ID = 'session_held_elsewhere';
 /** Windows reads no process start time, so the store cannot say the holder is alive and says it may be. */

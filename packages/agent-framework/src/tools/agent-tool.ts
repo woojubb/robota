@@ -34,7 +34,7 @@ import type { IAgentToolBatchJobArgs } from './agent-tool-batch.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IToolExecutionContext } from '@robota-sdk/agent-core';
 import type { ISubagentManager } from '@robota-sdk/agent-executor';
-import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface-execution';
+import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface/execution';
 import type { IAgentToolDeps } from './agent-tool-deps-types.js';
 
 export const AGENT_TOOL_DESCRIPTION = [

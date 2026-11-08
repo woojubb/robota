@@ -2,7 +2,7 @@ import type {
   ILivePromptTraceBatch,
   IProviderCallTraceEntry,
   IToolBodyTraceEntry,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 
 import { timingAttributes } from './timing.js';
 

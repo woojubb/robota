@@ -12,7 +12,7 @@ import type { IResolvedConfig } from '@robota-sdk/agent-framework';
 import type {
   ISerializableProviderProfile,
   ISubagentSpawnRequest,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 export type TSubagentWorkerWireValue = string | number | boolean | null | undefined | object;
 

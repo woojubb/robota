@@ -7,8 +7,8 @@ import { jitterFixedLoop } from './loop-jitter.js';
 
 import type { IUserInteraction } from '@robota-sdk/agent-core';
 import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
-import type { ICommandResult, TCommandInvocationSource } from '@robota-sdk/agent-interface-command';
-import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
+import type { ICommandResult, TCommandInvocationSource } from '@robota-sdk/agent-interface/command';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface/execution';
 
 const LOOP_LABEL = 'Loop: ';
 const SECONDS_PER_MINUTE = 60;

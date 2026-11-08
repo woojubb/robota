@@ -1,6 +1,6 @@
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 const testIdentity = createIdentityContext('test-product');
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -9,7 +9,7 @@ import { WebRtcDeliveryLifecycle } from '../webrtc-delivery-lifecycle.js';
 
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
 import type { createSessionMessageHandler } from '../../index';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 /**
  * The pairing gate's fail-closed routing switch, driven with a stub

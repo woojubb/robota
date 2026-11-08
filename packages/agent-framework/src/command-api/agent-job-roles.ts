@@ -15,8 +15,8 @@ import type {
   IBackgroundTaskState,
   ISubagentJobState,
   TBackgroundTaskIsolation,
-} from '@robota-sdk/agent-interface-execution';
-import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/execution';
+import type { ISessionLoopState } from '@robota-sdk/agent-interface/session';
 
 /** Starting, steering and ending subagent jobs. */
 export interface IAgentJobDispatch {

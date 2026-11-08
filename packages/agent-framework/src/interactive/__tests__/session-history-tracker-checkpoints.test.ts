@@ -17,7 +17,7 @@ import { createWorkspaceProjectMutation } from '../../workspace-trust/index.js';
 
 import type { IEditCheckpointStateStorage } from '../../checkpoints/edit-checkpoint-state-storage.js';
 import type { TArtifactSealing } from '@robota-sdk/agent-core';
-import type { IBranchEvent } from '@robota-sdk/agent-interface-session';
+import type { IBranchEvent } from '@robota-sdk/agent-interface/session';
 
 const SESSION = 'session_1';
 

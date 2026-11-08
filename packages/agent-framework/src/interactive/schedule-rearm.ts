@@ -9,7 +9,7 @@
 
 import { sessionLoopBlockReason } from './session-loop-lifecycle.js';
 
-import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface/execution';
 
 /**
  * A restored scheduled task that can be re-armed from its persisted schedule: a `sleeping` one re-arms to fire

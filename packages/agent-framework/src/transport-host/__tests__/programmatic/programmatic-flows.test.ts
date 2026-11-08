@@ -19,7 +19,7 @@ import { createProgrammaticAgent } from '../../programmatic/index.js';
 import { createTestFrameworkHost } from '../../../testing/framework-host.js';
 
 import type { ICommandModule } from '../../../command-api/command-module.js';
-import type { IAgentDriver, InteractionEvent } from '@robota-sdk/agent-interface-session';
+import type { IAgentDriver, InteractionEvent } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

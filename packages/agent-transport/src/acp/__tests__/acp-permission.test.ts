@@ -15,7 +15,7 @@ import {
 
 import type { IFakeSession } from './acp-test-harness.js';
 import type { RequestPermissionResponse } from '@agentclientprotocol/sdk';
-import type { IPermissionRequestEvent, IToolState } from '@robota-sdk/agent-interface-session';
+import type { IPermissionRequestEvent, IToolState } from '@robota-sdk/agent-interface/session';
 
 const open: { stop(): Promise<void> }[] = [];
 afterEach(async () => {

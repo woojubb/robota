@@ -3,7 +3,7 @@ import { MODEL_EFFORT_VALUES } from '@robota-sdk/agent-core';
 import { executeEffortCommand } from './effort-command.js';
 
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface/command';
 
 const EFFORT_ARGUMENT_HINT = `auto | ${MODEL_EFFORT_VALUES.join(' | ')}`;
 
