@@ -64,3 +64,37 @@ describe('attachSession and the data channel frame limit', () => {
     attached.cleanup();
   });
 });
+
+describe('attachSession and the granted role', () => {
+  function ask(surfaceRole?: 'drive' | 'observe') {
+    const target = channel();
+    const session = createTestInteractiveSession({
+      submit: vi.fn().mockResolvedValue(undefined) as never,
+    });
+    const attached = attachSession(
+      { channel: target, session, ...(surfaceRole ? { surfaceRole } : {}) },
+      false,
+      () => undefined,
+    );
+    attached.onSessionMessage(JSON.stringify({ type: 'get-surface-role' }));
+    attached.onSessionMessage(JSON.stringify({ type: 'submit', prompt: 'hi' }));
+    const frames = target.sent.map((frame) => JSON.parse(frame));
+    attached.cleanup();
+    return { frames, session };
+  }
+
+  it('answers an observer and refuses a turn', () => {
+    const { frames, session } = ask('observe');
+    expect(frames[0]).toMatchObject({ type: 'surface_role', role: 'observe' });
+    expect(frames[1]).toMatchObject({
+      type: 'protocol_error',
+      message: 'Not permitted for an observer: submit',
+    });
+    expect(session.submit).not.toHaveBeenCalled();
+  });
+
+  it('drives by default', () => {
+    const { frames } = ask();
+    expect(frames[0]).toMatchObject({ type: 'surface_role', role: 'drive' });
+  });
+});

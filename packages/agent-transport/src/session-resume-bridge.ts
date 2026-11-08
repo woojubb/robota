@@ -23,11 +23,12 @@ import { createOutboundDelivery } from './outbound-delivery.js';
 import { ResumeBuffer, type IResumeBufferOptions } from './resume-buffer.js';
 import { subscribeSessionEvents } from './session-events.js';
 import { handleClientMessage, parseClientMessage } from './session-message-handler.js';
+import { handleSurfaceRoleMessage } from './surface-role.js';
 
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
 import type { IUsageQueryReporters } from './usage-messages.js';
-import type { TSeqServerMessage, TServerMessage } from './wire-messages.js';
+import type { TSeqServerMessage, TServerMessage, TSessionSurfaceRole } from './wire-messages.js';
 import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface-command';
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
@@ -63,6 +64,8 @@ export interface ISessionResumeBridgeOptions {
   /** REMOTE-014 E5: the SERVER-ASSIGNED driver id for this surface, injected into inbound submit/command/prompt-response. */
   readonly driverId?: TDriverId;
   readonly surface?: TUsageSurface;
+  /** Carrier-decided role of this bridge; defaults to `drive`. The client never chooses it. */
+  readonly role?: TSessionSurfaceRole;
   readonly personalUsageReporter?: IUsageQueryReporters['personalUsageReporter'];
   readonly usageReporter?: IUsageQueryReporters['usageReporter'];
   readonly storedSessionUsageReporter?: IUsageQueryReporters['storedSessionUsageReporter'];
@@ -78,6 +81,7 @@ export class SessionResumeBridge {
   private driverId?: TDriverId;
   private readonly reporters: IUsageQueryReporters;
   private readonly surface?: TUsageSurface;
+  private readonly role: TSessionSurfaceRole;
   private readonly commandSurfaceLocality?: TCommandSurfaceLocality;
   private readonly maxFrameBytes?: number;
   /**
@@ -118,6 +122,7 @@ export class SessionResumeBridge {
     this.buffer = new ResumeBuffer(options.buffer);
     this.driverId = options.driverId;
     this.surface = options.surface;
+    this.role = options.role ?? 'drive';
     this.commandSurfaceLocality = options.commandSurfaceLocality;
     this.maxFrameBytes = options.maxFrameBytes;
     this.reporters = {
@@ -141,6 +146,7 @@ export class SessionResumeBridge {
     );
     this.unsubscribe = subscribeSessionEvents(this.session, this.emitBoundary, {
       getSurfaceDriverId: () => this.driverId,
+      receivePrompts: this.role === 'drive',
     });
   }
 
@@ -184,6 +190,7 @@ export class SessionResumeBridge {
       this.buffer.ackThrough(msg.seq);
       return;
     }
+    if (handleSurfaceRoleMessage(this.role, msg, this.emitBoundary)) return;
     // Session control/query/background/prompt-response — responses funnel back through `emit` (seq'd + buffered).
     // REMOTE-014 E5: inject the server-assigned driver id (submit/prompt-response attribution).
     handleClientMessage(

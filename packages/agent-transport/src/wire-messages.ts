@@ -62,6 +62,13 @@ import type {
 } from '@robota-sdk/agent-interface-session';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
 
+/**
+ * What a connected surface may do. `drive` sends prompts, answers questions and controls the session.
+ * `observe` is read-only: it follows this session's conversation and state, but never submits, answers,
+ * controls, or reads another session's records, and it never counts as a surface that can answer.
+ */
+export type TSessionSurfaceRole = 'drive' | 'observe';
+
 export type TBackgroundControlAction = 'cancel' | 'close' | 'send';
 
 type THistoryEntry = ReturnType<ISessionConversationRead['getFullHistory']>[number];
@@ -113,6 +120,8 @@ export type TClientMessage =
   // (a `/` menu), and the session's status (model, permission mode, effort, context).
   | { type: 'get-commands' }
   | { type: 'get-status' }
+  // Which role this connection has: the host's grant, lowered if the client asked for less.
+  | { type: 'get-surface-role' }
   // #3282 §2: the models the GUI's model menu offers, grouped by configured provider profile — so
   // the GUI never scrapes `/model`'s picker text. Choosing one sends `command` with `name: 'model'`,
   // the SAME path `/model <id>` runs; this message only reads the choices.
@@ -285,6 +294,8 @@ export type TServerMessage =
   | { type: 'commands'; commands: ICommandListEntry[]; skills: ICommandSkillListEntry[] }
   // Sent in reply to `get-status`, and pushed whenever the session's status changes.
   | { type: 'session_status'; status: ISessionStatusSnapshot }
+  // Reply to `get-surface-role`: the role this connection effectively has.
+  | { type: 'surface_role'; role: TSessionSurfaceRole }
   // #3282 §2: reply to `list-models`, echoing its `requestId`. `groups` is current-profile first;
   // `currentProfile` is absent only when no provider profile is configured at all.
   | {

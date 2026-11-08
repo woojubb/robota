@@ -68,6 +68,13 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
       onDropped: () => this.options.onDropped?.(),
       onDeliveryError: (error, event) => this.options.onDeliveryError?.(error, event),
     });
+    // The bridge's host already decided its role; a second answer to the same question contradicts it.
+    if (this.options.role !== undefined && this.options.resumeBridge) {
+      throw new Error(
+        'WebRtcTransport: `role` and `resumeBridge` are contradictory. The resume bridge carries the ' +
+          'role its host gave it. Set the role on the bridge, or drop the bridge.',
+      );
+    }
     // A pairing secret and explicit open admission are contradictory, so fail before signaling.
     if (this.options.secret && this.options.open === true) {
       throw new Error(
@@ -267,6 +274,7 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
         ? { connectionApproval: this.options.connectionApproval }
         : {}),
       ...(this.options.resumeBridge ? { resumeBridge: this.options.resumeBridge } : {}),
+      ...(this.options.role ? { surfaceRole: this.options.role } : {}),
       ...(this.options.personalUsageReporter
         ? { personalUsageReporter: this.options.personalUsageReporter }
         : {}),
@@ -321,6 +329,7 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
         ? { storedSessionUsageReporter: this.options.storedSessionUsageReporter }
         : {}),
       surface: 'remote',
+      ...(this.options.role ? { role: this.options.role } : {}),
       // #3282 §4 part b-2: WebRTC proves no locality; installing a plugin refuses it.
       commandSurfaceLocality: 'remote',
       // A data channel carries a fraction of the inbound limit (see the pairing-gate branch).

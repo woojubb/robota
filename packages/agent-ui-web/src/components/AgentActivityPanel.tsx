@@ -115,7 +115,7 @@ export function AgentActivityPanel({
                   task={task}
                   onPause={onPauseSchedule}
                   onResume={onResumeSchedule}
-                  onRequestDelete={() => setPendingDeleteId(task.id)}
+                  onRequestDelete={onDeleteSchedule ? () => setPendingDeleteId(task.id) : undefined}
                 />
               ))}
             </div>
@@ -231,7 +231,8 @@ function ScheduleCard({
   task: IBackgroundTaskState<'scheduled'>;
   onPause?: (taskId: string) => void;
   onResume?: (taskId: string) => void;
-  onRequestDelete: () => void;
+  /** Absent when the schedule is shown without controls (an observer). */
+  onRequestDelete?: () => void;
 }): React.ReactElement {
   const isPaused = task.status === 'paused';
   return (
@@ -242,34 +243,40 @@ function ScheduleCard({
       <p className="mt-1 text-[13px] text-muted-foreground">
         {describeScheduleTiming(task)} · {describeScheduleStatus(task)}
       </p>
-      <div className="mt-2 flex items-center gap-3">
-        {isPaused ? (
-          <button
-            type="button"
-            onClick={() => onResume?.(task.id)}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
-          >
-            <Play size={11} fill="currentColor" aria-hidden="true" />
-            Resume
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onPause?.(task.id)}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
-          >
-            <Pause size={11} fill="currentColor" aria-hidden="true" />
-            Pause
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onRequestDelete}
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-destructive hover:bg-destructive/10"
-        >
-          Delete…
-        </button>
-      </div>
+      {onResume || onPause || onRequestDelete ? (
+        <div className="mt-2 flex items-center gap-3">
+          {isPaused
+            ? onResume && (
+                <button
+                  type="button"
+                  onClick={() => onResume(task.id)}
+                  className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
+                >
+                  <Play size={11} fill="currentColor" aria-hidden="true" />
+                  Resume
+                </button>
+              )
+            : onPause && (
+                <button
+                  type="button"
+                  onClick={() => onPause(task.id)}
+                  className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
+                >
+                  <Pause size={11} fill="currentColor" aria-hidden="true" />
+                  Pause
+                </button>
+              )}
+          {onRequestDelete && (
+            <button
+              type="button"
+              onClick={onRequestDelete}
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-destructive hover:bg-destructive/10"
+            >
+              Delete…
+            </button>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -293,7 +300,7 @@ function GoalCard({
       <p className="mt-1.5 pl-[26px] text-[13px] text-muted-foreground">
         {describeGoalStatus(goal)}
       </p>
-      {goal.status === 'active' && (
+      {goal.status === 'active' && onCancel && (
         <div className="mt-2 pl-[26px]">
           <button
             type="button"

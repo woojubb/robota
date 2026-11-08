@@ -10,7 +10,11 @@
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 import type { ISessionBinder, TDriverId } from '@robota-sdk/agent-interface-session';
 import type { ITransportLifecycleError } from '@robota-sdk/agent-interface-transport';
-import type { IProtocolSession, ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
+import type {
+  IProtocolSession,
+  ISessionMessageHandlerOptions,
+  TSessionSurfaceRole,
+} from '@robota-sdk/agent-transport';
 
 export const DEFAULT_PORT = 7070;
 export const DEFAULT_MAX_RETRIES = 20;
@@ -37,6 +41,12 @@ export interface IWsTransportConfig {
    * `sessionDirectory`; without it every connection shares the attached session.
    */
   sessionBinder?: ISessionBinder<IProtocolSession>;
+  /**
+   * The most any connection of this listener may do, `drive` unless set. A connection may ask for less
+   * with `?role=observe` in its upgrade URL, never for more. A host that needs both roles runs one
+   * listener per role, each with its own admission.
+   */
+  role?: TSessionSurfaceRole;
   port?: number;
   maxRetries?: number;
   /**

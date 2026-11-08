@@ -81,7 +81,10 @@ function initialSidebarOpen(): boolean {
  * on its primary one. After a reconnect to such a host this surface goes back to the session it was
  * on; an older host has one session for everyone, so there is nothing to go back to.
  */
-export function useSessionDirectoryState(send: (msg: TClientMessage) => void): TSessionDirectoryState & {
+export function useSessionDirectoryState(
+  send: (msg: TClientMessage) => void,
+  isObserving: () => boolean,
+): TSessionDirectoryState & {
   handleSessionsMessage: (msg: TServerMessage) => boolean;
   /** Whether the host can list sessions, as far as its last answer says. */
   canListSessions: () => boolean;
@@ -148,12 +151,14 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
       // launch with no remembered id never reaches here (target stays null), so nothing switches.
       clearStoredRestoreId(browserNamespace);
       if (target === listing.currentSessionId) return;
+      // An observer never moves the session, so there is nothing to go back to.
+      if (isObserving()) return;
       if (!keepsSessionsLive(listing)) return;
       // A session the host no longer lists (an empty one it never saved) is nothing to go back to.
       if (!listing.sessions.some((row) => row.id === target)) return;
       send({ type: 'switch-session', sessionId: target, requestId: nextRequestId('session_change') });
     },
-    [send, browserNamespace],
+    [send, browserNamespace, isObserving],
   );
 
   const handleSessionsMessage = useCallback(

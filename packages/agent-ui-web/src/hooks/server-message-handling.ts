@@ -89,6 +89,8 @@ export const SERVER_MESSAGE_HANDLING = {
   background_task_control_result: 'visible-notice',
   protocol_error: 'visible-notice',
   resume_gap: 'transport-control',
+  // The connection's effective role: the session client holds it and stops sending what an observer may not.
+  surface_role: 'reducer-state',
   // #3282 §4a: the Settings screen's own correlated request/response state (`useSettingsState`).
   settings: 'reducer-state',
   settings_error: 'reducer-state',

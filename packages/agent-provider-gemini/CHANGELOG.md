@@ -1,5 +1,10 @@
 # @robota-sdk/agent-provider-gemini
 
+## 3.2.2
+### Patch Changes
+
+- 8d05c9b: Allow compatible SDK dependencies to update independently.
+
 ## 3.2.1
 ### Patch Changes
 

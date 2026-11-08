@@ -690,7 +690,8 @@ export function GoalBar({
   onStop,
 }: {
   status: TSessionStatus | null;
-  onStop: () => void;
+  /** Absent for an observer: the goal is shown without a Stop. */
+  onStop?: () => void;
 }): React.ReactElement | null {
   const goal = status?.goal;
   if (!goal || goal.status !== 'active') return null;
@@ -707,15 +708,17 @@ export function GoalBar({
       <span className="flex-shrink-0 text-[13px] tabular-nums text-subtle">
         {goal.iterations}/{goal.maxIterations}
       </span>
-      <button
-        type="button"
-        aria-label="Stop goal"
-        onClick={onStop}
-        className="flex flex-shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
-      >
-        <Square size={11} fill="currentColor" aria-hidden="true" />
-        Stop
-      </button>
+      {onStop && (
+        <button
+          type="button"
+          aria-label="Stop goal"
+          onClick={onStop}
+          className="flex flex-shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
+        >
+          <Square size={11} fill="currentColor" aria-hidden="true" />
+          Stop
+        </button>
+      )}
       <span
         aria-hidden="true"
         className="absolute bottom-0 left-0 h-[2px] bg-accent/70 transition-[width]"

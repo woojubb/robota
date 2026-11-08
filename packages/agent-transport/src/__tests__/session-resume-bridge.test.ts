@@ -456,7 +456,9 @@ describe('app view messages through the resume bridge', () => {
     const output = sink();
     bridge.attach(output, TEST_ATTACH_OPTIONS);
 
-    bridge.onClientMessage(JSON.stringify({ type: 'read-app-view', requestId: 'v1', viewId: 'view-1' }));
+    bridge.onClientMessage(
+      JSON.stringify({ type: 'read-app-view', requestId: 'v1', viewId: 'view-1' }),
+    );
 
     expect(frames(output).map((frame) => frame.type)).toEqual(['protocol_error']);
     // Nothing large was retained for a later `resume` either.
@@ -470,3 +472,87 @@ describe('app view messages through the resume bridge', () => {
   });
 });
 
+describe('SessionResumeBridge role', () => {
+  function observerBridge(): {
+    bridge: SessionResumeBridge;
+    output: TResumeSinkStub;
+    session: IInteractiveSession;
+    fire: (event: string, arg: unknown) => void;
+    spies: Record<'submit' | 'executeCommand' | 'resolvePermission', ReturnType<typeof vi.fn>>;
+  } {
+    const { session: base, fire } = fakeSession();
+    const spies = {
+      submit: vi.fn().mockResolvedValue(undefined),
+      executeCommand: vi.fn(),
+      resolvePermission: vi.fn(),
+    };
+    const session = Object.assign(base, spies);
+    const bridge = new SessionResumeBridge({ session, role: 'observe' });
+    const output = sink();
+    bridge.attach(output, TEST_ATTACH_OPTIONS);
+    return { bridge, output, session, fire, spies };
+  }
+
+  it('refuses what an observer may not send and never reaches the session', () => {
+    const { bridge, output, spies } = observerBridge();
+    const messages = [
+      { type: 'submit', prompt: 'hi' },
+      { type: 'command', name: 'exit' },
+      { type: 'permission-response', id: 'p1', result: true },
+      { type: 'switch-session', sessionId: 's2' },
+    ];
+    for (const message of messages) bridge.onClientMessage(JSON.stringify(message));
+    expect(frames(output).map((f) => f as Record<string, unknown>)).toEqual(
+      messages.map((message, index) => ({
+        type: 'protocol_error',
+        message: `Not permitted for an observer: ${message.type}`,
+        seq: index + 1,
+      })),
+    );
+    expect(spies.submit).not.toHaveBeenCalled();
+    expect(spies.executeCommand).not.toHaveBeenCalled();
+    expect(spies.resolvePermission).not.toHaveBeenCalled();
+    bridge.dispose();
+  });
+
+  it('answers get-surface-role with the bridge role', () => {
+    const { bridge, output } = observerBridge();
+    bridge.onClientMessage(JSON.stringify({ type: 'get-surface-role' }));
+    expect(frames(output)).toEqual([{ type: 'surface_role', role: 'observe', seq: 1 }]);
+    const drive = new SessionResumeBridge({ session: fakeSession().session });
+    const driveOutput = sink();
+    drive.attach(driveOutput, TEST_ATTACH_OPTIONS);
+    drive.onClientMessage(JSON.stringify({ type: 'get-surface-role' }));
+    expect(frames(driveOutput)).toEqual([{ type: 'surface_role', role: 'drive', seq: 1 }]);
+    bridge.dispose();
+    drive.dispose();
+  });
+
+  it('forwards a permission prompt to a drive bridge only', () => {
+    const observer = observerBridge();
+    observer.fire('permission_request', { id: 'p1', toolName: 'Bash', toolArgs: {} });
+    expect(frames(observer.output)).toEqual([]);
+
+    const { session, fire } = fakeSession();
+    const drive = new SessionResumeBridge({ session });
+    const driveOutput = sink();
+    drive.attach(driveOutput, TEST_ATTACH_OPTIONS);
+    fire('permission_request', { id: 'p1', toolName: 'Bash', toolArgs: {} });
+    expect(frames(driveOutput).map((f) => f.type)).toEqual(['permission_request']);
+    observer.bridge.dispose();
+    drive.dispose();
+  });
+
+  it('still honours resume and ack for an observer', () => {
+    const { bridge, fire } = observerBridge();
+    fire('text_delta', 'one');
+    bridge.detach();
+    const replay = sink();
+    bridge.attach(replay, TEST_ATTACH_OPTIONS);
+    bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 0 }));
+    expect(frames(replay).map((f) => f.type)).toEqual(['text_delta']);
+    bridge.onClientMessage(JSON.stringify({ type: 'ack', seq: 1 }));
+    expect(frames(replay)).toHaveLength(1);
+    bridge.dispose();
+  });
+});

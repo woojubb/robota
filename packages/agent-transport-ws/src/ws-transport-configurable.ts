@@ -5,7 +5,7 @@
 
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 
-import { createSessionMessageHandler } from '@robota-sdk/agent-transport';
+import { createSessionMessageHandler, resolveSurfaceRole } from '@robota-sdk/agent-transport';
 import { WebSocketServer } from 'ws';
 
 import { PayloadChannelRegistry } from './payload-channels.js';
@@ -13,6 +13,7 @@ import {
   hostAllowed,
   originAllowed,
   presentedToken,
+  requestedRole,
   resolveWsAdmission,
   tokenMatches,
 } from './ws-connection-guards.js';
@@ -36,7 +37,7 @@ import type {
   IPayloadChannelHost,
   TChannelEventMap,
 } from '@robota-sdk/agent-interface-transport';
-import type { IProtocolSession } from '@robota-sdk/agent-transport';
+import type { IProtocolSession, TSessionSurfaceRole } from '@robota-sdk/agent-transport';
 import type { RawData, WebSocket } from 'ws';
 
 /**
@@ -77,6 +78,7 @@ export class WsTransport implements IConfigurableTransport<IProtocolSession>, IP
   private readonly allowedOrigins: ReadonlySet<string>;
   private readonly handlerOptions: ReturnType<typeof configuredWsHandlerOptions>;
   private readonly sessionBinder: ISessionBinder<IProtocolSession> | undefined;
+  private readonly grantedRole: TSessionSurfaceRole;
   private readonly channels = new PayloadChannelRegistry();
   private resolvedPort?: number;
 
@@ -91,6 +93,7 @@ export class WsTransport implements IConfigurableTransport<IProtocolSession>, IP
     this.allowedOrigins = new Set(config.allowedOrigins ?? []);
     this.handlerOptions = configuredWsHandlerOptions(config);
     this.sessionBinder = config.sessionBinder;
+    this.grantedRole = config.role ?? 'drive';
   }
 
   attach(session: IProtocolSession): void {
@@ -194,10 +197,11 @@ export class WsTransport implements IConfigurableTransport<IProtocolSession>, IP
    */
   private bindConnection(
     ws: WebSocket,
+    role: TSessionSurfaceRole,
   ): { binding: ISessionBinding<IProtocolSession> | undefined } | null {
     if (!this.sessionBinder) return { binding: undefined };
     try {
-      return { binding: this.sessionBinder.bind('drive') };
+      return { binding: this.sessionBinder.bind(role) };
     } catch {
       ws.close(1013, 'session unavailable');
       return null;
@@ -261,10 +265,18 @@ export class WsTransport implements IConfigurableTransport<IProtocolSession>, IP
             return;
           }
 
+          // The host's grant, lowered when the client asked for less; a refused request closes the
+          // socket before any session data, like a missing token.
+          const decision = resolveSurfaceRole(this.grantedRole, requestedRole(req));
+          if (!decision.ok) {
+            ws.close(1008, decision.reason);
+            return;
+          }
+
           // #3189: with a binder, this connection gets its own session and directory, so its
-          // switch (and the `session_switched` that follows) stays on this connection. Every WS
-          // connection drives: this carrier has no observe role.
-          const bound = this.bindConnection(ws);
+          // switch (and the `session_switched` that follows) stays on this connection. The
+          // binding and the handler both take the effective role.
+          const bound = this.bindConnection(ws, decision.role);
           if (bound === null) return;
           const { binding } = bound;
           const connectionSession = binding?.session ?? session;
@@ -273,6 +285,7 @@ export class WsTransport implements IConfigurableTransport<IProtocolSession>, IP
             session: connectionSession,
             deliver: delivery.deliver,
             ...this.handlerOptions,
+            role: decision.role,
             ...(binding ? { sessionDirectory: binding.directory } : {}),
           });
           delivery.bindProtocolCleanup(() => {
