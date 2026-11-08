@@ -1,6 +1,9 @@
+import { join, resolve } from 'node:path';
+
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  WORKSPACE,
   createFakeSession,
   endedTurn,
   executionResult,
@@ -77,6 +80,9 @@ async function askPermission(
 const select = (optionId: string): RequestPermissionResponse => ({
   outcome: { outcome: 'selected', optionId },
 });
+
+/** The editor is told a file's absolute path in the host's own form, so Windows adds the drive and backslashes. */
+const inWorkspace = (relative: string): string => join(resolve(WORKSPACE), relative);
 
 describe('permission requests', () => {
   it.each([
@@ -224,21 +230,22 @@ describe('permission requests', () => {
       content: [
         {
           type: 'diff',
-          path: '/workspace/src/a.ts',
+          path: inWorkspace('src/a.ts'),
           oldText: 'const a = 1;\nconst b = 2;\nexport { a, b };',
           newText: 'const a = 1;\nconst b = 3;\nexport { a, b };',
         },
       ],
-      locations: [{ path: '/workspace/src/a.ts' }],
+      locations: [{ path: inWorkspace('src/a.ts') }],
     });
   });
 
   it('sends a new file as a diff with no old text, and keeps an absolute path as it is', async () => {
+    const elsewhere = resolve('/elsewhere/new.txt');
     const { editor } = await askPermission(() => select('reject'), {
       request: {
         toolName: 'Write',
-        toolArgs: { file_path: '/elsewhere/new.txt', content: 'one\ntwo' },
-        diffFile: '/elsewhere/new.txt',
+        toolArgs: { file_path: elsewhere, content: 'one\ntwo' },
+        diffFile: elsewhere,
         diffLines: [
           { type: 'hunk', text: '@@ -0,0 +1,2 @@', lineNumber: 1 },
           { type: 'add', text: 'one', lineNumber: 1 },
@@ -247,10 +254,8 @@ describe('permission requests', () => {
       },
     });
     const [block] = editor.permissionRequests[0]!.toolCall.content!;
-    expect(block).toEqual({ type: 'diff', path: '/elsewhere/new.txt', newText: 'one\ntwo' });
-    expect(editor.permissionRequests[0]!.toolCall.locations).toEqual([
-      { path: '/elsewhere/new.txt' },
-    ]);
+    expect(block).toEqual({ type: 'diff', path: elsewhere, newText: 'one\ntwo' });
+    expect(editor.permissionRequests[0]!.toolCall.locations).toEqual([{ path: elsewhere }]);
   });
 
   it('keeps the truncation marker of a capped diff side with that side', async () => {
@@ -271,7 +276,7 @@ describe('permission requests', () => {
     const [block] = editor.permissionRequests[0]!.toolCall.content!;
     expect(block).toEqual({
       type: 'diff',
-      path: '/workspace/src/big.ts',
+      path: inWorkspace('src/big.ts'),
       oldText: 'old 1\n… 499 more removed lines truncated',
       newText: 'new 1\n… 499 more added lines truncated',
     });
@@ -289,7 +294,7 @@ describe('permission requests', () => {
     });
     expect(write.permissionRequests[0]!.toolCall.content![0]).toEqual({
       type: 'diff',
-      path: '/workspace/big.txt',
+      path: inWorkspace('big.txt'),
       newText: 'one\n… 500 more lines truncated',
     });
   });
