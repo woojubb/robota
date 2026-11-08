@@ -2,7 +2,7 @@ import { createTestInteractiveSession } from '@robota-sdk/agent-interface-sessio
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 
 import { describe, expect, it, vi } from 'vitest';
-import { RtcPeer, WebRtcTransport, WsSignalingClient } from '@robota-sdk/agent-transport-webrtc';
+import { RtcPeer, WebRtcTransport, WsSignalingClient } from '@robota-sdk/agent-transport/webrtc';
 
 import { startSignalingServer } from '../server.js';
 

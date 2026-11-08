@@ -10,8 +10,8 @@ socket, listener or UI.
 
 The root and `./client` entry points run in the browser; Node-only access-token verification, the
 bearer resource-server gate, file transfer, the stdio carrier bridge and handoff integrity helpers
-are under `./node`. The carriers themselves
-are separate packages: `@robota-sdk/agent-transport-ws`, `-http`, `-mcp`, `-acp` and `-webrtc`.
+are under `./node`. The carriers are separate subpaths of the same package: `@robota-sdk/agent-transport/ws`,
+`/http`, `/mcp`, `/acp`, `/webrtc` and `/link`.
 
 ```typescript
 // Shared session-message handling and transport admission (browser and Node)
@@ -26,5 +26,8 @@ import { createAccessTokenVerifier } from '@robota-sdk/agent-transport/node';
 
 ## Documents
 
-- [SPEC.md](./SPEC.md) — package contract, entry-point layout and ownership boundaries.
-- [README](../README.md) — installation and usage examples.
+- [SPEC.md](./SPEC.md) — the package contract and ownership boundaries, then each carrier's scope,
+  boundaries, invariants and design decisions.
+- [README](../README.md) — installation, the entry points and carriers, and usage examples.
+- The carriers: [ws](./ws.md), [http](./http.md), [mcp](./mcp.md), [acp](./acp.md),
+  [webrtc](./webrtc.md) and [link](./link.md): installation, options and usage per carrier.
