@@ -187,15 +187,14 @@ provider message or invoke the observer a second time.
 ### Structured output
 
 No adapter in this package reads a native response-format option directly — `deepseek`, `qwen`,
-and `gemma` build their requests without it. Historically this meant a structured run against this
-family carried no schema signal on the first attempt at all, costing at least one extra turn by
-construction. Structured-output handling was moved to the core transport seam: agent-core now asks
-this package's capability table which transport applies and, when no schema parameter exists,
-states the schema as a system instruction on the first attempt. The mapping lives at the seam that
-assembles the request rather than being duplicated into three request builders, so the two answers
-cannot drift apart.
+and `gemma` build their requests without it. Structured-output handling lives at the core transport
+seam instead: agent-core asks this package's capability table which transport applies and, when no
+schema parameter exists, states the schema as a system instruction on the first attempt, so a
+structured run against this family does not spend an extra turn finding out the shape. The mapping
+lives at the seam that assembles the request rather than being duplicated into three request
+builders, so the two answers cannot drift apart.
 
-The capability declarations were corrected as part of that change: DeepSeek's JSON Output mode
+The capability declarations say what each model really does: DeepSeek's JSON Output mode
 guarantees the response parses but takes no schema parameter and enforces no shape, so it is
 declared as an unstructured JSON capability rather than a schema-enforcing one. Qwen declares
 neither, so its structured requests omit the option entirely rather than sending one to be ignored.
