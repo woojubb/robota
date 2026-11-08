@@ -34,9 +34,9 @@ import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool, TToolParameters } from '@robota-sdk/agent-core';
 
 /** Only ever written OUTSIDE the sandbox; seeing it in a tool result is a breach. Assembled, never literal. */
-const CANARY = ['SEC007', 'OUT', 'OF', 'ROOT', Date.now().toString(36)].join('-');
+const CANARY = ['OUT', 'OF', 'ROOT', Date.now().toString(36)].join('-');
 /** Only ever written INSIDE the sandbox — proves the tool still works after containment. */
-const INSIDE_MARKER = ['SEC007', 'IN', 'SANDBOX', Date.now().toString(36)].join('-');
+const INSIDE_MARKER = ['IN', 'SANDBOX', Date.now().toString(36)].join('-');
 
 let root: string;
 let workdir: string;
@@ -48,7 +48,7 @@ async function runTool(tool: FunctionTool, args: TToolParameters): Promise<ITool
 }
 
 beforeAll(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'sec007-')));
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'enumeration-containment-')));
   workdir = join(root, 'workdir');
   outside = join(root, 'outside');
   mkdirSync(join(workdir, 'src'), { recursive: true });

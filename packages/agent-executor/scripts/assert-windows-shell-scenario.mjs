@@ -22,12 +22,12 @@ const expectedObservedBasenames = [
   'cmd.exe',
 ];
 const expectedSentinels = [
-  'arch026-default',
-  'arch026-sh',
-  'arch026-bash',
-  'arch026-powershell',
-  'arch026-pwsh',
-  'arch026-cmd',
+  'shell-default',
+  'shell-sh',
+  'shell-bash',
+  'shell-powershell',
+  'shell-pwsh',
+  'shell-cmd',
 ];
 if (
   !Array.isArray(value.rows) ||
