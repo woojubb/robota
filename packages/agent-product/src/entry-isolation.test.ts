@@ -98,6 +98,7 @@ describe('agent-product entry isolation', () => {
     'the neutral entry %s reaches no Node-only entry',
     (_name, start) => {
       const reached = [...reachableFrom(start)];
+      expect(reached.length).toBeGreaterThan(1);
       expect(
         reached.filter((file) => NODE_ONLY.includes(file) || ownerOf(file) === 'coding'),
       ).toEqual([]);
