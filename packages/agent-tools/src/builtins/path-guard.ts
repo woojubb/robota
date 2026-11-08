@@ -1,4 +1,4 @@
-import { open, readlink, realpath, type FileHandle } from 'node:fs/promises';
+import { lstat, open, readlink, realpath, type FileHandle } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 
 import { isPathInside } from '@robota-sdk/agent-core/node';
@@ -104,6 +104,41 @@ function isCanonicalInside(root: string, candidate: string): boolean {
 }
 
 /**
+ * Windows half of {@link openWithinCwd}. A Windows handle carries no path, so the file opened is
+ * confirmed by identity instead: the canonical path is checked inside `root` and its file index read
+ * BEFORE the open, and the handle must name that same file (same volume, same file index). A link
+ * swapped in before the open leads the open to another file and fails the comparison; a swap after the
+ * open cannot change what the handle reads. A file index of 0 means the filesystem reports no
+ * identity, so nothing can be compared and the open is refused.
+ */
+async function openWithinCwdWindows(
+  filePath: string,
+  flags: number,
+  root: string,
+): Promise<FileHandle> {
+  const canonical = await realpath(filePath);
+  if (!isCanonicalInside(root, canonical)) {
+    throw new ContainmentEscapeError(
+      `Access denied: "${filePath}" is outside the working directory`,
+    );
+  }
+  const named = await lstat(canonical, { bigint: true });
+  const handle = await open(filePath, flags, 0o600);
+  try {
+    const opened = await handle.stat({ bigint: true });
+    if (opened.ino === 0n || opened.ino !== named.ino || opened.dev !== named.dev) {
+      throw new ContainmentEscapeError(
+        `Access denied: "${filePath}" cannot be confirmed inside the working directory`,
+      );
+    }
+    return handle;
+  } catch (err) {
+    await handle.close();
+    throw err;
+  }
+}
+
+/**
  * Open a host file so that containment is decided on the file actually opened, not on a path checked
  * before the open — a path swapped for a link between the two would otherwise be followed out of the
  * root (issue #3252).
@@ -113,6 +148,8 @@ function isCanonicalInside(root: string, candidate: string): boolean {
  * - Linux reads the kernel's path for the opened descriptor (`/proc/self/fd/N`); re-canonicalising it
  *   would consult the filesystem again. Without procfs the answer cannot be confirmed, so the open is
  *   refused.
+ * - Windows gives an open handle no path, so the opened file is confirmed by identity: the handle must
+ *   be the file the canonical path named, inside the root, just before the open.
  * - Elsewhere the containment check before the open is the only check.
  *
  * Both sides of the comparison come from the native `realpath`, which spells a path as it is on disk;
@@ -141,6 +178,7 @@ export async function openWithinCwd(
       throw err;
     }
   }
+  if (process.platform === 'win32') return openWithinCwdWindows(filePath, flags, root);
   const handle = await open(filePath, flags, 0o600);
   if (process.platform !== 'linux') return handle;
   let opened: string;

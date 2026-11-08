@@ -33,6 +33,14 @@ import type { FunctionTool, TToolParameters } from '@robota-sdk/agent-core';
  */
 const SPAWN_TIMEOUT_MS = 60_000;
 
+/**
+ * The platform shell prints and changes directory in its own dialect: PowerShell is the Windows shell,
+ * where `pwd` prints a table rather than a path and 5.1 has no `&&`.
+ */
+const PRINT_CWD = process.platform === 'win32' ? '(Get-Location).Path' : 'pwd';
+const CD_SIBLING_AND_PRINT_CWD =
+  process.platform === 'win32' ? `cd ../sibling; ${PRINT_CWD}` : `cd ../sibling && ${PRINT_CWD}`;
+
 let root: string;
 let workdir: string;
 let sibling: string;
@@ -58,7 +66,7 @@ describe('Shell — the configured containment root is the DEFAULT working direc
   it(
     'runs in the configured cwd, not the host process cwd',
     async () => {
-      const result = await runTool(createShellTool({ cwd: workdir }), { command: 'pwd' });
+      const result = await runTool(createShellTool({ cwd: workdir }), { command: PRINT_CWD });
       expect(result.success).toBe(true);
       expect(realpathSync(result.output.trim())).toBe(workdir);
       expect(realpathSync(result.output.trim())).not.toBe(realpathSync(process.cwd()));
@@ -70,7 +78,7 @@ describe('Shell — the configured containment root is the DEFAULT working direc
     'still honours an explicit workingDirectory over the default',
     async () => {
       const result = await runTool(createShellTool({ cwd: workdir }), {
-        command: 'pwd',
+        command: PRINT_CWD,
         workingDirectory: sibling,
       });
       expect(realpathSync(result.output.trim())).toBe(sibling);
@@ -84,7 +92,7 @@ describe('Shell — the configured containment root is the DEFAULT working direc
       // ARCH-010 made `cwd` REQUIRED, so "no root configured" is no longer constructible through the
       // factory — a caller that means the host process directory now says so where a reader can see it.
       // The observable this case was always about is unchanged: that directory is where the command runs.
-      const result = await runTool(createShellTool({ cwd: process.cwd() }), { command: 'pwd' });
+      const result = await runTool(createShellTool({ cwd: process.cwd() }), { command: PRINT_CWD });
       expect(realpathSync(result.output.trim())).toBe(realpathSync(process.cwd()));
     },
     SPAWN_TIMEOUT_MS,
@@ -98,7 +106,7 @@ describe('CONTROL — Shell is NOT path-contained, and that is the decision (SEC
       // Not a defect to fix by adding `checkPathWithinCwd` here: the very next line demonstrates why
       // such a guard would be cosmetic.
       const result = await runTool(createShellTool({ cwd: workdir }), {
-        command: 'pwd',
+        command: PRINT_CWD,
         workingDirectory: sibling,
       });
       expect(result.success).toBe(true);
@@ -113,7 +121,7 @@ describe('CONTROL — Shell is NOT path-contained, and that is the decision (SEC
       // The command escapes without touching `workingDirectory` at all. Any containment check on the
       // cwd argument is therefore not a boundary — it is a boundary-shaped comment.
       const result = await runTool(createShellTool({ cwd: workdir }), {
-        command: 'cd ../sibling && pwd',
+        command: CD_SIBLING_AND_PRINT_CWD,
       });
       expect(result.success).toBe(true);
       expect(realpathSync(result.output.trim())).toBe(sibling);
