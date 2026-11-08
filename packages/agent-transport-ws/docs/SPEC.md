@@ -46,6 +46,11 @@ distinguishable outcomes.
   host may supply the token; otherwise a random per-launch token is minted and exposed only for delivery
   to the co-located client. Running without auth needs the explicit, discouraged `open` opt-out, and
   combining `open` with a token is rejected as a contradiction.
+- **The host grants the role; a connection may only lower it.** A listener's host-set role is the
+  most any of its connections may do, `drive` unless the host says otherwise. A connection may ask
+  for less in its upgrade request and never for more; a request the shared decision refuses is closed
+  before any session data, like a missing token. A host that needs both roles runs one listener per
+  role, each with its own admission, so admission stays one credential per listener.
 - **Lifecycle rejects out-of-order use.** Starting before attaching, or a repeated active start,
   is rejected rather than silently reinitializing; a repeated stop is safe but clears the session so
   restart requires reattaching.

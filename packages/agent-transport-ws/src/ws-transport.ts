@@ -17,6 +17,7 @@ import type {
   IProtocolSession,
   ISessionMessageHandlerOptions,
   TServerMessage,
+  TSessionSurfaceRole,
 } from '@robota-sdk/agent-transport';
 
 export interface IWsTransportOptions {
@@ -31,6 +32,11 @@ export interface IWsTransportOptions {
   settingsReporter?: ISessionMessageHandlerOptions['settingsReporter'];
   driverId?: TDriverId;
   surface?: TUsageSurface;
+  /**
+   * Host-granted role of this connection, `drive` unless set. The caller owns the socket, so it
+   * decides any lowering itself, for example with `resolveSurfaceRole`.
+   */
+  role?: TSessionSurfaceRole;
 }
 
 export interface IWsTransport extends ITransportAdapter<IProtocolSession> {
@@ -68,6 +74,7 @@ export function createWsTransport(options: IWsTransportOptions): IWsTransport {
       const handler = createSessionMessageHandler({
         session,
         deliver,
+        ...(options.role ? { role: options.role } : {}),
         ...(options.driverId ? { driverId: options.driverId } : {}),
         ...(options.surface ? { surface: options.surface } : {}),
         ...(options.personalUsageReporter

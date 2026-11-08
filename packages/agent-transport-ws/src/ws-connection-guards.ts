@@ -80,6 +80,19 @@ export function presentedToken(req: IncomingMessage): string | null {
 }
 
 /**
+ * The `role` the client asked for in the upgrade URL, for the shared role decision to judge. An empty
+ * value is returned as `''` so the decision refuses it; absent or unparseable is `undefined`.
+ */
+export function requestedRole(req: IncomingMessage): string | undefined {
+  try {
+    const url = new URL(req.url ?? '', 'ws://127.0.0.1');
+    return url.searchParams.get('role') ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * This transport's admission decision, asked of the shared seam.
  *
  * Lives here rather than in the transport file because this module already owns the admission

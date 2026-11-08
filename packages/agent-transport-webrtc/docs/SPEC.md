@@ -187,7 +187,9 @@ dependency.
   keys, with no re-pairing). Without reconnect configuration, the gate is first-pair-only.
 - **Reporter forwarding.** Usage reporters are forwarded only after admission, on both direct and paired handlers.
   A reconnecting session retains the same reporters for its full lifetime, so resumption changes delivery state
-  but not admitted-owner query authority.
+  but not admitted-owner query authority. The host grants the role of a session surface this transport
+  builds; an injected resume bridge carries the role its host gave it, so passing both is refused as a
+  contradiction.
 - **The WebRTC implementation is `node-datachannel`, chosen, not fallen back to.** Channel binding means something
   only if the DTLS layer proves the peer holds the key of the certificate it presents, i.e. verifies the handshake
   signatures, which OpenSSL's DTLS does. It also connects quickly, notices a dead peer, and contacts no ICE server
