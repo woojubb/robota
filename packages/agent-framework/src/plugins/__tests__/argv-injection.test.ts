@@ -27,7 +27,7 @@ describe('hostile marketplace input reaches the port as a literal argument', () 
   let client: MarketplaceClient;
 
   beforeEach(() => {
-    pluginsDir = realpathSync(mkdtempSync(join(tmpdir(), 'sec-017-')));
+    pluginsDir = realpathSync(mkdtempSync(join(tmpdir(), 'argv-injection-')));
     mockExec = vi.fn().mockReturnValue('');
     client = new MarketplaceClient({
       pluginsDir,

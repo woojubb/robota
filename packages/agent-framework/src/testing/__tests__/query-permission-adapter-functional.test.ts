@@ -19,7 +19,7 @@ afterEach(() => {
 
 describe('createQuery canonical permission adapter', () => {
   it('subscribes to permission_request and settles an allowed tool through the registry', async () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'arch-017-query-')));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'query-permission-')));
     roots.push(cwd);
     const markerPath = join(cwd, 'allowed.txt');
     const script = createScriptedProvider([
@@ -50,7 +50,7 @@ describe('createQuery canonical permission adapter', () => {
   });
 
   it('fails closed when the permission callback rejects', async () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'arch-017-query-')));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'query-permission-')));
     roots.push(cwd);
     const markerPath = join(cwd, 'denied.txt');
     const script = createScriptedProvider([

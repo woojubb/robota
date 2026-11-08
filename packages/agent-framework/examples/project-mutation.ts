@@ -71,7 +71,7 @@ function createIdentityResolver(root: string): IWorkspaceIdentityResolver {
 }
 
 async function main(): Promise<void> {
-  const temporaryRoot = mkdtempSync(join(tmpdir(), 'arch-2151-project-mutation-'));
+  const temporaryRoot = mkdtempSync(join(tmpdir(), 'project-mutation-'));
   const workspacePath = join(temporaryRoot, 'workspace-a');
   const outsidePath = join(temporaryRoot, 'workspace-b');
   mkdirSync(workspacePath);

@@ -37,8 +37,8 @@ import type {
 
 const testHost = createTestFrameworkHost();
 
-const CONTEXT_CANARY = 'ARCH_042_CONTEXT_CANARY';
-const SETTINGS_CANARY = 'ARCH_042_SETTINGS_CANARY';
+const CONTEXT_CANARY = 'WORKSPACE_CONTEXT_CANARY';
+const SETTINGS_CANARY = 'WORKSPACE_SETTINGS_CANARY';
 
 function assertCondition(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -154,7 +154,7 @@ function observeCanaries(projectAccess: TWorkspaceProjectAccess, userHome: strin
 async function main(): Promise<void> {
   // The native form: `git rev-parse --show-toplevel` prints it, so the trusted root and the
   // directory the runtime is built on spell a Windows temp directory the same way.
-  const temporaryRoot = realpathSync.native(mkdtempSync(join(tmpdir(), 'arch-042-authority-')));
+  const temporaryRoot = realpathSync.native(mkdtempSync(join(tmpdir(), 'workspace-authority-')));
   const projectRoot = join(temporaryRoot, 'project');
   const otherProjectRoot = join(temporaryRoot, 'other-project');
   const hostStateRoot = join(temporaryRoot, 'host-state');

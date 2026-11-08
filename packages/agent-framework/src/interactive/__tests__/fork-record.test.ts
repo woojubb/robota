@@ -26,7 +26,7 @@ import { listedRecords, loadedRecord } from './session-load-helpers.js';
 import type { IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
-const SOURCE_ID = 'session_cli-1994-source';
+const SOURCE_ID = 'session_source';
 const SOURCE_NAME = 'parent-work';
 const SYSTEM_PROMPT = 'You are the parent session. Remember everything.';
 

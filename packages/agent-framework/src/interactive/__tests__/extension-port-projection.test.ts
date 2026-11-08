@@ -22,7 +22,7 @@ import type { TGuardrail } from '@robota-sdk/agent-core';
  */
 const DEPS: ICreateSessionProjectionDeps = {
   mergedConfig: { provider: { name: 'test', model: 'test-model' } } as never,
-  cwd: '/arch-013-stage-3',
+  cwd: '/extension-port',
   context: {} as ICreateSessionProjectionDeps['context'],
   projectInfo: {} as ICreateSessionProjectionDeps['projectInfo'],
   sessionId: 'test-session',
@@ -34,7 +34,7 @@ const DEPS: ICreateSessionProjectionDeps = {
 function initOptions(extra: Partial<IInitOptions>): IInitOptions {
   return {
     host: createTestFrameworkHost(),
-    cwd: '/arch-013-stage-3',
+    cwd: '/extension-port',
     provider: {} as never,
     ...extra,
   } as IInitOptions;

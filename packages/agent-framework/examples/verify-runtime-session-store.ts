@@ -25,7 +25,7 @@ async function completeTurn(session: InteractiveSession, prompt: string): Promis
 }
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'arch-023-example-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'runtime-session-store-example-'));
   let firstSession: InteractiveSession | undefined;
   let secondSession: InteractiveSession | undefined;
   let result:

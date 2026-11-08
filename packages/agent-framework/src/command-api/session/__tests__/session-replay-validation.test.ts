@@ -32,7 +32,7 @@ function writeLog(
   sessionId: string,
   lines: readonly string[],
 ): { source: NodeSessionLogSource; reference: string } {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'arch-029-replay-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'replay-validation-')));
   const logs = join(root, '.agent', 'logs');
   mkdirSync(logs, { recursive: true });
   const logFile = join(logs, `${sessionId}.jsonl`);

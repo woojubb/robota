@@ -19,7 +19,7 @@ import type { IInteractiveSessionStore } from '../session-store-types.js';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import { loadedRecord, loadedRecordOrMissing } from './session-load-helpers.js';
 
-const SOURCE_ID = 'cli-073-source-session';
+const SOURCE_ID = 'source-session';
 
 // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
 describe.runIf(process.platform === 'linux')('fork restores conversation context', () => {
@@ -125,7 +125,7 @@ describe('a fork inherits the persisted system prompt', () => {
   async function persistedParent(): Promise<{ cwd: string; id: string; store: NodeSessionStore }> {
     // The test owns the workspace (a harness deletes only one it created), so the parent can be
     // shut down before its record is rewritten and the fork can still read it afterwards.
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-1994-tc04-')));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-fork-context-')));
     sharedCwd = cwd;
     const parent = scriptedSession({ turns: [{ text: 'noted: 42' }], persistence: true, cwd });
     await parent.submit('Remember the number 42');

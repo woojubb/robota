@@ -378,7 +378,7 @@ describe('the PUBLIC surface carries the guardrail port (this is what guards the
     await initializeInteractiveSessionAsync(
       {
         host: testHost,
-        cwd: '/arch-013-stage-3-public',
+        cwd: '/guardrail-public',
         provider: createMockProvider(),
         bare: true,
         config: baseConfig(),
@@ -399,7 +399,7 @@ describe('the PUBLIC surface carries the guardrail port (this is what guards the
     await initializeInteractiveSessionAsync(
       {
         host: testHost,
-        cwd: '/arch-013-stage-3-public',
+        cwd: '/guardrail-public',
         provider: createMockProvider(),
         bare: true,
         config: baseConfig(),
@@ -436,7 +436,7 @@ describe('the port is pinned to the PUBLISHED construction type', () => {
     // carried by review rather than by execution.
     const options: IInteractiveSessionStandardOptions = {
       host: testHost,
-      cwd: '/arch-013-stage-3-seam',
+      cwd: '/guardrail-seam',
       provider: createMockProvider(),
       bare: true,
       config: baseConfig(),
