@@ -178,13 +178,17 @@ it('waits for a worker to finish writing before removing its temporary directory
   expect(existsSync(root)).toBe(false);
 });
 
+// The descendants in the next two tests are detached so that they outlive the worker on every
+// platform. On Windows a child that is not detached belongs to its parent's job object and is killed
+// when that parent exits, so it would never hold the worker's streams open after the worker exited,
+// which is the situation these tests exist to create.
 it('keeps the temporary directory until the exited worker closes its streams', async () => {
   const root = directory('sealing-cleanup-close-');
   const child = spawn(
     process.execPath,
     [
       '-e',
-      "require('node:child_process').spawn(process.execPath, ['-e', \"const s=require('node:fs').createReadStream(null,{fd:4});s.resume();process.stdout.write('ready')\"], {stdio: ['ignore', 1, 2, 'ignore', 4]}).unref()",
+      "require('node:child_process').spawn(process.execPath, ['-e', \"const s=require('node:fs').createReadStream(null,{fd:4});s.resume();process.stdout.write('ready')\"], {stdio: ['ignore', 1, 2, 'ignore', 4], detached: true}).unref()",
     ],
     { stdio: ['ignore', 'pipe', 'pipe', 'ignore', 'pipe'] },
   );
@@ -210,7 +214,7 @@ it('keeps the temporary directory until the exited worker disconnects its IPC ch
     process.execPath,
     [
       '-e',
-      "require('node:child_process').spawn(process.execPath, ['-e', \"const s=require('node:fs').createReadStream(null,{fd:4});s.resume();process.stdout.write('ready')\"], {stdio: ['ignore', 1, 2, 3, 4]}).unref()",
+      "require('node:child_process').spawn(process.execPath, ['-e', \"const s=require('node:fs').createReadStream(null,{fd:4});s.resume();process.stdout.write('ready')\"], {stdio: ['ignore', 1, 2, 3, 4], detached: true}).unref()",
     ],
     { stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] },
   );
@@ -584,7 +588,9 @@ describe('a sealing parent’s fork job', () => {
       const payload = JSON.parse(readFileSync(payloadPath, 'utf8')) as Record<string, unknown>;
 
       expect(payload.resumeStore).toEqual({
-        scope: 'project', repositoryKey: 'fixture-repo', worktreeRoot: cwd,
+        scope: 'project',
+        repositoryKey: 'fixture-repo',
+        worktreeRoot: cwd,
       });
 
       const held = payload.resumeHeld as string;
