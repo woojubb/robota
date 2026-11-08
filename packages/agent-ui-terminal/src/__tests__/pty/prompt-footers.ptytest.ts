@@ -27,8 +27,8 @@ import { TEXT_PROMPT_FOOTER_HINTS } from '../../TextPrompt.js';
 import type { IPtySession } from './pty-driver.js';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
-const ASK_SHAPES_FIXTURE = join(FIXTURES, 'screen-005-ask-shapes.jsonl');
-const PERMISSION_FIXTURE = join(FIXTURES, 'screen-005-permission.jsonl');
+const ASK_SHAPES_FIXTURE = join(FIXTURES, 'ask-shapes.jsonl');
+const PERMISSION_FIXTURE = join(FIXTURES, 'permission.jsonl');
 
 function escapeRegExp(text: string): RegExp {
   return new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));

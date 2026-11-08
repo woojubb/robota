@@ -1,7 +1,7 @@
 /**
  * Position the REAL terminal cursor at the CJK composition point.
  *
- * Mechanism (contract: .design/investigations/2026-07-25-cli-062-ime-cursor-design.md, POC-PASS):
+ * Mechanism (invariants I1–I5: see `shouldPositionRealCursor`):
  * the input box's absolute frame-space origin comes from walking the yoga `parentNode` chain from
  * a `<Box ref>` (the `5195e326b` approach, minus its debug logging); the cell is handed to ink's
  * `useCursor().setCursorPosition`, which converts it into a relative `cursorUp` from the frame
