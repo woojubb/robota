@@ -6,6 +6,7 @@
  * WITHOUT this core depending on that surface's types — keeping the dependency direction acyclic.
  */
 
+import { isObserverMessageType } from '@robota-sdk/agent-transport';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 import { excludedCommandMessage, isExcludedCommand } from './excluded-commands.js';
@@ -53,7 +54,7 @@ import type {
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-session';
 import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
-import type { TServerMessage } from '@robota-sdk/agent-transport';
+import type { TServerMessage, TSessionSurfaceRole } from '@robota-sdk/agent-transport';
 
 export type {
   IActiveTool,
@@ -272,6 +273,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const [status, setStatus] = useState<TStatus>('disconnected' as TStatus);
   // The app-view requests read this to refuse at once when no connection exists to answer them.
   const statusRef = useRef<TStatus>('disconnected' as TStatus);
+  // The role the host gave this connection; null until it answers and again once the connection drops.
+  const [role, setRole] = useState<TSessionSurfaceRole | null>(null);
+  const roleRef = useRef<TSessionSurfaceRole | null>(null);
+  const isObserving = useCallback((): boolean => roleRef.current === 'observe', []);
   const [messages, setMessages] = useState<TConversationEntry[]>([]);
   const [activeTools, setActiveTools] = useState<IActiveTool[]>([]);
   const [streamingText, setStreamingText] = useState('');
@@ -375,8 +380,11 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const executionDetailInputRef = useRef<string | null>(null);
   const send = useCallback(
     (msg: TClientMessage): void => {
+      // A frame an observer may not send never leaves, so nothing may start waiting for its reply.
+      // The surface's own answers (`/help`, an excluded command) still run below.
+      const refused = isObserving() && !isObserverMessageType(msg.type);
       if (msg.type === 'send-background-task') {
-        if (executionDetailInputRef.current !== null) return;
+        if (refused || executionDetailInputRef.current !== null) return;
         executionDetailInputRef.current = msg.taskId;
         setExecutionDetailInput({ taskId: msg.taskId, status: 'pending' });
       }
@@ -403,15 +411,17 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           });
           return;
         }
+        if (refused) return;
         commandsInFlightRef.current += 1;
       }
+      if (refused) return;
       if (msg.type === 'switch-session' || msg.type === 'new-session') {
         sessionChangesInFlightRef.current += 1;
         if (msg.requestId !== undefined) sessionChangeRequestIdsRef.current.add(msg.requestId);
       }
       clientRef.current?.send(msg);
     },
-    [appendEntry],
+    [appendEntry, isObserving],
   );
   /** One session change this surface asked for has been answered. */
   const settleSessionChange = useCallback((requestId?: string): void => {
@@ -453,14 +463,14 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const { handleProjectMessage, ...projectPanelState } = useProjectPanelState(send);
   const isConnected = useCallback((): boolean => statusRef.current === 'connected', []);
   const { handleAppViewMessage, rejectPendingAppRequests, readAppView, callAppTool } =
-    useAppViewRequests(send, isConnected);
+    useAppViewRequests(send, isConnected, isObserving);
   const {
     handleSessionsMessage,
     canListSessions,
     markCurrent,
     armRestore,
     ...sessionDirectoryState
-  } = useSessionDirectoryState(send);
+  } = useSessionDirectoryState(send, isObserving);
   const { requestSessions, setSessionSidebarOpen } = sessionDirectoryState;
   const { handleSettingsMessage, openSettings, refreshSettings, ...settingsState } =
     useSettingsState(send);
@@ -504,6 +514,11 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       // types already do below, never in place of it.
       if (handleSchedulesMessage(msg)) return;
       switch (msg.type) {
+        case 'surface_role': {
+          roleRef.current = msg.role;
+          setRole(msg.role);
+          break;
+        }
         case 'messages': {
           // #3288 §2: `display` is the server's projection of this same history into tool rows,
           // diffs and "Changed files" — a reload/reconnect/resume replay renders THAT. `display` is
@@ -984,6 +999,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     const onStatusChange = (next: TStatus): void => {
       statusRef.current = next;
       setStatus(next);
+      if (next !== 'connected') {
+        roleRef.current = null;
+        setRole(null);
+      }
       // A reply lost with the connection never arrives; the views waiting on one learn that now.
       if (next !== 'connected') {
         rejectPendingAppRequests();
@@ -1002,6 +1021,8 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         sessionChangesInFlightRef.current = 0;
         sessionChangeRequestIdsRef.current.clear();
         pendingIntentRef.current = null;
+        // First, so its reply precedes the session listing the reconnect restore reads.
+        client.send({ type: 'get-surface-role' });
         client.send({ type: 'get-commands' });
         client.send({ type: 'get-status' });
         // #3280 §2: a reconnect that lands back on the SAME session (the common case) fires no
@@ -1015,7 +1036,16 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         requestSchedules();
       }
     };
-    const client = makeClient({ onMessage: handleMessage, onStatusChange });
+    const inner = makeClient({ onMessage: handleMessage, onStatusChange });
+    // The host is the authority; this only keeps an observer from sending what the host would refuse.
+    const client: ISessionClientHandle = {
+      connect: () => inner.connect(),
+      disconnect: () => inner.disconnect(),
+      send: (msg) => {
+        if (roleRef.current === 'observe' && !isObserverMessageType(msg.type)) return;
+        inner.send(msg);
+      },
+    };
     clientRef.current = client;
     client.connect();
     return () => {
@@ -1045,6 +1075,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     commandCatalog,
     sessionStatus,
     ownDriverId,
+    role,
     send,
     sendCommandSilently,
     pendingPrompts,
