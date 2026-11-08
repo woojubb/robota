@@ -1,7 +1,7 @@
+/** @jest-environment node */
 import { toPairingUrl } from '@robota-sdk/agent-remote-pairing';
-import { describe, expect, it } from 'vitest';
 
-import { parseRemoteClientLocation } from '../parse-remote-location.js';
+import { parseRemoteClientLocation } from '../parse-remote-location';
 
 /**
  * The browser page reads relay ← query, rendezvous + secret ← fragment. Round-trips a

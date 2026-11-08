@@ -24,6 +24,7 @@ import React from 'react';
 
 import { useTerminalHandoffSuspension } from '../../hooks/useTerminalHandoffSuspension.js';
 import { TerminalHandoffController } from '../../terminal-handoff-controller.js';
+import { readOneLineScript } from './read-one-line-script.js';
 
 import type {
   ICommandHostTerminalHandoff,
@@ -32,8 +33,11 @@ import type {
 
 const MODE = process.argv[2];
 const OUTPUT_PATH = process.argv[3];
-/** Reads one line from the handed-off terminal and echoes it back, proving the child owned the TTY. */
-const SHELL_COMMAND = 'IFS= read -r line; printf "SHELL_GOT:[%s]\\n" "$line"';
+/**
+ * Reads one line from the handed-off terminal and echoes it back, proving the child owned the TTY.
+ * A `node -e` command runs the same in `sh` and in PowerShell, the shell `/shell` resolves on Windows.
+ */
+const SHELL_COMMAND = `node -e "${readOneLineScript('SHELL_GOT')}"`;
 
 const controller = new TerminalHandoffController();
 let resolveInputAfterHandoff: ((input: string) => void) | undefined;

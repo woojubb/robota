@@ -27,6 +27,8 @@ import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 const HELD_ID = 'session_held_elsewhere';
+/** Windows reads no process start time, so the store cannot say the holder is alive and says it may be. */
+const HOLDER_OPEN = process.platform === 'win32' ? 'may be open' : 'is open';
 
 /** What Ink wrote, as the terminal would have shown it. */
 class RecordingStdout extends EventEmitter {
@@ -131,7 +133,7 @@ describe('starting the terminal UI on a session the store will not claim', () =>
 
     expect(ended).toBeInstanceOf(Error);
     expect((ended as Error).message).toContain(
-      `Session ${HELD_ID} is open in another process (pid ${process.ppid}`,
+      `Session ${HELD_ID} ${HOLDER_OPEN} in another process (pid ${process.ppid}`,
     );
     expect((ended as Error).message).toContain('which writes it; close it there first.');
     const shown = stdout.frames.join('');

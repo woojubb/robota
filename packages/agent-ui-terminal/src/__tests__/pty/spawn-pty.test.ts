@@ -47,8 +47,8 @@ describe('PTY HOME isolation', () => {
   /** Ask the child to report the HOME it actually sees, so the assertion is on the child's view. */
   function spawnHomeReporter(env?: NodeJS.ProcessEnv): IPtyRunSession {
     const session = spawnPty({
-      command: 'sh',
-      args: ['-c', 'printf "CHILD_HOME:[%s]\\n" "$HOME"'],
+      command: process.execPath,
+      args: ['-e', 'process.stdout.write("CHILD_HOME:[" + process.env.HOME + "]\\n")'],
       cwd: PACKAGE_DIR,
       ...(env ? { env } : {}),
     });

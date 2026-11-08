@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadConfig } from '../../config/config-loader.js';
 import { InteractiveSession } from '../interactive-session.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
+import { inJsonString } from '../../testing/logged-json.js';
 
 import type { IResolvedConfig } from '../../config/config-types.js';
 
@@ -408,7 +409,7 @@ describe('sending a file to another session', () => {
     try {
       await run(h, 'send report.md to A twice');
       expect(h.asks).toHaveLength(2);
-      expect(h.asks[0]?.title).toContain(join(workspace, 'report.md'));
+      expect(h.asks[0]?.title).toContain(inJsonString(join(workspace, 'report.md')));
       expect(h.asks[0]?.title).toContain('A');
       expect(h.asks[0]?.description).toContain('42 bytes');
       expect(h.asks[0]?.description).toContain('c'.repeat(64));

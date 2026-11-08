@@ -20,7 +20,10 @@ function writeJson(path: string, data: unknown): void {
   writeFileSync(path, JSON.stringify(data, null, 2), 'utf-8');
 }
 
-async function loadConfig(cwd: string, environment: Readonly<Record<string, string | undefined>> = {}) {
+async function loadConfig(
+  cwd: string,
+  environment: Readonly<Record<string, string | undefined>> = {},
+) {
   return loadConfigFromSources(await createTrustedSettingsSourcesFixture(cwd), environment);
 }
 
@@ -86,7 +89,7 @@ describe('loadConfig', () => {
     expect(detailed.config).toEqual(await loadConfigFromSources(sources));
     expect(detailed.hookSources).toEqual([
       { event: 'PreToolUse', type: 'prompt', source: join(userDir, 'settings.json') },
-      { event: 'PreToolUse', type: 'prompt', source: join('.agent', 'settings.json') },
+      { event: 'PreToolUse', type: 'prompt', source: '.agent/settings.json' },
     ]);
     expect(detailed.config).not.toHaveProperty('hookSources');
   });
@@ -388,7 +391,9 @@ describe('loadConfig', () => {
       },
     });
 
-    const config = await loadConfig(cwd, { TEST_SEC_009_KEY: 'sk-must-not-cross-a-process-boundary' });
+    const config = await loadConfig(cwd, {
+      TEST_SEC_009_KEY: 'sk-must-not-cross-a-process-boundary',
+    });
 
     expect(config.provider.apiKey).toBe('sk-must-not-cross-a-process-boundary');
     expect(config.provider.apiKeyEnv).toBe('TEST_SEC_009_KEY');

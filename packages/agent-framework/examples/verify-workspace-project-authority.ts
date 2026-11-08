@@ -21,7 +21,10 @@ import {
   getWorkspaceProjectReader,
   readSettingsSourceText,
 } from '../src/index.js';
-import { createDefaultUserContributionSources, createNodeWorkspaceProjectFiles } from '../src/node.js';
+import {
+  createDefaultUserContributionSources,
+  createNodeWorkspaceProjectFiles,
+} from '../src/node.js';
 import { createTestFrameworkHost } from '../src/testing/framework-host.js';
 
 import type {
@@ -149,7 +152,9 @@ function observeCanaries(projectAccess: TWorkspaceProjectAccess, userHome: strin
 }
 
 async function main(): Promise<void> {
-  const temporaryRoot = mkdtempSync(join(tmpdir(), 'arch-042-authority-'));
+  // The native form: `git rev-parse --show-toplevel` prints it, so the trusted root and the
+  // directory the runtime is built on spell a Windows temp directory the same way.
+  const temporaryRoot = realpathSync.native(mkdtempSync(join(tmpdir(), 'arch-042-authority-')));
   const projectRoot = join(temporaryRoot, 'project');
   const otherProjectRoot = join(temporaryRoot, 'other-project');
   const hostStateRoot = join(temporaryRoot, 'host-state');

@@ -22,10 +22,10 @@ import {
   importPublicKey,
 } from '@robota-sdk/agent-remote-pairing';
 
-import { ResponderGate, type IDeviceIdentityConfig } from './rtc-responder-gate.js';
-import { createRtcSignalingClient, type ISignalingClient } from './rtc-signaling.js';
+import { ResponderGate, type IDeviceIdentityConfig } from './rtc-responder-gate';
+import { createRtcSignalingClient, type ISignalingClient } from './rtc-signaling';
 
-import type { IDeviceCredentialStore } from './device-credential-store.js';
+import type { IDeviceCredentialStore } from './device-credential-store';
 import type { startDeviceReconnect, startPairingHandshake } from '@robota-sdk/agent-remote-pairing';
 import type { TServerMessage, TClientMessage } from '@robota-sdk/agent-transport';
 

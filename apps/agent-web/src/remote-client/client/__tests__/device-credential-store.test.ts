@@ -1,17 +1,17 @@
+/** @jest-environment node */
 import { generateIdentityKeyPair } from '@robota-sdk/agent-remote-pairing';
-import { describe, expect, it } from 'vitest';
 
 import {
   createDeviceCredentialStore,
   credentialKey,
   type ICredentialBackend,
   type IDeviceCredential,
-} from '../device-credential-store.js';
+} from '../device-credential-store';
 
 /**
  * The browser device-credential store: persist + reload the (non-extractable) device
  * keypair and the pinned host key, keyed by relay origin + host identity, with no secret ever serialized.
- * Uses an in-memory backend (Node vitest has no IndexedDB; CryptoKeys are structured-cloneable, no serialize).
+ * Uses an in-memory backend (the test runner has no IndexedDB; CryptoKeys are structured-cloneable, no serialize).
  */
 
 function memoryBackend(): ICredentialBackend & { store: Map<string, IDeviceCredential> } {

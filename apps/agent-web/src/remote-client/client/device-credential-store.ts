@@ -9,7 +9,7 @@
  * (the store takes plain arguments, not URLs), consistent with the fragment-only-secret discipline.
  *
  * The persistence backend is injectable: the default is IndexedDB (browser); tests inject an in-memory
- * backend (Node vitest has no IndexedDB, and structured-cloneable CryptoKeys need no serialization anyway).
+ * backend (the test runner has no IndexedDB, and structured-cloneable CryptoKeys need no serialization anyway).
  */
 
 /** One stored credential: the device keypair (non-extractable private key) + the pinned host public key (SPKI). */

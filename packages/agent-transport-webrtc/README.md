@@ -99,8 +99,8 @@ requires attaching again.
   DTLS-fingerprint channel binding the pairing gate uses.
 - [`@robota-sdk/agent-transport-ws`](../agent-transport-ws/README.md): the WebSocket transport for
   the same protocol.
-- [`@robota-sdk/agent-transport-webrtc-web`](../agent-transport-webrtc-web/README.md): the browser
-  peer that answers this transport's offer (internal).
+- The browser peer that answers this transport's offer is the remote client in
+  [`apps/agent-web`](../../apps/agent-web/docs/SPEC.md) (`src/remote-client`).
 
 For how the agent runtime CLI uses this for remote control and connecting your own devices, see the
 [devices and remote access guide](../../content/guide/devices-and-remote.md). See

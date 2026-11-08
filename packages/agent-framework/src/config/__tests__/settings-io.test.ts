@@ -10,6 +10,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { ownerOnlyGuarantee } from '@robota-sdk/agent-core/node';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { loadConfig } from '../../config/config-loader.js';
@@ -70,7 +71,10 @@ describe('writeSettings', () => {
   it('creates the file owner-readable only', () => {
     const path = join(TEST_DIR, 'credentialed.json');
     writeSettings(path, { provider: { name: 'openai', apiKey: 'sk-secret' } });
-    expect(statSync(path).mode & 0o777).toBe(0o600);
+    // Mode bits are the owner-only claim on POSIX; Windows keeps the file private through the
+    // inherited ACL of the user's profile and `chmod` cannot express it.
+    if (ownerOnlyGuarantee() === 'posix-mode') expect(statSync(path).mode & 0o777).toBe(0o600);
+    else expect(ownerOnlyGuarantee()).toBe('windows-acl');
   });
 
   it('overwrites existing file', () => {

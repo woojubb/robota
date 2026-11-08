@@ -19,7 +19,7 @@ import { spawnPtyFixture } from './pty/spawn-pty.js';
 import type { IPtyRunSession } from './pty/spawn-pty.js';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/command-handoff-driver.tsx', import.meta.url));
-const FAKE_EDITOR = fileURLToPath(new URL('./fixtures/fake-editor.sh', import.meta.url));
+const FAKE_EDITOR = fileURLToPath(new URL('./fixtures/fake-editor.cjs', import.meta.url));
 const PACKAGE_DIR = fileURLToPath(new URL('../..', import.meta.url));
 const TEST_TIMEOUT_MS = 30_000;
 
@@ -85,7 +85,7 @@ describe('command handoff PTY E2E', () => {
         cwd: PACKAGE_DIR,
         // HARNESS-025: isolated HOME — only the EDITOR override comes from the test, so a real
         // `~/.selected_editor` (or similar) on the host cannot influence the assertion.
-        env: createPtyEnv({ EDITOR: `sh ${FAKE_EDITOR}` }),
+        env: createPtyEnv({ EDITOR: `node ${FAKE_EDITOR}` }),
       });
       sessions.push(session);
 

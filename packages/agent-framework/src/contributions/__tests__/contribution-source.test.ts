@@ -61,7 +61,10 @@ describe('contribution sources', () => {
     expect(() => host.readText('linked-directory/secret.md', 'read through host link')).toThrow(
       /unsafe path entry/i,
     );
-    expect(() => host.listDirectory('linked-directory', 'list host link')).toThrow(/links/i);
+    // Both refuse a link; Windows lists from a stable handle and words the refusal as that failure.
+    expect(() => host.listDirectory('linked-directory', 'list host link')).toThrow(
+      process.platform === 'win32' ? /stable handle/i : /links/i,
+    );
   });
 
   it('allows an explicit host root to appear after source composition', () => {

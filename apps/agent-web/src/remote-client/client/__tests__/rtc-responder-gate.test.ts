@@ -1,8 +1,8 @@
+/** @jest-environment node */
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 const testIdentity = createIdentityContext('test-product');
-import { describe, expect, it, vi } from 'vitest';
 
-import { ResponderGate, type IResponderGateOptions } from '../rtc-responder-gate.js';
+import { ResponderGate, type IResponderGateOptions } from '../rtc-responder-gate';
 
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
@@ -36,8 +36,8 @@ function makeHandshakeStub() {
 
 function makeGate(over: Partial<IResponderGateOptions> = {}) {
   const channelSends: string[] = [];
-  const channel = { send: (d: string) => channelSends.push(d), close: vi.fn() };
-  const onMessage = vi.fn();
+  const channel = { send: (d: string) => channelSends.push(d), close: jest.fn() };
+  const onMessage = jest.fn();
   const hs = makeHandshakeStub();
   const gate = new ResponderGate({cryptoContext: testIdentity,
     channel,
@@ -142,14 +142,14 @@ describe('ResponderGate (browser pairing responder, fail-closed)', () => {
   });
 
   it('fires onAccept on accept and onReject on reject', async () => {
-    const onAccept = vi.fn();
-    const onReject = vi.fn();
+    const onAccept = jest.fn();
+    const onReject = jest.fn();
     const a = makeGate({ onAccept, onReject });
     a.hs.accept();
     await Promise.resolve();
     expect(onAccept).toHaveBeenCalledTimes(1);
 
-    const b = makeGate({ onAccept: vi.fn(), onReject });
+    const b = makeGate({ onAccept: jest.fn(), onReject });
     b.hs.reject();
     await Promise.resolve();
     expect(onReject).toHaveBeenCalledTimes(1);
