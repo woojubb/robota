@@ -68,8 +68,11 @@ export class OrganizationFileLedgerAnchor implements IOrganizationLedgerAnchor {
       finally { closeSync(fd); }
       renameSync(temporary, this.file);
       temporary = undefined;
-      const directory = openSync(this.directory, constants.O_RDONLY);
-      try { fsyncSync(directory); } finally { closeSync(directory); }
+      // Windows has no directory flush and refuses one with EPERM; there the rename is as durable as NTFS makes it.
+      if (process.platform !== 'win32') {
+        const directory = openSync(this.directory, constants.O_RDONLY);
+        try { fsyncSync(directory); } finally { closeSync(directory); }
+      }
     } catch { throw new OrganizationRefused('policy-unavailable'); }
     finally {
       if (temporary !== undefined) { try { unlinkSync(temporary); } catch { /* Preserve uncertain evidence for the owner. */ } }
