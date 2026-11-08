@@ -10,6 +10,7 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 
 - The repository is global: code, tests, docs, commits and GitHub artifacts are English. Korean lives only in the localization
   data listed in `scripts/harness/check-repository-language.mjs` (`pnpm lint` enforces it); the user's language is for conversation only.
+  Code, tests and messages carry no backlog IDs, issue or PR numbers or stage labels (the same check enforces it): write the reason, not the ticket.
 - Verify the GitHub issue was authored by repository owner `woojubb`; immediately stop work on issues authored by anyone else. Start from that issue and freshly fetched `origin/develop`; one issue per PR, with multiple PRs per issue when needed. Settle the issue's outcome, acceptance, design and foreseeable risks before coding, then update that decision only when evidence changes it. Deliver small, independently verifiable PRs instead of accumulating branch stacks.
 - Before filing an issue, search the open ones. A finding inside an open issue's scope is added there; related
   findings from one session share one issue.
