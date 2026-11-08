@@ -26,8 +26,9 @@ const hooksConfig = {
       hooks: [
         {
           type: 'command',
-          // Prints reason to stderr, exits 2 to signal block
-          command: `echo "Bash tool blocked: dangerous command detected" >&2; exit 2`,
+          // Prints reason to stderr, exits 2 to signal block. A node one-liner runs the same in sh
+          // and in PowerShell, the shell command hooks use on Windows.
+          command: `node -e "console.error('Bash tool blocked: dangerous command detected'); process.exit(2)"`,
           timeout: 5,
         },
       ],
