@@ -421,7 +421,7 @@ describe('AnthropicProvider', () => {
       expect(result.metadata?.providerRequestId).toBeUndefined();
     });
 
-    it('API-001: merges a verified effort control with output_config.format and reports it', async () => {
+    it('merges a verified effort control with output_config.format and reports it', async () => {
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
       const outcomes: unknown[] = [];
 
@@ -465,7 +465,7 @@ describe('AnthropicProvider', () => {
       ]);
     });
 
-    it('API-001: custom endpoints omit unverified effort and expose not-applied', async () => {
+    it('custom endpoints omit unverified effort and expose not-applied', async () => {
       const gatewayProvider = new AnthropicProvider({
         client: mockClient as unknown as Anthropic,
         baseURL: 'https://gateway.example/v1',
@@ -501,7 +501,7 @@ describe('AnthropicProvider', () => {
       ]);
     });
 
-    it('maps json_schema responseFormat onto output_config.format (CORE-015)', async () => {
+    it('maps json_schema responseFormat onto output_config.format', async () => {
       const apiResponse = makeTextResponse('{"title": "ok"}');
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));
 
@@ -543,7 +543,7 @@ describe('AnthropicProvider', () => {
       );
     });
 
-    it('closes objects inside an anyOf branch too (CORE-039)', async () => {
+    it('closes objects inside an anyOf branch too', async () => {
       // The seam spreads each node, so before this a union member survived unrecursed and every
       // object inside a branch reached Anthropic open -- the exact thing this seam exists to
       // prevent, reached by the one route it did not walk.

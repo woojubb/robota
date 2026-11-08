@@ -1,5 +1,5 @@
 /**
- * SEC-006 — a session id is a PATH SEGMENT, and a host may supply it from an untrusted source.
+ * A session id is a PATH SEGMENT, and a host may supply it from an untrusted source.
  *
  * `SessionStore.filePath(id)` is `join(baseDir, `${id}.json`)` with no validation, and
  * `FileSessionLogger.log(sessionId, …)` is `join(logDir, `${sessionId}.jsonl`)` with no validation.
@@ -35,7 +35,7 @@ const TRAVERSAL_IDS = [
 ];
 
 /**
- * TRANS-007: a real record. This used to be a stub cast through `as unknown as` — no `cwd` — which
+ * A real record. This used to be a stub cast through `as unknown as` — no `cwd` — which
  * the store accepted because it did not decode. It now does, so a fixture that is not a record
  * cannot pretend to be one, and the cast is gone rather than widened.
  */
@@ -49,7 +49,7 @@ function makeRecord(id: string): IInteractiveSessionRecord {
   };
 }
 
-describe('SessionStore — session id path traversal (SEC-006)', () => {
+describe('SessionStore — session id path traversal', () => {
   let root: string;
   let baseDir: string;
   let store: NodeSessionStore;
@@ -103,7 +103,7 @@ describe('SessionStore — session id path traversal (SEC-006)', () => {
   });
 });
 
-describe('FileSessionLogger — session id path traversal (SEC-006)', () => {
+describe('FileSessionLogger — session id path traversal', () => {
   let root: string;
   let logDir: string;
 

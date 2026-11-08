@@ -6,14 +6,15 @@ import { OpenAIProvider } from '../provider';
 import type { IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
 
 /**
- * MCP-005 (TC-08) — `strictTools` no longer closes schemas inside `responses-converter.ts`; the
+ * `strictTools` no longer closes schemas inside `responses-converter.ts`; the
  * projection step (`AbstractAIProvider.projectTools()`, `STRICT_TOOL_SCHEMA_PROFILE`) runs BEFORE the
  * converter now. This test drives the real `OpenAIProvider` end to end (profile → projector →
  * converter) over a fake Responses client and asserts the request's `parameters` is byte-identical to
  * today's `closeObjectSchemas(input, { requireAllProperties: true, optionalAsNullable: true })` for a
- * fixture the projector does not reject — the capability-preservation premise GATE-WRITE recorded.
+ * fixture the projector does not reject — strict mode keeps the capability it had when closing ran
+ * inline.
  *
- * PROV-007's original story stays true below: strict mode does not accept an arbitrary JSON Schema —
+ * This stays true below: strict mode does not accept an arbitrary JSON Schema —
  * every object node, nested included, must carry `additionalProperties: false` and list all of its
  * properties in `required` — so a schema that is correct for this repository was rejected whenever a
  * caller opted in, root included.
@@ -103,7 +104,7 @@ const FLAT_TOOL: IToolSchema = {
   parameters: { type: 'object', additionalProperties: true, properties: {}, required: [] },
 };
 
-describe('MCP-005 TC-08 — the strict path (profile → projector → converter)', () => {
+describe('the strict path (profile → projector → converter)', () => {
   it('closes and completes every object node, root and nested, byte-identical to closeObjectSchemas', async () => {
     const provider = new OpenAIProvider({ apiKey: 'sk-test', strictTools: true });
     const requestParams = await sendChat(provider, [NESTED_TOOL]);
@@ -135,7 +136,7 @@ describe('MCP-005 TC-08 — the strict path (profile → projector → converter
   });
 });
 
-describe('MCP-005 TC-08 — the non-strict path carries the permissive projection', () => {
+describe('the non-strict path carries the permissive projection', () => {
   it('forwards the schema unchanged and sends strict: false', async () => {
     const provider = new OpenAIProvider({ apiKey: 'sk-test', strictTools: false });
     const requestParams = await sendChat(provider, [NESTED_TOOL]);
@@ -155,7 +156,7 @@ describe('MCP-005 TC-08 — the non-strict path carries the permissive projectio
   });
 });
 
-describe('strictTools on the Chat Completions surface (#3209)', () => {
+describe('strictTools on the Chat Completions surface', () => {
   const GATEWAY = { apiKey: 'sk-test', baseURL: 'https://gateway.example/v1' };
 
   it('declares each function strict, with the same closed schema the Responses surface sends', async () => {

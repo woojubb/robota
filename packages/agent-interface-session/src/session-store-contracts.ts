@@ -1,17 +1,17 @@
 /**
  * The persistence port for resumable interactive sessions, and the vocabulary its loads answer in.
  *
- * Split out of `session-contracts.ts` by TRANS-007: the port, its outcome union, its listing entry
+ * Split out of `session-contracts.ts`: the port, its outcome union, its listing entry
  * and the decode-issue shape are one subject, and the file they were in is at its size ratchet.
- * It lives in this package rather than `agent-interface-transport` because ARCH-106 moved the
- * session contract family here; a store port is a session contract, and the owner map says so.
+ * It lives in this package rather than `agent-interface-transport` because the
+ * session contract family is owned here; a store port is a session contract, and the owner map says so.
  */
 
 import type { IInteractiveSessionRecord } from './session-contracts.js';
 import type { TSessionAuthorship } from './session-authorship-contracts.js';
 
 /**
- * One decode failure, located (TRANS-005).
+ * One decode failure, located.
  *
  * The TYPE lives here with the record it describes; the decoder that produces it is a mechanism and
  * lives with the runtime that owns persistence. `path` is the machine-readable half and is kept
@@ -25,7 +25,7 @@ export interface ISessionRecordDecodeIssue {
 }
 
 /**
- * What a store concluded about one session id (TRANS-007).
+ * What a store concluded about one session id.
  *
  * ## Why this is not `record | undefined`
  *

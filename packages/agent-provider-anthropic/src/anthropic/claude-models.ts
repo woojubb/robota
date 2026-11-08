@@ -5,7 +5,7 @@ import {
 } from '@robota-sdk/agent-core';
 
 /**
- * Claude model metadata — owned by the package that owns the models. NEUT-010.
+ * Claude model metadata — owned by the package that owns the models.
  *
  * This table lived in `@robota-sdk/agent-core`, whose own SPEC says it must not branch on concrete
  * provider or model names, and this package imported it back out. Two consequences, both measured:
@@ -82,7 +82,7 @@ function registerClaudeModels(): void {
 registerClaudeModels();
 
 /**
- * The `max_tokens` to send for a request. NEUT-010.
+ * The `max_tokens` to send for a request.
  *
  * Lives here rather than at the two call sites in `provider.ts` because the answer comes from the
  * core registry, and this module is what puts Claude's models in it. Importing the helper therefore

@@ -1,5 +1,5 @@
 /**
- * SELFHOST-009 TC-02 — the PreToolUse security gate blocks a tool functionally, via the EXISTING
+ * The PreToolUse security gate blocks a tool functionally, via the EXISTING
  * runPreToolHook → blocked path (not re-wired by this spec).
  *
  * A PreToolUse hook returning exit-code-2 (or hookSpecificOutput.permissionDecision: "deny") causes
@@ -78,7 +78,7 @@ function makeEnforcer(executor: IHookTypeExecutor): PermissionEnforcer {
   return new PermissionEnforcer(options);
 }
 
-describe('SELFHOST-009 TC-02 — PreToolUse security gate (functional)', () => {
+describe('PreToolUse security gate (functional)', () => {
   it('a deny outcome blocks the tool: execute is never called, denial returned', async () => {
     const underlying = vi.fn(async (): Promise<IToolResult> => ({
       success: true,

@@ -129,7 +129,7 @@ export interface IToolExecutionContext {
   /** Journaled pre-effect request/response port for admission-aware runtime wrappers. */
   continuation?: IToolContinuation;
   /**
-   * Run-scoped cancellation signal (CORE-018). Long-running tools MUST honor it: terminate
+   * Run-scoped cancellation signal. Long-running tools MUST honor it: terminate
    * the underlying work (kill the child process, abort the network request) and return an
    * interrupted/failed result. Completing silently after an abort is a contract violation.
    */
@@ -211,15 +211,14 @@ export interface IToolExecutionContext {
   instanceEventService?: IEventService;
 
   /**
-   * Injected "ask the user" port (CMD-004). Present when an interactive renderer is attached, letting
-   * a tool solicit a structured answer from the user (the model-issued question seam consumed by
-   * CMD-005). Absent in non-interactive contexts; a tool that asks must treat absence as "no human
+   * Injected "ask the user" port. Present when an interactive renderer is attached, letting
+   * a tool solicit a structured answer from the user (the model-issued question seam). Absent in non-interactive contexts; a tool that asks must treat absence as "no human
    * available" (never a silent guess).
    */
   ask?: IUserInteraction['ask'];
 
   /**
-   * CLI-1990: the deferred-tool catalog the runtime injects (`ToolExecutionService`), so a search
+   * The deferred-tool catalog the runtime injects (`ToolExecutionService`), so a search
    * tool can list what is withheld and load it for the rest of the session. Present on every tool
    * call the execution loop issues; a tool other than the search tool has no reason to read it.
    */

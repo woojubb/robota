@@ -1,5 +1,5 @@
 /**
- * #3679 step 3e — a sealing parent vouches for the fork record its child-process subagent saved, on
+ * A sealing parent vouches for the fork record its child-process subagent saved, on
  * the real spawn and IPC path (the sealing fixture enters `runSubagentWorkerMain` from the built
  * package and keeps its store with a write-only sealer, as a real child does).
  *

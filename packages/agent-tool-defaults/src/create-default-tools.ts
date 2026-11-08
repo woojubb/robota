@@ -1,7 +1,7 @@
 /**
  * The DEFAULT TOOL SET — a composition leaf.
  *
- * ARCH-035 moved this out of `@robota-sdk/agent-framework`. It is a defaults aggregator, and
+ * This lives outside `@robota-sdk/agent-framework`. It is a defaults aggregator, and
  * `.agents/project-structure.md` classifies that family as a composition leaf "imported only at
  * composition roots (entry-point-only)" — not something a mid-layer assembly library owns, publishes
  * and self-consumes.
@@ -10,7 +10,7 @@
  * (it needs `createSubagentSession` and friends) but has no manifest edge to THIS package, so
  * `import { createDefaultTools } from '@robota-sdk/agent-tool-defaults'` does not resolve there at
  * all. A neutral runner composing the product's tool surface is now a compile error rather than a
- * scan finding — the same shape ARCH-021 achieved on the provider axis with
+ * scan finding — the same shape as on the provider axis with
  * `@robota-sdk/agent-builtin-providers`.
  *
  * `DEFAULT_TOOL_DESCRIPTIONS` deliberately did NOT come along: its only consumer builds the system
@@ -43,7 +43,7 @@ export interface ICreateDefaultToolsOptions {
   shellExecutable?: string;
   httpUserAgent?: string;
   /**
-   * The execution root every file tool is contained by. REQUIRED — ARCH-010.
+   * The execution root every file tool is contained by. REQUIRED.
    *
    * It was optional, and `child-process-subagent-worker.ts` called this factory with no argument at
    * all: `cwd` was `undefined`, the path guard was fail-open, and the subagent's `Read` returned
@@ -60,7 +60,7 @@ export interface ICreateDefaultToolsOptions {
 }
 
 /**
- * ARCH-035: returns `FunctionTool[]`, which is what every factory below actually returns.
+ * Returns `FunctionTool[]`, which is what every factory below actually returns.
  *
  * An earlier revision cast each one to `IToolWithEventService` because session assembly consumes that
  * interface. The cast was lossy in the direction that mattered: `ICapabilityPack.tools` is
@@ -69,7 +69,7 @@ export interface ICreateDefaultToolsOptions {
  * so session assembly is unaffected and no cast is needed at either end.
  */
 export function createDefaultTools(options: ICreateDefaultToolsOptions): FunctionTool[] {
-  // Issue #3081: the sandbox's filesystem relation decides where file tools read and write. On a
+  // The sandbox's filesystem relation decides where file tools read and write. On a
   // SEPARATE filesystem every file tool goes through the sandbox — and `Glob`/`Grep`, which have no
   // sandbox path, are withheld, so a search can never read the host while an edit writes the
   // sandbox. On a SHARED filesystem (commands confined over the host's) file tools stay on the host
@@ -86,7 +86,7 @@ export function createDefaultTools(options: ICreateDefaultToolsOptions): Functio
     createReadTool(fileOptions),
     createWriteTool(fileOptions),
     createEditTool(fileOptions),
-    // SEC-007: built per call, NOT the module-level singletons. A singleton is context-free by
+    // Built per call, NOT the module-level singletons. A singleton is context-free by
     // construction, so registering one meant `Glob`/`Grep` could enumerate outside the session's
     // working directory while `Read`/`Write`/`Edit` were contained.
     ...(separate ? [] : [createGlobTool(hostFileOptions), createGrepTool(hostFileOptions)]),

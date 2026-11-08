@@ -1,5 +1,5 @@
 /**
- * CORE-043: Anthropic's capability declaration and where it is actually pointed are separate answers.
+ * Anthropic's capability declaration and where it is actually pointed are separate answers.
  *
  * The table describes the vendor's models. `baseURL` describes the endpoint serving them. A gateway
  * still speaks Anthropic's protocol, so the table remains the right description of the request — what
@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { ANTHROPIC_CAPABILITY_TABLE } from '../capability-table';
 import { AnthropicProvider } from '../provider';
 
-describe('CORE-043 — Anthropic endpoint provenance', () => {
+describe('Anthropic endpoint provenance', () => {
   it('reports the vendor endpoint when no baseURL is configured', () => {
     const provider = new AnthropicProvider({ apiKey: 'test-key' });
     expect(provider.endpointIsVendorDefault()).toBe(true);
@@ -37,7 +37,7 @@ describe('CORE-043 — Anthropic endpoint provenance', () => {
 });
 
 /**
- * CLI-1990 TC-15 — Anthropic is the one table in the tree that declares `tool_search`.
+ * Anthropic is the one table in the tree that declares `tool_search`.
  *
  * The declaration is a claim about the VENDOR, not a switch: v1 emits no `tool_search_tool_*` block
  * and no per-tool `defer_loading`, because that feature keeps definitions out of the context window
@@ -46,7 +46,7 @@ describe('CORE-043 — Anthropic endpoint provenance', () => {
  * neither can carry the flag; declaring it here is what lets a later offload be gated on the table
  * rather than on a provider name.
  */
-describe('CLI-1990 TC-15 — the tool_search declaration', () => {
+describe('the tool_search declaration', () => {
   it('declares tool_search in the vendor default', () => {
     expect(ANTHROPIC_CAPABILITY_TABLE.vendorDefault).toContain('tool_search');
   });

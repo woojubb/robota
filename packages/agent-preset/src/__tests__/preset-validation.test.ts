@@ -75,8 +75,7 @@ describe('validateExternalPreset — field-type validation', () => {
   });
 });
 
-// ARCH-009 replaced `registerExternalPresets`/`clearExternalPresets` with `partitionExternalPresets`,
-// a pure application of the same conflict policy to one list. The cases below assert the policy, which
+// `partitionExternalPresets` is a pure application of the same conflict policy to one list. The cases below assert the policy, which
 // is what they always asserted; what is gone is the setup and teardown that existed only because the
 // list was the process's. No `beforeEach` clear is needed when nothing is shared.
 describe('partitionExternalPresets', () => {

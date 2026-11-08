@@ -256,7 +256,7 @@ describe('Tools (ToolManager)', () => {
   });
 });
 
-describe('Tools visibility (issue #3081)', () => {
+describe('Tools visibility', () => {
   const schema = (name: string): IToolSchema => ({
     name,
     description: `${name} tool`,
@@ -280,7 +280,7 @@ describe('Tools visibility (issue #3081)', () => {
   });
 });
 
-describe('a hidden tool cannot be loaded by name (issue #3081)', () => {
+describe('a hidden tool cannot be loaded by name', () => {
   it('loadDeferredTools treats a hidden name as unregistered', async () => {
     const manager = new Tools({
       resolveToolSearchMode: () => 'on',

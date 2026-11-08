@@ -1,9 +1,9 @@
 /**
- * ARCH-044 (issue #2047) — the wire payload carries what the child reads, not the parent's whole config.
+ * The wire payload carries what the child reads, not the parent's whole config.
  *
  * `ISubagentWorkerStartPayload.parentConfig` was `IInProcessSubagentRunnerDeps['config']` — the whole
  * `IResolvedConfig` — built two lines above `providerProfile: createProviderProfile(...)`, which
- * SEC-009 hardened to carry `apiKeyEnv` and leave the resolved secret behind. So the secret crossed
+ * carries `apiKeyEnv` and leaves the resolved secret behind. So the secret crossed
  * anyway, on the member nobody scoped.
  *
  * Measured at `7ee0ca6e4`, the child reads exactly four members:
@@ -44,7 +44,7 @@ function parentConfig(): IInProcessSubagentRunnerDeps['config'] {
   } as unknown as IInProcessSubagentRunnerDeps['config'];
 }
 
-describe('ARCH-044: the projected parent config', () => {
+describe('the projected parent config', () => {
   it('does not carry the resolved credential', () => {
     const projected = projectParentConfig(parentConfig()) as { provider?: { apiKey?: unknown } };
 

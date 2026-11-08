@@ -1,5 +1,5 @@
 /**
- * PEER-001 (#1809): the transport-neutral contract for a message between two live agent sessions.
+ * The transport-neutral contract for a message between two live agent sessions.
  *
  * ## Why this is a new contract rather than a reuse
  *
@@ -12,11 +12,11 @@
  *
  * ## The two axes that must not collapse into one
  *
- * A peer is admitted on TWO independent questions, and #1810 exists because they had been conflated:
+ * A peer is admitted on TWO independent questions, and they must not be conflated:
  *
- *   - **What did it present?** — `ITransportAdmission` (SEC-008): a token, or an explicit decision to
+ *   - **What did it present?** — `ITransportAdmission`: a token, or an explicit decision to
  *     run open. This is POSSESSION, and possession is copyable.
- *   - **Where did it come from?** — the environment proof (SEC-010): evidence the operating system
+ *   - **Where did it come from?** — the environment proof: evidence the operating system
  *     enforces, which no artifact can carry to another machine.
  *
  * A boolean "authenticated" would erase the difference. `IPeerAdmission` therefore carries both, and
@@ -35,12 +35,12 @@ import type { TDriverId } from '@robota-sdk/agent-interface-session';
 /**
  * How much was established about a peer, as a closed vocabulary.
  *
- * `same-user-same-host` is the strongest a LOCAL peer can reach and is what SEC-010's kernel-enforced
+ * `same-user-same-host` is the strongest a LOCAL peer can reach and is what the kernel-enforced
  * rendezvous produces. `token-only` means a credential was presented and nothing about origin was
  * proven — correct for a remote peer, and NOT interchangeable with the first however convenient a
  * single boolean would be.
  *
- * `same-user-different-host` (SEC-011, issue #1865) is what a verified cross-device hand-off grant
+ * `same-user-different-host` is what a verified cross-device hand-off grant
  * produces: the same user, provably, on a machine that is provably NOT this one. It sits BETWEEN the
  * other two and is interchangeable with neither. Against `same-user-same-host` the difference is
  * load-bearing — a check that wanted same-machine (a guarded 0700 directory the kernel vouched for)

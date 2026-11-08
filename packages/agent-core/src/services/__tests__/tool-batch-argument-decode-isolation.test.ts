@@ -1,17 +1,16 @@
 /**
- * Issue #2875 (follow-up to #2078, tracked under its #2079 row) — batch isolation for malformed
- * tool-call arguments.
+ * Batch isolation for malformed tool-call arguments.
  *
- * #2078 fixed `decodeToolCallArguments` to refuse a non-object JSON root, but the refusal was a
+ * `decodeToolCallArguments` refuses a non-object JSON root. If the refusal were a
  * `throw` inside `createExecutionRequestsWithContext`'s `.map()` — before `executeTools` ever runs,
  * so `continueOnError: true` (hardcoded for the production round in `execution-round-tools.ts`)
- * never got a chance to apply. A provider batch with one malformed call and one valid call in it
- * made `ConversationAgent.run()` reject: the valid call never executed, the provider was never called again,
- * and history was left holding an assistant message with two tool calls and no tool results at all
+ * never gets a chance to apply. A provider batch with one malformed call and one valid call in it
+ * would make `ConversationAgent.run()` reject: the valid call never executes, the provider is never called again,
+ * and history is left holding an assistant message with two tool calls and no tool results at all
  * — not even for the well-formed one.
  *
  * These tests drive that scenario through the real `ConversationAgent.run()` (not the lower-level services in
- * isolation) because the bug was specifically about ordering between decode and `executeTools`,
+ * isolation) because the risk is specifically about ordering between decode and `executeTools`,
  * which only the full round reproduces.
  */
 import { describe, expect, it } from 'vitest';
@@ -113,7 +112,7 @@ function buildAgent(
   } as IAgentConfig);
 }
 
-describe('Issue #2875 — malformed tool-call arguments are isolated within a batch', () => {
+describe('malformed tool-call arguments are isolated within a batch', () => {
   it('runs the valid call, reports a decode error for the malformed one, and calls the provider again with both results', async () => {
     const tool = new SearchTool();
     const { provider, requests } = createRawToolCallProvider([

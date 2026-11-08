@@ -1,5 +1,5 @@
 /**
- * Structured output normalization and validation (CORE-015).
+ * Structured output normalization and validation.
  *
  * `run(input, { output })` accepts either a Zod schema or an explicit JSON-schema
  * wrapper. Both normalize to one internal representation (`IStructuredOutputSpec`)
@@ -93,7 +93,7 @@ export function normalizeStructuredOutput(output: TStructuredOutputSchema): IStr
  * required, enum, items, nested properties, unions, numeric and size bounds — the full expressible
  * surface of the subset, at every level.
  *
- * CORE-039: this is the ONE complete walk. `parameter-validator` delegates its depth here rather
+ * This is the ONE complete walk. `parameter-validator` delegates its depth here rather
  * than keeping a second, shallower copy, and the two must therefore agree by construction.
  */
 export function validateAgainstJsonSchema(

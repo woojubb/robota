@@ -1,7 +1,7 @@
 /**
- * Refuse a malformed permission pattern where the operator WROTE it, not at the gate (issue #2428).
+ * Refuse a malformed permission pattern where the operator WROTE it, not at the gate.
  *
- * CORE-049 made a pattern the gate cannot interpret UNEVALUABLE at evaluation time — a deny that
+ * A pattern the gate cannot interpret is UNEVALUABLE at evaluation time — a deny that
  * cannot be evaluated prompts rather than silently passing. That is the floor. But an operator who
  * wrote `WebFetch(https://a b)` or `Grep(src/**)`-style narrowing for a tool that declares no
  * argument learned of it only when an invocation reached the gate, one prompt at a time. This is
@@ -9,7 +9,7 @@
  * the reason before any turn runs.
  *
  * What is NOT refused here, and why: a pattern naming a tool with NO registered profile at all. A
- * profile arrives with the tool that defines it (CORE-030), and a config may legitimately name a
+ * profile arrives with the tool that defines it, and a config may legitimately name a
  * tool a later-loaded pack provides; for that pattern the gate's unevaluable route remains the
  * answer. A tool whose profile IS known but declares no argument is a different case — the pattern
  * can never be evaluated, whatever loads later.
@@ -33,7 +33,7 @@ const NAMED_ARGUMENT = /^[A-Za-z_]\w*:(?!\/\/)/;
 const URL_PROBE = 'https://probe.invalid/';
 
 /**
- * An allow rule may glob the tool name only after a literal `<server>__` prefix (issue #3081): an
+ * An allow rule may glob the tool name only after a literal `<server>__` prefix: an
  * unanchored `*` or `Read*` would grant tools nobody named, including ones a later pack adds.
  */
 function isAnchoredNameGlob(toolName: string): boolean {
@@ -113,7 +113,7 @@ export function findInvalidPermissionPatterns(
 }
 
 /**
- * Patterns that load but do not do what they say (issue #3081): a parameter rule naming the tool's
+ * Patterns that load but do not do what they say: a parameter rule naming the tool's
  * PRIMARY field. That field is matched by the ordinary `Tool(pattern)` form, so the gate treats the
  * rule as unevaluable (an ask, never a silent pass) and the operator is told how to write it.
  */

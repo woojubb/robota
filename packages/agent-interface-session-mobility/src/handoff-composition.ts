@@ -1,6 +1,6 @@
 /**
  * What the hand-off orchestration needs from the wire layer, as a contract the composition root
- * fills in (HANDOFF-001, issue #1864).
+ * fills in.
  *
  * Session mobility owns offer and authority decisions. Transport owns the integrity seal and
  * chunker. Orchestration lives here, with the session whose authority is being moved; the CLI

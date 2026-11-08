@@ -1,5 +1,5 @@
 /**
- * A user-store session write that fails after its bytes reached the path (#3679, secure
+ * A user-store session write that fails after its bytes reached the path (secure
  * conversation). The atomic write renames the new record into place and then flushes the directory;
  * when that last step fails, the record on disk is the new one. The store must count those bytes as
  * its own, or one unlucky write would block saving the session for as long as the keys are locked.

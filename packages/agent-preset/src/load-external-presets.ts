@@ -6,10 +6,8 @@ import type { IPreset } from './preset-types.js';
 /**
  * Outcome of an external-preset load: the presets themselves, their ids, and per-file errors.
  *
- * ARCH-009 added `presets`. `loaded` used to be the only way out, because the presets went into a
- * module-global registry and the caller read them back by id — which is what made the global
- * load-bearing at startup. The caller now receives the values it loaded and builds its own registry
- * over them, so nothing has to be looked up from process state.
+ * `presets` carries the loaded values, so the caller builds its own registry over them and
+ * nothing has to be looked up by id from process state.
  */
 export interface IExternalPresetLoadResult {
   presets: readonly IPreset[];

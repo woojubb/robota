@@ -1,5 +1,5 @@
 /**
- * SEC-008 — who is allowed to reach a session, decided once instead of per transport.
+ * Who is allowed to reach a session, decided once instead of per transport.
  *
  * ## The defect this replaces
  *

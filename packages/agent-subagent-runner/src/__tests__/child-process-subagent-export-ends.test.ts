@@ -1,5 +1,5 @@
 /**
- * A fork job whose start fails before its child can be followed leaves its record free (#3679).
+ * A fork job whose start fails before its child can be followed leaves its record free.
  *
  * A fork record is lent to its child: nothing may claim it, adopt it or tag it while the child may
  * still save it, and the parent's follower of the child ends the lease. So a start refused before

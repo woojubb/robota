@@ -10,7 +10,7 @@ import type { ITokenUsage, ITokenUsageWithCacheRead } from '../interfaces/provid
 /**
  * Aggregate token totals over a whole session/sub-session history.
  *
- * TYPE-003: alias of the usage-triple SSOT ({@link ITokenUsage}) — the aggregate shape is the
+ * Alias of the usage-triple SSOT ({@link ITokenUsage}) — the aggregate shape is the
  * same triple by definition, so it is derived rather than re-declared.
  */
 export type ISessionUsageTotals = ITokenUsage;
@@ -60,7 +60,7 @@ export function sumMessagesUsage(
 }
 
 /**
- * ANALYTICS-001 (Phase 2): sum assistant token usage across a history timeline — used to capture a
+ * Sum assistant token usage across a history timeline — used to capture a
  * subagent / background task's total usage so it can be attributed to its source in the parent log.
  * Returns undefined when no usage was reported (so callers can skip recording an empty entry).
  *

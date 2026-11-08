@@ -1,7 +1,7 @@
 /**
  * @robota-sdk/agent-interface-analytics — usage and run-trace contracts.
  *
- * Extracted from `agent-interface-transport`'s `session-contracts.ts` by ARCH-105 (issue #2112).
+ * These declarations are separate from `agent-interface-transport`'s `session-contracts.ts`.
  *
  * This family was declared INSIDE another module rather than as a file of its own, which is why the
  * extraction split declarations rather than moving a whole file.
@@ -11,7 +11,7 @@
  */
 
 /**
- * ANALYTICS-001: the execution unit a usage snapshot is attributed to, so session-log usage can be
+ * The execution unit a usage snapshot is attributed to, so session-log usage can be
  * reported and asserted per source (main thread vs a specific subagent / background task). A minimal
  * contract-layer descriptor — the framework's `IExecutionOrigin` lives a layer up and cannot be
  * imported here; the two stay aligned by `scope`/`id`.
@@ -35,16 +35,16 @@ export interface IUsageSnapshot {
   contextUsedPercentage: number;
   costStatus: 'unknown' | 'estimated' | 'exact';
   /**
-   * SELFHOST-004: derived turn cost in USD, present iff `costStatus !== 'unknown'` (i.e. the turn's
+   * Derived turn cost in USD, present iff `costStatus !== 'unknown'` (i.e. the turn's
    * model was priced). Computed from the `agent-core/model-pricing.ts` SSOT (`calculateModelCost`,
    * exact input/output split). Optional = backward-compatible; a turn on an unpriced model omits it.
    */
   costUsd?: number;
-  /** ANALYTICS-001: which execution unit consumed these tokens. Defaults to the main thread. */
+  /** Which execution unit consumed these tokens. Defaults to the main thread. */
   source?: IUsageSource;
 }
 
-/** DATA-2577: one persisted, content-free observation for a started interactive turn. */
+/** One persisted, content-free observation for a started interactive turn. */
 export type TUsageSurface = 'cli' | 'desktop-app' | 'browser' | 'remote' | 'attach' | 'unknown';
 
 /**
@@ -245,7 +245,7 @@ export interface IPersonalUsageCoverage {
 }
 
 /**
- * OBSERVABILITY-2577: stable cross-session report consumed by CLI and GUI. Every field is content-free:
+ * stable cross-session report consumed by CLI and GUI. Every field is content-free:
  * no prompt text, no directory name, nothing a person typed. A GUI names a session for its own dashboard
  * from data it already holds locally (its session directory listing), falling back to this report's
  * `sessionFirstSeen` timestamp — never to prompt or path content carried over the wire.
@@ -274,7 +274,7 @@ export interface IPersonalUsageReport {
 }
 
 /**
- * SELFHOST-004: a per-operation span entry recorded on the session timeline. Carried as the `data` of
+ * A per-operation span entry recorded on the session timeline. Carried as the `data` of
  * an `IHistoryEntry<ISpanEntry>` on `IInteractiveSessionRecord.history`. It is the record-side projection
  * of the `agent-core` span-completion event (`ISpanCompletionEventData`): the framework builds it from
  * the event (mirroring the usage-summary entry), so `agent-core` never depends on this transport type.
@@ -290,7 +290,7 @@ export interface ISpanEntry {
 }
 
 /**
- * SELFHOST-004: the trace/cost read-model that crosses the sidecar boundary (P5 carrier). It is a
+ * The trace/cost read-model that crosses the sidecar boundary. It is a
  * BOUNDARY CONTRACT, so it is owned here. The `agent-session-analytics` producer depends on this
  * package; the `agent-transport` carrier depends on this package and `agent-interface-transport`.
  * `summarizeUsageBySource` assembles it; a `TServerMessage` variant carries it to the TUI/GUI.
@@ -313,14 +313,14 @@ export interface IUsageSourceTotals {
   costExact: boolean;
 }
 
-/** SELFHOST-004: one per-operation span on the run timeline (record-side projection of a span event). */
+/** One per-operation span on the run timeline (record-side projection of a span event). */
 export interface IRunTraceSpan {
   spanId: string;
   op: string;
   durationMs: number;
 }
 
-/** SELFHOST-004: one turn on the run timeline, with its sub-turn spans grouped underneath. */
+/** One turn on the run timeline, with its sub-turn spans grouped underneath. */
 export interface IRunTraceTurn {
   /** 0-based position of this turn among the session's usage-summary turns. */
   turnIndex: number;

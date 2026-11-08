@@ -5,12 +5,12 @@ import { createPresetRegistry } from '../resolve-preset.js';
 import type { IPreset } from '../preset-types.js';
 
 /**
- * ARCH-005 S1 (R8) — the per-call, instance-scoped preset registry. `createPresetRegistry(presets)`
+ * The per-call, instance-scoped preset registry. `createPresetRegistry(presets)`
  * builds an isolated resolver over `[built-ins, ...presets]`, so two products in one process do not
  * share one registry and repeat calls do not accumulate / cross-contaminate.
  *
- * ARCH-009 removed the module-level `externalPresets` global these cases were written against, so the
- * isolation they assert is now structural rather than a discipline about what not to touch.
+ * There is no module-level `externalPresets` global, so the
+ * isolation they assert is structural rather than a discipline about what not to touch.
  */
 
 const acmeReviewer: IPreset = {
@@ -39,7 +39,7 @@ describe('createPresetRegistry — instance-scoped resolution', () => {
   it('leaves a later registry unaffected (R8 — no cross-contamination)', () => {
     createPresetRegistry([acmeReviewer]);
 
-    // ARCH-009: this used to assert the module-level global was untouched. There is no global to
+    // This used to assert the module-level global was untouched. There is no global to
     // check any more, and the property that mattered is unchanged — a registry constructed after one
     // that took an external preset does not see it. The old spelling could only fail if a global
     // existed, so keeping it would have been a case that cannot fail once the global is gone.

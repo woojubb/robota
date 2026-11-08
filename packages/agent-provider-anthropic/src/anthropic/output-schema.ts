@@ -27,11 +27,11 @@ const UNSUPPORTED_BOUNDS = [
 
 /**
  * Map a `json_schema` response format onto Anthropic's native structured-output
- * surface (`output_config.format`, CORE-015). Other formats have no Anthropic
+ * surface (`output_config.format`). Other formats have no Anthropic
  * equivalent and rely on the core-side validation loop.
  *
  * Anthropic rejects open-world objects, so every object node is closed on the way out. That
- * recursion is shared with the OpenAI strict seam (PROV-007) rather than kept private here — a walk
+ * recursion is shared with the OpenAI strict seam rather than kept private here — a walk
  * over this subset that misses a route leaves exactly the nodes it was written to fix untouched, and
  * a second copy has to be found and fixed separately. Anthropic asks only for closure; it does NOT
  * force every property into `required`, which is why no closure option is passed.

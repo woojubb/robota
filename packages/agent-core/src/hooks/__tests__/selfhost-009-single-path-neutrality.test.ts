@@ -1,11 +1,11 @@
 /**
- * SELFHOST-009 TC-05 (single path, no new tier) + TC-06 (neutrality).
+ * Single path (no new tier) and neutrality.
  *
- * TC-05: every catalogued event dispatches through the ONE `runHooks` engine and the ONE
- * `deny → blocked` contract (SEC-015; formerly `exitCode: 2 → blocked`) — there is no second
+ * Every catalogued event dispatches through the ONE `runHooks` engine and the ONE
+ * `deny → blocked` contract (formerly `exitCode: 2 → blocked`) — there is no second
  * parallel hook/registry system and no second block-decision point.
  *
- * TC-06: the hook engine + event catalog stay a NEUTRAL mechanism — no product/domain hook policy is
+ * The hook engine + event catalog stay a NEUTRAL mechanism — no product/domain hook policy is
  * baked into `packages/` (policy lives in the consumer, keyed off config-provided groups/matchers).
  */
 
@@ -29,7 +29,7 @@ function readAllHooksSource(): string {
     .join('\n');
 }
 
-describe('SELFHOST-009 TC-05 — single runHooks path, no second tier', () => {
+describe('single runHooks path, no second tier', () => {
   it('defines exactly one runHooks dispatch engine', () => {
     const src = readAllHooksSource();
     const matches = src.match(/export\s+(?:async\s+)?function\s+runHooks\b/g) ?? [];
@@ -47,19 +47,17 @@ describe('SELFHOST-009 TC-05 — single runHooks path, no second tier', () => {
     const runner = readFileSync(path.join(HOOKS_DIR, 'hook-runner.ts'), 'utf8');
     expect(runner).toMatch(/interface\s+IRunHooksResult\b/);
     expect(runner).toMatch(/blocked:\s*boolean/);
-    // The one EXECUTOR-driven block trigger (SEC-015 renamed it from `exitCode === 2`).
+    // The one EXECUTOR-driven block trigger (formerly `exitCode === 2`).
     expect(runner).toMatch(/outcome\.outcome === 'deny'/);
     // And the trigger stays singular: an `error` outcome must NOT also be wired to block here.
-    // Issue #2093 has since made that decision, and made it the way this assertion anticipated: a
-    // per-event policy (`HOOK_ENFORCEMENT_POLICY`, read at the boundary via `isEnforcing`) rather
-    // than a second block trigger in the runner. So the assertion still guards exactly what it
-    // guarded — the runner reports and does not enforce — and it is now also what notices if the
-    // policy is ever collapsed back into this file.
+    // The decision lives in a per-event policy (`HOOK_ENFORCEMENT_POLICY`, read at the boundary via `isEnforcing`) rather
+    // than a second block trigger in the runner. So the assertion guards that the runner reports
+    // and does not enforce, and it notices if the policy is ever collapsed back into this file.
     expect(runner).not.toMatch(/outcome\.outcome === 'error'[\s\S]{0,200}blocked:\s*true/);
   });
 });
 
-describe('SELFHOST-009 TC-06 — neutrality: no domain hook policy in packages/', () => {
+describe('neutrality: no domain hook policy in packages/', () => {
   it('every THookEvent member is a neutral lifecycle name (no product/domain noun)', () => {
     const types = readFileSync(path.join(HOOKS_DIR, 'types.ts'), 'utf8');
     const start = types.indexOf('export type THookEvent');

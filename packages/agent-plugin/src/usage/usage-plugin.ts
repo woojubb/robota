@@ -242,7 +242,7 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
   /**
    * Stops the aggregation timer and closes the underlying storage.
    */
-  // CORE-022: dispose() is the single disposal entry point (SPEC § Disposal Chain Contract).
+  // dispose() is the single disposal entry point (SPEC § Disposal Chain Contract).
   override async dispose(): Promise<void> {
     await super.dispose();
     try {

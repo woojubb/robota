@@ -1,5 +1,5 @@
 /**
- * SEC-016 — the enforcement boundary READS the policy; it does not hard-code the event.
+ * The enforcement boundary READS the policy; it does not hard-code the event.
  *
  * `packages/agent-session/docs/SPEC.md` states this as contract: "`isEnforcing` is the SSOT; this
  * package reads it rather than hard-coding the event." Review measured that nothing pinned it —
@@ -7,8 +7,8 @@
  * typecheck, lint, 366 agent-session tests, 119 agent-core hook tests and the reachability scan all
  * green. The boundary could stop consulting the SSOT and nothing in the repository would notice.
  *
- * That is not the same gap as issue #2259, which is table→code (a posture flip going unnoticed once
- * a second enforcing row exists). This is code→table: the boundary ceasing to read the table at all,
+ * That is not the table→code gap (a posture flip going unnoticed once
+ * a second enforcing row exists). This test covers code→table: the boundary ceasing to read the table at all,
  * with the table unchanged.
  *
  * Driven by mocking the policy rather than by matching source text, so it asserts the behaviour the
@@ -46,7 +46,7 @@ const hooks: THooksConfig = {
 
 const input = { toolName: 'Bash', toolInput: {} } as never;
 
-describe('SEC-016: the PreToolUse boundary consults HOOK_ENFORCEMENT_POLICY', () => {
+describe('the PreToolUse boundary consults HOOK_ENFORCEMENT_POLICY', () => {
   it('denies while the policy reports the event enforcing', () => {
     isEnforcingMock.mockReturnValue(true);
 

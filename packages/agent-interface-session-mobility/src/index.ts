@@ -1,7 +1,7 @@
 // @robota-sdk/agent-interface-session-mobility
 //
-// Session mobility: moving MESSAGES between live sessions (PEER-001) and AUTHORITY over a session to
-// another machine (HANDOFF-001). Moved out of `agent-interface-transport` by ARCH-107 (issue #2111).
+// Session mobility: moving MESSAGES between live sessions and AUTHORITY over a session to
+// another machine. Owned here rather than by `agent-interface-transport`.
 //
 // LAYER 2 — the highest in this family. It composes `agent-interface-session`, which composes the
 // three layer-0 owners. Nothing names a type from here.

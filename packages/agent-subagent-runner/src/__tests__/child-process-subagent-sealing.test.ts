@@ -1,5 +1,5 @@
 /**
- * #3679 step 3b — the child-process subagent path with a sealing parent, on the real spawn and IPC
+ * The child-process subagent path with a sealing parent, on the real spawn and IPC
  * path (the fixtures enter `runSubagentWorkerMain` from the built package).
  *
  * - The transcript the parent reads is the file the child wrote, by one rule, with worktree isolation
@@ -480,7 +480,7 @@ describe('the transcript the parent reads is the one the child wrote', () => {
 });
 
 /**
- * What every build before #3679 step 3b returned for a page of a plain transcript (`readTranscriptLog`
+ * What the earlier paging returned for a page of a plain transcript (`readTranscriptLog`
  * over `createBackgroundTaskLogPage`, as at f7c8ed234), kept here verbatim as the golden reference.
  */
 function pagePre3b(
@@ -500,7 +500,7 @@ function pagePre3b(
   };
 }
 
-describe('a plain transcript pages by its display lines #3679 step 3b', () => {
+describe('a plain transcript pages by its display lines', () => {
   it(
     'offset for offset, past the end, negative and not a number, and with no transcript at all',
     async () => {

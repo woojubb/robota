@@ -5,7 +5,7 @@
  * SSOT shared by agent-framework (createInteractiveRuntime) and agent-transport channels.
  */
 
-// CMD-004 unified action contract (SSOT in agent-core).
+// Unified action contract (SSOT in agent-core).
 import type { IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
 
 /** One-way display events pushed by the framework to the channel. */
@@ -32,7 +32,7 @@ export interface IInteractionChannel {
   write(event: InteractionEvent): void;
 
   /**
-   * CMD-004 unified ask: request a structured answer (confirm/select/multi/text). The channel renders
+   * Unified ask: request a structured answer (confirm/select/multi/text). The channel renders
    * it per-environment (Ink dialog, web modal, programmatic preset) and resolves when the user answers
    * or cancels. This is the sole "ask the user" seam; commands reach it via the session's ask handler.
    */
@@ -75,7 +75,7 @@ export interface IAgentDriver {
    * completes; a `send` issued mid-turn is queued and resolves once that queued turn runs.
    */
   send(text: string): Promise<void>;
-  /** Pre-answer the next `askUser` (CMD-004 unified ask). */
+  /** Pre-answer the next `askUser` (unified ask). */
   queueUserAction(response: TActionResponse): void;
   /** The structured event stream observed from the agent, in order. */
   readonly events: readonly InteractionEvent[];

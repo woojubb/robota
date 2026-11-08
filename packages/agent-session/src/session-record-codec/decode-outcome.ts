@@ -1,5 +1,5 @@
 /**
- * TRANS-005 (#2081) — the outcome vocabulary the session-record decoder answers in.
+ * The outcome vocabulary the session-record decoder answers in.
  *
  * ## Why an outcome and not an exception or `undefined`
  *
@@ -38,7 +38,7 @@ export type TSessionRecordDecodeOutcome =
 
 /**
  * Re-stated for readers of this module: `ISessionRecordDecodeIssue` is declared with the record it
- * describes, in the contract package (TRANS-007). The TYPE is a contract; this module owns the
+ * describes, in the contract package. The TYPE is a contract; this module owns the
  * MECHANISM that produces it.
  */
 

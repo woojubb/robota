@@ -1,5 +1,5 @@
 /**
- * What this provider can and cannot do. PROV-006.
+ * What this provider can and cannot do.
  *
  * Split out of `provider.ts` to keep it under the size ceiling, and because the two answers here
  * are about different granularities: `DEEPSEEK_PROVIDER_CAPABILITIES` speaks for the VENDOR, while

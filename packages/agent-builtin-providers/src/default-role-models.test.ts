@@ -5,11 +5,11 @@ import { DEFAULT_ROLE_MODELS } from './default-role-models.js';
 import type { IModelRef } from '@robota-sdk/agent-core';
 
 /**
- * SELFHOST-006 TC-05 — the concrete role vocabulary (`planner`/`editor`/`reviewer`) lives HERE (the
+ * The concrete role vocabulary (`planner`/`editor`/`reviewer`) lives HERE (the
  * product/default layer), not in the neutral `agent-core` contract. This asserts the default set is
  * well-formed. The neutral contract's vocabulary is verified by agent-core's owner-local tests.
  */
-describe('SELFHOST-006 TC-05 — concrete role set lives in the default layer', () => {
+describe('concrete role set lives in the default layer', () => {
   it('DEFAULT_ROLE_MODELS provides the planner/editor/reviewer roles as ordered chains', () => {
     for (const role of ['planner', 'editor', 'reviewer']) {
       const chain = DEFAULT_ROLE_MODELS[role];

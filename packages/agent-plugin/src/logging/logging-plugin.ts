@@ -275,7 +275,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
   /**
    * Closes the underlying storage and releases resources.
    */
-  // CORE-022: dispose() is the single disposal entry point (SPEC § Disposal Chain Contract).
+  // dispose() is the single disposal entry point (SPEC § Disposal Chain Contract).
   override async dispose(): Promise<void> {
     await super.dispose();
     try {

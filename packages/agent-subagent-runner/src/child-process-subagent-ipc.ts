@@ -18,7 +18,7 @@ export type TSubagentWorkerWireValue = string | number | boolean | null | undefi
 
 type TSubagentWorkerWireRecord = Record<string, TSubagentWorkerWireValue>;
 
-/** ARCH-044: the four config members the child reads. See `projectParentConfig`. */
+/** The four config members the child reads. See `projectParentConfig`. */
 export interface ISubagentWorkerParentConfig {
   readonly provider: { readonly model: string };
   readonly permissions: IResolvedConfig['permissions'];
@@ -30,7 +30,7 @@ export interface ISubagentWorkerStartPayload {
   taskId: string;
   request: ISubagentSpawnRequest;
   /**
-   * ARCH-031: the worktree the parent's runner prepared, carried across the fork so the child can
+   * The worktree the parent's runner prepared, carried across the fork so the child can
    * answer `subagentExecutionRoot` the same way the parent would. Runner-produced, so it rides beside
    * the request rather than on it.
    *
@@ -39,10 +39,10 @@ export interface ISubagentWorkerStartPayload {
    * reason other than the absence of a present-day consumer.
    */
   worktree?: { readonly path: string; readonly branch?: string };
-  /** ARCH-044 (issue #2047): a JSON-safe DTO owned here, projected from `IAgentDefinition` by the parent. */
+  /** A JSON-safe DTO owned here, projected from `IAgentDefinition` by the parent. */
   agentDefinition: ISubagentWorkerAgentDefinitionDto;
   /**
-   * ARCH-044 (issue #2047): the config members the child reads, declared here rather than indexed
+   * The config members the child reads, declared here rather than indexed
    * out of the runtime type.
    *
    * It was `IInProcessSubagentRunnerDeps['config']`, so the wire shape was the in-process shape and
@@ -53,8 +53,8 @@ export interface ISubagentWorkerStartPayload {
    */
   parentConfig: ISubagentWorkerParentConfig;
   /**
-   * ARCH-044 (issue #2047): a JSON-safe DTO owned here, decoded totally on the child side. The parent
-   * fills it from `projectParentContext` (issue #2317): the two context members the child reads —
+   * A JSON-safe DTO owned here, decoded totally on the child side. The parent
+   * fills it from `projectParentContext`: the two context members the child reads —
    * `agentsMd` and `projectNotesMd` — and never the parent's whole `ILoadedContext`, whose file
    * entries carry the full text of every AGENTS.md and CLAUDE.md the parent loaded.
    */
@@ -66,7 +66,7 @@ export interface ISubagentWorkerStartPayload {
    */
   connectionCheck: IConnectionEnvironmentCheck;
   /**
-   * ARCH-033: how the child rebuilds the parent's sandbox, as `(type, snapshotId)`.
+   * How the child rebuilds the parent's sandbox, as `(type, snapshotId)`.
    *
    * The live client cannot cross a process boundary — it is an open session against a remote machine.
    * This pair can: the type selects a factory the composition root registered, and the snapshot is a
@@ -78,7 +78,7 @@ export interface ISubagentWorkerStartPayload {
    */
   sandboxProjection?: ISandboxProjection;
   /**
-   * ARCH-034: which session-assembly tiers the parent's surface carried.
+   * Which session-assembly tiers the parent's surface carried.
    *
    * A property of the parent's SESSION rather than of the child's root, so it rides on the payload
    * beside the request instead of being derived at the child. Absent ⇒ the parent had none.
@@ -160,14 +160,14 @@ export interface ISubagentWorkerSealingKeyMessage {
 }
 
 /**
- * Issue #3288 §1: the three-way answer a permission ask can receive — the same shape
+ * The three-way answer a permission ask can receive — the same shape
  * `@robota-sdk/agent-session`'s `TPermissionResult` allows, inlined here so this wire module does not
  * need that package as a dependency for one literal union.
  */
 export type TSubagentWorkerPermissionResult = boolean | 'allow-session' | 'allow-project';
 
 /**
- * Issue #3288 §1: the parent's answer to a `permission_request` the child raised, correlated by
+ * The parent's answer to a `permission_request` the child raised, correlated by
  * `requestId`. `false` when the parent has no approver attached (print mode) — the fail-closed
  * default, not a special case the child has to know about.
  */
@@ -188,7 +188,7 @@ export type TSubagentWorkerParentMessage =
 export interface ISubagentWorkerReadyMessage {
   type: 'ready';
   /**
-   * ARCH-021: the tool names the child actually composed, so "the child has the product's surface"
+   * The tool names the child actually composed, so "the child has the product's surface"
    * is VERIFIED per run rather than assumed by construction. Names only — the tools themselves are
    * code and do not cross this boundary; that is the whole point of the composition port.
    *
@@ -216,7 +216,7 @@ export interface ISubagentWorkerToolEndMessage {
 }
 
 /**
- * Issue #3288 §1: a tool call inside the child needs a human's approval. `requestId` correlates this
+ * A tool call inside the child needs a human's approval. `requestId` correlates this
  * with the parent's eventual `permission_response`; the child parks the call until it arrives (or
  * until its own turn is cancelled, which the enforcer's existing signal race already denies).
  */
@@ -230,7 +230,7 @@ export interface ISubagentWorkerPermissionRequestMessage {
 export interface ISubagentWorkerResultMessage {
   type: 'result';
   output: string;
-  /** ANALYTICS-001 (Phase 2): total token usage of the subagent run, forwarded to the parent. */
+  /** Total token usage of the subagent run, forwarded to the parent. */
   usage?: ISessionUsageTotals;
   /**
    * A save of the fork record this job was handed was refused, because something the child cannot
@@ -252,7 +252,7 @@ export interface ISubagentWorkerCancelledMessage {
 }
 
 /**
- * #3679: a child handed a sealed record (`resumeHeld`) says, after each save of it, which stored bytes
+ * A child handed a sealed record (`resumeHeld`) says, after each save of it, which stored bytes
  * it wrote — the only bytes its parent may then vouch for as the owner's, once the child is gone. A
  * parent that handed no record over takes it as a message it did not ask for.
  */
@@ -301,7 +301,7 @@ function isConnectionCheck(value: TSubagentWorkerWireValue): boolean {
 }
 
 /**
- * ARCH-031: `key` is `string`, so a renamed contract field compiles clean here and then rejects every
+ * `key` is `string`, so a renamed contract field compiles clean here and then rejects every
  * payload at runtime — which is exactly what a `type` → `agentType` rename would have done, silently.
  * The typed overloads below make the next rename a compile error instead.
  */
@@ -334,7 +334,7 @@ function hasOptionalRequestString(
 }
 
 /**
- * CORE-024 (RUNTIME-47): validate the optional `usage` payload on a `result` message so a
+ * Validate the optional `usage` payload on a `result` message so a
  * malformed object cannot be spread verbatim into the parent's token/cost accounting. Absent is
  * valid (usage is optional); present must be an `ISessionUsageTotals` with three numeric fields.
  */
@@ -350,7 +350,7 @@ function hasValidOptionalUsage(value: TSubagentWorkerWireRecord): boolean {
 }
 
 /**
- * ARCH-021: validate the optional parity declaration for the same reason CORE-024 (RUNTIME-47) added
+ * Validate the optional parity declaration for the same reason as
  * `hasValidOptionalUsage` beside it — the guard asserts a typed shape, so an unvalidated optional
  * field hands a consumer a `readonly string[]` type over whatever the wire carried. Absent is valid;
  * present must be an array of strings.
@@ -369,7 +369,7 @@ function hasOptionalNonEmptyString(value: TSubagentWorkerWireRecord, key: string
 }
 
 /**
- * #3679: the grant is a non-empty string; a fork job carries the lease it claims its record with,
+ * The grant is a non-empty string; a fork job carries the lease it claims its record with,
  * and only a fork job does; and a held record is one within its bound that rides only beside the id
  * it resumes — a record with no id to resume is a payload that put the conversation where nothing
  * reads it, and the worker must not guess.
@@ -407,25 +407,25 @@ function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWork
   if (!isRecord(value.request)) return false;
   if (!hasRequestString(value.request, 'agentType')) return false;
   if (!hasRequestString(value.request, 'prompt')) return false;
-  // ARCH-031: required at the spawn boundary, so the guard asserts it too. Without this a payload
+  // Required at the spawn boundary, so the guard asserts it too. Without this a payload
   // missing the policy passes, and the worker's conditional spread then silently omits it — which is
-  // how CORE-025 lost this exact field once already.
+  // how this field gets lost.
   if (!hasRequestString(value.request, 'permissionPolicy')) return false;
-  // ARCH-010/ARCH-031: `cwd` is the fallback carrier of the execution root — with no `worktree` on
+  // `cwd` is the fallback carrier of the execution root — with no `worktree` on
   // the payload, `subagentExecutionRoot` returns it verbatim. A payload without it gives the child's
   // tools `undefined` as their containment root, which is the breach this rule exists to prevent.
   if (!hasRequestString(value.request, 'cwd')) return false;
-  // CLI-1994: a fork job names the record it resumes — an id, never the conversation. A non-string
+  // A fork job names the record it resumes — an id, never the conversation. A non-string
   // here is a payload that put something else where the id goes, and the worker must not guess.
   if (!hasOptionalRequestString(value.request, 'resumeSessionId')) return false;
   // …and `worktree.path` is the HIGHER-precedence carrier — `worktree?.path ?? request.cwd` — so
-  // validating `cwd` alone leaves the winning branch unchecked. Before ARCH-031 the runner rewrote
-  // `request.cwd` to the worktree, so one check covered both; now it does not.
+  // validating `cwd` alone leaves the winning branch unchecked. The runner does not rewrite
+  // `request.cwd` to the worktree, so one check does not cover both.
   if (value.worktree !== undefined) {
     if (!isRecord(value.worktree)) return false;
     if (!hasString(value.worktree, 'path')) return false;
   }
-  // ARCH-044 (issue #2047): both DTOs are decoded totally — every declared field, arrays rejected
+  // Both DTOs are decoded totally — every declared field, arrays rejected
   // where a record is required — instead of being accepted as any `object`.
   if (!decodeAgentDefinitionDto(value.agentDefinition).ok) return false;
   if (!isRecord(value.parentConfig)) return false;

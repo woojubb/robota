@@ -13,11 +13,11 @@ import {
 } from '../index.js';
 import { createTestInteractiveSession } from '../testing/index.js';
 import { createTestSessionCapabilityHost } from '../testing/index.js';
-// HARNESS-103: the host mechanism moved out of the contract surface. The contracts still come from
+// The host mechanism moved out of the contract surface. The contracts still come from
 // the package entry above; the factory now comes from where doubles live.
 import { createSessionCapabilityHost, readSessionCapability } from '../testing/index.js';
 
-describe('session capability contracts (ARCH-012)', () => {
+describe('session capability contracts', () => {
   it('keeps the runtime role registry in exact 21-role and 51-member parity', () => {
     type TRegistry = typeof SESSION_CAPABILITY_MEMBER_KEYS;
     type TExactRows = {
@@ -52,10 +52,9 @@ describe('session capability contracts (ARCH-012)', () => {
     };
 
     expect(Object.keys(exactRows)).toHaveLength(21);
-    // #3282 §2 added `listModels` to `commands` (47 = 46 + 1); #3288 §2 added `getMessagesDisplay`
-    // to `conversationRead` (48 = 47 + 1); #3282 §4 added `getDefaultAgentType` and
-    // `setDefaultAgentType` to `agentJobs` (50 = 48 + 2); the `toolAppViews` role added
-    // `readToolAppView` (51 = 50 + 1).
+    // Counts by addition: `listModels` on `commands` (47 = 46 + 1); `getMessagesDisplay` on
+    // `conversationRead` (48 = 47 + 1); `getDefaultAgentType` and `setDefaultAgentType` on
+    // `agentJobs` (50 = 48 + 2); the `toolAppViews` role adds `readToolAppView` (51 = 50 + 1).
     expect(Object.values(SESSION_CAPABILITY_MEMBER_KEYS).flat()).toHaveLength(51);
     expect(Object.isFrozen(SESSION_CAPABILITY_MEMBER_KEYS)).toBe(true);
     for (const keys of Object.values(SESSION_CAPABILITY_MEMBER_KEYS)) {

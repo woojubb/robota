@@ -1,5 +1,5 @@
 /**
- * Closing the universal schema subset for providers that reject open-world objects. PROV-007.
+ * Closing the universal schema subset for providers that reject open-world objects.
  *
  * Two vendors demand a closed schema and neither accepts what this repository emits. Anthropic's
  * structured-output surface requires every `object` node to carry `additionalProperties: false`;
@@ -9,7 +9,7 @@
  * `required` lists only the genuinely-required fields.
  *
  * ONE recursion, not one per vendor. Anthropic had its own copy and OpenAI was about to get a third;
- * CORE-039 exists because a walk over this subset that misses a route — it missed `anyOf` — leaves
+ * A walk over this subset that misses a route — such as `anyOf` — leaves
  * exactly the nodes it was written to fix untouched, and every copy has to be found and fixed
  * separately. The vendors differ in POLICY, so the policy is an argument.
  *
@@ -38,7 +38,7 @@ export interface ISchemaClosureOptions {
    * The representation strict mode has no faithful mapping for, decided here rather than left to
    * each call site: a field the caller marked optional becomes required-but-nullable, which is the
    * compensation OpenAI documents. `anyOf: [T, { type: 'null' }]` is chosen because that is already
-   * how this subset expresses a nullable value (CORE-039 emits it for Zod's `.nullable()`), so a
+   * how this subset expresses a nullable value (the Zod converter emits it for `.nullable()`), so a
    * forced-optional field and a genuinely nullable one are indistinguishable on the wire — which is
    * the point. Anything else would invent a second nullability spelling for one vendor.
    */
@@ -50,7 +50,7 @@ export interface ISchemaClosureOptions {
    */
   omitKeywords?: readonly string[];
   /**
-   * MCP-005: told once per actual structural edit, so a caller (the tool-schema projector) can build
+   * Told once per actual structural edit, so a caller (the tool-schema projector) can build
    * a diagnostic without re-deriving this recursion — one walk, not a second copy that could disagree
    * with this one about which route a nested object arrives by.
    */
@@ -159,7 +159,7 @@ function closeObjectSchemasAt(
     closed.items = closeObjectSchemasAt(record.items, options, `${path}/items`);
   }
 
-  // CORE-039: a union node's branches are objects too. Without this the spread carries `anyOf`
+  // A union node's branches are objects too. Without this the spread carries `anyOf`
   // through unrecursed, leaving every object inside a branch open — the exact thing this seam
   // exists to prevent, reached by the one route it did not walk.
   if (Array.isArray(record.anyOf)) {

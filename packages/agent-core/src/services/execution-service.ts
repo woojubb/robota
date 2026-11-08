@@ -84,7 +84,7 @@ export class ExecutionService {
   }
 
   /**
-   * Session-scoped "ask the user" port (CMD-005) — delegates to the tool execution layer so every
+   * Session-scoped "ask the user" port — delegates to the tool execution layer so every
    * tool call's context carries `ask` when an interactive user is attached.
    */
   setAskHandler(ask: Parameters<ToolExecutionService['setAskHandler']>[0]): void {
@@ -260,7 +260,7 @@ export class ExecutionService {
         },
         this.logger,
       );
-      // PLG-020 (issue #2460): the execution-level hook, with the ids and the conversation so far.
+      // The execution-level hook, with the ids and the conversation so far.
       const pluginExecutionContext = { executionId, conversationId };
       if (userMessage) {
         await callPluginHook(
@@ -322,7 +322,7 @@ export class ExecutionService {
       );
     } catch (error) {
       if (isExecutionControlError(error)) throw error;
-      // CORE-027: classified from the SIGNAL and the error's own name, never from its prose. The
+      // Classified from the SIGNAL and the error's own name, never from its prose. The
       // substring test that stood here returned `success: true, interrupted: true` for any provider
       // failure whose message happened to contain "abort".
       //
@@ -347,7 +347,7 @@ export class ExecutionService {
         this.logger,
         this.eventEmitter,
       );
-      // CORE-020: a failed result carries the error itself — never error text disguised
+      // A failed result carries the error itself — never error text disguised
       // as a response. agentRun throws result.error so callers receive a rejection.
       return {
         response: '',
@@ -371,7 +371,7 @@ export class ExecutionService {
     config: IAgentConfig,
     context?: Partial<IExecutionContext>,
   ): AsyncGenerator<string, ICoreExecutionResult> {
-    // CORE-042: a streaming ENTRY into `execute`, not a second engine. Everything the turn does is
+    // A streaming ENTRY into `execute`, not a second engine. Everything the turn does is
     // the turn's; this hands it a delta sink and yields what arrives.
     return yield* executeStreamFn(input, messages, config, context, this.execute.bind(this));
   }

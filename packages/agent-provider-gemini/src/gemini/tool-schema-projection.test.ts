@@ -1,5 +1,5 @@
 /**
- * MCP-005 (TC-10) — conformance: the real `GeminiProvider` over the shared MCP-005 fixture set.
+ * Conformance: the real `GeminiProvider` over the shared fixture set.
  *
  * For every fixture member `convertParameterSchema` omits, the projection's `changes` already holds a
  * `member-stripped` (Gemini's `unsupportedMembers: ['additionalProperties']`) or
@@ -117,7 +117,7 @@ function collectKeys(node: unknown, path = ''): string[] {
   return [...own, ...nested];
 }
 
-describe('MCP-005 TC-10 — Gemini conformance over shared fixtures', () => {
+describe('Gemini conformance over shared fixtures', () => {
   beforeEach(() => {
     generateContentMock.mockReset();
     generateContentStreamMock.mockReset();

@@ -33,7 +33,7 @@ const logger = createLogger('FileSessionLogger');
 /**
  * Events that arrive once per streamed token.
  *
- * CORE-029: `session-run.ts` logs one of these per text delta and this class answered each with a
+ * `session-run.ts` logs one of these per text delta and this class answered each with a
  * blocking `appendFileSync` — a synchronous disk write per token on the streaming hot path. They are
  * buffered and written in one call; every OTHER event flushes the buffer before writing itself, so
  * ordering in the file is unchanged and no semantic event is ever delayed behind a stream.
@@ -107,7 +107,7 @@ export interface ISessionLogger {
 export class FileSessionLogger implements ISessionLogger {
   private readonly options: TLogNormalizationOptions;
   private readonly registerExitFlush: TRegisterExitFlush | undefined;
-  /** Buffered hot-path lines, per session file. Keyed by session id (CORE-029). */
+  /** Buffered hot-path lines, per session file. Keyed by session id. */
   private readonly pending = new Map<string, string[]>();
   private pendingBytes = 0;
 
@@ -124,7 +124,7 @@ export class FileSessionLogger implements ISessionLogger {
   }
 
   log(sessionId: string, event: string, data: TSessionLogData): void {
-    // SEC-006: `sessionId` becomes a path component below. This is a second sink on the same value the
+    // `sessionId` becomes a path component below. This is a second sink on the same value the
     // session store guards, and a host can pass a remote-supplied id, so it must not rely on the
     // store having been called first. Logging must never break a
     // session, so a rejected id drops the line rather than throwing — the store raises the loud error.
@@ -154,8 +154,8 @@ export class FileSessionLogger implements ISessionLogger {
       this.flush();
       this.write(sessionId, entry);
     } catch (error) {
-      // allow-fallback: logging must never break a session (SEC-006 states the same rule for a
-      // rejected id). What changed in CORE-029 is that the failure is no longer INVISIBLE — a log
+      // allow-fallback: logging must never break a session (the same rule holds for a
+      // rejected id). The failure must not be INVISIBLE — a log
       // that silently stops writing is indistinguishable from a session that produced no events.
       this.report(sessionId, event, error);
     }

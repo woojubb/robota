@@ -1,5 +1,5 @@
 /**
- * Context-compaction event contract (INFRA-025).
+ * Context-compaction event contract.
  *
  * SSOT for the compaction notification a session emits to transports. Pure data —
  * the compaction engine lives in `agent-session`, which imports this contract.

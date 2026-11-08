@@ -1,6 +1,6 @@
 /**
  * Sealing in place the records a host-filesystem session store (`NodeSessionStore`) kept in
- * plaintext, for a host migrating its state once it seals (#3679).
+ * plaintext, for a host migrating its state once it seals.
  *
  * Every plain record is sealed as the raw bytes it holds — valid, corrupt, unsupported or bare alike —
  * under its own file stem, so the store reports the same status after opening it, and the plaintext is

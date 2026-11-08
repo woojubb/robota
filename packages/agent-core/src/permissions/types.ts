@@ -36,7 +36,7 @@ export const TRUST_TO_MODE: Record<TTrustLevel, TPermissionMode> = {
 export type TPermissionDecision = 'auto' | 'approve' | 'deny';
 
 /**
- * Per-task permission policy for a spawned background / subagent task (CORE-025).
+ * Per-task permission policy for a spawned background / subagent task.
  *
  * SSOT lives here (the permission-logic home) rather than in a transport package, because
  * `agent-interface-transport` → `agent-core` is a one-way dependency. The background-task request
@@ -51,7 +51,7 @@ export type TPermissionDecision = 'auto' | 'approve' | 'deny';
 export type TBackgroundPermissionPolicy = 'inherit-allowlist' | 'preapproved' | 'prompt' | 'deny';
 
 /**
- * The policy a spawn site gets when it has no reason to choose another (ARCH-031).
+ * The policy a spawn site gets when it has no reason to choose another.
  *
  * ONE definition, owned by the package that owns {@link TBackgroundPermissionPolicy}. It replaces two
  * independent `?? 'inherit-allowlist'` fallbacks — one in `agent-executor`'s subagent manager, one in

@@ -10,10 +10,10 @@ import {
 import type { InteractionEvent } from '../index.js';
 
 /**
- * INFRA-020 TC-01: the shared pure accessors over an InteractionEvent stream. These are the single
+ * The shared pure accessors over an InteractionEvent stream. These are the single
  * home for "what counts as a reply / tool call / error"; every IAgentDriver implementer delegates here.
  */
-describe('interaction-event accessors (INFRA-020)', () => {
+describe('interaction-event accessors', () => {
   const err = new Error('boom');
   const events: InteractionEvent[] = [
     { type: 'user-message', text: 'hi' },

@@ -7,7 +7,7 @@ import type { IAgent, IAgentConfig } from '../interfaces/agent';
 import type { IAIProvider } from '../interfaces/provider';
 
 /**
- * ARCH-055 (#2159): the registry-owned lifecycle is one transaction — admission before the first
+ * The registry-owned lifecycle is one transaction — admission before the first
  * await, commit after every fallible step, reverse rollback, primary error preserved.
  */
 
@@ -95,7 +95,7 @@ describe('runRegistryTransaction', () => {
   });
 });
 
-describe('AgentFactory transactional lifecycle (ARCH-055)', () => {
+describe('AgentFactory transactional lifecycle', () => {
   it('counts pending creates toward the limit: a shared-barrier race admits exactly the limit', async () => {
     const { AgentClass, release } = createBlockingAgentClass();
     const factory = new AgentFactory({ maxConcurrentAgents: 2, strictValidation: false });

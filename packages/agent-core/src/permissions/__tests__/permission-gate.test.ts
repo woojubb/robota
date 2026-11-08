@@ -9,7 +9,7 @@ import {
 import { decideByPolicy } from './policy-decision.js';
 
 /**
- * CORE-030: the argument key a pattern like `Bash(pnpm *)` is matched against is declared by the
+ * The argument key a pattern like `Bash(pnpm *)` is matched against is declared by the
  * package that DEFINES the tool, not by a name table in this one — so these cases declare it, the
  * same way `@robota-sdk/agent-tools` does. Without a declaration an argument-scoped pattern is
  * unevaluable and the gate prompts rather than matching, which is the behaviour asserted separately
@@ -87,7 +87,7 @@ describe('evaluatePermission deny precedence', () => {
 });
 
 /**
- * CORE-049 (issue #2350) — a pattern is matched by the KIND of argument it is scoped to.
+ * A pattern is matched by the KIND of argument it is scoped to.
  *
  * The anti-goal these cases state: the URL verdicts come from `new URL` canonicalisation
  * (`0x7f.1` IS `127.0.0.1`, `SUB.EXAMPLE.COM` IS `sub.example.com`, `%61dmin` IS `admin`) and the
@@ -214,17 +214,17 @@ describe('Claude WebFetch domain rules', () => {
   });
 });
 
-describe('CORE-049 — url kind: a host pattern means a host', () => {
+describe('url kind: a host pattern means a host', () => {
   const allow = { allow: ['WebFetch(https://*.example.com/**)'] };
   const auto = (url: string) => evaluatePermission('WebFetch', { url }, 'default', allow);
 
-  it('TC-01 matches hosts under the wildcard, at any subdomain depth, on the default port', () => {
+  it('matches hosts under the wildcard, at any subdomain depth, on the default port', () => {
     expect(auto('https://sub.example.com/ok')).toBe('auto');
     expect(auto('https://a.b.example.com/x')).toBe('auto');
     expect(auto('https://sub.example.com:443/x')).toBe('auto');
   });
 
-  it('TC-01 does not match when the matched text lives in the query, fragment, path or another host', () => {
+  it('does not match when the matched text lives in the query, fragment, path or another host', () => {
     // Today's allow side changes nothing for an `inspect` tool (auto in every mode), so the
     // assertion is on the matcher: none of these is a MATCH.
     for (const url of [
@@ -248,8 +248,8 @@ describe('CORE-049 — url kind: a host pattern means a host', () => {
     ).toBe(true);
   });
 
-  it('TC-01 a label boundary is a literal dot — a suffix without it is another host', () => {
-    // The #2350 defect class inside the new matcher: a wildcard label must never absorb the dot
+  it('a label boundary is a literal dot — a suffix without it is another host', () => {
+    // The matcher must hold the line: a wildcard label must never absorb the dot
     // beside it, or `*.example.com` names `evilexample.com`.
     for (const [pattern, url] of [
       ['WebFetch(https://*.example.com/**)', 'https://evilexample.com/'],
@@ -288,7 +288,7 @@ describe('CORE-049 — url kind: a host pattern means a host', () => {
     ).toBe('approve');
   });
 
-  it('TC-02 canonicalises the argument host and path — the verdicts only parsing can give', () => {
+  it('canonicalises the argument host and path — the verdicts only parsing can give', () => {
     const deny = { deny: ['WebFetch(http://127.0.0.1/**)'] };
     for (const url of [
       'http://0x7f.1/',
@@ -319,7 +319,7 @@ describe('CORE-049 — url kind: a host pattern means a host', () => {
     ).toBe('deny');
   });
 
-  it('TC-03 an argument it cannot interpret under a DENY prompts — it never falls open', () => {
+  it('an argument it cannot interpret under a DENY prompts — it never falls open', () => {
     const deny = { deny: ['WebFetch(https://*.example.com/**)'] };
     for (const url of UNEVALUABLE_ARGUMENTS) {
       expect(hasUnevaluableArgumentPattern('WebFetch', { url }, deny.deny), url).toBe(true);
@@ -341,7 +341,7 @@ describe('CORE-049 — url kind: a host pattern means a host', () => {
     ).toBe(false);
   });
 
-  it('TC-03 a pattern that is unevaluable — grammar- or rule-rejected — is unevaluable for any argument', () => {
+  it('a pattern that is unevaluable — grammar- or rule-rejected — is unevaluable for any argument', () => {
     for (const pattern of UNEVALUABLE_PATTERNS) {
       const deny = { deny: [pattern] };
       expect(
@@ -368,7 +368,7 @@ describe('CORE-049 — url kind: a host pattern means a host', () => {
     }
   });
 
-  it('TC-03 a bare wildcard is any invocation — what a preset deniedTools produces', () => {
+  it('a bare wildcard is any invocation — what a preset deniedTools produces', () => {
     for (const url of ['https://any.host/', 'not a url', 'file:///x']) {
       expect(
         evaluatePermission('WebFetch', { url }, 'default', { deny: ['WebFetch(*)'] }),
@@ -378,8 +378,8 @@ describe('CORE-049 — url kind: a host pattern means a host', () => {
   });
 });
 
-describe('CORE-049 — path kind: `*` stays inside a segment and the path is normalised', () => {
-  it('TC-04 `*` does not cross `/`; `**` does', () => {
+describe('path kind: `*` stays inside a segment and the path is normalised', () => {
+  it('`*` does not cross `/`; `**` does', () => {
     expect(
       evaluatePermission('Read', { filePath: '/src/a.ts' }, 'default', { allow: ['Read(/src/*)'] }),
     ).toBe('auto');
@@ -391,7 +391,7 @@ describe('CORE-049 — path kind: `*` stays inside a segment and the path is nor
     ).toBe('auto');
   });
 
-  it('TC-04 a `..` cannot walk out of a denied directory, on either separator', () => {
+  it('a `..` cannot walk out of a denied directory, on either separator', () => {
     expect(
       evaluatePermission('Read', { filePath: '/w/src/../secrets/x' }, 'default', {
         deny: ['Read(/w/secrets/**)'],
@@ -404,7 +404,7 @@ describe('CORE-049 — path kind: `*` stays inside a segment and the path is nor
     ).toBe('deny');
   });
 
-  it('TC-04 `**` is gitignore-style: zero or more directories', () => {
+  it('`**` is gitignore-style: zero or more directories', () => {
     expect(matchesAnyPattern('Read', { filePath: '/src' }, ['Read(/src/**)'])).toBe(true);
     expect(
       matchesAnyPattern('Read', { filePath: '/w/secrets/key.pem' }, ['Read(/w/secrets/**/*.pem)']),
@@ -433,7 +433,7 @@ describe('CORE-049 — path kind: `*` stays inside a segment and the path is nor
     expect(matchesAnyPattern('Read', { filePath: 'C:\\' }, ['Read(c:/**)'])).toBe(true);
   });
 
-  it('TC-04 a relative argument under an absolute deny is unevaluable — a prompt, not a pass', () => {
+  it('a relative argument under an absolute deny is unevaluable — a prompt, not a pass', () => {
     expect(
       evaluatePermission('Read', { filePath: 'src/x' }, 'default', { deny: ['Read(/w/**)'] }),
     ).toBe('approve');
@@ -443,8 +443,8 @@ describe('CORE-049 — path kind: `*` stays inside a segment and the path is nor
   });
 });
 
-describe("CORE-049 — command and text kinds keep today's glob; the declaration is one object", () => {
-  it('TC-05 `Bash(git *)` still matches a command with a slash in it', () => {
+describe("command and text kinds keep today's glob; the declaration is one object", () => {
+  it('`Bash(git *)` still matches a command with a slash in it', () => {
     for (const command of ['git status', 'git add src/x']) {
       expect(
         evaluatePermission('Bash', { command }, 'default', { allow: ['Bash(git *)'] }),
@@ -453,7 +453,7 @@ describe("CORE-049 — command and text kinds keep today's glob; the declaration
     }
   });
 
-  it('issue #2427 `Bash(git *)` names ONE command: a separator or substitution outside quotes is no match', () => {
+  it('`Bash(git *)` names ONE command: a separator or substitution outside quotes is no match', () => {
     // The anti-goal: refusal comes from recognising a separator, not from escaping more characters
     // in the glob — every line below still satisfies `^git .*$`.
     for (const command of [
@@ -475,7 +475,7 @@ describe("CORE-049 — command and text kinds keep today's glob; the declaration
     }
   });
 
-  it('issue #2427 a separator inside quotes, or escaped, is part of the one command', () => {
+  it('a separator inside quotes, or escaped, is part of the one command', () => {
     for (const command of [
       'git commit -m "fix; a && b | c"',
       "git commit -m 'fix $(x) `y`'",
@@ -489,7 +489,7 @@ describe("CORE-049 — command and text kinds keep today's glob; the declaration
     }
   });
 
-  it('issue #2427 a line whose first word is not git, or a whole line written verbatim, are judged by the glob', () => {
+  it('a line whose first word is not git, or a whole line written verbatim, are judged by the glob', () => {
     expect(
       evaluatePermission('Bash', { command: 'gitx status' }, 'default', { allow: ['Bash(git *)'] }),
     ).not.toBe('auto');
@@ -500,23 +500,23 @@ describe("CORE-049 — command and text kinds keep today's glob; the declaration
     ).toBe('auto');
   });
 
-  it('TC-05 a text-kind pattern crosses `/` as it always did', () => {
+  it('a text-kind pattern crosses `/` as it always did', () => {
     registerToolPermissionProfile('Tool', { argument: { key: 'query', kind: 'text' } });
     expect(
       evaluatePermission('Tool', { query: 'a/b/c' }, 'default', { allow: ['Tool(a/*)'] }),
     ).toBe('auto');
   });
 
-  it('TC-06 a keyless tool under `Tool(*)` is denied — the bare wildcard names no argument', () => {
+  it('a keyless tool under `Tool(*)` is denied — the bare wildcard names no argument', () => {
     registerToolPermissionProfile('Keyless', { riskClass: 'inspect' });
     expect(
       evaluatePermission('Keyless', { anything: 1 }, 'default', { deny: ['Keyless(*)'] }),
     ).toBe('deny');
   });
 
-  it('TC-06 the bare wildcard widens the allow side for a keyless tool too — stated and pinned', () => {
-    // Before CORE-049 `Keyless(*)` in an allow list had no effect (unevaluable); now it is the
-    // preset `allowedTools` contract in every mode, including a background task's preapproval.
+  it('the bare wildcard widens the allow side for a keyless tool too — stated and pinned', () => {
+    // `Keyless(*)` in an allow list is the preset `allowedTools` contract in every mode,
+    // including a background task's preapproval.
     registerToolPermissionProfile('Keyless', { riskClass: 'execute' });
     expect(evaluatePermission('Keyless', {}, 'default', { allow: ['Keyless(*)'] })).toBe('auto');
     expect(evaluatePermission('Keyless', {}, 'plan', { allow: ['Keyless(*)'] })).toBe('auto');
@@ -525,7 +525,7 @@ describe("CORE-049 — command and text kinds keep today's glob; the declaration
     ).toBe('allow');
   });
 
-  it('TC-06 the type refuses a key declared without a kind', () => {
+  it('the type refuses a key declared without a kind', () => {
     // If the kind is ever made optional again this line stops being an error and `pnpm typecheck`
     // goes red — the requirement is observed by the compiler, not by a runtime.
     // @ts-expect-error — a key without a kind is not an argument declaration

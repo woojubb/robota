@@ -1,5 +1,5 @@
 /**
- * Session.shutdown is best-effort (CORE-013 disposal convention): a failing shutdown step
+ * Session.shutdown is best-effort (disposal convention): a failing shutdown step
  * (e.g. a SessionEnd hook whose executor throws) must not reject the shutdown promise —
  * `void session.shutdown()` would otherwise become a process-killing unhandled rejection.
  */
@@ -32,7 +32,7 @@ const MOCK_TERMINAL = {
   spinner: vi.fn().mockReturnValue({ stop: vi.fn(), update: vi.fn() }),
 };
 
-describe('Session.shutdown — best-effort disposal (CORE-013)', () => {
+describe('Session.shutdown — best-effort disposal', () => {
   it('resolves even when the SessionEnd hook executor throws', async () => {
     const throwingExecutor: IHookTypeExecutor = {
       type: 'command',
@@ -52,7 +52,7 @@ describe('Session.shutdown — best-effort disposal (CORE-013)', () => {
     await expect(session.shutdown({ reason: 'other' })).resolves.toBeUndefined();
   });
 
-  it('destroys the wrapped agent — run() after shutdown rejects with [LIFECYCLE] (CORE-022)', async () => {
+  it('destroys the wrapped agent — run() after shutdown rejects with [LIFECYCLE]', async () => {
     const session = new Session({
       hookTypeExecutors: [],
       cwd: process.cwd(),

@@ -1,5 +1,5 @@
 /**
- * TRANS-005 (#2081) — decoders for the tool schemas a session record persists.
+ * Decoders for the tool schemas a session record persists.
  *
  * `IParameterSchema` is the universal JSON-schema subset, and it is recursive: `items`, `properties`
  * and `anyOf` all carry the same node type. `properties` is an OPEN map — its keys are the tool

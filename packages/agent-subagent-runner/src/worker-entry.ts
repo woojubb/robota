@@ -1,5 +1,5 @@
 /**
- * DIST-006: how a subagent worker process is STARTED, stated by the composition root.
+ * How a subagent worker process is STARTED, stated by the composition root.
  *
  * The seam this replaces asked a library "where is my worker file on disk?" — a question it cannot
  * answer, because the answer is a property of the packaging step, not of the library. It was wrong

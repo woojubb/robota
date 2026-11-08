@@ -102,7 +102,7 @@ describe('GeminiProvider @google/genai transport', () => {
     });
   });
 
-  it('API-001: resolves verified effort into thinkingLevel while preserving non-control config', async () => {
+  it('resolves verified effort into thinkingLevel while preserving non-control config', async () => {
     generateContentMock.mockResolvedValue({
       candidates: [{ content: { parts: [{ text: 'done' }] } }],
     });
@@ -135,7 +135,7 @@ describe('GeminiProvider @google/genai transport', () => {
     ]);
   });
 
-  it('API-001: rejects a conflicting static thinking control', async () => {
+  it('rejects a conflicting static thinking control', async () => {
     generateContentMock.mockResolvedValue({
       candidates: [{ content: { parts: [{ text: 'done' }] } }],
     });
@@ -153,7 +153,7 @@ describe('GeminiProvider @google/genai transport', () => {
     ).rejects.toThrow('conflicts with static thinkingConfig.thinkingLevel');
   });
 
-  it('API-001: unknown models omit the native control and expose not-applied', async () => {
+  it('unknown models omit the native control and expose not-applied', async () => {
     generateContentMock.mockResolvedValue({
       candidates: [{ content: { parts: [{ text: 'done' }] } }],
     });
@@ -180,7 +180,7 @@ describe('GeminiProvider @google/genai transport', () => {
     ]);
   });
 
-  it('maps json_schema responseFormat onto responseSchema + JSON mime type (CORE-015)', async () => {
+  it('maps json_schema responseFormat onto responseSchema + JSON mime type', async () => {
     generateContentMock.mockResolvedValue({
       candidates: [{ content: { parts: [{ text: '{"title": "ok"}' }] } }],
     });

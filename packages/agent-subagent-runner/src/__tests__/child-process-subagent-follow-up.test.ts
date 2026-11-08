@@ -1,5 +1,5 @@
 /**
- * #3679 3f: a child-process job takes follow-up input, and says so when it cannot.
+ * A child-process job takes follow-up input, and says so when it cannot.
  *
  * The child is the real worker entry over a provider the test paces. A prompt sent while the initial
  * turn runs is run as the job's next turn, and the job ends only after it; a prompt that reaches a

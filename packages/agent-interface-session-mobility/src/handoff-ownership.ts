@@ -1,5 +1,5 @@
 /**
- * HANDOFF-001 (#1811): the ownership transaction, as a state machine whose every failure lands in
+ * The ownership transaction, as a state machine whose every failure lands in
  * the same place.
  *
  * ## The invariant

@@ -7,7 +7,7 @@ import type { IToolSchema } from '../interfaces/provider';
 import type { TToolParameters } from '../interfaces/tool';
 
 /**
- * DATA-005 characterization tests (RED-first).
+ * Characterization tests (RED-first).
  *
  * The core `FunctionTool` (used by the `tool-manager` path) must honor
  * `schema.parameters.additionalProperties`, matching the canonical
@@ -37,7 +37,7 @@ function makeTool(parameters: IToolSchema['parameters']): FunctionTool {
   return new FunctionTool(schema, async (p: TToolParameters) => JSON.stringify(p));
 }
 
-describe('DATA-005 FunctionTool additionalProperties reconciliation', () => {
+describe('FunctionTool additionalProperties reconciliation', () => {
   it('ACCEPTS an extra property when additionalProperties === true', async () => {
     const tool = makeTool({ ...baseParams, additionalProperties: true });
     const params: TToolParameters = { known: 'value', extra: 'anything' };
@@ -95,7 +95,7 @@ describe('DATA-005 FunctionTool additionalProperties reconciliation', () => {
   });
 });
 
-describe('DATA-005 concrete ToolRegistry surface used by the engine', () => {
+describe('concrete ToolRegistry surface used by the engine', () => {
   function makeRegistry(): ToolRegistry {
     const registry = new ToolRegistry();
     registry.register(makeTool({ ...baseParams }));

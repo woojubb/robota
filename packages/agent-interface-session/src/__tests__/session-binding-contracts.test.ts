@@ -19,7 +19,7 @@ function refusal(code: unknown, name = 'SessionChangeRefusal'): Error {
   return Object.assign(new Error('refused'), { name, code });
 }
 
-describe('session change refusal (#3189)', () => {
+describe('session change refusal', () => {
   it('recognizes a refusal by its name and a declared code', () => {
     for (const code of SESSION_CHANGE_REFUSAL_CODES) {
       expect(isSessionChangeRefusal(refusal(code)), code).toBe(true);
@@ -54,7 +54,7 @@ describe('session change refusal (#3189)', () => {
   });
 });
 
-describe('session binding contracts (#3189)', () => {
+describe('session binding contracts', () => {
   it('gives each binding its session, its directory and a release', () => {
     expectTypeOf<ISessionBinder['bind']>().parameter(0).toEqualTypeOf<'drive' | 'observe'>();
     expectTypeOf<ISessionBinding>().toHaveProperty('session');

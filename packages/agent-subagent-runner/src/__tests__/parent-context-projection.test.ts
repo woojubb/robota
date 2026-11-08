@@ -1,5 +1,5 @@
 /**
- * Issue #2317 — the wire payload carries the two context members the child reads, not the parent's
+ * The wire payload carries the two context members the child reads, not the parent's
  * whole `ILoadedContext`.
  *
  * `agentsFileEntries` and `projectNotesFileEntries` carry the full `content` of every AGENTS.md and
@@ -28,7 +28,7 @@ function parentContext(): IInProcessSubagentRunnerDeps['context'] {
   };
 }
 
-describe('issue #2317: the projected parent context', () => {
+describe('the projected parent context', () => {
   it('carries the two members the child actually reads', () => {
     const projected = projectParentContext(parentContext());
     expect(projected.agentsMd).toBe('# AGENTS');

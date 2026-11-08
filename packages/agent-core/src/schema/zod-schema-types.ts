@@ -1,5 +1,5 @@
 /**
- * Zod schema compatibility types (CORE-015).
+ * Zod schema compatibility types.
  *
  * Structural stand-ins for Zod schemas so the converter and structured-output
  * surfaces accept real Zod schemas (ZodObject<...>, ZodType) without coupling
@@ -29,7 +29,7 @@ export interface IZodSchemaDef {
   shape?: (() => Record<string, IZodSchema>) | Record<string, IZodSchema>;
   catchall?: IZodSchema;
   /**
-   * `ZodEnum` holds an ARRAY here; `ZodNativeEnum` holds the enum OBJECT itself (CORE-041). One Zod
+   * `ZodEnum` holds an ARRAY here; `ZodNativeEnum` holds the enum OBJECT itself. One Zod
    * field name, two shapes — the converter narrows before reading it.
    */
   values?: TUniversalValue[] | Record<string, TUniversalValue>;

@@ -1,6 +1,6 @@
 // @robota-sdk/agent-interface-analytics
 
-// ── Usage and run-trace contracts (ARCH-105 · issue #2112) ───
+// ── Usage and run-trace contracts ───
 export type {
   IUsageSource,
   IUsageSnapshot,

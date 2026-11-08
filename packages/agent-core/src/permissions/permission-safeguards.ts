@@ -1,5 +1,5 @@
 /**
- * The calls no rule and no mode may auto-approve (issue #3081, never-auto-approve set).
+ * The calls no rule and no mode may auto-approve (never-auto-approve set).
  *
  * Two families live here, both answered from the call's own arguments:
  *
@@ -9,7 +9,7 @@
  *   holds repository, agent or shell configuration, where a silent write widens what later turns,
  *   child sessions or the user's shell will trust.
  *
- * Pure string work — `agent-core` ships a browser bundle (CORE-028), so no Node builtin.
+ * Pure string work — `agent-core` ships a browser bundle, so no Node builtin.
  */
 
 import { splitCommandSegments } from './command-segments.js';

@@ -1,5 +1,5 @@
 /**
- * ARCH-021 TC-01: a composition-root stand-in that enters the REAL worker entry point.
+ * A composition-root stand-in that enters the REAL worker entry point.
  *
  * The bintest asserts what the configured product composes, but `composedToolNames` is computed from the composition
  * independently of `runInitialPrompt` — so reverting `parentTools:` to an empty array, or building
@@ -8,7 +8,7 @@
  * observe the root the worker actually asked for, on the real code path.
  *
  * Deliberately not a hand-rolled worker: the existing fixture never enters `runSubagentWorkerMain`,
- * which is exactly the function ARCH-021 changed.
+ * which is exactly the function that composes the worker.
  */
 import { appendFileSync } from 'node:fs';
 

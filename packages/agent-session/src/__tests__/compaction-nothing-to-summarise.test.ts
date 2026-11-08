@@ -1,5 +1,5 @@
 /**
- * CORE-031 — a compaction with nothing to summarise must not replace the conversation.
+ * A compaction with nothing to summarise must not replace the conversation.
  *
  * `session-history-ops.compact()` guarded on the FULL history and then compacted a DIFFERENT array:
  * it filters system messages out before calling the orchestrator. So a conversation consisting only
@@ -97,7 +97,7 @@ beforeEach(() => {
   providerChatCalls = 0;
 });
 
-describe('CORE-031 — nothing to summarise is a no-op, not a summary', () => {
+describe('nothing to summarise is a no-op, not a summary', () => {
   it('leaves a system-messages-only conversation untouched', async () => {
     const session = createSession();
     // Exactly what a fresh session holds when `/compact` is the first thing the user types.
@@ -136,12 +136,12 @@ describe('CORE-031 — nothing to summarise is a no-op, not a summary', () => {
     expect(mockInjectCalls).toEqual([]);
   });
 
-  it('still reports a cancelled turn as cancelled, even with nothing to compact (RUNTIME-004)', async () => {
+  it('still reports a cancelled turn as cancelled, even with nothing to compact', async () => {
     const session = createSession();
-    // The orchestrator used to make this check for us. The CORE-031 early return happens before the
+    // The orchestrator used to make this check for us. The early return happens before the
     // orchestrator is reached, so the caller has to keep the abort contract itself — otherwise a
     // cancelled no-op resolves quietly and the contract narrows to "rejects if cancelled AND there
-    // was work", which is a different promise from the one RUNTIME-004 made.
+    // was work", which is a different promise.
     mockHistory = [{ role: 'system', content: 'test system' }];
 
     await expect(session.compact(undefined, 'manual', AbortSignal.abort())).rejects.toThrow();

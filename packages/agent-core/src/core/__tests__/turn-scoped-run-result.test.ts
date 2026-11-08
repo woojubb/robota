@@ -1,12 +1,12 @@
 /**
- * A run answers for ITS turn — issue #3209.
+ * A run answers for ITS turn.
  *
  * The result was read from the whole conversation store. A turn that produced no text therefore
  * either threw a contract-violation error (first turn) or resolved with the PREVIOUS turn's answer
  * (every later turn), and `tokensUsed` re-counted every earlier call on every run. An aborted run
  * resolved `''` while history kept the partial text, and dropped the tools that had already run.
  *
- * Every case runs against both entry points: they are two entries into one turn (CORE-042).
+ * Every case runs against both entry points: they are two entries into one turn.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';

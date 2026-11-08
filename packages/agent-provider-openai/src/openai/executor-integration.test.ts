@@ -133,7 +133,7 @@ describe('OpenAI Provider Executor Integration', () => {
     });
 
     it('does not dispose an INJECTED executor, whose lifecycle its creator owns', async () => {
-      // HARNESS-052. This test previously read `should clean up executor when provider is
+      // This test previously read `should clean up executor when provider is
       // disposed` and asserted `expect(true).toBe(true)` — a claim the assertion could not check
       // and which `OpenAIProvider.dispose()` does not in fact make: it is empty. The executor is
       // constructor-injected, so disposing it here would tear down a dependency the caller still

@@ -1,9 +1,9 @@
 /**
- * UI-agnostic "ask the user" contract (CMD-004).
+ * UI-agnostic "ask the user" contract.
  *
  * The SSOT for the interaction action lives in agent-core so every interaction *source* can reach it:
  * command execution (`ICommandHostContext`, agent-framework) AND tool execution
- * (`IToolExecutionContext`, agent-core, for model-issued questions — CMD-005). These are pure types
+ * (`IToolExecutionContext`, agent-core, for model-issued questions). These are pure types
  * with no runtime dependency, so the contract crosses a serialization/transport boundary unchanged
  * (no function-valued fields).
  *

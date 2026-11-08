@@ -8,9 +8,9 @@ import type { ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
 /**
  * Wait for an approval, or for the turn to be cancelled — whichever happens first.
  *
- * RUNTIME-005: a human-approval prompt is a wait with no natural end. `abort()` reached the provider
+ * A human-approval prompt is a wait with no natural end. `abort()` reached the provider
  * and the tool-start check but not this, so a turn parked here ran until somebody answered, and since
- * RUNTIME-003 holds the session's claim until the turn unwinds, the session stayed busy with no way
+ * the session's claim is held until the turn unwinds, the session stayed busy with no way
  * for the caller to clear it short of discarding it.
  *
  * A cancelled approval resolves to `false`, NOT to a rejection and never to `true`. Two reasons, and
@@ -75,7 +75,7 @@ function interpretApproval(result: TPermissionResult): IApprovalOutcome {
 /**
  * The whole human-approval path: allow-list, cancellation, prompt, and what the answer means.
  *
- * Moved out of the enforcer when RUNTIME-005 pushed it past its size ceiling, and the seam is real
+ * Separate from the enforcer, and the seam is real
  * rather than convenient — this decides whether a human said yes, while the enforcer decides whether
  * a human is asked at all. Side effects come back as flags so the enforcer keeps ownership of its own
  * allow lists.
@@ -111,7 +111,7 @@ export async function decideApproval(request: IApprovalRequest): Promise<IApprov
   if (request.alreadyAllowed) {
     return { allowed: true, rememberForSession: false, rememberForProject: false };
   }
-  // RUNTIME-005: a turn already cancelled asks nobody. Prompting here would put a question on screen
+  // A turn already cancelled asks nobody. Prompting here would put a question on screen
   // for work that is not going to happen.
   if (request.signal?.aborted === true) return denied;
   // Which prompt to run is this module's business too: the enforcer supplies the approvers it has

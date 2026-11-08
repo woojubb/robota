@@ -1,5 +1,5 @@
 /**
- * MCP-005 (TC-07) — conformance: the real `AnthropicProvider` over the shared MCP-005 fixture set.
+ * Conformance: the real `AnthropicProvider` over the shared fixture set.
  *
  * `tools[].input_schema` equals the projected `parameters` for every adopted/adapted fixture
  * (annotation and `patternProperties` keys pass through under `'adopt'` — Anthropic's profile is
@@ -77,7 +77,7 @@ interface ISentTool {
   input_schema: unknown;
 }
 
-describe('MCP-005 TC-07 — Anthropic conformance over shared fixtures', () => {
+describe('Anthropic conformance over shared fixtures', () => {
   let mockClient: { messages: { create: ReturnType<typeof vi.fn> } };
   let provider: AnthropicProvider;
 

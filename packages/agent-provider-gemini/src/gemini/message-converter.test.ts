@@ -178,11 +178,11 @@ describe('convertToGeminiFormat', () => {
     expect(result[0]?.parts?.[0]).toHaveProperty('functionCall');
   });
 
-  // Issue #2875 (follow-up to #2078): agent-core already isolated a malformed tool call as its own
+  // agent-core already isolated a malformed tool call as its own
   // failed batch result — but the NEXT round's assistant message still carries that call's raw,
   // malformed `function.arguments`, and this converter used to throw on it, crashing the whole
   // request instead of leaving the (already-reported) call as an empty-object `args`.
-  describe('malformed tool-call arguments (#2875)', () => {
+  describe('malformed tool-call arguments', () => {
     function assistantWithToolCall(args: string): IAssistantMessage {
       return {
         role: 'assistant',

@@ -38,7 +38,7 @@ export class ToolExecutionService {
   private tools: IToolManager;
   private logger: ILogger;
   private askHandler?: IUserInteraction['ask'];
-  /** CLI-1990: the narrow port a search tool loads through — no tool ever holds the manager. */
+  /** The narrow port a search tool loads through — no tool ever holds the manager. */
   private readonly deferredToolCatalog: IDeferredToolCatalog;
 
   constructor(tools: IToolManager, logger: ILogger = SilentLogger) {
@@ -67,7 +67,7 @@ export class ToolExecutionService {
   }
 
   /**
-   * Session-scoped "ask the user" port (CMD-005). When set, every execution request built by
+   * Session-scoped "ask the user" port. When set, every execution request built by
    * `createExecutionRequestsWithContext` carries it into the tool's `IToolExecutionContext.ask`.
    */
   setAskHandler(ask: IUserInteraction['ask'] | undefined): void {
@@ -97,7 +97,7 @@ export class ToolExecutionService {
         );
       }
 
-      // CLI-1990: a deferred tool the model has not loaded is refused like an unknown one — the model
+      // A deferred tool the model has not loaded is refused like an unknown one — the model
       // was never shown its schema — and the remedy names the tool that loads it, so the two rounds
       // before the unknown-tool loop guard force-summarises are recoverable rather than fatal.
       provenance = snapshotToolProvenance(this.tools.getTool?.(toolName)?.provenance);
@@ -263,7 +263,7 @@ export class ToolExecutionService {
       );
       return {
         toolName: toolCall.function.name,
-        // Issue #2875 (follow-up to #2078): a decode failure carries a placeholder here — the
+        // A decode failure carries a placeholder here — the
         // batch executor checks `argumentDecodeError` and returns a failed result WITHOUT ever
         // passing `parameters` to the tool.
         parameters: decoded.ok ? decoded.parameters : ({} as TToolParameters),
@@ -298,11 +298,11 @@ type TDecodedToolCallArguments =
   { ok: true; parameters: TToolParameters } | { ok: false; error: string };
 
 /**
- * Issue #2078: `TToolParameters` is a record contract, so a syntactically valid JSON body whose root
+ * `TToolParameters` is a record contract, so a syntactically valid JSON body whose root
  * is `null`, a scalar, or an array is refused HERE. The parameter validator downstream enumerates
  * fields with `in` and assumes a non-null object; a bare cast would let those roots reach it.
  *
- * Issue #2875 (follow-up to #2078): this returns a result instead of throwing. One provider batch
+ * This returns a result instead of throwing. One provider batch
  * can name several tool calls; a malformed call is THIS call's failure, not a reason to abort request
  * construction for the rest of the batch — the caller turns a decode failure into the same per-call
  * failed outcome an unknown tool name already gets, so every call still gets a result.

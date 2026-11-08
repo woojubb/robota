@@ -1,5 +1,5 @@
 /**
- * Tool search vocabulary (CLI-1990) — the client-side residency contract.
+ * Tool search vocabulary — the client-side residency contract.
  *
  * A tool schema may declare `deferLoading` (`IToolSchema`); when the policy engages, such a schema
  * is WITHHELD from the request entirely until it is loaded — by the model calling the search tool,

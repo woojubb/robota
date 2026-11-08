@@ -1,7 +1,7 @@
 import type { TRoleModelMap } from '@robota-sdk/agent-core';
 
 /**
- * SELFHOST-006 — the concrete per-role model routing set.
+ * The concrete per-role model routing set.
  *
  * This is the app-workflow OPINION (`planner`/`editor`/`reviewer`) that the neutral `TRoleModelMap`
  * contract deliberately does NOT embed. Each role maps to an ordered fallback chain — the primary

@@ -1,5 +1,5 @@
 /**
- * The child-process subagent runner states how its children keep their logs (#3679, secure
+ * The child-process subagent runner states how its children keep their logs (secure
  * conversation): there is no plain default, because a host that forgot would leave every child
  * writing a plaintext transcript beside sealed stores.
  *

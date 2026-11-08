@@ -6,7 +6,7 @@ const DEFAULT_KEY_PREFIX = 'conversation:';
 
 /**
  * Database-backed conversation history storage. Serializes each conversation to JSON and
- * persists it through an injected {@link IDatabaseDriver} (PLUGIN-002).
+ * persists it through an injected {@link IDatabaseDriver}.
  */
 export class DatabaseHistoryStorage implements IHistoryStorage {
   private driver: IDatabaseDriver;

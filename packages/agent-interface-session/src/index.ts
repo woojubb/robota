@@ -1,7 +1,7 @@
 // @robota-sdk/agent-interface-session
 //
 // The session, interaction, event, driver, turn and compaction contract families, moved out of
-// `agent-interface-transport` by ARCH-106 (issue #2110).
+// `agent-interface-transport`.
 //
 // LAYER 1. Unlike the three wave-1 owners, this package COMPOSES rather than sits at the bottom: it
 // names execution, command and analytics contracts and depends on those packages downward. Nothing
@@ -9,7 +9,7 @@
 
 export type { IOwnerSessionDirectory, TOwnerSessionQuestion } from './owner-session-directory.js';
 
-// ── Context-compaction contracts (INFRA-025 SSOT) ────────────
+// ── Context-compaction contracts ────────────
 export type { TCompactTrigger, ICompactEvent } from './compact-contracts.js';
 export type {
   IResumableSessionSummary,
@@ -38,7 +38,7 @@ export type {
   TSessionLoopPhase,
   TWaitingLoopStopOutcome,
 } from './session-loop-contracts.js';
-// #3282 §4c — the Project panel's read contracts (git status, one file's diff, project memory). Not
+// The Project panel's read contracts (git status, one file's diff, project memory). Not
 // part of `IInteractiveSession`'s composed aggregate below (see `ISessionProjectRead`'s own doc
 // comment).
 export type {
@@ -137,7 +137,7 @@ export type {
   TSessionCapabilityHost,
   TSessionCapabilityReadResult,
 } from './session-capability-contracts.js';
-// ── Prompt history (SCREEN-1993) ────────────────────────────
+// ── Prompt history ────────────────────────────
 export type {
   IPromptHistoryBlock,
   IPromptHistoryEntry,
@@ -146,7 +146,7 @@ export type {
   IPromptHistoryWriter,
 } from './prompt-history-contracts.js';
 // ── Driver identity + driver-routed event contracts ─────────
-// REMOTE-014 E5: co-drive driver-id constants (values, not types).
+// Co-drive driver-id constants (values, not types).
 export { OWNER_DRIVER_ID, AGENT_DRIVER_ID } from './driver-contracts.js';
 export type {
   TDriverId,
@@ -188,7 +188,7 @@ export type {
   TContextReferenceStatus,
 } from './event-contracts.js';
 export type { IPlanApprovalEvent } from './session-event-map.js';
-// ── Settings-screen contracts (#3282 §4a) ────────────────────
+// ── Settings-screen contracts ────────────────────
 export type {
   ISettingsChoice,
   ISettingsLanguageSection,

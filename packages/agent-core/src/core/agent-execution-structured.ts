@@ -1,5 +1,5 @@
 /**
- * Structured-output execution (CORE-015) for the ConversationAgent agent.
+ * Structured-output execution for the ConversationAgent agent.
  *
  * Split from agent-execution.ts to keep each file under 300 lines: the plain turn and the
  * schema-enforced retry loop are separate responsibilities that happen to share an entry object.
@@ -38,7 +38,7 @@ function buildRetryFeedbackInput(spec: IStructuredOutputSpec, issues: string[]):
 }
 
 /**
- * Execute a schema-enforced structured turn (CORE-015). Each attempt is a full
+ * Execute a schema-enforced structured turn. Each attempt is a full
  * conversation turn (history stays append-only); a validation failure feeds the
  * issues back as the next attempt's input, bounded by `outputRetries`.
  * @internal
@@ -95,7 +95,7 @@ export async function* agentRunStreamStructured(
   let lastIssues: string[] = [];
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    // CORE-042: validate the turn's FINAL assistant text, which `agentRunStream` now returns --
+    // Validate the turn's FINAL assistant text, which `agentRunStream` now returns --
     // not the concatenation of every yielded chunk. The concatenation carries round-1 prose and the
     // inter-round separator, so a tool-using structured turn could never parse. `yield*` is required
     // rather than a manual loop: it forwards `.return()`, without which a consumer breaking out of a

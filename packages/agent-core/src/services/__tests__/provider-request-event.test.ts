@@ -1,5 +1,5 @@
 /**
- * CORE-043: `provider_request` must describe the request that was actually sent.
+ * `provider_request` must describe the request that was actually sent.
  *
  * The event was emitted BEFORE the provider call, carrying the caller's `conversationMessages`. The
  * structured-output transport guard adds a system instruction that array does not contain — so for a
@@ -37,7 +37,7 @@ class NoSchemaProvider {
   readonly name = 'no-schema';
   readonly version = '1.0.0';
   received: TUniversalMessage[] = [];
-  /** CLI-1990: the wire options, so a case can compare the logged envelope against what was sent. */
+  /** The wire options, so a case can compare the logged envelope against what was sent. */
   receivedOptions: IChatOptions | undefined;
 
   capabilityTable(): IProviderCapabilityTable {
@@ -75,7 +75,7 @@ class NoSchemaProvider {
   async dispose(): Promise<void> {}
 }
 
-describe('CORE-043 — provider_request describes what was sent', () => {
+describe('provider_request describes what was sent', () => {
   it('carries the schema instruction the transport guard added', async () => {
     const provider = new NoSchemaProvider();
     const events: Array<{ event: string; data: Record<string, unknown> }> = [];
@@ -114,7 +114,7 @@ describe('CORE-043 — provider_request describes what was sent', () => {
     }
   });
 
-  it('DATA-2577 assigns one stable usage identity to each provider round', async () => {
+  it('assigns one stable usage identity to each provider round', async () => {
     const provider = new NoSchemaProvider();
     const agent = new ConversationAgent({
       name: 'usage-observation-identity',
@@ -138,7 +138,7 @@ describe('CORE-043 — provider_request describes what was sent', () => {
   });
 
   /**
-   * CLI-1990 TC-08 — the same rule, now applied to `tools`.
+   * The same rule, now applied to `tools`.
    *
    * The event logged `resolved.availableTools`, the array the round was ASSEMBLED from. That already
    * diverged from the wire whenever the model-capability guard removed the tools, and residency
@@ -150,7 +150,7 @@ describe('CORE-043 — provider_request describes what was sent', () => {
    * deferring agent always offers a way in. It need not be the shipped `agent-tools` builtin — only
    * a tool under the name the execution layer's unknown-tool remedy points at.
    */
-  it('TC-08: carries the tools actually sent, not the registry the round was assembled from', async () => {
+  it('carries the tools actually sent, not the registry the round was assembled from', async () => {
     const provider = new NoSchemaProvider();
     const events: Array<{ event: string; data: Record<string, unknown> }> = [];
     const agent = new ConversationAgent({
@@ -208,7 +208,7 @@ describe('CORE-043 — provider_request describes what was sent', () => {
 
   /**
    * The companion to the case above: the same agent WITHOUT a loader is refused at assembly rather
-   * than quietly sending a shorter tool list. Its absence is what let TC-08 pass on a shape the
+   * than quietly sending a shorter tool list. Its absence would let a test pass on a shape the
    * product cannot produce.
    */
   it('refuses to defer a schema when no loader is offered', async () => {

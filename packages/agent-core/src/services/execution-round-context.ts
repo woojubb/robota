@@ -63,7 +63,7 @@ export function handleContextCapacityBlock(
   roundState: IExecutionRoundState,
   conversationStore: ConversationStore,
   logger: ILogger,
-  // CORE-033: the block appends a message, and every append announces itself. Threaded in rather
+  // The block appends a message, and every append announces itself. Threaded in rather
   // than reached for globally, so this stays a pure function of what it was given — grouped into one
   // argument because three more positionals on a six-positional function is a signature nobody can
   // read at the call site.
@@ -106,7 +106,7 @@ export function handleContextCapacityBlock(
       usedPercentage: contextDecision.usedPercentage,
     },
   );
-  // CORE-033: the block ENDS the round, and this diagnostic is the only thing the user sees for it.
+  // The block ENDS the round, and this diagnostic is the only thing the user sees for it.
   // Appending it without a `history_mutation` left a replay of the session log short exactly one
   // message — and the one explaining why the turn stopped.
   announceAppend(

@@ -12,7 +12,7 @@ import {
 import { setGlobalLoggerSink, setGlobalLogLevel, type ILogger } from '../utils/logger';
 
 /**
- * NEUT-010 — vendor model knowledge in the vendor-neutral package.
+ * Vendor model knowledge in the vendor-neutral package.
  *
  * `getModelContextWindow` answered `DEFAULT_CONTEXT_WINDOW` for anything it did not recognise, and
  * that constant is 200 000 — CLAUDE's window. So every non-Claude session was planned against a
@@ -42,7 +42,7 @@ function recordingSink(): { sink: ILogger; lines: string[] } {
   };
 }
 
-describe('model metadata registry (NEUT-010)', () => {
+describe('model metadata registry', () => {
   afterEach(() => {
     clearRegisteredModelMetadata();
     setGlobalLoggerSink(undefined);
@@ -86,7 +86,7 @@ describe('model metadata registry (NEUT-010)', () => {
   });
 
   /**
-   * Named "overrides the built-in table" in review of #1595, which was WRONG in a way worth
+   * Not named "overrides the built-in table", which would be WRONG in a way worth
    * recording: this change removes the built-in table, so there is nothing to override. Its `before`
    * value of 200 000 was the unknown-model FALLBACK, which happens to equal the window Claude Haiku
    * really has — the exact coincidence this suite avoids elsewhere by probing with Sonnet, whose

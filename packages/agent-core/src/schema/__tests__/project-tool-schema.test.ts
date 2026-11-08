@@ -1,5 +1,5 @@
 /**
- * MCP-005 — the shared tool-schema projector. TC-01, TC-02, TC-03, TC-04, TC-12.
+ * The shared tool-schema projector.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -42,7 +42,7 @@ const GEMINI_SHAPED = profile(PERMISSIVE_TOOL_SCHEMA_PROFILE, 'gemini-test', {
   unsupportedMembers: ['additionalProperties'],
 });
 // `unknownKeywords: 'strip'` WITHOUT the closure family — isolates the keyword matrix from
-// `closeObjectSchemas`'s own `required`/`nullable` wrapping (TC-04's territory), which would
+// `closeObjectSchemas`'s own `required`/`nullable` wrapping, which would
 // otherwise wrap every optional property in `anyOf: [T, null]` and hide the assertions below.
 const STRIP_ONLY = profile(PERMISSIVE_TOOL_SCHEMA_PROFILE, 'strip-only-test', {
   unknownKeywords: 'strip',
@@ -81,7 +81,7 @@ function canonicalizeForComparison(value: unknown): unknown {
   return value;
 }
 
-describe('MCP-005 TC-01 — determinism, immutability, adopted', () => {
+describe('determinism, immutability, adopted', () => {
   it('a subset-only schema projects adopted with changes: [] and tool deep-equal to the input', () => {
     const projection = projectToolSchema(fixtures.subsetOnly, PERMISSIVE);
     expect(projection.outcome).toBe('adopted');
@@ -124,7 +124,7 @@ describe('MCP-005 TC-01 — determinism, immutability, adopted', () => {
   });
 });
 
-describe('MCP-005 TC-02 — refusals', () => {
+describe('refusals', () => {
   it('a non-object root is rejected', () => {
     const projection = projectToolSchema(fixtures.rootAnyOf, PERMISSIVE);
     expect(projection.outcome).toBe('rejected');
@@ -232,7 +232,7 @@ describe('MCP-005 TC-02 — refusals', () => {
   });
 });
 
-describe('MCP-005 TC-03 — unknownKeywords matrix', () => {
+describe('unknownKeywords matrix', () => {
   it("'adopt' passes annotation and structural-validation keys through unchanged", () => {
     const projection = projectToolSchema(fixtures.unknownKeywords, PERMISSIVE);
     expect(projection.outcome).toBe('adopted');
@@ -346,7 +346,7 @@ describe('MCP-005 TC-03 — unknownKeywords matrix', () => {
   });
 });
 
-describe('MCP-005 — strip never loses co-located members silently (Round A MUST-2)', () => {
+describe('strip never loses co-located members silently (Round A MUST-2)', () => {
   it('a $ref node with a local description is replaced, keeps the description, and records every other survivor', () => {
     const tool: IToolSchema = {
       name: 'ref-with-description',
@@ -379,7 +379,7 @@ describe('MCP-005 — strip never loses co-located members silently (Round A MUS
   });
 });
 
-describe('MCP-005 TC-04 — closure family and the Schema note', () => {
+describe('closure family and the Schema note', () => {
   it('the projected parameters deep-equal closeObjectSchemas with the same options', () => {
     const projection = projectToolSchema(fixtures.subsetOnly, STRICT);
     const expected = closeObjectSchemas(fixtures.subsetOnly.parameters, {
@@ -438,7 +438,7 @@ describe('MCP-005 TC-04 — closure family and the Schema note', () => {
   });
 });
 
-describe('MCP-005 TC-12 — seeded fuzz generator', () => {
+describe('seeded fuzz generator', () => {
   function createLcg(seed: number): () => number {
     let state = seed >>> 0;
     return (): number => {
@@ -611,7 +611,7 @@ describe('MCP-005 TC-12 — seeded fuzz generator', () => {
 });
 
 // Depth ceiling sanity: the shared constant must match what every shipped profile declares.
-describe('MCP-005 — shared ceilings', () => {
+describe('shared ceilings', () => {
   it('PERMISSIVE and STRICT share the same depth/node ceilings', () => {
     expect(PERMISSIVE_TOOL_SCHEMA_PROFILE.maxDepth).toBe(TOOL_SCHEMA_PROJECTION_MAX_DEPTH);
     expect(STRICT_TOOL_SCHEMA_PROFILE.maxDepth).toBe(TOOL_SCHEMA_PROJECTION_MAX_DEPTH);

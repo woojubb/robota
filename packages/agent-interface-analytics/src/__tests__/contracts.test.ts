@@ -14,7 +14,7 @@ import type {
 } from '../index.js';
 
 /**
- * The usage-contract assertions, moved here with their declarations by ARCH-105 (issue #2112).
+ * The usage-contract assertions, kept beside the declarations they cover.
  *
  * `IUsageSnapshot` was asserted in `agent-interface-transport`'s `contracts.test.ts` beside
  * transport-adapter assertions; the rest were not asserted anywhere. Extracting the family was the

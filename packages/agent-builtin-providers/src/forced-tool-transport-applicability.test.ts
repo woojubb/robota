@@ -1,17 +1,18 @@
 /**
- * CORE-048 — the forced-tool-call structured-output transport has NO applicable provider, and this
+ * The forced-tool-call structured-output transport has NO applicable provider, and this
  * is the tripwire that fires when that stops being true.
  *
  * ## The question, and why it is answerable here
  *
- * CORE-038 proposed forcing a call to a synthetic tool whose parameters ARE the output schema, and
- * was judged `DEPTH: FOUNDATIONAL`: the transport may be right, but it was stated above its cause.
- * CORE-043 built the cause — a `(provider, model)` pair now resolves to a `TStructuredOutputMechanism`
- * — and deliberately left `'tool_strict'` out of that vocabulary, because a union member nothing
- * produces is a branch every consumer must handle and no test can reach.
+ * The proposal is to force a call to a synthetic tool whose parameters ARE the output schema. That
+ * transport may be right, but it sits above its cause: a `(provider, model)` pair resolves to a
+ * `TStructuredOutputMechanism`, and `'tool_strict'` is deliberately left out of that vocabulary,
+ * because a union member nothing produces is a branch every consumer must handle and no test can
+ * reach.
  *
- * CORE-048 asked whether it has earned a member. The transport is only worth anything for a pair
- * that BOTH lacks a schema parameter AND has enforceable strict tool arguments. Measured across the
+ * The question is whether the transport has earned a member. It is only worth anything for a
+ * pair that BOTH lacks a schema parameter AND has enforceable strict tool arguments. Measured
+ * across the
  * workspace, that intersection is **empty**:
  *
  * | provider  | resolved mechanism            | strict tool arguments |
@@ -26,11 +27,10 @@
  * Every provider that HAS strict tool arguments already gets the schema as a native parameter, so a
  * forced tool call would carry nothing the request does not already carry. Every provider that lacks
  * a schema parameter has no strict-tool support to carry it instead. So the transport would be built
- * for nobody — and `'tool_strict'` would be exactly the unreachable branch CORE-043 declined to add,
- * now declined with a measurement rather than with caution.
+ * for nobody — and `'tool_strict'` would be exactly the unreachable branch the vocabulary declined
+ * to add, now declined with a measurement rather than with caution.
  *
- * **This item therefore closes with "the improved baseline is good enough" recorded**, which its own
- * Direction names as a legitimate outcome.
+ * **The improved baseline is therefore good enough**, and no transport is added.
  *
  * ## Why a test rather than only a note
  *
@@ -77,7 +77,7 @@ type DeclaredKeys<T> = {
 };
 
 /**
- * Whether a provider's published options DECLARE strict tool arguments — CORE-048.
+ * Whether a provider's published options DECLARE strict tool arguments.
  *
  * Derived by the compiler from the interface itself, not written down. That distinction is the
  * whole point and was got wrong once: this table held hand-written booleans while the docblock
@@ -106,7 +106,7 @@ const NOT_USED = 'not-used-no-request-is-sent';
  *
  * `table` is a REQUIRED field whose value may be `undefined` — not an optional field — because
  * "declares nothing" is an answer the resolver must be given rather than one it may infer from an
- * absent key (CORE-043: silence is not a denial). So it is passed explicitly.
+ * absent key (silence is not a denial). So it is passed explicitly.
  */
 function resolveFor(provider: IAIProvider, model: string): TStructuredOutputMechanism {
   const table = provider.capabilityTable ? provider.capabilityTable() : undefined;
@@ -161,7 +161,7 @@ function providerMatrix(): Array<{
       name: 'gemma',
       // Served over an OpenAI-compatible endpoint, so it is constructed with one. It declares no
       // capability table, which resolves to `response_schema` / `undeclared` — silence is not a
-      // denial (CORE-043).
+      // denial.
       provider: new GemmaProvider({
         apiKey: NOT_USED,
         baseURL: 'https://example.invalid/v1',
@@ -187,7 +187,7 @@ function providerMatrix(): Array<{
 /** The providers this repository ships, as named in `agent-core`'s SPEC. */
 const DOCUMENTED_PROVIDERS = ['anthropic', 'deepseek', 'gemini', 'gemma', 'openai', 'qwen'];
 
-describe('CORE-048 — the forced-tool-call transport has no applicable provider', () => {
+describe('the forced-tool-call transport has no applicable provider', () => {
   it('measures EVERY provider this workspace ships', () => {
     // The omission this catches is the one that already happened: `gemma` was missing while the
     // docblock and the SPEC both named it. Without this, a provider added later is simply never
@@ -207,16 +207,16 @@ describe('CORE-048 — the forced-tool-call transport has no applicable provider
       return needsAnotherTransport && entry.hasStrictToolArguments;
     });
 
-    // When this fails, the transport has become answerable and CORE-048's four questions are live
+    // When this fails, the transport has become answerable and the four questions below are live
     // again. They are NOT answered here, deliberately — answering them against no implementation
     // would be designing for a provider nobody has:
     //
     //   1. NAME COLLISION. The synthetic tool joins a tool set the user owns; `respond_with_schema`
     //      is not reserved. A collision must be DETECTED, not silently resolved either way.
     //   2. THE MODEL PICKS A REAL TOOL. Under `toolChoice: 'required'` it may call one of the
-    //      user's own. CORE-017 makes forcing apply to round 1 only, so this interacts with an
+    //      user's own. Forcing applies to round 1 only, so this interacts with an
     //      existing rule rather than being free to define — and the run must still terminate.
-    //   3. IT MUST BEAT THE CORE-043 BASELINE, which is no longer "guaranteed failure on attempt
+    //   3. IT MUST BEAT THE CURRENT BASELINE, which is no longer "guaranteed failure on attempt
     //      one": the schema is now stated in the prompt on the FIRST attempt.
     //   4. ONE IMPLEMENTATION MAY NOT BE WORTH A VOCABULARY MEMBER — `'tool_strict'` is a branch
     //      every consumer of `TStructuredOutputMechanism` must then handle.

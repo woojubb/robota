@@ -1,6 +1,6 @@
 import { validatePendingExecution } from './pending-execution-decoder.js';
 /**
- * TRANS-005 (#2081) — the total decoder for a persisted interactive-session record, and the
+ * The total decoder for a persisted interactive-session record, and the
  * versioned envelope that carries one.
  *
  * ## Why the version is in an envelope and not in the record
@@ -33,14 +33,13 @@ import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-sess
  * not decode the members it recognises, because a partially decoded session is the silent
  * field-loss this codec replaces.
  *
- * ONE concept, not two (issue #2185): the envelope `{ schemaVersion, record }` and the record it
+ * ONE concept, not two: the envelope `{ schemaVersion, record }` and the record it
  * wraps version together — a change to either shape bumps this number, and every consumer of the
  * envelope reads it: the portable session artifact (`serializeSessionArtifact`) and the session
  * store (`NodeSessionStore.save`, `WorkspaceSessionStore`). Two constants would let an envelope-only
  * change reject records that are fine, and the two shapes have never moved apart. The constant is
- * therefore named for the pair it versions, not for its first consumer: TRANS-006 kept the
- * incumbent `SESSION_ARTIFACT_SCHEMA_VERSION` (published, written by the producing path) over the
- * duplicate TRANS-005 introduced, and #2185 renamed it here — prerelease, so no alias.
+ * therefore named for the pair it versions, not for its first consumer: it replaces the
+ * `SESSION_ARTIFACT_SCHEMA_VERSION` name, and there is no alias.
  *
  * Its DECLARATION lives here rather than beside the artifact functions because `session-artifact.ts`
  * imports this module; declaring it there and importing it back would be a module cycle. The export

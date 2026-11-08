@@ -6,7 +6,7 @@
  * completion fail — that case already resolves normally (asserted below as a contrast). But a round
  * that produces NEITHER a tool call NOR any text is genuinely unanswered: without the flag it is
  * recovered by one more provider call (`forceSummaryCall`), and the flag is exactly what turns that
- * rescue off. Before the fix, that combination reached `agentRun`'s CORE-020 invariant — "every
+ * rescue off. Before the fix, that combination reached `agentRun`'s invariant — "every
  * failed result must carry its error" — with no error attached, and threw the internal
  * `[STRICT-POLICY]` message instead of a typed, catchable error.
  *

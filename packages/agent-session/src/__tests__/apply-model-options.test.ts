@@ -1,5 +1,5 @@
 /**
- * Tests for the PRESET-013 live model/effort re-application seam on Session.
+ * Tests for the live model/effort re-application seam on Session.
  *
  * SessionBase.applyModelOptions propagates model/effort/temperature/maxOutputTokens to the agent
  * via agent.setModel and updates this.model so getModelId() stays accurate. The preset
@@ -62,8 +62,8 @@ function buildSession(): Session {
   });
 }
 
-describe('SessionBase.applyModelOptions (PRESET-013)', () => {
-  it('TC-02: applyModelOptions({ effort }) calls agent.setModel with the effort', async () => {
+describe('SessionBase.applyModelOptions', () => {
+  it('applyModelOptions({ effort }) calls agent.setModel with the effort', async () => {
     setModelSpy.mockClear();
     const session = buildSession();
 
@@ -88,7 +88,7 @@ describe('SessionBase.applyModelOptions (PRESET-013)', () => {
     expect(setModelSpy).toHaveBeenCalledWith(expect.objectContaining({ effort: 'auto' }));
   });
 
-  it('TC-03: applyModelOptions({ model }) updates getModelId()', async () => {
+  it('applyModelOptions({ model }) updates getModelId()', async () => {
     setModelSpy.mockClear();
     const session = buildSession();
 

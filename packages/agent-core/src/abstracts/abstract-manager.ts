@@ -18,7 +18,7 @@ export interface IManagerLifecycleOptions {
   /**
    * Declare that this manager needs no asynchronous setup, so its API works from construction.
    *
-   * CORE-045: a manager whose `doInitialize` does nothing still refused every guarded call until
+   * A manager whose `doInitialize` does nothing still refused every guarded call until
    * something awaited `initialize()`. That turned a public API into a trap — `registerTool` and
    * `swapDefaultProvider` threw on every freshly constructed agent — while protecting nothing,
    * because there was no asynchronous state for a caller to race. Declare this only when
@@ -102,7 +102,7 @@ export abstract class AbstractManager {
    *
    * The two refusing states are reported separately because they describe different situations: an
    * uninitialized manager is waiting for its owner to call `initialize()`, while a disposed one has
-   * been torn down and its resources released. Reporting both as "not initialized" sent CORE-045's
+   * been torn down and its resources released. Reporting both as "not initialized" sends an
    * investigation looking for a missing await that did not exist.
    */
   protected ensureInitialized(): void {

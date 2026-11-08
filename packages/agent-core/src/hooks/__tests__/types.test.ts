@@ -17,7 +17,7 @@ describe('Hook types', () => {
       'SubagentStop',
       'WorktreeCreate',
       'WorktreeRemove',
-      // SELFHOST-009 — informational-only events (non-blocking).
+      // Informational-only events (non-blocking).
       'PreModelCall',
       'PostModelCall',
       'PermissionDecision',

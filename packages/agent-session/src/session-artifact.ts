@@ -1,8 +1,8 @@
 /**
- * SELFHOST-014 — the neutral export/import envelope for a session, over `IInteractiveSessionRecord`.
+ * The neutral export/import envelope for a session, over `IInteractiveSessionRecord`.
  *
  * This is a RECORD-TRANSPORT sibling of the file-backed `session-store.ts` (SRP: transport vs file persistence).
- * It is the async, durable COMPLEMENT to REMOTE-001's live P2P channel — export a thread to a portable artifact,
+ * It is the async, durable COMPLEMENT to the live P2P channel — export a thread to a portable artifact,
  * hand it off, import + resume it later on a second surface, with both peers possibly offline. No transport, no
  * pairing, no wire protocol.
  *
@@ -15,7 +15,7 @@
  *      `redact` transform BEFORE writing bytes. The envelope selects NO fields and owns NO field policy — the app
  *      builds `redact` (composing the opt-in `scrubSensitiveKeys`). The no-transform form stays full-fidelity.
  *
- * Neutrality (mechanically fenced — TC-05): this module is pure serialize/deserialize + a schema-version header +
+ * Neutrality (mechanically fenced): this module is pure serialize/deserialize + a schema-version header +
  * the app-supplied `redact` seam. It carries NO link/cloud/upload/access-control and NO redaction FIELD policy.
  */
 
@@ -28,7 +28,7 @@ import type { IVersionedInteractiveSessionRecord } from './session-record-codec/
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 /**
- * TRANS-006: the envelope type and its version constant are the codec's (`session-record-codec/`).
+ * The envelope type and its version constant are the codec's (`session-record-codec/`).
  * They used to be declared here as `ISessionArtifact` and a local constant, which was a second name
  * and a second number for one shape — the envelope the codec decodes and the envelope this module
  * writes were always the same `{ schemaVersion, record }`. Nothing on disk changed when they were

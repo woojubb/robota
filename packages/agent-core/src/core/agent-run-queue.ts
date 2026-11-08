@@ -1,5 +1,5 @@
 /**
- * The per-instance run queue (CORE-012).
+ * The per-instance run queue.
  *
  * Split out of `agent.ts`, which is long past the file-size ceiling: serializing runs is a
  * self-contained responsibility with its own invariant, and it is the one part of the agent whose
@@ -62,7 +62,7 @@ export class RunQueue {
   /**
    * Resolves once every run queued so far has settled.
    *
-   * Disposal awaits this so an in-flight turn is not torn out from under itself (CORE-022).
+   * Disposal awaits this so an in-flight turn is not torn out from under itself.
    */
   get drained(): Promise<void> {
     return this.tail;

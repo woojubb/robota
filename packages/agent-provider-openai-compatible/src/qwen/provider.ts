@@ -252,7 +252,7 @@ export class QwenProvider extends AbstractAIProvider {
     }
   }
 
-  /** What THIS vendor's models can do, per model (PROV-008). */
+  /** What THIS vendor's models can do, per model. */
   capabilityTable(): IProviderCapabilityTable {
     return QWEN_CAPABILITY_TABLE;
   }
@@ -303,7 +303,7 @@ export class QwenProvider extends AbstractAIProvider {
   }
 
   /**
-   * MCP-005: qwen (chat-completions and its Responses surface alike) accepts standard JSON Schema —
+   * Qwen (chat-completions and its Responses surface alike) accepts standard JSON Schema —
    * the permissive profile.
    */
   protected override projectionProfile(): IToolSchemaProjectionProfile | undefined {

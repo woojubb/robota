@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * HOOK-004 User Execution Test Scenario
+ * User Execution Test Scenario
  *
  * Demonstrates that permission_mode is now included in hook stdin JSON.
  * Hook scripts written for Claude Code that read permission_mode from stdin
@@ -93,7 +93,7 @@ check('not blocked', r2.blocked === false);
 // ── Summary ───────────────────────────────────────────────────────────────────
 console.log();
 if (allPassed) {
-  console.log('PASS — HOOK-004 permission_mode field is correctly delivered to hook scripts.');
+  console.log('PASS — permission_mode field is correctly delivered to hook scripts.');
   process.exit(0);
 } else {
   console.log('FAIL — one or more scenarios did not pass.');

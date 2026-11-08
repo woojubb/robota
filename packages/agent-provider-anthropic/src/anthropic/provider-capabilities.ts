@@ -1,5 +1,5 @@
 /**
- * What this provider can and cannot do at the VENDOR level. PROV-008.
+ * What this provider can and cannot do at the VENDOR level.
  *
  * Split out of `provider.ts` to keep it under the size ceiling, and because the two capability
  * answers this package gives are about different granularities: this one speaks for the vendor,

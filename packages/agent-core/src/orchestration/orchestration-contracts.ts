@@ -2,7 +2,7 @@ import type { IBaseEventData } from '../event-service/interfaces';
 import type { ITokenUsage } from '../interfaces/provider';
 
 /**
- * Neutral multi-agent orchestration contracts (SELFHOST-001).
+ * Neutral multi-agent orchestration contracts.
  *
  * agent-core OWNS these neutral contracts + the event-type unions the primitives
  * emit; the `agent-framework` layer IMPLEMENTS the mechanism over `agent-executor`'s
@@ -13,9 +13,8 @@ import type { ITokenUsage } from '../interfaces/provider';
 
 /**
  * The named neutral orchestration primitives. Opaque mechanisms only.
- * P1 implements `sequential`; `parallel`/`handoff` land in P2 and
- * `hierarchical`/`group-chat` in P3 (the union is declared now so the
- * event/result contracts are stable across slices).
+ * The framework layer implements all five (`sequential`, `parallel`, `handoff`,
+ * `hierarchical`, `group-chat`).
  */
 export type TOrchestrationPrimitive =
   'sequential' | 'parallel' | 'hierarchical' | 'handoff' | 'group-chat';
@@ -53,7 +52,7 @@ export interface ISequentialOrchestrationSpec {
   threadOutput?: boolean;
 }
 
-/** The specification for a `parallel` orchestration run (SELFHOST-001 P2). */
+/** The specification for a `parallel` orchestration run. */
 export interface IParallelOrchestrationSpec {
   /** The steps to run concurrently. Each runs with only its own prompt (no threading). */
   steps: IOrchestrationStep[];
@@ -67,7 +66,7 @@ export interface IParallelOrchestrationSpec {
 }
 
 /**
- * The specification for a `handoff` orchestration run (SELFHOST-001 P2).
+ * The specification for a `handoff` orchestration run.
  *
  * Distinct from `sequential` (a fixed ordered pipeline) and from
  * hierarchical manager-delegation: here loop ownership TRANSFERS between
@@ -100,7 +99,7 @@ export interface IOrchestrationDelegation {
 }
 
 /**
- * The specification for a `hierarchical` (manager-delegation) run (SELFHOST-001 P3).
+ * The specification for a `hierarchical` (manager-delegation) run.
  *
  * A manager step RETAINS control and delegates sub-work to worker steps,
  * collecting their results and optionally iterating — distinct from `handoff`,
@@ -123,12 +122,12 @@ export interface IHierarchicalOrchestrationSpec {
 }
 
 /**
- * The specification for a `group-chat` (turn-taking) run (SELFHOST-001 P3).
+ * The specification for a `group-chat` (turn-taking) run.
  *
  * Steps take turns; before each turn the caller-supplied policy selects which
  * step speaks next from the running history, `null` ending the run. Each step is
  * threaded the prior turns' outputs. A neutral turn-taking mechanism only — it
- * carries NO app-domain identity fields (TRANS-001), enforced by the standing
+ * carries NO app-domain identity fields, enforced by the standing
  * `orchestration-neutrality` scan.
  */
 export interface IGroupChatOrchestrationSpec {
@@ -151,8 +150,8 @@ export interface IOrchestrationStepResult {
   /** The step's output text. */
   output: string;
   /**
-   * Optional token usage of the step's subagent run (the {@link ITokenUsage} SSOT triple;
-   * TYPE-003). Present when the underlying runner reported it — `SubagentManager.wait` already
+   * Optional token usage of the step's subagent run (the {@link ITokenUsage} SSOT triple).
+   * Present when the underlying runner reported it — `SubagentManager.wait` already
    * threads a completed job's `usage` straight through its result; this is `undefined` only when
    * the runner itself never reported any.
    */

@@ -1,5 +1,5 @@
 /**
- * PLUGIN-002: DatabaseHistoryStorage persists through an injected IDatabaseDriver
+ * DatabaseHistoryStorage persists through an injected IDatabaseDriver
  * (no silent stub). Exercised here with an in-memory fake driver.
  */
 import { describe, it, expect } from 'vitest';
@@ -38,7 +38,7 @@ function makeEntry(id: string): IConversationHistoryEntry {
   } as IConversationHistoryEntry;
 }
 
-describe('DatabaseHistoryStorage (PLUGIN-002)', () => {
+describe('DatabaseHistoryStorage', () => {
   it('round-trips an entry through the driver with revived Dates', async () => {
     const storage = new DatabaseHistoryStorage(createMemoryDriver());
     await storage.save('conv-1', makeEntry('conv-1'));

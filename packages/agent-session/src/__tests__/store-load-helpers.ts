@@ -1,5 +1,5 @@
 /**
- * TRANS-007 — narrowing helpers for tests whose subject is not the load outcome.
+ * Narrowing helpers for tests whose subject is not the load outcome.
  *
  * `load` returns an outcome rather than `record | undefined`, because `undefined` was one answer for
  * four situations. Tests about something else should not restate that at every call site — but they

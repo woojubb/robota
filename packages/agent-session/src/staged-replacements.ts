@@ -1,6 +1,6 @@
 /**
  * Replacing many files of a store directory at once, for the converters that seal session records and
- * session-log sidecars in place (#3679). A file is read without following a link; every replacement
+ * session-log sidecars in place. A file is read without following a link; every replacement
  * is written and flushed beside its file before any is put in place, so no rename is published ahead
  * of content not yet flushed; and each replace is atomic, made only while the file still holds the
  * bytes that were read under no other name, so a file a running process saved meanwhile is left.

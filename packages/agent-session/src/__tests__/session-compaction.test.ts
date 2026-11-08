@@ -327,7 +327,7 @@ describe('Session compaction', () => {
     expect(mockRunCalls).toContain('next question');
   });
 
-  it('compact() preserves history untouched and propagates when the summary is invalid (CORE-019)', async () => {
+  it('compact() preserves history untouched and propagates when the summary is invalid', async () => {
     const session = createSession();
     // Fault injection: provider returns non-string content for the compaction call
     (mockProvider as { chat: unknown }).chat = vi.fn().mockResolvedValue({

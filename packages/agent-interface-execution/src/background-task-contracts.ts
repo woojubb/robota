@@ -1,5 +1,5 @@
 /**
- * Background-task data contracts (INFRA-025).
+ * Background-task data contracts.
  *
  * SSOT for the task/job data shapes shared by the execution runtime and every transport
  * surface. Pure data only — the runner/manager SPI (ports, handles, the BackgroundTaskError
@@ -13,7 +13,7 @@ import type {
   TUniversalValue,
 } from '@robota-sdk/agent-core';
 
-// ARCH-037: the `TBackgroundPermissionPolicy` pass-through re-export is removed. Its stated reason
+// The `TBackgroundPermissionPolicy` pass-through re-export is removed. Its stated reason
 // was "so existing consumers keep importing it from `agent-interface-transport` unchanged". There was
 // exactly one — `agent-executor` — and it already depends on `agent-core`, so the same change points
 // it at the SSOT; `agent-framework` and `agent-session` were importing from `agent-core` already. An
@@ -31,7 +31,7 @@ export type TBackgroundTaskStatus =
   | 'running'
   | 'waiting_permission'
   | 'sleeping'
-  // SELFHOST-012: a scheduled task whose recurrence is non-destructively paused (croner `.pause()`, not the
+  // A scheduled task whose recurrence is non-destructively paused (croner `.pause()`, not the
   // irreversible `.stop()` that `cancelled` uses). Non-terminal — resumes to `sleeping`.
   | 'paused'
   | 'completed'
@@ -94,9 +94,9 @@ export interface IAgentBackgroundTaskRequest extends IBaseBackgroundTaskRequest 
   effort?: TModelEffort;
   isolation?: TBackgroundTaskIsolation;
   /**
-   * CLI-1994: the persisted session record the child RESTORES before its first turn — a fork of the
+   * The persisted session record the child RESTORES before its first turn — a fork of the
    * parent conversation written under a fresh id by `/fork`. Only the id crosses: the conversation
-   * itself never rides on the request, so the child-process wire stays as narrow as ARCH-044 left it
+   * itself never rides on the request, so the child-process wire stays as narrow as it is today
    * (the child reads the record from the session store, exactly as `--fork-session` does). Absent ⇒
    * the child starts with an empty conversation, unchanged.
    */
@@ -119,20 +119,20 @@ export interface IProcessBackgroundTaskRequest extends IBaseBackgroundTaskReques
   stdin?: string;
   outputLimitBytes?: number;
   /**
-   * FLOW-004 (monitor): a regular-expression source. Output lines matching it fire a
+   * Monitor: a regular-expression source. Output lines matching it fire a
    * `background_task_waking` carrying `agentInstruction` + the matched line, so the agent
    * reacts to "something happened in this process's output".
    */
   matchPattern?: string;
-  /** FLOW-004: the instruction injected on a monitor match (paired with `matchPattern`). */
+  /** The instruction injected on a monitor match (paired with `matchPattern`). */
   agentInstruction?: string;
 }
 
 /**
- * A scheduled task carries NO `permissionPolicy`, by decision (issue #2354).
+ * A scheduled task carries NO `permissionPolicy`, by decision.
  *
- * A `kind: 'agent'` task spawns a SEPARATE agent, so it declares its own policy and CORE-025
- * enforces it. A schedule with `agentInstruction` does not spawn anything: it WAKES the host
+ * A `kind: 'agent'` task spawns a SEPARATE agent, so it declares its own policy and the
+ * permission enforcer applies it. A schedule with `agentInstruction` does not spawn anything: it WAKES the host
  * session (`background_task_waking` → `requestWakeup` → an `agent-wakeup` turn), and that turn runs
  * under the host session's own permission configuration — mode, allow/deny rules, hooks, session
  * consent — exactly as a turn the user typed would. Inheritance is the contract, not an omission:
@@ -148,8 +148,8 @@ export interface IScheduledBackgroundTaskRequest extends IBaseBackgroundTaskRequ
    */
   command?: string;
   /**
-   * FLOW-001: when set, each fire carries this instruction on the `background_task_waking`
-   * event so an upper layer (FLOW-002) can wake the agent loop with a non-user turn.
+   * When set, each fire carries this instruction on the `background_task_waking`
+   * event so an upper layer can wake the agent loop with a non-user turn.
    */
   agentInstruction?: string;
   shell?: string;
@@ -158,8 +158,8 @@ export interface IScheduledBackgroundTaskRequest extends IBaseBackgroundTaskRequ
 }
 
 /**
- * MCP-004 §S1: an in-flight MCP tool call handed off to the background-task manager. Data only —
- * the naming split is deliberate: the KIND is `'tool-invocation'` (INFRA-025's closed vocabulary
+ * An in-flight MCP tool call handed off to the background-task manager. Data only —
+ * the naming split is deliberate: the KIND is `'tool-invocation'` (the closed vocabulary
  * names the thing that runs), while the feature, its files and its tests keep the name "tool-call
  * handoff" (what a user does with it). Provenance is flattened into primitive fields rather than a
  * nested object so the request stays data-only and the executor helpers can project the same
@@ -171,7 +171,7 @@ export interface IToolInvocationBackgroundTaskRequest extends IBaseBackgroundTas
   toolName: string;
   /** Looked up by the runner's adoption registry (`agent-executor`) to find the already-running call. */
   adoptionToken: string;
-  /** MCP-004 provenance: the only owner today. A closed union of one, matching the request's origin. */
+  /** Provenance: the only owner today. A closed union of one, matching the request's origin. */
   provenanceOwner: 'mcp';
   serverId: string;
   sourceName: string;
@@ -187,13 +187,13 @@ export type TBackgroundTaskRequest =
   | IToolInvocationBackgroundTaskRequest;
 
 /**
- * ANALYTICS-001 (Phase 2): token usage a completed task/subagent consumed, for source attribution.
- * TYPE-003: alias of the `agent-core` usage-triple SSOT (`ITokenUsage`) — derived, not re-declared.
+ * Token usage a completed task/subagent consumed, for source attribution.
+ * Alias of the `agent-core` usage-triple SSOT (`ITokenUsage`) — derived, not re-declared.
  */
 export type IBackgroundTaskUsage = ITokenUsage;
 
 /**
- * Issue #3288 §1: why a tool call inside a task was refused — the same distinction the session-layer
+ * Why a tool call inside a task was refused — the same distinction the session-layer
  * enforcer already records for its own denials (`hasApprover ? 'user' : 'no-approver'`), named here for
  * a task's result rather than a live session's denial log: `'no-approver'` when no approver was
  * attached at all (print mode, a truly headless run); `'denied-by-person'` when one was attached and
@@ -223,9 +223,9 @@ interface IBaseBackgroundTaskResult {
 
 export interface IAgentBackgroundTaskResult extends IBaseBackgroundTaskResult {
   kind: 'agent';
-  /** ANALYTICS-001 (Phase 2): total token usage of an agent task, attributed to it in the parent log. */
+  /** Total token usage of an agent task, attributed to it in the parent log. */
   usage?: IBackgroundTaskUsage;
-  /** Issue #3288 §1: present only when the task had at least one tool call refused. */
+  /** Present only when the task had at least one tool call refused. */
   deniedToolCalls?: IBackgroundTaskDeniedToolCalls;
 }
 
@@ -244,7 +244,7 @@ export interface IToolInvocationBackgroundTaskResult extends IBaseBackgroundTask
 }
 
 /**
- * #2079: the outcome hop discriminates by kind exactly as the request hop
+ * The outcome hop discriminates by kind exactly as the request hop
  * (`TBackgroundTaskRequest`) does — `exitCode`/`signalCode` are producible only by the process
  * runner and `usage` only by the agent runner (`ISubagentJobResult` is now
  * `Omit<IBackgroundTaskResult<'agent'>, 'kind'>`, not a hand-maintained `Omit` off the flat shape).
@@ -266,7 +266,7 @@ export type IBackgroundTaskResult<K extends TBackgroundTaskKind = TBackgroundTas
 >;
 
 /**
- * #2079: the persisted/live state hop discriminates by kind exactly as the request and result hops
+ * The persisted/live state hop discriminates by kind exactly as the request and result hops
  * do. Fields a single runner alone can produce — `agentType`/`isolation`/`resumeSessionId`/
  * `promptPreview`/the worktree-isolation fields (agent), `schedule`/`nextFireAt` (scheduled) — live
  * only on that kind's member. `commandPreview` is produced by every runner except the agent one (a
@@ -316,7 +316,7 @@ export interface IAgentBackgroundTaskState extends IBaseBackgroundTaskState<'age
   promptPreview?: string;
   isolation?: TBackgroundTaskIsolation;
   /**
-   * CLI-1994: carried from `IAgentBackgroundTaskRequest.resumeSessionId` so a surface can offer to
+   * Carried from `IAgentBackgroundTaskRequest.resumeSessionId` so a surface can offer to
    * ATTACH to the forked session — a view switch onto that record, never a merge with the parent.
    */
   resumeSessionId?: string;
@@ -336,7 +336,7 @@ export interface IScheduledBackgroundTaskState extends IBaseBackgroundTaskState<
   commandPreview?: string;
   nextFireAt?: string;
   /**
-   * FLOW-003: for `kind: 'scheduled'` tasks, the reconstructable schedule definition.
+   * For `kind: 'scheduled'` tasks, the reconstructable schedule definition.
    * Persisted with the task so a resumed session can re-arm the croner job.
    */
   schedule?: IBackgroundTaskSchedule;
@@ -357,7 +357,7 @@ export type IBackgroundTaskState<K extends TBackgroundTaskKind = TBackgroundTask
   { kind: K }
 >;
 
-/** FLOW-003: the persisted, reconstructable definition of a scheduled wake. */
+/** The persisted, reconstructable definition of a scheduled wake. */
 export interface IBackgroundTaskSchedule {
   cronExpression: string;
   agentInstruction?: string;
@@ -428,8 +428,8 @@ export type TBackgroundTaskEvent =
   | { type: 'background_task_failed'; task: IBackgroundTaskState }
   | { type: 'background_task_cancelled'; task: IBackgroundTaskState }
   | { type: 'background_task_closed'; taskId: string }
-  // FLOW-001: a scheduled/monitor task fired. `instruction`, when present, is the agent-wake
-  // instruction an upper layer (FLOW-002) injects as a non-user turn.
+  // A scheduled/monitor task fired. `instruction`, when present, is the agent-wake
+  // instruction an upper layer injects as a non-user turn.
   | { type: 'background_task_waking'; taskId: string; instruction?: string };
 
 export type TBackgroundTaskEventListener = (event: TBackgroundTaskEvent) => void;

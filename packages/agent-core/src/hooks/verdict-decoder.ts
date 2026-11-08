@@ -1,5 +1,5 @@
 /**
- * SEC-015 — the one decoder for a `{ ok, reason }` hook verdict.
+ * The one decoder for a `{ ok, reason }` hook verdict.
  *
  * The HTTP, prompt, and agent executors all receive a hook's answer as this shape, and all three
  * decoded it the same wrong way: `(body as { ok: boolean }).ok` followed by a truthiness test. That
@@ -12,7 +12,7 @@
  * the Claude Code response protocol (`continue: false`, `decision: "block"`,
  * `permissionDecision: "deny"`), which is a decision the hook stated outright and which an
  * undecodable `ok` beside it does not retract — read with the same per-event scoping `runHooks`
- * applies (issue #2196), so decoder and runner cannot disagree about when a directive means anything.
+ * applies, so decoder and runner cannot disagree about when a directive means anything.
  */
 
 import { explicitBlockDirective } from './response-protocol.js';
@@ -40,8 +40,8 @@ function excerpt(raw: string): string {
  *
  * @param raw - The response text as it arrived.
  * @param source - The executor doing the decoding, carried onto the outcome for diagnostics.
- * @param event - The event the hook answered, which decides WHICH block directives count
- *   (issue #2196): the decoder scopes them exactly as `runHooks` does.
+ * @param event - The event the hook answered, which decides WHICH block directives count:
+ * the decoder scopes them exactly as `runHooks` does.
  */
 export function decodeHookVerdict(
   raw: string,
@@ -98,7 +98,7 @@ function decodeParsedVerdict(
   // made outright, and an endpoint that wrote `{"ok": "false", "continue": false}` plainly meant to
   // block. Discarding that because `ok` was a string would be fail-open in an enforcement gate: the
   // same class of defect as reading the string as approval, pointed the other way. Which of the
-  // three count is the event's call — the same scoping `runHooks` applies (issue #2196).
+  // three count is the event's call — the same scoping `runHooks` applies.
   const directive = explicitBlockDirective(body, event);
   if (directive !== null) {
     return { outcome: 'deny', source, reason: directive };

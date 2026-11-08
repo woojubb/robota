@@ -1,5 +1,5 @@
 /**
- * CORE-043: the transport decision, and what it does to an outgoing structured request.
+ * The transport decision, and what it does to an outgoing structured request.
  *
  * Each test names the wrong behaviour it would catch. A test that only restates the implementation
  * cannot go red for the defect the item was filed about.
@@ -79,7 +79,7 @@ describe('resolveStructuredOutputCapability', () => {
   it('does not read an absent table as a denial', () => {
     // The regression this guards: resolving "we have no table" to `none` would strip a working
     // json_schema from every provider that simply has no verified table yet — a gap in OUR records
-    // reported as a limitation of the vendor. PROV-006's miss policy forbids exactly this.
+    // reported as a limitation of the vendor. The miss policy forbids exactly this.
     expect(resolveStructuredOutputCapability({ table: undefined, model: 'gpt-x' })).toMatchObject({
       mechanism: 'response_schema',
       provenance: 'undeclared',
@@ -197,7 +197,7 @@ describe('applyStructuredOutputTransport', () => {
   });
 });
 
-describe('CORE-043 — the session log records the request that was actually sent', () => {
+describe('the session log records the request that was actually sent', () => {
   it('reports messages including the added instruction, not the caller history', async () => {
     // `provider_request` used to be emitted BEFORE the transport guard ran, carrying
     // `conversationMessages`. When the guard adds a system instruction, that log describes a request

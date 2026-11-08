@@ -14,7 +14,7 @@ function admission(over: Partial<IPeerAdmission> = {}): IPeerAdmission {
   return { admitted: true, trust: 'same-user-same-host', origin: ORIGIN, ...over };
 }
 
-describe('PEER-001 — delivery state is terminal or it is not (#1809)', () => {
+describe('delivery state is terminal or it is not', () => {
   it('treats every state but `pending` as terminal', () => {
     // Asked as a question rather than re-listed at each call site: adding a state must not leave a
     // retry loop spinning on it because some caller's inline list was never updated.
@@ -53,7 +53,7 @@ describe('PEER-001 — delivery state is terminal or it is not (#1809)', () => {
   });
 });
 
-describe('PEER-001 — possession and origin are two axes, not one (#1810)', () => {
+describe('possession and origin are two axes, not one', () => {
   it('admits a same-environment peer and narrows its origin to present', () => {
     const result = admission();
 
@@ -85,7 +85,7 @@ describe('PEER-001 — possession and origin are two axes, not one (#1810)', () 
   });
 });
 
-describe('PEER-001 — the message shape (#1809)', () => {
+describe('the message shape', () => {
   it('separates stable identity from ordering', () => {
     // A retry repeats `id` and keeps `sequence`. Collapsing them would make every retry look like a
     // new message and defeat the duplicate rule the issue requires.

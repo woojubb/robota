@@ -53,9 +53,9 @@ export interface IToolExecutionRequest {
   ownerPath?: IOwnerPathSegment[];
   eventService?: IEventService;
   baseEventService?: IEventService;
-  /** Injected "ask the user" port propagated into the tool's execution context (CMD-005). */
+  /** Injected "ask the user" port propagated into the tool's execution context. */
   ask?: IUserInteraction['ask'];
-  /** The deferred-tool catalog propagated into the tool's execution context (CLI-1990). */
+  /** The deferred-tool catalog propagated into the tool's execution context. */
   deferredTools?: IDeferredToolCatalog;
   /**
    * Set when the originating tool call's arguments failed to decode to a JSON object. `parameters`
@@ -98,7 +98,7 @@ export interface IConversationResponse {
   content: string;
   /** Tool calls if any */
   toolCalls?: IToolCall[];
-  /** Usage statistics (TYPE-003: usage-triple SSOT) */
+  /** Usage statistics (usage-triple SSOT) */
   usage?: ITokenUsage;
   /** Response metadata */
   metadata?: TResponseMetadata;
@@ -116,7 +116,7 @@ export interface IStreamingChunk {
   done: boolean;
   /** Tool calls if any */
   toolCalls?: IToolCall[];
-  /** Usage statistics (only in final chunk; TYPE-003: usage-triple SSOT) */
+  /** Usage statistics (only in final chunk; usage-triple SSOT) */
   usage?: ITokenUsage;
 }
 

@@ -8,7 +8,7 @@ import type { IExecutionJournal } from './execution-journal';
  * The per-RUN contract: what one `run()` may override or observe, as distinct from the agent's
  * standing configuration in `IAgentConfig`.
  *
- * Split out of `agent.ts` when PEER-007 added `driverId`. That file sits at a frozen size baseline,
+ * Split out of `agent.ts` when `driverId` was added. That file sits at a frozen size baseline,
  * and the anti-monolith rule asks for a split rather than one more field on a file already at its
  * limit. The two execution-event types come along because `onExecutionEvent` is their only consumer
  * — leaving them behind would have made this module import back from `agent.ts`.
@@ -22,12 +22,12 @@ export type TExecutionEventCallback = (event: string, data: TExecutionEventData)
  * Agent run options - type-safe interface for all agent execution options
  */
 export interface IRunOptions {
-  /** Run-scoped temperature override — wins over `defaultModel.temperature` (CORE-016). */
+  /** Run-scoped temperature override — wins over `defaultModel.temperature`. */
   temperature?: number;
-  /** Run-scoped max output tokens override — wins over `defaultModel.maxTokens` (CORE-016). */
+  /** Run-scoped max output tokens override — wins over `defaultModel.maxTokens`. */
   maxTokens?: number;
   /**
-   * Run-scoped tool-invocation directive — wins over `defaultModel.toolChoice` (CORE-017).
+   * Run-scoped tool-invocation directive — wins over `defaultModel.toolChoice`.
    * `'auto'` (model decides), `'none'` (suppress tool calls), `'required'` (must call some
    * tool), or `{ tool: name }` (must call the named tool; the name is validated against the
    * run's tool list and a miss throws). Forcing applies to the run's first model call only;
@@ -43,7 +43,7 @@ export interface IRunOptions {
   sessionId?: string;
   userId?: string;
   /**
-   * PEER-007 (issue #1915): who this run is attributed to, for display. Per-run because it changes
+   * Who this run is attributed to, for display. Per-run because it changes
    * per turn — one session serves the operator and any peer addressing it. Never authorization.
    */
   driverId?: string;
@@ -55,7 +55,7 @@ export interface IRunOptions {
   turnSource?: string;
   metadata?: TMetadata;
   /**
-   * Run-scoped EPHEMERAL system context (SELFHOST-008 P3). A transient system-role block included in THIS
+   * Run-scoped EPHEMERAL system context. A transient system-role block included in THIS
    * run's provider request(s) only — it is **never written to the conversation store**. An explicitly
    * configured execution journal records it as request/recovery state. It does not bloat conversation
    * history or force a static-system-prompt rebuild. Content-free neutral channel: the
@@ -98,7 +98,7 @@ export interface IRunOptions {
   maxSameToolInputs?: number;
   /**
    * Treat a turn that ends in tool calls (no trailing text) as a valid completion instead of
-   * forcing one extra provider call to generate a summary (CORE-011). For decision-agent patterns
+   * forcing one extra provider call to generate a summary. For decision-agent patterns
    * (router/orchestrator/classifier) the tool call IS the answer — this removes the one-call tax.
    * The summary call is the one made when the round cap ends the loop on a tool round; before the cap
    * the model is called again after tool results as usual, so a decision agent sets
@@ -108,7 +108,7 @@ export interface IRunOptions {
    */
   allowToolOnlyCompletion?: boolean;
   /**
-   * Schema-enforced structured output (CORE-015). Accepts a Zod schema or an explicit
+   * Schema-enforced structured output. Accepts a Zod schema or an explicit
    * `{ jsonSchema }` wrapper. `run` then resolves to the validated, typed object instead of a
    * string: the schema is forwarded to the provider's native structured-output surface where one
    * exists, and the final response is always parsed and validated core-side; a violation triggers

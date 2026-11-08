@@ -1,5 +1,5 @@
 /**
- * MCP-005 Task Scenario 1 — the real `OpenAIProvider` with `strictTools: true` over a fake HTTP
+ * User-execution scenario — the real `OpenAIProvider` with `strictTools: true` over a fake HTTP
  * client, proving the per-tool quarantine is audible (a `tool_schema_quarantined` warn on the
  * global-sink logger) and memoised (no repeat warn on an identical second call).
  *

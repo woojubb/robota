@@ -227,7 +227,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     return traceHeadersFor(GEMINI_API_ORIGIN, options?.outboundTraceContext);
   }
 
-  /** MCP-005: Gemini's fixed `Schema` subset can't carry `additionalProperties` — strip + record it. */
+  /** Gemini's fixed `Schema` subset can't carry `additionalProperties` — strip + record it. */
   protected override projectionProfile(): IToolSchemaProjectionProfile | undefined {
     return {
       ...PERMISSIVE_TOOL_SCHEMA_PROFILE,
@@ -373,7 +373,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     return runImageRequest(this.chat.bind(this), [message], request.model);
   }
 
-  /** What THIS vendor's models can do, per model (PROV-008). */
+  /** What THIS vendor's models can do, per model. */
   capabilityTable(): IProviderCapabilityTable {
     return GEMINI_CAPABILITY_TABLE;
   }

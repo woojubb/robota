@@ -27,7 +27,7 @@ export type TOpenAIChatResponseFormat =
   IOpenAIChatTextFormatText | IOpenAIChatTextFormatJsonObject | IOpenAIChatTextFormatJsonSchema;
 
 /**
- * Merge a per-call `IChatOptions.responseFormat` onto the provider options (CORE-015).
+ * Merge a per-call `IChatOptions.responseFormat` onto the provider options.
  * A `json_schema` chat option carries its schema payload into `jsonSchema`; the
  * provider-level `jsonSchema` option remains as-is for `text`/`json_object`.
  */

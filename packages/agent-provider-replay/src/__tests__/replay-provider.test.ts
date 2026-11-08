@@ -25,8 +25,8 @@ function line(event: string, data: Record<string, unknown>): unknown {
   };
 }
 
-describe('ReplayProvider (INFRA-017)', () => {
-  it('TC-03: replays recorded normalized responses in order, then errors when exhausted', async () => {
+describe('ReplayProvider', () => {
+  it('replays recorded normalized responses in order, then errors when exhausted', async () => {
     const entries = [
       line('provider_request', {
         executionId: 'e1',
@@ -70,7 +70,7 @@ describe('ReplayProvider (INFRA-017)', () => {
     await expect(provider.chat([])).rejects.toThrow(/exhausted/);
   });
 
-  it('TC-04: replays a tool-call turn, then the final completion', async () => {
+  it('replays a tool-call turn, then the final completion', async () => {
     const entries = [
       line('provider_response_normalized', {
         executionId: 'e1',
@@ -164,7 +164,7 @@ describe('ReplayProvider (INFRA-017)', () => {
     expect(chunks[0]!.content).toBe('streamed');
   });
 
-  it('ARCH-014: direct construction rejects an unresolved consumed response', () => {
+  it('direct construction rejects an unresolved consumed response', () => {
     const entries = [
       line('provider_response_normalized', {
         executionId: 'e1',
@@ -189,7 +189,7 @@ describe('ReplayProvider (INFRA-017)', () => {
     );
   });
 
-  it('ARCH-014: direct construction hydrates nested response references with an explicit base', async () => {
+  it('direct construction hydrates nested response references with an explicit base', async () => {
       const baseDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-replay-provider-')));
       try {
         const serialized = JSON.stringify('hydrated content');
@@ -230,7 +230,7 @@ describe('ReplayProvider (INFRA-017)', () => {
       }
   });
 
-  it('ARCH-014: rejects unresolved references outside normalized response events', () => {
+  it('rejects unresolved references outside normalized response events', () => {
     const entries = [
       line('tool_execution_result', {
         executionId: 'e1',

@@ -1,5 +1,5 @@
 /**
- * MCP-005 (TC-08) — conformance: the real `OpenAIProvider` over the shared MCP-005 fixture set.
+ * Conformance: the real `OpenAIProvider` over the shared fixture set.
  *
  * With `strictTools` off both the Responses and Chat Completions surfaces carry the permissive
  * projection; with it on both carry the strict projection (§ Profiles — both surfaces honor
@@ -168,7 +168,7 @@ describe.each([
     sentTools: sentToolsFromChatCompletions,
   },
 ])(
-  'MCP-005 TC-08 — OpenAI $apiSurface, permissive profile (strictTools off)',
+  'OpenAI $apiSurface, permissive profile (strictTools off)',
   ({ apiSurface, respond, sentTools }) => {
     afterEach(() => {
       setGlobalLoggerSink(undefined);
@@ -274,51 +274,48 @@ describe.each([
     respond: respondChatCompletions,
     sentTools: sentToolsFromChatCompletions,
   },
-])(
-  'MCP-005 TC-08 — OpenAI $apiSurface, strict profile (strictTools on)',
-  ({ apiSurface, respond, sentTools }) => {
-    it('reaches the request in strictly-projected form', async () => {
-      const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface, strictTools: true });
-      const client = fakeClient(provider);
-      respond(client);
+])('OpenAI $apiSurface, strict profile (strictTools on)', ({ apiSurface, respond, sentTools }) => {
+  it('reaches the request in strictly-projected form', async () => {
+    const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface, strictTools: true });
+    const client = fakeClient(provider);
+    respond(client);
 
-      const tools: IToolSchema[] = [fixtures.subsetOnly, fixtures.nestedAnyOfOptional];
-      await provider.chat([createUserMessage('hello')], { model: 'gpt-4o', tools });
+    const tools: IToolSchema[] = [fixtures.subsetOnly, fixtures.nestedAnyOfOptional];
+    await provider.chat([createUserMessage('hello')], { model: 'gpt-4o', tools });
 
-      const sent = sentTools(client);
-      expect(sent).toHaveLength(2);
-      for (const [index, tool] of tools.entries()) {
-        const projection = projectToolSchema(tool, STRICT_PROFILE);
-        expect(sent[index]?.parameters).toEqual(projection.tool.parameters);
-        expect(sent[index]?.description).toEqual(projection.tool.description);
-        expect(sent[index]?.strict).toBe(true);
-      }
-    });
+    const sent = sentTools(client);
+    expect(sent).toHaveLength(2);
+    for (const [index, tool] of tools.entries()) {
+      const projection = projectToolSchema(tool, STRICT_PROFILE);
+      expect(sent[index]?.parameters).toEqual(projection.tool.parameters);
+      expect(sent[index]?.description).toEqual(projection.tool.description);
+      expect(sent[index]?.strict).toBe(true);
+    }
+  });
 
-    it('projects strictly on the chatStream request path too', async () => {
-      const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface, strictTools: true });
-      const client = fakeClient(provider);
-      if (apiSurface === 'responses') {
-        client.responses.create.mockResolvedValue(streamResponsesResult());
-      } else {
-        client.chat.completions.create.mockResolvedValue(streamChatCompletionsResult());
-      }
+  it('projects strictly on the chatStream request path too', async () => {
+    const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface, strictTools: true });
+    const client = fakeClient(provider);
+    if (apiSurface === 'responses') {
+      client.responses.create.mockResolvedValue(streamResponsesResult());
+    } else {
+      client.chat.completions.create.mockResolvedValue(streamChatCompletionsResult());
+    }
 
-      const tools: IToolSchema[] = [fixtures.subsetOnly];
-      for await (const _chunk of provider.chatStream([createUserMessage('hello')], {
-        model: 'gpt-4o',
-        tools,
-      })) {
-        // drain
-      }
+    const tools: IToolSchema[] = [fixtures.subsetOnly];
+    for await (const _chunk of provider.chatStream([createUserMessage('hello')], {
+      model: 'gpt-4o',
+      tools,
+    })) {
+      // drain
+    }
 
-      const sent = sentTools(client);
-      const projection = projectToolSchema(fixtures.subsetOnly, STRICT_PROFILE);
-      expect(sent[0]?.parameters).toEqual(projection.tool.parameters);
-      expect(sent[0]?.strict).toBe(true);
-    });
-  },
-);
+    const sent = sentTools(client);
+    const projection = projectToolSchema(fixtures.subsetOnly, STRICT_PROFILE);
+    expect(sent[0]?.parameters).toEqual(projection.tool.parameters);
+    expect(sent[0]?.strict).toBe(true);
+  });
+});
 
 describe('the containers OpenAI refuses bare', () => {
   const ANY_SCALAR = { anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] };

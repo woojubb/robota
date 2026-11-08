@@ -1,6 +1,6 @@
 /**
- * MCP-005 (TC-09) — conformance: the real `GemmaProvider` / `QwenProvider` / `DeepSeekProvider` over
- * the shared MCP-005 fixture set. Each declares the permissive profile with its OWN `providerName`;
+ * Conformance: the real `GemmaProvider` / `QwenProvider` / `DeepSeekProvider` over
+ * the shared fixture set. Each declares the permissive profile with its OWN `providerName`;
  * the shared request builder AND the Qwen Responses converter receive projected schemas (rejected
  * fixtures absent, one quarantine `warn` each); both the `chat` and `chatStream` request paths are
  * exercised.
@@ -118,7 +118,7 @@ describe.each([
     providerName: 'deepseek',
     createProvider: () => new DeepSeekProvider({ apiKey: 'test-key' }),
   },
-])('MCP-005 TC-09 — $label, permissive profile', ({ providerName, createProvider }) => {
+])('$label, permissive profile', ({ providerName, createProvider }) => {
   const PROFILE = { ...PERMISSIVE_TOOL_SCHEMA_PROFILE, providerName };
 
   afterEach(() => {
@@ -214,7 +214,7 @@ describe.each([
   });
 });
 
-describe('MCP-005 TC-09 — qwen Responses surface (built-in web tools on)', () => {
+describe('qwen Responses surface (built-in web tools on)', () => {
   const PROFILE = { ...PERMISSIVE_TOOL_SCHEMA_PROFILE, providerName: 'qwen' };
 
   afterEach(() => {

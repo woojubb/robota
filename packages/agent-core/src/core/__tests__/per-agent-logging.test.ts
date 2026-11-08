@@ -1,5 +1,5 @@
 /**
- * CORE-029 — `config.logging` is a per-agent setting and must behave like one.
+ * `config.logging` is a per-agent setting and must behave like one.
  *
  * It was applied with `setGlobalLogLevel`, which is process-wide. So constructing one agent with
  * `{ enabled: false }` silenced every other agent — and every other package — in the same process,
@@ -47,7 +47,7 @@ function buildAgent(logging: IAgentConfig['logging']): ConversationAgent {
   });
 }
 
-describe('CORE-029 — per-agent logging configuration', () => {
+describe('per-agent logging configuration', () => {
   afterEach(() => {
     setGlobalLoggerSink(undefined);
   });

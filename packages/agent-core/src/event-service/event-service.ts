@@ -93,7 +93,7 @@ const SPAN_ID_SUBSTR_END = 10;
 
 /**
  * Generate a unique span ID for distributed tracing correlation. Exported so a per-operation timing
- * source (SELFHOST-004) can mint a span id it puts on BOTH the event payload and the event context.
+ * source can mint a span id it puts on BOTH the event payload and the event context.
  */
 export function generateSpanId(): string {
   return `span_${Date.now().toString(ID_RADIX)}_${Math.random().toString(ID_RADIX).slice(2, SPAN_ID_SUBSTR_END)}`;

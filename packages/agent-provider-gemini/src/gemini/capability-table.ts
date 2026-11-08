@@ -1,5 +1,5 @@
 /**
- * What Gemini's models can do. PROV-008.
+ * What Gemini's models can do.
  *
  * A vendor default with no deviations. The catalog declared one entry carrying this exact list; as a
  * default it now answers for every Gemini model rather than only the one that happened to be
