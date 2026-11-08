@@ -1,5 +1,20 @@
 # @robota-sdk/agent-framework
 
+## 3.2.3
+### Patch Changes
+
+- Drop dangling tracker references (deleted backlog IDs, stage labels and closed issue numbers) from shipped comments, type declarations and runtime messages, so agents reading this package are not sent after tickets that no longer exist. No behavior change.
+- Updated dependencies
+  - @robota-sdk/agent-core@3.2.2
+  - @robota-sdk/agent-interface-analytics@3.2.2
+  - @robota-sdk/agent-interface-command@3.2.3
+  - @robota-sdk/agent-interface-execution@3.2.3
+  - @robota-sdk/agent-interface-session@3.2.3
+  - @robota-sdk/agent-interface-session-mobility@3.2.3
+  - @robota-sdk/agent-interface-transport@3.2.3
+  - @robota-sdk/agent-session@3.2.3
+  - @robota-sdk/agent-tool-defaults@3.2.3
+
 ## 3.2.2
 ### Patch Changes
 
