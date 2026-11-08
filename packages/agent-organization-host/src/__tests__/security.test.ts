@@ -403,14 +403,21 @@ describe('operator-owned organization authority', () => {
       'policy-unavailable',
     );
     const broker = f.broker();
-    chmodSync(f.path, 0o644);
-    await expect(broker.apply(f.call(f.request()))).rejects.toThrow('policy-unavailable');
-    chmodSync(f.path, 0o600);
-    renameSync(f.path, `${f.path}.old`);
-    writeFileSync(f.path, 'not a database', { mode: 0o600 });
-    await expect(broker.apply(f.call(f.request()))).rejects.toThrow('policy-unavailable');
-    expect(() => new OrganizationLedger(f.ledgerOptions)).toThrow('policy-unavailable');
+    if (process.platform === 'win32') {
+      // Windows has no mode bits to widen, and it refuses to rename or delete a file SQLite holds open, so an
+      // open policy store cannot be swapped for another file; the corrupt store is written once it is closed.
+      expect(() => renameSync(f.path, `${f.path}.old`)).toThrow(/EBUSY|EPERM/u);
+    } else {
+      chmodSync(f.path, 0o644);
+      await expect(broker.apply(f.call(f.request()))).rejects.toThrow('policy-unavailable');
+      chmodSync(f.path, 0o600);
+      renameSync(f.path, `${f.path}.old`);
+      writeFileSync(f.path, 'not a database', { mode: 0o600 });
+      await expect(broker.apply(f.call(f.request()))).rejects.toThrow('policy-unavailable');
+    }
     f.ledger.close();
+    if (process.platform === 'win32') writeFileSync(f.path, 'not a database');
+    expect(() => new OrganizationLedger(f.ledgerOptions)).toThrow('policy-unavailable');
     await expect(broker.apply(f.call(f.request()))).rejects.toThrow('policy-unavailable');
   });
 

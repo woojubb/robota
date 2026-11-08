@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import {
   OrganizationBroker,
@@ -13,6 +14,20 @@ process.on('message', (message) => {
   try {
     const ledger = new OrganizationLedger(message.options);
     const asset = new OrganizationGitAsset(message.asset);
+    if (message.pause !== undefined) {
+      // Windows cannot pause inside the owner's Git executable: stop this process at the same call, with the
+      // ledger transaction open, and let the test kill it.
+      const publish = asset.publish.bind(asset);
+      const hold = () => {
+        writeFileSync(message.pause.marker, String(process.pid));
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);
+      };
+      asset.publish = (intent) => {
+        if (message.pause.point === 'before') hold();
+        publish(intent);
+        if (message.pause.point === 'after') hold();
+      };
+    }
     const actions = createOrganizationGitActions(ledger, {
       resource: 'source',
       asset,

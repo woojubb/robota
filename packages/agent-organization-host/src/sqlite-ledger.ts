@@ -7,6 +7,7 @@ import {
   readSync,
   realpathSync,
 } from 'node:fs';
+import type { BigIntStats } from 'node:fs';
 import { basename, dirname, isAbsolute, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { organizationCanonical, organizationOperationDigest } from './canonical.js';
@@ -16,6 +17,7 @@ import { gitParameters } from './git-asset.js';
 import type { OrganizationGitAsset, IOrganizationGitIntent } from './git-asset.js';
 import { OrganizationSharedStateSql } from './shared-state.js';
 import { OrganizationLedgerIntegrity } from './ledger-anchor.js';
+import { isOwnerOnly, isSameFile } from './store-ownership.js';
 import type { IOrganizationLedgerAnchor } from './ledger-anchor.js';
 import type { IOrganizationStateLease, IOrganizationStateValue } from './shared-state.js';
 import type { TOrganizationNoEffectReason } from './no-effect.js';
@@ -102,7 +104,7 @@ export class OrganizationLedger {
   private readonly db: ISqlDatabase;
   private readonly state: OrganizationSharedStateSql;
   private readonly path: string;
-  private readonly inode: { ino: number; dev: number };
+  private readonly identity: BigIntStats;
   private closed = false;
   private readonly now: () => number;
   private readonly workloadKey;
@@ -132,13 +134,7 @@ export class OrganizationLedger {
     try {
       const directory = realpathSync(dirname(options.path));
       const root = lstatSync(directory);
-      const uid = process.getuid?.();
-      if (
-        !root.isDirectory() ||
-        (root.mode & 0o077) !== 0 ||
-        (uid !== undefined && root.uid !== uid)
-      )
-        throw new Error('unowned directory');
+      if (!root.isDirectory() || !isOwnerOnly(root)) throw new Error('unowned directory');
       this.path = join(directory, basename(options.path));
       if (options.create === true) {
         closeSync(
@@ -149,15 +145,10 @@ export class OrganizationLedger {
           ),
         );
       }
-      const file = lstatSync(this.path);
-      if (
-        !file.isFile() ||
-        file.nlink !== 1 ||
-        (file.mode & 0o077) !== 0 ||
-        (uid !== undefined && file.uid !== uid)
-      )
+      const file = lstatSync(this.path, { bigint: true });
+      if (!file.isFile() || file.nlink !== 1n || !isOwnerOnly(file))
         throw new Error('unowned database');
-      this.inode = { ino: file.ino, dev: file.dev };
+      this.identity = file;
       if (options.create !== true) this.verifyFile();
       // The optional runtime capability fails closed; there is no memory or JSON-file fallback.
       const requireFrom = createRequire(import.meta.url);
@@ -239,16 +230,13 @@ export class OrganizationLedger {
   private verifyFile(): void {
     const descriptor = openSync(this.path, constants.O_RDONLY | constants.O_NOFOLLOW);
     try {
-      const file = fstatSync(descriptor);
-      const uid = process.getuid?.();
+      const file = fstatSync(descriptor, { bigint: true });
       const header = Buffer.alloc(16);
       if (
         !file.isFile() ||
-        file.ino !== this.inode.ino ||
-        file.dev !== this.inode.dev ||
-        file.nlink !== 1 ||
-        (file.mode & 0o077) !== 0 ||
-        (uid !== undefined && file.uid !== uid) ||
+        !isSameFile(file, this.identity) ||
+        file.nlink !== 1n ||
+        !isOwnerOnly(file) ||
         readSync(descriptor, header, 0, 16, 0) !== 16 ||
         !header.equals(Buffer.from('SQLite format 3\u0000'))
       )
