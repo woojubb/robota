@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { nextScheduledFireOnOrAfter } from '../scheduled-fire-time.js';
 import { createScheduledTaskRunner } from '../scheduled-task-runner.js';
+import { NODE_BINARY_ENV, nodeCommand } from './node-shell-command.js';
 import type {
   IBackgroundTaskHandle,
   IBackgroundTaskStart,
@@ -32,13 +33,6 @@ describe('nextScheduledFireOnOrAfter', () => {
     ).toBe('2026-09-24T00:20:00.000Z');
   });
 });
-
-/** The absolute node binary reaches the child through the task env; the command stays a literal. */
-const NODE_BINARY_ENV = 'PRODUCT_TEST_NODE';
-
-function nodeCommand(script: string): string {
-  return `"$${NODE_BINARY_ENV}" -e ${JSON.stringify(script)}`;
-}
 
 function isAlive(pid: number): boolean {
   try {
