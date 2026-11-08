@@ -465,7 +465,8 @@ describe('createScheduledTaskRunner', () => {
           },
           { timeout: 10_000, interval: 20 },
         );
-        expect(isAlive(pids[0]!)).toBe(true);
+        // No liveness assertion on a child here: each fire is killed by its own 700 ms timeout, so on a
+        // loaded runner a child can already be gone when the poll that saw its readiness returns.
         await vi.waitFor(
           async () => {
             const page = await readLog({ offset: 0 });
@@ -483,7 +484,6 @@ describe('createScheduledTaskRunner', () => {
         );
         expect(priorChildAliveAtWake).toEqual([false]);
         expect(isAlive(pids[0]!)).toBe(false);
-        expect(isAlive(pids[1]!)).toBe(true);
         expect(emittedEvents.slice(0, 4).map((e) => e.type)).toEqual([
           'background_task_sleeping',
           'background_task_waking',
