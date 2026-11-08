@@ -10,107 +10,102 @@ import { createTrustedProjectSessionStoreFixture } from '../../testing/trusted-p
 import { loadedRecordOrMissing } from './session-load-helpers.js';
 
 /**
- * DATA-006 (ARL-08): the SessionStore JSON record round-trip must preserve EVERY
+ * The SessionStore JSON record round-trip must preserve EVERY
  * `IInteractiveSessionRecord` field. The `Required<Omit<IInteractiveSessionRecord, 'pendingExecution'>>` typing forces the fixture
  * to enumerate every field (a new field breaks this fixture's compile until it is populated), so the
  * deep-equal exercises the whole surface — most importantly `goal`, which the old hand-enumerated
  * `fromSessionRecord` silently dropped on load. The structural mirror (`{ ...session }`), not this test,
  * is what makes drift impossible; this test is JSON round-trip integrity + regression coverage.
  */
-// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
-describe.runIf(process.platform === 'linux')(
-  'session persistence round-trip (DATA-006 / ARL-08)',
-  () => {
-    async function makeStore(): Promise<{
-      store: Awaited<ReturnType<typeof createTrustedProjectSessionStoreFixture>>;
-      cwd: string;
-    }> {
-      const cwd = await realpath(await mkdtemp(join(tmpdir(), 'agent-sdk-session-roundtrip-')));
-      mkdirSync(join(cwd, '.agent'), { recursive: true });
-      return { store: await createTrustedProjectSessionStoreFixture(cwd), cwd };
-    }
+// Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe.runIf(process.platform === 'linux')('session persistence round-trip', () => {
+  async function makeStore(): Promise<{
+    store: Awaited<ReturnType<typeof createTrustedProjectSessionStoreFixture>>;
+    cwd: string;
+  }> {
+    const cwd = await realpath(await mkdtemp(join(tmpdir(), 'agent-sdk-session-roundtrip-')));
+    mkdirSync(join(cwd, '.agent'), { recursive: true });
+    return { store: await createTrustedProjectSessionStoreFixture(cwd), cwd };
+  }
 
-    function fullRecord(
-      cwd: string,
-    ): Required<Omit<IInteractiveSessionRecord, 'pendingExecution'>> {
-      return {
-        id: 'session_full',
-        name: 'full-fixture',
-        cwd,
-        createdAt: '2026-05-05T00:00:00.000Z',
-        updatedAt: '2026-05-05T00:01:00.000Z',
-        // Values must be JSON-stable for a deep-equal round-trip. Message factories inject a `Date`
-        // `timestamp` that JSON serializes to a string (a message-payload serialization detail, out of
-        // scope for DATA-006 which is about field completeness); keep messages empty here so the test
-        // asserts field-completeness + JSON integrity without that red herring.
-        messages: [],
-        history: [],
-        systemPrompt: 'you are a helpful assistant',
-        toolSchemas: [],
-        backgroundTasks: [],
-        backgroundTaskEvents: [],
-        backgroundJobGroups: [],
-        backgroundJobGroupEvents: [],
-        sessionLoops: [
-          {
-            loopId: 'loop_persisted',
-            instruction: 'Check the build',
-            createdAt: '2026-05-05T00:00:00.000Z',
-            expiresAt: '2026-05-12T00:00:00.000Z',
-            revision: 1,
-            generation: 1,
-            phase: 'waiting',
-            nextAllowedAt: '2026-05-05T00:20:00.000Z',
-            delaySeconds: 1200,
-            reason: 'Waiting for CI',
-            fallbackUsed: false,
-          },
-        ],
-        skillActivationEvents: [],
-        memoryEvents: [],
-        usedMemoryReferences: [],
-        contextReferences: [],
-        sandboxSnapshotId: 'sandbox-snapshot-full',
-        goal: {
-          id: 'goal_1',
-          objective: 'finish the audit',
-          status: 'active',
-          iterations: 2,
-          maxIterations: 10,
-          startedAt: '2026-05-05T00:00:30.000Z',
-          progress: [{ iteration: 1, signal: 'continue', reason: 'made progress' }],
+  function fullRecord(cwd: string): Required<Omit<IInteractiveSessionRecord, 'pendingExecution'>> {
+    return {
+      id: 'session_full',
+      name: 'full-fixture',
+      cwd,
+      createdAt: '2026-05-05T00:00:00.000Z',
+      updatedAt: '2026-05-05T00:01:00.000Z',
+      // Values must be JSON-stable for a deep-equal round-trip. Message factories inject a `Date`
+      // `timestamp` that JSON serializes to a string (a message-payload serialization detail, out of
+      // scope for this test, which is about field completeness); keep messages empty here so the test
+      // asserts field-completeness + JSON integrity without that red herring.
+      messages: [],
+      history: [],
+      systemPrompt: 'you are a helpful assistant',
+      toolSchemas: [],
+      backgroundTasks: [],
+      backgroundTaskEvents: [],
+      backgroundJobGroups: [],
+      backgroundJobGroupEvents: [],
+      sessionLoops: [
+        {
+          loopId: 'loop_persisted',
+          instruction: 'Check the build',
+          createdAt: '2026-05-05T00:00:00.000Z',
+          expiresAt: '2026-05-12T00:00:00.000Z',
+          revision: 1,
+          generation: 1,
+          phase: 'waiting',
+          nextAllowedAt: '2026-05-05T00:20:00.000Z',
+          delaySeconds: 1200,
+          reason: 'Waiting for CI',
+          fallbackUsed: false,
         },
-        plan: {
-          id: 'plan_1',
-          objective: 'ship the feature',
-          steps: [{ id: 'plan_1_0', description: 'draft the change', status: 'pending' }],
-          phase: 'awaiting-approval',
-          createdAt: '2026-05-05T00:00:45.000Z',
-          approvedAt: '2026-05-05T00:00:50.000Z',
-        },
-        // SELFHOST-007: the persisted active-branch pointer (survives --resume).
-        activeBranch: { branchId: 'branch-1', checkpointId: 'turn-0002' },
-      };
-    }
+      ],
+      skillActivationEvents: [],
+      memoryEvents: [],
+      usedMemoryReferences: [],
+      contextReferences: [],
+      sandboxSnapshotId: 'sandbox-snapshot-full',
+      goal: {
+        id: 'goal_1',
+        objective: 'finish the audit',
+        status: 'active',
+        iterations: 2,
+        maxIterations: 10,
+        startedAt: '2026-05-05T00:00:30.000Z',
+        progress: [{ iteration: 1, signal: 'continue', reason: 'made progress' }],
+      },
+      plan: {
+        id: 'plan_1',
+        objective: 'ship the feature',
+        steps: [{ id: 'plan_1_0', description: 'draft the change', status: 'pending' }],
+        phase: 'awaiting-approval',
+        createdAt: '2026-05-05T00:00:45.000Z',
+        approvedAt: '2026-05-05T00:00:50.000Z',
+      },
+      // The persisted active-branch pointer (survives --resume).
+      activeBranch: { branchId: 'branch-1', checkpointId: 'turn-0002' },
+    };
+  }
 
-    it('TC-01: preserves an in-flight `goal` across save → load (regression for ARL-08)', async () => {
-      const { store, cwd } = await makeStore();
-      const record = fullRecord(cwd);
+  it('preserves an in-flight `goal` across save → load', async () => {
+    const { store, cwd } = await makeStore();
+    const record = fullRecord(cwd);
 
-      store.save(record);
-      const loaded = loadedRecordOrMissing(store, record.id);
+    store.save(record);
+    const loaded = loadedRecordOrMissing(store, record.id);
 
-      expect(loaded?.goal).toEqual(record.goal);
-    });
+    expect(loaded?.goal).toEqual(record.goal);
+  });
 
-    it('TC-02: every IInteractiveSessionRecord field survives the JSON round-trip', async () => {
-      const { store, cwd } = await makeStore();
-      const record = fullRecord(cwd);
+  it('every IInteractiveSessionRecord field survives the JSON round-trip', async () => {
+    const { store, cwd } = await makeStore();
+    const record = fullRecord(cwd);
 
-      store.save(record);
-      const loaded = loadedRecordOrMissing(store, record.id);
+    store.save(record);
+    const loaded = loadedRecordOrMissing(store, record.id);
 
-      expect(loaded).toEqual(record);
-    });
-  },
-);
+    expect(loaded).toEqual(record);
+  });
+});

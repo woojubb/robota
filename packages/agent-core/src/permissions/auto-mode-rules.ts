@@ -1,5 +1,5 @@
 /**
- * Allow rules `auto` mode sets aside while it is on (issue #3082).
+ * Allow rules `auto` mode sets aside while it is on.
  *
  * The classifier is there to look at arbitrary execution; an allow rule that already approves
  * arbitrary execution would answer first and the classifier would never see it. So a rule that

@@ -63,7 +63,7 @@ async function createStore(cwd: string): Promise<EditCheckpointStore> {
   });
 }
 
-// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+// Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
 describe.runIf(process.platform === 'linux')('EditCheckpointStore.captureFile containment', () => {
   // captureFile runs BEFORE the contained tool refuses, so without containment the snapshot IS the
   // read the sandbox denied: the bytes land inside the working directory and stay there for a later

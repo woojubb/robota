@@ -55,7 +55,7 @@ async function createTracker(): Promise<{
   return { tracker, events, order };
 }
 
-describe('SessionHistoryTracker branch-event operation matrix (ARCH-020)', () => {
+describe('SessionHistoryTracker branch-event operation matrix', () => {
   it('classifies every operation explicitly', () => {
     expect(BRANCH_OPERATION_EVENT_MATRIX).toEqual({
       create: 'checkpoint_created',
@@ -67,7 +67,7 @@ describe('SessionHistoryTracker branch-event operation matrix (ARCH-020)', () =>
     });
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'emits the exact post-persistence event for create, restore, fork, switch, and rollback',
     async () => {
@@ -109,7 +109,7 @@ describe('SessionHistoryTracker branch-event operation matrix (ARCH-020)', () =>
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'classifies resume-pointer hydration as a non-event',
     async () => {

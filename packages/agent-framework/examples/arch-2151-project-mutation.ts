@@ -99,13 +99,13 @@ async function main(): Promise<void> {
     assertCondition(access.status === 'trusted', 'workspace grant was not trusted');
     const mutation = createWorkspaceProjectMutation(access.authority, {
       status: 'approved',
-      purpose: 'ARCH-2151 public mutation scenario',
+      purpose: 'public mutation scenario',
     });
     const settings = createWorkspaceProjectSettingsWriter(access.authority, {
       status: 'approved',
       target: 'project-local',
       relativePath: '.fixture-state/settings.local.json',
-      purpose: 'ARCH-2151 public settings scenario',
+      purpose: 'public settings scenario',
     });
     const sessions = getWorkspaceProjectStateStorage(access.authority, 'sessions');
     const outcomes: string[] = [];

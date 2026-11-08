@@ -13,7 +13,7 @@ import {
 } from '../plugin-paths.js';
 
 /**
- * SEC-018 (issue #2020) - plugin identifiers are path segments arriving from a remote manifest or a
+ * Plugin identifiers are path segments arriving from a remote manifest or a
  * file on disk, and they reached `renameSync`, `cpSync` and a recursive `rmSync` after only
  * `typeof === 'string'`.
  *
@@ -21,7 +21,7 @@ import {
  * sanitised, and containment is judged on the CANONICAL path so a symlink cannot redirect a mutation
  * out of a root it appears to be inside.
  */
-describe('SEC-018 - an identifier that is not a safe path segment is refused', () => {
+describe('an identifier that is not a safe path segment is refused', () => {
   // Each is a real escape or injection, not a stylistic complaint.
   const REJECTED: Array<[string, unknown]> = [
     ['parent traversal', '../escaped'],
@@ -74,7 +74,7 @@ describe('SEC-018 - an identifier that is not a safe path segment is refused', (
   });
 });
 
-describe('SEC-018 - containment is judged on the canonical path', () => {
+describe('containment is judged on the canonical path', () => {
   let root: string;
   let outside: string;
   const fs = new NodeFileSystem();

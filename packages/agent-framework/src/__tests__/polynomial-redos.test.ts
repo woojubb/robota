@@ -1,5 +1,5 @@
 /**
- * SEC-003 — `js/polynomial-redos` regression floor for `agent-framework`.
+ * `js/polynomial-redos` regression floor for `agent-framework`.
  *
  * Each `describe` covers one parser whose regex was quadratic. The pair is deliberate:
  *
@@ -57,7 +57,7 @@ function elapsedMs(run: () => void): number {
   return performance.now() - started;
 }
 
-describe('SEC-003 alert 41 — ProjectMemoryStore topic sanitiser', () => {
+describe('ProjectMemoryStore topic sanitiser', () => {
   it(
     'sanitises a pumped dash run in linear time',
     async () => {
@@ -69,7 +69,7 @@ describe('SEC-003 alert 41 — ProjectMemoryStore topic sanitiser', () => {
     RED_TIMEOUT_MS,
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'keeps the sanitised topic for ordinary input',
     async () => {
@@ -81,7 +81,7 @@ describe('SEC-003 alert 41 — ProjectMemoryStore topic sanitiser', () => {
   );
 });
 
-describe('SEC-003 alert 38 — provider profile name sanitiser', () => {
+describe('provider profile name sanitiser', () => {
   it(
     'sanitises a pumped dash run in linear time',
     () => {
@@ -98,7 +98,7 @@ describe('SEC-003 alert 38 — provider profile name sanitiser', () => {
   });
 });
 
-describe('SEC-003 alert 42 — provider-safe model command tool name', () => {
+describe('provider-safe model command tool name', () => {
   it(
     'projects a pumped underscore run in linear time',
     () => {
@@ -116,7 +116,7 @@ describe('SEC-003 alert 42 — provider-safe model command tool name', () => {
   });
 });
 
-describe('SEC-003 alert 39 — skill frontmatter list values', () => {
+describe('skill frontmatter list values', () => {
   const pumped = `---\nallowed-tools: "x${' '.repeat(PUMP)}y,z"\n---\nbody\n`;
 
   it(
@@ -162,7 +162,7 @@ describe('SEC-003 alert 39 — skill frontmatter list values', () => {
   });
 });
 
-describe('SEC-003 sweep — agent definition frontmatter list values (unflagged twin of alert 39)', () => {
+describe('sweep — agent definition frontmatter list values (unflagged twin of the skill case)', () => {
   function loaderFor(frontmatter: string): AgentDefinitionLoader {
     const cwd = tempDir('agent-redos-agents-');
     const dir = join(cwd, '.agent', 'agents');
@@ -190,7 +190,7 @@ describe('SEC-003 sweep — agent definition frontmatter list values (unflagged 
   });
 });
 
-describe('SEC-003 alert 40 — git worktree `gitdir:` pointer', () => {
+describe('git worktree `gitdir:` pointer', () => {
   function repoWithGitFile(content: string): string {
     const dir = tempDir('agent-redos-gitdir-');
     writeFileSync(join(dir, '.git'), content, 'utf8');
@@ -216,7 +216,7 @@ describe('SEC-003 alert 40 — git worktree `gitdir:` pointer', () => {
   });
 });
 
-describe('SEC-003 sweep — task file open items (unflagged, same shape as alert 40)', () => {
+describe('sweep — task file open items (unflagged, same shape as the `gitdir:` pointer)', () => {
   function taskFile(content: string): { path: string; cwd: string } {
     const cwd = tempDir('agent-redos-task-');
     const path = 'task.md';

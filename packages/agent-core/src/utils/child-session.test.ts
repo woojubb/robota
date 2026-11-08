@@ -1,5 +1,5 @@
 /**
- * Children in their own session (decided design change 4 of #3679).
+ * Children in their own session.
  *
  * Off — every product process today — the policy hands each caller back exactly what it passed, so
  * plain spawning is unchanged. On, a child leads its own session and process group, cannot inherit

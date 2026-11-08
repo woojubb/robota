@@ -1,6 +1,6 @@
 /**
  * Whether the children this process starts share its controlling terminal: one decision for the
- * whole process, made once by its entry, and read at every spawn (decided design change 4 of #3679).
+ * whole process, made once by its entry, and read at every spawn.
  *
  * ## Why a child leaves the session
  *

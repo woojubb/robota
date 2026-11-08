@@ -1,5 +1,5 @@
 /**
- * Sealing a trusted project's plain edit checkpoints in place (#3679, secure conversation): newest
+ * Sealing a trusted project's plain edit checkpoints in place (secure conversation): newest
  * turn first so every turn stays readable while it runs, stopping at the first turn that must stay
  * plain, staged pre-images flushed before the manifest commits, and a rerun that finishes from what
  * opens — never swapping in a staged file that does not. Project writes are Linux-only, so these run

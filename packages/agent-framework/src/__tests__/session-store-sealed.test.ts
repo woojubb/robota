@@ -1,10 +1,10 @@
 /**
- * Sealed session records in the PROJECT store (#3679, secure conversation): what the trust-gated
+ * Sealed session records in the PROJECT store (secure conversation): what the trust-gated
  * adapter writes and concludes when it is given an artifact sealer. The user's directory store has
  * the same cases in agent-session; the two share one codec, and this proves the project adapter
  * routes through it rather than around it.
  *
- * ARCH-047: a project write needs the Linux stable-root host, so the cases that write are Linux-only
+ * A project write needs the Linux stable-root host, so the cases that write are Linux-only
  * like the rest of this adapter's tests; the cases that only read run everywhere.
  */
 
@@ -53,7 +53,7 @@ function record(id: string, text = CANARY, updatedAt = '2026-08-01T01:00:00.000Z
 }
 
 /**
- * A valid outcome as a store that seals reports it (#3679 step 3e): it says whose the record is and
+ * A valid outcome as a store that seals reports it: it says whose the record is and
  * which stored bytes it came from. Saves here state no provenance, and a write-only child's handed-over
  * record is never the owner's, so the records are unverified.
  */
@@ -516,7 +516,7 @@ function writeSealedByHand(sealer: TSealer, id: string): void {
   );
 }
 
-describe('a project record handed to a subagent process (#3679 step 3b)', () => {
+describe('a project record handed to a subagent process', () => {
   it('is exported while unlocked, and nothing while locked with no handoff record', async () => {
     const sealer = createTestArtifactSealer();
     writeSealedByHand(sealer, 'sess_fork');

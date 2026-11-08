@@ -176,7 +176,7 @@ describe('interactive-session-streaming edit diffs', () => {
     const filePath = makeTempFile(
       ['line four', 'line five', 'line six', 'line one', 'line eight', 'line nine'].join('\n'),
     );
-    // #3288 review MUST 1: cwd must name the file's REAL containing directory — a diff preview
+    // Cwd must name the file's REAL containing directory — a diff preview
     // now only reads a file whose canonical path resolves inside it (see interactive-session-streaming.ts's
     // `isSafeToReadForDiff`), so context lines are read here only because `tmpDir` genuinely contains it.
     const state = createState();
@@ -318,7 +318,7 @@ describe('interactive-session-streaming edit diffs', () => {
   });
 });
 
-describe('#3288: extending the diff builder to Write', () => {
+describe('extending the diff builder to Write', () => {
   it('attaches diff metadata (all `add` lines, capped) when a Write tool completes', () => {
     const state = createState();
     applyToolStart(state, {
@@ -364,7 +364,7 @@ describe('#3288: extending the diff builder to Write', () => {
   });
 });
 
-describe('#3288 review SHOULD 3: Edit diffs are capped like Write', () => {
+describe('Edit diffs are capped like Write', () => {
   it('caps a large Edit with a truncated marker rather than emitting every line', () => {
     const state = createState();
     const bigOld = Array.from({ length: 520 }, (_, i) => `old ${i}`).join('\n');
@@ -395,7 +395,7 @@ describe('#3288 review SHOULD 3: Edit diffs are capped like Write', () => {
   });
 });
 
-describe('#3288: relative display paths (server-side, additive to firstArg)', () => {
+describe('relative display paths (server-side, additive to firstArg)', () => {
   it('computes a workspace-relative diffFile when cwd is provided, without changing firstArg', () => {
     const state = createState();
     applyToolStart(
@@ -440,7 +440,7 @@ describe('#3288: relative display paths (server-side, additive to firstArg)', ()
   });
 });
 
-describe('#3288: parallel same-named tool_end attribution (executionId-first)', () => {
+describe('parallel same-named tool_end attribution (executionId-first)', () => {
   it('attributes tool_end by executionId, not by "first running with this name"', () => {
     const state = createState();
     applyToolStart(state, {
@@ -471,9 +471,8 @@ describe('#3288: parallel same-named tool_end attribution (executionId-first)', 
   });
 });
 
-describe('an `end` with no matching `start` (CORE-027)', () => {
-  // CORE-027 made a crashed tool announce an `end` event, which it never did before. Review asked
-  // the right question: `toolName` is set partway through the wrapper's try block, so a throw BEFORE
+describe('an `end` with no matching `start`', () => {
+  // A crashed tool announces an `end` event. `toolName` is set partway through the wrapper's try block, so a throw BEFORE
   // that point emits an `end` with no `start`, and a consumer that assumes strict pairing — an
   // in-flight counter, say — could go negative.
   //

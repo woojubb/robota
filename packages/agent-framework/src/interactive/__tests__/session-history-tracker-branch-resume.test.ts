@@ -14,7 +14,7 @@ import {
 } from '../../workspace-trust/index.js';
 
 /**
- * SELFHOST-007 TC-05a (regression) — on the STANDARD construction path the checkpoint store is injected
+ * Regression: on the STANDARD construction path the checkpoint store is injected
  * (setEditCheckpointStore) DURING async init, BEFORE the underlying session is assigned, so applying a
  * resume pointer there would throw (getSessionId not ready). The pointer must be STASHED and applied
  * lazily on the first checkpoint operation (when the session is ready) — otherwise `--resume` silently
@@ -60,9 +60,9 @@ async function createStore(cwd: string): Promise<EditCheckpointStore> {
   });
 }
 
-// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+// Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
 describe.runIf(process.platform === 'linux')(
-  'SELFHOST-007 TC-05a — active-branch restore survives store-injection ordering',
+  'active-branch restore survives store-injection ordering',
   () => {
     it('applies a stashed resume pointer on the first checkpoint access after setEditCheckpointStore', async () => {
       const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-branch-resume-')));

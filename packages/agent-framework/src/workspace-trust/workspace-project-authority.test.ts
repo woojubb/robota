@@ -24,7 +24,7 @@ import type {
   IWorkspaceTrustStoreSnapshot,
 } from './index.js';
 
-// @ts-expect-error ARCH-042: a structural object cannot satisfy the opaque authority type.
+// @ts-expect-error: a structural object cannot satisfy the opaque authority type.
 const structurallyForgedAuthority: IWorkspaceProjectAuthority = {};
 void structurallyForgedAuthority;
 
@@ -145,7 +145,7 @@ describe('WorkspaceTrustService project authority', () => {
       reason: 'WorkspaceAuthorityRequired',
       trustState: 'untrusted',
       displayPath: root,
-      // SCREEN-1993: the resolved identity rides on a restricted access so a consumer needing the
+      // The resolved identity rides on a restricted access so a consumer needing the
       // worktree root reads the one resolution already made.
       identity: { repositoryKey: `test:${root}`, displayPath: root, worktreeRoot: root },
     });
@@ -286,7 +286,7 @@ describe('WorkspaceTrustService project authority', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'binds application state to a closed namespace and refuses linked write targets',
     async () => {
@@ -318,7 +318,7 @@ describe('WorkspaceTrustService project authority', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'binds an approved settings writer to exactly one project settings target',
     async () => {
@@ -374,7 +374,7 @@ describe('WorkspaceTrustService project authority', () => {
     }
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'requires a separate approved mutation capability for project writes and deletes',
     async () => {
