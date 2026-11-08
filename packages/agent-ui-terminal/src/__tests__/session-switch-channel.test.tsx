@@ -371,10 +371,14 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     initial.stateManager.selectedExecutionEntryId = 'task:fork';
     initial.onChange?.();
     await waitForFrame(lastFrame, (frame) => frame.includes('Earlier output'));
-    await vi.waitFor(() => expect(initial.readExecutionWorkspaceDetail).toHaveBeenCalledWith('task:fork', undefined));
+    await vi.waitFor(() =>
+      expect(initial.readExecutionWorkspaceDetail).toHaveBeenCalledWith('task:fork', undefined),
+    );
     await tick();
     stdin.write('\x0f');
-    await vi.waitFor(() => expect(initial.readExecutionWorkspaceDetail).toHaveBeenCalledWith('task:fork', { offset: 0 }));
+    await vi.waitFor(() =>
+      expect(initial.readExecutionWorkspaceDetail).toHaveBeenCalledWith('task:fork', { offset: 0 }),
+    );
     await waitForFrame(lastFrame, (frame) => frame.includes('earlier fork output'));
     expect(initial.readExecutionWorkspaceDetail).toHaveBeenCalledWith('task:fork', { offset: 0 });
     unmount();
@@ -595,6 +599,8 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
  */
 describe('picking a session the store will not claim (#3679)', () => {
   const HELD_ID = 'session_aaaaaaaa-held';
+  // Windows reads no process start time, so the store cannot say the holder is alive and says it may be.
+  const HOLDER_OPEN = process.platform === 'win32' ? 'may be open' : 'is open';
   const FREE_ID = 'session_bbbbbbbb-free';
   const CURRENT_ID = 'session_cccccccc-current';
   const DOWN = '\x1b[B';
@@ -695,7 +701,7 @@ describe('picking a session the store will not claim (#3679)', () => {
     // Nothing was stopped or built over the held id, and the notice is the store's.
     expect(created[0]!.stop).not.toHaveBeenCalled();
     expect(createChannel).toHaveBeenCalledTimes(1);
-    expect(saidIn(created[0]!)).toContain(`Session ${HELD_ID} is open in another process`);
+    expect(saidIn(created[0]!)).toContain(`Session ${HELD_ID} ${HOLDER_OPEN} in another process`);
     expect(lastFrame()).not.toContain('Session switch failed');
     expect(lastFrame()).not.toContain('Press Enter to retry');
 
