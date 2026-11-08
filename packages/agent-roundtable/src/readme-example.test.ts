@@ -15,8 +15,9 @@ describe('README quickstart example', () => {
   });
 
   it('matches the fenced code block in README.md, so the doc never drifts from what runs', () => {
-    const readme = readFileSync(join(here, '..', 'README.md'), 'utf8');
-    const source = readFileSync(join(here, 'readme-example.ts'), 'utf8');
+    // A Windows checkout converts line endings, so compare the text with LF endings on both sides.
+    const readme = readFileSync(join(here, '..', 'README.md'), 'utf8').replace(/\r\n/g, '\n');
+    const source = readFileSync(join(here, 'readme-example.ts'), 'utf8').replace(/\r\n/g, '\n');
     const fenceMatch = readme.match(/```typescript\n([\s\S]*?)\n```/);
     expect(fenceMatch, 'README.md must contain a ```typescript quickstart block').not.toBeNull();
     const fenced = fenceMatch![1];
