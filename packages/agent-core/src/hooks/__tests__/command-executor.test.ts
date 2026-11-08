@@ -10,6 +10,13 @@ const input: IHookInput = {
   hook_event_name: 'SessionStart',
 };
 
+/**
+ * A command that means the same to `sh` and to PowerShell (the shell the executor resolves on
+ * Windows): the script is a double-quoted argument of `node -e` with only single quotes inside it.
+ * Shell redirection (`>&2`), `cat`, `kill` and `&&` do not survive that move.
+ */
+const nodeHook = (script: string): string => `node -e "${script}"`;
+
 describe('CommandExecutor', () => {
   const executor = new CommandExecutor();
 
@@ -42,8 +49,8 @@ describe('CommandExecutor', () => {
 
   it('should pass JSON input on stdin', async () => {
     const outcome = await executor.execute(
-      { type: 'command', command: 'cat' },
-      { ...input, cwd: '/tmp', hook_event_name: 'PreToolUse', tool_name: 'Bash' },
+      { type: 'command', command: nodeHook('process.stdin.pipe(process.stdout)') },
+      { ...input, hook_event_name: 'PreToolUse', tool_name: 'Bash' },
     );
     expect(outcome.outcome).toBe('allow');
     if (outcome.outcome !== 'allow') return;
@@ -58,7 +65,7 @@ describe('CommandExecutor', () => {
   describe('TC-03 exit mapping', () => {
     it('exit 2 is deny, carrying stderr as the reason', async () => {
       const outcome = await executor.execute(
-        { type: 'command', command: 'echo "no thanks" >&2; exit 2' },
+        { type: 'command', command: nodeHook("console.error('no thanks'); process.exit(2)") },
         input,
       );
       expect(outcome.outcome).toBe('deny');
@@ -86,14 +93,22 @@ describe('CommandExecutor', () => {
       expect(outcome.outcome === 'error' && outcome.kind).toBe('nonzero-exit');
     });
 
-    it('a signal kill is error/nonzero-exit, naming the signal — not exit code 1', async () => {
-      const outcome = await executor.execute({ type: 'command', command: 'kill -TERM $$' }, input);
-      expect(outcome.outcome).toBe('error');
-      if (outcome.outcome !== 'error') return;
-      expect(outcome.kind).toBe('nonzero-exit');
-      expect(outcome.reason).toContain('signal');
-      expect(outcome.reason).toContain('SIGTERM');
-    });
+    // Windows has no signals: a process that is killed there reports a plain exit code, which the
+    // nonzero-exit rows above already cover.
+    it.runIf(process.platform !== 'win32')(
+      'a signal kill is error/nonzero-exit, naming the signal — not exit code 1',
+      async () => {
+        const outcome = await executor.execute(
+          { type: 'command', command: 'kill -TERM $$' },
+          input,
+        );
+        expect(outcome.outcome).toBe('error');
+        if (outcome.outcome !== 'error') return;
+        expect(outcome.kind).toBe('nonzero-exit');
+        expect(outcome.reason).toContain('signal');
+        expect(outcome.reason).toContain('SIGTERM');
+      },
+    );
 
     it('a timeout is error/timeout, distinguishable from a nonzero exit', async () => {
       const outcome = await executor.execute(

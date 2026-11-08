@@ -82,7 +82,13 @@ const hooksOk = {
   PreToolUse: [
     {
       matcher: '',
-      hooks: [{ type: 'command', command: 'sleep 2 && echo "hook completed"', timeout: 5 }],
+      hooks: [
+        {
+          type: 'command',
+          command: `node -e "setTimeout(() => console.log('hook completed'), 2000)"`,
+          timeout: 5,
+        },
+      ],
     },
   ],
 };

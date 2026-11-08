@@ -51,6 +51,17 @@ afterEach(() => {
 
 const mode = (path: string): number => statSync(path).mode & 0o7777;
 
+/**
+ * Windows has no POSIX mode bits to read back: `chmod` only toggles the read-only attribute and
+ * inherited NTFS ACLs govern, which `ownerOnlyGuarantee()` reports (TC-13). The mode assertions
+ * therefore run only where the platform defines them.
+ */
+const POSIX_MODES = ownerOnlyGuarantee() === 'posix-mode';
+
+function expectMode(path: string, expected: number): void {
+  if (POSIX_MODES) expect(mode(path)).toBe(expected);
+}
+
 describe('ensureOwnerOnlyDirectory — durable', () => {
   it('flushes the parent of each directory it created, and nothing when it created none', () => {
     const flushed: string[] = [];
@@ -77,10 +88,11 @@ describe('SEC-020 — ensureOwnerOnlyDirectory', () => {
   it('TC-01: creates a directory only its owner can enter, under a permissive umask', () => {
     const target = join(root, 'sessions');
     ensureOwnerOnlyDirectory(target);
-    expect(mode(target)).toBe(OWNER_ONLY_DIRECTORY_MODE);
+    expect(statSync(target).isDirectory()).toBe(true);
+    expectMode(target, OWNER_ONLY_DIRECTORY_MODE);
   });
 
-  it('TC-02: TIGHTENS a directory that already exists at a wider mode', () => {
+  it.runIf(POSIX_MODES)('TC-02: TIGHTENS a directory that already exists at a wider mode', () => {
     // `mkdirSync(path, { recursive: true, mode })` returns successfully on an existing directory
     // WITHOUT touching its mode. This is the case the old `if (!existsSync) mkdirSync` skipped
     // entirely, and it is the one an attacker creates by pre-making the directory.
@@ -89,21 +101,23 @@ describe('SEC-020 — ensureOwnerOnlyDirectory', () => {
     chmodSync(target, 0o777);
     expect(mode(target)).toBe(0o777);
     ensureOwnerOnlyDirectory(target);
-    expect(mode(target)).toBe(OWNER_ONLY_DIRECTORY_MODE);
+    expectMode(target, OWNER_ONLY_DIRECTORY_MODE);
   });
 
   it('TC-03: is idempotent', () => {
     const target = join(root, 'twice');
     ensureOwnerOnlyDirectory(target);
     ensureOwnerOnlyDirectory(target);
-    expect(mode(target)).toBe(OWNER_ONLY_DIRECTORY_MODE);
+    expect(statSync(target).isDirectory()).toBe(true);
+    expectMode(target, OWNER_ONLY_DIRECTORY_MODE);
   });
 
   it('TC-04: creates missing parents, and every one of them is owner-only', () => {
     const target = join(root, 'a', 'b', 'c');
     ensureOwnerOnlyDirectory(target);
-    expect(mode(target)).toBe(OWNER_ONLY_DIRECTORY_MODE);
-    expect(mode(join(root, 'a'))).toBe(OWNER_ONLY_DIRECTORY_MODE);
+    expect(statSync(target).isDirectory()).toBe(true);
+    expectMode(target, OWNER_ONLY_DIRECTORY_MODE);
+    expectMode(join(root, 'a'), OWNER_ONLY_DIRECTORY_MODE);
   });
 
   it('TC-05: refuses rather than proceeding when the target is not a directory', () => {
@@ -117,18 +131,19 @@ describe('SEC-020 — writeOwnerOnlyFile', () => {
   it('TC-06: writes a record only its owner can read', () => {
     const target = join(root, 'store', 'record.json');
     writeOwnerOnlyFile(target, '{"a":1}');
-    expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
-    expect(mode(join(root, 'store'))).toBe(OWNER_ONLY_DIRECTORY_MODE);
+    expect(readFileSync(target, 'utf8')).toBe('{"a":1}');
+    expectMode(target, OWNER_ONLY_FILE_MODE);
+    expectMode(join(root, 'store'), OWNER_ONLY_DIRECTORY_MODE);
   });
 
-  it('TC-07: REPLACES a file that already exists at a wider mode', () => {
+  it.runIf(POSIX_MODES)('TC-07: REPLACES a file that already exists at a wider mode', () => {
     // `writeFileSync(path, data, { mode })` applies the mode only when the file is CREATED, so a
     // record an older version left at 0644 keeps 0644 through every later save.
     const target = join(root, 'record.json');
     writeFileSync(target, 'old');
     chmodSync(target, 0o644);
     writeOwnerOnlyFile(target, 'new');
-    expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
+    expectMode(target, OWNER_ONLY_FILE_MODE);
   });
 
   it('TC-08: leaves no temp file behind on success', () => {
@@ -137,7 +152,7 @@ describe('SEC-020 — writeOwnerOnlyFile', () => {
     expect(existsSync(`${target}.${process.pid}.tmp`)).toBe(false);
   });
 
-  it('TC-09: a temp path left at a wider mode is not adopted', () => {
+  it.runIf(POSIX_MODES)('TC-09: a temp path left at a wider mode is not adopted', () => {
     // The window this closes: the bytes are on disk under the temp name before the rename, so a
     // temp file created world-readable exposes the whole record even though the final path is 0600.
     const target = join(root, 'record.json');
@@ -145,7 +160,7 @@ describe('SEC-020 — writeOwnerOnlyFile', () => {
     writeFileSync(temp, 'stale');
     chmodSync(temp, 0o666);
     writeOwnerOnlyFile(target, 'fresh');
-    expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
+    expectMode(target, OWNER_ONLY_FILE_MODE);
   });
 
   it('writes bytes exactly as given, at the same mode, so a sealed artifact needs no second path', () => {
@@ -155,29 +170,29 @@ describe('SEC-020 — writeOwnerOnlyFile', () => {
     const target = join(root, 'store', 'sealed.json');
     writeOwnerOnlyFile(target, sealed);
     expect(new Uint8Array(readFileSync(target))).toEqual(sealed);
-    expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
+    expectMode(target, OWNER_ONLY_FILE_MODE);
   });
 });
 
 describe('SEC-020 — tightenExistingFile', () => {
-  it('TC-10: narrows a file an older version left readable', () => {
+  it.runIf(POSIX_MODES)('TC-10: narrows a file an older version left readable', () => {
     const target = join(root, 'old.jsonl');
     writeFileSync(target, 'line\n');
     chmodSync(target, 0o644);
     tightenExistingFile(target);
-    expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
+    expectMode(target, OWNER_ONLY_FILE_MODE);
   });
 
   it('TC-11: is a no-op on a path that does not exist, and does not throw', () => {
     expect(() => tightenExistingFile(join(root, 'absent'))).not.toThrow();
   });
 
-  it('TC-12: leaves an already-owner-only file alone', () => {
+  it.runIf(POSIX_MODES)('TC-12: leaves an already-owner-only file alone', () => {
     const target = join(root, 'fine');
     writeFileSync(target, 'x', { mode: OWNER_ONLY_FILE_MODE });
     chmodSync(target, OWNER_ONLY_FILE_MODE);
     tightenExistingFile(target);
-    expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
+    expectMode(target, OWNER_ONLY_FILE_MODE);
   });
 });
 
@@ -199,61 +214,70 @@ describe('SEC-020 — the guarantee is named, not assumed', () => {
 });
 
 describe('SEC-020 — verification, not hope', () => {
-  it('TC-29: a filesystem that silently ignores chmod is REFUSED, not used', () => {
-    // The condition the verification step exists for, and the only one create-then-chmod cannot
-    // reach on its own: `mkdir` succeeds, `chmod` returns without error, and the mode is still wide.
-    // Some network and FAT mounts behave exactly this way.
-    //
-    // Before this case existed, deleting the verification entirely changed no test result — the
-    // guard was present and unproven, which is the shape this repository keeps finding.
-    const target = join(root, 'ignores-chmod');
-    expect(() =>
-      ensureOwnerOnlyDirectory(target, {
-        makeDirectory: () => {
-          mkdirSync(target, { recursive: true });
-        },
-        setMode: () => {
-          /* the filesystem accepts the call and does nothing */
-        },
-        readMode: () => 0o777,
-      }),
-    ).toThrow(OwnerOnlyModeError);
-  });
+  it.runIf(POSIX_MODES)(
+    'TC-29: a filesystem that silently ignores chmod is REFUSED, not used',
+    () => {
+      // The condition the verification step exists for, and the only one create-then-chmod cannot
+      // reach on its own: `mkdir` succeeds, `chmod` returns without error, and the mode is still wide.
+      // Some network and FAT mounts behave exactly this way.
+      //
+      // Before this case existed, deleting the verification entirely changed no test result — the
+      // guard was present and unproven, which is the shape this repository keeps finding.
+      const target = join(root, 'ignores-chmod');
+      expect(() =>
+        ensureOwnerOnlyDirectory(target, {
+          makeDirectory: () => {
+            mkdirSync(target, { recursive: true });
+          },
+          setMode: () => {
+            /* the filesystem accepts the call and does nothing */
+          },
+          readMode: () => 0o777,
+        }),
+      ).toThrow(OwnerOnlyModeError);
+    },
+  );
 
-  it('TC-30: the refusal names the mode it found, so the message is actionable', () => {
-    const target = join(root, 'ignores-chmod-2');
-    try {
-      ensureOwnerOnlyDirectory(target, {
-        makeDirectory: () => {
-          mkdirSync(target, { recursive: true });
-        },
-        setMode: () => {},
-        readMode: () => 0o755,
-      });
-      expect.unreachable('the verification should have refused');
-    } catch (error) {
-      expect((error as Error).message).toContain('0755');
-      expect((error as Error).message).toContain(target);
-    }
-  });
+  it.runIf(POSIX_MODES)(
+    'TC-30: the refusal names the mode it found, so the message is actionable',
+    () => {
+      const target = join(root, 'ignores-chmod-2');
+      try {
+        ensureOwnerOnlyDirectory(target, {
+          makeDirectory: () => {
+            mkdirSync(target, { recursive: true });
+          },
+          setMode: () => {},
+          readMode: () => 0o755,
+        });
+        expect.unreachable('the verification should have refused');
+      } catch (error) {
+        expect((error as Error).message).toContain('0755');
+        expect((error as Error).message).toContain(target);
+      }
+    },
+  );
 });
 
 describe('SEC-020 — withinRoot tightens the ancestors the caller owns', () => {
-  it('TC-31: a store ROOT an older version left at 0755 is tightened, not only the leaf', () => {
-    // The defect review of PR #2224 found: `mkdirSync(path, { recursive: true, mode })` applies the
-    // mode only to the directories it CREATES, so a root that already existed keeps whatever it had
-    // while the sessions directory inside it came out 0700. On the restricted-workspace fallback no
-    // other writer runs, so nothing else would ever repair it.
-    const owned = join(root, 'store-root');
-    mkdirSync(owned);
-    chmodSync(owned, 0o755);
-    const leaf = join(owned, 'sessions');
-    ensureOwnerOnlyDirectory(leaf, { withinRoot: owned });
-    expect(mode(owned)).toBe(OWNER_ONLY_DIRECTORY_MODE);
-    expect(mode(leaf)).toBe(OWNER_ONLY_DIRECTORY_MODE);
-  });
+  it.runIf(POSIX_MODES)(
+    'TC-31: a store ROOT an older version left at 0755 is tightened, not only the leaf',
+    () => {
+      // The defect review of PR #2224 found: `mkdirSync(path, { recursive: true, mode })` applies the
+      // mode only to the directories it CREATES, so a root that already existed keeps whatever it had
+      // while the sessions directory inside it came out 0700. On the restricted-workspace fallback no
+      // other writer runs, so nothing else would ever repair it.
+      const owned = join(root, 'store-root');
+      mkdirSync(owned);
+      chmodSync(owned, 0o755);
+      const leaf = join(owned, 'sessions');
+      ensureOwnerOnlyDirectory(leaf, { withinRoot: owned });
+      expectMode(owned, OWNER_ONLY_DIRECTORY_MODE);
+      expectMode(leaf, OWNER_ONLY_DIRECTORY_MODE);
+    },
+  );
 
-  it('TC-32: every segment between the root and the leaf is tightened', () => {
+  it.runIf(POSIX_MODES)('TC-32: every segment between the root and the leaf is tightened', () => {
     const owned = join(root, 'deep-root');
     const middle = join(owned, 'a');
     mkdirSync(middle, { recursive: true });
@@ -262,7 +286,7 @@ describe('SEC-020 — withinRoot tightens the ancestors the caller owns', () => 
     const leaf = join(middle, 'b');
     ensureOwnerOnlyDirectory(leaf, { withinRoot: owned });
     for (const path of [owned, middle, leaf]) {
-      expect(mode(path)).toBe(OWNER_ONLY_DIRECTORY_MODE);
+      expectMode(path, OWNER_ONLY_DIRECTORY_MODE);
     }
   });
 
@@ -277,14 +301,17 @@ describe('SEC-020 — withinRoot tightens the ancestors the caller owns', () => 
     );
   });
 
-  it('TC-34: without withinRoot only the leaf is touched — the parent is not this call to narrow', () => {
-    const parent = join(root, 'not-ours');
-    mkdirSync(parent);
-    chmodSync(parent, 0o755);
-    ensureOwnerOnlyDirectory(join(parent, 'leaf'));
-    expect(mode(parent)).toBe(0o755);
-    expect(mode(join(parent, 'leaf'))).toBe(OWNER_ONLY_DIRECTORY_MODE);
-  });
+  it.runIf(POSIX_MODES)(
+    'TC-34: without withinRoot only the leaf is touched — the parent is not this call to narrow',
+    () => {
+      const parent = join(root, 'not-ours');
+      mkdirSync(parent);
+      chmodSync(parent, 0o755);
+      ensureOwnerOnlyDirectory(join(parent, 'leaf'));
+      expectMode(parent, 0o755);
+      expectMode(join(parent, 'leaf'), OWNER_ONLY_DIRECTORY_MODE);
+    },
+  );
 });
 
 describe('writeOwnerOnlyFile — durable', () => {
@@ -312,7 +339,7 @@ describe('writeOwnerOnlyFile — durable', () => {
       },
     });
     expect(seen).toEqual(['file', 'directory']);
-    expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
+    expectMode(target, OWNER_ONLY_FILE_MODE);
   });
 
   it('flushes the parent of every directory the write created, outermost first, then the leaf', () => {
@@ -380,7 +407,7 @@ describe('writeOwnerOnlyFile — durable', () => {
     const target = join(root, 'real', 'keyring.json');
     writeOwnerOnlyFile(target, '{"a":1}', { durable: true });
     expect(readFileSync(target, 'utf8')).toBe('{"a":1}');
-    expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
+    expectMode(target, OWNER_ONLY_FILE_MODE);
   });
 
   it('TC-39: a failure after the rename is "in place, not confirmed", never "not written"', () => {
@@ -411,7 +438,7 @@ describe('writeOwnerOnlyFile — createOnly', () => {
     const target = join(root, 'secure', 'keyring.json');
     writeOwnerOnlyFile(target, 'first', { createOnly: true, durable: true });
     expect(readFileSync(target, 'utf8')).toBe('first');
-    expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
+    expectMode(target, OWNER_ONLY_FILE_MODE);
     expect(readdirSync(join(root, 'secure'))).toEqual(['keyring.json']);
   });
 
@@ -502,7 +529,7 @@ describe('stageOwnerOnlyFile', () => {
     expect(readFileSync(target, 'utf8')).toBe('old');
     expect(readFileSync(staged.temporaryPath, 'utf8')).toBe('new');
     if (ownerOnlyGuarantee() === 'posix-mode') {
-      expect(mode(staged.temporaryPath)).toBe(OWNER_ONLY_FILE_MODE);
+      expectMode(staged.temporaryPath, OWNER_ONLY_FILE_MODE);
     }
     staged.commit(() => order.push('before commit'));
     expect(order).toEqual(['flush file', 'before commit', 'flush directory']);
