@@ -31,7 +31,7 @@ export interface ICreateQueryOptions {
   userSettingsSources?: readonly IHostSettingsSource[];
   /**
    * Permission mode. Defaults to `'default'`: with no `permissionHandler`, anything that would ask is
-   * denied (issue #3081). Pass `'bypassPermissions'` explicitly for unattended driving.
+   * denied. Pass `'bypassPermissions'` explicitly for unattended driving.
    */
   permissionMode?: TPermissionMode;
   /**

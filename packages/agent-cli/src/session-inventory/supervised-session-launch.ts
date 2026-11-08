@@ -72,7 +72,7 @@ function hasExited(child: ChildProcess): boolean {
 }
 
 /**
- * Issue #3282 §3: the tail of what the child wrote to stderr before it died — the real reason (e.g.
+ * The tail of what the child wrote to stderr before it died — the real reason (e.g.
  * "No provider configuration found...", before setup mode existed to avoid it entirely; still the
  * reason for anything else that kills the child early), where a plain "the readiness channel closed"
  * or "the process exited" said nothing a caller — `the CLI daemon start --json`, the desktop fatal
@@ -339,7 +339,7 @@ async function launchRuntime(
     if (root !== undefined) discardSupervisedGrantHandoff(root, id);
   };
   if (root !== undefined) writeSupervisedGrantHandoff(root, id, grants);
-  // #3282 §3: the same env handed to the child — reused to redact its own credential values out of
+  // The same env handed to the child — reused to redact its own credential values out of
   // whatever the child echoes back on stderr, in `sanitizeStderrTail`.
   const inheritedEnv = options.env ?? childProductEnvironment(options.productRuntime);
   const childEnv = transportToken === undefined && mode.kind === 'plain'
@@ -369,7 +369,7 @@ async function launchRuntime(
     ], withChildSession({
       cwd,
       detached: true,
-      // #3282 §3: stderr is piped (was 'ignore') so a death before readiness can report why —
+      // Stderr is piped (was 'ignore') so a death before readiness can report why —
       // otherwise discarded exactly as before, and released on every exit path below.
       // The transport token's pipe, when there is one, is the child's descriptor 4.
       stdio: ['ignore', 'ignore', 'pipe', 'ipc', ...(mode.kind === 'forwarded' ? [mode.spawnerFd] : transportToken === undefined && mode.kind === 'plain' ? [] : ['pipe' as const])],
@@ -460,7 +460,7 @@ async function launchRuntime(
         );
       }
     }
-    // #3282 §3: these three are generic — "something killed the child before it said why". The
+    // These three are generic — "something killed the child before it said why". The
     // child's own stderr tail, when it wrote one, IS why; a fallback text stands in only when it
     // wrote nothing. The handshake's own structured errors below already know their own precise
     // reason and are never replaced by incidental stderr output.

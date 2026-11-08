@@ -12,7 +12,7 @@ import korean from './__fixtures__/korean-text.json';
 import type { TPendingPrompt } from '../../hooks/prompt-state.js';
 
 /**
- * #3280 §1: the docked prompt can appear while the user is typing in the composer. It must never take
+ * The docked prompt can appear while the user is typing in the composer. It must never take
  * that focus away — a key typed for the composer, including a digit that would otherwise answer the
  * prompt, always stays in the composer. Once the person moves focus to the prompt themselves (a click,
  * or Shift+Tab from the composer) its keys answer it, and answering it there sends focus back to the
@@ -287,7 +287,7 @@ function renderWithoutEffectFlush(ui: React.ReactElement): {
 }
 
 /**
- * #3280 §3: a question with `allowFreeText` showed only its title and Cancel — nothing to type an
+ * A question with `allowFreeText` showed only its title and Cancel — nothing to type an
  * answer into. `values: []` alongside `text` is the same shape the terminal renderer already sends
  * for free text (`PendingActionPrompt.tsx`'s `TextPrompt` path), not a new one.
  */
@@ -681,7 +681,7 @@ describe('PermissionPrompt shows what the tool was asked to do', () => {
   afterEach(cleanup);
 
   it('for a tool without its own preview, shows the command line and every other argument beside it', () => {
-    // #3288: Bash and Edit/Write get a dedicated preview (see below); anything else still falls
+    // Bash and Edit/Write get a dedicated preview (see below); anything else still falls
     // back to this generic "command line, then every other arg" dump.
     const prompt = {
       kind: 'permission',
@@ -731,7 +731,7 @@ describe('PermissionPrompt shows what the tool was asked to do', () => {
     );
   });
 
-  it('#3288: an Edit request with a diff preview shows "Edit <path>" and the diff, not raw args', () => {
+  it('an Edit request with a diff preview shows "Edit <path>" and the diff, not raw args', () => {
     const prompt = {
       kind: 'permission',
       id: 'p4',
@@ -754,7 +754,7 @@ describe('PermissionPrompt shows what the tool was asked to do', () => {
     expect(screen.queryByText('old_string:')).toBeNull();
   });
 
-  it('#3288: a Write request with a diff preview shows the same diff view', () => {
+  it('a Write request with a diff preview shows the same diff view', () => {
     const prompt = {
       kind: 'permission',
       id: 'p5',
@@ -770,7 +770,7 @@ describe('PermissionPrompt shows what the tool was asked to do', () => {
     expect(screen.getByText(/\+ hello/)).toBeTruthy();
   });
 
-  it('#3288: a Shell request shows the command, with no cwd line when it matches the workspace', () => {
+  it('a Shell request shows the command, with no cwd line when it matches the workspace', () => {
     const prompt = {
       kind: 'permission',
       id: 'p6',
@@ -783,7 +783,7 @@ describe('PermissionPrompt shows what the tool was asked to do', () => {
     expect(screen.queryByText(/^in /)).toBeNull();
   });
 
-  it('#3288: a Shell request notes its cwd only when it differs from the workspace', () => {
+  it('a Shell request notes its cwd only when it differs from the workspace', () => {
     const prompt = {
       kind: 'permission',
       id: 'p7',
@@ -798,7 +798,7 @@ describe('PermissionPrompt shows what the tool was asked to do', () => {
   });
 });
 
-describe('PermissionPrompt names a different kind of surface, never a raw id (#3289 §3)', () => {
+describe('PermissionPrompt names a different kind of surface, never a raw id', () => {
   afterEach(cleanup);
 
   function withRequester(requesterDriverId: string | undefined): TPendingPrompt {
@@ -869,7 +869,7 @@ describe('PermissionPrompt names a different kind of surface, never a raw id (#3
     expect(screen.queryByText(/session-abc123/)).toBeNull();
   });
 
-  it('says "Automatic — loop" (#3288 §1) for the agent\'s own wake-up, not "from automatic"', () => {
+  it('says "Automatic — loop" for the agent\'s own wake-up, not "from automatic"', () => {
     render(
       <PermissionPrompt
         prompts={[withRequester('agent')]}
@@ -882,7 +882,7 @@ describe('PermissionPrompt names a different kind of surface, never a raw id (#3
   });
 });
 
-describe('issue #3288 §1: a background agent names itself on its own permission request', () => {
+describe('a background agent names itself on its own permission request', () => {
   afterEach(cleanup);
 
   it('says which background agent is asking, instead of an unattributed prompt', () => {
@@ -907,7 +907,7 @@ describe('issue #3288 §1: a background agent names itself on its own permission
     expect(dialog.textContent).not.toContain('Background agent');
   });
 
-  it('#3288 review MUST 2: still names the background agent when the request also carries a diff', () => {
+  it('still names the background agent when the request also carries a diff', () => {
     const prompt = {
       kind: 'permission',
       id: 'p6',
@@ -930,12 +930,12 @@ describe('issue #3288 §1: a background agent names itself on its own permission
 });
 
 /**
- * #3282 §2 (part 2) — the provider profile action menu ("Manage providers…" → a profile → its
+ * The provider profile action menu ("Manage providers…" → a profile → its
  * actions): Switch/Edit/Test/Duplicate keep the ordinary digit-shortcut grid, but Delete — the
  * audited bug ("Delete looks the same as Switch, answers to the key 5") — is separated, destructive-
  * styled, and answers to no digit at all.
  */
-describe('#3282 §2: the provider profile action menu separates Delete', () => {
+describe('the provider profile action menu separates Delete', () => {
   afterEach(cleanup);
 
   function providerProfileActionAsk(): TPendingPrompt {
@@ -1032,11 +1032,11 @@ describe('#3282 §2: the provider profile action menu separates Delete', () => {
 });
 
 /**
- * #3282 §2 (part 2) — profile deletion is confirmed on the shared `ConfirmDialog` (#3331), now that
+ * Profile deletion is confirmed on the shared `ConfirmDialog`, now that
  * it exists, instead of the generic Yes/No ask grid: a destructive-styled "Delete" button, Cancel
  * focused by default, and no accidental backdrop-click dismissal.
  */
-describe('#3282 §2: profile delete is confirmed on ConfirmDialog', () => {
+describe('profile delete is confirmed on ConfirmDialog', () => {
   afterEach(cleanup);
 
   function providerDeleteConfirmAsk(): TPendingPrompt {

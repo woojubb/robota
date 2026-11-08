@@ -12,7 +12,7 @@ import type {
 } from '../index.js';
 
 /**
- * Type-import test (TC-01): asserts the transport-facing contract closure is exported
+ * Type-import test: asserts the transport-facing contract closure is exported
  * from @robota-sdk/agent-interface-transport and that the key contract shapes resolve.
  */
 describe('agent-interface-transport contract surface', () => {

@@ -10,7 +10,7 @@ import type { ISessionNotice } from '../../hooks/session-client-types.js';
 import type { IWsSessionState } from '../../hooks/useSessionClient.js';
 
 /**
- * #3289 §3: a provider error used to show its raw text verbatim (`Provider Error (anthropic):
+ * A provider error used to show its raw text verbatim (`Provider Error (anthropic):
  * Anthropic request failed: 401 {"type":"error",...}`). A `session-error` notice classified at the
  * wire boundary now shows one plain sentence with the next step, and the raw text behind "Details".
  * An unclassified notice (no `code`) keeps showing its message directly, exactly as before.

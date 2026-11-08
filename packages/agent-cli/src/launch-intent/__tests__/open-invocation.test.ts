@@ -1,4 +1,4 @@
-/** FLOW-2006 TC-04 — the pre-parse step: what it handles, what it refuses, what it hands back. */
+/** The pre-parse step: what it handles, what it refuses, what it hands back. */
 import { describe, expect, it } from 'vitest';
 
 import { resolveLaunchInvocation, stripOpenInvocation } from '../open-invocation.js';

@@ -13,7 +13,7 @@ afterEach(() => {
     rmSync(directory, { recursive: true, force: true });
 });
 
-describe('transport settings repositories before STRUCT-012 S2 ownership move', () => {
+describe('transport settings repositories', () => {
   it('merges memory patches without dropping sibling transports or prior options', () => {
     const repository = createMemoryTransportSettingsRepository({
       first: { enabled: true, options: { port: 1000 } },

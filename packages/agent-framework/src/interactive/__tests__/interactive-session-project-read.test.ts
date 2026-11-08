@@ -1,5 +1,5 @@
 /**
- * #3282 §4c — `InteractiveSession.readProjectStatus`/`readProjectDiff`/`readProjectMemory` wired end
+ * `InteractiveSession.readProjectStatus`/`readProjectDiff`/`readProjectMemory` wired end
  * to end through a REAL session over a REAL temporary git repository (not a mock of the git reader —
  * `agent-framework/src/git/__tests__` already covers that; this proves the session forwards its own
  * `cwd` and maps the reader's result into the `kind`-tagged wire shape). `HOME` is pointed at a temp

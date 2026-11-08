@@ -7,7 +7,7 @@ import type { TUniversalValue } from '../interfaces/types';
 /**
  * Validate one parameter against its schema node. Returns the issues found; empty means valid.
  *
- * CORE-039: exactly ONE thing lives here — the leaf TYPE mismatch and its caller-facing wording
+ * Exactly ONE thing lives here — the leaf TYPE mismatch and its caller-facing wording
  * (`Parameter "x" must be a string`), which callers depend on. Everything else — enum, numeric and
  * size bounds, pattern, a nested object's own properties and requirements, a union's branches — is
  * `validateAgainstJsonSchema`'s, the single complete walk over the subset.

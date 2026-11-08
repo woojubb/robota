@@ -6,11 +6,11 @@ import type { IFileSystem } from '@robota-sdk/agent-core';
 /**
  * Reading and writing `installed_plugins.json`.
  *
- * Split out of `bundle-plugin-installer.ts` under SEC-018 (issue #2020), by responsibility rather
+ * Split out of `bundle-plugin-installer.ts` by responsibility rather
  * than by line count: the installer decides WHAT to install and remove; this owns the persisted
  * record of what is installed. They fail differently — a corrupt registry is a recovery problem, a
  * failed install is a transaction problem — and separating them makes the trust boundary visible,
- * which is the point of SEC-018.
+ * which is the point.
  *
  * **Everything this returns is a HINT, not a fact.** The file is on disk and can be tampered with, so
  * a caller must not treat `installPath` as a path it may act on. Both of this repository's recursive

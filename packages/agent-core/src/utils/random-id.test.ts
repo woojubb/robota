@@ -3,14 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { randomId } from './random-id';
 
 /**
- * CORE-028 — five modules imported `randomUUID` from `node:crypto`, so the first line of this
+ * Five modules imported `randomUUID` from `node:crypto`, so the first line of this
  * package's BROWSER bundle was `import{randomUUID}from"node:crypto"`, and `apps/agent-web` carries
  * webpack aliases plus two hand-written stub modules to patch around it.
  *
  * `globalThis.crypto.randomUUID()` is the same function in both places. The cases below are about
  * the platform contract, because that is what the source change relies on.
  */
-describe('randomId (CORE-028)', () => {
+describe('randomId', () => {
   it('produces a v4 UUID', () => {
     expect(randomId()).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,

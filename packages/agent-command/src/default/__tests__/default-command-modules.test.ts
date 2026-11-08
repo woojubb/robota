@@ -51,17 +51,17 @@ function moduleNames(opts: Parameters<typeof createDefaultCommandModules>[0]): s
   return createDefaultCommandModules(opts).modules.map((module) => module.name);
 }
 
-describe('createDefaultCommandModules — PRESET-004 module-selection delta', () => {
+describe('createDefaultCommandModules — module-selection delta', () => {
   // Module `name`s are the stable ICommandModule ids (the `agent-command-*` form).
   const HELP = 'agent-command-help';
   const AGENT = 'agent-command-agent';
   const BACKGROUND = 'agent-command-background';
 
-  it('TC-04: neither enabled nor disabled given → full default set unchanged (no-regression)', () => {
+  it('neither enabled nor disabled given → full default set unchanged (no-regression)', () => {
     const names = moduleNames(baseOptions);
-    // No-regression: the default set length is the documented 37 modules (SELFHOST-002 added
-    // `/plan`; PEER-004 added `/peers`; CLI-1994 added `/fork`; MCP-2520 added `/mcp`; CLI-1988 added
-    // `/output-style`; FLOW-008 added `/effort`; `/advisor` joined beside it; #3282 §2 added `/model`).
+    // No-regression: the default set length is the documented 37 modules
+    // (`/plan`, `/peers`, `/fork`, `/mcp`, `/output-style`, `/effort`, `/advisor` and `/model` each
+    // add one).
     // The list below is the assertion that matters — a length on its own can be restored by any
     // substitution, and the count exists only to catch an addition that also removed something.
     // `/shell` and `/editor` are host commands on `./node`, which a Node product adds beside this set.
@@ -79,7 +79,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
       'agent-command-output-style',
       'agent-command-language',
       'agent-command-background',
-      // CLI-1994: registered beside `/background`, because a fork IS a background job.
+      // Registered beside `/background`, because a fork IS a background job.
       'agent-command-fork',
       'agent-command-goal',
       'agent-command-plan',
@@ -157,13 +157,13 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     expect(listed.message).not.toMatch(/unavailable on this host/);
   });
 
-  it('TC-01: enabledCommandModules whitelist keeps exactly the listed module names', () => {
+  it('enabledCommandModules whitelist keeps exactly the listed module names', () => {
     const names = moduleNames({ ...baseOptions, enabledCommandModules: [HELP, AGENT] });
     expect(new Set(names)).toEqual(new Set([HELP, AGENT]));
     expect(names).toHaveLength(2);
   });
 
-  it('#3186: /keybindings and /theme exist on a host without a terminal, and say where they work', async () => {
+  it('/keybindings and /theme exist on a host without a terminal, and say where they work', async () => {
     const { modules } = createDefaultCommandModules(baseOptions);
     const commands = modules.flatMap((module) => module.systemCommands ?? []);
     for (const name of ['keybindings', 'theme']) {
@@ -175,7 +175,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     }
   });
 
-  it('#3189: exactly /editor, /keybindings, /shell and /theme run on the terminal client', () => {
+  it('exactly /editor, /keybindings, /shell and /theme run on the terminal client', () => {
     // `/shell` and `/editor` are host commands on `./node`: a Node product adds them to the default set.
     const modules = [
       ...createDefaultCommandModules(baseOptions).modules,
@@ -206,7 +206,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     }
   });
 
-  it('#3679: /lock and /unlock exist only where the host holds keys, and stay user-only there', () => {
+  it('/lock and /unlock exist only where the host holds keys, and stay user-only there', () => {
     const KEY_CUSTODY = 'agent-command-key-custody';
     // Without the port (secure mode off, or a process with no terminal) the commands do not exist.
     expect(moduleNames(baseOptions)).not.toContain(KEY_CUSTODY);
@@ -224,14 +224,14 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     }
   });
 
-  it('TC-02: disabledCommandModules blacklist removes the named module', () => {
+  it('disabledCommandModules blacklist removes the named module', () => {
     const full = moduleNames(baseOptions);
     const names = moduleNames({ ...baseOptions, disabledCommandModules: [BACKGROUND] });
     expect(names).not.toContain(BACKGROUND);
     expect(names).toHaveLength(full.length - 1);
   });
 
-  it('TC-03: a name in both enabled and disabled is excluded (deny > allow)', () => {
+  it('a name in both enabled and disabled is excluded (deny > allow)', () => {
     const names = moduleNames({
       ...baseOptions,
       enabledCommandModules: [HELP, AGENT],
@@ -241,7 +241,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     expect(names).not.toContain(AGENT);
   });
 
-  it('INFRA-032: an unknown whitelist name yields no module for it AND is reported as unknown', () => {
+  it('an unknown whitelist name yields no module for it AND is reported as unknown', () => {
     const result = createDefaultCommandModules({
       ...baseOptions,
       enabledCommandModules: [HELP, 'does-not-exist'],
@@ -252,7 +252,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     expect(result.unknownModuleNames).toEqual([{ name: 'does-not-exist', kind: 'enabled' }]);
   });
 
-  it('INFRA-032: an unknown disabled name (short form) is reported as unknown', () => {
+  it('an unknown disabled name (short form) is reported as unknown', () => {
     const result = createDefaultCommandModules({
       ...baseOptions,
       disabledCommandModules: ['plan'],
@@ -263,7 +263,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     expect(result.unknownModuleNames).toEqual([{ name: 'plan', kind: 'disabled' }]);
   });
 
-  it('INFRA-032: all names matching → unknownModuleNames is empty', () => {
+  it('all names matching → unknownModuleNames is empty', () => {
     const result = createDefaultCommandModules({
       ...baseOptions,
       enabledCommandModules: [HELP, AGENT],

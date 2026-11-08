@@ -10,7 +10,7 @@ import { PayloadChannelRegistry } from '../payload-channels.js';
 import type { IBinaryFrame } from '@robota-sdk/agent-interface-transport';
 
 /**
- * TRANS-001 — consumer-declared channels on the payload-agnostic carrier.
+ * Consumer-declared channels on the payload-agnostic carrier.
  *
  * The registry is the transport-side half of `IPayloadChannelHost`: consumers declare a channel
  * (its name, its event types, whether it carries opaque bytes) and get a typed handle. Undeclared
@@ -33,7 +33,7 @@ function peerEvent(channel: string, seq: number, event: string, payload: unknown
   });
 }
 
-describe('PayloadChannelRegistry (TRANS-001)', () => {
+describe('PayloadChannelRegistry', () => {
   it('fans a declared event out to every attached sink as an encoded frame', () => {
     const registry = new PayloadChannelRegistry();
     const channel = registry.registerChannel<{ caption: { text: string } }>({

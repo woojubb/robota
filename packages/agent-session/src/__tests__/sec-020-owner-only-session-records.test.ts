@@ -1,5 +1,5 @@
 /**
- * SEC-020 (issue #2021) — a session record is not readable by another account on the host.
+ * A session record is not readable by another account on the host.
  *
  * These assert the MODE ON DISK after the real writers run, which is how the defect was measured in
  * the first place. Asserting that a helper was called would be a claim about source text, and the
@@ -64,8 +64,8 @@ function record(id: string): IInteractiveSessionRecord {
   } as unknown as IInteractiveSessionRecord;
 }
 
-describe('SEC-020 — NodeSessionStore', () => {
-  it('TC-15: a fresh store is 0700 and its records 0600 under umask 022', () => {
+describe('NodeSessionStore', () => {
+  it('a fresh store is 0700 and its records 0600 under umask 022', () => {
     // Measured before this change: 0755 and 0644.
     const base = join(root, 'sessions');
     new NodeSessionStore(base, { sealing: 'plain' }).save(record('a'));
@@ -73,7 +73,7 @@ describe('SEC-020 — NodeSessionStore', () => {
     expect(mode(join(base, 'a.json'))).toBe(OWNER_ONLY_FILE);
   });
 
-  it('TC-16: a sessions directory pre-created at 0777 is tightened, not adopted', () => {
+  it('a sessions directory pre-created at 0777 is tightened, not adopted', () => {
     const base = join(root, 'sessions');
     mkdirSync(base);
     chmodSync(base, 0o777);
@@ -81,7 +81,7 @@ describe('SEC-020 — NodeSessionStore', () => {
     expect(mode(base)).toBe(OWNER_ONLY_DIRECTORY);
   });
 
-  it('TC-17: a record an older version left at 0644 is narrowed on the next save', () => {
+  it('a record an older version left at 0644 is narrowed on the next save', () => {
     const base = join(root, 'sessions');
     const store = new NodeSessionStore(base, { sealing: 'plain' });
     store.save(record('c'));
@@ -90,12 +90,12 @@ describe('SEC-020 — NodeSessionStore', () => {
     expect(mode(join(base, 'c.json'))).toBe(OWNER_ONLY_FILE);
   });
 
-  it('TC-18: resume still works — save, load, list and delete are unchanged', () => {
+  it('resume still works — save, load, list and delete are unchanged', () => {
     // A permission change that breaks resume is not a fix. This is the half the mode assertions
     // cannot see.
     const store = new NodeSessionStore(join(root, 'sessions'), { sealing: 'plain' });
     store.save(record('keep'));
-    // TRANS-007: `load` reports WHICH of four things happened, so "the record is there" and "the
+    // `load` reports WHICH of four things happened, so "the record is there" and "the
     // record is gone" are now distinct answers rather than two readings of `undefined`.
     expect(loadedOrMissing(store, 'keep')?.id).toBe('keep');
     expect(store.list().map((entry) => entry.id)).toEqual(['keep']);
@@ -104,8 +104,8 @@ describe('SEC-020 — NodeSessionStore', () => {
   });
 });
 
-describe('SEC-020 — NodeSessionLogSink', () => {
-  it('TC-19: a log directory pre-created at 0777 is tightened', () => {
+describe('NodeSessionLogSink', () => {
+  it('a log directory pre-created at 0777 is tightened', () => {
     // The measured case: the sink asked for 0700 and got 0777, because `mkdirSync` with
     // `recursive: true` succeeds on an existing directory without touching its mode. Records were
     // 0600 the whole time, so another account could not READ one — it could unlink and replace it,
@@ -118,7 +118,7 @@ describe('SEC-020 — NodeSessionLogSink', () => {
     expect(mode(join(logs, 's1.jsonl'))).toBe(OWNER_ONLY_FILE);
   });
 
-  it('TC-20: a log an older version left at 0644 is narrowed before the next append', () => {
+  it('a log an older version left at 0644 is narrowed before the next append', () => {
     const logs = join(root, 'logs');
     const sink = new NodeSessionLogSink(logs, { sealing: 'plain' });
     sink.append('s2', 'one\n');
@@ -128,7 +128,7 @@ describe('SEC-020 — NodeSessionLogSink', () => {
     expect(readFileSync(join(logs, 's2.jsonl'), 'utf8')).toBe('one\ntwo\n');
   });
 
-  it('TC-21: the content-addressed payload directory and its files are owner-only', () => {
+  it('the content-addressed payload directory and its files are owner-only', () => {
     const logs = join(root, 'logs');
     const sink = new NodeSessionLogSink(logs, { sealing: 'plain' });
     const serialized = '{"payload":true}';
@@ -138,7 +138,7 @@ describe('SEC-020 — NodeSessionLogSink', () => {
     expect(mode(join(logs, reference.relativePath))).toBe(OWNER_ONLY_FILE);
   });
 
-  it('TC-22: an existing payload is not rewritten, but IS tightened', () => {
+  it('an existing payload is not rewritten, but IS tightened', () => {
     // `flag: 'wx'` correctly declines to rewrite content-addressed bytes. Its mode is a different
     // question, and nothing else would ever repair a payload an older version wrote at 0644.
     const logs = join(root, 'logs');
@@ -153,7 +153,7 @@ describe('SEC-020 — NodeSessionLogSink', () => {
     expect(readFileSync(path, 'utf8')).toBe(serialized);
   });
 
-  it('TC-23: a log directory that cannot be made owner-only disables logging rather than using it', () => {
+  it('a log directory that cannot be made owner-only disables logging rather than using it', () => {
     // Fail closed. A diagnostic sink must not kill the session, and it must not fall back to a
     // directory any account can read.
     const blocked = join(root, 'not-a-directory');
@@ -163,9 +163,9 @@ describe('SEC-020 — NodeSessionLogSink', () => {
   });
 });
 
-describe('SEC-020 — the store root the host declares it owns', () => {
-  it('TC-35: a root left at 0755 by an older version is tightened with the sessions directory', () => {
-    // Review of PR #2224: the leaf was 0700 and the directory above it was not, on exactly the path
+describe('the store root the host declares it owns', () => {
+  it('a root left at 0755 by an older version is tightened with the sessions directory', () => {
+    // The leaf was 0700 and the directory above it was not, on exactly the path
     // the change says matters most — the restricted-workspace fallback, where no settings or
     // device-store write ever runs to tighten the root on the session store's behalf.
     const owned = join(root, 'store-root');
@@ -177,7 +177,7 @@ describe('SEC-020 — the store root the host declares it owns', () => {
     expect(mode(base)).toBe(OWNER_ONLY_DIRECTORY);
   });
 
-  it('TC-36: without a declared root the store narrows only its own directory', () => {
+  it('without a declared root the store narrows only its own directory', () => {
     // The adapter does not interpret its base directory as a trusted root and must not guess that a
     // parent belongs to the product. Which ancestors are owned is composition's knowledge.
     const parent = join(root, 'someone-elses');

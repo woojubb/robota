@@ -1,5 +1,5 @@
 /**
- * React hook that connects to a paired host over WebRTC (REMOTE-009 Stage D) and reconstructs conversation
+ * React hook that connects to a paired host over WebRTC and reconstructs conversation
  * state from the TServerMessage stream.
  *
  * The transport-neutral session reducer (`useSessionClient`) and its state/handle types live in
@@ -25,7 +25,7 @@ import {
 /** The connection status shown by the browser-remote UI — the WS statuses plus the RTC pairing/failed states. */
 export type TSessionStatus = TConnectionStatus | TRtcConnectionStatus;
 
-/** Connect to a paired host over WebRTC (REMOTE-009 Stage D). Memoized on the primitive connection fields. */
+/** Connect to a paired host over WebRTC. Memoized on the primitive connection fields. */
 export function useRtcSession(
   options: Pick<
     IRtcSessionClientOptions,
@@ -33,7 +33,7 @@ export function useRtcSession(
   > & { readonly credentialDatabase: string },
 ): IWsSessionState<TSessionStatus> {
   const { credentialDatabase, cryptoContext, relayUrl, rendezvous, secret, iceServers, forceTurn } = options;
-  // REMOTE-012 E3: a stable per-session credential store (IndexedDB) so first-pair enrolls this device.
+  // A stable per-session credential store (IndexedDB) so first-pair enrolls this device.
   const deviceCredentials = useMemo(() => createDeviceCredentialStore(createIndexedDbBackend(credentialDatabase)), [credentialDatabase]);
   const makeClient = useCallback<TMakeSessionClient<TSessionStatus>>(
     (cb) =>

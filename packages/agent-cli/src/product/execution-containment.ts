@@ -1,5 +1,5 @@
 /**
- * Where the product runs a session's commands, named in one place (issues #3081, #3082).
+ * Where the product runs a session's commands, named in one place.
  *
  * The composition root builds the sandbox here from the merged `sandbox` settings, passes it to the
  * pack set and the session, and `the product doctor` reports the same value. On a platform with a backend

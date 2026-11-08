@@ -1,5 +1,5 @@
 /**
- * HARNESS-103: the session-capability host MECHANISM, moved out of the interface package's
+ * The session-capability host MECHANISM, moved out of the interface package's
  * contract surface.
  *
  * This testing-only factory walks prototypes, caches accessors, rejects reserved or duplicate

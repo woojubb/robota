@@ -8,7 +8,7 @@ import type {
   TSandboxCommandMode,
 } from '@robota-sdk/agent-framework';
 
-/** Issue #3082 — `/sandbox` shows and changes how shell commands are confined. */
+/** `/sandbox` shows and changes how shell commands are confined. */
 function contextWith(
   status: Partial<ICommandSandboxStatus>,
   answer?: string,

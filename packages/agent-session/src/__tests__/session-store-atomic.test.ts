@@ -1,5 +1,5 @@
 /**
- * CORE-019 — SessionStore atomic persistence tests.
+ * sessionStore atomic persistence tests.
  *
  * save() must write via a same-directory temp file + rename so a crash mid-write can
  * never leave a truncated/corrupt JSON in place of the previous record. Observable
@@ -50,7 +50,7 @@ afterEach(() => {
   rmSync(baseDir, { recursive: true, force: true });
 });
 
-describe('SessionStore atomic persistence (CORE-019)', () => {
+describe('SessionStore atomic persistence', () => {
   it('loads linked resource and audio receipts through a fresh store after a disk roundtrip', () => {
     const record = createRecord({
       messages: [

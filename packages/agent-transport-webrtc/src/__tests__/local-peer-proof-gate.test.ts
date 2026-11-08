@@ -12,7 +12,7 @@ import type { IPeerAdmission } from '@robota-sdk/agent-interface-session-mobilit
 import type { createSessionMessageHandler } from '@robota-sdk/agent-transport';
 
 /**
- * SEC-010 TC-08 (#1810) — the rendezvous nonce bound to the admitted channel.
+ * The rendezvous nonce bound to the admitted channel.
  *
  * Driven with a stub handshake and a stub ledger: this package must implement no cryptographic
  * policy, so what is asserted here is the GATE's ordering and fail-closed behaviour, never the
@@ -66,7 +66,7 @@ function makeGate(localPeer?: ILocalPeerProof, over: Partial<IPairingGateOptions
 
 const proofFrame = (nonce = 'n1') => JSON.stringify({ t: 'local-proof', nonce });
 
-describe('SEC-010 TC-08 — the session is not exposed until the rendezvous nonce is presented', () => {
+describe('the session is not exposed until the rendezvous nonce is presented', () => {
   it('a handshake that accepts is NOT enough on its own', async () => {
     // The whole point of the binding. The handshake proves the channel terminates at the peer that
     // knew the secret; it says nothing about where that peer runs, so it must not open the session.
@@ -93,7 +93,8 @@ describe('SEC-010 TC-08 — the session is not exposed until the rendezvous nonc
   });
 
   it('a refused nonce closes the channel and never builds a session handler', async () => {
-    // "Fail closed before content" — SEC-010's first failure rule. Refusing after exposure is not
+    // "Fail closed before content" — the first failure rule of local-peer proof. Refusing after
+    // exposure is not
     // refusing.
     const { gate, channel, sessionOnMessage, hs } = makeGate({ redeem: () => REFUSED });
 
@@ -120,7 +121,7 @@ describe('SEC-010 TC-08 — the session is not exposed until the rendezvous nonc
   });
 
   it('carries the trust level through to the consumer, not a boolean', async () => {
-    // #1810: "a narrow typed authenticated-peer/admission result, not a generic boolean".
+    // "a narrow typed authenticated-peer/admission result, not a generic boolean".
     const onAdmission = vi.fn();
     const { gate, hs } = makeGate({ redeem: () => ADMITTED, onAdmission });
 
@@ -157,7 +158,7 @@ describe('SEC-010 TC-08 — the session is not exposed until the rendezvous nonc
   });
 });
 
-describe('SEC-010 TC-08 — the judge refuses everything that is not an admitted redemption', () => {
+describe('the judge refuses everything that is not an admitted redemption', () => {
   it('refuses when no proof is configured', () => {
     // Unreachable through the gate, but a fail-OPEN if it ever were.
     expect(judgeLocalProof({ t: 'local-proof', nonce: 'n' }, undefined).admitted).toBe(false);
@@ -190,7 +191,7 @@ describe('SEC-010 TC-08 — the judge refuses everything that is not an admitted
   });
 });
 
-describe('SEC-010 — the sender and the judge agree on the frame', () => {
+describe('the sender and the judge agree on the frame', () => {
   it('a frame built by the helper is accepted by the judge', () => {
     // The two live in one file so they cannot drift. A sender that hand-built the object would keep
     // compiling after the frame gains a field, and the failure would surface as a refusal on the FAR

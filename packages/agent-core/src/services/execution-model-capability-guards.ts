@@ -1,5 +1,5 @@
 /**
- * What THIS model can be asked to do. PROV-006.
+ * What THIS model can be asked to do.
  *
  * The provider catalog carries a per-model capability vocabulary — `tools`, `vision`,
  * `json_schema`, `reasoning`, `native_web`, `streaming` — and nothing read it. Tool gating asked a
@@ -12,7 +12,7 @@
  * about a model has said nothing, and reading silence as refusal would cripple every model no
  * catalog happens to list.
  *
- * `vision` is deliberately NOT gated here — see PROV-010. A first attempt refused any turn whose
+ * `vision` is deliberately NOT gated here. Gating it would refuse any turn whose
  * outgoing messages carried an image part, which is correct about what is sent and wrong about what
  * to do: `setModel()` preserves the conversation, so switching to a non-vision model left every
  * later text-only turn permanently refused because an old image was still in the history.

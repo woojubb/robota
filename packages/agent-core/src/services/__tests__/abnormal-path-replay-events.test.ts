@@ -1,5 +1,5 @@
 /**
- * CORE-033 — the abnormal paths must emit the REQUIRED replay event families.
+ * The abnormal paths must emit the REQUIRED replay event families.
  *
  * `agent-core/docs/SPEC.md` declares `provider_request`, `assistant_message_committed` and
  * `history_mutation` REQUIRED, and `agent-session` builds its session log from them. The ordinary
@@ -12,10 +12,10 @@
  * called the provider, then removed it with `clear()` + re-add — a non-append rewrite of an
  * append-only history, announced to nobody. The instruction is a per-call prompt artifact, not
  * conversation, so it no longer enters the store at all; it is appended to the OUTGOING array only,
- * the same shape CORE-043's structured-output guard uses for the schema instruction.
+ * the same shape the structured-output guard uses for the schema instruction.
  *
- * The streaming half of CORE-033 ("no event families on the streaming path at all") was fixed by
- * CORE-042, which removed the second engine — `runStream` now runs the same `execute()`. That is
+ * The streaming path emits the families too, because there is no second engine —
+ * `runStream` runs the same `execute()`. That is
  * asserted here rather than assumed, because "it is covered by another change" is exactly the claim
  * that should be checked.
  */
@@ -87,7 +87,7 @@ function toolLoopScript(rounds: number, summary: string): TScriptedTurn[] {
   return turns;
 }
 
-describe('CORE-033 — the forced-summary call is a provider call like any other', () => {
+describe('the forced-summary call is a provider call like any other', () => {
   it('emits provider_request, assistant_message_committed and history_mutation for it', async () => {
     const { agent, events } = build(toolLoopScript(2, 'here is what I found'), {
       maxExecutionRounds: 2,
@@ -154,7 +154,7 @@ describe('CORE-033 — the forced-summary call is a provider call like any other
   });
 });
 
-describe('CORE-033 — diagnostic appends announce themselves', () => {
+describe('diagnostic appends announce themselves', () => {
   it('a provider failure emits history_mutation for the message it records', async () => {
     const scripted = createScriptedProvider([]);
     const failing = {
@@ -217,7 +217,7 @@ describe('CORE-033 — diagnostic appends announce themselves', () => {
   });
 });
 
-describe('CORE-033 — the streaming path emits the families (CORE-042 removed the second engine)', () => {
+describe('the streaming path emits the families (there is no second engine)', () => {
   it('runStream emits the same families run does', async () => {
     const { agent, events } = build([{ text: 'streamed answer' }]);
     try {

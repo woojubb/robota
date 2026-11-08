@@ -1,5 +1,5 @@
 /**
- * MCP-004 S3: read the `mcp` settings object (`autoBackgroundMs`, `callTimeoutMs`) from the SAME
+ * Read the `mcp` settings object (`autoBackgroundMs`, `callTimeoutMs`) from the SAME
  * layered settings documents `mcpServers` is read from (`mcp-definition-sources.ts`).
  *
  * `agent-framework`'s `SettingsSchema` does not declare `mcp` (same reason `mcpServers` is read this

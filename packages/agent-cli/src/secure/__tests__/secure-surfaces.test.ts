@@ -1,5 +1,5 @@
 /**
- * #3679 3f PR 3a — the one table of what every product surface may be in secure mode, and the one gate
+ * The one table of what every product surface may be in secure mode, and the one gate
  * every listener opens through. Plain mode must not notice the gate: it opens exactly what it opened
  * before. Secure mode (still only reachable through the test seam) refuses a refused row before
  * anything binds, and opens the rows the design keeps.

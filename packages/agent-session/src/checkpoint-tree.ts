@@ -1,5 +1,5 @@
 /**
- * SELFHOST-007 — neutral checkpoint tree (branching time-travel).
+ * Neutral checkpoint tree (branching time-travel).
  *
  * A pure, I/O-free branch-tree over opaque checkpoint-node ids — git-for-a-session with no file I/O,
  * no persistence, and no retention/prune policy. It lives beside the storage-neutral persistence

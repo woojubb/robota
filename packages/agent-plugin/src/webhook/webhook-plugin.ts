@@ -283,7 +283,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
   /**
    * Flushes pending batches, clears request queues, and stops the batch timer.
    */
-  // CORE-022: dispose() is the single disposal entry point (SPEC § Disposal Chain Contract).
+  // dispose() is the single disposal entry point (SPEC § Disposal Chain Contract).
   override async dispose(): Promise<void> {
     await super.dispose();
     this.queue.stopBatchTimer();

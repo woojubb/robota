@@ -26,7 +26,7 @@ import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
  * supplying any one of `providerFactory` / `sessionFactory` / `guardrails` /
  * `additionalHookExecutors` would make the array non-empty and silently deregister `command` and
  * `http` — two executors the caller never named. Under a fail-open PreToolUse that was a silent
- * skip; once PreToolUse fails closed on an unregistered executor (SEC-016), the same config denies
+ * skip; once PreToolUse fails closed on an unregistered executor, the same config denies
  * EVERY tool call.
  *
  * Order is load-bearing: `runHooks` builds its lookup with `Map.set` in array order, so a later
@@ -34,7 +34,7 @@ import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
  * can still override one. Seeding last would make the built-ins unoverridable, trading a fail-open
  * for a different loss of caller control.
  *
- * Seeding fixes the default-dropping failure filed as issue #2238. The public InteractiveSession
+ * Seeding keeps the defaults from being dropped. The public InteractiveSession
  * option can explicitly omit the command and HTTP built-ins without affecting additive executors.
  */
 export function buildHookTypeExecutors(options: ICreateSessionOptions): IHookTypeExecutor[] {
@@ -58,7 +58,7 @@ export function buildHookTypeExecutors(options: ICreateSessionOptions): IHookTyp
     executors.push(new AgentExecutor({ sessionFactory: options.sessionFactory }));
   }
   if (options.guardrails && Object.keys(options.guardrails).length > 0) {
-    // SELFHOST-005: register the guardrail executor so a { type: 'guardrail' } hook definition runs
+    // Register the guardrail executor so a { type: 'guardrail' } hook definition runs
     // the consumer's guardrail set in parallel and fails the turn fast via the existing blocked path.
     executors.push(new GuardrailExecutor(options.guardrails));
   }

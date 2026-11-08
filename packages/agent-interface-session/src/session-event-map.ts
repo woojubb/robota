@@ -3,7 +3,7 @@ import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
  * Session event-map contracts — the permission/ask/prompt vocabulary, the goal and plan-artifact
  * persisted shapes, and {@link IInteractiveSessionEvents} itself.
  *
- * Split out of `session-contracts.ts` (RUNTIME-003 / ARCH-005-style leaf extraction): several of
+ * Split out of `session-contracts.ts` (a leaf extraction): several of
  * these types (`IGoalState`, `IInteractiveSessionEvents`, `TInteractiveEventName`,
  * `TPermissionResultValue`, `IPlanArtifact`) are consumed by `session-capability-contracts.ts` and
  * `event-contracts.ts`, which `session-contracts.ts` itself imports from — declaring them there
@@ -52,14 +52,14 @@ export interface IToolState {
   toolResultParts?: TUniversalMessagePart[];
   executionId?: string;
   /**
-   * #3288: a workspace-relative display form of the tool's path argument (Edit/Write/Read), computed
+   * A workspace-relative display form of the tool's path argument (Edit/Write/Read), computed
    * server-side (the server knows the session's cwd). Additive — `firstArg` is unchanged so the TUI's
    * existing rendering never has to compute this itself.
    */
   displayPath?: string;
-  /** #3288: the `/command` this call projects, when it is a model-command-projection tool (e.g. "agent"). */
+  /** The `/command` this call projects, when it is a model-command-projection tool (e.g. "agent"). */
   commandName?: string;
-  /** #3288: true for an internal signal tool (e.g. the goal-status tool) — surfaces should not show it as a call. */
+  /** True for an internal signal tool (e.g. the goal-status tool) — surfaces should not show it as a call. */
   internal?: boolean;
   /**
    * A finished model call's result has a view its source declared (an MCP app) that a surface able
@@ -81,7 +81,7 @@ export interface IToolAppViewRef {
 }
 
 /**
- * #3288 §2 (history replay): one piece of a REPLAYED transcript — a reload, reconnect or session
+ * History replay: one piece of a REPLAYED transcript — a reload, reconnect or session
  * resume has no live stream to rebuild tool rows from, only stored history. The server projects that
  * history into a chronological sequence of these (text runs and finished tool calls, in the order
  * they happened), so a client renders the same shapes a live stream would have produced instead of
@@ -105,7 +105,7 @@ export type TInteractivePermissionHandler = (
 ) => Promise<TPermissionResultValue>;
 
 /**
- * REMOTE-007 (B4-2a) — transport-neutral permission/ask.
+ * Transport-neutral permission/ask.
  *
  * The session emits a pending-prompt event and awaits a `resolve*(id)` reply instead of invoking a
  * single injected callback, so ANY attached surface (local TUI, a WS/WebRTC driver, a web UI) can
@@ -116,7 +116,7 @@ export type TInteractivePermissionHandler = (
  */
 
 /**
- * Issue #3288 §1: which background agent raised a permission request, when one did — display-only,
+ * Which background agent raised a permission request, when one did — display-only,
  * the same way `requesterDriverId` is. A closed union of one variant today; a future non-agent
  * asker (a schedule, say) adds a member rather than widening this one's meaning.
  */
@@ -144,17 +144,17 @@ export interface IPermissionRequestEvent {
    * never an authorization check.
    */
   requesterDriverId?: TDriverId;
-  /** Issue #3288 §1: a background agent's own request, forwarded to the person (display-only). */
+  /** A background agent's own request, forwarded to the person (display-only). */
   requester?: TPermissionRequester;
   /**
-   * #3288 §2: for an Edit/Write request, the same server-built diff the finished call would carry —
+   * For an Edit/Write request, the same server-built diff the finished call would carry —
    * built from the SAME diff builder `interactive-session-streaming.ts` uses at `tool_end`, so a
    * surface renders "Edit <path>" with its diff instead of the raw tool arguments.
    */
   diffLines?: IDiffLine[];
-  /** #3288 §2: workspace-relative path the diff (or the request) concerns, paired with `diffLines`. */
+  /** Workspace-relative path the diff (or the request) concerns, paired with `diffLines`. */
   diffFile?: string;
-  /** #3288 §2: a Shell request's working directory, present only when it differs from the workspace. */
+  /** A Shell request's working directory, present only when it differs from the workspace. */
   cwd?: string;
   /**
    * The id of the tool call this request concerns: the same `executionId` the call's `tool_start`
@@ -180,7 +180,7 @@ export interface IAskRequestEvent {
 /** A pending prompt (permission or ask) that has been settled — attached surfaces dismiss it. */
 export interface IPromptResolvedEvent {
   id: string;
-  /** REMOTE-014 E5: the driver who answered the prompt (server-assigned; display-only). */
+  /** The driver who answered the prompt (server-assigned; display-only). */
   answererDriverId?: TDriverId;
 }
 
@@ -188,8 +188,8 @@ export interface IPromptResolvedEvent {
 export interface IContextFileRefreshedEvent {
   filePath: string; // Authority-scoped project-root-relative path, never an ambient host path.
 }
-// is at its size ratchet, so a new member splits rather than extends (PEER-002, #1809).
-/** SELFHOST-007: a checkpoint/branch lifecycle transition a surface renders. */
+// is at its size ratchet, so a new member splits rather than extends.
+/** A checkpoint/branch lifecycle transition a surface renders. */
 type TCheckpointEventKind = `checkpoint_${'created' | 'restored' | 'rolled_back'}`;
 type TBranchEventKind = `branch_${'forked' | 'switched'}`;
 export interface IBranchEvent {
@@ -201,7 +201,7 @@ export interface IBranchEvent {
 }
 
 /**
- * SELFHOST-007: the persisted active-branch pointer — added to the resumable session record (beside
+ * The persisted active-branch pointer — added to the resumable session record (beside
  * `goal`) so a branch survives `--resume`. Pure data. The branch TREE persists in the agent-framework
  * checkpoint manifest; a resume whose pointer references a `branchId`/`checkpointId` absent from that
  * manifest store must degrade gracefully (fall back to the linear HEAD), not crash.
@@ -236,31 +236,31 @@ export interface IInteractiveSessionEvents {
   background_job_group_event: (event: TBackgroundJobGroupEvent) => void;
   execution_workspace_event: (event: IExecutionWorkspaceEvent) => void;
   user_message: (content: string) => void;
-  /** Emitted at the start of each turn with its origin (human prompt vs agent-wakeup, FLOW-002). */
+  /** Emitted at the start of each turn with its origin (human prompt vs agent-wakeup). */
   turn_source: (source: TTurnSource) => void;
   /** Emitted when a context file (AGENTS.md or CLAUDE.md) is refreshed due to staleness. */
   context_file_refreshed: (event: IContextFileRefreshedEvent) => void;
   /** Emitted for every automatic-memory pipeline event (capture, approval, retrieval). */
   memory_event: (event: IMemoryEvent) => void;
-  /** Emitted on every autonomous goal lifecycle transition (start, per-iteration, stop) — GOAL-001. */
+  /** Emitted on every autonomous goal lifecycle transition (start, per-iteration, stop). */
   goal_event: (event: IGoalEvent) => void;
-  /** Emitted on every plan-mode lifecycle transition (created, approved, reverted) — SELFHOST-002. */
+  /** Emitted on every plan-mode lifecycle transition (created, approved, reverted). */
   plan_event: (event: IPlanApprovalEvent) => void;
-  /** Emitted after every persisted checkpoint/branch transition — SELFHOST-007. */
+  /** Emitted after every persisted checkpoint/branch transition. */
   branch_event: (event: IBranchEvent) => void;
-  /** REMOTE-007: a tool call awaits a permission decision; answer via `resolvePermission(id, …)`. */
+  /** A tool call awaits a permission decision; answer via `resolvePermission(id, …)`. */
   permission_request: (event: IPermissionRequestEvent) => void;
-  /** REMOTE-007: an "ask the user" request awaits an answer; answer via `resolveAsk(id, …)`. */
+  /** An "ask the user" request awaits an answer; answer via `resolveAsk(id, …)`. */
   ask_request: (event: IAskRequestEvent) => void;
-  /** REMOTE-007: a pending prompt was settled (by any surface); attached surfaces dismiss it. */
+  /** A pending prompt was settled (by any surface); attached surfaces dismiss it. */
   prompt_resolved: (event: IPromptResolvedEvent) => void;
-  /** CMD-004 Phase 2: a command-issued UI intent — the requesting surface renders it (fire-and-forget). */
+  /** A command-issued UI intent — the requesting surface renders it (fire-and-forget). */
   ui_intent: (event: IUiIntentEvent) => void;
-  /** CMD-004 Phase 2: the session was renamed host-side — all surfaces update their titles. */
+  /** The session was renamed host-side — all surfaces update their titles. */
   session_renamed: (event: ISessionRenamedEvent) => void;
-  /** CMD-004 Phase 2: the conversation history was cleared host-side — all surfaces refresh transcripts. */
+  /** The conversation history was cleared host-side — all surfaces refresh transcripts. */
   history_cleared: () => void;
-  /** #3189: the host made another session current — all surfaces re-read transcript and status. */
+  /** The host made another session current — all surfaces re-read transcript and status. */
   session_switched: (event: ISessionSwitchedEvent) => void;
   /** The mode, model, effort, goal or name changed; every surface shows the new status. */
   status_changed: (status: ISessionStatusSnapshot) => void;
@@ -284,22 +284,22 @@ export interface ISessionStatusSnapshot {
   /** The goal being pursued (`/goal`), or null; a client shows its progress beside the composer. */
   readonly goal: IGoalState | null;
   /**
-   * Issue #3282 §3: true while `model` is a placeholder because no provider is configured yet — a
+   * True while `model` is a placeholder because no provider is configured yet — a
    * served runtime's first run. A client shows a setup screen instead of a composer. Absent (never
    * `false`) once a provider is configured, which is every session before this existed.
    */
   readonly setupRequired?: boolean;
   /**
    * The folder this session works in; absent when the host cannot say. A client shows `name` in its
-   * title bar and `document.title` (#3289 §1), and resolves a dropped or picked file's real
-   * filesystem path against `workspace.path` (#3282 §4d) to decide whether the file is inside the
+   * title bar and `document.title`, and resolves a dropped or picked file's real
+   * filesystem path against `workspace.path` to decide whether the file is inside the
    * workspace and, if so, what `@`-reference path names it.
    */
   readonly workspace?: { readonly name: string; readonly path: string };
 }
 
 /**
- * One model a client may switch to (#3282 §2): a plain id/label pair, never an internal catalog
+ * One model a client may switch to: a plain id/label pair, never an internal catalog
  * shape — the GUI shows `label` and sends `id` back verbatim as `/model <id>`.
  */
 export interface IModelCatalogEntry {
@@ -308,7 +308,7 @@ export interface IModelCatalogEntry {
 }
 
 /**
- * The models available under one configured provider profile, labeled for display (#3282 §2). One
+ * The models available under one configured provider profile, labeled for display. One
  * group per profile — never per provider type — so two profiles on the same provider (for example
  * two Anthropic accounts) are not merged into one ambiguous list.
  */
@@ -319,7 +319,7 @@ export interface IModelListGroup {
 }
 
 /**
- * Every model a client may switch to, grouped by the provider profile that offers it (#3282 §2).
+ * Every model a client may switch to, grouped by the provider profile that offers it.
  * The current profile's group is first; `currentModel` marks the selection within it. Built only
  * from CONFIGURED profiles, so nothing offered here can fail to run for lacking a profile.
  */
@@ -333,19 +333,19 @@ export interface IModelListSnapshot {
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;
 
 /**
- * Lifecycle status of an autonomous goal (GOAL-001).
+ * Lifecycle status of an autonomous goal.
  * `active` while the agent is pursuing it; terminal otherwise.
  */
 export type TGoalStatus = 'active' | 'satisfied' | 'stopped';
 
 /**
- * Why an autonomous goal stopped (GOAL-001). `satisfied` = the agent signalled completion;
+ * Why an autonomous goal stopped. `satisfied` = the agent signalled completion;
  * `max-iterations` = the turn budget was exhausted; `cancelled` = the user stopped it;
  * `no-progress` = consecutive idle turns detected a stall (convergence guard).
  */
 export type TGoalStopReason = 'satisfied' | 'max-iterations' | 'cancelled' | 'no-progress';
 
-/** One recorded iteration of goal pursuit (GOAL-001). */
+/** One recorded iteration of goal pursuit. */
 export interface IGoalProgressEntry {
   iteration: number;
   signal: 'continue' | 'satisfied';
@@ -353,7 +353,7 @@ export interface IGoalProgressEntry {
 }
 
 /**
- * Persisted state of an autonomous objective-pursuit loop (GOAL-001). Stored in the session
+ * Persisted state of an autonomous objective-pursuit loop. Stored in the session
  * record so an in-flight goal survives `--resume`.
  */
 export interface IGoalState {
@@ -367,16 +367,16 @@ export interface IGoalState {
   progress: IGoalProgressEntry[];
 }
 
-/** Observability event for the goal loop (GOAL-001). */
+/** Observability event for the goal loop. */
 export interface IGoalEvent {
   type: 'goal_started' | 'goal_progress' | 'goal_stopped';
   goal: IGoalState;
 }
 
-/** Execution status of one plan step (SELFHOST-002 plan-mode). */
+/** Execution status of one plan step. */
 export type TPlanStepStatus = 'pending' | 'in-progress' | 'done';
 
-/** One reviewable step in a plan artifact (SELFHOST-002 plan-mode). */
+/** One reviewable step in a plan artifact. */
 export interface IPlanStep {
   /** Stable id within the plan. */
   id: string;
@@ -387,14 +387,14 @@ export interface IPlanStep {
 }
 
 /**
- * Lifecycle phase of a plan artifact (SELFHOST-002). `planning` = drafted in `plan` mode (read-only
+ * Lifecycle phase of a plan artifact. `planning` = drafted in `plan` mode (read-only
  * tools); `awaiting-approval` = presented for review; `executing` = approved, edits unblocked per
  * `acceptEdits` (shell still per-call confirmed); `completed` = finished (mode reverts to `plan`).
  */
 export type TPlanPhase = 'planning' | 'awaiting-approval' | 'executing' | 'completed';
 
 /**
- * A reviewable plan/todo artifact produced during plan mode (SELFHOST-002). Persisted in the
+ * A reviewable plan/todo artifact produced during plan mode. Persisted in the
  * session record beside {@link IGoalState} so an in-flight plan survives resume. Pure data — the
  * mutation block stays the existing `plan` permission mode (no artifact-carried enforcement).
  */
@@ -412,7 +412,7 @@ export interface IPlanArtifact {
 }
 
 /**
- * Plan-mode lifecycle event (SELFHOST-002): emitted as a plan artifact is created, approved
+ * Plan-mode lifecycle event: emitted as a plan artifact is created, approved
  * (mode flips `plan → acceptEdits`), or reverted (`→ plan`). Carries the artifact snapshot,
  * mirroring how {@link IGoalEvent} carries the goal state. The event only OBSERVES the phase
  * transition — the mutation gate stays the existing `plan` permission mode.

@@ -14,7 +14,7 @@ import {
 } from '../composer-attachments.js';
 
 /**
- * #3282 §4d: pure logic behind the composer's attach button and drag-and-drop. These limits mirror
+ * Pure logic behind the composer's attach button and drag-and-drop. These limits mirror
  * `DEFAULT_MAX_FILE_BYTES`/`DEFAULT_MAX_TOTAL_BYTES` in
  * `packages/agent-framework/src/context/prompt-file-reference-resolver.ts` — a file this module would
  * attach must be one the runtime's `@`-reference resolver would actually accept.

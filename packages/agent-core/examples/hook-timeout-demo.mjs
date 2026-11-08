@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * HOOK-007 User Execution Test Scenario
+ * User Execution Test Scenario
  *
  * Demonstrates that:
  *   1. A hook with explicit timeout: 1 times out when command takes 2s
@@ -111,7 +111,7 @@ check('completed in ~2s (not timed out)', t2elapsed >= 1800 && t2elapsed < 4000)
 // ── Summary ───────────────────────────────────────────────────────────────────
 console.log();
 if (allPassed) {
-  console.log('PASS — HOOK-007 timeout behavior is correctly implemented.');
+  console.log('PASS — timeout behavior is correctly implemented.');
   process.exit(0);
 } else {
   console.log('FAIL — one or more checks did not pass.');

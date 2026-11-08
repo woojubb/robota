@@ -9,7 +9,7 @@ import { ensureRendezvousDirectory } from '../local-peer-rendezvous.js';
 import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 
 /**
- * SEC-010 composition (#1862) — the three layers as one path.
+ * Composition — the three layers as one path.
  *
  * Each layer has its own tests. This asserts they COMPOSE: a directory the security leaf verified,
  * a ledger keyed on that directory, and a redeem port shaped the way the WebRTC gate consumes it.
@@ -31,7 +31,7 @@ afterEach(() => {
   }
 });
 
-describe('#1862 — directory → ledger → gate port', () => {
+describe('directory → ledger → gate port', () => {
   it('a verified directory yields a port that admits its own grant', () => {
     const admission = ensureRendezvousDirectory(createTestRuntimeContext(scratch()));
     expect(admission.admitted).toBe(true);

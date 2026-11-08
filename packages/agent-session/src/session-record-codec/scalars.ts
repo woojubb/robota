@@ -1,5 +1,5 @@
 /**
- * TRANS-005 (#2081) — the leaf decoders every nested session-record decoder is built from.
+ * The leaf decoders every nested session-record decoder is built from.
  *
  * Each one takes the raw value, the path it sits at, and the issue accumulator; each returns the
  * decoded value or `undefined` after recording why. `undefined` is NOT "the field was absent" — an

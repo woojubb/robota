@@ -101,7 +101,7 @@ describe('BackgroundProcess tool', () => {
   });
 });
 
-describe('BackgroundProcess execution root (issue #3081)', () => {
+describe('BackgroundProcess execution root', () => {
   it('refuses to fall back to the process directory when built without a root', async () => {
     const spawn = vi.fn(async (request: TBackgroundTaskRequest) => makeTaskState(request));
     const tool = createBackgroundProcessTool({ backgroundTaskManager: makeManager(spawn) });

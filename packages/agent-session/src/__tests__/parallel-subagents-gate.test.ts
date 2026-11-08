@@ -1,5 +1,5 @@
 /**
- * Tests for the PRESET-016 parallel-subagents runtime gate on Session.
+ * Tests for the parallel-subagents runtime gate on Session.
  *
  * The flag is pure runtime state: it is initialized from
  * ISessionOptions.enableParallelSubagents (default true = current behavior) and can be mutated via
@@ -47,8 +47,8 @@ const MOCK_TERMINAL = {
   spinner: () => ({ stop: vi.fn(), update: vi.fn() }),
 };
 
-describe('Session parallel-subagents gate (PRESET-016)', () => {
-  it('TC-01: initializes parallelSubagentsEnabled from options; defaults to true', () => {
+describe('Session parallel-subagents gate', () => {
+  it('initializes parallelSubagentsEnabled from options; defaults to true', () => {
     const disabled = new Session({
       hookTypeExecutors: [],
       cwd: process.cwd(),
@@ -71,7 +71,7 @@ describe('Session parallel-subagents gate (PRESET-016)', () => {
     expect(defaulted.getParallelSubagentsEnabled()).toBe(true);
   });
 
-  it('TC-02: setParallelSubagentsEnabled(false) flips the live flag', () => {
+  it('setParallelSubagentsEnabled(false) flips the live flag', () => {
     const session = new Session({
       hookTypeExecutors: [],
       cwd: process.cwd(),

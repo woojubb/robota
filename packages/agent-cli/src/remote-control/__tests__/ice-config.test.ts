@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { hasTurnServer, parseIceServers } from '../ice-config.js';
 
 /**
- * REMOTE-010 Step 1 — the host ICE validating reader. `transports.webrtc.options.iceServers` is an untyped bag
+ * The host ICE validating reader. `transports.webrtc.options.iceServers` is an untyped bag
  * value; a malformed value must FAIL CLOSED (throw), never a silent partial/cast config.
  */
 
-describe('parseIceServers (REMOTE-010 host validator)', () => {
+describe('parseIceServers (host validator)', () => {
   it('returns undefined for absent/empty', () => {
     expect(parseIceServers(undefined)).toBeUndefined();
     expect(parseIceServers(null)).toBeUndefined();

@@ -1,5 +1,5 @@
 /**
- * CORE-045 — the synchronous public API of a freshly constructed agent.
+ * The synchronous public API of a freshly constructed agent.
  *
  * `ConversationAgent`'s managers were constructed in its constructor but only initialized by the first run, and
  * every guarded manager method refused until then. So `registerTool`, `unregisterTool` and the first
@@ -52,7 +52,7 @@ function buildAgent(): { agent: ConversationAgent; scripted: ReturnType<typeof c
   return { agent: new ConversationAgent(config), scripted };
 }
 
-describe('CORE-045 — a freshly constructed agent', () => {
+describe('a freshly constructed agent', () => {
   it('accepts registerTool before any run, and the tool reaches the model', async () => {
     const { agent, scripted } = buildAgent();
 
@@ -74,16 +74,15 @@ describe('CORE-045 — a freshly constructed agent', () => {
     expect(scripted.chatOptions[0]?.tools ?? []).toHaveLength(0);
   });
 
-  it('swapDefaultProvider works on a fresh agent — the case that flipped when CORE-047 landed', () => {
+  it('swapDefaultProvider works on a fresh agent — the model state is set up by the constructor', () => {
     // The sweep found the same symptom here as on `registerTool`, but not the same cause. Its first
-    // statement -- `aiProviders.addProvider` -- threw `AIProviders is not initialized`, which CORE-045
+    // statement -- `aiProviders.addProvider` -- threw `AIProviders is not initialized`, which is
     // fixed. Its second -- `configManager.setModel` -- refused on the AGENT-level
-    // `isFullyInitialized` flag, and that was filed separately as CORE-047 because the flag looked
-    // like it guarded real asynchronous work.
+    // `isFullyInitialized` flag, which looked like it guarded real asynchronous work.
     //
     // It did not. The state `setModel` needed -- the provider registry and the current
     // (provider, model) pair -- was established synchronously from already-validated config, merely
-    // written inside the async initializer. CORE-047 moved both steps into the constructor, so the
+    // written inside the async initializer. The constructor now performs both steps, so the
     // guard protected nothing and is gone. Kept as an explicit case rather than folded into the
     // enumeration below, because the two causes reaching one symptom is the thing worth pinning.
     const { agent } = buildAgent();
@@ -117,7 +116,7 @@ describe('CORE-045 — a freshly constructed agent', () => {
       ['registerTool', () => agent.registerTool(new EchoTool())],
       ['unregisterTool', () => agent.unregisterTool('echo_tool')],
       ['updateSystemPrompt', () => agent.updateSystemPrompt('be brief')],
-      // CORE-047: these three were listed as named exceptions here, blocked on the agent-level
+      // These three were listed as named exceptions here, blocked on the agent-level
       // readiness flag. That flag turned out to guard state the constructor could establish, so they
       // are now part of the enumerated surface rather than an exception to it. The surface has no
       // named exceptions left; if one is ever added again it belongs in a list like the old one, not

@@ -1,5 +1,5 @@
 /**
- * TC-03b — redacted management projections.
+ * Redacted management projections.
  *
  * The projection is what leaves this package. A value that survives it survives into a log, a
  * screen, or a command result, so the assertions here are about what must NOT be there — and about

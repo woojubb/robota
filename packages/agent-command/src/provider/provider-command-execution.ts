@@ -35,7 +35,7 @@ export async function executeProviderCommand(
   options: IProviderCommandModuleOptions,
 ): Promise<ICommandResult> {
   const ui = context.getUserInteraction();
-  // #3282 §3: the session's own live state, never inferred from settings — an ordinary env-default
+  // The session's own live state, never inferred from settings — an ordinary env-default
   // session also has no persisted `currentProvider`, and is not in setup mode either.
   const isSetupRequired = context.isSetupRequired?.() === true;
   const settings = options.settings.readMergedSettings();
@@ -66,7 +66,7 @@ export async function executeProviderCommand(
       options,
     );
   }
-  // #3282 §4b: direct, non-interactive forms of what the profile-action menu otherwise reaches
+  // Direct, non-interactive forms of what the profile-action menu otherwise reaches
   // through two asks (`askProviderProfileSelection` then `askProviderProfileAction`) — for a caller
   // (the Settings screen, or a typed command) that already names the profile and does not want the
   // "which profile" ask repeated. `edit`/`duplicate` still ask their own follow-up questions (the
@@ -89,7 +89,7 @@ export async function executeProviderCommand(
     return buildProviderDuplicate(ui, profileArg, options);
   }
   if (subcommand === 'delete') {
-    // #3282 §4b: `--confirmed` is set ONLY by the Settings screen's own write (`settings-reporter.ts`)
+    // `--confirmed` is set ONLY by the Settings screen's own write (`settings-reporter.ts`)
     // — its "Delete…" button already confirmed through its own ConfirmDialog before sending this, and
     // a modal write has nowhere to ask a follow-up question. A plainly-typed `delete <profile>` never
     // carries it, so it confirms here first when a human can answer (matching `/clear`'s "confirm only
@@ -124,8 +124,8 @@ export async function executeProviderCommand(
 }
 
 /**
- * List the provider profiles. With an interactive renderer attached, drive the inline profile picker
- * (CMD-004); without one (headless/automation) or with no profiles, return the formatted list as text.
+ * List the provider profiles. With an interactive renderer attached, drive the inline profile picker;
+ * without one (headless/automation) or with no profiles, return the formatted list as text.
  */
 function buildProviderProfilePicker(
   ui: IUserInteraction | undefined,
@@ -176,7 +176,7 @@ function formatCurrentProvider(
 
 /**
  * Configure a provider profile. With an explicit `type`, run the setup wizard directly; without one,
- * ask the user to pick a provider type first (CMD-004). Without an interactive renderer, setup cannot
+ * ask the user to pick a provider type first. Without an interactive renderer, setup cannot
  * proceed — return usage text instead of a silent guess.
  */
 function buildProviderSetup(

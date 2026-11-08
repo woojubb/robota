@@ -131,7 +131,7 @@ describe('session-loop creation durability', () => {
 
   it(
     'reads a pending self-paced loop\'s own detail page instead of throwing "Unknown background ' +
-      'task" (#3288 §1)',
+      'task"',
     async () => {
       const { interactive } = setup(() => undefined);
       const held = holdForeground(interactive);

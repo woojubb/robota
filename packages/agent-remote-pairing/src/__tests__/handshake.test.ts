@@ -56,7 +56,7 @@ function pair(
   };
 }
 
-describe('pairing handshake (REMOTE-005 B3)', () => {
+describe('pairing handshake', () => {
   it('accepts and derives a session key when both peers share the secret and observe the same channel', async () => {
     const secret = generatePairingSecret().secret;
     const { a, b } = pair(

@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * Print mode integration tests (CLI-063).
+ * Print mode integration tests.
  *
  * Drives runPrintMode with a real file-backed session store and a stub provider
  * to verify session resume/fork semantics that the TUI already has.
@@ -174,7 +174,7 @@ async function runPrint(
   throw new Error('runPrintMode returned without calling process.exit');
 }
 
-describe('print mode session resume integration (CLI-063)', () => {
+describe('print mode session resume integration', () => {
   let cwd: string;
   let stdoutWriteCount = 0;
   let stdoutChunks: string[] = [];
@@ -211,7 +211,7 @@ describe('print mode session resume integration (CLI-063)', () => {
     expect(cleanup).toHaveBeenCalledTimes(1);
   });
 
-  it('TC-06: starts exactly one new session when no resume id is given (continue-or-start)', async () => {
+  it('starts exactly one new session when no resume id is given (continue-or-start)', async () => {
     const { provider } = createRecordingProvider('first answer');
     const exitCode = await runPrint(cwd, 'Remember this number: 42', provider);
 
@@ -222,7 +222,7 @@ describe('print mode session resume integration (CLI-063)', () => {
     expect(store.list()).toHaveLength(1);
   });
 
-  it('TC-02: resume loads prior messages into the provider request and creates no extra session', async () => {
+  it('resume loads prior messages into the provider request and creates no extra session', async () => {
     const first = createRecordingProvider('first answer');
     await runPrint(cwd, 'Remember this number: 42', first.provider);
 
@@ -259,7 +259,7 @@ describe('print mode session resume integration (CLI-063)', () => {
     expect(ids).toEqual([priorId]);
   });
 
-  it('TC-03: fork creates a new independent session with restored context, original untouched (CLI-073 semantics)', async () => {
+  it('fork creates a new independent session with restored context, original untouched', async () => {
     const first = createRecordingProvider('first answer');
     await runPrint(cwd, 'Remember this number: 42', first.provider);
 
@@ -283,7 +283,7 @@ describe('print mode session resume integration (CLI-063)', () => {
     });
 
     expect(exitCode).toBe(0);
-    // Framework fork semantics (CLI-073, SPEC-conform): a fork is a fresh UUID WITH
+    // Framework fork semantics (SPEC-conform): a fork is a fresh UUID WITH
     // the source conversation restored — prior messages ARE injected, same as resume.
     const contents = forked
       .lastMessages()
@@ -332,14 +332,14 @@ describe('print mode session resume integration (CLI-063)', () => {
 });
 
 /**
- * Issue #1937 — the CLI-sourced prompt flags must reach the surface, not just the helper.
+ * The CLI-sourced prompt flags must reach the surface, not just the helper.
  *
  * `buildAppendSystemPrompt` had exactly one caller, so `--append-system-prompt`, `--task-file` and
  * `--json-schema` were parsed, validated and then dropped in interactive and serve mode. A test of
  * the helper passes in that state, which is why these assert what the PROVIDER received: the system
  * message is the only place the flags' effect is observable, and it is where the defect showed.
  */
-describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
+describe('CLI-sourced prompt flags reach the session', () => {
   let cwd: string;
 
   beforeEach(() => {
@@ -412,7 +412,7 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
     expect(options.livePromptTrace).toBe(livePromptTrace);
   });
 
-  it('the shared mapper takes the tool lists from the PRESET SURFACE (issue #1934)', () => {
+  it('the shared mapper takes the tool lists from the PRESET SURFACE', () => {
     // The claim the projection test could not make. It asserts the mode surfaces ACCEPT every field
     // — a compile-time property — and both modes accepted `allowedTools` while reading
     // `parseToolList(args.…)` instead. Accepting a field and reading it are different claims.
@@ -435,7 +435,7 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
     expect(presetSessionFields({})).toEqual({});
   });
 
-  it('serve mode reads the RESOLVED tool lists, not the raw flags (issue #1934)', () => {
+  it('serve mode reads the RESOLVED tool lists, not the raw flags', () => {
     // The review finding this pins: both modes took `IPresetSurfaceOptions` and read
     // `parseToolList(args.…)` anyway, so a preset's lists were applied in the TUI and silently
     // ignored under `-p` and `--serve` — the half-applied divergence the item exists to close,

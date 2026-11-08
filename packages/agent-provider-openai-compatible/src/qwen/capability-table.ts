@@ -1,5 +1,5 @@
 /**
- * What Qwen's models can do. PROV-008.
+ * What Qwen's models can do.
  *
  * A vendor default plus verified deviations. Qwen is the clearest example of why that shape is the
  * right one: `qwen-plus` and `qwen-max` share the vendor's full set, and only `qwen-flash` differs —

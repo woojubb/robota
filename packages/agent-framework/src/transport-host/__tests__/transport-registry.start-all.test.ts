@@ -69,7 +69,7 @@ function restartableRunner(): ITransportRunnerAdapter<IInteractiveSession> & {
   };
 }
 
-describe('TransportRegistry generation ownership (ARCH-011)', () => {
+describe('TransportRegistry generation ownership', () => {
   it('holds a runner rejection across a macrotask without an unhandled rejection', async () => {
     const registry = registryOverTempSettings();
     const runner = restartableRunner();

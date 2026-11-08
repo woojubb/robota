@@ -70,7 +70,7 @@ export interface ISessionOptions {
   /** Terminal I/O for permission prompts */
   terminal: ITerminalOutput;
   /**
-   * The session's execution root. REQUIRED — ARCH-010.
+   * The session's execution root. REQUIRED.
    *
    * This field did not exist. `Session` read `process.cwd()` in its constructor and that ambient
    * value became the session's identity everywhere it matters: every hook input,
@@ -86,7 +86,7 @@ export interface ISessionOptions {
   /** Permission and hook configuration */
   permissions?: { allow: string[]; deny: string[]; ask?: string[] };
   /**
-   * ARCH-040 Group C (issue #1934): the permission rules BEFORE any preset contributed.
+   * The permission rules BEFORE any preset contributed.
    *
    * Passed rather than inferred. `permissions` above already has the startup preset's patterns baked
    * in, so an enforcer that captured its own base from it on the first live `/preset` would keep the
@@ -99,24 +99,24 @@ export interface ISessionOptions {
   /** Initial permission mode */
   permissionMode?: TPermissionMode;
   /**
-   * CORE-025: background/subagent task permission policy. Resolved BEFORE the session-mode gate, so
+   * Background/subagent task permission policy. Resolved BEFORE the session-mode gate, so
    * `deny`/`preapproved`/`inherit-allowlist` override even a permissive `permissionMode`. Absent on a normal
    * interactive session (mode gate alone). Set by `createSubagentSession` from the spawn request.
    */
   permissionPolicy?: TBackgroundPermissionPolicy;
-  /** CORE-025: the task's OWN allow/deny lists (what `preapproved` consults; distinct from `permissions`). */
+  /** The task's OWN allow/deny lists (what `preapproved` consults; distinct from `permissions`). */
   taskPermissions?: { allow?: readonly string[]; deny?: readonly string[] };
   /**
-   * Injected "ask the user" port (CMD-005): forwarded into the agent config so model-invoked tools
+   * Injected "ask the user" port: forwarded into the agent config so model-invoked tools
    * (AskUserQuestion) can solicit a structured answer. Absent in headless/automation sessions.
    */
   ask?: IUserInteraction['ask'];
   /** Default trust level — used to derive permissionMode if not given */
   defaultTrustLevel?: 'safe' | 'moderate' | 'full';
-  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  /** Active preset id selected at startup (runtime state). Defaults to 'default'. */
   activePresetId?: string;
   /**
-   * Whether subagent dispatch is allowed for this session (PRESET-016 runtime gate). Defaults to
+   * Whether subagent dispatch is allowed for this session (runtime gate). Defaults to
    * true (current behavior). Only meaningful when the agent runtime was built at assembly.
    */
   enableParallelSubagents?: boolean;
@@ -221,7 +221,7 @@ export interface ISessionOptions {
   /** Name reported to the ConversationAgent agent config. Defaults to 'agent' if not provided. */
   agentName?: string;
   /**
-   * Request structured output from the provider for this session. Issue #2056: the agent config's
+   * Request structured output from the provider for this session: the agent config's
    * own shape (`json_schema` included), so a schema request reaches the provider intact.
    */
   responseFormat?: IResponseFormatConfig;
@@ -231,11 +231,11 @@ export interface ISessionOptions {
    */
   effort?: TModelEffortSelection;
   /**
-   * ARCH-040: sampling temperature and output cap, threaded to the agent config at CONSTRUCTION.
+   * Sampling temperature and output cap, threaded to the agent config at CONSTRUCTION.
    *
    * The live `/preset` path has always applied both through `applyModelOptions`, and startup applied
    * neither — so one session held two answers for the same preset depending on WHEN it was chosen,
-   * which is what `effort` did before ARCH-013 stage 1 fixed it. `maxOutputTokens` maps to the
+   * which is what `effort` once did. `maxOutputTokens` maps to the
    * agent's `maxTokens` channel, the same name `applyModelOptions` already writes.
    */
   temperature?: number;
@@ -254,13 +254,13 @@ export interface ISessionRunOptions {
   /** Cancellation belongs to this submission and remains linked until execution settles. */
   signal?: AbortSignal;
   /**
-   * SELFHOST-008 P3: a transient system-role block for THIS turn's provider request only. Never
+   * A transient system-role block for THIS turn's provider request only. Never
    * written to the conversation store.
    */
   ephemeralSystemContext?: string;
   /**
-   * PEER-007 (issue #1915): display attribution for the stored user message — who drove this turn.
-   * Never an authorization input (issue #1809).
+   * Display attribution for the stored user message — who drove this turn.
+   * Never an authorization input.
    */
   driverId?: string;
   /** Where this turn came from, stored beside `driverId` on the user message. Display only. */

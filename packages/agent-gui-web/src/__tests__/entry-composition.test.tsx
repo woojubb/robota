@@ -1,5 +1,5 @@
 /**
- * Issue #2167 — the monitor entry's composition contracts, tested without a browser.
+ * The monitor entry's composition contracts, tested without a browser.
  *
  * `main.tsx` used to hold all three inline, which is why the package had no suite: nothing could be
  * imported without mounting. Each contract now lives in its own module and `main.tsx` only wires

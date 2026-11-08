@@ -24,11 +24,11 @@ vi.mock('@robota-sdk/agent-core', async (importOriginal) => {
 import { LimitsPlugin } from '../limits-plugin';
 
 /**
- * SELFHOST-004 P4 (TC-02 / TC-04): per-run cumulative budget cap in LimitsPlugin.
+ * Per-run cumulative budget cap in LimitsPlugin.
  *
- * TC-02 — a per-run cumulative cap keyed by `sessionId` that NEVER time-resets, halts the next turn
+ * A per-run cumulative cap keyed by `sessionId` that NEVER time-resets, halts the next turn
  *         once exceeded, and resets via `resetLimits(sessionId)` at run start.
- * TC-04 — enforced cost uses the SAME `calculateModelCost` SSOT (exact input/output split) as the
+ * Enforced cost uses the SAME `calculateModelCost` SSOT (exact input/output split) as the
  *         displayed `costUsd`; unpriced models accrue nothing; enforcement lives ONLY in this plugin.
  */
 
@@ -44,7 +44,7 @@ function result(): IPluginExecutionResult {
   return { success: true, usage: { promptTokens: 200_000, completionTokens: 100_000 } };
 }
 
-describe('SELFHOST-004 TC-02 — per-run cumulative budget cap', () => {
+describe('per-run cumulative budget cap', () => {
   it('accrues the exact per-turn cost across turns without time-resetting', async () => {
     const plugin = new LimitsPlugin({ strategy: 'none', maxRunCost: 100 });
     await plugin.afterExecution(ctx(), result());
@@ -95,7 +95,7 @@ describe('SELFHOST-004 TC-02 — per-run cumulative budget cap', () => {
   });
 });
 
-describe('SELFHOST-004 TC-04 — enforced cost shares the display SSOT path', () => {
+describe('enforced cost shares the display SSOT path', () => {
   it('accrues exactly calculateModelCost(model, prompt, completion) — one computation path', async () => {
     const plugin = new LimitsPlugin({ strategy: 'none', maxRunCost: 100 });
     await plugin.afterExecution(ctx(), result());

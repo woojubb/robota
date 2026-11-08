@@ -51,7 +51,7 @@ export function fireSubagentLifecycleHook(
 ): void {
   const hookEventName = getSubagentHookEvent(event);
   if (!hookEventName || !('task' in event)) return;
-  // #2079: `getSubagentHookEvent` only returns a hook name for an agent-kind task; this check is
+  // `getSubagentHookEvent` only returns a hook name for an agent-kind task; this check is
   // what lets TypeScript narrow `event.task` to the agent-kind member (for `agentType`) below.
   if (event.task.kind !== 'agent') return;
 
@@ -91,7 +91,7 @@ export function fireSubagentLifecycleHook(
   };
 
   void runHooks(hooks, hookEventName, input, hookTypeExecutors).catch((error: unknown) => {
-    // CORE-029: the same discarded rejection as the worktree runner. These are notifications, so
+    // The same discarded rejection as the worktree runner. These are notifications, so
     // they stay unawaited — but a hook that failed must not look like a hook that ran.
     logger.warn('background task hook failed', {
       event: hookEventName,

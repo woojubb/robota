@@ -12,7 +12,7 @@ import type { createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /**
- * REMOTE-008 Step 1 (SECURITY milestone) — the pairing gate's fail-closed routing switch, driven with a stub
+ * The pairing gate's fail-closed routing switch, driven with a stub
  * channel + injected handshake + injected session-bridge (no real peer/crypto/session).
  */
 
@@ -69,7 +69,7 @@ function makeGate(over: Partial<IPairingGateOptions> = {}) {
   return { gate, channel, channelSends, sessionOnMessage, handlerCleanup, hs };
 }
 
-describe('PairingGate (REMOTE-008 Step 1 — fail-closed routing switch)', () => {
+describe('PairingGate (fail-closed routing switch)', () => {
   it('does not expose the session before the handshake accepts (no session bridge built)', () => {
     const { sessionOnMessage } = makeGate();
     // The handshake sent its nonce, but no session handler exists yet.
@@ -99,7 +99,7 @@ describe('PairingGate (REMOTE-008 Step 1 — fail-closed routing switch)', () =>
     ['a padded (non-base64url) mac', { t: 'pair-confirm', mac: 'bWFj==' }],
     ['a mac over the ceiling', { t: 'pair-confirm', mac: 'A'.repeat(129) }],
   ])(
-    'issue #2046: a pairing frame with the right discriminator but %s never reaches the handshake',
+    'a pairing frame with the right discriminator but %s never reaches the handshake',
     (_label, frame) => {
       // Against the old discriminator-only predicate every one of these was handed to the controller.
       const { gate, hs } = makeGate();

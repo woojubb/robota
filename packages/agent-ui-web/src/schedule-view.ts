@@ -1,5 +1,5 @@
 /**
- * #3282 §4 part b-3 — plain-words presentation for the Agents panel's "Scheduled" group. Never an
+ * Plain-words presentation for the Agents panel's "Scheduled" group. Never an
  * ISO string or a cron expression: a concrete `nextFireAt` is shown in local time as "Today 9:00" /
  * "Tomorrow 9:00" / a weekday / a date; a handful of common cron shapes are phrased ("Every weekday
  * at 9:00"); anything else falls back to "Repeats".

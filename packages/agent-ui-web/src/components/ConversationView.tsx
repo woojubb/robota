@@ -44,7 +44,7 @@ function nodeText(node: React.ReactNode): string {
 }
 
 /**
- * "Copy code" / "Copy message" (#3289 §2): shows on hover and keyboard focus, always on touch (no
+ * "Copy code" / "Copy message": shows on hover and keyboard focus, always on touch (no
  * `hover` capability to gate on there). The transient "Copied" / "Couldn't copy" feedback lives in a
  * visually hidden `aria-live` region that is a SIBLING of the button, not a descendant of it — ARIA
  * name computation only ever looks at an element's own subtree, so a live region placed anywhere
@@ -96,7 +96,7 @@ function CopyButton({
 /**
  * A fenced code block: unwrapped and horizontally scrollable (a visible scrollbar via
  * `.gui-code-scroll`, `tabIndex=0` and a name so a keyboard user without a mouse wheel can still reach
- * the rest of a long line), with its own "Copy code" button revealed on hover/focus (#3289 §2).
+ * the rest of a long line), with its own "Copy code" button revealed on hover/focus.
  */
 function CodeBlockRenderer({ children }: { children?: React.ReactNode }): React.ReactElement {
   const text = nodeText(children).replace(/\n$/, '');
@@ -123,7 +123,7 @@ interface IConversationViewProps {
   activeTools: IActiveTool[];
   streamingText: string;
   isThinking: boolean;
-  /** This connection's own driver id (§3289 §3), threaded to every message it renders. */
+  /** This connection's own driver id, threaded to every message it renders. */
   ownDriverId: TDriverId | null;
 }
 
@@ -207,11 +207,11 @@ function UserBlock({
 }: {
   content: string;
   author?: string;
-  /** This connection's own driver id (§3289 §3): its own turns never carry a "from" label. */
+  /** This connection's own driver id: its own turns never carry a "from" label. */
   ownDriverId: TDriverId | null;
 }): React.ReactElement {
-  // REMOTE-014 E5 (display-only, OWNER PRINCIPLE): show WHO drove this turn when it wasn't this
-  // connection's own — in plain words, never the raw server-assigned id. #3288 §1: AGENT_DRIVER_ID
+  // Display-only: show WHO drove this turn when it wasn't this
+  // connection's own — in plain words, never the raw server-assigned id. AGENT_DRIVER_ID
   // (never "the same surface" — see isSameSurface) reads "Automatic — loop": today it is only ever
   // a loop's own injected turn (requestWakeup in interactive-session.ts).
   const coDriver =
@@ -239,7 +239,7 @@ function AgentBlock({
       {isStreaming && (
         <span className="ml-1 inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-foreground/70 align-middle" />
       )}
-      {/* #3289 §2: every assistant message can copy its own Markdown source; a still-streaming one
+      {/* Every assistant message can copy its own Markdown source; a still-streaming one
           has nothing settled yet to copy, so the button waits for it to finish. */}
       {!isStreaming && (
         <div className="flex opacity-0 transition-opacity focus-within:opacity-100 group-hover/message:opacity-100 group-focus-within/message:opacity-100 [@media(hover:none)]:opacity-100">
@@ -264,7 +264,7 @@ function ToolIcon({ name, className }: { name: string; className?: string }): Re
 }
 
 /**
- * #3288: a long path's directory is shortened FROM THE LEFT so the filename — the part someone
+ * A long path's directory is shortened FROM THE LEFT so the filename — the part someone
  * actually needs to recognise — is never the part that gets cut.
  */
 const PATH_DISPLAY_MAX_CHARS = 52;
@@ -405,7 +405,7 @@ function ToolCard({ tool }: { tool: IActiveTool }): React.ReactElement {
     Boolean(parsedResult?.structured);
   const hasObservations = Boolean(tool.toolResultParts?.length);
   const expandable = hasDiff || hasOutput || hasObservations;
-  // #3288: a projected `/command` tool shows its command, never the internal provider tool name.
+  // A projected `/command` tool shows its command, never the internal provider tool name.
   const label = tool.commandName ? `Ran /${tool.commandName}` : tool.name;
 
   return (
@@ -431,7 +431,7 @@ function ToolCard({ tool }: { tool: IActiveTool }): React.ReactElement {
           {label}
         </span>
         {tool.displayPath ? (
-          // #3288: server-computed, workspace-relative, and never middle/end-truncated — only the
+          // Server-computed, workspace-relative, and never middle/end-truncated — only the
           // directory portion is shortened, from the left, so the filename always reads in full.
           <span
             className="min-w-0 flex-1 break-all font-mono text-[12.5px] text-subtle"
@@ -493,7 +493,7 @@ const COMMAND_TONE: Record<ICommandOutputEntry['tone'], { dot: string; text: str
 };
 
 /**
- * A slash command's outcome, where it was typed: line breaks kept, long output folded. #3289 §2 — the
+ * A slash command's outcome, where it was typed: line breaks kept, long output folded. The
  * card itself still marks the command (the `/name` header stays monospace, a fixed-width label rather
  * than prose), but its BODY reads as normal text — proportional, normal size — unless it is actually a
  * long listing (the same measure that decides whether to fold it: many raw lines, or tall once
@@ -554,7 +554,7 @@ function CommandCard({ entry }: { entry: ICommandOutputEntry }): React.ReactElem
 /** One line per finished turn's tool calls; the calls themselves open on demand. */
 function ToolGroup({ tools }: { tools: readonly IActiveTool[] }): React.ReactElement | null {
   const [open, setOpen] = useState(false);
-  // #3288: an internal signal tool (e.g. the goal-status tool) is never shown as a call — the goal
+  // An internal signal tool (e.g. the goal-status tool) is never shown as a call — the goal
   // bar shows progress instead. A group made up ENTIRELY of internal tools renders nothing at all.
   const visible = tools.filter((tool) => !tool.internal);
   const failed = visible.filter((tool) => tool.status === 'error').length;
@@ -605,7 +605,7 @@ function ToolGroup({ tools }: { tools: readonly IActiveTool[] }): React.ReactEle
   );
 }
 
-/** #3288: a turn that changed files ends with this compact row — a click opens that file's diff. */
+/** A turn that changed files ends with this compact row — a click opens that file's diff. */
 function ChangedFilesRow({ files }: { files: readonly IChangedFileSummary[] }): React.ReactElement {
   const [openPath, setOpenPath] = useState<string | null>(null);
   return (
@@ -671,7 +671,7 @@ export function ConversationView({
   };
 
   /**
-   * #3289 §2 — follows new content only while the person is already at the bottom: streaming text, a
+   * Follows new content only while the person is already at the bottom: streaming text, a
    * finished message, a tool starting or finishing. Expanding something already on screen (a tool row,
    * a folded command card) touches none of these, so it never causes a jump — the effect simply does
    * not run for it. An instant jump rather than a smooth one, so it can never itself be mistaken by

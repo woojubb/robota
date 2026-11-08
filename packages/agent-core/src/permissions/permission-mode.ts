@@ -4,7 +4,7 @@
  * A permission mode answers one question — how much does this session do without asking? — and it
  * answers it about a KIND of action, not about a named product tool.
  *
- * CORE-030: this file used to enumerate `TKnownToolName`
+ * This file used to enumerate `TKnownToolName`
  * (`'Shell' | 'Bash' | 'Read' | 'Write' | 'Edit' | …`) and key the policy matrix on it. That put a
  * product's tool inventory in the vendor-neutral foundation, two layers below the packages that
  * define those tools, with nothing coupling the two lists — and the drift was not hypothetical:

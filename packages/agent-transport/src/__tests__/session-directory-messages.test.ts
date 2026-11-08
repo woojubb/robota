@@ -1,5 +1,5 @@
 /**
- * #3189: clients list the host's sessions, start a new one and switch to another over the wire. The
+ * Clients list the host's sessions, start a new one and switch to another over the wire. The
  * host owns the directory; the protocol correlates the listing and carries a refusal's code and reason.
  */
 
@@ -68,7 +68,7 @@ function deleteRefusal(code: TSessionDeleteRefusalCode, message: string): Error 
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe('session directory messages (#3189)', () => {
+describe('session directory messages', () => {
   it('answers list-sessions with the host listing, correlated by requestId', () => {
     const client = attach({ directory: createDirectory() });
     client.send({ type: 'list-sessions', requestId: 'r1' });
@@ -199,7 +199,7 @@ describe('session directory messages (#3189)', () => {
   });
 });
 
-describe('rename-session (#3289 §1)', () => {
+describe('rename-session', () => {
   it('renames and answers session_renamed_in_list, correlated by requestId', async () => {
     const directory = createDirectory();
     const client = attach({ directory });
@@ -252,7 +252,7 @@ describe('rename-session (#3289 §1)', () => {
   });
 });
 
-describe('delete-session round-trip (#3289 §1)', () => {
+describe('delete-session round-trip', () => {
   it('deletes and answers session_deleted, correlated by requestId', async () => {
     const directory = createDirectory();
     const client = attach({ directory });

@@ -1,5 +1,5 @@
 /**
- * `/handoff` (HANDOFF-001, issue #1864) — the consent, and the sentence the operator needs.
+ * `/handoff` — the consent, and the sentence the operator needs.
  *
  * Two properties are asserted on nearly every path, because they are what the command is for:
  *

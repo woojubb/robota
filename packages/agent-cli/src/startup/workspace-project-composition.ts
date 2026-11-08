@@ -85,12 +85,12 @@ export type TCliWorkspaceCompositionOverrides = Partial<
 >;
 
 /**
- * A run that must start Restricted: set by `/cd` into a Restricted folder (issue #3081), and for a
- * background session a person chose to start Restricted from the session view (issue #3268).
+ * A run that must start Restricted: set by `/cd` into a Restricted folder, and for a
+ * background session a person chose to start Restricted from the session view.
  */
 export const RESTRICTED_WORKSPACE_FLAG = '--restricted-workspace';
 
-/** Starts with every customization off, to rule one out (issue #3082). */
+/** Starts with every customization off, to rule one out. */
 export const SAFE_MODE_FLAG = '--safe-mode';
 
 export const SAFE_MODE_NOTICE =
@@ -100,7 +100,7 @@ export const SAFE_MODE_NOTICE =
 
 /**
  * The startup access decision. A `/cd` from a Restricted session never widens access, whatever the
- * target's own trust decision (issue #3081) — read from argv because access is decided before the
+ * target's own trust decision — read from argv because access is decided before the
  * arguments are parsed.
  */
 export async function resolveStartupWorkspaceProjectAccess(
@@ -286,7 +286,8 @@ export function createCliWorkspaceComposition(
   const projectAccess =
     options.projectAccess ??
     createRestrictedWorkspaceProjectAccess('identity-unavailable', options.cwd);
-  // Contained — ARCH-048. Reject cross-root pairs until one canonical project-root contract replaces both carriers.
+  // Contained. Reject cross-root pairs until one canonical project-root contract replaces both
+  // carriers.
   if (projectAccess.status === 'trusted') {
     const trustedRoot = getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot;
     let resolvedCwd: string;

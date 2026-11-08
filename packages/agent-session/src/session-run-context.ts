@@ -32,7 +32,7 @@ export interface IRunContext {
   hookTypeExecutors: readonly IHookTypeExecutor[];
   sessionStartStdout: string;
   log: (event: string, data: TSessionLogData) => void;
-  /** RUNTIME-004: abort must not rewrite history. `hookTraceEnv` is the prompt's, for PreCompact. */
+  /** Abort must not rewrite history. `hookTraceEnv` is the prompt's, for PreCompact. */
   compact: (
     signal?: AbortSignal,
     hookTraceEnv?: ISubprocessTraceEnv,

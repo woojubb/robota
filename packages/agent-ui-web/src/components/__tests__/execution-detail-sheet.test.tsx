@@ -9,7 +9,7 @@ import { ExecutionDetailSheet } from '../ExecutionDetailSheet.js';
 import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
 
 /**
- * #3288 §1: opening an Agents panel entry shows what it was asked, its transcript (paged) and its
+ * Opening an Agents panel entry shows what it was asked, its transcript (paged) and its
  * result, closes on Esc or the close button, and offers Stop when the entry is still stoppable.
  */
 

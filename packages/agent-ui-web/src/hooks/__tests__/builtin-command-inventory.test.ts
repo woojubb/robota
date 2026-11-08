@@ -1,5 +1,5 @@
 /**
- * #3282 §4e — the acceptance criterion as a test: every built-in command the GUI's `get-commands`
+ * The acceptance criterion as a test: every built-in command the GUI's `get-commands`
  * catalog can return is either GUI-available (not on the exclusion list — it has a screen, a
  * control, or it works fine typed, per the Step 1 inventory in the PR body) or is on the documented
  * exclusion list (`excluded-commands.ts`, reasons grouped in `packages/agent-gui-web/docs/SPEC.md`).
@@ -83,7 +83,7 @@ const DOCUMENTED_EXCLUSIONS = new Set([
   'devices',
 ]);
 
-describe('#3282 §4e — every built-in command is GUI-available or on the exclusion list', () => {
+describe('every built-in command is GUI-available or on the exclusion list', () => {
   it('classifies every command consistently: excluded means documented, everything else is available', () => {
     for (const command of BUILTIN_COMMANDS) {
       const excluded = isExcludedCommand(command);

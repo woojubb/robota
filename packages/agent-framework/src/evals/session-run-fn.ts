@@ -1,5 +1,5 @@
 /**
- * SELFHOST-011 P1 — the default eval `runFn`, built from an agent runtime.
+ * The default eval `runFn`, built from an agent runtime.
  *
  * For each case input it spawns a FRESH headless session (so cases are independent — no cross-case history
  * contamination), submits the input, and resolves to the terminal `complete`-event `IExecutionResult` — the
@@ -32,7 +32,7 @@ function awaitRun(session: InteractiveSession, input: string): Promise<IExecutio
       resolve(result);
     };
     // An interrupted (e.g. maxTurns-truncated) run still carries a full IExecutionResult and is scored like any
-    // other; a metric that must reject truncated output can inspect the result (P2 may flag this distinctly).
+    // other; a metric that must reject truncated output can inspect the result.
     const onInterrupted = (result: IExecutionResult): void => {
       cleanup();
       resolve(result);

@@ -18,7 +18,7 @@ describe('first-run', () => {
     rmSync(tempHome, { recursive: true, force: true });
   });
 
-  it('TC-03: isFirstRun is true without marker and false after markOnboarded', () => {
+  it('isFirstRun is true without marker and false after markOnboarded', () => {
     const marker = join(tempHome, '.test-product', 'onboarded');
     expect(isFirstRun(marker)).toBe(true);
     markOnboarded(marker);
@@ -26,7 +26,7 @@ describe('first-run', () => {
     expect(existsSync(marker)).toBe(true);
   });
 
-  it('TC-03: printFirstRunWelcome writes the welcome banner to the injected terminal', () => {
+  it('printFirstRunWelcome writes the welcome banner to the injected terminal', () => {
     const { terminal, lines } = createCapturingTerminal();
     printFirstRunWelcome(terminal, createTestProductRuntime());
     const output = lines.join('\n');
@@ -34,10 +34,10 @@ describe('first-run', () => {
     expect(output).toContain('/help');
   });
 
-  // PM-031: the banner is the first thing a new user sees — and it is in the README demo recording.
+  // The banner is the first thing a new user sees — and it is in the README demo recording.
   // The box used to be hand-drawn for a longer binary name, so the lines carrying the interpolated
   // name were five columns short and the right border stair-stepped.
-  it('PM-031: every welcome-box line is exactly the same display width', () => {
+  it('every welcome-box line is exactly the same display width', () => {
     const { terminal, lines } = createCapturingTerminal();
     printFirstRunWelcome(terminal, createTestProductRuntime());
     const boxLines = lines

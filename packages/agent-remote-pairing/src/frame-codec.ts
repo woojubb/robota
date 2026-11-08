@@ -1,5 +1,5 @@
 /**
- * Owner-side total decoders for every PRE-AUTH frame (issue #2046 / SECURITY-002).
+ * Owner-side total decoders for every PRE-AUTH frame.
  *
  * The pairing, reconnect and enrollment frame vocabulary belongs to this package, so its decoding
  * does too. Before this, each carrier (the Node `PairingGate`, the browser `ResponderGate`) kept its
@@ -26,7 +26,10 @@ export const PRE_AUTH_FRAME_LIMITS = {
   spki: 2048,
 } as const;
 
-/** The identity-exchange frame both sides send after a first-pair accept (E3 enrollment). */
+/**
+ * The identity-exchange frame both sides send after a first-pair accept (device-identity
+ * enrollment).
+ */
 export interface IEnrollFrame {
   readonly t: 'enroll-key';
   readonly spki: string;

@@ -18,7 +18,7 @@ import {
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
 
-describe('ARCH-109 — the provider dimension of "can the child reproduce this?"', () => {
+describe('the provider dimension of "can the child reproduce this?"', () => {
   /**
    * A definition set that is NOT the default one, and shares a built-in's `type` on purpose.
    *
@@ -70,7 +70,7 @@ describe('ARCH-109 — the provider dimension of "can the child reproduce this?"
   });
 });
 
-describe('ARCH-109 — a composition a child cannot rebuild keeps its subagents in-process', () => {
+describe('a composition a child cannot rebuild keeps its subagents in-process', () => {
   function record(): { readonly notices: string[]; readonly notice: (m: string) => void } {
     const notices: string[] = [];
     return { notices, notice: (m) => notices.push(m) };

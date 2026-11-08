@@ -1,5 +1,5 @@
 /**
- * TRANS-010 (issue #2480): the in-memory `ITransportSettingsRepository` — for tests and for hosts that
+ * The in-memory `ITransportSettingsRepository` — for tests and for hosts that
  * keep transport settings elsewhere. The file-backed one is `createFileTransportSettingsRepository`
  * on `@robota-sdk/agent-framework/node`.
  */

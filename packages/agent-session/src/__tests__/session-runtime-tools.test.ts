@@ -278,7 +278,7 @@ describe('direct session runtime tools', () => {
   });
 
   it('asks the permission handler only for a caller that answers its own prompts', async () => {
-    // #3470: an MCP caller that can answer passes `interactive`; every other direct call still
+    // An MCP caller that can answer passes `interactive`; every other direct call still
     // denies without asking, which the case above pins.
     const execute = vi.fn(async () => 'written');
     const allowing = fixture(execute);

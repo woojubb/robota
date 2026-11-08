@@ -36,7 +36,7 @@ export interface IAgentRoutesOptions {
    */
   onStreamFailure?: TStreamFailureListener;
   /**
-   * SEC-008: what a peer must present to reach the session. REQUIRED — there is no shape of this
+   * What a peer must present to reach the session. REQUIRED — there is no shape of this
    * option that means "I did not think about it", which is the state these routes shipped in.
    *
    * `{ open: true, openReason: '…' }` still runs with no credential, and that is a legitimate answer
@@ -69,7 +69,7 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   const { sessionFactory, onStreamFailure, attribution } = options;
   const app = new Hono();
 
-  // RUNTIME-38: one turn at a time, per session — `turn-claims.ts` owns what that means and why it
+  // One turn at a time, per session — `turn-claims.ts` owns what that means and why it
   // is keyed by the session's declared ID rather than by object identity.
   const claims = createTurnClaims();
   const openPrompts = createHttpOpenPrompts();
@@ -82,7 +82,7 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
     onError: (c) => c.json({ error: 'request body too large' }, 413),
   });
 
-  // SEC-008: resolved ONCE, at construction, so a transport that cannot mint a credential fails to
+  // Resolved ONCE, at construction, so a transport that cannot mint a credential fails to
   // build rather than serving without one. Resolving per request would also mint a new token per
   // request, which no peer could ever present.
   // Either shape goes in: `resolveAdmission` is idempotent, so an already-resolved admission comes
@@ -141,7 +141,7 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
       return c.json({ error: 'name is required' }, 400);
     }
 
-    // SEC-008: 'remote', not the default 'user'. A peer over HTTP is not the person at the keyboard,
+    // 'remote', not the default 'user'. A peer over HTTP is not the person at the keyboard,
     // and defaulting to the local operator both mis-attributes the call and skips the 'remote' policy
     // seam that exists to treat the two differently. Admission decided WHO may reach the session; it
     // does not say who they are. (The MCP adapter had the same defect; this is its sibling.)

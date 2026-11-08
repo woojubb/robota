@@ -1,5 +1,5 @@
 /**
- * MCP-002 user-execution scenario — the shared client behind the admit-then-construct seam, TC-20.
+ * User-execution scenario — the shared client behind the admit-then-construct seam.
  *
  * Run: `pnpm exec tsx examples/verify-mcp-client.ts` from `packages/agent-mcp`.
  *

@@ -3,7 +3,7 @@ import { builtinModules } from 'node:module';
 import { defineConfig } from 'tsdown';
 
 export default defineConfig({
-  // SEC-010: the /local entry is Node-only. It may import the main entry's modules, never the reverse,
+  // The /local entry is Node-only. It may import the main entry's modules, never the reverse,
   // so no chunk the main entry loads reaches node:fs.
   entry: ['src/index.ts', 'src/local/index.ts'],
   format: { esm: {}, cjs: {} },

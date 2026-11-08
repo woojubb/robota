@@ -1,5 +1,5 @@
 /**
- * FLOW-005: `/schedule` + `/monitor` command surface.
+ * `/schedule` + `/monitor` command surface.
  * - parseScheduleSpec: relative delay → one-shot ISO; cron form; invalid input rejected.
  * - executeScheduleCommand / executeMonitorCommand: build the wake request and spawn it.
  */
@@ -65,7 +65,7 @@ function mockHost(): {
   return { host, scheduled, monitor, listSchedules, pauseSchedule, resumeSchedule, editSchedule };
 }
 
-describe('parseScheduleSpec (FLOW-005)', () => {
+describe('parseScheduleSpec', () => {
   it('parses a relative delay into a one-shot ISO timestamp', () => {
     const result = parseScheduleSpec('in 5m summarize the logs', 0);
     expect(result.ok).toBe(true);
@@ -97,8 +97,8 @@ describe('parseScheduleSpec (FLOW-005)', () => {
   });
 });
 
-describe('executeScheduleCommand (FLOW-005)', () => {
-  it('TC-01: relative delay spawns a one-shot scheduled wake', async () => {
+describe('executeScheduleCommand', () => {
+  it('relative delay spawns a one-shot scheduled wake', async () => {
     const { host, scheduled } = mockHost();
     const now = 1_000_000;
     const result = await executeScheduleCommand(host, 'in 1m summarize', now);
@@ -113,7 +113,7 @@ describe('executeScheduleCommand (FLOW-005)', () => {
     );
   });
 
-  it('TC-02: cron form spawns a recurring scheduled wake', async () => {
+  it('cron form spawns a recurring scheduled wake', async () => {
     const { host, scheduled } = mockHost();
     const result = await executeScheduleCommand(host, 'cron "0 9 * * *" standup', Date.now());
 
@@ -123,7 +123,7 @@ describe('executeScheduleCommand (FLOW-005)', () => {
     );
   });
 
-  it('TC-03: invalid input is rejected without spawning', async () => {
+  it('invalid input is rejected without spawning', async () => {
     const { host, scheduled } = mockHost();
     const result = await executeScheduleCommand(host, 'garbage', Date.now());
 
@@ -131,7 +131,7 @@ describe('executeScheduleCommand (FLOW-005)', () => {
     expect(scheduled).not.toHaveBeenCalled();
   });
 
-  it('TC-04: monitor command spawns a process+match wake task', async () => {
+  it('monitor command spawns a process+match wake task', async () => {
     const { host, monitor } = mockHost();
     const result = await executeMonitorCommand(host, '"npm run dev" "ERROR" fix the failure');
 
@@ -146,8 +146,8 @@ describe('executeScheduleCommand (FLOW-005)', () => {
   });
 });
 
-// SELFHOST-012 TC-05: /schedule list|pause|resume|edit dispatch (mirror /background); create stays default.
-describe('executeScheduleCommand — management subcommands (SELFHOST-012)', () => {
+// /schedule list|pause|resume|edit dispatch (mirror /background); create stays default.
+describe('executeScheduleCommand — management subcommands', () => {
   it('list returns the caller schedules with cadence + status, no create', async () => {
     const { host, listSchedules, scheduled } = mockHost();
     const result = await executeScheduleCommand(host, 'list', Date.now());
@@ -185,10 +185,10 @@ describe('executeScheduleCommand — management subcommands (SELFHOST-012)', () 
     });
   });
 
-  // CMD-009: create → edit → list must render the EDITED instruction. The host double applies the
+  // Create → edit → list must render the EDITED instruction. The host double applies the
   // patch the way `BackgroundTaskManager.editScheduledTask` does (pinned in agent-executor), so a
   // command that omits `label` from the patch leaves the list showing the creation-time text.
-  it('list renders the edited instruction, not the one captured at creation (CMD-009)', async () => {
+  it('list renders the edited instruction, not the one captured at creation', async () => {
     const schedules: Array<Record<string, unknown>> = [];
     const host = createTestAgentJobHost({
       spawnScheduledWake: vi.fn().mockImplementation((input: Record<string, unknown>) => {

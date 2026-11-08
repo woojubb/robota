@@ -1,5 +1,5 @@
 /**
- * RUNTIME-003 — a submission that was accepted and then never ran.
+ * A submission that was accepted and then never ran.
  *
  * Typed rather than a bare `Error` because the caller has to act on the reason: 'coalesced' means
  * the caller's own newer input superseded it and is normal, while 'dropped' means the queue was full

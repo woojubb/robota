@@ -1,5 +1,5 @@
 /**
- * #3679 step 3b: what a session saves about a sealed subagent transcript is what a resumed session
+ * What a session saves about a sealed subagent transcript is what a resumed session
  * shows. The task state and the job-group result carry `transcriptSealed`, so a group summary read
  * after the resume points at `/agent read` and never names a path that reaches no content.
  */

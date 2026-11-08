@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { openLocalPeerRendezvous, revokeRendezvousOnExit } from '../local-peer-admission.js';
 
 /**
- * SEC-010 composition (#1862) — the live rendezvous the WebRTC gate consumes.
+ * Composition — the live rendezvous the WebRTC gate consumes.
  *
  * The gate implements no cryptographic policy; it asks this. So what is asserted here is that the
  * answer it gets is the one the ledger justifies, and that it degrades to a refusal rather than to
@@ -15,7 +15,7 @@ function rendezvous(now = () => 1_000) {
   return openLocalPeerRendezvous({ guardedDirectory: GUARDED, now });
 }
 
-describe('#1862 — issuing and redeeming a rendezvous grant', () => {
+describe('issuing and redeeming a rendezvous grant', () => {
   it('a freshly issued nonce is admitted as same-user-same-host', () => {
     const rv = rendezvous();
 
@@ -25,7 +25,7 @@ describe('#1862 — issuing and redeeming a rendezvous grant', () => {
     expect(admission.trust).toBe('same-user-same-host');
   });
 
-  it('never produces token-only, because possession is what SEC-010 rejected', () => {
+  it('never produces token-only, because possession of a token is not evidence of a local peer', () => {
     // The two trust vocabularies overlap and are not the same. A local rendezvous cannot justify
     // `token-only`, and this pins that rather than trusting the translation to stay written out.
     const rv = rendezvous();
@@ -64,7 +64,7 @@ describe('#1862 — issuing and redeeming a rendezvous grant', () => {
   });
 });
 
-describe('#1862 — revocation is the session exiting', () => {
+describe('revocation is the session exiting', () => {
   it('revokeAll reports how many were live, so a caller can log rather than assume', () => {
     const rv = rendezvous();
     rv.issueGrant('session_a');
@@ -74,7 +74,7 @@ describe('#1862 — revocation is the session exiting', () => {
   });
 
   it('a revoked grant cannot open a channel afterwards', () => {
-    // SEC-010: the entry IS the grant. Once the owning session is gone, nothing it handed out may
+    // The entry IS the grant. Once the owning session is gone, nothing it handed out may
     // still be admitted.
     const rv = rendezvous();
     const grant = rv.issueGrant('session_a');
@@ -92,9 +92,9 @@ describe('#1862 — revocation is the session exiting', () => {
   });
 });
 
-describe('#1862 — a rendezvous does not outlive its session', () => {
+describe('a rendezvous does not outlive its session', () => {
   it('revokes on process exit', () => {
-    // SEC-010: the entry IS the grant. Relying on the TTL instead would leave a window equal to
+    // The entry IS the grant. Relying on the TTL instead would leave a window equal to
     // that TTL after exit — small, but the mechanism's point is that the session ending closes it,
     // not a clock.
     const rv = rendezvous();

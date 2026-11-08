@@ -1,5 +1,5 @@
 /**
- * PEER-005 (issue #1863, stage 3) — the carrier that moves one peer message between two local sessions.
+ * The carrier that moves one peer message between two local sessions.
  *
  * Everything ABOVE this was already built and waiting for a carrier: the message and ack contracts
  * (`agent-interface-transport`), ordering, duplicates and ack issuance (`agent-transport`'s

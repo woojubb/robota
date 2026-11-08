@@ -12,7 +12,7 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 /**
- * TRANS-001 functional / user-execution test.
+ * Functional / user-execution test of payload channels.
  *
  * One WebSocket connection carries THREE things at once: the existing text-agent protocol
  * (`text_delta` …), opaque binary frames the transport never interprets, and a consumer-declared
@@ -25,7 +25,7 @@ type TListener = (...args: unknown[]) => void;
 /** Minimal session double with a REAL emitter, so `text_delta` genuinely flows over the wire. */
 function emittingSession(): IInteractiveSession & { emit: (event: string, arg: unknown) => void } {
   const listeners = new Map<string, Set<TListener>>();
-  // ARCH-012: the conformant double plus a real emitter. The hand-rolled partial this replaces was
+  // The conformant double plus a real emitter. The hand-rolled partial this replaces was
   // `as unknown as IInteractiveSession` over nine members — a cast that let the double omit the rest,
   // including the ones the contract now requires, so this suite ran against a session shape no
   // implementation could actually have.
@@ -87,13 +87,13 @@ async function until(predicate: () => boolean, label: string, timeoutMs = 5000):
   }
 }
 
-describe('WsTransport payload-agnostic channels (TRANS-001 e2e)', () => {
+describe('WsTransport payload-agnostic channels (e2e)', () => {
   it('carries interleaved text deltas, opaque binary frames, and a custom event on one connection', async () => {
     const transport = new WsTransport({
       port: 17840,
       maxRetries: 40,
       open: true,
-      openReason: 'SEC-008: this case is about payload channels, not admission',
+      openReason: 'this case is about payload channels, not admission',
     });
     const channel = transport.registerChannel<{ manifest: { name: string; size: number } }>({
       name: 'file',
@@ -161,7 +161,7 @@ describe('WsTransport payload-agnostic channels (TRANS-001 e2e)', () => {
       port: 17860,
       maxRetries: 40,
       open: true,
-      openReason: 'SEC-008: this case is about payload channels, not admission',
+      openReason: 'this case is about payload channels, not admission',
     });
     const channel = transport.registerChannel({ name: 'upload', events: [], binary: true });
     transport.attach(emittingSession());
@@ -198,7 +198,7 @@ describe('WsTransport payload-agnostic channels (TRANS-001 e2e)', () => {
       port: 17880,
       maxRetries: 40,
       open: true,
-      openReason: 'SEC-008: this case is about payload channels, not admission',
+      openReason: 'this case is about payload channels, not admission',
     });
     transport.attach(emittingSession());
     await transport.start();
@@ -230,7 +230,7 @@ describe('WsTransport payload-agnostic channels (TRANS-001 e2e)', () => {
       port: 17900,
       maxRetries: 40,
       open: true,
-      openReason: 'SEC-008: this case is about payload channels, not admission',
+      openReason: 'this case is about payload channels, not admission',
     });
     const session = emittingSession();
     transport.attach(session);

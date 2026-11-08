@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * Issue #3242: a served session consults the same sandbox the shell tools run under, so a confined
+ * A served session consults the same sandbox the shell tools run under, so a confined
  * command the sandbox approves runs without a prompt.
  */
 

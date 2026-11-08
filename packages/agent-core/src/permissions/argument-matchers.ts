@@ -1,10 +1,10 @@
 /**
- * The per-kind argument matchers the permission gate dispatches to (CORE-049, issue #2350).
+ * The per-kind argument matchers the permission gate dispatches to.
  *
  * Kept beside the gate rather than inside it: the gate owns WHEN a pattern is consulted (deny,
  * unevaluable, allow, mode policy); this module owns HOW one pattern is compared with one argument
  * of a declared kind. Nothing here reads the profile registry or the mode — and nothing here
- * imports a Node builtin: `agent-core` ships a browser bundle (CORE-028), so path normalisation is
+ * imports a Node builtin: `agent-core` ships a browser bundle, so path normalisation is
  * lexical and IDN mapping goes through the WHATWG `URL` the platform provides.
  */
 
@@ -12,9 +12,9 @@ import { isAbsolutePathLike, normalisePathText } from '../utils/portable-path.js
 import { hasUnquotedCommandSeparator, splitCommandSegments } from './command-segments.js';
 /**
  * What kind of thing a tool's primary argument is — which decides how a pattern is matched against
- * it. CORE-049 (issue #2350): one glob served every kind, so `WebFetch(https://*.example.com/**)`
- * was a wildcard over the whole URL string — query, fragment, userinfo and path included — and
- * `Read(/src/*)` crossed `/`. Each kind has its own delimiter and its own canonical form:
+ * it. One glob serving every kind would make `WebFetch(https://*.example.com/**)`
+ * a wildcard over the whole URL string — query, fragment, userinfo and path included — and
+ * `Read(/src/*)` cross `/`. Each kind has its own delimiter and its own canonical form:
  *
  * - `url`     — the pattern is split by a grammar (scheme, host, port, path) and the ARGUMENT is
  *               parsed with `new URL`, so alternate host encodings canonicalise before comparison;
@@ -23,8 +23,8 @@ import { hasUnquotedCommandSeparator, splitCommandSegments } from './command-seg
  *               segment, `**` crosses.
  * - `command` — a shell-style glob (`*` any run of characters) over ONE command: on the ALLOW side
  *               an argument that carries a separator (`;` `&` `|` newline) or a substitution (`$(`
- *               backtick `<(` `>(`) outside single quotes is not a command the pattern names
- *               (issue #2427); on the DENY side the same line is cut at those boundaries and every
+ *               backtick `<(` `>(`) outside single quotes is not a command the pattern names;
+ * on the DENY side the same line is cut at those boundaries and every
  *               command it runs is judged, so a chained command cannot walk past a deny entry.
  * - `text`    — today's glob, for arguments that are neither (a search query, a glob pattern).
  *
@@ -39,7 +39,7 @@ export type TArgumentKind = 'path' | 'url' | 'command' | 'text';
  * declared kind is UNEVALUABLE — `url`: the argument does not parse, carries userinfo, has no host
  * or a non-special scheme, or a path segment does not percent-decode or decodes to a separator
  * (`%2F`); the pattern does not fit the grammar, its literal host does not parse, or a segment of
- * its path does not decode; `path`: a relative argument under an absolute pattern. An unevaluable deny is not "not denied" (CORE-030: "I cannot tell" is not "no"):
+ * its path does not decode; `path`: a relative argument under an absolute pattern. An unevaluable deny is not "not denied" ("I cannot tell" is not "no"):
  * `hasUnevaluableArgumentPattern` reports it and the gate prompts instead of falling through to the
  * allow list and the mode policy, which for an `inspect` tool is `auto` in every mode.
  */
@@ -50,7 +50,7 @@ export type TPatternMatch = 'match' | 'no-match' | 'unevaluable';
  * are not mirror images of each other, and treating them as one is a permission bypass.
  *
  * An allow pattern answers "is THIS the command I blessed?", so a line carrying a second command is
- * not it (issue #2427). A deny pattern answers "does this line RUN the command I forbade?", and
+ * not it. A deny pattern answers "does this line RUN the command I forbade?", and
  * there the same rule reads "not denied": `deny: ['Bash(rm *)']` stopped matching
  * `rm -rf / ; echo done`, which then fell through to `allow: ['Bash']` or to the mode policy and
  * was auto-approved. Appending `; echo done` to walk past a deny entry is precisely what a deny
@@ -108,7 +108,7 @@ export function globToRegex(glob: string): RegExp {
  * or substitution outside quotes MEANS depends on which list the pattern came from
  * ({@link TMatchDirection}).
  *
- * ALLOW (issue #2427): a line carrying a second command is not the one command the pattern named,
+ * ALLOW: a line carrying a second command is not the one command the pattern named,
  * so it is `no-match` and the invocation goes on to be judged by the mode. A pattern without a
  * wildcard is the exact line and matches it — an operator who allowed `git status && git push`
  * verbatim wrote the whole line, and only the whole line is allowed.
@@ -174,7 +174,7 @@ export function matchPath(pattern: string, argument: string): TPatternMatch {
   const normalisedPattern = normalisePathText(pattern);
   const normalisedArgument = normalisePathText(argument);
   if (isAbsolutePathLike(normalisedPattern) && !isAbsolutePathLike(normalisedArgument)) {
-    // No base to resolve the argument against (issue #2429 owns where that happens). Not "no".
+    // No base to resolve the argument against (resolving a relative argument is not this matcher's job). Not "no".
     return 'unevaluable';
   }
   return segmentGlobToRegex(normalisedPattern).test(normalisedArgument) ? 'match' : 'no-match';

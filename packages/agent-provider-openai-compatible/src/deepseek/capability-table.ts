@@ -1,5 +1,5 @@
 /**
- * What DeepSeek's models can do. PROV-008.
+ * What DeepSeek's models can do.
  *
  * A vendor default plus verified deviations, NOT an enumeration of models. The distinction is the
  * point: an enumeration is a per-model × six-flag matrix that rots the moment a model ships, while a
@@ -20,7 +20,7 @@ import type { IProviderCapabilityTable } from '@robota-sdk/agent-core';
 
 export const DEEPSEEK_CAPABILITY_TABLE: IProviderCapabilityTable = {
   /**
-   * `json_object`, not `json_schema` (CORE-043). DeepSeek's JSON Output guarantees the response
+   * `json_object`, not `json_schema`. DeepSeek's JSON Output guarantees the response
    * PARSES; it takes no schema parameter and enforces no shape. The catalog this table was lifted
    * from claimed `json_schema`, which is why a structured turn against DeepSeek sent a parameter the
    * endpoint ignored and then spent its whole retry budget discovering the shape was never enforced.

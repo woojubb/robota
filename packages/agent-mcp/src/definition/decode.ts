@@ -1,6 +1,5 @@
 /**
- * Strict decoding of a foreign `mcpServers` object into raw entries and validated definitions
- * (MCP-001).
+ * Strict decoding of a foreign `mcpServers` object into raw entries and validated definitions.
  *
  * "Strict" means a bad entry is REFUSED and named, never partially built. A half-decoded definition
  * is the shape that later looks like a working server and fails at connection time, where the
@@ -339,8 +338,8 @@ export function decodeEntry(
     // `env` is deliberately NOT refused alongside it, and the asymmetry is the point: `env` is
     // stored and carried on a remote definition (see the shared block below), so it is visible in
     // a projection and hashed into the fingerprint. Nothing is silently lost, which is the only
-    // property this module promises. Whether a remote transport should ACT on it is MCP-002's
-    // question, and answering it here by rejecting the field would decide it early.
+    // property this module promises. Whether a remote transport should ACT on it is the
+    // remote client's question, and answering it here by rejecting the field would decide it early.
     const headers = entry['headers'];
     if (headers !== undefined) {
       const decoded = stringRecord(headers, 'headers');

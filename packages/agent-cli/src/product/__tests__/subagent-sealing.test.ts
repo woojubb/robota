@@ -1,5 +1,5 @@
 /**
- * #3679 step 3b — the product's subagent path with sealing, on the real cryptography.
+ * The product's subagent path with sealing, on the real cryptography.
  *
  * A subagent worker decides how it seals in the product's one sealing decision, from the grant its
  * parent sends: every store and the subagent log then seal to the parent's key, a newer grant (the

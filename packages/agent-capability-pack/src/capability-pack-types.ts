@@ -2,7 +2,7 @@ import type { FunctionTool } from '@robota-sdk/agent-core';
 import type { IAgentDefinition, ICommandModule } from '@robota-sdk/agent-framework';
 
 /**
- * ARCH-005 — the additive capability-bundle contract.
+ * The additive capability-bundle contract.
  *
  * An `ICapabilityPack` is the *additive* composition unit of a product surface: a plain data
  * record of named capability buckets a consumer brings on top of a product's base command modules. It is

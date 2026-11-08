@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * DIST-001 / RUNTIME-002 — Bun single-binary builds for the full CLI and headless desktop host. Bun is used for PACKAGING ONLY; the Node path
+ * Bun single-binary builds for the full CLI and headless desktop host. Bun is used for PACKAGING ONLY; the Node path
  * (bin/agent.cjs → dist/node/bin.js) is untouched. Run under Bun:
  *
  *   bun scripts/build-bun.mjs            # host target

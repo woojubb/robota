@@ -9,7 +9,7 @@ const behavior = {
 } as const;
 
 describe('createSystemCommandFromEntry', () => {
-  it('#3189: carries where the entry says it runs, so the catalog and the palette agree', () => {
+  it('carries where the entry says it runs, so the catalog and the palette agree', () => {
     const command = createSystemCommandFromEntry(
       {
         name: 'local',

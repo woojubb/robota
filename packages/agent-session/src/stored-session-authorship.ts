@@ -1,5 +1,5 @@
 /**
- * Where a store that seals decides whose each record is, and keeps it so (#3679).
+ * Where a store that seals decides whose each record is, and keeps it so.
  *
  * A file the same OS user can write is never a trust anchor. A sealed file that opens says it is
  * bound to this session's id and unaltered since it was sealed; it says nothing about who sealed it,

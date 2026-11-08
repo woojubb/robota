@@ -57,6 +57,6 @@ export default defineConfig([
     minify: true,
     splitting: false,
     outExtensions: () => ({ js: '.js', dts: '.d.ts' }),
-    // INFRA-028: bundle @robota-sdk into the library entry too; third-party (in `dependencies`) external.
+    // Bundle @robota-sdk into the library entry too; third-party (in `dependencies`) external.
   },
 ]);

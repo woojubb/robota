@@ -86,7 +86,7 @@ export function createAttachedAppRender(
       access: projectAccess,
       cwd,
     });
-    // The plain TUI's survival guards (ERR-001 G1): an error it survives must not end this terminal.
+    // The plain TUI's survival guards: an error it survives must not end this terminal.
     // No session runs in this process to show the error in, so it is written to the terminal.
     presentation.installTuiProcessGuards(context.productRuntime.config.identity.cliName);
     return presentation.renderAttachedApp({

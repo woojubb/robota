@@ -1,5 +1,5 @@
 /**
- * CORE-027 — a tool result must be able to say that the tool failed.
+ * A tool result must be able to say that the tool failed.
  *
  * Three distinct outcomes are currently indistinguishable from success at the wrapper's return
  * value, because failure is smuggled into a success-shaped value as a nested JSON string:
@@ -72,7 +72,7 @@ function makeTool(name: string, execute: () => Promise<unknown>) {
   } as never;
 }
 
-describe('CORE-027: a crashed tool is not a success', () => {
+describe('a crashed tool is not a success', () => {
   it.each([false, true])(
     'retains registered attribution in live and returned observations (crash=%s)',
     async (crash) => {
@@ -208,7 +208,7 @@ describe('CORE-027: a crashed tool is not a success', () => {
   });
 });
 
-describe('CORE-027: the wrapper still never throws', () => {
+describe('the wrapper still never throws', () => {
   it('survives a tool whose own name cannot be read', () => {
     // The comment above this wrapper says it must NEVER throw: if it does, the round records the
     // assistant tool_use with no tool_result and the conversation is corrupted. A first version of
@@ -243,7 +243,7 @@ describe('CORE-027: the wrapper still never throws', () => {
   });
 });
 
-describe('CORE-027: what the model is told about a failure', () => {
+describe('what the model is told about a failure', () => {
   it('carries the reason in `error`, which is what the history writer renders', () => {
     // Review corrected a false claim here, and the correction is worth a case rather than a comment.
     // Before this change a blocked call was `success: true`, so the JSON payload reached the model
@@ -265,7 +265,7 @@ describe('CORE-027: what the model is told about a failure', () => {
   });
 });
 
-describe('CORE-027: a denial, a crash and a success are three different things', () => {
+describe('a denial, a crash and a success are three different things', () => {
   it('tells a denial apart from a crash without reading prose', async () => {
     const denying = makeEnforcer({
       getPermissionMode: () => 'default',

@@ -16,7 +16,7 @@ const MAX_TITLE_TOKENS = 20;
 const MAX_NAME_CHARS = 60;
 const MIN_NAME_CHARS = 3;
 
-/** Optional seams for session auto-naming (NEUT-005): prompt and sanitizer injection. */
+/** Optional seams for session auto-naming: prompt and sanitizer injection. */
 export interface IGenerateSessionNameOptions {
   /** Replaces the default naming system prompt. */
   systemPrompt?: string;

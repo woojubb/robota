@@ -138,7 +138,7 @@ describe('sessions sealed with the keyring', () => {
   });
 });
 
-describe('authorship with the keyring (#3679 step 3e)', () => {
+describe('authorship with the keyring', () => {
   it('reads an owner save made while unlocked as verified in another process, and a forged one as unverified', async () => {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'sealed-real-')));
     const writerKeys = await holder();

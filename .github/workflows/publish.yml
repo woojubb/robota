@@ -248,10 +248,11 @@ jobs:
           manifest="$RUNNER_TEMP/release-receipt/npm-release-integrity.json"
           lock="$RUNNER_TEMP/release-receipt/npm-release-package-lock.json"
           notes='Package integrity receipt; native and desktop assets follow their verified workflows.'
-          if [ "$COMPONENT" = sdk ]; then notes='SDK package integrity receipt.'; fi
+          latest_flag=()
+          if [ "$COMPONENT" = sdk ]; then notes='SDK package integrity receipt.'; latest_flag=(--latest=false); fi
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" \
-              --notes "$notes" ||
+              --notes "$notes" ${latest_flag[@]+"${latest_flag[@]}"} ||
               gh release view "$RELEASE_TAG" >/dev/null
           fi
           names=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')

@@ -37,7 +37,7 @@ function staged() {
   return tx;
 }
 
-describe('HANDOFF-001 — the source keeps authority until it holds the evidence (#1811)', () => {
+describe('the source keeps authority until it holds the evidence', () => {
   it('is authoritative in every phase but committed', () => {
     // The acceptance criteria in one assertion: no phase except the last takes authority away, so
     // dying anywhere earlier leaves the session owned by the machine that still has it.
@@ -54,7 +54,7 @@ describe('HANDOFF-001 — the source keeps authority until it holds the evidence
     expect(sourceStillOwns(tx)).toBe(false);
   });
 
-  it('TC-03: a disconnect while transferring leaves the source authoritative', () => {
+  it('a disconnect while transferring leaves the source authoritative', () => {
     const tx = beginHandoff(MANIFEST);
     advanceHandoff(tx, 'transferring');
 
@@ -69,7 +69,7 @@ describe('HANDOFF-001 — the source keeps authority until it holds the evidence
     });
   });
 
-  it('TC-09: cancellation at every non-terminal phase leaves the source authoritative', () => {
+  it('cancellation at every non-terminal phase leaves the source authoritative', () => {
     // Asserted across the phases rather than at one, because "usable and authoritative in every
     // case" is the criterion and a single spot-check would not establish it.
     for (const stop of ['offered', 'transferring', 'staged'] as const) {
@@ -85,8 +85,8 @@ describe('HANDOFF-001 — the source keeps authority until it holds the evidence
   });
 });
 
-describe('HANDOFF-001 — only a durable acknowledgement moves authority (#1811)', () => {
-  it('TC-02: refuses an acknowledgement that does not assert persistence', () => {
+describe('only a durable acknowledgement moves authority', () => {
+  it('refuses an acknowledgement that does not assert persistence', () => {
     // Receipt is not persistence. A destination that crashed after receiving and before writing
     // would otherwise leave the session owned by nobody.
     const tx = staged();
@@ -117,7 +117,7 @@ describe('HANDOFF-001 — only a durable acknowledgement moves authority (#1811)
     expect(sourceStillOwns(tx)).toBe(true);
   });
 
-  it('TC-04/TC-05: a re-delivered acknowledgement completes rather than repeating', () => {
+  it('a re-delivered acknowledgement completes rather than repeating', () => {
     // The unavoidable window: the destination committed, the ack was lost, the ack arrives again.
     // Idempotent by handoffId — a second hand-off of an already-transferred session would be a
     // transfer of something the source no longer owns.
@@ -133,7 +133,7 @@ describe('HANDOFF-001 — only a durable acknowledgement moves authority (#1811)
   });
 });
 
-describe('HANDOFF-001 — an illegal transition is refused, never ignored (#1811)', () => {
+describe('an illegal transition is refused, never ignored', () => {
   it('refuses skipping the transfer', () => {
     const tx = beginHandoff(MANIFEST);
 

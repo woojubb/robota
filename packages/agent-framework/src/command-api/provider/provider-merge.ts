@@ -26,7 +26,7 @@ export function readMergedProviderSettingsFromSources(
 }
 
 /**
- * CLI-069: a missing file is a non-error (undefined); an EXISTING file that
+ * A missing file is a non-error (undefined); an EXISTING file that
  * fails to parse throws SettingsParseError — corrupt is never treated as missing.
  */
 function readSettingsSource(source: TSettingsSource): TProviderSettingsDocument | undefined {

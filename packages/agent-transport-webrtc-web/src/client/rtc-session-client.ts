@@ -1,6 +1,6 @@
 import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 /**
- * Browser data-channel session client (REMOTE-009 Stage D). The browser is the WebRTC ANSWERER: it joins the
+ * Browser data-channel session client. The browser is the WebRTC ANSWERER: it joins the
  * relay by rendezvous, answers the host's offer over a native `RTCPeerConnection`, runs the pairing handshake
  * as RESPONDER over the data channel ({@link ResponderGate}), and — only after pairing accepts — exchanges
  * `TServerMessage`/`TClientMessage`s with the host session.
@@ -63,14 +63,15 @@ export interface IRtcSessionClientOptions {
   /** Rendezvous id + high-entropy secret from the pairing URL fragment. */
   readonly rendezvous: string;
   readonly secret: string;
-  /** Optional ICE servers (STUN/TURN) — REMOTE-010 supplies TURN; omitted → host candidates only. */
+  /** Optional ICE servers (STUN/TURN); omitted → host candidates only. */
   readonly iceServers?: RTCIceServer[];
-  /** REMOTE-010: restrict ICE to relay candidates (`iceTransportPolicy: 'relay'`); requires a TURN server. */
+  /** Restrict ICE to relay candidates (`iceTransportPolicy: 'relay'`); requires a TURN server. */
   readonly forceTurn?: boolean;
-  /** REMOTE-012 E3: browser credential store. When set, first-pair ENROLLS this device (pins the host key +
-   *  advertises the device key) so a future reconnect (E4) can skip re-pairing. Absent → REMOTE-009 behavior. */
+  /** Browser credential store. When set, first-pair ENROLLS this device (pins the host key +
+   *  advertises the device key) so a later reconnect can skip re-pairing. Absent → first-pair-only
+   * behavior. */
   readonly deviceCredentials?: IDeviceCredentialStore;
-  /** REMOTE-013 E4: per-room wait during a reconnect probe (default 4s); tests inject a small value. */
+  /** Per-room wait during a reconnect probe (default 4s); tests inject a small value. */
   readonly reconnectRoomWaitMs?: number;
   /** Waits out a reconnect room (default: a timer); tests inject one they release themselves. */
   readonly sleep?: (ms: number) => Promise<void>;
@@ -112,7 +113,7 @@ export function createRtcSessionClient(
     if (status !== 'failed') setStatus('failed');
   };
 
-  // REMOTE-013 E4 resume state.
+  // Resume state.
   let lastSeq = 0; // highest applied server seq — sent as `resume{lastSeq}` on reconnect
   let everConnected = false; // a drop is only reconnectable after a first successful connect
   let reconnecting = false;
@@ -135,13 +136,16 @@ export function createRtcSessionClient(
   } | null = null;
   const ACK_EVERY = 16; // ack roughly every N applied messages (frees the host buffer)
   const MAX_RECONNECT_ATTEMPTS = 8; // bounded backoff ceiling → surface `failed`
-  /** When set, `wireDataChannel` builds a RECONNECT-mode gate (E3 device reconnect) instead of first-pair. */
+  /**
+   * When set, `wireDataChannel` builds a RECONNECT-mode gate (device reconnect) instead of
+   * first-pair.
+   */
   let activeReconnectIdentity: IDeviceIdentityConfig | null = null;
   /** The counter of the room the current reconnect attempt is using (for resync-on-success). */
   let activeReconnectCounter = 0;
 
   /**
-   * REMOTE-013 E4: intercept server messages to (i) drop duplicates by `seq` (idempotent apply on resume),
+   * Intercept server messages to (i) drop duplicates by `seq` (idempotent apply on resume),
    * (ii) advance `lastSeq` + periodically `ack`, and (iii) turn a `resume_gap` into a full `get-messages` refresh.
    */
   const onServerMessage = (msg: TServerMessage & { seq?: number }): void => {
@@ -168,10 +172,10 @@ export function createRtcSessionClient(
   };
 
   /**
-   * REMOTE-012 E3: build the device-identity config for first-pair enrollment — a fresh device keypair whose
+   * Build the device-identity config for first-pair enrollment — a fresh device keypair whose
    * public key is advertised to the host, and an `onEnrollHost` that pins the host's key + persists the
    * credential (keyed by relay origin + host identity). Reconnect INITIATION (reusing a stored credential) is
-   * E4; E3 only enrolls. Returns undefined when no credential store is configured (REMOTE-009 behavior).
+   * elsewhere; this only enrolls. Returns undefined when no credential store is configured.
    */
   async function buildDeviceIdentity(): Promise<IDeviceIdentityConfig | undefined> {
     const store = options.deviceCredentials;
@@ -188,7 +192,7 @@ export function createRtcSessionClient(
       onEnrollHost: (hostPublicSpki: string, sessionKey?: string) => {
         void (async (): Promise<void> => {
           const hostIdentityId = await deriveIdentityId(hostPublicSpki);
-          // REMOTE-013 E4: derive + persist the reconnect seed (from the pairing sessionKey) + counter 0, so a
+          // Derive + persist the reconnect seed (from the pairing sessionKey) + counter 0, so a
           // future drop can rediscover the host at the rotating rendezvous and resume without re-pairing.
           const reconnectSeed = sessionKey ? await deriveReconnectSeed(options.cryptoContext, sessionKey) : undefined;
           await store.save(relayOrigin, hostIdentityId, {
@@ -227,7 +231,7 @@ export function createRtcSessionClient(
         // Our side accepted; the host operator has yet to admit this connection.
         setStatus('awaiting-approval');
         reconnecting = false;
-        // REMOTE-013 E4: on a RECONNECT, resume the tail after the last applied seq + advance the counter
+        // On a RECONNECT, resume the tail after the last applied seq + advance the counter
         // (resync-on-success = used-room + 1); on a fresh connect, ask for full history (mirrors the WS client).
         if (deviceIdentity?.reconnect) {
           gate?.send({ type: 'resume', lastSeq });
@@ -265,7 +269,7 @@ export function createRtcSessionClient(
       if (channel === currentChannel && status === 'awaiting-approval') setStatus('refused');
     };
 
-    // REMOTE-013 E4 reconnect: the device identity is already captured (`activeReconnectIdentity`), so build the
+    // Reconnect: the device identity is already captured (`activeReconnectIdentity`), so build the
     // gate synchronously in RECONNECT mode — on accept it verifies the host + sends `resume{lastSeq}`.
     if (activeReconnectIdentity) {
       gate = makeGate(channel, activeReconnectIdentity);
@@ -277,7 +281,7 @@ export function createRtcSessionClient(
     }
 
     if (!options.deviceCredentials) {
-      // REMOTE-009 path — synchronous, unchanged.
+      // First-pair-only path — synchronous.
       gate = makeGate(channel);
       channel.onmessage = (event: MessageEvent): void => {
         const data = event.data;
@@ -286,7 +290,8 @@ export function createRtcSessionClient(
       return;
     }
 
-    // E3 path — the device keypair is async, so buffer inbound frames until the gate exists (data channels do
+    // Device-identity path — the device keypair is async, so buffer inbound frames until the gate
+    // exists (data channels do
     // not buffer pre-subscription, and the enrollment build is a microtask or two).
     const buffered: string[] = [];
     channel.onmessage = (event: MessageEvent): void => {
@@ -325,7 +330,7 @@ export function createRtcSessionClient(
     signaling = null;
   }
 
-  /** REMOTE-013 E4: persist the advanced reconnect counter (resync-on-success). Best-effort. */
+  /** Persist the advanced reconnect counter (resync-on-success). Best-effort. */
   async function persistCounter(counter: number): Promise<void> {
     const store = options.deviceCredentials;
     if (!store || !reconnectCtx) return;
@@ -390,8 +395,9 @@ export function createRtcSessionClient(
   }
 
   /**
-   * REMOTE-013 E4 warm reconnect loop: on a drop, probe `rendezvous(counter)` then `rendezvous(counter+1)`
-   * (the 2-room window), reconnecting via the E3 device reconnect and resuming. Bounded attempts → `failed`.
+   * Warm reconnect loop: on a drop, probe `rendezvous(counter)` then `rendezvous(counter+1)`
+   * (the 2-room window), reconnecting via the device reconnect and resuming. Bounded attempts →
+   * `failed`.
    */
   async function startReconnect(): Promise<void> {
     if (!reconnectCtx || reconnecting) return;

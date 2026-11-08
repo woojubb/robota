@@ -19,7 +19,7 @@ import { fakeDataChannel } from './fake-datachannel.js';
 function createStubSession(): IInteractiveSession {
   return Object.assign(createTestInteractiveSession(), {
     getMessages: vi.fn().mockReturnValue([{ role: 'user', content: 'hi' }]),
-    // ARCH-012: required. This double feeds `subscribeSessionEvents`, which calls it on every
+    // Required. This double feeds `subscribeSessionEvents`, which calls it on every
     // turn-authored event — omitting it throws the moment a case emits one.
     getActiveDriverId: () => null,
     on: vi.fn(),
@@ -63,7 +63,7 @@ function connectRemote(
   });
 }
 
-describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
+describe('WebRtcTransport (loopback)', () => {
   it('accepts only the protocol session roles required by the carrier', () => {
     const transport = new WebRtcTransport({cryptoContext: testIdentity,
       signaling: createInMemorySignalingPair()[0],
@@ -79,7 +79,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
     const t = new WebRtcTransport({cryptoContext: testIdentity,
       signaling: sig,
       open: true,
-      openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',
+      openReason: 'loopback — this case is about signalling, not pairing',
     });
     expect(t.name).toBe('webrtc');
     expect(t.defaultEnabled).toBe(false);
@@ -90,7 +90,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
     const t = new WebRtcTransport({cryptoContext: testIdentity,
       signaling: sig,
       open: true,
-      openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',
+      openReason: 'loopback — this case is about signalling, not pairing',
     });
     await expect(t.start()).rejects.toMatchObject({
       name: 'TransportLifecycleError',
@@ -229,7 +229,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
         new WebRtcTransport({cryptoContext: testIdentity,
           signaling,
           open: true,
-          openReason: 'ARCH-011 lifecycle conformance',
+          openReason: 'lifecycle conformance',
           loadDataChannel: () => fake.module,
         }),
       createSession: createStubSession,
@@ -240,13 +240,13 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
     });
   });
 
-  it('REMOTE-010: forceTurn → a relay-only connection, and a TURN url becomes a TURN server with its credentials', async () => {
+  it('forceTurn → a relay-only connection, and a TURN url becomes a TURN server with its credentials', async () => {
     // A fake module captures the configuration (a real relay-only peer with a dead TURN would never gather).
     const fake = fakeDataChannel();
     const [sig] = createInMemorySignalingPair();
     const t = new WebRtcTransport({cryptoContext: testIdentity,
       open: true,
-      openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',
+      openReason: 'loopback — this case is about signalling, not pairing',
       signaling: sig,
       iceServers: [
         { urls: 'turn:relay.example:3478', username: 'u', credential: 'c' },
@@ -349,13 +349,13 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
     ).toThrow(/`role` and `resumeBridge` are contradictory/);
   });
 
-  it('TC-03: establishes an RTCDataChannel between two peers and round-trips TClient→session→TServer through the shared handler', async () => {
+  it('establishes an RTCDataChannel between two peers and round-trips TClient→session→TServer through the shared handler', async () => {
     const [hostSig, remoteSig] = createInMemorySignalingPair();
     const session = createStubSession();
     const host = new WebRtcTransport({cryptoContext: testIdentity,
       signaling: hostSig,
       open: true,
-      openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',
+      openReason: 'loopback — this case is about signalling, not pairing',
     });
     host.attach(session);
 
@@ -387,7 +387,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
       cryptoContext: testIdentity,
       signaling: hostSig,
       open: true,
-      openReason: 'SEC-008: loopback — this case is about the frame limit, not pairing',
+      openReason: 'loopback — this case is about the frame limit, not pairing',
     });
     host.attach(session);
 

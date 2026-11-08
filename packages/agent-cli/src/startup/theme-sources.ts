@@ -1,6 +1,6 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * SCREEN-2002 — the theme files a run can see, and the ones it refuses.
+ * The theme files a run can see, and the ones it refuses.
  *
  * Two sources, one policy. The user directory is `the configured user root/themes`, read through the same
  * root-bounded host contribution source `the configured user root/output-styles` is read through — home-only,
@@ -13,7 +13,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * the document itself never gets a say in what it is called.
  *
  * A file that does not parse is skipped by name with its own diagnostic and its neighbours still
- * load, the way one unreadable plugin manifest stopped taking every plugin down with it (CORE-029).
+ * load, the way one unreadable plugin manifest stopped taking every plugin down with it.
  */
 import { join } from 'node:path';
 

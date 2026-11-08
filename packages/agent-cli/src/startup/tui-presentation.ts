@@ -77,7 +77,7 @@ export function createTuiPresentationSources(
           ),
       })
     : undefined;
-  // SCREEN-2002: one registry, reaching both `/theme` (through its port) and the renderer.
+  // One registry, reaching both `/theme` (through its port) and the renderer.
   const theme = presentation.createThemeSurface({
     cwd: inputs.cwd,
     productRuntime: inputs.productRuntime,
@@ -110,13 +110,13 @@ export function resolveTuiRenderFields(inputs: {
   readonly persistPromptHistory?: boolean;
 }): TTuiRenderFields {
   return {
-    // CLI-2004: off ⇒ today's byte stream is unchanged.
+    // Off ⇒ today's byte stream is unchanged.
     ...inputs.screenReader,
     screenReaderPacing: resolveProductScreenReaderPacing(inputs.env),
     terminalCapabilities: resolveProductTerminalCapabilities(inputs.env),
-    // SCREEN-1992: the focus-reporting kill switch is the shell's; the TUI's TTY gate decides otherwise.
+    // The focus-reporting kill switch is the shell's; the TUI's TTY gate decides otherwise.
     focusReporting: resolveFocusReportingOverride(inputs.env),
-    // SCREEN-1993: prompt history is a TUI-only surface (print and serve receive no writer).
+    // Prompt history is a TUI-only surface (print and serve receive no writer).
     ...resolvePromptHistoryRenderFields({
       productRuntime: inputs.productRuntime,
       settings: inputs.settings,
@@ -137,7 +137,7 @@ export function createProductTuiCliAdapter(
     readonly productRuntime: ICliRuntimeContext;
     readonly providerDefinitions: readonly IProviderDefinition[];
     readonly reloadPluginCommandSource: (registry: CommandRegistry) => void;
-    /** #3679 3f: the local unlock gate, present only in secure mode. */
+    /** The local unlock gate, present only in secure mode. */
     readonly keyCustody?: IKeyCustodyPort;
   },
 ): ITuiCliAdapter {

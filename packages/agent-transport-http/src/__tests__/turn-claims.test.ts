@@ -1,5 +1,5 @@
 /**
- * RUNTIME-38 — the claim registry's own contract.
+ * The claim registry's own contract.
  *
  * It was exercised only through `routes.test.ts`, which asks HTTP questions and gets HTTP answers.
  * Review asked for these directly, and the reason is the one this repository keeps rediscovering: a

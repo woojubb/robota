@@ -8,7 +8,7 @@
  */
 
 /**
- * The CLI's arguments as a literal argv vector, so no shell ever parses an input (SEC-006).
+ * The CLI's arguments as a literal argv vector, so no shell ever parses an input.
  *
  * The task is not among them: it goes to the CLI on stdin, which print mode reads when it has no
  * prompt argument. As an argument, a task that is exactly a subcommand's name (`eval`, `init`) ran

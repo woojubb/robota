@@ -5,7 +5,7 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 type TPeerSummary = ReturnType<NonNullable<ICommandHostAdapters['localPeers']>['list']>[number];
 
 /**
- * `/peers` (PEER-004, #1863) — which other live sessions this one can address.
+ * `/peers` — which other live sessions this one can address.
  *
  * Discovery landed as a leaf (a guarded rendezvous directory, an entry per live session, liveness
  * settled by pid AND process start time) and nothing called it: measured on this tree, no file
@@ -57,7 +57,7 @@ function workspace(peer: TPeerSummary): string {
 }
 
 /**
- * PEER-006 — `/peers send <session-id> <text>`.
+ * `/peers send <session-id> <text>`.
  *
  * Split on the FIRST run of whitespace only: everything after the session id is the message, spaces
  * and all. Splitting on every space would silently truncate any message with more than one word,

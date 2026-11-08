@@ -8,7 +8,7 @@ import {
 import { decideByPolicy } from './policy-decision.js';
 
 /**
- * Issue #2427's fix made the `command` matcher answer `no-match` for any argument carrying an
+ * The `command` matcher answers `no-match` for any argument carrying an
  * unquoted separator (`;` `&&` `||` `|` `&` newline) or a substitution (`$(` backtick `<(` `>(`).
  * That is the right answer on the ALLOW side: `Bash(git *)` must not bless `git status; rm -rf /`.
  *
@@ -16,7 +16,7 @@ import { decideByPolicy } from './policy-decision.js';
  * `deny: ['Bash(rm *)']` stopped seeing `rm -rf / ; echo done`, the invocation fell through to
  * `allow: ['Bash']` or to the mode policy, and `bypassPermissions` auto-approved it. Appending a
  * second command to slip past a deny entry is exactly what a deny list exists to stop, so these
- * cases pin the deny direction while the #2427 allow-side cases keep passing.
+ * cases pin the deny direction while the allow-side cases keep passing.
  */
 beforeEach(() => {
   clearRegisteredToolProfiles();
@@ -30,7 +30,7 @@ afterEach(() => {
   clearRegisteredToolProfiles();
 });
 
-describe('issue #2427 regression — the separator rule is an ALLOW-side rule only', () => {
+describe('the separator rule is an ALLOW-side rule only', () => {
   it('a deny pattern still matches when the command carries a separator', () => {
     const deny = { deny: ['Bash(rm *)'] };
     expect(evaluatePermission('Bash', { command: 'rm -rf /' }, 'bypassPermissions', deny)).toBe(
@@ -126,7 +126,7 @@ describe('issue #2427 regression — the separator rule is an ALLOW-side rule on
     }
   });
 
-  it('the background/subagent policy resolver denies a chained command too (CORE-025)', () => {
+  it('the background/subagent policy resolver denies a chained command too', () => {
     expect(
       decideByPolicy(
         'preapproved',
@@ -145,7 +145,7 @@ describe('issue #2427 regression — the separator rule is an ALLOW-side rule on
     ).toBe('deny');
   });
 
-  it('the ALLOW side keeps the #2427 rule: a chained command is not blessed by `Bash(git *)`', () => {
+  it('the ALLOW side keeps the rule: a chained command is not blessed by `Bash(git *)`', () => {
     expect(
       evaluatePermission('Bash', { command: 'git status; rm -rf /' }, 'default', {
         allow: ['Bash(git *)'],

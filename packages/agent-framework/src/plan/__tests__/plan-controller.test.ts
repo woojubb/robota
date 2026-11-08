@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { evaluatePermission } from '@robota-sdk/agent-core';
-// CORE-030: what plan mode permits is decided by each tool's DECLARED class, and the package that
+// What plan mode permits is decided by each tool's DECLARED class, and the package that
 // defines the built-ins is what declares them.
 import '@robota-sdk/agent-tools';
 import { PlanController, type IPlanControllerDeps } from '../plan-controller';
@@ -11,27 +11,27 @@ function testDeps(): IPlanControllerDeps {
   return { now: () => '2026-07-17T00:00:00.000Z', createId: () => `id-${n++}` };
 }
 
-describe('SELFHOST-002 P1 — plan-mode', () => {
-  // TC-01: while in `plan` mode, a mutating tool call is denied by the EXISTING gate
+describe('plan-mode', () => {
+  // While in `plan` mode, a mutating tool call is denied by the EXISTING gate
   // (MODE_POLICY.plan via evaluatePermission) — not by a new plan-mode-specific gate.
-  it('TC-01: plan mode denies mutating tools via the existing permission gate', () => {
+  it('plan mode denies mutating tools via the existing permission gate', () => {
     expect(evaluatePermission('Write', {}, 'plan')).toBe('deny');
     expect(evaluatePermission('Edit', {}, 'plan')).toBe('deny');
     expect(evaluatePermission('Bash', {}, 'plan')).toBe('deny');
     expect(evaluatePermission('Shell', {}, 'plan')).toBe('deny');
   });
 
-  // TC-02: read-only tools are permitted during the plan phase.
-  it('TC-02: plan mode permits read-only tools', () => {
+  // Read-only tools are permitted during the plan phase.
+  it('plan mode permits read-only tools', () => {
     expect(evaluatePermission('Read', {}, 'plan')).toBe('auto');
     expect(evaluatePermission('Glob', {}, 'plan')).toBe('auto');
     expect(evaluatePermission('Grep', {}, 'plan')).toBe('auto');
     expect(evaluatePermission('WebFetch', {}, 'plan')).toBe('auto');
   });
 
-  // TC-03 (decision half): the PURE controller returns the approve decision with NO side-effect —
+  // Decision half: the PURE controller returns the approve decision with NO side-effect —
   // it never touches permission mode itself (mirrors GoalController's decision-only unit tests).
-  it('TC-03: approve() returns { approve, acceptEdits } with no side-effect', () => {
+  it('approve() returns { approve, acceptEdits } with no side-effect', () => {
     const controller = new PlanController(testDeps());
     controller.start('Ship the feature', ['step one', 'step two']);
     controller.requestApproval();
@@ -46,9 +46,9 @@ describe('SELFHOST-002 P1 — plan-mode', () => {
     expect(controller.getState()?.phase).toBe('executing');
   });
 
-  // TC-03 (effect half): applying `acceptEdits` (what InteractiveSession does with nextMode) makes
+  // Effect half: applying `acceptEdits` (what InteractiveSession does with nextMode) makes
   // Write/Edit auto while Bash/Shell stay per-call `approve` — asserted against the real gate.
-  it('TC-03: applying acceptEdits flows edits but keeps shell per-call confirmed', () => {
+  it('applying acceptEdits flows edits but keeps shell per-call confirmed', () => {
     expect(evaluatePermission('Write', {}, 'acceptEdits')).toBe('auto');
     expect(evaluatePermission('Edit', {}, 'acceptEdits')).toBe('auto');
     expect(evaluatePermission('Bash', {}, 'acceptEdits')).toBe('approve');

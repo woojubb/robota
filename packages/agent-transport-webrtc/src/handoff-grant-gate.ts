@@ -1,8 +1,8 @@
 /**
- * SEC-011 (issue #1865): the channel gate consumes the cross-device hand-off grant.
+ * The channel gate consumes the cross-device hand-off grant.
  *
- * The same shape SEC-010's local-proof step established, for the same reason. #1810 is explicit that
- * this package must not implement cryptographic policy, so nothing here verifies a signature,
+ * The same shape the local-proof step established, for the same reason. This package must not
+ * implement cryptographic policy, so nothing here verifies a signature,
  * decides an expiry, or knows what revocation is. The gate holds the state machine; the verdict is
  * injected and reported.
  *
@@ -23,7 +23,7 @@
  *
  * ## Why it runs after the handshake and before the session
  *
- * Both edges are load-bearing, and both for SEC-010's reasons.
+ * Both edges are load-bearing, and both for the local-proof step's reasons.
  *
  * BEFORE the handshake completes, the channel is not authenticated — a grant presented there would
  * be handed to an unproven counterpart, and this step would weaken what it exists to strengthen.
@@ -34,7 +34,7 @@
  *
  * ## The trust it produces is its own
  *
- * `same-user-different-host` is not `same-user-same-host`. #1812 pins that they are different values
+ * `same-user-different-host` is not `same-user-same-host`. They are different values
  * and this gate is the reason: a cross-device authorization must never satisfy a check that wanted
  * same-machine. It travels as a value on the admission rather than being re-derived from a boolean
  * by whoever reads it next.
@@ -142,11 +142,11 @@ export async function judgeHandoffGrant(
     // The verifier owns the verdict, but not the ability to widen it. A cross-device grant cannot
     // establish that the peer is on THIS machine, so an admission claiming it did is refused rather
     // than passed on — an implementation that returned the stronger level would otherwise satisfy
-    // every check that wanted same-machine, which is the one substitution #1812 forbids by name.
+    // every check that wanted same-machine, which is the one substitution that must never happen.
     if (admission.admitted && admission.trust === 'same-user-same-host') {
       return refuse(
         'the grant verifier returned same-user-same-host. A cross-device grant proves the user, ' +
-          'not the machine — see SEC-010 for what same-host requires.',
+          'not the machine.',
       );
     }
     if (!admission.admitted || proof.consent === undefined) return admission;

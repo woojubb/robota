@@ -1,5 +1,5 @@
 /**
- * Connection-admission guards for the WS transport (SEC-001 / GUI-002).
+ * Connection-admission guards for the WS transport.
  *
  * Pure, socket-free predicates over the HTTP upgrade request — token minting/comparison plus the
  * `Host` and `Origin` allow-lists. Split out of `ws-transport-configurable.ts` so the transport file

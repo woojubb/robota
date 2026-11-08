@@ -1,5 +1,5 @@
 /**
- * Redacted management projections (MCP-001).
+ * Redacted management projections.
  *
  * A projection is what leaves this package for a command, a log, or a screen. `env` and `headers`
  * VALUES never appear in one; their KEYS do.

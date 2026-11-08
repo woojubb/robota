@@ -1,5 +1,5 @@
 /**
- * FLOW-005: `/schedule` and `/monitor` command executors — create agent-wake background tasks.
+ * `/schedule` and `/monitor` command executors — create agent-wake background tasks.
  */
 
 import { MonitorCommandRefusedError } from '@robota-sdk/agent-framework';
@@ -16,7 +16,7 @@ function labelFor(prefix: string, instruction: string): string {
   return `${prefix}: ${snippet}${instruction.length > MAX_LABEL_LENGTH ? '…' : ''}`;
 }
 
-// SELFHOST-012: management subcommands over the existing scheduler. Create (FLOW-005) stays the default form —
+// Management subcommands over the existing scheduler. Create stays the default form —
 // a create spec always begins with `in`/`cron`, so these keywords never collide with it.
 const MANAGE_USAGE =
   'Usage: /schedule list | pause <id> | resume <id> | edit <id> <spec>  (or a create spec: in <N><s|m|h|d> … | cron "<expr>" …)';
@@ -27,7 +27,7 @@ function formatScheduleList(schedules: IBackgroundTaskState[]): string {
   return schedules
     .map((s) => {
       // `listSchedules()` only ever returns scheduled-kind tasks; the kind check is what lets
-      // TypeScript narrow to the member that carries `schedule`/`nextFireAt` (#2079).
+      // typeScript narrow to the member that carries `schedule`/`nextFireAt`.
       const cadence =
         s.kind === 'scheduled' ? (s.schedule?.cronExpression ?? '(unknown)') : '(unknown)';
       const when = s.kind === 'scheduled' && s.nextFireAt ? `next ${s.nextFireAt}` : '—';
@@ -70,7 +70,7 @@ async function executeScheduleManagement(
     await host.editSchedule(id, {
       cronExpression: parsed.spec.cronExpression,
       agentInstruction: parsed.spec.instruction,
-      // CMD-009: `list` renders the label, so it must follow the instruction it summarizes.
+      // `list` renders the label, so it must follow the instruction it summarizes.
       label: labelFor('Scheduled', parsed.spec.instruction),
     });
     return {
@@ -95,7 +95,7 @@ export async function executeScheduleCommand(
   const managed = await executeScheduleManagement(host, action, rest, now);
   if (managed) return managed;
 
-  // Default: create (FLOW-005 form). On a parse failure also surface the management usage — a mistyped
+  // Default: create. On a parse failure also surface the management usage — a mistyped
   // subcommand (e.g. `pasue <id>`) falls through here, and the create-only error hides list/pause/resume/edit.
   const parsed = parseScheduleSpec(args, now);
   if (!parsed.ok) return { message: `${parsed.error}\n${MANAGE_USAGE}`, success: false };

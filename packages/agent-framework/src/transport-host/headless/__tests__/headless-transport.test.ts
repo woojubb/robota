@@ -79,7 +79,7 @@ function createEventDrivenMockSession(
   });
 }
 
-describe('createHeadlessTransport declaration compatibility (ARCH-012)', () => {
+describe('createHeadlessTransport declaration compatibility', () => {
   it('preserves the legacy adapter declaration and accepts the named subset', () => {
     const transport = createHeadlessTransport({
       output: processOutput,
@@ -164,7 +164,7 @@ describe('createHeadlessTransport', () => {
           createHeadlessTransport({
             output: processOutput,
             outputFormat: 'text',
-            prompt: 'ARCH-011 conformance',
+            prompt: 'conformance',
           }),
         createSession: () =>
           Object.assign(createEventDrivenMockSession(), {

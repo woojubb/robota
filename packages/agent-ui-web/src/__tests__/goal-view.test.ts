@@ -1,5 +1,5 @@
 /**
- * #3282 §4 part b-3 — the goal row's status in plain words, never the raw `status`/`stopReason`.
+ * The goal row's status in plain words, never the raw `status`/`stopReason`.
  */
 import { describe, expect, it } from 'vitest';
 

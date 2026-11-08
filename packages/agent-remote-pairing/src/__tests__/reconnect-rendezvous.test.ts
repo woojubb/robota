@@ -6,7 +6,7 @@ import { deriveSessionKey, generatePairingSecret } from '../pairing.js';
 import { deriveReconnectRendezvous, deriveReconnectSeed } from '../reconnect-rendezvous.js';
 
 /**
- * REMOTE-013 E4 TC-03 — the reconnect rendezvous derivation: deterministic + isomorphic, a fresh room per
+ * The reconnect rendezvous derivation: deterministic + isomorphic, a fresh room per
  * counter, and a DISJOINT room space per seed (the revoked-device-cannot-squat property).
  */
 
@@ -14,7 +14,7 @@ async function sessionKeyFor(secret: string): Promise<string> {
   return deriveSessionKey(testIdentity, secret);
 }
 
-describe('reconnect rendezvous (REMOTE-013 TC-03)', () => {
+describe('reconnect rendezvous', () => {
   it('deriveReconnectSeed is deterministic for a sessionKey', async () => {
     const sk = await sessionKeyFor(generatePairingSecret().secret);
     expect(await deriveReconnectSeed(testIdentity, sk)).toBe(

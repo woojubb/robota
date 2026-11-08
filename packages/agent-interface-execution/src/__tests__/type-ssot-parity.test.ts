@@ -16,13 +16,13 @@ import type {
 import type { ISessionUsageTotals, ITokenUsage } from '@robota-sdk/agent-core';
 
 /**
- * TYPE-003 type-SSOT parity floor. This package's tsconfig typechecks `__tests__`, so every
+ * Type-SSOT parity floor. This package's tsconfig typechecks `__tests__`, so every
  * assertion below is enforced by `pnpm typecheck` — if a derived type is ever re-declared by hand
- * and drifts from its SSOT (the CONTRACT-002/003/011/012 failure mode, demonstrated live when
- * SELFHOST-012 added `paused` to the task union but not the manual subagent copy), this file stops
+ * and drifts from its SSOT (the failure mode seen when `paused` was added to the task union but
+ * not to the manual subagent copy), this file stops
  * compiling.
  */
-describe('TYPE-003 type-SSOT parity', () => {
+describe('type-SSOT parity', () => {
   it('usage triples are the agent-core ITokenUsage SSOT', () => {
     // Named variants converged to aliases — identical types, not lookalike copies.
     expectTypeOf<IBackgroundTaskUsage>().toEqualTypeOf<ITokenUsage>();
@@ -49,9 +49,9 @@ describe('TYPE-003 type-SSOT parity', () => {
   });
 
   /**
-   * ARCH-031 finished what TYPE-003 started. TYPE-003 derived the STATE hop and left the request and
-   * result hops as manual mirrors; the next two changes each dropped a field at a hop it had skipped
-   * (CORE-025's permission policy, ANALYTICS-001's `usage` — dropped in the very commit that added it).
+   * The request and result hops derive from the same SSOT as the STATE hop. Manual mirrors there
+   * once dropped a field at a skipped hop (the permission policy, and `usage` in the very change
+   * that added it).
    * These assertions are tautologies while the types are defined as `Omit<…>`, and that is exactly what
    * makes them worth writing: they fail the moment either type is re-declared by hand, which is the
    * only way the drift can come back.
@@ -66,7 +66,7 @@ describe('TYPE-003 type-SSOT parity', () => {
     >();
   });
 
-  it('ISubagentJobResult is the agent-kind background-task result minus the discriminant (#2079)', () => {
+  it('ISubagentJobResult is the agent-kind background-task result minus the discriminant', () => {
     // `IBackgroundTaskResult` is discriminated by kind; `exitCode`/`signalCode` (process-only) are
     // structurally absent from the agent member rather than omitted by a hand-written key list.
     expectTypeOf<ISubagentJobResult>().toEqualTypeOf<

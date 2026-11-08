@@ -1,5 +1,5 @@
 /**
- * #3288: whether a `/loop` invocation's arguments are the `stop <id>` verb.
+ * Whether a `/loop` invocation's arguments are the `stop <id>` verb.
  *
  * `InteractiveSession.executeCommand`'s mid-turn control-action bypass (so `/loop stop <id>` can
  * reach a loop while its own turn is still running, mirroring `isGoalCancelVerb`) and the `/loop`

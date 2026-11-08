@@ -55,7 +55,7 @@ function drawBox(lines: readonly string[]): string {
 
 
 /**
- * CLI-2004: the same copy without the frame. The box is chrome — a screen reader announces every
+ * The same copy without the frame. The box is chrome — a screen reader announces every
  * `│` and every run of `─` before it reaches a word of the welcome, which is the first thing a
  * first-run user would hear. The content is kept; only the drawing goes.
  */

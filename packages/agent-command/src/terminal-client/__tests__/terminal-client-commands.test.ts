@@ -1,5 +1,5 @@
 /**
- * #3189 — the commands a terminal attached to a workspace daemon runs in its own process.
+ * The commands a terminal attached to a workspace daemon runs in its own process.
  *
  * The attached terminal routes by this set, not by the daemon's catalog, so the set must name exactly
  * the commands the default assembly marks `runner: 'client'` — a command in one list and not the
@@ -112,7 +112,7 @@ function productModules(selection: {
   );
 }
 
-describe('createTerminalClientCommands (#3189)', () => {
+describe('createTerminalClientCommands', () => {
   it('names exactly the commands the product assembly marks as client-run', () => {
     const modules = productModules({});
     const clientRun = modules

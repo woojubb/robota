@@ -213,7 +213,7 @@ describe('test-product usage', () => {
     expect(reporter('shared')).toMatchObject({ sessionId: 'shared', totalTokens: 25 });
   });
 
-  it("never leaks a session's cwd or message content into the JSON report (#3289 §4)", () => {
+  it("never leaks a session's cwd or message content into the JSON report", () => {
     const sentinel = 'PROMPT_CONTENT_MUST_NOT_APPEAR';
     const leaky: IInteractiveSessionRecord = {
       id: 'leaky-session',

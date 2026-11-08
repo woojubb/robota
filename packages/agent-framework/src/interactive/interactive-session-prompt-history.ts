@@ -1,5 +1,5 @@
 /**
- * SCREEN-1993 — the session-side append to the prompt-history projection.
+ * The session-side append to the prompt-history projection.
  *
  * An injected port called inside the turn path, not a `user_message` subscriber: that event is also
  * emitted for `[remote-control]` notices with no preceding `turn_source`, so a subscriber could not

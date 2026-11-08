@@ -1,5 +1,5 @@
 /**
- * Unit tests for PermissionEnforcer session-allow behavior (CLI-030).
+ * Unit tests for PermissionEnforcer session-allow behavior.
  *
  * Verifies that:
  *  - 'allow-session' response from permissionHandler adds tool to session allow list
@@ -240,10 +240,10 @@ describe('PermissionEnforcer — getSessionAllowedTools', () => {
 });
 
 // ---------------------------------------------------------------------------
-// ARCH-040 Group C (issue #1934) — live preset re-application
+// Live preset re-application
 // ---------------------------------------------------------------------------
 
-describe('PermissionEnforcer — a preset re-applied live (ARCH-040 Group C)', () => {
+describe('PermissionEnforcer — a preset re-applied live', () => {
   /**
    * The startup preset's patterns are already in `config.permissions` when the session begins —
    * `create-session.ts` bakes them in. So the base the enforcer composes onto must be SUPPLIED, not

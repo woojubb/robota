@@ -1,5 +1,5 @@
 /**
- * #3679 3f — the local unlock gate. A locked process asks for the passphrase only for a read the
+ * The local unlock gate. A locked process asks for the passphrase only for a read the
  * person started, only on the secret terminal while the live session has handed the terminal over,
  * and never where nobody can answer. One question is open at a time, and a sealing key the file was
  * given by someone else is told to the person, as `secure verify` tells it.

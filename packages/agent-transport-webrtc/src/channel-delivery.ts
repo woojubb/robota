@@ -1,5 +1,5 @@
 /**
- * The data channel's outbound delivery boundary (ARCH-030).
+ * The data channel's outbound delivery boundary.
  *
  * Both places that build a bare `createSessionMessageHandler` in this package — `PairingGate`'s no-`resumeBridge`
  * branch and `WebRtcTransport`'s no-secret branch — need exactly the same thing: serialize a
@@ -17,7 +17,7 @@ import type { TOutboundDeliver } from '@robota-sdk/agent-transport';
  *
  * `bufferedAmount` is optional because the slice is structural — a test double may omit it — but a
  * real `RTCDataChannel` always has it, so the production path reports a real number rather than a
- * placeholder (ARCH-030 / issue #1734).
+ * placeholder.
  */
 export interface IDataChannelSink {
   send: (data: string) => void;

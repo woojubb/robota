@@ -1,5 +1,5 @@
 /**
- * ARCH-029: the `ICommandHostContext` role ports.
+ * The `ICommandHostContext` role ports.
  *
  * See `session-roles.ts` for why this is a separate file.
  */
@@ -57,7 +57,7 @@ export interface ICommandHostSessionAccess {
   getActiveOutputStyleId(): string;
   clearConversationHistory(): void;
   /**
-   * CLI-1994 — write a COPY of the live conversation as a new session record (fresh id, distinct
+   * Write a COPY of the live conversation as a new session record (fresh id, distinct
    * name, the parent's messages and assembled system message) and return its identity. A role-port
    * member rather than an `ICommandHostAdapters` entry because the session store is owned by the
    * session, not by the shell. The copy is not started here: `/fork` spawns the background job that
@@ -65,7 +65,7 @@ export interface ICommandHostSessionAccess {
    */
   forkSession(input?: { name?: string }): Promise<{ sessionId: string; name: string }>;
   /**
-   * ARCH-029 TC-08 — required, and the host delegates to `computeSessionReplayValidationReport`.
+   * Required, and the host delegates to `computeSessionReplayValidationReport`.
    * It was an optional override with a framework-computed default and no implementor, which is
    * two declared paths with only one live. One owner, one path.
    */
@@ -85,7 +85,7 @@ export interface ICommandHostAgentJobs {
 /** Asking the user a question. */
 export interface ICommandHostUserInteraction {
   /**
-   * CMD-004: the injected "ask the user" port, or undefined when no interactive renderer is attached.
+   * The injected "ask the user" port, or undefined when no interactive renderer is attached.
    * A command solicits a structured answer via `getUserInteraction()?.ask(request)`; absence means no
    * human is available (headless/automation, or a model-invoked command) — the command must handle it
    * as a cancellation, never a silent guess.
@@ -94,7 +94,7 @@ export interface ICommandHostUserInteraction {
 }
 
 /**
- * Whether THIS session is running with no provider configured yet (issue #3282 §3 setup mode).
+ * Whether THIS session is running with no provider configured yet (setup mode).
  *
  * Exists for exactly one command (`/provider add`, deciding hot-swap vs. restart) — never inferred
  * from settings, because an ordinary session started from an env-default provider also has none
@@ -109,17 +109,17 @@ export interface ICommandHostSetupState {
 export interface ICommandHostPresetApplication {
   /** Apply an additive response style to the live system prompt. */
   applyOutputStyle(style: IOutputStylePrompt): void;
-  /** PRESET-014 — re-apply a preset persona to the live system prompt. */
+  /** Re-apply a preset persona to the live system prompt. */
   applyPersona(persona: string): void;
-  /** PRESET-017 — toggle the verify-before-done self-verification section on the live prompt. */
+  /** Toggle the verify-before-done self-verification section on the live prompt. */
   applySelfVerification(enabled: boolean): void;
-  /** ARCH-040 — re-apply the preset's response language to the live system prompt. */
+  /** Re-apply the preset's response language to the live system prompt. */
   applyResponseLanguage(language: string): void;
-  /** ARCH-040 — re-apply the preset's seeding system prompt to the live system prompt. */
+  /** Re-apply the preset's seeding system prompt to the live system prompt. */
   applyPresetSystemPrompt(text: string): void;
   /**
-   * PRESET-015 — re-apply command-module selection to the live session. Returns any
-   * `enabled`/`disabled` names that matched no live command module (INFRA-032) so the `/preset`
+   * Re-apply command-module selection to the live session. Returns any
+   * `enabled`/`disabled` names that matched no live command module so the `/preset`
    * command can surface them as a non-fatal notice; an empty array means every name matched.
    */
   applyCommandModuleSelection(
@@ -153,7 +153,7 @@ export interface ICommandHostWorkspace {
   getCwd(): string;
   getCommandInvocationSource(): TCommandInvocationSource;
   /**
-   * #3282 §4 part b-2: whether THIS invocation is provably on this machine. Optional so an older or
+   * Whether THIS invocation is provably on this machine. Optional so an older or
    * narrower host still satisfies this interface; a caller that needs it treats a missing method the
    * same as `'local'` (allow-by-default, matching the rest of the command layer).
    */
@@ -185,11 +185,11 @@ export interface ICommandHostCheckpoints {
   inspectEditCheckpoint(checkpointId: string): IEditCheckpointInspection;
   restoreEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
   rollbackEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
-  /** SELFHOST-007: list the checkpoint branch tips (leaf ids) via the neutral tree. */
+  /** List the checkpoint branch tips (leaf ids) via the neutral tree. */
   listCheckpointBranches(): string[];
-  /** SELFHOST-007: fork a new branch from a past checkpoint (non-destructive restore). */
+  /** Fork a new branch from a past checkpoint (non-destructive restore). */
   forkCheckpointBranch(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
-  /** SELFHOST-007: switch the active branch to an existing checkpoint/branch tip. */
+  /** Switch the active branch to an existing checkpoint/branch tip. */
   switchCheckpointBranch(checkpointId: string): void;
 }
 
@@ -198,9 +198,9 @@ export interface ICommandHostMemory {
   getUsedMemoryReferences(): IMemoryReference[];
   recordMemoryEvent(event: IMemoryEvent): void;
   /**
-   * SELFHOST-008 P1R — the injected durable-memory port the `/memory` command reads/writes through, so a
+   * The injected durable-memory port the `/memory` command reads/writes through, so a
    * surface that swaps the store is authoritative for command operations too (no split-brain). Must
-   * return the SAME instance the session injected (SSOT for a stateful store). ARCH-029 TC-09: the
+   * return the SAME instance the session injected (SSOT for a stateful store). The
    * "when absent, default to the neutral fs store over `getCwd()`" fallback is GONE — the one
    * production host already built and cached that store itself, so the framework was re-deriving
    * what the host owned.
@@ -221,36 +221,36 @@ export interface ICommandHostBackgroundTasks {
 
 /** The autonomous-goal lifecycle. */
 export interface ICommandHostGoal {
-  /** GOAL-001 — assign and begin pursuing an autonomous goal. */
+  /** Assign and begin pursuing an autonomous goal. */
   setGoal(objective: string, options?: IGoalStartOptions): Promise<IGoalState>;
-  /** GOAL-001 — the current goal state, or null when no goal has been set. */
+  /** The current goal state, or null when no goal has been set. */
   getGoalState(): IGoalState | null;
-  /** GOAL-001 — cancel an in-flight goal; returns the stopped state or null. */
+  /** Cancel an in-flight goal; returns the stopped state or null. */
   cancelGoal(): IGoalState | null;
 }
 
 /** The plan lifecycle, including the mode flip approval performs. */
 export interface ICommandHostPlan {
-  /** SELFHOST-002 — start a plan (draft for review; keeps `plan` mode). */
+  /** Start a plan (draft for review; keeps `plan` mode). */
   setPlan(objective: string, steps?: readonly string[]): Promise<IPlanArtifact>;
-  /** SELFHOST-002 — the current plan artifact, or null when none started. */
+  /** The current plan artifact, or null when none started. */
   getPlanState(): IPlanArtifact | null;
-  /** SELFHOST-002 — approve the plan; applies the `plan → acceptEdits` mode flip. */
+  /** Approve the plan; applies the `plan → acceptEdits` mode flip. */
   approvePlan(): IPlanArtifact;
-  /** SELFHOST-002 — revert the plan to drafting; returns mode to `plan`. */
+  /** Revert the plan to drafting; returns mode to `plan`. */
   revertPlan(): IPlanArtifact;
 }
 
 /** Handing the real terminal to a child process. */
 export interface ICommandHostTerminalHandoff {
   /**
-   * TERM-001 — whether the active transport can hand the real terminal to a child process. `false`
+   * Whether the active transport can hand the real terminal to a child process. `false`
    * when there is no interactive TTY (e.g. headless). `runWithTerminal` is required and present
    * either way; whether a handoff is possible is a VALUE this returns, not a member that is missing.
    */
   canHandoffTerminal(): boolean;
   /**
-   * TERM-001 — suspend the display, run `fn` (which spawns a child with inherited stdio), then
+   * Suspend the display, run `fn` (which spawns a child with inherited stdio), then
    * restore the display. Exclusive (one handoff at a time) and abort-safe; rejects without running
    * `fn` when a handoff is not possible. The framework owns this orchestration; the transport
    * implements the underlying suspend/resume.

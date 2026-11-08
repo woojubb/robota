@@ -47,7 +47,7 @@ export class TransportRegistry {
     { readonly transportName: string; readonly cause: unknown } | undefined;
 
   /**
-   * TRANS-010 (issue #2480): settings storage is an injected repository. The registry has no file
+   * Settings storage is an injected repository. The registry has no file
    * default: a Node host passes `createFileTransportSettingsRepository(path)` from
    * `@robota-sdk/agent-framework/node`, any other host a repository over its own storage.
    */
@@ -96,7 +96,7 @@ export class TransportRegistry {
    *
    * Narrower than an unregister: the name must ALREADY be registered and the count cannot change, so
    * `stopAll` keeps its promise to reach everything. An entry is a claim about WHICH instance is
-   * live, and reconnect makes it false (issue #2043).
+   * live, and reconnect makes it false.
    *
    * Returns nothing and stops nothing: every caller that abandons an adapter already stops it on the
    * path that abandoned it, and a registry that stopped it here would do so at a moment the caller
@@ -144,7 +144,7 @@ export class TransportRegistry {
 
   async setOptions(name: string, options: Record<string, TUniversalValue>): Promise<void> {
     const transport = this.requireConfigurable(name);
-    // TRANS-002: an option the transport would refuse is not persisted — the validation hook exists.
+    // An option the transport would refuse is not persisted — the validation hook exists.
     if (transport.validateOptions && !transport.validateOptions(options)) {
       throw configurationError(name, 'invalid-options');
     }
@@ -152,7 +152,7 @@ export class TransportRegistry {
   }
 
   /**
-   * TRANS-002 (issue #2480): hand the persisted options to a transport BEFORE it starts. Non-empty
+   * Hand the persisted options to a transport BEFORE it starts. Non-empty
    * options a transport cannot receive (`configure` absent) or refuses (`validateOptions` false) are
    * a typed configuration error rather than a silent ignore — the former "read, displayed, never
    * applied" state.

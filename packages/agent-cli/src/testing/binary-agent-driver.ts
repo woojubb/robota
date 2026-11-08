@@ -1,6 +1,6 @@
 /**
  * createBinaryAgentDriver — the built-binary implementation of the client-side agent contract
- * (`IAgentDriver`, INFRA-020). agent-cli owns this because it drives **its own** artifact (the the product
+ * (`IAgentDriver`). agent-cli owns this because it drives **its own** artifact (the the product
  * CLI binary); per the no-shared-CLI-factory rule the CLI tests itself, it is not driven by a shared
  * factory.
  *
@@ -11,13 +11,13 @@
  * model key, no network. (Print mode is one-shot and non-interactive, so this uses a piped child
  * process, not the PTY runner — the PTY runner is for interactive TUI rendering.)
  *
- * **Tool events come from the persisted session record, not from stdout (SEC-022, issue #2225).**
+ * **Tool events come from the persisted session record, not from stdout.**
  * `--output-format stream-json` has no tool event in its vocabulary — measured on a run whose tool
  * demonstrably executed, stdout carried zero lines mentioning `tool`. Deriving `toolCalls()` from
  * stdout therefore returned `[]` for a run whose tool ran, so the binary fidelity disagreed with the
  * in-process one SILENTLY, by returning an empty array rather than failing. The record the run writes
  * carries the calls and their results, so that is what this reads — through the same session store
- * the product builds (#3679), never by parsing the file, so the driver reads a record exactly as the
+ * the product builds, never by parsing the file, so the driver reads a record exactly as the
  * product would, sealed or not. `appendStreamJsonLine` is unchanged: stdout keeps meaning exactly
  * what it means today.
  */
@@ -55,7 +55,7 @@ export interface ICreateBinaryAgentDriverOptions {
   sessionLog?: string;
   /**
    * Extra environment for the child (PATH/HOME are supplied by default). **Pass a throwaway `HOME`:**
-   * since SEC-022 the run persists its session record under `<HOME>/the configured project directory/sessions`, which is where
+   * the run persists its session record under `<HOME>/the configured project directory/sessions`, which is where
    * this driver reads the tool calls back from — the process `HOME` default would write into the
    * developer's real one.
    */
@@ -148,7 +148,7 @@ function parseToolArguments(raw: string | undefined): IToolCallObservation['args
  *
  * If the record is absent — session persistence off, or a trusted project that stores elsewhere —
  * no tool event is appended. That is the accurate answer and NOT a fallback: the record is the
- * source, and stdout is not a substitute for it (SEC-022 `## Fallback & Degradation Declaration`).
+ * source, and stdout is not a substitute for it (no fallback or degradation path).
  * A record that is there and cannot be read is an `error` event, not an empty list.
  */
 function appendRecordedToolEvents(
@@ -204,7 +204,7 @@ export function createBinaryAgentDriver(options: ICreateBinaryAgentDriverOptions
         text,
         '--output-format',
         'stream-json',
-        // SEC-022: session persistence is left ON — the record is the only surface that carries the
+        // Session persistence is left ON — the record is the only surface that carries the
         // tool calls a run dispatched, and `--no-session-persistence` is what removed it.
         ...(options.sessionLog ? ['--session-log', options.sessionLog] : []),
         ...(options.extraArgs ?? []),

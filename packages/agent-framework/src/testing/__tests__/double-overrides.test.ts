@@ -4,7 +4,7 @@ import { createTestAgentJobHost } from '../agent-job-host-double.js';
 import { createTestCommandHost, createTestSessionRuntime } from '../command-host-double.js';
 
 /**
- * ARCH-029: an override may replace a member, never remove one.
+ * An override may replace a member, never remove one.
  *
  * Review raised this twice. First as a possibility, then — after a `NonNullable` mapped type was
  * added and its docblock claimed the hole was closed — as a false guarantee, measured: `NonNullable`

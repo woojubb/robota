@@ -71,7 +71,7 @@ export async function executeRound(
   const conversationMessages = conversationStore.getMessages();
   // The request marks each peer-driven message as a peer's; the stored history is left as sent.
   const requestMessages = presentMessageOrigins(conversationMessages);
-  // SELFHOST-008 P3: an EPHEMERAL per-run system block (e.g. per-turn recalled memory) is appended to a
+  // An EPHEMERAL per-run system block (e.g. per-turn recalled memory) is appended to a
   // DERIVED provider-message array only — it is sent to the model for this call but never written to the
   // conversation store, so it does not persist to history nor rebuild the cached static system prompt.
   const ephemeralSystemContext = fullContext.ephemeralSystemContext;
@@ -213,7 +213,7 @@ export async function executeRound(
     { messages: conversationMessages, responseMessage: response },
     logger,
   );
-  // PLG-020 (issue #2460): the assistant message is observable as it lands, like the user's.
+  // The assistant message is observable as it lands, like the user's.
   await callPluginHook(plugins, 'onMessageAdded', { message: response }, logger);
 
   const responseHasText =

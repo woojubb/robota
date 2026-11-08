@@ -1,5 +1,5 @@
 /**
- * #3679: a fork job's record is lent to its child process, in either mode, so it has one writer while
+ * A fork job's record is lent to its child process, in either mode, so it has one writer while
  * the child runs — the child, under the lease — and is free again once the child is gone.
  *
  * The child is the real worker entry over a plain store (the sealing fixture started plain), held

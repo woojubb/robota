@@ -6,7 +6,7 @@ import { buildJsonSchemaResponseFormat } from '../json-schema-response-format.js
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
 
 /**
- * Issue #2056 (CLI-081): `--json-schema` is structured-output POLICY, not prompt prose.
+ * `--json-schema` is structured-output POLICY, not prompt prose.
  */
 const SCHEMA = { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'] };
 
@@ -41,7 +41,7 @@ describe('buildJsonSchemaResponseFormat', () => {
   });
 });
 
-describe('buildAppendSystemPrompt (issue #2056)', () => {
+describe('buildAppendSystemPrompt', () => {
   it('no longer authors a JSON-only behavioral instruction from --json-schema', () => {
     const prompt = buildAppendSystemPrompt('/tmp', args({ jsonSchema: JSON.stringify(SCHEMA) }));
     expect(prompt).toBeUndefined();

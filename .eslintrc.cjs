@@ -1,5 +1,5 @@
 /**
- * #3679: the conversation store constructors the framework exports. They are named once because the
+ * The conversation store constructors the framework exports. They are named once because the
  * framework serves them from its Node entry; a name restricted on one entry alone would let the
  * other carry it past the rule.
  */
@@ -266,7 +266,7 @@ module.exports = {
       },
     },
     {
-      // #3679: only the product factory knows the process's sealing decision. A conversation store
+      // Only the product factory knows the process's sealing decision. A conversation store
       // (session records, session logs, the prompt history, the tool-result spill, edit checkpoints)
       // built anywhere else in a product package could write plaintext beside sealed files, so every
       // one comes from that one factory; scripts/__tests__/session-store-construction.test.mjs.

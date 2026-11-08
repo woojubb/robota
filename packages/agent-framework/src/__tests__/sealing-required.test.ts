@@ -1,5 +1,5 @@
 /**
- * Every conversation store the framework builds states how it seals (#3679, secure conversation):
+ * Every conversation store the framework builds states how it seals (secure conversation):
  * there is no plain default for a host to fall into, because a store left plain beside sealed ones
  * writes plaintext next to them. Readers state it too, since a plain reader cannot open a sealed line.
  * The tool-result spill is also given the host directory it lives in; it has no shared-temporary

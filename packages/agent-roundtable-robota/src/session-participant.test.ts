@@ -254,7 +254,7 @@ describe('sessionParticipant: speak path', () => {
     await lease.release();
   });
 
-  // A plain ConversationAgent agent's `agent.run()` always RESOLVES on abort (agent-core CORE-027) with
+  // A plain ConversationAgent agent's `agent.run()` always RESOLVES on abort (agent-core) with
   // the text it had committed so far, marked `interrupted`, rather than rejecting — the same tool
   // round shape reproduces that here, but `Session`'s own executeRun already turns an aborted,
   // resolved execution into a rejection before it ever reaches sessionParticipant, so this asserts

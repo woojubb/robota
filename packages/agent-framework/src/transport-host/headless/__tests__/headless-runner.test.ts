@@ -110,7 +110,7 @@ describe('createHeadlessRunner (text format)', () => {
     expect(stdoutWriteSpy).not.toHaveBeenCalled();
   });
 
-  it('CORE-026 RUNTIME-36: a slash-command that THROWS exits non-zero instead of hanging', async () => {
+  it('a slash-command that THROWS exits non-zero instead of hanging', async () => {
     const session = createMockSession('complete');
     // A thrown executeCommand previously left the exit-code promise unresolved (the `.then` had no `.catch`).
     (session.executeCommand as ReturnType<typeof vi.fn>).mockRejectedValue(
@@ -118,13 +118,13 @@ describe('createHeadlessRunner (text format)', () => {
     );
     const runner = createHeadlessRunner({ session, output: processOutput, outputFormat: 'text' });
 
-    // Would hang (test timeout) without the RUNTIME-36 `.catch` → onError → resolve(1).
+    // Would hang (test timeout) without the `.catch` → onError → resolve(1).
     const exitCode = await runner.run('/failing-command');
 
     expect(exitCode).toBe(1);
   });
 
-  it('TC-02 (CLI-064): text format writes the error message to stderr on error', async () => {
+  it('text format writes the error message to stderr on error', async () => {
     const stderrWrites: string[] = [];
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(((chunk: unknown) => {
       stderrWrites.push(String(chunk));

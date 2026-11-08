@@ -1,5 +1,5 @@
 /**
- * ARCH-029: the conformant `IAgentJobHostContext` double.
+ * The conformant `IAgentJobHostContext` double.
  *
  * It exists so a test never needs an `as unknown as IAgentJobHostContext` partial. Building the real
  * shape once, here, is what lets every consumer drop that assertion — the double IS the removal of
@@ -20,7 +20,7 @@ import type {
 } from '@robota-sdk/agent-interface-execution';
 
 /**
- * ARCH-029: the same double, for the capability `ICommandHostContext` reaches through
+ * The same double, for the capability `ICommandHostContext` reaches through
  * `getAgentJobCapability()`.
  *
  * `IAgentJobHostContext` declares many members, almost all of them required — so it is the more

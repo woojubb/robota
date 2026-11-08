@@ -13,7 +13,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { ResponderGate, type IDeviceIdentityConfig } from '../rtc-responder-gate.js';
 
 /**
- * REMOTE-012 E3 — the browser ResponderGate E3 paths: first-pair ENROLLMENT (pin the host key, advertise the
+ * The browser ResponderGate device-identity paths: first-pair ENROLLMENT (pin the host key,
+ * advertise the
  * device key, expose) and client-initiated RECONNECT (verify the host against the pinned key, fail-closed on
  * a rogue host).
  */
@@ -57,8 +58,8 @@ async function deviceIdentity(
   };
 }
 
-describe('ResponderGate E3 first-pair enrollment (REMOTE-012)', () => {
-  it('after B3 accept, pins the host key, advertises the device key, and exposes the session', async () => {
+describe('ResponderGate first-pair enrollment', () => {
+  it('after the pairing handshake accepts, pins the host key, advertises the device key, and exposes the session', async () => {
     const identity = await deviceIdentity();
     const onAccept = vi.fn();
     const fakeHandshake = (() => ({
@@ -77,7 +78,8 @@ describe('ResponderGate E3 first-pair enrollment (REMOTE-012)', () => {
       startHandshake: fakeHandshake,
     });
 
-    // Drive B3 to accept (fake handshake already resolved) then the host advertises its key.
+    // Drive the pairing handshake to accept (fake handshake already resolved) then the host
+    // advertises its key.
     gate.onInbound(JSON.stringify({ t: 'pair-nonce', nonce: 'n' }));
     await Promise.resolve();
     const hostKey = await generateIdentityKeyPair(true);
@@ -90,7 +92,7 @@ describe('ResponderGate E3 first-pair enrollment (REMOTE-012)', () => {
   });
 });
 
-describe('ResponderGate E3 reconnect (REMOTE-012)', () => {
+describe('ResponderGate reconnect', () => {
   it('verifies the host and exposes the session against a matching host reconnect controller', async () => {
     const hostKey = await generateIdentityKeyPair(true);
     const hostSpki = await exportPublicKey(hostKey.publicKey);

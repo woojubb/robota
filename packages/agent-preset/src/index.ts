@@ -3,9 +3,9 @@
  * precedence merger, and built-in preset definitions. Depends only on `@robota-sdk/agent-framework`
  * (option types).
  *
- * ARCH-009 removed the module-global registry (`registerExternalPresets`, `clearExternalPresets`,
- * and the process-wide `resolvePreset`/`listPresets`/`getPreset`). Every reader now comes from a
- * registry someone constructed and owns — `createPresetRegistry()` with no argument is the built-ins.
+ * There is no module-global registry or process-wide `resolvePreset`/`listPresets`/`getPreset`.
+ * Every reader comes from a registry someone constructed and owns —
+ * `createPresetRegistry()` with no argument is the built-ins.
  */
 
 export type {

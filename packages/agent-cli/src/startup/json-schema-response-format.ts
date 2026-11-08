@@ -2,12 +2,12 @@ import type { TConfigValue } from '@robota-sdk/agent-core';
 import type { TSessionResponseFormat } from '@robota-sdk/agent-framework';
 
 /**
- * Issue #2056 (CLI-081): `--json-schema` as OWNED structured-output policy.
+ * `--json-schema` as OWNED structured-output policy.
  *
  * The flag used to reach the model as a sentence pushed into the system prompt — a behavioral
  * instruction invented by the shell, invisible to the provider capability table, and silently
  * degrading to prose on every provider. It now becomes the session's `responseFormat` of type
- * `json_schema`, which the core request assembly (CORE-043) routes per provider: sent as a schema
+ * `json_schema`, which the core request assembly routes per provider: sent as a schema
  * parameter where the wire carries one, stated once by the owner where it does not, and validated
  * against the schema on the way back. The shell decides nothing about that.
  *

@@ -88,11 +88,11 @@ try {
     throw new Error(`Large response integrity mismatch: ${byteLength} bytes, ${sha256}.`);
   }
 
-  await replaySession.shutdown({ reason: 'other', message: 'ARCH-014 scenario complete' });
+  await replaySession.shutdown({ reason: 'other', message: 'replay scenario complete' });
   replaySession = undefined;
   rmSync(replayWorkspacePath, { recursive: true, force: true });
   replayWorkspace = undefined;
-  await sourceSession.shutdown({ reason: 'other', message: 'ARCH-014 scenario complete' });
+  await sourceSession.shutdown({ reason: 'other', message: 'replay scenario complete' });
   sourceSession = undefined;
   rmSync(sourceWorkspacePath, { recursive: true, force: true });
   sourceWorkspace = undefined;
@@ -128,9 +128,9 @@ try {
     ),
   );
 } finally {
-  await replaySession?.shutdown({ reason: 'other', message: 'ARCH-014 scenario cleanup' });
+  await replaySession?.shutdown({ reason: 'other', message: 'replay scenario cleanup' });
   if (replayWorkspace) rmSync(replayWorkspace, { recursive: true, force: true });
-  await sourceSession?.shutdown({ reason: 'other', message: 'ARCH-014 scenario cleanup' });
+  await sourceSession?.shutdown({ reason: 'other', message: 'replay scenario cleanup' });
   if (sourceWorkspace) rmSync(sourceWorkspace, { recursive: true, force: true });
 }
 

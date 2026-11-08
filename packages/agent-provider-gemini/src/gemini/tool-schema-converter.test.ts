@@ -5,7 +5,7 @@ import { convertToolsToGeminiFormat, toGeminiFunctionCallingConfig } from './too
 
 import type { IToolSchema } from '@robota-sdk/agent-core';
 
-describe('toGeminiFunctionCallingConfig (CORE-017)', () => {
+describe('toGeminiFunctionCallingConfig', () => {
   it('maps auto/none to the matching Gemini modes', () => {
     expect(toGeminiFunctionCallingConfig('auto')).toEqual({
       mode: FunctionCallingConfigMode.AUTO,
@@ -30,12 +30,12 @@ describe('toGeminiFunctionCallingConfig (CORE-017)', () => {
 });
 
 /**
- * CORE-039 — this mapper rebuilds every node from a fixed key list, so a subset member it does not
+ * This mapper rebuilds every node from a fixed key list, so a subset member it does not
  * copy is dropped without a trace. `required` below the root and `anyOf` anywhere are members the
  * Gemini SDK's own `Schema` carries; omitting them told the model every nested field was optional
  * and erased union branches entirely.
  */
-describe('convertToolsToGeminiFormat — nested subset members survive (CORE-039)', () => {
+describe('convertToolsToGeminiFormat — nested subset members survive', () => {
   const tool: IToolSchema = {
     name: 'report',
     description: 'report',

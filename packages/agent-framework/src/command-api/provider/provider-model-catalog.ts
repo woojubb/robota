@@ -1,12 +1,12 @@
 /**
- * #3282 §2 — the model list a person can switch to, and resolving `/model <id>` against it.
+ * The model list a person can switch to, and resolving `/model <id>` against it.
  *
  * One function builds the list; the `/model` command (agent-command) and the session's
  * `listModels()` wire projection (InteractiveSession) both call it with their own settings/session
  * inputs, so the TUI picker, the `list-models` wire response and the id a person types all agree on
  * exactly the same models — never three separately-scraped lists.
  *
- * Only CONFIGURED profiles are ever listed (ARCH-PROVIDER-003 `modelCatalog` is descriptive, not an
+ * Only CONFIGURED profiles are ever listed (`modelCatalog` is descriptive, not an
  * offer to run): a model with no profile behind it cannot appear here, so nothing offered can fail to
  * run for lacking a profile.
  */
@@ -61,7 +61,7 @@ function orderedProfileNames(
 }
 
 /**
- * The models every configured profile offers, current profile first (#3282 §2). A profile missing
+ * The models every configured profile offers, current profile first. A profile missing
  * `type` or `model` is skipped — it could not run even by an explicit `/provider switch`, so `/model`
  * does not offer it either. `allowedProviders`, when set, is the org policy's allowlist of provider
  * PROFILE NAMES (`IOrgPolicy.allowedProviders`) — a profile it excludes is skipped the same way, so

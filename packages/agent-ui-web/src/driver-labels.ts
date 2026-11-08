@@ -1,5 +1,5 @@
 /**
- * #3289 §3 — plain, human labels for a REMOTE-014 E5 driver id, and whether one names the SAME KIND
+ * Plain, human labels for a driver id, and whether one names the SAME KIND
  * of surface as this connection's own. Shared by every place the GUI shows who drove a turn (a
  * message, a permission/ask prompt): the person's own input never carries a label, and a turn from a
  * different kind of surface does — in words, never a raw id.
@@ -16,7 +16,7 @@ import { AGENT_DRIVER_ID, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-se
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
 
 /**
- * `remote` (a plain WS remote connection's own id, `'remote:ws'`) and `peer` (an unrelated REMOTE-014
+ * `remote` (a plain WS remote connection's own id, `'remote:ws'`) and `peer` (an unrelated
  * mesh peer's turn, `'peer:<sessionId>'`) are kept as DIFFERENT kinds even though both render the same
  * label text: a plain WS viewer's own id is `'remote:ws'`, and folding a peer's turn into that same
  * kind would make `isSameSurface` treat a co-driver's turn as this connection's own and hide it — the
@@ -76,7 +76,7 @@ export function humanDriverLabel(driverId: TDriverId): string {
 
 /**
  * The ready-to-render attribution phrase: "from <label>" for a co-driver, or "Automatic — loop"
- * for the agent's own wake-ups — "from automatic" reads as a typo, not a source. #3288 §1: every
+ * for the agent's own wake-ups — "from automatic" reads as a typo, not a source. Every
  * `AGENT_DRIVER_ID` turn is, today, a loop's own injected iteration (fixed or self-paced —
  * `requestWakeup` in `interactive-session.ts` is the one place that stamps this id); if a
  * differently-sourced agent-wakeup turn is ever added, this label needs to name that source

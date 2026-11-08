@@ -6,7 +6,7 @@ import { PrintTerminal } from '../print-terminal.js';
 
 afterEach(() => vi.restoreAllMocks());
 
-describe('terminal I/O before STRUCT-012 S2 ownership move', () => {
+describe('terminal I/O before the ownership move', () => {
   it('reads a real readline answer from piped stdin and removes its data listener', () => {
     const moduleUrl = new URL('../print-terminal.ts', import.meta.url).href;
     const child = spawnSync(

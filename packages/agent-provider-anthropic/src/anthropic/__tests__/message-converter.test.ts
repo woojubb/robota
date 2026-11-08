@@ -79,13 +79,13 @@ describe('convertToAnthropicFormat', () => {
     expect(result[0].content).toBe('no parts');
   });
 
-  // Issue #2875 (follow-up to #2078): agent-core already isolated a malformed tool call as its own
+  // agent-core already isolated a malformed tool call as its own
   // failed batch result — but the NEXT round's assistant message still carries that call's raw,
   // malformed `function.arguments`, and this converter used to feed it straight to `JSON.parse`
   // with no try/catch. A truncated stream (max_tokens cutting off a tool_use mid-JSON) makes this a
   // real Anthropic failure mode, not just a hypothetical: `input` must be a JSON object even for a
   // call whose original arguments never decoded to one.
-  describe('malformed tool-call arguments (#2875)', () => {
+  describe('malformed tool-call arguments', () => {
     function assistantWithToolCall(args: string): TUniversalMessage {
       return {
         id: 'msg-1',
@@ -201,7 +201,7 @@ describe('convertToAnthropicFormat', () => {
   });
 });
 
-describe('toAnthropicToolChoice (CORE-017)', () => {
+describe('toAnthropicToolChoice', () => {
   it('maps auto/none to the typed Anthropic shapes', () => {
     expect(toAnthropicToolChoice('auto')).toEqual({ type: 'auto' });
     expect(toAnthropicToolChoice('none')).toEqual({ type: 'none' });

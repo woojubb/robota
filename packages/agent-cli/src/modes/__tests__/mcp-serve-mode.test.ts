@@ -196,7 +196,7 @@ describe('MCP serve startup lifecycle', () => {
   it.each([true, false])(
     'passes the operator’s --ask-client choice (%s) to the stdio carrier and both HTTP hosts',
     async (askClient) => {
-      // #3470: the switch belongs to the operator, so the carrier asks the client only when the
+      // The switch belongs to the operator, so the carrier asks the client only when the
       // operator passed it, and an unchanged run passes nothing new.
       mock.stdioOptions.mockClear();
       mock.loopbackOptions.mockClear();

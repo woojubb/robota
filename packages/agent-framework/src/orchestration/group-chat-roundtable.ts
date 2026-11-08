@@ -20,8 +20,8 @@ import type {
 import type { IStepRunDeps, OrchestrationEmit } from './shared';
 
 /**
- * The neutral turn-selection policy the facade wraps into a `TurnSelector` (SELFHOST-001 P3 —
- * moved here, unchanged, from `group-chat.ts`; re-exported there for the existing public path).
+ * The neutral turn-selection policy the facade wraps into a `TurnSelector` (moved here, unchanged,
+ * from `group-chat.ts`; re-exported there for the existing public path).
  */
 export type SelectNextStep = (
   history: IOrchestrationStepResult[],

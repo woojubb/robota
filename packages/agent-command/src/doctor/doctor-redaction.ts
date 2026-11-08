@@ -1,5 +1,5 @@
 /**
- * The doctor's single rendering boundary for secrets (OBSERVABILITY-1991).
+ * The doctor's single rendering boundary for secrets.
  *
  * Defence in depth, not the first line: the inspection APIs the probes read already return facts
  * (states, paths, issue paths, env KEY names) rather than file content. This pass exists for the

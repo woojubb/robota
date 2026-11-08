@@ -1,5 +1,5 @@
 /**
- * Issue #3288 §1 (review item 5): the child's own session must be built with a `permissionHandler`
+ * The child's own session must be built with a `permissionHandler`
  * that forwards a tool call needing approval to the parent — dropping that one line in
  * `child-process-subagent-worker.ts` (`createSubagentSession({ …, permissionHandler:
  * requestParentPermission })`) is exactly the regression that shipped the original bug (the child had
@@ -76,7 +76,7 @@ type TProcessSend = NonNullable<typeof process.send>;
 /** `process.send` is typed optional, which `vi.spyOn`'s `keyof` constraint rejects directly. */
 const sendableProcess = process as unknown as { send: TProcessSend };
 
-describe('child-process-subagent-worker: the child session gets a permissionHandler (#3288 §1)', () => {
+describe('child-process-subagent-worker: the child session gets a permissionHandler', () => {
   let sendMock: ReturnType<typeof vi.fn>;
   // A spy, not a global reassignment, and never `process.emit(...)`: this test runner is ITSELF a
   // Node worker process using `process.send`/`'message'` for its own IPC with the parent vitest

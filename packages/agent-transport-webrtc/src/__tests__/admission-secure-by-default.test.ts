@@ -1,7 +1,7 @@
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 const testIdentity = createIdentityContext('test-product');
 /**
- * SEC-008 — a WebRTC transport with no pairing secret must not expose the session by omission.
+ * A WebRTC transport with no pairing secret must not expose the session by omission.
  *
  * Two sibling transports made OPPOSITE default choices for one question. The WS transport auto-mints
  * a credential unless told to stay open; this one's `secret` was optional, and without it the data
@@ -25,7 +25,7 @@ const signaling = {
   close: () => {},
 } as unknown as ISignalingClient;
 
-describe('SEC-008: the WebRTC transport requires an admission decision', () => {
+describe('the WebRTC transport requires an admission decision', () => {
   it('refuses to construct with neither a secret nor an explicit open', () => {
     expect(() => new WebRtcTransport({cryptoContext: testIdentity,  signaling })).toThrow(/openReason|secret/);
   });

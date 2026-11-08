@@ -23,12 +23,12 @@ function plan(overrides: Partial<IPlanArtifact> = {}): IPlanArtifact {
 }
 
 function host(overrides: ICreateTestCommandHostOptions['overrides'] = {}) {
-  // ARCH-029: the partial is now an OVERRIDE over a conformant host, not a cast that turns the
+  // The partial is now an OVERRIDE over a conformant host, not a cast that turns the
   // check off. A fixture that names three members no longer claims to satisfy 46.
   return createTestCommandHost({ overrides });
 }
 
-describe('executePlanCommand (SELFHOST-002 /plan)', () => {
+describe('executePlanCommand (/plan)', () => {
   it('drafts a plan from the objective text', async () => {
     const setPlan = vi.fn().mockResolvedValue(plan());
     const result = await executePlanCommand(host({ setPlan }), 'ship the feature');
@@ -105,7 +105,7 @@ describe('executePlanCommand (SELFHOST-002 /plan)', () => {
     expect(result.message).toContain('/plan approve');
   });
 
-  it('ARCH-029 TC-09: the availability guards are gone from the source', () => {
+  it('the availability guards are gone from the source', () => {
     // Review caught the first attempt at this case: it re-asserted "No plan is active." for a
     // null-returning host, which `reports when no plan is active` above already pins with a
     // STRONGER matcher, over an override that is the double's own default. It would have passed

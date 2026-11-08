@@ -3,7 +3,7 @@ import {
   installProductChildSessions,
   installProductProcessEnvironment,
 } from './product/process-environment.js';
-/** RUNTIME-002: the desktop's presentation-free executable. */
+/** The desktop's presentation-free executable. */
 import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/agent-subagent-runner';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor/node';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';

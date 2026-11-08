@@ -153,7 +153,7 @@ export async function runInitCommand(
     terminal,
   };
 
-  // SEC-020: BEFORE the overwrite prompt, deliberately. These rules are additive and protective —
+  // BEFORE the overwrite prompt, deliberately. These rules are additive and protective —
   // the merge below never removes a line — and the path that reaches the prompt is precisely the one
   // where `the configured project directory/` is already populated, so transcripts may already be sitting in the tree waiting
   // to be committed. Declining to overwrite AGENTS.md is not a reason to leave them exposed, and a

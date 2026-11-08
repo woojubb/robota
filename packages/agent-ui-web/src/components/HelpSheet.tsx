@@ -7,7 +7,7 @@ import { Dialog } from './Dialog.js';
 
 import type { TCommandCatalog } from '../hooks/session-client-types.js';
 
-/** One keyboard shortcut this surface answers — #3282 §4e. */
+/** One keyboard shortcut this surface answers */
 interface IShortcut {
   readonly keys: string;
   readonly description: string;
@@ -22,7 +22,7 @@ const SHORTCUTS: readonly IShortcut[] = [
 ];
 
 /**
- * The GUI's Help sheet (#3282 §4e), a `Dialog` opened by `/help` — client-only: `useSessionClient.ts`'s
+ * The GUI's Help sheet, a `Dialog` opened by `/help` — client-only: `useSessionClient.ts`'s
  * `send` catches `/help` before it ever reaches the session and opens this instead, so there is no
  * round trip and nothing terminal-style to replace it with. It lists the same commands and skills the
  * `/` menu offers (`commandMenuFor`, unfiltered by any query — an excluded command has no row here

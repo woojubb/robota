@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { isSensitiveKey, scrubSensitiveKeys } from '../scrub-sensitive.js';
 
 /**
- * SELFHOST-014 — the shared sensitive-key scrub SSOT (also consumed by FileSessionLogger).
+ * The shared sensitive-key scrub SSOT (also consumed by FileSessionLogger).
  */
 
 describe('isSensitiveKey', () => {

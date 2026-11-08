@@ -3,7 +3,7 @@ import { parsePairingUrl } from '@robota-sdk/agent-remote-pairing';
 import { iceHasTurn, parseIceServersParam } from './parse-ice-servers.js';
 
 /**
- * Parse the Stage-D page's own URL into its connection inputs (REMOTE-009 + REMOTE-010).
+ * Parse the browser page's own URL into its connection inputs.
  *
  * The pairing link is `clientUrl?relay=…&ice=…&forceTurn=1#r=<rendezvous>&s=<secret>`. The SECRET lives ONLY in
  * the **fragment** (never sent to the page's host). The relay URL, the optional TURN/ICE config (`ice`, a
@@ -18,9 +18,9 @@ export interface IRemoteClientLocation {
   readonly relayUrl: string;
   readonly rendezvous: string;
   readonly secret: string;
-  /** REMOTE-010: validated user-supplied ICE (STUN/TURN) servers, when the `ice` query param is present. */
+  /** Validated user-supplied ICE (STUN/TURN) servers, when the `ice` query param is present. */
   readonly iceServers?: RTCIceServer[];
-  /** REMOTE-010: restrict ICE to relay candidates (`iceTransportPolicy: 'relay'`); requires a TURN server. */
+  /** Restrict ICE to relay candidates (`iceTransportPolicy: 'relay'`); requires a TURN server. */
   readonly forceTurn?: boolean;
 }
 

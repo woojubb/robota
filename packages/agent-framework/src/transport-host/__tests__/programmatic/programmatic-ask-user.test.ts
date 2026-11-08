@@ -1,5 +1,5 @@
 /**
- * CMD-004 PR-E: ProgrammaticInteractionChannel.askUser() — the unified ask path on the programmatic
+ * ProgrammaticInteractionChannel.askUser() — the unified ask path on the programmatic
  * channel. FIFO from the pre-supplied queue; empty queue → cancelled (never blocks a headless run).
  */
 import { describe, expect, it } from 'vitest';

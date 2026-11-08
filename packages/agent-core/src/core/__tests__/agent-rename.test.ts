@@ -1,5 +1,5 @@
 /**
- * ARCH-040 (issue #1820) — an agent can be renamed while it is live.
+ * An agent can be renamed while it is live.
  *
  * A preset carries `agentName`, and it reached the agent only at construction: starting with a
  * preset set the name while switching to the SAME preset mid-session left the old one. One preset,
@@ -27,7 +27,7 @@ function makeAgent(): ConversationAgent {
   } as unknown as IAgentConfig);
 }
 
-describe('renaming a live agent (ARCH-040)', () => {
+describe('renaming a live agent', () => {
   it('changes what `name` reports', async () => {
     const agent = makeAgent();
     expect(agent.name).toBe('before');
@@ -38,8 +38,8 @@ describe('renaming a live agent (ARCH-040)', () => {
   });
 
   it('keeps `getConfig()` in step with `name`', async () => {
-    // The half a copied field breaks: before ARCH-040 the instance held its own `name`, so a config
-    // write moved one reader and not the other. Asserting both is what rules that out.
+    // The half a copied field breaks: if the instance held its own `name`, a config
+    // write would move one reader and not the other. Asserting both is what rules that out.
     const agent = makeAgent();
     await agent.updateConfiguration({ name: 'after' });
 

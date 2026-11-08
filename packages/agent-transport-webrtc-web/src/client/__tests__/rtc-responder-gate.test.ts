@@ -8,7 +8,7 @@ import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-rem
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 /**
- * REMOTE-009 Step 2 — the browser responder-side pairing gate's fail-closed routing switch, driven with a
+ * The browser responder-side pairing gate's fail-closed routing switch, driven with a
  * stub channel + injected handshake (no real RTCPeerConnection). Mirror of the host PairingGate tests.
  */
 
@@ -51,7 +51,7 @@ function makeGate(over: Partial<IResponderGateOptions> = {}) {
   return { gate, channel, channelSends, onMessage, hs };
 }
 
-describe('ResponderGate (REMOTE-009 — browser pairing responder, fail-closed)', () => {
+describe('ResponderGate (browser pairing responder, fail-closed)', () => {
   it('does not deliver any session message before the handshake accepts', () => {
     const { gate, onMessage } = makeGate();
     gate.onInbound(JSON.stringify({ type: 'messages', messages: [] }));
@@ -77,7 +77,7 @@ describe('ResponderGate (REMOTE-009 — browser pairing responder, fail-closed)'
     ['a padded (non-base64url) mac', { t: 'pair-confirm', mac: 'bWFj==' }],
     ['a mac over the ceiling', { t: 'pair-confirm', mac: 'A'.repeat(129) }],
   ])(
-    'issue #2046: a pairing frame with the right discriminator but %s never reaches the handshake',
+    'a pairing frame with the right discriminator but %s never reaches the handshake',
     (_label, frame) => {
       // The browser carrier shares the owner codec with the Node gate — same corpus, same verdict.
       const { gate, hs } = makeGate();

@@ -60,7 +60,7 @@ function completeProviderSetup(
     ...(options.env === undefined ? {} : { env: options.env }),
   });
   options.settings.writeTargetSettings(mergeProviderPatch(target, patch));
-  // #3282 §3: the session's own live setup-mode state (never settings — an ordinary env-default
+  // The session's own live setup-mode state (never settings — an ordinary env-default
   // session also has no persisted `currentProvider`, and restarts like any other session). Only a
   // session that itself started with a placeholder provider hot-swaps the real one in; every other
   // `/provider add`, even a session's first EVER persisted profile, restarts as before.

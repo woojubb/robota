@@ -9,7 +9,7 @@ import { ConversationView } from '../ConversationView.js';
 import type { TConversationEntry } from '../../hooks/useSessionClient.js';
 
 /**
- * #3289 §2 — a command's outcome card reads as normal text (proportional font, normal size), not
+ * A command's outcome card reads as normal text (proportional font, normal size), not
  * terminal monospace, unless it is an actual long listing (the same measure the card already uses to
  * decide whether to fold: many raw lines), which stays monospace so columns still line up.
  */
@@ -20,7 +20,7 @@ function commandEntry(content: string, name = 'mode'): TConversationEntry {
 
 afterEach(cleanup);
 
-describe('CommandCard text style (#3289 §2)', () => {
+describe('CommandCard text style', () => {
   it('a short outcome reads as normal proportional text, not monospace', () => {
     render(
       <ConversationView

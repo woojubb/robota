@@ -1,5 +1,5 @@
 /**
- * SELFHOST-002: `/plan` command module registration.
+ * `/plan` command module registration.
  */
 
 import { executePlanCommand, PLAN_COMMAND_DESCRIPTION } from './plan-command.js';

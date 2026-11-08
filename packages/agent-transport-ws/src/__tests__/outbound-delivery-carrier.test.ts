@@ -1,9 +1,9 @@
 /**
- * ARCH-030 at the real WS carrier: a reply that resolves after the socket closed must reach
- * `WsSessionDelivery`'s cleanup instead of escaping as an unhandled rejection.
+ * The outbound-delivery boundary at the real WS carrier: a reply that resolves after the socket
+ * closed must reach `WsSessionDelivery`'s cleanup instead of escaping as an unhandled rejection.
  *
  * The protocol suite proves the boundary; this one proves the carrier is actually WIRED to it — the
- * half that was missing before, because the carrier's cleanup was written, idempotent, and never called.
+ * half that matters, because the carrier's cleanup is idempotent and useless unless called.
  */
 
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
@@ -66,7 +66,7 @@ function createControllableSocket(): {
   };
 }
 
-describe('WsSessionDelivery + the outbound boundary (ARCH-030)', () => {
+describe('WsSessionDelivery + the outbound boundary', () => {
   it('a command resolving after the socket closed runs cleanup once and leaks no rejection', async () => {
     const { socket, close } = createControllableSocket();
     const delivery = new WsSessionDelivery(socket);
@@ -99,7 +99,7 @@ describe('WsSessionDelivery + the outbound boundary (ARCH-030)', () => {
     expect(executed).toEqual(['status']); // the command still committed
     expect(detachSink).toHaveBeenCalledTimes(1); // the carrier's cleanup finally runs
     // The socket was already CLOSED when the reply failed, so `close()` has nothing left to close —
-    // what matters is that the cleanup path ran at all, which it never did before ARCH-030.
+    // what matters is that the cleanup path ran at all.
     expect(socket.close).not.toHaveBeenCalled();
 
     // Latched: a second late frame does not run cleanup again.
@@ -108,7 +108,7 @@ describe('WsSessionDelivery + the outbound boundary (ARCH-030)', () => {
   });
 
   // NOT a proof of the boundary latch — `WsSessionDelivery.closed` already made this cleanup idempotent
-  // before ARCH-030, so this case would pass either way. It pins that the boundary sitting ABOVE that
+  // by itself, so this case would pass either way. It pins that the boundary sitting ABOVE that
   // latch did not change the carrier's observable behaviour. The latch itself is red-proved in the
   // protocol suite (`outbound-delivery.test.ts` → 'latches: a connection reports at most one …').
   it('runs the carrier cleanup once for a burst of outbound frames after the close', () => {
@@ -126,7 +126,7 @@ describe('WsSessionDelivery + the outbound boundary (ARCH-030)', () => {
   });
 });
 
-describe('#2306: one drain clock governs both halves of the socket', () => {
+describe('one drain clock governs both halves of the socket', () => {
   it('a peer under the byte budget that never drains is closed, from either half', () => {
     vi.useFakeTimers();
     try {
@@ -149,9 +149,9 @@ describe('#2306: one drain clock governs both halves of the socket', () => {
   });
 });
 
-describe("ARCH-030: payload frames share the text protocol's budget", () => {
+describe("payload frames share the text protocol's budget", () => {
   it('refuses a binary frame when the socket is over budget, and closes once', () => {
-    // Until this path existed, TRANS-001 payload frames went straight to `socket.send` — outside the
+    // Payload frames must not go straight to `socket.send` — that is outside the
     // boundary, with no budget. `bufferedAmount` does not distinguish text from binary, so a peer
     // that stopped reading accumulated payload frames invisibly to a budget guarding only the JSON
     // half of the same socket.

@@ -41,8 +41,8 @@ async function aDevice(user: { root: CryptoKeyPair; userId: string }) {
   };
 }
 
-describe('SEC-011 — same user, proven by the destination rather than asserted by the source', () => {
-  it('TC-01: two devices signed by one root verify against that user', async () => {
+describe('same user, proven by the destination rather than asserted by the source', () => {
+  it('two devices signed by one root verify against that user', async () => {
     const user = await aUser();
     const source = await aDevice(user);
     const destination = await aDevice(user);
@@ -58,7 +58,7 @@ describe('SEC-011 — same user, proven by the destination rather than asserted 
     }
   });
 
-  it('TC-02: a device signed by a DIFFERENT root is a different person', async () => {
+  it('a device signed by a DIFFERENT root is a different person', async () => {
     // The core rejection. Without it, any device with any certificate could receive a hand-off.
     const mine = await aUser();
     const theirs = await aUser();
@@ -74,7 +74,7 @@ describe('SEC-011 — same user, proven by the destination rather than asserted 
     expect(result.rejection).toBe('signature-invalid');
   });
 
-  it('TC-06: every signed field is covered — tampering any of them invalidates', async () => {
+  it('every signed field is covered — tampering any of them invalidates', async () => {
     // A signature over a subset would leave the omitted field attacker-editable while still
     // verifying, which reads as a valid certificate. Checked field by field rather than asserted.
     const user = await aUser();
@@ -96,7 +96,7 @@ describe('SEC-011 — same user, proven by the destination rather than asserted 
     }
   });
 
-  it('TC-05: an expired certificate is refused however intact its signature', async () => {
+  it('an expired certificate is refused however intact its signature', async () => {
     const user = await aUser();
     const device = await aDevice(user);
 
@@ -115,7 +115,7 @@ describe('SEC-011 — same user, proven by the destination rather than asserted 
     expect(early.rejection).toBe('not-yet-valid');
   });
 
-  it('TC-08: a revoked device fails with an intact signature', async () => {
+  it('a revoked device fails with an intact signature', async () => {
     // Revocation must not depend on the certificate changing — a retired device still holds a
     // perfectly valid one, which is exactly why revocation exists.
     const user = await aUser();
@@ -162,7 +162,7 @@ describe('SEC-011 — same user, proven by the destination rather than asserted 
   });
 });
 
-describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over ONE channel', () => {
+describe('a grant authorizes ONE transfer, to ONE destination, over ONE channel', () => {
   async function aGrant(over: Partial<IHandoffGrantClaims> = {}) {
     const user = await aUser();
     const source = await aDevice(user);
@@ -202,7 +202,7 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
     expect(result.trust).toBe('same-user-different-host');
   });
 
-  it('TC-03: refuses a grant addressed to a different destination', async () => {
+  it('refuses a grant addressed to a different destination', async () => {
     const ctx = await aGrant();
 
     const result = await verifyHandoffGrant(testIdentity, ctx.grant, {
@@ -214,7 +214,7 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
     expect(result.rejection).toBe('wrong-destination');
   });
 
-  it('TC-04: refuses reuse for a different hand-off or session', async () => {
+  it('refuses reuse for a different hand-off or session', async () => {
     // "Cannot be reused for another transfer" — the issue's words, asserted on both halves of the
     // audience rather than only the one that is easier to check.
     const ctx = await aGrant();
@@ -232,7 +232,7 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
     expect(otherSession.rejection).toBe('wrong-audience');
   });
 
-  it('TC-07: refuses a grant presented over a substituted channel', async () => {
+  it('refuses a grant presented over a substituted channel', async () => {
     const ctx = await aGrant();
 
     const result = await verifyHandoffGrant(testIdentity, ctx.grant, {
@@ -243,7 +243,7 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
     expect(result.rejection).toBe('channel-substituted');
   });
 
-  it('TC-05: refuses a replayed nonce and an expired grant', async () => {
+  it('refuses a replayed nonce and an expired grant', async () => {
     const ctx = await aGrant();
 
     const replayed = await verifyHandoffGrant(testIdentity, ctx.grant, {
@@ -259,7 +259,7 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
     expect(expired.rejection).toBe('expired');
   });
 
-  it('TC-06: every claim is inside the signature', async () => {
+  it('every claim is inside the signature', async () => {
     // The same field-by-field proof as for certificates. A binding outside the signature is a
     // binding an attacker can edit while the signature still verifies.
     const ctx = await aGrant();
@@ -285,7 +285,7 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
     }
   });
 
-  it('TC-02: refuses a grant signed by a device that is not the source', async () => {
+  it('refuses a grant signed by a device that is not the source', async () => {
     const ctx = await aGrant();
     const impostor = await generateIdentityKeyPair(true);
     const forged = await issueHandoffGrant(testIdentity, ctx.claims, impostor.privateKey);
@@ -295,8 +295,8 @@ describe('SEC-011 — a grant authorizes ONE transfer, to ONE destination, over 
     expect(result.rejection).toBe('signature-invalid');
   });
 
-  it('TC-10: its trust level is NOT interchangeable with SEC-010’s local admission', async () => {
-    // The issue requires these to stay distinct. A cross-device authorization must never satisfy a
+  it('its trust level is NOT interchangeable with a local-peer admission', async () => {
+    // These must stay distinct. A cross-device authorization must never satisfy a
     // check that wanted same-machine, or a hand-off could be authorized by a local admission.
     const ctx = await aGrant();
 

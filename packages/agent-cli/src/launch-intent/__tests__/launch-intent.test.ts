@@ -1,4 +1,4 @@
-/** FLOW-2006 TC-01 / TC-02 — the grammar, and the encode/parse round trip. */
+/** The grammar, and the encode/parse round trip. */
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -121,7 +121,7 @@ describe('parseLaunchIntent refuses the whole url, naming the first rule broken'
   });
 });
 
-describe('TC-02: precedence and the round trip', () => {
+describe('precedence and the round trip', () => {
   it('cwd wins over repo and records that repo was superseded', () => {
     const parsed = ok('test-product://open?v=1&prompt=hi&cwd=/abs&repo=owner/name');
     if (parsed.ok) {

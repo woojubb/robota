@@ -1,14 +1,14 @@
 /**
- * CMD-004 Stage D (TC-09) — WS e2e: the MULTI-SURFACE exit/restart policy.
+ * WS e2e: the MULTI-SURFACE exit/restart policy.
  *
- * The spec's deliberate decision (local == remote, REMOTE-006): host-executed `session-exit` /
+ * The spec's deliberate decision (local == remote): host-executed `session-exit` /
  * `session-restart` invoked from a REMOTE surface terminate/restart the SHARED HOST serving ALL
  * attached surfaces — exit/restart are session-scoped semantics, not surface-scoped ones. A surface
  * that only wants to detach disconnects; `/exit` ends the session for everyone.
  *
  * Placement: this e2e needs a REAL `InteractiveSession` (agent-framework, a runtime dependency of
  * this package) under real `createSessionMessageHandler` surfaces (`agent-transport`) —
- * agent-transport is the Stage-D-owned package that legitimately sees both sides.
+ * agent-transport is the package that legitimately sees both sides.
  */
 
 import { createExitCommandModule, createLanguageCommandModule } from '@robota-sdk/agent-command';
@@ -84,7 +84,7 @@ async function waitFor<T extends TServerMessage['type']>(
   return sent.find((m) => m.type === type) as Extract<TServerMessage, { type: T }>;
 }
 
-describe('CMD-004 TC-09 — multi-surface exit/restart acts on the SHARED host (local == remote)', () => {
+describe('multi-surface exit/restart acts on the SHARED host (local == remote)', () => {
   it("a remote /exit from surface A terminates the shared host serving BOTH surfaces — not just surface A's attachment", async () => {
     const requestExit = vi.fn();
     const requestRestart = vi.fn();
@@ -95,7 +95,7 @@ describe('CMD-004 TC-09 — multi-surface exit/restart acts on the SHARED host (
     surfaceA.onMessage(JSON.stringify({ type: 'command', name: 'exit', args: '' }));
 
     // With interactive surfaces attached, /exit self-asks for confirmation over the transport-neutral
-    // ask seam; the parked ask BROADCASTS to both co-driving surfaces (REMOTE-007) …
+    // ask seam; the parked ask BROADCASTS to both co-driving surfaces …
     const askA = await waitFor(surfaceA.sent, 'ask_request');
     const askB = await waitFor(surfaceB.sent, 'ask_request');
     expect(askB.event.id).toBe(askA.event.id);
@@ -156,7 +156,7 @@ describe('CMD-004 TC-09 — multi-surface exit/restart acts on the SHARED host (
     const result = await session.executeCommand('exit', '', 'user');
 
     expect(result?.success).toBe(true);
-    // Same adapter call, same args as the remote-surface path above — the REMOTE-006 owner principle.
+    // Same adapter call, same args as the remote-surface path above.
     expect(requestExit).toHaveBeenCalledTimes(1);
     expect(requestExit).toHaveBeenCalledWith('prompt_input_exit');
   });

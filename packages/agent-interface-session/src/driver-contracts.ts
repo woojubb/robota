@@ -1,5 +1,5 @@
 /**
- * Driver-identity contracts (REMOTE-014 E5) and driver-routed command events (CMD-004 Phase 2).
+ * Driver-identity contracts and driver-routed command events.
  *
  * SSOT for the co-drive attribution id and the events that are routed/attributed by it. Split from
  * `session-contracts.ts` (which re-consumes these for the session surface and event map).
@@ -10,10 +10,10 @@ import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
 
 /**
- * REMOTE-014 E5 co-drive attribution: a stable, SERVER-ASSIGNED id for the driver of an input/turn. It
+ * Co-drive attribution: a stable, SERVER-ASSIGNED id for the driver of an input/turn. It
  * attributes and routes: surfaces show it, and a surface that answers only its own prompts matches it
- * against a prompt's requester. It is never an authorization input (the OWNER PRINCIPLE, REMOTE-006, governs
- * authorization; remote == local). Remote = the E3 `deviceId`; local = {@link OWNER_DRIVER_ID}; an
+ * against a prompt's requester. It is never an authorization input (the OWNER PRINCIPLE governs
+ * authorization; remote == local). Remote = the `deviceId`; local = {@link OWNER_DRIVER_ID}; an
  * agent-wakeup/goal turn = {@link AGENT_DRIVER_ID}.
  */
 export type TDriverId = string;
@@ -23,7 +23,7 @@ export const OWNER_DRIVER_ID: TDriverId = 'owner';
 /** The reserved driver id for an autonomous (wakeup/goal/agent-initiated) turn — never the owner. */
 export const AGENT_DRIVER_ID: TDriverId = 'agent';
 
-/** REMOTE-014 E5: options for `submit` — carries the SERVER-ASSIGNED driver id for co-drive attribution. */
+/** Options for `submit` — carries the SERVER-ASSIGNED driver id for co-drive attribution. */
 export interface ISubmitOptions {
   /** Cancels only this submission, including while queued or preparing its turn. */
   readonly signal?: AbortSignal;
@@ -31,7 +31,7 @@ export interface ISubmitOptions {
   /** Trusted product surface that accepted this turn; independent from the driver's identity. */
   readonly surface?: TUsageSurface;
   /**
-   * PEER-002 (#1809): where this turn came from, when it is not an ordinary user prompt.
+   * Where this turn came from, when it is not an ordinary user prompt.
    *
    * Carried here beside `driverId` because it is the same KIND of fact and travels with it: both
    * describe the turn's origin, both are set by whoever accepted the submission, and neither is an
@@ -67,9 +67,9 @@ export interface IPeerTurnContext {
 }
 
 /**
- * CMD-004 Phase 2: a command-issued UI intent, emitted as a fire-and-forget `ui_intent` session
+ * A command-issued UI intent, emitted as a fire-and-forget `ui_intent` session
  * event. Routed to the REQUESTING surface: `requesterDriverId` is stamped from the command-origin
- * driver id passed into `executeCommand` (the REMOTE-014 E5 server-assigned id for remote surfaces;
+ * driver id passed into `executeCommand` (the server-assigned id for remote surfaces;
  * the active turn's driver only as a fallback for model-invoked commands). Other surfaces ignore it;
  * an intent needs no answer (no parking, no response promise). Serializable.
  */
@@ -80,7 +80,7 @@ export interface IUiIntentEvent {
 }
 
 /**
- * CMD-004 Phase 2: the session was renamed (host-executed `session-rename` action). Broadcast so
+ * The session was renamed (host-executed `session-rename` action). Broadcast so
  * every attached surface — including co-driving ones — updates its title. Serializable.
  */
 export interface ISessionRenamedEvent {

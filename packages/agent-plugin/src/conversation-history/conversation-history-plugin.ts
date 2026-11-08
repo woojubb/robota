@@ -156,7 +156,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
   }
 
   /**
-   * PLG-020 (issue #2460): the production dispatcher's message hook. A conversation is opened lazily
+   * The production dispatcher's message hook. A conversation is opened lazily
    * from the run's message, so registering the plugin is enough — no explicit `addMessage` calls.
    */
   override async onMessageAdded(message: TUniversalMessage): Promise<void> {
@@ -281,7 +281,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
   /**
    * Stops the batch-save timer and flushes any pending conversation saves.
    */
-  // CORE-022: dispose() is the single disposal entry point (SPEC § Disposal Chain Contract).
+  // dispose() is the single disposal entry point (SPEC § Disposal Chain Contract).
   override async dispose(): Promise<void> {
     await super.dispose();
     try {

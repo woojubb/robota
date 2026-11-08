@@ -1,5 +1,5 @@
 /**
- * Payload-agnostic channel registry (TRANS-001) — the transport-side half of
+ * Payload-agnostic channel registry — the transport-side half of
  * {@link IPayloadChannelHost}.
  *
  * Owns the multiplexing the carrier needs and nothing else: which channels exist, what each one

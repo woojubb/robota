@@ -61,8 +61,8 @@ describe('createHttpTransport', () => {
       (session: IHttpTransportSession) => void
     >();
     expectTypeOf<IHttpTransportSession>().not.toHaveProperty('listRuntimeTools');
-    // #3282 §2 added `listModels` to `ISessionCommands` (15 + 1); #3288 §2 added `getMessagesDisplay`
-    // to `ISessionConversationRead` (16 + 1); #3449 added `ISessionPromptResolution` (17 + 2).
+    // The mock covers the full session surface, including `listModels` (`ISessionCommands`),
+    // `getMessagesDisplay` (`ISessionConversationRead`) and `ISessionPromptResolution`.
     expect(Object.keys(createMockSession())).toHaveLength(19);
   });
 
@@ -107,7 +107,7 @@ describe('createHttpTransport', () => {
       kind: 'service',
       createAdapter: () =>
         createHttpTransport({
-          admission: { open: true, openReason: 'ARCH-011 lifecycle conformance' },
+          admission: { open: true, openReason: 'lifecycle conformance' },
         }),
       createSession: createMockSession,
       assertReady: (transport) => {
@@ -125,7 +125,7 @@ describe('createHttpTransport', () => {
   });
 });
 
-describe('SEC-008: the decision is resolved once', () => {
+describe('the decision is resolved once', () => {
   it('requires the credential it minted, not a second one', async () => {
     // The transport resolved admission at construction and then rebuilt a CONFIG for the routes to
     // resolve again. Two resolutions of one decision: harmless while a token was given, and a fresh

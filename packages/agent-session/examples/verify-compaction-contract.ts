@@ -92,7 +92,7 @@ function createSession(cwd: string, hookInputs: IHookInput[]): Session {
     cwd,
     tools: [],
     provider: new OfflineCompactionProvider(),
-    systemMessage: 'ARCH-016 deterministic compaction contract',
+    systemMessage: 'deterministic compaction contract',
     terminal: silentTerminal,
     defaultTrustLevel: 'full',
     hooks: compactHooks,

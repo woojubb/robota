@@ -10,12 +10,12 @@ import { RISK_CLASS_POLICY } from '../permission-mode';
 import type { TPermissionMode } from '../types';
 
 /**
- * SELFHOST-010 TC-02 / TC-07 / TC-08 — decision layer.
+ * Decision layer.
  *
  * The computer-use perceive/act split is modeled on the repo's OWN `Read`(auto)-vs-`Shell`(approve)
  * precedent and routes through the EXISTING `evaluatePermission` path (no new gate).
  *
- * CORE-030: the classification now lives with the tools (`@robota-sdk/agent-tools`), so these
+ * The classification now lives with the tools (`@robota-sdk/agent-tools`), so these
  * register the same profiles that package declares rather than reading a name table from this one.
  * "Decided exactly like Read / Shell" is now a statement about the DECLARATION — both are `inspect`,
  * both are `execute` — and is asserted where the declaration lives; what this file asserts is that
@@ -24,7 +24,7 @@ import type { TPermissionMode } from '../types';
 
 const ALL_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
 
-describe('computer-use permission decisions (SELFHOST-010)', () => {
+describe('computer-use permission decisions', () => {
   beforeEach(() => {
     clearRegisteredToolProfiles();
     // Exactly what `@robota-sdk/agent-tools` declares for these four.
@@ -48,8 +48,8 @@ describe('computer-use permission decisions (SELFHOST-010)', () => {
     clearRegisteredToolProfiles();
   });
 
-  // TC-02 / TC-08: ComputerView is `auto` in EVERY mode (read-only perception, incl. plan).
-  it('TC-02/08: ComputerView is auto in every mode, exactly like Read', () => {
+  // computerView is `auto` in EVERY mode (read-only perception, incl. plan).
+  it('ComputerView is auto in every mode, exactly like Read', () => {
     for (const mode of ALL_MODES) {
       expect(evaluatePermission('ComputerView', {}, mode), mode).toBe('auto');
       // decided EXACTLY like Read
@@ -61,14 +61,14 @@ describe('computer-use permission decisions (SELFHOST-010)', () => {
     expect(evaluatePermission('ComputerView', {}, 'plan')).toBe('auto');
   });
 
-  // TC-02: a mutating Computer action is gated — deny in plan, approve in default.
-  it('TC-02: Computer is deny in plan and approve in default (via the existing gate)', () => {
+  // A mutating Computer action is gated — deny in plan, approve in default.
+  it('Computer is deny in plan and approve in default (via the existing gate)', () => {
     expect(evaluatePermission('Computer', {}, 'plan')).toBe('deny');
     expect(evaluatePermission('Computer', {}, 'default')).toBe('approve');
   });
 
-  // TC-07: Computer is decided EXACTLY like Shell — never `auto` except under bypassPermissions.
-  it('TC-07: Computer mirrors Shell in every mode and never auto-runs except bypassPermissions', () => {
+  // Computer is decided EXACTLY like Shell — never `auto` except under bypassPermissions.
+  it('Computer mirrors Shell in every mode and never auto-runs except bypassPermissions', () => {
     for (const mode of ALL_MODES) {
       expect(evaluatePermission('Computer', {}, mode), mode).toBe(
         evaluatePermission('Shell', {}, mode),
@@ -82,17 +82,17 @@ describe('computer-use permission decisions (SELFHOST-010)', () => {
     }
   });
 
-  // TC-07: the perceive/act split does not weaken the floor — a GUI mutation is not a file edit, so
+  // The perceive/act split does not weaken the floor — a GUI mutation is not a file edit, so
   // acceptEdits (which auto-runs Write/Edit) still requires approval for Computer.
-  it('TC-07: acceptEdits does not auto-run Computer (a GUI mutation is not a file edit)', () => {
+  it('acceptEdits does not auto-run Computer (a GUI mutation is not a file edit)', () => {
     expect(evaluatePermission('Computer', {}, 'acceptEdits')).toBe('approve');
     expect(evaluatePermission('Write', { filePath: '/tmp/a', content: 'x' }, 'acceptEdits')).toBe(
       'auto',
     );
   });
 
-  // TC-08: read-only inspection is reachable in plan while a mutation in the same mode is denied.
-  it('TC-08: in plan mode ComputerView is auto while Computer is denied', () => {
+  // Read-only inspection is reachable in plan while a mutation in the same mode is denied.
+  it('in plan mode ComputerView is auto while Computer is denied', () => {
     expect(evaluatePermission('ComputerView', {}, 'plan')).toBe('auto');
     expect(evaluatePermission('Computer', {}, 'plan')).toBe('deny');
   });

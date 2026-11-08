@@ -9,7 +9,7 @@ import { ConversationView } from '../ConversationView.js';
 import type { TConversationEntry } from '../../hooks/useSessionClient.js';
 
 /**
- * #3289 §2 — every code block gets a "Copy code" button and every assistant message a "Copy message"
+ * Every code block gets a "Copy code" button and every assistant message a "Copy message"
  * one; both copy the real Markdown/code source (not the rendered DOM text), show a short "Copied" /
  * "Couldn't copy" state announced via `aria-live`, and a code block itself is a focusable, named,
  * horizontally-scrollable region so a keyboard user without a mouse wheel can still reach a long line.
@@ -35,7 +35,7 @@ function mockClipboard(): { writeText: ReturnType<typeof vi.fn> } {
   return { writeText };
 }
 
-describe('ConversationView — copy buttons (#3289 §2)', () => {
+describe('ConversationView — copy buttons', () => {
   it('"Copy message" copies the message\'s Markdown source, not its rendered text', async () => {
     const { writeText } = mockClipboard();
     const markdown = '**bold** and a [link](https://example.com)';

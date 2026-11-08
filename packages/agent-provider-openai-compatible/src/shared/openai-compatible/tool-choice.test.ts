@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { toOpenAICompatibleToolChoice, toOpenAIResponsesToolChoice } from './tool-choice';
 
-describe('toOpenAICompatibleToolChoice (CORE-017)', () => {
+describe('toOpenAICompatibleToolChoice', () => {
   it("keeps the wire default 'auto' when the directive is unset or 'auto'", () => {
     expect(toOpenAICompatibleToolChoice(undefined)).toBe('auto');
     expect(toOpenAICompatibleToolChoice('auto')).toBe('auto');
@@ -21,7 +21,7 @@ describe('toOpenAICompatibleToolChoice (CORE-017)', () => {
   });
 });
 
-describe('toOpenAIResponsesToolChoice (CORE-017)', () => {
+describe('toOpenAIResponsesToolChoice', () => {
   it("keeps 'auto' for unset/auto and passes none/required through", () => {
     expect(toOpenAIResponsesToolChoice(undefined)).toBe('auto');
     expect(toOpenAIResponsesToolChoice('auto')).toBe('auto');

@@ -1,5 +1,5 @@
 /**
- * SEC-008 — the admission seam's own cases.
+ * The admission seam's own cases.
  *
  * `resolveAdmission` had none. It was exercised only THROUGH the four transports that call it, and
  * both defects review found here are ones that indirection hides: a transport passing a well-formed

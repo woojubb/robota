@@ -19,7 +19,7 @@ export function buildRewindCommandSubcommands(source = 'rewind'): ICommand[] {
     { name: 'restore', description: 'Restore code to a checkpoint', source },
     { name: 'code', description: 'Restore code to a checkpoint', source },
     { name: 'rollback', description: 'Rollback code through a checkpoint', source },
-    // SELFHOST-007: branching time-travel
+    // Branching time-travel
     {
       name: 'fork',
       description: 'Fork a new branch from a past checkpoint (non-destructive)',
@@ -71,7 +71,7 @@ export function rollbackCommandEditCheckpoint(
   return context.rollbackEditCheckpoint(checkpointId);
 }
 
-// SELFHOST-007: branching time-travel command surface (delegates to the neutral tree via the host).
+// Branching time-travel command surface (delegates to the neutral tree via the host).
 
 export function forkCommandEditCheckpoint(
   context: ICommandHostCheckpoints,

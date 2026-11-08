@@ -10,7 +10,7 @@ The absence of that file is the mechanism: Dependabot does nothing without it.
 Its PR stream repeatedly interrupted in-flight work. Individual major-version PRs arrived faster than
 they could be triaged, several landed on `main` outside the `feature → develop → main` flow (leaving
 `main` with dependency bumps `develop` lacked), and unbounded version ranges in regenerated lockfiles
-twice crossed a major and broke the build (see `INFRA-044`, and the `brace-expansion` / `js-yaml`
+twice crossed a major and broke the build (see the `brace-expansion` / `js-yaml`
 override incidents).
 
 ## What did NOT change — dependency risk is still covered

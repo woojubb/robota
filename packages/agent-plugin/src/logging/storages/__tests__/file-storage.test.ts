@@ -14,7 +14,7 @@ function makeEntry(message: string): ILogEntry {
   };
 }
 
-describe('FileLogStorage (PLUGIN-001: real persistence)', () => {
+describe('FileLogStorage (real persistence)', () => {
   let dir: string;
   let filePath: string;
 

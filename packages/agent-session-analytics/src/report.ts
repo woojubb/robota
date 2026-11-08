@@ -12,13 +12,13 @@ function fmtTokens(n: number): string {
   return `${n}`;
 }
 
-/** SELFHOST-004: `~` marks an estimate or incomplete aggregate, never an invoice amount. */
+/** `~` marks an estimate or incomplete aggregate, never an invoice amount. */
 function fmtCost(usd: number, exact: boolean): string {
   return `${exact ? '' : '~'}$${usd.toFixed(4)}`;
 }
 
 /**
- * ANALYTICS-001 + SELFHOST-004: render a per-source token+cost breakdown and the per-operation span
+ * Render a per-source token+cost breakdown and the per-operation span
  * timeline — which part of the session burned the most tokens/cost, and where the wall-clock went.
  * Pure; the caller owns writing it (the headless CLI path for the TUI/GUI trace/cost view).
  */
@@ -43,7 +43,7 @@ export function formatUsageReport(report: IUsageBySourceReport): string {
     }
   }
 
-  // SELFHOST-004: the span timeline — sub-turn operations grouped under their owning turn.
+  // The span timeline — sub-turn operations grouped under their owning turn.
   if (report.timeline.length > 0) {
     lines.push('  trace (per turn, sub-turn spans):');
     for (const turn of report.timeline) {

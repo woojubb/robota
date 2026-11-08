@@ -13,7 +13,7 @@ import type { TModelEffort, TSessionEndReason, TUniversalValue } from '@robota-s
  * Origin of a command invocation. `'user'` = the local operator; `'model'` = a model-invoked command;
  * `'remote'` = a command arriving over a transport (WebSocket / WebRTC) from an untrusted remote peer.
  * SSOT lives here (the transport-facing `IInteractiveSession.executeCommand` carries it); `agent-framework`
- * re-exports it. A transport-origin command runs as a local one by default; an optional policy may restrict (REMOTE-006).
+ * re-exports it. A transport-origin command runs as a local one by default; an optional policy may restrict.
  */
 export type TCommandInvocationSource = 'user' | 'model' | 'remote';
 
@@ -25,7 +25,7 @@ export type TCommandInvocationSource = 'user' | 'model' | 'remote';
  * (an in-process caller, an older host, or a test double) defaults to `'local'` — the allow-by-default
  * posture the rest of the command layer already uses. A command that runs code from outside the
  * session (installing a plugin) reads this to refuse a remote device even though `'remote'`-sourced
- * commands otherwise run like a local one (REMOTE-006).
+ * commands otherwise run like a local one.
  */
 export type TCommandSurfaceLocality = 'local' | 'remote';
 
@@ -155,7 +155,7 @@ export interface ICommandSource {
 }
 
 /**
- * Result of resolving a skill command to an inject-mode prompt (ARCH-PROVIDER-005). The SSOT `{prompt?, mode}`
+ * Result of resolving a skill command to an inject-mode prompt. The SSOT `{prompt?, mode}`
  * contract — consumers derive their own internal shapes from this rather than duplicating it. `prompt` is
  * absent when the skill did not resolve to an inject prompt (the consumer surfaces that as an error).
  */
@@ -167,7 +167,7 @@ export interface ISkillResolutionResult {
 }
 
 /**
- * Owned execution port for skill discovery + resolution (ARCH-PROVIDER-005 / ARL-11 skill-half). A DAG skill
+ * Owned execution port for skill discovery + resolution. A DAG skill
  * node (or any consumer) depends on THIS contract, not on the concrete `agent-framework` implementation, which
  * is injected at the composition root. Discovery returns the available skill {@link ICommand}s; `resolveSkill`
  * resolves an inject-mode skill to its prompt (fork-context skills are rejected by the consumer before calling).
@@ -193,7 +193,7 @@ export type TStatusLineCommandSettingsPatch = Partial<IStatusLineCommandSettings
   Record<string, TUniversalValue>;
 
 /**
- * SCREEN-2002: the appearance a run renders with, persisted as three FLAT keys in the settings
+ * The appearance a run renders with, persisted as three FLAT keys in the settings
  * document (`theme`, `syntaxHighlighting`, `reducedMotion`) rather than one nested object — the
  * shape `screenReader` and `outputStyle` already use, and the shape a user editing the file by hand
  * expects. The theme is named by ID, not by value: the settings document never holds a colour, so a
@@ -211,7 +211,7 @@ export interface IAppearanceSettings {
 export type TAppearanceSettingsPatch = Partial<IAppearanceSettings> &
   Record<string, TUniversalValue>;
 
-/** SCREEN-2002: why `reducedMotion` is not what the settings document says, for THIS run. */
+/** Why `reducedMotion` is not what the settings document says, for THIS run. */
 export type TReducedMotionOverride = 'flag' | 'environment' | 'screen-reader';
 
 /** One row of the theme catalogue, as a command lists it. Carries no colour — only identity. */
@@ -244,7 +244,7 @@ export interface IThemeAppearanceState {
 }
 
 /**
- * SCREEN-2002 — the surface's theme catalogue, injected into the command layer.
+ * The surface's theme catalogue, injected into the command layer.
  *
  * The contract lives here, in the types-only package BOTH sides already depend on, rather than in
  * the command package the surface does not depend on: the alternative is the surface re-declaring a
@@ -259,7 +259,7 @@ export interface IThemeCataloguePort {
 }
 
 /**
- * CMD-004 Phase 2: host-executed command ACTIONS — semantic operations the SESSION layer (the host)
+ * Host-executed command ACTIONS — semantic operations the SESSION layer (the host)
  * executes via `ICommandHostAdapters` or directly on the session, BEFORE the command result is
  * returned. They execute with zero surfaces attached (headless parity — the LSP
  * `workspace/executeCommand` model); surfaces observe the outcome via session events / the result,
@@ -281,7 +281,7 @@ export type TCommandHostAction =
   | { type: 'remote-control-stop' };
 
 /**
- * CMD-004 Phase 2: surface-rendered UI INTENTS — presentation requests (full-screen navigation)
+ * Surface-rendered UI INTENTS — presentation requests (full-screen navigation)
  * rendered by the surface that issued the command (requester-routed via
  * `IUiIntentEvent.requesterDriverId`), fire-and-forget. Names are UI-neutral (LSP `window/show*`
  * style — never a UI-technology token); a surface that cannot render an intent reports an explicit
@@ -305,9 +305,9 @@ export interface ICommandResult {
   success: boolean;
   /** Additional structured data (command-specific diagnostics only) */
   data?: Record<string, unknown>;
-  /** CMD-004 Phase 2: host-executed actions — applied by the session layer before the result returns. */
+  /** Host-executed actions — applied by the session layer before the result returns. */
   hostActions?: readonly TCommandHostAction[];
-  /** CMD-004 Phase 2: UI intents — emitted as `ui_intent` session events routed to the requesting surface. */
+  /** UI intents — emitted as `ui_intent` session events routed to the requesting surface. */
   uiIntents?: readonly TCommandUiIntent[];
 }
 
@@ -320,7 +320,7 @@ export interface ICommandListEntry {
   /** Optional usage example shown in /help output (e.g., "/compact Summarize the context"). */
   example?: string;
   /**
-   * SEC-008: whether a MODEL may invoke this command, carried through instead of dropped.
+   * Whether a MODEL may invoke this command, carried through instead of dropped.
    *
    * The list used to stop at name/description, so every consumer received a flat catalogue with no
    * way to tell an operator-only command from a model-callable one. The MCP adapter read that list

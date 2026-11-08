@@ -56,7 +56,7 @@ function scanAgentsDir(dir: string, source: IContributionSource): IDiscoveredAge
       name: frontmatter.name ?? fallbackName,
       description: frontmatter.description ?? '',
       systemPrompt: body === content ? body : body.trim(),
-      // #3282 §4: the same display path `decodeFrontmatter` was given above — where a person reading
+      // The same display path `decodeFrontmatter` was given above — where a person reading
       // the agent switcher would look to find or edit this definition.
       definedIn: joinPath(source.displayName, filePath),
     };
@@ -87,7 +87,7 @@ export class AgentDefinitionLoader {
 
   constructor(
     private readonly sources: readonly IContributionSource[],
-    // NEUT-003: injectable built-in set — replaces the default three when supplied
+    // Injectable built-in set — replaces the default three when supplied
     // (empty array = no built-ins merged).
     builtInAgents: readonly IAgentDefinition[] = BUILT_IN_AGENTS,
     private readonly roots: readonly string[] = [],
@@ -115,7 +115,7 @@ export class AgentDefinitionLoader {
     }
 
     // Merge with the built-in tier: a discovered custom agent overrides it on name collision, and WITHIN
-    // the tier the first entry wins. The first-wins rule is load-bearing for the ARCH-005 `agentDefinitions`
+    // the tier the first entry wins. The first-wins rule is load-bearing for the `agentDefinitions`
     // injection seam, which composes `[...injected, ...BUILT_IN_AGENTS]` into this tier: a pack-supplied
     // definition may override a framework built-in of the same name, and the roster never carries a
     // duplicate. (For a tier with no duplicate names — the historic BUILT_IN_AGENTS alone — this is a no-op.)

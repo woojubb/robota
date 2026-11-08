@@ -237,7 +237,7 @@ export async function executeMemoryCommand(
         'Memory correction and forgetting: only the user can run /memory correct or /memory forget.',
     };
   }
-  // SELFHOST-008 P1R: the single injected durable-memory port (or fs default) — authoritative for all
+  // The single injected durable-memory port (or fs default) — authoritative for all
   // `/memory` operations, so a surface that swaps the store is honored here too (no split-brain).
   const resolved = getMemoryStoreOrError(context);
   if (!resolved.ok) return resolved.result;

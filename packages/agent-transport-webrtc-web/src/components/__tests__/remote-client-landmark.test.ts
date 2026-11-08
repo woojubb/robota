@@ -1,6 +1,6 @@
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 /**
- * #3289 §3 review — `RemoteClient` owns the page's ONE `main` landmark in every state it can be in,
+ * `RemoteClient` owns the page's ONE `main` landmark in every state it can be in,
  * not just once `ConversationView` mounts and supplies its own. A host embedding it (e.g. `apps/
  * agent-web`'s `/remote` route) cannot be relied on to supply a landmark for the states before a
  * conversation starts — its root layout supplies none of its own, on the same reasoning this
@@ -36,7 +36,7 @@ function pairedHref(): string {
   });
 }
 
-describe('RemoteClient owns exactly one main landmark before a conversation starts (#3289 §3 review)', () => {
+describe('RemoteClient owns exactly one main landmark before a conversation starts', () => {
   it('renders exactly one main while connecting, with no conversation yet', () => {
     const html = renderToStaticMarkup(React.createElement(RemoteClient, { product: { identity: { displayName: 'Test Product', cliName: 'test-product' }, storage: { browserNamespace: 'test-product' } }, cryptoContext: createIdentityContext('test-product'), credentialDatabase: 'test-product-credentials', href: pairedHref() }));
     expect(html.match(/<main[ >]/gu)?.length).toBe(1);

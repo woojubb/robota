@@ -1,7 +1,7 @@
 /**
- * CMD-004 Phase 2 (TC-06) — the workspace-wide grep floor.
+ * The workspace-wide grep floor.
  *
- * After Stage E no production source may reference the deleted legacy command-effect contract:
+ * No production source may reference the deleted legacy command-effect contract:
  * no `*-tui-requested` name, no `TCommandEffect`, and no `effects:` / `effects?:` property key
  * (`rg -n "tui-requested|TCommandEffect|\beffects\??:"` over every `packages/<pkg>/src` tree —
  * test files excluded). This test IS that floor, run mechanically on every CI pass so the
@@ -34,7 +34,7 @@ function collectProductionSources(dir: string, out: string[]): void {
   }
 }
 
-describe('CMD-004 TC-06 — legacy command-effect grep floor (production sources)', () => {
+describe('legacy command-effect grep floor (production sources)', () => {
   it('no packages/*/src production file references tui-requested / TCommandEffect / effects keys', () => {
     const files: string[] = [];
     for (const pkg of readdirSync(PACKAGES_ROOT, { withFileTypes: true })) {

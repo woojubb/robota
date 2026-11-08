@@ -1,5 +1,5 @@
 /**
- * TEST-005 follow-up: record a REAL-model goal cassette.
+ * Record a REAL-model goal cassette.
  *
  * Drives the autonomous goal loop through a real provider (Qwen via TEST_QWEN_KEY) in record mode,
  * capturing real prompts + real tool-use into a committed cassette for deterministic replay in CI.

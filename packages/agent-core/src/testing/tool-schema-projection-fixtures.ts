@@ -1,9 +1,8 @@
 /**
- * Shared tool-schema-projection fixtures (MCP-005) — one schema shape per named case, so agent-core's
- * own projector tests and every provider's conformance test (S2) exercise IDENTICAL inputs.
+ * Shared tool-schema-projection fixtures — one schema shape per named case, so agent-core's
+ * own projector tests and every provider's conformance test exercise IDENTICAL inputs.
  *
- * Exported from the `./testing` subpath (TEST-003 precedent: `createScriptedProvider` lives the same
- * way) rather than from a `__tests__` directory: `scan-package-boundary-ownership` refuses a
+ * Exported from the `./testing` subpath (like `createScriptedProvider`) rather than from a `__tests__` directory: `scan-package-boundary-ownership` refuses a
  * cross-package import that reaches another package's private tree, and `__tests__` is exactly that.
  * A provider package's conformance test imports `loadToolSchemaProjectionFixtures` from
  * `@robota-sdk/agent-core/testing`.
@@ -69,7 +68,7 @@ function buildOversizedFixture(): IToolSchema {
   };
 }
 
-/** The named tool-schema-projection fixture set (MCP-005). Treat every value as read-only. */
+/** The named tool-schema-projection fixture set. Treat every value as read-only. */
 export interface IToolSchemaProjectionFixtures {
   /** Only members of the `IParameterSchema` subset — projects `adopted` under every profile. */
   readonly subsetOnly: IToolSchema;
@@ -91,7 +90,7 @@ export interface IToolSchemaProjectionFixtures {
   readonly oneInvalidAmongMany: readonly IToolSchema[];
 }
 
-/** The shared MCP-005 fixture set. Returns the same underlying values on every call — do not mutate them. */
+/** The shared fixture set. Returns the same underlying values on every call — do not mutate them. */
 export function loadToolSchemaProjectionFixtures(): IToolSchemaProjectionFixtures {
   return {
     subsetOnly: subsetOnlyFixture as unknown as IToolSchema,

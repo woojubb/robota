@@ -86,7 +86,7 @@ export async function executeModelCommand(
 }
 
 /**
- * With an interactive renderer attached, drive the inline picker (CMD-004); without one — headless,
+ * With an interactive renderer attached, drive the inline picker; without one — headless,
  * automation, or a model-invoked caller, though this command is never offered to a model — return the
  * list as plain text instead of guessing a choice.
  */
@@ -151,7 +151,7 @@ function formatModelOptionLabel(
 }
 
 /**
- * The id belongs to the CURRENT profile's provider (#3282 §2): hot-swap the live model first, and
+ * The id belongs to the CURRENT profile's provider: hot-swap the live model first, and
  * persist it to the current profile only once that succeeds — a failed swap must leave settings
  * exactly as they were.
  */
@@ -185,7 +185,7 @@ async function switchModelWithinCurrentProfile(
 }
 
 /**
- * The id belongs to ANOTHER profile's provider (#3282 §2): switch to that profile through the same
+ * The id belongs to ANOTHER profile's provider: switch to that profile through the same
  * validate-before-write path `/provider switch` uses, with the requested model folded into the same
  * settings write, then hot-swap through the existing `provider-hot-swap` host action — which re-reads
  * settings at execution time, so it picks up the model this write just persisted.

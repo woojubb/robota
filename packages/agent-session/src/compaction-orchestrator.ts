@@ -99,10 +99,9 @@ export class CompactionOrchestrator {
    * Run compaction — summarize the conversation to free context space.
    * @param provider - The AI provider to use for summarization
    * @param history - The messages to summarise. Must not be empty: whether there is anything worth
-   *   compacting is the caller's judgement, made before it commits to replacing the conversation
-   *   (CORE-031).
+   *   compacting is the caller's judgement, made before it commits to replacing the conversation.
    * @param instructions - Optional focus instructions for the summary
-   * @param signal - The turn's cancellation signal (RUNTIME-004). Checked before the provider call
+   * @param signal - The turn's cancellation signal. Checked before the provider call
    *   and again after it: an abort throws rather than returning, so the caller's existing
    *   leave-history-untouched path covers a cancel as well as a failure.
    * @param hookTraceEnv - The prompt's trace for PreCompact's command hooks, only inside a prompt
@@ -119,11 +118,11 @@ export class CompactionOrchestrator {
     hookTraceEnv?: ISubprocessTraceEnv,
     executionJournal?: IExecutionJournal,
   ): Promise<string> {
-    // RUNTIME-004: FIRST, before the emptiness check. Review found that ordering the other way
+    // FIRST, before the emptiness check. Review found that ordering the other way
     // returned a summary for an already-cancelled turn — and the caller replaces the conversation
     // with whatever this returns, so a cancel could still clear it and inject an empty summary.
     signal?.throwIfAborted();
-    // CORE-031: this used to `return ''`, contradicting the contract two lines of docblock above it
+    // This used to `return ''`, contradicting the contract two lines of docblock above it
     // ("always a non-empty string") — and the caller wrote that empty string over the conversation as
     // a summary. Deciding that an empty conversation is a no-op is the CALLER's judgement, made
     // before it commits to replacing anything; by the time execution is here, the caller has already
@@ -199,8 +198,8 @@ export class CompactionOrchestrator {
           }
         : undefined,
     );
-    // RUNTIME-004: the caller REPLACES the whole conversation with what this returns, so returning a
-    // summary after a cancel is what destroyed it. Throwing puts an abort on the same path CORE-019
+    // The caller REPLACES the whole conversation with what this returns, so returning a
+    // summary after a cancel is what destroyed it. Throwing puts an abort on the same path
     // already built for an invalid summary — history left untouched.
     signal?.throwIfAborted();
     if (typeof summaryMessage.content !== 'string' || summaryMessage.content.trim() === '') {

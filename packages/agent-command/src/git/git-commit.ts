@@ -1,5 +1,5 @@
 /**
- * BEHAVIOR-2437: `/git commit [<subject>]` — the staged set, and only ever the staged set.
+ * `/git commit [<subject>]` — the staged set, and only ever the staged set.
  *
  * No `-a`, no `add`, no paths. Nothing staged is answered with guidance that says why; the subject
  * is held to the Conventional Commits v1.0.0 MUST rules and nothing more (the commitlint conventions

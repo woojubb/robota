@@ -1,5 +1,5 @@
 /**
- * What a surface reads of a fork job through the session (#3679 3f, live follow).
+ * What a surface reads of a fork job through the session (live follow).
  *
  * A follower that looks at a running fork sees what the job is doing now: the rows of its recent
  * events, kept by the parent in a small window. Asking for more — a cursor — reads the job's own

@@ -1,6 +1,6 @@
 /**
  * The calls this session refused, most recent first, so `/permissions` can show what was blocked
- * and why without the user scrolling back through the transcript (issue #3082).
+ * and why without the user scrolling back through the transcript.
  *
  * In memory and bounded: it answers "what did I just block", not an audit trail — the
  * `PermissionDecision` hook and the session log are the durable records.

@@ -38,7 +38,7 @@ const CAREFUL_REVIEWER_PERSONA = [
  * portable persona block AND sets the framework/executor mechanism flags so the review style is
  * backed by real, observable behaviour rather than persona text alone:
  *
- * - `autonomy: 'ask-first'` → PRESET-004 maps this onto the ask-on-write permission posture, so
+ * - `autonomy: 'ask-first'` → the resolver maps this onto the ask-on-write permission posture, so
  *   writes/exec are prompted rather than auto-accepted.
  * - `selfVerification: true` → the framework/executor verifier loop runs before changes settle.
  * - `enableParallelSubagents: false` → focused analysis, not fan-out.

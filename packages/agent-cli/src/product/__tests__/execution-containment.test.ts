@@ -15,7 +15,7 @@ import {
 
 import type { IOsSandboxAvailability } from '@robota-sdk/agent-tools/node';
 
-/** Issues #3081, #3082 — the product composes its sandbox from settings, and the doctor reports it. */
+/** The product composes its sandbox from settings, and the doctor reports it. */
 const linux: IOsSandboxAvailability = { backend: 'bubblewrap', executable: 'bwrap', missing: [] };
 const missing: IOsSandboxAvailability = {
   backend: 'bubblewrap',
@@ -40,7 +40,7 @@ function sandboxWith(settings: object | undefined, availability: IOsSandboxAvail
 }
 
 describe('test-product execution containment', () => {
-  it('hides the credential-bearing user-state entries from confined commands (issue #3429)', () => {
+  it('hides the credential-bearing user-state entries from confined commands', () => {
     const runtime = createTestProductRuntime();
     const sandbox = sandboxWith({ enabled: true }, linux);
     const hidden = sandbox.client?.policy().denyRead.map((entry) => entry.path) ?? [];

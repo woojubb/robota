@@ -1,11 +1,9 @@
 /**
- * CMD-004 Phase 2 (TC-10) — red-first `/rename` host-side persistence proof.
+ * Red-first `/rename` host-side persistence proof.
  *
- * Pre-Stage-B, `executeRenameCommand` only RETURNS the `session-renamed` effect and the mutation
- * lives in the TUI renderer (`useSideEffects.ts` calls `interactiveSession.setName`), so a session
- * with NO TUI attached renames nothing — these tests were recorded FAILING against that state
- * (evidence in the spec's Evidence Log). Stage B makes the HOST execute the rename inside the
- * `executeCommand` pipeline (direct-on-session action), strips the applied action from the returned
+ * `executeRenameCommand` only RETURNS the `session-renamed` effect; the HOST executes the rename
+ * inside the `executeCommand` pipeline, so a session with NO TUI attached still renames. The host
+ * runs it (direct-on-session action), strips the applied action from the returned
  * result (so the TUI's duplicate application cannot fire — no double rename), and broadcasts
  * `session_renamed` so every attached surface updates its title.
  */
@@ -39,7 +37,7 @@ function createRuntimeSession(): Record<string, unknown> {
   };
 }
 
-describe('CMD-004 TC-10 — /rename persists host-side without any TUI handler', () => {
+describe('/rename persists host-side without any TUI handler', () => {
   it('mutates the session name via executeCommand alone and broadcasts session_renamed', async () => {
     const session = new InteractiveSession({
       host: testHost,

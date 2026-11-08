@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTrustedDeviceStore, type ITrustedDeviceRecord } from '../trusted-device-store.js';
 
 /**
- * REMOTE-012 E3 TC-04 — the host-side persistence of the trusted-device store (public keys only, fail-fast
+ * The host-side persistence of the trusted-device store (public keys only, fail-fast
  * on corrupt). The host identity keypair is covered by `host-identity.test.ts`.
  */
 
@@ -30,7 +30,7 @@ function record(over: Partial<ITrustedDeviceRecord> = {}): ITrustedDeviceRecord 
   };
 }
 
-describe('trusted-device store (REMOTE-012 TC-04)', () => {
+describe('trusted-device store', () => {
   it('upsert → get/list; revoke removes; absent id is undefined', () => {
     const file = join(dir, 'devices.json');
     const store = createTrustedDeviceStore(file);

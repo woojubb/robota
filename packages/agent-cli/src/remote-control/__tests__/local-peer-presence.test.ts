@@ -1,5 +1,5 @@
 /**
- * PEER-004 (#1863) — the composition leaf that makes this session discoverable.
+ * The composition leaf that makes this session discoverable.
  *
  * These cases exist because the two leaves underneath were both landed and called by nothing. What
  * is pinned here is the WIRING: that announcing publishes an entry a second reader can see, that a
@@ -320,7 +320,7 @@ describe('withdrawal is bound to the process ending', () => {
   });
 });
 
-describe('the workspace claim (#3101 B2)', () => {
+describe('the workspace claim', () => {
   const env = Object.fromEntries(
     Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
   );

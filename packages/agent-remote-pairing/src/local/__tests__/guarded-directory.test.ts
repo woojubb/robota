@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ensureGuardedDirectory, GUARDED_MODE } from '../guarded-directory.js';
 
 /**
- * SEC-010 — creating the directory whose permissions are the proof.
+ * Creating the directory whose permissions are the proof.
  *
  * The umask cases run against a REAL filesystem, deliberately. The whole defect being guarded
  * against is that `mkdir(…, { mode: 0o700 })` returns successfully having produced 0755, and a
@@ -16,7 +16,7 @@ import { ensureGuardedDirectory, GUARDED_MODE } from '../guarded-directory.js';
 const made: string[] = [];
 
 function scratch(): string {
-  // mkdtemp, not join(tmpdir(), name): the OS chooses the name and creates it 0700 (SEC-003).
+  // mkdtemp, not join(tmpdir(), name): the OS chooses the name and creates it 0700.
   const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'agent-test-guarded-')));
   made.push(dir);
   return dir;
@@ -29,7 +29,7 @@ afterEach(() => {
   }
 });
 
-describe('SEC-010 — a created rendezvous directory is verified, not assumed', () => {
+describe('a created rendezvous directory is verified, not assumed', () => {
   it('creates it 0700 and admits it', () => {
     const target = path.join(scratch(), 'peers');
 
@@ -85,7 +85,7 @@ describe('SEC-010 — a created rendezvous directory is verified, not assumed', 
   });
 });
 
-describe('SEC-010 — a directory that could not be made is a refusal, never a pass', () => {
+describe('a directory that could not be made is a refusal, never a pass', () => {
   it('refuses when creation throws', () => {
     const result = ensureGuardedDirectory('/anywhere', {
       expectedUid: 0,

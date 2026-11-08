@@ -38,7 +38,7 @@ const APP_VIEW_HOST_VERSION = '1.0.0';
 
 /**
  * Designed empty state shown before the first turn. Renders in the same slot as `ConversationView`
- * (never together), so it carries the same `main` landmark and label (#3289 §3 review) — nothing
+ * (never together), so it carries the same `main` landmark and label — nothing
  * above this slot supplies one.
  */
 function EmptyState(): React.ReactElement {
@@ -59,14 +59,14 @@ function EmptyState(): React.ReactElement {
 }
 
 /**
- * Issue #3282 §3 — shown in place of the conversation while `sessionStatus.setupRequired` holds: the
+ * Shown in place of the conversation while `sessionStatus.setupRequired` holds: the
  * session is running (the GUI itself connected fine), but has no provider to reply with yet. "Set up
  * provider" runs `/provider add` as a command; its questions dock above where the composer would be
  * (the same `PermissionPrompt` any ask uses), and the panel clears itself once the session reports a
  * real provider, live — no restart, no reload.
  *
  * Renders in the same slot as `ConversationView`/`EmptyState` (never together), so it carries the
- * page's `main` landmark here too (#3289 §3 review) — nothing above this slot supplies one.
+ * page's `main` landmark here too — nothing above this slot supplies one.
  */
 function SetupPanel({
   onSetUp,
@@ -121,17 +121,17 @@ export function SessionSurface({
   /** Secure desktop discards unsent text and attachment paths when the session closes. */
   draftMode?: 'persistent' | 'volatile';
   /**
-   * Present only when the host can restart the runtime after the connection is lost for good (issue
-   * #3280 §5, the desktop app); absent in the browser, where the banner says how to reopen it instead.
+   * Present only when the host can restart the runtime after the connection is lost for good (the
+   * desktop app); absent in the browser, where the banner says how to reopen it instead.
    */
   onReconnect?: () => Promise<void>;
-  /** Forwarded to the composer's attach button — present only on the desktop app (#3282 §4d). */
+  /** Forwarded to the composer's attach button — present only on the desktop app. */
   pickFiles?: () => Promise<readonly IPickedFile[]>;
-  /** Forwarded to the composer's drag-and-drop — present only on the desktop app (#3282 §4d). */
+  /** Forwarded to the composer's drag-and-drop — present only on the desktop app. */
   getPathForFile?: (file: File) => string;
   /**
    * The Project panel's memory "Open in editor" action — present only when the host can open a file
-   * in an external editor (the desktop app, #3282 §4c). Absent in the browser, where the action
+   * in an external editor (the desktop app). Absent in the browser, where the action
    * itself is hidden (only shown "if the host supports it").
    */
   onOpenMemoryInEditor?: (path: string) => void;
@@ -158,7 +158,7 @@ export function SessionSurface({
   const tasks = state.executionWorkspace?.entries ?? [];
   // The main thread alone is this conversation; the rail earns its width only for work beside it.
   const hasTasks = tasks.some((entry) => entry.kind !== 'main_thread');
-  // #3288 §1: the entry open in the detail sheet, resolved fresh from the live snapshot each render
+  // The entry open in the detail sheet, resolved fresh from the live snapshot each render
   // (so it reflects the entry's own updates, e.g. a Stop taking effect) rather than a stale copy.
   const openEntry = tasks.find((entry) => entry.id === state.openEntryId) ?? null;
   // A loop's `cancel` means "stop the loop" (`/loop stop <id>`) — never cancel-background-task,
@@ -171,9 +171,9 @@ export function SessionSurface({
       state.send({ type: 'cancel-background-task', taskId: entry.sourceId });
     }
   };
-  // #3282 §4 part b-3: the rail also earns its width for a schedule or a goal, even with no running
-  // background task/loop beside the conversation — "Work in progress" covers all four (issue #3282
-  // §4's Expected section), not only execution-workspace entries.
+  // The rail also earns its width for a schedule or a goal, even with no running
+  // background task/loop beside the conversation — "Work in progress" covers all four, not only
+  // execution-workspace entries.
   const currentGoal = state.sessionStatus?.goal ?? null;
   const hasWorkInProgress = hasTasks || state.scheduledTasks.length > 0 || currentGoal !== null;
   const isEmpty =
@@ -181,7 +181,7 @@ export function SessionSurface({
     !state.streamingText &&
     !state.isThinking &&
     state.activeTools.length === 0;
-  // #3282 §3: no provider is configured — the session is running (a placeholder stands in for the
+  // No provider is configured — the session is running (a placeholder stands in for the
   // real one), but there is nothing to reply with yet.
   const setupRequired = state.sessionStatus?.setupRequired === true;
   // Switching, starting, renaming and deleting sessions are driver actions: an observer has no sidebar.
@@ -195,8 +195,8 @@ export function SessionSurface({
   const currentRow = listing?.sessions.find((session) => session.id === listing.currentSessionId);
   // A rename seen on this page wins; otherwise the host's listing names the current session.
   const title = state.sessionName ?? (currentRow ? sessionTitle(currentRow) : null);
-  // #3289 §2 — below `md` the open sidebar is a sheet over the conversation (the shared `Dialog`,
-  // #3331) rather than a column beside it: a dimmed backdrop, Esc, an outside click or choosing a
+  // Below `md` the open sidebar is a sheet over the conversation (the shared `Dialog`)
+  // rather than a column beside it: a dimmed backdrop, Esc, an outside click or choosing a
   // session all close it again, and it traps Tab inside it while open.
   const isNarrow = useMediaQuery(NARROW_WINDOW_QUERY);
   const sheetActive = sidebarOpen && isNarrow;
@@ -370,7 +370,7 @@ export function SessionSurface({
                     onFocusReturn={() => composerRef.current?.focus()}
                   />
                 )}
-                {/* #3282 §3: hidden while there is no provider to send to — the setup panel's own
+                {/* Hidden while there is no provider to send to — the setup panel's own
                     button is the only way in, so nobody types into a composer that goes nowhere. */}
                 {readOnly ? (
                   <p
@@ -403,7 +403,7 @@ export function SessionSurface({
                     modelList={state.modelList}
                     onRequestModelList={() => state.requestModelList()}
                     onSilentCommand={(name, args) => state.sendCommandSilently(name, args)}
-                    // #3282 §4b: "Manage providers…" now opens Settings at the Providers & Models
+                    // "Manage providers…" now opens Settings at the Providers & Models
                     // section, replacing the model menu's former server-driven profile flow.
                     onManageProviders={() => state.openSettings('providers')}
                     onSubmit={(prompt) => {
@@ -497,7 +497,7 @@ export function SessionSurface({
 
 /**
  * A centered chrome frame for the pre-session (loading) and fatal states — reused by app shells. Its
- * content area is this page's `main` landmark (#3289 §3 review): nothing above `CenteredChrome`'s
+ * content area is this page's `main` landmark: nothing above `CenteredChrome`'s
  * three call sites (starting, fatal, the trust question) supplies one, and none of the three ever
  * render alongside `SessionSurface`'s own. `header` stays a sibling of `main`, not inside it, so it
  * keeps its own implicit `banner` role.

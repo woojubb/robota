@@ -1,5 +1,5 @@
 /**
- * TERM-004: `/editor` command module — a framework-level consumer of the terminal-handoff capability.
+ * `/editor` command module — a framework-level consumer of the terminal-handoff capability.
  */
 import { EDITOR_COMMAND_DESCRIPTION, executeEditorCommand } from './editor-command.js';
 

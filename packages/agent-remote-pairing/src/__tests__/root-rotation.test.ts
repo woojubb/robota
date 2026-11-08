@@ -16,7 +16,7 @@ import {
 import { exportPublicKey, generateIdentityKeyPair } from '../device-identity.js';
 
 /**
- * SEC-011 (issue #1865) — rotating the user root, and the case this mechanism deliberately does NOT
+ * Rotating the user root, and the case this mechanism deliberately does NOT
  * handle.
  *
  * The lock-out case is the one worth reading first: without the successor's countersignature, a
@@ -188,7 +188,7 @@ describe('what a verifier refuses on its own terms', () => {
   });
 });
 
-describe('a device caught mid-rotation (TC-08)', () => {
+describe('a device caught mid-rotation', () => {
   it('keeps working inside the overlap and stops at its end, with the same certificate', async () => {
     // The certificate never changes. What changes is whether the root that signed it is still
     // acceptable — which is the whole point of a bounded overlap: enrolled devices keep working

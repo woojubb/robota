@@ -88,7 +88,7 @@ export interface IAgentDestroyDeps {
   /**
    * The lifecycle-managed collaborators the agent owns.
    *
-   * CORE-045: the disposal chain reached modules, plugins, the module registry and the event
+   * The disposal chain reached modules, plugins, the module registry and the event
    * emitter but never these two, so a destroyed agent still held its tool registry and its provider
    * instances — and still ACCEPTED `registerTool`, because the flag that would have refused it was
    * never flipped. Disposal is what the flag genuinely marks; leaving them out made that untrue.
@@ -99,13 +99,13 @@ export interface IAgentDestroyDeps {
   resetState(): void;
 }
 
-/** Result of a best-effort destroy: cleanup failures are collected, never thrown (CORE-013). */
+/** Result of a best-effort destroy: cleanup failures are collected, never thrown. */
 export interface IDestroyResult {
   errors: Error[];
 }
 
 /**
- * Destroy and clean up the agent instance — **best-effort** (CORE-013).
+ * Destroy and clean up the agent instance — **best-effort**.
  *
  * Disposal must be safe to fire-and-forget (`void agent.destroy()`): a rejection here becomes an
  * unhandled rejection that kills the host process on Node 20+. Every cleanup step therefore runs
@@ -122,7 +122,7 @@ export async function destroyAgent(deps: IAgentDestroyDeps): Promise<IDestroyRes
       await run();
       deps.logger.debug(label);
     } catch (error) {
-      // allow-fallback: best-effort disposal IS the contract — failure is logged, collected into the returned result, and remaining steps still run (CORE-013)
+      // allow-fallback: best-effort disposal IS the contract — failure is logged, collected into the returned result, and remaining steps still run
       const wrapped = error instanceof Error ? error : new Error(String(error));
       errors.push(wrapped);
       deps.logger.error('Error during ConversationAgent destruction step', {
@@ -139,10 +139,10 @@ export async function destroyAgent(deps: IAgentDestroyDeps): Promise<IDestroyRes
   if (deps.executionService) {
     const plugins = deps.executionService.getPlugins();
     for (const plugin of plugins) {
-      // CORE-022 (SPEC § Disposal Chain Contract): dispose() is the SINGLE component-level
+      // SPEC § Disposal Chain Contract: dispose() is the SINGLE component-level
       // entry point — the base implementation unsubscribes module events, and overrides
       // release owned resources (timers/sockets/storage). Without this a plugin's resources
-      // outlive the agent and keep the process event loop alive (RUNTIME-09).
+      // outlive the agent and keep the process event loop alive.
       await step(`Plugin disposed: ${plugin.name}`, () => plugin.dispose());
     }
     deps.logger.debug('ExecutionService plugins cleaned up');

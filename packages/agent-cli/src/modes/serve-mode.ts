@@ -1,7 +1,7 @@
 import { SupervisedControlPathTooLongError } from '@robota-sdk/agent-local-host';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * RUNTIME-001 — the headless `the product --serve` runtime host entry.
+ * The headless `the product --serve` runtime host entry.
  *
  * Runs the shared `startRuntimeHost` (builds the session + serves the transports) and keeps the process alive
  * until signaled, then shuts the runtime down cleanly. Renders NO ink — this is the backend `apps/agent-app`
@@ -105,7 +105,7 @@ import type { IInteractiveSession, ISessionLoopState } from '@robota-sdk/agent-i
 
 /** Preset-resolved identity/posture the thin-shell CLI forwards into the headless runtime session. */
 /**
- * ARCH-041: ONE declaration — see the note on `IPrintModePresetOptions`. This was the third copy.
+ * ONE declaration — see the note on `IPrintModePresetOptions`. This was the third copy.
  */
 export type IServeModePresetOptions = Partial<IPresetSurfaceOptions>;
 
@@ -126,11 +126,11 @@ export interface IServeModeOptions {
   args: IParsedCliArgs;
   provider: IAIProvider;
   /**
-   * #3282: forwarded to the session so `/provider switch` can construct the provider it switches TO.
+   * Forwarded to the session so `/provider switch` can construct the provider it switches TO.
    *
    * Not optional-by-accident: without it the session holds an empty list, and the hot-swap fails with
    * "Unknown provider: <name>. Currently supported: " — an empty supported-list, which is both wrong
-   * and unactionable. The TUI has carried this since #1844 (see the comment on `providerDefinitions`
+   * and unactionable. The TUI carries this (see the comment on `providerDefinitions`
    * in `packages/agent-ui-terminal/src/tui-channel-options.ts`); a served session never had it.
    */
   providerDefinitions?: readonly IProviderDefinition[];
@@ -158,7 +158,7 @@ export interface IServeModeOptions {
   skillRoots?: readonly ISkillRootDescriptor[];
   taskContext?: { readonly enabled?: boolean; readonly dir?: string };
   /**
-   * CLI-083 (issue #2287) — the org policy, forwarded so the session's `blockedCommands` and
+   * The org policy, forwarded so the session's `blockedCommands` and
    * `allowedProviders` enforcement is reachable in a served session. Declared on this projection
    * for the reason stated above `buildServeSessionOptions`: a field carried by one shell and
    * dropped by another is invisible, so each projection is tested for it separately.
@@ -166,26 +166,26 @@ export interface IServeModeOptions {
   orgPolicy?: IOrgPolicy | undefined;
   backgroundTaskRunners: IBackgroundTaskRunner[];
   subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>;
-  /** ARCH-005: composition-root-contributed subagent definitions (the profile's merged pack subagents). */
+  /** Composition-root-contributed subagent definitions (the profile's merged pack subagents). */
   agentDefinitions?: readonly IAgentDefinition[];
   agentDefinitionRoots?: readonly string[];
   pluginDirectories?: { readonly user?: string; readonly project?: string };
   /**
-   * ARCH-006/007: the profile's merged pack TOOLS, laid on by the kernel overlay. Forwarded to the
+   * The profile's merged pack TOOLS, laid on by the kernel overlay. Forwarded to the
    * session's `additionalTools` seam, where the framework dedupes them by name against its own default
    * tier (first occurrence wins — see `agent-framework/docs/SPEC.md` § "Session-level tool composition").
    */
   additionalTools?: IToolWithEventService[];
   toolExecutionPolicy?: IAgentConfig['toolExecutionPolicy'];
   /**
-   * ARCH-006: REPLACES `agent-framework`'s `createDefaultTools()` tier. `the product` passes an empty array so
+   * REPLACES `agent-framework`'s `createDefaultTools()` tier. `the product` passes an empty array so
    * its capability packs are the SOLE source of the session's tools.
    */
   defaultTools?: readonly IToolWithEventService[];
   /** The sandbox the shell tools run under, so the session can let a confined command skip the prompt. */
   sandboxClient?: ISandboxClient;
   /**
-   * MCP-004 S3: the wrapper policy for MCP tool calls that outlive the threshold. Serve is one of
+   * The wrapper policy for MCP tool calls that outlive the threshold. Serve is one of
    * the two runtimes that adopts it (spec § Modes); absent ⇒ no MCP tool is wrapped, today's
    * behavior. Built by `mcp.buildToolCallHandoff(permissionMode)` AFTER `mcp.connect()`.
    */
@@ -197,27 +197,27 @@ export interface IServeModeOptions {
   remoteCommandPolicy?: IRemoteCommandPolicy;
   resumeSessionId?: string;
   /**
-   * CLI-076: the resolved model id. Forwarded to the runtime session so an explicit `--model` override
+   * The resolved model id. Forwarded to the runtime session so an explicit `--model` override
    * reaches the provider chat call instead of being silently replaced by the session's default model.
    */
   model?: string;
   preset: IServeModePresetOptions;
-  /** SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior). */
+  /** Surface-resolved memory fields (empty ⇒ memory OFF, today's behavior). */
   memorySessionOptions?: IMemorySessionOptions;
   /**
-   * GUI-007: resolve the live WS URL for the served monitor (`ws://127.0.0.1:<boundPort>`), read AFTER the
+   * Resolve the live WS URL for the served monitor (`ws://127.0.0.1:<boundPort>`), read AFTER the
    * host has started (the port is only known once the WS transport binds). Absent ⇒ the monitor UI is not
    * served. The CLI composition root builds this from the registered `WsTransport.boundPort`.
    */
   getMonitorWsUrl?: () => string | undefined;
   /**
-   * #3189: binds each client connection to the sessions this runtime keeps live, for listing,
+   * Binds each client connection to the sessions this runtime keeps live, for listing,
    * starting and switching them. Serve mode attaches it to its session pool before the transports
    * start; absent ⇒ one session, and clients are told sessions are not available.
    */
   sessionDirectory?: IServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>;
   /**
-   * #3282 §3: `provider` is a placeholder (never calls a model) because no provider was configured.
+   * `provider` is a placeholder (never calls a model) because no provider was configured.
    * The session refuses a submitted turn and reports it in `session_status`, instead of the process
    * exiting the way a served runtime with a missing provider used to.
    */
@@ -235,8 +235,8 @@ export interface IServeModeOptions {
 /**
  * The session options a served runtime starts with.
  *
- * Extracted so a case can assert what serve mode forwards WITHOUT starting a server. Issue #1937 is
- * the reason: a field can be declared on the projection, forwarded by two shells and dropped by the
+ * Extracted so a case can assert what serve mode forwards WITHOUT starting a server. The reason:
+ * a field can be declared on the projection, forwarded by two shells and dropped by the
  * third, and nothing would have said so — `buildAppendSystemPrompt` had exactly one caller for that
  * whole time. A test of the helper is green in that state; a test of this is not.
  */
@@ -247,7 +247,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     cwd: opts.cwd,
     ...(opts.livePromptTrace ? { livePromptTrace: opts.livePromptTrace } : {}),
     provider: opts.provider,
-    // #3282: the session reads these when `/provider switch` hot-swaps. Absent, the switch throws
+    // The session reads these when `/provider switch` hot-swaps. Absent, the switch throws
     // "Unknown provider: <name>. Currently supported: " with an EMPTY list — measured, not inferred.
     ...(opts.providerDefinitions ? { providerDefinitions: opts.providerDefinitions } : {}),
     ...(opts.resolveProviderCredential === undefined
@@ -286,12 +286,12 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(opts.skillRoots !== undefined ? { skillRoots: opts.skillRoots } : {}),
     ...(opts.taskContext !== undefined ? { taskContext: opts.taskContext } : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
-    // CLI-076: forward the resolved model so `--model` takes effect in the served runtime session.
+    // Forward the resolved model so `--model` takes effect in the served runtime session.
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     ...(preset.outputStyle !== undefined ? { outputStyle: preset.outputStyle } : {}),
     permissionMode: args.permissionMode ?? preset.permissionMode,
     // A supervised session opens the grants its launcher handed over; each is checked this way.
-    // One grant history for the run: every session it switches to shares it (#3189).
+    // One grant history for the run: every session it switches to shares it.
     ...(args.supervisedExternalEventGrants === true
       ? {
           externalEventVerifierFactory: createExternalEventVerifier,
@@ -300,7 +300,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
         }
       : {}),
     baselinePermissionAllow: opts.productRuntime.layout.baselinePermissionAllow,
-    // Issue #1937: the CLI-sourced prompt addition, composed once at the projection. Before this it
+    // The CLI-sourced prompt addition, composed once at the projection. Before this it
     // was built at print mode only, so these flags did nothing in a served session.
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : opts.sessionStore,
@@ -348,9 +348,9 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(preset.maxOutputTokens !== undefined ? { maxOutputTokens: preset.maxOutputTokens } : {}),
     ...(preset.responseFormat !== undefined ? { responseFormat: preset.responseFormat } : {}),
     ...(preset.language !== undefined ? { language: preset.language } : {}),
-    // ARCH-040: onto the SEED key, never onto `systemPrompt` — that one replaces the composed prompt.
+    // Onto the SEED key, never onto `systemPrompt` — that one replaces the composed prompt.
     ...(preset.systemPrompt !== undefined ? { presetSystemPrompt: preset.systemPrompt } : {}),
-    // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
+    // Surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...(opts.memorySessionOptions ?? {}),
     ...(opts.setupRequired === true ? { setupRequired: true } : {}),
   };
@@ -630,7 +630,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       return [primary, ...others];
     };
 
-    // GUI-007: with `--serve --open`, the CLI serves its OWN monitor SPA over localhost HTTP (a localhost-origin
+    // With `--serve --open`, the CLI serves its OWN monitor SPA over localhost HTTP (a localhost-origin
     // surface) and opens it — gated on `--open` so the GUI sidecar's plain `--serve` path is unaffected. The WS
     // URL is resolved AFTER the host started (the bound port is only known then).
     let monitorUi: IMonitorUiServer | null = null;
@@ -660,7 +660,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     }
 
     // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals — or a
-    // host-executed session-exit/-restart action fires (CMD-004 Phase 2) — then tear down cleanly.
+    // host-executed session-exit/-restart action fires — then tear down cleanly.
     let supervisedControl: ISupervisedControl | undefined;
     let disarmUncertifiedStop: (() => void) | undefined;
     let eventEndpoint: IExternalEventHttpHost | undefined;
@@ -704,9 +704,9 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         },
         settle,
       );
-      // CMD-004 Phase 2 (Stage B): late-bound serve-mode process adapter. A host-executed exit or
+      // Late-bound serve-mode process adapter. A host-executed exit or
       // restart terminates the SHARED host serving ALL attached surfaces — the deliberate
-      // local == remote decision (REMOTE-006): a remote driver is a full driver; a surface that only
+      // local == remote decision: a remote driver is a full driver; a surface that only
       // wants to detach disconnects. The teardown is deferred one flush window so the in-flight
       // `command_result` reaches the requesting surface before the transports close. Restart ==
       // graceful exit here (the supervisor — e.g. the GUI sidecar — owns relaunching). A supervised

@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { scrubbedGitEnv } from '../default-plugin-command-adapter.js';
 
 /**
- * SEC-017 (issue #2019) — argv stops the SHELL; the environment is the other door.
+ * Argv stops the SHELL; the environment is the other door.
  *
  * `GIT_SSH_COMMAND`, `GIT_EXTERNAL_DIFF`, `GIT_PROXY_COMMAND` and `GIT_ASKPASS` each name a PROGRAM
  * git executes. An inherited one turns `git clone <url>` into "run whatever that variable says" —
  * the same arbitrary execution the string-shell port allowed, reached without any shell at all. So
  * the argv fix is only half of it, and this asserts the other half.
  */
-describe('SEC-017 — a git subprocess inherits only an allowlisted environment', () => {
+describe('a git subprocess inherits only an allowlisted environment', () => {
   // Each of these names a program git will run.
   const EXECUTABLE_VARIABLES = [
     'GIT_SSH_COMMAND',

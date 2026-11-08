@@ -11,7 +11,7 @@ import type { ICreateSessionOptions } from '../create-session-types.js';
 const testHost = createTestFrameworkHost();
 
 /**
- * ARCH-005 S2 / OWNER DECISION 2 — the `agentDefinitions` injection seam.
+ * The `agentDefinitions` injection seam.
  *
  * Before this seam the framework's subagent roster was closed: `buildAgentRuntime` constructed
  * `new AgentDefinitionLoader(cwd)` with the hard-coded `BUILT_IN_AGENTS`, so a capability pack's

@@ -10,7 +10,7 @@ import type { IPickedFile } from '../composer-attachments.js';
 import type { TCommandCatalog, TSessionStatus } from '../../hooks/session-client-types.js';
 
 /**
- * #3282 §4d: the composer's attach button, drag-and-drop, chip list and remove/persist behaviour.
+ * The composer's attach button, drag-and-drop, chip list and remove/persist behaviour.
  * The draft persists to `localStorage` — never leak one test's stored draft into another (same
  * convention as composer.test.tsx).
  */
@@ -45,7 +45,7 @@ function baseProps(): {
 
 /**
  * A `TSessionStatus` naming a workspace root — attachments are resolved against `workspace.path`
- * (#3282 §4d, using the `ISessionStatusSnapshot.workspace` field #3289 §1 added).
+ * (using the `ISessionStatusSnapshot.workspace` field).
  */
 function statusWithWorkspace(sessionId: string, path: string): TSessionStatus {
   return {
@@ -63,7 +63,7 @@ function drop(target: Element, files: File[]): void {
   fireEvent.drop(target, { dataTransfer: { files, types: ['Files'] } });
 }
 
-describe('Composer — attach button (#3282 §4d)', () => {
+describe('Composer — attach button', () => {
   afterEach(cleanup);
 
   it('is present, with an accessible name, and disabled while not connected', () => {
@@ -101,7 +101,7 @@ describe('Composer — attach button (#3282 §4d)', () => {
   });
 });
 
-describe('Composer — drag-and-drop (#3282 §4d)', () => {
+describe('Composer — drag-and-drop', () => {
   afterEach(cleanup);
 
   it('announces the drop zone even before any drag happens (rule 7)', () => {
@@ -197,7 +197,7 @@ describe('Composer — drag-and-drop (#3282 §4d)', () => {
     expect(screen.queryByText('a.ts')).toBeNull();
   });
 
-  it('refuses an image outright — no chip, a plain sentence (#3282 §4 rule 4, corrected)', () => {
+  it('refuses an image outright — no chip, a plain sentence', () => {
     render(
       <Composer
         {...baseProps()}
@@ -227,7 +227,7 @@ describe('Composer — drag-and-drop (#3282 §4d)', () => {
   });
 });
 
-describe('Composer — remove and persist attachments (#3282 §4d)', () => {
+describe('Composer — remove and persist attachments', () => {
   afterEach(cleanup);
 
   it('Remove clears a chip, named after its file', () => {
@@ -291,7 +291,7 @@ describe('Composer — remove and persist attachments (#3282 §4d)', () => {
   });
 });
 
-describe('Composer — attachment count limit (cheap hardening, #3282 §4d follow-up)', () => {
+describe('Composer — attachment count limit (cheap hardening)', () => {
   afterEach(cleanup);
 
   it('a 9th file is refused with a plain message; the first 8 stay attached', () => {

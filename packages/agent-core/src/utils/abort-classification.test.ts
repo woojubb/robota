@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { isAbortFailure } from './abort-classification';
 
 /**
- * CORE-027. The classification that stood at three call sites was
+ * The classification that stood at three call sites was
  *
  *   error.name === 'AbortError' || error.message.includes('aborted') || error.message.includes('abort')
  *
@@ -11,7 +11,7 @@ import { isAbortFailure } from './abort-classification';
  * cases below that must answer FALSE are all real provider-failure wordings; each one of them was
  * previously reported to the caller as a successfully interrupted run.
  */
-describe('isAbortFailure (CORE-027)', () => {
+describe('isAbortFailure', () => {
   describe('a real failure is not an abort because its prose contains the word', () => {
     for (const message of [
       'the upstream aborted the stream after a policy check',
@@ -71,12 +71,11 @@ describe('isAbortFailure (CORE-027)', () => {
   });
 
   /**
-   * The classification does not depend on `instanceof Error`, for two independent reasons — only one
-   * of which was raised in review of #1593.
+   * The classification does not depend on `instanceof Error`, for two independent reasons.
    *
-   * The review's claim was that `DOMException` does not extend `Error`. Measured on this runtime, it
+   * One might assume `DOMException` does not extend `Error`. Measured on this runtime, it
    * does (`new DOMException('x','AbortError') instanceof Error === true`, Node 22.14, and WebIDL has
-   * put `Error.prototype` in its chain since 2021), so the claim does not hold here — the
+   * put `Error.prototype` in its chain since 2021), so that does not hold here — the
    * `DOMException` case below passed before this change and still passes.
    *
    * It is fixed anyway, because `agent-core` ships a browser build and because `instanceof` also

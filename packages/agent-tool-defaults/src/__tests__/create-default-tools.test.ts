@@ -8,7 +8,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { createDefaultTools } from '../create-default-tools.js';
 
 /**
- * ARCH-010 made `cwd` a required field of `ICreateDefaultToolsOptions`. The cases that assert the tool
+ * `cwd` is a required field of `ICreateDefaultToolsOptions`. The cases that assert the tool
  * LIST never execute a tool and so never reach a path guard; this root is named once, here, so that
  * inertness is visible rather than implied. The containment cases below choose their own roots.
  * Every root sits, unmade, inside one private per-run directory rather than at a fixed name under
@@ -49,14 +49,14 @@ describe('createDefaultTools', () => {
     ]);
   });
 
-  // SEC-007 — the reachability floor for the ENUMERATING tools. `Glob`/`Grep` used to be registered
+  // The reachability floor for the ENUMERATING tools. `Glob`/`Grep` used to be registered
   // here as the module-level singletons, which take no `cwd` at all: the assembly's containment root
   // reached `Read`/`Write`/`Edit` and stopped. A per-call instance is the whole fix, so the property
   // asserted is that the assembly produces a CONTAINED tool, not merely that a factory can accept a
   // `cwd` nobody passes.
-  it('SEC-007: Glob and Grep are bound to the assembly cwd, not context-free singletons', async () => {
+  it('Glob and Grep are bound to the assembly cwd, not context-free singletons', async () => {
     const contained = createDefaultTools({ cwd: join(PRIVATE_BASE, 'sec007-assembly-scope') });
-    // ARCH-010 — this used to be `createDefaultTools()` with no root at all, which is no longer
+    // This used to be `createDefaultTools()` with no root at all, which is no longer
     // constructible. A SECOND root serves the same purpose and states it better: one shared singleton
     // could not carry two different roots either way.
     const otherRoot = createDefaultTools({ cwd: join(PRIVATE_BASE, 'sec007-other-scope') });
@@ -89,7 +89,7 @@ describe('createDefaultTools', () => {
   // `@robota-sdk/agent-tools` — the SAME object on every call. Two concurrently open sessions each
   // built from `createDefaultTools({cwd})` then shared it and tripped a resource guard's
   // `resource-reused` even though nothing about the tool needs sharing across sessions. A fresh
-  // instance per call is the fix, mirroring Glob/Grep (SEC-007).
+  // instance per call is the fix, mirroring Glob/Grep.
   it('MUST 4: WebFetch is a fresh instance per call, not a context-free singleton', () => {
     const first = createDefaultTools({ cwd: ASSEMBLY_ROOT });
     const second = createDefaultTools({ cwd: ASSEMBLY_ROOT });
@@ -113,7 +113,7 @@ describe('createDefaultTools', () => {
 });
 
 /**
- * CLI-1990 TC-11 — the default tier is RESIDENT.
+ * The default tier is RESIDENT.
  *
  * Residency is declared by omission: a tool that says nothing about `deferLoading` is sent on every
  * request, which is what every built-in must remain. Anthropic's own guidance is that standard tool
@@ -121,7 +121,7 @@ describe('createDefaultTools', () => {
  * regression rather than a saving — and the invariant that at least one tool stays resident is
  * satisfied by this tier alone.
  */
-describe('CLI-1990 TC-11 — default tool residency', () => {
+describe('default tool residency', () => {
   it('declares no deferLoading on any built-in — the whole tier is resident', () => {
     const deferred = createDefaultTools({ cwd: ASSEMBLY_ROOT })
       .filter((tool) => tool.schema.deferLoading !== undefined)
@@ -146,7 +146,7 @@ describe('CLI-1990 TC-11 — default tool residency', () => {
   });
 });
 
-describe('file tools follow the sandbox filesystem relation (issue #3081)', () => {
+describe('file tools follow the sandbox filesystem relation', () => {
   it('a separate filesystem withholds Glob and Grep, and routes Read through the sandbox', async () => {
     const sandboxClient = new InMemorySandboxClient();
     await sandboxClient.writeFile('/sandbox/only.txt', 'inside the sandbox');
@@ -173,7 +173,7 @@ describe('file tools follow the sandbox filesystem relation (issue #3081)', () =
   });
 });
 
-/** Issue #3550 item 4 — an editor reaches the host file tools and the searches, never the commands. */
+/** An editor reaches the host file tools and the searches, never the commands. */
 describe('an editor reaches the host file tools only', () => {
   function recordingEditor() {
     const asked: string[] = [];

@@ -73,7 +73,7 @@ function loadSessionRecords(
   readonly locked: number;
   readonly noKeys: number;
 } {
-  // TRANS-007: analysis needs readable records, so unreadable entries are skipped HERE rather than
+  // Analysis needs readable records, so unreadable entries are skipped HERE rather than
   // by the store — the store now reports them, and each consumer decides what it can do with one.
   // An analyzer has nothing to analyse in a record it cannot decode.
   const byId = new Map<string, TSessionAnalysisInput>();

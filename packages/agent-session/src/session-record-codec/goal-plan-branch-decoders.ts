@@ -1,5 +1,5 @@
 /**
- * TRANS-005 (#2081) — decoders for the three in-flight artifacts a session record persists so they
+ * Decoders for the three in-flight artifacts a session record persists so they
  * survive a resume: the autonomous goal, the plan artifact, and the active-branch pointer.
  *
  * The branch pointer is pure data by design — it names a `branchId`/`checkpointId` that live in a

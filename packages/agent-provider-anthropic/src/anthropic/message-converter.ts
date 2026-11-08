@@ -9,7 +9,7 @@ import type {
 } from '@robota-sdk/agent-core';
 
 /**
- * Issue #2875 (follow-up to #2078): `tc.function.arguments` is untrusted text a provider emitted —
+ * `tc.function.arguments` is untrusted text a provider emitted —
  * a bare `JSON.parse` here threw a raw `SyntaxError` out of message conversion for malformed JSON,
  * and passed an array root straight to the Anthropic API for a call like `[1]` (the API requires an
  * object `input`), UNCAUGHT — worse than agent-core's decode-time refusal, since it happened on the
@@ -238,7 +238,7 @@ export function convertToolsToAnthropicFormat(tools: IToolSchema[]): Anthropic.T
 
 /**
  * Map the provider-agnostic tool-invocation directive onto Anthropic's `tool_choice`
- * parameter (CORE-017). `'required'` maps to Anthropic's `{ type: 'any' }` (the model must
+ * parameter. `'required'` maps to Anthropic's `{ type: 'any' }` (the model must
  * call some tool); a named directive maps to `{ type: 'tool', name }`.
  */
 export function toAnthropicToolChoice(

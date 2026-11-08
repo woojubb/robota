@@ -63,8 +63,8 @@ export function createNodeHostSessionStore(
 }
 
 /**
- * SCREEN-1993: the caller-selected prompt-history file, one object serving
- * both the session-side writer and the surface's newest-first source. SEC-020: the user root is
+ * The caller-selected prompt-history file, one object serving
+ * both the session-side writer and the surface's newest-first source. The user root is
  * passed as OWNED, exactly as `createUserSessionStore` does, so it is tightened along with the file.
  * `options.sealing` (required) seals each entry as one line with `{ sealer }`, or states `'plain'`.
  */
@@ -87,7 +87,7 @@ export function createUserSessionStore(
   sessions: string,
   options: ISessionStoreOptions,
 ): IInteractiveSessionStore {
-  // SEC-020: the user store root is passed as OWNED, so it is tightened along with the sessions
+  // The user store root is passed as OWNED, so it is tightened along with the sessions
   // directory inside it. The caller owns the layout and supplies this path.
   // This is the path the restricted-workspace fallback takes, where no other writer may ever run
   // to tighten the root on its behalf.

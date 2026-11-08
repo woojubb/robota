@@ -70,7 +70,7 @@ function createMockSession(overrides?: Record<string, unknown>) {
     closeAgentJob: vi.fn(),
     ...overrides,
   };
-  // ARCH-029: the literal this replaced injected `getAgentJobCapability` at RUNTIME through a
+  // The literal this replaced injected `getAgentJobCapability` at RUNTIME through a
   // `Record<string, unknown>` cast, then asserted the result satisfied two contracts. Statically the
   // object did not have that member at all. It is now declared, and checked.
   return createTestCommandHost({
@@ -519,7 +519,7 @@ describe('agent command module', () => {
     expect(result?.uiIntents).toEqual([{ type: 'show-agent-switcher' }]);
   });
 
-  it('#3282 §4: /agent <name> with nothing after it selects a default agent instead of failing', async () => {
+  it('/agent <name> with nothing after it selects a default agent instead of failing', async () => {
     const module = createAgentCommandModule();
     const executor = new SystemCommandExecutor([
       ...createSystemCommands(),
@@ -540,7 +540,7 @@ describe('agent command module', () => {
     ).not.toHaveBeenCalled();
   });
 
-  it('#3282 §4: a single unrecognized word is still a prompt for the default agent, not a selection', async () => {
+  it('a single unrecognized word is still a prompt for the default agent, not a selection', async () => {
     const module = createAgentCommandModule();
     const executor = new SystemCommandExecutor([
       ...createSystemCommands(),
@@ -564,7 +564,7 @@ describe('agent command module', () => {
     ).not.toHaveBeenCalled();
   });
 
-  it('#3282 §4: a known agent name followed by a prompt still runs a job, not a selection', async () => {
+  it('a known agent name followed by a prompt still runs a job, not a selection', async () => {
     const module = createAgentCommandModule();
     const executor = new SystemCommandExecutor([
       ...createSystemCommands(),
@@ -597,7 +597,7 @@ describe('agent command module', () => {
 });
 
 /**
- * #3679 step 3b (R7): a group summary points at `/agent read` for a sealed transcript, whose path
+ * A group summary points at `/agent read` for a sealed transcript, whose path
  * reaches no content, and keeps the path otherwise. The group's saved results say which is which.
  */
 describe('agent wait — a sealed transcript in the group summary', () => {

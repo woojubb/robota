@@ -1,6 +1,6 @@
 import { createTestBinaryEnvironment } from './helpers/product-runtime.js';
 /**
- * Issue #3268: a headless start that a person chose to run Restricted (a background session started
+ * A headless start that a person chose to run Restricted (a background session started
  * Restricted from the session view) is not refused for want of trust; without that choice it still is.
  * Runs the repo's CLI from source, as the session view's background start does.
  */

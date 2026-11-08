@@ -1,6 +1,6 @@
 /**
  * Sealing in place the session logs a host-filesystem sink (`NodeSessionLogSink`) wrote in plaintext,
- * for a host migrating its state once it seals (#3679): every `<id>.jsonl` in one directory, with its
+ * for a host migrating its state once it seals: every `<id>.jsonl` in one directory, with its
  * `<id>.payloads/` sidecars.
  *
  * - A log becomes one sealed record per non-empty plain line, its sealed lines kept as they are and
@@ -46,7 +46,7 @@ export interface IMigrateSessionLogsOptions {
   readonly sealer: IArtifactSealer;
   /** `false` plans: everything is read and counted exactly as a run would, and nothing is written. */
   readonly apply: boolean;
-  /** An ancestor of the directory the host also owns, tightened along with it (SEC-020). */
+  /** An ancestor of the directory the host also owns, tightened along with it. */
   readonly ownedRoot?: string;
   /** Runs before each sidecar replace and each log replace; throwing stops the migration there. */
   readonly beforeCommit?: () => void;

@@ -51,7 +51,7 @@ describe('provider definition helpers', () => {
   });
 
   it('carries no model-catalog refresh hook — the contract is discovery, not a live fetch', () => {
-    // PROV-008: `refreshModelCatalog` was declared by every provider definition and invoked by
+    // `refreshModelCatalog` was declared by every provider definition and invoked by
     // nothing, and its path could not have populated the static payloads anyway — a models-list
     // endpoint returns ids. A structure with no caller and no reader is dead structure, not a dead
     // field, so it was removed rather than given a caller nobody asked for.
@@ -87,7 +87,7 @@ describe('provider definition helpers', () => {
 });
 
 /**
- * CLI-1990 TC-15 — `'tool_search'` is a member of `TProviderModelCapability`.
+ * `'tool_search'` is a member of `TProviderModelCapability`.
  *
  * Declaration-only in v1: it records that a vendor documents a server-side tool search (deferred
  * definitions the API expands on demand), and NOTHING emits a vendor block on the strength of it.
@@ -96,7 +96,7 @@ describe('provider definition helpers', () => {
  * because Gemini documents no equivalent at all. The member exists so a later offload can be gated
  * on the capability table rather than on a provider name.
  */
-describe('CLI-1990 TC-15 — the tool_search capability member', () => {
+describe('the tool_search capability member', () => {
   it('is assignable to TProviderModelCapability', () => {
     const capability: TProviderModelCapability = 'tool_search';
     expect(capability).toBe('tool_search');

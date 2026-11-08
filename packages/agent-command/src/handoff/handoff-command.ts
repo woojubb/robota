@@ -7,7 +7,7 @@ import type {
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 /**
- * `/handoff` (HANDOFF-001, issue #1864) — move this session to another machine.
+ * `/handoff` — move this session to another machine.
  *
  * The command holds no protocol. It reads an injected adapter and touches no transport, for the same
  * reason `/peers` does not: the carrier, the wire composition and the device identity are

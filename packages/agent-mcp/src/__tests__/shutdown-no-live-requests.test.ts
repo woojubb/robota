@@ -1,5 +1,5 @@
 /**
- * TC-17: after cancellation and after session shutdown the transport's own close is asserted called
+ * After cancellation and after session shutdown the transport's own close is asserted called
  * and no reconnect timer remains armed under the fake clock. Deliberately NOT measured via
  * `getActiveResourcesInfo` — the fake clock's own pending-timer count is the instrument.
  */
@@ -13,7 +13,7 @@ import {
 } from './supervisor-test-helpers.js';
 import { MCPConnectionSupervisor, MCPSupervisorError } from '../supervisor/connection.js';
 
-describe('MCPConnectionSupervisor — shutdown leaves no live request (TC-17)', () => {
+describe('MCPConnectionSupervisor — shutdown leaves no live request', () => {
   it('closes the live session and clears the idle timer, leaving zero pending timers', async () => {
     const clock = new FakeSupervisorClock();
     const identity = fixtureIdentity();

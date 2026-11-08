@@ -1,5 +1,5 @@
 /**
- * The one way a store is decorated (#3679 step 3e): a view that changes how some calls behave and
+ * The one way a store is decorated: a view that changes how some calls behave and
  * forwards every other member of the port as the store has it, so a member a decorator does not name
  * is never dropped — and a session over the view is gated exactly as over the store.
  */

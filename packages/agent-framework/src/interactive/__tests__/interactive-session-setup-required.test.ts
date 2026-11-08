@@ -1,5 +1,5 @@
 /**
- * #3282 §3 — a served runtime with no configured provider starts anyway, in setup mode: the session
+ * A served runtime with no configured provider starts anyway, in setup mode: the session
  * carries a placeholder provider that never calls a model. `submit()` refuses a turn outright instead
  * of reaching it, so a client that submits before the GUI's setup screen has cleared the flag gets a
  * plain rejection (never a crash), and `getStatusSnapshot()` reports the flag so a client can show a
@@ -26,7 +26,7 @@ function placeholderProvider(): IAIProvider {
   };
 }
 
-describe('InteractiveSession — setup required (#3282 §3)', () => {
+describe('InteractiveSession — setup required', () => {
   it('refuses a submitted turn outright instead of reaching the placeholder provider', async () => {
     const provider = placeholderProvider();
     const session = new InteractiveSession({

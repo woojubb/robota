@@ -1,5 +1,5 @@
 /**
- * GOAL-001: the `/goal` slash command. Assigns an autonomous objective the agent pursues across
+ * The `/goal` slash command. Assigns an autonomous objective the agent pursues across
  * turns until satisfied or a bound fires. Delegates to the framework-owned goal controller via the
  * command host context; all loop logic lives in agent-framework.
  */

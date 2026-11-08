@@ -1,4 +1,4 @@
-/** BEHAVIOR-2437 TC-03 — `/git commit`: every branch of the staged-check → subject → confirm flow. */
+/** `/git commit`: every branch of the staged-check → subject → confirm flow. */
 import { describe, expect, it } from 'vitest';
 
 import {

@@ -20,7 +20,7 @@ import type { IAgentDefinition, ICommandModule } from '@robota-sdk/agent-framewo
 const testHost = createTestFrameworkHost();
 
 /**
- * ARCH-005 S1 — `assembleProduct` is a PURE, deterministic, IO-free fold over `IProductProfile`. It
+ * `assembleProduct` is a PURE, deterministic, IO-free fold over `IProductProfile`. It
  * resolves presets via a per-call instance-scoped registry (R8), merges packs via `mergeCapabilityPacks`,
  * and delegates runtime construction to `agent-framework`'s `buildRuntimeSession` seam (R2) — it never
  * re-implements runtime assembly and never special-cases any product's id.
@@ -351,7 +351,7 @@ describe('assembleProduct — instance-scoped preset resolution (R8)', () => {
     assembleProduct(profile);
     assembleProduct(profile); // a second call must not accumulate / throw duplicate-id
 
-    // ARCH-009: this used to ask agent-preset's module-global readers whether the assembly had leaked
+    // This used to ask agent-preset's module-global readers whether the assembly had leaked
     // into them. There is no global left to leak into, so the question is now asked of a registry
     // built after the two assemblies — the property that mattered, and one that can still fail.
     const later = createPresetRegistry();
@@ -359,7 +359,7 @@ describe('assembleProduct — instance-scoped preset resolution (R8)', () => {
     expect(() => later.resolvePreset('acme-reviewer')).toThrow(/Unknown preset/);
   });
 
-  // ARCH-008: a consumer that had to resolve a preset BEFORE it could build the profile (a preset can
+  // A consumer that had to resolve a preset BEFORE it could build the profile (a preset can
   // carry the `model`/`agentName` the profile is constructed from) hands its own instance registry in,
   // so the pre-assembly resolution and the assembler's resolution are ONE path, not two equivalent ones.
   it('ADOPTS a caller-supplied registry instead of building a second, equivalent one', () => {
@@ -458,11 +458,11 @@ describe('assembleProduct — runtime construction delegates to the framework se
 });
 
 /**
- * ARCH-005 S2 / OWNER DECISION 1 — provider construction returns IN-KERNEL.
+ * Provider construction returns IN-KERNEL.
  *
  * The kernel constructs the provider from `providerDefinitions` + ALREADY-RESOLVED `providerSettings`
- * via `createProviderFromConfig`, which lives in `@robota-sdk/agent-core` (relocated there by
- * ARCH-PROVIDER-003, re-exported by `agent-executor`) — an ALLOWED dependency layer, so the fold stays
+ * via `createProviderFromConfig`, which lives in `@robota-sdk/agent-core` (re-exported by
+ * `agent-executor`) — an ALLOWED dependency layer, so the fold stays
  * pure and IO-free: settings are resolved by the SHELL and passed IN as data. `provider` remains an
  * OPTIONAL injected override for advanced/test consumers.
  */
@@ -531,7 +531,7 @@ describe('assembleProduct — provider construction (owner Decision 1)', () => {
 });
 
 /**
- * ARCH-005 S2 / OWNER DECISION 2 — merged pack subagents reach the RUNTIME through the framework's
+ * Merged pack subagents reach the RUNTIME through the framework's
  * `agentDefinitions` injection seam, instead of being exposed as inert material the shell must re-wire.
  * `buildRuntimeOptions` is the pure overlay `buildRuntime` delegates through, so the contract is
  * assertable without constructing a live session.

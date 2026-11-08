@@ -1,10 +1,8 @@
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { expect, it } from 'vitest';
-import { parse } from 'yaml';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const fromChangesets = createRequire(
@@ -41,18 +39,4 @@ it('still updates SDK dependents when a dependency leaves their compatible range
   expect(releases).toContainEqual(expect.objectContaining({ name: '@robota-sdk/agent-core', type: 'major' }));
   expect(releases.some((release) => release.name === '@robota-sdk/agent-framework')).toBe(true);
   expect(releases.some((release) => ['@robota-sdk/agent-cli', '@robota-sdk/agent-app'].includes(release.name))).toBe(false);
-});
-
-it('releases the existing SDK consumers once to introduce compatible published ranges', async () => {
-  const file = readFileSync(path.join(root, '.changeset/independent-sdk-ranges.md'), 'utf8');
-  const changes = parse(file.split('---')[1]);
-  const releases = Object.entries(changes).map(([name, type]) => ({ name, type }));
-  const packages = await fromChangesets('@manypkg/get-packages').getPackages(root);
-  const config = await fromChangesets('@changesets/config').read(root, packages);
-  const result = fromChangesets('@changesets/assemble-release-plan').default(
-    [{ id: 'independent-sdk-ranges', summary: 'Allow compatible SDK dependencies to update.', releases }],
-    packages, config, undefined,
-  ).releases.filter((release) => release.type !== 'none');
-  expect(result).toContainEqual(expect.objectContaining({ name: '@robota-sdk/agent-framework', type: 'patch' }));
-  expect(result.some((release) => ['@robota-sdk/agent-core', '@robota-sdk/agent-cli', '@robota-sdk/agent-app'].includes(release.name))).toBe(false);
 });

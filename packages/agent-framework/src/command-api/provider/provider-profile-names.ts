@@ -34,7 +34,7 @@ export function sanitizeProviderProfileName(value: string | undefined): string |
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-');
-  // `trimEdgeChars` rather than `/^-+|-+$/g`: the trailing half of that alternation is quadratic (SEC-003).
+  // `trimEdgeChars` rather than `/^-+|-+$/g`: the trailing half of that alternation is quadratic.
   const normalized = trimEdgeChars(collapsed, '-');
   return normalized.length > 0 ? normalized : undefined;
 }

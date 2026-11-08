@@ -1,5 +1,5 @@
 /**
- * TC-01 — whole-entry precedence.
+ * Whole-entry precedence.
  *
  * Three properties, each of which has a failure mode that looks fine until it does not:
  * the winner is taken whole (a merge would let a plugin contribute a header to a managed entry),
@@ -152,7 +152,7 @@ describe('resolveByPrecedence', () => {
     expect(entries[0]!.status).toBe('unresolved');
   });
 
-  // BEHAVIOR-2794 (issue #2794 / #3073): a container-level problem has no name, so it cannot become
+  // A container-level problem has no name, so it cannot become
   // an `IMCPResolvedEntry` — but it must not simply vanish either. Before this carrier existed,
   // `resolveByPrecedence` returned only `IMCPResolvedEntry[]` and `continue`d past these problems,
   // so an entirely unreadable managed policy reached `statusOf` as `{total: 0, unresolved: 0}` while
@@ -180,7 +180,7 @@ describe('resolveByPrecedence', () => {
     });
   });
 
-  // BEHAVIOR-2794 fail-closed (owner direction, PR #3076 review): a source-level problem in the
+  // Fail-closed (owner direction): a source-level problem in the
   // MANAGED (highest-trust) tier does not stay purely informational — it blocks every name that
   // would otherwise resolve from ANY tier, because an unreadable managed policy might have defined
   // that exact name and there is no way to tell "managed defines nothing" from "managed defines
@@ -276,7 +276,7 @@ describe('resolveByPrecedence', () => {
     expect(entries[0]!.definition?.url).toBe('https://user.example');
   });
 
-  // PR #3076 re-review: `isBlockedByManagedFailure` is the exported predicate a caller (the CLI
+  // `isBlockedByManagedFailure` is the exported predicate a caller (the CLI
   // startup diagnostic, the `/mcp status` renderer) uses to identify a blocked entry rather than
   // re-deriving the block condition or restating the reason's prefix itself.
   it('isBlockedByManagedFailure identifies exactly the entries the managed tier blocked', () => {

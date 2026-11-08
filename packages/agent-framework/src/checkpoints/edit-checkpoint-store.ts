@@ -52,7 +52,7 @@ import type { TArtifactSealing } from '@robota-sdk/agent-core';
 import type { IActiveBranchPointer } from '@robota-sdk/agent-interface-session';
 
 const SNAPSHOT_PAD = 6;
-/** SELFHOST-007: the default branch a session's checkpoints belong to. */
+/** The default branch a session's checkpoints belong to. */
 interface IActiveEditCheckpointTurn {
   manifest: IEditCheckpointManifest;
   dir: string;
@@ -99,14 +99,14 @@ export class EditCheckpointStore implements IEditCheckpointStore {
   private readonly now: () => Date;
   private activeTurn: IActiveEditCheckpointTurn | null = null;
   /**
-   * SELFHOST-007: per-session active branch HEAD (checkpoint id the next turn forks from). `null`
+   * Per-session active branch HEAD (checkpoint id the next turn forks from). `null`
    * after a rollback through the root, so the next turn starts a fresh root line; no entry means
    * the session has no head yet and continues its latest checkpoint.
    */
   private readonly activeHead = new Map<string, string | null>();
-  /** SELFHOST-007: per-session active branch id (default `'main'`; a fresh id after a fork). */
+  /** Per-session active branch id (default `'main'`; a fresh id after a fork). */
   private readonly activeBranch = new Map<string, string>();
-  /** SELFHOST-007: monotonic fork counter for minting distinct branch ids. */
+  /** Monotonic fork counter for minting distinct branch ids. */
   private forkCounter = 0;
 
   constructor(options: IEditCheckpointStoreOptions) {
@@ -136,7 +136,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
       await this.finalizeTurn();
     }
 
-    // SELFHOST-007: the new checkpoint's parent is the active branch HEAD (the checkpoint the last
+    // The new checkpoint's parent is the active branch HEAD (the checkpoint the last
     // restore/rollback forked from, or the previous head). Falls back to the last checkpoint by
     // sequence for a fresh store. branchId groups the line (default 'main', a fresh id after a fork).
     const { nextSequence, parentId } = this.nextCheckpoint(input.sessionId);
@@ -272,7 +272,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
       target,
     );
 
-    // SELFHOST-007: NON-DESTRUCTIVE — the later checkpoints are NOT removed; they stay on disk as a
+    // NON-DESTRUCTIVE — the later checkpoints are NOT removed; they stay on disk as a
     // sibling branch (the abandoned future), reachable via the checkpoint tree. Instead of `rm`, we
     // fork: the active HEAD moves to the target and a fresh branch id is minted, so the NEXT turn
     // diverges from the target while the old line remains listable.
@@ -287,7 +287,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
   }
 
   /**
-   * SELFHOST-007: move the active HEAD to `checkpointId` and start a fresh branch so the next turn
+   * Move the active HEAD to `checkpointId` and start a fresh branch so the next turn
    * diverges (a sibling branch) instead of overwriting the abandoned future.
    */
   private forkFrom(sessionId: string, checkpointId: string | null): void {
@@ -313,7 +313,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
       target,
     );
 
-    // SELFHOST-007: NON-DESTRUCTIVE — rollback reverts THROUGH the target (inclusive) but keeps those
+    // NON-DESTRUCTIVE — rollback reverts THROUGH the target (inclusive) but keeps those
     // checkpoints on disk as a sibling branch. The active HEAD forks from the target's PARENT (the
     // point before the rolled-back range); an absent parent (target was the root) clears the head on
     // purpose, so the next turn starts a fresh root line instead of continuing the rolled-back one.
@@ -328,7 +328,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
   }
 
   /**
-   * Issue #2076: a manifest is mutable bytes on disk, so restore re-establishes containment for
+   * A manifest is mutable bytes on disk, so restore re-establishes containment for
    * EVERY entry — the target inside the project, the snapshot inside its checkpoint directory —
    * before the first mutation. One invalid entry throws here and nothing is restored; the
    * alternative (validate as you go) is a partial restore with an error at the end.
@@ -395,20 +395,20 @@ export class EditCheckpointStore implements IEditCheckpointStore {
   }
 
   /**
-   * SELFHOST-007: navigation delegates to the neutral `CheckpointTree` (agent-session). Build the tree
+   * Navigation delegates to the neutral `CheckpointTree` (agent-session). Build the tree
    * from the session's persisted manifest edges and return its branch tips (leaf checkpoints).
    */
   listCheckpointBranches(sessionId: string): string[] {
     return this.buildTree(sessionId, this.readable(sessionId).manifests).listBranches();
   }
 
-  /** SELFHOST-007: the ancestors of a checkpoint (nearest-first to the root) via the neutral tree. */
+  /** The ancestors of a checkpoint (nearest-first to the root) via the neutral tree. */
   checkpointAncestors(sessionId: string, checkpointId: string): string[] {
     return this.buildTree(sessionId, this.readable(sessionId).manifests).ancestors(checkpointId);
   }
 
   /**
-   * SELFHOST-007: switch the active branch to an existing checkpoint (typically a branch tip), so the
+   * Switch the active branch to an existing checkpoint (typically a branch tip), so the
    * next turn continues that line. Non-destructive; throws on an unknown checkpoint.
    */
   switchToCheckpoint(sessionId: string, checkpointId: string): void {
@@ -419,7 +419,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
   }
 
   /**
-   * SELFHOST-007: the active-branch pointer to persist on the session record (so a branch survives
+   * The active-branch pointer to persist on the session record (so a branch survives
    * `--resume`). Undefined when there is no active head yet (a fresh/empty session); a head cleared
    * by a rollback through the first checkpoint is a pointer with a `null` `checkpointId`, so a resume
    * starts the next turn on a fresh root line too.

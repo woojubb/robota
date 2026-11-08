@@ -40,7 +40,7 @@ vi.mock('../../../runtime/runtime-host.js', async (importOriginal) => {
     async shutdown(): Promise<void> {}
   }
 
-  // RUNTIME-001: construction flows through buildRuntimeSession (wraps InteractiveSession in agent-framework).
+  // Construction flows through buildRuntimeSession (wraps InteractiveSession in agent-framework).
   return {
     ...mod,
     InteractiveSession: FakeInteractiveSession,
@@ -185,7 +185,7 @@ describe('HeadlessInteractionChannel session options', () => {
     });
   });
 
-  it('TC-01: passes deniedTools through to the InteractiveSession options', async () => {
+  it('passes deniedTools through to the InteractiveSession options', async () => {
     const channel = new HeadlessInteractionChannel({
       host: testHost,
       cwd: process.cwd(),
@@ -206,7 +206,7 @@ describe('HeadlessInteractionChannel session options', () => {
     expect(options.deniedTools).toEqual(['Bash', 'Glob']);
   });
 
-  it('TC-01 (CLI-063): passes resumeSessionId and forkSession through to the InteractiveSession options', async () => {
+  it('passes resumeSessionId and forkSession through to the InteractiveSession options', async () => {
     const channel = new HeadlessInteractionChannel({
       host: testHost,
       cwd: process.cwd(),
@@ -227,7 +227,7 @@ describe('HeadlessInteractionChannel session options', () => {
     expect(options.forkSession).toBe(true);
   });
 
-  it('TC-01 (CLI-063): omits resume fields when not provided', async () => {
+  it('omits resume fields when not provided', async () => {
     const channel = new HeadlessInteractionChannel({
       host: testHost,
       cwd: process.cwd(),
@@ -245,7 +245,7 @@ describe('HeadlessInteractionChannel session options', () => {
     expect(options.forkSession).toBeUndefined();
   });
 
-  it('TC-02 (CLI-076): forwards an explicit model override to the session options', async () => {
+  it('forwards an explicit model override to the session options', async () => {
     const channel = new HeadlessInteractionChannel({
       host: testHost,
       cwd: process.cwd(),
@@ -262,7 +262,7 @@ describe('HeadlessInteractionChannel session options', () => {
     expect(options.model).toBe('claude-nonexistent-model-core020');
   });
 
-  it('TC-02 (CLI-076): omits model when not provided (session resolves from config, no substitution)', async () => {
+  it('omits model when not provided (session resolves from config, no substitution)', async () => {
     const channel = new HeadlessInteractionChannel({
       host: testHost,
       cwd: process.cwd(),

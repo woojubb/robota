@@ -1,5 +1,5 @@
 /**
- * CLI-1994 TC-07 — what `/fork` actually does to its host.
+ * What `/fork` actually does to its host.
  *
  * The command is the only place the two halves of a fork meet: the session writes the COPY, and the
  * job that resumes it carries the copy's id and nothing else. What these cases pin is that pairing —
@@ -55,7 +55,7 @@ function createForkHost(options?: {
   return { context, forkSession, spawnAgentJob };
 }
 
-describe('/fork writes the copy and starts the job that resumes it (CLI-1994 TC-07)', () => {
+describe('/fork writes the copy and starts the job that resumes it', () => {
   it('forks once, then spawns a background job carrying the returned id and a worktree', async () => {
     const host = createForkHost();
 

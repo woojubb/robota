@@ -1,5 +1,5 @@
 /**
- * SELFHOST-009 TC-03 — PermissionDecision fires from PermissionEnforcer right after
+ * permissionDecision fires from PermissionEnforcer right after
  * `evaluatePermission`, via the shared `runHooks` / `hookTypeExecutors` path, carrying the reported
  * decision. INFORMATIONAL-ONLY: fire-and-forget, so it cannot change the permission outcome.
  */
@@ -73,8 +73,8 @@ async function flushMicrotasks(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-describe('SELFHOST-009 TC-03 — PermissionDecision hook', () => {
-  // CORE-030: a tool's argument key and risk class are declared by the package that DEFINES the
+describe('PermissionDecision hook', () => {
+  // A tool's argument key and risk class are declared by the package that DEFINES the
   // tool, not by a name table in agent-core. This suite exercises `Read` and `Bash` without
   // importing `@robota-sdk/agent-tools`, so it declares the same two profiles that package does —
   // otherwise every pattern here is unevaluable and the gate prompts instead of deciding.

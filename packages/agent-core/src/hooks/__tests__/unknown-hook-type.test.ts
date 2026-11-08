@@ -5,7 +5,7 @@ import { runHooks } from '../hook-runner.js';
 import type { IHookInput, IHookTypeExecutor, THooksConfig } from '../types.js';
 
 /**
- * #1831 — the runner's comment promised "skip with warning" and nothing warned.
+ * The runner's comment promised "skip with warning" and nothing warned.
  *
  * `AGENTS.md` makes "silence is not success" a rule-level invariant, and this was a hook runner
  * completing quietly on an unrecognised input with a comment asserting the opposite. The concrete
@@ -29,7 +29,7 @@ const passingExecutor: IHookTypeExecutor = {
   execute: async () => ({ outcome: 'allow' as const, source: 'command' as const, stdout: '' }),
 };
 
-describe('#1831 — an unrecognised hook type is reported, not skipped in silence', () => {
+describe('an unrecognised hook type is reported, not skipped in silence', () => {
   it('names the type that had no executor', async () => {
     // The issue's exact scenario: a guardrail hook configured with no guardrail executor supplied.
     const result = await runHooks(config('guardrail'), 'PreToolUse', input, [passingExecutor]);

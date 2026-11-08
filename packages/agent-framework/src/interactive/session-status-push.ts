@@ -1,5 +1,5 @@
 /**
- * #3189: push the session's status to every attached client when it changes.
+ * Push the session's status to every attached client when it changes.
  *
  * A client used to read the status once and then only saw what it changed itself, so one client's
  * `/mode` never reached the others. The session now emits `status_changed` after anything that can

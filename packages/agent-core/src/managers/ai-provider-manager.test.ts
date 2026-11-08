@@ -347,7 +347,7 @@ describe('AIProviders (AI Provider Manager)', () => {
   // ----------------------------------------------------------------
   // 6. Error States
   // ----------------------------------------------------------------
-  describe('Lifecycle refusals (CORE-045)', () => {
+  describe('Lifecycle refusals', () => {
     // These cases used to assert the opposite: that every method throws
     // `AIProviders is not initialized` on a freshly constructed manager. That was the DEFECT, pinned
     // as a contract. `doInitialize` only emits a debug log, so there was no asynchronous state a

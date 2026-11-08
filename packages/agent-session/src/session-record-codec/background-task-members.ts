@@ -1,5 +1,5 @@
 /**
- * TRANS-005 (#2081) — the member contracts a background-task state is built from: the literal
+ * The member contracts a background-task state is built from: the literal
  * unions it selects from, its error, its result (with token usage), and its schedule.
  *
  * They live beside the state decoder rather than inside it because the task EVENT union carries the
@@ -43,7 +43,7 @@ export const TASK_KINDS = [
   'agent',
   'process',
   'scheduled',
-  // Contained — DATA-010.
+  // Contained.
   'tool-invocation',
 ] as const satisfies readonly TBackgroundTaskKind[];
 export const TASK_MODES = [
@@ -81,7 +81,7 @@ const TASK_ERROR_CATEGORIES = [
   'provider',
   'process',
 ] as const satisfies readonly TBackgroundTaskErrorCategory[];
-/** Issue #3288 §1: mirrors the SSOT `TBackgroundTaskPermissionDenialReason` (`agent-interface-execution`). */
+/** Mirrors the SSOT `TBackgroundTaskPermissionDenialReason` (`agent-interface-execution`). */
 const TASK_PERMISSION_DENIAL_REASONS = [
   'denied-by-person',
   'no-approver',
@@ -150,7 +150,7 @@ function decodeTokenUsage(
 }
 
 /**
- * Issue #3288 §1: how many of a task's tool calls were refused, and why. Every reason key is
+ * How many of a task's tool calls were refused, and why. Every reason key is
  * required — `child-process-subagent-runner-result.ts` always serializes the full count map, zeros
  * included, so a persisted `deniedToolCalls` missing one is drift, not an author's choice to omit it.
  */
@@ -224,9 +224,9 @@ export function decodeBackgroundTaskResult(
     issues,
     decodeDeniedToolCalls,
   );
-  // #2079: `exitCode`/`signalCode` are process-only and `usage`/`deniedToolCalls` are agent-only — a
+  // `exitCode`/`signalCode` are process-only and `usage`/`deniedToolCalls` are agent-only — a
   // persisted result carrying a field outside its own kind is corrupt, reported the same way the
-  // #3041 taskId/kind identity check is: an issue at the offending field's own path, not a thrown
+  // taskId/kind identity check is: an issue at the offending field's own path, not a thrown
   // error. The switch below then builds only the fields that belong to the decoded `kind`, so a
   // foreign field never reaches the returned object even though it was read (and flagged) above.
   if (kind !== 'process' && exitCode !== undefined) {

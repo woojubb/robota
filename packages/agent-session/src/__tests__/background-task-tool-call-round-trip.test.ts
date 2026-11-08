@@ -1,8 +1,8 @@
 /**
- * MCP-004 §S1 / TC-22 — a session record holding a `tool-invocation` background task round-trips.
+ * A session record holding a `tool-invocation` background task round-trips.
  *
- * `TASK_KINDS` (`background-task-members.ts`) is the second kind list DATA-010 exists to eliminate;
- * until it does, every member added to the SSOT `TBackgroundTaskKind` (`agent-interface-execution`)
+ * `TASK_KINDS` (`background-task-members.ts`) is a second kind list;
+ * until it is removed, every member added to the SSOT `TBackgroundTaskKind` (`agent-interface-execution`)
  * must be mirrored here too, or `decodeBackgroundTaskState` / `decodeBackgroundTaskResult` report an
  * unknown-literal issue and `record-decoder.ts` marks the whole session record `corrupt` — exactly
  * the failure this test proves does not happen for `'tool-invocation'`.
@@ -76,7 +76,7 @@ function persisted(record: IInteractiveSessionRecord): unknown {
   return JSON.parse(JSON.stringify(record)) as unknown;
 }
 
-describe('a persisted `tool-invocation` background task round-trips (TC-22)', () => {
+describe('a persisted `tool-invocation` background task round-trips', () => {
   it.each([
     { field: 'kind', value: 'agent' },
     { field: 'taskId', value: 'other-task' },

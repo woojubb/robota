@@ -1,5 +1,5 @@
 /**
- * The injected environment resolver (#2347 / #2051).
+ * The injected environment resolver.
  *
  * Provider normalization must be deterministic from its arguments and a resolver it is HANDED —
  * never from ambient `process.env`. Every normalization module (`env-ref.ts`, both

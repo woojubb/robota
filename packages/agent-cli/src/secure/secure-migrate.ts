@@ -1,5 +1,5 @@
 /**
- * `the product secure enable | migrate [--dry-run] | compact` (#3679): seal the legacy
+ * `the product secure enable | migrate [--dry-run] | compact`: seal the legacy
  * conversation stores, activate their dedicated archive, and compact the prompt history.
  *
  * Migrate and compact run only once secure mode is on; enable runs from plain or preparing mode.

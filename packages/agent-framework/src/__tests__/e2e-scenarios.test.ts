@@ -302,7 +302,7 @@ describe('E2E: Hook configuration to execution', () => {
       },
     };
 
-    // 2. Create local settings with a Read hook (CONFIG-003: ADDS, does not replace)
+    // 2. Create local settings with a Read hook (ADDS, does not replace)
     const localSettings = {
       hooks: {
         PreToolUse: [
@@ -323,7 +323,7 @@ describe('E2E: Hook configuration to execution', () => {
     // 3. Load config
     const config = await loadConfig(projectDir);
 
-    // 4. CONFIG-003: both survive, in layer order.
+    // 4. Both survive, in layer order.
     //
     // This test asserted length 1 and called itself "should merge". The title was right and the
     // assertion pinned the defect: `hooks` fell through mergeSettings' top-level spread, so the

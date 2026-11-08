@@ -6,7 +6,7 @@ import type { ISettingsSnapshot, TSettingsPatch } from '@robota-sdk/agent-interf
 
 /**
  * Language, output style and preset — reusing the exact choices and descriptions the runtime
- * already builds for `/language`, `/output-style` and `/preset` (#3282 §4a). Never internal ids:
+ * already builds for `/language`, `/output-style` and `/preset`. Never internal ids:
  * every pop-up shows the runtime's human labels.
  */
 export function SettingsGeneralSection({

@@ -13,7 +13,7 @@ import type {
 } from '../types.js';
 
 /**
- * SELFHOST-008 P4 — the semantic-memory adapter decorator: tiered recall (semantic primary, keyword fallback),
+ * The semantic-memory adapter decorator: tiered recall (semantic primary, keyword fallback),
  * guarded append-then-index (skip on dedup), delegate rest; adapter-gated by composition; neutral.
  */
 
@@ -66,8 +66,8 @@ const SEMANTIC_HIT = {
   references: [{ topic: 'deploy', path: 'deploy.md', score: 1, truncated: false }],
 };
 
-describe('SELFHOST-008 P4 — SemanticMemoryStore decorator', () => {
-  it('TC-01: adapter present ⇒ recall returns the semantic query() result, not keyword', async () => {
+describe('SemanticMemoryStore decorator', () => {
+  it('adapter present ⇒ recall returns the semantic query() result, not keyword', async () => {
     const base = createFakeBase();
     const adapter = createFakeAdapter(async () => SEMANTIC_HIT);
     const store = createSemanticMemoryStore(base, adapter);
@@ -80,7 +80,7 @@ describe('SELFHOST-008 P4 — SemanticMemoryStore decorator', () => {
     expect(base.recall).not.toHaveBeenCalled(); // semantic is primary, keyword not consulted
   });
 
-  it('TC-02: append does base durable write THEN adapter.index (base first); skips index on dedup', async () => {
+  it('append does base durable write THEN adapter.index (base first); skips index on dedup', async () => {
     const base = createFakeBase({ deduplicated: false });
     const adapter = createFakeAdapter(async () => SEMANTIC_HIT);
     const store = createSemanticMemoryStore(base, adapter);
@@ -101,7 +101,7 @@ describe('SELFHOST-008 P4 — SemanticMemoryStore decorator', () => {
     expect(dedupAdapter.index).not.toHaveBeenCalled();
   });
 
-  it('TC-03: adapter-gating by composition — decorated store hits the adapter; the plain base does NOT', async () => {
+  it('adapter-gating by composition — decorated store hits the adapter; the plain base does NOT', async () => {
     // The MEANINGFUL contrast: the SAME adapter is reached only through the decorator. A surface that composes the
     // decorator gets semantic recall + index; a surface that injects the plain base store gets neither (today's behavior).
     const adapter = createFakeAdapter(async () => SEMANTIC_HIT);
@@ -124,7 +124,7 @@ describe('SELFHOST-008 P4 — SemanticMemoryStore decorator', () => {
     expect(plainBase.recall).toHaveBeenCalled(); // it still recalled via the keyword base
   });
 
-  it('TC-04: recall query degradation — adapter.query throws ⇒ keyword base.recall, no throw', async () => {
+  it('recall query degradation — adapter.query throws ⇒ keyword base.recall, no throw', async () => {
     const base = createFakeBase();
     const adapter = createFakeAdapter(async () => {
       throw new Error('vector backend down');
@@ -136,7 +136,7 @@ describe('SELFHOST-008 P4 — SemanticMemoryStore decorator', () => {
     expect(result).toEqual(KEYWORD);
   });
 
-  it('TC-05: index write degradation — adapter.index throws ⇒ base durable write kept, append does not throw', async () => {
+  it('index write degradation — adapter.index throws ⇒ base durable write kept, append does not throw', async () => {
     const base = createFakeBase({ deduplicated: false });
     const adapter = createFakeAdapter(
       async () => SEMANTIC_HIT,
@@ -151,7 +151,7 @@ describe('SELFHOST-008 P4 — SemanticMemoryStore decorator', () => {
     expect(adapter.index).toHaveBeenCalledTimes(1); // index was attempted (then threw + was swallowed)
   });
 
-  it('TC-06: capability-preservation/swap — a fake adapter upgrades recall, consumed transparently through IMemoryStore.recall (MEM-001: the sole live recall path — AutomaticMemoryController.retrieve() was dead code, removed)', async () => {
+  it('capability-preservation/swap — a fake adapter upgrades recall, consumed transparently through IMemoryStore.recall (the sole live recall path — AutomaticMemoryController.retrieve() was dead code, removed)', async () => {
     const base = createFakeBase();
     const adapter = createFakeAdapter(async () => SEMANTIC_HIT);
     const decorated = createSemanticMemoryStore(base, adapter);

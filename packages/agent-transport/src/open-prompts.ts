@@ -1,5 +1,5 @@
 /**
- * #3189: the permission and ask prompts a session has open, as the frames that asked them.
+ * The permission and ask prompts a session has open, as the frames that asked them.
  *
  * The session keeps only the promise each prompt waits on, and emits the prompt once, when it is
  * asked. A client that attaches later would never see a prompt already open. This keeps what the

@@ -37,7 +37,7 @@ export function createOutputStyleSection(
 }
 
 /**
- * ARCH-040: a preset-supplied system prompt SEEDS the composed prompt — it does not replace it.
+ * A preset-supplied system prompt SEEDS the composed prompt — it does not replace it.
  *
  * Owner decision 2026-08-20. `IInteractiveSessionStandardOptions.systemPrompt` already offers a
  * REPLACE seam, and pointing a preset at it would silently drop the AGENTS.md, project-notes, skill
@@ -50,7 +50,7 @@ export function createPresetSystemPromptSection(text: string): ISystemPromptSect
 }
 
 /**
- * PRESET-003: a preset persona is a normal section with a declared priority, not a
+ * A preset persona is a normal section with a declared priority, not a
  * hardcoded slot. Priority `5` sits in the top band (5 < AGENTS.md=10) so the persona
  * establishes identity/behaviour before project instructions — the position is decided
  * by `composeSystemPrompt`'s priority sort, never by array order.
@@ -60,7 +60,7 @@ export function createPersonaSection(persona: string): ISystemPromptSection {
 }
 
 /**
- * PRESET-017: a concise verify-before-done directive injected when a preset enables
+ * A concise verify-before-done directive injected when a preset enables
  * `selfVerification`. The content must stay English, brief, and avoid heavy emphasis cues.
  */
 const SELF_VERIFICATION_CONTENT =
@@ -69,10 +69,10 @@ const SELF_VERIFICATION_CONTENT =
   'If something is not yet verified, say so plainly rather than implying it is done.';
 
 /**
- * PRESET-017: when a preset enables selfVerification, inject a concise verify-before-done
+ * When a preset enables selfVerification, inject a concise verify-before-done
  * section as a normal priority-sorted section (priority 6 = just after persona=5, before
  * AGENTS.md=10), never a hardcoded slot.
- * NEUT-003: `content` is a string-valued seam — callers may replace the default directive
+ * `content` is a string-valued seam — callers may replace the default directive
  * text (liftable to a preset); omitted keeps the documented default.
  */
 export function createSelfVerificationSection(
@@ -104,7 +104,7 @@ export function createProjectSection(info: IProjectInfo): ISystemPromptSection {
 }
 
 /**
- * CLI-072: the prompt names the ACTIVE permission mode — the same value the
+ * The prompt names the ACTIVE permission mode — the same value the
  * permission gate enforces — so the model's explanations can never quote a
  * stale trust-level label.
  */
@@ -148,7 +148,7 @@ export function createProjectNotesSection(
 }
 
 /**
- * SEC-007 — project memory is MODEL-WRITABLE (`/memory add` is `modelInvocable`), and it lands in the
+ * Project memory is MODEL-WRITABLE (`/memory add` is `modelInvocable`), and it lands in the
  * same `project-instructions` band as the operator-authored `AGENTS.md` and `CLAUDE.md`. Without the
  * trust note the model cannot tell which of the three it wrote itself, and text it wrote on an
  * earlier turn reads back as an operator instruction. The title says whose voice this is; the note

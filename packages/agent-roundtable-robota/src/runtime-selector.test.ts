@@ -241,7 +241,7 @@ describe('runtimeSelector', () => {
 
   // A cancelled selection used to leave the decision tool on the reused agent forever, because
   // `updateTools([])` never ran once `agent.run` rejected. The realistic way a run rejects while
-  // cancelled is agent-core's own hardening (CORE-027 / ExecutionJournalError): a rejected
+  // cancelled is agent-core's own hardening (ExecutionJournalError): a rejected
   // admission is wrapped in an error that is rethrown even though the signal is aborted, exactly
   // what a real ledger does once a run has been cancelled.
   it('resets the decision tool after a cancelled selection, so the next select succeeds', async () => {

@@ -1,5 +1,5 @@
 /**
- * FLOW-003 (Layer 3): on session resume, a persisted sleeping scheduled wake is re-armed
+ * On session resume, a persisted sleeping scheduled wake is re-armed
  * (re-spawned from its persisted `schedule`) instead of being killed as stale, and a
  * missed-wake note is surfaced when its fire time elapsed while the session was closed.
  */
@@ -172,13 +172,13 @@ function setup(nextFireAt: string): { started: string[]; session: InteractiveSes
   return { started, session };
 }
 
-describe('FLOW-003 resume re-arm + missed-wake', () => {
-  it('TC-01: a restored sleeping scheduled wake is re-armed (re-spawned), not killed', () => {
+describe('resume re-arm + missed-wake', () => {
+  it('a restored sleeping scheduled wake is re-armed (re-spawned), not killed', () => {
     const { started } = setup('2999-01-01T00:00:00.000Z');
     expect(started).toHaveLength(1); // the manager re-spawned the schedule
   });
 
-  it('TC-02: an elapsed nextFireAt surfaces exactly one missed-wake note', () => {
+  it('an elapsed nextFireAt surfaces exactly one missed-wake note', () => {
     const { session } = setup('2000-01-01T00:00:00.000Z');
     const notes = history(session).filter(
       (e) => e.type === 'system' && JSON.stringify(e).includes('Missed scheduled wake'),
@@ -186,7 +186,7 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
     expect(notes).toHaveLength(1);
   });
 
-  it('TC-03: a future nextFireAt re-arms without a missed-wake note', () => {
+  it('a future nextFireAt re-arms without a missed-wake note', () => {
     const { session } = setup('2999-01-01T00:00:00.000Z');
     const notes = history(session).filter((e) =>
       JSON.stringify(e).includes('Missed scheduled wake'),
@@ -442,8 +442,8 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
     }
   });
 
-  // SELFHOST-012 TC-06: a persisted PAUSED schedule re-arms as paused (not failed, not firing) on restart.
-  it('TC-06: a restored paused schedule is kept + re-armed paused, not reconciled to failed', async () => {
+  // A persisted PAUSED schedule re-arms as paused (not failed, not firing) on restart.
+  it('a restored paused schedule is kept + re-armed paused, not reconciled to failed', async () => {
     const { started, manager, session } = setupWithRecord(pausedScheduledRecord());
 
     // Re-armed (re-spawned), not killed as a stale worker.

@@ -1,5 +1,5 @@
 /**
- * #3189: the host hands its session directory to the WebSocket carrier once, and every connection can
+ * The host hands its session directory to the WebSocket carrier once, and every connection can
  * list, start and switch the host's sessions through it.
  */
 
@@ -43,7 +43,7 @@ afterEach(async () => {
   while (started.length) await started.pop()!.stop();
 });
 
-describe('WsTransport session directory (#3189)', () => {
+describe('WsTransport session directory', () => {
   it('lets every connection list and switch the host sessions', async () => {
     const directory = createDirectory();
     const transport = new WsTransport({

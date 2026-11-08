@@ -1,5 +1,6 @@
 /**
- * #3470 over the stateless HTTP host. It keeps no session state, so it can put a question only to
+ * Elicitation over the stateless HTTP host. It keeps no session state, so it can put a question
+ * only to
  * a 2026-07-28-era client, through input-required rounds: the call that asks is parked behind a
  * single-use `requestState`, and the client's retry carries the answer back to it. A 2025-era
  * client cannot be asked and keeps today's tool error.

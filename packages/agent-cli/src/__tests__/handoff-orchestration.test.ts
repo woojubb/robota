@@ -1,7 +1,7 @@
 /**
- * HANDOFF-001 (issue #1864): the five test-plan rows the frame layer could not cover.
+ * The five test-plan rows the frame layer could not cover.
  *
- * TC-02, TC-03, TC-04, TC-07 and TC-10 are all about what the two ends DO across a transfer, not
+ * These rows are all about what the two ends DO across a transfer, not
  * about the shape of a frame. They need both orchestrations and a carrier, which is what this file
  * builds — the carrier is two in-process ends, so the transfer is real and the network is scripted.
  *
@@ -91,7 +91,7 @@ function wire(destination: HandoffDestination) {
   };
 }
 
-describe('TC-10: two in-process sessions, a full transfer, and the source read-only afterwards', () => {
+describe('two in-process sessions, a full transfer, and the source read-only afterwards', () => {
   let readOnly: ReturnType<typeof vi.fn>;
   let destination: HandoffDestination;
   let source: HandoffSource;
@@ -134,7 +134,7 @@ describe('TC-10: two in-process sessions, a full transfer, and the source read-o
   });
 });
 
-describe('TC-02: the source goes read-only on DURABLE persistence, not on a message', () => {
+describe('the source goes read-only on DURABLE persistence, not on a message', () => {
   it('produces no acknowledgement when the write did not land', async () => {
     const readOnly = vi.fn();
     const destination = new HandoffDestination({
@@ -189,7 +189,7 @@ describe('TC-02: the source goes read-only on DURABLE persistence, not on a mess
   });
 });
 
-describe('TC-03: the connection drops during `transferring`', () => {
+describe('the connection drops during `transferring`', () => {
   it('leaves the source authoritative and the destination with nothing staged', async () => {
     const readOnly = vi.fn();
     const destination = new HandoffDestination({
@@ -226,7 +226,7 @@ describe('TC-03: the connection drops during `transferring`', () => {
   });
 });
 
-describe('TC-04: the drop AFTER the destination commits, before the ack arrives', () => {
+describe('the drop AFTER the destination commits, before the ack arrives', () => {
   it('leaves the source authoritative, and a RE-DELIVERED ack finishes the transfer', async () => {
     const readOnly = vi.fn();
     const destination = new HandoffDestination({
@@ -281,7 +281,7 @@ describe('TC-04: the drop AFTER the destination commits, before the ack arrives'
   });
 });
 
-describe('TC-07: the destination has no provider credential', () => {
+describe('the destination has no provider credential', () => {
   it('fails at COMMIT, loudly, with the source unaffected', async () => {
     const readOnly = vi.fn();
     const destination = new HandoffDestination({
@@ -305,7 +305,7 @@ describe('TC-07: the destination has no provider credential', () => {
     expect(report.state).toBe('discarded');
     expect(report.refusal).toBe('destination-cannot-resume');
     // Loudly: the reason says which rule produced it, so the user is not left guessing.
-    expect(report.detail).toContain('SEC-009');
+    expect(report.detail).toContain('never transferred');
     expect(destination.acknowledgement()).toBe(null);
     expect(destination.liveRecord()).toBe(null);
     expect(source.isAuthoritative()).toBe(true);

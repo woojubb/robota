@@ -1,5 +1,5 @@
 /**
- * Presence (#3679): a process that builds a conversation store marks itself under the state root's
+ * Presence: a process that builds a conversation store marks itself under the state root's
  * `presence/` the first time it does, and a migration marks itself before it looks, so whichever comes
  * second sees the first. Real child processes stand in for the other side, so liveness is judged by
  * the same probes production uses.

@@ -14,7 +14,7 @@ const STATUS: Record<string, { dot: string; label: string }> = {
   error: { dot: 'bg-destructive', label: 'Connection error' },
 };
 
-/** #3282 §4c: every view the primary nav can show — 'project' is always offered (desktop and
+/** Every view the primary nav can show — 'project' is always offered (desktop and
  *  browser alike); 'usage' only where the host opted the surface into it. */
 export type TSessionView = 'chat' | 'usage' | 'project';
 
@@ -25,7 +25,7 @@ const VIEW_LABEL: Readonly<Record<TSessionView, string>> = {
 };
 
 /**
- * #3289 §1 — the folder this session works in, wherever `document.title` is settable: a page (the
+ * The folder this session works in, wherever `document.title` is settable: a page (the
  * browser tab) and the desktop window that loads it (Electron follows the page's title unless told
  * otherwise, and nothing in `apps/agent-app/electron/main.ts` overrides it — see its own SPEC note).
  * Absent while the host has not said, so a not-yet-connected surface keeps whatever title it loaded
@@ -58,14 +58,14 @@ export function SessionTitleBar({
   status: string;
   surface?: string;
   title?: string | null;
-  /** The folder this session works in (#3289 §1); absent when the host has not said. */
+  /** The folder this session works in; absent when the host has not said. */
   workspace?: { readonly name: string; readonly path: string };
   showBrand: boolean;
   view: TSessionView;
   onView: (view: TSessionView) => void;
   personalUsageEnabled: boolean;
   /**
-   * #3282 §2 (part 2): mirrors `ConnectionBanner`'s own "give-up" flag (`useWsSession`'s
+   * Mirrors `ConnectionBanner`'s own "give-up" flag (`useWsSession`'s
    * `connectionLost`) so this corner indicator can tell exactly when that banner is on screen, to
    * never say the same thing twice.
    */
@@ -73,7 +73,7 @@ export function SessionTitleBar({
 }): React.ReactElement {
   const state = STATUS[status] ?? STATUS.disconnected;
   useWorkspaceDocumentTitle(workspace);
-  // #3282 §2 (part 2): the same "has this surface ever connected" rule `ConnectionBanner` uses to
+  // The same "has this surface ever connected" rule `ConnectionBanner` uses to
   // decide whether it has anything to show — kept in step here so the corner text disappears exactly
   // when, and only when, the banner takes over saying it (never both, never neither).
   const everConnectedRef = useRef(false);
@@ -81,7 +81,7 @@ export function SessionTitleBar({
     if (status === 'connected') everConnectedRef.current = true;
   }, [status]);
   const bannerShown = status !== 'connected' && (connectionLost || everConnectedRef.current);
-  // #3282 §4c principle 4 (#3277): everything the agent implements is usable from the GUI through
+  // Everything the agent implements is usable from the GUI through
   // organized screens — the Project panel (git status/diff, project memory) is one, offered next to
   // Chat on every surface, desktop and browser alike; Usage stays surface-gated.
   const items: readonly TSessionView[] = personalUsageEnabled
@@ -142,7 +142,7 @@ export function SessionTitleBar({
 const BANNER_COLUMN = 'mx-auto w-full max-w-[760px] px-6';
 
 /**
- * A connection that drops after a working session (issue #3280 §5): a banner directly above the
+ * A connection that drops after a working session: a banner directly above the
  * conversation — never a full-screen replacement — so the conversation and its history stay visible
  * and scrollable throughout. Shown as soon as the drop happens; says nothing on the very first
  * connect, because nothing has been lost yet.
@@ -234,7 +234,7 @@ function displayProvider(provider: string | undefined): string {
 }
 
 /**
- * A provider/session error classified at the wire boundary (#3289 §3) as one plain sentence naming
+ * A provider/session error classified at the wire boundary as one plain sentence naming
  * what happened and, where there is one, the next step — `null` for a notice this classification does
  * not cover, which keeps showing its own `message` instead.
  *

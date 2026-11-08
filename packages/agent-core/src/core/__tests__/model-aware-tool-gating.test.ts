@@ -1,5 +1,5 @@
 /**
- * PROV-006 — a model that declares no tools is not offered any.
+ * A model that declares no tools is not offered any.
  *
  * The declaration carries this answer per MODEL and the execution seam asked a per-PROVIDER boolean,
  * so a reasoning model that verifiably lacks tools was handed the whole toolset. Nothing failed
@@ -9,7 +9,7 @@
  * The contrast case matters as much as the gating one. Silence from a catalog is not a denial, and
  * a change that read it as one would have stripped tools from every model no catalog describes.
  *
- * `vision` is the same vocabulary and is NOT gated — see PROV-010. A first implementation refused
+ * `vision` is the same vocabulary and is NOT gated. Gating it would refuse
  * any turn whose outgoing messages carried an image, which is right about what gets sent and wrong
  * about what to do: `setModel()` preserves the conversation, so one image plus a model switch left
  * every later text-only turn refused for ever.
@@ -97,7 +97,7 @@ function buildAgent(provider: CatalogProvider, model: string): ConversationAgent
   return new ConversationAgent(config);
 }
 
-describe('PROV-006 — per-model tool gating', () => {
+describe('per-model tool gating', () => {
   it('offers tools to a model whose catalog entry declares them', async () => {
     const provider = new CatalogProvider();
     await buildAgent(provider, 'chat-model').run('hello');
@@ -125,7 +125,7 @@ describe('PROV-006 — per-model tool gating', () => {
     expect(provider.toolsOffered[0]).toEqual(['echo_tool']);
   });
 
-  it('PROV-008 — a model with no deviation gets the vendor default, not a denial', async () => {
+  it('a model with no deviation gets the vendor default, not a denial', async () => {
     // The rule that makes a short table safe. If absence from the deviation list meant "unknown" or
     // "incapable", every table would have to enumerate every model the vendor will ever ship.
     const provider = new CatalogProvider();

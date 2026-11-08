@@ -102,7 +102,7 @@ describe('executeMCPActivationCommand', () => {
     );
   });
 
-  // BEHAVIOR-2794 (issue #2794 / #3073): a source-level problem (an unreadable managed policy, a
+  // A source-level problem (an unreadable managed policy, a
   // config root that is not an object, no `mcpServers`) names no server, so it never appears in
   // `list()`. Before `sourceProblems()` existed on the adapter, `/mcp status` had no way to say an
   // entire source could not be read — it just said nothing beyond whatever DID resolve.
@@ -142,7 +142,7 @@ describe('executeMCPActivationCommand', () => {
     });
   });
 
-  // PR #3076 re-review: a managed-tier source problem also blocks every lower-tier server that would
+  // A managed-tier source problem also blocks every lower-tier server that would
   // otherwise have resolved (`agent-mcp`'s `resolveByPrecedence`) — those names never appear in
   // `list()` (an `unresolved` entry is never an activation candidate), so this line is the ONLY place
   // `/mcp status` can say a lower-tier server exists at all and why it is not active.
@@ -655,7 +655,7 @@ describe('/mcp login', () => {
   });
 });
 
-describe('/mcp reload (#3282 §4 part b-2)', () => {
+describe('/mcp reload', () => {
   function harness(
     reload: ICommandMCPActivationAdapter['reload'],
     taken: (names: string[]) => string[] = (names) => names,

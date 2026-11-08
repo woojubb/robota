@@ -1,5 +1,5 @@
 /**
- * HANDOFF-001 (#1811): moving a live session to another computer, without ever making ownership
+ * Moving a live session to another computer, without ever making ownership
  * ambiguous.
  *
  * ## Not a resume buffer
@@ -23,7 +23,7 @@
  *
  * ## What is NOT in the manifest, and why that is the interesting half
  *
- * Provider credentials are never transferred. SEC-009 established that a resolved secret must not
+ * Provider credentials are never transferred. A resolved secret must not
  * cross a PROCESS boundary; a machine boundary is strictly worse. The destination resolves its own
  * credential from its own environment, and a hand-off to a machine without one fails loudly at
  * commit rather than silently later.
@@ -63,7 +63,7 @@ export type THandoffDisposition =
    *
    * Split from `source-local` because the two are not the same statement. Uncommitted working-tree
    * changes stay behind as a product decision that could be revisited; a resolved provider
-   * credential stays behind because SEC-009 established that it must not cross a process boundary,
+   * credential stays behind because it must not cross a process boundary,
    * and a machine boundary is strictly worse. Collapsing them would leave nothing in the type to
    * stop a later change from helpfully starting to carry the credential along — and the destination
    * resolving its OWN credential is what makes a hand-off to a machine without one fail loudly at
@@ -134,7 +134,7 @@ export interface IHandoffCommitAck {
 export type THandoffRefusal =
   | 'integrity-failed'
   /**
-   * The bytes arrived whole and did not decode as a session record (TRANS-006).
+   * The bytes arrived whole and did not decode as a session record.
    *
    * Distinct from `integrity-failed` because integrity PASSED — the digest matched and the byte
    * count matched, and only the shape was wrong. The two require opposite actions from the source:

@@ -6,9 +6,9 @@ import { SystemCommandExecutor } from '../system-command-executor.js';
 import type { ICommandModule } from '../../command-api/index.js';
 
 /**
- * PRESET-015 — the live command-module re-selection path is `selectCommandModules` (pure filter)
+ * The live command-module re-selection path is `selectCommandModules` (pure filter)
  * feeding `SystemCommandExecutor.replaceCommands`. The full SessionSkillRouter is impractical to
- * construct (≈12 required collaborators), so TC-02/TC-03 exercise the filter logic directly and
+ * construct (≈12 required collaborators), so these cases exercise the filter logic directly and
  * then assert the rebuilt executor reflects the selection — the exact two-step the router performs
  * in `reapplyCommandModuleSelection`.
  */
@@ -41,18 +41,18 @@ function rebuildExecutor(
   return executor;
 }
 
-describe('selectCommandModules (PRESET-015)', () => {
+describe('selectCommandModules', () => {
   it('returns the full set unchanged when neither list is given', () => {
     expect(selectCommandModules(ALL_MODULES, undefined, undefined)).toEqual(ALL_MODULES);
   });
 
-  it('TC-02: disable removes a module — its commands disappear from the rebuilt executor', () => {
+  it('disable removes a module — its commands disappear from the rebuilt executor', () => {
     const executor = rebuildExecutor(undefined, ['beta']);
     expect(executor.hasCommand('a1')).toBe(true);
     expect(executor.hasCommand('b1')).toBe(false);
   });
 
-  it('TC-03: allowlist keeps only the listed module — only its commands remain', () => {
+  it('allowlist keeps only the listed module — only its commands remain', () => {
     const executor = rebuildExecutor(['beta'], undefined);
     expect(executor.hasCommand('a1')).toBe(false);
     expect(executor.hasCommand('b1')).toBe(true);
@@ -64,7 +64,7 @@ describe('selectCommandModules (PRESET-015)', () => {
   });
 });
 
-describe('findUnknownModuleNames (INFRA-032)', () => {
+describe('findUnknownModuleNames', () => {
   const AVAILABLE = ['alpha', 'beta'] as const;
 
   it('returns [] when every enabled/disabled name matches an available name', () => {

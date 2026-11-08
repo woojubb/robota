@@ -1,5 +1,5 @@
 /**
- * #3282 §4a: the GUI Settings screen's typed snapshot and patch shapes.
+ * The GUI Settings screen's typed snapshot and patch shapes.
  *
  * Named here (not in `agent-transport` or `agent-framework`) so a wire carrier can carry the
  * snapshot type without depending on the command/runtime layer that builds it, and the runtime
@@ -68,7 +68,7 @@ export interface ISettingsSandboxSection {
   readonly description: string;
 }
 
-/** One configured MCP server, as the MCP Servers section shows it (#3282 §4 part b-2). */
+/** One configured MCP server, as the MCP Servers section shows it. */
 export interface ISettingsMcpServer {
   readonly id: string;
   readonly name: string;
@@ -87,7 +87,7 @@ export interface ISettingsMcpSection {
   readonly servers: readonly ISettingsMcpServer[];
 }
 
-/** One installed plugin, as the Plugins section shows it (#3282 §4 part b-2). */
+/** One installed plugin, as the Plugins section shows it. */
 export interface ISettingsPlugin {
   readonly id: string;
   readonly name: string;
@@ -106,7 +106,7 @@ export interface ISettingsPluginsSection {
 }
 
 /**
- * One configured provider profile, as the "Providers & Models" section lists it (#3282 §4b): the
+ * One configured provider profile, as the "Providers & Models" section lists it: the
  * profile name, a plain provider name (never its internal `type` id), its model's label, whether it
  * is the one in use, and a plain connection state — shown only when known, e.g. "Key missing".
  */
@@ -124,7 +124,7 @@ export interface ISettingsProvidersSection {
   readonly profiles: readonly ISettingsProviderProfile[];
 }
 
-/** A full read of every Settings section this part of #3282 §4 covers. */
+/** A full read of every Settings section this contract covers. */
 export interface ISettingsSnapshot {
   readonly language: ISettingsLanguageSection;
   readonly outputStyle: ISettingsOutputStyleSection;
@@ -161,15 +161,15 @@ export type TSettingsPatch =
   /** `pluginId` is `<name>@<marketplace>`, the same argument `/plugin install` takes. */
   | { readonly field: 'installPlugin'; readonly pluginId: string }
   | { readonly field: 'uninstallPlugin'; readonly pluginId: string }
-  // #3282 §4b: "Use" — the same path as `/provider switch <profile>` (validate, hot-swap, persist).
+  // "Use" — the same path as `/provider switch <profile>` (validate, hot-swap, persist).
   | { readonly field: 'providerProfile'; readonly profileName: string }
-  // #3282 §4b: "Model" — `profileName` names the ROW this was clicked on, not just the model: two
+  // "Model" — `profileName` names the ROW this was clicked on, not just the model: two
   // profiles of the same provider type can offer the same catalog id (e.g. two profiles made by
   // "Duplicate…"), and resolving by id alone would silently prefer the current profile on a tie,
   // changing a different profile than the one the person clicked. The reporter switches to
   // `profileName` first (a no-op success when it is already current), then sets the model — the same
   // two-step `/model <id>` already performs internally for a model belonging to another profile.
   | { readonly field: 'providerModel'; readonly profileName: string; readonly modelId: string }
-  // #3282 §4b: "Delete" — refused (never an interactive replacement ask) when `profileName` is the
+  // "Delete" — refused (never an interactive replacement ask) when `profileName` is the
   // profile in use; a modal write has no follow-up question to ask.
   | { readonly field: 'deleteProviderProfile'; readonly profileName: string };

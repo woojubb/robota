@@ -1,9 +1,9 @@
 /**
- * `/cd`: everything the session decides before a move, in one place (issue #3081).
+ * `/cd`: everything the session decides before a move, in one place.
  *
  * A move is a NEW session in the target directory, composed by the host the way it composes any
  * session there; this session only decides whether it may leave, where to, and what conversation
- * travels. It never mutates its own workspace (ARCH-043).
+ * travels. It never mutates its own workspace.
  */
 import { evaluatePermission, isAbsolutePath, resolvePath } from '@robota-sdk/agent-core';
 

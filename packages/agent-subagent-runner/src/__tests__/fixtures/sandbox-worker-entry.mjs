@@ -1,5 +1,5 @@
 /**
- * Issue #3248: a composition root that composes the child's sandbox itself, entering the REAL
+ * A composition root that composes the child's sandbox itself, entering the REAL
  * worker. It records whether `createTools` received the instance `createSandbox` built, and whether
  * the confined `Bash` command ran without anyone to approve it.
  */
@@ -18,7 +18,7 @@ function record(event) {
   appendFileSync(RECORD_PATH, `${JSON.stringify(event)}\n`, 'utf8');
 }
 
-// Issue #3256: in this mode the first model call waits for a `/sandbox` change sent while the child
+// In this mode the first model call waits for a `/sandbox` change sent while the child
 // runs. It asks for one with a text delta, once the sandbox is composed, so the change lands after it.
 const WAIT_FOR_CHANGE = process.env.SANDBOX_FIXTURE_WAIT_FOR_CHANGE === '1';
 // …or, in this mode, the command itself asks for the change once it is running, and finishes some

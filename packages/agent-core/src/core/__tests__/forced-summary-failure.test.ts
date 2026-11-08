@@ -1,12 +1,12 @@
 /**
- * A failed forced summary fails the run with the provider's own error — issue #3209.
+ * A failed forced summary fails the run with the provider's own error.
  *
  * When the round cap ends the loop on a tool round, one more call asks the model for a summary. Its
  * failure was logged and dropped, so the run threw the generic `[STRICT-POLICY]` error instead: no
  * class, status or code to decide a retry on, and a message that reads like an SDK bug. An aborted
  * summary call must end the turn the way an aborted round does: resolved as interrupted.
  *
- * Every case runs against both entry points: they are two entries into one turn (CORE-042).
+ * Every case runs against both entry points: they are two entries into one turn.
  */
 
 import { describe, expect, it } from 'vitest';

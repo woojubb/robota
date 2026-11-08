@@ -15,7 +15,7 @@ function assistantEntry(id: string, inputTokens: number, outputTokens: number): 
   };
 }
 
-describe('sumHistoryUsage (ANALYTICS-001 Phase 2)', () => {
+describe('sumHistoryUsage', () => {
   it('sums assistant token usage across a sub-session history', () => {
     const totals = sumHistoryUsage([
       assistantEntry('a1', 100, 40),

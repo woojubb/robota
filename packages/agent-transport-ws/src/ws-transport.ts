@@ -63,7 +63,7 @@ export function createWsTransport(options: IWsTransportOptions): IWsTransport {
     async start() {
       if (!session) throw lifecycleError('not-attached');
       if (cleanup) throw lifecycleError('already-started');
-      // ARCH-030: this adapter is the carrier here, so it builds the connection's outbound boundary
+      // This adapter is the carrier here, so it builds the connection's outbound boundary
       // from its own injected sink and its own failure policy, then passes it down.
       const deliver = createOutboundDelivery(options.send, (error, event) => {
         handler.cleanup();

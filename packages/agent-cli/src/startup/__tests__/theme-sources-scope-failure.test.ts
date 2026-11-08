@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * SCREEN-2002 TC-11 — a plugin scope the loader cannot read.
+ * A plugin scope the loader cannot read.
  *
  * Its own file, because proving it needs the plugin loader to throw, and mocking that module for
  * the whole `theme-sources` suite would make every other case answer a mock instead of the loader.

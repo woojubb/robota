@@ -1,6 +1,6 @@
 // @robota-sdk/agent-mcp
 
-// MCP-001: the definition control plane. `agent-mcp` is the sole owner of MCP server definitions
+// The definition control plane. `agent-mcp` is the sole owner of MCP server definitions
 // and their raw/validated/resolved forms, provenance and shadow metadata, strict foreign decoding,
 // environment templates, whole-entry precedence, reversible disable overlays, redacted management
 // projections, activation identity, and pure management results (docs/SPEC.md).
@@ -77,7 +77,7 @@ export {
   type TMCPGetResult,
 } from './management/results.js';
 
-// MCP-2520: the reusable trust boundary. Host-injected, transport-neutral, deny-by-default.
+// The reusable trust boundary. Host-injected, transport-neutral, deny-by-default.
 export {
   InMemoryMCPActivationApprovalStore,
   MCPActivationAdmissionService,
@@ -103,7 +103,7 @@ export {
   type IMCPActivationSummary,
 } from './mcp-activation-controller.js';
 
-// MCP-002/MCP-2522: one official-SDK client for both protocol eras behind one admit-then-construct transport seam.
+// One official-SDK client for both protocol eras behind one admit-then-construct transport seam.
 // The stdio adapter and the Node egress of the HTTP transport (resolved-address policy, pinned
 // sockets) are on `@robota-sdk/agent-mcp/node`; this entry takes the egress by injection and has no
 // default of its own.
@@ -223,7 +223,7 @@ export {
   type TMCPListChangedListener,
 } from './client/session.js';
 
-// MCP-002: the canonical catalog — what a server disclosed, and what this package decided to expose,
+// The canonical catalog — what a server disclosed, and what this package decided to expose,
 // with provenance, stable collision-safe naming and explicit adopted / adapted / rejected dispositions.
 export {
   MCP_CANONICAL_NAME_BUDGET,
@@ -269,7 +269,7 @@ export {
 export { appCallableToolNames } from './catalog/app-view.js';
 export type { IMCPToolUiReference, TMCPToolUiProblem } from './catalog/ui-metadata.js';
 
-// MCP-002 (absorbing MCP-003): connection and catalog lifecycle. `TMCPConnectionState` is the ONE
+// Connection and catalog lifecycle. `TMCPConnectionState` is the ONE
 // connection-state union under `src/**`.
 export {
   DEFAULT_MCP_BACKOFF,
@@ -285,7 +285,7 @@ export {
   type TMCPFailureClass,
 } from './supervisor/connection.js';
 
-// CORE-040: the third-party trust boundary. Exported because the decision it encodes — which parts
+// The third-party trust boundary. Exported because the decision it encodes — which parts
 // of someone else's schema this runtime can enforce — is one a consumer needs to be able to inspect
 // and to be told about, not one that should only exist inside the catalog builder.
 export {

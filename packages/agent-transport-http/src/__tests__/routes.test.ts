@@ -24,10 +24,9 @@ import type { IInteractiveSession, ITurnHandle } from '@robota-sdk/agent-interfa
  * each: `as never` or a blanket cast would defeat what the published double is for.
  */
 /**
- * RUNTIME-003 landed while this PR was in review: `submit` now answers with a TURN HANDLE whose
- * `completed` always settles. The honest stubs answer with one too — an empty result, since no case
- * here reads the handle (the route relays EVENTS) — so the suite keeps compiling against the
- * contract rather than against the shape it had last month.
+ * `submit` answers with a TURN HANDLE whose `completed` always settles. The honest stubs answer
+ * with one too — an empty result, since no case here reads the handle (the route relays EVENTS) —
+ * so the suite compiles against the contract.
  */
 function stubHandle(turnId: string): ITurnHandle {
   return {
@@ -161,9 +160,9 @@ describe('HTTP Transport Routes', () => {
       resolvePermission,
       resolveAsk,
     };
-    // #3282 §2 added `listModels` to `ISessionCommands` (15 + 1); #3288 §2 added
-    // `getMessagesDisplay` to `ISessionConversationRead` (16 + 1); #3449 added the two prompt
-    // answers of `ISessionPromptResolution` (17 + 2).
+    // The port covers the full session surface, including `listModels` (`ISessionCommands`),
+    // `getMessagesDisplay` (`ISessionConversationRead`) and the two prompt answers of
+    // `ISessionPromptResolution`.
     expect(Object.keys(port)).toHaveLength(19);
     const transport = createHttpTransport({
       admission: { open: true, openReason: 'least-authority HTTP port scenario' },
@@ -191,10 +190,10 @@ describe('HTTP Transport Routes', () => {
     const mockSession = session ?? createMockSession();
     const app = createAgentRoutes({
       sessionFactory: () => mockSession,
-      // SEC-008: these cases predate the trust boundary and are about what each route DOES. They say
+      // These cases predate the trust boundary and are about what each route DOES. They say
       // so rather than carrying a credential, so a reader can tell "admission is not under test" from
       // "admission was forgotten" — which is the distinction the boundary exists to make possible.
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
     return { app, mockSession };
   }
@@ -356,7 +355,7 @@ describe('HTTP Transport Routes', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.message).toBe('Conversation cleared.');
-    // SEC-008: the call now carries its origin — a peer over HTTP is 'remote', not the operator.
+    // The call now carries its origin — a peer over HTTP is 'remote', not the operator.
     expect(mockSession.executeCommand).toHaveBeenCalledWith('clear', '', 'remote');
   });
 
@@ -398,7 +397,7 @@ describe('HTTP Transport Routes', () => {
 
   // ── POST /submit completion (decoupled from thinking(false)) ──────
   //
-  // Regression guard for ARL-04: the /submit done-promise must resolve from the
+  // Regression guard: the /submit done-promise must resolve from the
   // terminal handler (complete/interrupted/error), and the terminal SSE event must
   // be flushed to the client, WITHOUT relying on a trailing thinking(false). Each
   // scripted session emits ONLY its terminal event (no trailing thinking event).
@@ -432,7 +431,7 @@ describe('HTTP Transport Routes', () => {
   async function requestSubmit(session: IInteractiveSession): Promise<string> {
     const app = createAgentRoutes({
       sessionFactory: () => session,
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
     const res = await app.request('/submit', {
       method: 'POST',
@@ -490,7 +489,7 @@ describe('HTTP Transport Routes', () => {
     expect(body).toContain('"message":"boom"');
   });
 
-  // ── ARCH-004 RUNTIME-38: reject concurrent /submit on a busy session ──
+  // ── Reject concurrent /submit on a busy session ──
 
   it('POST /submit returns 409 while a turn is already in flight', async () => {
     // The route CLAIMS the turn now rather than reading `session.isExecuting()`, so a session stubbed
@@ -501,8 +500,8 @@ describe('HTTP Transport Routes', () => {
     const { session } = createHonestSession();
     const app = createAgentRoutes({
       sessionFactory: () => session,
-      // SEC-008: admission is not under test here, and the reason it is open says so.
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      // Admission is not under test here, and the reason it is open says so.
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
     const post = async (prompt: string): Promise<Response> =>
       app.request('/submit', {
@@ -517,7 +516,7 @@ describe('HTTP Transport Routes', () => {
     expect([first.status, second.status].sort()).toEqual([200, 409]);
   });
 
-  // ── ARCH-004 RUNTIME-14: SSE teardown always removes every listener (no leak) ──
+  // ── SSE teardown always removes every listener (no leak) ──
 
   it('POST /submit unsubscribes every listener it added once the stream completes', async () => {
     const session = createEmitterSession('complete', { ok: true });
@@ -530,7 +529,7 @@ describe('HTTP Transport Routes', () => {
   });
 
   /**
-   * The load-bearing RUNTIME-14 case: a client that disconnects MID-STREAM (before any terminal event). The
+   * The load-bearing case: a client that disconnects MID-STREAM (before any terminal event). The
    * pre-fix code ran cleanup only after `await done`, and `done` resolved solely on complete/interrupted/error
    * — so a disconnect leaked every listener forever. The fix's `stream.onAbort` must cancel the run
    * (`session.abort()`) and unblock `done` so the `finally` teardown runs.
@@ -557,7 +556,7 @@ describe('HTTP Transport Routes', () => {
 
     const app = createAgentRoutes({
       sessionFactory: () => session,
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
     const res = await app.request('/submit', {
       method: 'POST',
@@ -581,9 +580,9 @@ describe('HTTP Transport Routes', () => {
   });
 });
 
-// ── RUNTIME-003 P2: the busy check must be a CLAIM, not a look ──────────────
+// ── The busy check must be a CLAIM, not a look ──────────────
 
-describe('RUNTIME-003: two submissions in the same tick', () => {
+describe('two submissions in the same tick', () => {
   /**
    * A session whose `isExecuting()` tells the truth — it flips only when a turn actually starts.
    *
@@ -614,8 +613,8 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
     }) as IInteractiveSession['on'];
     const app = createAgentRoutes({
       sessionFactory: () => session,
-      // SEC-008: admission is not under test here, and the reason it is open says so.
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      // Admission is not under test here, and the reason it is open says so.
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
     const post = async (prompt: string): Promise<Response> =>
       app.request('/submit', {
@@ -655,8 +654,8 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
 
     const app = createAgentRoutes({
       sessionFactory: () => session,
-      // SEC-008: admission is not under test here, and the reason it is open says so.
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      // Admission is not under test here, and the reason it is open says so.
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
     await (
       await app.request('/submit', {
@@ -692,8 +691,8 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
 
     const app = createAgentRoutes({
       sessionFactory: () => session,
-      // SEC-008: admission is not under test here, and the reason it is open says so.
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      // Admission is not under test here, and the reason it is open says so.
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
     const response = await app.request('/submit', {
       method: 'POST',
@@ -724,8 +723,8 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
     session.isExecuting = () => true; // busy, but not by anything this router claimed
     const app = createAgentRoutes({
       sessionFactory: () => session,
-      // SEC-008: admission is not under test here, and the reason it is open says so.
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      // Admission is not under test here, and the reason it is open says so.
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
 
     const res = await app.request('/submit', {
@@ -747,7 +746,7 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
     let call = 0;
     const app = createAgentRoutes({
       sessionFactory: () => (call++ === 0 ? first.session : second.session),
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
     const post = async (prompt: string): Promise<Response> =>
       app.request('/submit', {
@@ -776,7 +775,7 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
     const app = createAgentRoutes({
       // A new object every call, forwarding to one session — the shape that defeated identity.
       sessionFactory: () => Object.assign(createTestInteractiveSession(), { ...backing.session }),
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
     const post = async (prompt: string): Promise<Response> =>
       app.request('/submit', {
@@ -804,8 +803,8 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
     session.getSession = (() => ({ getSessionId: () => '' })) as IInteractiveSession['getSession'];
     const app = createAgentRoutes({
       sessionFactory: () => session,
-      // SEC-008: admission is not under test here, and the reason it is open says so.
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      // Admission is not under test here, and the reason it is open says so.
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
 
     const response = await app.request('/submit', {
@@ -845,8 +844,8 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
     });
     const app = createAgentRoutes({
       sessionFactory: () => session,
-      // SEC-008: admission is not under test here, and the reason it is open says so.
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      // Admission is not under test here, and the reason it is open says so.
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
     const post = async (prompt: string): Promise<Response> =>
       app.request('/submit', {
@@ -883,8 +882,8 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
     const { session, startedTurns } = createHonestSession();
     const app = createAgentRoutes({
       sessionFactory: () => session,
-      // SEC-008: admission is not under test here, and the reason it is open says so.
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      // Admission is not under test here, and the reason it is open says so.
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
 
     const post = async (prompt: string): Promise<Response> =>
@@ -905,9 +904,9 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
   });
 });
 
-// ── SEC-008: the route is a trust boundary, not a pass-through ───────────────
+// ── The route is a trust boundary, not a pass-through ───────────────
 
-describe('SEC-008: an unadmitted request never reaches the session', () => {
+describe('an unadmitted request never reaches the session', () => {
   /**
    * A session that records whether anything actually got through to it.
    *
@@ -921,10 +920,8 @@ describe('SEC-008: an unadmitted request never reaches the session', () => {
     const session = createTestInteractiveSession({
       submit: async (prompt: string) => {
         reached.push(`submit:${prompt}`);
-        // No cast, and the previous version of this comment predicted this edit: it said RUNTIME-003
-        // would change the return type on its own branch "and the type is what will tell this file
-        // about it". It landed, the compiler told, and the stub answers with the handle the contract
-        // now promises. No case here reads it — `reached` is the observable.
+        // No cast: the stub answers with the handle the contract promises, so a return-type change
+        // is reported by the compiler. No case here reads it — `reached` is the observable.
         return {
           turnId: 'recorded-turn',
           completed: Promise.resolve({
@@ -1104,7 +1101,7 @@ describe('a session that builds itself in the background', () => {
   async function submit(session: IHttpTransportSession): Promise<Response> {
     const app = createAgentRoutes({
       sessionFactory: () => session,
-      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+      admission: { open: true, openReason: 'this case is about routing, not admission' },
     });
     return app.request('/submit', {
       method: 'POST',

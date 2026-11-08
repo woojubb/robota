@@ -1,5 +1,5 @@
 /**
- * One initialized MCP protocol session over an admitted transport (MCP-002).
+ * One initialized MCP protocol session over an admitted transport.
  *
  * Ownership (spec § Decision, connection-state allocation): a session owns the NEGOTIATED FACTS of
  * one protocol session — `protocolVersion`, `serverInfo`, `instructions`, capabilities, the SDK
@@ -7,7 +7,7 @@
  * connection-state union belong to `../supervisor/connection.ts`.
  *
  * Contract file: the interfaces below are authoritative for every consumer; the implementation is
- * completed against them (TC-01, TC-19 per-request timeout, TC-17 close).
+ * completed against them (per-request timeout, close).
  */
 
 import { openStatelessSession } from './stateless-session.js';

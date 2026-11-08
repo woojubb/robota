@@ -111,7 +111,7 @@ describe('parseStructuredResponseText', () => {
   });
 
   /**
-   * SEC-003 (`js/polynomial-redos`). The argument here is raw model output, so its shape is not
+   * `js/polynomial-redos`. The argument here is raw model output, so its shape is not
    * under our control. The pre-fix fence regex used `\s*\n`; since `\s` also matches `\n` the two
    * overlapped, and an unterminated fence full of blank lines was rejected in O(n^2) — measured
    * ~3s for the input below, versus ~1ms after the fix.
@@ -140,12 +140,12 @@ describe('parseStructuredResponseText', () => {
 });
 
 /**
- * CORE-039 — a union node carries `anyOf` INSTEAD of `type`. Before the subset could express one,
+ * A union node carries `anyOf` INSTEAD of `type`. Before the subset could express one,
  * `switch (schema.type)` fell to `default: unsupported schema type undefined` for every such node,
  * so emitting `anyOf` without teaching this walk to branch on it would have rejected every value of
  * a union-typed field — trading a converter crash for a tool that cannot be called.
  */
-describe('validateAgainstJsonSchema — union nodes (CORE-039)', () => {
+describe('validateAgainstJsonSchema — union nodes', () => {
   const choice = {
     anyOf: [
       { type: 'string' as const },
@@ -198,14 +198,14 @@ describe('validateAgainstJsonSchema — union nodes (CORE-039)', () => {
 });
 
 /**
- * CORE-039 — `additionalProperties` declares closure RELATIVE TO a declared `properties` set.
+ * `additionalProperties` declares closure RELATIVE TO a declared `properties` set.
  *
  * The convention ("omitted rejects extras") was authored for a tool's `parameters` root, where
  * `properties` is structurally always present. A nested node can omit it, and carrying the root's
  * phrasing there unchanged would give omitted `additionalProperties` a second meaning — "the empty
  * object only" — that contradicts both JSON Schema and the document forwarded to the provider.
  */
-describe('validateAgainstJsonSchema — closure is relative to declared properties (CORE-039)', () => {
+describe('validateAgainstJsonSchema — closure is relative to declared properties', () => {
   it('permits any properties on a node that declares none', () => {
     // This is the shape a hand-written schema uses for a free-form object field, and it is what the
     // provider is told: `{"type":"object"}` with no properties permits any properties.

@@ -8,10 +8,10 @@ import { WsTransport } from '../ws-transport-configurable.js';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /**
- * GUI-002 TC-03 — required loopback auth token. A configured token MUST be presented (query param or
+ * Required loopback auth token. A configured token MUST be presented (query param or
  * `Sec-WebSocket-Protocol` subprotocol) or the socket is closed BEFORE any session data.
  *
- * SEC-001 — secure by default: when NO token is configured, the transport AUTO-MINTS one (`resolvedToken`),
+ * Secure by default: when NO token is configured, the transport AUTO-MINTS one (`resolvedToken`),
  * so an unauthenticated connection is rejected; `{ open: true }` is the discouraged opt-out. Plus
  * defense-in-depth: the WS upgrade rejects a non-loopback `Host` (DNS rebinding) and a non-allowed browser
  * `Origin` at the handshake.
@@ -37,7 +37,7 @@ const started: WsTransport[] = [];
 interface IStartConfig {
   token?: string;
   open?: boolean;
-  /** SEC-008: required alongside `open` — the transport refuses an opt-out nobody explained. */
+  /** Required alongside `open` — the transport refuses an opt-out nobody explained. */
   openReason?: string;
   allowedHosts?: readonly string[];
   allowedOrigins?: readonly string[];
@@ -99,7 +99,7 @@ function probe(
   });
 }
 
-describe('WsTransport loopback auth (GUI-002 TC-03)', () => {
+describe('WsTransport loopback auth', () => {
   it('attributes submissions with the trusted server-side surface driver id', async () => {
     const port = 17650;
     const submit = vi.fn().mockResolvedValue(undefined);
@@ -133,8 +133,8 @@ describe('WsTransport loopback auth (GUI-002 TC-03)', () => {
     await closed;
   });
 
-  it('carries the driver id on the connection-open messages frame, so a client can learn its own id (#3289 §3)', async () => {
-    // The crux of #3289 §3's own-driver-id feature: a client's first `messages` frame is where it
+  it('carries the driver id on the connection-open messages frame, so a client can learn its own id', async () => {
+    // The crux of the own-driver-id feature: a client's first `messages` frame is where it
     // learns which of every subsequent `authored` message is its own. This is the one place that
     // sets it — decode-shape validation and the client reducer are covered elsewhere, but neither
     // would catch this specific line being broken or reverted.
@@ -186,43 +186,43 @@ describe('WsTransport loopback auth (GUI-002 TC-03)', () => {
     expect(await probe(port, { token: 'not-the-nonce' })).toBe('closed:1008');
   });
 
-  // ── SEC-001 ────────────────────────────────────────────────────────────────
-  it('TC-01: NO token configured AUTO-MINTS one — unauthenticated rejected, minted token works', async () => {
+  // ── Secure by default ────────────────────────────────────────────────────────────────
+  it('NO token configured AUTO-MINTS one — unauthenticated rejected, minted token works', async () => {
     const { port, token } = await startOn({}); // secure by default
     expect(token).toBeTruthy();
     expect(await probe(port)).toBe('closed:1008');
     expect(await probe(port, { token })).toBe('messages');
   });
 
-  it('TC-05: the discouraged `open` opt-out restores unauthenticated behavior', async () => {
+  it('the discouraged `open` opt-out restores unauthenticated behavior', async () => {
     const { port, token } = await startOn({
       open: true,
-      openReason: 'SEC-008: the discouraged opt-out is the SUBJECT of this case',
+      openReason: 'the discouraged opt-out is the SUBJECT of this case',
     });
     expect(token).toBeUndefined();
     expect(await probe(port)).toBe('messages');
   });
 
-  it('TC-02: rejects a non-loopback Host at the upgrade (DNS-rebinding defense)', async () => {
+  it('rejects a non-loopback Host at the upgrade (DNS-rebinding defense)', async () => {
     const { port, token } = await startOn({ token: 'secret-nonce' });
     expect(await probe(port, { token, headers: { host: 'evil.example.com' } })).not.toBe(
       'messages',
     );
   });
 
-  it('TC-02: accepts a loopback Host on a port-agnostic match', async () => {
+  it('accepts a loopback Host on a port-agnostic match', async () => {
     const { port, token } = await startOn({ token: 'secret-nonce' });
     expect(await probe(port, { token, headers: { host: `localhost:${port}` } })).toBe('messages');
   });
 
-  it('TC-03: rejects a non-allowed browser Origin at the upgrade', async () => {
+  it('rejects a non-allowed browser Origin at the upgrade', async () => {
     const { port, token } = await startOn({ token: 'secret-nonce' });
     expect(await probe(port, { token, headers: { origin: 'https://evil.example.com' } })).not.toBe(
       'messages',
     );
   });
 
-  it('TC-03: accepts a configured app Origin', async () => {
+  it('accepts a configured app Origin', async () => {
     const { port, token } = await startOn({
       token: 'secret-nonce',
       allowedOrigins: ['https://app.example.com'],
@@ -233,7 +233,7 @@ describe('WsTransport loopback auth (GUI-002 TC-03)', () => {
   });
 });
 
-describe('SEC-008: `open` takes a written reason here too', () => {
+describe('`open` takes a written reason here too', () => {
   // The first version filled a reason in for any caller that omitted one, which made WS the ONE
   // transport where `{ open: true }` alone was accepted — HTTP and WebRTC both refuse it. Review
   // found that: a reason invented on the caller's behalf reads, to the next person, as a decision

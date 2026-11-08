@@ -25,7 +25,7 @@ function nextRequestId(prefix: string): string {
 }
 
 /**
- * #3282 §4c — the Project panel's correlated request/response state (status, one file's diff, project
+ * The Project panel's correlated request/response state (status, one file's diff, project
  * memory), independent from chat state. Mirrors `usePersonalUsageState`'s shape: a status per read, a
  * `requestId` ref that drops a stale reply (a diff request superseded by clicking another file before
  * the first answered), and a request function per read.

@@ -1,5 +1,5 @@
 /**
- * SELFHOST-011 P1 — the neutral eval runner.
+ * The neutral eval runner.
  *
  * `runEval(def, runFn)` drives each case through the INJECTED `runFn`, scores the resulting `IExecutionResult`
  * with each metric, and aggregates to an overall pass/fail against the threshold. It is pure over `runFn` — no

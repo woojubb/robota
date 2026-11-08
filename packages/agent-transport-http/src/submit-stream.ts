@@ -1,5 +1,5 @@
 /**
- * RUNTIME-14 / RUNTIME-38 — relaying ONE turn to an SSE client, and letting go of it afterwards.
+ * Relaying ONE turn to an SSE client, and letting go of it afterwards.
  *
  * Split out of `routes.ts` under the file-size ceiling. The route's job is to decide whether this
  * request may start a turn; relaying the turn's events, tearing the subscriptions down, and telling
@@ -70,12 +70,12 @@ function wireRelay(
     cleanup.push(() => session.off(event as 'text_delta', handler as () => void));
   };
 
-  // RUNTIME-14: await + catch every SSE write so a write to a client-closed stream is a blessed
+  // Await + catch every SSE write so a write to a client-closed stream is a blessed
   // no-op, not an unhandled rejection (post-headers errors bypass Hono's onError).
   const write = (event: string, data: unknown): Promise<void> =>
     stream.writeSSE({ event, data: JSON.stringify(data) }).catch(() => {
       // allow-fallback: client closed the stream mid-write — nothing to deliver; the finally teardown
-      // (RUNTIME-14) removes the listeners, so this write has nothing left to do.
+      // removes the listeners, so this write has nothing left to do.
     });
 
   let settle!: () => void;
@@ -104,7 +104,7 @@ function wireRelay(
     settle();
   });
 
-  // RUNTIME-14: on client disconnect, CANCEL the underlying run (not merely stop writing) and
+  // On client disconnect, CANCEL the underlying run (not merely stop writing) and
   // unblock `done` so the finally teardown runs — otherwise `done` would never resolve and the
   // listeners leak.
   stream.onAbort(() => onClientAbort(session, onFailure, settle));
@@ -187,7 +187,7 @@ function teardown(cleanup: Array<() => void>, release: () => void): void {
       // The listener stays attached — the lesser loss, and the one the next turn can survive.
     }
   }
-  // RUNTIME-38: released here for the same reason — a turn that throws must not wedge the session
+  // Released here for the same reason — a turn that throws must not wedge the session
   // it claimed.
   release();
 }
@@ -228,7 +228,7 @@ export function relayTurn(
           : session.submit(prompt, undefined, undefined, { ...attribution }));
         await done;
       } finally {
-        // RUNTIME-14: teardown ALWAYS runs — on completion, error, OR client disconnect — so the
+        // Teardown ALWAYS runs — on completion, error, OR client disconnect — so the
         // session event listeners can never leak, and the claim always comes back.
         teardown(cleanup, release);
       }

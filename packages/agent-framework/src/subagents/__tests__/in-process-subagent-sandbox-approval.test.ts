@@ -1,5 +1,5 @@
 /**
- * Issue #3248: in `auto` mode a broad execution allow rule (`Bash(npm *)`) is dropped from the allow
+ * In `auto` mode a broad execution allow rule (`Bash(npm *)`) is dropped from the allow
  * list but stays in an `inherit-allowlist` ceiling, so a subagent's command inside the ceiling reaches
  * the sandbox step. An in-process subagent runs the parent's tools, under the parent's sandbox, and
  * its session consults that same sandbox there, as the parent's does.

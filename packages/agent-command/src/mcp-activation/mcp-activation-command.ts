@@ -94,9 +94,9 @@ function formatSummary(
 }
 
 /**
- * Issue #2794: a source that produced no server names at all — "which file could not be read".
+ * A source that produced no server names at all — "which file could not be read".
  *
- * `blockedServerNames` (PR #3076 review): a managed-tier problem also blocked every lower-tier
+ * `blockedServerNames`: a managed-tier problem also blocked every lower-tier
  * server that would otherwise have resolved — those names never appear in `list()` above (an
  * `unresolved` entry is never an activation candidate), so this line is the ONLY place `/mcp status`
  * says they exist at all and why they are not active.
@@ -126,7 +126,7 @@ async function listResult(
   }
   const entries = mcp.list();
   const oauth = await oauthStates(mcp);
-  // A source-scoped problem (issue #2794) names no server, so it never appears in `entries` — it is
+  // A source-scoped problem names no server, so it never appears in `entries` — it is
   // reported beside them rather than folded into the "no servers" branch, which would otherwise say
   // nothing while a managed policy sits unreadable.
   const sourceProblems = mcp.sourceProblems?.() ?? [];
@@ -164,7 +164,7 @@ async function listResult(
         definitionFingerprint: entry.definitionFingerprint,
         securityIdentity: entry.securityIdentity,
         ...(oauth.has(entry.serverId) ? { oauth: oauth.get(entry.serverId) } : {}),
-        // #3282 §4 part b-2: the Settings screen's MCP Servers section.
+        // The Settings screen's MCP Servers section.
         ...(entry.connection === undefined ? {} : { connection: entry.connection }),
         ...(entry.connectionFailureReason === undefined
           ? {}
@@ -401,7 +401,7 @@ async function logoutResult(
 }
 
 /**
- * #3282 §4 part b-2: `/mcp reload` and the Settings screen's "Reload servers" button — retries
+ * `/mcp reload` and the Settings screen's "Reload servers" button — retries
  * every server not currently connected and adds whatever tools it now offers to the live session,
  * the same way a completed sign-in does.
  */

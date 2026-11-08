@@ -20,7 +20,7 @@ const TOOLS: IToolSchema[] = [
   },
 ];
 
-describe('buildOpenAICompatibleRequestParams (PROV-004 / CORE-043)', () => {
+describe('buildOpenAICompatibleRequestParams', () => {
   it('prefers the per-call model over the provider default', () => {
     const params = buildOpenAICompatibleRequestParams({
       messages: MESSAGES,
@@ -103,7 +103,7 @@ describe('buildOpenAICompatibleRequestParams (PROV-004 / CORE-043)', () => {
   });
 });
 
-describe('buildOpenAICompatibleRequestParams — response_format (PROV-004 / CORE-043)', () => {
+describe('buildOpenAICompatibleRequestParams — response_format', () => {
   // The builder is the ONE place that decides what a compat request carries, and it dropped
   // `IChatOptions.responseFormat` entirely — so attempt 1 carried no schema signal and success
   // depended on the prose retry loop `outputRetries: 0` disables. Emission is gated on the DECLARED

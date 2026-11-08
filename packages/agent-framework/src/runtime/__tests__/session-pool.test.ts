@@ -1,5 +1,5 @@
 /**
- * #3189 — the session pool: one instance per session id, a binding per client that moves alone,
+ * The session pool: one instance per session id, a binding per client that moves alone,
  * idle sessions closed after a grace, busy ones kept, and a cap that never closes the primary.
  */
 
@@ -76,7 +76,7 @@ function createPool(overrides: Partial<ISessionPoolOptions<IPoolTestSession>> = 
   return { pool, primary, built, build };
 }
 
-describe('SessionPool (#3189)', () => {
+describe('SessionPool', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -509,7 +509,7 @@ describe('SessionPool (#3189)', () => {
   });
 });
 
-describe('isSessionBusy (#3189)', () => {
+describe('isSessionBusy', () => {
   const now = Date.parse('2026-09-26T00:00:00.000Z');
   const loop = (phase: ISessionLoopState['phase'], expiresAt: string): ISessionLoopState => ({
     loopId: 'l-1',

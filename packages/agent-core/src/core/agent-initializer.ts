@@ -36,8 +36,7 @@ export interface IAgentInitContext {
 }
 
 /**
- * Build the provider registry an agent's config describes, with its current model already selected
- * — CORE-047.
+ * Build the provider registry an agent's config describes, with its current model already selected.
  *
  * Registration and selection are synchronous and derived entirely from config the constructor has
  * already passed through `validateAgentConfig`. They lived inside `performAsyncInitialization` only
@@ -96,7 +95,7 @@ async function performAsyncInitialization(ctx: IAgentInitContext): Promise<Execu
   // Initialize all instance-specific managers
   await Promise.all([aiProviders.initialize(), tools.initialize(), agentFactory.initialize()]);
 
-  // CORE-047: provider registration and current-model selection are NOT repeated here. The
+  // Provider registration and current-model selection are NOT repeated here. The
   // constructor did them (`createConfiguredProviders`), and repeating them would revert a
   // `setModel()` made before the first run back to `config.defaultModel` at run time.
 
@@ -153,7 +152,7 @@ async function performAsyncInitialization(ctx: IAgentInitContext): Promise<Execu
     cacheService,
   );
 
-  // CMD-005: forward the injected "ask the user" port into tool execution contexts.
+  // Forward the injected "ask the user" port into tool execution contexts.
   if (config.ask) {
     executionService.setAskHandler(config.ask);
   }

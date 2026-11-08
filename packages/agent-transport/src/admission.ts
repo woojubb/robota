@@ -1,5 +1,5 @@
 /**
- * SEC-008 — the machinery behind the admission decision.
+ * The machinery behind the admission decision.
  *
  * The SHAPE of the decision is a contract and lives in `@robota-sdk/agent-interface-transport`; an
  * interface package is inert by rule, so the types are declared there and produced here, in the

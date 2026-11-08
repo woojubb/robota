@@ -1,5 +1,5 @@
 /**
- * RUNTIME-001 TC-01 — the shared runtime host builds the session, owns the transport lifecycle
+ * The shared runtime host builds the session, owns the transport lifecycle
  * (startAll on start, stopAll on shutdown), and shuts down idempotently. Presentation-free: this test
  * imports no `agent-ui-terminal`/ink.
  */
@@ -65,7 +65,7 @@ function stubRegistry(): ITransportLifecycleRegistryView & {
   };
 }
 
-describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
+describe('startRuntimeHost', () => {
   let cwd: string;
   let home: string;
   let savedHome: string | undefined;
@@ -116,7 +116,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     await host.shutdown();
   });
 
-  it('shutdown() leaves no timer holding the event loop open (#1852)', async () => {
+  it('shutdown() leaves no timer holding the event loop open', async () => {
     // The bound exists so a WEDGED subsystem cannot block exit. Its own timer must therefore not
     // become a reason to stay alive: the losing side of a `Promise.race` is not cancelled, so an
     // un-unref'd bound keeps the process alive for its full 5s even when shutdown finished in 1ms.
@@ -128,7 +128,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     // Asserted on the identity of the timers armed during the host's lifetime rather than on elapsed
     // time (a timing assertion would pass on a fast machine for the wrong reason) and rather than on
     // a process-wide `getActiveResourcesInfo` count (which moves with whatever else the worker has
-    // running — issue #2383). The claim is loop-holding, as the #1852 title says: a timer armed while
+    // running). The claim is loop-holding: a timer armed while
     // the host lived — by the host or the session it built — and still ref'd after `shutdown()`.
     // An unref'd timer is accepted; a `clearTimeout → unref()` regression in the host would pass
     // here, and the host's own comment explains why cancelling is the stronger statement.
@@ -180,7 +180,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     ).toEqual([]);
   });
 
-  it("resolves the isolated home for plugin discovery, not the developer's (TEST-012 control)", () => {
+  it("resolves the isolated home for plugin discovery, not the developer's (control)", () => {
     // `homedir()` follows `process.env.HOME` in Vitest's forked worker. A worker-pool change must
     // preserve this isolation for any test that deliberately admits user plugin discovery.
     expect(homedir()).toBe(home);
@@ -212,7 +212,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     await expect(host.shutdown()).resolves.toBeUndefined();
   });
 
-  it('binds transports to a slot that follows a switch to another session (#3189)', async () => {
+  it('binds transports to a slot that follows a switch to another session', async () => {
     const registry = stubRegistry();
     const store = createNodeHostSessionStore(join(homeRoot, 'sessions'), { sealing: 'plain' });
     const bindTransports = vi.fn();
@@ -245,7 +245,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     await host.shutdown();
   });
 
-  it('shutdown() drains every pooled session, the primary included (#3189)', async () => {
+  it('shutdown() drains every pooled session, the primary included', async () => {
     const registry = stubRegistry();
     const host = await startRuntimeHost({
       session: { host: testHost, cwd, provider: stubProvider() },
@@ -270,7 +270,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     await expect(pool.acquire()).rejects.toMatchObject({ code: 'stopping' });
   });
 
-  it('holds one session and no pool unless asked for one (#3189)', async () => {
+  it('holds one session and no pool unless asked for one', async () => {
     const host = await startRuntimeHost({
       session: { host: testHost, cwd, provider: stubProvider() },
     });

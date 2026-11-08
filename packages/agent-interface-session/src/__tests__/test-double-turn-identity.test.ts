@@ -3,7 +3,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { IInteractiveSession } from '../index.js';
 import { createTestInteractiveSession } from '../testing/index.js';
 
-describe('createTestInteractiveSession turn identity (ARCH-019)', () => {
+describe('createTestInteractiveSession turn identity', () => {
   it('mints deterministic per-call ids and settles each handle', async () => {
     const firstSession = createTestInteractiveSession();
     const sessionId = firstSession.getSession().getSessionId();

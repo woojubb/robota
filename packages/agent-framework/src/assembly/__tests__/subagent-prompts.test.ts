@@ -96,7 +96,7 @@ describe('Subagent prompts', () => {
     expect(prompt).not.toContain('\n\n\n');
   });
 
-  it('NEUT-003: a caller-supplied string suffix replaces the default suffix', () => {
+  it('a caller-supplied string suffix replaces the default suffix', () => {
     const prompt = assembleSubagentPrompt({
       agentBody: 'Body.',
       isForkWorker: false,
@@ -106,7 +106,7 @@ describe('Subagent prompts', () => {
     expect(prompt).not.toContain(getSubagentSuffix());
   });
 
-  it('NEUT-003: a caller-supplied suffix function receives the fork context', () => {
+  it('a caller-supplied suffix function receives the fork context', () => {
     const prompt = assembleSubagentPrompt({
       agentBody: 'Body.',
       isForkWorker: true,

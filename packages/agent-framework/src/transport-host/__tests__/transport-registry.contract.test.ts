@@ -92,7 +92,7 @@ function createControlledRunner(name: string): ITransportRunnerAdapter<IInteract
   };
 }
 
-describe('TransportRegistry lifecycle/settings segregation (ARCH-011)', () => {
+describe('TransportRegistry lifecycle/settings segregation', () => {
   it('registers a base adapter without casts and rejects duplicate runtime names', () => {
     const registry = createRegistry();
     const service = createService('custom');
@@ -192,7 +192,7 @@ describe('TransportRegistry lifecycle/settings segregation (ARCH-011)', () => {
   });
 });
 
-describe('TransportRegistry runner outcomes (ARCH-011)', () => {
+describe('TransportRegistry runner outcomes', () => {
   it('launches a runner without blocking a service and returns ordered completion records', async () => {
     const registry = createRegistry();
     const first = createControlledRunner('first');

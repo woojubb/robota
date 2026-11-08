@@ -44,13 +44,13 @@ export interface IWebRtcTransportOptions {
   /** Optional ICE servers (STUN/TURN). Omitted → host-candidate/loopback only. */
   readonly iceServers?: readonly IIceServer[];
   /**
-   * REMOTE-004 defense-in-depth: when true, restrict ICE to **relay (TURN) candidates only**, so
+   * Defense-in-depth: when true, restrict ICE to **relay (TURN) candidates only**, so
    * host/server-reflexive candidates are never used. Requires a TURN server in `iceServers`. Mapped to the
    * connection's `iceTransportPolicy: 'relay'`.
    */
   readonly forceTurn?: boolean;
   /**
-   * REMOTE-008 pairing secret. When set, the data channel is **pairing-gated**: it carries only pairing frames
+   * Pairing secret. When set, the data channel is **pairing-gated**: it carries only pairing frames
    * until the directional-HMAC handshake accepts (channel-bound to the DTLS fingerprints), and only THEN is the
    * session exposed — fail closed on mismatch/timeout. When omitted, the constructor throws unless the caller
    * explicitly opts out with `open: true` and an `openReason` (loopback / tests); only then is the channel
@@ -58,33 +58,36 @@ export interface IWebRtcTransportOptions {
    */
   readonly secret?: string;
   /**
-   * SEC-008: run with NO pairing gate. Requires `openReason`.
+   * Run with NO pairing gate. Requires `openReason`.
    *
    * Omitting `secret` used to mean this implicitly, which is how a remote peer reached the session
    * because a field was left unset. It is still a legitimate mode — loopback, tests — but it is now
    * a thing the host says rather than a thing that happens.
    */
   readonly open?: boolean;
-  /** SEC-008: why running with no pairing gate is correct here. Required when `open` is true. */
+  /** Why running with no pairing gate is correct here. Required when `open` is true. */
   readonly openReason?: string;
-  /** REMOTE-008: fired when pairing accepts + the session is exposed (host lifecycle → status 'paired'). Carries the first-pair result (E4 uses its sessionKey). */
+  /**
+   * Fired when pairing accepts + the session is exposed (host lifecycle → status 'paired'). Carries
+   * the first-pair result (reconnect seeding uses its sessionKey).
+   */
   readonly onPaired?: (result?: IPairingResult) => void;
-  /** REMOTE-008: fired when pairing rejects/times out (host lifecycle → teardown; the channel is already closed). */
+  /** Fired when pairing rejects/times out (host lifecycle → teardown; the channel is already closed). */
   readonly onPairingFailed?: () => void;
-  /** REMOTE-012 E3: host reconnect/enrollment config. When set, the gate admits first-pair (with enrollment) OR a pinned-device reconnect. */
+  /** Host reconnect/enrollment config. When set, the gate admits first-pair (with enrollment) OR a pinned-device reconnect. */
   readonly reconnect?: IHostReconnectConfig;
-  /** SEC-010 (#1810): require a guarded-rendezvous nonce before the session is exposed. Absent → unchanged. */
+  /** Require a guarded-rendezvous nonce before the session is exposed. Absent → unchanged. */
   readonly localPeer?: ILocalPeerProof;
   /** Ask the receiving operator before each connection reaches the session. Absent → unchanged. */
   readonly connectionApproval?: IConnectionApproval;
-  /** REMOTE-013 E4: a session-scoped resume bridge (owned by the controller across reconnects). Passed to the gate so the paired session flows through it (seq/buffer) and survives channel drops. */
+  /** A session-scoped resume bridge (owned by the controller across reconnects). Passed to the gate so the paired session flows through it (seq/buffer) and survives channel drops. */
   readonly resumeBridge?: SessionResumeBridge;
   /**
    * Host-granted role of the session surface this transport builds, `drive` unless set. An injected
    * `resumeBridge` carries the role its host gave it, so passing both throws.
    */
   readonly role?: TSessionSurfaceRole;
-  /** REMOTE-013 E4: fired when a PAIRED data channel drops (so the controller can run the reconnect loop). Not fired for a pre-accept failure (that is `onPairingFailed`). */
+  /** Fired when a PAIRED data channel drops (so the controller can run the reconnect loop). Not fired for a pre-accept failure (that is `onPairingFailed`). */
   readonly onDropped?: () => void;
   /** Observe an outbound session-event delivery failure before the carrier drops. */
   readonly onDeliveryError?: (error: Error, event: string) => void;

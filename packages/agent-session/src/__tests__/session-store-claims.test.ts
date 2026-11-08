@@ -1,5 +1,5 @@
 /**
- * Claims and adoption of sealed session records (#3679 step 3e).
+ * Claims and adoption of sealed session records.
  *
  * A session this process runs claims its id, and a claimed id is answered only from content the
  * owner wrote: a file something unverifiable changed is never handed to a writer (so it is never

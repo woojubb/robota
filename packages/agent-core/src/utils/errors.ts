@@ -69,7 +69,7 @@ export class ValidationError extends AgentRuntimeError {
 }
 
 /**
- * Structured output validation exhausted its retry budget (CORE-015).
+ * Structured output validation exhausted its retry budget.
  *
  * Thrown by `run(input, { output })` when the model's final response still fails
  * schema validation after the configured number of retries. `issues` holds the
@@ -195,7 +195,7 @@ export class ToolExecutionError extends AgentRuntimeError {
 }
 
 /**
- * The same-tool-input loop guard tripped — CORE-035.
+ * The same-tool-input loop guard tripped.
  *
  * A tool was invoked with byte-identical serialized inputs more times than `maxSameToolInputs`
  * allows, so the turn stopped rather than looping. This is the AGENT giving up, not the user
@@ -204,7 +204,7 @@ export class ToolExecutionError extends AgentRuntimeError {
  *
  * Named rather than a bare `Error` for the reason the SPEC was reaching for by naming a type at all:
  * a caller must be able to tell "the agent looped" from "the network died". `AgentRuntimeError` carries
- * `code`/`category`/`recoverable` out through CORE-027's failure path intact.
+ * `code`/`category`/`recoverable` out through the failure path intact.
  *
  * `recoverable` is TRUE: the loop is a property of this turn's prompt and tool set, not of the
  * system, and a caller that varies either can reasonably try again.

@@ -1,5 +1,5 @@
 /**
- * Browser device-credential store for TOFU trusted-device reconnect (REMOTE-012 Stage E3).
+ * Browser device-credential store for TOFU trusted-device reconnect.
  *
  * Persists, per host, the browser device's **non-extractable** ECDSA keypair AND the pinned host-identity
  * public key, so a returning device can re-authenticate to the SAME host (verifying the pinned host key)
@@ -16,9 +16,9 @@
 export interface IDeviceCredential {
   readonly deviceKeyPair: CryptoKeyPair;
   readonly hostPublicSpki: string;
-  /** REMOTE-013 E4: per-device reconnect seed (HKDF of the pairing sessionKey) for rotating-rendezvous rediscovery. */
+  /** Per-device reconnect seed (HKDF of the pairing sessionKey) for rotating-rendezvous rediscovery. */
   readonly reconnectSeed?: string;
-  /** REMOTE-013 E4: monotonic reconnect counter (resync-on-success). Absent → 0. */
+  /** Monotonic reconnect counter (resync-on-success). Absent → 0. */
   readonly reconnectCounter?: number;
 }
 

@@ -1,5 +1,5 @@
 /**
- * The Node session-log sink and source with a sealer (#3679, secure conversation). A sealing sink
+ * The Node session-log sink and source with a sealer (secure conversation). A sealing sink
  * writes each append as one sealed line and each externalized payload as a sealed sidecar under a
  * random name, so neither a line nor a file name carries what the session said. The source opens
  * them with the owner id its file name gives, strictly for the decoders that fail on any bad line and

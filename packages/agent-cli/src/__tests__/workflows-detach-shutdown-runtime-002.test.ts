@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from './helpers/product-runtime.js';
 /**
- * RUNTIME-002 (#2845) conformance evidence, folded into issue #2875 criterion 4: the SERVED host —
+ * Conformance evidence: the SERVED host —
  * `agent-cli`'s own composition root (`buildCommandSetup`, the desktop's presentation-free
  * executable path `headless-bin.ts` runs through) — gives `/workflows` a live detached owner.
  *
@@ -108,10 +108,10 @@ async function trustedRoot(prefix: string): Promise<{
     },
     projectStateDirectories: PRODUCT_PROJECT_STATE_DIRECTORIES,
   }).inspect(root);
-  if (access.status !== 'trusted') throw new Error('Expected trusted RUNTIME-002 fixture root.');
+  if (access.status !== 'trusted') throw new Error('Expected trusted fixture root.');
   const mutation = createWorkspaceProjectMutation(access.authority, {
     status: 'approved',
-    purpose: 'RUNTIME-002 conformance evidence',
+    purpose: 'conformance evidence',
   });
   return { root, access, mutation };
 }
@@ -156,7 +156,7 @@ function makeHeldProvider(providerType: string): {
 
 const MINIMAL_ARGS = { disableUpdateCheck: true } as unknown as IParsedCliArgs;
 
-describe('RUNTIME-002 (#2845): the served host owns a live detached /workflows run', () => {
+describe('the served host owns a live detached /workflows run', () => {
   it('accepts run --detach when served (not print mode, no --goal), and shutdown aborts + joins the active run well inside the 5s bound', async () => {
     const { root, access, mutation } = await trustedRoot('runtime-002-');
     await mkdir(join(root, '.workflows', 'nodes'), { recursive: true });

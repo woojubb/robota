@@ -1,5 +1,5 @@
 /**
- * The holder's authorship tags (#3679 step 3e): the one proof of who wrote a stored artifact, since
+ * The holder's authorship tags: the one proof of who wrote a stored artifact, since
  * an artifact sealed to the public key opens for whoever sealed it. The tag is an HMAC under the
  * keyring's authorship key over `robota/authorship/v1|<kind>|<id>|<sha256 of the bytes>`, so it binds
  * the artifact's kind and id as well as its bytes, and only an unlocked holder makes or checks one.

@@ -5,7 +5,7 @@ import { executeEffortCommand } from './effort-command.js';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 describe('/effort', () => {
-  it('#3282 §2: reports plainly when the model has no matching effort control at all', async () => {
+  it('reports plainly when the model has no matching effort control at all', async () => {
     const host = createTestCommandHost({
       overrides: {
         getCommandHostAdapters: () => ({
@@ -170,7 +170,7 @@ describe('/effort', () => {
     expect(writeSettings).not.toHaveBeenCalled();
   });
 
-  it('#3282 §2: uses the full plain word for xhigh, not the internal id', async () => {
+  it('uses the full plain word for xhigh, not the internal id', async () => {
     const host = createTestCommandHost({
       overrides: {
         getCommandHostAdapters: () => ({

@@ -13,7 +13,7 @@ import {
   resolveStartupWorkspaceProjectAccess,
 } from '../workspace-project-composition.js';
 
-/** Issue #3082 — `--safe-mode` turns every customization off. */
+/** `--safe-mode` turns every customization off. */
 let home: string;
 beforeEach(() => {
   home = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-safe-mode-unit-')));

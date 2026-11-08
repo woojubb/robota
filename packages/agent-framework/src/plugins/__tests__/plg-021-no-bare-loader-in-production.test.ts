@@ -1,5 +1,5 @@
 /**
- * PLG-021 / issue #2025 — no production source may construct `BundlePluginLoader` directly.
+ * No production source may construct `BundlePluginLoader` directly.
  *
  * `host-bundle-plugin-loader.test.ts` proves the composition root honours the enablement map. It
  * cannot prove that anything USES the composition root, and that gap is the whole defect: the filter
@@ -73,7 +73,7 @@ function collectProductionSources(dir: string, out: string[]): void {
   }
 }
 
-describe('PLG-021: plugin enablement is not bypassable by construction', () => {
+describe('plugin enablement is not bypassable by construction', () => {
   it('only the composition root constructs BundlePluginLoader in production source', () => {
     const files: string[] = [];
     for (const root of ROOTS) collectProductionSources(join(WORKSPACE_ROOT, root), files);

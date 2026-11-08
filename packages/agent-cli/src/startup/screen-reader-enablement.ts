@@ -1,5 +1,5 @@
 /**
- * CLI-2004 — screen-reader enablement resolver (agent-cli owned).
+ * Screen-reader enablement resolver (agent-cli owned).
  *
  * Resolves ONE user-facing accessibility switch (default OFF, opt-in) and reports WHICH channel
  * turned it on, so the TUI can print a self-diagnostic first line that does not lie about why the

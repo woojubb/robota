@@ -57,7 +57,7 @@ function makeTool(name: string): IToolWithEventService {
 }
 
 /**
- * ARCH-010 made `ISubagentOptions.cwd` required — a subagent's execution root is passed in rather than
+ * `ISubagentOptions.cwd` is required — a subagent's execution root is passed in rather than
  * derived. `Session` is mocked here and every tool is a `makeTool` double, so this root arms no path
  * guard; it is the host process directory, which is what the assembly resolved on its own before.
  */
@@ -274,7 +274,7 @@ describe('createSubagentSession', () => {
     expect(passedOptions['effort']).toBe('high');
   });
 
-  // SELFHOST-006 TC-03: v1 resolves on the subagent path via the opaque role key.
+  // V1 resolves on the subagent path via the opaque role key.
   it('resolves the model from the role map (primary of the role’s fallback chain)', () => {
     const agent = makeAgentDef({ role: 'planner' }); // no explicit model alias
     createSubagentSession({
@@ -331,7 +331,7 @@ describe('createSubagentSession', () => {
     expect(passedOptions['model']).toBe('claude-sonnet-4-6'); // parent model (makeParentConfig)
   });
 
-  // SELFHOST-006: v1 runs on the parent provider — it picks the chain entry matching that provider,
+  // V1 runs on the parent provider — it picks the chain entry matching that provider,
   // never a foreign provider's model string (which would mismatch the parent provider at runtime).
   it('picks the chain entry that matches the parent provider (skips a foreign-provider primary)', () => {
     const agent = makeAgentDef({ role: 'planner' });
@@ -785,7 +785,7 @@ describe('createSubagentSession', () => {
     expect(passedOptions['maxTurns']).toBeUndefined();
   });
 
-  it('TC-10: unwraps a tool-call handoff wrapper before filtering — the child never holds a wrapper', () => {
+  it('unwraps a tool-call handoff wrapper before filtering — the child never holds a wrapper', () => {
     const inner = makeTool('SlowMcpTool');
     const wrapped = new ToolCallHandoffTool(inner, {
       manager: { spawn: vi.fn() } as unknown as IBackgroundTaskManager,
@@ -803,7 +803,7 @@ describe('createSubagentSession', () => {
     });
     const agent = makeAgentDef();
 
-    // MCP-004 §S3: `createSubagentSession` is the ONE derivation point every derived session's tool
+    // `createSubagentSession` is the ONE derivation point every derived session's tool
     // list passes through — both the in-process subagent runner and `interactive-session-fork.ts`
     // reach it with the parent's (possibly wrapped) tool list, so exercising it here covers both
     // callers by construction.
@@ -826,7 +826,7 @@ describe('createSubagentSession', () => {
   });
 });
 
-describe('CLI-1990 review — the residency contract crosses into the child', () => {
+describe('the residency contract crosses into the child', () => {
   function makeDeferredTool(name: string): IToolWithEventService {
     const tool = makeTool(name);
     (tool.schema as { deferLoading?: boolean }).deferLoading = true;

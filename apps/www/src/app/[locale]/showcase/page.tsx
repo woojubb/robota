@@ -69,7 +69,7 @@ export default async function ShowcasePage({ params }: { params: Promise<{ local
         </div>
       </section>
 
-      {/* WEB-018: the Community Projects section is hidden until there are real entries — an
+      {/* The Community Projects section is hidden until there are real entries — an
           empty "no projects yet" placeholder undercuts launch credibility, and the Submit
           section below already invites contributions. Restore (with real entries) when content
           exists; the `communityTitle`/`communityEmpty` strings are kept in the dictionaries.

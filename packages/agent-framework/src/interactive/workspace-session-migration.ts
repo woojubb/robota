@@ -1,7 +1,7 @@
 /**
  * Sealing in place what a trusted project's session store kept in plaintext — its records, its replay
  * logs with their sidecars, and the subagent logs older builds wrote beside them — for a host
- * migrating its state once it seals (#3679). Every read and write goes through the project's
+ * migrating its state once it seals. Every read and write goes through the project's
  * runtime-minted state storage, so a migration writes a project only as the store itself would: on a
  * host that can write project state, under the trusted root, never through a link.
  *

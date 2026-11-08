@@ -1,5 +1,5 @@
 /**
- * MCP-004 §S1 "Session exit and restart" (TC-08): a restored, non-terminal `tool-invocation` task is
+ * Session exit and restart: a restored, non-terminal `tool-invocation` task is
  * failed by the EXISTING generic restart reconciliation — no new code path. Modeled directly on
  * `interactive-session-background-tasks.test.ts`'s "marks restored running background tasks as stale".
  */
@@ -34,7 +34,7 @@ function createSessionStoreStub() {
   });
 }
 
-describe('MCP-004 TC-08: restore reconciliation for a tool-invocation task', () => {
+describe('restore reconciliation for a tool-invocation task', () => {
   it('marks a restored running tool-invocation task as stale — failed, stale_worker, one synthetic event', () => {
     const sessionStub = createSharedSessionStub({ getSessionId: () => 'session_parent' });
     storeAgentToolDeps(sessionStub, {

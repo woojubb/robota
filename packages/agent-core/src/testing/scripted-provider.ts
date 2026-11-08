@@ -1,5 +1,5 @@
 /**
- * Deterministic scripted provider for functional tests (TEST-003 SSOT).
+ * Deterministic scripted provider for functional tests (SSOT).
  *
  * Replays a declared sequence of assistant turns through the REAL agent loop — tool execution,
  * permission gate, persistence, and output all run unmocked. It implements only the agent-core
@@ -17,7 +17,7 @@ import type {
   TUniversalMessage,
 } from '../index.js';
 
-/** ANALYTICS-001: optional token usage a scripted turn reports, so usage-based tests are possible. */
+/** Optional token usage a scripted turn reports, so usage-based tests are possible. */
 export interface IScriptedTurnUsage {
   inputTokens: number;
   outputTokens: number;
@@ -43,7 +43,7 @@ export interface IScriptedProvider {
   /**
    * The `IChatOptions` of every chat() call, in order.
    *
-   * CORE-042: the two entry points must build the SAME options object, and nothing could assert
+   * The two entry points must build the SAME options object, and nothing could assert
    * that while the double discarded them.
    */
   chatOptions: Array<IChatOptions | undefined>;
@@ -67,7 +67,7 @@ export function createScriptedProvider(turns: readonly TScriptedTurn[]): IScript
         );
       }
       cursor += 1;
-      // ANALYTICS-001: surface declared usage in metadata so the real usage pipeline records it.
+      // Surface declared usage in metadata so the real usage pipeline records it.
       const usageMetadata = turn.usage
         ? {
             metadata: {
@@ -81,7 +81,7 @@ export function createScriptedProvider(turns: readonly TScriptedTurn[]): IScript
         options?.onThinkingDelta?.(turn.thinking);
       }
       if ('text' in turn) {
-        // CORE-042: `IChatOptions.onTextDelta` requires a provider to stream internally and call
+        // `IChatOptions.onTextDelta` requires a provider to stream internally and call
         // this per chunk WHILE still returning the assembled message. This double returned the text
         // and emitted nothing, so an agent streaming through it produced no deltas -- the double,
         // not the product, was the reason a streaming test needed a second engine to observe. The

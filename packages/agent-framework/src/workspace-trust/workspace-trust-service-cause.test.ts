@@ -23,7 +23,7 @@ class BrokenStore implements IWorkspaceTrustStore {
   }
 }
 
-describe('WorkspaceTrustService restricted-access cause (OBSERVABILITY-1991 TC-05)', () => {
+describe('WorkspaceTrustService restricted-access cause', () => {
   it('names the swallowed identity-resolver error on identity-unavailable', async () => {
     const service = new WorkspaceTrustService({
       projectFiles: createNodeWorkspaceProjectFiles(),

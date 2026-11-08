@@ -55,7 +55,7 @@ const REMOTE_EXECUTOR_OUTCOME: IModelEffortOutcome = {
   providerDispatch: { state: 'sent' },
 };
 
-describe('PRESET-008 reasoning-effort wiring', () => {
+describe('reasoning-effort wiring', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -114,9 +114,9 @@ describe('PRESET-008 reasoning-effort wiring', () => {
     });
   });
 
-  // TC-01: a call with effort set on a native-effort provider → the built request
+  // A call with effort set on a native-effort provider → the built request
   // carries that effort value on reasoning.effort.
-  it('TC-01: threads effort onto the OpenAI Responses reasoning.effort param', async () => {
+  it('threads effort onto the OpenAI Responses reasoning.effort param', async () => {
     const provider = new OpenAIProvider({ apiKey: 'sk-test' });
     const client = getResponsesClient(provider);
     stubResponsesResolve(client.responses.create);
@@ -131,7 +131,7 @@ describe('PRESET-008 reasoning-effort wiring', () => {
     );
   });
 
-  it('TC-01: passes a low effort straight through to reasoning.effort', async () => {
+  it('passes a low effort straight through to reasoning.effort', async () => {
     const provider = new OpenAIProvider({ apiKey: 'sk-test' });
     const client = getResponsesClient(provider);
     stubResponsesResolve(client.responses.create);
@@ -144,7 +144,7 @@ describe('PRESET-008 reasoning-effort wiring', () => {
     );
   });
 
-  it('TC-02: an explicit high effort yields reasoning.effort === high', async () => {
+  it('an explicit high effort yields reasoning.effort === high', async () => {
     const provider = new OpenAIProvider({ apiKey: 'sk-test' });
     const client = getResponsesClient(provider);
     stubResponsesResolve(client.responses.create);
@@ -157,7 +157,7 @@ describe('PRESET-008 reasoning-effort wiring', () => {
     );
   });
 
-  it('TC-02: auto resolves the documented model default while omitting reasoning.effort', async () => {
+  it('auto resolves the documented model default while omitting reasoning.effort', async () => {
     const provider = new OpenAIProvider({ apiKey: 'sk-test' });
     const client = getResponsesClient(provider);
     stubResponsesResolve(client.responses.create);

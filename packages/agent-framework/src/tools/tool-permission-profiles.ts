@@ -1,5 +1,5 @@
 /**
- * What the permission system is told about the tools THIS package defines. CORE-030.
+ * What the permission system is told about the tools THIS package defines.
  *
  * The first three were the sharpest evidence that the old arrangement could not work: they are produced
  * here, the classification lived in `@robota-sdk/agent-core`'s hardcoded matrix, and that matrix had
@@ -31,7 +31,7 @@ export const FRAMEWORK_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPe
      *
      * Classified as execution because that is the honest upper bound: what the subagent will do is
      * not knowable here, and a class is a statement about the worst case rather than the usual one.
-     * The subagent's own calls are gated separately by its policy (CORE-025), so this is not the only
+     * The subagent's own calls are gated separately by its policy, so this is not the only
      * check between a spawned agent and the user's machine.
      */
     Agent: { riskClass: 'execute' },
@@ -45,7 +45,7 @@ export const FRAMEWORK_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPe
 
     /**
      * Not a model tool: the user's `/cd`, judged by the same rules so `deny: ["Cd(/secrets/**)"]` can
-     * keep a session out of a directory (issue #3081). Moving changes nothing by itself — the new
+     * keep a session out of a directory. Moving changes nothing by itself — the new
      * session's own rules and trust decision govern what happens there — so it is an inspection.
      */
     Cd: { argument: { key: 'path', kind: 'path' }, riskClass: 'inspect' },

@@ -10,15 +10,15 @@ type TSchedulesState = Pick<
 >;
 
 /**
- * #3282 §4 part b-3: the Agents panel's "Scheduled" group. No `requestId` correlates
+ * The Agents panel's "Scheduled" group. No `requestId` correlates
  * `get-background-tasks`/`background_tasks` (the message carries none — see `wire-messages.ts`), so
  * this owns that whole message type for the GUI: every reply is a full refresh of the roster,
  * filtered server-side to `kind: 'scheduled'` (the same tasks `/schedule list` shows).
  *
  * Pause/resume send the SAME `command` text `/schedule pause <id>` / `/schedule resume <id>` runs.
  * Delete sends the existing `cancel-background-task` write — the same one Stop already uses for any
- * other background-task kind (#3288/#3332) — since a schedule IS a background task, and cancelling
- * one is permanent (distinct from the reversible pause), matching #3282 §4's "Delete…" requirement.
+ * other background-task kind — since a schedule IS a background task, and cancelling
+ * one is permanent (distinct from the reversible pause).
  */
 export function useSchedulesState(send: (msg: TClientMessage) => void): TSchedulesState & {
   /** Handles `background_tasks` and a `cancel` `background_task_control_result` — both refresh. */
@@ -46,7 +46,7 @@ export function useSchedulesState(send: (msg: TClientMessage) => void): TSchedul
       if (msg.type === 'background_task_control_result' && msg.action === 'cancel') {
         // A schedule's Delete — refresh so a successful cancel drops it from the group at once; a
         // refused one leaves the row exactly as it was (the central reducer's own case already
-        // turns a failure into a plain-message session notice — #3288 §1 — so this never duplicates it).
+        // turns a failure into a plain-message session notice — so this never duplicates it).
         if (msg.success) requestSchedules();
         return false; // not exclusively ours — other future consumers may still want this event
       }

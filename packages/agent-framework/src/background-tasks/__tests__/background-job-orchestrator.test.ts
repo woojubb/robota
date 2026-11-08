@@ -265,7 +265,7 @@ describe('BackgroundJobOrchestrator', () => {
 });
 
 /**
- * #3679 step 3b (R7): the job-group summary goes to the user and the model. A sealed transcript's
+ * The job-group summary goes to the user and the model. A sealed transcript's
  * path reaches no content for either, so the summary names the command that reads it instead. The
  * fact rides on the saved envelope, so a group restored in a later session says the same thing.
  */

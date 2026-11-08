@@ -27,7 +27,7 @@ async function openSessionAgainst(server: IMockMcpServer): Promise<IMCPSession> 
   });
 }
 
-describe('MCP discovery pagination (TC-02)', () => {
+describe('MCP discovery pagination', () => {
   let server: IMockMcpServer | undefined;
 
   afterEach(async () => {

@@ -190,7 +190,7 @@ describe('executePluginCommand', () => {
     });
   });
 
-  it('lists installed plugins through the adapter, for the Settings screen (#3282 §4 part b-2)', async () => {
+  it('lists installed plugins through the adapter, for the Settings screen', async () => {
     const adapter = createPluginAdapter({
       listInstalled: vi.fn().mockResolvedValue([
         { name: 'formatter@fixture-agent', description: 'Formats code.', enabled: true },
@@ -221,7 +221,7 @@ describe('executePluginCommand', () => {
     });
   });
 
-  describe('install/uninstall stay local-surface-only (#3282 §4 part b-2)', () => {
+  describe('install/uninstall stay local-surface-only', () => {
     it('runs install from a local surface', async () => {
       const adapter = createPluginAdapter();
       const result = await executePluginCommand(

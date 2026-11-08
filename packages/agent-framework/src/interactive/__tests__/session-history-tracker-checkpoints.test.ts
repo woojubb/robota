@@ -1,5 +1,5 @@
 /**
- * #3679 — a session over sealed edit checkpoints: a turn its store cannot checkpoint still runs, and
+ * A session over sealed edit checkpoints: a turn its store cannot checkpoint still runs, and
  * says so where the person reads the conversation; `/rewind list` lists and counts from one read.
  */
 import { mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';

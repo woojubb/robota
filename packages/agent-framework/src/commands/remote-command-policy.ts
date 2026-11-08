@@ -1,7 +1,7 @@
 /**
- * Command-execution policy for transport-origin (`source === 'remote'`) commands (REMOTE-006).
+ * Command-execution policy for transport-origin (`source === 'remote'`) commands.
  *
- * **Local and remote are the same layer** (owner principle, 2026-07-11): pairing (Stage B3) is the sole trust
+ * **Local and remote are the same layer** (owner principle, 2026-07-11): pairing is the sole trust
  * boundary — a paired peer is the session owner, identical to the local operator — and capability is governed
  * uniformly by the universal permission system (permission modes + `PermissionEnforcer` + the ask/approval
  * handler), not by an origin penalty. So this policy is **allow-by-default**: a transport-origin command behaves
@@ -9,7 +9,7 @@
  * consumer that explicitly wants to constrain a driver; nothing built-in denies by origin. The `'remote'` source
  * tag survives purely for attribution/telemetry + this optional seam.
  *
- * (Supersedes the REMOTE-003 origin-discriminating framing, which denied remote commands by default and gated
+ * (Replaces the origin-discriminating framing, which denied remote commands by default and gated
  * only the narrow `command` verb while the model's tools/skills — the dominant side-effecting routes — were never
  * gated.)
  */

@@ -1,5 +1,5 @@
 /**
- * A running session whose record something it cannot verify changed on disk (#3679 step 3e).
+ * A running session whose record something it cannot verify changed on disk.
  *
  * The store will not save the session's id over such a file: merging it would hand the session
  * content nobody vouched for, and overwriting it would destroy what may be another process's newer

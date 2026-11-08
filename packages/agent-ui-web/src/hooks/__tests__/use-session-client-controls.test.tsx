@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3282 §2 (part 2) — the GUI reducer's support for the model/mode/effort pop-up menus:
+ * The GUI reducer's support for the model/mode/effort pop-up menus:
  *
  * - `requestModelList()` sends `list-models` with a fresh `requestId`, and only a reply carrying
  *   THAT id is applied to `modelList` — a reply to a superseded request is dropped.
@@ -57,7 +57,7 @@ const MODEL_LIST_SNAPSHOT = {
   currentModel: 'claude-sonnet-4-6',
 };
 
-describe('#3282 §2 (part 2) — requestModelList / modelList', () => {
+describe('requestModelList / modelList', () => {
   it('sends list-models and stores the reply under modelList', () => {
     const { result, deliver, wire } = setup();
 
@@ -99,7 +99,7 @@ function lastSentRequestId(wire: TClientMessage[]): string | undefined {
   return sent && sent.type === 'command' ? sent.requestId : undefined;
 }
 
-describe('#3282 §4e — /help opens the Help sheet locally, never the session', () => {
+describe('/help opens the Help sheet locally, never the session', () => {
   it('send({type:"command", name:"help"}) opens the sheet and never touches the wire', () => {
     const { result, wire } = setup();
 
@@ -119,7 +119,7 @@ describe('#3282 §4e — /help opens the Help sheet locally, never the session',
   });
 });
 
-describe('#3282 §4e — an excluded command is caught before the session sees it', () => {
+describe('an excluded command is caught before the session sees it', () => {
   it('typing an excluded command answers with its plain sentence, never the raw refusal, and never reaches the wire', () => {
     const { result, wire } = setup();
 
@@ -178,7 +178,7 @@ describe('#3282 §4e — an excluded command is caught before the session sees i
   });
 });
 
-describe('#3282 §2 (part 2) — sendCommandSilently suppresses the conversation card', () => {
+describe('sendCommandSilently suppresses the conversation card', () => {
   it('a successful silent command adds no conversation card, but still refreshes status', () => {
     const { result, deliver, wire } = setup();
 
@@ -223,7 +223,7 @@ describe('#3282 §2 (part 2) — sendCommandSilently suppresses the conversation
 
     act(() => result.current.sendCommandSilently('effort', 'high'));
     deliver({ type: 'command_result', name: 'effort', message: 'Effort: High', success: true, requestId: lastSentRequestId(wire) });
-    // Not `/help` — #3282 §4e made that one the GUI's own Help sheet, never sent to the session.
+    // Not `/help` — the GUI answers that one with its own Help sheet, never sent to the session.
     act(() => result.current.send({ type: 'command', name: 'cost' }));
     deliver({ type: 'command_result', name: 'cost', message: 'Available commands: ...', success: true });
 
@@ -233,7 +233,7 @@ describe('#3282 §2 (part 2) — sendCommandSilently suppresses the conversation
   });
 
   it('attributes by requestId, not arrival order: a later-sent silent reply landing FIRST does not swallow the earlier typed command', () => {
-    // Reviewer-mandated regression test (#3339): a send-order-based FIFO was tried first and is
+    // Reviewer-mandated regression test: a send-order-based FIFO was tried first and is
     // exactly as wrong as a bare count — both assume replies arrive in send order, which a slow host
     // or a race can violate. The wire already correlates a `command` with its `command_result` by
     // `requestId` (`packages/agent-transport/src/wire-messages.ts`), so attribution must use THAT,
@@ -244,7 +244,7 @@ describe('#3282 §2 (part 2) — sendCommandSilently suppresses the conversation
     // card). requestId correlation gets both right regardless of arrival order.
     const { result, deliver, wire } = setup();
 
-    // Not `/help` — #3282 §4e made that one the GUI's own Help sheet, never sent to the session.
+    // Not `/help` — the GUI answers that one with its own Help sheet, never sent to the session.
     act(() => result.current.send({ type: 'command', name: 'cost' }));
     act(() => result.current.sendCommandSilently('effort', 'high'));
     const silentRequestId = lastSentRequestId(wire);

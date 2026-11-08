@@ -354,7 +354,7 @@ describe('requestJson', () => {
     }
   });
 
-  describe('issue #2166 — a malformed 2xx body is a typed upstream error, not a typed DTO', () => {
+  describe('a malformed 2xx body is a typed upstream error, not a typed DTO', () => {
     const MALFORMED_2XX: [string, unknown][] = [
       ['an empty object', {}],
       ['an array', [{ id: 'task-1', status: 'queued' }]],

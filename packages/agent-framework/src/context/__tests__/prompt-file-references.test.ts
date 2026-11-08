@@ -66,7 +66,7 @@ describe('prompt file references', () => {
     }
   });
 
-  // Follow-up to #3282 §4d: `isPathLikeReference` only treats a token as a file reference when it
+  // `isPathLikeReference` only treats a token as a file reference when it
   // has a `.` or an explicit relative-path prefix (`./`, `../`, `/`, `~/`) — a dotless name like
   // `Makefile` or `LICENSE` is invisible to the parser on its own, so the GUI composer now always
   // emits its attachments as `@./<relativePath>`. This is the resolver-level half of that fix: the
@@ -220,7 +220,7 @@ describe('prompt file references', () => {
     }
   });
 
-  // Correction to #3282 §4: a binary file must never be silently decoded as UTF-8 and sent to the
+  // A binary file must never be silently decoded as UTF-8 and sent to the
   // model as garbled text — refuse it with a plain diagnostic instead, the same way an oversized or
   // out-of-workspace reference is refused. Every surface (GUI, TUI, headless) shares this resolver.
   it('refuses a binary file (a NUL byte in its content) instead of mangling it', async () => {

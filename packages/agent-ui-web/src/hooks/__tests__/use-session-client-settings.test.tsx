@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3282 §4b — the GUI reducer's support for the "Providers & Models" Settings section:
+ * The GUI reducer's support for the "Providers & Models" Settings section:
  *
  * - `openSettings(section)` sets `settingsInitialSectionId` to the named section, or `null` when
  *   omitted (SettingsScreen itself falls back to General for `null`) — "Manage providers…" is the
@@ -54,7 +54,7 @@ function lastGetSettingsRequestId(wire: TClientMessage[]): string {
   return last.requestId;
 }
 
-describe('#3282 §4b — openSettings(section)', () => {
+describe('openSettings(section)', () => {
   it('opens with no initial section named when none is passed (SettingsScreen falls back to General)', () => {
     const { result } = setup();
     act(() => result.current.openSettings());
@@ -77,7 +77,7 @@ describe('#3282 §4b — openSettings(section)', () => {
   });
 });
 
-describe('#3282 §4b — refreshing after a successful /provider command', () => {
+describe('refreshing after a successful /provider command', () => {
   it('re-fetches the snapshot when Settings is open', () => {
     const { result, deliver, wire } = setup();
     act(() => result.current.openSettings('providers'));
@@ -135,7 +135,7 @@ describe('#3282 §4b — refreshing after a successful /provider command', () =>
   });
 });
 
-describe('#3282 §4b — regression: Settings never tears down and rebuilds the WebSocket', () => {
+describe('regression: Settings never tears down and rebuilds the WebSocket', () => {
   it('opening, closing and reopening Settings never recreates the WS client', () => {
     const { result, makeClientCalls } = setup();
     expect(makeClientCalls()).toBe(1);

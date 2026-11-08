@@ -1,5 +1,5 @@
 /**
- * Contract tests for the type-only TUI command-interaction package (TEST-001).
+ * Contract tests for the type-only TUI command-interaction package.
  *
  * This package exports type contracts only (runtime type-guards live in the consuming
  * runtime package). These tests assert that the contracts compile to the expected shape

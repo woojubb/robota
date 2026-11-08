@@ -5,7 +5,7 @@ import { GuardrailExecutor } from '../executors/guardrail-executor.js';
 import type { IGuardrailHookDefinition, IHookInput, TGuardrail } from '../types.js';
 
 /**
- * SELFHOST-005 TC-02 — the guardrail executor runs its set in PARALLEL and FAILS FAST, mapping any
+ * The guardrail executor runs its set in PARALLEL and FAILS FAST, mapping any
  * failure onto the exit-code-2 / `blocked` contract. Parallelism lives inside the executor.
  */
 
@@ -25,7 +25,7 @@ function block(reason: string): TGuardrail {
   return () => ({ pass: false, reason });
 }
 
-describe('SELFHOST-005 TC-02 — GuardrailExecutor', () => {
+describe('GuardrailExecutor', () => {
   it('returns allow when every guardrail passes', async () => {
     const exec = new GuardrailExecutor({ a: pass(), b: pass() });
     const r = await exec.execute(DEF, INPUT);
@@ -98,7 +98,7 @@ describe('SELFHOST-005 TC-02 — GuardrailExecutor', () => {
     expect(r.outcome === 'deny' && r.reason).toContain('missing');
   });
 
-  // SEC-015 TC-05. Asserted here rather than trusted to the decoder's own pass-through test:
+  // Asserted here rather than trusted to the decoder's own pass-through test:
   // `GuardrailExecutor` never calls `decodeHookVerdict`, so nothing else in the suite would notice
   // this executor emitting the wrong `source`. Found by the GATE-COMPLETE guard.
   it('every outcome carries source: "guardrail"', async () => {

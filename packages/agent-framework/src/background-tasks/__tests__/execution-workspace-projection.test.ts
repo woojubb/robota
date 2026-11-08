@@ -25,7 +25,7 @@ import type {
 } from '@robota-sdk/agent-interface-execution';
 
 /**
- * #2079: a plain (non-discriminated) overrides bag for this fixture builder, deliberately looser
+ * A plain (non-discriminated) overrides bag for this fixture builder, deliberately looser
  * than `Partial<IBackgroundTaskState>` — that type distributes over the four kind members, so
  * merging one instance of it into a single concrete kind (below) does not type-check. Every field a
  * test in this file overrides is listed; the switch then places each only on the kind it belongs to.
@@ -236,7 +236,7 @@ describe('execution workspace projection', () => {
     expect(taskById['agent_done'].controls).not.toContain('send');
   });
 
-  // SCREEN-010: order must be stable (creation/start order), not churn by lastActivityAt.
+  // Order must be stable (creation/start order), not churn by lastActivityAt.
   it('orders background tasks by startedAt, not by lastActivityAt', () => {
     const build = (lastActivity: { a: string; b: string; c: string }) =>
       createExecutionWorkspaceSnapshot({
@@ -290,7 +290,7 @@ describe('execution workspace projection', () => {
   });
 });
 
-describe('SCREEN-1992 normalized state, headline and next fire (TC-03)', () => {
+describe('normalized state, headline and next fire', () => {
   const mainThread = {
     sessionId: 'session_parent',
     isExecuting: false,
@@ -439,7 +439,7 @@ describe('SCREEN-1992 normalized state, headline and next fire (TC-03)', () => {
   });
 });
 
-describe('SCREEN-1992 headline is one bounded line', () => {
+describe('headline is one bounded line', () => {
   const mainThread = {
     sessionId: 'session_parent',
     isExecuting: false,
@@ -487,7 +487,7 @@ describe('SCREEN-1992 headline is one bounded line', () => {
 });
 
 /**
- * #3288 §1: `/loop`-managed work (fixed cadence and self-paced) becomes visible, addressable and
+ * `/loop`-managed work (fixed cadence and self-paced) becomes visible, addressable and
  * stoppable in the execution workspace.
  *
  * - A loop-managed task entry carries `loopId` (the stable `/loop stop <id>` handle — a plain
@@ -504,7 +504,7 @@ describe('SCREEN-1992 headline is one bounded line', () => {
  *   itself a task in `input.tasks`, so projecting it again here would duplicate the row. `stopped`/
  *   `expired` loops are never projected, for the same "does not linger" reason as a cancelled task.
  */
-describe('#3288 §1 — loop visibility and stop routing', () => {
+describe('loop visibility and stop routing', () => {
   const idleMainThread = {
     sessionId: 'session_parent',
     isExecuting: false,
@@ -584,7 +584,7 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
   });
 
   it('drops a completed self-paced wake timer too, leaving exactly one row for the live loop', () => {
-    // MUST 3 (review on PR #3332): armSelfPacedTimer's one-shot wake timer has no next cron
+    // armSelfPacedTimer's one-shot wake timer has no next cron
     // occurrence, so the manager moves it to `completed` on its own when it fires — one per
     // iteration. Without also filtering `completed`, this fired timer's row would sit beside the
     // live loop's own `pending`/`running` projection forever, duplicating "Loop: …" on every wake.

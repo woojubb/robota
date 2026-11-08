@@ -1,5 +1,5 @@
 /**
- * The jobs a switch of the session would stop (#3679 3f, live follow).
+ * The jobs a switch of the session would stop (live follow).
  *
  * Continuing a fork points the terminal at another session, and the session left behind is shut
  * down, which cancels every job of it that has not ended. A person is asked before that happens, and

@@ -1,5 +1,5 @@
 /**
- * #3282 §4b — the Settings screen's "Providers & Models" list: every configured provider profile,
+ * The Settings screen's "Providers & Models" list: every configured provider profile,
  * with its provider's plain label, its model's label, whether it is the one in use, and a plain
  * connection state when one is known (only "Key missing" today).
  *

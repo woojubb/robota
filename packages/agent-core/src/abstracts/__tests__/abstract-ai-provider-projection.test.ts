@@ -1,5 +1,5 @@
 /**
- * MCP-005 — `AbstractAIProvider.projectionProfile()` / `projectTools()`. TC-05, TC-06.
+ * `AbstractAIProvider.projectionProfile()` / `projectTools()`.
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -15,7 +15,7 @@ import type { IParameterSchema, IToolSchema } from '../../interfaces/tool-schema
 
 const fixtures = loadToolSchemaProjectionFixtures();
 
-/** A minimal recording sink — the same pattern CORE-029's per-agent-logging test uses. */
+/** A minimal recording sink — the same pattern the per-agent-logging test uses. */
 function recordingSink(): { sink: ILogger; lines: string[] } {
   const lines: string[] = [];
   const record =
@@ -69,7 +69,7 @@ const TEST_PROFILE: IToolSchemaProjectionProfile = {
   providerName: 'no-logger-test-provider',
 };
 
-describe('MCP-005 TC-05 — per-tool quarantine, memoised, global-sink logger', () => {
+describe('per-tool quarantine, memoised, global-sink logger', () => {
   afterEach(() => {
     setGlobalLoggerSink(undefined);
   });
@@ -140,7 +140,7 @@ describe('MCP-005 TC-05 — per-tool quarantine, memoised, global-sink logger', 
   });
 });
 
-describe('MCP-005 TC-06 — no profile: unchanged, no diagnostics', () => {
+describe('no profile: unchanged, no diagnostics', () => {
   afterEach(() => {
     setGlobalLoggerSink(undefined);
   });

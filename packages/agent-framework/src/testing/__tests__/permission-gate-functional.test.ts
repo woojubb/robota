@@ -1,5 +1,5 @@
 /**
- * Permission-gate capability — framework functional test (TEST-003 retrofit).
+ * Permission-gate capability — framework functional test.
  *
  * Proves through a REAL InteractiveSession (scripted provider, no CLI) that a denied tool is
  * actually blocked: the tool never takes effect and the denial is surfaced back to the agent.

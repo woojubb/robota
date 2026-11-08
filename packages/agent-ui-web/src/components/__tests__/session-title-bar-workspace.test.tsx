@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { SessionTitleBar } from '../SessionSurfaceChrome.js';
 
 /**
- * #3289 §1 — the folder a session works in shows beside its title, and names the browser tab / the
+ * The folder a session works in shows beside its title, and names the browser tab / the
  * desktop window (which follows the page's `document.title`; see `apps/agent-app/electron/main.ts`).
  */
 
@@ -15,7 +15,7 @@ afterEach(cleanup);
 
 const noop = (): void => undefined;
 
-describe('SessionTitleBar workspace (#3289 §1)', () => {
+describe('SessionTitleBar workspace', () => {
   it('shows the folder name as muted text next to the session title, full path in a tooltip', () => {
     render(
       <SessionTitleBar

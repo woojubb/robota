@@ -9,8 +9,8 @@ import {
   createUserMessage,
 } from './conversation-history-manager';
 
-describe('ConversationStore append-only retention (HIST-001)', () => {
-  it('TC-01: default (unbounded) store preserves every message past the former 100 cap', () => {
+describe('ConversationStore append-only retention', () => {
+  it('default (unbounded) store preserves every message past the former 100 cap', () => {
     const session = new ConversationStore();
     for (let i = 0; i < 150; i++) {
       session.addUserMessage(`message ${i}`);
@@ -21,7 +21,7 @@ describe('ConversationStore append-only retention (HIST-001)', () => {
     expect(messages[0].content).toBe('message 0');
   });
 
-  it('TC-02: the default ConversationHistory manager path is also unbounded (append-only)', () => {
+  it('the default ConversationHistory manager path is also unbounded (append-only)', () => {
     const history = new ConversationHistory();
     const store = history.getConversationStore('conv-append-only');
     for (let i = 0; i < 150; i++) {
@@ -31,7 +31,7 @@ describe('ConversationStore append-only retention (HIST-001)', () => {
     expect(store.getMessages()[0].content).toBe('m0');
   });
 
-  it('TC-03: an explicit positive cap still trims (opt-in bounded buffer preserved)', () => {
+  it('an explicit positive cap still trims (opt-in bounded buffer preserved)', () => {
     const session = new ConversationStore(3);
     for (let i = 0; i < 6; i++) {
       session.addUserMessage(`m${i}`);

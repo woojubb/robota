@@ -1,7 +1,7 @@
 /**
- * SEC-016 — the per-event enforcement posture table.
+ * The per-event enforcement posture table.
  *
- * TC-06 (exhaustiveness) and TC-12 (the table-internal invariant) live here. TC-12 exists as a unit
+ * Exhaustiveness and the table-internal invariant live here. The invariant is a unit
  * test so a posture/reachability contradiction cannot pass silently.
  */
 
@@ -44,8 +44,8 @@ const ALL_EVENTS = [
 ] as const satisfies readonly THookEvent[];
 
 describe('HOOK_ENFORCEMENT_POLICY', () => {
-  // ── SEC-016 TC-06 ────────────────────────────────────────────────────────────────────────────
-  it('TC-06: has exactly one entry per THookEvent member, no more and no fewer', () => {
+  // ── Exhaustiveness ───────────────────────────────────────────────────────────────────────────
+  it('has exactly one entry per THookEvent member, no more and no fewer', () => {
     expect(Object.keys(HOOK_ENFORCEMENT_POLICY).sort()).toEqual([...ALL_EVENTS].sort());
   });
 
@@ -82,8 +82,8 @@ describe('HOOK_ENFORCEMENT_POLICY', () => {
     expect(isEnforcing('PostToolUse')).toBe(false);
   });
 
-  // ── SEC-016 TC-12 — the table-internal invariant ──────────────────────────────────────────────
-  describe('TC-12: a row may not claim to enforce where enforcement is unreachable', () => {
+  // ── The table-internal invariant ──────────────────────────────────────────────
+  describe('a row may not claim to enforce where enforcement is unreachable', () => {
     it('the shipped policy is coherent', () => {
       expect(() => assertPolicyCoherent()).not.toThrow();
       // And the no-argument form really is bound to the shipped table. Without this, changing the

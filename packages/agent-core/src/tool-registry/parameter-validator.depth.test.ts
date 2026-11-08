@@ -6,7 +6,7 @@ import { getValidationErrors } from './parameter-validator';
 import type { IParameterSchema } from '../interfaces/provider';
 
 /**
- * CORE-039 — the tool-INPUT walk enforces the depth the tool schema advertises.
+ * The tool-INPUT walk enforces the depth the tool schema advertises.
  *
  * Before this, `case 'object'` stopped at `typeof`: a schema could declare a nested object's fields
  * and requirements and nothing on the input path would ever look at them. The depth now belongs to

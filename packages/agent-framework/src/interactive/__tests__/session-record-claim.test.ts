@@ -1,6 +1,6 @@
 /**
  * Where a running session claims its record in a store that seals, and what the claim's read lets it
- * restore (#3679 step 3e).
+ * restore.
  *
  * Sealing needs only the public key, so any program of the same user can seal a record that opens.
  * The claim's own read is therefore the read a session restores from, and it is gated there: the

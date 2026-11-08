@@ -77,7 +77,7 @@ export type {
 
 export type { IToolSummary } from './tool-summary-types.js';
 
-// RUNTIME-003: a submission's identity, its ORIGIN (PEER-002) and the ways it can end live there.
+// A submission's identity, its ORIGIN and the ways it can end live there.
 export type {
   IExecutionResult,
   ITurnHandle,
@@ -168,13 +168,13 @@ export interface IInteractiveSessionRecord {
   usedMemoryReferences?: IMemoryReference[];
   contextReferences?: IContextReferenceItem[];
   sandboxSnapshotId?: string;
-  /** In-flight autonomous goal, persisted so it survives resume (GOAL-001). */
+  /** In-flight autonomous goal, persisted so it survives resume. */
   goal?: IGoalState;
-  /** In-flight plan artifact, persisted so it survives resume (SELFHOST-002 plan-mode). */
+  /** In-flight plan artifact, persisted so it survives resume. */
   plan?: IPlanArtifact;
-  /** Active checkpoint branch pointer, persisted so a branch survives resume (SELFHOST-007). */
+  /** Active checkpoint branch pointer, persisted so a branch survives resume. */
   activeBranch?: IActiveBranchPointer;
 }
 
-// The persistence port and its load-outcome vocabulary live in `session-store-contracts.ts`
-// (TRANS-007): they are one subject, and this file is at its size ratchet.
+// The persistence port and its load-outcome vocabulary live in `session-store-contracts.ts`:
+// they are one subject, and this file is at its size ratchet.

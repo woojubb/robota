@@ -1,5 +1,5 @@
 /**
- * The floor that keeps the workspace-wide home isolation honest (TEST-013, issue #2300).
+ * The floor that keeps the workspace-wide home isolation honest.
  *
  * ## Why this file exists
  *
@@ -11,7 +11,7 @@
  *
  * ## Why it asserts `homedir()` and not the pool
  *
- * `os.homedir()` follows `process.env.HOME` in a forked child and (as measured under TEST-012) not
+ * `os.homedir()` follows `process.env.HOME` in a forked child and (as measured) not
  * necessarily in a worker thread. Asserting `pool === 'forks'` would pin today's mechanism and go
  * vacuous the moment the pool changes; asserting what `homedir()` actually returns pins the
  * PROPERTY, so a pool change that breaks the isolation turns this red instead of silently removing
@@ -37,7 +37,7 @@ import { createDefaultUserContributionSources } from '../contributions/node-host
 /** The variable `vitest.shared.ts` publishes so a test can name the directory it should be given. */
 const ISOLATED_HOME_ENV = 'AGENT_VITEST_ISOLATED_HOME';
 
-describe('vitest home isolation (TEST-013)', () => {
+describe('vitest home isolation', () => {
   it('publishes the isolated home directory it created', () => {
     const declared = process.env[ISOLATED_HOME_ENV];
     expect(declared, `${ISOLATED_HOME_ENV} must be set by vitest.shared.ts`).toBeTruthy();

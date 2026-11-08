@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3280 §5 — a lost connection must not take the person out of their session. The banner and its
+ * A lost connection must not take the person out of their session. The banner and its
  * Reconnect button are `SessionSurface`'s own concern (tested in `agent-ui-web` and in
  * `session-surface.test.tsx`); this file tests only what `App`/`SessionView` are responsible for: the
  * conversation stays mounted through a connection loss (no full-screen replacement, no branch here),
@@ -63,7 +63,7 @@ function host(kind: IGuiHost['kind'], restartRuntime?: () => Promise<void>): IGu
   };
 }
 
-describe('#3280 §5 — a connection lost while attached', () => {
+describe('a connection lost while attached', () => {
   it('the session surface stays mounted through a connection loss (no full-screen replacement)', async () => {
     render(<App product={testProduct} host={host('desktop', vi.fn())} />);
     await screen.findByText('session surface');

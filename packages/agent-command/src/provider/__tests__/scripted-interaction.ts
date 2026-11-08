@@ -4,14 +4,14 @@ import type { IActionRequest, IUserInteraction, TActionResponse } from '@robota-
 
 /**
  * Build a command host context whose `getUserInteraction().ask` replays a scripted sequence of
- * responses (CMD-004 test double). Each `ask` records the request it received (so tests can assert on
+ * responses (test double). Each `ask` records the request it received (so tests can assert on
  * the rendered action shape) and returns the next scripted answer; once the script is exhausted it
  * returns `{ type: 'cancelled' }`, mirroring a user dismissing the prompt.
  */
 export function scriptedContext(
   answers: readonly TActionResponse[],
   /**
-   * #3282 §3: whether THIS session is running with no provider configured yet — `/provider add`
+   * Whether THIS session is running with no provider configured yet — `/provider add`
    * reads it (never settings) to decide hot-swap vs. restart. Defaults to `false`, an ordinary
    * session, matching every test written before setup mode existed.
    */
@@ -30,7 +30,7 @@ export function scriptedContext(
       return Promise.resolve(answer ?? { type: 'cancelled' });
     },
   };
-  // ARCH-029: the double answers "no capability of that kind" for everything else, so this fixture
+  // The double answers "no capability of that kind" for everything else, so this fixture
   // states exactly the one capability it scripts. The double cast it replaced —
   // `as Partial<…> as ICommandHostContext` — asserted conformance twice over one member.
   const context = createTestCommandHost({

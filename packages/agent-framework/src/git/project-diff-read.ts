@@ -1,11 +1,11 @@
 /**
- * #3282 §4c: the Project panel's "File diff" section — one file's change, as `IDiffLine[]` for the
- * SAME `DiffLines` component (#3330) the Edit/Write tool-call preview renders. A git-tracked path
+ * The Project panel's "File diff" section — one file's change, as `IDiffLine[]` for the
+ * SAME `DiffLines` component the Edit/Write tool-call preview renders. A git-tracked path
  * diffs against HEAD (or the empty tree on an unborn branch — `git diff --cached` handles that on its
  * own, verified against a real unborn repository); an untracked path has no git baseline at all, so it
  * is shown the same way `buildWriteDiffState` shows a brand-new file: every line an addition.
  *
- * Every path this reads is checked with the host's `isPathInside` (SEC-006, the one containment
+ * Every path this reads is checked with the host's `isPathInside` (the one containment
  * decision, symlinks resolved) before any git or filesystem call — a diff request naming a path
  * outside the workspace is refused, never run. The host's files are a required argument: the framework
  * has no file access of its own, so a host that lends none cannot ask for a diff at all.
@@ -36,7 +36,7 @@ const BYTES_PER_KIB = 1024;
  * (`MAX_PROJECT_READ_BYTES` in `workspace-trust/project-reader-path.ts`) because this file is
  * materialized whole into a string to build a line-by-line diff view, not streamed, and a Project
  * panel preview has no reason to hold megabytes of a build artifact or log file in the daemon's
- * memory just to say "too large". Checked via `stat` BEFORE any read (#3282 §4c review): a file over
+ * memory just to say "too large". Checked via `stat` BEFORE any read: a file over
  * this size is refused without ever touching the file's contents, so it can neither block the event
  * loop with a large synchronous-equivalent read nor slip a pathologically long line past the cap
  * below.

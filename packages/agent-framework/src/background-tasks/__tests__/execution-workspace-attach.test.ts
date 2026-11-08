@@ -1,5 +1,5 @@
 /**
- * Attaching to a fork (#3679 3f, live follow).
+ * Attaching to a fork (live follow).
  *
  * One function decides what attaching to a fork's entry does, and the same table decides whether
  * the control is offered: a fork that is still running is FOLLOWED (its record is never opened, so

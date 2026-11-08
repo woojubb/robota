@@ -1,5 +1,5 @@
 /**
- * GOAL-001: `/goal` command module registration.
+ * `/goal` command module registration.
  */
 
 import { executeGoalCommand, GOAL_COMMAND_DESCRIPTION } from './goal-command.js';

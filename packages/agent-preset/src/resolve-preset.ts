@@ -52,8 +52,7 @@ export interface IPresetRegistrationResult {
  * (`'collides with built-in preset'`) — built-ins always win. An external preset whose id matches an
  * earlier ACCEPTED external preset is rejected (`'duplicate preset id'`) — first one wins.
  *
- * ARCH-009. This is the whole of what the module-global registry used to be, minus the register:
- * the policy was never the process's to hold, only the list it was applied to was. Both callers —
+ * The policy is not the process's to hold, only the list it is applied to is. Both callers —
  * {@link createPresetRegistry} and the external-preset loader — now pass their own list, so two
  * products in one process cannot see each other's presets, and a repeated load cannot accumulate.
  */
@@ -100,7 +99,7 @@ function definedEntries(source: IResolvedPresetOptions): Partial<IResolvedPreset
 /**
  * Merge `source` onto `target`, skipping `undefined` values so later layers only override set keys.
  *
- * ARCH-040 Group C (issue #1934): the two tool lists combine differently, and the difference is the
+ * The two tool lists combine differently, and the difference is the
  * decision rather than an implementation detail.
  *
  * - **`allowedTools` REPLACES.** An allowlist is a statement of the COMPLETE permitted set, so a
@@ -110,7 +109,7 @@ function definedEntries(source: IResolvedPresetOptions): Partial<IResolvedPreset
  *   forgetting is the common case, and the cost of the two mistakes is not symmetric.
  *
  * This lives HERE, in the resolver, because precedence is the resolver's job: a union applied by one
- * of three shells is a rule the other two disagree with, which is the class ARCH-013 exists over.
+ * of three shells is a rule the other two disagree with, which is how precedence rules drift apart.
  */
 function mergeDefined(
   target: IResolvedPresetOptions,
@@ -162,7 +161,7 @@ function resolvePresetFrom(
 }
 
 /**
- * A per-call, instance-scoped preset registry (ARCH-005 R8) — since ARCH-009 the ONLY one there is.
+ * A per-call, instance-scoped preset registry — the ONLY one there is.
  *
  * A registry holds its own merged list `[built-ins, ...accepted externals]`, so two products in one
  * process do not share one and repeat construction does not accumulate. The
@@ -184,7 +183,7 @@ export interface IPresetRegistry {
  *
  * The conflict policy is {@link partitionExternalPresets}, applied to the argument list only: built-ins
  * always win, and among the external presets the first one wins. No module-level state is read or
- * mutated — this is a pure factory, and since ARCH-009 there is no module-level state to read.
+ * mutated — this is a pure factory, and there is no module-level state to read.
  *
  * Called with no argument it is the BUILT-INS, which is the registry a host that supplies none gets.
  */

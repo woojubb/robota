@@ -1,5 +1,5 @@
 /**
- * Issue #2023 — a policy file that exists and cannot be understood must not read as "no policy".
+ * A policy file that exists and cannot be understood must not read as "no policy".
  *
  * Every enforcement site spells its guard `orgPolicy?.<field> && <violation>`, so `null` means "no
  * restrictions". The loader returned `null` for a missing file AND for a corrupt one, which made a
@@ -35,7 +35,7 @@ afterEach(() => {
   rmSync(home, { recursive: true, force: true });
 });
 
-describe('loadOrgPolicy (issue #2023)', () => {
+describe('loadOrgPolicy', () => {
   it('rejects a missing or empty host path instead of silently disabling policy', () => {
     withPolicyFile(JSON.stringify({ blockedCommands: ['clear'] }));
 

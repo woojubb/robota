@@ -65,7 +65,7 @@ describe('writeSettings', () => {
     expect(existsSync(path)).toBe(true);
   });
 
-  // SEC-003: a settings file may hold a plaintext `provider.apiKey`, so it must not be
+  // A settings file may hold a plaintext `provider.apiKey`, so it must not be
   // created world-readable by the ambient umask.
   it('creates the file owner-readable only', () => {
     const path = join(TEST_DIR, 'credentialed.json');
@@ -88,7 +88,7 @@ describe('updateModelInSettings', () => {
     process.env.HOME = originalHome;
   });
 
-  // CONFIG-002: the writer must never emit the legacy flat `provider` shape that loadConfig rejects.
+  // The writer must never emit the legacy flat `provider` shape that loadConfig rejects.
   it('refuses to create a file when there is no active provider profile', () => {
     const path = join(TEST_DIR, 'new-settings.json');
     expect(() => updateModelInSettings(path, 'claude-opus-4-6')).toThrow(

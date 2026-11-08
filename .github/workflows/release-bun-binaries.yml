@@ -1,6 +1,6 @@
 name: Release — Bun binaries
 
-# PAYLOAD-2153 / DIST-002 — compile every native Bun executable on its matching host, execute the
+# Compile every native Bun executable on its matching host, execute the
 # packaged replay/refusal proof there, then publish verified binaries.
 # Sibling to release.yml (manual npm publish); this workflow never publishes npm packages.
 

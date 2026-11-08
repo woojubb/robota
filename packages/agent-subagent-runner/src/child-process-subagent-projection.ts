@@ -5,13 +5,13 @@
  * — which assembly tiers it carried, which sandbox it holds — has to travel as data. This module is
  * the producer half of that contract; `worker-composition.ts` is the consumer half.
  *
- * It exists as its own file because review of ARCH-033/ARCH-034 found both fields declared on the
- * wire type and read by the worker while NOTHING wrote them. Keeping the producer beside the
+ * It exists as its own file because a field declared on the
+ * wire type and read by the worker while NOTHING writes it is easy to miss. Keeping the producer beside the
  * consumer's vocabulary, rather than inside a runner that is mostly about process lifecycle, is what
  * makes "who writes this field" answerable by looking.
  *
- * CLI-1994 moved the whole payload builder here from the runner's private method, for the same
- * reason: the ARCH-044 boundary — a plain fork job's conversation never crosses this wire, and a
+ * The whole payload builder lives here rather than in the runner's private method, for the same
+ * reason: the boundary — a plain fork job's conversation never crosses this wire, and a
  * sealing parent's crosses only as the held-record token — is a property of THIS projection, and a
  * test can only pin it against the code that actually produces the payload. A fork job also carries
  * the nonce of the lease its record is lent under, in either mode, and nothing of the record with it.
@@ -48,7 +48,7 @@ export interface IProjectedParentState {
 }
 
 /**
- * ARCH-034: the parent's assembly tiers, verbatim.
+ * The parent's assembly tiers, verbatim.
  *
  * `{ includeGoalTool: false }` and "the parent said nothing" are DIFFERENT states and are kept
  * apart: folding them together would make the tier unreadable in exactly the case a product turns it
@@ -61,7 +61,7 @@ function projectSessionTiers(
 }
 
 /**
- * ARCH-033: `(type, snapshotId)` for the parent's sandbox, or nothing.
+ * `(type, snapshotId)` for the parent's sandbox, or nothing.
  *
  * BOTH halves are required to produce either. A snapshot with no registered type is a reference
  * nothing on the worker side opens; a type with no snapshot rebuilds an EMPTY sandbox, which is a
@@ -319,15 +319,15 @@ export function projectProviderConnection(
  *
  * NOT an `async` function, deliberately. `resolveAgentDefinition` throws for an unknown agent type,
  * and `start()` has always surfaced that SYNCHRONOUSLY — an `async` body would turn it into a
- * rejected result promise, which is a contract change no caller asked for and which the ARCH-036
- * cases caught immediately. Everything that can be known now is computed now; only the sandbox half
+ * rejected result promise, which is a contract change no caller asked for and which the synchronous-throw
+ * cases catch immediately. Everything that can be known now is computed now; only the sandbox half
  * waits.
  *
- * CLI-1994 / ARCH-044: `request` crosses VERBATIM — for a fork job that means `resumeSessionId` and
+ * `request` crosses VERBATIM — for a fork job that means `resumeSessionId` and
  * nothing more. For a plain parent the conversation the id names stays in the session store on the
  * far side; nothing here reads it, so nothing here can put it on the wire. A sealing parent's record
  * arrives already exported, as `options.resumeHeld`, and is placed at the top level only.
- * `subagent-worker-start-dto.test.ts` TC-06 pins the key set.
+ * `subagent-worker-start-dto.test.ts` pins the key set.
  */
 export function projectStartPayload(
   job: ISubagentJobStart,
@@ -345,13 +345,13 @@ export function projectStartPayload(
     request: job.request,
     ...(job.worktree ? { worktree: job.worktree } : {}),
     agentDefinition: encodeAgentDefinition(applyRequestOverrides(definition, job)),
-    // Issue #3081: the rules the parent's gate enforces now, not its settings file's.
+    // The rules the parent's gate enforces now, not its settings file's.
     parentConfig: projectParentConfig(
       deps.getParentPermissionRules === undefined
         ? deps.config
         : { ...deps.config, permissions: deps.getParentPermissionRules() },
     ),
-    // Issue #2317 narrows to the two members the child reads; ARCH-044 (issue #2047) encodes them.
+    // Narrows to the two members the child reads, then encodes them.
     parentContext: encodeParentContext(projectParentContext(deps.context)),
     ...(options.connection ??
       projectProviderConnection(job, deps, options, process.env, process.env)),
@@ -382,7 +382,7 @@ export function projectStartPayload(
 }
 
 /**
- * ARCH-036: `builtInAgents` is threaded through because NEUT-003 made an injected set REPLACE the
+ * `builtInAgents` is threaded through because an injected set REPLACES the
  * module built-ins — an empty array removes them entirely — and the in-process sibling already
  * honours it (`agent-framework/src/subagents/in-process-subagent-runner.ts`). Reading only
  * `customAgentRegistry` here meant the composition root's choice reached one runner and not the
@@ -448,7 +448,7 @@ function createProviderProfile(
   const defaults = findProviderDefinition(providerDefinitions, provider.name)?.defaults ?? {};
   const baseURL = provider.baseURL ?? defaults.baseURL;
   const options = provider.options ?? defaults.options;
-  // SEC-009: carry the REFERENCE, not the secret. Config loading resolves a `$ENV:` value into the
+  // Carry the REFERENCE, not the secret. Config loading resolves a `$ENV:` value into the
   // credential itself, so copying `apiKey` here put plaintext into a structured-clone IPC message —
   // a second copy of the secret, in a second process, reachable by anything observing the channel.
   // The host supplies the referenced variable in the worker environment, and

@@ -22,7 +22,7 @@ import type { IGuiHost, IGuiTrustQuestion, TGuiTrustChoice } from './gui-host.js
 
 /**
  * Connect to the sidecar over WS and render the shared session surface. `SessionSurface` shows its own
- * connection-lost banner (issue #3280 §5) from `state.connectionLost` — this component's only job is
+ * connection-lost banner from `state.connectionLost` — this component's only job is
  * the host-specific `onReconnect` action: present only when the host can restart the runtime (desktop),
  * and remembering the session to switch back to once the restart's reload reconnects.
  */
@@ -44,7 +44,7 @@ function SessionView({ state, host }: { state: IWsSessionState; host: IGuiHost }
   useEffect(() => {
     if (state.status === 'connected') host.signalReady();
   }, [state.status, host]);
-  // #3282 §4a: the desktop app's ⌘,/Ctrl+, menu item, beside the gear button `SessionSurface`
+  // The desktop app's ⌘,/Ctrl+, menu item, beside the gear button `SessionSurface`
   // already renders — both call the same `openSettings`.
   const { openSettings } = state;
   useEffect(() => host.onOpenSettings(openSettings), [host, openSettings]);
@@ -77,7 +77,7 @@ const TRUST_BUTTON =
 /**
  * The runtime never started (or stopped for good before a session was ever live) — the reason the
  * host reported, in plain words, and a Try again that reuses the exact same restart flow the
- * connection-lost banner's Reconnect uses (issue #3282 §3): ask the CLI again, reload once it answers.
+ * connection-lost banner's Reconnect uses: ask the CLI again, reload once it answers.
  */
 function FatalDetail({
   detail,
@@ -129,7 +129,7 @@ function FatalDetail({
 }
 
 /**
- * The folder is not trusted yet (issue #3268): nothing has started. Trusting it lets the session load
+ * The folder is not trusted yet: nothing has started. Trusting it lets the session load
  * the project's own configuration; Restricted starts without it; Quit closes the app.
  */
 function TrustQuestion({
@@ -170,7 +170,7 @@ function TrustQuestion({
           Trusting this folder lets {identity.displayName} use the project&apos;s own settings, hooks, skills and MCP
           servers. Restricted starts without them.
         </p>
-        {/* #3282 §3: a row appears only when its state is known (never "[unavailable]" noise), and
+        {/* A row appears only when its state is known (never "[unavailable]" noise), and
             the list is closed by default — the sentence above is the answer for most people. */}
         {question.loads.length > 0 ? (
           <details className="mt-4 text-left">
@@ -279,7 +279,7 @@ function AppContent({ host }: { host: IGuiHost }): React.ReactElement {
   if (endpoint?.generation !== generation) {
     return <CenteredChrome tone="muted">Starting the agent…</CenteredChrome>;
   }
-  // A lost connection (issue #3280 §5) is shown by `SessionSurface` itself, above the conversation —
+  // A lost connection is shown by `SessionSurface` itself, above the conversation —
   // never a full-screen replacement — so it is not a branch here.
   return <WsSessionView url={endpoint.url} host={host} />;
 }

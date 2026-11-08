@@ -18,7 +18,7 @@ function runtimeContext() {
   return createTestRuntimeContext(root);
 }
 
-describe('#2726 — passive session activity observation', () => {
+describe('passive session activity observation', () => {
   it('follows actual execution and pending-input state without subscribing to prompts', () => {
     vi.useFakeTimers();
     try {

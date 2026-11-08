@@ -17,7 +17,7 @@ import type { IHostIdentity } from '../host-identity.js';
 import type { ITrustedDeviceStore } from '../trusted-device-store.js';
 
 /**
- * REMOTE-008 Step 4 — the composition-root remote-control controller. Driven with injected construction
+ * The composition-root remote-control controller. Driven with injected construction
  * seams (no real relay / WebRTC / QR), so the enable/stop/status + fail-closed logic is unit-tested.
  */
 
@@ -27,7 +27,7 @@ const CLIENT_ORIGIN = 'https://remote.example';
 /**
  * The pairing link the controller emitted: `renderPairingMessage` puts it on the message's last line.
  *
- * SEC-004 shape-match (the `js/regex/missing-regexp-anchor` family, unflagged here): the assertions
+ * Shape-match (the `js/regex/missing-regexp-anchor` family, unflagged here): the assertions
  * used to be `expect(msg).toMatch(/https:\/\/remote\.example\//)` — an unanchored substring probe over
  * the whole message, which a link like `https://phish.test/?next=https://remote.example/` satisfies
  * just as well as the real one. Extracting the link and parsing it makes the check exact: the origin
@@ -70,7 +70,7 @@ function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
   // Capture the pairing lifecycle hooks the controller passes into the transport, so a test can simulate
   // the gate accepting / rejecting.
   const hooks: { onPaired?: () => void; onPairingFailed?: () => void } = {};
-  // Capture the ICE config the controller passes into the transport (REMOTE-010).
+  // Capture the ICE config the controller passes into the transport.
   const captured: { ice?: { iceServers?: unknown; forceTurn?: boolean } } = {};
   const deps: IRemoteControlControllerDeps = {
     productRuntime: createTestRuntimeContext('/tmp/remote-control-controller-test'),
@@ -91,7 +91,7 @@ function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
   return { deps, registered, transport, signaling, hooks, captured };
 }
 
-describe('RemoteControlController (REMOTE-008)', () => {
+describe('RemoteControlController', () => {
   it('starts off', () => {
     const { deps } = makeDeps();
     expect(new RemoteControlController(deps).getStatus()).toEqual({ state: 'off' });
@@ -140,7 +140,7 @@ describe('RemoteControlController (REMOTE-008)', () => {
     expect(controller.getStatus()).toEqual({ state: 'off' }); // untouched (no new enum variant)
   });
 
-  it('REMOTE-010: passes configured iceServers + forceTurn into the transport', async () => {
+  it('passes configured iceServers + forceTurn into the transport', async () => {
     const iceServers = [{ urls: 'turn:turn.example:3478', username: 'u', credential: 'p' }];
     const { deps, captured } = makeDeps({
       readIceServers: () => iceServers,
@@ -150,7 +150,7 @@ describe('RemoteControlController (REMOTE-008)', () => {
     expect(captured.ice).toEqual({ iceServers, forceTurn: true });
   });
 
-  it('REMOTE-010: forceTurn without a TURN server fails closed — constructs nothing', async () => {
+  it('forceTurn without a TURN server fails closed — constructs nothing', async () => {
     const createTransport = vi.fn();
     const { deps } = makeDeps({
       readIceServers: () => [{ urls: 'stun:stun.example:19302' }], // STUN only, no TURN
@@ -162,7 +162,7 @@ describe('RemoteControlController (REMOTE-008)', () => {
     expect(createTransport).not.toHaveBeenCalled();
   });
 
-  it('REMOTE-010: a malformed iceServers config fails closed (throwing reader surfaced, nothing constructed)', async () => {
+  it('a malformed iceServers config fails closed (throwing reader surfaced, nothing constructed)', async () => {
     const createTransport = vi.fn();
     const { deps } = makeDeps({
       readIceServers: () => {

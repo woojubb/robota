@@ -168,7 +168,7 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
       subtype: 'success',
       result: 'PROBE_DONE',
     });
-    // #3459: the provider commands check `$ENV:` credentials against the startup snapshot, not the
+    // The provider commands check `$ENV:` credentials against the startup snapshot, not the
     // live env the runtime just emptied — so validation passes and the probe itself runs.
     const providerTest = await run(['-p', '/provider test openai', '--output-format', 'json']);
     expect(providerTest.code, `${providerTest.stdout}\n${providerTest.stderr}`).toBe(0);

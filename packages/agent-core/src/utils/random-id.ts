@@ -1,5 +1,5 @@
 /**
- * A random identifier, from the platform rather than from Node. CORE-028.
+ * A random identifier, from the platform rather than from Node.
  *
  * Five modules in this package imported `randomUUID` from `node:crypto`, and this package ships a
  * `browser` export condition — so the first line of the browser bundle was

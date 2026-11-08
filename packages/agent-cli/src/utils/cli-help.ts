@@ -2,7 +2,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * CLI usage help text.
  *
- * Split out of `cli-args.ts` (CLI-2004) by responsibility: that module parses and validates
+ * Split out of `cli-args.ts` by responsibility: that module parses and validates
  * arguments, this one is the user-facing catalogue of them. Keeping a ~65-line template literal
  * inside the parser is what made adding one flag a size-budget question instead of a one-line edit.
  * Re-exported from `cli-args.ts` so every existing import site keeps working unchanged.

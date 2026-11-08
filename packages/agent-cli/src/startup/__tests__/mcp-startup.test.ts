@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * MCP-002: `composeMcpClientForStartup` is the ONE function that turns product startup inputs
+ * `composeMcpClientForStartup` is the ONE function that turns product startup inputs
  * (settings sources, workspace-trust decision, `cwd`) into a live `IMcpClientComposition` — proof
  * that the `/mcp` port and the connected tool surface are reachable from something other than
  * `mcp-client-composition.test.ts`'s hand-built `resolvedEntries`.
@@ -512,7 +512,7 @@ describe('composeMcpClientForStartup', () => {
     expect(messages).toEqual([]);
   });
 
-  // BEHAVIOR-2794 (issue #2794 / #3073): an unreadable source (here, a user-layer `mcpServers` that
+  // An unreadable source (here, a user-layer `mcpServers` that
   // is not an object) must still surface through the LIVE `/mcp` port — not only as a one-time
   // startup diagnostic. `user` is NOT the managed tier, so this is the purely-informational case: a
   // higher-precedence, well-formed layer (`project`) still resolves normally. The managed-tier
@@ -562,7 +562,7 @@ describe('composeMcpClientForStartup', () => {
     });
   });
 
-  // BEHAVIOR-2794 fail-closed (owner direction, PR #3076 review): when the MANAGED tier specifically
+  // Fail-closed: when the MANAGED tier specifically
   // is entirely unreadable, `list()` must NOT show a project-defined server as active — end to end,
   // through the exact port `/mcp status` reads (`ICommandMCPActivationAdapter`) — while
   // `sourceProblems()` still names the managed source. `user`-tier unreadability (the test above)
@@ -608,13 +608,13 @@ describe('composeMcpClientForStartup', () => {
     expect(sourceProblems[0]).toMatchObject({
       source: 'managed',
       reason: '`mcpServers` is not an object',
-      // PR #3076 re-review: `weather` never appears in `list()` at all, so `blockedServerNames` is
+      // `weather` never appears in `list()` at all, so `blockedServerNames` is
       // the ONLY place this port says it exists and why it is not active.
       blockedServerNames: ['weather'],
     });
   });
 
-  // PR #3076 re-review: a blocked entry's reason lives only on the `IMCPResolvedEntry` itself
+  // A blocked entry's reason lives only on the `IMCPResolvedEntry` itself
   // (`resolveByPrecedence` synthesizes it) — it never appears in `resolveMcpDefinitions`'s flat
   // `problems` list, so the ORIGINAL startup diagnostic loop (which only walks `problems`) silently
   // dropped it. `composeMcpClientForStartup` must separately walk `entries` for blocked ones.
@@ -707,13 +707,13 @@ describe('composeMcpClientForStartup', () => {
   });
 });
 
-// --- MCP-004 (TC-25, TC-11's startup half): `buildToolCallHandoff` gates the handoff policy on
+// --- `buildToolCallHandoff` gates the handoff policy on
 // `mode` and the resolved `mcp.autoBackgroundMs`/`mcp.callTimeoutMs` settings. These fixtures
 // configure NO `mcpServers`, so `toolNames`/`provenance` are empty here by construction — a real
 // connection populating them from a live server is `mcp-client-composition.test.ts`'s
 // "records connected-tool provenance" case; this file's job is the mode/settings gate around it.
 
-describe('composeMcpClientForStartup → buildToolCallHandoff (TC-25)', () => {
+describe('composeMcpClientForStartup → buildToolCallHandoff', () => {
   it('interactive and serve carry toolCallHandoff with thresholdMs/budgetMs from settings; print does not', async () => {
     const userHome = tempRoot('test-product-mcp-startup-handoff-modes-');
     mkdirSync(join(userHome, '.test-product'), { recursive: true });

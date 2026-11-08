@@ -22,7 +22,7 @@ export type {
   ISpinner,
 } from './session.js';
 
-// RUNTIME-003: one turn at a time. `SessionBusyError` is exported because refusing a concurrent turn
+// One turn at a time. `SessionBusyError` is exported because refusing a concurrent turn
 // is part of `run()`'s contract, and a consumer that cannot identify the refusal has to keep the
 // busy flag this change exists to remove.
 export { SessionBusyError, TurnClaim } from './turn-claim.js';
@@ -47,7 +47,7 @@ export {
 } from './compaction-orchestrator.js';
 export { formatConversationEntries } from './conversation-transcript.js';
 
-// SELFHOST-014: shareable/resumable session artifact envelope + the opt-in sensitive-key scrub (SSOT).
+// Shareable/resumable session artifact envelope + the opt-in sensitive-key scrub (SSOT).
 export { serializeSessionArtifact, deserializeSessionArtifact } from './session-artifact.js';
 export type { ISerializeSessionArtifactOptions } from './session-artifact.js';
 export { SENSITIVE_KEY_PATTERN, isSensitiveKey, scrubSensitiveKeys } from './scrub-sensitive.js';
@@ -121,11 +121,11 @@ export type {
   IInteractiveSessionStore as ISessionStore,
 } from '@robota-sdk/agent-interface-session';
 
-// SELFHOST-007: neutral checkpoint tree (branching time-travel) — pure, I/O-free.
+// Neutral checkpoint tree (branching time-travel) — pure, I/O-free.
 export { CheckpointTree } from './checkpoint-tree.js';
 export type { ICheckpointNode } from './checkpoint-tree.js';
 
-// TRANS-005 (issue #2081): the total runtime decoder for a PERSISTED session record. It lives here,
+// The total runtime decoder for a PERSISTED session record. It lives here,
 // beside the store and artifact paths that will consume it, rather than with the contract it decodes:
 // the interface package owns the record shape, while this package owns the decoding mechanism.
 export {

@@ -141,7 +141,7 @@ export async function callRoundProviderWithEvents(
         // conversation store, the plugin streaming hooks and the raw-delta replay events.
         ...(fullContext.onThinkingDelta && { onThinkingDelta: fullContext.onThinkingDelta }),
         onProviderNativeRawPayload: wrappedOnProviderNativeRawPayload,
-        // CORE-016/017: run-scoped model option overrides win over defaultModel.
+        // Run-scoped model option overrides win over defaultModel.
         ...(fullContext.maxTokens !== undefined && { maxTokens: fullContext.maxTokens }),
         ...(fullContext.temperature !== undefined && { temperature: fullContext.temperature }),
         ...(fullContext.withholdHostedTools === true && {
@@ -180,13 +180,13 @@ export async function callRoundProviderWithEvents(
       // `conversationMessages` does not contain, and a `provider_request` logging the caller's own
       // array would describe a request that was never sent — `agent-session/docs/SPEC.md` promises
       // this event carries the request envelope, and a replay has to be able to reproduce it.
-      // The same rule holds for `tools` (CLI-1990): the wire carries the residency projection and
+      // The same rule holds for `tools`: the wire carries the residency projection and
       // whatever the model-capability guard removed, so the envelope logs the options as sent, not
       // the registry the round was assembled from.
       (request) => {
         assembled = request;
         announceRequest(request);
-        // CORE-043: which transport actually carried the schema. The OUTCOME, not the resolution —
+        // Which transport actually carried the schema. The OUTCOME, not the resolution —
         // "the table declares json_schema" describes a catalog, while "the schema was sent as a
         // parameter, so no prompt statement was needed" explains the result the caller is holding.
         const structured = request.structuredOutput;
@@ -235,7 +235,7 @@ export async function callRoundProviderWithEvents(
         : undefined,
     );
     providerResponse = response;
-    // CORE-042: a provider that returned assembled text without streaming any of it still owes the
+    // A provider that returned assembled text without streaming any of it still owes the
     // caller its deltas — `IChatOptions.onTextDelta`'s contract is what such a provider is violating,
     // and `run(onTextDelta)` against one emitted nothing at all before this. Routing the assembled
     // text through the SAME wrapper means both entry points get it, rather than the streaming entry
@@ -298,7 +298,7 @@ export async function callRoundProviderWithEvents(
     }
     // allow-fallback: provider errors terminate the round, not the process
     //
-    // CORE-027: classified from the SIGNAL this round was given and from the error's own name, never
+    // Classified from the SIGNAL this round was given and from the error's own name, never
     // from its prose. The substring test that stood here committed the round as `interrupted` for
     // any provider failure whose message happened to contain "abort".
     if (isAbortFailure(providerError, fullContext.signal)) {
@@ -313,7 +313,7 @@ export async function callRoundProviderWithEvents(
       throw providerError;
     }
     conversationStore.discardPending();
-    // CORE-027: the message below is DISPLAY, not the failure's representation. The thrown value
+    // The message below is DISPLAY, not the failure's representation. The thrown value
     // itself is handed out so the final result can carry it with class, code, category, stack and
     // cause intact — rebuilding it from this prose is the round trip that destroyed all of them.
     onProviderFailure?.(providerError);
@@ -327,7 +327,7 @@ export async function callRoundProviderWithEvents(
       modelId: routeModel(route, resolved.aiProviderInfo.model),
       providerError: true,
     });
-    // CORE-033: announced like every other append. A failed turn is precisely when a reader goes to
+    // Announced like every other append. A failed turn is precisely when a reader goes to
     // the session log, and this record was the one message the log never contained.
     announceAppend(conversationStore, fullContext, executionId, fullContext.conversationId, {
       round: currentRound,

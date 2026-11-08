@@ -204,7 +204,7 @@ describe('loadConfig', () => {
     expect(config.defaultTrustLevel).toBe('safe');
   });
 
-  it('merges permissions arrays (every layer contributes, issue #3081)', async () => {
+  it('merges permissions arrays (every layer contributes)', async () => {
     writeJson(join(userDir, 'settings.json'), {
       permissions: { allow: ['Bash(git *)'] },
     });
@@ -215,7 +215,7 @@ describe('loadConfig', () => {
     expect(config.permissions.allow).toEqual(['Bash(git *)', 'Read(**)', 'Glob(**)']);
   });
 
-  it('CONFIG-003: a project deny rule does not remove a user-global deny rule', async () => {
+  it('a project deny rule does not remove a user-global deny rule', async () => {
     // The repository's settled combine rule, applied at the one site that disagreed:
     // `agent-core`'s applyPresetToolLists says "the denylist UNIONS — a denial is not weakened by a
     // later layer that forgot to repeat it", and settings-layer merging did exactly that weakening.
@@ -232,7 +232,7 @@ describe('loadConfig', () => {
     expect(config.permissions.deny).toContain('Read(.env)');
   });
 
-  it('CONFIG-003: a repeated deny rule is not duplicated', async () => {
+  it('a repeated deny rule is not duplicated', async () => {
     // Order-preserving and deduplicated, matching applyPresetToolLists. A union that grew on every
     // layer would turn a repeated rule into a longer list that means the same thing.
     writeJson(join(userDir, 'settings.json'), { permissions: { deny: ['Bash(rm -rf *)'] } });
@@ -244,7 +244,7 @@ describe('loadConfig', () => {
     expect(config.permissions.deny).toEqual(['Bash(rm -rf *)', 'Read(.env)']);
   });
 
-  it('issue #3081: a project allow list no longer discards the user allow list', async () => {
+  it('a project allow list no longer discards the user allow list', async () => {
     // Replacing never stopped a project from widening — it could state any list it liked — but it
     // did let a checked-in file silently drop the user's own rules. With deny, ask and ceiling
     // rules outranking every allow, an allow list is not the complete permitted set any more.
@@ -255,7 +255,7 @@ describe('loadConfig', () => {
     expect(config.permissions.allow).toEqual(['Bash(git *)', 'Read(**)']);
   });
 
-  it('issue #3081: ask rules load and union across layers', async () => {
+  it('ask rules load and union across layers', async () => {
     writeJson(join(userDir, 'settings.json'), { permissions: { ask: ['Bash(git push *)'] } });
     writeJson(join(projectDir, 'settings.json'), {
       permissions: { ask: ['Bash(git push *)', 'Bash(npm publish*)'] },
@@ -376,12 +376,11 @@ describe('loadConfig', () => {
     expect(config.provider.apiKey).toBe('sk-profile-value');
   });
 
-  // SEC-009. These assert through loadConfig deliberately: the first version of this fix recorded
-  // the variable name during env resolution and was proven by a test that HAND-BUILT the resolved
-  // config, so it never executed `resolveActiveProviderProfile` — which projects the profile field
-  // by field and was not copying `apiKeyEnv`. The fix therefore changed nothing on the real path
-  // while its test passed. Only an assertion on what loadConfig RETURNS can catch that.
-  it('records which env var the active profile apiKey came from (SEC-009)', async () => {
+  // These assert through loadConfig deliberately: a test that HAND-BUILDS the resolved config never
+  // executes `resolveActiveProviderProfile`, which projects the profile field by field and must
+  // copy `apiKeyEnv`. A dropped field would pass such a test while changing nothing on the real
+  // path. Only an assertion on what loadConfig RETURNS can catch that.
+  it('records which env var the active profile apiKey came from', async () => {
     writeJson(join(projectDir, 'settings.json'), {
       currentProvider: 'openai',
       providers: {
@@ -395,7 +394,7 @@ describe('loadConfig', () => {
     expect(config.provider.apiKeyEnv).toBe('TEST_SEC_009_KEY');
   });
 
-  it('records no credential origin when the profile stores a literal key (SEC-009)', async () => {
+  it('records no credential origin when the profile stores a literal key', async () => {
     writeJson(join(projectDir, 'settings.json'), {
       currentProvider: 'openai',
       providers: { openai: { type: 'openai', model: 'm', apiKey: 'sk-literal' } },
@@ -544,7 +543,7 @@ describe('loadConfig', () => {
     expect(config.defaultTrustLevel).toBe('safe');
   });
 
-  it('CONFIG-003: a project hook does not delete the user-global PreToolUse guard', async () => {
+  it('a project hook does not delete the user-global PreToolUse guard', async () => {
     // The defect: `hooks` fell through mergeSettings' top-level spread, so ANY later layer that
     // declared hooks replaced the whole object. A repository could disable a user's security guard
     // by declaring an unrelated event — a lower-trust layer removing a higher-trust control, with
@@ -569,7 +568,7 @@ describe('loadConfig', () => {
     });
   });
 
-  it("CONFIG-003: a project hook on the SAME event is appended after the user's, not instead of it", async () => {
+  it("a project hook on the SAME event is appended after the user's, not instead of it", async () => {
     // The same-event case is the one a per-object merge would still get wrong: replacing
     // `PreToolUse` wholesale is exactly as fatal as replacing `hooks` wholesale, and only a
     // per-event concatenation survives it. User first, because `runHooks` returns on the first
@@ -591,7 +590,7 @@ describe('loadConfig', () => {
     expect(config.hooks?.PreToolUse?.[1]?.hooks?.[0]).toMatchObject({ command: 'project-hook' });
   });
 
-  it('CONFIG-003: a project taskContext.dir does not silently re-enable an injection the user turned off', async () => {
+  it('a project taskContext.dir does not silently re-enable an injection the user turned off', async () => {
     // Same wholesale-replacement defect, without the security framing: `taskContext` is
     // `{ enabled?, dir? }`, so a project setting only `dir` erased the user's `enabled: false`.
     writeJson(join(userDir, 'settings.json'), { taskContext: { enabled: false } });

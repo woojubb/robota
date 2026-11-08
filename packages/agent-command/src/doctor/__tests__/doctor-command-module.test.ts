@@ -32,7 +32,7 @@ function answering(
   return { ask: vi.fn(async () => response) };
 }
 
-describe('/doctor command module (OBSERVABILITY-1991 TC-06)', () => {
+describe('/doctor command module', () => {
   it('advertises repair arguments consistently in the palette and executable metadata', () => {
     const fixture = createDoctorFixture({ env: {} });
     fixtures.push(fixture);

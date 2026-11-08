@@ -428,7 +428,7 @@ describe('createContextCommandModule', () => {
 });
 
 /**
- * CLI-1990 TC-12 — `/context` reports what the TOOL SCHEMAS cost.
+ * `/context` reports what the TOOL SCHEMAS cost.
  *
  * Before this, no surface separated the tool schemas from the system prompt they are billed
  * alongside: `estimateSerializedContextTokens` covered messages only, and the tool line in the
@@ -461,7 +461,7 @@ function createHostWithTools(schemas: IToolSchema[]) {
   });
 }
 
-describe('CLI-1990 TC-12 — /context reports toolSchemaTokens', () => {
+describe('/context reports toolSchemaTokens', () => {
   it('reports a figure greater than zero for a session with tools', async () => {
     const context = createHostWithTools([toolSchema('Read'), toolSchema('Write')]);
 

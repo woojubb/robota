@@ -1,11 +1,11 @@
 /**
- * SELFHOST-005 — tool OUTPUT schema validation.
+ * Tool OUTPUT schema validation.
  *
  * The counterpart to the tool-INPUT `parameter-validator`: when a tool declares an `outputSchema`,
  * its returned value is validated against it right after the tool function runs, in the SAME layer
  * (`FunctionTool.execute`). A mismatch throws `ToolExecutionError` before the result returns, so the
- * execution round propagates it exactly like any other tool failure. Reuses the CORE-015
- * `validateAgainstJsonSchema` machinery. (Model-output structured validation is separate — CORE-015.)
+ * execution round propagates it exactly like any other tool failure. Reuses the
+ * `validateAgainstJsonSchema` machinery. (Model-output structured validation is separate.)
  */
 
 import { validateAgainstJsonSchema } from '../schema/structured-output.js';

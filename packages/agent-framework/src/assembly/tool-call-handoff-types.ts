@@ -9,7 +9,7 @@
  */
 
 /**
- * MCP-004 §S3: provenance the wrapper attaches to a spawned `tool-invocation` background task —
+ * Provenance the wrapper attaches to a spawned `tool-invocation` background task —
  * flattened onto `IToolInvocationBackgroundTaskRequest`'s own fields, which `agent-executor`'s
  * helpers project into the task state's `metadata` (`serverId`, `sourceName`, `securityIdentity`,
  * `permissionMode`, `provenanceOwner`) for `/tasks` and the notification to read.
@@ -22,9 +22,9 @@ export interface IToolCallHandoffProvenance {
 }
 
 /**
- * MCP-004 §S3: the host's policy for handing a main-turn tool call to a background task once it
+ * The host's policy for handing a main-turn tool call to a background task once it
  * outruns `thresholdMs`. `budgetMs` is informational only — it sizes the spawned task's
- * `maxRuntimeMs` (`budgetMs - elapsed`) for `/tasks`; the supervisor's own `toolCallMs` (S2,
+ * `maxRuntimeMs` (`budgetMs - elapsed`) for `/tasks`; the supervisor's own `toolCallMs` (in
  * `agent-mcp`) is the one enforcer of the call's actual budget.
  */
 export interface IToolCallHandoffPolicy {

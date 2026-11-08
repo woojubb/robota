@@ -1,5 +1,5 @@
 /**
- * #3189 — the sessions a runtime host keeps live at once, and which client is on which.
+ * The sessions a runtime host keeps live at once, and which client is on which.
  *
  * A host with one current session made every client share it: one client's switch moved them all.
  * The pool lets each client connection hold a binding of its own — a slot that starts on the

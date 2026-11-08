@@ -1,9 +1,9 @@
 /**
- * Canonicalise a tool invocation's arguments BEFORE the permission gate sees them (issue #2429).
+ * Canonicalise a tool invocation's arguments BEFORE the permission gate sees them.
  *
  * `Read`, `Write` and `Edit` declare `filePath` absolute, but nothing makes the model comply. A
  * relative `filePath` reaching the gate as written cannot be compared with an absolute pattern —
- * `Read(/w/**)` against `src/x` — and CORE-049 answers that case "unevaluable" (a deny prompts, an
+ * `Read(/w/**)` against `src/x` — and the gate answers that case "unevaluable" (a deny prompts, an
  * allow does not auto-approve) rather than guessing the base. The base is not a guess here: the
  * session's `cwd` is the containment root the tool itself anchors a relative path to, so resolving
  * against it produces the exact path the tool will open, and the gate judges that.

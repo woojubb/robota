@@ -38,7 +38,7 @@ const outByType = (s: IRecordedSpawn): string => ({ a: 'A', b: 'B' })[s.type] ??
 const alternateUntilThree: SelectNextStep = (history, last) =>
   history.length >= 3 ? null : last === 'a' ? 'b' : 'a';
 
-describe('SELFHOST-001 P3 — group-chat orchestration', () => {
+describe('group-chat orchestration', () => {
   it('takes turns per the policy, threads the running history, ends on null', async () => {
     const { manager, spawns } = fakeManager(outByType);
     const { events, names } = capturingEvents();
@@ -134,7 +134,7 @@ describe('SELFHOST-001 P3 — group-chat orchestration', () => {
     expect(typeof createInProcessSubagentRunner).toBe('function');
   });
 
-  // --- Pins for issue #3273 (the roundtable-core facade): each of these must pass against the
+  // --- Pins for the roundtable-core facade: each of these must pass against the
   // current while-loop implementation before the facade lands, and continue to pass after.
 
   it('threads turn 3s prompt with every prior turns output, including the same steps own', async () => {

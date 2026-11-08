@@ -3,7 +3,7 @@ import { describe, expectTypeOf, it } from 'vitest';
 import type { IExecutionWorkspaceEntry, IScheduledBackgroundTaskRequest } from '../index.js';
 
 /**
- * The workspace-entry shape assertion, moved here with its type by ARCH-103 (issue #2109).
+ * The workspace-entry shape assertion, kept beside the type it covers.
  *
  * It lived in `agent-interface-transport`'s `contracts.test.ts` alongside assertions about transport
  * adapters. Splitting it rather than deleting it is the point: the assertion is about a contract this
@@ -17,11 +17,11 @@ describe('execution workspace contracts', () => {
 });
 
 /**
- * Issue #2354 — a scheduled wake inherits the host session's permissions BY DECISION. The request
+ * A scheduled wake inherits the host session's permissions BY DECISION. The request
  * therefore declares no `permissionPolicy`; adding one without wiring it into the woken turn would
  * be a field the runtime drops silently, which is how a test fixture came to believe it existed.
  */
-describe('scheduled background task contract (issue #2354)', () => {
+describe('scheduled background task contract', () => {
   it('a scheduled request carries no permissionPolicy — the woken turn inherits the session', () => {
     expectTypeOf<IScheduledBackgroundTaskRequest>().not.toHaveProperty('permissionPolicy');
   });

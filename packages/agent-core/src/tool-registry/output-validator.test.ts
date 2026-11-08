@@ -7,11 +7,11 @@ import type { IToolSchema } from '../interfaces/provider';
 import type { TUniversalValue } from '../interfaces/types';
 
 /**
- * SELFHOST-005 TC-03 — tool OUTPUT schema validation in agent-core tool-registry.
+ * Tool OUTPUT schema validation in agent-core tool-registry.
  *
  * When a tool declares an `outputSchema`, `FunctionTool.execute` validates the returned value against
  * it and throws `ToolExecutionError` on mismatch (same layer as tool-input validation). Absent =
- * unchanged. Model-output validation (CORE-015) is separate and out of scope.
+ * unchanged. Model-output validation is separate and out of scope.
  */
 
 const OUTPUT_SCHEMA: IToolSchema['outputSchema'] = {
@@ -36,7 +36,7 @@ function makeTool(
   return new FunctionTool(schema, async (p) => fn(p));
 }
 
-describe('SELFHOST-005 TC-03 — tool-output schema validation', () => {
+describe('tool-output schema validation', () => {
   it('accepts an output that matches the declared outputSchema', async () => {
     const tool = makeTool(() => ({ status: 'ok', count: 3 }));
     await expect(tool.execute({})).resolves.toMatchObject({

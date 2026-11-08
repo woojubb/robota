@@ -1,5 +1,5 @@
 /**
- * SCREEN-1993 TC-02 — the session-side prompt-history append: what is recorded, for whom, and how a
+ * The session-side prompt-history append: what is recorded, for whom, and how a
  * failed append is reported.
  */
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -47,7 +47,7 @@ function recorder(writer: IPromptHistoryWriter, notify = vi.fn()) {
 const PROJECT_DIR = mkdtempSync(join(tmpdir(), 'agent-prompt-history-'));
 afterAll(() => rmSync(PROJECT_DIR, { recursive: true, force: true }));
 
-describe('createPromptHistoryRecorder (SCREEN-1993 TC-02)', () => {
+describe('createPromptHistoryRecorder', () => {
   it("records the owner's typed text, trimmed, and nothing for a wake, a peer or a remote driver", () => {
     const writer = recordingWriter();
     const { record } = recorder(writer);
@@ -106,7 +106,7 @@ describe('createPromptHistoryRecorder (SCREEN-1993 TC-02)', () => {
   });
 });
 
-describe('InteractiveSession wires the recorder into the turn (SCREEN-1993 TC-02)', () => {
+describe('InteractiveSession wires the recorder into the turn', () => {
   function provider(): IAIProvider {
     return {
       name: 'mock',

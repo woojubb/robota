@@ -8,7 +8,7 @@ import type { IExecutionResult } from '../../interactive/types.js';
 import type { IAgentRuntime } from '../../runtime/session-runtime.js';
 
 /**
- * SELFHOST-011 P1 — the default eval `runFn` event wiring (review CONSIDER: cover the leak/error/interrupted
+ * The default eval `runFn` event wiring (review CONSIDER: cover the leak/error/interrupted
  * paths). A fake `EventEmitter` session drives `complete`/`interrupted`/`error`; no live provider.
  */
 

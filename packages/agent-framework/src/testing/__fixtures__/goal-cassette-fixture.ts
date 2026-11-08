@@ -1,5 +1,5 @@
 /**
- * TEST-005: shared constants for the real-model goal cassette. The record script and the replay
+ * Shared constants for the real-model goal cassette. The record script and the replay
  * test MUST build the objective identically so the request hash matches across record/replay
  * (the workspace path is scrubbed/rewritten by the cassette provider).
  */

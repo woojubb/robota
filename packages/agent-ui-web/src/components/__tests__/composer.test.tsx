@@ -9,11 +9,11 @@ import korean from './__fixtures__/korean-text.json';
 
 import type { TCommandCatalog, TSessionStatus } from '../../hooks/session-client-types.js';
 
-// #3280 §4: the draft persists to `localStorage` — never leak one test's stored draft into another.
+// The draft persists to `localStorage` — never leak one test's stored draft into another.
 afterEach(() => window.localStorage.clear());
 
 /**
- * #3282 §4e: a command the GUI cannot run at all (`/shell`, declared `runner: 'client'` for the
+ * A command the GUI cannot run at all (`/shell`, declared `runner: 'client'` for the
  * terminal only) never appears in the `/` menu — it stays in the catalog (other surfaces still list
  * it), so a realistic catalog here still carries it, alongside `share` (an ordinary session command
  * that also matches the query `/sh` once `shell` is filtered out).
@@ -72,7 +72,7 @@ function statusFor(sessionId: string): TSessionStatus {
 }
 
 /**
- * #3282 §4d: the persisted draft is now JSON (`{text, attachments}`), not the bare text string it used
+ * The persisted draft is now JSON (`{text, attachments}`), not the bare text string it used
  * to be — reads back just the text half, so a test asserting "this text is what got saved" does not
  * need to know the wrapper shape.
  */
@@ -94,7 +94,7 @@ function openMenu(): void {
   fireEvent.change(screen.getByLabelText('message'), { target: { value: '/' } });
 }
 
-describe('Composer command menu (#3282 §4e)', () => {
+describe('Composer command menu', () => {
   afterEach(cleanup);
 
   it('never shows a command the GUI cannot run at all, even though the catalog still carries it', () => {
@@ -187,7 +187,7 @@ describe('Composer command menu (#3282 §4e)', () => {
 });
 
 /**
- * #3280 §5: while the transport is not `connected`, nothing typed is lost — Enter and Send refuse to
+ * While the transport is not `connected`, nothing typed is lost — Enter and Send refuse to
  * submit, and the draft stays exactly as typed. Send explains why via an accessible description.
  */
 describe('Composer — refuses to send while not connected', () => {
@@ -234,7 +234,7 @@ describe('Composer — refuses to send while not connected', () => {
     expect(screen.getByRole('button', { name: 'Send' }).getAttribute('aria-description')).toBeNull();
   });
 
-  // #3282 §2 (part 2): the `/` command menu is one of the controls disabled while disconnected.
+  // The `/` command menu is one of the controls disabled while disconnected.
   it('the slash command menu does not open while disconnected', () => {
     render(<Composer {...baseProps()} connected={false} />);
     fireEvent.change(screen.getByLabelText('message'), { target: { value: '/' } });
@@ -253,7 +253,7 @@ describe('Composer — refuses to send while not connected', () => {
 });
 
 /**
- * #3280 §2: while a turn runs the composer can stop it (button or Esc) instead of only waiting, and
+ * While a turn runs the composer can stop it (button or Esc) instead of only waiting, and
  * a message the host queued behind the turn is visible and editable rather than silently swallowed.
  */
 describe('Composer — stop a running turn', () => {
@@ -343,7 +343,7 @@ describe('Composer — queued message row', () => {
     expect(screen.queryByRole('button', { name: 'Remove all' })).toBeNull();
   });
 
-  // #3280 §4 (design follow-up): `cancel-queue` clears the WHOLE queue — with more than one message
+  // `cancel-queue` clears the WHOLE queue — with more than one message
   // queued, Edit could only ever restore the shown prompt's text, silently dropping the others. Offer
   // only Remove all once there is more than one, never Edit.
   it('offers only Remove all — no Edit — when more than one prompt is queued', () => {
@@ -383,7 +383,7 @@ describe('Composer — queued message row', () => {
 });
 
 /**
- * #3280 §4: an Enter that only finishes an IME (Korean/Japanese/Chinese) composition must not send —
+ * An Enter that only finishes an IME (Korean/Japanese/Chinese) composition must not send —
  * `isComposing` (or `keyCode` 229 on older browsers) marks it, and applies equally to accepting the
  * highlighted `/` command.
  */
@@ -432,14 +432,14 @@ describe('Composer — an IME composition Enter never sends', () => {
     fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
 
     // Still showing the raw typed text, not completed to "/share " (`/shell` is excluded from the
-    // menu entirely — #3282 §4e — so it is the only match).
+    // menu entirely, so it is the only match).
     expect(input.value).toBe('/sh');
     expect(screen.getByRole('listbox', { name: 'commands' })).toBeTruthy();
   });
 });
 
 /**
- * #3280 §4: the draft is not lost to a Chat → Usage → Chat switch (the composer unmounts), a page
+ * The draft is not lost to a Chat → Usage → Chat switch (the composer unmounts), a page
  * reload, or a desktop relaunch — kept in `localStorage`, per session id, cleared on send.
  */
 describe('Composer — the draft survives a remount, per session', () => {

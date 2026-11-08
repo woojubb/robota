@@ -1,7 +1,7 @@
 /**
- * TC-22: a retained last-known-good catalog carries an explicit identity (server id plus negotiated
+ * A retained last-known-good catalog carries an explicit identity (server id plus negotiated
  * `protocolVersion` plus `serverInfo.version`), a reconnect whose identity differs invalidates it
- * rather than reusing it, and nothing is inferred from a stale session id (MCP-003 condition 9).
+ * rather than reusing it, and nothing is inferred from a stale session id.
  *
  * `IMCPServerIdentity` (`../catalog/types.ts`) has no session-id field at all — `serverId`,
  * `serverName`, `serverVersion`, `protocolVersion` — so the identity comparison this test drives
@@ -17,7 +17,7 @@ import {
 } from './supervisor-test-helpers.js';
 import { MCPConnectionSupervisor } from '../supervisor/connection.js';
 
-describe('MCPConnectionSupervisor — last-known-good catalog identity (TC-22)', () => {
+describe('MCPConnectionSupervisor — last-known-good catalog identity', () => {
   it('drops the retained catalog when a reconnect carries a different identity', async () => {
     const clock = new FakeSupervisorClock();
     const originalIdentity = fixtureIdentity({ serverVersion: '1.0.0' });

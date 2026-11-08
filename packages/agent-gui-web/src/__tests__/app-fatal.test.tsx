@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3186 — a sidecar that stops says why. The desktop host passes the tail of the sidecar's error
+ * A sidecar that stops says why. The desktop host passes the tail of the sidecar's error
  * output with the fatal state; an untrusted workspace, for one, names the command that fixes it.
  */
 
@@ -52,7 +52,7 @@ describe('the fatal screen', () => {
     expect(screen.getByRole('alert').textContent).toContain('Restart the app to reconnect');
   });
 
-  it('#3282 §3: a Try again button reuses the restart flow, and shows a failure if it does not take', async () => {
+  it('a Try again button reuses the restart flow, and shows a failure if it does not take', async () => {
     const restartRuntime = vi.fn(async () => {
       throw new Error('the daemon refused to start');
     });

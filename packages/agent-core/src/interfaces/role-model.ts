@@ -1,5 +1,5 @@
 /**
- * SELFHOST-006 — per-role model routing contract (type-only, neutral).
+ * Per-role model routing contract (type-only, neutral).
  *
  * A role→model mapping keyed by an OPAQUE `string` role id — deliberately NOT a fixed
  * `planner|editor|reviewer` union and NOT a TS `enum`: a fixed vocabulary would embed an
