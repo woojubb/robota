@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { randomBytes } from 'node:crypto';
-import { createSocket } from 'node:dgram';
+import { createSocket, type Socket } from 'node:dgram';
 
 import {
   StunAttr,
@@ -51,6 +51,48 @@ async function peer(): Promise<Awaited<ReturnType<typeof udpPeer>>> {
   const created = await udpPeer();
   closers.push(() => created.close());
   return created;
+}
+
+function bindLoopback(port: number): Promise<Socket> {
+  return new Promise((resolve, reject) => {
+    const socket = createSocket('udp4');
+    socket.once('error', (error) => {
+      try {
+        socket.close();
+      } catch {
+        /* the failed bind left nothing to close */
+      }
+      reject(error);
+    });
+    socket.bind(port, '127.0.0.1', () => resolve(socket));
+  });
+}
+
+/**
+ * Two adjacent free UDP ports for a relayed range and a third for the server itself, taken at
+ * the same moment so none of them is another's. Releasing one probe port and starting the
+ * server afterwards is not enough: Windows hands out ephemeral ports in sequence, so the
+ * server's own socket would land on the port next to the one just freed, inside the range.
+ */
+async function reserveRelayRange(): Promise<{ min: number; serverPort: number }> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const held: Socket[] = [];
+    try {
+      const first = await bindLoopback(0);
+      held.push(first);
+      const min = first.address().port;
+      held.push(await bindLoopback(min + 1));
+      const server = await bindLoopback(0);
+      held.push(server);
+      return { min, serverPort: server.address().port };
+    } catch (error) {
+      lastError = error; // the port after the first was taken: look for another pair
+    } finally {
+      await Promise.all(held.map((socket) => new Promise<void>((done) => socket.close(done))));
+    }
+  }
+  throw new Error('no two adjacent free UDP ports on loopback', { cause: lastError });
 }
 
 describe('TURN server (RFC 8656 over UDP)', () => {
@@ -140,10 +182,8 @@ describe('TURN server (RFC 8656 over UDP)', () => {
   });
 
   it('takes relayed ports from the configured range, and refuses once it is used up', async () => {
-    const probe = await udpPeer();
-    const min = probe.address.port;
-    probe.close();
-    const server = await serve({ relayPorts: { min, max: min + 1 } });
+    const { min, serverPort } = await reserveRelayRange();
+    const server = await serve({ port: serverPort, relayPorts: { min, max: min + 1 } });
     const ports: number[] = [];
     for (const name of ['user-a1', 'user-b1']) {
       const answer = await (await client(server, name)).allocate();
