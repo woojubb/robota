@@ -224,12 +224,12 @@ async function runObservableCarrierPhase(markerPath: string): Promise<Record<str
 }
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'arch-030-outbound-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'outbound-delivery-'));
   let result: Record<string, unknown> | undefined;
   try {
     const realCarrier = await runRealCarrierPhase(join(cwd, 'real-carrier.marker'));
     const observedCarrier = await runObservableCarrierPhase(join(cwd, 'observed-carrier.marker'));
-    result = { scenario: 'ARCH-030-outbound-delivery-boundary', realCarrier, observedCarrier };
+    result = { scenario: 'outbound-delivery-boundary', realCarrier, observedCarrier };
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
