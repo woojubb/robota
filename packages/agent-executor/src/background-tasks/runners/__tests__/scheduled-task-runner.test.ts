@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { nextScheduledFireOnOrAfter } from '../scheduled-fire-time.js';
 import { createScheduledTaskRunner } from '../scheduled-task-runner.js';
+import { NODE_BINARY_ENV, nodeCommand } from './node-shell-command.js';
 import type {
   IBackgroundTaskHandle,
   IBackgroundTaskStart,
@@ -12,6 +13,8 @@ import type {
 } from '../../types.js';
 
 const TEST_TIMEOUT_MS = 15_000;
+const HELD_WAKES_DEADLINE_MS = 25_000;
+const HELD_WAKES_TEST_TIMEOUT_MS = HELD_WAKES_DEADLINE_MS + 5_000;
 
 describe('nextScheduledFireOnOrAfter', () => {
   it('selects the first cron slot after a boundary between slots', () => {
@@ -32,13 +35,6 @@ describe('nextScheduledFireOnOrAfter', () => {
     ).toBe('2026-09-24T00:20:00.000Z');
   });
 });
-
-/** The absolute node binary reaches the child through the task env; the command stays a literal. */
-const NODE_BINARY_ENV = 'PRODUCT_TEST_NODE';
-
-function nodeCommand(script: string): string {
-  return `"$${NODE_BINARY_ENV}" -e ${JSON.stringify(script)}`;
-}
 
 function isAlive(pid: number): boolean {
   try {
@@ -217,7 +213,10 @@ describe('createScheduledTaskRunner', () => {
         await vi.advanceTimersByTimeAsync(3000);
         vi.useRealTimers();
         prepared.activate();
-        const deadline = Date.now() + 8000;
+        // Three fires run one after another, and each starts a shell and then node: PowerShell takes
+        // seconds to start the first time on a loaded Windows runner. The loop leaves at the sixth
+        // line, so a generous deadline costs nothing where the shell starts fast.
+        const deadline = Date.now() + HELD_WAKES_DEADLINE_MS;
         let lines: string[] = [];
         while (Date.now() < deadline) {
           await new Promise((resolve) => setTimeout(resolve, 25));
@@ -235,7 +234,7 @@ describe('createScheduledTaskRunner', () => {
         rmSync(directory, { recursive: true, force: true });
       }
     },
-    TEST_TIMEOUT_MS,
+    HELD_WAKES_TEST_TIMEOUT_MS,
   );
 
   it('holds every wake until a prepared restore is activated, then delivers it asynchronously', async () => {
