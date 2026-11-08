@@ -13,7 +13,7 @@ import type {
   ITransportSettingsRepository,
   TBoundConfigurableTransport,
   TBoundTransportAdapter,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 interface IRegistryEntry {
   readonly transport: TBoundTransportAdapter;

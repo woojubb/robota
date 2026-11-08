@@ -17,7 +17,7 @@
 import { resolveExecutionAttach } from '@robota-sdk/agent-framework';
 
 import type { TExecutionAttachFacts } from '@robota-sdk/agent-framework';
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface/execution';
 
 /**
  * What an attach did: followed a running job, or pointed this terminal at the fork's session.

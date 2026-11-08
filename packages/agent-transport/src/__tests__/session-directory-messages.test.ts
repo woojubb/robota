@@ -3,7 +3,7 @@
  * host owns the directory; the protocol correlates the listing and carries a refusal's code and reason.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createOutboundDelivery } from '../outbound-delivery.js';
@@ -15,7 +15,7 @@ import type {
   ISessionListing,
   TSessionChangeRefusalCode,
   TSessionDeleteRefusalCode,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const listing: ISessionListing = {
   currentSessionId: 'session-1',

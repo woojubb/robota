@@ -80,7 +80,7 @@ import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IAIProvider, IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
+import type { IExecutionResult } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

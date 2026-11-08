@@ -2,7 +2,7 @@
 
 import { isJsonEqual } from '@robota-sdk/agent-core';
 
-import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
+import type { ISessionLoopState } from '@robota-sdk/agent-interface/session';
 
 export interface IDurableSessionLoopStoreDeps {
   /** Save the whole candidate collection; must report a definite failure or permit read-back. */

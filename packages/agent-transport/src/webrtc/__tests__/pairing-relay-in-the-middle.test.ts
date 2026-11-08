@@ -1,6 +1,6 @@
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 const testIdentity = createIdentityContext('test-product');
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { extractDtlsFingerprint, startPairingHandshake } from '@robota-sdk/agent-remote-pairing';
 import { describe, expect, it, vi } from 'vitest';
@@ -10,7 +10,7 @@ import { RtcPeer, type RtcChannel } from '../rtc-peer.js';
 import { createInMemorySignalingPair, type ISignalingClient } from '../signaling.js';
 import { fakeDataChannel } from './fake-datachannel.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 import type { TPairingFrame } from '@robota-sdk/agent-remote-pairing';
 
 /**

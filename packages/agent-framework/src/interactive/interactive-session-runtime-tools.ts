@@ -8,7 +8,7 @@ import type { IToolExecutionResult, IToolSchema, TToolParameters } from '@robota
 import type {
   IRuntimeToolInvokeOptions,
   ISessionRuntimeTools,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 interface IRuntimeToolsDeps {
   readonly controller: () => SessionExecutionController;

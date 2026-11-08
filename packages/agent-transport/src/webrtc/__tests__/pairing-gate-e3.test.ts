@@ -1,6 +1,6 @@
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 const testIdentity = createIdentityContext('test-product');
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import {
   deriveIdentityId,
@@ -10,7 +10,7 @@ import {
   startDeviceReconnect,
   type TReconnectFrame,
 } from '@robota-sdk/agent-remote-pairing';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 import { describe, expect, it, vi } from 'vitest';
 
 import { PairingGate, type IHostReconnectConfig } from '../pairing-gate.js';

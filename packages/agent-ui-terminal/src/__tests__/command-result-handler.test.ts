@@ -6,7 +6,7 @@
  * command-registry/autocomplete refresh.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { homedir } from 'node:os';
 import { mkdirSync, mkdtempSync, writeFileSync, realpathSync } from 'node:fs';
@@ -20,7 +20,7 @@ import {
   PluginCommandSource,
 } from '@robota-sdk/agent-framework';
 import { NodeFileSystem } from '@robota-sdk/agent-framework/node';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { applySystemCommandResult } from '../hooks/command-result-handler.js';
 

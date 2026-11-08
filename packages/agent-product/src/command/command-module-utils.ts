@@ -1,4 +1,4 @@
-import type { ICommand, ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandResult } from '@robota-sdk/agent-interface/command';
 import type { ICommandHostContext, ISystemCommand } from '@robota-sdk/agent-framework';
 
 /** Build executable metadata from the palette entry so user and model views cannot drift. */

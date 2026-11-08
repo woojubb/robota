@@ -2,7 +2,7 @@ import { executeContextCommand } from './context-command.js';
 import { createSystemCommandFromEntry } from '../command-module-utils.js';
 
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface/command';
 
 export function createContextCommandEntry(): ICommand {
   return {

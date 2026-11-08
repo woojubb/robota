@@ -16,7 +16,7 @@ import type {
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
 } from '@robota-sdk/agent-framework';
-import type { TCommandInvocationSource } from '@robota-sdk/agent-interface-command';
+import type { TCommandInvocationSource } from '@robota-sdk/agent-interface/command';
 
 function summary(overrides: Partial<ICommandMCPActivationSummary>): ICommandMCPActivationSummary {
   return {

@@ -8,14 +8,14 @@ import type { ITuiSessionEventBinding } from './tui-session-binding.js';
 import type { TuiStateManager } from './tui-state-manager.js';
 import type { IActionRequest, TActionResponse, TToolArgs } from '@robota-sdk/agent-core';
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
-import type { IExecutionWorkspaceEvent } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionWorkspaceEvent } from '@robota-sdk/agent-interface/execution';
 import type {
   IExecutionResult,
   IInteractiveSessionEvents,
   TInteractiveEventName,
   TPermissionRequester,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export interface ITuiSessionEventProjectorOptions {
   session: InteractiveSession;

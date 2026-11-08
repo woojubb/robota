@@ -3,7 +3,7 @@ import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type {
   IAppearanceSettings,
   TAppearanceSettingsPatch,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 
 export type { IAppearanceSettings, TAppearanceSettingsPatch };
 

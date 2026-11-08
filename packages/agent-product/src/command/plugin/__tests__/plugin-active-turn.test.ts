@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface/command';
 import { createPluginCommandModule } from '../plugin-command-module.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 

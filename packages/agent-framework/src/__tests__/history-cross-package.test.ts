@@ -5,7 +5,7 @@
  * These tests catch issues that unit tests per package miss.
  */
 
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import {
   createUserMessage,
   createAssistantMessage,

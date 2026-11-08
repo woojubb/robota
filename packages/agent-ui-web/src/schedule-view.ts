@@ -8,7 +8,7 @@
 import type {
   IBackgroundTaskState,
   TBackgroundTaskStatus,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 type TScheduleTask = IBackgroundTaskState<'scheduled'>;
 

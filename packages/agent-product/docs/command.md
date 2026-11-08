@@ -123,8 +123,8 @@ authority-backed store is refused explicitly.
 
 - `@robota-sdk/agent-core` — provider and tool types
 - `@robota-sdk/agent-framework` — `ICommandModule`, command host contracts, and the shared command APIs
-- `@robota-sdk/agent-interface-command`, `@robota-sdk/agent-interface-execution`,
-  `@robota-sdk/agent-interface-session` — command, execution, and session contracts
+- `@robota-sdk/agent-interface/command`, `@robota-sdk/agent-interface/execution`,
+  `@robota-sdk/agent-interface/session` — command, execution, and session contracts
 - the `preset` subpath of this package — presets listed and switched by `/preset`
 
 ## Documentation

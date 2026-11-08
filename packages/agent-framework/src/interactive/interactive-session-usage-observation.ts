@@ -2,7 +2,7 @@ import { calculateModelCost } from '@robota-sdk/agent-core';
 
 import type { IUsageSnapshot } from './types.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IUsageModelShare, IUsageObservation } from '@robota-sdk/agent-interface-analytics';
+import type { IUsageModelShare, IUsageObservation } from '@robota-sdk/agent-interface/analytics';
 import type { Session } from '@robota-sdk/agent-session';
 
 function usageSurface(driverId: string | undefined): IUsageObservation['surface'] {

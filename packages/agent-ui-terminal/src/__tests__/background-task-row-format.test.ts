@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface/execution';
 import {
   BACKGROUND_TASK_CONNECTORS,
   formatBackgroundTaskRow,

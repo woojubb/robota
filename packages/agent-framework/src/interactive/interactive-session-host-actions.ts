@@ -12,7 +12,7 @@
  * never a silent skip.
  */
 
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 
 import {
   isAppearanceSettingsPatch,
@@ -32,8 +32,8 @@ import type {
   ICommandResult,
   TCommandHostAction,
   TCommandUiIntent,
-} from '@robota-sdk/agent-interface-command';
-import type { IUiIntentEvent, TDriverId } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/command';
+import type { IUiIntentEvent, TDriverId } from '@robota-sdk/agent-interface/session';
 
 /** The session-side capabilities the applier needs beyond the plain adapters. */
 export interface IHostActionExecutionDeps {

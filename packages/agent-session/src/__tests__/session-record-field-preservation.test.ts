@@ -17,7 +17,7 @@ import type {
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import { loadedOrMissing } from './store-load-helpers.js';
 
 const SESSION_ID = 'arch-015-record-preservation';

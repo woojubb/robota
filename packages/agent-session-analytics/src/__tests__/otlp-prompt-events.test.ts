@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createOtlpPromptEvents } from '../otlp-prompt-events.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const TRACE_ID = '1234567890abcdef1234567890abcdef';
 const ROOT_ID = '1234567890abcdef';

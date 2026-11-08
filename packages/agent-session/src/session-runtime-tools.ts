@@ -7,7 +7,7 @@ import type {
   IUserInteraction,
   TToolParameters,
 } from '@robota-sdk/agent-core';
-import type { IRuntimeToolInvokeOptions } from '@robota-sdk/agent-interface-session';
+import type { IRuntimeToolInvokeOptions } from '@robota-sdk/agent-interface/session';
 
 /** Direct calls share the session claim and retain their completion for graceful disposal. */
 export class SessionRuntimeTools {

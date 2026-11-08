@@ -5,7 +5,7 @@ import type {
   IProviderCommandModuleOptions,
   ISystemCommand as TSystemCommand,
 } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface/command';
 export type { IProviderCommandModuleOptions };
 
 const MODEL_COMMAND_DESCRIPTION = 'Show/change the model';

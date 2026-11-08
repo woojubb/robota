@@ -16,12 +16,12 @@ import type {
   IExecutionWorkspaceEvent,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   TDriverId,
   TInteractiveEventName,
   TTurnSource,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type {
   IAskRequestEvent,
   IBranchEvent,
@@ -36,7 +36,7 @@ import type {
   ISessionSwitchedEvent,
   IToolState,
   IUiIntentEvent,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export type TProtocolSessionEventClassification = 'forwarded' | 'requester-routed' | 'non-surface';
 

@@ -10,7 +10,7 @@ import {
   formatPlainLocalTime,
 } from '../schedule-view.js';
 
-import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface/execution';
 
 function schedule(
   overrides: Partial<IBackgroundTaskState<'scheduled'>> = {},

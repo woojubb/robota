@@ -30,7 +30,7 @@ import type {
   TUniversalValue,
 } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskManager, IToolInvocationAdopter } from '@robota-sdk/agent-executor';
-import type { IToolInvocationBackgroundTaskRequest } from '@robota-sdk/agent-interface-execution';
+import type { IToolInvocationBackgroundTaskRequest } from '@robota-sdk/agent-interface/execution';
 import type { ISessionLogger } from '@robota-sdk/agent-session';
 
 /**

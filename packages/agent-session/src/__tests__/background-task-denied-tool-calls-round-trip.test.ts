@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 import { decodeInteractiveSessionRecord } from '../session-record-codec/index.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 function agentTaskWithDenialsRecord(): IInteractiveSessionRecord {
   return {

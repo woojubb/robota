@@ -4,7 +4,7 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import type { ICommandHostAdapterAccess, ICommandHostWorkspace } from '@robota-sdk/agent-framework';
-import type { ICommandPluginAdapter, ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandPluginAdapter, ICommandResult } from '@robota-sdk/agent-interface/command';
 
 /** What `/plugin` reaches: its adapter port, and — for install/uninstall — this connection's locality. */
 export type TPluginCommandContext = ICommandHostAdapterAccess &

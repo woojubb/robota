@@ -17,7 +17,7 @@ import type { IStdioCarrier } from '../node/index';
 import type {
   ITransportAdapter,
   ITransportLifecycleError,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 import type { Readable, Writable } from 'node:stream';
 
 const STARTUP_TIMEOUT_MS = 15000;

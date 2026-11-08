@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { createOutboundDelivery } from '../outbound-delivery.js';
 import { subscribeSessionEvents } from '../session-events.js';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
-import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface/session';
 
 /**
  * The sharp edge of an optional contract member.

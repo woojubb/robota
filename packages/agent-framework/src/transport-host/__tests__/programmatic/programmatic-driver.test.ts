@@ -23,7 +23,7 @@ import {
 } from '../../programmatic/index.js';
 import { createTestFrameworkHost } from '../../../testing/framework-host.js';
 
-import type { IAgentDriver } from '@robota-sdk/agent-interface-session';
+import type { IAgentDriver } from '@robota-sdk/agent-interface/session';
 import type {
   IWorkspaceIdentity,
   IWorkspaceTrustStore,

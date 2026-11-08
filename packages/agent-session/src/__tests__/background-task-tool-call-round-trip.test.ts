@@ -2,7 +2,7 @@
  * A session record holding a `tool-invocation` background task round-trips.
  *
  * `TASK_KINDS` (`background-task-members.ts`) is a second kind list;
- * until it is removed, every member added to the SSOT `TBackgroundTaskKind` (`agent-interface-execution`)
+ * until it is removed, every member added to the SSOT `TBackgroundTaskKind` (`agent-interface/execution`)
  * must be mirrored here too, or `decodeBackgroundTaskState` / `decodeBackgroundTaskResult` report an
  * unknown-literal issue and `record-decoder.ts` marks the whole session record `corrupt` — exactly
  * the failure this test proves does not happen for `'tool-invocation'`.
@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 
 import { decodeInteractiveSessionRecord } from '../session-record-codec/index.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 function toolInvocationRecord(): IInteractiveSessionRecord {
   return {

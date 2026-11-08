@@ -35,7 +35,7 @@ import {
 import { NodeSessionStore } from '../session-store.js';
 
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-4b8d-typed-before-sealing';
 const onWindows = process.platform === 'win32';

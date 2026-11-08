@@ -21,7 +21,7 @@ import {
   messageToHistoryEntry,
   printablePeerDriver,
 } from '@robota-sdk/agent-core';
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 import { isObserverMessageType } from '@robota-sdk/agent-transport/client';
 
 import { AttentionCoordinator } from './attention/attention-coordinator.js';
@@ -73,11 +73,11 @@ import type {
   TPermissionMode,
   TSessionEndReason,
 } from '@robota-sdk/agent-core';
-import type { ICommand } from '@robota-sdk/agent-interface-command';
+import type { ICommand } from '@robota-sdk/agent-interface/command';
 import type {
   IExecutionDetailCursor,
   IExecutionDetailPage,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IAskRequestEvent,
   IInteractiveSessionEvents,
@@ -87,7 +87,7 @@ import type {
   ISessionStatusSnapshot,
   IUiIntentEvent,
   TWaitingLoopStopOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport/client';
 
 interface IWireTuiChannelBaseOptions {

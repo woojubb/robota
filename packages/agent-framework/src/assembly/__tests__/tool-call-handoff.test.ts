@@ -27,7 +27,7 @@ import type { IBackgroundTaskManager, IToolInvocationAdopter } from '@robota-sdk
 import type {
   IBackgroundTaskState,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type { ISessionLogger } from '@robota-sdk/agent-session';
 
 const PROVENANCE: IToolCallHandoffProvenance = {

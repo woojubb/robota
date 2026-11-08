@@ -8,7 +8,7 @@ import { stubSubmit } from './helpers/session-stub.js';
 import type { ICommand } from '../../command-api/types.js';
 import type { ISkillActivationEvent } from '../../commands/skill-activation-events.js';
 import type { IFrameworkHost } from '../../host/framework-host.js';
-import type { ISkillResource } from '@robota-sdk/agent-interface-command';
+import type { ISkillResource } from '@robota-sdk/agent-interface/command';
 
 /**
  * A forked skill's resources are readable only from inside that fork. The window that says so follows

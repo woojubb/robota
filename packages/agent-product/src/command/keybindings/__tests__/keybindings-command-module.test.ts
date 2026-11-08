@@ -5,7 +5,7 @@ import { scriptedSession } from '@robota-sdk/agent-framework/testing';
 import { openFileInEditor } from '../../editor/index.js';
 import { createKeybindingsCommandModule } from '../keybindings-command-module.js';
 
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface/session';
 
 function handoff(enabled: boolean): ITerminalHandoff {
   return {

@@ -16,14 +16,14 @@ import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskState,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IGoalState,
   IPlanArtifact,
   IActiveBranchPointer,
   ISessionLoopState,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { Session } from '@robota-sdk/agent-session';
 
 /** Hears of the saves a store refused for a sealed session, and of the saves that went through. */

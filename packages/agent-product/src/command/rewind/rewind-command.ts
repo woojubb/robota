@@ -23,7 +23,7 @@ import type {
 import { registeredUnlockCommand } from '../key-custody/registered-unlock-command.js';
 
 import type { ICommandHostCatalog, ICommandProductVocabulary } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 type TRewindCommandContext = ICommandHostCheckpoints &
   Partial<Pick<ICommandHostCatalog, 'listCommands'>> & {

@@ -17,8 +17,8 @@ import type {
   ILivePromptContentPolicy,
   ILivePromptContentToolRef,
   TLivePromptContentKind,
-} from '@robota-sdk/agent-interface-analytics';
-import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/analytics';
+import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface/session';
 
 /** Bytes kept beyond the host's per-item bound, so a secret straddling that bound is still whole. */
 export const LIVE_CONTENT_PRETRUNCATE_MARGIN_BYTES = 1024;

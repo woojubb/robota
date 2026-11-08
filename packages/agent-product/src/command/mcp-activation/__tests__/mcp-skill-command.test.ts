@@ -3,7 +3,7 @@ import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 import { executeMCPActivationCommand } from '../mcp-activation-command.js';
 import { createMCPActivationCommandModule } from '../mcp-activation-command-module.js';
-import type { TCommandInvocationSource } from '@robota-sdk/agent-interface-command';
+import type { TCommandInvocationSource } from '@robota-sdk/agent-interface/command';
 
 const preview = {
   serverId: 'docs',

@@ -12,7 +12,7 @@ import { createSystemCommandFromEntry } from '../command-module-utils.js';
 
 import type { IKeyCustodyCommandPort, IUnlockResult } from './key-custody-command-port.js';
 import type { ICommandHostContext, ICommandModule } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandResult, ICommandSource } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandResult, ICommandSource } from '@robota-sdk/agent-interface/command';
 
 const UNLOCK_DESCRIPTION =
   'Unlock secure conversations: type your passphrase at this terminal to read sealed sessions in this process';

@@ -43,11 +43,11 @@ import type {
   IToolWithEventService,
 } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface/session';
 import type {
   IAccessTokenVerifier,
   IAccessTokenVerifierConfig,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 /**
  * How the host builds an access-token verifier for one external-event grant. Set once, when the

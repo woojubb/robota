@@ -1,11 +1,11 @@
-import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface/transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { describe, it, expect, expectTypeOf } from 'vitest';
 import { createHttpTransport } from '../http-transport.js';
 import type { IHttpTransportSession } from '../http-session.js';
 import type { IHttpTransport } from '../http-transport.js';
-import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface/transport';
 
 function createMockSession(): IHttpTransportSession {
   const full = createTestInteractiveSession();

@@ -14,14 +14,14 @@ import type {
 import type {
   ICommandPluginAdapter,
   IStatusLineCommandSettings,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 import type {
   IExecutionDetailPage,
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
-import type { ISessionListingEntry, IToolState } from '@robota-sdk/agent-interface-session';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/execution';
+import type { ISessionListingEntry, IToolState } from '@robota-sdk/agent-interface/session';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface/transport';
 
 export interface IAppViewModel {
   readonly staticItems: TStaticItem[];

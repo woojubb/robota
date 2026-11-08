@@ -6,7 +6,7 @@ import type {
   IExecutionDetailCursor,
   IExecutionDetailRecord,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 export type TExecutionDetailStatus = 'idle' | 'loading' | 'ready' | 'error';

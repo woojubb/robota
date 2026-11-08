@@ -15,7 +15,7 @@ import type {
   ISessionListEntry,
   ISessionStoreScan,
   TSessionAuthorship,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /**
  * Whether an untrusted session selector is safe to use as one filesystem path component.

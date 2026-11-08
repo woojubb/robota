@@ -29,7 +29,7 @@ import { createProjectSessionStore } from '../interactive/node-session-stores.js
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-5d09ab-secret-project-conversation';
 const linux = process.platform === 'linux';

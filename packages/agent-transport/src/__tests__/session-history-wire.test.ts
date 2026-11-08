@@ -4,7 +4,7 @@
  * changed, and where each turn came from.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createOutboundDelivery } from '../outbound-delivery.js';
@@ -13,7 +13,7 @@ import { HISTORY_PAGE_MAX_BYTES } from '../session-query-messages.js';
 
 import type { IWireHistoryEntry, TClientMessage, TServerMessage } from '../wire-messages.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 type TListener = (...args: unknown[]) => void;
 type TEmittingSession = IInteractiveSession & { emit: (event: string, payload?: unknown) => void };

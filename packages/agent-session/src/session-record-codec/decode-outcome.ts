@@ -17,7 +17,7 @@
 import type {
   IInteractiveSessionRecord,
   ISessionRecordDecodeIssue,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /**
  * What a decode of a persisted session record can conclude.

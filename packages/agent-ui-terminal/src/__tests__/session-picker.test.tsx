@@ -8,7 +8,7 @@ import { shortSessionId } from '../short-session-id.js';
 import type {
   IResumableSessionSummary,
   ISessionListingEntry,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 function summary(id: string, name?: string): IResumableSessionSummary {
   return {

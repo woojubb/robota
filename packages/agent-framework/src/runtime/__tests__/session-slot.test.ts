@@ -3,8 +3,8 @@
  * follow whichever session is current.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
-import { SESSION_CAPABILITY_MEMBER_KEYS } from '@robota-sdk/agent-interface-session';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
+import { SESSION_CAPABILITY_MEMBER_KEYS } from '@robota-sdk/agent-interface/session';
 import { describe, expect, it, vi } from 'vitest';
 
 import { SessionSlot } from '../session-slot.js';
@@ -13,7 +13,7 @@ import type {
   IInteractiveSession,
   IInteractiveSessionEvents,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 type THandler = (...args: unknown[]) => void;
 

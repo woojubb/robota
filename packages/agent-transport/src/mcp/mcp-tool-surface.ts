@@ -1,6 +1,6 @@
 /** One canonical tool catalog and invocation path shared by stdio and HTTP MCP carriers. */
 import { inputRequired, inputResponse, specTypeSchemas } from '@modelcontextprotocol/server';
-import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
+import { isTurnNotRunError } from '@robota-sdk/agent-interface/session';
 
 import { McpCallPrompts, mintCallDriverId, promptForm } from './mcp-call-prompts.js';
 
@@ -16,7 +16,7 @@ import type {
   InputRequiredResult,
   Tool,
 } from '@modelcontextprotocol/server';
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { TDriverId } from '@robota-sdk/agent-interface/session';
 
 export interface IMcpSubmitToolIdentity {
   readonly name: string;

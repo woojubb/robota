@@ -8,7 +8,7 @@
 import type {
   ISessionLoopState,
   TWaitingLoopStopOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** What the rule needs from the session. */
 export interface IWaitingLoopPort {

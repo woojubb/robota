@@ -30,7 +30,7 @@ import type {
   IPermissionRequestEvent,
   IPromptResolvedEvent,
   TDriverId,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export type TMcpCallPrompt =
   | { readonly kind: 'permission'; readonly event: IPermissionRequestEvent }

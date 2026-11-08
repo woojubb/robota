@@ -7,7 +7,7 @@
  * and a task that is not a fork has no window at all.
  */
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
@@ -24,7 +24,7 @@ import type {
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
   IBackgroundTaskResult,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 
 const testHost = createTestFrameworkHost();

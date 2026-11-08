@@ -26,7 +26,7 @@ import type {
   IBinaryFrame,
   IChannelEventFrame,
   TChannelReceiveResult,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 /**
  * The JSON-serializable payload type an event frame carries. Read off the contract (rather than

@@ -1,7 +1,7 @@
 import type {
   IInteractiveSessionStore,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /**
  * What a writer should read before it saves, to keep the members of a record it does not own.

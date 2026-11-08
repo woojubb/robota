@@ -11,7 +11,7 @@ import type {
   IExecutionHeadline,
   TExecutionNormalizedState,
 } from './execution-workspace-types.js';
-import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface/execution';
 
 const TASK_STATE: Record<IBackgroundTaskState['status'], TExecutionNormalizedState> = {
   queued: 'working',

@@ -2,7 +2,7 @@
  * Headless autonomous goal runner. A fake session emits goal lifecycle events; the
  * runner resolves to exit 0 when satisfied, GOAL_NOT_SATISFIED_EXIT_CODE at a bound, and 1 on error.
  */
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -12,7 +12,7 @@ import type {
   IGoalEvent,
   IGoalState,
   IInteractiveSession,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** The streams a Node composition root hands the headless runner; tests spy on them. */
 const processOutput = { stdout: process.stdout, stderr: process.stderr };

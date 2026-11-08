@@ -13,7 +13,7 @@ import type {
   IProviderCommandModuleOptions,
   IProviderSetupInput,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 export { runProviderSetupAsk } from './provider-setup-ask.js';
 

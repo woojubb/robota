@@ -30,7 +30,7 @@ import type {
 import { isChatEntry } from '@robota-sdk/agent-core';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
+import type { ISessionLoopState } from '@robota-sdk/agent-interface/session';
 
 export interface IWorkspaceSnapshotDeps {
   sessionId: string;

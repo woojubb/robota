@@ -26,8 +26,8 @@ import type {
   IExecutionWorkspaceEntry,
   TExecutionAttention,
   TExecutionWorkspaceStatus,
-} from '@robota-sdk/agent-interface-execution';
-import type { IGoalState } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/execution';
+import type { IGoalState } from '@robota-sdk/agent-interface/session';
 
 interface IAgentActivityPanelProps {
   tasks: readonly IExecutionWorkspaceEntry[];

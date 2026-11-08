@@ -11,9 +11,9 @@
  * this window's own.
  */
 
-import { AGENT_DRIVER_ID, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { AGENT_DRIVER_ID, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { TDriverId } from '@robota-sdk/agent-interface/session';
 
 /**
  * `remote` (a plain WS remote connection's own id, `'remote:ws'`) and `peer` (an unrelated

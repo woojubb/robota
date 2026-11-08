@@ -1,11 +1,11 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { createSessionMessageHandler } from '../../index';
 import { describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 
 import { WsSessionDelivery } from '../ws-session-delivery.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 function createSessionHarness(): {
   session: IInteractiveSession;

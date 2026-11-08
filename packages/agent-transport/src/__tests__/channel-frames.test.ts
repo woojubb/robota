@@ -8,7 +8,7 @@ import {
 } from '../channel-frames.js';
 import koreanText from './__fixtures__/korean-text.json';
 
-import type { IBinaryFrame, IChannelEventFrame } from '@robota-sdk/agent-interface-transport';
+import type { IBinaryFrame, IChannelEventFrame } from '@robota-sdk/agent-interface/transport';
 
 /**
  * Payload-agnostic frame codec.

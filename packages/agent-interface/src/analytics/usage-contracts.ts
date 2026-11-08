@@ -1,0 +1,351 @@
+/**
+ * @robota-sdk/agent-interface/analytics — usage and run-trace contracts.
+ *
+ * These declarations are separate from `agent-interface/transport`'s `session-contracts.ts`.
+ *
+ * This family was declared INSIDE another module rather than as a file of its own, which is why the
+ * extraction split declarations rather than moving a whole file.
+ *
+ * LAYER 0, with an EMPTY dependency set — every field below is a primitive or another declaration in
+ * this file, so the package needs nothing, not even `agent-core`. Consumers compose it downward.
+ */
+
+/**
+ * The execution unit a usage snapshot is attributed to, so session-log usage can be
+ * reported and asserted per source (main thread vs a specific subagent / background task). A minimal
+ * contract-layer descriptor — the framework's `IExecutionOrigin` lives a layer up and cannot be
+ * imported here; the two stay aligned by `scope`/`id`.
+ */
+export interface IUsageSource {
+  scope: 'main' | 'subagent' | 'background' | 'tool' | 'command' | 'skill';
+  /** Stable id of the source (e.g. the subagent / background-task id); omitted for the main thread. */
+  id?: string;
+  /** Human label for reports (e.g. the agent type or task title). */
+  label?: string;
+}
+
+export interface IUsageSnapshot {
+  kind: 'exact' | 'estimated';
+  scope: 'turn';
+  totalTokens: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  contextUsedTokens: number;
+  contextMaxTokens: number;
+  contextUsedPercentage: number;
+  costStatus: 'unknown' | 'estimated' | 'exact';
+  /**
+   * Derived turn cost in USD, present iff `costStatus !== 'unknown'` (i.e. the turn's
+   * model was priced). Computed from the `agent-core/model-pricing.ts` SSOT (`calculateModelCost`,
+   * exact input/output split). Optional = backward-compatible; a turn on an unpriced model omits it.
+   */
+  costUsd?: number;
+  /** Which execution unit consumed these tokens. Defaults to the main thread. */
+  source?: IUsageSource;
+}
+
+/** One persisted, content-free observation for a started interactive turn. */
+export type TUsageSurface = 'cli' | 'desktop-app' | 'browser' | 'remote' | 'attach' | 'unknown';
+
+/**
+ * One model's part of a turn that ran on more than one model, so tokens and cost stay with the
+ * model that spent them instead of all going to one.
+ */
+export interface IUsageModelShare {
+  providerId: string;
+  modelId: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  costStatus: 'unknown' | 'estimated';
+  /** Present iff `costStatus === 'estimated'`. */
+  costUsd?: number;
+}
+
+export interface IUsageObservation {
+  usageObservationId: string;
+  turnId: string;
+  outcome: 'success' | 'failure' | 'interrupted';
+  /** Actual prompt execution boundary, absent for failures before execution begins. */
+  promptExecutionStartedAt?: string;
+  /** First terminal callback, not the later context/wake/handle settlement. */
+  promptExecutionEndedAt?: string;
+  /** First terminal callback outcome; may differ from the final turn outcome after later failures. */
+  promptExecutionOutcome?: IUsageObservation['outcome'];
+  /** Fresh, content-free OpenTelemetry-compatible root identity for this prompt execution. */
+  promptExecutionTraceId?: string;
+  promptExecutionSpanId?: string;
+  /** The model that answered; absent when the turn ran on more than one (see `modelShares`). */
+  modelId?: string;
+  providerId?: string;
+  /** Per-model parts of a turn that ran on more than one model; absent otherwise. */
+  modelShares?: readonly IUsageModelShare[];
+  surface?: TUsageSurface;
+  source?: IUsageSource;
+  usage?: IUsageSnapshot;
+}
+
+/** An explicitly linked, content-free provider round under one persisted prompt root. */
+export interface IProviderCallTraceEntry {
+  callId?: string;
+  traceId: string;
+  parentSpanId: string;
+  spanId: string;
+  startedAt: string;
+  endedAt: string;
+  outcome: 'success' | 'failure' | 'interrupted';
+  round: number;
+  disposition?: 'invoked' | 'cache-hit' | 'preflight-refused';
+  providerId?: string;
+  modelId?: string;
+  usageProvenance?: 'complete' | 'partial' | 'absent';
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  /**
+   * Opaque ID the provider returned for this invoked call. On THIS entry it is live-projection
+   * only — never written to the persisted `provider-call-trace` history entry. The adapter also
+   * leaves it on the assistant message's own metadata, so it does reach session history and logs by
+   * that separate route; among telemetry signals, only live traces and logs export it, never metrics.
+   */
+  providerRequestId?: string;
+}
+
+/** The awaited body of one permitted tool call under a persisted prompt root. */
+export interface IToolBodyTraceEntry {
+  /** Opaque ID of the actual permitted call in live projection; not written to history. */
+  toolCallId?: string;
+  /** Name of the tool that ran, in live projection only; not written to history. */
+  toolName?: string;
+  traceId: string;
+  parentSpanId: string;
+  spanId: string;
+  startedAt: string;
+  endedAt: string;
+  outcome: 'success' | 'failure' | 'interrupted';
+}
+
+/** Live-only decision reached for one tool call before any body runs; never written to history. */
+export interface IToolPermissionDecisionEntry {
+  /** Opaque ID of the tool call; the same value a permitted body's live entry carries. */
+  toolCallId?: string;
+  traceId: string;
+  parentSpanId: string;
+  decidedAt: string;
+  decision: 'allowed' | 'denied' | 'hook-blocked';
+}
+
+/** Valid observed interval totals; invalid evidence never becomes a measured duration. */
+export interface ILivePromptDurationTotal {
+  readonly durationMs: number;
+  readonly samples: number;
+  readonly invalid: number;
+}
+
+/** Scheduler submission to selection for admission or refusal, excluding the admission itself. */
+export interface ILivePromptQueueSummary extends ILivePromptDurationTotal {
+  readonly admissionStarted: number;
+  readonly notDispatched: number;
+}
+
+/** Valid interval sums can overlap; they are not the prompt's wall time. */
+export interface ILivePromptTimingTotals {
+  readonly provider: ILivePromptDurationTotal;
+  readonly tool: ILivePromptDurationTotal;
+  readonly queue?: ILivePromptQueueSummary;
+}
+
+/** One bounded, content-free live prompt execution; not a final turn result or delivery receipt. */
+export interface ILivePromptTraceBatch {
+  readonly schemaVersion: 1;
+  readonly sessionId: string;
+  readonly turnId: string;
+  readonly root: {
+    readonly traceId: string;
+    readonly spanId: string;
+    readonly startedAt: string;
+    readonly endedAt: string;
+    readonly outcome: 'success' | 'failure' | 'interrupted';
+  };
+  /** Valid duration aggregates include children omitted solely by the detail bound. */
+  readonly timingTotals?: ILivePromptTimingTotals;
+  /** Callback order, not an inferred causal sequence. Retry joins are unavailable. */
+  readonly children: readonly (
+    | { readonly kind: 'provider'; readonly trace: IProviderCallTraceEntry }
+    | { readonly kind: 'tool'; readonly trace: IToolBodyTraceEntry }
+    | { readonly kind: 'permission'; readonly decision: IToolPermissionDecisionEntry }
+  )[];
+  /** Invalid or over-limit children are never silently represented as a complete trace. */
+  readonly omittedChildren: {
+    readonly provider: number;
+    readonly tool: number;
+    readonly permission: number;
+  };
+}
+
+export interface IPersonalUsageRequest {
+  period: '7d' | '30d';
+  /** IANA timezone used to assign observations to local calendar days. */
+  timezone: string;
+}
+
+export interface IPersonalUsageTotals {
+  sessions: number;
+  turns: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  /** Sum of every turn's known `costUsd`; unpriced turns contribute 0, so this is never `unknown`'s cause. */
+  costUsd: number;
+  /** `unknown` iff nothing in this aggregate could be priced; otherwise this is a sum of what could be. */
+  costStatus: 'unknown' | 'estimated' | 'exact';
+  /** Count of turns that could not be priced and so are excluded from `costUsd`; omitted when 0. */
+  unpricedTurns?: number;
+}
+
+export interface IPersonalUsageDimension extends Omit<IPersonalUsageTotals, 'sessions'> {
+  key: string;
+  label: string;
+  /** Stable ids of persisted sessions that contributed to this aggregate. */
+  sessionIds: string[];
+}
+
+export interface IPersonalUsageActivity {
+  key: string;
+  label: string;
+  kind: 'tool' | 'skill' | 'plugin';
+  count: number;
+}
+
+export interface IPersonalUsageDay {
+  date: string;
+  partial: boolean;
+  totals: IPersonalUsageTotals;
+  /** Stable ids of persisted sessions that contributed usage or activity on this local day. */
+  sessionIds: string[];
+}
+
+export interface IPersonalUsageCoverage {
+  validSessions: number;
+  corruptSessions: number;
+  unsupportedSessions: number;
+  /**
+   * Saved sessions that are sealed and could not be opened, so nothing in them is counted: those
+   * sealed with keys that are locked now, and those sealed with keys this process does not have at
+   * all. Absent when there are none.
+   */
+  lockedSessions?: number;
+  duplicateObservations: number;
+  legacyObservations: number;
+  unknownModelObservations: number;
+  unknownProviderObservations: number;
+  unknownSurfaceObservations: number;
+  corruptSessionIds: string[];
+  unsupportedSessionIds: string[];
+}
+
+/**
+ * stable cross-session report consumed by CLI and GUI. Every field is content-free:
+ * no prompt text, no directory name, nothing a person typed. A GUI names a session for its own dashboard
+ * from data it already holds locally (its session directory listing), falling back to this report's
+ * `sessionFirstSeen` timestamp — never to prompt or path content carried over the wire.
+ */
+export interface IPersonalUsageReport {
+  schemaVersion: 1;
+  generatedAt: string;
+  period: IPersonalUsageRequest['period'];
+  timezone: string;
+  interval: { startDate: string; endDate: string };
+  totals: IPersonalUsageTotals;
+  daily: IPersonalUsageDay[];
+  byModel: IPersonalUsageDimension[];
+  byProvider: IPersonalUsageDimension[];
+  bySurface: IPersonalUsageDimension[];
+  bySource: IPersonalUsageDimension[];
+  byActivity: IPersonalUsageActivity[];
+  sessionIds: string[];
+  coverage: IPersonalUsageCoverage;
+  /**
+   * Keyed by session id, for every session in `sessionIds`: the ISO timestamp of its earliest
+   * observation or activity in this report. A timestamp, not content — it lets a GUI show "Session
+   * from <date>" for a session outside its own local listing instead of a raw id or "Untitled session".
+   */
+  sessionFirstSeen?: Record<string, string>;
+}
+
+/**
+ * A per-operation span entry recorded on the session timeline. Carried as the `data` of
+ * an `IHistoryEntry<ISpanEntry>` on `IInteractiveSessionRecord.history`. It is the record-side projection
+ * of the `agent-core` span-completion event (`ISpanCompletionEventData`): the framework builds it from
+ * the event (mirroring the usage-summary entry), so `agent-core` never depends on this transport type.
+ * Joinable to its turn via the enclosing entry's position in `history`.
+ */
+export interface ISpanEntry {
+  /** The span id (equals the source event's `spanId`; correlatable across the trace). */
+  spanId: string;
+  /** The operation name (e.g. the tool name). */
+  op: string;
+  /** Measured wall-clock duration of the operation, in milliseconds. */
+  durationMs: number;
+}
+
+/**
+ * The trace/cost read-model that crosses the sidecar boundary. It is a
+ * BOUNDARY CONTRACT, so it is owned here. The `agent-session-analytics` producer depends on this
+ * package; the `agent-transport` carrier depends on this package and `agent-interface/transport`.
+ * `summarizeUsageBySource` assembles it; a `TServerMessage` variant carries it to the TUI/GUI.
+ */
+export interface IUsageSourceTotals {
+  /** Stable grouping key (`<scope>:<id>`). */
+  key: string;
+  source: IUsageSource;
+  label: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  /** How many usage snapshots (turns) were attributed to this source. */
+  turns: number;
+  /** Share of the session's total tokens, 0–100 (rounded to 1 decimal). */
+  percentage: number;
+  /** Exact cost (USD) summed from each turn's `IUsageSnapshot.costUsd` (unpriced turns contribute 0). */
+  costUsd: number;
+  /** Whether every turn has independently proven billed cost; table estimates do not qualify. */
+  costExact: boolean;
+}
+
+/** One per-operation span on the run timeline (record-side projection of a span event). */
+export interface IRunTraceSpan {
+  spanId: string;
+  op: string;
+  durationMs: number;
+}
+
+/** One turn on the run timeline, with its sub-turn spans grouped underneath. */
+export interface IRunTraceTurn {
+  /** 0-based position of this turn among the session's usage-summary turns. */
+  turnIndex: number;
+  /** The source that owns this turn (main thread when unattributed). */
+  source: IUsageSource;
+  label: string;
+  /** Spans that ran during this turn, in timeline order. */
+  spans: IRunTraceSpan[];
+  /** Sum of the turn's span durations, in milliseconds. */
+  totalDurationMs: number;
+}
+
+export interface IUsageBySourceReport {
+  sessionId: string;
+  totalTokens: number;
+  promptTokens: number;
+  completionTokens: number;
+  /** Exact total cost (USD) across all priced turns in the session. */
+  costUsd: number;
+  /** Whether every turn in the session carried an exact `costUsd` (no unpriced turns). */
+  costExact: boolean;
+  /** Per-source totals, sorted by `totalTokens` descending. */
+  bySource: IUsageSourceTotals[];
+  /** The single biggest token consumer, if any usage was recorded. */
+  topConsumer?: IUsageSourceTotals;
+  /** The span timeline — one entry per turn, sub-turn spans grouped under their owning turn. */
+  timeline: IRunTraceTurn[];
+}

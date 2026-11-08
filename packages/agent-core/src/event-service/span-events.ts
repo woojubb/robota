@@ -64,7 +64,7 @@ export type TSpanEvent = (typeof SPAN_EVENTS)[keyof typeof SPAN_EVENTS];
  * Span-completion event payload — JOINS the span id with its measured duration and the
  * operation name (raw scalars ONLY; references no transport type). Emitted by the per-operation timing
  * source (e.g. `FunctionTool`) so a consuming layer (`agent-framework`) can build a record span entry
- * WITHOUT `agent-core` depending on `agent-interface-transport` (no cycle). The payload `spanId` is the
+ * WITHOUT `agent-core` depending on `agent-interface/transport` (no cycle). The payload `spanId` is the
  * AUTHORITATIVE id a consumer reads; owner/turn correlation is applied by the event service's binding
  * (`ownerPath` on the emitted `IEventContext`). Note the context's own auto-minted `spanId` is a
  * separate scope tag and need not equal this payload id — always read the payload id for the span.

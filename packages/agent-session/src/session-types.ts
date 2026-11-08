@@ -38,9 +38,9 @@ import type {
   IResponseFormatConfig,
   IRunTraceContext,
 } from '@robota-sdk/agent-core';
-import type { ICompactEvent, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { ICompactEvent, IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
-export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-session';
+export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface/session';
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 
 /** Options for graceful session shutdown. */

@@ -21,7 +21,7 @@ import type {
   IProviderSetupInput,
   TProviderConnectionStage,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 import type { IProviderSetupFlowState } from './provider-setup-flow.js';
 
 let nextAttempt = 0;

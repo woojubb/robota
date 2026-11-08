@@ -1,4 +1,4 @@
-import type { IBackgroundTaskLogPage } from '@robota-sdk/agent-interface-execution';
+import type { IBackgroundTaskLogPage } from '@robota-sdk/agent-interface/execution';
 
 function records(count: number, noun: string): string {
   return count === 1 ? `1 ${noun}` : `${count} ${noun}s`;

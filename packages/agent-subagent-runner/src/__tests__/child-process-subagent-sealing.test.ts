@@ -92,7 +92,7 @@ import type {
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type { TResumeSessionStore } from '../index.js';
 
 const testHost = createTestFrameworkHost();

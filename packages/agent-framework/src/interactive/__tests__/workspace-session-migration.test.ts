@@ -40,7 +40,7 @@ import {
 
 import type { IWorkspaceProjectStateStorage } from '../../workspace-trust/index.js';
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-77b3-said-in-a-trusted-project';
 

@@ -9,7 +9,7 @@
 import { gitFailureMessage } from './git-process.js';
 
 import type { IGitProcessPort } from './git-process.js';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 export const GIT_STATUS_ARGS: readonly string[] = ['status', '--porcelain=v2', '-z', '--branch'];
 

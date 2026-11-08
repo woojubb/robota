@@ -1,10 +1,10 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, it, expect, vi } from 'vitest';
 
 import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createSessionMessageHandler } from '../session-message-handler.js';
 import type { TServerMessage } from '../wire-messages.js';
-import type { IUsageBySourceReport } from '@robota-sdk/agent-interface-analytics';
+import type { IUsageBySourceReport } from '@robota-sdk/agent-interface/analytics';
 
 /**
  * The new `usage_report` TServerMessage variant carries the assembled

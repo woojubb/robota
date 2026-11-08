@@ -1,7 +1,7 @@
 import { describe, expectTypeOf, it } from 'vitest';
 
 import type { IAgentJobDispatch } from '../agent-job-roles.js';
-import type { ISessionAgentJobs } from '@robota-sdk/agent-interface-session';
+import type { ISessionAgentJobs } from '@robota-sdk/agent-interface/session';
 
 /**
  * `InteractiveSession` implements both `IAgentJobHostContext` (command-layer,

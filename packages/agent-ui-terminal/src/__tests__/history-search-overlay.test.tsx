@@ -18,7 +18,7 @@ import type {
   IPromptHistoryBlock,
   IPromptHistoryEntry,
   IPromptHistorySource,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const CTRL_R = '\x12';
 const CTRL_S = '\x13';

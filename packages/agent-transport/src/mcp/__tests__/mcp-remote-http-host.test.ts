@@ -1,6 +1,6 @@
 import { request as httpRequest } from 'node:http';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createMcpHttpHost, createMcpRemoteHttpHost } from '../mcp-http-host.js';
@@ -9,7 +9,7 @@ import type { IMcpRemoteAuditRecord } from '../mcp-remote-authorization.js';
 import type {
   IAccessTokenVerifier,
   TAccessTokenAdmission,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 import type { IncomingHttpHeaders } from 'node:http';
 
 const PUBLIC_URL = 'https://mcp.example.test/team/fixture-agent/mcp';

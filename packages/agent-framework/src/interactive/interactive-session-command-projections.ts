@@ -17,7 +17,7 @@ import type {
   ICommandSubcommandEntry,
   TCommandRunner,
   TCommandSurface,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 
 /** The internal command shape these projections read. Structural, so the executor stays uncoupled. */
 interface ISourceCommand {

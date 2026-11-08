@@ -71,7 +71,7 @@ export type {
   ITransportAdapter,
   IConfigurableTransport,
   ITransportConfig,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 export { PeerMessageIngress } from './peer-message-ingress.js';
 export {
   createExternalEventGrantHistory,

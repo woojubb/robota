@@ -1,4 +1,4 @@
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { InteractiveSession } from '../interactive-session.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
-import type { IInteractiveSessionRecord, IInteractiveSessionStore, TSessionLoadOutcome } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord, IInteractiveSessionStore, TSessionLoadOutcome } from '@robota-sdk/agent-interface/session';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 
 const testHost = createTestFrameworkHost();

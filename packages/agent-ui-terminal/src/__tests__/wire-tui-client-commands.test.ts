@@ -24,8 +24,8 @@ import type {
   IThemeCataloguePort,
   TAppearanceSettingsPatch,
   TCommandHostAction,
-} from '@robota-sdk/agent-interface-command';
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/command';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface/session';
 
 /** Stands in for `/shell`: hands the terminal to a "child" that runs in the host's directory. */
 const shellLike: ITuiClientCommand = {

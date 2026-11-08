@@ -11,7 +11,7 @@ import { timingSafeEqual } from 'node:crypto';
 
 import { resolveAdmission } from '../index';
 
-import type { ITransportAdmission } from '@robota-sdk/agent-interface-transport';
+import type { ITransportAdmission } from '@robota-sdk/agent-interface/transport';
 import type { IncomingMessage } from 'node:http';
 
 /**

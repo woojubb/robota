@@ -13,7 +13,7 @@ import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { IToolAppViewRef } from '@robota-sdk/agent-interface-session';
+import type { IToolAppViewRef } from '@robota-sdk/agent-interface/session';
 
 /** Max chars to display from first tool argument. */
 const TOOL_ARG_DISPLAY_MAX = 80;

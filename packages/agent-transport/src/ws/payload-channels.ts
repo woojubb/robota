@@ -26,7 +26,7 @@ import type {
   IPayloadChannelHost,
   TChannelEventMap,
   TChannelReceiveResult,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 /** Delivers an encoded frame to one attached connection. */
 export type TChannelSink = (frame: Uint8Array) => void;

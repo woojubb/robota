@@ -5,7 +5,7 @@ import { acpToolEndStatus, acpToolKind, acpToolStartTitle } from './acp-tool-map
 
 import type { IAcpUpdateStream } from './acp-updates.js';
 import type { ToolCallUpdate } from '@agentclientprotocol/sdk';
-import type { IPermissionRequestEvent, IToolState } from '@robota-sdk/agent-interface-session';
+import type { IPermissionRequestEvent, IToolState } from '@robota-sdk/agent-interface/session';
 
 export interface IAcpToolCallTracker {
   start(tool: IToolState): void;

@@ -20,7 +20,7 @@ import type { TLockedSessionReason } from './locked-session-wording.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** Thrown when a session exists on disk in a form this process cannot read, so a rename cannot land. */
 export class SessionRenameUnavailableError extends Error {

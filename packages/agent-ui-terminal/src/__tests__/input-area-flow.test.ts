@@ -19,7 +19,7 @@ import {
   resolveTabCompletion,
   shouldSubmitInput,
 } from '../flows/input-area-flow.js';
-import type { ICommand } from '@robota-sdk/agent-interface-command';
+import type { ICommand } from '@robota-sdk/agent-interface/command';
 import {
   createAssistantMessage,
   createSystemMessage,

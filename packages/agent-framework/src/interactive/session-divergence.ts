@@ -15,7 +15,7 @@ import { uniqueSessionName } from './interactive-session-fork-record.js';
 import { saveSessionCopy } from './interactive-session-persistence.js';
 
 import type { ISessionStateForSave } from './interactive-session-persistence.js';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 import type { Session } from '@robota-sdk/agent-session';
 
 /**

@@ -4,7 +4,7 @@
  * when that unlocks. Following a fork that is still running reads no record, so it never asks, locked
  * or not. Without a holder (secure mode off) it reads the store exactly as before and never asks.
  */
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { render } from 'ink-testing-library';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -21,11 +21,11 @@ import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type {
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IInteractiveSessionStore,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const FORK = 'session_fork';
 

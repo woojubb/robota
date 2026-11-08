@@ -10,7 +10,7 @@ import type {
   IExecutionDetailCursor,
   IExecutionDetailPage,
   IExecutionWorkspaceEntry,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 interface IOptions {
   readonly entry: IExecutionWorkspaceEntry | undefined;

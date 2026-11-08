@@ -15,8 +15,8 @@ import { ConfirmDialog } from './Dialog.js';
 import { DiffLines } from './DiffLines.js';
 
 import type { TPendingPrompt } from '../hooks/prompt-state.js';
-import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { TActionResponse } from '@robota-sdk/agent-interface/transport';
+import type { TDriverId } from '@robota-sdk/agent-interface/session';
 
 /**
  * Renders the owner's pending permission/ask prompts. Under local == remote the paired

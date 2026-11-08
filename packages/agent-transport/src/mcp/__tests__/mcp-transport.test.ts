@@ -1,7 +1,7 @@
 import { Client } from '@modelcontextprotocol/client';
 import { Server } from '@modelcontextprotocol/server';
-import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface/transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { PassThrough } from 'node:stream';
 
 import { describe, it, expect, expectTypeOf } from 'vitest';
@@ -9,7 +9,7 @@ import { createMcpTransport } from '../mcp-transport.js';
 import { createPeerTransport } from './stdio-peer.js';
 import type { IMcpTransportSession } from '../mcp-session.js';
 import type { IMcpTransport } from '../mcp-transport.js';
-import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface/transport';
 
 function createMockSession(): IMcpTransportSession {
   const full = createTestInteractiveSession();

@@ -45,9 +45,9 @@ import type { IProtocolSession, TProjectReadCapableSession } from './protocol-se
 import type { ISettingsReporter } from './settings-messages.js';
 import type { IUsageQueryReporters } from './usage-messages.js';
 import type { TClientMessage, TSessionSurfaceRole } from './wire-messages.js';
-import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface-command';
-import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
-import type { ISessionDirectory, TDriverId } from '@robota-sdk/agent-interface-session';
+import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface/command';
+import type { TUsageSurface } from '@robota-sdk/agent-interface/analytics';
+import type { ISessionDirectory, TDriverId } from '@robota-sdk/agent-interface/session';
 
 // Outbound session→TServerMessage fan-out (incl. requester-routed `ui_intent`) lives in
 // `session-events.ts`; re-exported here for the bridge and existing importers.

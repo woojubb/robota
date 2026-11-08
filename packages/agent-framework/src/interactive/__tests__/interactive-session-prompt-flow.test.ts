@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { InteractiveSession } from '../interactive-session.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
-import type { IAskRequestEvent, IPromptResolvedEvent } from '@robota-sdk/agent-interface-session';
+import type { IAskRequestEvent, IPromptResolvedEvent } from '@robota-sdk/agent-interface/session';
 import type { Session } from '@robota-sdk/agent-session';
 
 const testHost = createTestFrameworkHost();

@@ -12,7 +12,7 @@ import type {
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 const MAX_DUPLICATE_PROFILE_SUFFIX = 1000;
 const PROVIDER_RESTART_ACTION = {

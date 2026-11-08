@@ -2,7 +2,7 @@ import type {
   ICommandExternalEventGrant,
   ICommandHostAdapterAccess,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 const GRANT_ID = /^[a-zA-Z0-9_-]{1,64}$/u;
 

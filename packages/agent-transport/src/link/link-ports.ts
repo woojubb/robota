@@ -8,7 +8,7 @@
  * standing when the link is admitted, and decide what that standing may do: this package carries
  * requests, it does not grant them.
  */
-import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface-session';
+import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface/session';
 import type { IReadKeys, ITrustRoot } from '@robota-sdk/agent-keyring';
 
 /** What a client may ask a runtime to lock for; idle and last-link-closed are the runtime's own. */

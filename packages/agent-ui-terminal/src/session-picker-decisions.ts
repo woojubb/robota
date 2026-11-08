@@ -7,7 +7,7 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import type { TSessionSwitch } from './types.js';
-import type { IOwnerSessionDirectory, IInteractiveSessionStore, ISessionListingEntry } from '@robota-sdk/agent-interface-session';
+import type { IOwnerSessionDirectory, IInteractiveSessionStore, ISessionListingEntry } from '@robota-sdk/agent-interface/session';
 
 const SAFE_LINK_SESSION_ID = /^[A-Za-z0-9._:-]{1,256}$/u;
 const REFUSED = 'The session could not be resumed.';

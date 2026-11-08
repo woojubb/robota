@@ -10,7 +10,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import type { ISessionRenamedEvent } from '@robota-sdk/agent-interface-session';
+import type { ISessionRenamedEvent } from '@robota-sdk/agent-interface/session';
 import { createSessionCommandModule } from '../session-command-module.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 

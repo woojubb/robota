@@ -79,7 +79,7 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 /** Where the carrier established the peer runs. `same-host` only on a kernel-enforced rendezvous. */
 export type TMeshLocality = 'same-host' | 'another-host';
 
-/** Structurally the `IMeshAdmission` of `agent-interface-session-mobility`. */
+/** Structurally the `IMeshAdmission` of `agent-interface/session-mobility`. */
 export interface IDeviceMeshAdmission {
   readonly trust: 'same-user-same-host' | 'same-user-different-host';
   readonly locality: TMeshLocality;

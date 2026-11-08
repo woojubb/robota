@@ -8,7 +8,7 @@ import {
 
 import type { IActionRequest, IUserInteraction } from '@robota-sdk/agent-core';
 import type { IProviderSetupInput } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 import type { IProviderSetupFlowState } from './provider-setup-flow.js';
 
 /** Build the per-step `IActionRequest` for the current setup step. */

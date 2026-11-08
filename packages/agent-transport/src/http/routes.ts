@@ -20,7 +20,7 @@ import type { TStreamFailureListener, TTurnAttribution } from './submit-stream.j
 import type {
   ITransportAdmission,
   ITransportAdmissionConfig,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 // Re-exported so existing importers keep their path; the definition and its rationale live with
 // the code that enforces them, in `submit-route.ts`.

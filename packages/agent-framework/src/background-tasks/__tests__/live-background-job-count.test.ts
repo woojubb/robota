@@ -21,7 +21,7 @@ import type {
   IAgentBackgroundTaskState,
   IExecutionWorkspaceSnapshot,
   TBackgroundTaskStatus,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 const LIVE_STATUSES = ['queued', 'running', 'waiting_permission', 'sleeping', 'paused'] as const;
 const ENDED_STATUSES = ['completed', 'failed', 'cancelled'] as const;

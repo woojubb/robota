@@ -32,7 +32,7 @@ import type {
   ISystemCommand,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
-import type { IThemeCataloguePort } from '@robota-sdk/agent-interface-command';
+import type { IThemeCataloguePort } from '@robota-sdk/agent-interface/command';
 
 const providerDefinitions: readonly IProviderDefinition[] = [];
 const providerSettingsAdapter: IProviderCommandSettingsAdapter = {

@@ -32,7 +32,7 @@ import type { TShellExecFn } from '../../utils/skill-prompt.js';
 import type { TWorkspaceProjectAccess } from '../../workspace-trust/types.js';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 
 export interface IHeadlessInteractionChannelOptions {

@@ -20,7 +20,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { writeForkedSessionRecord } from '../interactive-session-fork-record.js';
 import { restoreSessionRecordIntoSession } from '../interactive-session-restore.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 const CANARY = 'CANARY-in-process-fork-9b31-conversation';

@@ -3,7 +3,7 @@
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import React, { useId, useState } from 'react';
 
-import type { ISettingsMcpServer, ISettingsSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISettingsMcpServer, ISettingsSnapshot } from '@robota-sdk/agent-interface/session';
 
 const STATUS_LABEL: Readonly<Record<ISettingsMcpServer['status'], string>> = {
   connected: 'Connected',

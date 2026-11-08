@@ -21,7 +21,7 @@ import type {
   IBackgroundTaskDeniedToolCalls,
   ISubagentJobResult,
   TBackgroundTaskPermissionDenialReason,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 /**
  * How long a spawned worker may take to say anything at all. Generous — it covers process

@@ -11,7 +11,7 @@
 import type {
   ISessionStatusSnapshot,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** The events after which the status may have changed; a command's end is pushed by the session. */
 export const STATUS_CHANGING_EVENTS = [

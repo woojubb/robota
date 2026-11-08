@@ -20,7 +20,7 @@ runners), Git worktrees, transports, or TUI state, and it does not read config f
 context.
 
 The background-task DATA contracts (statuses, states, events, errors, requests, results, log
-pages) and the subagent job state family are owned elsewhere (`@robota-sdk/agent-interface-execution`);
+pages) and the subagent job state family are owned elsewhere (`@robota-sdk/agent-interface/execution`);
 this package owns the runtime SPI — the error class, runner/manager ports, and handles — and
 imports those contracts rather than redefining them.
 

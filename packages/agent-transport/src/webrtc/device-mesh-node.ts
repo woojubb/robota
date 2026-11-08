@@ -62,7 +62,7 @@ import {
   ConnectionAuthority,
   type IFileFrameChannel,
   type IOperatorApprover,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 import { RtcPeer, type RtcChannel } from './rtc-peer.js';
 

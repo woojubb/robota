@@ -3,7 +3,7 @@ import { calculateModelCost } from '@robota-sdk/agent-core';
 
 import { summarizePersonalUsage } from '../personal-usage.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 function record(
   id: string,

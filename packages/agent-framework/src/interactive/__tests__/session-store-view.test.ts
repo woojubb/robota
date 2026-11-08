@@ -25,7 +25,7 @@ import {
   started,
 } from './helpers/sealed-session-fixtures.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const FORGED_TEXT = 'CANARY-3e-view-forged-2c77';
 

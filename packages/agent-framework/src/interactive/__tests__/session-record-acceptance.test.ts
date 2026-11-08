@@ -13,7 +13,7 @@ import { createTestArtifactSealer, openTestWriteGrant } from '@robota-sdk/agent-
 import { unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { isSessionAuthorshipRefusedError } from '../session-authorship-gate.js';
@@ -37,7 +37,7 @@ import {
   turn,
 } from './helpers/sealed-session-fixtures.js';
 
-import type { IInteractiveSession, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession, IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 const FORGED_TEXT = 'CANARY-3e-accept-unverified-6b1d';
 

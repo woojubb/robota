@@ -10,7 +10,7 @@ import { USER_LOCAL_COMMAND_USAGE } from './user-local-command-constants.js';
 
 import type { IFileSystemAsync } from '@robota-sdk/agent-core';
 import type { TUserLocalMemoryCategory } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 export interface IUserLocalMemoryCommandArgs {
   readonly action?: string;

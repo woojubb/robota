@@ -15,7 +15,7 @@ import type {
   IGitProcessPort,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandResult, ICommandSource } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandResult, ICommandSource } from '@robota-sdk/agent-interface/command';
 
 export const GIT_COMMAND_DESCRIPTION =
   'Show the git status, view a diff, or commit the staged changes after confirming';

@@ -1,11 +1,11 @@
-import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface/transport/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { describe, it, expect, expectTypeOf, vi, beforeEach, afterEach } from 'vitest';
 import { createHeadlessTransport } from '../headless-transport.js';
 import type { IHeadlessSession } from '../headless-session.js';
-import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
-import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface/transport';
+import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 /** The streams a Node composition root hands the headless runner; tests spy on them. */
 const processOutput = { stdout: process.stdout, stderr: process.stderr };

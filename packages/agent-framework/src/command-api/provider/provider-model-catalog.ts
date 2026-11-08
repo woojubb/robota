@@ -15,7 +15,7 @@ import { findProviderDefinition } from '@robota-sdk/agent-core';
 
 import type { IProviderProfileSettings } from './provider-settings.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import type { IModelCatalogEntry, IModelListGroup, IModelListSnapshot } from '@robota-sdk/agent-interface-session';
+import type { IModelCatalogEntry, IModelListGroup, IModelListSnapshot } from '@robota-sdk/agent-interface/session';
 
 /** The provider's plain display name — never its internal `type` id, unless nothing else is known. */
 function providerLabel(definition: IProviderDefinition | undefined, profile: IProviderProfileSettings): string {

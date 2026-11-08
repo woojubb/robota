@@ -20,7 +20,7 @@ import { NodeSessionStore } from '../session-store.js';
 import { SealedSessionUnreadableError } from '../sealed-session-refusal.js';
 
 import type { IArtifactContext, IArtifactSealer } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-41f0d2-held-conversation';
 

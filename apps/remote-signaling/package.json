@@ -37,7 +37,8 @@
     "ws": "^8.21.1"
   },
   "devDependencies": {
-    "@robota-sdk/agent-interface-session": "workspace:^",
+    "@robota-sdk/agent-core": "workspace:^",
+    "@robota-sdk/agent-interface": "workspace:^",
     "@robota-sdk/agent-remote-pairing": "workspace:^",
     "@robota-sdk/agent-transport": "workspace:^",
     "@types/node": "^22.19.21",

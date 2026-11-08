@@ -16,7 +16,7 @@
 import type {
   IAskRequestEvent,
   IPermissionRequestEvent,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export type THttpPromptFrame =
   | { readonly type: 'permission_request'; readonly event: IPermissionRequestEvent }

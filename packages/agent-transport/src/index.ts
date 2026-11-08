@@ -18,7 +18,7 @@
  * `scripts/harness/check-platform-neutral.mjs` bundles this entry on every lint run to keep it so.
  *
  * Handoff authority, offer refusal, and inventory decisions live in
- * `agent-interface-session-mobility`, outside this wire package.
+ * `agent-interface/session-mobility`, outside this wire package.
  *
  * The handoff MANIFEST types are omitted along with their functions: they describe what only `./node`
  * seals and verifies, so a consumer that needs them is asking for the Node surface and should say so
@@ -90,7 +90,7 @@ export { handleSettingsMessage, isSettingsMessage } from './settings-messages.js
 export type { ISettingsReporter, TSettingsUpdateOutcome } from './settings-messages.js';
 
 // The admission decision every transport resolves through, and the bearer-header and
-// credential helpers that apply it. The shape of the decision is `agent-interface-transport`'s.
+// credential helpers that apply it. The shape of the decision is `agent-interface/transport`'s.
 export {
   bearerCredential,
   credentialMatches,

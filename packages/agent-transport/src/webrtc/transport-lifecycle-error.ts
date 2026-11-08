@@ -1,4 +1,4 @@
-import type { ITransportLifecycleError } from '@robota-sdk/agent-interface-transport';
+import type { ITransportLifecycleError } from '@robota-sdk/agent-interface/transport';
 
 export function createTransportLifecycleError(
   code: ITransportLifecycleError['code'],

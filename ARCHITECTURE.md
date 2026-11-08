@@ -49,8 +49,8 @@ SDK packages (@robota-sdk/*)
                         agent-plugin · agent-mcp · agent-session-analytics ·
                         agent-telemetry-otel ·
                         agent-provider (one subpath per vendor; vendor SDKs are optional peers)
-  Contracts (type-only) agent-interface-{session,session-mobility,command,execution,
-                        analytics,transport,tui}
+  Contracts (type-only) agent-interface (one subpath per family: session, session-mobility,
+                        command, execution, analytics, transport, tui)
   Foundation            agent-core
   Leaves                agent-os (file-authority, node-lock and process primitives; Koffi is an
                         optional peer) · agent-remote-pairing ·
@@ -73,7 +73,7 @@ and coordinated changes can be checked against packed SDK artifacts in an isolat
 
 > **What the rows do not show.** Providers are injected: `agent-framework` never depends on an
 > `agent-provider` subpath; the composition root constructs the provider and hands it in.
-> The transport family builds on `agent-core`, the contract packages and `agent-remote-pairing`,
+> The transport family builds on `agent-core`, `agent-interface` and `agent-remote-pairing`,
 > not on `agent-framework`; `agent-ui-terminal` depends on both. `agent-subagent-runner` sits above the
 > framework because it assembles child sessions through it. `agent-mcp` depends only on
 > `agent-core`; the CLI connects it to the session. `agent-framework`'s `runGroupChat` is a facade
@@ -81,12 +81,12 @@ and coordinated changes can be checked against packed SDK artifacts in an isolat
 > the only turn loop, and the framework never depends on `agent-roundtable-robota`, which sits in
 > Runtime for the product's own Session/Robota participants.
 
-> **Type contracts.** Each `agent-interface-*` package owns one contract family and contains type
-> declarations plus, at most, small pure accessors: sessions and interaction channels
-> (`-session`), peer messaging and handoff (`-session-mobility`), commands (`-command`),
-> background tasks and subagent jobs (`-execution`), usage and run traces (`-analytics`),
-> transport adapters, admission, access tokens and external events (`-transport`), and terminal UI
-> interactions (`-tui`). They depend only on `agent-core` and on lower contract packages.
+> **Type contracts.** `agent-interface` owns the contract families, one subpath each, and contains
+> type declarations plus, at most, small pure accessors: sessions and interaction channels
+> (`session`), peer messaging and handoff (`session-mobility`), commands (`command`),
+> background tasks and subagent jobs (`execution`), usage and run traces (`analytics`),
+> transport adapters, admission, access tokens and external events (`transport`), and terminal UI
+> interactions (`tui`). A subpath depends only on `agent-core` and on lower subpaths.
 
 > **Workflows.** The CLI bundles the separately maintained workflow library, which uses host-owned
 > SDK peers and preserves the `/workflows` command and saved workflow formats.
@@ -128,9 +128,7 @@ are outside this proof. This checks import graphs and selected behavior, not eve
 configuration or network endpoint. In particular, a provider SDK may refuse client-side use; see
 [Browser hosts](content/guide/providers.md#browser-hosts).
 
-- **Platform-neutral**: `agent-interface-analytics`, `agent-interface-command`,
-  `agent-interface-execution`, `agent-interface-session`, `agent-interface-session-mobility`,
-  `agent-interface-transport`, `agent-interface-tui`, `agent-core`, `agent-organization`,
+- **Platform-neutral**: `agent-interface`, `agent-core`, `agent-organization`,
   `agent-remote-pairing`, `agent-roundtable`, `agent-roundtable-robota`, `agent-session-analytics`,
   `agent-telemetry-otel`, `agent-provider`, `agent-transport`,
   `product-config`,
@@ -167,16 +165,17 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
   on a child; and the composer/foundation (`agent-framework`, `agent-core`) never depends on a
   UI child (`agent-ui-*`). Code two siblings share belongs in the
   parent (or a parent subpath) — never in a sibling-named substrate (`-common`, `-shared`,
-  `-protocol`, `-defaults`, `-builtin`). Judged over `dependencies` + `peerDependencies`; the
-  `agent-interface-*` family is judged once, by `INTERFACE-DEPS`. `pnpm deps:check` enforces the
+  `-protocol`, `-defaults`, `-builtin`). Judged over `dependencies` + `peerDependencies`.
+  `pnpm deps:check` enforces the
   provider part of this rule inside `agent-provider`: a vendor subpath imports no other vendor, and
   `openai`, `deepseek`, `qwen` and `gemma` share only the `openai-compatible` base.
 - `UNDECLARED-IMPORT` — every `@robota-sdk/*` workspace package a production source file imports is
   declared in one of the importing package's `dependencies`, `peerDependencies` or
   `devDependencies`; "undeclared" is absence from all three, so a manifest rule such as
   `FAMILY-SIBLINGS` cannot be walked around by an import the manifest never names.
-- `INTERFACE-DEPS` — an `agent-interface-*` package depends only on `agent-core` and on a LOWER-layer
-  peer interface package, never on an implementation package.
+- `INTERFACE-DEPS` — a subpath of `agent-interface` imports only itself, `agent-core` and the entry of a
+  LOWER-layer subpath, never an implementation package;
+  `packages/agent-interface/src/layering.test.ts` holds the edges.
 - `DEV-CYCLE` — the full workspace graph over `dependencies` + `devDependencies` +
   `peerDependencies` should be acyclic; a dev-only edge that closes a cycle leaves no valid
   topological build order. No current check proves this full manifest graph acyclic.

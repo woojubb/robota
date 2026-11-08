@@ -4,7 +4,7 @@
  * missed-wake note is surfaced when its fire time elapsed while the session was closed.
  */
 
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
 import { createScheduledTaskRunner } from '@robota-sdk/agent-executor/node';
 import { describe, expect, it, vi } from 'vitest';

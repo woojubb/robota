@@ -7,7 +7,7 @@ import type {
   ICommandModule,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface/command';
 
 function getAgentHostContext(context: ICommandHostAgentJobs): IAgentJobHostContext {
   const cap = context.getAgentJobCapability();

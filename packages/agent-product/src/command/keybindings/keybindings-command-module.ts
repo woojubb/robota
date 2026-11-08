@@ -4,7 +4,7 @@ import type {
   ICommandModule,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandResult, ICommandSource } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandResult, ICommandSource } from '@robota-sdk/agent-interface/command';
 
 export interface IKeybindingsFilePort {
   ensureFile(): Promise<string>;

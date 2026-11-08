@@ -10,7 +10,7 @@ import { scriptedSession, type ScriptedSessionHarness } from '@robota-sdk/agent-
 import { createKeyCustodyCommandModule } from '../key-custody-command-module.js';
 
 import type { IKeyCustodyCommandPort, IUnlockResult } from '../key-custody-command-port.js';
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface/session';
 
 function fakePort(answer: IUnlockResult = { outcome: 'unlocked', notices: [] }) {
   let unlocked = false;

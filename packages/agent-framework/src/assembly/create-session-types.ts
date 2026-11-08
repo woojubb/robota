@@ -33,7 +33,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { IHistoryEntry, IResponseFormatConfig } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
+import type { ICompactEvent } from '@robota-sdk/agent-interface/session';
 import type {
   Session,
   ISessionOptions,

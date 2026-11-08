@@ -5,8 +5,8 @@ import type {
   IUsageObservation,
   IUsageSnapshot,
   IUsageSource,
-} from '@robota-sdk/agent-interface-analytics';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/analytics';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 export interface INormalizedObservation {
   readonly id: string;

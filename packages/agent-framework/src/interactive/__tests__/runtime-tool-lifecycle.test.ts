@@ -3,7 +3,7 @@ import { InteractiveSessionRuntimeTools } from '../interactive-session-runtime-t
 import { SessionExecutionController } from '../interactive-session-execution-controller.js';
 import { publicTurnOptions, submitNewTurn } from '../interactive-session-turn-submission.js';
 import type { IQueuedInput } from '../interactive-session-execution-controller.js';
-import type { ISessionRuntimeTools } from '@robota-sdk/agent-interface-session';
+import type { ISessionRuntimeTools } from '@robota-sdk/agent-interface/session';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

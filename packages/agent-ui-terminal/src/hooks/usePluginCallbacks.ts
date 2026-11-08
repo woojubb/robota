@@ -7,7 +7,7 @@
 
 import { useMemo } from 'react';
 
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface/command';
 
 function unsupported(): Promise<never> {
   return Promise.reject(new Error('Plugin management is unavailable in this host.'));

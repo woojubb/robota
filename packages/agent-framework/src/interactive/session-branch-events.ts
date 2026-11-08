@@ -1,7 +1,7 @@
 import { DEFAULT_BRANCH_ID } from '../checkpoints/edit-checkpoint-types.js';
 
 import type { IEditCheckpointStore } from '../checkpoints/edit-checkpoint-types.js';
-import type { IBranchEvent } from '@robota-sdk/agent-interface-session';
+import type { IBranchEvent } from '@robota-sdk/agent-interface/session';
 
 /** Exhaustive owner policy for checkpoint operations; resume hydration intentionally has no event. */
 export const BRANCH_OPERATION_EVENT_MATRIX = {

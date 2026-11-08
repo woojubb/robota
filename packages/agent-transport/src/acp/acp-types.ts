@@ -10,8 +10,8 @@ import type {
   ISessionTurnSubmission,
   ISubmitOptions,
   TDriverId,
-} from '@robota-sdk/agent-interface-session';
-import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/session';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface/transport';
 import type { Readable, Writable } from 'node:stream';
 
 /**

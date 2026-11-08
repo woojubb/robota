@@ -90,10 +90,10 @@ without pulling in `ws`, React, Ink, or Hono.
   were extracted to `@robota-sdk/agent-transport` so a non-WS transport can reuse them; this
   package imports rather than redefines them.
 - Does not own the channel contracts (`IPayloadChannel`, `IChannelDescriptor`, `IBinaryFrame`) —
-  owned by `agent-interface-transport`.
+  owned by `agent-interface/transport`.
 - No other transport package may depend on this one; default transport-registry wiring that
   pre-registers the WS transport belongs to the CLI composition root, not the transport core.
-- Consumers import execution-workspace contract types directly from `agent-interface-transport`
+- Consumers import execution-workspace contract types directly from `agent-interface/transport`
   rather than through a pass-through re-export from this subpath.
 
 ### Design decision: transport admission default
@@ -150,7 +150,7 @@ so the `hono` dependency is an isolated unit.
 
 ### Contract
 
-- Depends on `agent-interface-transport` for transport contracts and on `agent-transport` for the
+- Depends on `agent-interface/transport` for transport contracts and on `agent-transport` for the
   transport admission seam (`resolveAdmission`, `bearerCredential`, `credentialMatches`) and for the
   wire shape of a prompt answer; neither the admission decision nor what a valid answer is gets
   re-made here.
@@ -238,7 +238,7 @@ reaches the caller only when the operator enabled that (see Canonical catalog an
 - Owns the MCP server transport adapter, stdio carrier, authenticated loopback and remote HTTP
   carriers, and agent MCP server builders. It does not verify token signatures itself; the verifier
   is injected, so the cryptography stays in `agent-transport/node`.
-- Depends on `agent-interface-session` and `agent-interface-transport` contracts, not framework
+- Depends on `agent-interface/session` and `agent-interface/transport` contracts, not framework
   internals.
 - No other transport package depends on this one.
 - MCP consumes only the turn-submission, runtime-tool, session-event, prompt-resolution and
@@ -319,7 +319,7 @@ ACP-specific vocabulary stay in this subpath, so a protocol revision touches one
 - Does not build sessions, decide workspace trust, or run slash commands. The host attaches the
   session and injects the trust check and the command port; command execution belongs to the
   framework layer this subpath may not import.
-- Depends on `agent-transport` (shared stdio carrier helper), the `agent-interface-*` contracts,
+- Depends on `agent-transport` (shared stdio carrier helper), the `agent-interface` contracts,
   `agent-core` types and the ACP SDK. It imports no sibling transport, no `agent-framework` and no
   CLI. Carrier mechanics shared with MCP live in `agent-transport/node`, not here and not copied.
 - Does not delegate terminals or searches to the editor, decide which tools use its file system,

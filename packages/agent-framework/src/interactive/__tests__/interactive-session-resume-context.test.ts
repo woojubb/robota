@@ -6,7 +6,7 @@
  * listInjectionContextReferences() prevents duplicate context injection
  */
 
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { describe, it, expect, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';

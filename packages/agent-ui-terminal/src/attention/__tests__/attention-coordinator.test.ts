@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { AttentionCoordinator } from '../attention-coordinator.js';
 
 import type { IAttentionSource, TAttentionListener } from '../attention-tracker.js';
-import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface/execution';
 
 class FakeSource implements IAttentionSource {
   attended = true;

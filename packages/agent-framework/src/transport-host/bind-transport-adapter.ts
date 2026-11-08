@@ -4,7 +4,7 @@ import type {
   TBoundConfigurableTransport,
   TBoundTransportAdapter,
   TTransportAdapter,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 /** Bind the exact session port outside the registry while preserving configure-before-attach. */
 export function bindTransportAdapter<TSession, TAdapter extends TTransportAdapter<TSession>>(

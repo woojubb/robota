@@ -39,11 +39,11 @@ import type { ISkillActivationEvent } from '../commands/skill-activation-events.
 import type { IContributionSource } from '../contributions/index.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { TDriverId } from '@robota-sdk/agent-interface/session';
 import type {
   ISkillContentActivation,
   ISkillResource,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 
 interface ISkillResourceWindow {
   readonly bindings: Map<string, ISkillContentActivation>;

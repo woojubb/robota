@@ -7,8 +7,8 @@
 import { isGoalCancelVerb } from '@robota-sdk/agent-framework';
 
 import type { ICommandHostGoal } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
-import type { IGoalState } from '@robota-sdk/agent-interface-session';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
+import type { IGoalState } from '@robota-sdk/agent-interface/session';
 
 export const GOAL_COMMAND_DESCRIPTION =
   'Assign an autonomous goal the agent pursues across turns until satisfied.';

@@ -21,7 +21,7 @@ import { usePalette } from './theme/index.js';
 import type {
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 /** Footer for the workspace switcher (order: navigate → primary → dismiss). */
 export const EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS: readonly IKeyHint[] = [

@@ -14,12 +14,12 @@ import type {
   ICommandListEntry,
   ICommandSkillListEntry,
   TCommandInvocationSource,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
 
-// ICommandListEntry SSOT relocated to @robota-sdk/agent-interface-command.
-// TCommandInvocationSource SSOT relocated to @robota-sdk/agent-interface-command.
-// ICommandSkillListEntry SSOT relocated to @robota-sdk/agent-interface-command: the session contract
+// ICommandListEntry SSOT relocated to @robota-sdk/agent-interface/command.
+// TCommandInvocationSource SSOT relocated to @robota-sdk/agent-interface/command.
+// ICommandSkillListEntry SSOT relocated to @robota-sdk/agent-interface/command: the session contract
 // lists skills to every client.
 export type { ICommandListEntry, ICommandSkillListEntry, TCommandInvocationSource };
 

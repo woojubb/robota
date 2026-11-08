@@ -5,7 +5,7 @@
  * before it reaches the channel.
  */
 import { HISTORY_PAGE_MAX_BYTES } from '../../index';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { attachSession } from '../session-attachment.js';

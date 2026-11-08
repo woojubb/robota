@@ -1,7 +1,7 @@
 import type {
   IPersonalUsageDimension,
   IPersonalUsageReport,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 
 const COST_DECIMAL_PLACES = 4;
 

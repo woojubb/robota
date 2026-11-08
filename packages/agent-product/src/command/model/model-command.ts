@@ -17,8 +17,8 @@ import type {
   IProviderProfileSettings,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
-import type { IModelListSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
+import type { IModelListSnapshot } from '@robota-sdk/agent-interface/session';
 
 type TModelCommandContext = ICommandHostSessionAccess & ICommandHostUserInteraction;
 

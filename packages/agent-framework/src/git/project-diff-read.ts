@@ -18,7 +18,7 @@ import { isNotAGitRepositoryFailure } from './project-status-read.js';
 import type { IGitProcessPort } from './git-process.js';
 import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IFileSystemAsync } from '@robota-sdk/agent-core';
-import type { IDiffLine } from '@robota-sdk/agent-interface-session';
+import type { IDiffLine } from '@robota-sdk/agent-interface/session';
 
 export type TProjectGitDiffResult =
   | { ok: true; diffLines: readonly IDiffLine[]; truncated: boolean }

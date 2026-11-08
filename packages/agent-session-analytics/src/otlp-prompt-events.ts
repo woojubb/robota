@@ -1,7 +1,7 @@
 import { createOtlpPromptRootTraces } from './otlp-prompt-root-traces.js';
 
 import type { IPromptRootTraceCoverage } from './otlp-prompt-root-traces.js';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 type TEventName =
   | 'agent.prompt_execution.completed'

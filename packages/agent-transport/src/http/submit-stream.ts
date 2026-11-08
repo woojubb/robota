@@ -15,7 +15,7 @@ import type {
   IPermissionRequestEvent,
   IPromptResolvedEvent,
   ISubmitOptions,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /**
  * Where the DETAIL of a post-headers stream failure goes — injected, never imported.

@@ -7,8 +7,8 @@ import type {
   IPeerMessageIngress,
   IPeerOrigin,
   TPeerTrust,
-} from '@robota-sdk/agent-interface-session-mobility';
-import type { ITurnHandle, TTurnNotRunReason } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session-mobility';
+import type { ITurnHandle, TTurnNotRunReason } from '@robota-sdk/agent-interface/session';
 
 function ingress(
   over: { id?: string; sequence?: number; trust?: TPeerTrust; admitted?: boolean } = {},

@@ -6,7 +6,7 @@ import {
 
 import type { IFileSystemAsync } from '@robota-sdk/agent-core';
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface/command';
 
 export function createUserLocalCommandEntry(): ICommand {
   return {

@@ -25,7 +25,7 @@ import type {
   IInteractiveSession,
   ISessionLoopState,
   TSessionBindingRole,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** The primary included. */
 export const SESSION_POOL_MAX_LIVE = 4;

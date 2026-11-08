@@ -9,7 +9,7 @@ import type { ISessionLogEntry } from '../session-log-entry-types.js';
 import type { TPayloadShape } from './field-decoders.js';
 import type { TDecodeIssues } from '../session-record-codec/decode-outcome.js';
 import type { TUniversalMessage, TUniversalValue } from '@robota-sdk/agent-core';
-import type { ISessionRecordDecodeIssue } from '@robota-sdk/agent-interface-session';
+import type { ISessionRecordDecodeIssue } from '@robota-sdk/agent-interface/session';
 
 export { SESSION_LOG_SCHEMA_VERSION } from '../session-log-events.js';
 

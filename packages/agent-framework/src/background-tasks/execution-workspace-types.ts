@@ -1,9 +1,9 @@
-// Execution-workspace contracts SSOT relocated to @robota-sdk/agent-interface-execution.
+// Execution-workspace contracts SSOT relocated to @robota-sdk/agent-interface/execution.
 import type {
   IExecutionOrigin,
   IExecutionWorkspaceEntryRef,
   TBackgroundPrimitive,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 export type {
   TExecutionEntryKind,
@@ -33,7 +33,7 @@ export type {
   IExecutionPendingRequest,
   TExecutionHeadlineKind,
   TExecutionNormalizedState,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 export const MAIN_THREAD_ENTRY_PREFIX = 'main';
 export const BACKGROUND_TASK_ENTRY_PREFIX = 'task';

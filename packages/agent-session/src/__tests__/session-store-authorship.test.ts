@@ -23,7 +23,7 @@ import { SESSION_RECORD_ENVELOPE_VERSION } from '../session-record-codec/index.j
 import { NodeSessionStore } from '../session-store.js';
 
 import type { IArtifactSealerDouble } from '@robota-sdk/agent-core/testing';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-authorship-51e0-owner-text';
 const FORGED = 'CANARY-authorship-9d22-forged-text';
