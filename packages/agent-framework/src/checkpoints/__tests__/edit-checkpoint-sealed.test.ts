@@ -8,21 +8,19 @@
 import {
   copyFileSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   readdirSync,
-  realpathSync,
   rmSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 
 import { ArtifactCorruptError } from '@robota-sdk/agent-core';
 import { createTestArtifactSealer, openTestWriteGrant } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import {
   WorkspaceAuthorityRequiredError,
@@ -52,7 +50,7 @@ let project: string;
 let root: string;
 
 beforeEach(() => {
-  base = realpathSync(mkdtempSync(join(tmpdir(), 'checkpoint-sealed-')));
+  base = makeCanonicalTempDir('checkpoint-sealed-');
   project = join(base, 'project');
   root = join(base, 'state');
   mkdirSync(project);

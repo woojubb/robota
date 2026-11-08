@@ -1,11 +1,11 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { createNodeHostSettingsSource } from '../../config/node-host-settings-source.js';
 import { InteractiveSession } from '../interactive-session.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
@@ -60,7 +60,7 @@ afterEach(() => {
 });
 
 function tempRoot(): string {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-plugin-skill-')));
+  const root = makeCanonicalTempDir('agent-plugin-skill-');
   roots.push(root);
   return root;
 }

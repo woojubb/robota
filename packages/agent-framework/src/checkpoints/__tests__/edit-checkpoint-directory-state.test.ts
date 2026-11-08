@@ -8,20 +8,18 @@
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   readdirSync,
-  realpathSync,
   rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join, posix } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import {
   WorkspaceAuthorityRequiredError,
@@ -41,7 +39,7 @@ let previousUmask: number;
 
 beforeEach(() => {
   previousUmask = process.umask(0o022);
-  base = realpathSync(mkdtempSync(join(tmpdir(), 'checkpoint-directory-state-')));
+  base = makeCanonicalTempDir('checkpoint-directory-state-');
 });
 
 afterEach(() => {

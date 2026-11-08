@@ -4,13 +4,13 @@
  * inside the project is the Node adapter's (`node-project-state-directory.test.ts`).
  */
 
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import * as nodeFs from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { makeCanonicalTempDir } from '../testing/canonical-temp-dir.js';
 import { workspaceProjectStateDirectoryParts } from './project-state-storage.js';
 import { createTrustedProjectStateFixture } from '../testing/trusted-project-state-fixture.js';
 
@@ -22,7 +22,7 @@ vi.mock('node:fs', async (importOriginal) => {
 let root: string;
 
 beforeEach(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'project-state-directory-parts-')));
+  root = makeCanonicalTempDir('project-state-directory-parts-');
 });
 
 afterEach(() => {

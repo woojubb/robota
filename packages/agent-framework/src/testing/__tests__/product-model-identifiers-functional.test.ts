@@ -1,10 +1,10 @@
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { makeCanonicalTempDir } from '../canonical-temp-dir.js';
 import { InteractiveSession } from '../../interactive/interactive-session.js';
 import { createTrustedProjectAccessFixture } from '../trusted-project-state-fixture.js';
 import { createTestFrameworkHost } from '../framework-host.js';
@@ -23,7 +23,7 @@ afterEach(async () => {
 
 describe('host-selected model identifiers through a real session', () => {
   it('uses the second product’s prompt enclosure and command tool name', async () => {
-    workspace = realpathSync(mkdtempSync(join(tmpdir(), 'acme-model-identity-')));
+    workspace = makeCanonicalTempDir('acme-model-identity-');
     writeFileSync(join(workspace, 'guide.md'), 'ACME guidance', 'utf8');
     const scripted = createScriptedProvider([{ text: 'ok' }]);
     session = new InteractiveSession({
