@@ -36,7 +36,7 @@ export function RoleLabel({
   const productDisplayName = useProductDisplayName();
   if (screenReader) {
     // CLI-2004: the label comes from the ROLE, never the vendor — `assistant:` under every
-    // agent-provider-*. No colour: in this mode the searchable word is the whole cue.
+    // vendor. No colour: in this mode the searchable word is the whole cue.
     const label =
       role === 'user' && driverId !== undefined && driverId !== OWNER_DRIVER_ID
         ? `${driverId}:`
