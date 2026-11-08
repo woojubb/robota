@@ -24,7 +24,7 @@ async function openSessionAgainst(server: IMockMcpServer): Promise<IMCPSession> 
   });
 }
 
-describe('MCP discovery bounds (TC-19)', () => {
+describe('MCP discovery bounds', () => {
   let server: IMockMcpServer | undefined;
   let session: IMCPSession | undefined;
 

@@ -1,5 +1,5 @@
 /**
- * SEC-010: CREATING the directory whose permissions are the proof.
+ * CREATING the directory whose permissions are the proof.
  *
  * `peer-credential.ts` answers "is this directory one only this user can enter". This answers "make
  * one, and tell me if you could not". They are two halves of a single fact, and they live beside

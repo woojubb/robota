@@ -9,7 +9,7 @@ export type {
 // composition root only needs to SUPPLY the port and, on the peer side, know the frame's shape.
 export { localProofFrame } from './local-peer-proof.js';
 export type { ILocalPeerProof, ILocalProofFrame } from './local-peer-proof.js';
-// SEC-011 (issue #1865): the cross-device hand-off grant gate. The verdict is injected — this
+// The cross-device hand-off grant gate. The verdict is injected — this
 // package implements no cryptographic policy.
 export { handoffGrantFrame, judgeHandoffGrant } from './handoff-grant-gate.js';
 export type { IHandoffGrantFrame, IHandoffGrantProof } from './handoff-grant-gate.js';

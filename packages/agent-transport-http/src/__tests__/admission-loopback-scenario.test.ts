@@ -1,10 +1,10 @@
 /**
- * SEC-008 — the user-execution scenario, as CODE.
+ * The user-execution scenario, as CODE.
  *
- * The closure of SEC-008 first carried this evidence as prose: a report that a run had happened
- * once, with the runner not checked in. Review named the irony — SEC-008 is precisely about "the
- * trust boundary being documentation rather than code", and the evidence for closing it was
- * documentation rather than code. So the scenario lives here, where anyone can re-run it.
+ * Admission is precisely about "the trust boundary being documentation rather than code", so its
+ * evidence cannot be prose either: a report that a run had happened once, with the runner not
+ * checked in, would be documentation rather than code. The scenario lives here, where anyone can
+ * re-run it.
  *
  * What makes this different from the sibling route suites, which already cover the same code paths:
  * it is a REAL HTTP round-trip over a REAL loopback socket, not an in-process `app.fetch()`. The
@@ -29,7 +29,7 @@ import type { IInteractiveSession, ITurnHandle } from '@robota-sdk/agent-interfa
  * `{ turnId, completed }`, and a double that answers a different shape is a partial
  * re-implementation the compiler was told to stop checking. The route only awaits the terminal
  * event today, so the difference is invisible — until a call site reads `.completed`, at which
- * point the double would misrepresent the contract silently. (#1684 review)
+ * point the double would misrepresent the contract silently.
  */
 function stubHandle(turnId: string): ITurnHandle {
   return {
@@ -93,7 +93,7 @@ async function serve(app: {
       // Everything inside is guarded: an unhandled rejection here would leave `res.end()` uncalled,
       // so the client-side `fetch` below would hang to the test timeout instead of failing with a
       // cause. In a file whose whole subject is a gate that refuses LEGIBLY, an illegible hang is
-      // the wrong failure mode to build the harness on. (#1684 review)
+      // the wrong failure mode to build the harness on.
       try {
         const chunks: Buffer[] = [];
         for await (const chunk of req) chunks.push(chunk as Buffer);
@@ -103,7 +103,6 @@ async function serve(app: {
         // `HeadersInit` — casting across that gap works for this fixture's simple headers and
         // silently mangles an array-valued one (`set-cookie`, a repeated header) the day the
         // harness is reused. Built explicitly instead, so a repeated header stays repeated.
-        // (#1684 review)
         const headers = new Headers();
         for (const [name, value] of Object.entries(req.headers)) {
           if (Array.isArray(value)) for (const item of value) headers.append(name, item);
@@ -144,7 +143,7 @@ async function submit(base: string, prompt: string, headers: Record<string, stri
   return { status: res.status, body: await res.text() };
 }
 
-describe('SEC-008 scenario — an unauthenticated remote request reaches no session', () => {
+describe('an unauthenticated remote request reaches no session', () => {
   it('rejects POST /submit with no credential, and the prompt is NEVER executed', async () => {
     // `admission` omitted is the shipped default and means SECURE: a credential is minted.
     const transport = createHttpTransport();
@@ -182,7 +181,7 @@ describe('SEC-008 scenario — an unauthenticated remote request reaches no sess
     // What the absent gate used to do for every caller. Reaching this state now takes asking for it
     // AND writing down why — `openReason` is required, and `open` with a token is refused outright.
     const transport = createHttpTransport({
-      admission: { open: true, openReason: 'SEC-008 scenario: the contrast this closure rests on' },
+      admission: { open: true, openReason: 'the contrast this closure rests on' },
     });
     const { session, transcript } = createRecordingSession();
     transport.attach(session);

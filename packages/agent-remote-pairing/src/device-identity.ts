@@ -1,12 +1,14 @@
 import type { IIdentityContext } from './identity/crypto-context.js';
 /**
- * Device + host identity keys and the channel-bound reconnect challenge (REMOTE-012 Stage E3).
+ * Device + host identity keys and the channel-bound reconnect challenge.
  *
  * **Isomorphic** (WebCrypto only — no `node:`, no deps): the same module runs on the Node host and the
- * browser client. TOFU model: at first pairing (already authenticated by the B3 directional-HMAC handshake)
+ * browser client. TOFU model: at first pairing (already authenticated by the pairing
+ * directional-HMAC handshake)
  * the device and host exchange and pin each other's ECDSA-P256 **public** keys. On reconnect, BOTH sides
  * sign a fresh, channel-bound challenge and verify the counterpart against the pinned key — the mutual dual
- * of B3, using pinned public keys instead of a shared secret. Directionality is intrinsic: each side signs
+ * of the pairing handshake, using pinned public keys instead of a shared secret. Directionality is
+ * intrinsic: each side signs
  * with its OWN private key and verifies with the OTHER's pinned public key, so a signature can never satisfy
  * the counterpart-verification (no reflection). A host trust-store leak reveals only public keys ⇒ no
  * impersonation; a rogue host cannot produce a valid host signature ⇒ the device fails closed.
@@ -93,7 +95,8 @@ export interface IReconnectChallenge {
 /**
  * Canonical, unambiguous transcript. Every field is base64url or hex (no `\n`), so newline-delimiting is a
  * lossless separator. Binds the identity ids (defense-in-depth), both fresh nonces (replay resistance), and
- * the sorted DTLS-fingerprint pair (MITM-relay resistance — the same binding B3 uses).
+ * the sorted DTLS-fingerprint pair (MITM-relay resistance — the same binding the pairing handshake
+ * uses).
  */
 function transcriptBytes(cryptoContext: IIdentityContext, c: IReconnectChallenge): ArrayBuffer {
   const canonical = [

@@ -1,12 +1,12 @@
 /**
- * Pairing gate for the WebRTC data channel (REMOTE-008 Stage B4-2b; extended for REMOTE-012 Stage E3 TOFU
- * reconnect).
+ * Pairing gate for the WebRTC data channel (with TOFU reconnect).
  *
  * The data channel is phase-separated: pre-accept it carries pairing/reconnect frames, post-accept only
  * session messages. An eager subscription feeds {@link PairingGate.onInbound}; the session bridge is not
  * built until acceptance, so no pre-accept peer frame can reach the live session.
  *
- * E3 selects first-pair (`pair-nonce`, then identity-key enrollment) or reconnect (`rc-hello`, pinned
+ * The gate selects first-pair (`pair-nonce`, then identity-key enrollment) or reconnect (`rc-
+ * hello`, pinned
  * identities) from the client's first frame and exposes the session only after mutual acceptance.
  *
  * Fail-closed: a non-admission frame pre-accept never reaches the session early — while this side's verdict is
@@ -15,10 +15,11 @@
  * `result` is the ONLY accept signal;
  * on reject/timeout the channel is closed and no session bridge is ever created; a post-close frame is ignored.
  *
- * When no E3 `reconnect` config is supplied the gate is **exactly** the B4 first-pair-only gate (eager host
+ * When no `reconnect` config is supplied the gate is **exactly** the first-pair-only gate (eager
+ * host
  * `pair-nonce`, no enrollment, no reconnect) — preserving existing behavior.
  *
- * SEC-010 adds an optional `local-proof` step between handshake acceptance and session exposure; see
+ * An optional `local-proof` step runs between handshake acceptance and session exposure; see
  * `local-peer-proof.ts` for why both of those edges are load-bearing.
  */
 
@@ -78,7 +79,10 @@ export class PairingGate {
   private handlerCleanup?: () => void;
   private pairingController?: ReturnType<typeof startPairingHandshake>;
   private reconnectController?: ReturnType<typeof startReconnectController>;
-  /** The first-pair result, held so it can be surfaced on accept (E4 uses its sessionKey). */
+  /**
+   * The first-pair result, held so it can be surfaced on accept (reconnect seeding uses its
+   * sessionKey).
+   */
   private pendingResult?: IPairingResult;
   /** Held across the local-proof step so the reconnect ordering rule survives the detour. */
   private pendingViaReconnect = false;
@@ -99,10 +103,12 @@ export class PairingGate {
 
   constructor(private readonly options: IPairingGateOptions) {
     if (options.reconnect) {
-      // E3 mode: stay reactive — the client's first frame selects first-pair vs reconnect.
+      // Reconnect-capable mode: stay reactive — the client's first frame selects first-pair vs
+      // reconnect.
       this.state = 'awaiting-mode';
     } else {
-      // Legacy B4 mode: eagerly start the first-pair handshake (host sends pair-nonce immediately).
+      // First-pair-only mode: eagerly start the first-pair handshake (host sends pair-nonce
+      // immediately).
       this.state = 'pairing';
       this.startFirstPair();
     }
@@ -132,7 +138,7 @@ export class PairingGate {
     }
 
     if (this.state === 'awaiting-mode') {
-      // First frame selects the mode (E3).
+      // First frame selects the mode.
       if (isReconnectFrame(parsed) && parsed.t === 'rc-hello') {
         this.state = 'reconnecting';
         this.startReconnect();
@@ -241,7 +247,10 @@ export class PairingGate {
     );
   }
 
-  /** B3 handshake accepted. Without E3: expose immediately. With E3: run first-pair enrollment first. */
+  /**
+   * Pairing handshake accepted. Without a reconnect config: expose immediately. With one: run
+   * first-pair enrollment first.
+   */
   private onFirstPairAccepted(result: IPairingResult): void {
     if (this.state !== 'pairing') return;
     this.pendingResult = result;
@@ -250,7 +259,8 @@ export class PairingGate {
       this.accept(result);
       return;
     }
-    // E3 enrollment: advertise the host public key; the peer's `enroll-key` completes it (then expose).
+    // Enrollment: advertise the host public key; the peer's `enroll-key` completes it (then
+    // expose).
     this.state = 'enrolling';
     pairingChannel.send(
       this.options.channel,

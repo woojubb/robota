@@ -25,7 +25,7 @@ const MAX_PENDING_FRAMES = 16;
 const MAX_PENDING_CANDIDATES = 64;
 
 /**
- * WebRTC P2P transport (REMOTE-001/002): carries an `IProtocolSession` over an `RTCDataChannel` using the
+ * WebRTC P2P transport: carries an `IProtocolSession` over an `RTCDataChannel` using the
  * SAME transport-neutral session bridge as the WebSocket transport (`createSessionMessageHandler` from
  * `@robota-sdk/agent-transport`). The host is the offerer: it creates the data channel + offer and wires the
  * channel as soon as it is created. `defaultEnabled: false` — nothing starts it automatically. Admission is
@@ -283,7 +283,7 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
         ? { storedSessionUsageReporter: this.options.storedSessionUsageReporter }
         : {}),
       surface: 'remote',
-      // #3282 §4 part b-2: WebRTC proves no locality; installing a plugin refuses it.
+      // WebRTC proves no locality; installing a plugin refuses it.
       commandSurfaceLocality: 'remote',
       onDeliveryError: (error, event) =>
         this.deliveryLifecycle.handleFailure(channel, generation, error, event),
@@ -315,7 +315,7 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
       return;
     }
 
-    // ARCH-030: the transport is the carrier on the no-secret branch — its own sink, its own lifecycle.
+    // The transport is the carrier on the no-secret branch — its own sink, its own lifecycle.
     const { onMessage, cleanup } = createSessionMessageHandler({
       session,
       deliver: createChannelDelivery(channel, (error, event) =>
@@ -330,7 +330,7 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
         : {}),
       surface: 'remote',
       ...(this.options.role ? { role: this.options.role } : {}),
-      // #3282 §4 part b-2: WebRTC proves no locality; installing a plugin refuses it.
+      // WebRTC proves no locality; installing a plugin refuses it.
       commandSurfaceLocality: 'remote',
       // A data channel carries a fraction of the inbound limit (see the pairing-gate branch).
       maxFrameBytes: HISTORY_PAGE_MAX_BYTES,

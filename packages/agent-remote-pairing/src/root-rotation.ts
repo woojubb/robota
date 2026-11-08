@@ -1,6 +1,6 @@
 import type { IIdentityContext } from './identity/crypto-context.js';
 /**
- * SEC-011 (issue #1865): rotating the user root key, and what happens to what it signed.
+ * Rotating the user root key, and what happens to what it signed.
  *
  * ## Rotation is two different problems wearing one word
  *

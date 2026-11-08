@@ -1,4 +1,4 @@
-// @robota-sdk/agent-transport-webrtc-web — the BROWSER WebRTC transport peer (REMOTE-009 Stage D).
+// @robota-sdk/agent-transport-webrtc-web — the BROWSER WebRTC transport peer.
 //
 // The browser mirror of the node-side host transport @robota-sdk/agent-transport-webrtc: it answers the
 // host's WebRTC offer over a native RTCPeerConnection, runs the directional-HMAC pairing handshake as

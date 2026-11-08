@@ -1,5 +1,5 @@
 /**
- * Boundary conversion into the core SSOT value axis (MCP-002).
+ * Boundary conversion into the core SSOT value axis.
  *
  * An MCP response body (a `callTool` result, a discovered tool's `outputSchema`, …) is a foreign,
  * JSON-ish shape the SDK hands back untyped. `toUniversalValue`/`toUniversalObject` are the ONE place

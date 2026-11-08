@@ -1,5 +1,5 @@
 /**
- * PEER-001 (#1809): the receiver's record of what it has already taken responsibility for.
+ * The receiver's record of what it has already taken responsibility for.
  *
  * ## What this decides, and why it is not the carrier's job
  *

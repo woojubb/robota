@@ -6,7 +6,7 @@ import type { TEgressLookup } from '@robota-sdk/agent-core/node';
 import { createNodeHttpEgress } from '../node/http-egress.js';
 
 /**
- * TC-05: admission happens BEFORE any connection attempt. The load-bearing assertion in every case
+ * Admission happens BEFORE any connection attempt. The load-bearing assertion in every case
  * is not just that `admit` returns a refusal, but that the `fetch` the caller supplied is never
  * invoked — nothing here decides by trying to connect and failing.
  */
@@ -16,7 +16,7 @@ function neverCalledFetch(): typeof globalThis.fetch {
   }) as unknown as typeof globalThis.fetch;
 }
 
-describe('admitHttpEndpoint — URL admission (TC-05)', () => {
+describe('admitHttpEndpoint — URL admission', () => {
   it('refuses an http:// URL to a non-loopback host that resolves privately, before connecting', async () => {
     const lookup: TEgressLookup = async () => ['10.0.0.5'];
     const fetchStub = neverCalledFetch();

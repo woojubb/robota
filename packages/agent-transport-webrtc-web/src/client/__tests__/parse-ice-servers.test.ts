@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { iceHasTurn, parseIceServersParam } from '../parse-ice-servers.js';
 
 /**
- * REMOTE-010 Step 2 — the browser `ice`-param decoder. The param is attacker-influenceable, so a malformed
+ * The browser `ice`-param decoder. The param is attacker-influenceable, so a malformed
  * value must FAIL CLOSED (throw), never a loose cast into RTCConfiguration.
  */
 
@@ -12,7 +12,7 @@ function encode(servers: unknown): string {
   return btoa(JSON.stringify(servers)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-describe('parseIceServersParam (REMOTE-010 browser decoder)', () => {
+describe('parseIceServersParam (browser decoder)', () => {
   it('decodes + validates a STUN server', () => {
     expect(parseIceServersParam(encode([{ urls: 'stun:stun.l.google.com:19302' }]))).toEqual([
       { urls: 'stun:stun.l.google.com:19302' },

@@ -1,7 +1,7 @@
 /**
- * TC-14: reconnect uses bounded exponential backoff, the observable state moves
+ * Reconnect uses bounded exponential backoff, the observable state moves
  * pending → failed → manual-retry, the retry bound is reached rather than looping, and every timer
- * is deterministic with no foreground polling (MCP-003).
+ * is deterministic with no foreground polling.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -18,7 +18,7 @@ function backoffDelaysOf(clock: FakeSupervisorClock): number[] {
   return clock.scheduledDelaysMs.filter((ms) => ms !== STARTUP_SENTINEL_MS);
 }
 
-describe('MCPConnectionSupervisor — reconnect backoff (TC-14)', () => {
+describe('MCPConnectionSupervisor — reconnect backoff', () => {
   it('backs off exponentially, capped, up to maxAttempts, then requires a manual retry', async () => {
     const clock = new FakeSupervisorClock();
     let openCount = 0;

@@ -4,11 +4,11 @@ import { describe, expect, it } from 'vitest';
 import { parseRemoteClientLocation } from '../parse-remote-location.js';
 
 /**
- * REMOTE-009 Step 3 — the Stage-D page reads relay ← query, rendezvous + secret ← fragment. Round-trips a
+ * The browser page reads relay ← query, rendezvous + secret ← fragment. Round-trips a
  * real `toPairingUrl` output (the fragment the host mints) to prove the browser reads back what the host wrote.
  */
 
-describe('parseRemoteClientLocation (REMOTE-009)', () => {
+describe('parseRemoteClientLocation', () => {
   it('round-trips a toPairingUrl link: relay from query, r+s from the fragment', () => {
     const pairing = { rendezvous: 'rv-abc', secret: 'sec-xyz-256bit' };
     // The operator configures clientUrl with the relay query param; toPairingUrl preserves it + appends #r&s.
@@ -40,11 +40,11 @@ describe('parseRemoteClientLocation (REMOTE-009)', () => {
     expect(() => parseRemoteClientLocation('https://remote.example/?relay=wss://r')).toThrow();
   });
 
-  // ── REMOTE-010: ICE/TURN query params ──
+  // ── ICE/TURN query params ──
   const iceEnc = (s: unknown): string =>
     btoa(JSON.stringify(s)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-  it('REMOTE-010: reads a validated `ice` param + forceTurn from the query, r+s still from the fragment', () => {
+  it('reads a validated `ice` param + forceTurn from the query, r+s still from the fragment', () => {
     const servers = [{ urls: 'turn:turn.example:3478', username: 'u', credential: 'p' }];
     const base = `https://remote.example/?relay=wss://r&ice=${iceEnc(servers)}&forceTurn=1`;
     const link = toPairingUrl(base, { rendezvous: 'rv', secret: 'sec' });
@@ -54,20 +54,20 @@ describe('parseRemoteClientLocation (REMOTE-009)', () => {
     expect(loc.secret).toBe('sec');
   });
 
-  it('REMOTE-010: absent ice ⇒ no iceServers/forceTurn (unchanged behavior)', () => {
+  it('absent ice ⇒ no iceServers/forceTurn (unchanged behavior)', () => {
     const loc = parseRemoteClientLocation('https://remote.example/?relay=wss://r#r=rv&s=sec');
     expect(loc.iceServers).toBeUndefined();
     expect(loc.forceTurn).toBeUndefined();
   });
 
-  it('REMOTE-010: fail-closed on a malformed/bad-scheme `ice` param (attacker-influenced)', () => {
+  it('fail-closed on a malformed/bad-scheme `ice` param (attacker-influenced)', () => {
     const bad = iceEnc([{ urls: 'http://evil.example' }]);
     expect(() =>
       parseRemoteClientLocation(`https://remote.example/?relay=wss://r&ice=${bad}#r=rv&s=sec`),
     ).toThrow(/scheme/);
   });
 
-  it('REMOTE-010: forceTurn without a TURN server fails closed', () => {
+  it('forceTurn without a TURN server fails closed', () => {
     const stunOnly = iceEnc([{ urls: 'stun:stun.example:19302' }]);
     expect(() =>
       parseRemoteClientLocation(

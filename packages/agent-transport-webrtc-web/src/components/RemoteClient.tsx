@@ -15,7 +15,7 @@ import { parseRemoteClientLocation } from '../client/parse-remote-location.js';
 import { useRtcSession, type TSessionStatus } from '../hooks/useRtcSession.js';
 
 /**
- * Stage-D browser remote client root (REMOTE-009). Reads its connection inputs from its own URL
+ * Browser remote client root. Reads its connection inputs from its own URL
  * (relay ← query, rendezvous + secret ← fragment), pairs with the host over WebRTC, and co-drives the
  * session — rendering the pairing-UX states and the owner's permission/ask prompts. Its root carries the
  * GUI surface's `agent-ui` scope, so it looks like the desktop app on any host that loads the surface
@@ -55,7 +55,7 @@ function RemoteClientContent({ href, cryptoContext, credentialDatabase }: IRemot
   }, [href]);
 
   if (parsed.error || !parsed.location) {
-    // #3289 §3 review: `RemoteClient` owns the page's ONE `main` landmark in every state it can be
+    // `RemoteClient` owns the page's ONE `main` landmark in every state it can be
     // in — a host has no way to know which of its states, if any, already supplies one. This state
     // (an unusable pairing link) never reaches `ConversationView`, so it is the one to carry it here.
     return (
@@ -116,7 +116,7 @@ function RemoteClientConnected({
           <span role="status">{STATUS_LABEL[session.status]}</span>
         </span>
       </header>
-      {/* ConversationView is itself a `main` landmark once rendered (#3289 §3); this wrapper stays a
+      {/* ConversationView is itself a `main` landmark once rendered; this wrapper stays a
           plain div in that case so the two are never nested. Otherwise this component owns the page's
           ONE `main` landmark itself (a host has no way to know a placeholder state needs one too). */}
       {hasConversation || tone === 'live' ? (

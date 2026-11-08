@@ -1,5 +1,5 @@
 /**
- * Owner-side runtime decoders for the wire message unions (issue #2045 / TRANS-005 adjacent).
+ * Owner-side runtime decoders for the wire message unions.
  *
  * `wire-messages.ts` owns the TypeScript unions; this file owns turning `JSON.parse` output into one
  * of them. Before it, the server did `JSON.parse(data) as TClientMessage` and each client did the
@@ -61,7 +61,7 @@ const isWireHistoryEntry = (v: unknown): boolean =>
   isString(v['type']);
 const isWireHistoryEntries = (v: unknown): boolean =>
   Array.isArray(v) && v.every(isWireHistoryEntry);
-/** #3282 §4: one row of `agent_definitions` — name, one-line description, plain-words location. */
+/** One row of `agent_definitions` — name, one-line description, plain-words location. */
 const isWireAgentDefinition = (v: unknown): boolean =>
   isRecord(v) && isString(v['name']) && isString(v['description']) && isString(v['definedIn']);
 const isWireAgentDefinitions = (v: unknown): boolean =>
@@ -123,7 +123,7 @@ const SETTINGS_PATCH_SHAPES: Readonly<Record<TSettingsPatch['field'], TVariantSh
   reloadPlugins: {},
   installPlugin: { pluginId: isNonEmptyString },
   uninstallPlugin: { pluginId: isNonEmptyString },
-  // #3282 §4b: "Providers & Models" — Use, Model, Delete.
+  // "Providers & Models" — Use, Model, Delete.
   providerProfile: { profileName: isNonEmptyString },
   providerModel: { profileName: isNonEmptyString, modelId: isNonEmptyString },
   deleteProviderProfile: { profileName: isNonEmptyString },
@@ -165,7 +165,7 @@ function isKindDiscriminated(shapes: Readonly<Record<string, TVariantShape>>): T
   };
 }
 
-// #3282 §4c: the Project panel's reads. Each result is the session method's own return value, crossing
+// The Project panel's reads. Each result is the session method's own return value, crossing
 // the wire unchanged (the `TWaitingLoopStopOutcome` convention above) — decoded from a `kind`-keyed
 // shape map the same way.
 const PROJECT_FILE_STATUSES = [

@@ -1,5 +1,5 @@
 /**
- * #3189 step 3b: an attached client reads a workspace entry's detail, stops a waiting self-paced
+ * An attached client reads a workspace entry's detail, stops a waiting self-paced
  * loop, and follows status changes another client made.
  */
 

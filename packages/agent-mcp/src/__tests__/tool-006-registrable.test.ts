@@ -1,5 +1,5 @@
 /**
- * TOOL-006 — an MCP tool can actually be registered as an agent tool.
+ * An MCP tool can actually be registered as an agent tool.
  *
  * The package existed to register MCP tools with the runtime and could not: the hand-written
  * `MCPTool`/`RelayMcpTool` stack implemented the narrow `ITool` and lacked `getName()` and
@@ -11,7 +11,7 @@
  * passed the moment the methods existed, including if `setEventService` had been a no-op that
  * discarded the service — which satisfies the signature and defeats the reason the runtime calls it.
  *
- * MCP-002 removed the hand-written `MCPTool`/`RelayMcpTool` stack; `createDiscoveredTool`
+ * The hand-written `MCPTool`/`RelayMcpTool` stack is gone; `createDiscoveredTool`
  * (`../catalog/discovered-tool.js`) is now the one producer of this runtime tool slot, so there is
  * no second class left to parametrise this suite over.
  */

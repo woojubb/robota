@@ -1,5 +1,5 @@
 /**
- * Environment templates in MCP definitions (MCP-001).
+ * Environment templates in MCP definitions.
  *
  * `${VAR}` and `${VAR:-default}` are materialized in `command`, `args`, `cwd`, `env`, `url` and `headers`.
  *

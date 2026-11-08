@@ -7,7 +7,7 @@ import {
 } from '../rtc-signaling.js';
 
 /**
- * REMOTE-009 Step 1 — the browser signaling client over a FAKE native WebSocket: join on open, buffer
+ * The browser signaling client over a FAKE native WebSocket: join on open, buffer
  * signals produced before open, round-trip relay `signal` frames, and surface errors (no silent degrade).
  */
 
@@ -50,7 +50,7 @@ function setup() {
   return { socket, onError, onReady, client };
 }
 
-describe('createRtcSignalingClient (REMOTE-009)', () => {
+describe('createRtcSignalingClient', () => {
   it('joins the rendezvous on open', () => {
     const { socket } = setup();
     socket.open();

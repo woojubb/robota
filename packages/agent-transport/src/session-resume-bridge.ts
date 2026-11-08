@@ -1,5 +1,5 @@
 /**
- * Persistent session-resume bridge for the reconnectable WebRTC path (REMOTE-013 Stage E4).
+ * Persistent session-resume bridge for the reconnectable WebRTC path.
  *
  * Created ONCE per remote session and OUTLIVES individual data channels. It subscribes to the session's
  * events exactly once, stamps every outbound `TServerMessage` with a **monotonic `seq` that is continuous
@@ -39,7 +39,7 @@ export type TResumeSink = (data: string) => void;
 /** Options for {@link SessionResumeBridge.attach}. */
 export interface IAttachOptions {
   /**
-   * REMOTE-013 E4: on a RECONNECT, HOLD live sink-forwarding until the client's `resume` has replayed the
+   * On a RECONNECT, HOLD live sink-forwarding until the client's `resume` has replayed the
    * buffered tail — otherwise a live frame emitted between attach and the inbound `resume` would leapfrog the
    * gap frames on the wire, and the client's seq-dedup would then discard the (older, lower-seq) gap. Every
    * live event is already appended to the buffer, so holding loses nothing; `replay()` flushes in order and
@@ -49,7 +49,7 @@ export interface IAttachOptions {
   /** Sink/carrier-owned failure lifecycle for this attachment only. */
   readonly onDeliveryError: (error: Error, event: string) => void;
   /**
-   * ARCH-030: this attachment's carrier backpressure reading, if it has one.
+   * This attachment's carrier backpressure reading, if it has one.
    *
    * Threaded through because the replay path is the burst this budget exists for — a reconnecting
    * peer is handed the whole retained tail at once, and without a reading the boundary here would
@@ -61,7 +61,7 @@ export interface IAttachOptions {
 export interface ISessionResumeBridgeOptions {
   readonly session: IProtocolSession;
   readonly buffer?: IResumeBufferOptions;
-  /** REMOTE-014 E5: the SERVER-ASSIGNED driver id for this surface, injected into inbound submit/command/prompt-response. */
+  /** The SERVER-ASSIGNED driver id for this surface, injected into inbound submit/command/prompt-response. */
   readonly driverId?: TDriverId;
   readonly surface?: TUsageSurface;
   /** Carrier-decided role of this bridge; defaults to `drive`. The client never chooses it. */
@@ -69,7 +69,7 @@ export interface ISessionResumeBridgeOptions {
   readonly personalUsageReporter?: IUsageQueryReporters['personalUsageReporter'];
   readonly usageReporter?: IUsageQueryReporters['usageReporter'];
   readonly storedSessionUsageReporter?: IUsageQueryReporters['storedSessionUsageReporter'];
-  /** #3282 §4 part b-2: this bridge is the reconnectable WebRTC path, so it is always `'remote'`. */
+  /** This bridge is the reconnectable WebRTC path, so it is always `'remote'`. */
   readonly commandSurfaceLocality?: TCommandSurfaceLocality;
   /** See {@link ISessionMessageHandlerOptions.maxFrameBytes}: the channel's limit, not the inbound one. */
   readonly maxFrameBytes?: number;
@@ -93,7 +93,7 @@ export class SessionResumeBridge {
   private readonly unsubscribe: () => void;
   private onDeliveryError?: IAttachOptions['onDeliveryError'];
   /**
-   * ARCH-030: the attachment's outbound boundary — and the only reference this class keeps to the current
+   * The attachment's outbound boundary — and the only reference this class keeps to the current
    * channel, which is why `dispose()` goes through `detach()` rather than clearing a separate field.
    * Built per `attach` because a boundary LATCHES on its first failure, so a fresh one is exactly what
    * un-latches the session for the next channel. It holds the only try/catch on the frame path.
@@ -114,7 +114,7 @@ export class SessionResumeBridge {
    */
   private readonly emitBoundary: TOutboundDeliver;
   private disposed = false;
-  /** REMOTE-013 E4: while true, live emits are buffered but NOT forwarded — released by `replay()` on reconnect. */
+  /** While true, live emits are buffered but NOT forwarded — released by `replay()` on reconnect. */
   private holding = false;
 
   public constructor(options: ISessionResumeBridgeOptions) {
@@ -131,11 +131,11 @@ export class SessionResumeBridge {
       storedSessionUsageReporter: options.storedSessionUsageReporter,
     };
     // ONE subscription for the whole session — outlives every channel. Every event → seq-stamped + buffered.
-    // CMD-004 Stage D: `ui_intent` is requester-routed against the LATE-BOUND driver id (bound by
+    // `ui_intent` is requester-routed against the LATE-BOUND driver id (bound by
     // `setDriverId` after pairing) — routing happens BEFORE buffering, so a foreign surface's intent
     // consumes no seq and can never leak through a later `resume` replay.
     //
-    // ARCH-030: built through the factory, never cast — the brand is only worth having if this class
+    // Built through the factory, never cast — the brand is only worth having if this class
     // does not spell its way around it. `emit` buffers and then hands the stamped frame to whatever
     // boundary is currently ATTACHED, so it does not itself throw on a carrier failure; this boundary
     // exists so that if it ever did, the failure would be reported rather than escaping the session's
@@ -170,7 +170,8 @@ export class SessionResumeBridge {
   }
 
   /**
-   * REMOTE-014 E5: bind the SERVER-ASSIGNED driver id (the E3 `deviceId`) once the peer pairs — the bridge
+   * Bind the SERVER-ASSIGNED driver id (the paired device's `deviceId`) once the peer pairs — the
+   * bridge
    * injects it into every subsequent inbound submit/command/prompt-response for co-drive attribution.
    */
   public setDriverId(driverId: TDriverId): void {
@@ -192,7 +193,7 @@ export class SessionResumeBridge {
     }
     if (handleSurfaceRoleMessage(this.role, msg, this.emitBoundary)) return;
     // Session control/query/background/prompt-response — responses funnel back through `emit` (seq'd + buffered).
-    // REMOTE-014 E5: inject the server-assigned driver id (submit/prompt-response attribution).
+    // Inject the server-assigned driver id (submit/prompt-response attribution).
     handleClientMessage(
       this.session,
       this.emitBoundary,
@@ -229,7 +230,7 @@ export class SessionResumeBridge {
   /**
    * Stamp a seq, retain in the buffer, and forward to the current sink — UNLESS holding for a reconnect replay.
    *
-   * ARCH-030: the `buffer.append` happens BEFORE the boundary, deliberately. The boundary latches on its
+   * The `buffer.append` happens BEFORE the boundary, deliberately. The boundary latches on its
    * first failure and drops everything after it, so a frame appended afterwards would be lost — appending
    * first means a dropped frame is still in the un-acked tail and still replays on the next `resume`.
    */
@@ -246,8 +247,9 @@ export class SessionResumeBridge {
    *
    * A failing sink reports ONCE across the whole tail: the boundary latches on the first failure and every
    * remaining frame is dropped silently. Those frames stay un-acked in the buffer and replay on the next
-   * attachment. Before ARCH-030 the single report was a side effect of `detach()` running mid-loop; now it
-   * is the boundary's stated contract.
+   * attachment. The single report is the boundary's stated contract, not a side effect of
+   * `detach()` running
+   * mid-loop.
    */
   private replay(lastSeq: number): void {
     const tail = this.buffer.tailAfter(lastSeq);

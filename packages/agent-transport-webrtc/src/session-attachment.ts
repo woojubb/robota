@@ -56,13 +56,13 @@ export function attachSession(
 ): IAttachedSession {
   const bridge = options.resumeBridge;
   if (bridge) {
-    // REMOTE-013 E4: route the session through the persistent bridge. Attach this channel as the
+    // Route the session through the persistent bridge. Attach this channel as the
     // sink; post-accept inbound frames (incl. resume/ack) go to the bridge; cleanup DETACHES it
     // (never disposes — the bridge is owned by the transport across reconnects).
     bridge.attach((data) => options.channel.send(data), {
       awaitResume: viaReconnect,
       onDeliveryError,
-      // ARCH-030: without this the bridge's boundary has no backpressure reading, so the replay
+      // Without this the bridge's boundary has no backpressure reading, so the replay
       // path — the burst this budget exists for — runs unbudgeted while every other outbound path
       // on the same connection is guarded. Read at call time; `bufferedAmount` is live.
       pendingBytes: () => options.channel.bufferedAmount,
@@ -74,7 +74,7 @@ export function attachSession(
   }
 
   const create = options.createHandler ?? createSessionMessageHandler;
-  // ARCH-030: the gate is the carrier on this branch — its own channel sink, its own failure policy.
+  // The gate is the carrier on this branch — its own channel sink, its own failure policy.
   const { onMessage, cleanup } = create({
     session: options.session,
     deliver: createChannelDelivery(options.channel, onDeliveryError),

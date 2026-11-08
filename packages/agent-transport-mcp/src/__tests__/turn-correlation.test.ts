@@ -1,5 +1,5 @@
 /**
- * RUNTIME-003 P2 — an MCP `submit` must be answered by ITS OWN turn.
+ * An MCP `submit` must be answered by ITS OWN turn.
  *
  * `waitForCompletion` subscribes to the session-global `complete` / `interrupted` / `error` events
  * with no request correlation, so the first terminal event to fire resolves whichever call is
@@ -107,7 +107,7 @@ function textOf(result: unknown): string {
   return content.map((part) => part.text ?? '').join('');
 }
 
-describe('RUNTIME-003: an MCP submit is answered by its own turn', () => {
+describe('an MCP submit is answered by its own turn', () => {
   it('does not hand one turn’s answer to two callers', async () => {
     const client = await connectedClient(createQueueingSession());
 
@@ -157,7 +157,7 @@ describe('what the MCP adapter treats as a tool error', () => {
     // submission — an ordinary outcome of asking a busy session, and the whole reason the handle
     // exists. Review: left to propagate it leaves the request handler as a thrown exception and the
     // SDK reports a JSON-RPC PROTOCOL failure, so the caller learns the CALL broke rather than that
-    // its turn did not run. That is the ambiguity RUNTIME-003 set out to remove, one layer up.
+    // its turn did not run. That is the ambiguity the turn handle removes, one layer up.
     const client = await connectedClient(
       createRejectingSession(turnNotRun('dropped', 'dropped: the queue was at capacity')),
     );

@@ -4,7 +4,7 @@ import { WsSignalingClient, type IWebSocketLike } from '../ws-signaling-client.j
 import type { ISignalMessage } from '../signaling.js';
 
 /**
- * REMOTE-004 B2 — `WsSignalingClient` unit tests with an injected fake socket (no network). Cover pre-open
+ * `WsSignalingClient` unit tests with an injected fake socket (no network). Cover pre-open
  * buffering + flush and explicit error surfacing (relay `error` frame, close-before-join).
  */
 
@@ -40,8 +40,8 @@ function parse(raw: string): Record<string, unknown> {
   return JSON.parse(raw) as Record<string, unknown>;
 }
 
-describe('WsSignalingClient (REMOTE-004 B2)', () => {
-  it('TC-02: buffers signals produced before open and flushes them (after the join) on open', () => {
+describe('WsSignalingClient', () => {
+  it('buffers signals produced before open and flushes them (after the join) on open', () => {
     const socket = createFakeSocket();
     const client = new WsSignalingClient({
       url: 'ws://x',
@@ -74,7 +74,7 @@ describe('WsSignalingClient (REMOTE-004 B2)', () => {
     expect(received).toEqual([{ kind: 'answer', data: { sdp: 'a' } }]);
   });
 
-  it('TC-02: surfaces a relay error frame via onError (no silent degrade)', () => {
+  it('surfaces a relay error frame via onError (no silent degrade)', () => {
     const socket = createFakeSocket();
     const onError = vi.fn();
     new WsSignalingClient({ url: 'ws://x', rendezvous: 'r', onError, createSocket: () => socket });
@@ -83,7 +83,7 @@ describe('WsSignalingClient (REMOTE-004 B2)', () => {
     expect((onError.mock.calls[0]![0] as Error).message).toMatch(/rate-limited/);
   });
 
-  it('TC-02: surfaces a close-before-join as an explicit error', () => {
+  it('surfaces a close-before-join as an explicit error', () => {
     const socket = createFakeSocket();
     const onError = vi.fn();
     new WsSignalingClient({ url: 'ws://x', rendezvous: 'r', onError, createSocket: () => socket });

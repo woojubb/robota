@@ -9,7 +9,7 @@ import {
 } from '../device-credential-store.js';
 
 /**
- * REMOTE-012 E3 TC-06 — the browser device-credential store: persist + reload the (non-extractable) device
+ * The browser device-credential store: persist + reload the (non-extractable) device
  * keypair and the pinned host key, keyed by relay origin + host identity, with no secret ever serialized.
  * Uses an in-memory backend (Node vitest has no IndexedDB; CryptoKeys are structured-cloneable, no serialize).
  */
@@ -30,7 +30,7 @@ function memoryBackend(): ICredentialBackend & { store: Map<string, IDeviceCrede
   };
 }
 
-describe('device credential store (REMOTE-012 TC-06)', () => {
+describe('device credential store', () => {
   it('persists and reloads a device keypair + pinned host key, keyed by relayOrigin+hostIdentityId', async () => {
     const backend = memoryBackend();
     const store = createDeviceCredentialStore(backend);
@@ -67,7 +67,7 @@ describe('device credential store (REMOTE-012 TC-06)', () => {
     expect(credentialKey('wss://relay.example', 'host-xyz')).toBe('wss://relay.example|host-xyz');
   });
 
-  it('REMOTE-013 E4: round-trips the reconnect seed + counter alongside the keypair', async () => {
+  it('round-trips the reconnect seed + counter alongside the keypair', async () => {
     const store = createDeviceCredentialStore(memoryBackend());
     const cred = {
       deviceKeyPair: await generateIdentityKeyPair(false),

@@ -36,7 +36,7 @@ export interface IProtocolSession
     ISessionExecutionWorkspace,
     ISessionExecutionDetail,
     ISessionSelfPacedLoopControl,
-    // #3282 §4: the agent switcher's read (`listAgentDefinitions`/`getDefaultAgentType`) — the
+    // The agent switcher's read (`listAgentDefinitions`/`getDefaultAgentType`) — the
     // group's write members (`spawnAgentJob` and friends) stay unused by any wire handler; they run
     // only through `executeCommand`, same as every other command-only write.
     ISessionAgentJobs,
@@ -46,7 +46,7 @@ export interface IProtocolSession
     ISessionToolAppViews {}
 
 /**
- * #3282 §4c: a protocol session that ALSO answers the Project panel's reads. `Partial` (not a fourth
+ * A protocol session that ALSO answers the Project panel's reads. `Partial` (not a fourth
  * mandatory role on {@link IProtocolSession} itself) deliberately: every existing test double and
  * every other host that builds an `IProtocolSession` keeps type-checking unchanged, and the panel's
  * three methods are runtime-probed (`typeof session.readProjectStatus === 'function'`) rather than

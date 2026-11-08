@@ -1,5 +1,5 @@
 /**
- * Canonical tool/prompt/resource naming for the MCP catalog (MCP-002).
+ * Canonical tool/prompt/resource naming for the MCP catalog.
  *
  * A canonical name is `<server>__<source>`, sanitised to `[A-Za-z0-9_-]` and budgeted to
  * {@link MCP_CANONICAL_NAME_BUDGET}. This module owns both halves of that contract: producing one

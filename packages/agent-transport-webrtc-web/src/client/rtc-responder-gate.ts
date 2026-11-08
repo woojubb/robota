@@ -1,19 +1,20 @@
 import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 /**
- * Responder-side pairing gate for the browser remote client (REMOTE-009 Stage D; extended for REMOTE-012
- * Stage E3 TOFU reconnect) — the client dual of the host `PairingGate`. The browser is the WebRTC ANSWERER ≡
+ * Responder-side pairing gate for the browser remote client (extended for TOFU
+ * reconnect) — the client dual of the host `PairingGate`. The browser is the WebRTC ANSWERER ≡
  * pairing RESPONDER. It phase-separates the data channel: pre-accept it carries ONLY pairing/reconnect frames
  * (non-admission frames are DROPPED); only after accept does it deliver `TServerMessage`s to the UI and allow
  * `send(TClientMessage)`. Fail-closed: on reject/timeout it closes the channel and delivers nothing.
  *
- * Two admission modes (E3), decided by whether a credential exists for this host:
- * - **first-pair** (default): the B3 handshake, then — when `deviceIdentity` is present — an identity-key
+ * Two admission modes, decided by whether a credential exists for this host:
+ * - **first-pair** (default): the pairing handshake, then — when `deviceIdentity` is present —
+ *   an identity-key
  *   **enrollment** exchange (pin the host's advertised key; send the device's public key) before the session
  *   is exposed;
  * - **reconnect** (`deviceIdentity.reconnect` present): the client initiates {@link startDeviceReconnect},
  *   verifies the host against the pinned host key (rogue-host → fail closed), and only then exposes the session.
  *
- * Without `deviceIdentity` the gate is exactly the REMOTE-009 first-pair-only gate.
+ * Without `deviceIdentity` the gate is exactly the first-pair-only gate.
  */
 
 import {
@@ -39,14 +40,20 @@ export interface IResponderChannel {
   close(): void;
 }
 
-/** E3 device identity config. When present, first-pair enrolls; when `reconnect` is set, the client reconnects. */
+/**
+ * Device identity config. When present, first-pair enrolls; when `reconnect` is set, the client
+ * reconnects.
+ */
 export interface IDeviceIdentityConfig {
   readonly deviceKeyPair: CryptoKeyPair;
   /** `SHA-256(device SPKI)` — sent in the clear on reconnect / used to enroll. */
   readonly deviceId: string;
   /** base64url device public SPKI — advertised to the host at first-pair enrollment. */
   readonly devicePublicSpki: string;
-  /** First-pair: pin the host's advertised public key + the pairing `sessionKey` (persist the credential + E4 reconnect seed). */
+  /**
+   * First-pair: pin the host's advertised public key + the pairing `sessionKey` (persist the
+   * credential + reconnect seed).
+   */
   readonly onEnrollHost: (hostPublicSpki: string, sessionKey?: string) => void;
   /** Reconnect (client-initiated) config — present only when a credential for this host already exists. */
   readonly reconnect?: {
@@ -68,14 +75,14 @@ export interface IResponderGateOptions {
   readonly onAccept?: () => void;
   /** Pairing/reconnect rejected/timed out — the channel is closed, nothing exposed. */
   readonly onReject?: () => void;
-  /** REMOTE-012 E3: device identity config. Absent → REMOTE-009 first-pair-only behavior (unchanged). */
+  /** Device identity config. Absent → first-pair-only behavior. */
   readonly deviceIdentity?: IDeviceIdentityConfig;
   /** Injection seams (default to the real handshakes) — for tests. */
   readonly startHandshake?: typeof startPairingHandshake;
   readonly startReconnect?: typeof startDeviceReconnect;
 }
 
-// Issue #2046: the pre-auth frame vocabulary is decoded by its OWNER (`agent-remote-pairing`), totally —
+// The pre-auth frame vocabulary is decoded by its OWNER (`agent-remote-pairing`), totally —
 // required fields, base64url, length ceilings — and this carrier shares that codec with the Node gate
 // instead of keeping a second discriminator-only copy.
 function isPairingFrame(value: unknown): value is TPairingFrame {
@@ -98,7 +105,7 @@ export class ResponderGate {
   private state: TGateState = 'pairing';
   private pairingController?: ReturnType<typeof startPairingHandshake>;
   private reconnectController?: ReturnType<typeof startDeviceReconnect>;
-  /** REMOTE-013 E4: the first-pair result, held so its `sessionKey` seeds the reconnect credential on enroll. */
+  /** The first-pair result, held so its `sessionKey` seeds the reconnect credential on enroll. */
   private pendingResult?: IPairingResult;
 
   constructor(private readonly options: IResponderGateOptions) {
@@ -120,7 +127,7 @@ export class ResponderGate {
       return;
     }
     if (this.state === 'accepted') {
-      // Issue #2045: post-accept frames go through the protocol owner's decoder; an invalid shape is
+      // Post-accept frames go through the protocol owner's decoder; an invalid shape is
       // surfaced as the protocol's own client error rather than cast into `TServerMessage`.
       const decoded = decodeServerMessage(parsed);
       this.options.onMessage(
@@ -195,10 +202,13 @@ export class ResponderGate {
     );
   }
 
-  /** B3 handshake accepted. Without E3: expose. With E3: wait for the host's enroll-key, pin it, reply, expose. */
+  /**
+   * Pairing handshake accepted. Without device identity: expose. With it: wait for the host's
+   * enroll-key, pin it, reply, expose.
+   */
   private onFirstPairAccepted(result: IPairingResult): void {
     if (this.state !== 'pairing') return;
-    this.pendingResult = result; // its sessionKey seeds the E4 reconnect credential
+    this.pendingResult = result; // its sessionKey seeds the reconnect credential
     if (!this.options.deviceIdentity) {
       this.accept();
       return;

@@ -1,5 +1,5 @@
 /**
- * ARCH-030 user-execution scenario — a reply that resolves AFTER the carrier disconnected is
+ * User-execution scenario — a reply that resolves AFTER the carrier disconnected is
  * reported through the carrier's delivery boundary, not thrown into the void.
  *
  * Two phases, both over this package's public barrel exports:
@@ -15,7 +15,8 @@
  *   options, so the delivery-error count and the latch are directly observable — `WsSessionDelivery`
  *   is package-internal by design (that IS the fix), so phase A cannot read them.
  *
- * Before ARCH-030 this printed `unhandledRejections: 1` for phase A and `deliveryErrors: []` with
+ * Without the delivery boundary this prints `unhandledRejections: 1` for phase A and
+ * `deliveryErrors: []` with
  * `latchThrew: "WebSocket is not open"` for phase B. Run it with:
  *
  *     pnpm scenario:verify
@@ -178,8 +179,8 @@ async function runObservableCarrierPhase(markerPath: string): Promise<Record<str
     const cleanupObserved = transport.onMessage === null;
 
     // The latch, from outside: a further frame pushed through the RETAINED handler after the failure is
-    // dropped — neither a second delivery error nor a synchronous throw. Pre-ARCH-030 this threw
-    // `WebSocket is not open` straight out of the handler.
+    // dropped — neither a second delivery error nor a synchronous throw. Without the latch
+    // this throws `WebSocket is not open` straight out of the handler.
     let latchThrew: string | null = null;
     try {
       retainedHandler(JSON.stringify({ type: 'get-messages' }));

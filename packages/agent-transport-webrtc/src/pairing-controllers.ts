@@ -34,7 +34,7 @@ export interface IControllerContext {
 }
 
 /**
- * Start the B3 first-pair handshake.
+ * Start the first-pair handshake.
  *
  * `onAccepted`/`onRejected` rather than handing the promise back, so a caller cannot forget to
  * attach a rejection path — an unhandled rejection here would leave a gate waiting forever on a
@@ -60,7 +60,7 @@ export function startFirstPairController(
   return controller;
 }
 
-/** Start the E3 host-side reconnect exchange against a pinned device key. */
+/** Start the host-side reconnect exchange against a pinned device key. */
 export function startReconnectController(
   context: IControllerContext,
   config: IHostReconnectConfig,

@@ -28,7 +28,7 @@ function createSession(): TEmittingSession {
   } as unknown as TEmittingSession;
 }
 
-describe('protocol session-event delivery policy (ARCH-020/ARCH-028)', () => {
+describe('protocol session-event delivery policy', () => {
   it('mechanically matches every surface classification to an actual subscription', () => {
     const session = createSession();
     const { cleanup } = createSessionMessageHandler({

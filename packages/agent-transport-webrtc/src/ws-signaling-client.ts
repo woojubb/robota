@@ -1,6 +1,6 @@
 /**
- * Production `ISignalingClient` over a WebSocket connection to the `@robota-sdk/remote-signaling` relay
- * (REMOTE-004 Stage B2). This is the **Node host-side** client (the browser remote client, Stage D, implements
+ * Production `ISignalingClient` over a WebSocket connection to the `@robota-sdk/remote-signaling` relay.
+ * This is the **Node host-side** client (the browser remote client implements
  * `ISignalingClient` on the native `WebSocket`).
  *
  * On open it `join`s the rendezvous and flushes any signals produced before the socket opened (the offer is

@@ -1,5 +1,5 @@
 /**
- * Issue #3550 item 4 — the editor's `clientCapabilities.fs` reaches the host as a file access bound to
+ * The editor's `clientCapabilities.fs` reaches the host as a file access bound to
  * the session, only when the editor offers it, and goes away when the transport stops.
  */
 import { PassThrough, Readable, Writable } from 'node:stream';

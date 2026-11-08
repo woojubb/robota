@@ -1,4 +1,4 @@
-/** SEC-008 / MCP-006: the peer can reach only canonical, policy-wrapped tools. */
+/** The peer can reach only canonical, policy-wrapped tools. */
 import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';

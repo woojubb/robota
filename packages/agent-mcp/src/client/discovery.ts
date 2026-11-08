@@ -1,8 +1,8 @@
 /**
- * Caller-owned pagination driver for MCP discovery (MCP-002, TC-02, TC-04, TC-19).
+ * Caller-owned pagination driver for MCP discovery.
  *
  * For each domain the server never declared, the corresponding list request is NEVER sent — the
- * domain surfaces as `{ state: { kind: 'unsupported' }, items: [], pages: 0 }` (TC-04).
+ * domain surfaces as `{ state: { kind: 'unsupported' }, items: [], pages: 0 }`.
  * For a declared domain, pages are drained by following `nextCursor` until it is ABSENT
  * (`undefined`); a present-but-empty cursor is treated as invalid, never as "no more pages". A
  * catalog is never returned partial: any failure throws `MCPDiscoveryError` instead of resolving

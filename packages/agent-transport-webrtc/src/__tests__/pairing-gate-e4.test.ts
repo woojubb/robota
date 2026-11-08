@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { PairingGate } from '../pairing-gate.js';
 
 /**
- * REMOTE-013 E4 — when a `resumeBridge` is supplied, the gate routes the paired session through the bridge
+ * When a `resumeBridge` is supplied, the gate routes the paired session through the bridge
  * (seq-stamped) instead of a fresh handler, and `cleanup()` DETACHES the bridge (session survives the drop).
  */
 
@@ -17,7 +17,7 @@ function fakeSession(): {
   fire: (event: string, arg: unknown) => void;
 } {
   const handlers = new Map<string, (arg: unknown) => void>();
-  // ARCH-012: the conformant double. The three-member partial this replaces was accepted only by a
+  // The conformant double. The three-member partial this replaces was accepted only by a
   // cast, so the suite ran against a session shape no implementation could have.
   const session = createTestInteractiveSession({
     on: ((e: string, h: (arg: unknown) => void) => {
@@ -30,13 +30,14 @@ function fakeSession(): {
   return { session, fire: (e, a) => handlers.get(e)?.(a) };
 }
 
-describe('PairingGate E4 resume bridge (REMOTE-013)', () => {
+describe('PairingGate resume bridge', () => {
   it('routes the paired session through the bridge (seq-stamped) and detaches on cleanup', async () => {
     const { session, fire } = fakeSession();
     const bridge = new SessionResumeBridge({ session });
     const sent: string[] = [];
     const channel = { send: (d: string) => sent.push(d), close: () => {} };
-    // Fake handshake that accepts immediately (isolates the bridge wiring from real B3 crypto).
+    // Fake handshake that accepts immediately (isolates the bridge wiring from real pairing
+    // crypto).
     const fakeHandshake = (() => ({
       result: Promise.resolve({ sessionKey: 'k' }),
       onFrame: () => {},

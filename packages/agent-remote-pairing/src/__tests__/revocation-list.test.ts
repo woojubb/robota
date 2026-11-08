@@ -17,7 +17,7 @@ import {
 import { generateIdentityKeyPair } from '../device-identity.js';
 
 /**
- * SEC-011 (issue #1865) — how a revocation reaches the machine doing the checking.
+ * How a revocation reaches the machine doing the checking.
  *
  * A revocation is the one security statement whose ABSENCE is the attack: a certificate that never
  * arrives simply fails to authenticate, while a revocation that never arrives silently authorizes a

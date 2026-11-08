@@ -1,5 +1,5 @@
 /**
- * HANDOFF-001 (#1811): moving a session record that does not fit in one frame.
+ * Moving a session record that does not fit in one frame.
  *
  * A data channel has a maximum message size; a session record is a whole conversation. So the
  * payload travels in pieces, and this owns the two halves of that: cutting it up, and putting it

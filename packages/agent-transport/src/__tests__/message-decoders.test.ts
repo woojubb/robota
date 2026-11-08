@@ -13,7 +13,7 @@ import {
 import type { TClientMessage, TServerMessage } from '../wire-messages.js';
 
 /**
- * Issue #2045 — the owner-side runtime decoders. One well-formed sample per union variant round-trips
+ * The owner-side runtime decoders. One well-formed sample per union variant round-trips
  * through JSON; a shared malformed corpus (null, arrays, missing fields, wrong primitives, malformed
  * nested values, oversized frames) is refused consistently. Both carriers call these same functions.
  */
@@ -118,7 +118,7 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     success: true,
     requestId: 'command-1',
   },
-  // #3288 §2: `display` is optional (an older host may not send it) and foreign-owned
+  // `display` is optional (an older host may not send it) and foreign-owned
   // (`IHistoryDisplaySegment`, `agent-interface-session`) — checked shallowly here, same as
   // `tool_start`'s `state`, per this file's own header.
   messages: {
@@ -670,7 +670,7 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
   ['settings_error without message', { type: 'settings_error', requestId: 'r', code: 'invalid' }],
 ];
 
-describe('decodeClientMessage (issue #2045)', () => {
+describe('decodeClientMessage', () => {
   it('has a shape for every union variant and every sample decodes through JSON', () => {
     for (const [type, sample] of Object.entries(CLIENT_SAMPLES)) {
       expect(CLIENT_MESSAGE_SHAPES).toHaveProperty(type);
@@ -685,7 +685,7 @@ describe('decodeClientMessage (issue #2045)', () => {
     expect(decodeClientMessage(value).ok).toBe(false);
   });
 
-  // #3282 §4b: "Providers & Models" — Use, Model and Delete each add one `update-settings` patch
+  // "Providers & Models" — Use, Model and Delete each add one `update-settings` patch
   // field; `CLIENT_SAMPLES` above only round-trips one field (`outputStyle`) per variant, so these
   // three get their own explicit round trip.
   it.each([
@@ -714,7 +714,7 @@ describe('decodeClientMessage (issue #2045)', () => {
     { field: 'reloadPlugins' },
     { field: 'installPlugin', pluginId: 'linter@fixture-agent' },
     { field: 'uninstallPlugin', pluginId: 'formatter@fixture-agent' },
-  ] as const)('accepts the $field settings patch (#3282 §4 part b-2)', (patch) => {
+  ] as const)('accepts the $field settings patch', (patch) => {
     const message = { type: 'update-settings' as const, requestId: 'r', patch };
     expect(decodeClientMessage(JSON.parse(JSON.stringify(message)))).toEqual({
       ok: true,
@@ -748,7 +748,7 @@ describe('the app tool and app view frames', () => {
   });
 });
 
-describe('decodeServerMessage (issue #2045)', () => {
+describe('decodeServerMessage', () => {
   it('has a shape for every union variant and every sample decodes through JSON', () => {
     for (const [type, sample] of Object.entries(SERVER_SAMPLES)) {
       expect(SERVER_MESSAGE_SHAPES).toHaveProperty(type);
@@ -793,7 +793,7 @@ describe('decodeServerMessage (issue #2045)', () => {
     });
   });
 
-  it('accepts an error frame carrying its classification (#3289 §3), and one without it', () => {
+  it('accepts an error frame carrying its classification, and one without it', () => {
     const classified = {
       type: 'error',
       message: 'Authentication Error: invalid x-api-key',

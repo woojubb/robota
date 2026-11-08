@@ -21,7 +21,7 @@ describe('RemoteClient', () => {
     expect(html).toContain('Cannot pair');
   });
 
-  it('REGRESSION (#3289 §3 review): that unusable-pairing-link state is the page\'s one `main` landmark, since no host of this component can be relied on to supply it', () => {
+  it('REGRESSION: that unusable-pairing-link state is the page\'s one `main` landmark, since no host of this component can be relied on to supply it', () => {
     const html = renderToStaticMarkup(
       React.createElement(RemoteClient, { product: { identity: { displayName: 'Test Product', cliName: 'test-product' }, storage: { browserNamespace: 'test-product' } }, cryptoContext: createIdentityContext('test-product'), credentialDatabase: 'test-product-credentials', href: 'https://host.example/remote' }),
     );

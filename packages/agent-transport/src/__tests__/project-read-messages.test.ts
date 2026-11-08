@@ -1,5 +1,5 @@
 /**
- * #3282 §4c — the Project panel's reads dispatch: success answers the matching `project_*` message
+ * The Project panel's reads dispatch: success answers the matching `project_*` message
  * under the request's `requestId`; a rejected read becomes a `failed`/`unavailable` result (never an
  * uncaught rejection — the exact class of bug the `/memory` red-toast fix addresses at the command
  * layer, guarded again here at the wire boundary); a session that does not implement the capability

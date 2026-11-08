@@ -1,5 +1,5 @@
 /**
- * TC-09 — reversible disable overlays.
+ * Reversible disable overlays.
  *
  * "Reversible" is the property under test: a disabled entry is still listed with its provenance, so
  * re-enabling restores the identical resolved entry because nothing was removed to restore.
@@ -86,8 +86,7 @@ describe('applyDisableOverlay', () => {
   it('is a no-op for an empty overlay, with or without the disabled map', () => {
     const entries = [entry('alpha')];
     expect(applyDisableOverlay(entries, { disabled: {} })).toEqual(entries);
-    // `{}` is how a caller says "nothing is disabled"; it threw a TypeError until the MCP-001
-    // scenario ran and hit it.
+    // `{}` is how a caller says "nothing is disabled"; it once threw a TypeError.
     expect(applyDisableOverlay(entries, {})).toEqual(entries);
   });
 });

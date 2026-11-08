@@ -27,7 +27,7 @@ export function isSessionDeleteMessage(msg: TClientMessage): msg is TSessionDele
 }
 
 /**
- * #3189: the host's sessions. Listing answers on its own correlated reply. A new session or a switch
+ * The host's sessions. Listing answers on its own correlated reply. A new session or a switch
  * answers nothing on success: `session_switched` from the connection's own session is the signal. A
  * refusal answers `session_change_failed`, carrying the host's code (or `failed` for an error that is
  * not a declared refusal) and the request's `requestId`.
@@ -96,7 +96,7 @@ function failureMessage(error: Error | string): string {
 }
 
 /**
- * #3289 §1: rename a session from the list — current or not. Success replies with the new name so
+ * Rename a session from the list — current or not. Success replies with the new name so
  * the client can update it optimistically; the client also re-lists to pick up everything else a
  * rename can imply (nothing today, but the reply shape matches `delete-session`'s on purpose).
  */
@@ -131,7 +131,7 @@ export function handleSessionRenameMessage(
 }
 
 /**
- * #3289 §1: remove a stored session's record. Refused when it is live on another client or running a
+ * Remove a stored session's record. Refused when it is live on another client or running a
  * turn; deleting the current session switches this binding away first (the directory's own job), so
  * by the time this answers, the caller's own session is never the one just removed.
  */

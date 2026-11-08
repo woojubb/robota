@@ -1,7 +1,7 @@
 /**
- * TC-13: a transient, an authentication, a configuration and a not-found failure each classify
+ * A transient, an authentication, a configuration and a not-found failure each classify
  * distinctly, and only the transient class is retried; the other three are refused on first response
- * rather than retried blindly (MCP-003).
+ * rather than retried blindly.
  */
 import { SdkErrorCode, SdkHttpError, UnauthorizedError } from '@modelcontextprotocol/client';
 import { describe, expect, it } from 'vitest';
@@ -12,7 +12,7 @@ import { FakeSupervisorClock, fixtureTimeouts } from './supervisor-test-helpers.
 import { MCPSessionError } from '../client/session.js';
 import { classifyMcpFailure, MCPConnectionSupervisor } from '../supervisor/connection.js';
 
-describe('classifyMcpFailure — pure classification (TC-13)', () => {
+describe('classifyMcpFailure — pure classification', () => {
   it('classifies a network/timeout shape as transient', () => {
     expect(
       classifyMcpFailure(Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' })),
@@ -62,7 +62,7 @@ describe('classifyMcpFailure — pure classification (TC-13)', () => {
   });
 });
 
-describe('MCPConnectionSupervisor — only transient schedules a retry (TC-13)', () => {
+describe('MCPConnectionSupervisor — only transient schedules a retry', () => {
   it('schedules a retry after a transient connect failure', async () => {
     const clock = new FakeSupervisorClock();
     const supervisor = new MCPConnectionSupervisor({

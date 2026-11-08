@@ -13,7 +13,7 @@ import type { TPairingFrame } from '@robota-sdk/agent-remote-pairing';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /**
- * REMOTE-008 Step 1/5 — end-to-end PAIRED handshake over a REAL data channel. The host is a
+ * End-to-end PAIRED handshake over a REAL data channel. The host is a
  * `WebRtcTransport` with a `secret` (initiator ≡ offerer); the "remote device" here runs the RESPONDER
  * side of the same pairing handshake, then speaks the session protocol only after its own accept. Proves
  * the gate's routing switch works over a real channel: matching secrets → session exposed + round-trips;
@@ -23,7 +23,7 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 function createStubSession(): IInteractiveSession {
   return Object.assign(createTestInteractiveSession(), {
     getMessages: vi.fn().mockReturnValue([{ role: 'user', content: 'hi' }]),
-    // ARCH-012: required. This double feeds `subscribeSessionEvents`, which calls it on every
+    // Required. This double feeds `subscribeSessionEvents`, which calls it on every
     // turn-authored event — omitting it throws the moment a case emits one.
     getActiveDriverId: () => null,
     on: vi.fn(),
@@ -116,7 +116,7 @@ function connectRemotePaired(signaling: ISignalingClient, secret: string): IRemo
   return { session, paired, close: () => remoteChannel?.close() };
 }
 
-describe('WebRtc pairing end-to-end (REMOTE-008)', () => {
+describe('WebRtc pairing end-to-end', () => {
   it('matching secrets: both peers pair, the session is exposed, and get-messages round-trips', async () => {
     const secret = 'shared-secret-256bit-base64url-xyz';
     const [hostSig, remoteSig] = createInMemorySignalingPair();

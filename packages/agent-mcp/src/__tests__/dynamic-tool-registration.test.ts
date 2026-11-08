@@ -1,7 +1,7 @@
 const fixtureImage =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
 /**
- * TC-08 — a discovered tool registers through the EXISTING generic dynamic-tool contract (MCP-002).
+ * A discovered tool registers through the EXISTING generic dynamic-tool contract.
  *
  * No MCP-specific runtime branch is added anywhere: `createDiscoveredTool` returns an ordinary
  * `IToolWithEventService`, the same slot `MCPTool` and `RelayMcpTool` already fill and that
@@ -63,7 +63,7 @@ function okResult(): IMCPToolCallResult {
   return { content: [{ type: 'text', text: 'ran' }], isError: false };
 }
 
-/** The two methods the runtime's tool intake requires beyond the narrow `ITool` (TOOL-006). */
+/** The two methods the runtime's tool intake requires beyond the narrow `ITool`. */
 const REQUIRED = ['getName', 'setEventService'] as const;
 
 describe('a discovered MCP tool satisfies the runtime tool slot', () => {

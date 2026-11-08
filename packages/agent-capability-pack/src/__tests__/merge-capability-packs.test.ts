@@ -7,7 +7,7 @@ import type { ICapabilityPack } from '../capability-pack-types.js';
 import type { IAgentDefinition, ICommandModule } from '@robota-sdk/agent-framework';
 
 /**
- * ARCH-005 S1 — `mergeCapabilityPacks` is the additive analog of `resolvePreset`: a PURE, deterministic
+ * `mergeCapabilityPacks` is the additive analog of `resolvePreset`: a PURE, deterministic
  * fold that produces the `baseCommandModules ⊕ pack` superset and a `{ merged, rejected }` result. It never
  * silently overrides a colliding id (mirrors `IPresetRegistrationResult`).
  */

@@ -1,5 +1,5 @@
 /**
- * TC-03a — strict decoding.
+ * Strict decoding.
  *
  * Every refusal names the entry it refused. A decoder that returns a partial definition produces a
  * server that fails at connection time, by which point the operator can no longer see which file
@@ -132,7 +132,7 @@ describe('decodeEntry', () => {
   it('carries `env` on a remote definition rather than dropping it', () => {
     // The deliberate asymmetry with `args` above: `env` on a remote transport is not acted on
     // today, but it is kept, so it stays visible in a projection and inside the fingerprint.
-    // Whether a remote client should honor it is MCP-002's call, not this decoder's.
+    // Whether a remote client should honor it is the client's call, not this decoder's.
     const decoded = decodeEntry(raw({ type: 'http', url: 'https://a', env: { A: 'b' } }));
     expect((decoded as { reason?: string }).reason).toBeUndefined();
     expect((decoded as { env?: Record<string, string> }).env).toEqual({ A: 'b' });

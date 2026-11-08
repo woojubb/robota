@@ -1,5 +1,5 @@
 /**
- * SEC-010: proving a local peer shares this environment, using a fact the KERNEL enforces rather
+ * Proving a local peer shares this environment, using a fact the KERNEL enforces rather
  * than an artifact the peer presents.
  *
  * This is the whole point of the design. Every other admission mechanism in this package proves
@@ -25,7 +25,7 @@
  * diagnostic might, and would need a native addon to get it.
  *
  * NODE-ONLY, DELIBERATELY. The rest of this package is isomorphic (WebCrypto, no Node built-ins) and
- * runs in the Stage-D browser client. This file needs `node:fs`, so it lives behind the `/local`
+ * runs in the browser client. This file needs `node:fs`, so it lives behind the `/local`
  * subpath — a browser has no local peers and no filesystem to be judged.
  */
 
@@ -35,10 +35,10 @@ import path from 'node:path';
 /**
  * The trust level an admission carries, as a closed vocabulary rather than a boolean.
  *
- * #1810 asks the consumer to receive "a narrow typed authenticated-peer/admission result, not a
- * generic boolean", and the reason is visible here: `same-user-same-host` and `unproven` are not two
+ * The consumer receives a narrow typed authenticated-peer/admission result, not a generic
+ * boolean, and the reason is visible here: `same-user-same-host` and `unproven` are not two
  * values of one flag, they are different security situations, and a caller that treats them alike
- * has lost the distinction this item exists to create.
+ * has lost the distinction this type exists to create.
  */
 export type TLocalPeerTrust = 'same-user-same-host' | 'unproven';
 

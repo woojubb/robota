@@ -41,7 +41,7 @@ import type { IProtocolSession, TSessionSurfaceRole } from '@robota-sdk/agent-tr
 import type { RawData, WebSocket } from 'ws';
 
 /**
- * RUNTIME-13: forced-terminate deadline for `stop()`. `WebSocketServer.close()` fires its callback only after
+ * Forced-terminate deadline for `stop()`. `WebSocketServer.close()` fires its callback only after
  * every client socket is gone, so a still-connected client would hang `stop()` forever. We send a close frame
  * (1001 "going away") to each client, then `terminate()` any socket still open at this deadline — the RFC 6455
  * + `ws` + drain-then-force convention (a WS close handshake completes in well under a second; 5s is generous).
@@ -49,7 +49,7 @@ import type { RawData, WebSocket } from 'ws';
 const WS_STOP_TERMINATE_DEADLINE_MS = 5000;
 
 /**
- * TRANS-001: the WS transport is a payload-agnostic CARRIER that routes by WebSocket frame opcode —
+ * The WS transport is a payload-agnostic CARRIER that routes by WebSocket frame opcode —
  * TEXT frames go to the text-agent protocol profile (`createSessionMessageHandler`), BINARY frames go to the
  * consumer-declared channels. The two profiles share one connection and never constrain each other.
  */
@@ -85,7 +85,7 @@ export class WsTransport implements IConfigurableTransport<IProtocolSession>, IP
   constructor(config: IWsTransportConfig = {}) {
     this.port = config.port ?? DEFAULT_PORT;
     this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
-    // SEC-001/SEC-008: secure by default, decided by the shared seam rather than a copy here — see
+    // Secure by default, decided by the shared seam rather than a copy here — see
     // SPEC § Transport Admission. A failed mint throws out of the constructor (fail-closed).
     const admission = resolveWsAdmission(config);
     if (admission.token !== null) this.token = admission.token;
@@ -102,7 +102,7 @@ export class WsTransport implements IConfigurableTransport<IProtocolSession>, IP
   }
 
   /**
-   * TRANS-001: declare an app-level channel carried on this transport's connections. The channel's
+   * Declare an app-level channel carried on this transport's connections. The channel's
    * events and opaque binary frames ride alongside the text-agent protocol on the SAME socket — the
    * transport never inspects the payloads. Register before or after `start()`; a channel opened
    * later is served by every already-connected client.
@@ -119,7 +119,7 @@ export class WsTransport implements IConfigurableTransport<IProtocolSession>, IP
   }
 
   /**
-   * SEC-001: the resolved auth token (explicit or auto-minted), or `undefined` in the discouraged `open`
+   * The resolved auth token (explicit or auto-minted), or `undefined` in the discouraged `open`
    * mode. The surface reads this to deliver the token to the co-located client (a `0600` connection file /
    * the served monitor's injected `ws-url`). Never logged by the transport itself.
    */
@@ -175,7 +175,7 @@ export class WsTransport implements IConfigurableTransport<IProtocolSession>, IP
     this.state = 'detached';
   }
 
-  /** TRANS-002 (issue #2480): persisted `port`/`maxRetries` reach the server through here, before start. */
+  /** Persisted `port`/`maxRetries` reach the server through here, before start. */
   configure(options: Record<string, TUniversalValue>): void {
     if (this.state !== 'detached' && this.state !== 'attached') {
       throw transportLifecycleError(this.name, 'already-started');
@@ -273,7 +273,7 @@ export class WsTransport implements IConfigurableTransport<IProtocolSession>, IP
             return;
           }
 
-          // #3189: with a binder, this connection gets its own session and directory, so its
+          // With a binder, this connection gets its own session and directory, so its
           // switch (and the `session_switched` that follows) stays on this connection. The
           // binding and the handler both take the effective role.
           const bound = this.bindConnection(ws, decision.role);
@@ -294,7 +294,7 @@ export class WsTransport implements IConfigurableTransport<IProtocolSession>, IP
           });
 
           delivery.bindSinkDetach(
-            // ARCH-030: through the connection's own delivery, so payload frames share the text
+            // Through the connection's own delivery, so payload frames share the text
             // protocol's backpressure budget and its close policy. The bare `readyState` check plus
             // `ws.send` that stood here was the last outbound path on this socket outside the
             // boundary.
@@ -330,10 +330,10 @@ export class WsTransport implements IConfigurableTransport<IProtocolSession>, IP
           port,
           stop: () =>
             new Promise<void>((res) => {
-              // RUNTIME-13: graceful-then-forced shutdown. Send a close frame to each client so well-behaved
+              // Graceful-then-forced shutdown. Send a close frame to each client so well-behaved
               // peers close cleanly; terminate any socket still open at the deadline so `wss.close()`'s
               // all-clients-gone callback can never hang. `verifyClient`/token gates are connection-time and
-              // untouched here (SEC-001 preserved).
+              // untouched here (unchanged).
               for (const client of wss.clients) client.close(1001, 'server shutting down');
               const deadline = setTimeout(() => {
                 for (const client of wss.clients) client.terminate();

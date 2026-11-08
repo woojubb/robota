@@ -94,7 +94,7 @@ function createMockSession() {
     resolvePermission: vi.fn(),
     resolveAsk: vi.fn(),
     listCommands: vi.fn().mockReturnValue([]),
-    // ARCH-012: required members — the cast below used to hide their absence, so this
+    // Required members — the cast below used to hide their absence, so this
     // double was accepted while the real contract would have rejected it.
     isInitialized: true,
     getPendingCount: vi.fn().mockReturnValue(0),
@@ -159,7 +159,7 @@ describe('WebSocket Transport Handler', () => {
     expect(sent[0]!.type).toBe('context');
   });
 
-  it('#3186: get-commands sends the commands and skills a client can offer', () => {
+  it('get-commands sends the commands and skills a client can offer', () => {
     const { onMessage, session, sent } = setup();
     const command: ICommandListEntry = {
       name: 'help',
@@ -182,13 +182,13 @@ describe('WebSocket Transport Handler', () => {
     expect(sent).toEqual([{ type: 'commands', commands: [command], skills: [skill] }]);
   });
 
-  it('#3186: get-status sends the session status snapshot', () => {
+  it('get-status sends the session status snapshot', () => {
     const { onMessage, session, sent } = setup();
     onMessage(JSON.stringify({ type: 'get-status' }));
     expect(sent).toEqual([{ type: 'session_status', status: session.getStatusSnapshot() }]);
   });
 
-  it('#3282 §2: list-models sends the model list, echoing requestId', () => {
+  it('list-models sends the model list, echoing requestId', () => {
     const { onMessage, session, sent } = setup();
     const snapshot = {
       groups: [
@@ -208,7 +208,7 @@ describe('WebSocket Transport Handler', () => {
     expect(sent).toEqual([{ type: 'model_list', requestId: 'req-models-1', ...snapshot }]);
   });
 
-  it('#3282 §4: get-agent-definitions sends the roster and the current default, echoing requestId', () => {
+  it('get-agent-definitions sends the roster and the current default, echoing requestId', () => {
     const { onMessage, session, sent } = setup();
     const agents = [
       { name: 'general-purpose', description: 'General-purpose task execution agent.', definedIn: 'Built-in' },
@@ -238,7 +238,7 @@ describe('WebSocket Transport Handler', () => {
     expect(sent[0]).toEqual({ type: 'pending', pending: null, pendingCount: 0 });
   });
 
-  it('#3189: answers a submit with the queue once the prompt is taken, so a queued prompt shows', async () => {
+  it('answers a submit with the queue once the prompt is taken, so a queued prompt shows', async () => {
     const { onMessage, sent, session } = setup();
     const mock = session as unknown as {
       submit: ReturnType<typeof vi.fn>;
@@ -397,7 +397,7 @@ describe('WebSocket Transport Handler', () => {
     });
   });
 
-  // #3679 step 3b: a sealed transcript's page says how many records it could not show; the field
+  // A sealed transcript's page says how many records it could not show; the field
   // rides the wire to a client unchanged, and a page without it carries no such field.
   it('carries unreadable counts to the client, and a plain page byte for byte', async () => {
     const { onMessage, sent, session } = setup();
@@ -430,7 +430,7 @@ describe('WebSocket Transport Handler', () => {
     expect(JSON.stringify(plain)).toBe(JSON.stringify(plainMessage));
   });
 
-  it('command executes via session.executeCommand() tagged as a remote origin (REMOTE-003)', async () => {
+  it('command executes via session.executeCommand() tagged as a remote origin', async () => {
     const { onMessage, sent, session } = setup();
     onMessage(JSON.stringify({ type: 'command', name: 'clear' }));
     await new Promise((r) => setTimeout(r, 10));
@@ -438,15 +438,16 @@ describe('WebSocket Transport Handler', () => {
     expect(sent[0]!.type).toBe('command_result');
     // A transport-origin command is an untrusted remote origin — the handler tags it `'remote'` so the session
     // applies its (optional, allow-by-default) remote-command policy.
-    // CMD-004 Phase 2: the 4th arg is the command-origin driver id — undefined when the handler has
-    // no server-assigned id (unattributed; a client-sent id is NEVER trusted). The 5th (#3282 §4
-    // part b-2) is this carrier's locality — undefined here since this handler was not given one.
+    // The 4th arg is the command-origin driver id — undefined when the handler has
+    // no server-assigned id (unattributed; a client-sent id is NEVER trusted). The 5th is this
+    // carrier's
+    // locality — undefined here since this handler was not given one.
     expect(
       (session as unknown as { executeCommand: ReturnType<typeof vi.fn> }).executeCommand,
     ).toHaveBeenCalledWith('clear', '', 'remote', undefined, undefined);
   });
 
-  it('command carries the SERVER-ASSIGNED driver id as the command origin (CMD-004 Phase 2)', async () => {
+  it('command carries the SERVER-ASSIGNED driver id as the command origin', async () => {
     const session = createMockSession();
     const sent: TServerMessage[] = [];
     const { onMessage } = createSessionMessageHandler({
@@ -461,7 +462,7 @@ describe('WebSocket Transport Handler', () => {
     ).toHaveBeenCalledWith('settings', '', 'remote', 'device-7', undefined);
   });
 
-  it("forwards this carrier's commandSurfaceLocality to executeCommand (#3282 §4 part b-2)", async () => {
+  it("forwards this carrier's commandSurfaceLocality to executeCommand", async () => {
     const session = createMockSession();
     const sent: TServerMessage[] = [];
     const { onMessage } = createSessionMessageHandler({
@@ -476,7 +477,7 @@ describe('WebSocket Transport Handler', () => {
     ).toHaveBeenCalledWith('plugin', 'install demo@community', 'remote', undefined, 'remote');
   });
 
-  it('forwards ui_intent session events to the requesting client (CMD-004 Phase 2)', () => {
+  it('forwards ui_intent session events to the requesting client', () => {
     const session = createMockSession();
     const sent: TServerMessage[] = [];
     createSessionMessageHandler({
@@ -496,11 +497,11 @@ describe('WebSocket Transport Handler', () => {
     ]);
   });
 
-  // CMD-004 Stage D — `ui_intent` is REQUESTER-ROUTED (the spec's Key mechanics): the surface that
+  // `ui_intent` is REQUESTER-ROUTED (the spec's Key mechanics): the surface that
   // issued the command renders the intent; other surfaces never see it. Only an UNATTRIBUTED intent
   // (no requester id — e.g. an idle model-invoked command) reaches every surface, because it cannot
   // be routed and a silent drop is banned.
-  describe('ui_intent requester routing (CMD-004 Stage D)', () => {
+  describe('ui_intent requester routing', () => {
     function twoSurfaces() {
       const session = createMockSession();
       const sentA: TServerMessage[] = [];
@@ -565,7 +566,7 @@ describe('WebSocket Transport Handler', () => {
   it('submit without prompt sends protocol_error', () => {
     const { onMessage, sent } = setup();
     onMessage(JSON.stringify({ type: 'submit' }));
-    // TRANS-008: the wording changed with the guard. "required" was false for a prompt that WAS
+    // The wording changed with the guard. "required" was false for a prompt that WAS
     // provided and had the wrong type; the refusal is about shape and the message now says so.
     expect(sent[0]).toEqual({
       type: 'protocol_error',
@@ -573,7 +574,7 @@ describe('WebSocket Transport Handler', () => {
     });
   });
 
-  it('submit rejection surfaces a protocol_error (WS-001)', async () => {
+  it('submit rejection surfaces a protocol_error', async () => {
     const { onMessage, sent, session } = setup();
     (session as unknown as { submit: ReturnType<typeof vi.fn> }).submit.mockRejectedValueOnce(
       new Error('submit failed'),
@@ -583,7 +584,7 @@ describe('WebSocket Transport Handler', () => {
     expect(sent).toEqual([{ type: 'protocol_error', message: 'submit failed' }]);
   });
 
-  it('command rejection surfaces a protocol_error (WS-001)', async () => {
+  it('command rejection surfaces a protocol_error', async () => {
     const { onMessage, sent, session } = setup();
     (
       session as unknown as { executeCommand: ReturnType<typeof vi.fn> }
@@ -593,7 +594,7 @@ describe('WebSocket Transport Handler', () => {
     expect(sent).toEqual([{ type: 'protocol_error', message: 'command failed' }]);
   });
 
-  it("#3189: echoes a command's requestId on its result and on its failure, and on nothing else", async () => {
+  it("echoes a command's requestId on its result and on its failure, and on nothing else", async () => {
     const { onMessage, sent, session } = setup();
     const { executeCommand, submit } = session as unknown as {
       executeCommand: ReturnType<typeof vi.fn>;
@@ -699,7 +700,7 @@ describe('WebSocket Transport Handler', () => {
     ).toHaveBeenCalled();
   });
 
-  // ── REMOTE-007: transport-neutral permission/ask over the wire (TC-06) ──
+  // ── Transport-neutral permission/ask over the wire ──
 
   it('forwards a permission_request session event to the client, with the call id it names', () => {
     const { session, sent } = setup();

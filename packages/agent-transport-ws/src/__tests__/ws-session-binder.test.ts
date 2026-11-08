@@ -1,5 +1,5 @@
 /**
- * #3189: with a session binder, each WebSocket connection is bound to a session of its own. One
+ * With a session binder, each WebSocket connection is bound to a session of its own. One
  * connection's switch — and every event after it — stays on that connection, and the binding is
  * released when the connection closes. Without a binder every connection shares the attached session.
  */
@@ -152,7 +152,7 @@ async function settle(client: IClient, requestId: string): Promise<void> {
   );
 }
 
-describe('WsTransport session binder (#3189)', () => {
+describe('WsTransport session binder', () => {
   it('binds each connection to its own session and keeps a switch on the connection that made it', async () => {
     const { binder, bindings } = fakeBinder();
     const transport = await startTransport({ sessionBinder: binder });

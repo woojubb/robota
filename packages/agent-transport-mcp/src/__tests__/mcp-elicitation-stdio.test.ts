@@ -1,5 +1,6 @@
 /**
- * #3470 over the real stdio carrier: with the operator's switch on and a v2 client that declared
+ * Elicitation over the real stdio carrier: with the operator's switch on and a v2 client that
+ * declared
  * form-mode elicitation, a permission or ask prompt raised by that client's own call is put to the
  * client and its answer settles the prompt; in every other case nothing is sent and the call ends
  * exactly as before.

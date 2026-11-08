@@ -1,7 +1,7 @@
 /**
  * Predicates over the pairing/reconnect frame vocabulary the gate admits pre-accept.
  *
- * Issue #2046: these are thin adapters over the OWNER codec in `@robota-sdk/agent-remote-pairing`,
+ * These are thin adapters over the OWNER codec in `@robota-sdk/agent-remote-pairing`,
  * which decodes every required field (presence, base64url, length ceiling) rather than only the `t`
  * discriminator this file used to check. A true answer means the narrowed value is well-formed; the
  * browser `ResponderGate` imports the same codec, so one corpus governs both carriers.
@@ -18,7 +18,7 @@ import {
 
 export type { IEnrollFrame };
 
-/** True when a parsed value is a well-formed B3 pairing frame (`pair-nonce` | `pair-confirm`). */
+/** True when a parsed value is a well-formed pairing frame (`pair-nonce` | `pair-confirm`). */
 export function isPairingFrame(value: unknown): value is TPairingFrame {
   return decodePairingFrame(value).ok;
 }
