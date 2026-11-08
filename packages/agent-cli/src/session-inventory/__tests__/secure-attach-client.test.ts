@@ -20,6 +20,22 @@ import { runSessionViewCommand } from '../session-view-command.js';
 import { resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
 import * as supervisedControl from '../supervised-session-control.js';
 
+/**
+ * Waits until `invalidate` has been called and then stayed silent for a while. One change is told by
+ * more than one signal: a lock sends the custody notice and then retires the driver's own link,
+ * which invalidates again a millisecond or two later. A count of exactly one holds only if a poll
+ * lands between the two, so the test asks for at least one call and for the calls to have stopped,
+ * and a call that arrives late can no longer be counted toward the next step.
+ */
+async function invalidationSettled(invalidate: ReturnType<typeof vi.fn>): Promise<void> {
+  const QUIET_MS = 250;
+  await vi.waitFor(() => expect(invalidate).toHaveBeenCalled(), { timeout: 2_000 });
+  for (let seen = -1; seen !== invalidate.mock.calls.length; ) {
+    seen = invalidate.mock.calls.length;
+    await new Promise<void>((resolve) => setTimeout(resolve, QUIET_MS));
+  }
+}
+
 it('attaches an owner over the verified link and unlocks before detaching', async () => {
   const home = realpathSync(mkdtempSync(join(process.platform === 'win32' ? tmpdir() : realpathSync('/tmp'), 'sat-')));
   const env = createTestBinaryEnvironment(home, { PRODUCT_TELEMETRY_ENABLED: '0' });
@@ -59,11 +75,11 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
       await new Promise<void>((resolve) => setImmediate(resolve));
       expect(invalidated).not.toHaveBeenCalled();
       await otherLink.unlock();
-      await vi.waitFor(() => expect(invalidated).toHaveBeenCalledOnce(), { timeout: 2_000 });
+      await invalidationSettled(invalidated);
       expect(otherLink.custody.unlocked).toBe(true);
       invalidated.mockClear();
       await otherLink.lock('explicit');
-      await vi.waitFor(() => expect(invalidated).toHaveBeenCalledOnce(), { timeout: 2_000 });
+      await invalidationSettled(invalidated);
       unsubscribe();
       await driver.detach();
     } finally { otherLink.close(); }
