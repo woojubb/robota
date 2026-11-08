@@ -124,7 +124,7 @@ export function runModeA(): void {
   );
   check(
     'the overlay carries the pack tools as additionalTools',
-    (options.additionalTools ?? []).length === 10,
+    (options.additionalTools ?? []).length === 9,
   );
   const session = product.buildRuntime({
     session: { host, cwd: process.cwd(), provider: product.provider!, bare: true },

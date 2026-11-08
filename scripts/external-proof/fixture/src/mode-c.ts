@@ -172,7 +172,7 @@ export async function runModeC(): Promise<void> {
     'the consumer tool reaches the session options as an additionalTool',
     (options.additionalTools ?? []).some((tool) => tool.getName() === 'AcmeTicketLookup'),
   );
-  checkEqual('all eleven merged tools are overlaid', (options.additionalTools ?? []).length, 11);
+  checkEqual('all ten merged tools are overlaid', (options.additionalTools ?? []).length, 10);
   checkEqual(
     'the command-module axis is overlaid on the same path',
     (options.commandModules ?? []).map((commandModule) => commandModule.name),
