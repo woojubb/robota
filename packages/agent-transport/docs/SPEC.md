@@ -24,9 +24,12 @@ by transport implementations.
   which only grows, crosses in bounded pages read one after another, and a turn's result leaves it
   out, so a peer that keeps reading is never taken for one that stopped. No fallback transport is
   ever selected on behalf of a caller.
-- Carriers supply `TOutboundDeliver` and an `IProtocolSession`, and decide each connection's role;
-  no carrier implementation is registered inside this package. An observing connection reads only its own
-  session's conversation and state, plus the host's list of sessions: it cannot submit, answer,
+- Carriers supply `TOutboundDeliver` and an `IProtocolSession`; no carrier implementation is
+  registered inside this package. A connection's role is the most its carrier's host granted,
+  lowered when the client asks for less and never raised: one shared decision answers that for every
+  carrier, and every path that carries the protocol into a session applies the same role, so no
+  carrier or bridge admits a message the role forbids. A client can ask which role it has. An
+  observing connection reads only its own session's conversation and state, plus the host's list of sessions: it cannot submit, answer,
   control, invoke a tool, switch sessions, or read another session's records, and it never listens for
   prompts, so a session watched only by observers still fails its prompts closed at once. A driving
   connection may invoke one runtime tool for a hosted app view only through the session's permission

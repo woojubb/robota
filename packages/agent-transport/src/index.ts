@@ -26,10 +26,9 @@
  */
 
 export { createSessionMessageHandler } from './session-message-handler.js';
-export type {
-  ISessionMessageHandlerOptions,
-  TSessionSurfaceRole,
-} from './session-message-handler.js';
+export type { ISessionMessageHandlerOptions } from './session-message-handler.js';
+export { handleSurfaceRoleMessage, resolveSurfaceRole } from './surface-role.js';
+export type { TSurfaceRoleDecision, TSurfaceRoleRefusal } from './surface-role.js';
 // ARCH-030: the connection-scoped outbound delivery boundary every carrier builds and passes down.
 export {
   ATTACHED_SURFACE_MAX_PENDING_BYTES,
@@ -58,6 +57,7 @@ export type {
   TClientMessage,
   TServerMessage,
   TSeqServerMessage,
+  TSessionSurfaceRole,
   TWireExecutionResult,
 } from './wire-messages.js';
 // Issue #2045: the owner-side runtime decoders; carriers implement `raw → decodeFrame → typed`.

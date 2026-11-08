@@ -110,6 +110,16 @@ describe('observe role', () => {
     expect(session.readToolAppView).not.toHaveBeenCalled();
   });
 
+  it('answers get-surface-role with the connection role, and never refuses it to an observer', () => {
+    const session = createSession();
+    const observer = attach(session, 'observe');
+    observer.send({ type: 'get-surface-role' });
+    expect(observer.sent).toEqual([{ type: 'surface_role', role: 'observe' }]);
+    const drive = attach(session);
+    drive.send({ type: 'get-surface-role' });
+    expect(drive.sent).toEqual([{ type: 'surface_role', role: 'drive' }]);
+  });
+
   it('keeps the read queries for this session', () => {
     const session = createSession();
     const observer = attach(session, 'observe');

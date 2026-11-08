@@ -28,6 +28,7 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'get-context': { type: 'get-context' },
   'get-commands': { type: 'get-commands' },
   'get-status': { type: 'get-status' },
+  'get-surface-role': { type: 'get-surface-role' },
   'list-models': { type: 'list-models', requestId: 'request-6' },
   'get-agent-definitions': { type: 'get-agent-definitions', requestId: 'request-7' },
   'list-sessions': { type: 'list-sessions', requestId: 'request-3' },
@@ -147,6 +148,7 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
   turn_source: { type: 'turn_source', source: 'peer' },
   commands: { type: 'commands', commands: [], skills: [] },
   session_status: { type: 'session_status', status: {} as never },
+  surface_role: { type: 'surface_role', role: 'observe' },
   model_list: {
     type: 'model_list',
     requestId: 'request-6',
@@ -659,6 +661,7 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
     { type: 'waiting_loop_stop', requestId: 'r', outcome: { kind: 'toString' } },
   ],
   ['settings without requestId', { type: 'settings', settings: {} }],
+  ['surface_role with an unknown role', { type: 'surface_role', role: 'admin' }],
   ['settings with an array settings', { type: 'settings', requestId: 'r', settings: [] }],
   [
     'settings_error with an unknown code',

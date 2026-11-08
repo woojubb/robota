@@ -236,6 +236,7 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
   'get-context': {},
   'get-commands': {},
   'get-status': {},
+  'get-surface-role': {},
   'list-models': { requestId: isNonEmptyString },
   'get-agent-definitions': { requestId: isNonEmptyString },
   'list-sessions': { requestId: isNonEmptyString },
@@ -341,6 +342,7 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   turn_source: { source: oneOf(Object.keys(TURN_SOURCES)) },
   commands: { commands: isRecordArray, skills: isRecordArray },
   session_status: { status: isRecord },
+  surface_role: { role: oneOf(['drive', 'observe']) },
   model_list: {
     requestId: isNonEmptyString,
     groups: isRecordArray,
