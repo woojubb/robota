@@ -5,12 +5,12 @@
 `@robota-sdk/starter-nextjs` is a minimal Next.js starter template demonstrating how to embed the
 Robota SDK into a web application: a single chat API route that invokes the configured agent runtime and
 returns its reply. It is the canonical reference for wiring `@robota-sdk/agent-framework` and
-`@robota-sdk/agent-provider-anthropic` together inside a Next.js App Router API route.
+`@robota-sdk/agent-provider` together inside a Next.js App Router API route.
 
 ## Contract
 
 - Does not implement any agent runtime, session, or provider logic — all AI execution is delegated to
-  `@robota-sdk/agent-framework` and `@robota-sdk/agent-provider-anthropic`.
+  `@robota-sdk/agent-framework` and `@robota-sdk/agent-provider`.
 - Does not manage conversation history or session persistence across requests; each request creates a
   fresh runtime and session.
 - Does not define custom authentication, rate limiting, or middleware, and exports no library symbols
