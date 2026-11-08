@@ -24,7 +24,7 @@ function makeEntry(overrides: Partial<IExecutionWorkspaceEntry>): IExecutionWork
   };
 }
 
-/** SCREEN-1992 TC-04: the tick advances the countdown once a second, only while one exists. */
+/** The tick advances the countdown once a second, only while one exists. */
 describe('BackgroundTaskPanel countdown tick', () => {
   beforeEach(() => {
     vi.useFakeTimers();

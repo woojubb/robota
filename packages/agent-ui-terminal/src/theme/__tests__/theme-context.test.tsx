@@ -1,5 +1,5 @@
 /**
- * SCREEN-2002 TC-05/TC-06 — the resolved theme reaches components, and motion has one owner.
+ * The resolved theme reaches components, and motion has one owner.
  *
  * The reduced-motion input is the accessibility setting this item exists for, so it is asserted
  * against the component that consumes it rather than against the hook in isolation: `WaveText` must
@@ -35,7 +35,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('reduced motion (SCREEN-2002 TC-06)', () => {
+describe('reduced motion', () => {
   const originalLevel = chalk.level;
   const TRUECOLOR = 3;
   beforeAll(() => {
@@ -92,7 +92,7 @@ describe('reduced motion (SCREEN-2002 TC-06)', () => {
   });
 });
 
-describe('a provided theme reaches components (SCREEN-2002 TC-05)', () => {
+describe('a provided theme reaches components', () => {
   // These assertions are about the emitted SGR, so the level is forced for them.
   const originalLevel = chalk.level;
   const TRUECOLOR = 3;
@@ -121,11 +121,11 @@ function openCode(color: string): string {
 }
 
 /**
- * SCREEN-2002: `/theme syntax off` persisted a setting that reached nothing until this travelled
+ * `/theme syntax off` persisted a setting that reached nothing until this travelled
  * with the theme — the command reported success for a no-op. So the assertion is that the value
  * ARRIVES at a consumer, not merely that the provider accepts it.
  */
-describe('syntax highlighting travels with the theme (SCREEN-2002 TC-03)', () => {
+describe('syntax highlighting travels with the theme', () => {
   function Probe(): React.ReactElement {
     return <Text>{`syntax:${String(useSyntaxHighlighting())}`}</Text>;
   }

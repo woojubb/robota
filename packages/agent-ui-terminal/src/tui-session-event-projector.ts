@@ -26,13 +26,13 @@ export interface ITuiSessionEventProjectorOptions {
     id: string,
     canPersistProjectPermission?: boolean,
     requestedByPeer?: string,
-    /** Issue #3288 §1: a background agent's own request, forwarded to the person. */
+    /** A background agent's own request, forwarded to the person. */
     requester?: TPermissionRequester,
   ) => Promise<TPermissionResultValue>;
   askUser: (request: IActionRequest, id: string) => Promise<TActionResponse>;
   dismissPrompt: (id: string) => void;
   onDeliveryError?: (error: Error, event: TInteractiveEventName) => void;
-  /** SCREEN-1992: fed the events the interval recap counts; absent ⇒ nothing is counted. */
+  /** Fed the events the interval recap counts; absent ⇒ nothing is counted. */
   attention?: AttentionCoordinator;
 }
 
@@ -79,7 +79,7 @@ export class TuiSessionEventProjector {
     this.bind('memory_event', syncHistory);
     this.bind('execution_workspace_event', onExecutionWorkspaceEvent);
     this.bind('history_cleared', () => manager.clearHistory());
-    // SCREEN-1992: subscribed regardless, so the channel's subscribed set equals the classification.
+    // Subscribed regardless, so the channel's subscribed set equals the classification.
     this.bind('turn_source', (source) => attention?.onTurnSource(source));
     bindTuiSessionNoticeEvents(this.bind.bind(this), manager);
 

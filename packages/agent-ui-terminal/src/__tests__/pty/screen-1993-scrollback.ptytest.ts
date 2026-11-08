@@ -1,5 +1,5 @@
 /**
- * SCREEN-1993 TC-10: the transcript decision's evidence, on the real binary.
+ * The transcript decision's evidence, on the real binary.
  *
  * The item asked for a way to "search prompt history and conversation transcripts"; the spec ships
  * prompt-history search and REJECTS an in-app transcript viewer because the terminal's own scrollback
@@ -76,7 +76,7 @@ function seedSession(homeDir: string, cwd: string): void {
   );
 }
 
-describe('SCREEN-1993 TC-10: the resumed transcript lives in native scrollback', () => {
+describe('the resumed transcript lives in native scrollback', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 

@@ -1,7 +1,7 @@
 /**
  * Single source of truth for "should this process emit color + motion to the
  * terminal?" — used by both the markdown renderer (color) and WaveText (motion),
- * so the two never disagree (SCREEN-008).
+ * so the two never disagree.
  *
  * Precedence:
  *  - `NO_COLOR` present (any value, including empty) → off (per the NO_COLOR convention).
@@ -17,14 +17,14 @@ export function isInteractiveColorTerminal(): boolean {
 }
 
 /**
- * CLI-062 — may this process position the REAL terminal cursor for IME composition?
+ * May this process position the REAL terminal cursor for IME composition?
  *
  * Precedence:
  *  - Host override true → on (explicit opt-in for Terminal.app); false → off.
  *  - `TERM_PROGRAM=Apple_Terminal` → off by default (invariant I5): the historical Korean-IME
  *    SIGSEGV is an Apple-side `attributedSubstringFromRange:` bug; its trigger geometry is gone
  *    (measured y + post-<Static> tiny frame), but Terminal.app stays opt-in until the manual
- *    matrix passes on real hardware. The CLI-052 startup warning remains in place.
+ *    matrix passes on real hardware. The startup warning remains in place.
  *  - otherwise → on only when stdout is an interactive TTY (ink writes no cursor sequences at
  *    all on a non-TTY, so this is defense in depth).
  */
@@ -38,7 +38,7 @@ export function supportsImeCursorPositioning(
 }
 
 /**
- * CLI-2004 — may this process write OSC 133 shell-integration marks at agent-turn boundaries?
+ * May this process write OSC 133 shell-integration marks at agent-turn boundaries?
  *
  * The marks are otherwise harmless: every emulator surveyed discards an unknown OSC sequence, so
  * this gate carries DOCUMENTED negatives, not a capability probe. The support table (the TUI
@@ -59,7 +59,7 @@ export function supportsTurnMarks(options: { override?: boolean | undefined } = 
 }
 
 /**
- * SCREEN-1992 — may this process ask the terminal to report focus changes (DECSET 1004)?
+ * May this process ask the terminal to report focus changes (DECSET 1004)?
  *
  * The mode is harmless where unimplemented (the request is discarded and no `CSI I`/`CSI O` ever
  * arrives), so the gate is the interactive-TTY check plus an override the product shell injects from

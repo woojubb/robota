@@ -1,5 +1,5 @@
 /**
- * FLOW-2006 TC-09 — the three user-execution scenarios on the BUILT binary.
+ * The three user-execution scenarios on the BUILT binary.
  *
  * Scenario 1 runs in a real PTY: a link opens the trusted fixture repository with the prompt in the
  * composer, unsent, labelled as external, and only Enter submits it. Scenarios 2 and 3 are process
@@ -195,7 +195,7 @@ function malformedLinks(fixture: IFixture): readonly (readonly [string, string])
   ];
 }
 
-describe('configured open deep link through the CLI binary (FLOW-2006 TC-09)', () => {
+describe('configured open deep link through the CLI binary', () => {
   let fixture: IFixture | undefined;
   let session: IPtySession | undefined;
 

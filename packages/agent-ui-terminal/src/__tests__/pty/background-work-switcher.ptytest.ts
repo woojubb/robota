@@ -1,5 +1,5 @@
 /**
- * TEST-010 / SCREEN-013: the background-work drill-in entry point, observed through a real PTY.
+ * The background-work drill-in entry point, observed through a real PTY.
  *
  * Component tests cover the switcher selection + detail pane in isolation; this asserts the
  * App-level wiring end to end against the BUILT CLI binary: pressing `Ctrl+B` in the live TUI
@@ -21,7 +21,7 @@ import type { IPtySession } from './pty-driver.js';
 
 const CTRL_B = '\x02';
 
-describe('Background-work drill-in entry point through a real PTY (TEST-010 / SCREEN-013)', () => {
+describe('Background-work drill-in entry point through a real PTY', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 

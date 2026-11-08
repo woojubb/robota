@@ -1,5 +1,5 @@
 /**
- * SCREEN-1993 — the reverse prompt-history search overlay (Ctrl+R), rendered inside the input area
+ * The reverse prompt-history search overlay (Ctrl+R), rendered inside the input area
  * on the `SlashAutocomplete` pattern. The query line, the scope label, the matches newest-first with
  * the query highlighted, the load state and the footer of live keys.
  *

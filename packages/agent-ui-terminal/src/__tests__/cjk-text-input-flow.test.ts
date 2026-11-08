@@ -110,7 +110,7 @@ describe('cjk text input flow', () => {
 });
 
 /**
- * CLI-2004 — `Ctrl+W` and `Ctrl+U` are NEW BINDINGS, and they are unconditional.
+ * `Ctrl+W` and `Ctrl+U` are NEW BINDINGS, and they are unconditional.
  *
  * Ink reports `Ctrl+W` as `input: 'w'` with `ctrl: true`, so before this change the keystroke fell
  * through to the printable path and typed a literal `w` into the buffer. That is a defect on the
@@ -118,7 +118,7 @@ describe('cjk text input flow', () => {
  * a change to today's behaviour, and these cases are where that change is pinned. What the mode adds
  * is only the announcement, which is `InputArea`'s to render from `deleted` / `deletedScope`.
  */
-describe('CLI-2004 — word and line deletion are default bindings, not mode-gated ones', () => {
+describe('word and line deletion are default bindings, not mode-gated ones', () => {
   it('Given Ctrl+W When applied Then the word before the cursor is deleted, not a "w" typed', () => {
     const result = applyCjkTextInput(
       createCjkTextInputFlowState('hello world'),

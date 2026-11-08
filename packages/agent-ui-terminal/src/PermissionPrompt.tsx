@@ -153,7 +153,7 @@ export default function PermissionPrompt({
     ['confirm', 'Confirm'],
   ]);
 
-  // Issue #3288 §1: a background agent's own request, read out/shown before the tool name.
+  // A background agent's own request, read out/shown before the tool name.
   const backgroundAgentLabel =
     request.requester?.kind === 'background-agent' ? request.requester.label : undefined;
 
@@ -211,7 +211,7 @@ export default function PermissionPrompt({
           Requested by another session: {request.requestedByPeer}
         </Text>
       ) : null}
-      {/* Issue #2351: the "always" options carry the consent scope, so they no longer fit one row
+      {/* The "always" options carry the consent scope, so they no longer fit one row
           of the prompt box — a row wrapped `Allow [y]` across two lines. One option per line. */}
       <Box marginTop={1} flexDirection="column">
         {options.map((opt, i) => {

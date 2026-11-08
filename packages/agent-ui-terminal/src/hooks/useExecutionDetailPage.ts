@@ -1,7 +1,7 @@
 /**
  * Loads the inline detail page for the selected background-execution entry.
  *
- * Extracted from `App.tsx` (CLI-2004): three pieces of state and one async effect that exist only
+ * Extracted from `App.tsx`: three pieces of state and one async effect that exist only
  * for the detail pane, sitting in the middle of the component's input handlers. One responsibility,
  * one module — and the App keeps room for the concerns that actually belong to it.
  */

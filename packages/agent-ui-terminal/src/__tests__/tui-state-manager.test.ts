@@ -71,7 +71,7 @@ describe('TuiStateManager', () => {
     expect(mgr.activeTools[0]!.result).toBe('success');
   });
 
-  it('#3288: two parallel same-named calls are attributed by executionId, not by name+running order', () => {
+  it('two parallel same-named calls are attributed by executionId, not by name+running order', () => {
     const mgr = new TuiStateManager();
     mgr.onToolStart({ toolName: 'Read', firstArg: 'a.ts', isRunning: true, executionId: 'exec-a' });
     mgr.onToolStart({ toolName: 'Read', firstArg: 'b.ts', isRunning: true, executionId: 'exec-b' });
@@ -187,7 +187,7 @@ describe('TuiStateManager', () => {
     expect(mgr.history).toHaveLength(2);
   });
 
-  it('addEntry is append-only — no windowing (SCREEN-010)', () => {
+  it('addEntry is append-only — no windowing', () => {
     const mgr = new TuiStateManager();
     for (let i = 0; i < 110; i++) {
       mgr.addEntry({
@@ -203,7 +203,7 @@ describe('TuiStateManager', () => {
     expect(mgr.history[0]!.id).toBe('0');
   });
 
-  it('syncHistory replaces with the authoritative session history — no windowing (SCREEN-010)', () => {
+  it('syncHistory replaces with the authoritative session history — no windowing', () => {
     const mgr = new TuiStateManager();
     mgr.addUserEcho({ id: 'old', timestamp: new Date(), category: 'chat', type: 'user' } as never);
     // syncHistory is the SSOT replace: the session's full (growing) history becomes the committed list.
@@ -247,7 +247,7 @@ describe('TuiStateManager', () => {
     expect(mgr.history.map((e) => e.id)).toEqual(['s1']);
   });
 
-  it('TC-09: syncHistory keeps the full session history without front-truncation', () => {
+  it('syncHistory keeps the full session history without front-truncation', () => {
     const mgr = new TuiStateManager();
     const entries = Array.from(
       { length: 250 },

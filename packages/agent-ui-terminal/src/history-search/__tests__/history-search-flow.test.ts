@@ -14,7 +14,7 @@ function entry(text: string, sessionId = 's1', project = '/p1'): IPromptHistoryE
   return { at: '2026-01-01T00:00:00.000Z', sessionId, project, text };
 }
 
-describe('history-search-flow (SCREEN-1993 TC-03)', () => {
+describe('history-search-flow', () => {
   it('filters case-insensitively with every match range, and an empty query matches all', () => {
     const entries = [
       entry('Deploy the canary'),

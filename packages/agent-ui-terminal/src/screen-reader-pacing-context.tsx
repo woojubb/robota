@@ -1,5 +1,5 @@
 /**
- * SCREEN-2670 — the one place a component reaches the owned write path.
+ * The one place a component reaches the owned write path.
  *
  * Mirrors `screen-reader-context.tsx`: the port is published from `render.tsx`, no component takes
  * it as a prop from its parent, so a missed prop cannot silently leave one component writing past

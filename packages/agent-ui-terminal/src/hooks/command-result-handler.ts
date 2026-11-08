@@ -1,5 +1,5 @@
 /**
- * Renders a system-command result into the TUI state (CMD-004 Phase 2).
+ * Renders a system-command result into the TUI state.
  *
  * Pure rendering only: host actions were already executed (and consumed) by the session layer,
  * screen navigation arrives via the requester-routed `ui_intent` session event (`useSideEffects`),

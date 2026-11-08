@@ -1,5 +1,5 @@
 /**
- * CLI-2004 — OSC 133 shell-integration marks at agent-turn boundaries.
+ * OSC 133 shell-integration marks at agent-turn boundaries.
  *
  * `OSC 133 ; A` marks prompt start, `; B` prompt end, `; C` pre-execution and `; D` execution
  * finished. Terminals that implement the protocol turn those into jump-to-previous-prompt

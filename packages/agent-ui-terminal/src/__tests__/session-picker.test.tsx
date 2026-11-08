@@ -50,7 +50,7 @@ describe('session ids on screen', () => {
   });
 });
 
-describe('live sessions in the picker (#3189)', () => {
+describe('live sessions in the picker', () => {
   function entry(id: string, name: string, extra: Partial<ISessionListingEntry>): ISessionListingEntry {
     return { ...summary(id, name), ...extra };
   }

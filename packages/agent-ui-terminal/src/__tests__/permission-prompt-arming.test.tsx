@@ -8,7 +8,7 @@ import { ScreenReaderProvider } from '../screen-reader-context.js';
 import type { IPendingPermissionRequest } from '../types.js';
 
 /**
- * #3189: the permission prompt replaces the composer while the user may still be typing, and its
+ * The permission prompt replaces the composer while the user may still be typing, and its
  * keys are ordinary letters and digits. A key typed as it appears must not answer it; keys answer
  * only once it is armed.
  */
