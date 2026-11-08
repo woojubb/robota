@@ -1,5 +1,5 @@
 /**
- * permissionDecision fires from PermissionEnforcer right after
+ * PermissionDecision fires from PermissionEnforcer right after
  * `evaluatePermission`, via the shared `runHooks` / `hookTypeExecutors` path, carrying the reported
  * decision. INFORMATIONAL-ONLY: fire-and-forget, so it cannot change the permission outcome.
  */

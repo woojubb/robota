@@ -1,5 +1,5 @@
 /**
- * interactiveSession goal wiring. Verifies that setGoal seeds state, emits the
+ * InteractiveSession goal wiring. Verifies that setGoal seeds state, emits the
  * lifecycle event, and schedules the first goal-driven turn through the wakeup
  * primitive, and that cancelGoal stops it. The loop-advancement decision logic is unit-tested
  * in goal/__tests__/goal-controller.test.ts.
