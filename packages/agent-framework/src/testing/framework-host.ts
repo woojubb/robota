@@ -1,4 +1,4 @@
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 import { createNodeFrameworkHost } from '../node.js';
 

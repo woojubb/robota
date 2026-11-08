@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-tools",
   "version": "3.2.2",
-  "description": "Zod-validated function tools, built-in tool factories and sandbox ports for the Robota SDK",
+  "description": "Zod-validated function tools, built-in tool factories, sandbox ports and the default tool set for the Robota SDK",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -27,6 +27,18 @@
       "require": {
         "types": "./dist/node.d.cts",
         "default": "./dist/node.cjs"
+      }
+    },
+    "./defaults": {
+      "source": "./src/defaults/index.ts",
+      "browser": null,
+      "import": {
+        "types": "./dist/defaults.d.ts",
+        "default": "./dist/defaults.js"
+      },
+      "require": {
+        "types": "./dist/defaults.d.cts",
+        "default": "./dist/defaults.cjs"
       }
     },
     "./package.json": "./package.json"

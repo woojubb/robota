@@ -6,18 +6,18 @@
  * composition roots (entry-point-only)" — not something a mid-layer assembly library owns, publishes
  * and self-consumes.
  *
- * The move is what carries the guarantee. `agent-subagent-runner` may depend on `agent-framework`
- * (it needs `createSubagentSession` and friends) but has no manifest edge to THIS package, so
- * `import { createDefaultTools } from '@robota-sdk/agent-tool-defaults'` does not resolve there at
- * all. A neutral runner composing the product's tool surface is now a compile error rather than a
- * scan finding — the same shape as on the provider axis with
- * `@robota-sdk/agent-builtin-providers`.
+ * The package boundary is what carries the guarantee. `agent-subagent-runner` may depend on
+ * `agent-framework` (it needs `createSubagentSession` and friends) but has no manifest edge to
+ * `@robota-sdk/agent-tools`, so `import { createDefaultTools } from '@robota-sdk/agent-tools/defaults'`
+ * does not resolve there at all. A neutral runner composing the product's tool surface is a compile
+ * error rather than a scan finding — the same shape as on the provider axis with
+ * `@robota-sdk/agent-provider/builtin`.
  *
  * `DEFAULT_TOOL_DESCRIPTIONS` deliberately did NOT come along: its only consumer builds the system
  * prompt synchronously, and dragging it here would force either a static edge back into this leaf or
  * a second async hop through prompt building. It stays beside its consumer in `agent-framework`.
  */
-import { createAskUserQuestionTool, routesFilesThroughSandbox } from '@robota-sdk/agent-tools';
+import { createAskUserQuestionTool, routesFilesThroughSandbox } from '../index.js';
 import {
   createShellTool,
   createBashTool,
@@ -27,10 +27,10 @@ import {
   createGlobTool,
   createGrepTool,
   createWebFetchTool,
-} from '@robota-sdk/agent-tools/node';
+} from '../node.js';
 
 import type { FunctionTool } from '@robota-sdk/agent-core';
-import type { IEditorFileAccess, ISandboxClient } from '@robota-sdk/agent-tools';
+import type { IEditorFileAccess, ISandboxClient } from '../index.js';
 
 /**
  * Create the default set of CLI tools.

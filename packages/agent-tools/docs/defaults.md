@@ -1,11 +1,8 @@
-# @robota-sdk/agent-tool-defaults
-
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
+# @robota-sdk/agent-tools/defaults
 
 The Robota SDK's built-in default tool set. `createDefaultTools()` builds the tools an agent session
 gets when its composition root supplies no tool list of its own, using the tool factories from
-`@robota-sdk/agent-tools` and `@robota-sdk/agent-tools/node`. It implements no tool itself. File tools that run on the host are
+the neutral and `./node` entries of `@robota-sdk/agent-tools`. It implements no tool itself. File tools that run on the host are
 contained by the `cwd` you pass; with a `sandboxClient` that has its own filesystem, file paths go to
 the sandbox and `cwd` does not confine them. Import it at a composition root (the place that
 assembles an agent), not from library code.
@@ -13,15 +10,17 @@ assembles an agent), not from library code.
 ## Installation
 
 ```bash
-npm install @robota-sdk/agent-tool-defaults @robota-sdk/agent-core
+npm install @robota-sdk/agent-tools @robota-sdk/agent-core
 ```
+
+The entry is Node only (`browser: null`).
 
 ## Usage
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 declare const provider: IAIProvider;
 
@@ -66,16 +65,17 @@ When the sandbox shares the host filesystem, file tools stay on the host, contai
 | `sandboxClient`   | `ISandboxClient` | Runs commands (and, on a separate filesystem, file tools) in a sandbox.                                                                                                    |
 | `shellExecutable` | `string`         | Host-selected executable for `Shell` and `Bash`.                                                                                                                           |
 
-`ISandboxClient` is exported by `@robota-sdk/agent-tools`.
+`ISandboxClient` is exported by the main `@robota-sdk/agent-tools` entry.
 
 ## Related packages
 
-- [`@robota-sdk/agent-tools`](../agent-tools/README.md): the tool factories, the tool registry and
-  the sandbox clients.
-- [`@robota-sdk/agent-core`](../agent-core/README.md): the `ConversationAgent` agent and the tool contract.
+- [`@robota-sdk/agent-tools`](../README.md): the tool factories, the tool registry and the sandbox
+  clients.
+- [`@robota-sdk/agent-core`](../../agent-core/README.md): the `ConversationAgent` agent and the tool
+  contract.
 
-See [docs/SPEC.md](docs/SPEC.md) for the package contract.
+See [SPEC.md](./SPEC.md) for the package contract.
 
 ## License
 
-This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+This package is dual-licensed under the [GNU AGPL-3.0](../../../LICENSE) or a [commercial license](../../../COMMERCIAL.md). See [LICENSING.md](../../../LICENSING.md).
