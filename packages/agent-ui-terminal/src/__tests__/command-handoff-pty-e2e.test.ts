@@ -27,7 +27,8 @@ const PACKAGE_DIR = fileURLToPath(new URL('../..', import.meta.url));
  * a developer machine, so the Windows bound is three times the POSIX one.
  */
 const PHASE_TIMEOUT_MS = process.platform === 'win32' ? 30_000 : 10_000;
-const TEST_TIMEOUT_MS = PHASE_TIMEOUT_MS * 3;
+/** Six waits in sequence: a stuck phase must report its own timeout, with the events, before this fires. */
+const TEST_TIMEOUT_MS = PHASE_TIMEOUT_MS * 6;
 
 const tempDirs: string[] = [];
 const sessions: IPtyRunSession[] = [];

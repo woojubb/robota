@@ -9,6 +9,7 @@ import { EventEmitter } from 'node:events';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createChildProcessSubagentResult } from '../child-process-subagent-runner-result.js';
+import { createSendChannel } from '../child-process-subagent-send.js';
 
 import type { ISubagentJobStart } from '@robota-sdk/agent-executor';
 import type { ChildProcess } from 'node:child_process';
@@ -35,6 +36,11 @@ const job: ISubagentJobStart = {
 /** A child that is only an event source: these cases never start it, they only report what it did. */
 class FakeChild extends EventEmitter {
   connected = true;
+
+  send(_message: unknown, callback?: (error: Error | null) => void): boolean {
+    callback?.(null);
+    return true;
+  }
 
   closeChannel(): void {
     this.connected = false;
@@ -97,5 +103,28 @@ describe('a worker reported as exited before its result was read', () => {
     await vi.advanceTimersByTimeAsync(PAST_THE_EXIT_WAIT_MS);
 
     await failed;
+  });
+});
+
+describe('a follow-up prompt to a worker that exits right after answering', () => {
+  it('is reported as taken when the answer arrives after the exit, before the channel closes', async () => {
+    const child = new FakeChild();
+    const taken = createSendChannel(child as unknown as ChildProcess)('continue');
+
+    child.emit('exit', 0, null);
+    child.emit('message', { type: 'send_accepted', sendId: 1 });
+    child.closeChannel();
+
+    await expect(taken).resolves.toBeUndefined();
+  });
+
+  it('is reported as dropped when the channel closes without an answer', async () => {
+    const child = new FakeChild();
+    const taken = createSendChannel(child as unknown as ChildProcess)('continue');
+
+    child.emit('exit', 0, null);
+    child.closeChannel();
+
+    await expect(taken).rejects.toThrow('The job ended before it took the prompt.');
   });
 });
