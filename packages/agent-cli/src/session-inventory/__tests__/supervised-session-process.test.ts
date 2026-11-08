@@ -33,7 +33,7 @@ describe('detached supervised runtime', () => {
       id = await launchSupervisedSession(process.cwd(), {
         productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
-        execArgs: ['--import', 'tsx', '--conditions=source'],
+        execArgs: ['--import', 'tsx', '--conditions=product-source'],
         env: { PRODUCT_TEST_SUPERVISED_ROOT: root, PRODUCT_TEST_LATE_STDERR: '1' },
         onSpawn: (spawned) => { child = spawned; },
       });
@@ -60,7 +60,7 @@ describe('detached supervised runtime', () => {
     try {
       id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
-        execArgs: ['--import', 'tsx', '--conditions=source'],
+        execArgs: ['--import', 'tsx', '--conditions=product-source'],
         env: { PRODUCT_TEST_SUPERVISED_ROOT: root },
         name: 'Morning review',
       });
@@ -102,7 +102,7 @@ describe('detached supervised runtime', () => {
     try {
       id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
-        execArgs: ['--import', 'tsx', '--conditions=source'],
+        execArgs: ['--import', 'tsx', '--conditions=product-source'],
         // The launching CLI may itself hold a token under either name: neither reaches the daemon.
         env: {
           PRODUCT_TEST_SUPERVISED_ROOT: root,
@@ -138,7 +138,7 @@ describe('detached supervised runtime', () => {
     try {
       await expect(launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
-        execArgs: ['--import', 'tsx', '--conditions=source'],
+        execArgs: ['--import', 'tsx', '--conditions=product-source'],
         env: { PRODUCT_TEST_SUPERVISED_ROOT: root, PRODUCT_TEST_NO_WS_URL: '1' },
         transportToken: 'd'.repeat(64),
         daemon: true,
@@ -158,7 +158,7 @@ describe('detached supervised runtime', () => {
     try {
       const start = launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
-        execArgs: ['--import', 'tsx', '--conditions=source'],
+        execArgs: ['--import', 'tsx', '--conditions=product-source'],
         env: { PRODUCT_TEST_SUPERVISED_ROOT: root },
         onSpawn: (spawned) => { child = spawned; },
       });
@@ -178,7 +178,7 @@ describe('detached supervised runtime', () => {
     try {
       id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
-        execArgs: ['--import', 'tsx', '--conditions=source'],
+        execArgs: ['--import', 'tsx', '--conditions=product-source'],
         env: { PRODUCT_TEST_SUPERVISED_ROOT: root, PRODUCT_TEST_SECRET_MARKER: SECRET_MARKER },
         onSpawn: (spawned) => { child = spawned; },
       });
@@ -223,7 +223,7 @@ describe('detached supervised runtime', () => {
     try {
       const id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
-        execArgs: ['--import', 'tsx', '--conditions=source'],
+        execArgs: ['--import', 'tsx', '--conditions=product-source'],
         env: { PRODUCT_TEST_SUPERVISED_ROOT: root },
         onSpawn: (spawned) => { child = spawned; },
       });
@@ -306,7 +306,7 @@ describe('detached supervised runtime', () => {
     const root = join(scratch, 'supervised');
     const id = randomUUID();
     const child = spawn(process.execPath, [
-      '--import', 'tsx', '--conditions=source', fixture,
+      '--import', 'tsx', '--conditions=product-source', fixture,
       '--serve', '--supervised-session-id', id,
     ], {
       cwd: process.cwd(),

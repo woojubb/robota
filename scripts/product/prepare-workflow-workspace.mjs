@@ -3,91 +3,12 @@ import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { satisfies, valid, validRange } from 'semver';
-import { parse } from 'yaml';
-
 import { productEnvironment } from '../../packages/product-config/src/__tests__/product-environment.ts';
 import { loadProductConfig } from '../../packages/product-config/src/node.ts';
 import {
   generateWorkspaceFromEnvironmentFile,
   workflowProductEnvironment,
 } from './generate-workspace.mjs';
-
-const workflowPeers = [
-  '@robota-sdk/agent-builtin-providers',
-  '@robota-sdk/agent-core',
-  '@robota-sdk/agent-framework',
-  '@robota-sdk/agent-interface-command',
-  '@robota-sdk/agent-tools',
-];
-
-async function workflowPeersMatch(sourceRoot) {
-  const lock = parse(await readFile(path.join(sourceRoot, 'pnpm-lock.yaml'), 'utf8'));
-  const importer =
-    lock.importers?.['packages/agent-cli']?.devDependencies?.['@robota-sdk/workflows'];
-  const specifier = importer?.specifier;
-  const version = importer?.version;
-  if (
-    typeof specifier !== 'string' ||
-    valid(specifier) !== specifier ||
-    typeof version !== 'string' ||
-    (version !== specifier && !version.startsWith(`${specifier}(`))
-  )
-    throw new Error('Workflow must use an exact locked registry version.');
-  const artifact = lock.packages?.[`/@robota-sdk/workflows@${version}`];
-  const peerDependencies = artifact?.peerDependencies;
-  if (
-    !peerDependencies ||
-    Object.keys(peerDependencies).length !== workflowPeers.length ||
-    workflowPeers.some((peer) => !Object.hasOwn(peerDependencies, peer))
-  )
-    throw new Error('Workflow peer names are missing or invalid.');
-  let compatible = true;
-  for (const peer of workflowPeers) {
-    const range = peerDependencies[peer];
-    const link = artifact.dependencies?.[peer];
-    const packageDirectory = peer.slice('@robota-sdk/'.length);
-    if (
-      typeof range !== 'string' ||
-      !validRange(range) ||
-      link !== `link:packages/${packageDirectory}`
-    )
-      throw new Error(`Workflow peer ${peer} has an invalid range or workspace link.`);
-    const manifest = JSON.parse(
-      await readFile(path.join(sourceRoot, 'packages', packageDirectory, 'package.json'), 'utf8'),
-    );
-    if (manifest.name !== peer || typeof manifest.version !== 'string' || !valid(manifest.version))
-      throw new Error(`Workflow peer ${peer} has an invalid SDK manifest.`);
-    if (!satisfies(manifest.version, range)) compatible = false;
-  }
-  return compatible;
-}
-
-export async function ensurePrWorkflowVersion({ sourceRoot, isPullRequest, version }) {
-  if (!isPullRequest)
-    throw new Error('Workflow version preparation is only permitted for a pull request.');
-  if (await workflowPeersMatch(sourceRoot)) return;
-  await version();
-  if (!(await workflowPeersMatch(sourceRoot)))
-    throw new Error('Workflow peers still do not have a supported version.');
-}
-
-function versionPrCandidate(sourceRoot) {
-  const windows = process.platform === 'win32';
-  const result = spawnSync(
-    windows ? 'cmd.exe' : 'pnpm',
-    windows ? ['/d', '/s', '/c', 'pnpm.cmd run version'] : ['run', 'version'],
-    {
-      cwd: sourceRoot,
-      stdio: 'inherit',
-      timeout: 300_000,
-    },
-  );
-  if (result.error || result.status !== 0)
-    throw new Error(
-      `PR candidate version generation failed: ${result.error?.message ?? result.status}`,
-    );
-}
 
 export async function writeWorkflowProductEnvironment(environment) {
   if (!environment.RUNNER_TEMP) throw new Error('RUNNER_TEMP is required.');
@@ -125,16 +46,9 @@ export async function writeWorkflowProductEnvironment(environment) {
 }
 
 async function main() {
+  // Older default-branch Windows schedules still invoke this before generating the workspace.
+  if (process.argv.includes('--prepare-pr-version')) return;
   const environment = { ...process.env };
-  if (process.argv.includes('--prepare-pr-version')) {
-    const sourceRoot = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
-    await ensurePrWorkflowVersion({
-      sourceRoot,
-      isPullRequest: environment.IS_PULL_REQUEST === 'true',
-      version: () => versionPrCandidate(sourceRoot),
-    });
-    return;
-  }
   const filePath = await writeWorkflowProductEnvironment(environment);
   if (process.argv.includes('--environment-only')) {
     const config = loadProductConfig({ environment, filePath });
@@ -156,6 +70,18 @@ async function main() {
     environmentOutput: environment.GITHUB_ENV,
     stepOutput: environment.GITHUB_OUTPUT,
   });
+  // The deployed default-branch schedule still builds only the CLI closure. Until it adopts the
+  // separate SDK check, prepare those SDK artifacts for its existing Windows qualification steps.
+  if (environment.GITHUB_WORKFLOW === 'Windows development' && environment.WINDOWS_SDK_SEPARATE !== 'true') {
+    const filters = ['{packages/agent-file-authority}...', '{packages/agent-keyring}...', '{packages/agent-transport-link}...']
+      .flatMap((value) => ['--filter', value]);
+    for (const args of [['install', '--frozen-lockfile', '--filter', 'robota-monorepo', ...filters], ['-r', ...filters, 'run', 'build']]) {
+      const result = spawnSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', args, {
+        cwd: output, stdio: 'inherit', shell: process.platform === 'win32', timeout: 300_000,
+      });
+      if (result.error || result.status !== 0) throw new Error(`Legacy Windows SDK preparation failed: ${result.error?.message ?? result.status}`);
+    }
+  }
   process.stdout.write(`${output}\n`);
 }
 

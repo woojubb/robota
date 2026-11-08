@@ -15,7 +15,7 @@
     "typecheck": "tsgo -p electron/tsconfig.json --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "xvfb-run -a node --import tsx --conditions=source e2e/run-e2e.mjs",
+    "test:e2e": "xvfb-run -a node --import tsx --conditions=product-source e2e/run-e2e.mjs",
     "test:e2e:secret": "pnpm build:electron && node e2e/secret-window-e2e.mjs",
     "test:e2e:session-channel": "pnpm build:electron && node e2e/session-channel-e2e.mjs",
     "test:e2e:bundled": "node e2e/bundled-runtime-e2e.mjs",
@@ -25,12 +25,15 @@
     "test:e2e:packaged-keyring": "node e2e/packaged-keyring-e2e.mjs",
     "test:e2e:owner-session": "pnpm build:electron && node e2e/desktop-owner-session-e2e.mjs",
     "test:e2e:session-admission": "pnpm build:electron && node e2e/desktop-session-admission-e2e.mjs",
-    "test:e2e:secure": "node --import tsx --conditions=source e2e/secure-production-smoke.mjs"
+    "test:e2e:secure": "node --import tsx --conditions=product-source e2e/secure-production-smoke.mjs"
   },
   "devDependencies": {
     "@electron/asar": "^3.4.1",
-    "@robota-sdk/agent-gui-web": "workspace:*",
-    "@robota-sdk/agent-keyring": "workspace:*",
+    "@robota-sdk/agent-framework": "npm:@robota-sdk/agent-framework@3.2.1",
+    "@robota-sdk/agent-gui-web": "workspace:^",
+    "@robota-sdk/agent-keyring": "npm:@robota-sdk/agent-keyring@3.2.1",
+    "@robota-sdk/agent-session": "npm:@robota-sdk/agent-session@3.2.1",
+    "@robota-sdk/agent-ui-web": "npm:@robota-sdk/agent-ui-web@3.2.1",
     "@types/ws": "^8.18.1",
     "electron": "^43.5.0",
     "electron-builder": "26.15.7",
@@ -39,10 +42,10 @@
     "vitest": "^3.2.6"
   },
   "dependencies": {
-    "@robota-sdk/agent-cli": "workspace:*",
-    "@robota-sdk/agent-local-host": "workspace:*",
-    "@robota-sdk/agent-transport": "workspace:*",
-    "@robota-sdk/product-config": "workspace:*",
+    "@robota-sdk/agent-cli": "workspace:^",
+    "@robota-sdk/agent-local-host": "workspace:^",
+    "@robota-sdk/agent-transport": "npm:@robota-sdk/agent-transport@3.2.1",
+    "@robota-sdk/product-config": "npm:@robota-sdk/product-config@3.2.1",
     "ws": "^8.21.1"
   },
   "volta": {

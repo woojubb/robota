@@ -21,7 +21,7 @@ const children: ReturnType<typeof spawn>[] = [];
 async function spawnBroker(endpoint: string): Promise<ReturnType<typeof spawn>> {
   const loader = new URL('../../../node_modules/tsx/dist/loader.mjs', import.meta.url).href;
   const fixturePath = fileURLToPath(new URL('./fixtures/workspace-root-broker-server.mjs', import.meta.url));
-  const child = spawn(process.execPath, ['--import', loader, '--conditions=source', fixturePath, endpoint], {
+  const child = spawn(process.execPath, ['--import', loader, '--conditions=product-source', fixturePath, endpoint], {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   children.push(child);

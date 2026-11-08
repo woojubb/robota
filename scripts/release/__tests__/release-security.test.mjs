@@ -19,8 +19,74 @@ function expectStepBefore(steps, first, second) {
   expect(firstIndex).toBeLessThan(secondIndex);
 }
 
+it('binds an SDK tag to the selected package and its own version', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'package-release-tag-'));
+  try {
+    for (const [name, version, isPrivate] of [
+      ['agent-core', '1.2.3', false], ['agent-keyring', '4.5.6', false], ['agent-cli', '9.0.0', false],
+      ['private-package', '1.0.0', true],
+    ]) {
+      const pkg = join(dir, 'packages', name);
+      mkdirSync(pkg, { recursive: true });
+      writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: `@robota-sdk/${name}`, version, private: isPrivate }));
+    }
+    const script = readWorkflow('publish.yml').jobs.prepare.steps.find(
+      (step) => step.name === 'Validate the tag and canonical product identity before publication',
+    ).run;
+    const run = (selected, tag, component = 'sdk') => spawnSync('bash', ['-c', script], {
+      cwd: dir, encoding: 'utf8', env: { ...process.env, RELEASE_COMPONENT: component,
+        RELEASE_PACKAGE: selected, TAG: tag, PRODUCT_PACKAGE_SCOPE: '@robota-sdk',
+        PROJECT_RELEASE_TAG_PREFIX: 'v', PROJECT_NPM_REGISTRY_URL: 'https://registry.example',
+        PRODUCT_CONFIG_SHA256: 'a'.repeat(64) },
+    });
+    expect(run('agent-core', 'sdk-agent-core-v1.2.3').status).toBe(0);
+    expect(run('agent-keyring', 'sdk-agent-keyring-v4.5.6').status).toBe(0);
+    expect(run('', 'v9.0.0', 'cli').status).toBe(0);
+    expect(run('agent-core', 'sdk-agent-core-v4.5.6').status).not.toBe(0);
+    expect(run('agent-keyring', 'sdk-agent-core-v1.2.3').status).not.toBe(0);
+    expect(run('../agent-core', 'sdk-agent-core-v1.2.3').status).not.toBe(0);
+    expect(run('private-package', 'sdk-private-package-v1.0.0').status).not.toBe(0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it('binds an independent app tag to its desktop version and schedules its verification', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'app-release-tag-'));
+  try {
+    mkdirSync(join(dir, 'apps/agent-app'), { recursive: true });
+    writeFileSync(join(dir, 'apps/agent-app/package.json'), JSON.stringify({ version: '4.5.6' }));
+    const workflow = readWorkflow('release-desktop-app.yml');
+    const script = workflow.jobs.desktop.steps.find((step) => step.name === 'Validate configured release tag').run;
+    const run = (tag) => spawnSync('bash', ['-c', script], { cwd: dir, encoding: 'utf8', env: {
+      ...process.env, TAG: tag, PRODUCT_WORKSPACE: dir, PROJECT_RELEASE_TAG_PREFIX: 'v', GITHUB_ENV: join(dir, 'env'),
+    } });
+    expect(run('app-v4.5.6').status).toBe(0);
+    expect(run('app-v4.5.7').status).not.toBe(0);
+    expect(run('sdk-agent-core-v4.5.6').status).not.toBe(0);
+    for (const job of ['desktop', 'await-published-assets']) {
+      const resolveTag = workflow.jobs[job].steps.find((step) => step.name === 'Resolve release tag').run;
+      const resolve = (event, tag) => spawnSync('bash', ['-c', resolveTag], { cwd: dir, encoding: 'utf8', env: {
+        ...process.env, GITHUB_EVENT_NAME: event, INPUT_TAG: tag, REF_NAME: tag, GITHUB_OUTPUT: join(dir, 'output'),
+      } });
+      expect(resolve('push', 'app-v4.5.6').status).toBe(0);
+      expect(resolve('workflow_dispatch', 'app-v4.5.6').status).not.toBe(0);
+      expect(resolve('workflow_dispatch', 'v4.5.6').status).toBe(0);
+    }
+    const condition = workflow.jobs['await-published-assets'].if.slice(3, -2);
+    const evaluate = Function('github', 'needs', 'cancelled', 'startsWith', `return (${condition});`);
+    const event = { event_name: 'push', ref: 'refs/tags/app-v4.5.6', event: { inputs: {} } };
+    const passes = (desktop) => evaluate(event, { desktop: { result: desktop } }, () => false, (value, prefix) => value.startsWith(prefix));
+    expect(passes('success')).toBe(true);
+    expect(passes('failure')).toBe(false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 it('admits release effects only after binding them to reviewed source', () => {
   const publish = readWorkflow('publish.yml');
+  expect(publish.concurrency.group).toBe("npm-publish-${{ inputs.component }}-${{ inputs.package || 'agent-cli' }}");
   expect(publish.on.workflow_dispatch.inputs.tag.required).toBe(true);
   expect(publish.on.workflow_dispatch.inputs.product_env).toBeUndefined();
   expect(publish.jobs.publish.permissions.contents).toBe('read');
@@ -70,6 +136,13 @@ it('admits release effects only after binding them to reviewed source', () => {
   expect(receiptPublish).toMatch(/gh release create[\s\S]+\|\|[\s\S]+gh release view/u);
 
   const image = readWorkflow('release-image.yml');
+  const imageCondition = Function('github', `return (${image.jobs.resolve.if.slice(3, -2)});`);
+  const event = (title) => ({ event_name: 'workflow_run', repository: 'owner/repo', event: {
+    workflow_run: { conclusion: 'success', display_title: title, event: 'workflow_dispatch',
+      head_branch: 'main', head_repository: { full_name: 'owner/repo' } },
+  } });
+  expect(imageCondition(event('Publish SDK to npm'))).toBe(false);
+  expect(imageCondition(event('Publish CLI to npm'))).toBe(true);
   const resolveSteps = image.jobs.resolve.steps;
   expectStepBefore(
     resolveSteps,
@@ -97,6 +170,8 @@ it('admits release effects only after binding them to reviewed source', () => {
   );
 
   const native = readWorkflow('release-bun-binaries.yml');
+  expect(native.on.push.tags).toContain('!sdk-*');
+  expect(native.on.push.tags).toContain('!app-*');
   const nativeSteps = native.jobs['build-bun'].steps;
   expectStepBefore(
     nativeSteps,
@@ -109,6 +184,7 @@ it('admits release effects only after binding them to reviewed source', () => {
   expect(nativePublish).toMatch(/gh release create[\s\S]+\|\|[\s\S]+gh release view/u);
 
   const desktop = readWorkflow('release-desktop-app.yml');
+  expect(desktop.on.push.tags).toContain('!sdk-*');
   expect(desktop.on.workflow_dispatch.inputs.publish).toBeUndefined();
   expect(desktop.on.workflow_dispatch.inputs.source_ref).toBeUndefined();
   const desktopSteps = desktop.jobs.desktop.steps;
@@ -261,6 +337,7 @@ fi
             RELEASE_SOURCE_COMMIT: 'a'.repeat(40),
             PRODUCT_CONFIG_SHA256: 'b'.repeat(64),
             PRODUCT_PACKAGE_SCOPE: '@robota-sdk',
+            RELEASE_VERSION: '1.2.3',
             RELEASE_INSTALL_LOCK: lockOutput,
             FIXTURE_INTEGRITY: published,
             NODE_OPTIONS: `--import=${fetchStub}`,
@@ -289,6 +366,14 @@ fi
     const repeated = run(integrity);
     expect(repeated.status, repeated.stderr).toBe(0);
     expect(readFileSync(lockOutput)).toEqual(firstLock);
+    expect(run(integrity, { RELEASE_COMPONENT: 'sdk' }).status).toBe(1);
+    writeFileSync(join(payload, 'package.json'), JSON.stringify({ name: '@robota-sdk/agent-core', version: '1.2.3' }));
+    execFileSync('tar', ['-czf', tarball, '-C', join(scratch, 'payload'), 'package']);
+    const sdkIntegrity = `sha512-${createHash('sha512').update(readFileSync(tarball)).digest('base64')}`;
+    const sdk = run(sdkIntegrity, { RELEASE_COMPONENT: 'sdk', RELEASE_PACKAGE: 'agent-core' });
+    expect(sdk.status, sdk.stderr).toBe(0);
+    expect(JSON.parse(readFileSync(lockOutput, 'utf8')).packages['node_modules/@robota-sdk/agent-core'])
+      .toMatchObject({ version: '1.2.3', integrity: sdkIntegrity });
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

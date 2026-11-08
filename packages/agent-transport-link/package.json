@@ -54,9 +54,9 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-interface-session": "workspace:*",
-    "@robota-sdk/agent-keyring": "workspace:*",
-    "@robota-sdk/agent-transport": "workspace:*"
+    "@robota-sdk/agent-interface-session": "workspace:^",
+    "@robota-sdk/agent-keyring": "workspace:^",
+    "@robota-sdk/agent-transport": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

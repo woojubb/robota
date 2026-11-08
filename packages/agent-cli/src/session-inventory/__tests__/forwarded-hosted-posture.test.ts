@@ -17,7 +17,7 @@ it('cannot erase an initially hosted posture through forwarded IPC', async () =>
   const id = '7bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
   const fixture = fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url));
   const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
-  const child = spawn(process.execPath, ['--import', tsx, '--conditions=source', fixture, '--serve', '--supervised-session-id', id, '--supervised-spawner-pair', '--supervised-forwarded-environment', '--restricted-workspace'], {
+  const child = spawn(process.execPath, ['--import', tsx, '--conditions=product-source', fixture, '--serve', '--supervised-session-id', id, '--supervised-spawner-pair', '--supervised-forwarded-environment', '--restricted-workspace'], {
     cwd: home, env: createTestBinaryEnvironment(home, { PRODUCT_RUNTIME_POSTURE: 'hosted', PRODUCT_TELEMETRY_ENABLED: '0' }), stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'],
   });
   let stderr = '';
@@ -55,7 +55,7 @@ it.each([
   const id = '7bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
   const fixture = fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url));
   const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
-  const child = spawn(process.execPath, ['--import', tsx, '--conditions=source', fixture, '--serve', '--supervised-session-id', id, '--supervised-spawner-pair', '--supervised-forwarded-environment', '--restricted-workspace'], {
+  const child = spawn(process.execPath, ['--import', tsx, '--conditions=product-source', fixture, '--serve', '--supervised-session-id', id, '--supervised-spawner-pair', '--supervised-forwarded-environment', '--restricted-workspace'], {
     cwd: home, env: createTestBinaryEnvironment(home, { PRODUCT_TELEMETRY_ENABLED: '0' }), stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'],
   });
   let stderr = '';

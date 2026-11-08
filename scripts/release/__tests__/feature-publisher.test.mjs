@@ -44,6 +44,9 @@ test('Feature publication joins same-source npm and native completion before sco
     event: { workflow_run: { conclusion, event, head_repository: { full_name: repository } } },
   });
   expect(condition(context('success', 'push', 'owner/repo'))).toBe(true);
+  const sdkEvent = context('success', 'workflow_dispatch', 'owner/repo');
+  sdkEvent.event.workflow_run.display_title = 'Publish SDK to npm';
+  expect(condition(sdkEvent)).toBe(false);
   for (const item of [
     ['failure', 'push', 'owner/repo'],
     ['success', 'pull_request', 'owner/repo'],
@@ -85,6 +88,7 @@ test('Feature prerequisites admit only matching completed release evidence', asy
     receipts = 1,
     nativeOverride = {},
     npmOverride = {},
+    sdkPageFirst = false,
   } = {}) => {
     const output = {};
     const good = (id, head_branch) => ({
@@ -97,12 +101,14 @@ test('Feature prerequisites admit only matching completed release evidence', asy
     const github = {
       rest: {
         actions: {
-          listWorkflowRuns: async ({ workflow_id }) => ({
+          listWorkflowRuns: async ({ workflow_id, page }) => ({
             data: {
               workflow_runs:
                 workflow_id === 'publish.yml'
                   ? npm
-                    ? [{ ...good(2, 'main'), ...npmOverride }]
+                    ? sdkPageFirst && page === 1
+                      ? Array.from({ length: 100 }, (_, id) => ({ ...good(id + 3, 'main'), display_title: 'Publish SDK to npm' }))
+                      : [{ ...good(2, 'main'), ...npmOverride }]
                     : []
                   : native
                     ? [{ ...good(1, 'release'), ...nativeOverride }]
@@ -141,8 +147,10 @@ test('Feature prerequisites admit only matching completed release evidence', asy
     return output;
   };
   expect(await run()).toMatchObject({ ready: 'true', tag: 'v1.0.0', native_run: 1 });
+  expect(await run({ sdkPageFirst: true })).toMatchObject({ ready: 'true', tag: 'v1.0.0', native_run: 1 });
   expect(await run({ native: false })).toEqual({ ready: 'false' });
   expect(await run({ npm: false })).toEqual({ ready: 'false' });
+  expect(await run({ npmOverride: { display_title: 'Publish SDK to npm' } })).toEqual({ ready: 'false' });
   for (const nativeOverride of [
     { head_sha: 'b'.repeat(40) },
     { head_repository: { full_name: 'other/repo' } },

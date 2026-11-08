@@ -50,7 +50,7 @@ async function probe(
         [
           '--import',
           join(repo, 'node_modules/tsx/dist/loader.mjs'),
-          '--conditions=source',
+          '--conditions=product-source',
           '--import',
           `data:text/javascript,${encodeURIComponent(register)}`,
           entry,

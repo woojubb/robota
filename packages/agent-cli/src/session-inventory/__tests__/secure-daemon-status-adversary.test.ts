@@ -28,7 +28,7 @@ it.skipIf(process.platform === 'win32')('refuses forged daemon status relayed to
   writeFileSync(runtime.layout.userPaths.keyring, serializeKeyring(keyring), { mode: 0o600 });
   const owner = await openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
   const entrypoint = fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url));
-  const execArgs = ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'];
+  const execArgs = ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=product-source'];
   let ordinary: Awaited<ReturnType<typeof launchCertifiedRuntime>> | undefined;
   let daemon: Awaited<ReturnType<typeof launchCertifiedRuntime>> | undefined;
   try {
@@ -128,7 +128,7 @@ it.skipIf(process.platform === 'win32')('finds a real daemon despite forged publ
   writeFileSync(runtime.layout.userPaths.keyring, serializeKeyring(keyring), { mode: 0o600 });
   const owner = await openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
   const entrypoint = fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url));
-  const execArgs = ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'];
+  const execArgs = ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=product-source'];
   let daemon: Awaited<ReturnType<typeof launchCertifiedRuntime>> | undefined;
   try {
     daemon = await launchCertifiedRuntime(home, { productRuntime: runtime, root, env, handover: owner, entrypoint, execArgs, daemonRole: true });

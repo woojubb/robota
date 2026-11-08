@@ -8,6 +8,8 @@ on:
   push:
     tags:
       - '**'
+      - '!sdk-*'
+      - '!app-*'
   pull_request:
     branches: [develop]
   workflow_dispatch:
@@ -39,6 +41,7 @@ jobs:
       plan: ${{ steps.scope.outputs.plan }}
       native: ${{ steps.scope.outputs.native }}
       windows: ${{ steps.scope.outputs.windows }}
+      sdk_windows: ${{ steps.scope.outputs.sdk_windows }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -131,13 +134,6 @@ jobs:
         timeout-minutes: 10
         run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
 
-      - name: Prepare pending version for PR product validation
-        if: github.event_name == 'pull_request'
-        timeout-minutes: 10
-        env:
-          IS_PULL_REQUEST: 'true'
-        run: pnpm exec tsx scripts/product/prepare-workflow-workspace.mjs --prepare-pr-version
-
       - name: Generate selected product workspace
         timeout-minutes: 10
         id: product
@@ -170,6 +166,13 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
+
+      - name: Exercise changed SDK code on Windows
+        if: github.event_name == 'pull_request' && runner.os == 'Windows' && needs.scope.outputs.sdk_windows == 'true'
+        uses: ./.github/actions/windows-sdk-check
+        with:
+          workspace: ${{ env.PRODUCT_WORKSPACE }}
+          plan: ${{ needs.scope.outputs.plan }}
 
       - name: Compile the exact native target
         timeout-minutes: 10
@@ -215,38 +218,21 @@ jobs:
           node packages/agent-cli/scripts/e2e-standalone-autoload.mjs "$binary"
           node packages/agent-cli/scripts/e2e-regex-worker.mjs "$binary"
 
-      # Linux CI never reaches these hosts' native backends; run them under Node and inside a Bun binary.
+      # Exercise the product against its pinned SDK on the target host.
       - name: Exercise native code paths on this host
         timeout-minutes: 10
         if: github.event_name == 'pull_request' && matrix.product == 'cedar'
         shell: bash
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
         run: |
-          pnpm --filter './packages/agent-file-authority' exec vitest run --no-file-parallelism --reporter verbose
-          pnpm --filter './packages/agent-file-authority' qualify:native
-          pnpm --filter './packages/agent-transport-link' exec vitest run --no-file-parallelism --reporter verbose src/__tests__/spawner-pair-process.test.ts
           pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/startup/__tests__/secure-runtime-spawn-guard.test.ts src/startup/__tests__/spawn-recorder.test.ts src/startup/__tests__/secure-runtime-process.test.ts
           if [ "$RUNNER_OS" != Windows ]; then
             pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/secure-runtime-launch.test.ts src/session-inventory/__tests__/forwarded-hosted-posture.test.ts src/session-inventory/__tests__/owner-link-client.test.ts src/session-inventory/__tests__/certified-runtime-launch.test.ts src/session-inventory/__tests__/secure-attach-client.test.ts src/session-inventory/__tests__/secure-background-start.test.ts
           fi
           pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/forwarded-stderr-redaction.test.ts src/startup/__tests__/forwarded-environment.test.ts src/secure/__tests__/secure-lock-command.test.ts
-          qualifier="$RUNNER_TEMP/native-qualification${{ runner.os == 'Windows' && '.exe' || '' }}"
-          pnpm --filter './packages/agent-file-authority' qualify:bun:build -- "$qualifier"
-          "$qualifier"
           if [ "$RUNNER_OS" = Windows ]; then
             pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts src/session-inventory/__tests__/supervised-transport-token.test.ts src/session-inventory/__tests__/supervised-session-launch-token.test.ts src/__tests__/supervised-transport-token-refusal.test.ts
           fi
-
-      # The keyring and the owner-link carrier document that they run unchanged on Bun; nothing else
-      # runs them there. The carrier smoke links over a real loopback socket pair.
-      - name: Smoke the keyring and owner-link packages under Bun
-        timeout-minutes: 10
-        if: github.event_name == 'pull_request' && matrix.product == 'cedar'
-        shell: bash
-        working-directory: ${{ env.PRODUCT_WORKSPACE }}
-        run: |
-          pnpm --filter './packages/agent-keyring' smoke:bun
-          pnpm --filter './packages/agent-transport-link' smoke:bun
 
       - name: Package and exercise the unsigned desktop product
         timeout-minutes: 10
@@ -275,8 +261,30 @@ jobs:
         if: ${{ always() && github.event_name != 'pull_request' && runner.os == 'macOS' }}
         run: node .release-tools/scripts/release/setup-macos-signing.mjs cleanup
 
+  sdk-windows:
+    needs: scope
+    if: github.event_name == 'pull_request' && needs.scope.outputs.sdk_windows == 'true' && needs.scope.outputs.native == 'false'
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 8.15.4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: ./.github/actions/windows-sdk-check
+        with:
+          plan: ${{ needs.scope.outputs.plan }}
+          install: 'true'
+
   native-validation:
-    needs: [scope, build-bun]
+    needs: [scope, build-bun, sdk-windows]
     if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5

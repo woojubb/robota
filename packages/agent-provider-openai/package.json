@@ -74,8 +74,8 @@
   },
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "dependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-provider-openai-compatible": "workspace:*",
+    "@robota-sdk/agent-core": "workspace:^",
+    "@robota-sdk/agent-provider-openai-compatible": "workspace:^",
     "openai": "^6.0.0"
   },
   "volta": {

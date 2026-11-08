@@ -64,6 +64,11 @@ External workflow library
 
 The main package-level edges are drawn in [`diagrams/robota-architecture.mmd`](diagrams/robota-architecture.mmd).
 
+SDK packages develop against workspace dependencies. Standalone examples use published SDK ranges.
+The CLI, desktop app and their private product modules consume exact published SDK versions; their
+product-to-product links remain local. Upgrading the product's SDK is an explicit dependency change,
+and coordinated changes can be checked against packed SDK artifacts in an isolated workspace.
+
 > **What the rows do not show.** Providers are injected: `agent-framework` never depends on an
 > `agent-provider-*` package; the composition root constructs the provider and hands it in.
 > The transport family builds on `agent-core`, the contract packages and `agent-remote-pairing`,

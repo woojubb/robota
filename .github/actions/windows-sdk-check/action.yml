@@ -1,0 +1,45 @@
+name: Windows SDK checks
+description: Build and exercise SDK native code on Windows without building the product.
+inputs:
+  workspace:
+    required: false
+    default: .
+  plan:
+    required: false
+    default: '{}'
+  install:
+    required: false
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      working-directory: ${{ inputs.workspace }}
+      env:
+        SDK_PLAN: ${{ inputs.plan }}
+        INSTALL_SDK: ${{ inputs.install }}
+      run: |
+        set -euo pipefail
+        node -e 'const p=JSON.parse(process.env.SDK_PLAN).windowsChecks ?? []; if (!Array.isArray(p) || p.some(x => typeof x !== "string" || !/^packages\/[a-z0-9][a-z0-9._-]*$/.test(x))) throw Error("Invalid Windows SDK selection"); process.stdout.write(p.join("\n"))' > "$RUNNER_TEMP/windows-sdk-paths"
+        build_filters=(--filter "{packages/agent-file-authority}..." --filter "{packages/agent-keyring}..." --filter "{packages/agent-transport-link}...")
+        test_filters=()
+        while IFS= read -r dir || [ -n "$dir" ]; do
+          [ -z "$dir" ] && continue
+          build_filters+=(--filter "{$dir}...")
+          [ "$dir" = packages/agent-file-authority ] || test_filters+=(--filter "./$dir")
+        done < "$RUNNER_TEMP/windows-sdk-paths"
+        if [ "$INSTALL_SDK" = true ]; then
+          pnpm install --frozen-lockfile --filter robota-monorepo "${build_filters[@]}"
+        fi
+        pnpm -r "${build_filters[@]}" run build
+        pnpm --filter './packages/agent-file-authority' exec vitest run --no-file-parallelism
+        pnpm --filter './packages/agent-file-authority' qualify:native
+        pnpm --filter './packages/agent-transport-link' exec vitest run --no-file-parallelism src/__tests__/spawner-pair-process.test.ts
+        qualifier="$RUNNER_TEMP/native-qualification.exe"
+        pnpm --filter './packages/agent-file-authority' qualify:bun:build -- "$qualifier"
+        "$qualifier"
+        pnpm --filter './packages/agent-keyring' smoke:bun
+        pnpm --filter './packages/agent-transport-link' smoke:bun
+        if [ "${#test_filters[@]}" -gt 0 ]; then
+          pnpm -r "${test_filters[@]}" --if-present run test
+        fi

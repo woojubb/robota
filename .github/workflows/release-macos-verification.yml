@@ -16,7 +16,7 @@ concurrency:
 jobs:
   prerequisites:
     name: Match exact release producers
-    if: ${{ (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') && github.event.workflow_run.head_repository.full_name == github.repository }}
+    if: ${{ (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') && github.event.workflow_run.head_repository.full_name == github.repository && !(github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'app-')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:

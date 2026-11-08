@@ -42,7 +42,7 @@ it('does not admit a second update while a slow live writer holds the lock', asy
     catch (error) { process.stdout.write(String(error.code)); }`;
   const child = spawn(
     process.execPath,
-    ['--import', tsx, '--conditions=source', '--input-type=module', '-e', slow, root, path],
+    ['--import', tsx, '--conditions=product-source', '--input-type=module', '-e', slow, root, path],
     { cwd: root, env, stdio: ['pipe', 'pipe', 'pipe', 'pipe'] },
   );
   const completion = once(child, 'close', { signal: AbortSignal.timeout(10_000) });
@@ -55,7 +55,7 @@ it('does not admit a second update while a slow live writer holds the lock', asy
     await new Promise((resolve) => setTimeout(resolve, 100));
     const second = spawnSync(
       process.execPath,
-      ['--import', tsx, '--conditions=source', '--input-type=module', '-e', contender, root, path],
+      ['--import', tsx, '--conditions=product-source', '--input-type=module', '-e', contender, root, path],
       { cwd: root, env, encoding: 'utf8', timeout: 10_000 },
     );
     if (second.error || second.status !== 0)
@@ -98,7 +98,7 @@ it('recovers a keyring update after a process holding the guard is terminated', 
   };
   const child = spawn(
     process.execPath,
-    ['--import', tsx, '--conditions=source', '--input-type=module', '-e', program, root, path],
+    ['--import', tsx, '--conditions=product-source', '--input-type=module', '-e', program, root, path],
     { cwd: root, env, stdio: ['pipe', 'pipe', 'pipe', 'pipe'] },
   );
   const completion = once(child, 'close', { signal: AbortSignal.timeout(10_000) });

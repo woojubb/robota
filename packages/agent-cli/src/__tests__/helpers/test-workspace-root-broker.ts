@@ -8,7 +8,7 @@ export async function startTestBroker(endpoint: string, lockDirectory: string, h
   const loader = new URL('../../../node_modules/tsx/dist/loader.mjs', import.meta.url).href;
   const bin = fileURLToPath(new URL('../../bin.ts', import.meta.url));
   const child = spawn(process.execPath, [
-    '--import', loader, '--conditions=source', bin,
+    '--import', loader, '--conditions=product-source', bin,
     '--internal-root-broker', endpoint, lockDirectory, history,
   ], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
   let stderr = '';

@@ -26,7 +26,7 @@ import electronPath from 'electron';
 import { _electron as electron } from 'playwright';
 
 import { buildProductTestEnvironment, readDesktopTestIdentity } from './product-fixture.mjs';
-import { resolveProductConfig } from '../../../packages/product-config/dist/index.js';
+import { resolveProductConfig } from '@robota-sdk/product-config';
 import { createCliRuntimeContext } from '../../../packages/agent-cli/src/product/runtime-context.ts';
 import { workspaceRootBrokerEndpoint } from '../../../packages/agent-cli/src/startup/workspace-root-broker-process.ts';
 import {

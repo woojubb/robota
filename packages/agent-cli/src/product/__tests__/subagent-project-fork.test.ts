@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { getWorkspaceProjectIdentity } from '@robota-sdk/agent-framework';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { ChildProcessSubagentRunner } from '@robota-sdk/agent-subagent-runner';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
@@ -18,25 +18,33 @@ import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker
 import { createCliWorkspaceComposition } from '../../startup/workspace-project-composition.js';
 import type { IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
 
-const children = vi.hoisted(() => ({ current: [] as import('node:child_process').ChildProcess[] }));
-vi.mock('node:child_process', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:child_process')>();
-  return {
-    ...actual,
-    spawn: (...args: Parameters<typeof actual.spawn>) => {
-      const child = actual.spawn(...args);
-      children.current.push(child);
-      return child;
-    },
-  };
-});
-
 const roots: string[] = [];
 let broker: Awaited<ReturnType<typeof startTestBroker>> | undefined;
 let trust: BrokeredWorkspaceTrustService | undefined;
+// The worker's pid until its exit is observed. The runner is a published artifact that Vitest loads
+// outside its module graph, so its `spawn` cannot be intercepted; the job handle names the worker.
+let workerPid: number | undefined;
+
+async function waitForProcessExit(pid: number): Promise<void> {
+  for (;;) {
+    try {
+      process.kill(pid, 0);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ESRCH') return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 afterEach(async () => {
-  for (const child of children.current.splice(0))
-    if (child.exitCode === null) child.kill('SIGKILL');
+  if (workerPid !== undefined) {
+    try {
+      process.kill(workerPid, 'SIGKILL');
+    } catch {
+      // The worker exited between the failure and this cleanup.
+    }
+    workerPid = undefined;
+  }
   trust?.close();
   trust = undefined;
   await broker?.close();
@@ -120,7 +128,7 @@ it.runIf(process.platform === 'linux')(
         execArgv: [
           '--import',
           createRequire(import.meta.url).resolve('tsx'),
-          '--conditions=source',
+          '--conditions=product-source',
         ],
         args: [fileURLToPath(new URL('./fixtures/project-fork-worker.mjs', import.meta.url))],
       },
@@ -158,11 +166,12 @@ it.runIf(process.platform === 'linux')(
         resumeSessionId: id,
       },
     });
-    const child = children.current.at(-1);
-    if (child === undefined) throw new Error('Expected a child process');
-    const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+    const pid = handle.pid;
+    if (pid === undefined) throw new Error('Expected the worker process id');
+    workerPid = pid;
     const result = await handle.result;
-    await exited;
+    await waitForProcessExit(pid);
+    workerPid = undefined;
     expect(result.output).toBe('project fork child replied');
     const stored = parent.sessionStore.load(id);
     expect(stored.status).toBe('valid');

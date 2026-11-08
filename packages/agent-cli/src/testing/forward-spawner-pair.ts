@@ -11,7 +11,7 @@ try {
   const id = await launchForwardedRuntime(process.cwd(), {
     productRuntime: runtime,
     entrypoint: fixture,
-    execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'],
+    execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=product-source'],
     env: process.env,
     restricted: true,
     spawnerFd: 4,

@@ -13,15 +13,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@robota-sdk/agent-framework": "workspace:*",
-    "@robota-sdk/agent-provider-anthropic": "workspace:*",
-    "@robota-sdk/agent-tool-defaults": "workspace:*",
+    "@robota-sdk/agent-framework": "workspace:^",
+    "@robota-sdk/agent-provider-anthropic": "workspace:^",
+    "@robota-sdk/agent-tool-defaults": "workspace:^",
     "next": "^15.5.28",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-core": "workspace:^",
     "@types/node": "^22.19.21",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

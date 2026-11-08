@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 const script = fileURLToPath(new URL('../adversary.mjs', import.meta.url));
 
 function run(...args) {
-  return spawnSync(process.execPath, ['--import', 'tsx', '--conditions=source', script, ...args], {
+  return spawnSync(process.execPath, ['--import', 'tsx', '--conditions=product-source', script, ...args], {
     encoding: 'utf8', timeout: 30_000,
   });
 }

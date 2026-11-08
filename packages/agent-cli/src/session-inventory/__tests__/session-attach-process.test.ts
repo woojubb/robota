@@ -23,7 +23,7 @@ describe('attach to a detached supervised runtime from the CLI command', () => {
     try {
       id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
-        execArgs: ['--import', 'tsx', '--conditions=source'],
+        execArgs: ['--import', 'tsx', '--conditions=product-source'],
         env: { PRODUCT_TEST_SUPERVISED_ROOT: root },
       });
       const first: ISessionAttachCommandOptions['render'] = async ({ connection, driverId }) => {

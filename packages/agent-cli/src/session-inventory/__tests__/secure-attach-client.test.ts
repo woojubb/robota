@@ -36,7 +36,7 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
   try {
     started = await launchCertifiedRuntime(home, { productRuntime: runtime, env, root, restricted: true, handover,
       entrypoint: fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url)),
-      execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'] });
+      execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=product-source'] });
     const attach = await openSecureAttach({ ...started, root, workspace: home, brokerEndpoint, mode: 'observe', handover });
     expect(attach.driverId).toMatch(/^attach:/u);
     expect(attach.ownerSessions).toBeUndefined();
