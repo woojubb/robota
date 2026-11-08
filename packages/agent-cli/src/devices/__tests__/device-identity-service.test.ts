@@ -25,7 +25,7 @@ import { filesUnder, leakedIn, phraseFragments } from './secret-leak.js';
 import { createTestRuntimeContext } from './runtime-context-fixture.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
-import type { IDevicesCommandPort } from '@robota-sdk/agent-command';
+import type { IDevicesCommandPort } from '@robota-sdk/agent-product/command';
 
 /** Long enough that finding it anywhere means it leaked, not that random base64 spelled it. */
 const PASSPHRASE = 'violet lantern ninety-one';

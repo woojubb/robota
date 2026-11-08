@@ -39,7 +39,7 @@ import {
   refuseHeadersHelper,
 } from '@robota-sdk/agent-mcp';
 import { createNodeHttpEgress, createStdioAdapter } from '@robota-sdk/agent-mcp/node';
-import { mcpUserActionNotice } from '@robota-sdk/agent-command';
+import { mcpUserActionNotice } from '@robota-sdk/agent-product/command';
 import { McpSkillRegistry } from './mcp-skill-registry.js';
 import { createMcpSkillCommandSource } from './mcp-skill-command-source.js';
 import type { IMcpSkillApprovalStore } from './mcp-skill-registry.js';
@@ -79,7 +79,7 @@ import type {
   ICommandMCPOAuthStatus,
   ICommandMCPSourceProblem,
 } from '@robota-sdk/agent-framework';
-import type { TMCPUserAction, TMCPUserActionSurface } from '@robota-sdk/agent-command';
+import type { TMCPUserAction, TMCPUserActionSurface } from '@robota-sdk/agent-product/command';
 import type {
   IToolResultAdmissionOptions,
   IToolResultSpillStore,

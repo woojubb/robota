@@ -24,7 +24,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { ConnectionAuthority } from '@robota-sdk/agent-interface-session-mobility';
+import { ConnectionAuthority } from '@robota-sdk/agent-interface/session-mobility';
 
 import { describeFileRefusal, describeReceived, fileReceiving } from '../peer-files/receiving.js';
 import { listenForPeerMessages } from './local-peer-channel.js';
@@ -41,7 +41,7 @@ import type {
   IPeerMessageIngress,
   IPeerOrigin,
   TWorkspaceRelation,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 import type { TFileReceiveOutcome } from '@robota-sdk/agent-transport/node';
 
 /** What this module needs from `PeerMessageIngress`, and nothing more. */

@@ -14,8 +14,8 @@ import { openSecretTerminal, type ISecretTerminalSession } from '../devices/secr
 import type {
   ICapabilityApprovalRequest,
   IOperatorApprover,
-} from '@robota-sdk/agent-interface-session-mobility';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session-mobility';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 /** The part of the live session that can hand its terminal over. */
 export interface ITerminalHandoffHost {

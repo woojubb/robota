@@ -17,7 +17,7 @@ import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IServeModeOptions } from '../serve-mode.js';
 import type { InteractiveSession, SessionSlot } from '@robota-sdk/agent-framework';
-import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
+import type { ISessionLoopState } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

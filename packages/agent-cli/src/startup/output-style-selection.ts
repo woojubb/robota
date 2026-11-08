@@ -1,4 +1,4 @@
-import type { IOutputStyle, IOutputStyleRegistry } from '@robota-sdk/agent-preset';
+import type { IOutputStyle, IOutputStyleRegistry } from '@robota-sdk/agent-product/preset';
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';

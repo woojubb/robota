@@ -4,7 +4,7 @@ import { ProtobufTraceSerializer } from '@opentelemetry/otlp-transformer';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { BatchSpanProcessor, TracerProvider } from '@opentelemetry/sdk-trace';
 import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace';
-import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface/analytics';
 import { projectLivePromptTrace } from '@robota-sdk/agent-telemetry-otel';
 import type { IOtelSpanProjection, TOtelProjectionMode } from '@robota-sdk/agent-telemetry-otel';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';

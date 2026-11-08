@@ -3,7 +3,7 @@ import { isAbsolute, join } from 'node:path';
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 
 import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
-import type { IDoctorDisplayVocabulary } from '@robota-sdk/agent-command';
+import type { IDoctorDisplayVocabulary } from '@robota-sdk/agent-product/command';
 import type {
   ICommandProductVocabulary,
   IProjectSettingsPath,

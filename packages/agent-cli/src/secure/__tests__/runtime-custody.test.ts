@@ -29,7 +29,7 @@ import {
   openSpawnerLink,
   type IOwnerRuntimeLinkClient,
   type IRuntimeLinkClient,
-} from '@robota-sdk/agent-transport-link';
+} from '@robota-sdk/agent-transport/link';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -49,7 +49,7 @@ import {
   type IMemoryKeyringStore,
 } from './helpers.js';
 
-import type { ISessionBinder, ISessionDirectory } from '@robota-sdk/agent-interface-session';
+import type { ISessionBinder, ISessionDirectory } from '@robota-sdk/agent-interface/session';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import type { IServeOwnerBinding, IServeOwnerDirectory } from '../../modes/serve-session-directory.js';
 

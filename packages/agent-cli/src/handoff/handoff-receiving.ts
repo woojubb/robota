@@ -13,7 +13,7 @@ import {
   type IHandoffComposition,
   type TCredentialResolver,
   type TRecordPersister,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 import { resolveProductSessionSealing } from '../product/session-sealing.js';
 import { createHandoffConsent } from './handoff-consent.js';
@@ -23,7 +23,7 @@ import { receiveHandoff, type TReceiveHandoffOutcome } from './handoff-receive.j
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { IDeviceCertificate } from '@robota-sdk/agent-remote-pairing';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 

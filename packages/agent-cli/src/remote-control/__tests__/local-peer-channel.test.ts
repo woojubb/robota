@@ -26,7 +26,7 @@ import {
   type IPeerSender,
 } from '../local-peer-channel.js';
 
-import type { IPeerMessage, IPeerMessageAck } from '@robota-sdk/agent-interface-session-mobility';
+import type { IPeerMessage, IPeerMessageAck } from '@robota-sdk/agent-interface/session-mobility';
 
 const scratch: string[] = [];
 const listeners: IPeerListener[] = [];

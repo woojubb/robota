@@ -9,7 +9,7 @@ import {
 import { createExternalEventGrantHistory, ExternalEventIngress } from '@robota-sdk/agent-framework';
 
 import type { IExternalEventSourceOptions } from '@robota-sdk/agent-framework';
-import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface/transport';
 
 function grant(grantId: string): IExternalEventGrant {
   return {

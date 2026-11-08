@@ -1,6 +1,6 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * Preset selection glue — thin shell over `@robota-sdk/agent-preset`.
+ * Preset selection glue — thin shell over `@robota-sdk/agent-product/preset`.
  * The CLI only selects the preset id and forwards CLI flags as overrides; the
  * precedence merge lives entirely inside the resolver (agent-preset), never here.
  *
@@ -14,15 +14,15 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import { join } from 'node:path';
 
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
-import { loadExternalPresetsFromDir } from '@robota-sdk/agent-preset/node';
+import { createPresetRegistry } from '@robota-sdk/agent-product/preset';
+import { loadExternalPresetsFromDir } from '@robota-sdk/agent-product/preset/node';
 import type {
   IExternalPresetLoadResult,
   IPreset,
   IPresetRegistry,
   IResolvePresetContext,
   IResolvedPresetOptions,
-} from '@robota-sdk/agent-preset';
+} from '@robota-sdk/agent-product/preset';
 
 import { parseToolList } from '../utils/cli-args.js';
 

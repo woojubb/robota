@@ -14,7 +14,7 @@ import { decodeInteractiveSessionRecord } from '@robota-sdk/agent-session';
 import { describe, expect, it } from 'vitest';
 
 import type { IParameterSchema, IToolSchema } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import type { IMCPDiscovery } from '@robota-sdk/agent-mcp';
 
 /** The schema a session offers for a discovered tool, by the route the CLI takes to it. */

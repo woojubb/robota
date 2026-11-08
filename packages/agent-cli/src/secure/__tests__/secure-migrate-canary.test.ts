@@ -63,7 +63,7 @@ import { FIXTURE_PASSPHRASE, fixtureKeyring, scriptedSecureTerminal } from './he
 
 import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 import type { IWorkspaceProjectAuthority } from '@robota-sdk/agent-framework';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-9d3f-sealed-by-secure-migrate';
 const DAY_MS = 24 * 60 * 60 * 1000;

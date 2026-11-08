@@ -7,9 +7,9 @@ import {
 import { createServer } from 'node:net';
 import { dirname, isAbsolute, join } from 'node:path';
 
-import { isLinkRequest } from '@robota-sdk/agent-transport-link';
+import { isLinkRequest } from '@robota-sdk/agent-transport/link';
 
-import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface/transport';
 import type { IRuntimeAdmission, TRuntimeAdmissionFactory } from './runtime-admission.js';
 import type {
   IExternalEventGrantCounters,

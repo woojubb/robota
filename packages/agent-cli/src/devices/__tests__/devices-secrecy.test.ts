@@ -11,7 +11,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createDevicesCommandModule } from '@robota-sdk/agent-command';
+import { createDevicesCommandModule } from '@robota-sdk/agent-product/command';
 import { scriptedSession, type ScriptedSessionHarness } from '@robota-sdk/agent-framework/testing';
 
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';
@@ -20,7 +20,7 @@ import { scriptedOperator, type IScriptedOperator } from './fake-secret-terminal
 import { filesUnder, leakedIn, phraseFragments } from './secret-leak.js';
 import { createTestRuntimeContext } from './runtime-context-fixture.js';
 
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 const PASSPHRASE = 'amber quarry seventeen';
 

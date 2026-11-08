@@ -23,9 +23,9 @@ import {
   type IPeerAdmission,
   type TCredentialResolver,
   type TRecordPersister,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 import { receiveFileOverChannel } from '@robota-sdk/agent-transport/node';
-import { handoffGrantFrame, judgeHandoffGrant } from '@robota-sdk/agent-transport-webrtc';
+import { handoffGrantFrame, judgeHandoffGrant } from '@robota-sdk/agent-transport/webrtc';
 
 import {
   createMemoryFileSink,
@@ -36,7 +36,7 @@ import { describeFileRefusal } from '../peer-files/receiving.js';
 import { handoffChannelFingerprint, newChannelNonce } from './handoff-grant.js';
 import { openHandoffWire, type IHandoffWire, type THandoffWireRefusal } from './handoff-wire.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 
 const IDLE_MS = 30_000;

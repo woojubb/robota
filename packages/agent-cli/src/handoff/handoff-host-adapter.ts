@@ -18,7 +18,7 @@ import { findProviderDefinition, getProviderCredentialRequirement } from '@robot
 import {
   ConnectionAuthority,
   assessHandoffReadiness,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 import { loadDevicePrivateKeys } from '../devices/identity-keys.js';
 import { readIdentityState } from '../devices/identity-state.js';
@@ -42,14 +42,14 @@ import type {
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type {
   IFileFrameChannel,
   IHandoffComposition,
   IHandoffManifestRequest,
   IHandoffOutcome,
   IOperatorApprover,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 /** What `/handoff` reads of the live session. */

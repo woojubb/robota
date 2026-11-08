@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createSkillCommand, decodeFrontmatter } from '@robota-sdk/agent-framework';
-import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface/command';
 import { McpSkillActivationError } from './mcp-skill-registry.js';
 import type { IMcpActiveSkill, IMcpSkillMetadata, McpSkillRegistry } from './mcp-skill-registry.js';
 

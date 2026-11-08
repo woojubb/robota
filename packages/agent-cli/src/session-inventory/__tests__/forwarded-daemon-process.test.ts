@@ -11,7 +11,7 @@ import { Duplex } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
-import { completeSpawnerPair } from '@robota-sdk/agent-transport-link';
+import { completeSpawnerPair } from '@robota-sdk/agent-transport/link';
 import { afterEach, expect, it } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';

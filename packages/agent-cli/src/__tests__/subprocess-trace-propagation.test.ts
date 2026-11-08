@@ -10,7 +10,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { spawnInherited } from '@robota-sdk/agent-command/node';
+import { spawnInherited } from '@robota-sdk/agent-product/command/node';
 import { FunctionTool } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { createManagedShellProcessRunner } from '@robota-sdk/agent-executor/node';
@@ -18,11 +18,11 @@ import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import { MCPActivationAdmissionService, MCPDefinitionRegistry } from '@robota-sdk/agent-mcp';
 import { createStdioAdapter } from '@robota-sdk/agent-mcp/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { TSubprocessTraceClass } from '@robota-sdk/agent-core';
-import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface/analytics';
 
 const testHost = createTestFrameworkHost();
 

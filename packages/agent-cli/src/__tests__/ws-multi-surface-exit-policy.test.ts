@@ -11,14 +11,14 @@
  * agent-transport is the package that legitimately sees both sides.
  */
 
-import { createExitCommandModule, createLanguageCommandModule } from '@robota-sdk/agent-command';
+import { createExitCommandModule, createLanguageCommandModule } from '@robota-sdk/agent-product/command';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 const testHost = createTestFrameworkHost();

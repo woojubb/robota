@@ -5,10 +5,10 @@ import { createPersonalUsageReporter, createStoredSessionUsageReporter } from '.
 import type {
   IInteractiveSessionStore,
   ISessionBinder,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { IProtocolSession, ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
-import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
+import type { TDriverId } from '@robota-sdk/agent-interface/session';
+import type { TUsageSurface } from '@robota-sdk/agent-interface/analytics';
 
 /** Compose the host-owned report producers into the default WebSocket transport. */
 function createDefaultUsageTransportRegistry(

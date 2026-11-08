@@ -21,7 +21,7 @@
 import { readAppearanceSettings } from '@robota-sdk/agent-framework';
 
 import type { IAppearanceSettings, TSettingsData } from '@robota-sdk/agent-framework';
-import type { TReducedMotionOverride } from '@robota-sdk/agent-command';
+import type { TReducedMotionOverride } from '@robota-sdk/agent-product/command';
 
 /** `1` enables, `0` disables; anything else is not an opinion. */
 const REDUCED_MOTION_ENV = 'PRODUCT_REDUCED_MOTION';

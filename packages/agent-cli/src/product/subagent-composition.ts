@@ -10,7 +10,7 @@ import { TRANSPORT_ENVIRONMENT } from '@robota-sdk/agent-executor';
 import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import { createGoalStatusTool, getWorkspaceProjectIdentity, sandboxApprovalFor } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { OsSandboxClient } from '@robota-sdk/agent-tools/node';
 import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
@@ -33,7 +33,7 @@ import type { IProviderReproduction } from './subagent-provider-reproduction.js'
 import type { ISubagentWorkerComposition } from '@robota-sdk/agent-subagent-runner';
 import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
 import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
-import type { ICodingPackOptions } from '@robota-sdk/pack-coding';
+import type { ICodingPackOptions } from '@robota-sdk/agent-product/coding';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IOsSandboxSettings } from '@robota-sdk/agent-tools/node';
 import type { IProviderDefinition, IToolWithEventService } from '@robota-sdk/agent-core';

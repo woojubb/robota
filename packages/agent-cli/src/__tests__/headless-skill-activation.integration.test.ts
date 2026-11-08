@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { InteractiveSession, WorkspaceTrustService } from '@robota-sdk/agent-framework';
 import { createNodeHostContributionSource } from '@robota-sdk/agent-framework/node';
-import { createSkillsCommandModule } from '@robota-sdk/agent-command';
+import { createSkillsCommandModule } from '@robota-sdk/agent-product/command';
 import type {
   IWorkspaceIdentity,
   IWorkspaceTrustStore,

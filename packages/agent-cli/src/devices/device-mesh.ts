@@ -39,7 +39,7 @@ import {
   type IMeshRelay,
   type INostrRelayPool,
   type IRendezvousItemStore,
-} from '@robota-sdk/agent-transport-webrtc';
+} from '@robota-sdk/agent-transport/webrtc';
 
 import { withExclusiveFileLock } from '../credentials/exclusive-file-lock.js';
 import { createFileMeshAddressCache } from './address-cache.js';
@@ -55,7 +55,7 @@ import {
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
 import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
-import type { IOperatorApprover } from '@robota-sdk/agent-interface-session-mobility';
+import type { IOperatorApprover } from '@robota-sdk/agent-interface/session-mobility';
 
 /**
  * What a peer may ask of this device unless the settings say otherwise. Files and hand-offs still

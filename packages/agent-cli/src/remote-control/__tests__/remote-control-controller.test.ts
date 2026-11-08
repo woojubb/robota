@@ -1,4 +1,4 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { parsePairingUrl } from '@robota-sdk/agent-remote-pairing';
 import { describe, expect, it, vi } from 'vitest';
@@ -9,10 +9,10 @@ import { SECURE_SURFACES } from '../../secure/secure-surfaces.js';
 import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 
 import type { IRemoteControlControllerDeps } from '../remote-control-controller.js';
-import type { IConnectionApproval, ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
-import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IConnectionApproval, ISignalingClient } from '@robota-sdk/agent-transport/webrtc';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transport';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
-import type { IOperatorApprover } from '@robota-sdk/agent-interface-session-mobility';
+import type { IOperatorApprover } from '@robota-sdk/agent-interface/session-mobility';
 import type { IHostIdentity } from '../host-identity.js';
 import type { ITrustedDeviceStore } from '../trusted-device-store.js';
 

@@ -29,7 +29,7 @@
  * FINDING F3 — `ICommandResult` is not re-exported from `@robota-sdk/agent-framework`.
  *
  * `ICommandModule` / `ISystemCommand` / `ICommandHostContext` are all exported, but the type an
- * `ISystemCommand.execute` RETURNS lives in `@robota-sdk/agent-interface-transport`. Authoring a command
+ * `ISystemCommand.execute` RETURNS lives in `@robota-sdk/agent-interface/transport`. Authoring a command
  * module works because the return literal is contextually typed (see `acme.ts` — it needs no extra import),
  * but a consumer who wants to name the return type must reach into a second package.
  */

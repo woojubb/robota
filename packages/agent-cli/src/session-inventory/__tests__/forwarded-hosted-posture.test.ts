@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { Duplex } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { completeSpawnerPair } from '@robota-sdk/agent-transport-link';
+import { completeSpawnerPair } from '@robota-sdk/agent-transport/link';
 import { expect, it } from 'vitest';
 
 import { createTestBinaryEnvironment } from '../../__tests__/helpers/product-runtime.js';

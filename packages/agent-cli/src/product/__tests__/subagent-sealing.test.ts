@@ -43,7 +43,7 @@ import {
 } from '../session-sealing.js';
 
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const keyringFiles = vi.hoisted(() => ({ opened: 0 }));
 vi.mock('@robota-sdk/agent-local-host', async (importOriginal) => {

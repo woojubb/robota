@@ -5,7 +5,7 @@
  * composition. Nothing here is a double of the protocol; only the operator and the store are scripted.
  */
 
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import {
   existsSync,
   mkdirSync,
@@ -59,13 +59,13 @@ import type { ICredentialStore } from '@robota-sdk/agent-core';
 import type {
   IInteractiveSessionRecord,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type {
   ICapabilityApprovalRequest,
   IFileFrameChannel,
   IHandoffManifest,
   IOperatorApprover,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 /** Every memory sink the receivers made, so a test can tell whether one still holds a session. */
 const memorySinks = vi.hoisted(() => [] as { take(): Buffer }[]);

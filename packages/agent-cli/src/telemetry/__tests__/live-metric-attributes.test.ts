@@ -1,4 +1,4 @@
-import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface/analytics';
 import { describe, expect, it } from 'vitest';
 import { calculateModelCost } from '@robota-sdk/agent-core';
 import { projectLivePromptMetrics } from '../live-metric-otlp.js';

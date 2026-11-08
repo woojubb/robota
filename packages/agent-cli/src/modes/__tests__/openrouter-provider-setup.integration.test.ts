@@ -4,8 +4,8 @@ import { request as httpRequest } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createOpenRouterProviderDefinition } from '@robota-sdk/agent-builtin-providers';
-import { createProviderCommandModule } from '@robota-sdk/agent-command';
+import { createOpenRouterProviderDefinition } from '@robota-sdk/agent-provider/builtin';
+import { createProviderCommandModule } from '@robota-sdk/agent-product/command';
 import { createProviderFromConfig } from '@robota-sdk/agent-core';
 import {
   createInProcessSubagentRunner,

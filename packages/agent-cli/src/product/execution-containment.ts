@@ -14,7 +14,7 @@ import {
   OsSandboxClient,
 } from '@robota-sdk/agent-tools/node';
 
-import type { IDoctorCheck } from '@robota-sdk/agent-command';
+import type { IDoctorCheck } from '@robota-sdk/agent-product/command';
 import type {
   ICommandSandboxAdapter,
   TSandboxCommandMode,

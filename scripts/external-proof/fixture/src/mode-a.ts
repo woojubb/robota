@@ -9,10 +9,10 @@
 
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
-import { createCodingPack } from '@robota-sdk/pack-coding';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
+import { createCodingPack } from '@robota-sdk/agent-product/coding';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 import { ACME_PROVIDER_SETTINGS } from './acme.js';
 import { check, checkEqual, checkThrows, mode, note, section } from './harness.js';

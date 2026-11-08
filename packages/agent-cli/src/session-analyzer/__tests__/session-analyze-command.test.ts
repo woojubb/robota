@@ -14,7 +14,7 @@ import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 
 import { runSessionAnalyze } from '../session-analyze-command.js';
 
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 function sessionRecord(id: string, cwd: string): unknown {
   const t = (ms: number): string => new Date(1_781_000_000_000 + ms).toISOString();

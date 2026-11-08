@@ -74,7 +74,7 @@ import {
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
-import type { IIceServer, IMeshRelay } from '@robota-sdk/agent-transport-webrtc';
+import type { IIceServer, IMeshRelay } from '@robota-sdk/agent-transport/webrtc';
 import type {
   IDevicesAddResult,
   IDevicesCommandPort,
@@ -85,7 +85,7 @@ import type {
   IDevicesView,
   TDevicesOutcome,
   TDevicesRefusal,
-} from '@robota-sdk/agent-command';
+} from '@robota-sdk/agent-product/command';
 
 /** Fewer characters than this could name several devices by accident; the id is asked for in full-ish. */
 const MIN_ID_PREFIX = 6;

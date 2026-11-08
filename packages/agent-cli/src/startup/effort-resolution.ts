@@ -7,7 +7,7 @@ import type {
   TEffortSelection,
 } from '@robota-sdk/agent-framework';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
-import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import type { IResolvedPresetOptions } from '@robota-sdk/agent-product/preset';
 
 /** Resolve all CLI-owned effort sources before any product surface is assembled. */
 export function resolveCliModelEffort(

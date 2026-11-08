@@ -14,7 +14,7 @@ import { discoverProjectRoots } from './migration-roots.js';
 
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { KeyHolder } from './key-holder.js';
-import type { IPromptHistorySource } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistorySource } from '@robota-sdk/agent-interface/session';
 
 const MAX_FILE_BYTES = 64 * 1024 * 1024;
 

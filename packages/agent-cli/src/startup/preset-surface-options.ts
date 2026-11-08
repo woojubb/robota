@@ -11,7 +11,7 @@ import type {
   IOutputStylePrompt,
   TSessionResponseFormat,
 } from '@robota-sdk/agent-framework';
-import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import type { IResolvedPresetOptions } from '@robota-sdk/agent-product/preset';
 
 /**
  * What every shell surface forwards, projected once.

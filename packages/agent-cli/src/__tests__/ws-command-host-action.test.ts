@@ -15,11 +15,11 @@ import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
 import {
   createLanguageCommandModule,
   createSettingsCommandModule,
-} from '@robota-sdk/agent-command';
+} from '@robota-sdk/agent-product/command';
 import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

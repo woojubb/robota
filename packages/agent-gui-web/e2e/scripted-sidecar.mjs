@@ -45,7 +45,7 @@ import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { AuthenticationError } from '@robota-sdk/agent-core';
-import { WsTransport } from '@robota-sdk/agent-transport-ws';
+import { WsTransport } from '@robota-sdk/agent-transport/ws';
 
 
 /** One line of output (scripts write to the streams directly). */

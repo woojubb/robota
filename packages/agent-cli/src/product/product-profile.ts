@@ -1,4 +1,4 @@
-import { createCodingPack } from '@robota-sdk/pack-coding';
+import { createCodingPack } from '@robota-sdk/agent-product/coding';
 import type { ICliRuntimeContext } from './runtime-context.js';
 
 import type {
@@ -11,14 +11,14 @@ import type {
   ICommandModule,
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-framework';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface/transport';
 import type { IProductProfile } from '@robota-sdk/agent-product';
 import type { IShellPresetResolution } from '../startup/preset-selection.js';
-import type { ICodingPackOptions } from '@robota-sdk/pack-coding';
+import type { ICodingPackOptions } from '@robota-sdk/agent-product/coding';
 
 /**
  * A capability pack, reached through the kernel's own profile contract rather than a direct dependency on
- * `@robota-sdk/agent-capability-pack` — the shell composes packs, it does not author the pack contract.
+ * `@robota-sdk/agent-product/capability-pack` — the shell composes packs, it does not author the pack contract.
  */
 type TCapabilityPack = NonNullable<IProductProfile['packs']>[number];
 

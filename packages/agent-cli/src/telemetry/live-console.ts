@@ -1,4 +1,4 @@
-import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface/analytics';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 import { projectLivePromptMetrics } from './live-metric-otlp.js';
 import type { TLiveMetricAttribute } from './live-metric-otlp.js';

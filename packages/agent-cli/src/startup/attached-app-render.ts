@@ -8,7 +8,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * run here too, as the plain TUI runs them.
  */
 import { productProviderDefinitions } from '../product/provider-definitions.js';
-import { createTerminalClientCommands } from '@robota-sdk/agent-command/node';
+import { createTerminalClientCommands } from '@robota-sdk/agent-product/command/node';
 import { SECURE_EDITOR_UNAVAILABLE } from '../product/product-profile.js';
 import { applyAppearanceSettings } from '@robota-sdk/agent-framework';
 import { createNodeHostSettingsStore } from '@robota-sdk/agent-framework/node';

@@ -37,7 +37,7 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => ({
     return next;
   },
 }));
-vi.mock('@robota-sdk/agent-transport-acp', () => ({
+vi.mock('@robota-sdk/agent-transport/acp', () => ({
   createAcpTransport: (options: Record<string, unknown>) => {
     mock.options = options;
     return {

@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '@robota-sdk/agent-product/preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { afterAll, describe, expect, it } from 'vitest';
 
@@ -37,7 +37,7 @@ import { resolveShellPreset } from '../startup/preset-selection.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
-import type { IPreset } from '@robota-sdk/agent-preset';
+import type { IPreset } from '@robota-sdk/agent-product/preset';
 
 const testHost = createTestFrameworkHost();
 const PRODUCT_DEFAULT_AGENT_NAME = productDefaultAgentName(createTestProductRuntime());

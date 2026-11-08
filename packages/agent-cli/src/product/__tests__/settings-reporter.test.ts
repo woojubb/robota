@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { createSettingsReporter } from '../settings-reporter.js';
@@ -31,7 +31,7 @@ import type {
   TSettingsData,
 } from '@robota-sdk/agent-framework';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 /** An isolated temp-file-backed provider settings source, cleaned up when the test ends. */

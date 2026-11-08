@@ -59,7 +59,7 @@ import type {
   IFileOffer,
   IPeerMessage,
   IPeerMessageAck,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 const LINE_TIMEOUT_MS = 10_000;
 /** Longer than any message or file frame; a longer line is a peer that does not speak this protocol. */

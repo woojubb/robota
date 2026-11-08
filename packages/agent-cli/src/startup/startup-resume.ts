@@ -39,7 +39,7 @@ import {
 import type {
   IInteractiveSessionStore,
   IResumableSessionSummary,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** Asks on stderr and reads the answer from stdin, which the caller checked are both a terminal. */
 export async function confirmResumeOnTerminal(question: string): Promise<boolean> {

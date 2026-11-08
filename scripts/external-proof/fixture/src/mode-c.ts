@@ -14,13 +14,13 @@
  * each of those from the published surface.
  */
 
-import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
+import { mergeCapabilityPacks } from '@robota-sdk/agent-product/capability-pack';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import * as frameworkNamespace from '@robota-sdk/agent-framework';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
-import { createCodingPack } from '@robota-sdk/pack-coding';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
+import { createCodingPack } from '@robota-sdk/agent-product/coding';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 
 import {
@@ -40,7 +40,7 @@ import { check, checkEqual, mode, note, section } from './harness.js';
 const codingPack = createCodingPack({ cwd: process.cwd() });
 import { asStandardOptions } from './surface-notes.js';
 
-import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
+import type { ICapabilityPack } from '@robota-sdk/agent-product/capability-pack';
 
 /** The platform the proof's sessions run on: this Node process, with the framework's default tools. */
 const host = createNodeFrameworkHost({ createDefaultTools });

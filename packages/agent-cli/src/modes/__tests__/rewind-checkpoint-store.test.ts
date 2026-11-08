@@ -9,7 +9,7 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createRewindCommandModule } from '@robota-sdk/agent-command';
+import { createRewindCommandModule } from '@robota-sdk/agent-product/command';
 import {
   IEditCheckpointStore,
   WorkspaceTrustService,

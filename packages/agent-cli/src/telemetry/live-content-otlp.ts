@@ -15,7 +15,7 @@ import type {
   ILivePromptContentItem,
   ILivePromptContentPolicy,
   TLivePromptContentKind,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 import { otlpProtobufRequestHeaders } from './live-otlp-headers.js';
 import { prepareLiveContentRedactor } from './live-content-redaction.js';
 import type { ILiveContentRedactionContext, TLiveContentRedactor } from './live-content-redaction.js';

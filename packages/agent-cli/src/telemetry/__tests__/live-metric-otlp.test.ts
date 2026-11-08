@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { ProtobufMetricsSerializer } from '@opentelemetry/otlp-transformer';
 import type { ResourceMetrics } from '@opentelemetry/sdk-metrics';
 import { calculateModelCost } from '@robota-sdk/agent-core';
-import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface/analytics';
 import { describe, expect, it, vi } from 'vitest';
 import { createNodeOtlpLiveMetricPort, projectLivePromptMetrics } from '../live-metric-otlp.js';
 import {

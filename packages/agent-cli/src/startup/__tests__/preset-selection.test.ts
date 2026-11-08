@@ -12,7 +12,7 @@ import {
 } from '../preset-selection.js';
 
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
-import type { IPreset } from '@robota-sdk/agent-preset';
+import type { IPreset } from '@robota-sdk/agent-product/preset';
 
 /** Resolve exactly as `startCli` does, with no external presets loaded. */
 function resolveCliPreset(args: IParsedCliArgs, settingsPreset: string | undefined) {

@@ -34,7 +34,7 @@ import { readExternalEventGrantFiles } from '../external-events/external-event-g
 import { validateExternalEventEndpoint } from '../external-events/external-event-http-host.js';
 import { formatExternalEventGrantRows } from '../external-events/external-event-grant-format.js';
 
-import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface/transport';
 import { runSessionViewCommand } from '../session-inventory/session-view-command.js';
 import { runDaemonCommand } from '../session-inventory/daemon-command.js';
 import {

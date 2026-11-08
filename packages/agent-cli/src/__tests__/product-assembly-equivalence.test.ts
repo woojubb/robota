@@ -26,10 +26,10 @@ import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { BUILT_IN_AGENTS, SystemCommandExecutor } from '@robota-sdk/agent-framework';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
+import { createPresetRegistry } from '@robota-sdk/agent-product/preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import {
@@ -49,7 +49,7 @@ import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { ICommandModule } from '@robota-sdk/agent-framework';
-import type { IPreset } from '@robota-sdk/agent-preset';
+import type { IPreset } from '@robota-sdk/agent-product/preset';
 
 const testHost = createTestFrameworkHost();
 const PRODUCT_DEFAULT_AGENT_NAME = productDefaultAgentName(createTestProductRuntime());

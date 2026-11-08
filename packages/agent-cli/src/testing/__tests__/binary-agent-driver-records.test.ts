@@ -16,7 +16,7 @@ import { createProductUserSessionStore } from '../../product/session-stores.js';
 import { createBinaryAgentDriver } from '../binary-agent-driver.js';
 
 import type { TArtifactSealing } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const sealing = vi.hoisted(() => ({ current: 'plain' as unknown }));
 

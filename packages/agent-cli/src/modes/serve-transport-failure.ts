@@ -1,4 +1,4 @@
-import type { ITransportFailureRecord } from '@robota-sdk/agent-interface-transport';
+import type { ITransportFailureRecord } from '@robota-sdk/agent-interface/transport';
 
 export interface IServeTransportFailureWaiter {
   waitForFailure(): Promise<ITransportFailureRecord | undefined>;

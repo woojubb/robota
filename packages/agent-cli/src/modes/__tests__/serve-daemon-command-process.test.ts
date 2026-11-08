@@ -10,7 +10,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createLanguageCommandModule, createResetCommandModule } from '@robota-sdk/agent-command';
+import { createLanguageCommandModule, createResetCommandModule } from '@robota-sdk/agent-product/command';
 import { InteractiveSession, startRuntimeHost } from '@robota-sdk/agent-framework';
 import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { afterEach, describe, expect, it, vi } from 'vitest';

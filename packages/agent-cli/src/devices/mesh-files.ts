@@ -27,8 +27,8 @@ import { describeFileRefusal, fileReceiving } from '../peer-files/receiving.js';
 import type { IHandoffArrival } from '../handoff/handoff-receiving.js';
 import type { TReceiveHandoffOutcome } from '../handoff/handoff-receive.js';
 import type { IOutgoingFile } from '../peer-files/outgoing-file.js';
-import type { IFileFrameChannel } from '@robota-sdk/agent-interface-session-mobility';
-import type { IDeviceMeshLink } from '@robota-sdk/agent-transport-webrtc';
+import type { IFileFrameChannel } from '@robota-sdk/agent-interface/session-mobility';
+import type { IDeviceMeshLink } from '@robota-sdk/agent-transport/webrtc';
 
 export interface IDeviceFileReceiving {
   /** the configured user storage root of this device's `HOME`. */
