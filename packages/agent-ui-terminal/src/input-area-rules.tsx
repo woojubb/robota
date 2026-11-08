@@ -1,9 +1,9 @@
 /**
  * The input area's horizontal rules, and the deletion announcement that replaces them.
  *
- * Extracted from `InputArea.tsx` (CLI-2004). The rules are hand-drawn `<Text>` lines rather than a
+ * Extracted from `InputArea.tsx`. The rules are hand-drawn `<Text>` lines rather than a
  * Yoga-synthesized `Box` border because a synthesized border drops glyphs during rapid re-render at
- * full terminal height (SCREEN-003) — which is exactly why they are not covered by the `borderStyle`
+ * full terminal height — which is exactly why they are not covered by the `borderStyle`
  * suppression the mode applies elsewhere and need their own branch.
  */
 

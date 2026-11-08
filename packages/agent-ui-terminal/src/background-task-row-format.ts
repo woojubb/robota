@@ -6,7 +6,7 @@ import type { TUiStatusKind } from './status-glyph.js';
 import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
 
 /**
- * The row's leading connector. CLI-2004 adds the plain form: `├`/`└` draw a tree a sighted reader
+ * The row's leading connector. The plain form: `├`/`└` draw a tree a sighted reader
  * follows at a glance and a screen reader announces as two more characters per row.
  */
 export const BACKGROUND_TASK_CONNECTORS = { branch: '├', last: '└', plain: '-' } as const;
@@ -18,16 +18,16 @@ export interface IBackgroundTaskRow {
   connector: TBackgroundTaskConnector;
   /** Shared status glyph (⟳ running, ✓ done, ✗ failed, …) — see status-glyph.ts. */
   marker: string;
-  /** SCREEN-1992: the five-word state beside the glyph — the word a reader hears, not a colour. */
+  /** The five-word state beside the glyph — the word a reader hears, not a colour. */
   state: string;
-  /** SCREEN-2002: the status KIND; the component resolves its colour from the live theme. */
+  /** The status KIND; the component resolves its colour from the live theme. */
   statusKind: TUiStatusKind;
   label: string;
   segments: string[];
   preview?: string;
-  /** SCREEN-1992: the entry's headline when it says more than the preview already does. */
+  /** The entry's headline when it says more than the preview already does. */
   headline?: string;
-  /** SCREEN-1992: `in 59s` while a schedule sleeps — rendered against `options.now`. */
+  /** `in 59s` while a schedule sleeps — rendered against `options.now`. */
   countdown?: string;
   accessibleText: string;
 }
@@ -65,7 +65,7 @@ export function formatBackgroundTaskRow(
 ): IBackgroundTaskRow {
   const row = formatExecutionWorkspaceEntryRow(entry);
   // Symbol from the same (status, attention) classification that drives row.statusKind,
-  // so the marker's glyph and colour always agree (SCREEN-007).
+  // so the marker's glyph and colour always agree.
   const marker = STATUS_SYMBOL[workspaceStatusKind(entry.status, entry.attention)];
   const segments = [row.statusLabel, row.subtitle].filter(
     (segment): segment is string => typeof segment === 'string' && segment.length > 0,

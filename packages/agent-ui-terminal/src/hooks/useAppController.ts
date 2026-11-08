@@ -35,7 +35,7 @@ export interface IUseAppControllerOptions {
   ownerSessions?: IOwnerSessionDirectory;
   onOwnerInvalidated?: (listener: () => void) => () => void;
   showSessionPickerOnStart?: boolean;
-  /** FLOW-2006: a deep link's prefill, handed to the composer exactly once. */
+  /** A deep link's prefill, handed to the composer exactly once. */
   initialInput?: string;
   initialInputOrigin?: 'external-link';
   startupUpdateNotice?: Promise<string | undefined>;
@@ -46,14 +46,14 @@ export interface IUseAppControllerOptions {
   channel: ITuiAppChannelPort;
   onSessionSwitch: TSessionSwitch;
   onRetrySessionSwitch: () => void;
-  /** SCREEN-1993: the stored-prompt source and this run's project key; both or neither. */
+  /** The stored-prompt source and this run's project key; both or neither. */
   promptHistorySource?: IPromptHistorySource;
   promptHistoryProject?: string;
-  /** SCREEN-2002: the catalogue this surface renders from; absent ⇒ the built-ins. */
+  /** The catalogue this surface renders from; absent ⇒ the built-ins. */
   themeRegistry?: IThemeRegistry;
-  /** SCREEN-2002: reduced motion as the product shell resolved it (settings ← env ← flag). */
+  /** Reduced motion as the product shell resolved it (settings ← env ← flag). */
   reducedMotion?: boolean | undefined;
-  /** SCREEN-2002: which tier decided it, when that was not the settings. */
+  /** Which tier decided it, when that was not the settings. */
   reducedMotionOverride?: TReducedMotionOverride | undefined;
 }
 
@@ -203,7 +203,7 @@ function useControllerTheme(
 }
 
 /**
- * FLOW-2006: the deep link's prefill is owned HERE, not by the composer's `useState` initializer.
+ * The deep link's prefill is owned HERE, not by the composer's `useState` initializer.
  * `AppPresentation` unmounts the prompt subtree while a terminal handoff is suspended, so a
  * component-local initializer would re-seed a prompt the user had already cleared or submitted.
  */

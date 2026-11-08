@@ -1,5 +1,5 @@
 /**
- * Persisted tool-summary → status-SSOT mapping (SCREEN-006).
+ * Persisted tool-summary → status-SSOT mapping.
  *
  * MessageList used to hand-roll its own glyph/color mapping for tool summaries, which drifted
  * from `status-glyph.ts` (denied rendered plain yellow vs the SSOT's yellowBright). These

@@ -1,8 +1,8 @@
 /**
- * ARCH-005 — the TUI's session-option mapping, split out of `TuiInteractionChannel`.
+ * The TUI's session-option mapping, split out of `TuiInteractionChannel`.
  *
  * Pure: it maps the channel's already-resolved options onto the framework's `TInteractiveSessionOptions`.
- * RUNTIME-001 — the channel then builds through the shared `buildRuntimeSession` seam (agent-framework),
+ * The channel then builds through the shared `buildRuntimeSession` seam (agent-framework),
  * never a private `new InteractiveSession`: one session-construction SSOT across the TUI, print, and
  * `--serve`.
  */
@@ -66,7 +66,7 @@ export function buildTuiSessionOptions(
     ...(opts.externalEventGrantHistory !== undefined
       ? { externalEventGrantHistory: opts.externalEventGrantHistory }
       : {}),
-    // CLI-076: forward the resolved model so `--model` takes effect rather than falling through to the
+    // Forward the resolved model so `--model` takes effect rather than falling through to the
     // session's config/default model.
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
@@ -79,7 +79,7 @@ export function buildTuiSessionOptions(
     ...(opts.outputStyle !== undefined ? { outputStyle: opts.outputStyle } : {}),
     permissionMode: opts.permissionMode,
     maxTurns: opts.maxTurns,
-    // REMOTE-007: no injected permission/ask handlers — the TUI subscribes to the session's
+    // No injected permission/ask handlers — the TUI subscribes to the session's
     // transport-neutral `permission_request`/`ask_request` events (wireSessionEvents) and answers via
     // `resolvePermission`/`resolveAsk`. The local Ink queues + rendering are unchanged.
     sessionStore: opts.sessionStore,
@@ -123,14 +123,14 @@ export function buildTuiSessionOptions(
     enableParallelSubagents: opts.enableParallelSubagents,
     selfVerification: opts.selfVerification,
     terminalHandoff: opts.terminalHandoff,
-    // #1844: the session reads these when `/provider switch` hot-swaps. Absent, the switch throws
+    // The session reads these when `/provider switch` hot-swaps. Absent, the switch throws
     // "Unknown provider: <name>. Currently supported: " with an EMPTY list — measured, not inferred.
     ...(opts.providerDefinitions ? { providerDefinitions: opts.providerDefinitions } : {}),
-    // SELFHOST-008 P6: forward the surface-resolved memory fields only when present (absent ⇒ OFF).
+    // Forward the surface-resolved memory fields only when present (absent ⇒ OFF).
     ...(opts.memoryStore ? { memoryStore: opts.memoryStore } : {}),
     ...(opts.automaticMemory ? { automaticMemory: opts.automaticMemory } : {}),
     ...(opts.recallMemory ? { recallMemory: opts.recallMemory } : {}),
-    // SCREEN-1993: the owner-prompt append (absent ⇒ the controller records nothing).
+    // The owner-prompt append (absent ⇒ the controller records nothing).
     ...(opts.promptHistory ? { promptHistory: opts.promptHistory } : {}),
   };
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { IntervalRecap, RECAP_MAX_WIDTH } from '../interval-recap.js';
 
-describe('IntervalRecap (SCREEN-1992 TC-02)', () => {
+describe('IntervalRecap', () => {
   it('counts turns by source, needs-input requests and terminal entries, and yields one line on return', () => {
     const recap = new IntervalRecap();
     // Attended: nothing is counted.

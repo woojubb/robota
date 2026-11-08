@@ -8,7 +8,7 @@ export interface IActiveDriverSource {
 }
 
 /**
- * PEER-007 (issue #1915): the transcript echo of a user message, attributed to the ACTIVE turn's
+ * The transcript echo of a user message, attributed to the ACTIVE turn's
  * driver so a peer's message is labelled as theirs the moment it appears rather than reading as the
  * operator's own for the whole turn. The id is the framework's DERIVED one (`peer:<session-id>`),
  * never peer-supplied text.

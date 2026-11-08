@@ -31,8 +31,8 @@ describe('formatBackgroundTaskRow', () => {
     const row = formatBackgroundTaskRow(makeEntry({ id: 'task:agent_1' }), { isLast: true });
 
     expect(row.connector).toBe('└');
-    expect(row.marker).toBe('⟳'); // running → shared status glyph (SCREEN-005)
-    // marker symbol AND colour come from the same glyph now (SCREEN-007): the running
+    expect(row.marker).toBe('⟳'); // running → shared status glyph
+    // marker symbol AND colour come from the same glyph now: the running
     // glyph is yellow, so the row colour is yellow (was cyan via the old view-model rule).
     expect(row.statusKind).toBe('running');
     expect(row.label).toBe('Explore agent');
@@ -56,16 +56,16 @@ describe('formatBackgroundTaskRow', () => {
     );
 
     expect(failed.connector).toBe('├');
-    expect(failed.marker).toBe('✗'); // failed → error glyph (SCREEN-005)
+    expect(failed.marker).toBe('✗'); // failed → error glyph
     expect(failed.statusKind).toBe('error');
     expect(failed.preview).toBe('Timed out');
-    expect(completed.marker).toBe('✓'); // completed → success glyph (SCREEN-005)
+    expect(completed.marker).toBe('✓'); // completed → success glyph
     expect(completed.statusKind).toBe('success');
     expect(completed.preview).toBe('Summary ready');
   });
 });
 
-/** CLI-2004: the tree connectors are drawing, and a reader announces them on every row. */
+/** The tree connectors are drawing, and a reader announces them on every row. */
 describe('formatBackgroundTaskRow in screen-reader mode', () => {
   it('uses the plain connector instead of the box-drawing branch/last glyphs', () => {
     const branch = formatBackgroundTaskRow(makeEntry({}), { isLast: false, screenReader: true });
@@ -86,7 +86,7 @@ describe('formatBackgroundTaskRow in screen-reader mode', () => {
   });
 });
 
-/** SCREEN-1992 TC-07: the state word beside the glyph, the headline and the countdown. */
+/** The state word beside the glyph, the headline and the countdown. */
 describe('formatBackgroundTaskRow state, headline and countdown', () => {
   const now = new Date('2026-01-01T00:00:00.000Z');
 
@@ -135,7 +135,7 @@ describe('formatBackgroundTaskRow state, headline and countdown', () => {
   });
 });
 
-describe('formatBackgroundTaskRow headline dedup against the subtitle (PR #2749 review)', () => {
+describe('formatBackgroundTaskRow headline dedup against the subtitle', () => {
   it('drops a headline the subtitle already carries, such as a wake instruction', () => {
     const row = formatBackgroundTaskRow(
       makeEntry({

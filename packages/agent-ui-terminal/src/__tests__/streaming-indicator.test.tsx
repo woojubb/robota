@@ -138,8 +138,8 @@ describe('StreamingIndicator', () => {
   });
 });
 
-/** CLI-2004 TC-19 — the progress indicator collapses to one static line in the mode. */
-describe('CLI-2004 TC-19: StreamingIndicator in screen-reader mode', () => {
+/** The progress indicator collapses to one static line in the mode. */
+describe('StreamingIndicator in screen-reader mode', () => {
   function renderInMode(element: React.ReactElement): string {
     const { lastFrame, unmount } = render(
       <ScreenReaderProvider enabled={true}>{element}</ScreenReaderProvider>,

@@ -1,5 +1,5 @@
 /**
- * TEST-007 / TERM-003 + TERM-004 fixture: run the real `/shell` and `/editor` command executors
+ * Fixture: run the real `/shell` and `/editor` command executors
  * through the real `TerminalHandoffController` on a real PTY.
  *
  * A real Ink app (input hooks below a suspend gate, like the App) provides the live handoff; a minimal
@@ -78,10 +78,9 @@ async function main(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 300));
   marker(`READY canHandoff=${controller.canHandoffTerminal}`);
 
-  // ARCH-029: the fixture's `satisfies Pick<>` above is the honest part — it declares exactly the
-  // three members these executors read. The widening cast existed only because the executors demand
-  // the whole 46-member facade. S3's role ports remove the need to widen at all; until then the
-  // double supplies the rest so no cast is required.
+  // The fixture's `satisfies Pick<>` above is the honest part — it declares exactly the three
+  // members these executors read. The widening cast existed only because the executors demand the
+  // whole 46-member facade. The double supplies the rest so no cast is required.
   const ctx = createTestCommandHost({ overrides: context });
   const result =
     MODE === 'editor'

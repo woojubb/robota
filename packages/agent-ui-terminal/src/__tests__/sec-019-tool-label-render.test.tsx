@@ -1,5 +1,5 @@
 /**
- * SEC-019 (issue #2022) — what actually reaches the terminal, measured rather than assumed.
+ * What actually reaches the terminal, measured rather than assumed.
  *
  * ## The oracle, and why it is not `lastFrame()`
  *
@@ -91,7 +91,7 @@ const toolEntry = (content: string): IHistoryEntry =>
 const eventEntry = (id: string, type: string, data: unknown): IHistoryEntry =>
   ({ id, timestamp: new Date(), category: 'event', type, data }) as unknown as IHistoryEntry;
 
-describe('SEC-019 — the terminal stream carries no payload from poisoned session data', () => {
+describe('the terminal stream carries no payload from poisoned session data', () => {
   it('the oracle is not vacuous: an unsanitized render DOES leak', async () => {
     // Without this the whole file passes for a `carriesPayload` that always answers false, and for
     // an Ink that removed everything. It also pins WHY this module exists: if this case ever goes

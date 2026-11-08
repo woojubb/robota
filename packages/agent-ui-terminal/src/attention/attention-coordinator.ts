@@ -4,7 +4,7 @@ import type { IAttentionSource } from './attention-tracker.js';
 import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
 
 /**
- * SCREEN-1992: joins the attention level to the recap accumulator for one channel.
+ * Joins the attention level to the recap accumulator for one channel.
  *
  * The tracker outlives channels (it is the terminal's), the recap belongs to the session being
  * shown; the coordinator subscribes for the channel's lifetime and pushes each recap line into the

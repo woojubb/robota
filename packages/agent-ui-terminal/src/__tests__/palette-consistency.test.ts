@@ -1,13 +1,13 @@
 /**
- * SCREEN-006 anti-drift consistency floor — the mechanical floor for the color-token SSOT.
+ * Anti-drift consistency floor — the mechanical floor for the color-token SSOT.
  *
  * Every component must consume the resolved theme (`usePalette()` / `useMotionTokens()`, whose data
  * lives in `src/theme/`) instead of spelling Ink color names or hex values inline. This scan reads
  * every source file in the package (excluding `src/theme/` itself and tests) and fails on any
  * `color="…"` / `borderColor="…"` / `backgroundColor="…"` JSX string literal and on any
- * `#rrggbb` hex literal. Precedent: `key-hint-consistency.test.tsx` (the SCREEN-005 floor).
+ * `#rrggbb` hex literal. Precedent: `key-hint-consistency.test.tsx`.
  *
- * SCREEN-2002 added the two ratchets the SCREEN-006 limit predicted. The deferred case — "a future
+ * Two ratchets cover the limit recorded below. The deferred case — "a future
  * TS helper returning a bare color-name string" — recurred twice (`getContextColor`, the status
  * glyph's colour), so the floor now also refuses any file outside `src/theme/` that names the
  * built-in theme data or calls a chalk COLOUR function. `chalk.inverse` (a modifier, the
@@ -36,12 +36,12 @@ const SOURCE_EXTENSIONS = ['.ts', '.tsx'];
 const COLOR_ATTR_LITERAL = /\b(?:color|borderColor|backgroundColor)="[^"]*"/g;
 const HEX_LITERAL = /#[0-9a-fA-F]{6}\b/g;
 /**
- * SCREEN-2002: the built-in colour DATA may be imported only from inside `src/theme/`. The SYMBOL is
+ * The built-in colour DATA may be imported only from inside `src/theme/`. The SYMBOL is
  * what the ratchet matches, not the module path — matching the path alone let the `src/theme/index.js`
  * barrel re-export the data straight past the floor, which is exactly the route every migrated
  * component already imports through.
  *
- * Recorded limit (widened by SCREEN-2002 work unit 3): the package now EXPORTS `listBuiltInThemes`,
+ * Recorded limit: the package now EXPORTS `listBuiltInThemes`,
  * so a caller can obtain a built-in's colour values through the accessor without naming a constant
  * or the data module — the floor does not see that, exactly as it does not see a colour-name string
  * returned by a pure helper. The accessor exists for one composition root, which puts the built-ins
@@ -54,9 +54,9 @@ const HEX_LITERAL = /#[0-9a-fA-F]{6}\b/g;
  */
 const BUILT_IN_THEME_IMPORT =
   /\b(?:BUILT_IN_THEMES|DARK_THEME|LIGHT_THEME|DARK_DALTONIZED_THEME|LIGHT_DALTONIZED_THEME)\b|from\s+'[^']*built-in-themes\.js'/g;
-/** SCREEN-2002: a chalk COLOUR call outside `src/theme/` decides a colour the theme should own. */
+/** A chalk COLOUR call outside `src/theme/` decides a colour the theme should own. */
 const CHALK_COLOR_CALL = /\bchalk\.(?!inverse\b|level\b)[A-Za-z]+[.(]/g;
-/** SCREEN-2002: the three inputs `<ThemeProvider>` must be fed from the resolved view model. */
+/** The three inputs `<ThemeProvider>` must be fed from the resolved view model. */
 const THEME_PROVIDER_PROPS = ['theme', 'reducedMotion', 'syntaxHighlighting'] as const;
 
 interface IFinding {
@@ -118,7 +118,7 @@ function formatFindings(findings: IFinding[]): string {
   return findings.map((f) => `  ${f.file}:${f.line}  ${f.match}`).join('\n');
 }
 
-describe('SCREEN-006 palette consistency floor', () => {
+describe('palette consistency floor', () => {
   const allFiles = collectSourceFiles(SRC_ROOT);
   // `src/theme/` is the one place a colour value or a chalk colour call may appear.
   const sourceFiles = allFiles.filter((file) => !sourcePath(file).split('/').includes(THEME_DIR));
@@ -143,7 +143,7 @@ describe('SCREEN-006 palette consistency floor', () => {
     ).toEqual([]);
   });
 
-  it('SCREEN-2002: only src/theme/ imports the built-in theme data', () => {
+  it('only src/theme/ imports the built-in theme data', () => {
     const findings = sourceFiles.flatMap((file) => scanFile(file, BUILT_IN_THEME_IMPORT));
     expect(
       findings,
@@ -151,7 +151,7 @@ describe('SCREEN-006 palette consistency floor', () => {
     ).toEqual([]);
   });
 
-  it('SCREEN-2002: only src/theme/ calls a chalk colour', () => {
+  it('only src/theme/ calls a chalk colour', () => {
     const findings = sourceFiles.flatMap((file) => scanFile(file, CHALK_COLOR_CALL));
     expect(
       findings,
@@ -160,12 +160,12 @@ describe('SCREEN-006 palette consistency floor', () => {
   });
 
   /**
-   * SCREEN-2002 TC-06 carve-out, made mechanical. The motion gate has exactly ONE consumer, and the
+   * The motion carve-out, made mechanical. The motion gate has exactly ONE consumer, and the
    * carve-outs depend on that: the sleeping-task countdown still advances under reduced motion
    * (it reports a fact, it is not decoration) and `StreamingIndicator`'s collapse follows
    * screen-reader mode alone. A second consumer would quietly widen what the setting turns off.
    */
-  it('SCREEN-2002: the motion gate has one consumer', () => {
+  it('the motion gate has one consumer', () => {
     const consumers = sourceFiles.filter((file) =>
       /\buseMotion\(\)/u.test(blankComments(readFileSync(file, 'utf8'))),
     );
@@ -173,7 +173,7 @@ describe('SCREEN-006 palette consistency floor', () => {
   });
 
   /**
-   * SCREEN-2002: the provider's three inputs must all be WIRED, and every markdown render site must
+   * The provider's three inputs must all be WIRED, and every markdown render site must
    * READ the one that is not a colour.
    *
    * `/theme syntax off` shipped in this package's first draft persisting a setting that reached no
@@ -217,7 +217,7 @@ describe('SCREEN-006 palette consistency floor', () => {
           RAW_RENDERER_SPECIFIER.test(line) && !/^\s*(?:import|export)\s+type\b/u.test(line),
       );
 
-  it('SCREEN-2002: AppView feeds the theme provider all three resolved inputs', () => {
+  it('AppView feeds the theme provider all three resolved inputs', () => {
     const element = themeProviderElement(readFileSync(join(SRC_ROOT, 'AppView.tsx'), 'utf8'));
 
     expect(element, 'AppView must render a <ThemeProvider> — it is the only live one').not.toBe('');
@@ -229,7 +229,7 @@ describe('SCREEN-006 palette consistency floor', () => {
     }
   });
 
-  it('SCREEN-2002: the markdown renderer has one consumer, which binds the appearance', () => {
+  it('the markdown renderer has one consumer, which binds the appearance', () => {
     const importers = sourceFiles
       .map((file) => ({
         file: sourcePath(file),

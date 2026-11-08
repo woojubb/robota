@@ -31,7 +31,7 @@ export const EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS: readonly IKeyHint[] = [
 ];
 
 /**
- * CLI-1994: the extra hint shown only while a forked entry is focused. Appended rather than always
+ * The extra hint shown only while a forked entry is focused. Appended rather than always
  * present, because a key that does nothing on most rows reads as a broken key, not an unused one.
  */
 export const EXECUTION_WORKSPACE_ATTACH_HINT: IKeyHint = { keys: 'a', label: 'Attach' };
@@ -42,13 +42,13 @@ interface IProps {
   onSelect: (entryId: string) => void;
   onClose: () => void;
   /**
-   * CLI-1994: attach to the focused entry's forked session — a VIEW switch onto that record, never
+   * Attach to the focused entry's forked session — a VIEW switch onto that record, never
    * a merge. Absent when the surface cannot switch sessions; the control is then not offered.
    */
   onAttach?: (entry: IExecutionWorkspaceEntry) => void;
 }
 
-/** CLI-1994: `attach` is offered by the projection; the switcher only reads what it was handed. */
+/** `attach` is offered by the projection; the switcher only reads what it was handed. */
 function offersAttach(entry: IExecutionWorkspaceEntry | undefined): boolean {
   return entry?.controls.includes('attach') === true;
 }
@@ -71,7 +71,7 @@ export default function ExecutionWorkspaceSwitcher({
   const focusedEntry = entries[normalized.selectedIndex];
   const canAttach = onAttach !== undefined && offersAttach(focusedEntry);
 
-  // CLI-2004: the switcher is an arrow-key menu, so the mode gives it numbers and a typed answer.
+  // The switcher is an arrow-key menu, so the mode gives it numbers and a typed answer.
   const screenReader = useScreenReader();
   const numbered = useNumberedSelection({
     enabled: screenReader && entries.length > 0,

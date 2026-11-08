@@ -1,5 +1,5 @@
 /**
- * SCREEN-006 WaveText token-sourcing tests.
+ * WaveText token-sourcing tests.
  *
  * WaveText's color ramp comes from the resolved theme's motion tokens (its cadence is its own) in
  * `src/theme/built-in-themes.ts` (not component-private literals), and the gated/static
@@ -17,7 +17,7 @@ import { ScreenReaderProvider } from '../screen-reader-context.js';
 import { DARK_THEME } from '../theme/built-in-themes.js';
 import { foreground } from '../theme/index.js';
 
-/** Cadence is not themed; the component owns it (SCREEN-2002). */
+/** Cadence is not themed; the component owns it. */
 const WAVE_INTERVAL_MS = 400;
 
 const gateMock = vi.hoisted(() => ({ value: true }));
@@ -53,7 +53,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('WaveText motion tokens (SCREEN-006)', () => {
+describe('WaveText motion tokens', () => {
   it('animated frames draw only from the theme’s wave ramp', () => {
     gateMock.value = true;
     const allowed = new Set<string>(['39', '0']);
@@ -95,10 +95,10 @@ describe('WaveText motion tokens (SCREEN-006)', () => {
 });
 
 /**
- * CLI-2004 TC-19 — a spinner is a repaint per frame, and a repaint is an announcement. In the mode
+ * A spinner is a repaint per frame, and a repaint is an announcement. In the mode
  * the text is written once and no interval is ever scheduled.
  */
-describe('CLI-2004 TC-19: WaveText in screen-reader mode', () => {
+describe('WaveText in screen-reader mode', () => {
   it('renders its text once and schedules no interval', () => {
     gateMock.value = true; // the colour gate is OPEN — the mode alone must stop the animation
     vi.useFakeTimers();

@@ -35,19 +35,19 @@ export interface ITuiChannelState {
   activeTools: readonly IToolState[];
   isThinking: boolean;
   isAborting: boolean;
-  /** ERR-001 G2: humanized message of the last failed turn (null once the next turn starts). */
+  /** Humanized message of the last failed turn (null once the next turn starts). */
   lastErrorMessage: string | null;
-  /** ERR-001 G3: no provider activity for a while during a turn — connection may be stalled. */
+  /** No provider activity for a while during a turn — connection may be stalled. */
   isStalled: boolean;
   sessionEventNotices: readonly ITuiSessionEventNotice[];
   isShuttingDown: boolean;
   pendingPrompt: string | null;
-  /** REMOTE-014 E5: total queued turns across all drivers (owner + co-drivers); >1 means a co-driver is queued. */
+  /** Total queued turns across all drivers (owner + co-drivers); >1 means a co-driver is queued. */
   pendingCount: number;
   executionWorkspaceSnapshot: IExecutionWorkspaceSnapshot | null;
   selectedExecutionEntryId?: string;
   permissionRequest: IPendingPermissionRequest | null;
-  /** CMD-004: the unified action awaiting a user answer, or null. */
+  /** The unified action awaiting a user answer, or null. */
   pendingUserAction: IActionRequest | null;
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
   /** The host's sessions for the picker, when the channel's host keeps them. */
@@ -96,7 +96,7 @@ export function useTuiChannel(channel: ITuiAppChannelPort): ITuiChannelState {
   useEffect(() => channel.subscribe(() => forceRender((n) => n + 1)), [channel]);
   const snapshot = channel.getSnapshot();
 
-  // SCREEN-014 fix: these are consumed in `useEffect` dependency arrays in App. `channel` is stable
+  // These are consumed in `useEffect` dependency arrays in App. `channel` is stable
   // (created once), so memoize them — a fresh closure each render made the detail-loading effect
   // re-run every render and `setState`-loop ("Maximum update depth exceeded") whenever a background
   // entry was selected.

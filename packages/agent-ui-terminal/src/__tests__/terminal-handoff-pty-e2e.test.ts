@@ -1,5 +1,5 @@
 /**
- * TEST-007 / TERM-002: real-terminal handoff, end-to-end through a PTY.
+ * Real-terminal handoff, end-to-end through a PTY.
  *
  * Drives `fixtures/terminal-handoff-driver.tsx` (a real Ink app using the real
  * `TerminalHandoffController` + `useTerminalHandoffSuspension`) inside a pseudo-terminal. This is the
@@ -46,7 +46,7 @@ describe('terminal handoff PTY E2E', () => {
       const session = spawnPtyFixture(FIXTURE, {
         argv: [outputPath],
         cwd: PACKAGE_DIR,
-        // HARNESS-025: isolated HOME — the child must not read the developer's `~`.
+        // Isolated HOME — the child must not read the developer's `~`.
         env: createPtyEnv(),
       });
       sessions.push(session);
