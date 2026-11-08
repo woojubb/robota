@@ -46,8 +46,9 @@ describe('agent-tools entry isolation', () => {
     ['the main entry', MAIN_ENTRY],
     ['the node entry', NODE_ENTRY],
   ])('%s reaches nothing under defaults', (_name, entry) => {
-    const reached = [...reachableFrom(entry)].filter((file) => isUnder(DEFAULTS, file));
-    expect(reached).toEqual([]);
+    const closure = reachableFrom(entry);
+    expect(closure.size).toBeGreaterThan(1);
+    expect([...closure].filter((file) => isUnder(DEFAULTS, file))).toEqual([]);
   });
 
   it('defaults reaches the rest of the package only through its main and node entries', () => {

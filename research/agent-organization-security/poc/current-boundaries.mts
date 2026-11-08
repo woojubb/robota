@@ -10,7 +10,7 @@ import {
   OsSandboxClient,
   detectOsSandbox,
 } from '../../../packages/agent-tools/src/sandbox/os-sandbox-client.ts';
-import { createDefaultTools } from '../../../packages/agent-tool-defaults/src/create-default-tools.ts';
+import { createDefaultTools } from '../../../packages/agent-tools/src/defaults/create-default-tools.ts';
 import { restoreProjectedSandbox } from '../../../packages/agent-subagent-runner/src/worker-composition.ts';
 
 const started = performance.now();
