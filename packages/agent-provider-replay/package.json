@@ -46,8 +46,8 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "npm:@robota-sdk/agent-core@3.2.1",
-    "@robota-sdk/agent-session": "npm:@robota-sdk/agent-session@3.2.2"
+    "@robota-sdk/agent-core": "npm:@robota-sdk/agent-core@3.2.2",
+    "@robota-sdk/agent-session": "npm:@robota-sdk/agent-session@3.2.3"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
