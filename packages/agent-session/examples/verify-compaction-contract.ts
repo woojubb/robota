@@ -33,7 +33,7 @@ const PREVIOUSLY_UNDECLARED_EVENTS = [
 ] as const;
 
 class OfflineCompactionProvider extends AbstractAIProvider {
-  override readonly name = 'arch-016-offline';
+  override readonly name = 'offline-compaction';
   override readonly version = '1.0.0';
 
   override async chat(
@@ -112,7 +112,7 @@ function triggers(inputs: IHookInput[]): Array<IHookInput['trigger']> {
 }
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'arch-016-example-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'compaction-example-'));
   const manualInputs: IHookInput[] = [];
   const autoInputs: IHookInput[] = [];
   let manualSession: Session | undefined;
