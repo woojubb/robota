@@ -2,7 +2,7 @@ import type { IIdentityContext } from './identity/crypto-context.js';
 /**
  * Reconnect rendezvous derivation for session-resume.
  *
- * **Isomorphic** (WebCrypto HKDF only). The E2-hardened relay is single-use + half-open-evicting, so a
+ * **Isomorphic** (WebCrypto HKDF only). The hardened relay is single-use + half-open-evicting, so a
  * reconnect cannot reuse the first-pair room. Instead both peers deterministically compute a **fresh** room
  * per reconnect from a per-device seed + a monotonic counter:
  *

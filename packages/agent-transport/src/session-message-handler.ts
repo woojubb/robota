@@ -199,8 +199,8 @@ const EMPTY_USAGE_REPORTERS: IUsageQueryReporters = {
 };
 
 /**
- * Route a parsed client message to the session (control/query/background/prompt-response). Exported for E4:
- * the {@link SessionResumeBridge} intercepts `resume`/`ack` itself and delegates everything else here.
+ * Route a parsed client message to the session (control/query/background/prompt-response). Exported so
+ * the {@link SessionResumeBridge} can intercept `resume`/`ack` itself and delegate everything else here.
  */
 export function handleClientMessage(
   session: TProjectReadCapableSession,
