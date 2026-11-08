@@ -24,6 +24,7 @@ const READS = new Set([
   'get-background-tasks',
   'list-models',
   'get-agent-definitions',
+  'get-surface-role',
 ]);
 const hidden = new Set([
   'sessions',
