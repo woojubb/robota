@@ -42,7 +42,7 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
 /**
  * The TUI channel's option surface.
  *
- * ARCH-013: this lived inside the 698-line channel class, beside the code that consumes it. The
+ * This lived inside the 698-line channel class, beside the code that consumes it. The
  * projection FROM it — `buildTuiSessionOptions` — already had its own module, so the surface and its
  * one projection now sit together and neither is buried in an implementation file. That matters for
  * this item specifically: a field added to the resolved preset has to be added here to reach the
@@ -92,17 +92,17 @@ export interface ITuiInteractionChannelOptions {
   editCheckpointStore?: IEditCheckpointStore;
   /** The host's way to build each external-event grant's verifier; absent, no grant opens. */
   externalEventVerifierFactory?: TInteractiveSessionOptions['externalEventVerifierFactory'];
-  /** The run's grant history, shared by every session this TUI binds (#3189). */
+  /** The run's grant history, shared by every session this TUI binds. */
   externalEventGrantHistory?: TInteractiveSessionOptions['externalEventGrantHistory'];
   /**
-   * CLI-076: the resolved model id (the same value the status line displays). Forwarded to the session so an
+   * The resolved model id (the same value the status line displays). Forwarded to the session so an
    * explicit `--model` override reaches the provider chat call instead of being silently replaced by the
    * session's default model.
    */
   model?: string;
-  /** CLI-1988: resolved provider-neutral response style. */
+  /** Resolved provider-neutral response style. */
   outputStyle?: IOutputStylePrompt;
-  /** ARCH-013: resolved preset effort, threaded to the session's `effort` seam. */
+  /** Resolved preset effort, threaded to the session's `effort` seam. */
   effort?: ICreateSessionOptions['effort'];
   temperature?: number;
   maxOutputTokens?: number;
@@ -121,19 +121,19 @@ export interface ITuiInteractionChannelOptions {
    */
   acceptedDigest?: string;
   forkSession?: boolean;
-  /** Issue #3081: this channel's session is the target of a `/cd` from this directory. */
+  /** This channel's session is the target of a `/cd` from this directory. */
   workspaceMovedFrom?: string;
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
-  /** MCP-004: forwarded to `ICreateSessionOptions.toolCallHandoff`. */
+  /** Forwarded to `ICreateSessionOptions.toolCallHandoff`. */
   toolCallHandoff?: IToolCallHandoffPolicy;
   subagentRunnerFactory?: TSubagentRunnerFactory;
-  /** ARCH-005: composition-root-contributed subagent definitions (merged capability packs). */
+  /** Composition-root-contributed subagent definitions (merged capability packs). */
   agentDefinitions?: readonly IAgentDefinition[];
   agentDefinitionRoots?: readonly string[];
   pluginDirectories?: { readonly user?: string; readonly project?: string };
   /**
-   * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
+   * Tools contributed by the composition root (the capability packs `assembleProduct` merged)
    * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
    * (`defaultTools: []`). Forwarded to the session's tool-composition seam; absent ⇒ unchanged.
    */
@@ -145,7 +145,7 @@ export interface ITuiInteractionChannelOptions {
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
-  /** REMOTE-006: optional remote-command policy (allow-by-default; a transport-origin command runs as a local one). */
+  /** Optional remote-command policy (allow-by-default; a transport-origin command runs as a local one). */
   remoteCommandPolicy?: IRemoteCommandPolicy;
   transportRegistry?: ITransportRegistryView;
   /** Bind concrete transports to each newly constructed session before registry startup. */
@@ -153,7 +153,7 @@ export interface ITuiInteractionChannelOptions {
   language?: string;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
-  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  /** Active preset id selected at startup (runtime state). Defaults to 'default'. */
   activePresetId?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
   persona?: string;
@@ -165,28 +165,28 @@ export interface ITuiInteractionChannelOptions {
   enableParallelSubagents?: boolean;
   /** Preset execution capability: run a post-task self-verification step. */
   selfVerification?: boolean;
-  /** TERM-002: process-shared terminal-handoff controller (the TUI implementation of ITerminalHandoff). */
+  /** Process-shared terminal-handoff controller (the TUI implementation of ITerminalHandoff). */
   terminalHandoff?: TerminalHandoffController;
-  /** SCREEN-1992: the terminal's attention level; absent ⇒ no interval recap. */
+  /** The terminal's attention level; absent ⇒ no interval recap. */
   attention?: IAttentionSource;
   /**
-   * SELFHOST-008 P6: optional durable-memory store injected by the surface (agent-cli). Forwarded into
+   * Optional durable-memory store injected by the surface (agent-cli). Forwarded into
    * `buildRuntimeSession`; absent ⇒ memory OFF (today's behavior). Enablement/policy is surface-owned.
    */
   memoryStore?: IMemoryStore;
-  /** SELFHOST-008 P6: optional automatic post-turn capture policy (absent ⇒ capture OFF). */
+  /** Optional automatic post-turn capture policy (absent ⇒ capture OFF). */
   automaticMemory?: IAutomaticMemoryConfig;
-  /** SELFHOST-008 P6: optional per-turn recall policy (absent ⇒ recall OFF, startup-only injection). */
+  /** Optional per-turn recall policy (absent ⇒ recall OFF, startup-only injection). */
   recallMemory?: IPerTurnRecallConfig;
   /** Observe TUI-owned session-event rendering failures without failing the committed operation. */
   onSessionEventDeliveryError?: (error: Error, event: TInteractiveEventName) => void;
   /**
-   * CLI-2004: the resolved screen-reader mode. A PRESENTATION field — it changes nothing about the
+   * The resolved screen-reader mode. A PRESENTATION field — it changes nothing about the
    * session and is deliberately NOT projected into `buildTuiSessionOptions`; it is carried here so
-   * the render-options → channel-options projection is complete and the ARCH-110 drop hazard is
+   * the render-options → channel-options projection is complete and the drop hazard is
    * asserted rather than assumed. Absent ⇒ OFF.
    */
   screenReader?: boolean;
-  /** SCREEN-1993: the session-side prompt-history writer and project key; absent ⇒ nothing recorded. */
+  /** The session-side prompt-history writer and project key; absent ⇒ nothing recorded. */
   promptHistory?: IPromptHistoryOptions | undefined;
 }

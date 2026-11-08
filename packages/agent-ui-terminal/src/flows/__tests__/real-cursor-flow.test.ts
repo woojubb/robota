@@ -1,5 +1,5 @@
 /**
- * CLI-062 — unit tables for the real-cursor pure flow.
+ * Unit tables for the real-cursor pure flow.
  *
  * `computeCursorCell` maps (absolute input origin, value, cursor index, wrap width) to the
  * hardware-cursor cell, reusing the wrap-aware `displayOffset` math the input's vertical

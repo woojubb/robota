@@ -1,5 +1,5 @@
 /**
- * CLI-1994 TC-08 / TC-09, #3679 3f — the `attach` control, what it does, and what it refuses.
+ * The `attach` control, what it does, and what it refuses.
  *
  * Attaching to a job that is still running FOLLOWS it: the terminal selects the job's entry and
  * nothing else happens (no session switch, no record read, the job keeps running). Attaching to a
@@ -102,7 +102,7 @@ function depsOf(
   } as never;
 }
 
-describe('attaching to a fork follows the job or switches the view (CLI-1994 TC-08)', () => {
+describe('attaching to a fork follows the job or switches the view', () => {
   it.each(['queued', 'running', 'waiting_permission'] as const)(
     'a %s fork is FOLLOWED: its entry is selected, and nothing switches',
     (status) => {
@@ -195,7 +195,7 @@ describe('attaching to a fork follows the job or switches the view (CLI-1994 TC-
 
   it('`attach` is a member of TExecutionControl — every control list still accepts it', () => {
     // The runtime half of the union change; the compile half is the package `typecheck` this suite
-    // is paired with in the spec's TC-08, which reaches every exhaustive switch over the union.
+    // is paired with, which reaches every exhaustive switch over the union.
     const controls: readonly TExecutionControl[] = [
       'select',
       'cancel',
@@ -210,7 +210,7 @@ describe('attaching to a fork follows the job or switches the view (CLI-1994 TC-
   });
 });
 
-describe('attach refuses rather than stranding the terminal (CLI-1994 TC-09)', () => {
+describe('attach refuses rather than stranding the terminal', () => {
   it('uses a host-supplied resume command when a fork cannot be attached, while a neutral host gets the session id', () => {
     // The record is gone: the one refusal that names the session and says where it was.
     const entry = makeForkEntry({ status: 'completed' });

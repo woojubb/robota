@@ -1,5 +1,5 @@
 /**
- * #3679 3f: while the terminal is handed over, what reaches stdin belongs to whoever has the terminal
+ * While the terminal is handed over, what reaches stdin belongs to whoever has the terminal
  * — a child the person started, or the passphrase prompt — never to the composer.
  *
  * The prompt on Windows reads the console through `process.stdin`, the same stream the composer's

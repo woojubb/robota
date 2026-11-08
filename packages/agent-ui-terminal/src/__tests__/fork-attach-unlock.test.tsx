@@ -1,5 +1,5 @@
 /**
- * #3679 3f: continuing a fork that has ended, whose record is sealed with the keys locked, is a read
+ * Continuing a fork that has ended, whose record is sealed with the keys locked, is a read
  * the person started, so it asks for the passphrase — once, through the keys' holder — and switches
  * when that unlocks. Following a fork that is still running reads no record, so it never asks, locked
  * or not. Without a holder (secure mode off) it reads the store exactly as before and never asks.

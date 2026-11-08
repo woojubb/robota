@@ -1,7 +1,8 @@
 /**
- * SCREEN-2670 TC-10 — the echo exemption FIRES through the real render path.
+ * The echo exemption FIRES through the real render path.
  *
- * TC-03 arms the flag by hand, which proves the queue honours a stamp and nothing about whether
+ * The queue test arms the flag by hand, which proves the queue honours a stamp and nothing about
+ * whether
  * anything ever sets one. This drives a keystroke through Ink's own input path into the composed
  * tree — keybindings, the pacing context, the composer's key handler — with the proxy as Ink's
  * stdout, and asserts BOTH halves: the keystroke's commit leaves unparked, and the next commit that
@@ -136,7 +137,7 @@ afterEach(() => {
   unmount = undefined;
 });
 
-describe('TC-10: a keystroke through the composed tree is released unparked; a non-composer commit is parked', () => {
+describe('a keystroke through the composed tree is released unparked; a non-composer commit is parked', () => {
   it('echo leaves at once, a banner change and Enter each wait out the interval', async () => {
     const stdout = new FakeTtyStdout();
     const stdin = new FakeStdin();

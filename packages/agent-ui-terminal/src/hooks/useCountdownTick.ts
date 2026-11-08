@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { MS_PER_SECOND } from '../attention/time-units.js';
 
-/** SCREEN-1992: one second, the resolution a `in 59s` countdown is read at. */
+/** One second, the resolution a `in 59s` countdown is read at. */
 const COUNTDOWN_TICK_MS = MS_PER_SECOND;
 
 /**

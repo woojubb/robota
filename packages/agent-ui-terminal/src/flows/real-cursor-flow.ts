@@ -1,5 +1,5 @@
 /**
- * CLI-062 — pure flow for real-terminal-cursor positioning during CJK IME composition.
+ * Pure flow for real-terminal-cursor positioning during CJK IME composition.
  *
  * Maps the input box's absolute frame-space origin plus the live (value, cursor) to the exact
  * screen cell the hardware cursor must occupy, and guards WHEN positioning is allowed at all.
@@ -59,7 +59,7 @@ export function computeCursorCell(input: ICursorCellInput): ICursorCell {
 }
 
 /**
- * Crash-avoidance guard — the SIGSEGV invariants from the CLI-062 contract:
+ * Crash-avoidance guard — the SIGSEGV invariants of the IME cursor contract:
  *
  * - I1: never a GUESSED row — position only with a y measured from the current yoga layout
  *   (`hasMeasured`); the historical hardcoded `y: 0` pointed the cursor at the logo area, where

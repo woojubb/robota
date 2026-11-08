@@ -1,5 +1,5 @@
 /**
- * CMD-004 Phase 2: `applySystemCommandResult` is pure rendering. Host actions are applied (and
+ * `applySystemCommandResult` is pure rendering. Host actions are applied (and
  * consumed) by the session, UI intents arrive via the `ui_intent` session event, and state-change
  * notifications arrive as broadcast session events (`session_renamed`, `history_cleared`). The
  * only result-carried hint consumed here is `data.pluginRegistryReloaded` — the requester-local

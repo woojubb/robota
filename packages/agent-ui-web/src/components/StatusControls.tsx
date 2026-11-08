@@ -10,7 +10,7 @@ import type { IPopupMenuItem, IPopupMenuSection } from './PopupMenu.js';
 import type { TCommandCatalog, TModelListSnapshot, TSessionStatus } from '../hooks/session-client-types.js';
 
 /**
- * #3282 §2 (part 2) — the plain label for each effort selection. Kept in step with
+ * The plain label for each effort selection. Kept in step with
  * `EFFORT_LEVEL_LABELS` in `packages/agent-framework/src/effort/effort-resolution.ts` (which
  * `agent-command`'s `/effort` re-exports and reports as its own outcome text) — this package cannot
  * import that one directly (it is a Node-side package this browser bundle does not depend on), so the
@@ -28,7 +28,7 @@ const EFFORT_LEVEL_LABELS: Readonly<Record<TSessionStatus['effort'], string>> = 
   max: 'Maximum',
 };
 
-/** The primary row (#3282 §2 design point 4); the rest sit under "More". */
+/** The primary row; the rest sit under "More". */
 const EFFORT_PRIMARY: readonly TSessionStatus['effort'][] = ['auto', 'low', 'medium', 'high'];
 const EFFORT_MORE: readonly TSessionStatus['effort'][] = ['none', 'minimal', 'xhigh', 'max'];
 
@@ -48,7 +48,7 @@ const CHIP_CLASS =
   'flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent';
 const CHIP_WARNING_CLASS = 'text-warning hover:text-warning';
 
-/** One status chip that opens a `PopupMenu` HIG pop-up beneath it (#3282 §2). */
+/** One status chip that opens a `PopupMenu` HIG pop-up beneath it. */
 function StatusChip({
   chipLabel,
   value,
@@ -79,7 +79,7 @@ function StatusChip({
         aria-label={`${chipLabel}: ${value}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        // #3289 §2: below `md` the value text is hidden (icon-only) — the tooltip is where it stays
+        // Below `md` the value text is hidden (icon-only) — the tooltip is where it stays
         // reachable on hover and keyboard focus, so it always carries the value, not just "Change X".
         title={connected ? `${chipLabel}: ${value}` : 'Reconnecting…'}
         disabled={!connected}
@@ -90,7 +90,7 @@ function StatusChip({
         className={`${CHIP_CLASS} ${warning ? CHIP_WARNING_CLASS : ''}`}
       >
         {icon}
-        {/* #3289 §2: below `md` (the same breakpoint the session-list sheet uses) the chip collapses
+        {/* Below `md` (the same breakpoint the session-list sheet uses) the chip collapses
             to its icon alone — never a truncated fragment ("d…", "claude-…") — the value stays
             reachable via the tooltip above and the accessible name either way. */}
         <span className="hidden truncate md:inline">{value}</span>
@@ -110,7 +110,7 @@ function StatusChip({
 const ICON_PROPS = { size: 14, strokeWidth: 1.75, 'aria-hidden': true } as const;
 
 /**
- * Model · mode · effort, each a pop-up menu (#3282 §2), and the context the conversation fills.
+ * Model · mode · effort, each a pop-up menu, and the context the conversation fills.
  * Every menu applies its choice through the same command wire path the equivalent typed slash
  * command uses — `onSilentCommand` — so `/model <id>`, `/mode <name>` and `/effort <value>` and a
  * click in these menus can never drift apart; the control's own chip label (fed by the session's next
@@ -129,14 +129,14 @@ export function StatusRow({
   catalog: TCommandCatalog | null;
   modelList: TModelListSnapshot | null;
   onRequestModelList: () => void;
-  /** #3282 §4b: "Manage providers…" opens Settings at the Providers & Models section. */
+  /** "Manage providers…" opens Settings at the Providers & Models section. */
   onManageProviders: () => void;
   /** Applies a model/mode/effort choice without a conversation card (see the module doc). */
   onSilentCommand: (name: string, args?: string) => void;
   connected: boolean;
 }): React.ReactElement {
   const used = status ? Math.round(status.context.usedPercentage) : null;
-  // #3282 §2: "Skip all checks" asks for confirmation on the shared `ConfirmDialog` (#3331) before
+  // "Skip all checks" asks for confirmation on the shared `ConfirmDialog` before
   // applying — every other mode applies at once. `true` while that confirmation is open.
   const [pendingBypassConfirm, setPendingBypassConfirm] = useState(false);
 
@@ -158,7 +158,7 @@ export function StatusRow({
           key: 'manage-providers',
           label: 'Manage providers…',
           kind: 'action',
-          // #3282 §4b: opens Settings at the "Providers & Models" section — the same list, Use/Model/
+          // Opens Settings at the "Providers & Models" section — the same list, Use/Model/
           // Edit/Test/Duplicate/Delete actions and "Add provider…" flow now live there instead of in
           // this menu's own server-driven picker.
           onSelect: onManageProviders,
@@ -175,7 +175,7 @@ export function StatusRow({
           label: sub.displayName ?? sub.name,
           description: sub.description,
           checked: sub.name === status?.permissionMode,
-          // #3282 §2: every mode but "Skip all checks" applies at once; that one opens a
+          // Every mode but "Skip all checks" applies at once; that one opens a
           // confirmation first (rendered below) instead of applying here directly.
           onSelect:
             sub.name === 'bypassPermissions'
@@ -253,8 +253,8 @@ export function StatusRow({
         <ContextRing percent={used ?? 0} />
         {used === null ? '' : `${used}%`}
       </span>
-      {/* #3282 §2: matches the wording the Settings screen's own permission-mode picker already
-          ships for the identical action (#3331's `SettingsScreen.tsx`), so switching to "Skip all
+      {/* Matches the wording the Settings screen's own permission-mode picker already
+          ships for the identical action (`SettingsScreen.tsx`), so switching to "Skip all
           checks" reads the same warning regardless of which control was used. */}
       <ConfirmDialog
         open={pendingBypassConfirm}

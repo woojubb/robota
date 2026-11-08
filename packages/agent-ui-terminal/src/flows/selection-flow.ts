@@ -19,7 +19,7 @@ export type TSelectionEffect =
   | { type: 'none' }
   | { type: 'cancel' }
   | { type: 'select'; index: number }
-  // CLI-2004: a checklist toggles many times and then commits; only the numbered branch emits it.
+  // A checklist toggles many times and then commits; only the numbered branch emits it.
   | { type: 'confirm' };
 
 export interface ISelectionFlowOptions {
@@ -55,7 +55,7 @@ export function getDirectionalSelectionInputAction(
 }
 
 /**
- * CLI-2004 — the typed-number branch of a selection.
+ * The typed-number branch of a selection.
  *
  * Screen-reader mode replaces arrow-key navigation with a numbered list and a typed answer, but the
  * SELECTION itself must stay owned by this module: two reducers deciding what "selected" means is

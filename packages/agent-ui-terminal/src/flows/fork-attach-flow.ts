@@ -1,5 +1,5 @@
 /**
- * CLI-1994, #3679 3f: the TUI half of `attach` — turning the workspace entry the operator picked into
+ * The TUI half of `attach` — turning the workspace entry the operator picked into
  * a followed job, a session switch, or a stated refusal.
  *
  * The DECISION is not made here. `resolveExecutionAttach` is the framework's, beside the projection

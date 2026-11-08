@@ -1,5 +1,5 @@
 /**
- * CLI-2004 — the audible attention signal.
+ * The audible attention signal.
  *
  * Three triggers, all of them "the session now needs you and you cannot see that it does": a reply
  * finished, a prompt or dialog wants an answer, and a tool that ran long enough that you had stopped

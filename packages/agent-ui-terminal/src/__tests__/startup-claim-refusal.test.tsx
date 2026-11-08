@@ -1,5 +1,5 @@
 /**
- * A terminal start whose resumed session the store will not claim (#3679): the run ends with the
+ * A terminal start whose resumed session the store will not claim: the run ends with the
  * store's words and an error, not with Ink's error screen. The App builds its first channel while it
  * renders, where a throw is a stack trace instead of the one line that names the process holding the
  * session; any other failure of that call is still Ink's.

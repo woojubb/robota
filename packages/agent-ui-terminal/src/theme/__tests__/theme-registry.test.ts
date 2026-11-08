@@ -1,5 +1,5 @@
 /**
- * SCREEN-2002 TC-09/TC-10 — the registry and the catalogue port.
+ * The registry and the catalogue port.
  *
  * The property worth guarding is that an unknown id NAMES itself. Resolving silently would make a
  * removed plugin theme look like a theme that stopped working, and the id is the only thing that
@@ -22,7 +22,7 @@ const APPEARANCE: IAppearanceSettings = {
   reducedMotion: false,
 };
 
-describe('the theme registry (SCREEN-2002 TC-09)', () => {
+describe('the theme registry', () => {
   it('lists the built-ins and finds one by id', () => {
     const registry = createThemeRegistry();
 
@@ -67,7 +67,7 @@ describe('the theme registry (SCREEN-2002 TC-09)', () => {
   });
 });
 
-describe('the catalogue port (SCREEN-2002 TC-09)', () => {
+describe('the catalogue port', () => {
   it('projects identity and source, never a colour', () => {
     const port = createThemeCataloguePort({
       registry: createThemeRegistry(),
@@ -121,7 +121,7 @@ describe('the catalogue port (SCREEN-2002 TC-09)', () => {
   });
 });
 
-describe('a registry that also carries what it could not load (SCREEN-2002 TC-11)', () => {
+describe('a registry that also carries what it could not load', () => {
   const skip = { id: 'custom:broken', fileName: 'broken.json', reason: '$.overrides: boom' };
 
   it('keeps skipped files out of the themes it can resolve', () => {

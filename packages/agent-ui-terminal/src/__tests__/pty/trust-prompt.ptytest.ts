@@ -1,5 +1,5 @@
 /**
- * Issue #3268 — an interactive start in an untrusted repository asks whether to trust it, on the
+ * An interactive start in an untrusted repository asks whether to trust it, on the
  * BUILT binary in a real PTY. A yes records the grant and starts Trusted, so the next start does not
  * ask; a no starts Restricted and records nothing, so the next start asks again.
  *
@@ -76,7 +76,7 @@ async function answerAndExit(session: IPtySession, answer: 'y' | 'n'): Promise<v
   await session.expectExit(WAIT_MS);
 }
 
-describe('the trust question at an interactive start (issue #3268)', () => {
+describe('the trust question at an interactive start', () => {
   let fixture: IFixture | undefined;
   let session: IPtySession | undefined;
 

@@ -2,7 +2,7 @@
  * The switcher's selection state: where the cursor is, which slice of entries is on screen, and what
  * a keypress does to both.
  *
- * Split out of `ExecutionWorkspaceSwitcher.tsx` (CLI-1994 + CLI-2004 both grew that file past its
+ * Split out of `ExecutionWorkspaceSwitcher.tsx` (that file outgrew its
  * size budget) along the seam that was already there: this half owns "what is selected", the
  * component owns "what is drawn".
  */

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3282 §4a — the Settings screen: current values marked, a change sends a typed update and the
+ * The Settings screen: current values marked, a change sends a typed update and the
  * control reflects the new snapshot, a failed update reverts with a plain message, Esc closes with
  * focus restored, and the two confirmations ("Skip all checks", removing a rule).
  */
@@ -370,7 +370,7 @@ describe('SettingsScreen — removing a permission rule needs confirmation', () 
   });
 });
 
-describe('SettingsScreen — MCP Servers section (#3282 §4 part b-2)', () => {
+describe('SettingsScreen — MCP Servers section', () => {
   it('lists every server with plain labels: name, scope, status and tool count', () => {
     render(<SettingsScreen state={buildState()} />);
     openMcp();
@@ -454,7 +454,7 @@ describe('SettingsScreen — MCP Servers section (#3282 §4 part b-2)', () => {
   });
 });
 
-describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
+describe('SettingsScreen — Plugins section', () => {
   it('lists every plugin with plain labels: name, description and enabled state', () => {
     render(<SettingsScreen state={buildState()} />);
     openPlugins();
@@ -577,7 +577,7 @@ describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
   });
 });
 
-describe('SettingsScreen — Providers & Models section (#3282 §4b)', () => {
+describe('SettingsScreen — Providers & Models section', () => {
   it('lists every configured profile with its provider name, model label and a checkmark on the one in use', () => {
     render(<SettingsScreen state={buildState()} />);
     openProviders();
@@ -680,7 +680,7 @@ describe('SettingsScreen — Providers & Models section (#3282 §4b)', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Delete…' })[1]!); // backup
     expect(state.updateSettings).not.toHaveBeenCalled();
-    // A destructive ConfirmDialog is 'alertdialog', not 'dialog' (#3282 §4e).
+    // A destructive ConfirmDialog is 'alertdialog', not 'dialog'.
     expect(screen.getByRole('alertdialog', { name: 'Delete profile "backup"?' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));

@@ -3,9 +3,9 @@
  * and what happens when the operator attaches to a forked one.
  *
  * Both belong to the same surface and both are read by the same component, so `App` asks for them
- * once rather than wiring two hooks whose inputs it has to keep in step. Split out because CLI-2004
- * had already brought `App.tsx` to its size budget by extracting the detail read, and CLI-1994 adds
- * the attach handler beside it — growing the file was the alternative the size rule forbids.
+ * once rather than wiring two hooks whose inputs it has to keep in step. Split out because
+ * `App.tsx` is
+ * at its size budget; growing it was the alternative the size rule forbids.
  */
 
 import { useMemo } from 'react';

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Tracks whether `query` currently matches, reactively (#3289 §2 — the narrow-window session sheet
+ * Tracks whether `query` currently matches, reactively (the narrow-window session sheet
  * below `md`). A host without `window.matchMedia` (an older embedding, or a non-browser test) reports
  * `false` and never subscribes, rather than throwing.
  */

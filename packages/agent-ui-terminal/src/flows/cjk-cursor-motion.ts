@@ -4,7 +4,7 @@
  * Display columns and character indices are different things when a character is two columns wide;
  * these functions are the translation between them, and the two cursor moves built on it.
  *
- * Extracted from `cjk-text-input-flow.ts` (CLI-2004) by responsibility — that module routes
+ * Extracted from `cjk-text-input-flow.ts` by responsibility — that module routes
  * keystrokes, this one measures and moves.
  */
 

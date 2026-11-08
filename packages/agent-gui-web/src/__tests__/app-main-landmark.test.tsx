@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3289 §3 review — every screen `App` can show before (or instead of) `SessionView` renders exactly
+ * Every screen `App` can show before (or instead of) `SessionView` renders exactly
  * one `main` landmark: nothing above `App` (agent-gui-web's `main.tsx`, or the desktop app) supplies
  * one. `CenteredChrome` (`@robota-sdk/agent-ui-web`) owns it for the starting, fatal and trust
  * screens — a `main` inside `CenteredChrome`'s content area, never inside the `role="alert"` /
@@ -57,7 +57,7 @@ function desktopHostWithTrustQuestion(): IGuiHost {
   };
 }
 
-describe('App renders exactly one main landmark on every pre-session screen (#3289 §3 review)', () => {
+describe('App renders exactly one main landmark on every pre-session screen', () => {
   it('while starting (no endpoint yet)', async () => {
     const host = desktopHostAwaitingEndpoint();
     const { container } = render(<App product={testProduct} host={host} />);

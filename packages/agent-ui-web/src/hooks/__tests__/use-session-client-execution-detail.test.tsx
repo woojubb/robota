@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3288 §1 — the Agents panel detail sheet's protocol state: `openExecutionDetail` sends
+ * The Agents panel detail sheet's protocol state: `openExecutionDetail` sends
  * `read-execution-detail` and tracks the answer by `requestId` (a stale reply for an entry the
  * operator has since closed, or moved past by paging, is dropped); `loadMoreExecutionDetail` pages
  * with the previous `nextCursor` and appends; a page with no `nextCursor` marks the read complete.
@@ -45,7 +45,7 @@ function lastReadRequestId(sent: TClientMessage[]): string {
   return request.requestId;
 }
 
-describe('#3288 §1 — execution detail sheet protocol state', () => {
+describe('execution detail sheet protocol state', () => {
   it('starts closed', () => {
     const { result } = setup();
     expect(result.current.openEntryId).toBeNull();

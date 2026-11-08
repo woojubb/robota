@@ -3,9 +3,9 @@
 import React, { useEffect, useId, useRef } from 'react';
 
 /**
- * The shared modal-shell primitive (#3282 §4a, coordinated with #3282 §2's model/mode controls,
- * which also need a confirmation dialog). Whichever of the two lands first defines this file; the
- * other rebases onto it rather than shipping a second copy.
+ * The shared modal-shell primitive (the model/mode controls and the
+ * session-delete confirmation both need a confirmation dialog). Both
+ * consumers share it rather than shipping a second copy.
  *
  * `role="dialog"` (or `"alertdialog"`, see `role` below), `aria-modal`, a labelled title, focus moved
  * inside on open, a focus trap while open, Esc to close, and focus restored to whatever had it before
@@ -26,7 +26,7 @@ export interface IDialogProps {
   /** Id of an element describing the dialog, wired to `aria-describedby`. */
   describedById?: string;
   /**
-   * Overrides what focus returns to when the dialog closes (#3289 §1). Default behavior captures
+   * Overrides what focus returns to when the dialog closes. Default behavior captures
    * `document.activeElement` when the dialog opens — which fails for a caller whose opener element
    * is removed from the DOM in the SAME update that opens this dialog (e.g. a menu item whose menu
    * closes as this dialog opens): by the time this dialog's open-effect runs, the browser has already
@@ -34,7 +34,7 @@ export interface IDialogProps {
    */
   restoreFocusTo?: HTMLElement | null;
   /**
-   * #3282 §4e: `'alertdialog'` for a dialog that interrupts to demand a decision before anything else
+   * `'alertdialog'` for a dialog that interrupts to demand a decision before anything else
    * can happen (a destructive confirmation) — WAI-ARIA's distinction from a dialog the user can set
    * aside. Default `'dialog'`.
    */
@@ -182,7 +182,7 @@ export interface IConfirmDialogProps {
 
 /**
  * A title, a body, Cancel focused by default, and a confirm button that can be styled destructive.
- * #3282 §4e: `destructive` also picks the dialog's ARIA role — `"alertdialog"` when it is (an action
+ * `destructive` also picks the dialog's ARIA role — `"alertdialog"` when it is (an action
  * that demands a decision before anything else, e.g. deleting a session), `"dialog"` otherwise.
  */
 export function ConfirmDialog({

@@ -1,10 +1,10 @@
 /**
- * CMD-004 Stage D — how the GUI surface answers a `ui_intent`.
+ * How the GUI surface answers a `ui_intent`.
  *
  * The server requester-routes `ui_intent`, so everything that arrives here was asked for by THIS
  * surface and must be answered visibly. An intent with a GUI screen opens it (the session picker is
- * the session sidebar, #3189; settings and the plugin manager both open the Settings modal, #3282
- * §4a/§4 part b-2; the agent switcher is a sheet, #3282 §4 part b-3). #3282 §4e: an intent whose
+ * the session sidebar; settings and the plugin manager both open the Settings modal; the agent
+ * switcher is a sheet). An intent whose
  * command is on the GUI's exclusion list never reaches here at all (`excluded-commands.ts` catches it
  * before the session is asked) — this module only answers a screen this HOST cannot back even though
  * the GUI knows how to render it (the session picker, when the host cannot list sessions), or a kind
@@ -40,8 +40,8 @@ export function guiScreenForUiIntent(
 ): 'session-sidebar' | 'settings' | 'settings-plugins' | 'agent-switcher' | null {
   if (intent.type === 'show-session-picker') return 'session-sidebar';
   if (intent.type === 'show-settings') return 'settings';
-  // #3282 §4 part b-2: `/plugin` opens the Settings screen's Plugins section, the way #3331 mapped
-  // `show-settings` — replacing the "not available on this surface" line this intent used to get.
+  // `/plugin` opens the Settings screen's Plugins section, the way `show-settings`
+  // does.
   if (intent.type === 'show-plugin-manager') return 'settings-plugins';
   if (intent.type === 'show-agent-switcher') return 'agent-switcher';
   return null;
@@ -51,7 +51,7 @@ export function guiScreenForUiIntent(
  * Describe one intent for this surface: a plain, honest sentence for a screen this HOST cannot back
  * right now (a session picker with no session list), the `/theme` exclusion this intent defensively
  * reuses, or an unrecognized future kind. Never called for `show-settings`, `show-plugin-manager` or
- * `show-agent-switcher` — all three always have a screen now (#3282 §4a, §4 part b-2, §4 part b-3) —
+ * `show-agent-switcher` — all three always have a screen now —
  * but their cases are left out of this switch rather than kept as dead branches that would claim
  * otherwise; an unknown wire-level kind (a newer host) still yields an explicit notice naming the raw
  * kind, so the "never a silent no-op" floor holds for future intents too.

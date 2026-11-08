@@ -7,10 +7,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfirmDialog, Dialog } from '../Dialog.js';
 
 /**
- * The shared modal-shell primitive (#3282 §4a) ships without its own generic test coverage; #3289
- * §1's session-delete confirmation is its first consumer here, so this covers the mechanics that
+ * The shared modal-shell primitive ships without its own generic test coverage; the
+ * session-delete confirmation is its first consumer here, so this covers the mechanics that
  * consumer relies on directly: focus moved in and restored on close (including through the
- * `restoreFocusTo` override #3289 §1 adds — see `Dialog`'s doc comment), the Tab focus trap, Esc, and
+ * `restoreFocusTo` override — see `Dialog`'s doc comment), the Tab focus trap, Esc, and
  * a destructive dialog refusing a backdrop-click dismissal.
  */
 
@@ -43,7 +43,7 @@ describe('Dialog', () => {
     expect(document.activeElement).toBe(opener);
   });
 
-  it('restores focus to an explicit restoreFocusTo element instead of the ambient opener (#3289 §1)', () => {
+  it('restores focus to an explicit restoreFocusTo element instead of the ambient opener', () => {
     // Mirrors the session sidebar's row menu: the element that had focus when the dialog opens is
     // gone from the DOM by the time this runs (removed in the same update), so the caller must be
     // able to say explicitly where focus goes back to.
@@ -157,7 +157,7 @@ describe('ConfirmDialog', () => {
     expect(screen.getByRole('alertdialog')).toBeTruthy();
   });
 
-  it('#3282 §4e: a destructive confirm is an alertdialog, never a plain dialog', () => {
+  it('a destructive confirm is an alertdialog, never a plain dialog', () => {
     render(
       <ConfirmDialog
         open

@@ -178,20 +178,20 @@ describe('StatusBar', () => {
     expect(frame).not.toContain('feat/status-line');
   });
 
-  it('TC-03: shows the active preset id when set and non-default', () => {
+  it('shows the active preset id when set and non-default', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} activePresetId="autonomous-builder" />);
     const frame = lastFrame()!;
     expect(frame).toContain('Preset:');
     expect(frame).toContain('autonomous-builder');
   });
 
-  it('TC-03: hides the default active preset', () => {
+  it('hides the default active preset', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} activePresetId="default" />);
     const frame = lastFrame()!;
     expect(frame).not.toContain('Preset:');
   });
 
-  it('TC-03: hides the preset label when no active preset is provided', () => {
+  it('hides the preset label when no active preset is provided', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} activePresetId={undefined} />);
     const frame = lastFrame()!;
     expect(frame).not.toContain('Preset:');
@@ -199,14 +199,14 @@ describe('StatusBar', () => {
 });
 
 /**
- * CLI-2004 TC-16 / TC-21 — § Solution 13, asserted through `SessionStatusBar` (the way the App
+ * § Solution 13, asserted through `SessionStatusBar` (the way the App
  * reaches `StatusBar`) so the threading is covered too.
  *
  * The two halves are asserted TOGETHER on purpose: they pull in opposite directions — one field is
  * rendered MORE in the mode, two are rendered LESS — and stating them apart is how they drift into
  * contradicting each other.
  */
-describe('CLI-2004: the status line in screen-reader mode', () => {
+describe('the status line in screen-reader mode', () => {
   const sessionProps = {
     cwd: '/tmp/project',
     permissionMode: 'default' as const,
@@ -245,18 +245,18 @@ describe('CLI-2004: the status line in screen-reader mode', () => {
     return frame;
   }
 
-  it('TC-16: renders the permission mode even when it is `default`', () => {
+  it('renders the permission mode even when it is `default`', () => {
     const frame = renderStatus(true);
     expect(frame).toContain('Mode:');
     expect(frame).toContain('default');
   });
 
-  it('TC-16: still hides the `default` permission mode outside the mode', () => {
+  it('still hides the `default` permission mode outside the mode', () => {
     const frame = renderStatus(false);
     expect(frame).not.toContain('Mode:');
   });
 
-  it('TC-21: suppresses the volatile fields and keeps the stable ones', () => {
+  it('suppresses the volatile fields and keeps the stable ones', () => {
     const frame = renderStatus(true, { isThinking: true, activeToolCount: 2 });
 
     // Volatile — re-rendered on their own cadence and on every token.
@@ -273,7 +273,7 @@ describe('CLI-2004: the status line in screen-reader mode', () => {
     expect(frame).toContain('test-model');
   });
 
-  it('TC-21: renders all four exactly as today outside the mode', () => {
+  it('renders all four exactly as today outside the mode', () => {
     const frame = renderStatus(false, {
       isThinking: true,
       activeToolCount: 2,

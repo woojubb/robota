@@ -1,5 +1,5 @@
 /**
- * SCREEN-2002 TC-11 — the theme file boundary.
+ * The theme file boundary.
  *
  * Everything a user or a plugin can put in a theme file arrives here as text. The contract is
  * whole-file refusal with a path-named diagnostic: a file is either applied entirely or skipped

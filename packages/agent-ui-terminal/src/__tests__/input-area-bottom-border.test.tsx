@@ -1,5 +1,5 @@
 /**
- * SCREEN-003 TC-01 — the input box's bottom border is an always-present hand-drawn `<Text>` row,
+ * The input box's bottom border is an always-present hand-drawn `<Text>` row,
  * not a Yoga-synthesized Box border that can drop glyphs under rapid re-render. Deterministic guard:
  * the last rendered line is a full-width run of `─`, identical to the top border, in BOTH the
  * streaming (`isDisabled`) state (where the flicker appeared) and the idle state.
@@ -26,7 +26,7 @@ async function tick(ms = 25): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-describe('InputArea bottom border stability (SCREEN-003)', () => {
+describe('InputArea bottom border stability', () => {
   for (const isDisabled of [true, false]) {
     it(`renders a full-width \`─\` bottom border row (isDisabled=${isDisabled})`, async () => {
       const { lastFrame } = render(<InputArea onSubmit={vi.fn()} isDisabled={isDisabled} />);

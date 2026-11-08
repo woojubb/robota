@@ -1,7 +1,7 @@
 /**
  * Single source of truth for status symbol + color across the TUI.
  *
- * Before SCREEN-005 the same conceptual status (e.g. "running") was rendered
+ * Without this map the same conceptual status (e.g. "running") was rendered
  * three different ways — icons (⟳/✓/✗) in the streaming indicator, markers
  * (□/■) in the background-task panel, and color-only in the workspace detail
  * pane. This module gives every component one semantic status vocabulary and
@@ -23,7 +23,7 @@ export type TUiStatusKind =
 /**
  * Canonical status → SYMBOL map. Used by every status-rendering component.
  *
- * SCREEN-2002 split the colour out: a symbol is the same in every theme, a colour is not, and a
+ * The colour is split out: a symbol is the same in every theme, a colour is not, and a
  * module-level constant cannot follow a theme resolved at render time. The symbol stays here (this
  * module remains the SSOT for status kinds and their glyphs); the colour comes from the live theme
  * through {@link statusGlyphColor}, which every call site reaches with `usePalette()`, so the pairing

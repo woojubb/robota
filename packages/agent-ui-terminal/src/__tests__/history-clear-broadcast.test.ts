@@ -1,5 +1,5 @@
 /**
- * CMD-004 Phase 2 Stage E — the TUI transcript follows the broadcast `history_cleared` event.
+ * The TUI transcript follows the broadcast `history_cleared` event.
  *
  * Final carrier (spec decision): `conversation-history-cleared` becomes a BROADCAST session event,
  * so a clear performed by ANY surface (a co-driving remote `/clear`, or any host-side
@@ -31,7 +31,7 @@ async function waitUntil(predicate: () => boolean, deadlineMs = READY_DEADLINE_M
   expect(predicate()).toBe(true);
 }
 
-describe('CMD-004 Stage E — history_cleared broadcast clears the TUI transcript', () => {
+describe('history_cleared broadcast clears the TUI transcript', () => {
   let channel: TuiInteractionChannel | undefined;
 
   afterEach(async () => {

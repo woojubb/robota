@@ -1,5 +1,5 @@
 /**
- * The view a person has of a fork job they attach to (#3679 3f, live follow).
+ * The view a person has of a fork job they attach to (live follow).
  *
  * A running fork is followed: the pane says so, shows what the job is doing now — its newest text,
  * however long a paragraph it has streamed — and says what the person can do (type to steer it, go

@@ -1,8 +1,8 @@
 /**
- * #3186 — what the composer's `/` menu offers for a draft. Pure, so the matching is testable without
+ * What the composer's `/` menu offers for a draft. Pure, so the matching is testable without
  * rendering: the TUI's autocomplete offers commands and skills the same way.
  *
- * #3282 §4e: a command the GUI cannot run at all (`isExcludedCommand`) never appears here — there is
+ * A command the GUI cannot run at all (`isExcludedCommand`) never appears here — there is
  * nothing useful for choosing it to do, and typing it by hand is answered separately (see
  * `excluded-commands.ts`, `useSessionClient.ts`). Commands are listed before skills, each in its own
  * group, so the menu can head them "Commands" and "Skills".

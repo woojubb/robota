@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import type { IDiffLine } from '@robota-sdk/agent-interface-session';
 
 /**
- * #3288: renders a unified diff already built server-side (the ONE diff builder, in
+ * Renders a unified diff already built server-side (the ONE diff builder, in
  * `interactive-session-streaming.ts`) — a tool row's expanded result and the Edit/Write permission
  * prompt both show the SAME diff through this, so approving a change and reviewing it afterwards
  * look identical. This component never computes a diff itself, only displays one.
@@ -24,7 +24,7 @@ const DIFF_LINE_PREFIX: Record<IDiffLine['type'], string> = {
   hunk: '',
 };
 
-// #3288 review SHOULD 3: the server already caps each diff side at 500 lines — this is a second,
+// The server already caps each diff side at 500 lines — this is a second,
 // independent fold so a diff that size never renders into the DOM at once either.
 const DIFF_FOLD_LINES = 40;
 const DIFF_EXPANDED_CAP_LINES = 500;

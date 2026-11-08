@@ -1,5 +1,5 @@
 /**
- * CMD-004 Phase 2 Stage C — TC-10 (/rename persistence proof, TUI half).
+ * `/rename` persistence proof, TUI half.
  *
  * The spec gates deleting the TUI `renameSession` mutation on a red-first proof that `/rename`
  * (1) persists HOST-side — the session executes the rename, no TUI handler involved — and
@@ -70,7 +70,7 @@ function fakeCliAdapter(): ITuiCliAdapter {
   } as unknown as ITuiCliAdapter;
 }
 
-describe('TC-10 — /rename persists host-side and the TUI title follows the broadcast', () => {
+describe('/rename persists host-side and the TUI title follows the broadcast', () => {
   let channel: TuiInteractionChannel | undefined;
 
   afterEach(async () => {

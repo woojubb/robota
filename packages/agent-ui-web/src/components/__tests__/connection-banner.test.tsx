@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConnectionBanner, SessionTitleBar } from '../SessionSurfaceChrome.js';
 
 /**
- * #3280 §5 — the connection banner shown directly above the conversation, in place of the silent
+ * The connection banner shown directly above the conversation, in place of the silent
  * period a lost connection used to leave: nothing while the first connect is still in progress
  * (nothing has been lost yet), "reconnecting" once a working connection drops, and once retries give
  * up either a working Reconnect (a host that can restart the runtime) or the browser's restart
@@ -94,7 +94,7 @@ describe('ConnectionBanner', () => {
 });
 
 /**
- * #3282 §2 (part 2) — the title bar's own corner status text used to show alongside the connection
+ * The title bar's own corner status text used to show alongside the connection
  * banner ("Connecting…"/"Disconnected"/"Connection error"), duplicating what the banner already says
  * in a full sentence. It now shows only while the banner would not (the very first connect, before
  * anything could have been lost yet, and while connected) — once the banner is the one telling the
@@ -113,7 +113,7 @@ function titleBarProps(
   };
 }
 
-describe('SessionTitleBar — corner status vs. the connection banner (#3282 §2)', () => {
+describe('SessionTitleBar — corner status vs. the connection banner', () => {
   it('shows the corner status during the very first connect: the banner says nothing yet', () => {
     render(<SessionTitleBar {...titleBarProps({ status: 'connecting' })} />);
     expect(screen.getByText('Connecting…')).toBeTruthy();

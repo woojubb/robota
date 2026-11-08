@@ -11,7 +11,7 @@ describe('createSessionInitPoller', () => {
     vi.useRealTimers();
   });
 
-  it('TC-04: calls onReady and stops once the check succeeds', () => {
+  it('calls onReady and stops once the check succeeds', () => {
     const onReady = vi.fn();
     const onFailure = vi.fn();
     let ready = false;
@@ -35,7 +35,7 @@ describe('createSessionInitPoller', () => {
     expect(onFailure).not.toHaveBeenCalled();
   });
 
-  it('TC-04: benign not-initialized errors poll until timeout, then fail with timeout kind', () => {
+  it('benign not-initialized errors poll until timeout, then fail with timeout kind', () => {
     const onReady = vi.fn();
     const onFailure = vi.fn();
     const poller = createSessionInitPoller({
@@ -58,7 +58,7 @@ describe('createSessionInitPoller', () => {
     expect(onFailure).toHaveBeenCalledTimes(1);
   });
 
-  it('TC-04: a real error fails immediately with the error attached', () => {
+  it('a real error fails immediately with the error attached', () => {
     const onFailure = vi.fn();
     const poller = createSessionInitPoller({
       check: () => {

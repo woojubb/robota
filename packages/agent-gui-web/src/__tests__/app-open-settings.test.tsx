@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3282 §4a — the desktop app's ⌘,/Ctrl+, menu item reaches the same `openSettings` the sidebar's
+ * The desktop app's ⌘,/Ctrl+, menu item reaches the same `openSettings` the sidebar's
  * gear button calls. `App`/`SessionView`'s only job here is the subscription: `SessionSurface`
  * itself (tested in `agent-ui-web`) owns the Settings screen and its gear button.
  */
@@ -51,7 +51,7 @@ function hostWithMenu(): {
   return { host, triggerMenu: () => listener?.(), subscribed: () => listener !== null };
 }
 
-describe('#3282 §4a — the App menu opens Settings through the same handle as the gear', () => {
+describe('the App menu opens Settings through the same handle as the gear', () => {
   it('the menu item calls openSettings once the session is live', async () => {
     const { host, triggerMenu, subscribed } = hostWithMenu();
     render(<App product={testProduct} host={host} />);

@@ -1,12 +1,12 @@
 /**
- * TEST-007: self-test for the TUI-owned PTY harness (relocated internally by BOUNDARY-2655).
+ * Self-test for the TUI-owned PTY harness.
  *
  * Drives a trivial process (no fixture needed) through `spawnPty` to pin the harness contract:
  * `waitFor` resolves on a printed marker, `expectExit` returns the real exit code, and
  * `snapshot()`/`raw()` capture output. The terminal-handoff suites (in agent-ui-terminal) are the
  * harness's real-world consumers; this guards the harness itself.
  *
- * HARNESS-025 adds the HOME-isolation contract: a PTY child must never receive the developer's real
+ * The HOME-isolation contract: a PTY child must never receive the developer's real
  * `HOME`, or the suite silently depends on whatever is in that home directory.
  */
 import { existsSync, readdirSync } from 'node:fs';

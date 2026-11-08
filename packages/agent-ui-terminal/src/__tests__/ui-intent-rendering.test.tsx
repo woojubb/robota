@@ -1,5 +1,5 @@
 /**
- * CMD-004 Phase 2 Stage C (TC-04): the TUI is a pure renderer — the four UI screens open from the
+ * The TUI is a pure renderer — the four UI screens open from the
  * requester-routed `ui_intent` session event (never from legacy `result.effects` branches), the
  * session title updates from the broadcast `session_renamed` event (never by the TUI mutating the
  * session), and the statusline re-reads its persisted settings when a command result arrives
@@ -150,7 +150,7 @@ function mountHarness(): IHarness {
   };
 }
 
-describe('ui_intent → TUI screens (requester-routed, CMD-004 Stage C)', () => {
+describe('ui_intent → TUI screens (requester-routed)', () => {
   it('show-settings with the owner requester opens the settings screen', async () => {
     const h = mountHarness();
     h.session.emit('ui_intent', { intent: { type: 'show-settings' }, requesterDriverId: 'owner' });
@@ -225,7 +225,7 @@ describe('ui_intent → TUI screens (requester-routed, CMD-004 Stage C)', () => 
   });
 });
 
-describe('session_renamed broadcast → TUI title (CMD-004 Stage C / TC-10)', () => {
+describe('session_renamed broadcast → TUI title', () => {
   it('updates the session name from the broadcast without mutating the session itself', async () => {
     const h = mountHarness();
     h.session.emit('session_renamed', { name: 'Renamed via broadcast' });
@@ -237,13 +237,13 @@ describe('session_renamed broadcast → TUI title (CMD-004 Stage C / TC-10)', ()
   });
 });
 
-describe('statusline refresh-on-result (CMD-004 Stage C)', () => {
+describe('statusline refresh-on-result', () => {
   it('re-reads statusline settings after a slash-command result arrives', async () => {
     const h = mountHarness();
     await h.result().handleSubmit('/statusline off');
     expect(h.spies.baseHandleSubmit).toHaveBeenCalledWith('/statusline off');
     expect(h.spies.refreshStatusLineSettings).toHaveBeenCalledTimes(1);
-    // SCREEN-2002: the appearance is re-read on the same signal — a `/theme` result has already
+    // The appearance is re-read on the same signal — a `/theme` result has already
     // been written to the settings document by the host when this fires.
     expect(h.spies.refreshAppearanceSettings).toHaveBeenCalledTimes(1);
     h.unmount();

@@ -48,7 +48,7 @@ function PermissionRuleRow({
 }
 
 /**
- * Default permission mode, the rules `/permissions` shows, and the sandbox switch (#3282 §4a).
+ * Default permission mode, the rules `/permissions` shows, and the sandbox switch.
  * "Skip all checks" as the mode and a preset that would set it both go through
  * `onRequestModeChange`'s parent-owned confirmation before anything is sent.
  */

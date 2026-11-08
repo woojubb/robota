@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3289 §3 — `useSessionClient` learns this connection's own driver id from the first `messages`
+ * `useSessionClient` learns this connection's own driver id from the first `messages`
  * frame the server sends (the only frame carrying it), and exposes it as `ownDriverId` so the GUI can
  * tell its own turns from a different kind of surface's.
  */
@@ -32,7 +32,7 @@ function setup(): {
   };
 }
 
-describe('#3289 §3 — useSessionClient learns its own driver id from the first messages frame', () => {
+describe('useSessionClient learns its own driver id from the first messages frame', () => {
   it('starts with no own driver id known', () => {
     const { result } = setup();
     expect(result.current.ownDriverId).toBeNull();

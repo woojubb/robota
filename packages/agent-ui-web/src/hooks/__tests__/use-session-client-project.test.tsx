@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3282 §4c — the Project panel's correlated request/response state: `requestProjectStatus`/
+ * The Project panel's correlated request/response state: `requestProjectStatus`/
  * `requestProjectDiff`/`requestProjectMemory` send the matching wire message with a fresh
  * `requestId`, and a reply is only applied when it answers the LATEST request of its kind (a stale
  * diff reply — superseded by clicking a different file before the first one answered — is dropped).
@@ -31,7 +31,7 @@ function setup(): {
   return { result, deliver: (msg) => act(() => onMessage?.(msg)), sent };
 }
 
-describe('#3282 §4c — the Project panel reducer state', () => {
+describe('the Project panel reducer state', () => {
   it('starts idle with nothing loaded', () => {
     const { result } = setup();
     expect(result.current.projectStatusState).toBe('idle');

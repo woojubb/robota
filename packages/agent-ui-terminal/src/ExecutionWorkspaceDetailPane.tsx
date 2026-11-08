@@ -95,7 +95,7 @@ export default function ExecutionWorkspaceDetailPane({
 
 /**
  * Symbol + color per detail-record kind. A symbol always accompanies the color
- * so status is legible without color (SCREEN-005 — no color-only encoding).
+ * so status is legible without color (no color-only encoding).
  */
 function getDetailRecordGlyph(
   kind: TExecutionDetailRecordKind,

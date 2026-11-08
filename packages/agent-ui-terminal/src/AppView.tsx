@@ -11,7 +11,7 @@ export type IAppViewProps = IUseAppControllerOptions;
 /** Controller boundary: the channel terminates here and only a view model reaches presentation. */
 export default function AppView(props: IAppViewProps): React.ReactElement {
   const viewModel = useAppController(props);
-  // SCREEN-2002: the provider sits HERE rather than above the controller, because the resolved
+  // The provider sits HERE rather than above the controller, because the resolved
   // theme is part of the view model — a provider higher up would have to be fed a theme nobody had
   // resolved yet, and the controller's own hooks read no colours.
   return (

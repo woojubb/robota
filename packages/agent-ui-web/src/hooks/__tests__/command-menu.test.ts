@@ -18,7 +18,7 @@ const catalog: TCommandCatalog = {
   ],
 };
 
-describe('commandMenuFor (#3186, #3282 §4e)', () => {
+describe('commandMenuFor', () => {
   it('offers every runnable command and user-invocable skill for a bare slash, excluding what the GUI cannot run', () => {
     const menu = commandMenuFor(catalog, '/');
     expect(menu?.map((i) => i.name)).toEqual(['help', 'memory', 'mode', 'parity-demo']);

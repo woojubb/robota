@@ -1,5 +1,5 @@
 /**
- * BEHAVIOR-2437 TC-07 — `/git status`, `/git diff` and `/git commit` on the BUILT CLI binary, in
+ * `/git status`, `/git diff` and `/git commit` on the BUILT CLI binary, in
  * a real PTY, over a throwaway git repository. The four User Execution scenarios of the spec, as a
  * machine runs them: read path (S1), commit path (S2), nothing staged (S3), headless cancel (S4).
  *
@@ -224,7 +224,7 @@ async function expectCommitOnYes(session: IPtySession): Promise<void> {
   await session.waitForSince(since, /Committed: \[main [0-9a-f]{7}\] feat: add greeting/, WAIT_MS);
 }
 
-/** The fixture repository is not trusted, so the TUI asks first (issue #3268); these scenarios run Restricted. */
+/** The fixture repository is not trusted, so the TUI asks first; these scenarios run Restricted. */
 async function startRestricted(session: IPtySession): Promise<void> {
   await session.waitFor(/Trust this folder\? \[y\/N\]/, WAIT_MS);
   await session.sendKeys('n');
@@ -239,7 +239,7 @@ async function exitTui(session: IPtySession): Promise<number> {
   return session.expectExit(WAIT_MS);
 }
 
-describe('/git through the real binary (BEHAVIOR-2437 TC-07)', () => {
+describe('/git through the real binary', () => {
   let fixture: IFixture | undefined;
   let session: IPtySession | undefined;
 

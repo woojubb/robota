@@ -1,5 +1,5 @@
 /**
- * SCREEN-2002 — the theme catalogue, and the port the command layer asks through.
+ * The theme catalogue, and the port the command layer asks through.
  *
  * The registry is the only thing that turns an ID into a theme. Work unit 1 put the built-ins
  * behind `listBuiltInThemes()`; work unit 3 adds user and plugin themes to the same list, and

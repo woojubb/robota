@@ -1,5 +1,5 @@
 /**
- * #3189: the full App on a wire channel. The session picker lists the host's sessions, and choosing
+ * The full App on a wire channel. The session picker lists the host's sessions, and choosing
  * one asks the host to switch instead of building a new channel.
  */
 

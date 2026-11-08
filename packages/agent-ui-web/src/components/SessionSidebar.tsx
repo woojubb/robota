@@ -32,7 +32,7 @@ export function formatUpdatedAt(updatedAt: string, now: number = Date.now()): st
 }
 
 /**
- * A session's title (#3289 §1): its name, else its stable first-message title, else "New session".
+ * A session's title: its name, else its stable first-message title, else "New session".
  * Never `preview` — that field is the raw latest reply, which is what changes every turn and is what
  * this title exists to stop showing.
  */
@@ -75,12 +75,12 @@ interface IMenuAnchor {
 }
 
 /**
- * #3189 — this workspace's sessions on the left of the conversation, as in Claude Code Desktop:
+ * This workspace's sessions on the left of the conversation, as in Claude Code Desktop:
  * start a new one, or click another to make it current. Rows the host could not read are listed,
  * disabled, so a damaged session never looks deleted. A refused switch comes back as a notice.
  * A host that keeps several sessions live marks the rows running now and counts who else is on them.
  *
- * #3289 §1 — each row also carries a "More" menu (or right-click) with Rename (inline) and Delete
+ * Each row also carries a "More" menu (or right-click) with Rename (inline) and Delete
  * (confirmed). Rename on the current row reuses the `/rename` command, which also updates the live
  * session's own name and title bar; rename on any other row writes the stored record directly.
  */
@@ -99,7 +99,7 @@ export function SessionSidebar({
   const unreadable = listing?.unreadableSessionIds ?? [];
   const lockedLine = lockedSessionsLine(listing?.lockedSessionCount);
   const failed = state.sessionsError?.code === 'list_failed' ? state.sessionsError.message : null;
-  // #3282 §2 (part 2): session switching is disabled while disconnected, like the status chips and
+  // Session switching is disabled while disconnected, like the status chips and
   // the `/` command menu — a switch could not reach the host either.
   const connected = state.status === 'connected';
 
@@ -203,7 +203,7 @@ export function SessionSidebar({
             const isCurrent = session.id === current;
             const others = otherClients(session, isCurrent);
             const isRenaming = renamingId === session.id;
-            // #3289 §3 review: the explicit `aria-label` below replaces name-from-content outright, so
+            // The explicit `aria-label` below replaces name-from-content outright, so
             // the live dot's and "N other(s)" span's own text no longer reaches the accessible name —
             // folded back in here as a description instead, alongside the relative time.
             const statusParts = [
@@ -238,12 +238,12 @@ export function SessionSidebar({
                   <button
                     type="button"
                     aria-current={isCurrent ? 'true' : undefined}
-                    // #3289 §3: an explicit name + description — the row's own visible text has no
+                    // An explicit name + description — the row's own visible text has no
                     // whitespace between its parts, so an unlabelled button reads as one run-together
                     // string ("Title validation fixjust now") to a screen reader.
                     aria-label={sessionTitle(session)}
                     aria-describedby={describedBy}
-                    // #3282 §2 (part 2): while disconnected, the tooltip says why instead of previewing.
+                    // While disconnected, the tooltip says why instead of previewing.
                     title={connected ? session.preview || session.id : 'Reconnecting…'}
                     disabled={!connected}
                     onClick={() => {
@@ -409,7 +409,7 @@ export function SessionSidebar({
 
 /** The collapsed sidebar: a narrow rail that opens it again. */
 export function SessionSidebarRail({ state }: { state: IWsSessionState }): React.ReactElement {
-  // #3282 §2 (part 2): starting a session is disabled while disconnected, matching the open sidebar.
+  // Starting a session is disabled while disconnected, matching the open sidebar.
   const connected = state.status === 'connected';
   return (
     <div className="flex w-12 flex-shrink-0 flex-col items-center gap-1 bg-sidebar py-2.5">

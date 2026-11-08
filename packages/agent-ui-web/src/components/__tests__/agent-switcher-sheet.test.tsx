@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3282 §4 part b-3 — the agent switcher sheet: lists the available agents (name, one-line
+ * The agent switcher sheet: lists the available agents (name, one-line
  * description, where each is defined), checks the current one, and choosing a row runs the same
  * path as `/agent <name>` — never a form the sheet builds its own write around.
  */

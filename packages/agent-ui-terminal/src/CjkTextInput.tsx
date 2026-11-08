@@ -55,7 +55,7 @@ interface IProps {
   /** When false, parent flows own up/down arrow behavior. */
   enableVerticalNavigation?: boolean;
   /**
-   * CLI-2004: called with the text a word/line delete removed. A reader announces what is LEFT on
+   * Called with the text a word/line delete removed. A reader announces what is LEFT on
    * the line, so the removed text is the one thing it cannot tell you.
    */
   onDeletedText?: (deleted: string) => void;
@@ -73,7 +73,7 @@ interface IInputHandlerOptions {
   enableVerticalNavigation: boolean;
   onDeletedText?: (deleted: string) => void;
   forceRender: React.Dispatch<React.SetStateAction<number>>;
-  /** CLI-061: deferred-submit state (timer + submit guard). The input pipeline stays live during the window. */
+  /** Deferred-submit state (timer + submit guard). The input pipeline stays live during the window. */
   deferState: IDeferSubmitState;
   keybindingContext: 'chat-input' | 'text-input' | 'autocomplete-menu';
 }
@@ -94,7 +94,7 @@ export default function CjkTextInput({
 }: IProps): React.ReactElement {
   const stateRef = useRef<ICjkTextInputFlowState>(createCjkTextInputFlowState(value));
   const [, forceRender] = useState(0);
-  // CLI-061: deferred-submit state so a trailing IME character (a stdin event arriving just after Enter) is
+  // Deferred-submit state so a trailing IME character (a stdin event arriving just after Enter) is
   // included in the submitted value. The timer is cancelled on unmount so no submit fires after teardown.
   const deferRef = useRef<IDeferSubmitState>(createDeferSubmitState());
   useEffect(() => () => cancelDeferredSubmit(deferRef.current), []);
@@ -116,11 +116,11 @@ export default function CjkTextInput({
     keybindingContext,
   });
 
-  // CLI-062: real terminal cursor positioning so the OS IME composition window appears AT the
+  // Real terminal cursor positioning so the OS IME composition window appears AT the
   // input position. The historical Terminal.app SIGSEGV came from a hardcoded `y: 0` (logo area);
   // the hook only positions with a y measured from the live yoga layout and refuses the ink
   // fullscreen geometry (invariants I1–I5 — see flows/real-cursor-flow.ts and the hook itself).
-  // SCREEN-2002: the placeholder's muted colour comes from the resolved theme, not a chalk literal.
+  // The placeholder's muted colour comes from the resolved theme, not a chalk literal.
   const palette = usePalette();
   const mutedPlaceholder = useMemo(() => foreground(palette.text.muted), [palette.text.muted]);
   const boxRef = useRef<DOMElement | null>(null);
@@ -154,7 +154,7 @@ export default function CjkTextInput({
 }
 
 /**
- * SCREEN-2670: which keys arm the echo exemption. Text insertion and deletion only — a keystroke
+ * Which keys arm the echo exemption. Text insertion and deletion only — a keystroke
  * whose commit repaints the composer. Submit and execute run through this same handler
  * (`translateCjkInput` returns `key.return` for them) and their commit appends the user's prompt
  * line to the transcript, which is exactly the content the park exists to pace; cursor moves and
@@ -203,7 +203,7 @@ function useCjkTextInputHandlers(options: IInputHandlerOptions): void {
     },
     {
       isActive: options.focus,
-      // #3125: the menu owns only its own keys; editing keys keep the chat input's bindings.
+      // The menu owns only its own keys; editing keys keep the chat input's bindings.
       ...(options.keybindingContext === 'autocomplete-menu'
         ? { fallbackContext: 'chat-input' as const }
         : {}),
@@ -277,7 +277,7 @@ function applyCjkTextInputEffect(
     if (effect.deleted !== undefined) options.onDeletedText?.(effect.deleted);
     options.onChange(effect.value);
   } else if (effect.type === 'submit') {
-    // CLI-061: DEFER the submit and re-read the LIVE `stateRef.current.value` at fire time — never the stale
+    // DEFER the submit and re-read the LIVE `stateRef.current.value` at fire time — never the stale
     // `effect.value` captured at Enter. The input pipeline (this same handler) stays live during the window, so
     // a trailing IME character's stdin event is applied to `stateRef` before the deferred read. The guard only
     // blocks a SECOND submit — it must not gate the input pipeline (that would drop the trailing char).
@@ -295,10 +295,10 @@ function applyCjkTextInputEffect(
 /**
  * Render text with an inverse-style cursor at the correct position.
  *
- * #2222: the input is sanitized BEFORE the cursor is drawn, and the result renders through
+ * The input is sanitized BEFORE the cursor is drawn, and the result renders through
  * `RenderedText` — the SGR here (inverse cursor, muted placeholder) is this component's own styling,
  * and `SafeText` would strip it along with everything else, which is exactly how the drawn cursor
- * disappeared (CLI-062 byte-identical rendering).
+ * disappeared (the fallback rendering stays byte-identical).
  */
 function renderWithCursor(
   rawValue: string,
