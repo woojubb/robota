@@ -1,4 +1,4 @@
-import { createTestProductRuntime } from '../__tests__/helpers/product-runtime.js';
+import { cleanupTestProductRuntimes, createTestProductRuntime } from '../__tests__/helpers/product-runtime.js';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -35,6 +35,7 @@ function gitInit(root: string): void {
 
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  cleanupTestProductRuntimes();
   vi.restoreAllMocks();
 });
 

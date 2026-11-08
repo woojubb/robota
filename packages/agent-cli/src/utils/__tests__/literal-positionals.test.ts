@@ -1,6 +1,6 @@
-import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { cleanupTestProductRuntimes, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { startsNewTuiSession } from '../../startup/interactive-trust-prompt.js';
 import { mcpServeProtocolArgs } from '../../startup/mcp-serve-invocation.js';
@@ -17,6 +17,8 @@ const silentTerminal = {} as ITerminalOutput;
 
 /** A host decision `resolveStartupWorkspaceProjectAccess` passes through unless a flag forces Restricted. */
 const HOST_DECISION = createRestrictedWorkspaceProjectAccess('revoked', '/workspace');
+
+afterEach(cleanupTestProductRuntimes);
 
 describe('words after `--` are text, never a subcommand', () => {
   it('reads `test-product -p -- init` as a prompt, not as `test-product init`', () => {

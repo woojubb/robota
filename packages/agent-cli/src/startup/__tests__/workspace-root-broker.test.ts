@@ -1,18 +1,19 @@
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { randomBytes } from 'node:crypto';
-import { mkdtempSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   requestWorkspaceRootBroker,
   startWorkspaceRootBroker,
 } from '../workspace-root-broker.js';
+import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 
 const roots: string[] = [];
 const servers: Array<{ close(): Promise<void> }> = [];
@@ -262,4 +263,46 @@ describe.skipIf(process.platform === 'win32')('root broker custody', () => {
       op: 'compare', left: prepared.candidate, right: prepared.candidate,
     })).toMatchObject({ status: 'refused', reason: 'unknown-candidate' });
   });
+});
+
+describe('root broker lifetime', () => {
+  function owned() {
+    const f = fixture();
+    const endpoint = process.platform === 'win32'
+      ? `\\\\.\\pipe\\robota-root-${randomBytes(12).toString('hex')}` : f.endpoint;
+    const state = join(f.parent, 'state');
+    return { ...f, endpoint, state, history: join(state, 'workspace-trust.json') };
+  }
+  const answers = (endpoint: string) => requestWorkspaceRootBroker(endpoint, { op: 'ping' });
+  const stopped = (endpoint: string) => vi.waitFor(
+    () => expect(answers(endpoint)).rejects.toThrow(),
+    { timeout: 10_000, interval: 100 },
+  );
+
+  it('serves while its user-state root remains and closes once that root is removed', async () => {
+    const f = owned();
+    servers.push(await startWorkspaceRootBroker(f.endpoint, f.privateDirectory, f.history));
+    expect(existsSync(f.state)).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 2_500));
+    expect(await answers(f.endpoint)).toMatchObject({ status: 'ready' });
+
+    rmSync(f.state, { recursive: true, force: true });
+    await stopped(f.endpoint);
+  });
+
+  it('closes once its user-state root is replaced by another directory of the same name', async () => {
+    const f = owned();
+    servers.push(await startWorkspaceRootBroker(f.endpoint, f.privateDirectory, f.history));
+    rmSync(f.state, { recursive: true, force: true });
+    mkdirSync(f.state);
+    await stopped(f.endpoint);
+  });
+
+  it('ends the broker process once its user-state root is removed', async () => {
+    const f = owned();
+    const broker = await startTestBroker(f.endpoint, f.privateDirectory, f.history);
+    servers.push(broker);
+    rmSync(f.state, { recursive: true, force: true });
+    await expect(broker.exited).resolves.toBeUndefined();
+  }, 30_000);
 });

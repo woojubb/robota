@@ -53,7 +53,7 @@ async function isReady(endpoint: string): Promise<boolean> {
   }
 }
 
-/** Start a detached broker once; a normal CLI or desktop sidecar exit leaves it serving leases. */
+/** Start a detached broker once; it serves leases past CLI and desktop sidecar exits until its user-state root is gone. */
 export async function ensureWorkspaceRootBroker(runtime: ICliRuntimeContext): Promise<string> {
   const endpoint = workspaceRootBrokerEndpoint(runtime);
   const directory = brokerDirectory(runtime, true);
