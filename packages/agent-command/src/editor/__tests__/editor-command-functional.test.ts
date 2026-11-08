@@ -37,9 +37,24 @@ function fakeHandoff(canHandoff: boolean): ITerminalHandoff {
   };
 }
 
-/** Write a fake `$EDITOR`: a script that writes `content` into the file it is given as $1. */
+/**
+ * Write a fake `$EDITOR`: a program that writes `content` into the file it is given and records that
+ * path in `$EDITOR_CAPTURE_PATH`. The editor is spawned directly, with its value split on whitespace.
+ */
 function installFakeEditor(content: string): string {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-fake-editor-')));
+  if (process.platform === 'win32') {
+    // Windows cannot run a shell script as a program, so node runs one instead.
+    const script = join(dir, 'fake-editor.cjs');
+    writeFileSync(
+      script,
+      `const { writeFileSync } = require('node:fs');\n` +
+        `writeFileSync(process.argv[2], ${JSON.stringify(content)});\n` +
+        `if (process.env.EDITOR_CAPTURE_PATH) writeFileSync(process.env.EDITOR_CAPTURE_PATH, process.argv[2]);\n`,
+      'utf8',
+    );
+    return `${process.execPath} ${script}`;
+  }
   const script = join(dir, 'fake-editor.sh');
   writeFileSync(
     script,
