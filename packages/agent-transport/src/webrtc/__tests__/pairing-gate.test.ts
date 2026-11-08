@@ -1,0 +1,296 @@
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
+const testIdentity = createIdentityContext('test-product');
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+
+import { describe, expect, it, vi } from 'vitest';
+
+import { PairingGate, type IPairingGateOptions } from '../pairing-gate.js';
+import { WebRtcDeliveryLifecycle } from '../webrtc-delivery-lifecycle.js';
+
+import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
+import type { createSessionMessageHandler } from '../../index';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+
+/**
+ * The pairing gate's fail-closed routing switch, driven with a stub
+ * channel + injected handshake + injected session-bridge (no real peer/crypto/session).
+ */
+
+/** A controllable stub of the pairing handshake: capture frames, resolve/reject on demand. */
+function makeHandshakeStub() {
+  const sent: TPairingFrame[] = [];
+  const received: TPairingFrame[] = [];
+  let resolveResult!: (value: { sessionKey: string }) => void;
+  let rejectResult!: (error: Error) => void;
+  const start: typeof startPairingHandshake = (_cryptoContext, options) => {
+    // Record what the gate asked us to send (it wraps this over the channel).
+    const controller = {
+      result: new Promise<{ sessionKey: string }>((res, rej) => {
+        resolveResult = res;
+        rejectResult = rej;
+      }),
+      onFrame: (frame: TPairingFrame) => received.push(frame),
+    };
+    // Expose the send seam so a test can assert the gate serialized a frame.
+    options.send({ t: 'pair-nonce', nonce: 'stub' });
+    return controller;
+  };
+  return {
+    start,
+    received,
+    sentByGate: sent,
+    accept: () => resolveResult({ sessionKey: 'k' }),
+    reject: () => rejectResult(new Error('pairing rejected')),
+  };
+}
+
+function makeGate(over: Partial<IPairingGateOptions> = {}) {
+  const channelSends: string[] = [];
+  const channel = { send: (d: string) => channelSends.push(d), close: vi.fn() };
+  const session = Object.assign(createTestInteractiveSession(), {});
+  const sessionOnMessage = vi.fn();
+  const handlerCleanup = vi.fn();
+  const createHandler: typeof createSessionMessageHandler = () => ({
+    onMessage: sessionOnMessage,
+    cleanup: handlerCleanup,
+  });
+  const hs = makeHandshakeStub();
+  const gate = new PairingGate({cryptoContext: testIdentity,
+    channel,
+    session,
+    secret: 's',
+    role: 'initiator',
+    localFingerprint: 'AA',
+    remoteFingerprint: 'BB',
+    startHandshake: hs.start,
+    createHandler,
+    ...over,
+  });
+  return { gate, channel, channelSends, sessionOnMessage, handlerCleanup, hs };
+}
+
+describe('PairingGate (fail-closed routing switch)', () => {
+  it('does not expose the session before the handshake accepts (no session bridge built)', () => {
+    const { sessionOnMessage } = makeGate();
+    // The handshake sent its nonce, but no session handler exists yet.
+    expect(sessionOnMessage).not.toHaveBeenCalled();
+  });
+
+  it('serializes the handshake frames it sends over the channel', () => {
+    const { channelSends } = makeGate();
+    // The stub handshake emits a pair-nonce on start; the gate must have serialized it.
+    expect(channelSends).toContain(JSON.stringify({ t: 'pair-nonce', nonce: 'stub' }));
+  });
+
+  it('pre-accept: routes a pairing frame to the handshake and keeps a non-pairing frame from the session', () => {
+    const { gate, hs, sessionOnMessage } = makeGate();
+    gate.onInbound(JSON.stringify({ t: 'pair-confirm', mac: 'm' }));
+    expect(hs.received).toEqual([{ t: 'pair-confirm', mac: 'm' }]);
+    // A well-formed but non-pairing frame pre-accept must never reach the (nonexistent) session.
+    gate.onInbound(JSON.stringify({ type: 'submit', prompt: 'p' }));
+    expect(sessionOnMessage).not.toHaveBeenCalled();
+    // Undecodable garbage pre-accept is dropped without throwing.
+    expect(() => gate.onInbound('not json')).not.toThrow();
+  });
+
+  it.each([
+    ['an empty mac', { t: 'pair-confirm', mac: '' }],
+    ['a numeric nonce', { t: 'pair-nonce', nonce: 7 }],
+    ['a padded (non-base64url) mac', { t: 'pair-confirm', mac: 'bWFj==' }],
+    ['a mac over the ceiling', { t: 'pair-confirm', mac: 'A'.repeat(129) }],
+  ])(
+    'a pairing frame with the right discriminator but %s never reaches the handshake',
+    (_label, frame) => {
+      // Against the old discriminator-only predicate every one of these was handed to the controller.
+      const { gate, hs } = makeGate();
+      gate.onInbound(JSON.stringify(frame));
+      expect(hs.received).toEqual([]);
+    },
+  );
+
+  it('on ACCEPT: builds the session bridge and routes subsequent frames to it', async () => {
+    const { gate, hs, sessionOnMessage } = makeGate();
+    hs.accept();
+    await Promise.resolve(); // let the result.then microtask run
+    gate.onInbound(JSON.stringify({ type: 'submit', prompt: 'hi' }));
+    expect(sessionOnMessage).toHaveBeenCalledWith(JSON.stringify({ type: 'submit', prompt: 'hi' }));
+  });
+
+  it('a session frame the peer sends before this side accepts is held, then delivered after acceptance', async () => {
+    // The peer finishes its half of the handshake first and asks for the history at once.
+    const { gate, hs, sessionOnMessage } = makeGate();
+    const early = JSON.stringify({ type: 'get-messages' });
+    gate.onInbound(early);
+    expect(sessionOnMessage).not.toHaveBeenCalled();
+    hs.accept();
+    await Promise.resolve();
+    expect(sessionOnMessage).toHaveBeenCalledWith(early);
+  });
+
+  it('frames held before a rejection are discarded, never delivered', async () => {
+    const { gate, hs, sessionOnMessage } = makeGate();
+    gate.onInbound(JSON.stringify({ type: 'get-messages' }));
+    hs.reject();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(sessionOnMessage).not.toHaveBeenCalled();
+  });
+
+  it('on REJECT: closes the channel and NEVER exposes the session', async () => {
+    const { gate, channel, hs, sessionOnMessage } = makeGate();
+    hs.reject();
+    await Promise.resolve();
+    expect(channel.close).toHaveBeenCalledTimes(1);
+    // Any frame after a failed pairing is ignored — the session is never reachable.
+    gate.onInbound(JSON.stringify({ type: 'submit', prompt: 'hi' }));
+    expect(sessionOnMessage).not.toHaveBeenCalled();
+  });
+
+  it('post-close (cleanup): ignores further inbound frames', async () => {
+    const { gate, hs, sessionOnMessage } = makeGate();
+    hs.accept();
+    await Promise.resolve();
+    gate.cleanup();
+    gate.onInbound(JSON.stringify({ type: 'submit', prompt: 'hi' }));
+    expect(sessionOnMessage).not.toHaveBeenCalled();
+  });
+
+  it('fires onAccept on accept (not onReject)', async () => {
+    const onAccept = vi.fn();
+    const onReject = vi.fn();
+    const { hs } = makeGate({ onAccept, onReject });
+    hs.accept();
+    await Promise.resolve();
+    expect(onAccept).toHaveBeenCalledTimes(1);
+    expect(onReject).not.toHaveBeenCalled();
+  });
+
+  it('fires onReject on reject (not onAccept)', async () => {
+    const onAccept = vi.fn();
+    const onReject = vi.fn();
+    const { hs } = makeGate({ onAccept, onReject });
+    hs.reject();
+    await Promise.resolve();
+    expect(onReject).toHaveBeenCalledTimes(1);
+    expect(onAccept).not.toHaveBeenCalled();
+  });
+
+  it('cleanup tears down the session bridge when one was built', async () => {
+    const { gate, hs, handlerCleanup } = makeGate();
+    hs.accept();
+    await Promise.resolve();
+    gate.cleanup();
+    expect(handlerCleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it('post-accept send failure closes the carrier and reports without escaping the session event', async () => {
+    const handlers = new Map<string, (value: unknown) => void>();
+    const session = createTestInteractiveSession({
+      on: ((event: string, handler: (value: unknown) => void) => {
+        handlers.set(event, handler);
+      }) as IInteractiveSession['on'],
+      off: ((event: string) => {
+        handlers.delete(event);
+      }) as IInteractiveSession['off'],
+    });
+    let failSend = false;
+    const channel = {
+      send: vi.fn(() => {
+        if (failSend) throw new Error('paired channel closed');
+      }),
+      close: vi.fn(),
+    };
+    const onDeliveryError = vi.fn();
+    const hs = makeHandshakeStub();
+    new PairingGate({cryptoContext: testIdentity,
+      channel,
+      session,
+      secret: 's',
+      role: 'initiator',
+      localFingerprint: 'AA',
+      remoteFingerprint: 'BB',
+      startHandshake: hs.start,
+      onDeliveryError,
+    });
+    hs.accept();
+    await Promise.resolve();
+    failSend = true;
+
+    expect(() =>
+      handlers.get('branch_event')?.({
+        kind: 'checkpoint_created',
+        checkpointId: 'turn-0001',
+        branchId: 'main',
+      }),
+    ).not.toThrow();
+    expect(channel.close).toHaveBeenCalledTimes(1);
+    expect(onDeliveryError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'paired channel closed' }),
+      'branch_event',
+    );
+    expect(handlers.size).toBe(0);
+  });
+
+  it('reports a paired delivery failure before a synchronous closing transition drops the carrier', async () => {
+    const handlers = new Map<string, (value: unknown) => void>();
+    const session = createTestInteractiveSession({
+      on: ((event: string, handler: (value: unknown) => void) => {
+        handlers.set(event, handler);
+      }) as IInteractiveSession['on'],
+      off: ((event: string) => {
+        handlers.delete(event);
+      }) as IInteractiveSession['off'],
+    });
+    const cleanup = vi.fn();
+    const onDropped = vi.fn();
+    const onDeliveryError = vi.fn();
+    let gate!: PairingGate;
+    let lifecycle!: WebRtcDeliveryLifecycle;
+    let failSend = false;
+    const channel = {
+      send: vi.fn(() => {
+        if (failSend) throw new Error('paired channel closed synchronously');
+      }),
+      close: vi.fn(() => lifecycle.handleDrop(1)),
+    };
+    lifecycle = new WebRtcDeliveryLifecycle({
+      cleanup: () => {
+        cleanup();
+        gate.cleanup();
+      },
+      onDropped,
+      onDeliveryError,
+    });
+    lifecycle.reset(1);
+    const hs = makeHandshakeStub();
+    gate = new PairingGate({cryptoContext: testIdentity,
+      channel,
+      session,
+      secret: 's',
+      role: 'initiator',
+      localFingerprint: 'AA',
+      remoteFingerprint: 'BB',
+      startHandshake: hs.start,
+      onAccept: () => lifecycle.accept(1),
+      onDeliveryError: (error, event) => lifecycle.handleFailure(channel, 1, error, event),
+    });
+    hs.accept();
+    await Promise.resolve();
+    failSend = true;
+
+    expect(() =>
+      handlers.get('branch_event')?.({
+        kind: 'checkpoint_created',
+        checkpointId: 'turn-0001',
+        branchId: 'main',
+      }),
+    ).not.toThrow();
+    expect(onDeliveryError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'paired channel closed synchronously' }),
+      'branch_event',
+    );
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(onDropped).toHaveBeenCalledTimes(1);
+    expect(handlers.size).toBe(0);
+  });
+});

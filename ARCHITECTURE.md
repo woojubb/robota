@@ -37,9 +37,10 @@ SDK packages (@robota-sdk/*)
                         agent-ui-web · agent-gui-web (private GUI)
   Assembly              agent-framework: InteractiveSession, createQuery, createAgentRuntime,
                         runtime host (buildRuntimeSession / startRuntimeHost behind robota --serve)
-  Transports            agent-transport (wire protocol, delivery), and the carriers built on it:
-                        agent-transport-ws · -http · -mcp · -acp · -webrtc ·
-                        -link (the owner link: proven admission to a local runtime)
+  Transports            agent-transport (wire protocol, delivery) and the carriers built on it, one
+                        subpath each: ws · http · mcp · acp · webrtc ·
+                        link (the owner link: proven admission to a local runtime);
+                        carrier libraries are optional peers
   Runtime               agent-session · agent-executor · agent-tool-defaults ·
                         agent-roundtable-robota (runs a session or agent as a roundtable participant and
                         selectors) ·
@@ -132,14 +133,13 @@ configuration or network endpoint. In particular, a provider SDK may refuse clie
   `agent-remote-pairing`, `agent-roundtable`, `agent-roundtable-robota`, `agent-session-analytics`,
   `agent-telemetry-otel`, `agent-provider`, `agent-capability-pack`, `agent-transport`,
   `product-config`,
-  `agent-plugin`, `agent-executor`, `agent-session`, `agent-transport-http`, `agent-mcp`,
+  `agent-plugin`, `agent-executor`, `agent-session`, `agent-mcp`,
   `agent-tools`, `agent-framework`, `agent-command`, `agent-preset`, `agent-product`
 - **Browser (DOM)**: `agent-ui-web`, `agent-gui-web` — free of Node
   like the neutral packages, and they also need a DOM.
 - **Node host**: `agent-cli`, `agent-ui-terminal`, `agent-os`, `agent-local-host`,
   `agent-organization-host`, `agent-tool-defaults`, `pack-coding`, `agent-subagent-runner`,
-  `agent-transport-ws`, `agent-transport-mcp`, `agent-transport-acp`, `agent-transport-webrtc`,
-  `agent-transport-link`, `agent-provider-replay`, `agent-keyring` — they exist to drive a Node host
+  `agent-provider-replay`, `agent-keyring` — they exist to drive a Node host
   (a terminal, child processes, the file system, listeners, stdio, local sockets, `node:crypto` key
   custody), so their main entry is Node-only.
 
@@ -162,9 +162,9 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
 - `FAMILY-SIBLINGS` — the package name hierarchy is the dependency detector:
   an `agent-<family>-<child>` package (family = the second dash segment) may depend on its parent
   `agent-<family>` and on lower families, never on a sibling `agent-<family>-<other>` at any depth
-  (`agent-transport-ws` is a sibling of `agent-transport-http`); the bare parent never depends
+  (`agent-ui-terminal` is a sibling of `agent-ui-web`); the bare parent never depends
   on a child; and the composer/foundation (`agent-framework`, `agent-core`) never depends on a
-  transport or UI child (`agent-transport-*`, `agent-ui-*`). Code two siblings share belongs in the
+  UI child (`agent-ui-*`). Code two siblings share belongs in the
   parent (or a parent subpath) — never in a sibling-named substrate (`-common`, `-shared`,
   `-protocol`, `-defaults`, `-builtin`). Judged over `dependencies` + `peerDependencies`; the
   `agent-interface-*` family is judged once, by `INTERFACE-DEPS`. `pnpm deps:check` enforces the
