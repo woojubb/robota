@@ -17,7 +17,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 import { ArtifactCorruptError } from '@robota-sdk/agent-core';
 import { createTestArtifactSealer, openTestWriteGrant } from '@robota-sdk/agent-core/testing';
@@ -138,16 +138,19 @@ interface IRecordingOptions {
   failList?: (path: string) => unknown;
 }
 
+/** A state path as the tests spell it: the store joins with the host separator, tests use `/`. */
+const spelled = (path: string): string => path.split(sep).join('/');
+
 /** `inner`, with each write recorded as `write <path>` or `replace <path>`, failing as told. */
 function recordingState(inner: IEditCheckpointStateStorage, options: IRecordingOptions = {}) {
   const writes: string[] = [];
   const write = (verb: string, path: string, run: () => void): void => {
-    writes.push(`${verb} ${path}`);
-    if (options.failWrite?.(path) === true) throw new Error('disk full');
+    writes.push(`${verb} ${spelled(path)}`);
+    if (options.failWrite?.(spelled(path)) === true) throw new Error('disk full');
     run();
   };
   const read = <T>(path: string, run: () => T): T => {
-    const refusal = options.failRead?.(path);
+    const refusal = options.failRead?.(spelled(path));
     if (refusal !== undefined) throw refusal;
     return run();
   };
@@ -161,7 +164,7 @@ function recordingState(inner: IEditCheckpointStateStorage, options: IRecordingO
     replaceBytes: (path, content, purpose) =>
       write('replace', path, () => inner.replaceBytes!(path, content, purpose)),
     listDirectory: (path, purpose) => {
-      const refusal = options.failList?.(path);
+      const refusal = options.failList?.(spelled(path));
       if (refusal !== undefined) throw refusal;
       return inner.listDirectory(path, purpose);
     },

@@ -25,6 +25,7 @@ import {
   createNodeHostContributionSourcesFixture,
   createTestSkillCommandSource,
 } from '../testing/contribution-source-fixture.js';
+import { denyCommand } from '../testing/shell-command-fixture.js';
 import { substituteVariables } from '../utils/skill-prompt.js';
 
 import type { IForkExecutionOptions } from '../commands/skill-executor.js';
@@ -98,7 +99,9 @@ describe('E2E: Skill lifecycle', () => {
     );
 
     // 2. Create SkillCommandSource pointing at temp dir
-    const source = createTestSkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
+    const source = createTestSkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir),
+    );
 
     // 3. Verify skill appears in getCommands()
     const commands = source.getCommands();
@@ -155,7 +158,9 @@ describe('E2E: Skill lifecycle', () => {
       '# Internal Tool\nThis tool is for human operators.',
     );
 
-    const source = createTestSkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
+    const source = createTestSkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir),
+    );
 
     // 2. Verify it appears in getUserInvocableSkills() (visible in menu)
     const userSkills = source.getUserInvocableSkills();
@@ -204,7 +209,9 @@ describe('E2E: Skill lifecycle', () => {
     );
 
     // 2. Discover skill
-    const source = createTestSkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
+    const source = createTestSkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir),
+    );
     const skill = source.getCommands().find((c) => c.name === 'analyze');
     expect(skill).toBeDefined();
 
@@ -225,7 +232,8 @@ describe('E2E: Skill lifecycle', () => {
 // Scenario 2: Hook configuration and execution
 // ===========================================================================
 
-describe('E2E: Hook configuration to execution', () => {
+// The first PowerShell a Windows runner starts takes seconds, and the default is five.
+describe('E2E: Hook configuration to execution', { timeout: 30_000 }, () => {
   const originalHome = process.env.HOME;
 
   afterEach(() => {
@@ -244,7 +252,7 @@ describe('E2E: Hook configuration to execution', () => {
         PreToolUse: [
           {
             matcher: 'Bash',
-            hooks: [{ type: 'command', command: 'echo blocked >&2 && exit 2' }],
+            hooks: [{ type: 'command', command: denyCommand('blocked') }],
           },
         ],
       },
@@ -439,9 +447,13 @@ describe('E2E: Plugin install and discover', () => {
     expect(enabledSource.getCommands()).toHaveLength(1);
 
     // 3. Disable the plugin by passing enabledPlugins config (using pluginName@marketplace key)
-    const disabledLoader = new BundlePluginLoader(pluginsDir, {
-      'temp-plugin@market': false,
-    }, nodeFs);
+    const disabledLoader = new BundlePluginLoader(
+      pluginsDir,
+      {
+        'temp-plugin@market': false,
+      },
+      nodeFs,
+    );
 
     // 4. Reload plugins
     const disabledPlugins = await disabledLoader.loadAll();
@@ -473,7 +485,9 @@ describe('E2E: Skill invocation', () => {
       '# Summarize\nProvide a concise summary of $ARGUMENTS.',
     );
 
-    const source = createTestSkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
+    const source = createTestSkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir),
+    );
     const skill = source.getCommands().find((c) => c.name === 'summarize');
     expect(skill).toBeDefined();
 
@@ -505,7 +519,9 @@ describe('E2E: Skill invocation', () => {
       '# Deep Review\nPerform deep analysis of $ARGUMENTS.',
     );
 
-    const source = createTestSkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
+    const source = createTestSkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir),
+    );
     const skill = source.getCommands().find((c) => c.name === 'deep-review');
     expect(skill).toBeDefined();
     expect(skill!.context).toBe('fork');
@@ -554,7 +570,9 @@ describe('E2E: Skill invocation', () => {
       '# Fork Skill\nDo something with $ARGUMENTS.',
     );
 
-    const source = createTestSkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
+    const source = createTestSkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir),
+    );
     const skill = source.getCommands().find((c) => c.name === 'fork-skill');
     expect(skill).toBeDefined();
 

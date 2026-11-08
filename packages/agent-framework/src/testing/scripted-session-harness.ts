@@ -317,13 +317,16 @@ export class ScriptedSessionHarness {
    * global `process.cwd()` mutation.
    */
   private substituteWorkspacePath(turns: readonly TScriptedTurn[]): TScriptedTurn[] {
+    // The substitution runs on serialized JSON, so the path goes in JSON-escaped: a Windows path
+    // carries backslashes that would otherwise make the text invalid JSON.
+    const escapedCwd = JSON.stringify(this.cwd).slice(1, -1);
     return turns.map((turn) => {
       if (!('toolCalls' in turn)) return turn;
       return {
         ...turn,
         toolCalls: turn.toolCalls.map((call) => ({
           name: call.name,
-          args: JSON.parse(JSON.stringify(call.args).split('{{cwd}}').join(this.cwd)) as Record<
+          args: JSON.parse(JSON.stringify(call.args).split('{{cwd}}').join(escapedCwd)) as Record<
             string,
             unknown
           >,
