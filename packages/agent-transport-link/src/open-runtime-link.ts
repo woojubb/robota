@@ -142,6 +142,7 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
   #requests = 0;
   #grants = 0;
   #ended = false;
+  #closing = false;
   #cleanupOnly = false;
   #resolveClosed!: () => void;
 
@@ -244,6 +245,7 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
   }
 
   close(): void {
+    this.#closing = true;
     this.#stream.destroy();
   }
 
@@ -259,6 +261,8 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
 
   /** One frame from the runtime; anything that is not exactly what it may send ends the link. */
   receive(frame: Uint8Array): void {
+    // Closed by the caller: nothing more reaches its listeners, as with a stream no longer read.
+    if (this.#closing) return;
     const kind = linkFrameKind(frame);
     const bound = kind === 'owner' ? OWNER_FRAME_MAX_BYTES : SESSION_FRAME_MAX_BYTES;
     if (kind === 'grant' || frame.length > bound + LINK_FRAME_OVERHEAD_BYTES) {
@@ -394,10 +398,33 @@ function openRuntimeLink(
     }, options.timeoutMs ?? DEFAULT_OPEN_TIMEOUT_MS);
     timer.unref?.();
 
+    /**
+     * What arrives behind the custody notice, until the caller has had its turn to attach listeners as
+     * the open resolves. The stream is paused meanwhile, so no more than one chunk is held.
+     */
+    let behindNotice: Buffer[] | undefined;
+    /** The stream ended while frames were held: they came before the end, so they are read first. */
+    let endsAfterBehindNotice = false;
+    const releaseBehindNotice = (opened: RuntimeLinkClient): void => {
+      const held = behindNotice ?? [];
+      behindNotice = undefined;
+      try {
+        for (const frame of held) opened.receive(frame);
+      } catch {
+        stream.destroy();
+      }
+      if (endsAfterBehindNotice) opened.end();
+      else if (!stream.destroyed) stream.resume();
+    };
+
     readLinkFrames(stream, {
       maxBytes: () => (link === undefined ? LINK_CHALLENGE_MAX_BYTES : SEALED_FRAME_MAX_BYTES),
-      onFrame: (frame): void | 'yield' => {
+      onFrame: (frame): void => {
         if (client !== undefined) {
+          if (behindNotice !== undefined) {
+            behindNotice.push(frame);
+            return;
+          }
           try {
             client.receive(frame);
           } catch {
@@ -424,15 +451,17 @@ function openRuntimeLink(
           if (notice?.op !== 'custody')
             throw new RangeError('The runtime did not announce its custody.');
           clearTimeout(timer);
-          client = new RuntimeLinkClient(
+          const established = new RuntimeLinkClient(
             stream,
             link,
             notice.state,
             auth.mode === 'owner' ? auth.handover : undefined,
           );
-          resolve(client);
-          // The caller attaches its listeners as the open resolves; frames behind the notice wait for that.
-          return 'yield';
+          client = established;
+          behindNotice = [];
+          stream.pause();
+          setImmediate(() => releaseBehindNotice(established));
+          resolve(established);
         } catch {
           fail();
         }
@@ -440,7 +469,9 @@ function openRuntimeLink(
       onEnd: () => {
         clearTimeout(timer);
         if (client !== undefined) {
-          client.end();
+          // Frames held behind the notice came before the end: they are read, and then it is reported.
+          if (behindNotice !== undefined) endsAfterBehindNotice = true;
+          else client.end();
           return;
         }
         link?.close();
