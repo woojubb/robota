@@ -25,6 +25,14 @@ import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch';
 // eslint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\x1b\[[0-9;?]*[a-zA-Z]|\x1b\][^\x07]*\x07|\x1b[()][B0]|[\x00-\x08\x0b-\x1f]/g;
 
+/**
+ * How much longer a wait on a PTY child may take on this host. A cold node start (the TSX fixture,
+ * then a handed-off child) takes several times as long on a loaded Windows runner as on a developer
+ * machine, so every wait this harness makes is scaled, and callers write the bound they would want
+ * on a developer machine.
+ */
+export const PTY_TIME_FACTOR = process.platform === 'win32' ? 3 : 1;
+
 const DEFAULT_PER_KEY_DELAY_MS = 35;
 const DEFAULT_WAIT_TIMEOUT_MS = 15_000;
 const DEFAULT_EXIT_TIMEOUT_MS = 10_000;
@@ -127,14 +135,15 @@ export function spawnPty(options: IPtyRunOptions): IPtyRunSession {
     },
     async waitFor(pattern: RegExp | string, timeoutMs = DEFAULT_WAIT_TIMEOUT_MS): Promise<void> {
       const regex = toRegExp(pattern);
-      const deadline = Date.now() + timeoutMs;
+      const scaledMs = timeoutMs * PTY_TIME_FACTOR;
+      const deadline = Date.now() + scaledMs;
       while (Date.now() < deadline) {
         if (regex.test(stripped())) return;
         if (exitCode !== undefined && regex.test(stripped())) return;
         await sleep(50);
       }
       throw new Error(
-        `PTY waitFor timeout (${timeoutMs}ms) for ${String(regex)}\n--- snapshot ---\n${stripped().slice(-OUTPUT_TAIL_LENGTH)}`,
+        `PTY waitFor timeout (${scaledMs}ms) for ${String(regex)}\n--- snapshot ---\n${stripped().slice(-OUTPUT_TAIL_LENGTH)}`,
       );
     },
     outputOffset(): number {
@@ -146,13 +155,14 @@ export function spawnPty(options: IPtyRunOptions): IPtyRunSession {
       timeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
     ): Promise<void> {
       const regex = toRegExp(pattern);
-      const deadline = Date.now() + timeoutMs;
+      const scaledMs = timeoutMs * PTY_TIME_FACTOR;
+      const deadline = Date.now() + scaledMs;
       while (Date.now() < deadline) {
         if (regex.test(stripped().slice(since))) return;
         await sleep(50);
       }
       throw new Error(
-        `PTY waitForSince timeout (${timeoutMs}ms) for ${String(regex)} after offset ${since}\n--- snapshot since mark ---\n${stripped().slice(since).slice(-OUTPUT_TAIL_LENGTH)}`,
+        `PTY waitForSince timeout (${scaledMs}ms) for ${String(regex)} after offset ${since}\n--- snapshot since mark ---\n${stripped().slice(since).slice(-OUTPUT_TAIL_LENGTH)}`,
       );
     },
     snapshotSince(since: number): string {
@@ -161,13 +171,14 @@ export function spawnPty(options: IPtyRunOptions): IPtyRunSession {
     snapshot: stripped,
     raw: (): string => output,
     async expectExit(timeoutMs = DEFAULT_EXIT_TIMEOUT_MS): Promise<number> {
-      const deadline = Date.now() + timeoutMs;
+      const scaledMs = timeoutMs * PTY_TIME_FACTOR;
+      const deadline = Date.now() + scaledMs;
       while (Date.now() < deadline) {
         if (exitCode !== undefined) return exitCode;
         await sleep(50);
       }
       throw new Error(
-        `PTY process did not exit within ${timeoutMs}ms\n--- snapshot ---\n${stripped().slice(-OUTPUT_TAIL_LENGTH)}`,
+        `PTY process did not exit within ${scaledMs}ms\n--- snapshot ---\n${stripped().slice(-OUTPUT_TAIL_LENGTH)}`,
       );
     },
     dispose(): void {
