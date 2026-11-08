@@ -9,7 +9,7 @@ import {
 
 /**
  * The Claude table these tests used to assert against now lives with the package that
- * owns those models (`agent-provider-anthropic`), and its cases moved with it. What stays here is
+ * owns those models (`agent-provider`), and its cases moved with it. What stays here is
  * what this vendor-NEUTRAL package still owns: the fallback behaviour when nobody has registered a
  * model, and token formatting.
  *
