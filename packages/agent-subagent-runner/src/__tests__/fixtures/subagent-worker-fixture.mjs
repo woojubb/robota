@@ -12,6 +12,25 @@ if (process.send === undefined) {
   process.exit(2);
 }
 
+// The process ends only after every message has been written to the IPC channel, as the real
+// worker does. `process.send` is asynchronous: an exit a timer tick later can end the process with
+// the result still unwritten, which the parent reads as "exited before result: exit code 0" (a
+// 300 KB result was lost in 143 of 150 such runs).
+let unflushed = 0;
+let exitRequested = false;
+const sendToParent = process.send.bind(process);
+process.send = (message) => {
+  unflushed += 1;
+  return sendToParent(message, undefined, undefined, () => {
+    unflushed -= 1;
+    if (exitRequested && unflushed === 0) process.exit(0);
+  });
+};
+function exitAfterFlush() {
+  exitRequested = true;
+  if (unflushed === 0) process.exit(0);
+}
+
 process.send({ type: 'ready' });
 
 // Records the settings the start payload carried and every change sent afterwards, in
@@ -26,7 +45,7 @@ function answerSandboxEcho() {
       updates: sandboxEcho.updates,
     }),
   });
-  setTimeout(() => process.exit(0), 0);
+  exitAfterFlush();
 }
 
 process.on('message', (message) => {
@@ -71,7 +90,7 @@ process.on('message', (message) => {
     if (process.env.AGENT_FIXTURE_MODE === 'permission-request-then-result') {
       process.send?.({ type: 'permission_request', requestId: 'r1', toolName: 'Glob' });
       process.send?.({ type: 'result', output: 'raced' });
-      setTimeout(() => process.exit(0), 0);
+      exitAfterFlush();
       return;
     }
     if (process.env.AGENT_FIXTURE_MODE === 'progress') {
@@ -84,7 +103,7 @@ process.on('message', (message) => {
     // taken parent-side would still pass if the value were re-resolved before `send`.
     if (process.env.AGENT_FIXTURE_MODE === 'echo-profile') {
       process.send?.({ type: 'result', output: JSON.stringify(message.payload?.providerProfile) });
-      setTimeout(() => process.exit(0), 0);
+      exitAfterFlush();
       return;
     }
     // Keeps the WHOLE payload as it crossed the boundary in a file and answers with nothing
@@ -94,7 +113,7 @@ process.on('message', (message) => {
       const payloadPath = process.env.AGENT_FIXTURE_PAYLOAD_PATH;
       writeFileSync(payloadPath, JSON.stringify(message.payload), 'utf8');
       process.send?.({ type: 'result', output: 'recorded' });
-      setTimeout(() => process.exit(0), 0);
+      exitAfterFlush();
       return;
     }
     if (process.env.AGENT_FIXTURE_MODE === 'echo-selected-environment') {
@@ -102,7 +121,7 @@ process.on('message', (message) => {
         selected: process.env.SYNTHETIC_SELECTED_PROVIDER_KEY,
         unrelated: process.env.SYNTHETIC_UNRELATED_PARENT_SECRET,
       }) });
-      setTimeout(() => process.exit(0), 0);
+      exitAfterFlush();
       return;
     }
     // Echoes the two projected fields EXACTLY as they crossed the boundary, for
@@ -118,14 +137,14 @@ process.on('message', (message) => {
           parentSandboxSettings: message.payload?.parentSandboxSettings ?? null,
         }),
       });
-      setTimeout(() => process.exit(0), 0);
+      exitAfterFlush();
       return;
     }
     // Reports the forked process's own OS working directory, so a test can observe where
     // the child actually landed rather than where the request said it should.
     if (process.env.AGENT_FIXTURE_MODE === 'cwd') {
       process.send?.({ type: 'result', output: process.cwd() });
-      setTimeout(() => process.exit(0), 0);
+      exitAfterFlush();
       return;
     }
     if (process.env.AGENT_FIXTURE_MODE === 'usage') {
@@ -134,11 +153,11 @@ process.on('message', (message) => {
         output: `completed:${taskId}`,
         usage: { promptTokens: 300, completionTokens: 120, totalTokens: 420 },
       });
-      setTimeout(() => process.exit(0), 0);
+      exitAfterFlush();
       return;
     }
     process.send?.({ type: 'result', output: `completed:${taskId}` });
-    setTimeout(() => process.exit(0), 0);
+    exitAfterFlush();
     return;
   }
 
@@ -146,19 +165,19 @@ process.on('message', (message) => {
     // The real worker answers a follow-up before it runs it; this stand-in answers and ends.
     process.send?.({ type: 'send_accepted', sendId: message.sendId });
     process.send?.({ type: 'result', output: `sent:${message.prompt}` });
-    setTimeout(() => process.exit(0), 0);
+    exitAfterFlush();
     return;
   }
 
   if (message.type === 'cancel') {
     process.send?.({ type: 'cancelled', reason: message.reason });
-    setTimeout(() => process.exit(0), 0);
+    exitAfterFlush();
     return;
   }
 
   if (message.type === 'permission_response') {
     process.send?.({ type: 'result', output: `permission:${message.requestId}:${message.result}` });
-    setTimeout(() => process.exit(0), 0);
+    exitAfterFlush();
     return;
   }
 

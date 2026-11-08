@@ -12,7 +12,8 @@
  * argv: [mode ('shell'|'editor'), outputPath]. The `/shell` command text is fixed here rather than
  * taken from argv: argv only selects the mode, so no process input becomes shell text.
  *
- * Markers: `@@READY canHandoff=…@@`, `@@CMD_DONE@@`, `@@INPUT_AFTER_HANDOFF …@@`. A JSON result
+ * Markers: `@@READY canHandoff=…@@`, `@@CMD_DONE@@`, `@@INPUT_READY n@@` (the input hook has mounted
+ * for the n-th time: 2 once the TUI has taken the terminal back), `@@INPUT_AFTER_HANDOFF …@@`. A JSON result
  * `{ success, exitCode?, message }` is written to outputPath.
  */
 import { writeFileSync } from 'node:fs';
@@ -49,8 +50,15 @@ const context = {
   getCwd: (): string => process.cwd(),
 } satisfies ICommandHostTerminalHandoff & Pick<ICommandHostWorkspace, 'getCwd'>;
 
+let inputMounts = 0;
+
 function InputCapture(): React.ReactElement {
   useInput((input) => resolveInputAfterHandoff?.(input));
+  // Declared after `useInput`, so its listener is attached when this runs. Keys sent earlier are lost.
+  React.useEffect(() => {
+    inputMounts += 1;
+    marker(`INPUT_READY ${inputMounts}`);
+  }, []);
   return <Text>READY</Text>;
 }
 

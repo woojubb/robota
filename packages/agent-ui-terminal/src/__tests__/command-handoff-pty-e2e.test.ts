@@ -21,7 +21,13 @@ import type { IPtyRunSession } from './pty/spawn-pty.js';
 const FIXTURE = fileURLToPath(new URL('./fixtures/command-handoff-driver.tsx', import.meta.url));
 const FAKE_EDITOR = fileURLToPath(new URL('./fixtures/fake-editor.cjs', import.meta.url));
 const PACKAGE_DIR = fileURLToPath(new URL('../..', import.meta.url));
-const TEST_TIMEOUT_MS = 30_000;
+/**
+ * One wait per phase. Each phase starts a cold node process (the TSX fixture, then the child that
+ * takes the terminal), and on a loaded Windows runner a cold start takes several times as long as on
+ * a developer machine, so the Windows bound is three times the POSIX one.
+ */
+const PHASE_TIMEOUT_MS = process.platform === 'win32' ? 30_000 : 10_000;
+const TEST_TIMEOUT_MS = PHASE_TIMEOUT_MS * 3;
 
 const tempDirs: string[] = [];
 const sessions: IPtyRunSession[] = [];
@@ -41,6 +47,27 @@ function readResult(outputPath: string): IResult {
   return JSON.parse(readFileSync(outputPath, 'utf8')) as IResult;
 }
 
+/**
+ * Types `text` into the handed-off child and gives the terminal back, waiting for each side to say
+ * it owns the terminal before sending keys to it. Neither wait can be a sleep: keys sent before the
+ * child holds the terminal reach the TUI's own input hook and are consumed there, and a key sent
+ * before that hook has mounted again is dropped, so the command would wait for input forever.
+ */
+async function typeIntoChildAndResume(
+  session: IPtyRunSession,
+  childReady: string,
+  text: string,
+): Promise<void> {
+  await session.waitFor('READY canHandoff=true', PHASE_TIMEOUT_MS);
+  await session.waitFor(childReady, PHASE_TIMEOUT_MS);
+  await session.sendKeys(text, 10);
+  session.write('\r');
+  await session.waitFor('CMD_DONE', PHASE_TIMEOUT_MS);
+  await session.waitFor('INPUT_READY 2', PHASE_TIMEOUT_MS);
+  session.write('r');
+  await session.waitFor('INPUT_AFTER_HANDOFF r', PHASE_TIMEOUT_MS);
+}
+
 describe('command handoff PTY E2E', () => {
   it(
     '/shell runs a one-shot command on the real terminal and returns its exit code',
@@ -57,14 +84,8 @@ describe('command handoff PTY E2E', () => {
       });
       sessions.push(session);
 
-      await session.waitFor('READY canHandoff=true', 10_000);
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      await session.sendKeys('shell-input', 10);
-      session.write('\r');
-      await session.waitFor('CMD_DONE', 10_000);
-      session.write('r');
-      await session.waitFor('INPUT_AFTER_HANDOFF r', 10_000);
-      expect(await session.expectExit(5_000)).toBe(0);
+      await typeIntoChildAndResume(session, 'SHELL_GOT_READY', 'shell-input');
+      expect(await session.expectExit(PHASE_TIMEOUT_MS)).toBe(0);
 
       expect(session.snapshot()).toContain('SHELL_GOT:[shell-input]');
       const result = readResult(outputPath);
@@ -89,14 +110,8 @@ describe('command handoff PTY E2E', () => {
       });
       sessions.push(session);
 
-      await session.waitFor('READY canHandoff=true', 10_000);
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      await session.sendKeys('composed-in-editor', 10);
-      session.write('\r');
-      await session.waitFor('CMD_DONE', 10_000);
-      session.write('r');
-      await session.waitFor('INPUT_AFTER_HANDOFF r', 10_000);
-      expect(await session.expectExit(5_000)).toBe(0);
+      await typeIntoChildAndResume(session, 'EDITOR_READY', 'composed-in-editor');
+      expect(await session.expectExit(PHASE_TIMEOUT_MS)).toBe(0);
 
       const result = readResult(outputPath);
       expect(result.success).toBe(true);

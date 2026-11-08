@@ -88,24 +88,35 @@ function countingSealer(inner: IArtifactSealer = createTestArtifactSealer()) {
   return { sealer, opened };
 }
 
-describe('a store holds a session only when it wrote it or was asked to hold it', () => {
-  it('keeps saving a session it holds while locked, however many other sessions were probed', () => {
-    const dir = newStoreDir();
-    const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, { sealing: { sealer } });
-    store.save(record('sess_live'));
-    const other = new NodeSessionStore(dir, { sealing: { sealer } });
-    for (let index = 0; index < 40; index += 1) other.save(record(`sess_other_${index}`));
-    // Read-only probes: a usage report, an "is it locked?" check, a fork attach.
-    for (let index = 0; index < 40; index += 1) {
-      expect(store.load(`sess_other_${index}`).status).toBe('valid');
-    }
-    sealer.lock();
+/**
+ * The probing case writes and reads eighty sealed files, each saved durably. A loaded Windows runner
+ * took 11 s for them, past the 10 s default, so that case gets the bound the other file-heavy
+ * suites run under.
+ */
+const MANY_DURABLE_FILES_TIMEOUT_MS = 30_000;
 
-    expect(thrownBy(() => store.save(record('sess_live', 'after the lock')))).toBeUndefined();
-    sealer.unlock();
-    expect(store.load('sess_live')).toEqual(sealedValid(record('sess_live', 'after the lock')));
-  });
+describe('a store holds a session only when it wrote it or was asked to hold it', () => {
+  it(
+    'keeps saving a session it holds while locked, however many other sessions were probed',
+    () => {
+      const dir = newStoreDir();
+      const sealer = createTestArtifactSealer();
+      const store = new NodeSessionStore(dir, { sealing: { sealer } });
+      store.save(record('sess_live'));
+      const other = new NodeSessionStore(dir, { sealing: { sealer } });
+      for (let index = 0; index < 40; index += 1) other.save(record(`sess_other_${index}`));
+      // Read-only probes: a usage report, an "is it locked?" check, a fork attach.
+      for (let index = 0; index < 40; index += 1) {
+        expect(store.load(`sess_other_${index}`).status).toBe('valid');
+      }
+      sealer.lock();
+
+      expect(thrownBy(() => store.save(record('sess_live', 'after the lock')))).toBeUndefined();
+      sealer.unlock();
+      expect(store.load('sess_live')).toEqual(sealedValid(record('sess_live', 'after the lock')));
+    },
+    MANY_DURABLE_FILES_TIMEOUT_MS,
+  );
 
   it('does not hold what a probe read, so it cannot replace that session once the keys lock', () => {
     const dir = newStoreDir();
