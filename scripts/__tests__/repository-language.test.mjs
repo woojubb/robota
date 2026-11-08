@@ -58,6 +58,10 @@ const BACKLOG = ['ARCH', '-040'].join('');
 const ISSUE = ['issue', ' #', '3679'].join('');
 const STAGE = ['Stage', ' D'].join('');
 const PR_NUMBER = ['(#', '3693)'].join('');
+const LOWER_STAGE = ['stage', '-c'].join('');
+const PRE_ID = ['pre-SEC', '-020'].join('');
+const PR_GLUED = ['PR', '#12'].join('');
+const FIXES = ['Fixes', ' #12'].join('');
 
 describe('tracker reference check', () => {
   it('flags a backlog ID, an issue or PR number and a stage label, with the line', () => {
@@ -66,6 +70,8 @@ describe('tracker reference check', () => {
       'packages/a/src/a.test.ts': `it('keeps the root (${ISSUE})', () => {});\n`,
       'scripts/b.mjs': `// ${STAGE} of the move ${PR_NUMBER}\n`,
       '.github/workflows/ci.yml': `# see ${ISSUE}\n`,
+      'packages/a/src/c.ts': `const n = '${LOWER_STAGE}'; // a ${PRE_ID} build\n`,
+      'packages/a/src/d.ts': `// ${PR_GLUED}, ${FIXES}\n`,
     };
     const violations = findTrackerReferences(Object.keys(files), (file) => files[file]);
     expect(violations.map(({ file, line }) => `${file}:${line}`)).toEqual([
@@ -73,6 +79,8 @@ describe('tracker reference check', () => {
       'packages/a/src/a.test.ts:1',
       'scripts/b.mjs:1',
       '.github/workflows/ci.yml:1',
+      'packages/a/src/c.ts:1',
+      'packages/a/src/d.ts:1',
     ]);
   });
 
@@ -81,6 +89,8 @@ describe('tracker reference check', () => {
     'Derivation per SLIP-0010; see CWE-377 and ECMA-48, signed with ECDSA-P256',
     'A task file named CLI-BL-001 is user content the test writes',
     'colors #333, #0002 and a hex #1a2b3c; ids a-12 and v3-13 are not backlog IDs',
+    'Keys: RSA-2048, RSA-OAEP-256, SHA3-256, EC-P256, PKCS-12; FIPS-197, CRC-32, ES-2022, TLS-12',
+    '<a href="#2024">anchor</a> and a range #2024-01',
   ])('allows standards, user content and colors: %s', (line) => {
     expect(findTrackerReferences(['packages/a/src/x.ts'], () => line)).toEqual([]);
   });

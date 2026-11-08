@@ -60,25 +60,21 @@ const TRACKER_DATA = Object.freeze([
   /^scripts\/release\/__tests__\/generate-release-notes\.test\.mjs$/u,
 ]);
 
-/** Prefixes of standards and of user-content test data; any other prefix followed by digits is a backlog ID. */
+/**
+ * Prefixes of standards and of user-content test data; any other prefix followed by digits is a
+ * backlog ID. A standard this rejects belongs here, not reworded. Lowercase names and file names
+ * that carry an ID are a separate cleanup and are not checked.
+ */
 const NOT_BACKLOG = new Set([
-  'SHA',
-  'HMAC-SHA',
-  'UTF',
-  'ISO',
-  'SLIP',
-  'CWE',
-  'CVE',
-  'ECMA',
-  'ECDSA',
-  'AES',
-  'RFC',
-  'CLI-BL',
+  ...['SHA', 'HMAC-SHA', 'SHA3', 'BLAKE2', 'UTF', 'ISO', 'SLIP', 'CWE', 'CVE', 'ECMA', 'ECDSA'],
+  ...['AES', 'RSA', 'RSA-OAEP', 'EC', 'PKCS', 'FIPS', 'CRC', 'TLS', 'RFC', 'OWASP', 'ES', 'SP'],
+  ...['JSON-RPC', 'CLI-BL'],
 ]);
 const BACKLOG_ID =
-  /(?<![\w/.-])((?:[A-Z][A-Z0-9]*-)*[A-Z][A-Z0-9]{1,20})-[A-Z]?\d{2,4}[a-z]?(?![\w-])/gu;
-const ISSUE_REFERENCE = /\b(?:[Ii]ssues?|PRs?|pull) #\d+|(?<![&\w/])#[1-9]\d{3}\b/u;
-const STAGE_LABEL = /\b[Ss]tage[- ][A-E]\d?\b|\bwork unit \d+\b|§\s?\d{3,4}\b/u;
+  /(?<![\w/.])((?:[A-Z][A-Z0-9]*-)*[A-Z][A-Z0-9]{1,20})-[A-Z]?\d{2,4}[a-z]?(?![\w-])/gu;
+const ISSUE_REFERENCE =
+  /\b(?:[Ii]ssues?|[Pp][Rr]s?|pull|[Ff]ix(?:es)?|[Cc]loses?|[Rr]esolves?) ?#\d+\b|(?<=^|[\s(,[])#[1-9]\d{3}(?![\w-])/u;
+const STAGE_LABEL = /\b[Ss]tage[- ][A-E]\d?\b|\bstage-[a-e]\b|\bwork unit \d+\b|§\s?\d{3,4}\b/u;
 
 /** Every line of code, tests or scripts holding a tracker reference, as `{ file, line, text }`. */
 export function findTrackerReferences(files, read) {
