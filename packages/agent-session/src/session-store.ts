@@ -11,7 +11,7 @@
  * lends are kept in `claims/` beside the records, so every process over these files sees them.
  */
 
-import { createProcessOperationLock } from '@robota-sdk/agent-node-lock';
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
 
 import {
   closeSync,

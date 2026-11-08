@@ -4,7 +4,7 @@ import { basename, dirname, extname, isAbsolute, resolve, win32 } from 'node:pat
 import {
   createStableRootedFileReader,
   StableFileAuthorityError,
-} from '@robota-sdk/agent-file-authority';
+} from '@robota-sdk/agent-os/file-authority';
 
 import { SessionLogPayloadResolutionError } from './external-payload-resolution-contracts.js';
 import { StoredLines, StoredPayloads, splitStoredLines } from './stored-append-lines.js';

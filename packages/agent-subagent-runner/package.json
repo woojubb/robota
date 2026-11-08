@@ -55,7 +55,7 @@
     "@robota-sdk/agent-executor": "workspace:^",
     "@robota-sdk/agent-framework": "workspace:^",
     "@robota-sdk/agent-interface-execution": "workspace:^",
-    "@robota-sdk/agent-process": "workspace:^"
+    "@robota-sdk/agent-os": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "^22.19.21",

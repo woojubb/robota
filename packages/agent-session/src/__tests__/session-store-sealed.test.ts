@@ -13,7 +13,7 @@
  *   - a store with no sealer is the store it always was.
  */
 
-import { createProcessOperationLock } from '@robota-sdk/agent-node-lock';
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
 
 import {
   chmodSync,

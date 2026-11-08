@@ -68,7 +68,7 @@
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-interface-execution": "workspace:^",
     "@robota-sdk/agent-interface-transport": "workspace:^",
-    "@robota-sdk/agent-process": "workspace:^",
+    "@robota-sdk/agent-os": "workspace:^",
     "croner": "^10.0.1"
   },
   "devDependencies": {

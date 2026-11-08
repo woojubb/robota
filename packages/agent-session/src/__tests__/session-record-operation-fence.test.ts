@@ -1,4 +1,4 @@
-import { createProcessOperationLock } from '@robota-sdk/agent-node-lock';
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
 
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
