@@ -1,5 +1,5 @@
 /**
- * The `ComputerView` (perceive) + `Computer` (act) tools — mirror the `create*tool(options)`
+ * The `ComputerView` (perceive) + `Computer` (act) tools — mirror the `create*Tool(options)`
  * pattern, split along the permission boundary.
  *
  * `createComputerTool({ driver })` registers BOTH tool names over one injected `IComputerDriver`. The split

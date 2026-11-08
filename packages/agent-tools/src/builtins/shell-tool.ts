@@ -1,5 +1,5 @@
 /**
- * shellTool — execute a host shell command via child_process.spawn.
+ * ShellTool — execute a host shell command via child_process.spawn.
  *
  * Cross-platform: the shell is resolved per OS through `resolvePlatformShell()` (POSIX `sh`/`bash`,
  * Windows PowerShell). The tool name is `Shell` and its description is built dynamically from the

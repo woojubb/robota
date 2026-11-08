@@ -1,5 +1,5 @@
 /**
- * askUserQuestionTool — let the model ask the user structured questions mid-turn.
+ * AskUserQuestionTool — let the model ask the user structured questions mid-turn.
  *
  * Built on the ask seam: each question maps onto the `IActionRequest` SSOT and is issued
  * through the injected `IToolExecutionContext.ask` port; the attached environment renders it (Ink

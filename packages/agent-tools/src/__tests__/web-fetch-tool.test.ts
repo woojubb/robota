@@ -1,5 +1,5 @@
 /**
- * Web-fetch-tool.ts — classifyFetchError and fetch behaviour tests
+ * web-fetch-tool.ts — classifyFetchError and fetch behaviour tests
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

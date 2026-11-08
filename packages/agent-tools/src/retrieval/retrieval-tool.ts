@@ -1,5 +1,5 @@
 /**
- * The `CodebaseRetrieval` tool — mirrors the `create*tool(options)` pattern.
+ * The `CodebaseRetrieval` tool — mirrors the `create*Tool(options)` pattern.
  *
  * Composes over the injected `IRetrievalAdapter` (via `IRetrievalToolOptions`). It carries NO corpus and
  * NO domain content itself — the adapter (built from a surface-supplied parser + corpus) does the
