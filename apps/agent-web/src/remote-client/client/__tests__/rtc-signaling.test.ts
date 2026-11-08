@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+/** @jest-environment node */
 
 import {
   createRtcSignalingClient,
   type IBrowserWebSocketLike,
   type ISignalMessage,
-} from '../rtc-signaling.js';
+} from '../rtc-signaling';
 
 /**
  * The browser signaling client over a FAKE native WebSocket: join on open, buffer
@@ -38,8 +38,8 @@ class FakeSocket implements IBrowserWebSocketLike {
 
 function setup() {
   const socket = new FakeSocket();
-  const onError = vi.fn();
-  const onReady = vi.fn();
+  const onError = jest.fn();
+  const onReady = jest.fn();
   const client = createRtcSignalingClient({
     url: 'wss://relay.test',
     rendezvous: 'rv-1',

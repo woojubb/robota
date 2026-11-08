@@ -15,12 +15,12 @@ import {
 } from '@robota-sdk/agent-ui-web';
 import { useCallback, useMemo } from 'react';
 
-import { createDeviceCredentialStore, createIndexedDbBackend } from '../client/device-credential-store.js';
+import { createDeviceCredentialStore, createIndexedDbBackend } from '../client/device-credential-store';
 import {
   createRtcSessionClient,
   type IRtcSessionClientOptions,
   type TRtcConnectionStatus,
-} from '../client/rtc-session-client.js';
+} from '../client/rtc-session-client';
 
 /** The connection status shown by the browser-remote UI — the WS statuses plus the RTC pairing/failed states. */
 export type TSessionStatus = TConnectionStatus | TRtcConnectionStatus;

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 /**
  * `RemoteClient` owns the page's ONE `main` landmark in every state it can be in,
@@ -10,9 +11,8 @@ import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 import { toPairingUrl } from '@robota-sdk/agent-remote-pairing';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../hooks/useRtcSession.js', () => ({
+jest.mock('../../hooks/useRtcSession', () => ({
   useRtcSession: () => ({
     status: 'connecting',
     messages: [],
@@ -26,7 +26,12 @@ vi.mock('../../hooks/useRtcSession.js', () => ({
   }),
 }));
 
-import { RemoteClient } from '../RemoteClient.js';
+// agent-ui-web's CommonJS build requires these ESM-only packages, which Jest cannot load. No case here renders
+// markdown, so a stub is enough.
+jest.mock('react-markdown', () => ({ __esModule: true, default: () => null }));
+jest.mock('remark-gfm', () => ({ __esModule: true, default: () => undefined }));
+
+import { RemoteClient } from '../RemoteClient';
 
 /** A pairing link `parseRemoteClientLocation` accepts, so `RemoteClient` reaches its connected states. */
 function pairedHref(): string {

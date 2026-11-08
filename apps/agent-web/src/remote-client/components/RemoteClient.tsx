@@ -11,8 +11,8 @@ import {
 } from '@robota-sdk/agent-ui-web';
 import React, { useMemo } from 'react';
 
-import { parseRemoteClientLocation } from '../client/parse-remote-location.js';
-import { useRtcSession, type TSessionStatus } from '../hooks/useRtcSession.js';
+import { parseRemoteClientLocation } from '../client/parse-remote-location';
+import { useRtcSession, type TSessionStatus } from '../hooks/useRtcSession';
 
 /**
  * Browser remote client root. Reads its connection inputs from its own URL

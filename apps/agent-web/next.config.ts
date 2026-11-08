@@ -23,7 +23,6 @@ const nextConfig: NextConfig = {
       'lucide-react',
       '@radix-ui/react-icons',
       '@robota-sdk/agent-core',
-      '@robota-sdk/agent-transport-webrtc-web',
     ],
   },
 

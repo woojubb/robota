@@ -1,3 +1,5 @@
+/** @jest-environment node */
+import { waitFor } from '../../test-support/wait-for';
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 const testIdentity = createIdentityContext('test-product');
 import {
@@ -8,9 +10,8 @@ import {
   startHostReconnect,
   type TReconnectFrame,
 } from '@robota-sdk/agent-remote-pairing';
-import { describe, expect, it, vi } from 'vitest';
 
-import { ResponderGate, type IDeviceIdentityConfig } from '../rtc-responder-gate.js';
+import { ResponderGate, type IDeviceIdentityConfig } from '../rtc-responder-gate';
 
 /**
  * The browser ResponderGate device-identity paths: first-pair ENROLLMENT (pin the host key,
@@ -53,7 +54,7 @@ async function deviceIdentity(
     deviceKeyPair,
     deviceId: await deriveIdentityId(devicePublicSpki),
     devicePublicSpki,
-    onEnrollHost: vi.fn(),
+    onEnrollHost: jest.fn(),
     ...over,
   };
 }
@@ -61,7 +62,7 @@ async function deviceIdentity(
 describe('ResponderGate first-pair enrollment', () => {
   it('after the pairing handshake accepts, pins the host key, advertises the device key, and exposes the session', async () => {
     const identity = await deviceIdentity();
-    const onAccept = vi.fn();
+    const onAccept = jest.fn();
     const fakeHandshake = (() => ({
       result: Promise.resolve({ sessionKey: 'k' }),
       onFrame: () => {},
@@ -72,7 +73,7 @@ describe('ResponderGate first-pair enrollment', () => {
       channel,
       secret: 's',
       ...FP,
-      onMessage: vi.fn(),
+      onMessage: jest.fn(),
       onAccept,
       deviceIdentity: identity,
       startHandshake: fakeHandshake,
@@ -86,7 +87,7 @@ describe('ResponderGate first-pair enrollment', () => {
     const hostSpki = await exportPublicKey(hostKey.publicKey);
     gate.onInbound(JSON.stringify({ t: 'enroll-key', spki: hostSpki }));
 
-    await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
     expect(identity.onEnrollHost).toHaveBeenCalledWith(hostSpki, expect.anything()); // (hostSpki, sessionKey)
     expect(sent.some((f) => (f as { t?: string }).t === 'enroll-key')).toBe(true);
   });
@@ -114,18 +115,18 @@ describe('ResponderGate reconnect', () => {
       timeoutMs: 1000,
     });
     const { channel } = stubChannel((frame) => hostCtrl.onFrame(frame as TReconnectFrame));
-    const onAccept = vi.fn();
+    const onAccept = jest.fn();
     gate = new ResponderGate({cryptoContext: testIdentity,
       channel,
       secret: 's',
       ...FP,
-      onMessage: vi.fn(),
+      onMessage: jest.fn(),
       onAccept,
       deviceIdentity: identity,
     });
 
     await hostCtrl.result;
-    await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
   });
 
   it('fail-closed: a rogue host (wrong pinned key) → the device rejects and closes', async () => {
@@ -153,17 +154,17 @@ describe('ResponderGate reconnect', () => {
       timeoutMs: 1000,
     });
     const { channel, closed } = stubChannel((frame) => hostCtrl.onFrame(frame as TReconnectFrame));
-    const onReject = vi.fn();
+    const onReject = jest.fn();
     gate = new ResponderGate({cryptoContext: testIdentity,
       channel,
       secret: 's',
       ...FP,
-      onMessage: vi.fn(),
+      onMessage: jest.fn(),
       onReject,
       deviceIdentity: identity,
     });
 
-    await vi.waitFor(() => expect(onReject).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onReject).toHaveBeenCalledTimes(1));
     expect(closed()).toBe(true);
   });
 });

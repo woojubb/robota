@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 /**
  * The remote client is embedded by hosts with design tokens of their own (agent-web's Studio palette). Its
@@ -7,9 +8,13 @@ import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
 
-import { RemoteClient } from '../RemoteClient.js';
+// agent-ui-web's CommonJS build requires these ESM-only packages, which Jest cannot load. No case here renders
+// markdown, so a stub is enough.
+jest.mock('react-markdown', () => ({ __esModule: true, default: () => null }));
+jest.mock('remark-gfm', () => ({ __esModule: true, default: () => undefined }));
+
+import { RemoteClient } from '../RemoteClient';
 
 describe('RemoteClient', () => {
   it('renders an unusable pairing link inside the agent-ui scope', () => {
