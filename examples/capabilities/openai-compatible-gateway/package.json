@@ -9,7 +9,7 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "^3.0.0-beta.67",
+    "@robota-sdk/agent-core": "^3.2.3",
     "@robota-sdk/agent-provider": "^3.3.0",
     "openai": "^6.0.0"
   },

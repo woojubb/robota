@@ -9,8 +9,8 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "^3.0.0-beta.67",
-    "@robota-sdk/agent-framework": "^3.0.0-beta.67",
+    "@robota-sdk/agent-core": "^3.2.3",
+    "@robota-sdk/agent-framework": "^3.2.5",
     "@robota-sdk/agent-tools": "^3.3.0"
   },
   "devDependencies": {

@@ -48,6 +48,10 @@ The 2.x packages had short names; 3.0 packages are named by role.
 Each provider package brings its vendor SDK (`openai`, `@anthropic-ai/sdk`, `@google/genai`) as its
 own dependency.
 
+The provider packages named here, and the other packages that 3.3 merged, are subpaths of `@robota-sdk/agent-provider` and
+the other merged packages today, and a vendor SDK is an optional peer the application installs; see
+[Packages merged into subpaths](#packages-merged-into-subpaths) for the current names.
+
 ### What stays the same
 
 Most of the 2.x `@robota-sdk/agents` API is in `@robota-sdk/agent-core` under the same names:
