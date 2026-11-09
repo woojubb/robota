@@ -87,6 +87,7 @@ import { createSettingsReporter } from './product/settings-reporter.js';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createDeviceMeshHost, startDeviceListReissue } from './devices/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
+import { driverListenerPort, resolveServeObserverOptions } from './utils/serve-observer-args.js';
 import {
   readSupervisedTransportToken,
   SUPERVISED_TRANSPORT_TOKEN_FLAG,
@@ -394,11 +395,17 @@ async function runCliCore(
             : 'interactive',
   );
   const serveHttp = resolveServeHttpOptions(args, productRuntime.environment);
+  const serveObserver = resolveServeObserverOptions(args, productRuntime.environment, {
+    driverToken: supervisedTransportToken ?? productRuntime.environment['PRODUCT_WS_TOKEN'],
+    driverPort: driverListenerPort(productRuntime.environment),
+  });
   // Held by the serve options from here on. Left in the environment, every tool subprocess this
-  // runtime starts would inherit the bearer that admits an HTTP client.
+  // runtime starts would inherit the credential that admits an HTTP client or an observer.
   withholdEnvironmentVariables([
     'PRODUCT_HTTP_TOKEN',
     `${productRuntime.config.identity.envPrefix}HTTP_TOKEN`,
+    'PRODUCT_OBSERVER_TOKEN',
+    `${productRuntime.config.identity.envPrefix}OBSERVER_TOKEN`,
   ]);
   if (args.help) {
     process.stdout.write(printHelp(productRuntime));
@@ -765,6 +772,7 @@ async function runCliCore(
   const {
     registry: transportRegistry,
     wsTransport,
+    observerTransport,
     bindTransports,
     usageReporters,
   } = createCliUsageTransportRegistry(
@@ -776,6 +784,7 @@ async function runCliCore(
     args.daemon === true,
     settingsReporter,
     supervisedTransportToken,
+    serveObserver,
   );
   // External-event grants (TUI only; the parser refuses them elsewhere): every file is valid, or the
   // TUI does not start. Each session the TUI binds opens them, and a refusal fails that bind.
@@ -1323,6 +1332,14 @@ async function runCliCore(
       bindTransports,
       ...(serveSessionDirectory !== undefined ? { sessionDirectory: serveSessionDirectory } : {}),
       ...(serveHttp !== undefined ? { http: serveHttp } : {}),
+      ...(serveObserver !== undefined && observerTransport !== undefined
+        ? {
+            observer: {
+              configuredPort: serveObserver.port,
+              boundPort: () => observerTransport.boundPort,
+            },
+          }
+        : {}),
       // Point the served monitor at the live WS port AND carry the resolved auth token in
       // the `ws-url` (`?token=`) — zero-config authentication for the CLI's own localhost-origin monitor.
       getMonitorWsUrl: () => {

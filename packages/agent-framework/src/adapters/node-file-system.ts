@@ -40,7 +40,7 @@ export class NodeFileSystem implements IFileSystem {
     writeFileSync(path, data, encoding ?? 'utf8');
   }
 
-  mkdirSync(path: string, options?: { recursive?: boolean }): void {
+  mkdirSync(path: string, options?: { recursive?: boolean; mode?: number }): void {
     mkdirSync(path, options);
   }
 

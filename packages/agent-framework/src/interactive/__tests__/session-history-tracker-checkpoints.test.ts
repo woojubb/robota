@@ -80,7 +80,7 @@ describe('a turn its checkpoint store cannot number', () => {
       },
     });
     expect(events).toEqual([]);
-    expect(readdirSync(join(root, SESSION))).toEqual(['turn-999999999']);
+    expect(readdirSync(join(root, SESSION))).toEqual(['.writer', 'turn-999999999']);
   });
 });
 

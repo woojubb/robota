@@ -2,6 +2,8 @@ import {
   closeSync,
   constants,
   fstatSync,
+  lstatSync,
+  mkdirSync,
   openSync,
   readdirSync,
   readFileSync,
@@ -11,16 +13,21 @@ import { dirname, join } from 'node:path';
 
 import {
   OWNER_ONLY_FILE_MODE,
+  assertUnlinkedOwnerDirectory,
+  createProcessMarkers,
   ensureOwnerOnlyDirectory,
   writeOwnerOnlyFile,
 } from '@robota-sdk/agent-core/node';
+import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
 
 import {
   refuseProjectRead,
   workspacePathSegments,
 } from '../workspace-trust/project-reader-path.js';
 
+import type { IProcessMarkerHandle } from '@robota-sdk/agent-core';
 import type {
+  IWorkspaceProjectStateStorage,
   IWorkspaceDirectoryEntry,
   TWorkspaceContributionKind,
 } from '../workspace-trust/index.js';
@@ -45,6 +52,10 @@ export interface IEditCheckpointStateStorage {
   readonly seals?: boolean;
   readText(relativePath: string, purpose: string): string | undefined;
   readBytes(relativePath: string, purpose: string): Uint8Array | undefined;
+  /** Acquire the sole checkpoint writer for a session, or return undefined while another holds it. */
+  acquireTurn?(sessionId: string, purpose: string): IProcessMarkerHandle | undefined;
+  /** Claim a new checkpoint directory atomically; false means it already exists as a plain directory. */
+  claimDirectory?(relativePath: string, purpose: string): boolean;
   writeText(relativePath: string, content: string, purpose: string): void;
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void;
   /**
@@ -103,6 +114,31 @@ class DirectoryEditCheckpointState implements IEditCheckpointStateStorage {
     }
   }
 
+  acquireTurn(sessionId: string, _purpose: string): IProcessMarkerHandle | undefined {
+    const directory = this.resolve(join(sessionId, '.writer'));
+    assertUnlinkedOwnerDirectory(directory, this.root);
+    const result = createProcessMarkers(directory, {
+      operationLock: createProcessOperationLock(directory),
+    }).acquire('active');
+    return result.status === 'acquired' ? result.handle : undefined;
+  }
+
+  claimDirectory(relativePath: string, _purpose: string): boolean {
+    const path = this.resolve(relativePath);
+    ensureOwnerOnlyDirectory(dirname(path), { withinRoot: this.root, rejectSymlinks: true });
+    try {
+      mkdirSync(path, { mode: 0o700 });
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      const metadata = lstatSync(path, { throwIfNoEntry: false });
+      if (metadata !== undefined && !metadata.isDirectory()) {
+        refuseProjectRead('A checkpoint directory claim collided with a non-directory.');
+      }
+      return false;
+    }
+  }
+
   writeText(relativePath: string, content: string, purpose: string): void {
     this.writeBytes(relativePath, Buffer.from(content), purpose);
   }
@@ -148,4 +184,29 @@ class DirectoryEditCheckpointState implements IEditCheckpointStateStorage {
  */
 export function createDirectoryEditCheckpointState(root: string): IEditCheckpointStateStorage {
   return new DirectoryEditCheckpointState(root);
+}
+
+/** Bind the project authority's state facet to its per-session checkpoint writer markers. */
+export function createProjectEditCheckpointState(
+  storage: IWorkspaceProjectStateStorage,
+): IEditCheckpointStateStorage {
+  return {
+    rootRelativePath: storage.rootRelativePath,
+    acquireTurn: (sessionId, purpose) => {
+      if (storage.acquireWriter === undefined)
+        throw new Error('The project host must support checkpoint writer leases.');
+      return storage.acquireWriter(join(sessionId, '.writer'), purpose);
+    },
+    claimDirectory: (path, purpose) => {
+      if (storage.claimDirectory === undefined)
+        throw new Error('Checkpoint storage must support atomic directory claims.');
+      return storage.claimDirectory(path, purpose);
+    },
+    readText: (path, purpose) => storage.readText(path, purpose),
+    readBytes: (path, purpose) => storage.readBytes(path, purpose),
+    writeText: (path, content, purpose) => storage.writeText(path, content, purpose),
+    writeBytes: (path, content, purpose) => storage.writeBytes(path, content, purpose),
+    replaceBytes: (path, content, purpose) => storage.replaceBytes(path, content, purpose),
+    listDirectory: (path, purpose) => storage.listDirectory(path, purpose),
+  };
 }

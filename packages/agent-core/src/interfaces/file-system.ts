@@ -22,7 +22,7 @@ export interface IFileSystem {
   existsSync(path: string): boolean;
   readFileSync(path: string, encoding: TFileEncoding): string;
   writeFileSync(path: string, data: string, encoding?: TFileEncoding): void;
-  mkdirSync(path: string, options?: { recursive?: boolean }): void;
+  mkdirSync(path: string, options?: { recursive?: boolean; mode?: number }): void;
   readdirSync(path: string): string[];
   readdirSync(path: string, options: { withFileTypes: true }): IDirent[];
   statSync(path: string): IStats;

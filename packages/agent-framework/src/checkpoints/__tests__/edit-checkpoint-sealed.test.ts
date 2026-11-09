@@ -153,6 +153,16 @@ function recordingState(inner: IEditCheckpointStateStorage, options: IRecordingO
     return run();
   };
   const state: IEditCheckpointStateStorage = {
+    acquireTurn: (id, purpose) => {
+      if (inner.acquireTurn === undefined)
+        throw new Error('fixture requires checkpoint writer leases');
+      return inner.acquireTurn(id, purpose);
+    },
+    claimDirectory: (path, purpose) => {
+      if (inner.claimDirectory === undefined)
+        throw new Error('fixture requires atomic directory claims');
+      return inner.claimDirectory(path, purpose);
+    },
     readText: (path, purpose) => read(path, () => inner.readText(path, purpose)),
     readBytes: (path, purpose) => read(path, () => inner.readBytes(path, purpose)),
     writeText: (path, content, purpose) =>
@@ -285,7 +295,7 @@ describe('numbering never opens a manifest', () => {
 
     const summary = await (await storeOver(state)).beginTurn({ sessionId: SESSION, prompt: 'p' });
 
-    expect(summary.id).toBe('turn-0008');
+    expect(summary.id).toBe('turn-0009');
   });
 
   it('refuses to checkpoint at the highest number instead of wrapping around', async () => {
@@ -298,7 +308,7 @@ describe('numbering never opens a manifest', () => {
       EditCheckpointNumberingExhaustedError,
     );
     await expect(store.finalizeTurn()).resolves.toBeUndefined();
-    expect(readdirSync(join(root, SESSION))).toEqual(['turn-999999999']);
+    expect(readdirSync(join(root, SESSION))).toEqual(['.writer', 'turn-999999999']);
   });
 });
 
@@ -634,7 +644,7 @@ describe('a manifest write that fails', () => {
 
       expect(store.getActiveBranchPointer(SESSION)?.checkpointId).toBe(first);
       const next = await editTurn(store, 'three', {});
-      expect(next).toBe('turn-0002');
+      expect(next).toBe('turn-0003');
       expect(manifestOf(state, next).parentId).toBe(first);
       expect(store.checkpointAncestors(SESSION, next)).toEqual([next, first]);
     },

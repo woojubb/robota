@@ -1,3 +1,5 @@
+import type { IProcessMarkerHandle } from '@robota-sdk/agent-core';
+
 declare const workspaceProjectAuthorityType: unique symbol;
 declare const workspaceProjectReaderType: unique symbol;
 declare const workspaceProjectStateStorageType: unique symbol;
@@ -122,6 +124,10 @@ export interface IWorkspaceProjectStateStorage {
   readBytes(relativePath: string, purpose: string, maxBytes?: number): Uint8Array | undefined;
   writeText(relativePath: string, content: string, purpose: string): void;
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void;
+  /** Acquire a project-bound writer lease, or return undefined while another holds it. */
+  acquireWriter?(relativeDirectory: string, purpose: string): IProcessMarkerHandle | undefined;
+  /** Atomically claim a new directory, or return false when a plain directory already exists. */
+  claimDirectory?(relativePath: string, purpose: string): boolean;
   /**
    * Replaces the file whole: a failure before the new content is in place leaves the previous file as
    * it was.
@@ -141,6 +147,10 @@ export interface IWorkspaceProjectStateStorage {
  * root that no longer is the trusted one.
  */
 export interface IWorkspaceProjectMutationBoundary {
+  /** Acquire an exclusive writer lease contained by this host's project authority. */
+  acquireWriter?(relativeDirectory: string): IProcessMarkerHandle | undefined;
+  /** Atomically create a non-link directory; false means a plain directory already exists. */
+  claimDirectory?(relativePath: string): boolean;
   write(relativePath: string, content: Uint8Array | string): void;
   /**
    * Replaces the file whole: the content is flushed to a fresh temp file beside it, renamed over the

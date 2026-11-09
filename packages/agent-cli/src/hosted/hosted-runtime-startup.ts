@@ -39,6 +39,11 @@ export async function runHostedRuntime(
       '--serve --http-port is not served by a task worker; only its WebSocket ingress is reachable',
     );
   }
+  if (args.serve && args.observerPort !== undefined) {
+    throw hostedAdmissionError(
+      '--serve --observer-port is not served by a task worker; only its WebSocket ingress is reachable',
+    );
+  }
   const invocation: IHostedRuntimeInvocation = Object.freeze({
     argv,
     mode:

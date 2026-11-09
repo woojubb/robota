@@ -31,7 +31,7 @@ function collectSessionLogEventLiterals(): string[] {
   const events = new Set<string>();
   const patterns = [
     /(?:this|ctx|enforcer)\.log\(\s*'([^']+)'/g,
-    /logger\.log\([^,]+,\s*'([^']+)'/g,
+    /[lL]ogger\??\.log\([^,]+,\s*'([^']+)'/g,
     /onExecutionEvent\?\.\(\s*'([^']+)'/g,
     /entry\.event\s*===\s*'([^']+)'/g,
   ];

@@ -1918,10 +1918,10 @@ export class InteractiveSession
           await this.captureSandboxSnapshot();
           this.persistCurrentSession(preservedSchedules);
         }
-        // That was the last save of the record, so the claim ends now — a refusal still standing is
-        // saved as a copy and said while listeners still hear it.
-        this.recordClaim?.end();
         await session?.shutdown({ reason: options.reason ?? 'other' });
+        // Shutdown can still write the session log, so keep the record claimed until it finishes.
+        // A refusal still standing is saved as a copy and said while listeners still hear it.
+        this.recordClaim?.end();
         // Drain before dropping listeners so any prompt still parked at shutdown settles
         // fail-closed (the awaiting checkPermission/tool unblocks) rather than hanging on a cleared emitter.
         this.promptRegistry.drain();
