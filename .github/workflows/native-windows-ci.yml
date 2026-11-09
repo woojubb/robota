@@ -45,7 +45,6 @@ jobs:
       IS_PULL_REQUEST: 'true'
       FIXTURE_PRODUCT: cedar
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      WINDOWS_SDK_SEPARATE: 'true'
     steps:
       - uses: actions/checkout@v7
         with:
