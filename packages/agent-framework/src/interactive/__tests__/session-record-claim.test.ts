@@ -20,7 +20,7 @@ import {
 } from '@robota-sdk/agent-core/testing';
 import { isSessionClaimedError, Session } from '@robota-sdk/agent-session';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildRuntimeSession, startRuntimeHost } from '../../runtime/runtime-host.js';
 import { SESSION_STILL_CLOSING_MESSAGE } from '../../runtime/session-change-refusal.js';
@@ -371,6 +371,33 @@ describe('where a session claims its record', () => {
     expect((refusal as Error).message).toContain(`pid ${child.pid}`);
     lease.end();
     await host.shutdown();
+  });
+
+  it('holds the session claim until its underlying session finishes shutdown', async () => {
+    const cwd = directory();
+    const dir = directory();
+    const store = sealedStore(dir, createTestArtifactSealer());
+    const active = await started(sessionOptions(cwd, store));
+    let beginShutdown: () => void = () => undefined;
+    let finishShutdown: () => void = () => undefined;
+    const began = new Promise<void>((resolve) => { beginShutdown = resolve; });
+    const mayFinish = new Promise<void>((resolve) => { finishShutdown = resolve; });
+    const session = active.getSession();
+    const originalShutdown = session.shutdown.bind(session);
+    vi.spyOn(session, 'shutdown').mockImplementation(async (options) => {
+      beginShutdown();
+      await mayFinish;
+      return originalShutdown(options);
+    });
+    const shutdown = active.shutdown();
+    try {
+      await began;
+      expect(claimable(store, active.sessionId)).toBe(false);
+    } finally {
+      finishShutdown();
+      await shutdown;
+    }
+    expect(claimable(store, active.sessionId)).toBe(true);
   });
 
   it('lets the claim go when a shutdown times out, and fences that session’s late save', async () => {
