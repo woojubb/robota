@@ -208,7 +208,8 @@ describe('project-relative writer containment', () => {
     expect(lease?.holds()).toBe(false);
     lease?.release();
     expect(fs.readdirSync(outside)).toEqual([]);
-    expect(fs.readdirSync(join(moved, '.writer'))).toEqual([]);
+    // Release reached the original directory and removed the marker; only its lock file stays.
+    expect(fs.readdirSync(join(moved, '.writer'))).toEqual(['active.guard']);
   });
 
   it.runIf(process.platform === 'linux')(
