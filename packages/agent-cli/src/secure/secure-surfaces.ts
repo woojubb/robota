@@ -119,7 +119,8 @@ export const SECURE_SURFACES: TSecureSurfaces = {
   },
   'websocket-transport': {
     surface: 'websocket-transport',
-    plain: 'A loopback WebSocket admitted by the launch token, with Host and Origin checked.',
+    plain:
+      'A loopback WebSocket admitted by the launch token, with Host and Origin checked; `--serve --observer-port` opens a second one that admits observers only, by its own token.',
     secure: {
       admit: 'none',
       reason: `The WebSocket transport does not start in secure mode: it admits whoever holds its token, ${ONLY_YOU}`,

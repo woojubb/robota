@@ -88,6 +88,12 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
                              every request presents. Reach it from elsewhere through your own
                              reverse proxy or tunnel, or bind it as an OAuth resource server
                              with --http-public-url and the --oauth-* flags instead of the bearer
+  --serve --observer-port <port>
+                             Also open a read-only observer listener on 127.0.0.1:<port>: a client
+                             reads this session's conversation and state and can drive nothing.
+                             Requires PRODUCT_OBSERVER_TOKEN (at least 32 characters): the token
+                             every observer presents, different from the driver token and
+                             PRODUCT_HTTP_TOKEN. Not available in a secure runtime
   --restricted-workspace     With print mode, --goal, --serve, daemon start or session start:
                              start without the project's settings, hooks, plugins, skills and
                              MCP servers

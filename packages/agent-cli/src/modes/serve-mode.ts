@@ -224,6 +224,11 @@ export interface IServeModeOptions {
   setupRequired?: boolean;
   /** Also serve the agent HTTP API on this loopback port, admitted by this bearer. */
   http?: IServeHttpOptions;
+  /**
+   * The read-only observer listener `--serve --observer-port` opens beside the driver listener:
+   * the port it was asked for, and the port it is bound to once the host has started.
+   */
+  observer?: { readonly configuredPort: number; boundPort(): number | undefined };
   /** Host-persistent one-time token claims shared by every session in this served runtime. */
   externalEventGrantHistory?: ExternalEventGrantHistory;
 }
@@ -492,6 +497,26 @@ function watchSessionActivity(
   };
 }
 
+/**
+ * The failure an operator of `--observer-port` meets is a port that is already taken, and the
+ * registry's startup error keeps its cause out of the message. Names the port and the cause for that
+ * listener only, as the HTTP API's start does; any other failure passes through unchanged.
+ */
+export function observerStartFailure(
+  error: unknown,
+  observer: IServeModeOptions['observer'],
+): Error | undefined {
+  if (observer === undefined || !(error instanceof Error)) return undefined;
+  if (error.name !== 'TransportStartupError') return undefined;
+  if ((error as { transportName?: unknown }).transportName !== 'ws-observer') return undefined;
+  const cause = (error as { cause?: unknown }).cause;
+  return new Error(
+    `Observer listener could not be served on 127.0.0.1:${observer.configuredPort}: ${
+      cause instanceof Error ? cause.message : String(cause)
+    }`,
+  );
+}
+
 export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   const { args } = opts;
   // The exchange with the spawner ran exactly when the start asked for it: the two cannot disagree here.
@@ -502,6 +527,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   if (secureRuntime !== undefined) {
     const refusal = secureServeRefusal({
       http: opts.http !== undefined,
+      observer: opts.observer !== undefined,
       open: args.open === true,
       externalEventGrants: args.supervisedExternalEventGrants === true,
       daemon: args.daemon === true,
@@ -586,7 +612,15 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         // would admit whoever holds a token.
         if (secureRuntime === undefined) opts.bindTransports?.(slot);
       },
+    }).catch((error: unknown) => {
+      throw observerStartFailure(error, opts.observer) ?? error;
     });
+    // The listener is bound once the host has started. The token is the operator's own and is
+    // never printed.
+    const observerPort = opts.observer?.boundPort();
+    if (observerPort !== undefined) {
+      process.stderr.write(`Observer listening on ws://127.0.0.1:${observerPort} (read-only)\n`);
+    }
     // Started before anything waits on the host, so a port that cannot be served fails the start
     // instead of leaving a runtime its HTTP clients cannot reach.
     let httpEndpoint: IServeHttpHost | undefined;

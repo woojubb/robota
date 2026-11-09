@@ -9,6 +9,7 @@ import type {
 import type { IProtocolSession, ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
 import type { TDriverId } from '@robota-sdk/agent-interface/session';
 import type { TUsageSurface } from '@robota-sdk/agent-interface/analytics';
+import type { IServeObserverOptions } from '../utils/serve-observer-args.js';
 
 /** Compose the host-owned report producers into the default WebSocket transport. */
 function createDefaultUsageTransportRegistry(
@@ -20,6 +21,7 @@ function createDefaultUsageTransportRegistry(
   sessionBinder: ISessionBinder<IProtocolSession> | undefined,
   settingsReporter: ISessionMessageHandlerOptions['settingsReporter'] | undefined,
   transportToken: string | undefined,
+  observer: IServeObserverOptions | undefined,
 ): ReturnType<typeof createDefaultTransportRegistry> {
   const admittedProjectStore = projectTrusted ? projectStore : undefined;
   const personalUsageReporter = createPersonalUsageReporter(runtime, admittedProjectStore);
@@ -33,6 +35,7 @@ function createDefaultUsageTransportRegistry(
     sessionBinder,
     settingsReporter,
     transportToken,
+    observer,
   );
 }
 
@@ -64,6 +67,8 @@ export function createCliUsageTransportRegistry(
   settingsReporter?: ISessionMessageHandlerOptions['settingsReporter'],
   /** A token handed over outside the environment (a supervised daemon's pipe); never written back to it. */
   transportToken?: string,
+  /** The read-only observer listener `--serve --observer-port` opens beside the driver listener. */
+  observer?: IServeObserverOptions,
 ): ReturnType<typeof createDefaultTransportRegistry> {
   // Read before the registry takes the token out of the environment.
   const { driverId, surface } = resolveCliUsageAttribution({
@@ -80,5 +85,6 @@ export function createCliUsageTransportRegistry(
     sessionBinder,
     settingsReporter,
     transportToken,
+    observer,
   );
 }

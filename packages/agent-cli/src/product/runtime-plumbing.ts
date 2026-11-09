@@ -44,7 +44,9 @@ import type {
   IUsageBySourceReport,
 } from '@robota-sdk/agent-session-analytics';
 import type { IProtocolSession, ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
+import type { TBoundTransportAdapter } from '@robota-sdk/agent-interface/transport';
 import { reportCurrentSessionUsage } from '../usage/session-usage-reporter.js';
+import type { IServeObserverOptions } from '../utils/serve-observer-args.js';
 
 /**
  * Load the optional session-log replay provider. `@robota-sdk/agent-provider-replay` is a
@@ -84,9 +86,13 @@ export function createDefaultTransportRegistry(
   settingsReporter?: ISessionMessageHandlerOptions['settingsReporter'],
   /** A token the host handed over outside the environment (a supervised daemon's pipe); it wins over `PRODUCT_WS_TOKEN`. */
   transportToken?: string,
+  /** The read-only observer listener `--serve --observer-port` opens beside the driver listener. */
+  observer?: IServeObserverOptions,
 ): {
   registry: TransportRegistry;
   wsTransport: WsTransport;
+  /** Present only when `observer` was given; it binds only once `bindTransports` has run. */
+  observerTransport?: WsTransport;
   bindTransports: (session: IInteractiveSession) => void;
   usageReporters: Pick<
     ISessionMessageHandlerOptions,
@@ -122,7 +128,44 @@ export function createDefaultTransportRegistry(
     ...(settingsReporter ? { settingsReporter } : {}),
     usageReporter,
   });
+  // The observer listener grants `observe` and nothing more, whatever a client asks for, and it
+  // binds exactly the port it was given: a busy port fails the start instead of moving to a
+  // neighbour the observers were not told about. It carries no settings reporter and no
+  // cross-session usage reporter, so an observer reads this session and the session list only.
+  const observerTransport =
+    observer === undefined
+      ? undefined
+      : new WsTransport({
+          token: observer.token,
+          port: observer.port,
+          maxRetries: 0,
+          role: 'observe',
+          ...(driverId ? { driverId } : {}),
+          ...(surface ? { surface } : {}),
+          ...(sessionBinder ? { sessionBinder } : {}),
+          usageReporter,
+        });
   let registered = false;
+  let observerRegistered = false;
+  const bindObserver = (session: IInteractiveSession): void => {
+    if (observerTransport === undefined) return;
+    const adapter = bindTransportAdapter(observerTransport, session);
+    // Not a configurable transport: `/transport` neither lists nor persists it, and it starts and
+    // stops with the registry, so it lives exactly as long as the runtime.
+    const bound: TBoundTransportAdapter = {
+      binding: 'bound',
+      name: 'ws-observer',
+      lifecycle: Object.freeze({ kind: 'service' as const }),
+      start: () =>
+        startListener(SECURE_SURFACES['websocket-transport'], productRuntime, () => adapter.start()),
+      stop: () => adapter.stop(),
+    };
+    if (observerRegistered) registry.replace(bound);
+    else {
+      registry.register(bound);
+      observerRegistered = true;
+    }
+  };
   const bindTransports = (session: IInteractiveSession): void => {
     const adapter = bindTransportAdapter(wsTransport, session);
     // The TUI, `--serve`, a daemon and the desktop sidecar all start this listener through the
@@ -138,12 +181,15 @@ export function createDefaultTransportRegistry(
       registry.register(bound);
       registered = true;
     }
+    // After the driver listener, so the registry starts it first and a port both ask for stays its.
+    bindObserver(session);
   };
   // Return the WS transport so `--serve --open` can read its `boundPort` to point the served
   // monitor's `ws-url` at the actual port.
   return {
     registry,
     wsTransport,
+    ...(observerTransport ? { observerTransport } : {}),
     bindTransports,
     usageReporters: {
       ...(personalUsageReporter ? { personalUsageReporter } : {}),
