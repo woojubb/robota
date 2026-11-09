@@ -1,5 +1,14 @@
 # @robota-sdk/agent-cli
 
+## 3.2.2
+### Patch Changes
+
+- e10f377: Build on the merged SDK packages. The CLI and the desktop app now import providers, host primitives, transport carriers, the default tool set, product assembly and the shared contracts from the subpaths of `@robota-sdk/agent-provider`, `@robota-sdk/agent-os`, `@robota-sdk/agent-transport`, `@robota-sdk/agent-tools`, `@robota-sdk/agent-product` and `@robota-sdk/agent-interface`, instead of the separate packages those replace. The command line, the settings and the behavior are unchanged.
+- 5747738: Use the released SDK session roles. A connected client can ask the CLI or the desktop app for its effective role, and a desktop renderer that asks on the hosted desktop path stays connected.
+- fa36533: Use the SDK patch release whose shipped types and messages no longer point at internal tracker IDs, so an agent reading the installed types or an error message is not sent looking for tickets it cannot open.
+- 56fbaf9: A launch of a secure runtime that fails after the runtime was proved (certification refused, the daemon role not accepted, a deadline missed) now returns only once that runtime is gone. The runtime ends itself when its spawner leaves without certifying it, which closes its control before it answers the launch's stop request; the launch took that for "already gone" and returned while the runtime was still registered, so a caller that went on at once saw a live session with no control.
+- efb0831: The workspace root broker now exits once the user-state directory it serves is removed or replaced. Before, it ran until the next reboot, so every run with a temporary state directory, such as a test or a disposable smoke, left one more broker process behind. CLI and desktop restarts still reattach to held approvals while that directory remains.
+
 ## 3.2.1
 
 ## 3.2.0
