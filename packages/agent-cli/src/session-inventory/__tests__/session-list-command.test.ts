@@ -1,4 +1,4 @@
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import {
   chmodSync,
@@ -41,7 +41,7 @@ import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   ISessionListEntry,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 function store(entries: readonly ISessionListEntry[]): IInteractiveSessionStore {
   const double: Omit<IInteractiveSessionStore, 'claim' | 'lend' | 'hasWriter'> = {

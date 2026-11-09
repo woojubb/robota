@@ -2,14 +2,14 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createProviderCommandModule } from '@robota-sdk/agent-command';
+import { createProviderCommandModule } from '@robota-sdk/agent-product/command';
 import {
   InteractiveSession,
   type IProviderCommandSettingsAdapter,
   type TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
 import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
-import { createGemmaProviderDefinition } from '@robota-sdk/agent-provider-openai-compatible';
+import { createGemmaProviderDefinition } from '@robota-sdk/agent-provider/gemma';
 import {
   createOutboundDelivery,
   createSessionMessageHandler,

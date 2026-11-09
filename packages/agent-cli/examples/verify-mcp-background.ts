@@ -166,7 +166,7 @@ async function startSlowToolMcpServer(delayMs: number): Promise<IMiniMcpServer> 
 
 // ── Reading `background_task_event` without a static import of its type ────────────────────────
 //
-// `@robota-sdk/agent-interface-execution` is not a declared dependency of this package
+// `@robota-sdk/agent-interface/execution` is not a declared dependency of this package
 // (`agent-cli` bundles its @robota-sdk closure and keeps the dependency lists to what is actually
 // imported). The event's shape is read structurally instead of adding a dependency for one type.
 

@@ -25,7 +25,7 @@ import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 
 declare const host: IFrameworkHost; // `createNodeFrameworkHost({ createDefaultTools })` on Node
 declare const provider: IAIProvider;
-declare const providerDefinitions: readonly IProviderDefinition[]; // e.g. agent-builtin-providers
+declare const providerDefinitions: readonly IProviderDefinition[]; // e.g. agent-provider/builtin
 declare const providerSettingsAdapter: IProviderCommandSettingsAdapter; // reads/writes provider profiles
 declare const userLocalStorageRoot: string; // host-chosen directory for user-local state
 

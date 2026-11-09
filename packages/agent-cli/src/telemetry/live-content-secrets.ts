@@ -4,7 +4,7 @@
  * startup snapshot never saw, and a newly added settings profile carries one too.
  */
 import { homedir } from 'node:os';
-import { collectSettingsSecrets } from '@robota-sdk/agent-command';
+import { collectSettingsSecrets } from '@robota-sdk/agent-product/command';
 import {
   inspectSettingsLayers,
   readMergedProviderSettings,

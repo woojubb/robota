@@ -1,4 +1,4 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import {
   createIdentityContext,
@@ -6,9 +6,9 @@ import {
   deriveReconnectSeed,
   generatePairingSecret,
 } from '@robota-sdk/agent-remote-pairing';
-import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transport';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
-import type { IConnectionApproval, ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
+import type { IConnectionApproval, ISignalingClient } from '@robota-sdk/agent-transport/webrtc';
 import { TransportRegistry } from '@robota-sdk/agent-framework';
 import { createFileTransportSettingsRepository } from '@robota-sdk/agent-framework/node';
 import { mkdtempSync, realpathSync } from 'node:fs';

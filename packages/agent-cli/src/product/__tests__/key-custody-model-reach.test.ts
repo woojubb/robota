@@ -28,7 +28,7 @@ import { userPaths } from '../user-paths.js';
 
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
 import type { ICommandModule } from '@robota-sdk/agent-framework';
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface/session';
 
 const roots: string[] = [];
 const harnesses: ScriptedSessionHarness[] = [];

@@ -4,7 +4,7 @@ import type {
   IExternalEventGrant,
   IExternalEventRateWindow,
   TAccessTokenAlgorithm,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 /**
  * A grant file holds only public configuration: who issues the tokens, which resource they are for,

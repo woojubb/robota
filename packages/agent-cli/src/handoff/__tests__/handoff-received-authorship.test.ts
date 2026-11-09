@@ -13,7 +13,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { saveReceivedSession } from '../handoff-receiving.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const directories: string[] = [];
 

@@ -9,7 +9,7 @@ import {
   MCPDefinitionRegistry,
   MCPSupervisorError,
 } from '@robota-sdk/agent-mcp';
-import { mcpUserActionNotice } from '@robota-sdk/agent-command';
+import { mcpUserActionNotice } from '@robota-sdk/agent-product/command';
 import { describe, expect, it } from 'vitest';
 
 import { createMcpClientComposition } from '../mcp-client-composition.js';

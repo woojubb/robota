@@ -24,8 +24,8 @@ import {
 import type {
   IInteractiveSession,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
-import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/session';
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface/transport';
 import {
   lockedSessionMessage,
   lockedSessionReason,

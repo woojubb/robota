@@ -12,6 +12,7 @@
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
+import { setTimeout as pause } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import type { Duplex } from 'node:stream';
 
@@ -76,18 +77,38 @@ const alive = (pid: number): boolean => {
   }
 };
 
-/** The spawner's side by hand, to watch the pair itself: writes first, reads the answer, waits for the end. */
-async function exchangeAndWatch(pair: Duplex, waitMs: number): Promise<{ reply: Buffer; ended: boolean }> {
+/**
+ * How long the runtime may take to boot and answer. It is a fresh process, so the cost grows with the
+ * load on the machine: a loaded Windows runner needed about three seconds.
+ */
+const REPLY_BOUND_MS = 20_000;
+
+/**
+ * The spawner's side by hand, to watch the pair itself: writes first, waits for the answer, then waits
+ * `watchMs` for the end. The watch starts at the answer, not at the write, because the answer comes only
+ * once the runtime has booted.
+ */
+async function exchangeAndWatch(
+  pair: Duplex,
+  watchMs: number,
+): Promise<{ reply: Buffer; ended: boolean }> {
   const exchange = startSpawnerExchange();
   const chunks: Buffer[] = [];
-  pair.on('data', (chunk: Buffer) => chunks.push(chunk));
+  let received = 0;
+  // Listening before the write, so an end that follows the answer at once is not missed.
+  const end = once(pair, 'end').then(() => true);
+  const answered = new Promise<void>((resolve) => {
+    pair.on('data', (chunk: Buffer) => {
+      chunks.push(chunk);
+      received += chunk.length;
+      if (received >= SPAWNER_EXCHANGE_REPLY_BYTES) resolve();
+    });
+  });
   pair.write(exchange.message);
-  const ended = await Promise.race([
-    once(pair, 'end').then(() => true),
-    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), waitMs)),
-  ]);
+  await Promise.race([answered, end, pause(REPLY_BOUND_MS, false, { ref: false })]);
   const reply = Buffer.concat(chunks);
   expect(reply.length).toBe(SPAWNER_EXCHANGE_REPLY_BYTES);
+  const ended = await Promise.race([end, pause(watchMs, false, { ref: false })]);
   return { reply, ended };
 }
 

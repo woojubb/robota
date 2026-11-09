@@ -19,13 +19,13 @@ import {
 
 import { isOwnerInput } from './owner-input.js';
 
-import type { ISessionDirectory, TSessionBindingRole } from '@robota-sdk/agent-interface-session';
+import type { ISessionDirectory, TSessionBindingRole } from '@robota-sdk/agent-interface/session';
 import type { TLinkMode } from '@robota-sdk/agent-keyring';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
-import type { IAdmittedRuntimeLink, ILinkSessionSink } from '@robota-sdk/agent-transport-link';
+import type { IAdmittedRuntimeLink, ILinkSessionSink } from '@robota-sdk/agent-transport/link';
 import type { TSupervisedAttachTarget } from '../session-inventory/supervised-attach.js';
 import type { IServeOwnerDirectory } from '../modes/serve-session-directory.js';
-import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface-session';
+import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface/session';
 
 export type TLinkAttachRefusal = 'unsupported-attach' | 'already-attached' | 'attach-limit';
 

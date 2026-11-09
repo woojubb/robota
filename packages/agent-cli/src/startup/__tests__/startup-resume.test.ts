@@ -21,7 +21,7 @@ import {
   unverifiedSessionNotice,
 } from '@robota-sdk/agent-framework';
 import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { SESSION_RECORD_ENVELOPE_VERSION } from '@robota-sdk/agent-session';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -40,7 +40,7 @@ import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

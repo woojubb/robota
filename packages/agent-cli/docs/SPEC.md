@@ -215,16 +215,16 @@ Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`)
 
 ### Import Rules
 
-| Source                    | Allowed                                                                                                                 |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `agent-framework`         | SDK-owned APIs and facades                                                                                              |
-| `agent-core`              | Public types + utilities only; internal engine (`ConversationAgent`, `ExecutionService`, `ConversationStore`) forbidden |
-| `agent-session`           | Forbidden — the SDK provides its own session/permission types                                                           |
-| `agent-tools`             | The OS sandbox only (its client, detection and settings) — the SDK assembles tools internally                           |
-| `agent-command`           | Slash-command modules only                                                                                              |
-| `agent-subagent-runner`   | Subagent/background runner only                                                                                         |
-| `agent-builtin-providers` | Provider definition assembly only                                                                                       |
-| `agent-preset`            | Preset id selection + resolution only — `resolvePreset` owns the precedence merge                                       |
+| Source                   | Allowed                                                                                                                 |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `agent-framework`        | SDK-owned APIs and facades                                                                                              |
+| `agent-core`             | Public types + utilities only; internal engine (`ConversationAgent`, `ExecutionService`, `ConversationStore`) forbidden |
+| `agent-session`          | Forbidden — the SDK provides its own session/permission types                                                           |
+| `agent-tools`            | The OS sandbox only (its client, detection and settings) — the SDK assembles tools internally                           |
+| `agent-product/command`  | Slash-command modules only                                                                                              |
+| `agent-subagent-runner`  | Subagent/background runner only                                                                                         |
+| `agent-provider/builtin` | Provider definition assembly only                                                                                       |
+| `agent-product/preset`   | Preset id selection + resolution only — `resolvePreset` owns the precedence merge                                       |
 
 ## Design decisions
 
@@ -522,7 +522,7 @@ service alive.
 
 ### `__PRODUCT_CLI_NAME__ acp`
 
-A separate headless process mode: one normally assembled session plus one `agent-transport-acp`
+A separate headless process mode: one normally assembled session plus one `agent-transport/acp`
 service on stdio, for an editor that launches the process. It uses the caller's working directory,
 which `session/new` and `session/load` must name. Unlike the other headless modes it does not exit
 at startup for want of workspace trust: the same decision is asked when the editor creates or loads
@@ -542,7 +542,7 @@ own sandbox, and the editor's terminals are not used. No WebSocket or TUI transp
 
 ### `__PRODUCT_CLI_NAME__ mcp serve`
 
-A separate headless process mode: one normally assembled session plus one `agent-transport-mcp`
+A separate headless process mode: one normally assembled session plus one `agent-transport/mcp`
 stdio, loopback HTTP (`--http-token-file`) or remote HTTP (`--http-public-url` with the `--oauth-*`
 settings) service. It uses the caller's working directory
 and the same headless project-access/trust decision as `--serve`, and never prompts for trust over

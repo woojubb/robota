@@ -78,8 +78,8 @@ A script step can call the SDK directly with `createQuery` from `@robota-sdk/age
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const query = createQuery({
   host: createNodeFrameworkHost({ createDefaultTools }),

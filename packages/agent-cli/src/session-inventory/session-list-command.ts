@@ -12,7 +12,7 @@ import {
   resolveSupervisedDirectory,
 } from './supervised-session-control.js';
 
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 interface IPeer {
   readonly sessionId: string;

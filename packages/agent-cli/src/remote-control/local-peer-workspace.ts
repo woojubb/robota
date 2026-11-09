@@ -24,7 +24,7 @@ import { execFileInChildSession } from '@robota-sdk/agent-core/node';
 import { createHash } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 
-import type { TWorkspaceRelation } from '@robota-sdk/agent-interface-session-mobility';
+import type { TWorkspaceRelation } from '@robota-sdk/agent-interface/session-mobility';
 
 /** What a session publishes about its workspace. */
 export interface IWorkspaceClaim {

@@ -29,7 +29,7 @@ import type {
   TSettingsSource,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import {

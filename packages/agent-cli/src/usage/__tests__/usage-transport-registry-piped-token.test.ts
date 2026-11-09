@@ -1,12 +1,12 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 const constructed = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 
-vi.mock('@robota-sdk/agent-transport-ws', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@robota-sdk/agent-transport-ws')>();
+vi.mock('@robota-sdk/agent-transport/ws', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@robota-sdk/agent-transport/ws')>();
   return {
     ...actual,
     // Records what the shell hands the transport; nothing here listens on a port.

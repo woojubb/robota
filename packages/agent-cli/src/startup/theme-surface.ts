@@ -22,7 +22,10 @@ import { loadThemeSources } from './theme-sources.js';
 
 import type { IThemeRegistry, IThemeSkip } from '@robota-sdk/agent-ui-terminal';
 import type { TSettingsData, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
-import type { IThemeCataloguePort, TReducedMotionOverride } from '@robota-sdk/agent-command';
+import type {
+  IThemeCataloguePort,
+  TReducedMotionOverride,
+} from '@robota-sdk/agent-product/command';
 
 export interface IThemeSurfaceOptions {
   readonly productRuntime: ICliRuntimeContext;

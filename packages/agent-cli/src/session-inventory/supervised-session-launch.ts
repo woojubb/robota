@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 import { closeSync, fstatSync } from 'node:fs';
 import { Duplex, Writable } from 'node:stream';
-import { completeSpawnerPair, type ISpawnerPairResult } from '@robota-sdk/agent-transport-link';
+import { completeSpawnerPair, type ISpawnerPairResult } from '@robota-sdk/agent-transport/link';
 
 import { scrubSecrets } from '@robota-sdk/agent-core';
 import { withChildSession } from '@robota-sdk/agent-core/node';
@@ -30,7 +30,7 @@ import {
   SUPERVISED_TRANSPORT_TOKEN_FLAG,
 } from './supervised-transport-token.js';
 
-import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface/transport';
 
 interface IHandshakeMessage {
   readonly kind: 'ready' | 'acknowledged' | 'error';

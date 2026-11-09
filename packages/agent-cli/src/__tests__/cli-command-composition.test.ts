@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createDefaultCommandModules } from '@robota-sdk/agent-command';
+import { createDefaultCommandModules } from '@robota-sdk/agent-product/command';
 import {
   CommandRegistry,
   InteractiveSession,

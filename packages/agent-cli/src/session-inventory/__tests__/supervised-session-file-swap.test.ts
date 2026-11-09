@@ -10,7 +10,7 @@ import {
   writeSupervisedGrantHandoff,
 } from '../supervised-session-control.js';
 
-import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface/transport';
 
 /**
  * The first time the code under test checks or opens `path`, swap what is at that path for a link

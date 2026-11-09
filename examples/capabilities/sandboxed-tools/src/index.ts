@@ -24,7 +24,7 @@
 import process from 'node:process';
 
 import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const SANDBOX_FILE = '/workspace/notes.txt';
 const SANDBOX_CONTENT = 'written inside the sandbox, never on the host\n';

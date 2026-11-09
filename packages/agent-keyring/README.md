@@ -12,7 +12,7 @@ An unlock yields the read keys only. The attach key stays inside a short-lived o
 certifies a served runtime's instance key and proves the owner on the **owner link**: a handshake in
 which the runtime proves itself first, so a program on a taken-over socket gets nothing, followed by
 AES-256-GCM frames and a read grant that hands a runtime the read keys and never the attach key or
-the master key. The carrier that runs the link over a socket is `@robota-sdk/agent-transport-link`.
+the master key. The carrier that runs the link over a socket is `@robota-sdk/agent-transport/link`.
 
 It uses `node:crypto` only (AES-256-GCM, scrypt, HKDF-SHA256, HMAC-SHA256, SHA-256, X25519,
 Ed25519), has no native module and no `@robota-sdk` dependency, and runs on Node.js 22.12 or later

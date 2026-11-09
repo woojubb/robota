@@ -16,7 +16,7 @@ import type { IPeerIngressPort, IPeerMessaging } from '../local-peer-messaging.j
 import type {
   IPeerMessageAck,
   IPeerMessageIngress,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 let guardedDirectory: string;
 

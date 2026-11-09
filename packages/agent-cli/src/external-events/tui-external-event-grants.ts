@@ -12,7 +12,7 @@ import type {
   TExternalEventAdmission,
   TExternalEventAuditRecord,
   TExternalEventRefusal,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 export interface ITuiExternalEventGrants {
   /** Open the grants on a newly bound session, closing them on the one it replaces. */

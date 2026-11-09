@@ -5,7 +5,7 @@ import {
   importPublicKey,
   toPairingUrl,
 } from '@robota-sdk/agent-remote-pairing';
-import { WsSignalingClient } from '@robota-sdk/agent-transport-webrtc';
+import { WsSignalingClient } from '@robota-sdk/agent-transport/webrtc';
 
 import { defaultCreateResumeBridge, defaultCreateTransport } from './default-transport-factory.js';
 import type { TUsageReporters } from './default-transport-factory.js';
@@ -21,13 +21,13 @@ import type {
   IHostReconnectConfig,
   IIceServer,
   ISignalingClient,
-} from '@robota-sdk/agent-transport-webrtc';
-import { ConnectionAuthority } from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-transport/webrtc';
+import { ConnectionAuthority } from '@robota-sdk/agent-interface/session-mobility';
 
 import type { TRemoteControlStatus } from '@robota-sdk/agent-framework';
-import type { IOperatorApprover } from '@robota-sdk/agent-interface-session-mobility';
-import type { IConnectionApproval } from '@robota-sdk/agent-transport-webrtc';
-import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IOperatorApprover } from '@robota-sdk/agent-interface/session-mobility';
+import type { IConnectionApproval } from '@robota-sdk/agent-transport/webrtc';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transport';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 
@@ -88,7 +88,7 @@ export interface IRemoteControlControllerDeps {
     ice: { iceServers?: readonly IIceServer[]; forceTurn?: boolean },
     reconnect?: IHostReconnectConfig,
     resumeBridge?: SessionResumeBridge,
-    localPeer?: import('@robota-sdk/agent-transport-webrtc').ILocalPeerProof,
+    localPeer?: import('@robota-sdk/agent-transport/webrtc').ILocalPeerProof,
     usageReporters?: TUsageReporters,
   ) => TRemoteControlPeer;
   /** Build the session-scoped resume bridge (default: real `SessionResumeBridge`). */

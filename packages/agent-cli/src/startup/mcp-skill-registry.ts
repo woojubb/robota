@@ -6,7 +6,7 @@ import type {
   IMCPSkillsSession,
   IMCPVerifiedSkillResource,
 } from '@robota-sdk/agent-mcp';
-import type { TCommandInvocationSource } from '@robota-sdk/agent-interface-command';
+import type { TCommandInvocationSource } from '@robota-sdk/agent-interface/command';
 
 export interface IMcpSkillHostSource {
   readonly serverId: string;

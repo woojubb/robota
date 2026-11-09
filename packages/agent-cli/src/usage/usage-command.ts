@@ -14,7 +14,7 @@ import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import { createProductUserSessionStore } from '../product/session-stores.js';
 
 export interface IUsageCommandDependencies {

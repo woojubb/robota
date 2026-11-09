@@ -15,7 +15,7 @@ import {
   LINK_REQUEST_LINE,
   openSpawnerLink,
   serveRuntimeLink,
-} from '@robota-sdk/agent-transport-link';
+} from '@robota-sdk/agent-transport/link';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { openDescriptorCount } from './descriptor-count.js';

@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '@robota-sdk/agent-product/preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { afterAll, describe, expect, it } from 'vitest';
 
@@ -37,7 +37,7 @@ import { resolveShellPreset } from '../startup/preset-selection.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
-import type { IPreset } from '@robota-sdk/agent-preset';
+import type { IPreset } from '@robota-sdk/agent-product/preset';
 
 const testHost = createTestFrameworkHost();
 const PRODUCT_DEFAULT_AGENT_NAME = productDefaultAgentName(createTestProductRuntime());
@@ -51,7 +51,7 @@ const PRODUCT_PACK_COMMAND_MODULE_NAMES = packCommandModuleNames(PRODUCT_PACKS);
 
 const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;
 
-/** The nine coding tools `pack-coding` contributes — pinned so a drift fails here, not silently. */
+/** The nine coding tools `agent-product/coding` contributes — pinned so a drift fails here, not silently. */
 const CODING_TOOL_NAMES = [
   'Shell',
   'Bash',
@@ -173,7 +173,7 @@ describe('the kernel overlay is test-product’s single assembly path', () => {
   });
 
   it('gives test-product the PACK’s cwd-scoped tools, not the framework defaults', async () => {
-    // The identity check that makes the axis real: the product's `Read` is the instance `pack-coding` built
+    // The identity check that makes the axis real: the product's `Read` is the instance `agent-product/coding` built
     // with the shell's cwd, so it DENIES a path outside it. A framework default built with a different
     // cwd — or, worse, a context-free pack instance — would not.
     const read = runtimeFixtureOptions().toolOptions.additionalTools.find(
@@ -220,7 +220,7 @@ describe('the kernel overlay is test-product’s single assembly path', () => {
   });
 
   it('lets the kernel apply the default preset’s permission posture when the shell left it unset', () => {
-    // `careful-reviewer` maps autonomy 'ask-first' → permissionMode 'default' in agent-preset.
+    // `careful-reviewer` maps autonomy 'ask-first' → permissionMode 'default' in agent-product/preset.
     expect(runtimeFixtureOptions({ defaultPresetId: 'careful-reviewer' }).permissionMode).toBe(
       'default',
     );

@@ -5,7 +5,7 @@ import {
 } from './workspace-trust-admission.js';
 
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
-import type { TAcpWorkspaceAdmission } from '@robota-sdk/agent-transport-acp';
+import type { TAcpWorkspaceAdmission } from '@robota-sdk/agent-transport/acp';
 
 /** Pure process-mode validation shared by local and hosted execution before any carrier starts. */
 export function validateAcpInvocation(args: IParsedCliArgs, cliName: string): { acp: boolean } {

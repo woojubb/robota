@@ -1,4 +1,4 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import {
   deriveIdentityId,
   exportPublicKey,
@@ -7,9 +7,9 @@ import {
 } from '@robota-sdk/agent-remote-pairing';
 import type { IPairingResult, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
 import type { SessionResumeBridge } from '@robota-sdk/agent-transport';
-import type { ICapabilityApprovalRequest } from '@robota-sdk/agent-interface-session-mobility';
-import { createInMemorySignalingPair, WebRtcTransport } from '@robota-sdk/agent-transport-webrtc';
-import type { IDataChannelModule } from '@robota-sdk/agent-transport-webrtc';
+import type { ICapabilityApprovalRequest } from '@robota-sdk/agent-interface/session-mobility';
+import { createInMemorySignalingPair, WebRtcTransport } from '@robota-sdk/agent-transport/webrtc';
+import type { IDataChannelModule } from '@robota-sdk/agent-transport/webrtc';
 import { describe, expect, it, vi } from 'vitest';
 
 import { RemoteControlController } from '../remote-control-controller.js';

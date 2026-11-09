@@ -19,7 +19,7 @@ import {
   MAX_CACHED_CANDIDATES,
   type IMeshAddressCache,
   type IMeshCandidate,
-} from '@robota-sdk/agent-transport-webrtc';
+} from '@robota-sdk/agent-transport/webrtc';
 
 const CACHE_VERSION = 1;
 const CACHE_FILE = 'address-cache.json';

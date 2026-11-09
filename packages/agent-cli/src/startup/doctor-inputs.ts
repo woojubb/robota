@@ -30,7 +30,7 @@ import { createProductUserSettingsSources } from '../product/user-settings.js';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import type { IStartCliOptions } from './cli-options-types.js';
-import type { IDoctorCheck, IDoctorInputs } from '@robota-sdk/agent-command';
+import type { IDoctorCheck, IDoctorInputs } from '@robota-sdk/agent-product/command';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
   IContributionSource,

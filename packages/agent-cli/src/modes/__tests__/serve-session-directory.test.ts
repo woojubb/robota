@@ -10,12 +10,12 @@ import { join } from 'node:path';
 
 import { readCurrentProcessIdentity, readProcessStartTime } from '@robota-sdk/agent-core/node';
 import { leaveProcessMarker } from '@robota-sdk/agent-core/testing';
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { SessionAuthorshipRefusedError, SessionPool } from '@robota-sdk/agent-framework';
 import {
   isSessionChangeRefusal,
   isSessionDeleteRefusal,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -30,7 +30,7 @@ import type {
   ISessionListEntry,
   TSessionChangeRefusalCode,
   TSessionDeleteRefusalCode,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 type IBackgroundTaskState = ReturnType<IInteractiveSession['listBackgroundTasks']>[number];
 

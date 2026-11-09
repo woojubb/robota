@@ -16,7 +16,7 @@ import {
 } from '@robota-sdk/agent-framework';
 import { TransportRegistry, bindTransportAdapter } from '@robota-sdk/agent-framework';
 import { createFileTransportSettingsRepository } from '@robota-sdk/agent-framework/node';
-import { WsTransport } from '@robota-sdk/agent-transport-ws';
+import { WsTransport } from '@robota-sdk/agent-transport/ws';
 
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
@@ -36,8 +36,8 @@ import { withholdEnvironmentVariables } from './command-environment.js';
 import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 
 import type { IAssembledProduct } from '@robota-sdk/agent-product';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
+import type { IResolvedPresetOptions } from '@robota-sdk/agent-product/preset';
 import type {
   IPersonalUsageReport,
   IPersonalUsageRequest,
@@ -76,10 +76,10 @@ export function createDefaultTransportRegistry(
   productRuntime: ICliRuntimeContext,
   personalUsageReporter?: (request: IPersonalUsageRequest) => IPersonalUsageReport,
   storedSessionUsageReporter?: (sessionId: string) => IUsageBySourceReport,
-  driverId?: import('@robota-sdk/agent-interface-session').TDriverId,
-  surface?: import('@robota-sdk/agent-interface-analytics').TUsageSurface,
+  driverId?: import('@robota-sdk/agent-interface/session').TDriverId,
+  surface?: import('@robota-sdk/agent-interface/analytics').TUsageSurface,
   /** Binds each connection to the runtime's sessions, so a switch moves that connection alone. */
-  sessionBinder?: import('@robota-sdk/agent-interface-session').ISessionBinder<IProtocolSession>,
+  sessionBinder?: import('@robota-sdk/agent-interface/session').ISessionBinder<IProtocolSession>,
   /** Host-owned read/write for the GUI Settings screen. */
   settingsReporter?: ISessionMessageHandlerOptions['settingsReporter'],
   /** A token the host handed over outside the environment (a supervised daemon's pipe); it wins over `PRODUCT_WS_TOKEN`. */

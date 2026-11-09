@@ -5,7 +5,7 @@
 > The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
 
 Expose an `InteractiveSession` as a Model Context Protocol server with
-`@robota-sdk/agent-transport-mcp`, so an MCP client (a desktop assistant, an IDE, another agent) can
+`@robota-sdk/agent-transport/mcp`, so an MCP client (a desktop assistant, an IDE, another agent) can
 call the session's tools or hand it a prompt.
 
 ## Basic setup (stdio)
@@ -16,9 +16,9 @@ you call `start()`. Do not connect it to another carrier yourself.
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createMcpTransport } from '@robota-sdk/agent-transport/mcp';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 const session = new InteractiveSession({ cwd: process.cwd(), host: createNodeFrameworkHost({ createDefaultTools }), provider });
@@ -63,9 +63,9 @@ prompt to a client that declared form-mode elicitation instead, as allow once or
 carrier yourself:
 
 ```typescript
-import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
+import { createAgentMcpServer } from '@robota-sdk/agent-transport/mcp';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
-import type { IMcpTransportSession } from '@robota-sdk/agent-transport-mcp';
+import type { IMcpTransportSession } from '@robota-sdk/agent-transport/mcp';
 
 declare const session: IMcpTransportSession; // for example an InteractiveSession
 

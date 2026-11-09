@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import {
   createLanguageCommandModule,
   createSettingsCommandModule,
-} from '@robota-sdk/agent-command';
+} from '@robota-sdk/agent-product/command';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -25,7 +25,7 @@ import { createProgrammaticAgent } from '@robota-sdk/agent-framework';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ICommandHostAdapters, ICommandModule } from '@robota-sdk/agent-framework';
-import type { IAgentDriver, InteractionEvent } from '@robota-sdk/agent-interface-session';
+import type { IAgentDriver, InteractionEvent } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

@@ -25,7 +25,7 @@ Transports are Streamable HTTP and host-authorized stdio. Discovered tools enter
 ordinary tool slot, so there is no MCP-specific runtime path. The agent runtime CLI uses this package for its
 `mcpServers` configuration; see the [MCP guide](../../content/guide/mcp.md) for that side. To expose a
 agent session _as_ an MCP server, use
-[`@robota-sdk/agent-transport-mcp`](../agent-transport/docs/mcp.md).
+[`@robota-sdk/agent-transport/mcp`](../agent-transport/docs/mcp.md).
 
 Tool results retain ordered resource links, embedded text or binary resources, and inline audio
 alongside structured state, including failed observations. Resource URIs remain opaque references;

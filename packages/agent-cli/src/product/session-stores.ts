@@ -58,7 +58,7 @@ import type {
   IInteractiveSessionStore,
   IPromptHistorySource,
   IPromptHistoryWriter,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type {
   ICompactPromptHistoryOptions,
   TPromptHistoryCompaction,

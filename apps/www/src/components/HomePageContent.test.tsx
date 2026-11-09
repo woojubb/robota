@@ -100,7 +100,7 @@ describe('homepage feature coverage', () => {
       expect(install).toContain('curl -fsSL https://raw.githubusercontent.com/example/product/main/scripts/install.sh | bash');
       expect(install).toContain('irm https://raw.githubusercontent.com/example/product/main/scripts/install.ps1 | iex');
       expect(install).toContain('href="https://github.com/example/product/releases"');
-      expect(install).toContain('npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic');
+      expect(install).toContain('npm install @robota-sdk/agent-core @robota-sdk/agent-provider @anthropic-ai/sdk');
     });
   }
 });

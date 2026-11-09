@@ -5,7 +5,7 @@
  */
 import { join } from 'node:path';
 
-import { WsMeshRelayClient } from '@robota-sdk/agent-transport-webrtc';
+import { WsMeshRelayClient } from '@robota-sdk/agent-transport/webrtc';
 
 import { createHostCredentialStore } from '../credentials/select-credential-store.js';
 import { userLocalStorageRoot } from '../product/user-paths.js';
@@ -16,8 +16,8 @@ import { scheduleListReissue } from './device-list-reissue.js';
 import { openSecretTerminal, type ISecretTerminalSession } from './secret-terminal.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
-import type { IDevicesCommandPort, IDevicesMeshStatus } from '@robota-sdk/agent-command';
-import type { IIceServer, IMeshRelay } from '@robota-sdk/agent-transport-webrtc';
+import type { IDevicesCommandPort, IDevicesMeshStatus } from '@robota-sdk/agent-product/command';
+import type { IIceServer, IMeshRelay } from '@robota-sdk/agent-transport/webrtc';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 export interface IDevicesCommandPortOptions {

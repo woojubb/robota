@@ -5,11 +5,11 @@ import {
   assertSameStablePosixRootDescriptor,
   assertSameStableRoot,
   createStableRootedFileReader,
-} from '@robota-sdk/agent-file-authority';
+} from '@robota-sdk/agent-os/file-authority';
 
 import { SyncWorkspaceRootBrokerClient } from '../startup/workspace-root-broker-sync.js';
 
-import type { IStableRootedFileReader } from '@robota-sdk/agent-file-authority';
+import type { IStableRootedFileReader } from '@robota-sdk/agent-os/file-authority';
 
 /** Independent live root held by a secure owner or runtime, with the broker generation at admission. */
 export class SecureWorkspaceRootFence {

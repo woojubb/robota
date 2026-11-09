@@ -9,7 +9,7 @@
  * the boundary checkable by reading one file rather than by trusting a rule.
  */
 
-import type { IHandoffComposition } from '@robota-sdk/agent-interface-session-mobility';
+import type { IHandoffComposition } from '@robota-sdk/agent-interface/session-mobility';
 import { decodeInteractiveSessionRecord } from '@robota-sdk/agent-session';
 import { HandoffChunkAssembler, chunkHandoffPayload } from '@robota-sdk/agent-transport';
 import { sealHandoffRecord, verifyHandoffPayload } from '@robota-sdk/agent-transport/node';

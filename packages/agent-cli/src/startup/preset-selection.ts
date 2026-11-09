@@ -1,11 +1,11 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * Preset selection glue — thin shell over `@robota-sdk/agent-preset`.
+ * Preset selection glue — thin shell over `@robota-sdk/agent-product/preset`.
  * The CLI only selects the preset id and forwards CLI flags as overrides; the
- * precedence merge lives entirely inside the resolver (agent-preset), never here.
+ * precedence merge lives entirely inside the resolver (agent-product/preset), never here.
  *
  * The shell resolves over the kernel's PER-CALL instance registry (`createPresetRegistry`,
- * R8) — not `agent-preset`'s module-global `resolvePreset`. {@link resolveShellPreset} returns the
+ * R8) — not `agent-product/preset`'s module-global `resolvePreset`. {@link resolveShellPreset} returns the
  * registry it resolved over together with the id and the override context, and `createSelectedProductProfile`
  * takes that whole result, so `assembleProduct` adopts the SAME registry and replays the SAME context.
  * One registry, one resolution: the shell and `product.defaultPreset` cannot drift apart, and the
@@ -14,15 +14,15 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import { join } from 'node:path';
 
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
-import { loadExternalPresetsFromDir } from '@robota-sdk/agent-preset/node';
+import { createPresetRegistry } from '@robota-sdk/agent-product/preset';
+import { loadExternalPresetsFromDir } from '@robota-sdk/agent-product/preset/node';
 import type {
   IExternalPresetLoadResult,
   IPreset,
   IPresetRegistry,
   IResolvePresetContext,
   IResolvedPresetOptions,
-} from '@robota-sdk/agent-preset';
+} from '@robota-sdk/agent-product/preset';
 
 import { parseToolList } from '../utils/cli-args.js';
 
@@ -96,13 +96,13 @@ export interface IShellPresetResolution {
   presetId: string;
   /** The override layers applied — replayed by the kernel so `product.defaultPreset` matches exactly. */
   context: IResolvePresetContext;
-  /** The resolved framework option bundle (merge + posture mapping owned by agent-preset). */
+  /** The resolved framework option bundle (merge + posture mapping owned by agent-product/preset). */
   options: IResolvedPresetOptions;
 }
 
 /**
  * Resolve the active preset → framework option bundle, over a per-call instance registry built from the
- * external presets the shell loaded. The merge and the posture mapping stay in agent-preset.
+ * external presets the shell loaded. The merge and the posture mapping stay in agent-product/preset.
  *
  * @throws Error when the selected id matches no preset in the registry.
  */

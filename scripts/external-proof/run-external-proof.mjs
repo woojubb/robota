@@ -37,10 +37,7 @@ const FIXTURE_DIR = path.join(SCRIPT_DIR, 'fixture');
 const ENTRY_PACKAGES = [
   '@robota-sdk/agent-cli',
   '@robota-sdk/agent-product',
-  '@robota-sdk/agent-capability-pack',
-  '@robota-sdk/pack-coding',
-  '@robota-sdk/agent-preset',
-  '@robota-sdk/agent-builtin-providers',
+  '@robota-sdk/agent-provider',
   '@robota-sdk/agent-core',
   '@robota-sdk/agent-framework',
   '@robota-sdk/agent-roundtable',

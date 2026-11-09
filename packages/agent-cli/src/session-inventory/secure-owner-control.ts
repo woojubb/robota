@@ -5,7 +5,7 @@ import { openRegisteredOwnerLink } from './owner-link-client.js';
 import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
 
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
-import type { TOwnerControlResult } from '@robota-sdk/agent-transport-link';
+import type { TOwnerControlResult } from '@robota-sdk/agent-transport/link';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 /** Request an owner's control operation only after proving the selected registration. */

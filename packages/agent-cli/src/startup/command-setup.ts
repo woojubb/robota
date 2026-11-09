@@ -36,16 +36,16 @@ import {
 import type { ICliUpdateNotice } from '../update-check/update-check.js';
 import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
-import { createDefaultCommandModules } from '@robota-sdk/agent-command';
-import { createNodeDoctorDeps, openFileInEditor } from '@robota-sdk/agent-command/node';
+import { createDefaultCommandModules } from '@robota-sdk/agent-product/command';
+import { createNodeDoctorDeps, openFileInEditor } from '@robota-sdk/agent-product/command/node';
 import { createDevicesCommandPort } from '../devices/index.js';
 import type {
   IDevicesMeshStatus,
   IKeyCustodyCommandPort,
   IKeybindingsFilePort,
   IThemeCataloguePort,
-} from '@robota-sdk/agent-command';
-import { createOutputStyleRegistry, loadOutputStylesFromSources } from '@robota-sdk/agent-preset';
+} from '@robota-sdk/agent-product/command';
+import { createOutputStyleRegistry, loadOutputStylesFromSources } from '@robota-sdk/agent-product/preset';
 import { productProviderDefinitions } from '../product/provider-definitions.js';
 import {
   createWorkspaceWorkflowProject,
@@ -65,7 +65,7 @@ import { createDefaultPluginCommandAdapter } from '../plugins/default-plugin-com
 import { productUserSettingsPath } from '../product/user-settings.js';
 import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 import { buildOutputStyleSources } from './output-style-sources.js';
-import type { IOutputStyleRegistry } from '@robota-sdk/agent-preset';
+import type { IOutputStyleRegistry } from '@robota-sdk/agent-product/preset';
 import {
   createCliWorkspaceComposition,
   type ICliWorkspaceComposition,
@@ -307,7 +307,7 @@ export function buildCommandSetup(
   );
   // The pack-supplied modules are excluded from the base; `assembleProduct` merges them back in from the
   // profile's packs. `unknownModuleNames` is not read here — a pack may supply a module the default set
-  // does not build (`/shell` and `/editor` live on `agent-command/node`), and the preset delta's
+  // does not build (`/shell` and `/editor` live on `agent-product/command/node`), and the preset delta's
   // unknown-name diagnostics are computed by the shell against the MERGED superset.
   // This call is where `loadOrgPolicy()` is read: dropping it leaves four implemented enforcement
   // sites unreachable. Nothing fails, because the parameter is optional and its

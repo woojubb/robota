@@ -34,14 +34,14 @@ import {
   readErrors,
   readLastAssistantText,
   readToolCalls,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 import type {
   IAgentDriver,
   IInteractiveSessionStore,
   IToolCallObservation,
   InteractionEvent,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const DEFAULT_BIN = fileURLToPath(new URL('../../bin/agent.cjs', import.meta.url));
 

@@ -243,7 +243,7 @@ function HomePage({
             {'\n'}
             <span className="text-primary opacity-85">pnpm</span>
             {
-              ' add @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic @robota-sdk/agent-tools'
+              ' add @robota-sdk/agent-core @robota-sdk/agent-provider @anthropic-ai/sdk @robota-sdk/agent-tools'
             }
             {'\n\n'}
             <span className="text-[#52525b]">

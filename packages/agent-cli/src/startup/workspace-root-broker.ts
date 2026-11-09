@@ -12,7 +12,7 @@ import {
   StableFileAuthorityError,
   type IStableRootedFileReader,
   type INamedStableRootedFileWriter,
-} from '@robota-sdk/agent-file-authority';
+} from '@robota-sdk/agent-os/file-authority';
 import {
   createNodeWorkspaceIdentityResolver,
   createNodeWorkspaceProjectFiles,

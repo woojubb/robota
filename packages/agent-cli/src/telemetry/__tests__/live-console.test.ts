@@ -1,4 +1,4 @@
-import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface/analytics';
 import { describe, expect, it, vi } from 'vitest';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from '../live-trace-otlp.js';
 

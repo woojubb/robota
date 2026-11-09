@@ -1,4 +1,4 @@
-import type { ILivePromptContentPolicy } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptContentPolicy } from '@robota-sdk/agent-interface/analytics';
 
 export const LOG_USER_PROMPTS_SETTING = 'PRODUCT_TELEMETRY_LOG_USER_PROMPTS';
 export const LOG_ASSISTANT_RESPONSES_SETTING = 'PRODUCT_TELEMETRY_LOG_ASSISTANT_RESPONSES';

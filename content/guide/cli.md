@@ -4,7 +4,7 @@
 Robota's environment for building and using agents. It supports the direction of
 [our agents developing and advancing our agents](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md),
 while this reference describes current behavior. It uses the same libraries you can embed: `@robota-sdk/agent-framework` runs the
-session, `@robota-sdk/agent-command` supplies the slash commands, and `@robota-sdk/agent-ui-terminal`
+session, `@robota-sdk/agent-product/command` supplies the slash commands, and `@robota-sdk/agent-ui-terminal`
 draws the terminal UI. It reads Claude Code conventions where they exist (`CLAUDE.md`, `.claude/`
 settings, skills, commands and plugins), so much of a project's Claude Code setup carries over.
 

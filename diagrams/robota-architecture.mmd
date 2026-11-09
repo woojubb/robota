@@ -4,7 +4,6 @@ graph TD
   %% relations, not package dependencies. Grouped boxes stand for several packages.
 
   subgraph Leaves["Leaves (no @robota-sdk dependency)"]
-    PROC[agent-process]
     OS[agent-os<br/>file-authority · node-lock · process]
     KR[agent-keyring<br/>key custody and sealing]
     PAIR[agent-remote-pairing]
@@ -73,7 +72,7 @@ graph TD
 
   %% Building blocks
   CORE --> TOOLS & PLUG & MCP & PROV & SA
-  PROC --> TOOLS
+  OS --> TOOLS
   IF --> SA
   IF & CORE --> OTEL
 
@@ -82,7 +81,7 @@ graph TD
   CORE & SESS --> REPLAY
   OS --> SESS
   IF --> SESS
-  PROC --> EXEC
+  OS --> EXEC
   IF --> EXEC
   CORE & SESS & RT --> RTR
 
@@ -104,7 +103,7 @@ graph TD
   %% Product composition
   FW --> SUB & PROD
   TOOLS --> PROD
-  EXEC & PROC --> SUB
+  EXEC & OS --> SUB
 
   CORE & FW --> WF
 

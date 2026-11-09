@@ -45,7 +45,7 @@ import { createMemoryKeyringStore } from './helpers.js';
 import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { TWorkspaceProjectStateDirectories } from '@robota-sdk/agent-framework';
 import type { TArtifactSealing } from '@robota-sdk/agent-core';
-import type { IPromptHistoryBlock, IPromptHistoryEntry } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistoryBlock, IPromptHistoryEntry } from '@robota-sdk/agent-interface/session';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));

@@ -21,7 +21,7 @@ import { KeyHolder } from '../../packages/agent-cli/src/secure/key-holder.ts';
 import { KeyHolderArtifactSealer } from '../../packages/agent-cli/src/secure/artifact-sealer.ts';
 
 const { LINK_HELLO_BYTES, createKeyring, createLinkInitiator, createLinkResponder, createRuntimeIdentity, openOwnerHandover, startSpawnerExchange } = await import(resolveSdk('@robota-sdk/agent-keyring'));
-const { LINK_REQUEST_LINE, completeSpawnerPair, openOwnerLink, openSpawnerLink } = await import(resolveSdk('@robota-sdk/agent-transport-link'));
+const { LINK_REQUEST_LINE, completeSpawnerPair, openOwnerLink, openSpawnerLink } = await import(resolveSdk('@robota-sdk/agent-transport/link'));
 const { readProcessStartTime } = await import(resolveSdk('@robota-sdk/agent-core/node'));
 const { NodeSessionStore } = await import(resolveSdk('@robota-sdk/agent-session/node'));
 

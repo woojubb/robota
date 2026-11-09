@@ -11,7 +11,7 @@
  * would cross it is the one not sent.
  */
 
-import type { IPeerMessage } from '@robota-sdk/agent-interface-session-mobility';
+import type { IPeerMessage } from '@robota-sdk/agent-interface/session-mobility';
 
 export interface IPeerConversationLimits {
   /** The deepest a conversation may run, counted in messages after the first. */

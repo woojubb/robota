@@ -5,12 +5,12 @@ import { architectureLayers, featureCatalog, packageGroups, packageScope, permis
 import { homeCopy } from './homeCopy';
 
 const sdkInstall =
-  'npm install @robota-sdk/agent-framework @robota-sdk/agent-tool-defaults @robota-sdk/agent-provider-openai';
-const sdkMinimalInstall = 'npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic';
+  'npm install @robota-sdk/agent-framework @robota-sdk/agent-tools @robota-sdk/agent-provider openai';
+const sdkMinimalInstall = 'npm install @robota-sdk/agent-core @robota-sdk/agent-provider @anthropic-ai/sdk';
 const sdkExample = `import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const model = 'your-loaded-model-id';
 const query = createQuery({

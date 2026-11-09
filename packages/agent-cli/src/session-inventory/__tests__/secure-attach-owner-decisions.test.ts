@@ -4,7 +4,7 @@ import { openPreparedOwnerLink } from '../owner-link-client.js';
 import { openSecureAttach } from '../secure-attach-client.js';
 
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
-import type { IOwnerRuntimeLinkClient, IRuntimeCustodyState, TOwnerControlResult } from '@robota-sdk/agent-transport-link';
+import type { IOwnerRuntimeLinkClient, IRuntimeCustodyState, TOwnerControlResult } from '@robota-sdk/agent-transport/link';
 
 vi.mock('../owner-link-client.js', () => ({ openPreparedOwnerLink: vi.fn() }));
 vi.mock('../../secure/workspace-root-fence.js', () => ({ SecureWorkspaceRootFence: class {

@@ -1,4 +1,4 @@
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { describe, expect, it } from 'vitest';
 
@@ -8,7 +8,7 @@ import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   ISessionListEntry,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 function record(id: string, totalTokens: number): IInteractiveSessionRecord {
   return {

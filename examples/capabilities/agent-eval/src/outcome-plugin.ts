@@ -29,7 +29,7 @@ import { ReplayProvider } from '@robota-sdk/agent-provider-replay';
 import { summarizeTrials, type IOutcomeTrial } from './outcome-report.js';
 import { assertStaleState, type IStateObservation } from './outcome-state.js';
 import { NodeFileSystem, createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const host = createNodeFrameworkHost({ createDefaultTools });
 

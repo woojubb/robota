@@ -12,7 +12,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * receives a policy; a positive `autoBackgroundMs` in `print` mode is reported once as ignored.
  */
 
-import { mcpUnavailableServersNotice } from '@robota-sdk/agent-command';
+import { mcpUnavailableServersNotice } from '@robota-sdk/agent-product/command';
 import { mkdirSync } from 'node:fs';
 
 import {
@@ -58,7 +58,7 @@ import type {
 } from '@robota-sdk/agent-mcp';
 import type { IMCPStdioAuthority, INodeHttpEgressOptions } from '@robota-sdk/agent-mcp/node';
 import type { IMcpClientComposition, IMcpHeadersHelperHost } from './mcp-client-composition.js';
-import type { TMCPUserAction, TMCPUserActionSurface } from '@robota-sdk/agent-command';
+import type { TMCPUserAction, TMCPUserActionSurface } from '@robota-sdk/agent-product/command';
 
 /**
  * The three session runtimes that ever compose MCP tools (spec § Modes). `interactive` is the ink
