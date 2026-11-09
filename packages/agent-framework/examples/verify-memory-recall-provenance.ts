@@ -10,7 +10,7 @@ import { createTestFrameworkHost } from '../src/testing/framework-host.js';
 
 const testHost = createTestFrameworkHost();
 
-const PROMPT = 'MEM-2055 how do I rotate the deploy key?';
+const PROMPT = 'how do I rotate the deploy key?';
 const RECALL_BODY = '### deploy\nThe staging deploy key rotates every 30 days.';
 const BUDGET: IMemoryBudget = { maxTopics: 4, maxTopicChars: 2000 };
 const RECALL_MEMORY: IPerTurnRecallConfig = { budget: BUDGET };
@@ -77,7 +77,7 @@ async function main(): Promise<void> {
   assertCondition(result !== undefined, 'scenario did not produce a result');
   assertCondition(!existsSync(cwd), 'scenario cleanup did not remove its temporary directory');
   process.stdout.write(
-    `${JSON.stringify({ scenario: 'MEM-2055', ...result, cleanupRemoved: true })}\n`,
+    `${JSON.stringify({ scenario: 'recall-provenance', ...result, cleanupRemoved: true })}\n`,
   );
 }
 

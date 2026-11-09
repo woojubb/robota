@@ -13,8 +13,8 @@ import {
 
 const memoryStore = {} as never;
 
-describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
-  describe('TC-01: default OFF', () => {
+describe('resolveMemoryEnablement', () => {
+  describe('default OFF', () => {
     it('is OFF with no settings, flag, or env', () => {
       expect(resolveMemoryEnablement({})).toEqual({ enabled: false, autoSave: false });
     });
@@ -25,7 +25,7 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
     });
   });
 
-  describe('TC-02: settings ← flag ← env precedence', () => {
+  describe('settings ← flag ← env precedence', () => {
     it('settings.json memory.enabled is the SSOT', () => {
       expect(resolveMemoryEnablement({ settings: { enabled: true } }).enabled).toBe(true);
       expect(resolveMemoryEnablement({ settings: { enabled: false } }).enabled).toBe(false);
@@ -67,7 +67,7 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
     });
   });
 
-  describe('TC-03: injection when enabled', () => {
+  describe('injection when enabled', () => {
     it('carries memoryStore + recallMemory + automaticMemory with the default budget', () => {
       const options = buildMemorySessionOptions({ enabled: true, autoSave: false }, memoryStore);
       expect(options.memoryStore).toBeDefined();
@@ -109,7 +109,7 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
     });
   });
 
-  describe('printMemoryEnableNoticeOnce (TC-07 notice)', () => {
+  describe('printMemoryEnableNoticeOnce', () => {
     it('prints for each explicitly configured invocation', () => {
       resetMemoryEnableNoticeForTests();
       const lines: string[] = [];

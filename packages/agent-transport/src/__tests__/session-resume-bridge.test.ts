@@ -3,13 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { createOutboundDelivery, DEFAULT_MAX_PENDING_BYTES } from '../outbound-delivery.js';
 import { createSessionMessageHandler } from '../session-message-handler.js';
 import { SessionResumeBridge } from '../session-resume-bridge.js';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { IPersonalUsageReport } from '@robota-sdk/agent-interface-analytics';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
+import type { IPersonalUsageReport } from '@robota-sdk/agent-interface/analytics';
 
 /**
- * REMOTE-013 E4 TC-02 — the persistent SessionResumeBridge: a monotonic seq CONTINUOUS across a
+ * The persistent SessionResumeBridge: a monotonic seq CONTINUOUS across a
  * detach/attach (channel drop), gap output captured while detached and replayed on `resume`, `ack` freeing the
  * buffer, and — the regression guard — the WS `createSessionMessageHandler` path stamping NO seq.
  */
@@ -19,7 +19,7 @@ function fakeSession(): {
   fire: (event: string, arg: unknown) => void;
 } {
   const handlers = new Map<string, (arg: unknown) => void>();
-  // ARCH-012: the published conformant double, overridden where this case needs behaviour. The
+  // The published conformant double, overridden where this case needs behaviour. The
   // hand-rolled partial it replaces was `as unknown as IInteractiveSession` — a cast that hid four
   // missing members, so this suite proved things the real contract does not permit.
   const session = createTestInteractiveSession({
@@ -43,7 +43,7 @@ function sink(): TResumeSinkStub {
 type TResumeSinkStub = ((data: string) => void) & { calls: string[] };
 const TEST_ATTACH_OPTIONS = { onDeliveryError: vi.fn() };
 
-describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
+describe('SessionResumeBridge', () => {
   it('keeps remote surface attribution separate from the paired device id', async () => {
     const base = fakeSession().session;
     const submit = vi.fn().mockResolvedValue(undefined);
@@ -195,7 +195,7 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
     bridge.dispose();
   });
 
-  // CMD-004 Stage D — the bridge's single subscription requester-routes `ui_intent` with the
+  // The bridge's single subscription requester-routes `ui_intent` with the
   // LATE-BOUND driver id (`setDriverId` binds after pairing), so a skipped intent is never
   // buffered and can never leak to this surface through a later `resume` replay.
   it('requester-routes ui_intent by the late-bound driver id; foreign intents are never buffered', () => {
@@ -275,9 +275,9 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
     bridge.dispose();
   });
 
-  // ARCH-030: the bridge's own string-level try/catch is gone; its only guard is the per-attachment
+  // The bridge's own string-level try/catch is gone; its only guard is the per-attachment
   // outbound boundary. These three pin the semantics that used to be side effects of `detach()`.
-  describe('the attachment boundary (ARCH-030)', () => {
+  describe('the attachment boundary', () => {
     it('reports ONCE across a failing multi-frame replay, and the dropped frames survive', () => {
       const { session, fire } = fakeSession();
       const failures: Array<{ message: string; event: string }> = [];
@@ -313,7 +313,7 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
       bridge.dispose();
     });
 
-    it('ARCH-030: a replay burst stops when the budget closes the boundary, and the rest survives', () => {
+    it('a replay burst stops when the budget closes the boundary, and the rest survives', () => {
       // The replay-burst contract case. A reconnecting peer is handed the whole retained tail at
       // once; if it stops reading part-way, the loop must stop rather than push the remainder into a
       // carrier that is already over budget.
@@ -396,8 +396,7 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
         { onDeliveryError: (error, event) => failures.push({ message: error.message, event }) },
       );
 
-      // A synchronous query reply — before ARCH-030 the bridge guarded this at the string level, and
-      // the handler path next to it did not guard it at all.
+      // A synchronous query reply must be reported through the delivery boundary, not thrown.
       expect(() => bridge.onClientMessage(JSON.stringify({ type: 'get-executing' }))).not.toThrow();
       expect(failures).toEqual([{ message: 'data channel closed', event: 'executing' }]);
       bridge.dispose();
@@ -456,7 +455,9 @@ describe('app view messages through the resume bridge', () => {
     const output = sink();
     bridge.attach(output, TEST_ATTACH_OPTIONS);
 
-    bridge.onClientMessage(JSON.stringify({ type: 'read-app-view', requestId: 'v1', viewId: 'view-1' }));
+    bridge.onClientMessage(
+      JSON.stringify({ type: 'read-app-view', requestId: 'v1', viewId: 'view-1' }),
+    );
 
     expect(frames(output).map((frame) => frame.type)).toEqual(['protocol_error']);
     // Nothing large was retained for a later `resume` either.
@@ -470,3 +471,87 @@ describe('app view messages through the resume bridge', () => {
   });
 });
 
+describe('SessionResumeBridge role', () => {
+  function observerBridge(): {
+    bridge: SessionResumeBridge;
+    output: TResumeSinkStub;
+    session: IInteractiveSession;
+    fire: (event: string, arg: unknown) => void;
+    spies: Record<'submit' | 'executeCommand' | 'resolvePermission', ReturnType<typeof vi.fn>>;
+  } {
+    const { session: base, fire } = fakeSession();
+    const spies = {
+      submit: vi.fn().mockResolvedValue(undefined),
+      executeCommand: vi.fn(),
+      resolvePermission: vi.fn(),
+    };
+    const session = Object.assign(base, spies);
+    const bridge = new SessionResumeBridge({ session, role: 'observe' });
+    const output = sink();
+    bridge.attach(output, TEST_ATTACH_OPTIONS);
+    return { bridge, output, session, fire, spies };
+  }
+
+  it('refuses what an observer may not send and never reaches the session', () => {
+    const { bridge, output, spies } = observerBridge();
+    const messages = [
+      { type: 'submit', prompt: 'hi' },
+      { type: 'command', name: 'exit' },
+      { type: 'permission-response', id: 'p1', result: true },
+      { type: 'switch-session', sessionId: 's2' },
+    ];
+    for (const message of messages) bridge.onClientMessage(JSON.stringify(message));
+    expect(frames(output).map((f) => f as Record<string, unknown>)).toEqual(
+      messages.map((message, index) => ({
+        type: 'protocol_error',
+        message: `Not permitted for an observer: ${message.type}`,
+        seq: index + 1,
+      })),
+    );
+    expect(spies.submit).not.toHaveBeenCalled();
+    expect(spies.executeCommand).not.toHaveBeenCalled();
+    expect(spies.resolvePermission).not.toHaveBeenCalled();
+    bridge.dispose();
+  });
+
+  it('answers get-surface-role with the bridge role', () => {
+    const { bridge, output } = observerBridge();
+    bridge.onClientMessage(JSON.stringify({ type: 'get-surface-role' }));
+    expect(frames(output)).toEqual([{ type: 'surface_role', role: 'observe', seq: 1 }]);
+    const drive = new SessionResumeBridge({ session: fakeSession().session });
+    const driveOutput = sink();
+    drive.attach(driveOutput, TEST_ATTACH_OPTIONS);
+    drive.onClientMessage(JSON.stringify({ type: 'get-surface-role' }));
+    expect(frames(driveOutput)).toEqual([{ type: 'surface_role', role: 'drive', seq: 1 }]);
+    bridge.dispose();
+    drive.dispose();
+  });
+
+  it('forwards a permission prompt to a drive bridge only', () => {
+    const observer = observerBridge();
+    observer.fire('permission_request', { id: 'p1', toolName: 'Bash', toolArgs: {} });
+    expect(frames(observer.output)).toEqual([]);
+
+    const { session, fire } = fakeSession();
+    const drive = new SessionResumeBridge({ session });
+    const driveOutput = sink();
+    drive.attach(driveOutput, TEST_ATTACH_OPTIONS);
+    fire('permission_request', { id: 'p1', toolName: 'Bash', toolArgs: {} });
+    expect(frames(driveOutput).map((f) => f.type)).toEqual(['permission_request']);
+    observer.bridge.dispose();
+    drive.dispose();
+  });
+
+  it('still honours resume and ack for an observer', () => {
+    const { bridge, fire } = observerBridge();
+    fire('text_delta', 'one');
+    bridge.detach();
+    const replay = sink();
+    bridge.attach(replay, TEST_ATTACH_OPTIONS);
+    bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 0 }));
+    expect(frames(replay).map((f) => f.type)).toEqual(['text_delta']);
+    bridge.onClientMessage(JSON.stringify({ type: 'ack', seq: 1 }));
+    expect(frames(replay)).toHaveLength(1);
+    bridge.dispose();
+  });
+});

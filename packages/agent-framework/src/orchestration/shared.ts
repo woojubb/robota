@@ -14,7 +14,7 @@ import type {
   TOrchestrationPrimitive,
 } from '@robota-sdk/agent-core';
 import type { ISubagentManager } from '@robota-sdk/agent-executor';
-import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface-execution';
+import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface/execution';
 
 /**
  * Neutral run context threaded into each spawned subagent request. Shared by
@@ -44,7 +44,7 @@ function buildStepRequest(
   prompt: string,
 ): ISubagentSpawnRequest {
   return {
-    // ARCH-031: stated, not inherited from a default applied mid-projection.
+    // Stated, not inherited from a default applied mid-projection.
     permissionPolicy: DEFAULT_BACKGROUND_PERMISSION_POLICY,
     agentType: step.agentType,
     label: step.label,

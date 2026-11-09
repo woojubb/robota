@@ -8,7 +8,7 @@ import {
 
 import type { IFrameworkHost } from '../host/framework-host.js';
 
-// Background job-group contracts SSOT relocated to @robota-sdk/agent-interface-execution (DATA-001).
+// Background job-group contracts SSOT relocated to @robota-sdk/agent-interface/execution.
 import type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupState,
@@ -20,7 +20,7 @@ import type {
   IBackgroundTaskState,
   TBackgroundTaskEvent,
   TBackgroundTaskStatus,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 export type {
   TBackgroundJobWaitPolicy,
@@ -32,7 +32,7 @@ export type {
   TBackgroundJobGroupEvent,
   TBackgroundJobGroupEventListener,
   TBackgroundJobGroupIdFactory,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 const DEFAULT_SUMMARY_LENGTH = 1_000;
 
@@ -41,7 +41,7 @@ export interface IBackgroundJobOrchestratorOptions {
   now?: () => string;
   idFactory?: TBackgroundJobGroupIdFactory;
   initialGroups?: readonly IBackgroundJobGroupState[];
-  /** ARCH-053: observer-failure reporter; see `IBackgroundTaskManagerOptions.onObserverFailure`. */
+  /** Observer-failure reporter; see `IBackgroundTaskManagerOptions.onObserverFailure`. */
   onObserverFailure?: TObserverFailureReporter<TBackgroundJobGroupEvent>;
   /**
    * The host's reporter for a failed observer (`host.reportObserverFailure`), used when no
@@ -188,7 +188,7 @@ export class BackgroundJobOrchestrator {
     this.emit({ type: 'background_job_group_completed', group: completed });
   }
 
-  /** ARCH-053: same isolated, continued, reported delivery as `BackgroundTaskManager`. */
+  /** Same isolated, continued, reported delivery as `BackgroundTaskManager`. */
   private emit(event: TBackgroundJobGroupEvent): void {
     deliverToObservers(event, this.listeners, this.onObserverFailure);
   }

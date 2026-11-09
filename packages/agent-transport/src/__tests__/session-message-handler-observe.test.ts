@@ -3,7 +3,7 @@
  * counts as a surface that can answer a prompt, and cannot submit, answer, or control anything.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -13,14 +13,14 @@ import {
 import { createSessionMessageHandler } from '../session-message-handler.js';
 
 import type { TClientMessage, TServerMessage } from '../wire-messages.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 type TListener = (...args: unknown[]) => void;
 
 function createSession(): IInteractiveSession & {
   emit: (event: string, ...args: unknown[]) => void;
   listenerCount: (event: string) => number;
-  // #3282 §4c: `Partial<ISessionProjectRead>` — not part of `IInteractiveSession`, so it is assigned
+  // `Partial<ISessionProjectRead>` — not part of `IInteractiveSession`, so it is assigned
   // ad hoc (below) rather than passed to `createTestInteractiveSession`'s strict literal.
   readProjectStatus: ReturnType<typeof vi.fn>;
 } {
@@ -110,19 +110,29 @@ describe('observe role', () => {
     expect(session.readToolAppView).not.toHaveBeenCalled();
   });
 
+  it('answers get-surface-role with the connection role, and never refuses it to an observer', () => {
+    const session = createSession();
+    const observer = attach(session, 'observe');
+    observer.send({ type: 'get-surface-role' });
+    expect(observer.sent).toEqual([{ type: 'surface_role', role: 'observe' }]);
+    const drive = attach(session);
+    drive.send({ type: 'get-surface-role' });
+    expect(drive.sent).toEqual([{ type: 'surface_role', role: 'drive' }]);
+  });
+
   it('keeps the read queries for this session', () => {
     const session = createSession();
     const observer = attach(session, 'observe');
     observer.send({ type: 'get-messages' });
     observer.send({ type: 'get-executing' });
     expect(observer.sent).toEqual([
-      // #3288 §2: `display` rides the same frame (the test double's default projects to `[]`).
+      // `display` rides the same frame (the test double's default projects to `[]`).
       { type: 'messages', messages: [{ role: 'user', content: 'hi' }], display: [] },
       { type: 'executing', executing: true },
     ]);
   });
 
-  it('#3282 §4c: reads the Project panel status — read-only, so an observer may too', async () => {
+  it('reads the Project panel status — read-only, so an observer may too', async () => {
     const session = createSession();
     const observer = attach(session, 'observe');
     observer.send({ type: 'project-status', requestId: 'ps-1' });
@@ -132,7 +142,7 @@ describe('observe role', () => {
     ]);
   });
 
-  it('#3282 §4: reads the agent switcher roster, a query, never a write', () => {
+  it('reads the agent switcher roster, a query, never a write', () => {
     const session = createSession();
     const observer = attach(session, 'observe');
     observer.send({ type: 'get-agent-definitions', requestId: 'req-agents-1' });
@@ -141,7 +151,7 @@ describe('observe role', () => {
     ]);
   });
 
-  it('#3186: reads the session status and the command catalog, which every client shows', () => {
+  it('reads the session status and the command catalog, which every client shows', () => {
     const session = createSession();
     const observer = attach(session, 'observe');
     observer.send({ type: 'get-status' });

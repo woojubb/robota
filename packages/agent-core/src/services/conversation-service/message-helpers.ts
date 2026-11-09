@@ -109,7 +109,7 @@ export function convertToProviderMetadata(
   return converted;
 }
 
-/** Convert optional usage to the required {@link ITokenUsage} SSOT triple (TYPE-003). @internal */
+/** Convert optional usage to the required {@link ITokenUsage} SSOT triple. @internal */
 export function convertUsage(usage?: Partial<ITokenUsage>): ITokenUsage | undefined {
   if (!usage) return undefined;
   if (

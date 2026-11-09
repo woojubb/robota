@@ -15,7 +15,7 @@ export type {
 export { analyzeSession, aggregateReports, computeTimingIntervals, gapMs } from './analyze.js';
 export { formatSingleSession, formatAggregateReport, formatUsageReport } from './report.js';
 
-// ANALYTICS-001: source-attributed token-usage analysis.
+// Source-attributed token-usage analysis.
 export { summarizeUsageBySource } from './usage.js';
 export { summarizePersonalUsage } from './personal-usage.js';
 export { createOtlpUsageSnapshot } from './otlp-usage-snapshot.js';
@@ -26,7 +26,7 @@ export type { IPersonalUsageSnapshot } from './personal-usage.js';
 export type {
   IPersonalUsageReport,
   IPersonalUsageRequest,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 export type {
   TUsageAnalysisInput,
   IUsageSourceTotals,

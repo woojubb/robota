@@ -20,7 +20,7 @@ import { createTestFrameworkHost } from '../../testing/framework-host.js';
 const testHost = createTestFrameworkHost();
 
 /**
- * SELFHOST-008 P3 — per-turn recall wired into the live turn: query = the turn input, rendered under a
+ * Per-turn recall wired into the live turn: query = the turn input, rendered under a
  * distinct `<recalled-memory>` label, injected EPHEMERALLY into that turn's model call (never persisted),
  * adapter-gated on a surface-supplied `recallMemory` policy, guarded (recall failure never breaks the turn).
  */
@@ -81,8 +81,8 @@ afterEach(() => {
   if (existsSync(TMP_BASE)) rmSync(TMP_BASE, { recursive: true, force: true });
 });
 
-describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
-  it('TC-01: with a recallMemory policy, a turn recalls (query=input) and the block reaches the model', async () => {
+describe('per-turn recall wiring', () => {
+  it('with a recallMemory policy, a turn recalls (query=input) and the block reaches the model', async () => {
     const cwd = makeProject();
     const { provider, calls } = createProvider();
     const store = createFakeStore(async () => ({
@@ -107,7 +107,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
     expect(systemBlocks.some((m) => (m.content ?? '').includes('staging deploy key'))).toBe(true);
   });
 
-  it('TC-02: the recalled block is EPHEMERAL — absent from the persisted session record', async () => {
+  it('the recalled block is EPHEMERAL — absent from the persisted session record', async () => {
     const cwd = makeProject();
     const sessionStore = await createTrustedProjectSessionStoreFixture(cwd);
     const { provider } = createProvider();
@@ -134,7 +134,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
     expect(JSON.stringify(saved ?? {})).not.toContain('staging deploy key');
   });
 
-  it('TC-04: adapter-gating — no recallMemory policy ⇒ no recall call, no block', async () => {
+  it('adapter-gating — no recallMemory policy ⇒ no recall call, no block', async () => {
     const cwd = makeProject();
     const { provider, calls } = createProvider();
     const store = createFakeStore(async () => ({
@@ -157,7 +157,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
     expect(systemBlocks.some((m) => (m.content ?? '').includes('<recalled-memory>'))).toBe(false);
   });
 
-  it('TC-05: guarded — a recall that THROWS does not fail the turn (no block, turn completes)', async () => {
+  it('guarded — a recall that THROWS does not fail the turn (no block, turn completes)', async () => {
     const cwd = makeProject();
     const { provider, calls } = createProvider();
     const store = createFakeStore(async () => {
@@ -178,7 +178,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
     expect(systemBlocks.some((m) => (m.content ?? '').includes('<recalled-memory>'))).toBe(false);
   });
 
-  it('TC-06: recall is called with the surface-supplied budget', async () => {
+  it('recall is called with the surface-supplied budget', async () => {
     const cwd = makeProject();
     const { provider } = createProvider();
     const recallSpy = vi.fn(async () => ({ content: '', references: [], truncated: false }));
@@ -197,7 +197,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
     expect(recallSpy).toHaveBeenCalledWith('anything', { maxTopics: 2, maxTopicChars: 500 });
   });
 
-  it('TC-07 (MEM-001): a recall with references records provenance and emits memory_retrieved', async () => {
+  it('a recall with references records provenance and emits memory_retrieved', async () => {
     const cwd = makeProject();
     const { provider } = createProvider();
     const references = [
@@ -227,7 +227,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
     expect(emitted[0]).toMatchObject({ type: 'memory_retrieved', topic: 'deploy' });
     expect(emitted[1]).toMatchObject({ type: 'memory_retrieved', topic: 'pnpm' });
 
-    // MEM-2055: the visible notice renders AFTER the turn's own messages, never ahead of them —
+    // The visible notice renders AFTER the turn's own messages, never ahead of them —
     // recall runs before `executePromptTurn`, so recording it immediately (the first cut of this
     // fix) put it first instead.
     const kinds = session.getFullHistory().map((entry) => entry.type);
@@ -237,7 +237,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
     expect(memoryEventIndex).toBeGreaterThan(userIndex);
   });
 
-  it('TC-08 (MEM-001): usedMemoryReferences resets each turn — no leftover from a prior recall', async () => {
+  it('usedMemoryReferences resets each turn — no leftover from a prior recall', async () => {
     const cwd = makeProject();
     const { provider } = createProvider();
     let call = 0;
@@ -267,7 +267,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
     expect(session.getUsedMemoryReferences()).toEqual([]);
   });
 
-  it('TC-09 (MEM-001): an empty recall result records nothing and emits no memory_retrieved event', async () => {
+  it('an empty recall result records nothing and emits no memory_retrieved event', async () => {
     const cwd = makeProject();
     const { provider } = createProvider();
     const store = createFakeStore(async () => ({ content: '', references: [], truncated: false }));

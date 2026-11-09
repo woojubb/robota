@@ -1,5 +1,5 @@
 /**
- * TRANS-005 (#2081) — the twelve-variant persisted background-task event union.
+ * The twelve-variant persisted background-task event union.
  *
  * The union is discriminated by `type`, and the discriminant is read FIRST: it selects the key set
  * the variant declares, so an event that names the wrong members fails on the members rather than on
@@ -19,7 +19,7 @@ import {
 } from './scalars.js';
 
 import type { TDecodeIssues } from './decode-outcome.js';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface/execution';
 
 /** The task-event variants whose entire payload is a task state. */
 const TASK_CARRYING_EVENTS = [

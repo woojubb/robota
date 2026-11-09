@@ -1,5 +1,5 @@
 /**
- * FLOW-2006: the `the product://open` launch intent — the whole security boundary of a deep link.
+ * The `the product://open` launch intent — the whole security boundary of a deep link.
  *
  * The parser is fail-closed by construction. One verb, four allowed keys, a required version, and
  * any violation discards the WHOLE url naming the first rule broken (OWASP's discard-don't-partially-

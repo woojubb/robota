@@ -1,5 +1,5 @@
 /**
- * The agent HTTP API of `--serve`: the routes of `@robota-sdk/agent-transport-http` on a listener,
+ * The agent HTTP API of `--serve`: the routes of `@robota-sdk/agent-transport/http` on a listener,
  * so another application or service can submit work, stream the result over SSE, run a command and
  * abort without a Robota client library.
  *
@@ -27,14 +27,14 @@ import {
   refuseAccessToken,
   serveProtectedResourceMetadata,
 } from '@robota-sdk/agent-transport/node';
-import { createAgentRoutes } from '@robota-sdk/agent-transport-http';
+import { createAgentRoutes } from '@robota-sdk/agent-transport/http';
 
 import { ACCESS_TOKEN_ALGORITHMS } from './mcp-serve-mode.js';
 
 import type { IMcpServeRemoteOptions } from './mcp-serve-mode.js';
-import type { ITransportAdmissionConfig } from '@robota-sdk/agent-interface-transport';
+import type { ITransportAdmissionConfig } from '@robota-sdk/agent-interface/transport';
 import type { IBearerRefusalRecord, TBearerRefusal } from '@robota-sdk/agent-transport/node';
-import type { IHttpTransportSession } from '@robota-sdk/agent-transport-http';
+import type { IHttpTransportSession } from '@robota-sdk/agent-transport/http';
 
 const LOOPBACK = '127.0.0.1';
 const LABEL = 'HTTP API';

@@ -1,5 +1,5 @@
 /**
- * ProgrammaticInteractionChannel — an in-process IInteractionChannel adapter (INFRA-019).
+ * ProgrammaticInteractionChannel — an in-process IInteractionChannel adapter.
  *
  * The "programmatic preset" adapter slot reserved by the interaction contract: instead of an Ink TUI
  * or a print runner, this channel lets a caller push a message in-process and read back the structured
@@ -15,7 +15,7 @@ import type {
   IInteractionChannel,
   ICommandInfo,
   InteractionEvent,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export class ProgrammaticInteractionChannel implements IInteractionChannel {
   /** Full structured event stream pushed by the framework, in order. */
@@ -40,7 +40,7 @@ export class ProgrammaticInteractionChannel implements IInteractionChannel {
   }
 
   /**
-   * CMD-004 unified ask. Resolves from the pre-supplied queue (FIFO); an empty queue resolves
+   * Unified ask. Resolves from the pre-supplied queue (FIFO); an empty queue resolves
    * `{ type: 'cancelled' }` so a programmatic run never blocks on an un-answered question.
    */
   async askUser(_request: IActionRequest): Promise<TActionResponse> {
@@ -75,7 +75,7 @@ export class ProgrammaticInteractionChannel implements IInteractionChannel {
     await this.submitHandler(text);
   }
 
-  /** Pre-answer the next `askUser` (CMD-004 unified ask). */
+  /** Pre-answer the next `askUser` (unified ask). */
   queueUserAction(response: TActionResponse): void {
     this.userActionResponses.push(response);
   }

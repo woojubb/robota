@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
-import { runWorkspaceTrustCommand } from '../../startup/workspace-trust-command.js';
+import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
 import { runSessionViewCommand } from '../session-view-command.js';
 
@@ -37,7 +37,7 @@ describe('supervised session view start callback refuses before spawning', () =>
       return 0;
     });
     try {
-      expect(await runWorkspaceTrustCommand(['--yes'], cwd, createTestProductRuntime())).toBe(0);
+      expect(await approveTestWorkspace(cwd, createTestProductRuntime())).toBe(0);
       const options = { productRuntime: createTestProductRuntime(), providerDefinitions: [] };
       expect(await runPreparsedCliCommand(
         options, ['node', 'test-product', 'session', 'view'], cwd, invalidTelemetry,

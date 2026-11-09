@@ -1,5 +1,5 @@
 /**
- * CORE-019 — Compaction Failure Contract tests.
+ * Compaction Failure Contract tests.
  *
  * An invalid summary (non-string or empty/whitespace provider content) must throw
  * CompactionError BEFORE clearHistory() runs: the conversation history is append-only
@@ -49,7 +49,7 @@ function createOrchestrator(): CompactionOrchestrator {
   });
 }
 
-describe('compaction failure contract (CORE-019)', () => {
+describe('compaction failure contract', () => {
   it('throws CompactionError when the provider returns non-string content', async () => {
     const orchestrator = createOrchestrator();
     const provider = createProviderReturning([{ type: 'tool_use' }]);

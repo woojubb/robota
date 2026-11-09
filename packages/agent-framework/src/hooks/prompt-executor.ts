@@ -4,7 +4,7 @@
  * Makes a single-turn LLM call with hook input context as the prompt.
  * Parses { ok: boolean, reason?: string } from the AI response.
  *
- * Outcomes (SEC-015): `ok: true` → `allow`; `ok: false` → `deny` with its reason; a non-boolean
+ * Outcomes: `ok: true` → `allow`; `ok: false` → `deny` with its reason; a non-boolean
  * or missing `ok`, or an unparseable response → `error`/`malformed-response`; a provider or
  * session failure → `error`/`transport-failure`. The three used to share exit code 1.
  */

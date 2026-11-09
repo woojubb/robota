@@ -34,22 +34,20 @@ describe('session view command', () => {
     const root = join(scratch, 'supervised');
     const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
     let pr: ReturnType<typeof import('../supervised-session-control.js').parseSupervisedPr>;
-    const control = await startSupervisedControl(
+    const control = await startSupervisedControl({
       id,
-      () => undefined,
+      onStop: () => undefined,
       root,
-      () => 'idle',
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      {
+      observe: {
+        activity: () => 'idle',
+      },
+      pr: {
         get: () => pr,
         set: (value) => {
           pr = value;
         },
       },
-    );
+    });
     const openUrl = vi.fn(async () => undefined);
     const first = 'https://github.com/team/repo/pull/123';
     const next = 'https://github.com/team/repo/pull/124';
@@ -95,12 +93,14 @@ describe('session view command', () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-view-'));
     const root = join(scratch, 'supervised');
     const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
-    const control = await startSupervisedControl(
+    const control = await startSupervisedControl({
       id,
-      () => undefined,
+      onStop: () => undefined,
       root,
-      () => 'working',
-    );
+      observe: {
+        activity: () => 'working',
+      },
+    });
     let observed: unknown;
     try {
       const render = vi.fn(async (options: Parameters<typeof renderSupervisedSessionView>[0]) => {
@@ -216,15 +216,15 @@ describe('session view command', () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-vn-'));
     const root = join(scratch, 'supervised');
     const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
-    const control = await startSupervisedControl(
+    const control = await startSupervisedControl({
       id,
-      () => undefined,
+      onStop: () => undefined,
       root,
-      () => 'idle',
-      undefined,
-      undefined,
-      () => 'Morning review',
-    );
+      observe: {
+        activity: () => 'idle',
+        name: () => 'Morning review',
+      },
+    });
     const render = vi.fn(async (options: Parameters<typeof renderSupervisedSessionView>[0]) => {
       expect(options.filteredByName).toBe(true);
       expect(await options.loadRows(new AbortController().signal)).toEqual([
@@ -325,13 +325,14 @@ describe('session view command', () => {
     mkdirSync(other);
     symlinkSync(project, projectLink, 'dir');
     const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
-    const control = await startSupervisedControl(
+    const control = await startSupervisedControl({
       id,
-      () => undefined,
+      onStop: () => undefined,
       root,
-      undefined,
-      () => realpathSync(project),
-    );
+      observe: {
+        cwd: () => realpathSync(project),
+      },
+    });
     const observed: unknown[] = [];
     const render = vi.fn(async (options: Parameters<typeof renderSupervisedSessionView>[0]) => {
       expect(options.filteredByCwd).toBe(true);
@@ -421,10 +422,16 @@ describe('session view command', () => {
       } as never,
       cwd: '/tmp',
     });
-    const control = await startSupervisedControl(
-      id, () => undefined, root, () => 'idle', undefined, undefined, () => 'Morning review',
-      undefined, undefined, undefined, { session },
-    );
+    const control = await startSupervisedControl({
+      id,
+      onStop: () => undefined,
+      root,
+      observe: {
+        activity: () => 'idle',
+        name: () => 'Morning review',
+      },
+      attachTarget: { session },
+    });
     const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
@@ -483,10 +490,16 @@ describe('session view command', () => {
       } as never,
       cwd: '/tmp',
     });
-    const control = await startSupervisedControl(
-      id, () => undefined, root, () => 'idle', undefined, undefined, () => 'Morning review',
-      undefined, undefined, undefined, { session },
-    );
+    const control = await startSupervisedControl({
+      id,
+      onStop: () => undefined,
+      root,
+      observe: {
+        activity: () => 'idle',
+        name: () => 'Morning review',
+      },
+      attachTarget: { session },
+    });
     const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {

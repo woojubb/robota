@@ -1,4 +1,4 @@
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface/execution';
 
 export function stringifyUnknownAgentType(agentType: string): string {
   return JSON.stringify({
@@ -19,7 +19,7 @@ export function stringifyUnknownAgentType(agentType: string): string {
 }
 
 /**
- * PRESET-016 — terminal result returned when the runtime gate refuses subagent dispatch.
+ * Terminal result returned when the runtime gate refuses subagent dispatch.
  * No job is started, so all counts are zero and `success` is false.
  */
 export function stringifyParallelSubagentsDisabled(): string {

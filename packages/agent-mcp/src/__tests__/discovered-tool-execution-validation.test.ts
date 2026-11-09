@@ -1,12 +1,12 @@
 /**
- * MCP-005 (TC-11) — projection must never widen what execution accepts.
+ * Projection must never widen what execution accepts.
  *
  * `DiscoveredMCPTool` (`../catalog/discovered-tool.ts`) validates every call's arguments against the
- * CORE-040-narrowed ORIGINAL schema — untouched by this unit. The strict provider-projection profile
+ * narrowed ORIGINAL schema — untouched by this unit. The strict provider-projection profile
  * (`STRICT_TOOL_SCHEMA_PROFILE`, `agent-core`) forces an optional property into `required` and adds a
  * `null` branch (`optionalAsNullable`) so the WIRE schema a strict provider sees accepts `null` for a
- * field the original declared merely optional. That compensation is a pre-existing PROV-007 behaviour
- * this unit does not change; what TC-11 proves is that it stays confined to the wire schema and never
+ * field the original declared merely optional. That compensation is a pre-existing provider behaviour
+ * this unit does not change; what this test proves is that it stays confined to the wire schema and never
  * reaches `DiscoveredMCPTool`'s own validation gate: the same payload the projected schema would
  * accept is still refused by the tool's `validateParameters`.
  *
@@ -72,7 +72,7 @@ const SCHEMA_WITH_OPTIONAL_STRING: IParameterSchema = {
   required: [],
 };
 
-describe('MCP-005 TC-11 — execution validation stays on the narrowed original', () => {
+describe('execution validation stays on the narrowed original', () => {
   const entry = buildEntryFor('optional_string', SCHEMA_WITH_OPTIONAL_STRING);
   const tool = createDiscoveredTool(entry, invokerReturning());
 

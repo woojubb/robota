@@ -14,14 +14,14 @@ import type { IToolSchema } from '../interfaces/provider';
 import type { TToolParameters } from '../interfaces/tool';
 
 /**
- * SELFHOST-004 P2 (TC-07) — the per-operation span source.
+ * The per-operation span source.
  *
  * `FunctionTool` already measures `executionTime` and the event-service already mints `span_…` ids,
  * but they were previously disconnected. These tests prove the JOIN: on execution the tool emits a
  * `SPAN_EVENTS.COMPLETED` event whose SINGLE payload carries `spanId` AND `durationMs` AND `op`
  * together (not each fact in isolation) — the correlatable unit a consuming layer turns into a record
  * span entry. They also pin the no-cycle invariant: the payload is raw scalars, referencing no
- * transport type, so `agent-core` depends on neither `agent-interface-transport` nor `agent-plugin`.
+ * transport type, so `agent-core` depends on neither `agent-interface/transport` nor `agent-plugin`.
  */
 
 /** Minimal capturing event service (records every emit). */
@@ -48,7 +48,7 @@ function makeTool(name: string): FunctionTool {
   return new FunctionTool(schema, async (p: TToolParameters) => JSON.stringify(p));
 }
 
-describe('SELFHOST-004 TC-07 — FunctionTool span-completion emit', () => {
+describe('FunctionTool span-completion emit', () => {
   it('emits a SPAN_EVENTS.COMPLETED event whose payload JOINS spanId + durationMs + op', async () => {
     const events = new CapturingEventService();
     const tool = makeTool('lookup');

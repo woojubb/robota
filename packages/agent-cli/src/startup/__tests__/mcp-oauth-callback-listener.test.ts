@@ -1,5 +1,5 @@
 /**
- * #3679 3f PR 3a — the product's MCP sign-in opens the Node host's loopback callback listener under
+ * The product's MCP sign-in opens the Node host's loopback callback listener under
  * the `oauth-callback` row. Plain mode listens exactly as before; secure mode keeps the callback,
  * because its rule (loopback, bound by a fresh path or a required state, single use, a timeout, no
  * session) admits nothing a same-user program could use.

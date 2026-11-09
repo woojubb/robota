@@ -16,6 +16,7 @@ import {
 } from 'node:fs';
 
 import { createProcessMarkersInOpenDirectory } from '@robota-sdk/agent-core/node';
+import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
 
 import {
   assertCurrentWorkspaceIdentity,
@@ -24,7 +25,7 @@ import {
 } from './project-reader-path.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 
-import type { IProcessMarkerHandle } from '@robota-sdk/agent-core';
+import type { IProcessMarkerHandle, TProcessMarkerGuardResult } from '@robota-sdk/agent-core';
 import type {
   IWorkspaceIdentity,
   IWorkspaceIdentityResolver,
@@ -96,7 +97,7 @@ function withAnchoredParent<T>(
   operation: (parentDescriptor: number, filename: string) => T,
 ): T {
   if (!supportsWorkspaceProjectMutation()) {
-    // Contained — ARCH-047. Portable project mutation fails closed until a stable root-anchored
+    // Contained. Portable project mutation fails closed until a stable root-anchored
     // primitive owns equivalent semantics on every supported platform.
     refuseProjectRead('Project mutation requires stable root-anchored host support.');
   }
@@ -108,6 +109,7 @@ function withAnchoredParent<T>(
   let parentDescriptor: number | undefined;
   try {
     rootDescriptor = openSync(identity.worktreeRoot, directoryOpenFlags());
+    identityResolver.assertOpenedRootDescriptor?.(rootDescriptor);
     if (realpathSync(descriptorPath(rootDescriptor)) !== identity.worktreeRoot) {
       refuseProjectRead('The opened project root no longer matches the trusted workspace root.');
     }
@@ -449,12 +451,21 @@ function acquireWorkspaceRelativeWriter(
         return observed.dev === original.dev && observed.ino === original.ino;
       }) ?? false;
     if (!stillNamed()) refuseProjectRead('The checkpoint writer directory is no longer named by the project.');
-    const result = createProcessMarkersInOpenDirectory(retained).acquire('active');
+    const result = createProcessMarkersInOpenDirectory(retained, {
+      operationLock: createProcessOperationLock(descriptorPath(retained)),
+    }).acquire('active');
     if (result.status !== 'acquired') return undefined;
     acquired = result.handle;
     if (!stillNamed()) refuseProjectRead('The checkpoint writer directory is no longer named by the project.');
     const marker = acquired;
     let released = false;
+    const namedNow = (): boolean => {
+      try {
+        return stillNamed();
+      } catch {
+        return false;
+      }
+    };
     const lease: IProcessMarkerHandle = {
       holds: () => {
         if (released) return false;
@@ -463,6 +474,16 @@ function acquireWorkspaceRelativeWriter(
         } catch {
           return false;
         }
+      },
+      withGuard: <T>(operation: () => T): TProcessMarkerGuardResult<T> => {
+        if (released) return { status: 'lost' };
+        const guarded = marker.withGuard(() =>
+          namedNow() ? { named: true as const, value: operation() } : { named: false as const },
+        );
+        if (guarded.status !== 'ran') return guarded;
+        return guarded.value.named
+          ? { status: 'ran', value: guarded.value.value }
+          : { status: 'lost' };
       },
       release: () => {
         if (released) return;
@@ -558,6 +579,7 @@ function withExistingAnchoredDirectory<T>(
   try {
     const rootDescriptor = openSync(identity.worktreeRoot, directoryOpenFlags());
     opened.push(rootDescriptor);
+    identityResolver.assertOpenedRootDescriptor?.(rootDescriptor);
     if (realpathSync(descriptorPath(rootDescriptor)) !== identity.worktreeRoot) {
       refuseProjectRead('The opened project root no longer matches the trusted workspace root.');
     }

@@ -114,7 +114,7 @@ export interface ISubagentTranscriptMigration extends ISessionLogMigration {
 }
 
 /**
- * Seals in place every subagent transcript a host wrote in plaintext under `baseLogsDir` (#3679):
+ * Seals in place every subagent transcript a host wrote in plaintext under `baseLogsDir`:
  * each parent's `subagents/` directory, as `migrateSessionLogDirectory` seals one, `baseLogsDir`
  * being the root the host owns. A parent entry that is a link is never followed and is reported.
  */

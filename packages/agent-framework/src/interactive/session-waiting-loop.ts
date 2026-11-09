@@ -1,5 +1,5 @@
 /**
- * #3189: stopping the self-paced loop that waits for its next wake (Esc on an idle prompt).
+ * Stopping the self-paced loop that waits for its next wake (Esc on an idle prompt).
  *
  * The rule used to live in the in-process terminal, so an attached client could not apply it. It
  * belongs to the session: the session knows which loops wait, and every client gets the same answer.
@@ -8,7 +8,7 @@
 import type {
   ISessionLoopState,
   TWaitingLoopStopOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** What the rule needs from the session. */
 export interface IWaitingLoopPort {

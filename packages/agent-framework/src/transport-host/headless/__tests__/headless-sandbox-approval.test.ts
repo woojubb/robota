@@ -1,5 +1,5 @@
 /**
- * Issue #3242: a print run consults the same sandbox the shell tools run under, so a confined
+ * A print run consults the same sandbox the shell tools run under, so a confined
  * command the sandbox approves runs without a prompt — the TUI and serve behaviour.
  */
 

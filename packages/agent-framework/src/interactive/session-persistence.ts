@@ -15,7 +15,7 @@ import type {
   ISessionListEntry,
   ISessionStoreScan,
   TSessionAuthorship,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /**
  * Whether an untrusted session selector is safe to use as one filesystem path component.
@@ -102,7 +102,7 @@ export function listResumableSessions(
 }
 
 /**
- * The sessions this build cannot read (TRANS-007).
+ * The sessions this build cannot read.
  *
  * `listResumableSessionSummaries` returns only what can be resumed, which is what its name promises
  * — an unreadable session is genuinely not resumable. What it must not do is make those sessions
@@ -121,12 +121,12 @@ export function listUnreadableSessions(
 }
 
 /**
- * The unreadable sessions of ONE workspace (#3289 §1).
+ * The unreadable sessions of ONE workspace.
  *
  * A store shared across workspaces (the user-level `~/.agent/sessions`) holds unreadable records
  * from every folder ever worked in there, and a brand-new folder used to be told about all of them —
  * "191 sessions could not be read" on a folder that had never seen one. An unreadable record still
- * carries its raw `cwd` when the bytes are readable enough for that (TRANS-007's best-effort peek);
+ * carries its raw `cwd` when the bytes are readable enough for that (the best-effort peek);
  * this asks only for the ones whose peeked `cwd` is THIS workspace. A record whose workspace cannot
  * be told at all is left out here — it is not lost, it simply is not this workspace's business.
  */
@@ -232,7 +232,7 @@ export function resolveLatestSessionId(
 /**
  * An existing session of this workspace with no messages yet, that no OTHER client is on and has no
  * work of its own in progress — the one a fresh "New session" (a serve/daemon start, or the button)
- * should reuse instead of adding another empty row to the list (#3289 §1). `excludeSessionId` lets a
+ * should reuse instead of adding another empty row to the list. `excludeSessionId` lets a
  * caller leaving a session (e.g. deleting it) ask "reuse some OTHER empty session" without that one
  * answering its own question.
  *
@@ -350,7 +350,7 @@ function getLastAssistantPreview(messages: readonly TUniversalMessage[]): string
 const TITLE_MAX_LENGTH = 60;
 
 /**
- * A stable session title (#3289 §1): the first user request, one line, Markdown syntax markers
+ * A stable session title: the first user request, one line, Markdown syntax markers
  * stripped, whitespace collapsed, and capped at {@link TITLE_MAX_LENGTH} characters. Unlike
  * {@link getLastAssistantPreview} — the raw latest reply, which is what the resume picker wants — this
  * reads the FIRST user message and nothing later, so it never changes as the conversation continues:

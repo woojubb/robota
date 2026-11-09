@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { respond, type WireRequest } from './helpers/provider-wire-fixture.js';
+import { approveTestWorkspaceCommand } from './helpers/approve-test-workspace.js';
 
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const launcher = path.join(repoRoot, 'scripts', 'dev', 'agent');
@@ -157,7 +158,7 @@ describe('scripts/dev/agent', () => {
           },
         }),
       );
-      const trust = await run(['trust', '--yes']);
+      const trust = await approveTestWorkspaceCommand(launcher, workspace, environment);
       expect(trust.code, trust.stderr).toBe(0);
       expect(trust.stdout).toContain('Workspace trust: trusted');
 

@@ -62,11 +62,11 @@ Build the script first, and check out at least two commits (`fetch-depth: 2`) so
 Install the provider package and return it from `resolveProvider()` in `src/index.ts`:
 
 ```bash
-npm install @robota-sdk/agent-provider-openai
+npm install @robota-sdk/agent-provider openai
 ```
 
 ```ts
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 
 return new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 ```

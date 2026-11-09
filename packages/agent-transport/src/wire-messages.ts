@@ -8,19 +8,19 @@ import type {
   IPersonalUsageReport,
   IPersonalUsageRequest,
   IUsageBySourceReport,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 import type {
   ICommandListEntry,
   ICommandResult,
   ICommandSkillListEntry,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 import type {
   IBackgroundJobGroupState,
   IExecutionDetailCursor,
   IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
   TBackgroundJobGroupEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IBackgroundTaskInput,
   IBackgroundTaskListFilter,
@@ -28,7 +28,7 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IAskRequestEvent,
   IBranchEvent,
@@ -54,20 +54,27 @@ import type {
   TProjectMemoryRead,
   TProjectStatusRead,
   TWaitingLoopStopOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type {
   ISessionConversationRead,
   TDriverId,
   TTurnSource,
-} from '@robota-sdk/agent-interface-session';
-import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/session';
+import type { TActionResponse } from '@robota-sdk/agent-interface/transport';
+
+/**
+ * What a connected surface may do. `drive` sends prompts, answers questions and controls the session.
+ * `observe` is read-only: it follows this session's conversation and state, but never submits, answers,
+ * controls, or reads another session's records, and it never counts as a surface that can answer.
+ */
+export type TSessionSurfaceRole = 'drive' | 'observe';
 
 export type TBackgroundControlAction = 'cancel' | 'close' | 'send';
 
 type THistoryEntry = ReturnType<ISessionConversationRead['getFullHistory']>[number];
 
 /**
- * #3282 §4: one agent the switcher can offer. `definedIn` is a plain-words location — a discovered
+ * One agent the switcher can offer. `definedIn` is a plain-words location — a discovered
  * file's path, or "Built-in" — never a raw internal id.
  */
 export interface IWireAgentDefinitionSummary {
@@ -77,7 +84,7 @@ export interface IWireAgentDefinitionSummary {
 }
 
 /**
- * #3189: one entry of the session's full history as it crosses the wire. The same record the session
+ * One entry of the session's full history as it crosses the wire. The same record the session
  * keeps, except that `timestamp` is an ISO 8601 string: a `Date` does not survive JSON, and a
  * declared `Date` that arrives as a string would let a client call `Date` methods on a string.
  */
@@ -87,7 +94,7 @@ export interface IWireHistoryEntry extends Omit<THistoryEntry, 'timestamp'> {
 }
 
 /**
- * #3189: a turn's result as it crosses the wire. The session's whole history stays behind: it only
+ * A turn's result as it crosses the wire. The session's whole history stays behind: it only
  * grows, so a client reads it in bounded pages with `get-history` instead.
  */
 export type TWireExecutionResult = Omit<IExecutionResult, 'history'>;
@@ -101,38 +108,40 @@ export type TClientMessage =
   | { type: 'abort' }
   | { type: 'cancel-queue' }
   | { type: 'get-messages' }
-  // #3189: the session's full history — what a client that renders the whole session (the TUI) shows —
+  // The session's full history — what a client that renders the whole session (the TUI) shows —
   // one bounded page at a time, from `fromIndex` (default 0). The client asks for the next page
   // after the previous one arrived, so replies never pile up in the connection.
   | { type: 'get-history'; fromIndex?: number }
-  // #3189: the permission and ask prompts open now, each sent again as the frame that asked it: a
+  // The permission and ask prompts open now, each sent again as the frame that asked it: a
   // client that attached after a prompt was asked has not seen it.
   | { type: 'get-prompts' }
   | { type: 'get-context' }
-  // #3186: what every client needs beside the conversation — the commands and skills it can offer
+  // What every client needs beside the conversation — the commands and skills it can offer
   // (a `/` menu), and the session's status (model, permission mode, effort, context).
   | { type: 'get-commands' }
   | { type: 'get-status' }
-  // #3282 §2: the models the GUI's model menu offers, grouped by configured provider profile — so
+  // Which role this connection has: the host's grant, lowered if the client asked for less.
+  | { type: 'get-surface-role' }
+  // The models the GUI's model menu offers, grouped by configured provider profile — so
   // the GUI never scrapes `/model`'s picker text. Choosing one sends `command` with `name: 'model'`,
   // the SAME path `/model <id>` runs; this message only reads the choices.
   | { type: 'list-models'; requestId: string }
-  // #3282 §4: the agent switcher's roster and its currently-selected default — so the GUI never
+  // The agent switcher's roster and its currently-selected default — so the GUI never
   // scrapes `/agent`'s text. Choosing one sends `command` with `name: 'agent'`, the SAME path
   // `/agent <name>` runs; this message only reads the roster and the current selection.
   | { type: 'get-agent-definitions'; requestId: string }
-  // #3189: the host's sessions — list them, start a new one, make another current. A refused change
+  // The host's sessions — list them, start a new one, make another current. A refused change
   // answers `session_change_failed` with the same `requestId`.
   | { type: 'list-sessions'; requestId: string }
   | { type: 'new-session'; requestId?: string }
   | { type: 'switch-session'; sessionId: string; requestId?: string }
-  // #3289 §1: rename a session from the list — current or not. Answered by `session_renamed_in_list`
+  // Rename a session from the list — current or not. Answered by `session_renamed_in_list`
   // or `session_rename_failed`, both carrying the same `requestId`.
   | { type: 'rename-session'; sessionId: string; name: string; requestId: string }
-  // #3289 §1: remove a stored session's record for good. Answered by `session_deleted` or
+  // Remove a stored session's record for good. Answered by `session_deleted` or
   // `session_delete_failed`, both carrying the same `requestId`.
   | { type: 'delete-session'; sessionId: string; requestId: string }
-  // SELFHOST-004: request the assembled trace/cost read-model (spans + cost-by-source) for the run.
+  // Request the assembled trace/cost read-model (spans + cost-by-source) for the run.
   | { type: 'get-usage-report' }
   | {
       type: 'get-personal-usage-report';
@@ -154,7 +163,7 @@ export type TClientMessage =
     }
   // Stop the self-paced loop that is waiting for its next wake; answered by `waiting_loop_stop`.
   | { type: 'stop-waiting-loop'; requestId: string }
-  // #3282 §4c: the Project panel's "Changes" section — this workspace's git status. Answered by
+  // The Project panel's "Changes" section — this workspace's git status. Answered by
   // `project_status`, echoing `requestId`.
   | { type: 'project-status'; requestId: string }
   // The Project panel's "File diff" section for one file `project_status` reported — `path` exactly
@@ -190,14 +199,15 @@ export type TClientMessage =
   | { type: 'close-background-task'; taskId: string }
   | { type: 'send-background-task'; taskId: string; input: IBackgroundTaskInput }
   | { type: 'read-background-task-log'; taskId: string; cursor?: IBackgroundTaskLogCursor }
-  // REMOTE-007: a driving client answers a pending permission/ask prompt by id (first answer wins).
+  // A driving client answers a pending permission/ask prompt by id (first answer wins).
   | { type: 'permission-response'; id: string; result: TPermissionResultValue }
   | { type: 'ask-response'; id: string; response: TActionResponse }
-  // REMOTE-013 E4 session-resume: `resume` asks the host to replay the tail after `lastSeq` (the last seq the
-  // client applied); `ack` lets the host free its un-acked buffer up to `seq`. Only meaningful post-E3-accept.
+  // Session resume: `resume` asks the host to replay the tail after `lastSeq` (the last seq the
+  // client applied); `ack` lets the host free its un-acked buffer up to `seq`. Only meaningful
+  // after pairing accepts.
   | { type: 'resume'; lastSeq: number }
   | { type: 'ack'; seq: number }
-  // #3282 §4a: the GUI Settings screen. A snapshot fetch and a discriminated single-field patch,
+  // The GUI Settings screen. A snapshot fetch and a discriminated single-field patch,
   // never command text — the server applies a patch through the same function its slash command
   // uses, so the two paths cannot drift. Answered by `settings` or `settings_error`.
   | { type: 'get-settings'; requestId: string }
@@ -205,7 +215,7 @@ export type TClientMessage =
 
 /** Outbound message from server to client. */
 export type TServerMessage =
-  // REMOTE-014 E5: turn-authored events optionally carry the ACTIVE turn's `driverId` (co-drive authorship,
+  // Turn-authored events optionally carry the ACTIVE turn's `driverId` (co-drive authorship,
   // display-only). Stamped at `subscribeSessionEvents` from `getActiveDriverId()`; background/goal/memory/
   // execution-workspace events are NEVER stamped (they are not authored by a driver turn).
   | { type: 'text_delta'; delta: string; driverId?: TDriverId }
@@ -221,7 +231,7 @@ export type TServerMessage =
       message: string;
       /**
        * What kind of failure this was, when it's known — so a renderer can say what happened and
-       * what to do next in plain words instead of showing `message` verbatim (#3289 §3). Additive:
+       * what to do next in plain words instead of showing `message` verbatim. Additive:
        * absent for a session error this classification does not recognize (unchanged behavior).
        */
       code?: 'auth' | 'rate_limit' | 'model_unavailable' | 'network' | 'provider';
@@ -250,7 +260,7 @@ export type TServerMessage =
       type: 'messages';
       messages: ReturnType<ISessionConversationRead['getMessages']>;
       /**
-       * #3288 §2: the SAME history, projected into display segments (text runs and finished tool
+       * The SAME history, projected into display segments (text runs and finished tool
        * calls, diffs included) — so a reload/reconnect/resume replay shows tool rows instead of bare
        * text. Optional so an older host that has not grown `getMessagesDisplay()` yet still sends a
        * valid frame; a client without this field falls back to `messages`-only (text bubbles), the
@@ -258,18 +268,18 @@ export type TServerMessage =
        */
       display?: ReturnType<ISessionConversationRead['getMessagesDisplay']>;
       /**
-       * #3289 §3: this connection's own server-assigned driver id, carried on the first frame every
+       * This connection's own server-assigned driver id, carried on the first frame every
        * connection already gets — so a client can tell its OWN turns from a co-driver's instead of
-       * treating everything but the literal `'owner'` id as someone else (REMOTE-014 E5 display-only).
+       * treating everything but the literal `'owner'` id as someone else (display-only).
        */
       driverId?: TDriverId;
     }
-  // #3189: one page of the full history. `entries` start at `startIndex` of the `total` the session
+  // One page of the full history. `entries` start at `startIndex` of the `total` the session
   // holds now, and stop before a page grows past a bounded size (a single larger entry is sent alone).
   | { type: 'history'; startIndex: number; total: number; entries: IWireHistoryEntry[] }
   // Sent in reply to `get-context`, and pushed whenever the session's context window changes.
   | { type: 'context'; state: ReturnType<ISessionConversationRead['getContextState']> }
-  // #3189: the full history gained entries that no streamed frame carries (a compaction, a skill
+  // The full history gained entries that no streamed frame carries (a compaction, a skill
   // activation, a memory event). A client that shows the full history re-reads it with `get-history`.
   | {
       type: 'history_changed';
@@ -280,12 +290,14 @@ export type TServerMessage =
         afterUsedPercentage: number;
       };
     }
-  // #3189: where the turn now starting came from (the user, a wake-up, a peer, an external event).
+  // Where the turn now starting came from (the user, a wake-up, a peer, an external event).
   | { type: 'turn_source'; source: TTurnSource }
   | { type: 'commands'; commands: ICommandListEntry[]; skills: ICommandSkillListEntry[] }
   // Sent in reply to `get-status`, and pushed whenever the session's status changes.
   | { type: 'session_status'; status: ISessionStatusSnapshot }
-  // #3282 §2: reply to `list-models`, echoing its `requestId`. `groups` is current-profile first;
+  // Reply to `get-surface-role`: the role this connection effectively has.
+  | { type: 'surface_role'; role: TSessionSurfaceRole }
+  // Reply to `list-models`, echoing its `requestId`. `groups` is current-profile first;
   // `currentProfile` is absent only when no provider profile is configured at all.
   | {
       type: 'model_list';
@@ -294,7 +306,7 @@ export type TServerMessage =
       currentProfile?: string;
       currentModel: string;
     }
-  // #3282 §4: reply to `get-agent-definitions`, echoing its `requestId`. `current` is always one of
+  // Reply to `get-agent-definitions`, echoing its `requestId`. `current` is always one of
   // `agents`' names (the fallback default when nothing was ever selected).
   | {
       type: 'agent_definitions';
@@ -312,17 +324,17 @@ export type TServerMessage =
   // This client's session is now another one; it re-reads what it shows. A host that binds each
   // client to its own session sends it only to the client that moved.
   | { type: 'session_switched'; event: ISessionSwitchedEvent }
-  // #3189: a new-session or switch-session was refused; `code` says why without parsing `message`.
+  // A new-session or switch-session was refused; `code` says why without parsing `message`.
   | {
       type: 'session_change_failed';
       code: TSessionChangeRefusalCode;
       message: string;
       requestId?: string;
     }
-  // #3289 §1: a `rename-session` succeeded (current session or not); the client refreshes its listing.
+  // A `rename-session` succeeded (current session or not); the client refreshes its listing.
   | { type: 'session_renamed_in_list'; requestId: string; sessionId: string; name: string }
   | { type: 'session_rename_failed'; requestId: string; message: string }
-  // #3289 §1: a `delete-session` succeeded; the client refreshes its listing and, if it was showing
+  // A `delete-session` succeeded; the client refreshes its listing and, if it was showing
   // the deleted session, re-reads what it now shows (the host has already switched it away).
   | { type: 'session_deleted'; requestId: string; sessionId: string }
   | {
@@ -331,7 +343,7 @@ export type TServerMessage =
       code: TSessionDeleteRefusalCode;
       message: string;
     }
-  // SELFHOST-004 (P5, TC-08): carry the assembled trace/cost read-model (per-op span timeline +
+  // Carry the assembled trace/cost read-model (per-op span timeline +
   // cost-by-source) across the sidecar boundary — no existing variant carries per-op `durationMs` or
   // per-source `costUsd`. The GUI renders it renderer-side.
   | { type: 'usage_report'; report: IUsageBySourceReport }
@@ -363,7 +375,7 @@ export type TServerMessage =
   | { type: 'execution_detail'; requestId: string; page: IExecutionDetailPage }
   | { type: 'execution_detail_error'; requestId: string; message: string }
   | { type: 'waiting_loop_stop'; requestId: string; outcome: TWaitingLoopStopOutcome }
-  // #3282 §4c: the Project panel's reads. Each result crosses the wire UNCHANGED as the session
+  // The Project panel's reads. Each result crosses the wire UNCHANGED as the session
   // method's own return value (same convention as `waiting_loop_stop`'s `outcome` above) — the
   // `kind` discriminant carries the non-repository / outside-workspace / unavailable / failed cases,
   // so there is no separate `_error` sibling to keep in sync with these.
@@ -392,16 +404,16 @@ export type TServerMessage =
   | { type: 'background_job_groups'; groups: IBackgroundJobGroupState[] }
   | { type: 'background_job_group'; groupId: string; group: IBackgroundJobGroupState | null }
   | { type: 'background_task_log'; taskId: string; page: IBackgroundTaskLogPage }
-  // REMOTE-007: forward the session's transport-neutral prompt events so a remote surface can render +
+  // Forward the session's transport-neutral prompt events so a remote surface can render +
   // answer the SAME prompt (permission/ask). `prompt_resolved` dismisses it when another surface won.
   | { type: 'permission_request'; event: IPermissionRequestEvent }
   | { type: 'ask_request'; event: IAskRequestEvent }
   | { type: 'prompt_resolved'; event: IPromptResolvedEvent }
-  // CMD-004 Phase 2: forward command-issued UI intents (same pattern as `ask_request`). The event is
+  // Forward command-issued UI intents (same pattern as `ask_request`). The event is
   // requester-routed — a client renders it only when `event.requesterDriverId` is its own driver id;
   // an unsupported intent yields an explicit "not available on this surface" notice, never a silent drop.
   | { type: 'ui_intent'; event: IUiIntentEvent }
-  // CMD-004 Phase 2 Stage E: BROADCAST session events — every attached surface receives them
+  // BROADCAST session events — every attached surface receives them
   // (co-driving titles/transcripts follow the host-executed rename/clear; never requester-filtered).
   | { type: 'session_renamed'; event: ISessionRenamedEvent }
   | { type: 'history_cleared' }
@@ -414,10 +426,10 @@ export type TServerMessage =
     }
   // `requestId` names the `command` whose failure this reports; a refusal of anything else has none.
   | { type: 'protocol_error'; message: string; requestId?: string }
-  // REMOTE-013 E4: sent instead of a replay when the client's `lastSeq` predates the host's retained buffer
+  // Sent instead of a replay when the client's `lastSeq` predates the host's retained buffer
   // (overrun) — the client must do a full `get-messages` refresh rather than accept a silent gap.
   | { type: 'resume_gap' }
-  // #3282 §4a: the Settings screen's snapshot, in reply to `get-settings` or `update-settings`. The
+  // The Settings screen's snapshot, in reply to `get-settings` or `update-settings`. The
   // same type answers both, the way `session_status` answers `get-status` and a status change alike.
   | { type: 'settings'; requestId: string; settings: ISettingsSnapshot }
   | {
@@ -428,7 +440,7 @@ export type TServerMessage =
     };
 
 /**
- * REMOTE-013 E4: a server message stamped with its monotonic session sequence number (added by the
+ * A server message stamped with its monotonic session sequence number (added by the
  * {@link SessionResumeBridge} on the reconnectable WebRTC path). Intersecting over the union distributes the
  * `seq` field onto every variant. The WS localhost path never stamps it (a `type`-dispatching client ignores
  * an absent/extra `seq`).

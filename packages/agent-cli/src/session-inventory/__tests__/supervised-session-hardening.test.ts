@@ -13,7 +13,7 @@ import { launchSupervisedSession } from '../supervised-session-launch.js';
 const fixture = fileURLToPath(new URL('./fixtures/supervised-serve-fixture.ts', import.meta.url));
 
 /**
- * #3679: a supervised runtime launched under Node must disable the SIGUSR1 inspector so a same-user
+ * A supervised runtime launched under Node must disable the SIGUSR1 inspector so a same-user
  * process cannot open the debugger on the long-lived daemon and read or drive the session. The flag
  * is a Node capability; the test runs only where this Node accepts it (it is a no-op under Bun).
  */
@@ -33,7 +33,7 @@ describe('supervised runtime inspector hardening', () => {
         id = await launchSupervisedSession(process.cwd(), {
           productRuntime: createTestProductRuntime(),
           entrypoint: fixture,
-          execArgs: ['--import', 'tsx', '--conditions=source'],
+          execArgs: ['--import', 'tsx', '--conditions=product-source'],
           env: { PRODUCT_TEST_SUPERVISED_ROOT: root },
           onSpawn: (spawned) => { child = spawned; },
         });

@@ -1,5 +1,5 @@
 /**
- * Reading a Zod schema's `_def` — the inspection half of the converter (CORE-039).
+ * Reading a Zod schema's `_def` — the inspection half of the converter.
  *
  * Split from `zod-to-json-schema.ts` by responsibility: everything here ANSWERS QUESTIONS about a
  * Zod schema (what does it wrap, is this field required, what unknown-key mode is it in), while the

@@ -1,5 +1,5 @@
 /**
- * #3679 (secure conversation): every conversation store a product package builds — session records,
+ * Secure conversation: every conversation store a product package builds — session records,
  * session logs, the prompt history, the tool-result spill, edit checkpoints — comes from
  * `packages/agent-cli/src/product/session-stores.ts`. Only that file knows the process's sealing
  * decision, so a store built anywhere else in a product package could write plaintext beside sealed

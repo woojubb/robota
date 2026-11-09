@@ -67,13 +67,9 @@ import type { IHistoryEntry, IRunTraceContext, TToolArgs } from '@robota-sdk/age
 import type {
   IProviderCallTraceEntry,
   IToolBodyTraceEntry,
-} from '@robota-sdk/agent-interface-analytics';
-import type {
-  IPeerTurnContext,
-  TDriverId,
-  TTurnSource,
-} from '@robota-sdk/agent-interface-session';
-import type { ICompactEvent, IToolAppViewRef } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/analytics';
+import type { IPeerTurnContext, TDriverId, TTurnSource } from '@robota-sdk/agent-interface/session';
+import type { ICompactEvent, IToolAppViewRef } from '@robota-sdk/agent-interface/session';
 
 export type { TTurnSource };
 
@@ -109,13 +105,14 @@ export class SessionExecutionController {
   readonly appViews = new ToolAppViewStore();
   /** The ids of direct calls running now: their events carry no view, whatever else is running. */
   readonly directCallIds = new Set<string>();
-  /** REMOTE-014 E5: co-drive input queue (same-driver coalesces to the tail, cross-driver appends). */
+  /** Co-drive input queue (same-driver coalesces to the tail, cross-driver appends). */
   readonly pending = new PendingInputQueue({
     refuse: (turnId, reason) => this.turns.refuse(turnId, reason),
+    fail: (turnId, error) => this.turns.fail(turnId, error),
     releaseWake: (wakeTaskId) => this.wakeTaskIds.delete(wakeTaskId),
   });
   /**
-   * REMOTE-014 E5: the driver id of the ACTIVE turn or direct runtime-tool call (null when idle) —
+   * The driver id of the ACTIVE turn or direct runtime-tool call (null when idle) —
    * read at event-emit time for attribution, and by a surface routing a prompt to its own caller.
    */
   activeDriverId: TDriverId | null = null;
@@ -123,7 +120,7 @@ export class SessionExecutionController {
   activePeerTurn: IPeerTurnContext | undefined = undefined;
   shuttingDown = false;
 
-  /** FLOW-002: background task ids with an in-flight wake turn (coalesces duplicate wakes). */
+  /** Background task ids with an in-flight wake turn (coalesces duplicate wakes). */
   readonly wakeTaskIds = new Set<string>();
 
   constructor(
@@ -138,7 +135,7 @@ export class SessionExecutionController {
     ]);
   }
 
-  /** RUNTIME-003: the registry that makes `ITurnHandle.completed` able to promise it settles. */
+  /** The registry that makes `ITurnHandle.completed` able to promise it settles. */
   readonly turns = new TurnSettlerRegistry();
 
   get executing(): boolean {
@@ -146,7 +143,7 @@ export class SessionExecutionController {
   }
 
   /**
-   * #3288 §2: the same tool-name -> `/command` projection `applyToolStart` reads live, exposed so the
+   * The same tool-name -> `/command` projection `applyToolStart` reads live, exposed so the
    * history-replay projector can classify a STORED call's `commandName`/`internal` identically — the
    * mapping is a property of the session's current command registration, not of the moment a call ran.
    */
@@ -159,7 +156,7 @@ export class SessionExecutionController {
     return this.pending.head;
   }
 
-  /** REMOTE-014 E5: total queued inputs (0 when idle) — a co-drive "N queued" hint. */
+  /** Total queued inputs (0 when idle) — a co-drive "N queued" hint. */
   pendingCount(): number {
     return this.pending.size;
   }
@@ -174,6 +171,10 @@ export class SessionExecutionController {
 
   removePendingWake(wakeTaskId: string): boolean {
     return this.pending.removeWake(wakeTaskId);
+  }
+
+  failPendingQueue(error: Error): void {
+    this.pending.failAll(error);
   }
 
   clearStreaming(): void {
@@ -327,7 +328,7 @@ export class SessionExecutionController {
       // Dequeue the HEAD (submission order); resubmit it. Its wakeTaskId is NOT released here — the turn it
       // starts will release it on completion (or `clearPendingQueue` if aborted).
       const head = this.pending.shift() as IQueuedInput;
-      // RUNTIME-006: resume the complete accepted entry through the private execution path. The
+      // Resume the complete accepted entry through the private execution path. The
       // entry's own required id is what every settle point uses; public submit is never re-entered.
       // Start in this tick: deferring leaves `executing === false`, letting a public submission
       // start before the queued turn claims continuous execution ownership.
@@ -357,7 +358,7 @@ export class SessionExecutionController {
     turnOptions: ITurnOptions = {},
   ): Promise<void> {
     let input = submittedInput;
-    // RUNTIME-12: claim synchronously before any await so a concurrent submit queues rather than also
+    // Claim synchronously before any await so a concurrent submit queues rather than also
     // starting. The `finally` releases this claim even when context refresh or execution throws.
     let executionClaim: IExecutionClaim;
     try {
@@ -366,15 +367,15 @@ export class SessionExecutionController {
       this.turns.fail(turnId, error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
-    // RUNTIME-003: which submission this turn belongs to; the handle minted then settles here.
-    // REMOTE-014 E5: capture the ACTIVE turn's driver so event/prompt emitters can attribute to it.
+    // Which submission this turn belongs to; the handle minted then settles here.
+    // Capture the ACTIVE turn's driver so event/prompt emitters can attribute to it.
     this.activeDriverId = turnOptions.driverId ?? null;
     this.activePeerTurn = turnOptions.turnSource === 'peer' ? turnOptions.peer : undefined;
     this.completedToolExecutions = [];
-    // SELFHOST-008 P2: stash the completed turn's result so post-turn capture can run in the `finally`
+    // Stash the completed turn's result so post-turn capture can run in the `finally`
     // BEFORE persistSession() (awaiting inside `onComplete` would not order there — it is not awaited).
     let completedResult: IExecutionResult | undefined;
-    // RUNTIME-003: what this turn ended with. `completedResult` cannot stand in — it is the
+    // What this turn ended with. `completedResult` cannot stand in — it is the
     // COMPLETED path only, and a handle must settle for an interrupted turn too.
     let terminalResult: IExecutionResult | undefined;
     let turnError: Error | undefined;
@@ -411,7 +412,7 @@ export class SessionExecutionController {
       promptRoot.outcome = outcome;
     };
     let ephemeralSystemContext: string | undefined;
-    // MEM-2055: recall runs before the turn's own messages reach history — stash events, record in `finally`.
+    // Recall runs before the turn's own messages reach history — stash events, record in `finally`.
     let pendingMemoryEvents: IMemoryEvent[] = [];
     try {
       this.skillRouter.beginTurnSkillActivation(turnId, turnOptions.signal);
@@ -428,11 +429,11 @@ export class SessionExecutionController {
         (event: string, payload: unknown) => this.callbacks.emit(event, payload),
       );
       this.clearStreaming();
-      // FLOW-002: surface the turn origin so consumers (hooks, TUI) can distinguish a human
+      // Surface the turn origin so consumers (hooks, TUI) can distinguish a human
       // prompt from an agent-wakeup re-entry.
       this.callbacks.emit('turn_source', turnOptions.turnSource ?? 'user');
       this.callbacks.emit('user_message', displayInput ?? input);
-      // SCREEN-1993: what the owner typed, recorded after the message is on the channel.
+      // What the owner typed, recorded after the message is on the channel.
       this.callbacks.recordPrompt?.({
         input,
         rawInput,
@@ -441,7 +442,7 @@ export class SessionExecutionController {
       });
       liveContent?.addPrompt(rawInput ?? input);
       this.callbacks.emit('thinking', true);
-      this.histTracker.resetUsedMemoryReferences(); // MEM-2055: before recall — old order lost it
+      this.histTracker.resetUsedMemoryReferences(); // Before recall — old order lost it
       if (this.callbacks.recallMemory) {
         try {
           const recalled = await this.callbacks.recallMemory(input);
@@ -449,7 +450,7 @@ export class SessionExecutionController {
           pendingMemoryEvents = recalled.events;
         } catch {
           // allow-fallback: per-turn recall is best-effort over the always-present startup memory; a recall
-          // error skips ephemeral injection and the turn proceeds normally (SELFHOST-008 P3 declared degradation).
+          // error skips ephemeral injection and the turn proceeds normally (declared degradation).
           ephemeralSystemContext = undefined;
         }
       }
@@ -624,7 +625,7 @@ export class SessionExecutionController {
         onQueueSummary: (summary) => liveTrace?.setQueueSummary(summary),
         onInterrupted: (result: IExecutionResult) => {
           closePromptRoot('interrupted');
-          // RUNTIME-003: an interrupted turn RAN — resolve, do not reject.
+          // An interrupted turn RAN — resolve, do not reject.
           terminalResult = result;
           liveContent?.addResponse(result.response, true);
           turnOutcome = 'interrupted';
@@ -640,7 +641,7 @@ export class SessionExecutionController {
       });
     } catch (error) {
       closePromptRoot('failure');
-      // RUNTIME-003: preserve pre-execution failures instead of replacing the real cause.
+      // Preserve pre-execution failures instead of replacing the real cause.
       turnError = error instanceof Error ? error : new Error(String(error));
       throw error;
     } finally {
@@ -698,9 +699,9 @@ export class SessionExecutionController {
       } catch (error) {
         this.callbacks.emit('error', error instanceof Error ? error : new Error(String(error)));
       }
-      // MEM-2055: turn's own messages are already in history now, so this renders after them.
+      // Turn's own messages are already in history now, so this renders after them.
       for (const event of pendingMemoryEvents) this.histTracker.recordMemoryEvent(event);
-      // SELFHOST-008 P2: post-turn auto-capture, awaited here so its events land in THIS turn's record.
+      // Post-turn auto-capture, awaited here so its events land in THIS turn's record.
       await capturePostTurnMemory({
         capture: this.callbacks.captureMemory,
         completedResult,
@@ -760,13 +761,13 @@ export class SessionExecutionController {
           }
         }
       }
-      // RUNTIME-003: settled BEFORE draining, in the `finally` that always runs — so a caller is
+      // Settled BEFORE draining, in the `finally` that always runs — so a caller is
       // answered by ITS turn, and a turn that threw where onError never saw still settles.
       if (terminalResult !== undefined) this.turns.settle(turnId, terminalResult);
       else this.turns.fail(turnId, turnError ?? new Error('the turn ended without a result'));
-      this.activeDriverId = null; // REMOTE-014 E5: turn ended — events after this are not turn-authored
+      this.activeDriverId = null; // Turn ended — events after this are not turn-authored
       this.activePeerTurn = undefined;
-      // FLOW-002: the wake for this task id is no longer in flight; allow future wakes to inject.
+      // The wake for this task id is no longer in flight; allow future wakes to inject.
       if (turnOptions.wakeTaskId !== undefined) this.wakeTaskIds.delete(turnOptions.wakeTaskId);
       this.executionClaim.complete(executionClaim, () => this.drainPendingQueue(resumeQueuedTurn));
     }

@@ -1,5 +1,5 @@
 /**
- * GOAL-001 functional test at the FRAMEWORK level (TEST-003 reference).
+ * Functional test of the autonomous goal at the FRAMEWORK level.
  *
  * Drives the autonomous goal loop end to end through a REAL InteractiveSession + the deterministic
  * scripted provider — no CLI, no live LLM. This is the canonical example of verifying a feature
@@ -8,6 +8,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '../../testing/index.js';
+import { writeTextCommand } from '../../testing/shell-command-fixture.js';
 
 const TEST_TIMEOUT = 20_000;
 
@@ -18,7 +19,7 @@ afterEach(async () => {
   harness = undefined;
 });
 
-describe('GOAL-001 autonomous goal (framework functional)', () => {
+describe('autonomous goal (framework functional)', () => {
   it(
     'pursues the objective across turns: writes a file, then signals satisfied → exit reason satisfied',
     async () => {
@@ -26,7 +27,12 @@ describe('GOAL-001 autonomous goal (framework functional)', () => {
         turns: [
           // iteration 1: do real work, then report "continue"
           {
-            toolCalls: [{ name: 'Bash', args: { command: 'echo 2026-06-27 > {{cwd}}/GOAL.txt' } }],
+            toolCalls: [
+              {
+                name: 'Bash',
+                args: { command: writeTextCommand('{{cwd}}/GOAL.txt', '2026-06-27') },
+              },
+            ],
           },
           {
             toolCalls: [

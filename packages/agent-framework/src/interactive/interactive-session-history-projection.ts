@@ -15,7 +15,7 @@ import type {
   TToolArgs,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import type { IHistoryDisplaySegment, IToolState } from '@robota-sdk/agent-interface-session';
+import type { IHistoryDisplaySegment, IToolState } from '@robota-sdk/agent-interface/session';
 
 export interface IHistoryProjectionOptions {
   /** The session's cwd — used ONLY for the pure, lexical display-path rewrite, never for a disk read. */

@@ -93,7 +93,7 @@ function makeTerminal(): ITerminalOutput {
 }
 
 /**
- * ARCH-010 made `ISubagentOptions.cwd` required — a subagent's execution root is passed in rather than
+ * `ISubagentOptions.cwd` is required — a subagent's execution root is passed in rather than
  * derived. `Session` is mocked here and every tool is a `makeTool` double, so this root arms no path
  * guard; it is the host process directory, which is what the assembly resolved on its own before. The
  * `tmpDir` fixtures further down belong to the loader/logger cases, which take their root explicitly.

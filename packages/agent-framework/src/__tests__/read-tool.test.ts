@@ -13,7 +13,7 @@ import type { TToolParameters } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
 
 /**
- * ARCH-010 — the context-free `readTool` singleton is gone and the containment root is a required
+ * The context-free `readTool` singleton is gone and the containment root is a required
  * constructor argument, so the tool is built against the tmpdir fixture below. That fixture is the only
  * directory these cases read; binding the tool to `process.cwd()` would widen the root to the whole repo.
  */

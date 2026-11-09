@@ -1,5 +1,5 @@
 /**
- * MCP-004 §S1 / TC-17 — `createDefaultBackgroundTaskRunners()` registers the `tool-invocation`
+ * `createDefaultBackgroundTaskRunners()` registers the `tool-invocation`
  * runner. Without this, a `tool-invocation` task admitted in the product fails with
  * `No runner for task kind` (`background-task-manager.ts`'s `startTask` — unreachable here since
  * admission bypasses it, but `validateBackgroundTaskRequest` checks the SAME runner map before
@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createDefaultBackgroundTaskRunners } from '../node.js';
 
-describe('createDefaultBackgroundTaskRunners — TC-17', () => {
+describe('createDefaultBackgroundTaskRunners', () => {
   it('registers exactly one runner whose kind is tool-invocation', () => {
     const runners = createDefaultBackgroundTaskRunners();
     const toolInvocationRunners = runners.filter((runner) => runner.kind === 'tool-invocation');

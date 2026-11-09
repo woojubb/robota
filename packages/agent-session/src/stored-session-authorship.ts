@@ -1,5 +1,5 @@
 /**
- * Where a store that seals decides whose each record is, and keeps it so (#3679).
+ * Where a store that seals decides whose each record is, and keeps it so.
  *
  * A file the same OS user can write is never a trust anchor. A sealed file that opens says it is
  * bound to this session's id and unaltered since it was sealed; it says nothing about who sealed it,
@@ -51,7 +51,7 @@ import type {
   ISessionSaveOptions,
   TSessionAdoptResult,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** Every read a store makes of a record, and the check before a save. */
 export type TReadPurpose =
@@ -640,6 +640,11 @@ export class StoredSessionAuthorship {
   /** Forgets the id's records and pending tag: the session was deleted. Its taint stays. */
   forget(id: string): void {
     this.#memory.forget(id);
+  }
+
+  /** Drops only a claim's held plaintext; pending tags, taint and handoffs remain intact. */
+  discardHeld(id: string): void {
+    this.#memory.dropHeld(id);
   }
 
   /** Subscribes `listener` to the unlocks of this store's keys (held as weakly as the sealer holds it). */

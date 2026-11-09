@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { isAbortError } from '../interactive-session-execution.js';
 
 /**
- * CORE-027, the interactive path.
+ * The interactive path.
  *
  * This was the THIRD copy of the substring heuristic and the one users actually meet:
  * `interactive-session-prompt.ts:121` calls it and, when it says yes, builds an INTERRUPTED result —
@@ -14,7 +14,7 @@ import { isAbortError } from '../interactive-session-execution.js';
  * fix shipped without it anyway, which is why the assertions here are about this specific export
  * rather than about the shared helper it now delegates to.
  */
-describe('isAbortError on the interactive path (CORE-027)', () => {
+describe('isAbortError on the interactive path', () => {
   describe('a real failure is not the user cancelling', () => {
     for (const message of [
       'the upstream aborted the stream after a policy check',

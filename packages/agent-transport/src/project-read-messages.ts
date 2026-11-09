@@ -1,5 +1,5 @@
 /**
- * #3282 §4c — the Project panel's reads (git status, one file's diff, project memory).
+ * The Project panel's reads (git status, one file's diff, project memory).
  *
  * `TProjectReadCapableSession` is `IProtocolSession & Partial<ISessionProjectRead>` (see
  * `protocol-session.ts`'s doc comment): the three methods are runtime-probed, never assumed, so

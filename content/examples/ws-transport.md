@@ -1,6 +1,10 @@
 # WebSocket Transport
 
-Drive an `InteractiveSession` over a WebSocket connection with `@robota-sdk/agent-transport-ws`. The
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
+Drive an `InteractiveSession` over a WebSocket connection with `@robota-sdk/agent-transport/ws`. The
 client sends JSON messages (submit a prompt, run a command, answer a permission prompt) and receives
 the session's events as they happen.
 
@@ -14,15 +18,17 @@ to loopback or authenticate the upgrade yourself.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createWsTransport } from '@robota-sdk/agent-transport-ws';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createWsTransport } from '@robota-sdk/agent-transport/ws';
 import { WebSocketServer } from 'ws';
 
 const wss = new WebSocketServer({ host: '127.0.0.1', port: 8080 });
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 wss.on('connection', async (ws) => {
-  const session = new InteractiveSession({ cwd: process.cwd(), provider });
+  const session = new InteractiveSession({ cwd: process.cwd(), host: createNodeFrameworkHost({ createDefaultTools }), provider });
   const transport = createWsTransport({
     send: (msg) => ws.send(JSON.stringify(msg)),
     // Called once if a message cannot be delivered; the transport stops forwarding after it.

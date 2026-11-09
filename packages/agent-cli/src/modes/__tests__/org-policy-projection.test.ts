@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * CLI-083 (issue #2287) — the org policy reaches the session through EVERY projection.
+ * The org policy reaches the session through EVERY projection.
  *
  * `loadOrgPolicy()` had one caller and a refactor removed it (`92596bc6f`, two days after
  * `48ebec353` added it), so four implemented enforcement sites have been unreachable since
@@ -43,7 +43,7 @@ function makeArgs(): never {
   } as never;
 }
 
-describe('CLI-083: the serve projection carries the org policy', () => {
+describe('the serve projection carries the org policy', () => {
   it('forwards a supplied policy into the session options', () => {
     const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',

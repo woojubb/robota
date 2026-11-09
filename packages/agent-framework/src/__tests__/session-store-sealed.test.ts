@@ -1,10 +1,10 @@
 /**
- * Sealed session records in the PROJECT store (#3679, secure conversation): what the trust-gated
+ * Sealed session records in the PROJECT store (secure conversation): what the trust-gated
  * adapter writes and concludes when it is given an artifact sealer. The user's directory store has
  * the same cases in agent-session; the two share one codec, and this proves the project adapter
  * routes through it rather than around it.
  *
- * ARCH-047: a project write needs the Linux stable-root host, so the cases that write are Linux-only
+ * A project write needs the Linux stable-root host, so the cases that write are Linux-only
  * like the rest of this adapter's tests; the cases that only read run everywhere.
  */
 
@@ -22,14 +22,14 @@ import { join } from 'node:path';
 
 import { createTestArtifactSealer, openTestWriteGrant } from '@robota-sdk/agent-core/testing';
 import { SealedSessionUnreadableError, loadSessionForUpdate } from '@robota-sdk/agent-session';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WorkspaceSessionLogSink } from '../interactive/workspace-session-io.js';
 import { createProjectSessionStore } from '../interactive/node-session-stores.js';
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-5d09ab-secret-project-conversation';
 const linux = process.platform === 'linux';
@@ -53,7 +53,7 @@ function record(id: string, text = CANARY, updatedAt = '2026-08-01T01:00:00.000Z
 }
 
 /**
- * A valid outcome as a store that seals reports it (#3679 step 3e): it says whose the record is and
+ * A valid outcome as a store that seals reports it: it says whose the record is and
  * which stored bytes it came from. Saves here state no provenance, and a write-only child's handed-over
  * record is never the owner's, so the records are unverified.
  */
@@ -102,6 +102,38 @@ async function storeWith(sealer: TSealer | undefined) {
 }
 
 describe.runIf(linux)('the project store with a sealer', () => {
+  it.each(['before', 'after'] as const)(
+    'reports unknown restore commit when project replacement fails %s writing',
+    async (failure) => {
+      const { sessions, logs } = await storage();
+      const store = createProjectSessionStore(sessions, logs, {
+        sealing: { sealer: createTestArtifactSealer() },
+      });
+      store.save(record('sess_a', 'first'), { provenance: 'owner' });
+      const claim = store.claim('sess_a');
+      const original = sessions.replaceBytes.bind(sessions);
+      const prototype = Object.getPrototypeOf(sessions) as typeof sessions;
+      const replacement = vi
+        .spyOn(prototype, 'replaceBytes')
+        .mockImplementation((name, bytes, purpose) => {
+          if (failure === 'after') original(name, bytes, purpose);
+          throw new Error('injected replacement failure');
+        });
+      try {
+        expect(store.saveRestoreTransaction?.(record('sess_a', 'second'), { claim })).toMatchObject(
+          { status: 'unknown' },
+        );
+        expect(store.load('sess_a')).toMatchObject({
+          status: 'valid',
+          record: record('sess_a', failure === 'before' ? 'first' : 'second'),
+        });
+      } finally {
+        replacement.mockRestore();
+        claim.release();
+      }
+    },
+  );
+
   it('writes a framed, opaque, owner-only file and reads the record back', async () => {
     const store = await storeWith(createTestArtifactSealer());
     store.save(record('sess_a'));
@@ -484,7 +516,7 @@ function writeSealedByHand(sealer: TSealer, id: string): void {
   );
 }
 
-describe('a project record handed to a subagent process (#3679 step 3b)', () => {
+describe('a project record handed to a subagent process', () => {
   it('is exported while unlocked, and nothing while locked with no handoff record', async () => {
     const sealer = createTestArtifactSealer();
     writeSealedByHand(sealer, 'sess_fork');

@@ -10,6 +10,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { ownerOnlyGuarantee } from '@robota-sdk/agent-core/node';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { loadConfig } from '../../config/config-loader.js';
@@ -65,12 +66,15 @@ describe('writeSettings', () => {
     expect(existsSync(path)).toBe(true);
   });
 
-  // SEC-003: a settings file may hold a plaintext `provider.apiKey`, so it must not be
+  // A settings file may hold a plaintext `provider.apiKey`, so it must not be
   // created world-readable by the ambient umask.
   it('creates the file owner-readable only', () => {
     const path = join(TEST_DIR, 'credentialed.json');
     writeSettings(path, { provider: { name: 'openai', apiKey: 'sk-secret' } });
-    expect(statSync(path).mode & 0o777).toBe(0o600);
+    // Mode bits are the owner-only claim on POSIX; Windows keeps the file private through the
+    // inherited ACL of the user's profile and `chmod` cannot express it.
+    if (ownerOnlyGuarantee() === 'posix-mode') expect(statSync(path).mode & 0o777).toBe(0o600);
+    else expect(ownerOnlyGuarantee()).toBe('windows-acl');
   });
 
   it('overwrites existing file', () => {
@@ -88,7 +92,7 @@ describe('updateModelInSettings', () => {
     process.env.HOME = originalHome;
   });
 
-  // CONFIG-002: the writer must never emit the legacy flat `provider` shape that loadConfig rejects.
+  // The writer must never emit the legacy flat `provider` shape that loadConfig rejects.
   it('refuses to create a file when there is no active provider profile', () => {
     const path = join(TEST_DIR, 'new-settings.json');
     expect(() => updateModelInSettings(path, 'claude-opus-4-6')).toThrow(

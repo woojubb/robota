@@ -188,7 +188,7 @@ export class SkillCommandSource implements ICommandSource {
   }
 }
 
-// ── Read-only inspection (OBSERVABILITY-1991) ─────────────────────────────────────────────────────
+// ── Read-only inspection ─────────────────────────────────────────────────────
 
 /** Why an entry under a skill or command root produced no command. */
 export type TSkillSkipReason =

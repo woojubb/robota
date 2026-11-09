@@ -2,7 +2,7 @@
  * MODE D — Roundtable: independent participants in a shared conversation, and an robota-backed
  * adapter turn, from OUTSIDE the monorepo, against the published `.d.ts` surface only.
  *
- * Two claims, matching issue #3273 section 9's acceptance criteria for external-consumer validation:
+ * Two claims, matching the acceptance criteria for external-consumer validation:
  *
  * D1 — a two-participant PARALLEL conversation, built with the in-memory store and two hand-written
  * ("custom") participants, proves genuine overlap with a barrier the TEST itself waits on: both

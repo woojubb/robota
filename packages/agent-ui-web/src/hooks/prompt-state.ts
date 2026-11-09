@@ -1,5 +1,5 @@
 /**
- * Pure prompt-state derivation for the web UI (REMOTE-009 Step 4 / REMOTE-007 render+answer).
+ * Pure prompt-state derivation for the web UI (render + answer).
  *
  * The paired browser is the session OWNER (local == remote), so it must render and ANSWER the owner's own
  * permission/ask prompts. The server carries `permission_request`/`ask_request` (a prompt appears) and
@@ -8,12 +8,12 @@
  * consumed by `useWsSession` and shared unchanged by BOTH the WS and RTC session clients (same `TServerMessage`s).
  */
 
-import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
+import type { TActionResponse } from '@robota-sdk/agent-interface/transport';
 import type {
   IAskRequestEvent,
   IPermissionRequestEvent,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport';
 
 /** A prompt awaiting the owner's answer, rendered by the UI (built from the server event payloads). */
@@ -32,9 +32,9 @@ export function applyPromptEvent(
 ): readonly TPendingPrompt[] {
   switch (msg.type) {
     case 'permission_request': {
-      // REMOTE-014 E5: keep requesterDriverId so the surface can show WHICH driver's turn raised the
-      // prompt. Issue #3288 §1: keep `requester` too, so it can show WHICH background agent did.
-      // #3288 §2: diffLines/diffFile (Edit/Write) and cwd (Shell, only when it differs) are the
+      // Keep requesterDriverId so the surface can show WHICH driver's turn raised the
+      // prompt. Keep `requester` too, so it can show WHICH background agent did.
+      // diffLines/diffFile (Edit/Write) and cwd (Shell, only when it differs) are the
       // server's diff/command preview — carried through unchanged so the prompt can render them
       // instead of raw args.
       const { id, toolName, toolArgs, requesterDriverId, requester, diffLines, diffFile, cwd } =

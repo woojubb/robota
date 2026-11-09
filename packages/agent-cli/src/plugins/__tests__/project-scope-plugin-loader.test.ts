@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * Issue #2487 (PLG-021 residual) — a project-scope install must be visible to the reload path.
+ * A project-scope install must be visible to the reload path.
  *
  * `installPlugin(..., 'project')` writes under `<cwd>/the configured project directory/plugins`; a trusted reload must read
  * that scope, while a restricted reload must not consume project-controlled plugin content.
@@ -63,7 +63,7 @@ afterEach(() => {
   }
 });
 
-describe('issue #2487: project-scope plugin installs reach the reload path', () => {
+describe('project-scope plugin installs reach the reload path', () => {
   it('does not load project plugins from a restricted workspace', () => {
     writePluginBundle(cwd, 'untrusted-project', 'project scope');
 

@@ -41,11 +41,11 @@ import type { IToolSchemaProjectionProfile } from '../schema/project-tool-schema
 import type { ILogger } from '../utils/logger';
 
 /**
- * MCP-005: the global-sink logger every `projectTools` quarantine line goes through.
+ * The global-sink logger every `projectTools` quarantine line goes through.
  *
  * `AnthropicProvider` and `GeminiProvider` construct with no logger, so `this.logger` is
  * `SilentLogger` (`:89` below) — a quarantine reported only there would be silent on two of four
- * providers. `createLogger('ToolSchemaProjection')` is the CORE-040 precedent
+ * providers. `createLogger('ToolSchemaProjection')` is the established pattern
  * (`agent-mcp/src/third-party-schema.ts`, `createLogger('ThirdPartySchema')`): audible without an
  * injected logger, because it writes to the process-wide sink a host installs with
  * `setGlobalLoggerSink`.
@@ -101,7 +101,7 @@ export abstract class AbstractAIProvider<TConfig = IProviderRuntimeConfig> imple
   protected readonly logger: ILogger;
 
   /**
-   * MCP-005 per-tool quarantine memo — instance-scoped (never a module singleton), so one provider
+   * Per-tool quarantine memo — instance-scoped (never a module singleton), so one provider
    * instance's cache cannot silence another's, and a tool refused for a new reason is reported again
    * while one refused for the same reason is not re-reported on every turn. Keyed by the log line.
    */
@@ -230,7 +230,7 @@ export abstract class AbstractAIProvider<TConfig = IProviderRuntimeConfig> imple
   }
 
   /**
-   * MCP-005: this provider's tool-schema wire constraints, as data. `undefined` (the default) means
+   * This provider's tool-schema wire constraints, as data. `undefined` (the default) means
    * "adopt every tool unchanged, no diagnostics" — today's behaviour, kept for `agent-provider-replay`
    * and any embedding provider that overrides nothing.
    */

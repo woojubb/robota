@@ -1,5 +1,5 @@
 /**
- * #3189: push the session's status to every attached client when it changes.
+ * Push the session's status to every attached client when it changes.
  *
  * A client used to read the status once and then only saw what it changed itself, so one client's
  * `/mode` never reached the others. The session now emits `status_changed` after anything that can
@@ -11,7 +11,7 @@
 import type {
   ISessionStatusSnapshot,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** The events after which the status may have changed; a command's end is pushed by the session. */
 export const STATUS_CHANGING_EVENTS = [

@@ -6,8 +6,11 @@ import {
   SessionSurface,
   rememberSessionForRestore,
   useWsSession,
+  useSessionClient,
+  type IWsSessionState,
+  type TMakeSessionClient,
 } from '@robota-sdk/agent-ui-web/client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { IGuiHost, IGuiTrustQuestion, TGuiTrustChoice } from './gui-host.js';
 
@@ -19,23 +22,35 @@ import type { IGuiHost, IGuiTrustQuestion, TGuiTrustChoice } from './gui-host.js
 
 /**
  * Connect to the sidecar over WS and render the shared session surface. `SessionSurface` shows its own
- * connection-lost banner (issue #3280 §5) from `state.connectionLost` — this component's only job is
+ * connection-lost banner from `state.connectionLost` — this component's only job is
  * the host-specific `onReconnect` action: present only when the host can restart the runtime (desktop),
  * and remembering the session to switch back to once the restart's reload reconnects.
  */
-function SessionView({ url, host }: { url: string; host: IGuiHost }): React.ReactElement {
-  const { storage } = useProductIdentity();
+function WsSessionView({ url, host }: { url: string; host: IGuiHost }): React.ReactElement {
   const state = useWsSession(url);
+  return <SessionView state={state} host={host} />;
+}
+
+function PortSessionView({ makeClient, host }: { makeClient: TMakeSessionClient; host: IGuiHost }): React.ReactElement {
+  const state = useSessionClient(makeClient);
+  if (host.secureMode && state.status !== 'connected') {
+    return <CenteredChrome tone="muted">Secure conversation is locked. Choose File → Unlock Secure Conversation to open it.</CenteredChrome>;
+  }
+  return <SessionView state={{ ...state, connectionLost: state.status === 'disconnected' || state.status === 'error' }} host={host} />;
+}
+
+function SessionView({ state, host }: { state: IWsSessionState; host: IGuiHost }): React.ReactElement {
+  const { storage } = useProductIdentity();
   useEffect(() => {
     if (state.status === 'connected') host.signalReady();
   }, [state.status, host]);
-  // #3282 §4a: the desktop app's ⌘,/Ctrl+, menu item, beside the gear button `SessionSurface`
+  // The desktop app's ⌘,/Ctrl+, menu item, beside the gear button `SessionSurface`
   // already renders — both call the same `openSettings`.
   const { openSettings } = state;
   useEffect(() => host.onOpenSettings(openSettings), [host, openSettings]);
   const restart = host.restartRuntime;
   const currentSessionId = state.sessionListing?.currentSessionId ?? null;
-  const onReconnect = restart
+  const onReconnect = restart && !host.secureMode
     ? async (): Promise<void> => {
         if (currentSessionId) rememberSessionForRestore(storage.browserNamespace, currentSessionId);
         await restart();
@@ -46,11 +61,12 @@ function SessionView({ url, host }: { url: string; host: IGuiHost }): React.Reac
       state={state}
       surface={host.kind === 'desktop' ? 'app' : 'web'}
       personalUsageEnabled
+      draftMode={host.secureMode ? 'volatile' : 'persistent'}
       onReconnect={onReconnect}
       pickFiles={host.pickFiles}
       getPathForFile={host.getPathForFile}
       onOpenMemoryInEditor={host.openMemoryInEditor}
-      appViewSandboxUrl={new URL('app-sandbox.html', document.baseURI).href}
+      appViewSandboxUrl={host.secureMode ? undefined : new URL('app-sandbox.html', document.baseURI).href}
     />
   );
 }
@@ -61,7 +77,7 @@ const TRUST_BUTTON =
 /**
  * The runtime never started (or stopped for good before a session was ever live) — the reason the
  * host reported, in plain words, and a Try again that reuses the exact same restart flow the
- * connection-lost banner's Reconnect uses (issue #3282 §3): ask the CLI again, reload once it answers.
+ * connection-lost banner's Reconnect uses: ask the CLI again, reload once it answers.
  */
 function FatalDetail({
   detail,
@@ -113,7 +129,7 @@ function FatalDetail({
 }
 
 /**
- * The folder is not trusted yet (issue #3268): nothing has started. Trusting it lets the session load
+ * The folder is not trusted yet: nothing has started. Trusting it lets the session load
  * the project's own configuration; Restricted starts without it; Quit closes the app.
  */
 function TrustQuestion({
@@ -154,7 +170,7 @@ function TrustQuestion({
           Trusting this folder lets {identity.displayName} use the project&apos;s own settings, hooks, skills and MCP
           servers. Restricted starts without them.
         </p>
-        {/* #3282 §3: a row appears only when its state is known (never "[unavailable]" noise), and
+        {/* A row appears only when its state is known (never "[unavailable]" noise), and
             the list is closed by default — the sentence above is the answer for most people. */}
         {question.loads.length > 0 ? (
           <details className="mt-4 text-left">
@@ -211,34 +227,41 @@ export function App({ host, product }: { host: IGuiHost; product: IWebProductIde
 }
 
 function AppContent({ host }: { host: IGuiHost }): React.ReactElement {
-  const [url, setUrl] = useState<string | null>(null);
+  // A host object can be selected again; each selection must pass its own trust check.
+  const generation = useMemo(() => ({}), [host]);
+  const [endpoint, setEndpoint] = useState<{ generation: object; url: string } | null>(null);
+  const [portGeneration, setPortGeneration] = useState<object | null>(null);
   // `detail` is what the sidecar said before it stopped — the reason, and often the fix.
-  const [fatal, setFatal] = useState<{ detail?: string } | null>(null);
+  const [fatal, setFatal] = useState<{ generation: object; detail?: string } | null>(null);
   // Asked before the endpoint: in a folder not trusted yet the host starts nothing until the answer.
-  const [trust, setTrust] = useState<IGuiTrustQuestion | null>(null);
+  const [trust, setTrust] = useState<{ generation: object; question: IGuiTrustQuestion } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const unsubscribe = host.onState((state, detail) => {
-      if (state === 'fatal') setFatal(detail ? { detail } : {});
+      if (!cancelled && state === 'fatal') setFatal(detail ? { generation, detail } : { generation });
     });
     void (async () => {
       const question = (await host.trustQuestion?.()) ?? null;
       if (cancelled) return;
       if (question) {
-        setTrust(question);
+        setTrust({ generation, question });
+        return;
+      }
+      if (host.makeSessionClient) {
+        setPortGeneration(generation);
         return;
       }
       const endpoint = await host.getEndpoint();
-      if (!cancelled) setUrl(endpoint);
+      if (!cancelled && endpoint) setEndpoint({ generation, url: endpoint });
     })();
     return () => {
       cancelled = true;
       unsubscribe();
     };
-  }, [host]);
+  }, [host, generation]);
 
-  if (fatal) {
+  if (fatal?.generation === generation) {
     return (
       <div role="alert" className="flex h-full flex-col">
         <CenteredChrome tone="fatal">
@@ -247,13 +270,16 @@ function AppContent({ host }: { host: IGuiHost }): React.ReactElement {
       </div>
     );
   }
-  if (trust && host.answerTrust) {
-    return <TrustQuestion question={trust} answer={host.answerTrust} />;
+  if (trust?.generation === generation && host.answerTrust) {
+    return <TrustQuestion question={trust.question} answer={host.answerTrust} />;
   }
-  if (!url) {
+  if (portGeneration === generation && host.makeSessionClient) {
+    return <PortSessionView makeClient={host.makeSessionClient} host={host} />;
+  }
+  if (endpoint?.generation !== generation) {
     return <CenteredChrome tone="muted">Starting the agent…</CenteredChrome>;
   }
-  // A lost connection (issue #3280 §5) is shown by `SessionSurface` itself, above the conversation —
+  // A lost connection is shown by `SessionSurface` itself, above the conversation —
   // never a full-screen replacement — so it is not a branch here.
-  return <SessionView url={url} host={host} />;
+  return <WsSessionView url={endpoint.url} host={host} />;
 }

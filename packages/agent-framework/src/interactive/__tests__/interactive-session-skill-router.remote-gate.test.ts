@@ -12,7 +12,7 @@ import { createTestFrameworkHost } from '../../testing/framework-host.js';
 const testHost = createTestFrameworkHost();
 
 /**
- * REMOTE-006 — local == remote. A transport-origin (`source==='remote'`) command runs exactly as a locally-typed
+ * Local == remote. A transport-origin (`source==='remote'`) command runs exactly as a locally-typed
  * one by default (allow-by-default); the router's gate only fires when a consumer injects an OPTIONAL restrictive
  * `IRemoteCommandPolicy`. These tests drive `SessionSkillRouter` directly and assert the allow/deny matrix.
  */
@@ -55,7 +55,7 @@ function mutating(name = 'shell'): ISystemCommand {
   return makeCommand(name, { requiresPermission: true, lifecycle: 'inline' });
 }
 
-describe('SessionSkillRouter remote-command policy (REMOTE-006 — allow-by-default)', () => {
+describe('SessionSkillRouter remote-command policy (allow-by-default)', () => {
   it('retains explicit carrier locality separately from the compatibility default', async () => {
     let router: SessionSkillRouter;
     const evidence: (string | undefined)[] = [];
@@ -73,7 +73,7 @@ describe('SessionSkillRouter remote-command policy (REMOTE-006 — allow-by-defa
     expect(router.getCommandSurfaceLocalityEvidence()).toBeUndefined();
     expect(router.getCommandSurfaceLocality()).toBe('local');
   });
-  it('TC-01: with the default allow-all policy, a non-read-only remote command executes (was denied under B1)', async () => {
+  it('with the default allow-all policy, a non-read-only remote command executes', async () => {
     const cmd = mutating();
     const router = makeRouter([cmd], createDefaultRemoteCommandPolicy());
     const result = await router.executeCommand('shell', '', 'remote');
@@ -81,7 +81,7 @@ describe('SessionSkillRouter remote-command policy (REMOTE-006 — allow-by-defa
     expect(cmd.execute).toHaveBeenCalledTimes(1);
   });
 
-  it('TC-02: no-policy framework default — undefined policy now ALLOWS a non-read-only remote command', async () => {
+  it('no-policy framework default — undefined policy now ALLOWS a non-read-only remote command', async () => {
     const cmd = mutating();
     const router = makeRouter([cmd]); // remoteCommandPolicy === undefined
     const result = await router.executeCommand('shell', '', 'remote');
@@ -89,7 +89,7 @@ describe('SessionSkillRouter remote-command policy (REMOTE-006 — allow-by-defa
     expect(cmd.execute).toHaveBeenCalledTimes(1);
   });
 
-  it('TC-03: the optional restriction seam still restricts — a non-read-only remote command is denied when a restrictive policy is injected', async () => {
+  it('the optional restriction seam still restricts — a non-read-only remote command is denied when a restrictive policy is injected', async () => {
     const cmd = mutating();
     const router = makeRouter([cmd], RESTRICTIVE);
     const result = await router.executeCommand('shell', '', 'remote');
@@ -98,7 +98,7 @@ describe('SessionSkillRouter remote-command policy (REMOTE-006 — allow-by-defa
     expect(cmd.execute).not.toHaveBeenCalled();
   });
 
-  it('TC-03: a restrictive policy still allows a read-only remote command', async () => {
+  it('a restrictive policy still allows a read-only remote command', async () => {
     const cmd = makeCommand('status', { safety: 'read-only', lifecycle: 'inline' });
     const router = makeRouter([cmd], RESTRICTIVE);
     const result = await router.executeCommand('status', '', 'remote');
@@ -106,7 +106,7 @@ describe('SessionSkillRouter remote-command policy (REMOTE-006 — allow-by-defa
     expect(cmd.execute).toHaveBeenCalledTimes(1);
   });
 
-  it('TC-03: a restrictive policy also gates the BLOCKING-lifecycle branch', async () => {
+  it('a restrictive policy also gates the BLOCKING-lifecycle branch', async () => {
     const cmd = makeCommand('editor', { requiresPermission: true, lifecycle: 'blocking' });
     const router = makeRouter([cmd], RESTRICTIVE);
     const result = await router.executeCommand('editor', '', 'remote');
@@ -114,7 +114,7 @@ describe('SessionSkillRouter remote-command policy (REMOTE-006 — allow-by-defa
     expect(cmd.execute).not.toHaveBeenCalled();
   });
 
-  it('TC-04: local `user` + default-omitted commands run unchanged (no gate)', async () => {
+  it('local `user` + default-omitted commands run unchanged (no gate)', async () => {
     const cmd = mutating();
     const router = makeRouter([cmd], RESTRICTIVE); // even with a restrictive policy, local is never gated
     expect((await router.executeCommand('shell', '', 'user'))?.success).toBe(true);

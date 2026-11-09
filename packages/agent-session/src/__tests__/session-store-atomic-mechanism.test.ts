@@ -1,5 +1,5 @@
 /**
- * CORE-019 — pins the atomic-write MECHANISM of SessionStore.save().
+ * Pins the atomic-write MECHANISM of SessionStore.save().
  *
  * The observable-behavior tests (session-store-atomic.test.ts) pass even with a direct
  * writeFileSync; this test asserts the crash-safe shape itself: bytes are written to a
@@ -25,7 +25,7 @@ import { dirname, join } from 'node:path';
 
 import { NodeSessionStore } from '../session-store.js';
 
-describe('SessionStore atomic write mechanism (CORE-019)', () => {
+describe('SessionStore atomic write mechanism', () => {
   it('save() writes to a same-directory temp path, then renames into place', () => {
     const baseDir = mkdtempSync(join(tmpdir(), 'agent-store-mech-'));
     try {

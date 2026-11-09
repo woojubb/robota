@@ -1,5 +1,5 @@
 /**
- * A fork job run in this process while the keys are locked (#3679 step 3b, secure conversation).
+ * A fork job run in this process while the keys are locked (secure conversation).
  *
  * `/fork` writes the copy sealed — sealing needs no unlock — and the in-process runner restores it
  * through the same store instance. The restore used to ask `load` alone, which says `locked`, so the
@@ -20,7 +20,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { writeForkedSessionRecord } from '../interactive-session-fork-record.js';
 import { restoreSessionRecordIntoSession } from '../interactive-session-restore.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 const CANARY = 'CANARY-in-process-fork-9b31-conversation';

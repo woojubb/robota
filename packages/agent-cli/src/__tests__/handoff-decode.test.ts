@@ -1,5 +1,5 @@
 /**
- * TRANS-006 (issue #2097) — the handoff destination decodes before it stages.
+ * The handoff destination decodes before it stages.
  *
  * Integrity is not validity. A digest proves the bytes that arrived are the bytes that were sent; it
  * says nothing about whether they are a session record. These cases drive the REAL composition root
@@ -9,19 +9,19 @@
  * whether a genuine digest can pass while the payload is not a record, and a stand-in digest would
  * make that unfalsifiable.
  *
- * TC-05 is the case that carries the design: one payload fails integrity and one passes integrity
+ * The integrity-versus-decode case carries the design: one payload fails integrity and one passes integrity
  * and fails decoding, asserted to produce DIFFERENT refusals. The two require opposite actions from
  * the source — an integrity failure is retried, a decode failure never is — so a suite that only
  * checked "it refused" would pass against an implementation that had collapsed them.
  */
 
-import { HandoffDestination, HandoffSource } from '@robota-sdk/agent-interface-session-mobility';
+import { HandoffDestination, HandoffSource } from '@robota-sdk/agent-interface/session-mobility';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createHandoffComposition } from '../handoff/handoff-composition-root.js';
 
-import type { IHandoffCarrier, IHandoffChunkFrame } from '@robota-sdk/agent-interface-session-mobility';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IHandoffCarrier, IHandoffChunkFrame } from '@robota-sdk/agent-interface/session-mobility';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const composition = createHandoffComposition();
 
@@ -35,7 +35,7 @@ function validRecord(id = 'session-1'): IInteractiveSessionRecord {
       {
         id: 'm-0',
         // A real `Date`. The seal is `JSON.stringify`, so this reaches the destination as an ISO
-        // string — the decoder is what turns it back into a `Date`, and TC-08 asserts that.
+        // string — the decoder is what turns it back into a `Date`, and the valid-path case asserts that.
         timestamp: new Date('2026-08-21T00:00:00.000Z'),
         state: 'complete',
         role: 'user',
@@ -84,7 +84,7 @@ function wire(
   return carrier;
 }
 
-describe('handoff decode — TC-04/TC-06: an intact payload that is not a record never stages', () => {
+describe('handoff decode — an intact payload that is not a record never stages', () => {
   let destination: HandoffDestination;
   let persist: ReturnType<typeof vi.fn>;
 
@@ -122,7 +122,7 @@ describe('handoff decode — TC-04/TC-06: an intact payload that is not a record
     expect(report.state).toBe('discarded');
     expect(report.refusal).toBe('payload-undecodable');
 
-    // TC-06: nothing is committable after the refusal, and no write was attempted.
+    // Nothing is committable after the refusal, and no write was attempted.
     expect(destination.liveRecord()).toBe(null);
     expect(persist).not.toHaveBeenCalled();
   });
@@ -140,7 +140,7 @@ describe('handoff decode — TC-04/TC-06: an intact payload that is not a record
   });
 });
 
-describe('handoff decode — TC-05: integrity failure and decode failure are different refusals', () => {
+describe('handoff decode — integrity failure and decode failure are different refusals', () => {
   function newDestination(): HandoffDestination {
     return new HandoffDestination({
       composition,
@@ -179,7 +179,7 @@ describe('handoff decode — TC-05: integrity failure and decode failure are dif
   });
 });
 
-describe('handoff decode — TC-08: the valid path still stages, commits and revives dates', () => {
+describe('handoff decode — the valid path still stages, commits and revives dates', () => {
   it('carries a real Date through the transfer', async () => {
     const destination = new HandoffDestination({
       composition,
@@ -201,8 +201,8 @@ describe('handoff decode — TC-08: the valid path still stages, commits and rev
     const live = destination.liveRecord();
     expect(live?.id).toBe('session-1');
 
-    // The seal is `JSON.stringify`, so the timestamp crossed as a string. Before TRANS-006 the
-    // destination cast it back and the declared `Date` was a lie on the receiving side.
+    // The seal is `JSON.stringify`, so the timestamp crossed as a string. A destination that only
+    // cast it back would make the declared `Date` a lie on the receiving side.
     expect(live?.messages[0]?.timestamp).toBeInstanceOf(Date);
     expect(live?.messages[0]?.timestamp.toISOString()).toBe('2026-08-21T00:00:00.000Z');
   });

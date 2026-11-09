@@ -15,7 +15,7 @@ import {
 } from '../device-identity.js';
 
 /**
- * REMOTE-012 E3 TC-01/02 — the isomorphic ECDSA device/host identity primitives, under Node WebCrypto (the
+ * The isomorphic ECDSA device/host identity primitives, under Node WebCrypto (the
  * same code path the browser runs). Proves the channel-bound reconnect signature round-trips and fails closed
  * on any tampered field, and that identity ids + SPKI export/import are stable.
  */
@@ -32,7 +32,7 @@ function challenge(over: Partial<IReconnectChallenge> = {}): IReconnectChallenge
   };
 }
 
-describe('device-identity signChallenge/verifyChallenge (REMOTE-012 TC-01)', () => {
+describe('device-identity signChallenge/verifyChallenge', () => {
   it('a signature verifies with the matching public key over the same transcript', async () => {
     const pair = await generateIdentityKeyPair(false);
     const spki = await exportPublicKey(pair.publicKey);
@@ -86,7 +86,7 @@ describe('device-identity signChallenge/verifyChallenge (REMOTE-012 TC-01)', () 
   });
 });
 
-describe('device-identity ids + key export/import (REMOTE-012 TC-02)', () => {
+describe('device-identity ids + key export/import', () => {
   it('deriveIdentityId is stable for a key and differs across keys', async () => {
     const a = await exportPublicKey((await generateIdentityKeyPair(false)).publicKey);
     const b = await exportPublicKey((await generateIdentityKeyPair(false)).publicKey);

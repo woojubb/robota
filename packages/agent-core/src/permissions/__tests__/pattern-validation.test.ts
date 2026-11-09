@@ -1,5 +1,5 @@
 /**
- * Issue #2428 — a malformed permission pattern is named where it is written, with the reason,
+ * A malformed permission pattern is named where it is written, with the reason,
  * instead of being discovered one unevaluable prompt at a time at the gate.
  */
 import { afterEach, describe, expect, it } from 'vitest';
@@ -9,7 +9,7 @@ import { clearRegisteredToolProfiles, registerToolPermissionProfile } from '../p
 
 afterEach(() => clearRegisteredToolProfiles());
 
-describe('validatePermissionPattern (issue #2428)', () => {
+describe('validatePermissionPattern', () => {
   it('accepts a bare tool, a wildcard, and a pattern for a tool nobody has declared yet', () => {
     expect(validatePermissionPattern('Bash')).toBeUndefined();
     expect(validatePermissionPattern('Bash(*)')).toBeUndefined();

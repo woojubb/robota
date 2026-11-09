@@ -1,5 +1,5 @@
 /**
- * #3679: the parent follows the fork record it lent to a child — it ends the lease once the child has
+ * The parent follows the fork record it lent to a child — it ends the lease once the child has
  * both exited and disconnected — and a sealing parent then vouches for what the write-only child
  * saved: exactly the bytes the child last reported, and only when the job started from the owner's
  * content and no save was refused. The child side reports each save of its fork record and remembers

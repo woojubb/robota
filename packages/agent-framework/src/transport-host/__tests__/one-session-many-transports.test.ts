@@ -1,4 +1,4 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,11 +10,11 @@ import { TransportRegistry } from '../transport-registry';
 import { createFileTransportSettingsRepository } from '../transport-settings-repository.js';
 import { bindTransportAdapter } from '../bind-transport-adapter.js';
 
-import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 /**
- * SELFHOST-013 TC-01 — the load-bearing "one agent definition → many channels" DIP claim: the registry fans a
+ * The load-bearing "one agent definition → many channels" DIP claim: the registry fans a
  * SINGLE `IInteractiveSession` instance into every enabled bound transport. Each recording transport captures the
  * exact `attach()` argument; the test then asserts strict reference identity (the same instance reached both),
  * which would fail if the registry ever copied/cloned/rebuilt the session per transport.
@@ -80,6 +80,6 @@ describe('one definition → many transports (reference identity)', () => {
     await registry.startAll();
 
     expect(enabled.attached).toBe(session);
-    expect(outOfBand.attached).toBeUndefined(); // startAll skips it; REMOTE-001 attaches it out-of-band on the same session
+    expect(outOfBand.attached).toBeUndefined(); // startAll skips it; it is attached out-of-band on the same session
   });
 });

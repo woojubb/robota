@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { closeObjectSchemas } from '../../index.js';
 
 /**
- * PROV-007 — one closure recursion for every provider that rejects open-world objects.
+ * One closure recursion for every provider that rejects open-world objects.
  *
  * Anthropic requires closure. OpenAI strict mode requires closure AND that every object list all of
  * its properties in `required`. They differ in policy, not in how a schema is walked — and a walk
  * that misses a route leaves exactly the nodes it was written to fix untouched, which is the defect
- * CORE-039 was filed for after `anyOf` went unrecursed in the one private copy that existed.
+ * of a walk that leaves `anyOf` unrecursed.
  */
 
 const NESTED = {
@@ -64,7 +64,7 @@ function objectNodes(
   return found;
 }
 
-describe('PROV-007 — closure', () => {
+describe('closure', () => {
   it('closes EVERY object node, at every depth and down every route', () => {
     // Root, a nested property, an array item, and both branches of a union. The union is the route a
     // private copy of this walk once missed entirely.
@@ -108,7 +108,7 @@ describe('PROV-007 — closure', () => {
   });
 });
 
-describe('PROV-007 — OpenAI strict mode', () => {
+describe('OpenAI strict mode', () => {
   const strict = { requireAllProperties: true, optionalAsNullable: true } as const;
 
   it('lists every property in `required`, at every depth', () => {

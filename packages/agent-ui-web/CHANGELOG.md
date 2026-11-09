@@ -1,5 +1,213 @@
 # @robota-sdk/agent-ui-web
 
+## 3.3.3
+### Patch Changes
+
+- The previous version of this package was tagged but never published to npm, because `main` moved past its release commit first. This version carries the same consolidated package set from the current `main`, with comment and test-name cleanups and no behavior change.
+- Updated dependencies
+  - @robota-sdk/agent-transport@3.4.1
+
+## 3.3.2
+### Patch Changes
+
+- 327999e: The contract packages are now one package, `@robota-sdk/agent-interface`, with one subpath per family: `session` (and `session/testing`), `session-mobility`, `command`, `execution`, `analytics`, `transport` (and `transport/testing`) and `tui`. Import the subpath of the family you use (`@robota-sdk/agent-interface/session`); there is no root export. `@robota-sdk/agent-core` is now an optional peer dependency: `analytics` and `tui` need nothing, and a project that imports another family installs `agent-core` itself (the SDK packages that import those families declare it). The exported names and signatures are unchanged. `@robota-sdk/agent-interface-session`, `-session-mobility`, `-command`, `-execution`, `-analytics`, `-transport` and `-tui` no longer receive releases. The SDK packages that import a contract depend on `@robota-sdk/agent-interface`.
+- Updated dependencies [1f900da]
+- Updated dependencies [661b834]
+- Updated dependencies [327999e]
+- Updated dependencies [16795cb]
+- Updated dependencies [bf901d7]
+  - @robota-sdk/agent-core@3.2.3
+  - @robota-sdk/agent-transport@3.4.0
+  - @robota-sdk/agent-interface@3.3.0
+
+## 3.3.1
+### Patch Changes
+
+- Drop dangling tracker references (deleted backlog IDs, stage labels and closed issue numbers) from shipped comments, type declarations and runtime messages, so agents reading this package are not sent after tickets that no longer exist. No behavior change.
+- Updated dependencies
+  - @robota-sdk/agent-interface-command@3.2.3
+  - @robota-sdk/agent-interface-execution@3.2.3
+  - @robota-sdk/agent-interface-session@3.2.3
+  - @robota-sdk/agent-interface-transport@3.2.3
+  - @robota-sdk/agent-transport@3.3.1
+
+## 3.3.0
+### Minor Changes
+
+- 5b02d9c: While observing, `SessionSurface` renders read-only: the conversation and its work without a composer or any control that changes the session.
+- c869802: The session client learns its role from the host when it connects and, while observing, sends nothing an observer may not send.
+
+### Patch Changes
+
+- 8d05c9b: Allow compatible SDK dependencies to update independently.
+- be1504a: Recognize the `surface_role` server message.
+- Updated dependencies [8d05c9b]
+- Updated dependencies [be1504a]
+  - @robota-sdk/agent-interface-command@3.2.2
+  - @robota-sdk/agent-interface-execution@3.2.2
+  - @robota-sdk/agent-interface-session@3.2.2
+  - @robota-sdk/agent-interface-transport@3.2.2
+  - @robota-sdk/agent-transport@3.3.0
+
+## 3.2.1
+### Patch Changes
+
+  - @robota-sdk/agent-interface-command@3.2.1
+  - @robota-sdk/agent-interface-execution@3.2.1
+  - @robota-sdk/agent-interface-session@3.2.1
+  - @robota-sdk/agent-interface-transport@3.2.1
+  - @robota-sdk/agent-transport@3.2.1
+
+## 3.2.0
+### Minor Changes
+
+- 0ea29ac: Add an opt-in secure conversation path for the desktop shell. A native owner credential opens a certified runtime, and the renderer receives a session-only port without a daemon URL or owner capability. Secure drafts remain in memory, and the desktop relocks on reload or exit. The CLI exposes the persisted mode transition and an explicit supervised child command for this host.
+
+### Patch Changes
+
+- Updated dependencies [e5ce7d6]
+- Updated dependencies [12ab3f5]
+- Updated dependencies [ad5e9fb]
+  - @robota-sdk/agent-interface-session@3.2.0
+  - @robota-sdk/agent-interface-execution@3.2.0
+  - @robota-sdk/agent-transport@3.2.0
+  - @robota-sdk/agent-interface-command@3.2.0
+  - @robota-sdk/agent-interface-transport@3.2.0
+
+## 3.1.2
+### Patch Changes
+
+  - @robota-sdk/agent-interface-command@3.1.2
+  - @robota-sdk/agent-interface-execution@3.1.2
+  - @robota-sdk/agent-interface-session@3.1.2
+  - @robota-sdk/agent-interface-transport@3.1.2
+  - @robota-sdk/agent-transport@3.1.2
+
+## 3.1.1
+### Patch Changes
+
+  - @robota-sdk/agent-interface-command@3.1.1
+  - @robota-sdk/agent-interface-execution@3.1.1
+  - @robota-sdk/agent-interface-session@3.1.1
+  - @robota-sdk/agent-interface-transport@3.1.1
+  - @robota-sdk/agent-transport@3.1.1
+
+## 3.1.0
+### Minor Changes
+
+- bc8de21: `TSessionLoadOutcome` gains a fifth status, `locked`: the record is there and sealed, and this
+  process cannot open it right now (`reason: 'no-keys'` when the store keeps its records `'plain'`,
+  `'changed'` when a held session's file changed since). `list()` leaves locked sessions out, since
+  there is no record to describe; the optional `scan()` returns the listing together with how many it
+  left out — `locked`, which an unlock would list, and an optional `noKeys` for those sealed with keys
+  this process does not have — and `scanSessionStore`/`listResumableSessions` in
+  `@robota-sdk/agent-framework` read it. `lockedSessionReason`, `lockedSessionMessage(id, reason)` and
+  `lockedSessionsNotice(locked, noKeys)` word a sealed session by why it does not open, so only locked
+  keys are ever met with "unlock"; resume, rename, hand-off, usage and the CLI's notices follow them. A
+  served session listing carries how many sealed sessions the host cannot open, its keys locked or
+  none that open them, as `lockedSessionCount`; the reason does not cross the wire, so the terminal
+  picker and the web session list say how many are sealed and not listed, never to unlock.
+
+  `@robota-sdk/agent-interface-analytics` adds an optional `IPersonalUsageCoverage.lockedSessions`, the
+  number of sealed sessions a usage report could not open (locked keys, or none that open them).
+  `@robota-sdk/agent-session-analytics` adds an optional `IPersonalUsageSnapshot.lockedSessionCount`,
+  which fills it, and the formatted report then reads `locked N` in its coverage line.
+
+  What to do: a `switch` over `outcome.status` handles `locked`; when you write, treat it like
+  `corrupt` (do not save over it). A surface that lists sessions can show `scan().locked` and
+  `scan().noKeys` so sealed sessions do not look deleted.
+- a2d36ea: Move what touches a host out of the main entries of `@robota-sdk/agent-command` and `@robota-sdk/agent-preset` into new Node-only `./node` subpaths (`"browser": null`), so neither main entry names a Node module of its own. Both stay Node-only until the packages they import go neutral.
+
+  - `@robota-sdk/agent-command/node` (new) holds `/shell` and `/editor` (`createShellCommandModule`, `createEditorCommandModule` and their sources, entries, `execute*`, `resolveShell`, `resolveEditor` and `spawnInherited`), `createTerminalClientCommands` (an attached terminal runs `/shell` and `/editor` itself), `createNodeDoctorDeps` and `resolveCommandOnPath`, and the new `openFileInEditor`. Import these from `/node`.
+  - `createDefaultCommandModules` no longer builds `/shell` and `/editor`, and its `editorTemporaryDirectoryPrefix` option is gone: a Node product adds the two modules beside the default set, as `@robota-sdk/pack-coding` already does. The CLI's command list is unchanged.
+  - `/doctor` takes its probes and writers by injection. `createDoctorCommandModule(inputs, deps, display)` has no default for `deps` (pass `createNodeDoctorDeps` from `/node`), `IDoctorDeps` gains `ensureOwnerOnlyDirectory` and `writeSettings` for the confirmed repairs and a required `files: IFileSystem` that the plugin and skill probes read installed extensions through, and `createDefaultCommandModules` takes `doctorDeps`. Absent, `/doctor` is still listed and answers that it is unavailable on this host; nothing is probed or written.
+  - `/git` runs through an injected process. `createGitCommandModule({ port })` has no default `createGitProcess()` any more and `createDefaultCommandModules` takes `gitProcess`; absent, `/git` is still listed and answers that it is unavailable on this host, and no process starts. `@robota-sdk/agent-command` no longer re-exports `createGitProcess`, `gitEnvironment`, `ICreateGitProcessOptions`, `IGitProcessPort`, `IGitProcessRunOptions`, `TGitProcessFailureReason` or `TGitProcessOutcome`: import `createGitProcess`, `gitEnvironment` and `ICreateGitProcessOptions` from `@robota-sdk/agent-framework/node`, and the port and outcome types (`IGitProcessPort`, `IGitProcessRunOptions`, `TGitProcessFailureReason`, `TGitProcessOutcome`) from `@robota-sdk/agent-framework`, which owns them. `@robota-sdk/agent-cli` and `@robota-sdk/pack-coding` pass `createGitProcess()`.
+  - `/keybindings` opens its file through an injected `TOpenFileInEditor`: `createKeybindingsCommandModule(file, openInEditor)` and the new `keybindingsEditor` option of `createDefaultCommandModules` (pass `openFileInEditor` from `/node`). Absent, `/keybindings` answers that the editor is unavailable here and creates no file.
+  - `/provider` and `/model` read a `$ENV:` credential reference from the host's `env` snapshot only. Absent, the reference reads as unset (the setup says so and asks again); the live process environment is no longer consulted by the command itself.
+  - `/loop` takes its ids and per-loop offset from `randomId` and `sha256Hex` in `@robota-sdk/agent-core`; both read exactly as before.
+  - The `/doctor` check ids (`settings.<scope>.<family>`) read a project-relative path a Windows host joined with `\` as they read one joined with `/`.
+  - `@robota-sdk/agent-preset/node` (new) holds `loadExternalPresetsFromDir`. The main entry gains `loadExternalPresetsFromFiles` (`IExternalPresetFile` list of `{ fileName, read }`), which has the same per-file error rules over files a host hands it; only `*.json` names are read. Output-style file ids are read from the file name without `node:path`.
+  - `@robota-sdk/agent-cli` passes `createNodeDoctorDeps` and `openFileInEditor`, and reads the preset directory and runs the attached terminal's commands through the `/node` entries, so every command behaves as before. `@robota-sdk/pack-coding` and `@robota-sdk/agent-ui-terminal` (tests) import `/shell` and `/editor` from `@robota-sdk/agent-command/node`; `@robota-sdk/agent-ui-web` only has a test comment updated.
+- b56b5a9: Ship one build per package. The platform-neutral entries moved from `dist/node` to `dist`, and the second
+  `dist/browser` build of `@robota-sdk/agent-core`, `@robota-sdk/agent-transport`,
+  `@robota-sdk/agent-ui-web` and `@robota-sdk/agent-transport-webrtc-web` is gone: a neutral entry runs
+  unchanged in every runtime, so a subpath's `exports` map `import` and `require` to the same files and no
+  longer a `node` or `browser` condition (a Node-only subpath keeps `"browser": null`). Import specifiers
+  and the code behind them are unchanged; only a deep import of `dist/node/*` or `dist/browser/*` breaks.
+  `@robota-sdk/agent-transport/client` also ships a CommonJS build now.
+
+### Patch Changes
+
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [82663df]
+- Updated dependencies [bc8de21]
+- Updated dependencies [437ca9e]
+- Updated dependencies [b56b5a9]
+  - @robota-sdk/agent-interface-session@3.1.0
+  - @robota-sdk/agent-interface-execution@3.1.0
+  - @robota-sdk/agent-transport@3.1.0
+  - @robota-sdk/agent-interface-transport@3.1.0
+  - @robota-sdk/agent-interface-command@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/agent-interface-command@3.0.7
+  - @robota-sdk/agent-interface-execution@3.0.7
+  - @robota-sdk/agent-interface-session@3.0.7
+  - @robota-sdk/agent-interface-transport@3.0.7
+  - @robota-sdk/agent-transport@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/agent-interface-command@3.0.6
+  - @robota-sdk/agent-interface-execution@3.0.6
+  - @robota-sdk/agent-interface-session@3.0.6
+  - @robota-sdk/agent-interface-transport@3.0.6
+  - @robota-sdk/agent-transport@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-interface-command@3.0.5
+  - @robota-sdk/agent-interface-execution@3.0.5
+  - @robota-sdk/agent-interface-session@3.0.5
+  - @robota-sdk/agent-interface-transport@3.0.5
+  - @robota-sdk/agent-transport@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-interface-command@3.0.4
+  - @robota-sdk/agent-interface-execution@3.0.4
+  - @robota-sdk/agent-interface-session@3.0.4
+  - @robota-sdk/agent-interface-transport@3.0.4
+  - @robota-sdk/agent-transport@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-interface-command@3.0.3
+  - @robota-sdk/agent-interface-execution@3.0.3
+  - @robota-sdk/agent-interface-session@3.0.3
+  - @robota-sdk/agent-interface-transport@3.0.3
+  - @robota-sdk/agent-transport@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-interface-command@3.0.2
+  - @robota-sdk/agent-interface-execution@3.0.2
+  - @robota-sdk/agent-interface-session@3.0.2
+  - @robota-sdk/agent-interface-transport@3.0.2
+  - @robota-sdk/agent-transport@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

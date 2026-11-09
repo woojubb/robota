@@ -147,7 +147,7 @@ export function validateProviderProfile(
   if (!profile.type) {
     throw new Error(`Provider profile "${profileName}" is missing type`);
   }
-  // CLI-068: causal order — an unknown provider must be diagnosed as unknown,
+  // Causal order — an unknown provider must be diagnosed as unknown,
   // not as a missing field that its (nonexistent) defaults failed to fill.
   const definitions = options.providerDefinitions ?? [];
   const definition = findProviderDefinition(definitions, profile.type);
@@ -218,7 +218,7 @@ export function buildProviderProfile(
     ); // allow-console: security warning at setup time
   }
   if (input.apiKeyEnv !== undefined) {
-    // CLI-068: the referenced variable must exist when configuring — failing at
+    // The referenced variable must exist when configuring — failing at
     // first run with a generic missing-apiKey message diagnoses the wrong cause.
     const envValue = resolveProviderEnvironment(options.env)(input.apiKeyEnv);
     if (envValue === undefined || envValue.length === 0) {

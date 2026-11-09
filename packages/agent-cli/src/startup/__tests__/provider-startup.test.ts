@@ -405,7 +405,7 @@ describe('provider startup', () => {
     expect(prompted).toBe(false);
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'writes startup setup to project-local settings when project currentProvider masks user settings',
     async () => {
@@ -465,7 +465,7 @@ describe('provider startup', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'sets current provider in the effective project-local settings scope by default',
     async () => {

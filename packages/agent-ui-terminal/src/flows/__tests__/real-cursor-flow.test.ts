@@ -1,11 +1,11 @@
 /**
- * CLI-062 — unit tables for the real-cursor pure flow.
+ * Unit tables for the real-cursor pure flow.
  *
  * `computeCursorCell` maps (absolute input origin, value, cursor index, wrap width) to the
  * hardware-cursor cell, reusing the wrap-aware `displayOffset` math the input's vertical
  * navigation already trusts. `shouldPositionRealCursor` is the crash-avoidance guard: every
  * `false` row below is a SIGSEGV-invariant case (the historical Terminal.app crash geometry —
- * see .design/investigations/2026-07-25-cli-062-ime-cursor-design.md, invariants I1/I2/I5).
+ * see the invariants I1/I2/I5 documented on `shouldPositionRealCursor`).
  */
 
 import { describe, expect, it } from 'vitest';

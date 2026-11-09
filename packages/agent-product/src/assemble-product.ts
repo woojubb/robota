@@ -1,10 +1,10 @@
-import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
+import { mergeCapabilityPacks } from './capability-pack/index.js';
 import { createProviderFromConfig } from '@robota-sdk/agent-core';
 import { buildRuntimeSession } from '@robota-sdk/agent-framework';
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from './preset/index.js';
 
 import type { IAssembledProduct, IBuildRuntimeInput, IProductProfile } from './product-profile.js';
-import type { TCompositionFieldPolicy } from '@robota-sdk/agent-capability-pack';
+import type { TCompositionFieldPolicy } from './capability-pack/index.js';
 import type {
   FunctionTool,
   IAIProvider,
@@ -17,7 +17,7 @@ import type {
   ICommandModule,
   TInteractiveSessionOptions,
 } from '@robota-sdk/agent-framework';
-import type { IPresetRegistry, IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import type { IPresetRegistry, IResolvedPresetOptions } from './preset/index.js';
 
 export const PRODUCT_PROFILE_FIELD_POLICIES = {
   id: 'surfaced',
@@ -54,7 +54,7 @@ interface IOverlayMaterials {
   tools: readonly FunctionTool[];
   subagents: readonly IAgentDefinition[];
   defaultPermissionMode: TPermissionMode | undefined;
-  /** ARCH-009: the instance preset registry, so `/preset` discovers this product's presets. */
+  /** The instance preset registry, so `/preset` discovers this product's presets. */
   presetRegistry: IPresetRegistry;
 }
 
@@ -62,7 +62,7 @@ interface IOverlayMaterials {
  * Overlay the assembled command modules, pack tools, and pack subagents onto the shell's session options.
  * The injected pre-built-session path gets command modules only (its session already owns its tools); the
  * standard construction path also receives the additive pack tools and — via the framework's
- * `agentDefinitions` injection seam (ARCH-005 S2, owner Decision 2) — the merged pack subagents, so a
+ * `agentDefinitions` injection seam (owner Decision 2) — the merged pack subagents, so a
  * pack's subagents actually reach the runtime instead of being inert material. `agentDefinitions` is left
  * UNSET when no pack contributes one, so the framework's own built-ins + discovery are unchanged.
  *
@@ -84,13 +84,13 @@ function overlaySessionOptions(
     base.permissionMode === undefined && materials.defaultPermissionMode !== undefined
       ? { permissionMode: materials.defaultPermissionMode }
       : {};
-  // ARCH-007: the shell may hand in a selection it has ALREADY narrowed — the configured shell applies its preset's
+  // The shell may hand in a selection it has ALREADY narrowed — the configured shell applies its preset's
   // enabled/disabledCommandModules delta to the merged `base ⊕ packs` superset before calling the seam
   // (the spec's composition order: the merge widens, the preset delta narrows). Overwriting it here would
   // silently undo that narrowing, so the assembled set is overlaid only when the caller left it unset —
   // the same "only when the shell left it unset" rule `permissionMode` already follows.
   const commandModules = base.commandModules ?? materials.commandModules;
-  // ARCH-009: MERGED into the shell's bag, never substituted for it. The shell wires its own adapters
+  // MERGED into the shell's bag, never substituted for it. The shell wires its own adapters
   // there (remote control, process, settings) and the registry stands beside them; replacing the bag
   // would silently drop capabilities this assembler knows nothing about. Both arms get it — an
   // injected session is exactly the embedded-host case the item is about.
@@ -152,8 +152,8 @@ function overlaySessionOptions(
  *
  * What it does:
  * 1. Builds a PER-CALL instance-scoped preset registry over `profile.presets` (R8) — or adopts the
- *    instance the caller already built and handed in as `profile.presetRegistry` (ARCH-008). Either way it
- *    never mutates agent-preset's module-level `externalPresets` global, so two products in one process do
+ *    instance the caller already built and handed in as `profile.presetRegistry`. Either way it
+ *    never mutates the `preset` subpath's module-level `externalPresets` global, so two products in one process do
  *    not share one registry and repeat calls do not accumulate. `defaultPresetId` is resolved over that
  *    registry with `profile.presetContext`, so the product's `defaultPreset` is the caller's resolution.
  * 2. Merges the additive capability packs onto `profile.baseCommandModules` via `mergeCapabilityPacks`
@@ -162,7 +162,7 @@ function overlaySessionOptions(
  *    `profile.providerSettings` (owner Decision 1) via agent-core's pure `createProviderFromConfig`; an
  *    injected `profile.provider` overrides it.
  * 4. Produces `buildRuntimeOptions`/`buildRuntime`, which DELEGATE runtime construction to
- *    `agent-framework`'s `buildRuntimeSession` seam (R2, RUNTIME-001 SSOT) — never re-implementing runtime
+ *    `agent-framework`'s `buildRuntimeSession` seam (the SSOT for runtime assembly) — never re-implementing runtime
  *    assembly — overlaying the assembled modules, pack tools, and pack subagents (`agentDefinitions`).
  *
  * Settings/args/env resolution and concrete transports/presentation stay in the shell; `assembleProduct`
@@ -172,8 +172,8 @@ export function assembleProduct(profile: IProductProfile): IAssembledProduct {
   // (1) Per-call instance-scoped preset registry — pure w.r.t. process state (R8). A caller that had to
   // resolve a preset BEFORE it could build this profile (a preset can carry the `model`/`agentName` the
   // profile is constructed from) hands its own instance in as `presetRegistry`; the assembler then uses
-  // THAT one rather than building a second, equivalent registry, so there is exactly one resolution path
-  // (ARCH-008). Either way the registry is instance-scoped — no module-level state is read or mutated.
+  // THAT one rather than building a second, equivalent registry, so there is exactly one resolution path.
+  // Either way the registry is instance-scoped — no module-level state is read or mutated.
   const presets = profile.presetRegistry ?? createPresetRegistry(profile.presets ?? []);
   const defaultPreset: IResolvedPresetOptions | undefined =
     profile.defaultPresetId !== undefined
@@ -188,7 +188,7 @@ export function assembleProduct(profile: IProductProfile): IAssembledProduct {
 
   // (3) Provider construction — IN-KERNEL, from the profile's definitions + the shell's ALREADY-RESOLVED
   // settings (owner Decision 1). `createProviderFromConfig` is a pure `config → IAIProvider` factory that
-  // lives in `@robota-sdk/agent-core` (relocated there by ARCH-PROVIDER-003), an ALLOWED dependency layer,
+  // lives in `@robota-sdk/agent-core`, an ALLOWED dependency layer,
   // so this reads no fs/env and the fold stays pure. An injected `profile.provider` wins (advanced/test
   // override, e.g. `--session-log` replay); with neither, no provider is constructed and the consumer
   // supplies one in the `buildRuntime` session options (the Mode A shape).
@@ -211,7 +211,7 @@ export function assembleProduct(profile: IProductProfile): IAssembledProduct {
       tools: merged.tools,
       subagents: merged.subagents,
       defaultPermissionMode: defaultPreset?.permissionMode,
-      // ARCH-009: the instance registry reaches the SESSION through the host-adapter bag, so
+      // The instance registry reaches the SESSION through the host-adapter bag, so
       // `/preset` discovers through the same presets this product resolved with. It was already
       // assembled here and surfaced on the product; what was missing was the last hop, which is why
       // `/preset` read a module global and why two products in one process shared one mutable list.

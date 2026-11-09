@@ -1,5 +1,5 @@
 /**
- * ARCH-013 stage 3 — the guardrail registry, from the PUBLIC surface in.
+ * The guardrail registry, from the PUBLIC surface in.
  *
  * ## What each group here guards, stated because an earlier revision got it wrong
  *
@@ -129,7 +129,7 @@ function asyncInitDeps(): Parameters<
   } as never;
 }
 
-describe('SEC-016: the built-in executors survive a non-empty executor array', () => {
+describe('the built-in executors survive a non-empty executor array', () => {
   // `runHooks` resolves executors as `executors ?? createDefaultExecutors()` — the fallback is
   // UNDEFINED-only, so a non-empty array REPLACES the built-ins instead of extending them. Supplying
   // guardrails (or providerFactory / sessionFactory / additionalHookExecutors) made the array
@@ -208,7 +208,7 @@ describe('SEC-016: the built-in executors survive a non-empty executor array', (
   });
 });
 
-describe('issue #2875: explicit built-in hook executor restriction', () => {
+describe('explicit built-in hook executor restriction', () => {
   beforeEach(() => {
     sessionCtorCalls.length = 0;
   });
@@ -360,7 +360,7 @@ describe('createSession registers the guardrail machinery (pre-existing, previou
   });
 });
 
-describe('ARCH-013 stage 3 — the PUBLIC surface carries the guardrail port (this is what guards the fix)', () => {
+describe('the PUBLIC surface carries the guardrail port (this is what guards the fix)', () => {
   beforeEach(() => {
     sessionCtorCalls.length = 0;
   });
@@ -378,7 +378,7 @@ describe('ARCH-013 stage 3 — the PUBLIC surface carries the guardrail port (th
     await initializeInteractiveSessionAsync(
       {
         host: testHost,
-        cwd: '/arch-013-stage-3-public',
+        cwd: '/guardrail-public',
         provider: createMockProvider(),
         bare: true,
         config: baseConfig(),
@@ -399,7 +399,7 @@ describe('ARCH-013 stage 3 — the PUBLIC surface carries the guardrail port (th
     await initializeInteractiveSessionAsync(
       {
         host: testHost,
-        cwd: '/arch-013-stage-3-public',
+        cwd: '/guardrail-public',
         provider: createMockProvider(),
         bare: true,
         config: baseConfig(),
@@ -411,7 +411,7 @@ describe('ARCH-013 stage 3 — the PUBLIC surface carries the guardrail port (th
   });
 });
 
-describe('ARCH-013 stage 3 — the port is pinned to the PUBLISHED construction type', () => {
+describe('the port is pinned to the PUBLISHED construction type', () => {
   it('accepts the guardrail port on `IInteractiveSessionStandardOptions` itself', () => {
     // WHAT THIS ADDS, stated narrowly because an earlier docblock here claimed more than it does.
     //
@@ -436,7 +436,7 @@ describe('ARCH-013 stage 3 — the port is pinned to the PUBLISHED construction 
     // carried by review rather than by execution.
     const options: IInteractiveSessionStandardOptions = {
       host: testHost,
-      cwd: '/arch-013-stage-3-seam',
+      cwd: '/guardrail-seam',
       provider: createMockProvider(),
       bare: true,
       config: baseConfig(),
@@ -447,7 +447,7 @@ describe('ARCH-013 stage 3 — the port is pinned to the PUBLISHED construction 
   });
 });
 
-describe('issue #3082: an organization policy turns auto mode off', () => {
+describe('an organization policy turns auto mode off', () => {
   beforeEach(() => {
     sessionCtorCalls.length = 0;
   });

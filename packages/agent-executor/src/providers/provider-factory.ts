@@ -8,11 +8,11 @@ import type { ISerializableProviderProfile } from '../background-tasks/types.js'
 import type { IAIProvider, IProviderDefinition, TEnvResolver } from '@robota-sdk/agent-core';
 
 /*
- * ARCH-111: `normalizeProviderConfig` and `createProviderFromConfig` are NOT re-exported.
+ * `normalizeProviderConfig` and `createProviderFromConfig` are NOT re-exported.
  *
- * ARCH-PROVIDER-003 relocated them into `agent-core` and left a re-export here "so existing
- * consumers are unaffected" — a backward-compatibility guarantee this repository does not make. What
- * the duplicate name bought instead was two consumers inside one product disagreeing about the owner:
+ * They live in `agent-core`; a re-export here "so existing
+ * consumers are unaffected" would be a backward-compatibility guarantee this repository does not make.
+ * What the duplicate name bought instead was two consumers inside one product disagreeing about the owner:
  * `agent-framework` imported them from here while `agent-product` imported the same function from
  * `agent-core`, and both compiled.
  *
@@ -23,7 +23,7 @@ import type { IAIProvider, IProviderDefinition, TEnvResolver } from '@robota-sdk
  * Profile-based helpers stay in `agent-executor`: they depend on the executor-owned
  * {@link ISerializableProviderProfile} type.
  *
- * #2347: BOTH branches go through the injected resolver. Before, the `apiKey` branch used
+ * BOTH branches go through the injected resolver. Before, the `apiKey` branch used
  * `resolveEnvReference` (a resolver) while the `apiKeyEnv` branch read the ambient environment around
  * it — a fix that reached one of two paths carrying the same value. Neither reads the ambient
  * environment now; the `provider-env-resolution` scan refuses it in this module. The resolver is a

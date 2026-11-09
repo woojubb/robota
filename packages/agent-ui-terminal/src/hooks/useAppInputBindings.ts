@@ -1,4 +1,5 @@
 import { useApp, useInput } from 'ink';
+import { attachKind } from '@robota-sdk/agent-framework';
 import { useEffect } from 'react';
 
 import { useKeybindingActions } from '../keybindings/keybindings-context.js';
@@ -8,8 +9,8 @@ import { useScreenReaderTurnSignals } from './useScreenReaderTurnSignals.js';
 
 import type { IPendingPermissionRequest } from '../types.js';
 import type { IActionRequest, TSessionEndReason } from '@robota-sdk/agent-core';
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface/execution';
+import type { IToolState } from '@robota-sdk/agent-interface/session';
 
 interface IOptions {
   readonly isThinking: boolean;
@@ -24,7 +25,8 @@ interface IOptions {
   readonly transportVisible: boolean;
   readonly sessionPickerVisible: boolean;
   readonly workspaceSwitcherVisible: boolean;
-  /** SCREEN-1993: the history-search overlay owns Esc and the switcher key while open. */
+  readonly continueForkQuestionOpen?: boolean;
+  /** The history-search overlay owns Esc and the switcher key while open. */
   readonly historySearchOpen: boolean;
   readonly selectedEntry: IExecutionWorkspaceEntry | undefined;
   readonly backgroundListFocused: boolean;
@@ -38,7 +40,7 @@ interface IOptions {
   readonly recoveryError: string | undefined;
   readonly recoveryPending: boolean;
   readonly coordinationBlocked: boolean;
-  /** SCREEN-2002: the theme picker owns its keys while it is open, like every sibling overlay. */
+  /** The theme picker owns its keys while it is open, like every sibling overlay. */
   readonly themePickerVisible: boolean;
   readonly retryRecovery: () => void;
 }
@@ -58,7 +60,8 @@ function overlaysBlockKeys(options: IOptions): boolean {
 }
 
 function useEscapeBindings(options: IOptions): void {
-  const context = options.isThinking ? 'thinking' : 'background-detail';
+  const followingFork = options.selectedEntry && attachKind(options.selectedEntry) === 'follow';
+  const context = options.isThinking && !followingFork ? 'thinking' : 'background-detail';
   useKeybindingActions(context, (actions) => {
     if (overlaysBlockKeys(options)) return;
     if (actions.includes('abort') && options.isThinking) {
@@ -75,11 +78,7 @@ function useEscapeBindings(options: IOptions): void {
       options.selectWorkspaceEntry(options.mainThreadEntryId);
       return;
     }
-    if (
-      actions.includes('return-to-main') &&
-      !options.backgroundListFocused &&
-      !options.readOnly
-    ) {
+    if (actions.includes('return-to-main') && !options.backgroundListFocused && !options.readOnly) {
       void options.stopWaitingLoop();
     }
   });
@@ -93,6 +92,7 @@ function useWorkspaceSwitcherBinding(options: IOptions): void {
       options.pendingUserAction ||
       options.pluginVisible ||
       options.sessionPickerVisible ||
+      options.continueForkQuestionOpen ||
       options.historySearchOpen ||
       options.themePickerVisible ||
       options.coordinationBlocked ||

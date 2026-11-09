@@ -17,8 +17,8 @@ const swap = vi.hoisted(() => ({
   run: undefined as (() => void) | undefined,
 }));
 
-vi.mock('@robota-sdk/agent-file-authority', async () => {
-  const actual = await import('@robota-sdk/agent-file-authority/testing');
+vi.mock('@robota-sdk/agent-os/file-authority', async () => {
+  const actual = await import('@robota-sdk/agent-os/file-authority/testing');
   return {
     createStableRootedFileWriter: (root: string) =>
       actual.createStableRootedFileWriterForTest(root, {

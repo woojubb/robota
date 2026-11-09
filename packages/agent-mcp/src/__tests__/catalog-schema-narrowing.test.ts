@@ -1,5 +1,5 @@
 /**
- * TC-30 — CORE-040 narrowing happens at catalog registration, exactly once per tool (MCP-002).
+ * Schema narrowing happens at catalog registration, exactly once per tool.
  *
  * A discovered tool whose `inputSchema` carries a construct the runtime cannot enforce is narrowed
  * and the unenforceable construct is reported. `buildCatalog` is the successor call site the spec
@@ -41,7 +41,7 @@ function discoveryWithTools(
   };
 }
 
-describe('CORE-040 narrowing at catalog registration', () => {
+describe('schema narrowing at catalog registration', () => {
   it.each([
     'https://json-schema.org/draft/2020-12/schema',
     'http://json-schema.org/draft-07/schema#',

@@ -1,6 +1,6 @@
 import type { IIdentityContext } from './identity/crypto-context.js';
 /**
- * SEC-011 (#1812): the grant that authorizes ONE hand-off, to ONE destination, over ONE channel.
+ * The grant that authorizes ONE hand-off, to ONE destination, over ONE channel.
  *
  * ## Why a certificate is not enough
  *
@@ -114,7 +114,10 @@ export type TGrantRejection =
 
 export interface IHandoffAuthorization {
   readonly authorized: boolean;
-  /** Deliberately NOT reusable as a same-local-environment trust: SEC-010's levels are separate. */
+  /**
+   * Deliberately NOT reusable as a same-local-environment trust: the local-peer admission levels
+   * are separate.
+   */
   readonly trust?: 'same-user-different-host';
   readonly rejection?: TGrantRejection;
 }

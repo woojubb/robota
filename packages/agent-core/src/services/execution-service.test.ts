@@ -466,7 +466,7 @@ describe('ExecutionService', () => {
       expect(addUserMessageSpy).toHaveBeenCalledWith(inputMsg, expect.any(Object));
     });
 
-    it('does not restore persisted system messages; the system prompt comes from config (CORE-010)', async () => {
+    it('does not restore persisted system messages; the system prompt comes from config', async () => {
       const userInput = 'Hello';
       const messagesList: TUniversalMessage[] = [
         {
@@ -644,7 +644,7 @@ describe('ExecutionService', () => {
       };
     }
 
-    it('completes a tool-only run in exactly one call with allowToolOnlyCompletion (CORE-011)', async () => {
+    it('completes a tool-only run in exactly one call with allowToolOnlyCompletion', async () => {
       setupToolMocks();
       const config = makeConfig();
 
@@ -663,7 +663,7 @@ describe('ExecutionService', () => {
       expect(chatSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('still forces the summary call for the same run WITHOUT allowToolOnlyCompletion (CORE-011 contrast)', async () => {
+    it('still forces the summary call for the same run WITHOUT allowToolOnlyCompletion (contrast)', async () => {
       setupToolMocks();
       const config = makeConfig();
 
@@ -696,7 +696,7 @@ describe('ExecutionService', () => {
       ]);
     });
 
-    it('carries the run cancellation and the effort dial into the forced summary call (CORE-042)', async () => {
+    it('carries the run cancellation and the effort dial into the forced summary call', async () => {
       // The forced summary was the one provider call in the turn assembled by hand, as
       // `{ model, onTextDelta }`. It therefore ran with no cancellation and no idle timeout, which
       // the streaming entry turns into a hang: that entry now awaits the turn when its consumer
@@ -736,7 +736,7 @@ describe('ExecutionService', () => {
       expect(summarySignal?.aborted).toBe(false);
     });
 
-    it('does not enter the forced summary call when the signal is already aborted (CORE-011)', async () => {
+    it('does not enter the forced summary call when the signal is already aborted', async () => {
       setupToolMocks();
       const config = makeConfig();
       const controller = new AbortController();
@@ -892,16 +892,16 @@ describe('ExecutionService', () => {
         },
       );
 
-      // CLI-064 exit-code contract: a round ending in a provider failure must NOT
+      // Exit-code contract: a round ending in a provider failure must NOT
       // report success — transports surface a non-zero exit from it.
-      // CORE-027: result.error is the ORIGINAL thrown error, not a reconstruction from the
+      // result.error is the ORIGINAL thrown error, not a reconstruction from the
       // "Request failed:" display message — so its message is the provider's own, unprefixed.
       expect(result.success).toBe(false);
       expect(result.error?.message).toBe('Provider call idle timeout after 10ms');
       expect(result.response).toContain('Request failed: Provider call idle timeout after 10ms');
     });
 
-    it('reports a failure whose message merely SAYS "abort" as a failure, not an interrupted run (CORE-027)', async () => {
+    it('reports a failure whose message merely SAYS "abort" as a failure, not an interrupted run', async () => {
       // The sharpest silent wrong answer the audit named: the classification read the error's
       // PROSE, so `connection aborted by peer` — a real network failure, no signal aborted —
       // came back `success: true, interrupted: true`, and nothing downstream, including the
@@ -1188,7 +1188,7 @@ describe('ExecutionService', () => {
       );
     });
 
-    it("fails the run with the forced call's own error when it throws (CORE-027)", async () => {
+    it("fails the run with the forced call's own error when it throws", async () => {
       setupToolMocks();
       const config = makeConfig();
 

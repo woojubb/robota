@@ -1,5 +1,5 @@
 /**
- * #3679 step 3c — how a process seals what only it reads back: its spilled tool results (and, next,
+ * How a process seals what only it reads back: its spilled tool results (and, next,
  * its ephemeral checkpoints). It is the same decision as every store's: plain exactly while the
  * session stores are plain, so nothing changes until secure conversation is switched on. When the
  * process seals, it seals these with ONE process-local key, made the first time it is needed and

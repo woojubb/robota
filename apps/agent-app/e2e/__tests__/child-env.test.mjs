@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { embeddedProductIdentity, resolveProductConfig } from '../../../../packages/product-config/src/index.ts';
+import { embeddedProductIdentity, resolveProductConfig } from '@robota-sdk/product-config';
 import { productEnvironment as syntheticEnvironment } from '../../../../packages/product-config/src/__tests__/product-environment.ts';
 
 import { buildBundledRuntimeChildEnv } from '../child-env.mjs';
@@ -24,12 +24,12 @@ it('uses the embedded app identity for remote desktop fixture startup', () => {
 });
 
 /**
- * GUI-003 / #3356 — the bundled-runtime e2e failed on Windows only: the packaged runtime's
+ * The bundled-runtime e2e failed on Windows only: the packaged runtime's
  * `os.homedir()` reads `USERPROFILE` there, never `HOME`, so a sandbox env that set only `HOME` never
  * isolated configured user-state directory on Windows. The runtime fell through to the real runner profile, found no
  * `settings.json` ("No provider configuration found.") and a rendezvous directory it did not control.
  */
-describe('buildBundledRuntimeChildEnv (GUI-003, #3356 Windows sandbox)', () => {
+describe('buildBundledRuntimeChildEnv (Windows sandbox)', () => {
   const productEnvironment = buildProductTestEnvironment('/tmp/gui003-product').environment;
 
   it('sets USERPROFILE alongside HOME, so os.homedir() is sandboxed on win32 too', () => {

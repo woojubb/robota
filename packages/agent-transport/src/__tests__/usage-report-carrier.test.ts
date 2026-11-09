@@ -1,19 +1,19 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, it, expect, vi } from 'vitest';
 
 import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createSessionMessageHandler } from '../session-message-handler.js';
 import type { TServerMessage } from '../wire-messages.js';
-import type { IUsageBySourceReport } from '@robota-sdk/agent-interface-analytics';
+import type { IUsageBySourceReport } from '@robota-sdk/agent-interface/analytics';
 
 /**
- * SELFHOST-004 P5 (TC-08): the new `usage_report` TServerMessage variant carries the assembled
+ * The new `usage_report` TServerMessage variant carries the assembled
  * trace/cost read-model (per-operation span timeline + cost-by-source) across the sidecar boundary.
  * No pre-existing variant carries per-op `durationMs` or per-source `costUsd`; this test proves the
  * carrier is well-typed AND survives JSON serialization (the WS stream is JSON) so the timeline/cost
  * actually reaches the GUI — not assumed "free".
  */
-describe('SELFHOST-004 TC-08 — usage_report server-message carrier', () => {
+describe('usage_report server-message carrier', () => {
   const report: IUsageBySourceReport = {
     sessionId: 'sess-1',
     totalTokens: 300,

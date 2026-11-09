@@ -1,5 +1,5 @@
 /**
- * BEHAVIOR-2437: the Node implementation of the git port every `/git` verb runs git through.
+ * The Node implementation of the git port every `/git` verb runs git through.
  *
  * argv only: `execFile` with `shell: false`, so no user token is ever parsed as shell syntax; stdin
  * is closed at once, so a hook that reads it sees EOF instead of hanging; output is capped, the child
@@ -53,8 +53,7 @@ export interface ICreateGitProcessOptions {
  * The child's environment: `source` minus the repository-redirecting variables, with the locale
  * forced to `C`. `isNotAGitRepositoryFailure` (and every other place this module's callers pattern-
  * match git's stderr text) depends on that text being English; git translates it under the host's
- * own `LANG`/`LC_ALL` otherwise, which would silently break that match on a non-English host (#3282
- * §4c review).
+ * own `LANG`/`LC_ALL` otherwise, which would silently break that match on a non-English host.
  */
 export function gitEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
@@ -98,7 +97,7 @@ function toOutcome(
   if (typeof error.code === 'number')
     return { kind: 'exited', stdout, stderr, exitCode: error.code };
   if (error.signal) {
-    // RUNTIME-53 convention: a signal-terminated child reports 128 + the signal number.
+    // Convention: a signal-terminated child reports 128 + the signal number.
     return {
       kind: 'exited',
       stdout,

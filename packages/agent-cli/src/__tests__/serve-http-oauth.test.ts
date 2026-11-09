@@ -18,6 +18,7 @@ import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { respond, type WireRequest } from './helpers/provider-wire-fixture.js';
+import { approveTestWorkspaceCommand } from './helpers/approve-test-workspace.js';
 
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const launcher = path.join(repoRoot, 'scripts', 'dev', 'agent');
@@ -199,12 +200,7 @@ beforeAll(async () => {
       },
     }),
   );
-  const trust = spawnSync(launcher, ['trust', '--yes'], {
-    cwd: workspace,
-    env: environment,
-    encoding: 'utf8',
-    timeout: 60_000,
-  });
+  const trust = await approveTestWorkspaceCommand(launcher, workspace, environment);
   expect(trust.status, trust.stderr).toBe(0);
 
   apiPort = await freePort();

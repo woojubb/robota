@@ -17,7 +17,7 @@ import type { IRunContext } from './session-run-context.js';
 const logger = createLogger('SessionRunObservation');
 
 /**
- * SELFHOST-009: fire an INFORMATIONAL-ONLY model-call hook event mapped from a provider-call
+ * Fire an INFORMATIONAL-ONLY model-call hook event mapped from a provider-call
  * execution event the turn owner already observes. Fire-and-forget — `onExecutionEvent` is a void,
  * un-awaited callback, so this `runHooks` call cannot block or mutate `provider.chat()`. Its result
  * is never consulted for gating; only PreToolUse gates.
@@ -98,7 +98,7 @@ export function createRunObservers(
       // it is not a replay-substrate session-log event.
       if (event !== PROVIDER_CALL_EVENTS.COMPLETED) ctx.log(event, data as TSessionLogData);
       forwardToolExecutionEvent(toolExecutionBridge, event, data);
-      // SELFHOST-009: fire the informational-only model-call events from the provider-call
+      // Fire the informational-only model-call events from the provider-call
       // execution events the turn owner already observes. provider_request → PreModelCall (before
       // provider.chat() returns); provider_response_normalized → PostModelCall (the SINGLE
       // canonical source — NOT provider_response_raw, which would double-fire per round). Both are
@@ -193,7 +193,7 @@ export function createRunObservers(
           });
         }
       }
-      // BEHAVIOR-002: recompute and emit context per agentic round so the status bar
+      // Recompute and emit context per agentic round so the status bar
       // climbs live during a turn instead of jumping once at completion. The agent loop
       // runs entirely inside this single agent.run() call; assistant_message_committed
       // fires once per round with the round's usage already committed to history, which is

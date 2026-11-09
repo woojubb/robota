@@ -8,6 +8,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { AgentDefinitionLoader as FrameworkAgentDefinitionLoader } from '../agent-definition-loader.js';
 import { BUILT_IN_AGENTS } from '../built-in-agents.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
+import { inJsonString } from '../../testing/logged-json.js';
 
 const FIXTURE_AGENT_ROOTS = [
   join('.agent', 'agents'),
@@ -115,7 +116,7 @@ You are a security code reviewer. Analyze the provided code for vulnerabilities.
     );
   });
 
-  it('#3282 §4: a discovered agent carries its file path as definedIn, plain words a person can read', () => {
+  it('a discovered agent carries its file path as definedIn, plain words a person can read', () => {
     const cwd = makeTempDir();
     const agentsDir = join(cwd, '.claude', 'agents');
     writeAgentFile(
@@ -137,7 +138,7 @@ Review the code.`,
     expect(agent?.definedIn).toContain(join('.claude', 'agents', 'reviewer.md'));
   });
 
-  it('#3282 §4: a built-in agent carries no definedIn of its own', () => {
+  it('a built-in agent carries no definedIn of its own', () => {
     for (const agent of BUILT_IN_AGENTS) {
       expect(agent.definedIn).toBeUndefined();
     }
@@ -507,7 +508,7 @@ Actual body here.`,
       createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
     );
     const warning = captureRefusal(() => loader.getAgent('empty-fm'));
-    expect(warning).toContain(join(cwd, '.claude/agents/empty-fm.md'));
+    expect(warning).toContain(inJsonString(join(cwd, '.claude/agents/empty-fm.md')));
     expect(warning).toContain('[root-type]');
   });
 
@@ -529,7 +530,7 @@ Prompt.`,
       createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
     );
     const warning = captureRefusal(() => loader.getAgent('nan-turns'));
-    expect(warning).toContain(join(cwd, '.claude/agents/nan-turns.md'));
+    expect(warning).toContain(inJsonString(join(cwd, '.claude/agents/nan-turns.md')));
     expect(warning).toContain('maxTurns:');
   });
 
@@ -549,7 +550,7 @@ Prompt.`,
     const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd, home));
     const warning = captureRefusal(() => loader.getAgent('strict'));
     const source = join(root, relative, 'strict.md');
-    expect(warning).toContain(`${source}:2:11 [invalid-type] maxTurns:`);
+    expect(warning).toContain(inJsonString(`${source}:2:11 [invalid-type] maxTurns:`));
   });
 
   it('does not let a valid lower-priority collision hide invalid higher-priority metadata', () => {
@@ -569,7 +570,7 @@ Prompt.`,
     const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd, home));
     const warning = captureRefusal(() => loader.getAgent('shared'));
     const source = join(cwd, '.agent/agents/shared.md');
-    expect(warning).toContain(`${source}:3:11 [invalid-value] maxTurns:`);
+    expect(warning).toContain(inJsonString(`${source}:3:11 [invalid-value] maxTurns:`));
   });
 
   it.each([
@@ -589,7 +590,7 @@ Prompt.`,
     );
     const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd));
     const warning = captureRefusal(() => loader.getAgent('bad-turns'));
-    expect(warning).toContain(join(cwd, '.claude/agents/bad-turns.md'));
+    expect(warning).toContain(inJsonString(join(cwd, '.claude/agents/bad-turns.md')));
     expect(warning).toContain(`[${code}] maxTurns:`);
   });
 

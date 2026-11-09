@@ -1,7 +1,7 @@
 import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 import { sumHistoryUsage } from '@robota-sdk/agent-core';
-import { subagentExecutionRoot } from '@robota-sdk/agent-executor';
+import { BackgroundTaskError, subagentExecutionRoot } from '@robota-sdk/agent-executor';
 
 import { advisorToolLineLabel } from '../advisor/advisor-tool.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
@@ -11,6 +11,8 @@ import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { restoreSessionRecordIntoSession } from '../interactive/interactive-session-restore.js';
 import { assertClaimedOutcomeAccepted } from '../interactive/session-authorship-gate.js';
 import { decorateSessionStore } from '../interactive/session-store-view.js';
+import { InProcessJobLog } from './in-process-job-log.js';
+import { runJobTurns } from './in-process-job-turns.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ISubagentOptions } from '../assembly/create-subagent-session.js';
@@ -48,7 +50,7 @@ export interface IInProcessSubagentRunnerDeps {
   readonly pathProtection?: IPathProtectionPolicy;
   config: IResolvedConfig;
   /**
-   * The parent's EFFECTIVE rules, read live at spawn (issue #3081): settings plus preset lists plus
+   * The parent's EFFECTIVE rules, read live at spawn: settings plus preset lists plus
    * command auto-allows. A subagent's `inherit-allowlist` ceiling is this allow list; the raw
    * `config.permissions` left out everything the parent's composition added. Absent → `config`.
    */
@@ -81,7 +83,7 @@ export interface IInProcessSubagentRunnerDeps {
   }) => void;
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
   /**
-   * NEUT-003: injectable built-in agent set. When supplied it REPLACES the module
+   * Injectable built-in agent set. When supplied it REPLACES the module
    * built-ins (`BUILT_IN_AGENTS`) for type resolution; an empty array removes all
    * built-ins. Omitted keeps the documented default three.
    */
@@ -89,10 +91,10 @@ export interface IInProcessSubagentRunnerDeps {
   /**
    * The PARENT's resolved agent roster — discovered definitions merged over the built-in tier.
    *
-   * Issue #1854, the agent axis. A runner in another process used to resolve an unknown type by
+   * The agent axis. A runner in another process used to resolve an unknown type by
    * importing `getBuiltInAgent` from this package's barrel, which is the same "compose from imported
-   * defaults instead of from the product" shape ARCH-021 closed on the provider axis and ARCH-035 on
-   * the tool axis. The parent already knows the answer — `buildAgentRuntime` computes this list —
+   * defaults instead of from the product" shape closed on the provider and tool axes.
+   * The parent already knows the answer — `buildAgentRuntime` computes this list —
    * so carrying it is what lets the child stop asking the framework.
    *
    * Consulted AFTER `customAgentRegistry` and `builtInAgents`, by both runners. Absent ⇒ the
@@ -104,16 +106,16 @@ export interface IInProcessSubagentRunnerDeps {
   commandSemanticRoles?: ISystemCommandSemanticRoles;
   modelCommandToolPrefix?: string;
   /**
-   * ARCH-034: which session-assembly tiers the PARENT's tool surface carried.
+   * Which session-assembly tiers the PARENT's tool surface carried.
    *
    * The in-process runner does not read it — it receives the parent's already-assembled `tools`. A
    * runner that rebuilds the surface in another process does, and this is the only place the parent's
    * choice is still in scope. Without it the child assembles a DIFFERENT surface from the sibling
-   * that shares this contract, which is the asymmetry ARCH-034 is about.
+   * that shares this contract, which is an asymmetry between the two runners.
    */
   sessionTiers?: { readonly includeGoalTool?: boolean };
   /**
-   * ARCH-033: the parent's sandbox and the NAME a child uses to rebuild one like it.
+   * The parent's sandbox and the NAME a child uses to rebuild one like it.
    *
    * A live client cannot cross a process boundary; `(type, snapshotId)` can. Both halves are carried
    * because either alone is worse than neither — a snapshot with no registered type is a reference
@@ -123,10 +125,10 @@ export interface IInProcessSubagentRunnerDeps {
   sandboxClient?: ISandboxClient;
   sandboxType?: string;
   /**
-   * CLI-1994: the interactive-session record store a job's `resumeSessionId` names a record in — the
+   * The interactive-session record store a job's `resumeSessionId` names a record in — the
    * store `/fork` wrote the copy to. The runner uses it to restore the copied conversation and assembled
    * system message into the child session before the first turn and to persist the child's new turns;
-   * the conversation itself never travels on the request (ARCH-044). A fork job on a runner with no
+   * the conversation itself never travels on the request. A fork job on a runner with no
    * store fails, stated as such, rather than starting empty.
    */
   resumeSessionStore?: IInteractiveSessionStore;
@@ -138,10 +140,9 @@ export type TSubagentRunnerFactory = (deps: IInProcessSubagentRunnerDeps) => ISu
  * Both runners consult the same sources in the same ORDER: custom registry, injected set, then the
  * parent's roster. They differ only in the last resort, and only because of where each one lives.
  *
- * Reported in review of issue #1854's agent axis: the first cut documented `agentDefinitions` on the
- * shared deps type and wired it in the child-process runner alone, so a caller that supplied it saw
- * it silently ignored here. A field one implementer honours and the other drops is the asymmetry
- * ARCH-034 was about, reintroduced by the change closing its sibling.
+ * `agentDefinitions` is documented on the shared deps type, so both runners must honour it: wiring
+ * it in the child-process runner alone would leave a caller that supplied it silently ignored here.
+ * A field one implementer honours and the other drops is an asymmetry between the runners.
  *
  * This runner keeps `getBuiltInAgent` as the last resort, and that is not the axis violation: it is
  * the framework's own runner reading the framework's own built-ins, in the package that owns them.
@@ -199,7 +200,7 @@ function assertSupportedIsolation(job: ISubagentJobStart): void {
 }
 
 /**
- * CLI-1994: a job that names a session record restores it — messages and assembled system message —
+ * A job that names a session record restores it — messages and assembled system message —
  * into the freshly built child before its first turn. Only the id reached this runner; the record is
  * read here and reused by the child Session for turn persistence. No store means the fork cannot be
  * honoured, and that is a failed job, not an empty one.
@@ -265,6 +266,16 @@ function claimRequestedRecord(
     outcome: claim.outcome,
     release: () => claim.release(),
   };
+}
+
+/** What reading the log of a job that ended says: the session is gone, and where the conversation is. */
+function endedJobLogError(job: ISubagentJobStart, resumeSessionId: string | undefined): Error {
+  return new BackgroundTaskError(
+    'runner',
+    resumeSessionId === undefined
+      ? `The job ${job.taskId} has ended and keeps no log in this process.`
+      : `The job ${job.taskId} has ended; its conversation is saved with the forked session ${resumeSessionId}.`,
+  );
 }
 
 function emitToolExecutionEvent(
@@ -347,6 +358,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
     resumed: IResumedRecord,
   ): ISubagentJobHandle {
     const resumeSessionId = job.request.resumeSessionId;
+    const log = new InProcessJobLog();
     const session = createSubagentSession({
       host: deps.host,
       pathProtection: deps.pathProtection,
@@ -356,7 +368,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
       parentTools: deps.tools,
       provider: deps.provider,
       terminal: deps.terminal,
-      // ARCH-010: the spawn request has always declared `cwd` required; there was simply no option
+      // The spawn request has always declared `cwd` required; there was simply no option
       // to pass it to, so the child session read `process.cwd()` — the PARENT's directory.
       cwd: subagentExecutionRoot(job),
       ...(resumeSessionId !== undefined ? { sessionId: resumeSessionId } : {}),
@@ -368,7 +380,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
       ...(deps.modelCommandToolPrefix
         ? { modelCommandToolPrefix: deps.modelCommandToolPrefix }
         : {}),
-      // CORE-025: carry the task's permission policy + its own tool lists so the child session gates tool
+      // Carry the task's permission policy + its own tool lists so the child session gates tool
       // calls by policy BEFORE the inherited session mode (deny/preapproved bind even under bypass).
       ...(job.request.permissionPolicy !== undefined
         ? { permissionPolicy: job.request.permissionPolicy }
@@ -387,6 +399,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
         job.emit?.({ type: 'background_task_text_delta', delta });
         deps.onTextDelta?.(delta);
       },
+      onCompact: () => log.ignore(session.getHistory()),
       onToolExecution: (event) => {
         emitToolExecutionEvent(job, event, deps.tools);
         deps.onToolExecution?.(event);
@@ -394,28 +407,54 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
     });
     resumeRequestedRecord(job, session, resumed);
 
+    // The inherited history and future compaction summaries are not part of the job's own log.
+    log.ignore(session.getHistory());
+    const turns = runJobTurns(
+      {
+        run: async (prompt) => {
+          log.startTurn(prompt);
+          try {
+            return await session.run(prompt);
+          } finally {
+            log.capture(session.getHistory());
+          }
+        },
+      },
+      job.request.prompt,
+      job.taskId,
+    );
     return {
       taskId: job.taskId,
-      result: session
-        .run(job.request.prompt)
+      result: turns.result
         .then((output) => {
-          // ANALYTICS-001 (Phase 2): capture the subagent's total token usage so the parent log can
+          // Capture the subagent's total token usage so the parent log can
           // attribute it to this agent as a source. Best-effort — never let usage capture fail the run.
           const usage = readSubagentUsage(session);
           return { taskId: job.taskId, output, ...(usage ? { usage } : {}) };
         })
         // The job's run is the whole of what it saves; its claim ends with it, however it ends.
-        .finally(() => resumed.release()),
+        .finally(() => {
+          log.clear();
+          resumed.release();
+        }),
       cancel: () => {
+        turns.end();
+        log.clear();
         session.abort();
         return Promise.resolve();
+      },
+      send: (prompt) => turns.send(prompt),
+      readLog: (cursor) => {
+        if (turns.ended) return Promise.reject(endedJobLogError(job, resumeSessionId));
+        log.capture(session.getHistory());
+        return Promise.resolve(log.page(job.taskId, cursor));
       },
     };
   }
 }
 
 /**
- * Issue #3288 §1: bind this job's requester identity onto the parent's own approver — the SAME way
+ * Bind this job's requester identity onto the parent's own approver — the SAME way
  * `child-process-subagent-runner.ts`'s `permissionApprover` does — so an in-process background
  * agent's permission prompt is attributed too ("Background agent <type> wants to …"), not just a
  * child-process one. Built from the parent's own job record (`job.request.agentType`, `job.taskId`),

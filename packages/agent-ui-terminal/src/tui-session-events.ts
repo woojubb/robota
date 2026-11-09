@@ -3,7 +3,7 @@ import type {
   IContextFileRefreshedEvent,
   IPlanApprovalEvent,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export type TTuiSessionEventClassification = 'channel' | 'react-side-effect' | 'non-surface';
 
@@ -36,7 +36,7 @@ export const TUI_SESSION_EVENT_CLASSIFICATION = {
   ui_intent: 'react-side-effect',
   session_renamed: 'react-side-effect',
   history_cleared: 'channel',
-  // #3189: a host's session slot emits it on a switch; the TUI switches by remounting its own
+  // A host's session slot emits it on a switch; the TUI switches by remounting its own
   // channel onto the next session, so it never follows a slot.
   session_switched: 'non-surface',
   // A host forwards it to attached clients as `session_status`; this channel owns its session and
@@ -51,7 +51,7 @@ export interface ITuiSessionEventNotice {
     | 'context_file_refreshed'
     | 'branch_event'
     | 'delivery-error'
-    /** SCREEN-1992: TUI-originated — the interval recap on return, not a session event. */
+    /** TUI-originated — the interval recap on return, not a session event. */
     | 'attention-recap';
   message: string;
 }

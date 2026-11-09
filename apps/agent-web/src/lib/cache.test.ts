@@ -1,6 +1,6 @@
 import { SimpleCache } from './cache';
 
-// HARNESS-025: TTL expiry is driven by the fake clock, never by a real wall-clock sleep.
+// TTL expiry is driven by the fake clock, never by a real wall-clock sleep.
 // `SimpleCache` compares `Date.now()` against the entry timestamp, and Jest's modern fake timers
 // mock `Date` alongside the timer queue — so advancing the fake clock is what makes an entry
 // expire. A real `setTimeout` sleep made these two cases both slow and load-dependent (a stalled

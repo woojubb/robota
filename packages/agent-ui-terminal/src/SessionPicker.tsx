@@ -12,7 +12,7 @@ import { Text } from './SafeText.js';
 import { shortSessionId } from './short-session-id.js';
 import { usePalette } from './theme/index.js';
 
-import type { ISessionListingEntry } from '@robota-sdk/agent-interface-session';
+import type { ISessionListingEntry } from '@robota-sdk/agent-interface/session';
 
 const SESSION_PREVIEW_DISPLAY_LENGTH = 60;
 

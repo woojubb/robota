@@ -9,10 +9,10 @@ import {
 import type { TRoleModelMap, IModelRef } from '@robota-sdk/agent-core';
 
 /**
- * SELFHOST-006 TC-01 / TC-02 — per-role model routing policy over the provider DIP.
+ * Per-role model routing policy over the provider DIP.
  *
- * TC-01: resolve distinct OPAQUE role keys to their configured fallback chains' primaries.
- * TC-02: on a provider error, walk to the next IModelRef (alternate provider AND model) and succeed.
+ * Resolve distinct OPAQUE role keys to their configured fallback chains' primaries.
+ * On a provider error, walk to the next IModelRef (alternate provider AND model) and succeed.
  */
 
 const MAP: TRoleModelMap = {
@@ -24,7 +24,7 @@ const MAP: TRoleModelMap = {
   editor: [{ provider: 'anthropic', model: 'claude-sonnet-4-5' }],
 };
 
-describe('SELFHOST-006 TC-01 — resolve per opaque role key', () => {
+describe('resolve per opaque role key', () => {
   it('resolves two distinct role keys to their chains’ primary IModelRef', () => {
     expect(resolveRoleModel(MAP, 'planner')).toEqual({
       provider: 'anthropic',
@@ -49,7 +49,7 @@ describe('SELFHOST-006 TC-01 — resolve per opaque role key', () => {
   });
 });
 
-describe('SELFHOST-006 TC-02 — fallback walk on provider error', () => {
+describe('fallback walk on provider error', () => {
   it('walks to the next provider+model on error and succeeds', async () => {
     const tried: IModelRef[] = [];
     const result = await runWithRoleFallback(MAP.planner!, async (ref) => {

@@ -1,5 +1,5 @@
 /**
- * Process survival boundary for the interactive TUI (ERR-001 G1).
+ * Process survival boundary for the interactive TUI.
  *
  * On Node 20+ an unhandled rejection terminates the process, and the previous
  * `uncaughtException` guard re-threw everything non-IME — any async path outside the turn
@@ -42,7 +42,7 @@ const IME_ERROR_SIGNATURES = [
 ];
 
 /**
- * Classify an uncaught exception for bin.ts (CORE-020, RUNTIME-34).
+ * Classify an uncaught exception for bin.ts.
  *
  * The IME allowlist applies ONLY while the interactive TUI guards are active — raw-mode
  * IME errors cannot occur outside the TUI, and generic signatures like 'slice'/'charCodeAt'
@@ -72,7 +72,7 @@ function routeProcessError(error: Error, source: string): void {
       return;
     }
   } catch {
-    // allow-fallback: this guard IS the last-resort boundary — if rendering into the session itself fails, stderr below is the only remaining surface (ERR-001 G1)
+    // allow-fallback: this guard IS the last-resort boundary — if rendering into the session itself fails, stderr below is the only remaining surface
     /* fall through to stderr */
   }
   process.stderr.write(`\n[${guardDiagnosticName}] ${source}: ${error.message}\n`);

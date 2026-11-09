@@ -1,5 +1,5 @@
 /**
- * CLI-1994 / BEHAVIOR-2675 — a background job that resumes a fork updates the record attach opens.
+ * A background job that resumes a fork updates the record attach opens.
  *
  * This drives the public InteractiveSession job API over a real runtime and NodeSessionStore. The
  * parent record is a separate saved record; only the copied fork record receives the child turn.
@@ -18,12 +18,12 @@ import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 const testHost = createTestFrameworkHost();
 
-const PARENT_ID = 'session_cli-1994-parent';
-const FORK_ID = 'session_cli-1994-fork';
+const PARENT_ID = 'session_parent';
+const FORK_ID = 'session_fork';
 const PROMPT = 'Continue the forked work.';
 const RESPONSE = 'The forked work is current.';
 
-describe('background fork persistence for attach (BEHAVIOR-2675)', () => {
+describe('background fork persistence for attach', () => {
   let cwd: string | undefined;
 
   afterEach(() => {

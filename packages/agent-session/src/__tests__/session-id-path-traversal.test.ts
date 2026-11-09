@@ -1,5 +1,5 @@
 /**
- * SEC-006 — a session id is a PATH SEGMENT, and a host may supply it from an untrusted source.
+ * A session id is a PATH SEGMENT, and a host may supply it from an untrusted source.
  *
  * `SessionStore.filePath(id)` is `join(baseDir, `${id}.json`)` with no validation, and
  * `FileSessionLogger.log(sessionId, …)` is `join(logDir, `${sessionId}.jsonl`)` with no validation.
@@ -22,7 +22,7 @@ import { FileSessionLogger } from '../session-logger.js';
 import { NodeSessionLogSink } from '../node-session-log-sink.js';
 import { NodeSessionStore } from '../session-store.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import { loadedOrMissing } from './store-load-helpers.js';
 
 const TRAVERSAL_IDS = [
@@ -35,7 +35,7 @@ const TRAVERSAL_IDS = [
 ];
 
 /**
- * TRANS-007: a real record. This used to be a stub cast through `as unknown as` — no `cwd` — which
+ * A real record. This used to be a stub cast through `as unknown as` — no `cwd` — which
  * the store accepted because it did not decode. It now does, so a fixture that is not a record
  * cannot pretend to be one, and the cast is gone rather than widened.
  */
@@ -49,13 +49,13 @@ function makeRecord(id: string): IInteractiveSessionRecord {
   };
 }
 
-describe('SessionStore — session id path traversal (SEC-006)', () => {
+describe('SessionStore — session id path traversal', () => {
   let root: string;
   let baseDir: string;
   let store: NodeSessionStore;
 
   beforeEach(() => {
-    root = realpathSync(mkdtempSync(join(tmpdir(), 'sec006-store-')));
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'store-path-traversal-')));
     baseDir = join(root, 'sessions');
     store = new NodeSessionStore(baseDir, { sealing: 'plain' });
   });
@@ -103,12 +103,12 @@ describe('SessionStore — session id path traversal (SEC-006)', () => {
   });
 });
 
-describe('FileSessionLogger — session id path traversal (SEC-006)', () => {
+describe('FileSessionLogger — session id path traversal', () => {
   let root: string;
   let logDir: string;
 
   beforeEach(() => {
-    root = realpathSync(mkdtempSync(join(tmpdir(), 'sec006-log-')));
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'log-path-traversal-')));
     logDir = join(root, 'logs');
   });
   afterEach(() => {
@@ -135,7 +135,7 @@ describe('NodeSessionLogSink direct path boundaries', () => {
   let logDir: string;
 
   beforeEach(() => {
-    root = realpathSync(mkdtempSync(join(tmpdir(), 'sec006-direct-log-sink-')));
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'direct-log-sink-path-traversal-')));
     logDir = join(root, 'logs');
   });
   afterEach(() => {

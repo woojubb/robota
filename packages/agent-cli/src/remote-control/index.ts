@@ -16,7 +16,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TransportRegistry } from '@robota-sdk/agent-framework';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 import type { ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
 
 type TUsageReporters = Pick<
@@ -68,7 +68,7 @@ export function createRemoteControlController(
     getSession: () => channel?.getSession(),
     renderQr: renderQrToTerminal,
     reportError: report,
-    // REMOTE-012 E3: TOFU trusted-device reconnect is on by default — the host identity + device store live
+    // TOFU trusted-device reconnect is on by default — the host identity + device store live
     // under the configured user storage root (like an SSH host key + known_hosts). A returning device reconnects without re-pairing;
     // a new device enrolls on first pair after the explicit accept.
     trustedDeviceStore: createTrustedDeviceStore(join(root, 'remote-trusted-devices.json')),

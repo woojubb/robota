@@ -98,7 +98,7 @@ export async function agentRun(
     }
 
     if (!result.success) {
-      // CORE-020: every failed result must carry its error (SPEC invariant); a missing
+      // Every failed result must carry its error (SPEC invariant); a missing
       // error here is a contract violation, not a reason to fall through to the response.
       throw (
         result.error ??
@@ -145,21 +145,21 @@ export async function* agentRunStream(
     const messages = deps.getHistory();
     const executionConfig: IAgentConfig = { ...deps.config, ...configOverrides };
 
-    // CORE-018: the streaming context is built by the SAME buildRunContext as the round
+    // The streaming context is built by the SAME buildRunContext as the round
     // path — the historical inline construction dropped signal/onTextDelta/onExecutionEvent
     // (and every run option added after it), making the public streaming API uncancellable.
     const stream = deps
       .getExecutionService()
       .executeStream(input, messages, executionConfig, buildRunContext(deps, options));
 
-    // CORE-042: `yield*` rather than a manual loop -- it forwards `.return()` to the delegated
+    // `yield*` rather than a manual loop -- it forwards `.return()` to the delegated
     // generator, which is what makes the adapter's abort-on-abandonment fire when a consumer breaks
     // out. It also carries the turn's final assistant text out as this generator's return value, so
     // `runStream` answers what `run` answers instead of making every caller re-accumulate deltas.
     const result = yield* stream;
 
     if (!result.success) {
-      // CORE-020, and CORE-042 makes it the SAME rule on both entry points: `execute` reports a
+      // The SAME rule holds on both entry points: `execute` reports a
       // failed turn by resolving with `success: false` and an error, and the caller throws it. The
       // streaming path used to reject from inside its own engine instead, which is how the two
       // could disagree about what a failed run looks like.

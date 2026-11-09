@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { context, ROOT_CONTEXT, trace, TraceFlags } from '@opentelemetry/api';
 import { describe, expect, it, vi } from 'vitest';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface/analytics';
 import { createConfiguredNodeOtlpLiveTelemetryPort, createNodeOtlpLiveTracePort, resolveNodeOtlpLiveTraceEndpoint } from '../live-trace-otlp.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 

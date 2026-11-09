@@ -1,7 +1,7 @@
 /**
- * #3289 §3 review — /remote renders exactly one `main` landmark in every state, including while its
+ * /remote renders exactly one `main` landmark in every state, including while its
  * client bundle is still loading. `next/dynamic`'s `loading` fallback (shown before `RemoteClient`
- * itself mounts and supplies its own `main`, per `agent-transport-webrtc-web`'s own fix for this) is a
+ * itself mounts and supplies its own `main`, per `RemoteClient`'s own fix for this) is a
  * plain function passed to `dynamic()`, not an exported component — mocking `next/dynamic` to hand
  * that function straight back lets this test render exactly what a person sees while it loads.
  */
@@ -18,7 +18,7 @@ jest.mock('next/dynamic', () => (_loader: unknown, options: IDynamicOptions) => 
 import { RemoteSurface } from '../RemoteSurface';
 import type { IPublicProductConfig } from '@robota-sdk/product-config';
 
-describe('/remote renders exactly one main landmark (#3289 §3 review)', () => {
+describe('/remote renders exactly one main landmark', () => {
   it('while the remote client bundle is still loading', () => {
     const { container } = render(<RemoteSurface product={{ identity: { displayName: 'Test Product', cliName: 'test-product' }, storage: { browserNamespace: 'test-product', browserCredentialDatabase: 'test-product-credentials' }, crypto: { namespace: 'test-product' } } as IPublicProductConfig} />);
     expect(container.querySelectorAll('main')).toHaveLength(1);

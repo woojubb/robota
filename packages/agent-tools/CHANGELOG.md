@@ -1,5 +1,149 @@
 # @robota-sdk/agent-tools
 
+## 3.3.1
+### Patch Changes
+
+- The previous version of this package was tagged but never published to npm, because `main` moved past its release commit first. This version carries the same consolidated package set from the current `main`, with comment and test-name cleanups and no behavior change.
+
+## 3.3.0
+### Minor Changes
+
+- 87449a3: The default tool set is now the Node-only `defaults` subpath of `@robota-sdk/agent-tools`: import `createDefaultTools` from `@robota-sdk/agent-tools/defaults`. It maps `browser: null` like `./node`, and the root and `./node` entries are unchanged. The exported names and signatures are unchanged, and a consumer's install does not grow: the subpath adds no dependency to the package. `@robota-sdk/agent-tool-defaults` no longer receives releases.
+
+### Patch Changes
+
+- 913d334: The host primitives are now one package, `@robota-sdk/agent-os`, with one subpath each: `file-authority` (and `file-authority/testing`), `node-lock` and `process`. Import the subpath you use (`@robota-sdk/agent-os/process`); there is no root export, and a bundle that imports `process` contains no native binding. Koffi is now an optional peer dependency pinned to `3.3.1`: a project that imports `file-authority` or `node-lock` installs it itself, and a project that imports only `process` installs nothing. The exported names and signatures are unchanged. `@robota-sdk/agent-file-authority`, `@robota-sdk/agent-node-lock` and `@robota-sdk/agent-process` no longer receive releases. The framework, session, tools, executor and subagent-runner packages depend on `@robota-sdk/agent-os`; the packages that used the file authority or the lock declare `koffi` themselves, so their installs are unchanged.
+- f377a57: On Windows, Read and Edit now refuse a file that was swapped for a link to somewhere outside the working directory between the containment check and the open, as they already did on Linux and macOS.
+- Updated dependencies [913d334]
+- Updated dependencies [44f28ee]
+  - @robota-sdk/agent-os@3.3.0
+
+## 3.2.2
+### Patch Changes
+
+- 8d05c9b: Allow compatible SDK dependencies to update independently.
+
+## 3.2.1
+### Patch Changes
+
+  - @robota-sdk/agent-file-authority@3.2.1
+  - @robota-sdk/agent-process@3.2.1
+
+## 3.2.0
+### Patch Changes
+
+  - @robota-sdk/agent-file-authority@3.2.0
+  - @robota-sdk/agent-process@3.2.0
+
+## 3.1.2
+### Patch Changes
+
+  - @robota-sdk/agent-file-authority@3.1.2
+  - @robota-sdk/agent-process@3.1.2
+
+## 3.1.1
+### Patch Changes
+
+- Updated dependencies [7e55f21]
+  - @robota-sdk/agent-file-authority@3.1.1
+  - @robota-sdk/agent-process@3.1.1
+
+## 3.1.0
+### Minor Changes
+
+- ea0e424: Make `agent-core`'s main entry platform-neutral and declare every package's runtime platform.
+
+  - `@robota-sdk/agent-core` no longer reaches Node from its main entry. `runHooks` runs only the executors it is given (pass `new CommandExecutor()` and `new HttpExecutor()` from `@robota-sdk/agent-core/node`); `resolveEnvReference`, `hasUsableSecretReference`, `normalizeProviderConfig`, `resolveMediaProviderConfig`, `createImageProviderFromDefinition` and `createVideoProviderFromDefinition` take a required resolver; `processEnvResolver`, `resolvePlatformShell`, `UnsupportedShellError`, `IPlatformShell`, `IPlatformShellResolutionRequest` and `TShellKind` moved to `@robota-sdk/agent-core/node`.
+  - Every export subpath that needs a Node host now maps `"browser": null`, so a browser bundler refuses it by name instead of failing on a Node built-in. `@robota-sdk/agent-tools` no longer ships a separate browser build: its main entry is Node-only until it becomes platform-neutral. ARCHITECTURE.md "Runtime platforms" lists which packages are platform-neutral, browser-only, or Node-only.
+- ee7f7ef: Make the main entries of `@robota-sdk/agent-tools`, `@robota-sdk/agent-framework`, `@robota-sdk/agent-command`, `@robota-sdk/agent-preset` and `@robota-sdk/agent-product` platform-neutral. They run unchanged in a browser, a Web Worker, Node, Deno and Bun, and no longer map `"browser": null` on `.`. Every package is now in exactly one of ARCHITECTURE.md's three platform lists; the "Not yet neutral" list is gone.
+
+  - `@robota-sdk/agent-tools` no longer re-exports `GrepIsolationError`, `ReadByteLimitError`, `ReadCancelledError`, `createBashTool`, `createEditTool`, `createGlobTool`, `createGrepTool`, `createReadTool`, `createShellTool`, `createWriteTool` and `webFetchTool` from its main entry. They are on `@robota-sdk/agent-tools/node` only, which is where `@robota-sdk/workflows` 0.0.4 imports them.
+  - The five packages build once into `dist` (not `dist/node`) and their `exports` map `import` and `require` only. A Node-only subpath keeps `"browser": null`: `./node` on `agent-tools`, `agent-framework`, `agent-command` and `agent-preset`, and `./testing` on `agent-framework`. Specifiers and the code behind them are unchanged; only a deep import of `dist/node/*` breaks.
+  - `/user-local` and `executeUserLocalDirectCommand` read and write their storage root through an injected file system, as `/doctor` does through `doctorDeps`: `createUserLocalCommandModule(storageRoot, fsAsync)`, the `userLocalFileSystem` option of `createDefaultCommandModules` and the `fsAsync` option of `executeUserLocalDirectCommand`. They no longer import `NodeFileSystemAsync` themselves, and absent a file system the command is listed and answers that it is unavailable on this host; nothing is read or written.
+  - `@robota-sdk/agent-cli` passes `new NodeFileSystemAsync()` from `@robota-sdk/agent-framework/node` for both, so `/user-local` and `agent user-local` behave as before.
+- 42d595e: Split `@robota-sdk/agent-tools` into a platform-neutral main entry and a Node-only `@robota-sdk/agent-tools/node`.
+
+  - `@robota-sdk/agent-tools/node` (new, `"browser": null`) holds what touches a host: `createShellTool`, `createBashTool`, `createReadTool`, `ReadByteLimitError`, `ReadCancelledError`, `createWriteTool`, `createEditTool`, `createGlobTool`, `createGrepTool`, `GrepIsolationError`, `webFetchTool`, `createWebFetchTool`, `DEFAULT_OS_SANDBOX_SETTINGS`, `detectOsSandbox`, `OsSandboxClient`, `bubblewrapArguments`, `protectedWorkspaceEntries`, `seatbeltProfile`, their option and status types, and the new `createNodeWorkspaceHostFiles`. `fast-glob`, `@robota-sdk/agent-process` and `@robota-sdk/agent-file-authority` are reached only from it. Import these from `/node`.
+  - The main entry keeps `createFunctionTool`, `createZodFunctionTool`, `createAskUserQuestionTool`, `createToolSearchTool`, `matchDeferredTools`, the sandbox ports, `E2BSandboxClient`, `InMemorySandboxClient`, `applyWorkspaceManifest`, retrieval and computer use, and the option types of the built-in tools. Its source reaches no Node built-in or Node global: `AskUserQuestion` ids come from `randomId`, `E2BSandboxClient` decodes a binary file read with `TextDecoder` (a leading byte-order mark is kept, as before), and `PageComputerDriver` encodes screenshots with `btoa`.
+  - `applyWorkspaceManifest` no longer reads the host itself. The `hostRoot` option is replaced by `hostFiles` (`IWorkspaceHostFiles`: `resolve`, which turns a `src` into a host path, `readText`, `readDirectory`). Absent, a manifest that names a `localFile` or `localDir` entry is refused before any entry is applied, with an error naming `hostFiles`; a manifest with no local entry still applies. `createNodeWorkspaceHostFiles(root)` from `/node` is the Node implementation, and `agent-framework` passes it with the session's working directory.
+  - Temporary: the main entry still re-exports the eleven Node names that the published `@robota-sdk/workflows` 0.0.3 (bundled by `agent-cli`) imports from it, and keeps `"browser": null`. They leave with the next workflows release, and the main entry becomes platform-neutral then.
+  - `agent-tool-defaults`, `agent-framework` and `agent-cli` import the Node tools and the OS sandbox from `@robota-sdk/agent-tools/node`.
+
+### Patch Changes
+
+- 51ad6a4: Children in their own session for secure mode (issue #3679). Nothing turns secure mode on yet, so
+  spawning in every product process is unchanged except for the pull-request opener below.
+
+  `@robota-sdk/agent-core/node` adds the child-session policy: `enableOwnChildSessions()` (one-way,
+  process-wide, nothing on Windows), `withChildSession(options)`, `execFileInChildSession(...)`,
+  `endWithProcess(child)` and `signalChildGroup(child, signal)`, with `resetChildSessionsForTesting()`
+  in `@robota-sdk/agent-core/testing`. While the policy is off each returns or runs exactly what the
+  caller did before. While on, a child leads its own session and process group, may not inherit a
+  terminal descriptor, and its group is killed when the process ends. Command hooks, the identity
+  readers, stdio MCP servers, git, the sandbox, background tasks and the CLI's own children use it; the
+  terminal handover (`/editor`, `/keybindings`, `/shell`, the workspace-move re-exec) does not.
+
+  Breaking: `removeProcessScopedDirectoriesNow()` is renamed `runProcessEndNow()`, since it now also
+  ends the groups of children in their own session. What to do: call `runProcessEndNow()` where a
+  crash handler called the old name.
+
+  Plain-mode changes in `@robota-sdk/agent-cli`: the session view opens a pull request with the
+  product's own browser opener instead of the `open` package, which is no longer a dependency. macOS
+  still runs `open <url>`; Linux runs the `xdg-open` found on `PATH`; Windows runs
+  `rundll32 url.dll,FileProtocolHandler <url>` rather than PowerShell's `Start`; and only an https
+  link opens. That opener, which sign-in also uses, is now started detached and let go: it settles once
+  the opener has started rather than when it exits (it no longer fails after 15 seconds when
+  `xdg-open` stays in the foreground), and it is never ended with the process. What to do: nothing.
+- 45c11a2: The peer dependencies on `@robota-sdk/agent-core` and `@robota-sdk/agent-session` accept the release line (`^`) instead of one exact version, so a minor release of the SDK stays a minor instead of becoming a major.
+- 0a677e9: Remove the built-in `WebSearch` tool, its `IWebSearchProvider` port and the Brave adapter (`webSearchTool`, `createWebSearchTool`, `createBraveSearchProvider`). Web search now comes from model-native provider search and from MCP servers. `createDefaultTools` holds only tools that need no external service or adapter: its `retrievalAdapter` and `computerDriver` options are gone, as is the framework's `retrievalAdapter` session option; a composition root that has such an adapter builds `createRetrievalTool` / `createComputerTool` itself.
+- Updated dependencies [830d3d2]
+- Updated dependencies [4e4c92a]
+  - @robota-sdk/agent-file-authority@3.1.0
+  - @robota-sdk/agent-process@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.7
+  - @robota-sdk/agent-file-authority@3.0.7
+  - @robota-sdk/agent-process@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+- Updated dependencies [7c4eb0d]
+  - @robota-sdk/agent-file-authority@3.0.6
+  - @robota-sdk/agent-core@3.0.6
+  - @robota-sdk/agent-process@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-file-authority@3.0.5
+  - @robota-sdk/agent-process@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+  - @robota-sdk/agent-file-authority@3.0.4
+  - @robota-sdk/agent-process@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.3
+  - @robota-sdk/agent-file-authority@3.0.3
+  - @robota-sdk/agent-process@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+  - @robota-sdk/agent-file-authority@3.0.2
+  - @robota-sdk/agent-process@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

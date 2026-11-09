@@ -1,8 +1,8 @@
 /**
- * What a model can do, and where that answer lives. PROV-006 / PROV-008.
+ * What a model can do, and where that answer lives.
  *
- * PROV-006 made the per-model capability vocabulary readable: `tools`, `vision`, `json_schema`,
- * `reasoning`, `native_web`, `streaming`. PROV-008 moved it out of the struct it was sharing.
+ * The per-model capability vocabulary is `tools`, `vision`, `json_schema`, `reasoning`,
+ * `native_web`, `streaming`. It lives apart from the struct it once shared.
  *
  * `IProviderModelCatalogEntry` carried three payloads with nothing in common — which models EXIST
  * (dynamic, per-account, refreshable), what a model CAN DO (static, versioned with the adapter), and

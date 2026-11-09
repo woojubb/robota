@@ -14,7 +14,7 @@ import type {
   ISubagentJobStart,
   ISubagentRunner,
 } from '@robota-sdk/agent-executor';
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface/execution';
 import { runHierarchical, type PlanDelegation } from '../hierarchical';
 import { createInProcessSubagentRunner } from '../../subagents/index';
 import {
@@ -46,7 +46,7 @@ const delegateOnceThenDone: PlanDelegation = (_out, round) =>
       ]
     : null;
 
-describe('SELFHOST-001 P3 — hierarchical orchestration', () => {
+describe('hierarchical orchestration', () => {
   it('runs the manager, delegates to workers, threads their output back, then finishes', async () => {
     const { manager, spawns } = fakeManager(outByType);
     const { events, names } = capturingEvents();
@@ -133,6 +133,7 @@ describe('SELFHOST-001 P3 — hierarchical orchestration', () => {
           taskId: job.taskId,
           result: Promise.resolve<ISubagentJobResult>({ taskId: job.taskId, output }),
           cancel: async () => {},
+          send: async () => {},
         };
       },
     };

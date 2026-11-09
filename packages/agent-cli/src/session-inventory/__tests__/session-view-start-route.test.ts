@@ -16,6 +16,7 @@ import {
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
 import { createThemeSurface } from '../../startup/theme-surface.js';
 import { runWorkspaceTrustCommand } from '../../startup/workspace-trust-command.js';
+import { approveTestWorkspace, stopTestWorkspaceBroker } from '../../__tests__/helpers/approve-test-workspace.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
 import { runSessionViewCommand, type ISessionViewCommandOptions } from '../session-view-command.js';
 
@@ -53,7 +54,7 @@ describe('session view background start route', () => {
       return 0;
     });
     try {
-      expect(await runWorkspaceTrustCommand(['--yes'], cwd, createTestProductRuntime())).toBe(0);
+      expect(await approveTestWorkspace(cwd, createTestProductRuntime())).toBe(0);
       expect(
         await runPreparsedCliCommand(
           { productRuntime: createTestProductRuntime(),
@@ -68,6 +69,7 @@ describe('session view background start route', () => {
       ).toBe(true);
       expect(process.exitCode).toBe(0);
     } finally {
+      await stopTestWorkspaceBroker(createTestProductRuntime());
       if (previousHome === undefined) delete process.env['HOME'];
       else process.env['HOME'] = previousHome;
       process.exitCode = previousExitCode;
@@ -77,7 +79,7 @@ describe('session view background start route', () => {
     }
   });
 
-  it('asks about a folder not trusted yet, then starts it Trusted or Restricted as answered (#3268)', async () => {
+  it('asks about a folder not trusted yet, then starts it Trusted or Restricted as answered', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-view-route-trust-'));
     const cwd = join(scratch, 'viewer');
     const home = join(scratch, 'home');
@@ -87,7 +89,7 @@ describe('session view background start route', () => {
     const previousExitCode = process.exitCode;
     vi.mocked(launchSupervisedSession).mockResolvedValue('8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4');
     vi.mocked(runSessionViewCommand).mockImplementation(async (_argv, options) => {
-      // The question names the folder and what trust would load. #3282 §3: a row appears only when
+      // The question names the folder and what trust would load. A row appears only when
       // its state is known — only Linux's pinned handle-walk can tell a not-yet-created
       // `.test-product/settings.json` apart from one it cannot describe safely, so elsewhere `loads`
       // reports none of the candidate paths before trust.
@@ -137,6 +139,7 @@ describe('session view background start route', () => {
       expect(process.exitCode).toBe(0);
       expect(launchSupervisedSession).toHaveBeenCalledTimes(3);
     } finally {
+      await stopTestWorkspaceBroker(createTestProductRuntime());
       vi.unstubAllEnvs();
       process.exitCode = previousExitCode;
       vi.clearAllMocks();

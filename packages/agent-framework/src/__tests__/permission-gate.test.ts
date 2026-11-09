@@ -3,7 +3,7 @@
  */
 
 import { evaluatePermission } from '@robota-sdk/agent-core';
-// CORE-030: these decisions are a property of the BUILT-IN TOOLS, which declare their own risk
+// These decisions are a property of the BUILT-IN TOOLS, which declare their own risk
 // class and argument key. Importing the package that defines them is what registers those
 // declarations — and the import being load-bearing here is the point: without the tools present
 // there is nothing for the modes to decide about, and every row would take the prompt-on-every-call
@@ -100,7 +100,7 @@ const MATRIX_CASES: IMatrixCase[] = [
     expected: 'auto',
   },
   { mode: 'bypassPermissions', toolName: 'Bash', args: { command: 'rm -rf build' }, expected: 'auto' },
-  // Issue #3081: removing a critical path is never auto-approved, bypass included.
+  // Removing a critical path is never auto-approved, bypass included.
   { mode: 'bypassPermissions', toolName: 'Bash', args: { command: 'rm -rf /' }, expected: 'approve' },
   { mode: 'bypassPermissions', toolName: 'Glob', args: { pattern: '**' }, expected: 'auto' },
   { mode: 'bypassPermissions', toolName: 'Grep', args: { pattern: 'x' }, expected: 'auto' },

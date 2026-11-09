@@ -91,7 +91,7 @@ describe('public hosted CLI uses its installed worker executor', () => {
       const projected = readFileSync(workerEnv, 'utf8');
       expect(projected).not.toContain('runtime-management-canary');
       expect(projected).not.toContain('runtime-upstream-canary');
-      // The task's broker token authenticates the worker's provider, never its commands (#3429).
+      // The task's broker token authenticates the worker's provider, never its commands.
       expect(projected).not.toContain('synthetic-task-token');
       expect(projected).not.toContain('PRODUCT_HOSTED_RUNTIME_CONFIG');
       expect(readFileSync(receipts, 'utf8')).not.toContain('runtime-management-canary');

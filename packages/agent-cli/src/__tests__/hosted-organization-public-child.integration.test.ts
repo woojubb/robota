@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import { expect, it } from 'vitest';
 import { z } from 'zod';
-import { createAgentSystemCommand } from '@robota-sdk/agent-command';
+import { createAgentSystemCommand } from '@robota-sdk/agent-product/command';
 import { createProviderSafeModelCommandToolName } from '@robota-sdk/agent-framework';
 import {
   OrganizationAudit,

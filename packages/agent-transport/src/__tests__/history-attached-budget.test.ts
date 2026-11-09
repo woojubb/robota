@@ -1,5 +1,5 @@
 /**
- * #3189: a history larger than an attached terminal's backpressure budget reaches that terminal
+ * A history larger than an attached terminal's backpressure budget reaches that terminal
  * whole, over a real socket, without the connection being cut.
  *
  * The carrier here is wired as the supervised attach carrier is: every reply goes through
@@ -11,9 +11,9 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { createConnection, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -24,7 +24,7 @@ import { createSessionMessageHandler } from '../session-message-handler.js';
 
 import type { TClientMessage, TServerMessage } from '../wire-messages.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 import type { Server, Socket } from 'node:net';
 
 type TListener = (...args: unknown[]) => void;
@@ -158,11 +158,22 @@ function connect(path: string): Promise<IClient> {
   });
 }
 
+/**
+ * A local IPC endpoint for the directory: a Unix socket inside it, or on Windows a named pipe
+ * (Windows `listen` accepts only a pipe name, never a filesystem path, and refuses a path with
+ * EACCES). The directory name is unique, so the pipe name is too.
+ */
+function ipcEndpoint(directory: string): string {
+  return process.platform === 'win32'
+    ? `\\\\.\\pipe\\${basename(directory)}`
+    : join(directory, 's.sock');
+}
+
 function isHistory(frame: TServerMessage): frame is Extract<TServerMessage, { type: 'history' }> {
   return frame.type === 'history';
 }
 
-describe('a history larger than the attached-surface budget (#3189)', () => {
+describe('a history larger than the attached-surface budget', () => {
   let server: Server | undefined;
   let dir: string | undefined;
 
@@ -176,7 +187,7 @@ describe('a history larger than the attached-surface budget (#3189)', () => {
     const session = emittingSession(history);
     const cuts: Error[] = [];
     dir = mkdtempSync(join(tmpdir(), 'rh-'));
-    const path = join(dir, 's.sock');
+    const path = ipcEndpoint(dir);
     server = createServer((socket) => serve(session, socket, (error) => cuts.push(error)));
     await new Promise<void>((done) => server!.listen(path, done));
     const client = await connect(path);

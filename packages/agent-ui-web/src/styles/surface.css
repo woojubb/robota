@@ -216,7 +216,7 @@
 }
 
 /*
- * A code block's own horizontal scrollbar (#3289 §2) stays visible rather than only-on-hover like the
+ * A code block's own horizontal scrollbar stays visible rather than only-on-hover like the
  * rest of the page (`theme.css`'s quiet overlay scrollbar) — a long unwrapped line needs a standing
  * signal that there is more of it, not one that only appears once the person already found the edge.
  * `.gui-code-scroll::-webkit-scrollbar-thumb` outranks that page-wide bare `::-webkit-scrollbar-thumb`

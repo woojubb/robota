@@ -8,11 +8,11 @@ import type { IInitOptions } from '../interactive-session-options.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
 
 /**
- * ARCH-013 stage 3 — the consumer-supplied guardrail registry reaches the session.
+ * The consumer-supplied guardrail registry reaches the session.
  *
  * `guardrails` was READ all along: `create-session.ts` installs a `PreToolUse` guardrail hook
  * whenever the registry is non-empty. It could not be SET, because this projection dropped it — so a
- * documented capability (SELFHOST-005) was unreachable from every public surface rather than merely
+ * documented capability was unreachable from every public surface rather than merely
  * unused.
  *
  * It is a consumer-supplied port: the repo ships no implementation of it, which is what makes "the
@@ -22,7 +22,7 @@ import type { TGuardrail } from '@robota-sdk/agent-core';
  */
 const DEPS: ICreateSessionProjectionDeps = {
   mergedConfig: { provider: { name: 'test', model: 'test-model' } } as never,
-  cwd: '/arch-013-stage-3',
+  cwd: '/extension-port',
   context: {} as ICreateSessionProjectionDeps['context'],
   projectInfo: {} as ICreateSessionProjectionDeps['projectInfo'],
   sessionId: 'test-session',
@@ -34,13 +34,13 @@ const DEPS: ICreateSessionProjectionDeps = {
 function initOptions(extra: Partial<IInitOptions>): IInitOptions {
   return {
     host: createTestFrameworkHost(),
-    cwd: '/arch-013-stage-3',
+    cwd: '/extension-port',
     provider: {} as never,
     ...extra,
   } as IInitOptions;
 }
 
-describe('ARCH-013 stage 3 — a consumer can supply the guardrail registry', () => {
+describe('a consumer can supply the guardrail registry', () => {
   it('projects the registry onto the session options the assembler reads', () => {
     const blockEverything: TGuardrail = () => ({ pass: false, reason: 'blocked by test' });
 
@@ -53,7 +53,7 @@ describe('ARCH-013 stage 3 — a consumer can supply the guardrail registry', ()
   it('omits the key entirely when no registry is supplied', () => {
     // A conditional spread rather than `guardrails: undefined`: `create-session.ts` branches on
     // `options.guardrails && Object.keys(...).length > 0`, and an explicitly-undefined key is the
-    // shape that reintroduces an absent member through a spread (ARCH-029's lesson, one package over).
+    // shape that reintroduces an absent member through a spread.
     const built = buildCreateSessionOptions(initOptions({}), DEPS);
 
     expect('guardrails' in built).toBe(false);

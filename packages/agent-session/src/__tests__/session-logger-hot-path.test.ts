@@ -1,5 +1,5 @@
 /**
- * CORE-029 — the streaming hot path, and the writes that used to disappear.
+ * The streaming hot path, and the writes that used to disappear.
  *
  * `session-run.ts` logs a `text_delta` event per streamed token, and this logger answered each with
  * a blocking `appendFileSync` — one synchronous disk write, with its own open and close, per token.
@@ -55,7 +55,7 @@ function readLines(logDir: string): Array<Record<string, unknown>> {
     .map((line) => JSON.parse(line) as Record<string, unknown>);
 }
 
-describe('FileSessionLogger hot path (CORE-029)', () => {
+describe('FileSessionLogger hot path', () => {
   let logDir: string;
 
   beforeEach(() => {

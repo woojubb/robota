@@ -1,5 +1,5 @@
 # Reference deployment of the Robota agent image. See README.md for host requirements, the provider
-# setup run, trust and workspace guidance.
+# setup run, restricted mode and workspace guidance.
 #
 #   OPENAI_API_KEY_FILE=/path/to/key docker compose run --rm robota --configure-provider ...
 #   ROBOTA_REPO_URL=https://… ROBOTA_TASK='…' OPENAI_API_KEY_FILE=/path/to/key docker compose run --rm robota
@@ -11,7 +11,7 @@
 # published image's name (a later `up` would otherwise run it instead of pulling the release).
 
 services:
-  # Batch: one container per task. It clones the repository, states trust for that clone, runs the
+  # Batch: one container per task. It clones the repository, runs in restricted mode, and completes the
   # task to completion and exits with the run's status.
   robota:
     profiles: [batch]
@@ -50,8 +50,7 @@ services:
         : "$${ROBOTA_REPO_URL:?set ROBOTA_REPO_URL}" "$${ROBOTA_TASK:?set ROBOTA_TASK}"
         git clone --depth 1 "$$ROBOTA_REPO_URL" /workspace/repo
         cd /workspace/repo
-        robota trust --yes
-        exec robota -p "$$ROBOTA_TASK" --output-format json
+        exec robota --restricted-workspace -p "$$ROBOTA_TASK" --output-format json
 
   # Server: a long-running runtime that other apps and services reach over the agent HTTP API
   # (`--serve --http-port`). The API binds loopback only, so `robota-proxy` shares this
@@ -96,8 +95,7 @@ services:
         : "$${ROBOTA_REPO_URL:?set ROBOTA_REPO_URL}"
         [ -d /workspace/repo/.git ] || git clone --depth 1 "$$ROBOTA_REPO_URL" /workspace/repo
         cd /workspace/repo
-        robota trust --yes
-        exec robota --serve --http-port 8787
+        exec robota --restricted-workspace --serve --http-port 8787
     restart: unless-stopped
 
   robota-proxy:

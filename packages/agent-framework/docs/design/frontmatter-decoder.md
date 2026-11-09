@@ -109,7 +109,7 @@ An empty header, or one that parses to nothing, also yields the profile's empty 
 
 - Tightening each loader's own parser avoids a dependency but keeps semantic duplication and drift.
   It was rejected in favour of one boundary.
-- A decoder in `agent-core` or `agent-interface-command` would be easier to export, but it would
+- A decoder in `agent-core` or `agent-interface/command` would be easier to export, but it would
   reverse ownership by placing framework file-format knowledge below its consumers.
 - The `yaml` dependency is larger than a line splitter, but it correctly handles the quoted,
   block-scalar, inline-list, nested-map, comment and CRLF forms found in real files, and it gives

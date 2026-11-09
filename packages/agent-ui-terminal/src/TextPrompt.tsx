@@ -74,7 +74,7 @@ export default function TextPrompt({
     ['cancel', 'Cancel'],
   ]);
 
-  // CLI-2004: the box is dropped rather than restyled — the mode omits the prop, so no colour
+  // The box is dropped rather than restyled — the mode omits the prop, so no colour
   // literal is introduced and the palette floor stays green.
   return (
     <Box

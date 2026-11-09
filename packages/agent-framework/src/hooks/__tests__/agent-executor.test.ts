@@ -135,7 +135,7 @@ describe('AgentExecutor', () => {
     expect(result.outcome === 'deny' && result.reason).toBe('nope');
   });
 
-  // SEC-015 TC-05 — the executor must stamp its OWN type, not whatever the decoder was handed.
+  // The executor must stamp its OWN type, not whatever the decoder was handed.
   it('every outcome carries source: "agent"', async () => {
     const sources: string[] = [];
     for (const response of [

@@ -12,11 +12,12 @@ import type { ITuiAppChannelPort } from './tui-app-channel-port.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { ISessionSwitchOptions } from './types.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
-import type { IPromptHistorySource } from '@robota-sdk/agent-interface-session';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+import type { TReducedMotionOverride } from '@robota-sdk/agent-interface/command';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface/command';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
+import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface/session';
+import type { IPromptHistorySource } from '@robota-sdk/agent-interface/session';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface/transport';
 
 interface IProps {
   cwd: string;
@@ -28,6 +29,8 @@ interface IProps {
    * switches by building a channel for the chosen session.
    */
   requestSessionSwitch?: (sessionId: string) => Promise<void>;
+  ownerSessions?: IOwnerSessionDirectory;
+  onOwnerInvalidated?: (listener: () => void) => () => void;
   providerOverride?: string | undefined;
   providerType?: string | undefined;
   modelId?: string;
@@ -42,21 +45,21 @@ interface IProps {
    */
   acceptedDigest?: string;
   showSessionPickerOnStart?: boolean;
-  /** FLOW-2006: a deep link's prefill, consumed once by the composer. */
+  /** A deep link's prefill, consumed once by the composer. */
   initialInput?: string;
   initialInputOrigin?: 'external-link';
   startupUpdateNotice?: Promise<string | undefined>;
   transportRegistry?: ITransportRegistryView;
   pluginAdapter?: ICommandPluginAdapter;
   cliAdapter: ITuiCliAdapter;
-  /** SCREEN-1993: the stored-prompt source and project key for the input area's search. */
+  /** The stored-prompt source and project key for the input area's search. */
   promptHistorySource?: IPromptHistorySource;
   promptHistoryProject?: string;
-  /** SCREEN-2002: the theme catalogue this run renders from; absent ⇒ the built-ins. */
+  /** The theme catalogue this run renders from; absent ⇒ the built-ins. */
   themeRegistry?: IThemeRegistry;
-  /** SCREEN-2002: reduced motion as the product shell resolved it (settings ← env ← flag). */
+  /** Reduced motion as the product shell resolved it (settings ← env ← flag). */
   reducedMotion?: boolean | undefined;
-  /** SCREEN-2002: which tier decided it, when that was not the settings. */
+  /** Which tier decided it, when that was not the settings. */
   reducedMotionOverride?: TReducedMotionOverride | undefined;
 }
 
@@ -250,6 +253,8 @@ function ActiveApp(
         {...(props.permissionMode !== undefined ? { permissionMode: props.permissionMode } : {})}
         {...(props.version !== undefined ? { version: props.version } : {})}
         {...(props.sessionStore !== undefined ? { sessionStore: props.sessionStore } : {})}
+        {...(props.ownerSessions !== undefined ? { ownerSessions: props.ownerSessions } : {})}
+        {...(props.onOwnerInvalidated !== undefined ? { onOwnerInvalidated: props.onOwnerInvalidated } : {})}
         {...(props.startupUpdateNotice !== undefined
           ? { startupUpdateNotice: props.startupUpdateNotice }
           : {})}

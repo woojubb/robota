@@ -23,7 +23,7 @@ vi.mock('@robota-sdk/agent-framework', async () => {
   const actual = await vi.importActual<typeof import('@robota-sdk/agent-framework')>(
     '@robota-sdk/agent-framework',
   );
-  // RUNTIME-001: construction flows through buildRuntimeSession (wraps InteractiveSession); mock both.
+  // Construction flows through buildRuntimeSession (wraps InteractiveSession); mock both.
   const makeMockSession = (): unknown => {
     {
       const handlers = new Map<string, Array<(...args: unknown[]) => void>>();
@@ -80,7 +80,7 @@ import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IAIProvider, IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
+import type { IExecutionResult } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 
@@ -190,7 +190,7 @@ describe('Group D — display contract: history entries and active tools', () =>
     });
   });
 
-  it('D1 (CLI-B05): user_message event immediately adds role=user entry before complete', async () => {
+  it('user_message event immediately adds role=user entry before complete', async () => {
     const channel = makeChannel();
     await channel.start();
 
@@ -218,7 +218,7 @@ describe('Group D — display contract: history entries and active tools', () =>
     await channel.stop();
   });
 
-  it('D3 (CLI-B06): error event syncs error entry into history — no silent failure', async () => {
+  it('error event syncs error entry into history — no silent failure', async () => {
     const channel = makeChannel();
     const mockSession = getMockSession(channel);
     const userEntry = messageToHistoryEntry(createUserMessage('hello'));
@@ -235,7 +235,7 @@ describe('Group D — display contract: history entries and active tools', () =>
     await channel.stop();
   });
 
-  it('D4 (CLI-B07): tool_end marks tool isRunning=false; complete clears all (no stale spinner after complete)', async () => {
+  it('tool_end marks tool isRunning=false; complete clears all (no stale spinner after complete)', async () => {
     const channel = makeChannel();
     await channel.start();
 
@@ -254,7 +254,7 @@ describe('Group D — display contract: history entries and active tools', () =>
     await channel.stop();
   });
 
-  it('D5 (CLI-B08): thinking(false) clears activeTools even without complete', async () => {
+  it('thinking(false) clears activeTools even without complete', async () => {
     const channel = makeChannel();
     await channel.start();
 

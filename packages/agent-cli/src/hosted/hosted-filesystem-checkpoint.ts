@@ -9,7 +9,7 @@ import {
   record,
 } from './hosted-runtime-config.js';
 import { projectHostedSessionCheckpoint } from './hosted-session-checkpoint.js';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import type { IHostedIdentity, IHostedSnapshot } from './hosted-runtime-types.js';
 
 export interface IHostedCheckpointFile {

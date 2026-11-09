@@ -9,8 +9,9 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "^3.0.0-beta.67",
-    "@robota-sdk/agent-provider-anthropic": "^3.0.0-beta.67"
+    "@anthropic-ai/sdk": "^0.114.0",
+    "@robota-sdk/agent-core": "^3.2.3",
+    "@robota-sdk/agent-provider": "^3.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

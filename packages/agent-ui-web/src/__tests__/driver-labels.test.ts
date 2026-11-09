@@ -1,8 +1,8 @@
 /**
- * #3289 §3 — direct unit coverage for `isSameSurface` / `humanDriverLabel` / `driverAttributionText`.
+ * Direct unit coverage for `isSameSurface` / `humanDriverLabel` / `driverAttributionText`.
  * Component tests (`ConversationView`, `PermissionPrompt`) exercise these indirectly; this file pins
  * the rule itself, including a regression a review round caught: `'remote:ws'` (a plain WS viewer's
- * own id) and `'peer:<sessionId>'` (an unrelated REMOTE-014 mesh peer's turn) must NEVER compare equal
+ * own id) and `'peer:<sessionId>'` (an unrelated mesh peer's turn) must NEVER compare equal
  * under `isSameSurface`, even though both render the same "a remote device" label text — collapsing
  * them into one kind would hide a peer's turn on a plain remote-WS viewer as if it were this
  * connection's own, the exact class of bug this module exists to prevent.
@@ -44,7 +44,7 @@ describe('isSameSurface', () => {
 
   it('REGRESSION: a mesh peer\'s turn is never "the same surface" as a plain WS viewer\'s own id, even though both display as "a remote device"', () => {
     // 'remote:ws' is the id a plain (non-desktop, non--open) WS connection learns as its OWN id.
-    // 'peer:<sessionId>' is a REMOTE-014 mesh peer's turn, broadcast to every connected surface —
+    // 'peer:<sessionId>' is a mesh peer's turn, broadcast to every connected surface —
     // an unrelated co-driver, never this connection's own turn.
     expect(isSameSurface('peer:session-abc123', 'remote:ws')).toBe(false);
     expect(isSameSurface('remote:ws', 'remote:ws')).toBe(true);
@@ -64,7 +64,7 @@ describe('humanDriverLabel / driverAttributionText', () => {
     expect(humanDriverLabel('some-future-id')).toBe('another surface');
   });
 
-  it('renders "from <label>" for a co-driver, and "Automatic — loop" for the agent (#3288 §1)', () => {
+  it('renders "from <label>" for a co-driver, and "Automatic — loop" for the agent', () => {
     expect(driverAttributionText('browser')).toBe('from the browser');
     expect(driverAttributionText('agent')).toBe('Automatic — loop');
   });

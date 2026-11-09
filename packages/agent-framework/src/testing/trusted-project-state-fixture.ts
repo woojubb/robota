@@ -1,10 +1,10 @@
-import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createWorkspaceProjectSettingsSources } from '../config/settings-source.js';
 import { createNodeHostSettingsSource } from '../config/node-host-settings-source.js';
 import { TEST_PROJECT_SETTINGS_PATHS } from './project-settings-path-fixture.js';
 import { createProjectSessionStore } from '../interactive/node-session-stores.js';
+import { canonicalRealPath } from '../workspace-trust/canonical-real-path.js';
 import { createNodeWorkspaceProjectFiles } from '../workspace-trust/node-project-files.js';
 import {
   WorkspaceTrustService,
@@ -22,7 +22,7 @@ import type {
   TWorkspaceProjectStateDirectories,
   TWorkspaceProjectAccess,
 } from '../workspace-trust/index.js';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 class TrustedFixtureStore implements IWorkspaceTrustStore {
   inspect(): Promise<IWorkspaceTrustStoreSnapshot> {
@@ -60,7 +60,8 @@ export async function createTrustedProjectStateFixture(
 export async function createTrustedProjectAccessFixture(
   root: string,
 ): Promise<TWorkspaceProjectAccess> {
-  const canonicalRoot = realpathSync(root);
+  // The spelling the host and the Node identity resolver use, so a fixture root lands where they do.
+  const canonicalRoot = canonicalRealPath(root);
   const identity: IWorkspaceIdentity = {
     repositoryKey: `fixture:${canonicalRoot}`,
     displayPath: canonicalRoot,

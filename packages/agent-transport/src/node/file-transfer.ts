@@ -25,7 +25,7 @@
 
 import { createHash, type Hash } from 'node:crypto';
 
-import type { IFileFrameChannel, IFileOffer } from '@robota-sdk/agent-interface-session-mobility';
+import type { IFileFrameChannel, IFileOffer } from '@robota-sdk/agent-interface/session-mobility';
 
 /** Why a transfer did not end with the file kept. */
 export type TFileTransferRefusal =

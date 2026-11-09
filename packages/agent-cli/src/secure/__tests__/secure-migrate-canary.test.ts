@@ -1,12 +1,12 @@
 /**
- * The canary for `secure migrate` (#3679): one unique string typed into every conversation store a
+ * The canary for `secure migrate`: one unique string typed into every conversation store a
  * state root keeps in plaintext — session records, the prompt history, a subagent transcript and its
  * sidecars (a nested one too), a kept-aside hand-off, a crashed write's temp file, an earlier build's
  * `/editor` buffer and a gone process's scratch; on Linux also a trusted project's records, replay
  * log, edit checkpoints and pending memory candidates. After one migration, answered yes, the string
  * is nowhere under the state root, the project's state directory or the temporary directory, except
- * in what the migration lists and leaves (the SDK's spill directories), and everything it sealed
- * still opens through the store that reads it. Secure mode is turned on through the predicate's own
+ * in the SDK's listed spill directories. Those unattributed directories keep activation incomplete;
+ * everything migrated still opens through the store that reads it. Secure mode is selected through the predicate's own
  * seam, and the keyring is the test fixture's.
  */
 import { execFileSync } from 'node:child_process';
@@ -24,7 +24,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { goneProcessOwner, leaveProcessScopedDirectory } from '@robota-sdk/agent-core/testing';
 import {
@@ -50,17 +50,20 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
+import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
+import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
 import { KeyHolder } from '../key-holder.js';
-import { createKeyringFileStore } from '../keyring-store.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { runSecureCommand } from '../secure-command.js';
-import { createMigrationSteps } from '../secure-migrate.js';
+import { EXIT_INCOMPLETE, createMigrationSteps } from '../secure-migrate.js';
 import { FIXTURE_PASSPHRASE, fixtureKeyring, scriptedSecureTerminal } from './helpers.js';
 
 import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 import type { IWorkspaceProjectAuthority } from '@robota-sdk/agent-framework';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-9d3f-sealed-by-secure-migrate';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -70,6 +73,7 @@ let home: string;
 let temporary: string;
 let runtime: ICliRuntimeContext;
 let project: string;
+let broker: Awaited<ReturnType<typeof startTestBroker>> | undefined;
 
 beforeEach(() => {
   home = realpathSync(mkdtempSync(join(tmpdir(), 'secure-migrate-canary-')));
@@ -80,7 +84,11 @@ beforeEach(() => {
   overrideProductSecureMode(runtime, true);
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await broker?.close();
+  broker = undefined;
+  if (process.platform !== 'win32')
+    rmSync(dirname(workspaceRootBrokerEndpoint(runtime)), { recursive: true, force: true });
   rmSync(home, { recursive: true, force: true });
 });
 
@@ -185,6 +193,10 @@ async function seedProject(): Promise<void> {
     runtime.layout.userPaths.workspaceTrust,
     runtime.layout.projectStateDirectories,
   ).grant(project);
+  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
+  broker = await startTestBroker(endpoint, dirname(endpoint), runtime.layout.userPaths.workspaceTrust);
+  if (await approveTestWorkspace(project, runtime) !== 0) throw new Error('live project approval failed');
   const authority = await projectAuthority();
   const sessions = getWorkspaceProjectStateStorage(authority, 'sessions');
   const logs = getWorkspaceProjectStateStorage(authority, 'session-logs');
@@ -323,8 +335,8 @@ describe.skipIf(process.platform === 'win32')('secure migrate, end to end', () =
     });
 
     const printed = out.join('');
-    expect(code, printed).toBe(0);
-    expect(printed).toContain('test-product secure migrate: done');
+    expect(code, printed).toBe(EXIT_INCOMPLETE);
+    expect(printed).toContain('test-product secure migrate: incomplete');
     expect(printed).not.toContain(CANARY);
     const sdkSpill = join(temporary, 'agent-tool-results-XyZ987', 'result.json');
     expect(withCanary()).toEqual([sdkSpill]);

@@ -19,8 +19,7 @@ import type { IResponseFormatConfig } from '../interfaces/response-format';
 import type { ILogger } from '../utils/logger';
 
 /**
- * Map the config-level response format onto provider chat options (CORE-015:
- * `json_schema` requires the schema payload; `text`/`json_object` carry type only).
+ * Map the config-level response format onto provider chat options (`json_schema` requires the schema payload; `text`/`json_object` carry type only).
  */
 export function buildChatResponseFormat(
   responseFormat: IResponseFormatConfig | undefined,
@@ -42,7 +41,7 @@ export function buildChatResponseFormat(
 }
 
 /**
- * Resolve the effective tool-invocation directive for a given execution round (CORE-017).
+ * Resolve the effective tool-invocation directive for a given execution round.
  * Forcing directives (`'required'` / `{ tool }`) apply to the run's FIRST model call only;
  * follow-up rounds (after tool results) revert to `'auto'` so the model can consume the
  * results and finish — a persistent force would re-trigger the tool every round and the run
@@ -62,7 +61,7 @@ export function resolveToolChoiceForRound(
 }
 
 /**
- * Validate a tool-invocation directive against the invocation's tool list (CORE-017).
+ * Validate a tool-invocation directive against the invocation's tool list.
  * Forcing semantics (`'required'` / `{ tool: name }`) demand tools to force — a missing
  * tool list or an unknown name is a caller contract violation and throws immediately.
  */
@@ -149,9 +148,9 @@ export function initializeConversationStore(
   const session = conversationHistory.getConversationStore(conversationId);
   // Restore prior CONVERSATION content (user/assistant/tool) when this store has none yet. Keying off
   // conversation content (not getMessageCount) lets a system prompt injected before the first run
-  // coexist with restore (CORE-008). Persisted `system` messages are intentionally NOT restored: the
+  // coexist with restore. Persisted `system` messages are intentionally NOT restored: the
   // system prompt is injected fresh from config.systemMessage below, which is a resume-time staleness
-  // refresh (the rebuilt prompt reflects the current cwd/AGENTS.md/CLAUDE.md and tools — CORE-009).
+  // refresh (the rebuilt prompt reflects the current cwd/AGENTS.md/CLAUDE.md and tools).
   const hasConversationContent = session.getMessages().some((m) => m.role !== 'system');
   if (!hasConversationContent && messages.length > 0) {
     for (const msg of messages) {
@@ -178,14 +177,14 @@ export function initializeConversationStore(
         );
       }
       // `system` messages are skipped — the system prompt is established below from config, not the
-      // restored log (CORE-009/CORE-010).
+      // restored log.
     }
   }
   // Inject the system prompt into the session log ONCE — only when the log has no system message yet
   // (session start, or the first turn after resume). Thereafter the log is reused as-is; the prompt
   // is never re-attached per turn. Live changes (persona, self-verification, AGENTS.md/CLAUDE.md
   // staleness refresh) update the head in place via ConversationAgent.updateSystemPrompt, which keeps
-  // config.systemMessage and the log head in sync (CORE-010; see agent-core SPEC → System Prompt).
+  // config.systemMessage and the log head in sync (see agent-core SPEC → System Prompt).
   const hasSystemMessage = session.getMessages().some((m) => m.role === 'system');
   if (config.systemMessage && !hasSystemMessage) {
     session.setSystemPrompt(config.systemMessage, { executionId });

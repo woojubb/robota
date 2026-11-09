@@ -1,5 +1,5 @@
 /**
- * Making a structured request survive a provider that cannot carry the schema. CORE-043.
+ * Making a structured request survive a provider that cannot carry the schema.
  *
  * Two defects, one seam. The turn asked every provider for `responseFormat: 'json_schema'`; a
  * provider whose surface cannot express that accepted the option and dropped it. And the only place

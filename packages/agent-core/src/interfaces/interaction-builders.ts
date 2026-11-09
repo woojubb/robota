@@ -1,6 +1,6 @@
 /**
- * Ergonomic constructors for {@link IActionRequest} plus the {@link isConfirmed} response helper
- * (CMD-004). The contract stays a single shape; these keep call sites readable so producers do not
+ * Ergonomic constructors for {@link IActionRequest} plus the {@link isConfirmed} response helper.
+ * The contract stays a single shape; these keep call sites readable so producers do not
  * hand-assemble the field combinations for confirm / single / multi / text.
  */
 

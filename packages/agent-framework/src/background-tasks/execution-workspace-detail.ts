@@ -19,7 +19,7 @@ export function createMainThreadDetailPage(
     timestamp: entry.timestamp.toISOString(),
     sourceId: entry.type,
   }));
-  // SCREEN-1992: the blocking question leads the first page, so a peek answers "what does it need".
+  // The blocking question leads the first page, so a peek answers "what does it need".
   if (input.pendingRequest !== undefined && offset === 0) {
     records.unshift({
       id: `${input.entryId}:pending`,
@@ -51,6 +51,7 @@ export function createLineDetailPage(input: ICreateLineDetailPageInput): IExecut
     ...(input.cursor ? { cursor: input.cursor } : {}),
     ...(input.nextCursor ? { nextCursor: input.nextCursor } : {}),
     records,
+    ...(input.unreadable ? { unreadable: input.unreadable } : {}),
   };
 }
 

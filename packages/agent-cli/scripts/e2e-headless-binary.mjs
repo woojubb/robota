@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** RUNTIME-002: real compiled-artifact parity, presentation graph, and self-worker proof. */
+/** Real compiled-artifact parity, presentation graph, and self-worker proof. */
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
@@ -37,7 +37,7 @@ if (digestOf(join(nodeRoot, 'headless.js')) !== inputDigest)
 const fullBin = join(packageRoot, 'dist-bun', fullName);
 const headlessBin = join(packageRoot, 'dist-bun-headless', headlessName);
 const fail = (message) => {
-  throw new Error(`RUNTIME-002: ${message}`);
+  throw new Error(message);
 };
 const assert = (condition, message) => {
   if (!condition) fail(message);

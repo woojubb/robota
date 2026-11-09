@@ -9,7 +9,7 @@ const scripted = vi.hoisted(() => ({
   chatOptions: [] as Array<{ tools?: Array<{ name: string }> } | undefined>,
 }));
 
-vi.mock('@robota-sdk/agent-provider-anthropic', async () => {
+vi.mock('@robota-sdk/agent-provider/anthropic', async () => {
   const { createScriptedProvider } = await import('@robota-sdk/agent-core/testing');
   return {
     AnthropicProvider: vi.fn(() => {

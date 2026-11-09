@@ -27,7 +27,7 @@ describe('served session user settings sources', () => {
     expect(options.baselinePermissionAllow).toEqual(PRODUCT_PERMISSION_BASELINE);
   });
 
-  it('keeps safe mode in the runtime session (issue #3082)', () => {
+  it('keeps safe mode in the runtime session', () => {
     const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,

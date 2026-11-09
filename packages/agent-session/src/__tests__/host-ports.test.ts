@@ -1,5 +1,5 @@
 /**
- * Issue #3693 — what a Node host used to be read from the machine is now handed to the session:
+ * What a Node host used to be read from the machine is now handed to the session:
  * the executors that run hook handlers, the home directory, the workspace resolver and the path
  * canonicalizer. Each is optional where "unknown" has a safe meaning and required where it does not.
  */

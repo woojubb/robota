@@ -112,7 +112,8 @@ describe('session release', () => {
     expect(declined.exitCode).toBe(1);
     expect(existsSync(marker)).toBe(true);
     expect(questions[0]).toContain(`pid ${other.pid}`);
-    expect(questions[0]).toContain('loses its fence');
+    expect(questions[0]).toContain('already running child processes may continue');
+    expect(questions[0]).toContain('Stop the writer and its children first');
 
     const accepted = await release(['sess_open', '--force'], directory, {
       isTTY: true,

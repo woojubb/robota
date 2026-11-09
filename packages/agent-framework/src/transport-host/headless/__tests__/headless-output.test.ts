@@ -1,5 +1,5 @@
 /**
- * #3282 §2 (part 2) — `formatEffortResolution` used to print the internal-field dump
+ * `formatEffortResolution` used to print the internal-field dump
  * `Model effort: requested=…, effective=…, source=…, disposition=…` for headless `/goal` output. It
  * now uses the same plain wording `/effort` itself already uses (`EFFORT_LEVEL_LABELS`), so a person
  * reading headless output and a person reading `/effort`'s reply see the same words for the same
@@ -22,7 +22,7 @@ function resolution(overrides: Partial<IModelEffortResolution>): IModelEffortRes
   };
 }
 
-describe('formatEffortResolution (#3282 §2)', () => {
+describe('formatEffortResolution', () => {
   it('reports the plain label, not the internal field dump', () => {
     const text = formatEffortResolution(resolution({ requested: 'high', disposition: 'applied' }));
 

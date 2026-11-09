@@ -1,5 +1,5 @@
 /**
- * Terminal handoff — framework functional test (TERM-001).
+ * Terminal handoff — framework functional test.
  *
  * Drives the handoff ORCHESTRATION through a REAL InteractiveSession (scripted provider, no CLI): a
  * transport-provided `ITerminalHandoff` capability is injected; the session surfaces `runWithTerminal`
@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface/session';
 
 const TEST_TIMEOUT = 20_000;
 

@@ -1,5 +1,5 @@
 /**
- * #3186 — one status read for every client: the terminal, desktop and browser clients render the
+ * One status read for every client: the terminal, desktop and browser clients render the
  * session's model, permission mode, effort and context from the same snapshot.
  */
 
@@ -9,7 +9,7 @@ import { InteractiveSession } from '../interactive-session.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { TInteractiveSessionOptions } from '../interactive-session.js';
-import type { IGoalState } from '@robota-sdk/agent-interface-session';
+import type { IGoalState } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 
@@ -80,7 +80,7 @@ describe('InteractiveSession.getStatusSnapshot', () => {
     expect(session.getStatusSnapshot()).not.toHaveProperty('sessionName');
   });
 
-  it('#3282 §3: reports setupRequired when constructed with it, so a client shows a setup screen', () => {
+  it('reports setupRequired when constructed with it, so a client shows a setup screen', () => {
     const session = new InteractiveSession({
       host: testHost,
       session: mockSession() as never,
@@ -90,7 +90,7 @@ describe('InteractiveSession.getStatusSnapshot', () => {
     expect(session.getStatusSnapshot().setupRequired).toBe(true);
   });
 
-  it('#3282 §3: leaves setupRequired out for every ordinary session (absent, never false)', () => {
+  it('leaves setupRequired out for every ordinary session (absent, never false)', () => {
     const session = new InteractiveSession({ host: testHost, session: mockSession() as never, cwd: '/tmp' });
     expect(session.getStatusSnapshot()).not.toHaveProperty('setupRequired');
   });

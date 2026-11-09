@@ -1,5 +1,5 @@
 /**
- * The one way a session store is decorated (#3679 step 3e): a view that replaces some of the port's
+ * The one way a session store is decorated: a view that replaces some of the port's
  * calls and forwards every other member exactly as the store has it.
  *
  * The members are listed once, held by the compiler to the port's own keys, so a member added to the
@@ -13,7 +13,9 @@ type TStoreMember = keyof IInteractiveSessionStore;
 
 /** Every member of the port, once. */
 const STORE_MEMBERS = {
+  supportsClaimDiscard: true,
   save: true,
+  saveRestoreTransaction: true,
   load: true,
   list: true,
   scan: true,
@@ -33,7 +35,9 @@ export type TSessionStoreOverrides = Partial<Omit<IInteractiveSessionStore, 'aut
 /**
  * `store`, with the calls `overrides` names replaced and every other member forwarded as the store has
  * it: a method is called on the store itself, the `authorship` member is the store's own, and a member
- * the store does not have is not on the view either.
+ * the store does not have is not on the view either. A view replacing `save` must explicitly
+ * provide its own restore-commit implementation or that capability is withheld, so the alternate
+ * write cannot bypass the view's save policy.
  */
 export function decorateSessionStore(
   store: IInteractiveSessionStore,
@@ -41,6 +45,13 @@ export function decorateSessionStore(
 ): IInteractiveSessionStore {
   const view: Partial<Record<TStoreMember, unknown>> = {};
   for (const member of Object.keys(STORE_MEMBERS) as TStoreMember[]) {
+    if (
+      member === 'saveRestoreTransaction' &&
+      overrides.save &&
+      !overrides.saveRestoreTransaction
+    ) {
+      continue;
+    }
     const replaced = member === 'authorship' ? undefined : overrides[member];
     if (replaced !== undefined) {
       view[member] = replaced;

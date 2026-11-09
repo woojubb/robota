@@ -1,5 +1,5 @@
 /**
- * ANALYTICS-001: source-attributed token-usage analysis over a session record.
+ * Source-attributed token-usage analysis over a session record.
  *
  * The main session history records one `usage-summary` history entry per turn (an `IUsageSnapshot`,
  * created in agent-framework). This reducer aggregates those snapshots into a per-source breakdown —
@@ -16,10 +16,10 @@ import type {
   IRunTraceSpan,
   IRunTraceTurn,
   IUsageBySourceReport,
-} from '@robota-sdk/agent-interface-analytics';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/analytics';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
-// SELFHOST-004: the trace/cost read-model is a boundary contract owned by `agent-interface-analytics`
+// The trace/cost read-model is a boundary contract owned by `agent-interface/analytics`
 // (it crosses the sidecar boundary via a TServerMessage carrier). Re-exported here for consumers that
 // import it alongside the reducer that produces it.
 export type {
@@ -27,7 +27,7 @@ export type {
   IRunTraceSpan,
   IRunTraceTurn,
   IUsageBySourceReport,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 
 /** The `type` of the per-turn usage history entry (agent-framework `createUsageSummaryEntry`). */
 const USAGE_SUMMARY_ENTRY_TYPE = 'usage-summary';
@@ -74,7 +74,7 @@ function roundPercentage(part: number, whole: number): number {
 
 /**
  * Aggregate a session's `usage-summary` entries into a per-source token+cost breakdown AND assemble
- * the per-operation span timeline (SELFHOST-004).
+ * the per-operation span timeline.
  *
  * Token/cost: usage snapshots with no `source` are attributed to the main thread; sources are grouped
  * by `<scope>:<id>` and sorted by total tokens descending with the top consumer surfaced. Cost sums
@@ -86,7 +86,7 @@ function roundPercentage(part: number, whole: number): number {
  * The reducer walks in order, buffering spans, and flushes the buffer as the turn's spans at each
  * usage-summary boundary — grouping sub-turn spans under their owning turn. Spans after the last
  * usage-summary (an in-progress turn) form a trailing timeline entry. Pure: no I/O, stays within the
- * declared `agent-core`, `agent-interface-analytics` and `agent-interface-session` dependencies
+ * declared `agent-core`, `agent-interface/analytics` and `agent-interface/session` dependencies
  * (NO `agent-plugin` read — enforcement lives elsewhere).
  */
 export function summarizeUsageBySource(input: TUsageAnalysisInput): IUsageBySourceReport {

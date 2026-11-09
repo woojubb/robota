@@ -20,7 +20,7 @@ function warnUnknownModel(modelId: string, what: string, fallback: number): void
   logger.warn(
     `No metadata registered for model "${modelId}"; using the default ${what} of ${fallback}. ` +
       "This number belongs to a different vendor's models — register the model through " +
-      'registerModelMetadata() from the package that owns it. (NEUT-010)',
+      'registerModelMetadata() from the package that owns it.',
   );
 }
 
@@ -42,7 +42,7 @@ export interface IModelDefinition {
 export const DEFAULT_CONTEXT_WINDOW = 200_000;
 
 /**
- * Model metadata contributed by a provider package. NEUT-010.
+ * Model metadata contributed by a provider package.
  *
  * This package used to carry a CLAUDE table, against its own SPEC ("must not branch on concrete
  * provider or model names") — and `agent-provider-anthropic` imported it back out. The table now
@@ -69,7 +69,7 @@ export function registerModelMetadata(...definitions: IModelDefinition[]): void 
         `Model "${definition.id}" was already registered with different metadata ` +
           `(context window ${existing.contextWindow} -> ${definition.contextWindow}, ` +
           `max output ${existing.maxOutput} -> ${definition.maxOutput}). The later registration ` +
-          'wins; one of the two owners is wrong. (NEUT-010)',
+          'wins; one of the two owners is wrong.',
       );
     }
     registeredModels.set(definition.id, definition);
@@ -93,7 +93,7 @@ export function findModelDefinition(modelId: string): IModelDefinition | undefin
 /**
  * Get context window size for a model ID.
  *
- * NEUT-010: an unknown model used to receive `DEFAULT_CONTEXT_WINDOW` — 200 000, which is CLAUDE's
+ * An unknown model used to receive `DEFAULT_CONTEXT_WINDOW` — 200 000, which is CLAUDE's
  * window — with no signal at all. Every non-Claude session was therefore sized against a number
  * belonging to a different vendor's models, and the two consumers that act on it
  * (`execution-round-context.ts`, `execution-round-tools.ts`, and `agent-session`'s context-window

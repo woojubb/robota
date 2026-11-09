@@ -6,7 +6,7 @@
  * enumerated before any candidate ceiling was hit (see DEFAULT_MAX_GLOB_CANDIDATES) — ordering is
  * not guaranteed across the full match set when the search tree is larger than that ceiling.
  *
- * SEC-007: when a containment root is configured the enumeration is confined to it. Listing the
+ * When a containment root is configured the enumeration is confined to it. Listing the
  * filesystem is a disclosure in its own right — a sandbox that stops the model reading a file but
  * lets it map everything around that file is not a sandbox.
  */
@@ -26,7 +26,7 @@ import type { IContainedBuiltinToolOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
-// CORE-030: defining a tool and telling the permission system what it does arrive together.
+// Defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
 
 const DEFAULT_MAX_RESULTS = 1000;
@@ -74,7 +74,7 @@ const STAT_CONCURRENCY_LIMIT = 100;
  * Drop every match whose CANONICAL path escapes the containment root, then stat the survivors for the
  * mtime sort, newest first.
  *
- * Containment is decided per RESULT as well as per root (SEC-007): a `..` in the pattern, or an
+ * Containment is decided per RESULT as well as per root: a `..` in the pattern, or an
  * absolute pattern, produces a match the search root never vouched for. Decided canonically through
  * the shared guard — a symlink named `escape` is a plain segment, so no amount of segment validation
  * would catch it.
@@ -160,9 +160,8 @@ export async function globFileTool(
         // A symlinked directory is a BOUNDARY, not a doorway. Descending through one both escapes the
         // sandbox and turns a single Glob call into a whole-disk walk when the link points at `/`.
         //
-        // Unconditional since ARCH-010. This used to be `containmentRoot === undefined` — following
-        // links when there was no root — but a rootless call now fails at `resolveSearchRoot` above and
-        // never reaches here, so that branch described a state that can no longer exist.
+        // Unconditional: a rootless call fails at `resolveSearchRoot` above and never reaches here,
+        // so there is no root-less state in which following links could be allowed.
         followSymbolicLinks: false,
       },
       maxCandidates,

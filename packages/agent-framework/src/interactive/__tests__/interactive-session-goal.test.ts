@@ -1,6 +1,6 @@
 /**
- * GOAL-001: InteractiveSession goal wiring. Verifies that setGoal seeds state, emits the
- * lifecycle event, and schedules the first goal-driven turn through the FLOW-002 wakeup
+ * InteractiveSession goal wiring. Verifies that setGoal seeds state, emits the
+ * lifecycle event, and schedules the first goal-driven turn through the wakeup
  * primitive, and that cancelGoal stops it. The loop-advancement decision logic is unit-tested
  * in goal/__tests__/goal-controller.test.ts.
  */
@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
 
-import type { IGoalEvent } from '@robota-sdk/agent-interface-session';
+import type { IGoalEvent } from '@robota-sdk/agent-interface/session';
 import type { ICommandResult } from '../../commands/index.js';
 import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
@@ -31,7 +31,7 @@ function holdExecution(execCtrl: SessionExecutionController): void {
   );
 }
 
-describe('InteractiveSession goal wiring (GOAL-001)', () => {
+describe('InteractiveSession goal wiring', () => {
   it('setGoal seeds an active goal, emits goal_started, and schedules the first agent-wakeup turn', async () => {
     const session = new InteractiveSession({
       host: testHost,
@@ -56,7 +56,7 @@ describe('InteractiveSession goal wiring (GOAL-001)', () => {
     expect(execCtrl.pending.contents[0]?.options).toMatchObject({ turnSource: 'agent-wakeup' });
   });
 
-  it('#3201: a goal turn shows the objective and iteration, not the instruction to the model', async () => {
+  it('a goal turn shows the objective and iteration, not the instruction to the model', async () => {
     const session = new InteractiveSession({
       host: testHost,
       cwd: process.cwd(),
@@ -105,11 +105,11 @@ describe('InteractiveSession goal wiring (GOAL-001)', () => {
 });
 
 /**
- * #3280 §2: `/goal cancel` (or `stop`) is a CONTROL action — like abort or cancel-queue — so it must
+ * `/goal cancel` (or `stop`) is a CONTROL action — like abort or cancel-queue — so it must
  * work while a turn is running, exactly when a runaway goal needs stopping. Every other command keeps
  * the unchanged mid-turn refusal ("Another prompt or command is already running...").
  */
-describe('InteractiveSession goal cancel as a mid-turn control action (#3280 §2)', () => {
+describe('InteractiveSession goal cancel as a mid-turn control action', () => {
   it('cancels the goal, aborts the turn, and drops the already-queued next iteration', async () => {
     const session = new InteractiveSession({
       host: testHost,

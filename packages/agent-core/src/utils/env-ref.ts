@@ -11,7 +11,7 @@ export function formatEnvReference(name: string): string {
 }
 
 /**
- * Resolve a `$ENV:<name>` reference through `resolve` (#2347): a non-reference is returned as-is; an
+ * Resolve a `$ENV:<name>` reference through `resolve`: a non-reference is returned as-is; an
  * empty name is `undefined`. This function never reads `process.env`; the host environment is one
  * resolver a composition root can pass (`processEnvResolver` from `@robota-sdk/agent-core/node`).
  */

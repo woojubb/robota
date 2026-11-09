@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * #3189 — serve mode keeps its sessions in a pool: the directory is attached to it before the
+ * Serve mode keeps its sessions in a pool: the directory is attached to it before the
  * transports start, a switched-to session is built with the runtime's own options, a switch moves
  * only the client that made it, what belongs to the run stays on the primary session, the supervised
  * status covers every live session, and stopping the runtime drains the pool.
@@ -17,7 +17,7 @@ import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IServeModeOptions } from '../serve-mode.js';
 import type { InteractiveSession, SessionSlot } from '@robota-sdk/agent-framework';
-import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
+import type { ISessionLoopState } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 
@@ -92,17 +92,20 @@ vi.mock('../../session-inventory/supervised-session-control.js', () => ({
   ensureSupervisedAuditDirectory: () => '/audit',
   resolveSupervisedDirectory: () => '/supervised',
   takeSupervisedGrantHandoff: () => [],
-  startSupervisedControl: async (
-    _id: string,
-    onStop: () => void,
-    _root: string | undefined,
-    getActivity: () => string | undefined,
-    _getCwd: unknown,
-    getNextLoopAt: () => string | undefined,
-    ...rest: unknown[]
-  ) => {
+  startSupervisedControl: async (options: {
+    readonly onStop: () => void;
+    readonly observe?: {
+      readonly activity?: () => string | undefined;
+      readonly nextLoopAt?: () => string | undefined;
+    };
+    readonly attachTarget?: unknown;
+    readonly daemon?: unknown;
+  }) => {
+    const { onStop, observe, attachTarget, daemon } = options;
+    const getActivity = observe?.activity as () => string | undefined;
+    const getNextLoopAt = observe?.nextLoopAt as () => string | undefined;
     await new Promise<void>((proceed) => {
-      supervised = { onStop, getActivity, getNextLoopAt, attachTarget: rest[4], daemon: rest[5], proceed };
+      supervised = { onStop, getActivity, getNextLoopAt, attachTarget, daemon, proceed };
     });
     return { close: async () => undefined };
   },
@@ -158,7 +161,7 @@ function serveOptions(
               cwd: overrides.cwd ?? '/work/project',
               createdAt: '2026-09-01T00:00:00Z',
               updatedAt: '2026-09-01T00:00:00Z',
-              // Non-empty (#3289 §1): an EMPTY stored session is what `newSession()` now reuses
+              // Non-empty: an EMPTY stored session is what `newSession()` now reuses
               // instead of building fresh, which is a different scenario than this one covers.
               messages: [
                 {
@@ -194,7 +197,39 @@ const byId = (id: string): IFake => {
   return found;
 };
 
-describe('serve mode session pool wiring (#3189)', () => {
+describe('serve mode session pool wiring', () => {
+  it('passes the accepted digest and cancellation to the served builder and rechecks the claimed workspace', async () => {
+    const digest = 'a'.repeat(64);
+    const record = {
+      id: 'stored', cwd: '/work/project', createdAt: '2026-09-01T00:00:00Z',
+      updatedAt: '2026-09-01T00:00:00Z', messages: [],
+    };
+    const outcome = { status: 'valid' as const, record, authorship: 'unverified' as const, digest };
+    const directory = createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>();
+    const bindTransports = vi.fn();
+    const base = serveOptions(directory, bindTransports);
+    const options: IServeModeOptions = {
+      ...base,
+      sessionStore: { ...base.sessionStore!, load: () => outcome, list: () => [{ id: record.id, outcome }] },
+    };
+    const run = runServeMode(options);
+    await vi.waitFor(() => expect(bindTransports).toHaveBeenCalled());
+    const owner = directory.bindOwner('drive');
+    const question = await owner.ownerDirectory.question('stored');
+    expect(question).toMatchObject({ kind: 'accept', digest });
+    if (question.kind !== 'accept') throw new Error('Expected owner question');
+    await owner.ownerDirectory.openAccepted('stored', digest, question.questionId, new AbortController().signal);
+    const created = built.at(-1)!;
+    expect(created['acceptedDigest']).toBe(digest);
+    expect(created['resumeAdmissionSignal']).toBeInstanceOf(AbortSignal);
+    const check = created['checkRestoredRecord'] as (value: typeof record) => void;
+    expect(() => check({ ...record, cwd: '/other' })).toThrow(/workspace/);
+    expect(() => check(record)).not.toThrow();
+    owner.release();
+    options.commandHostAdapters.process?.requestExit('other');
+    await run;
+  });
+
   it('attaches the directory before binding transports and moves only the client that switched', async () => {
     const directory = createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>();
     let listedAtBind: string | undefined;
@@ -294,7 +329,7 @@ describe('serve mode session pool wiring (#3189)', () => {
     }
   });
 
-  it('tells its owner whether the daemon runs Restricted (#3268)', async () => {
+  it('tells its owner whether the daemon runs Restricted', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'serve-daemon-'));
     for (const restricted of [true, false]) {
       const directory = createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>();

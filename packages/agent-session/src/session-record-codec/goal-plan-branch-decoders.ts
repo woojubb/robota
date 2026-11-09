@@ -1,5 +1,5 @@
 /**
- * TRANS-005 (#2081) — decoders for the three in-flight artifacts a session record persists so they
+ * Decoders for the three in-flight artifacts a session record persists so they
  * survive a resume: the autonomous goal, the plan artifact, and the active-branch pointer.
  *
  * The branch pointer is pure data by design — it names a `branchId`/`checkpointId` that live in a
@@ -30,7 +30,7 @@ import type {
   TGoalStopReason,
   TPlanPhase,
   TPlanStepStatus,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const GOAL_STATUSES = ['active', 'satisfied', 'stopped'] as const satisfies readonly TGoalStatus[];
 

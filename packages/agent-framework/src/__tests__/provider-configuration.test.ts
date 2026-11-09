@@ -145,7 +145,7 @@ describe('provider configuration writes', () => {
         apiKeyEnv: 'ANTHROPIC_API_KEY',
         setCurrent: true,
       },
-      // CLI-068: the referenced variable must be set at configure time.
+      // The referenced variable must be set at configure time.
       { env: { ANTHROPIC_API_KEY: 'sk-test-068' } },
     );
 

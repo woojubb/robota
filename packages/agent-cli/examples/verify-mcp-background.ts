@@ -1,5 +1,5 @@
 /**
- * MCP-004 user-execution scenario (TC-14): a slow MCP tool call is handed to a REAL background
+ * User-execution scenario: a slow MCP tool call is handed to a REAL background
  * task, end to end — the real `BackgroundTaskManager` + `createDefaultBackgroundTaskRunners()`'s
  * `tool-invocation` runner, the real `agent-mcp` client stack (admission → supervisor → catalog →
  * discovered tool) against an in-process mock MCP server, and the real `InteractiveSession` with
@@ -166,8 +166,8 @@ async function startSlowToolMcpServer(delayMs: number): Promise<IMiniMcpServer> 
 
 // ── Reading `background_task_event` without a static import of its type ────────────────────────
 //
-// `@robota-sdk/agent-interface-execution` is not a declared dependency of this package (INFRA-028:
-// `agent-cli` bundles its @robota-sdk closure and keeps the dependency lists to what is actually
+// `@robota-sdk/agent-interface/execution` is not a declared dependency of this package
+// (`agent-cli` bundles its @robota-sdk closure and keeps the dependency lists to what is actually
 // imported). The event's shape is read structurally instead of adding a dependency for one type.
 
 interface IScenarioBackgroundTask {

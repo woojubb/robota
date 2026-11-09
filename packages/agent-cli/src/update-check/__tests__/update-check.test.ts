@@ -252,14 +252,14 @@ describe('shouldRunStartupCliUpdateCheck', () => {
 });
 
 /**
- * SEC-020 (issue #2021) made every writer into `the configured user root` owner-only and scoped `update-check.json`
- * out. Issue #2229 is that exception: it left one file the CLI creates in its own store at 0644.
+ * Every writer into `the configured user root` is owner-only, and `update-check.json` was scoped
+ * out. That exception left one file the CLI creates in its own store at 0644.
  *
  * The umask is set EXPLICITLY in each case and restored afterwards. A case that inherits a
  * restrictive umask passes whether or not the mode was ever requested — it would be an assertion
  * about the environment that ran it, not about this code.
  */
-describe('writeUpdateCheckCache owner-only mode (issue #2229)', () => {
+describe('writeUpdateCheckCache owner-only mode', () => {
   const CACHE: IUpdateCheckCache = {
     packageName: '@robota-sdk/agent-cli',
     checkedAt: '2026-05-01T00:00:00.000Z',
@@ -301,7 +301,7 @@ describe('writeUpdateCheckCache owner-only mode (issue #2229)', () => {
 
     // One descriptor for both facts. `statSync(path)` followed by `readFileSync(path)` resolves the
     // path twice, which is the check-then-act shape CodeQL rejects — the same one it caught in
-    // `owner-only-store.ts` on PR #2224, where the repository chose to fix rather than suppress.
+    // `owner-only-store.ts`, where the repository chose to fix rather than suppress.
     const fd = openSync(cachePath, 'r');
     try {
       expect(fstatSync(fd).mode & 0o777).toBe(0o600);

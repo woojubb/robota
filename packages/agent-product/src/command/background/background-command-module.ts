@@ -1,0 +1,52 @@
+import {
+  BACKGROUND_COMMAND_DESCRIPTION,
+  buildBackgroundCommandSubcommands,
+} from '@robota-sdk/agent-framework';
+
+import { executeBackgroundCommand } from './background-command.js';
+
+import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface/command';
+
+export function createBackgroundCommandEntry(): ICommand {
+  return {
+    name: 'background',
+    displayName: 'Background Tasks',
+    description: BACKGROUND_COMMAND_DESCRIPTION,
+    source: 'background',
+    // User-only: a view onto the user's job panel; the model manages its own jobs through `agent`.
+    modelInvocable: false,
+    subcommands: buildBackgroundCommandSubcommands(),
+  };
+}
+
+function createBackgroundSystemCommand(): ISystemCommand {
+  const entry = createBackgroundCommandEntry();
+  return {
+    name: entry.name,
+    displayName: entry.displayName,
+    description: entry.description,
+    requiresPermission: false,
+    userInvocable: true,
+    modelInvocable: false,
+    lifecycle: 'inline',
+    subcommands: entry.subcommands,
+    execute: executeBackgroundCommand,
+  };
+}
+
+export class BackgroundCommandSource implements ICommandSource {
+  readonly name = 'background';
+
+  getCommands(): ICommand[] {
+    return [createBackgroundCommandEntry()];
+  }
+}
+
+export function createBackgroundCommandModule(): ICommandModule {
+  return {
+    name: 'agent-command-background',
+    commandSources: [new BackgroundCommandSource()],
+    systemCommands: [createBackgroundSystemCommand()],
+  };
+}

@@ -17,7 +17,7 @@ const trust: IWorkspaceTrustStore = {
 it('uses a virtual project host writer capability without touching the local filesystem', async () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'virtual-checkpoint-host-')));
   const release = vi.fn();
-  const handle = { holds: () => true, release };
+  const handle = { holds: () => true, withGuard: <T>(operation: () => T) => ({ status: 'ran' as const, value: operation() }), release };
   const acquireWriter = vi.fn(() => handle);
   const claimDirectory = vi.fn(() => true);
   const noop = () => {};

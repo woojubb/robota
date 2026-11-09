@@ -1,5 +1,5 @@
 /**
- * #3189 — Esc on an idle prompt stops the self-paced loop waiting for its wake. The rule is the
+ * Esc on an idle prompt stops the self-paced loop waiting for its wake. The rule is the
  * session's, so every client, attached or in-process, gets the same answer.
  */
 
@@ -9,7 +9,7 @@ import { InteractiveSession } from '../interactive-session.js';
 import { createSessionStub } from './helpers/session-stub.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
-import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
+import type { ISessionLoopState } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 
@@ -32,7 +32,7 @@ function sessionWith(loops: ISessionLoopState[]): {
   return { session, stop };
 }
 
-describe('InteractiveSession.stopWaitingSelfPacedLoop (#3189)', () => {
+describe('InteractiveSession.stopWaitingSelfPacedLoop', () => {
   it('does nothing when no loop is waiting', async () => {
     const { session, stop } = sessionWith([loop('loop_a', 'running'), loop('loop_b', 'stopped')]);
 

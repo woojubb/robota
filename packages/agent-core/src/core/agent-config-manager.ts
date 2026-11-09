@@ -157,7 +157,7 @@ export class AgentConfigManager {
   }
 
   /**
-   * Update configuration partially — `tools` and `name`. ARCH-040 added `name`: `ConversationAgentBase.name`
+   * Update configuration partially — `tools` and `name`. `ConversationAgentBase.name`
    * reads through `config`, so writing it here IS the rename, with no second copy to forget.
    */
   async updateConfiguration(patch: Partial<IAgentConfig>): Promise<{ version: number }> {
@@ -213,7 +213,7 @@ export class AgentConfigManager {
       });
     }
 
-    // CORE-047: no readiness guard, and no `isReady` dependency to hold one. The provider registry
+    // No readiness guard, and no `isReady` dependency to hold one. The provider registry
     // and the current (provider, model) pair are established by the `ConversationAgent` CONSTRUCTOR
     // (`createConfiguredProviders`), so there is no asynchronous state left for this to protect. A
     // destroyed agent is still refused — by the provider manager's own disposal check, which says
@@ -255,7 +255,7 @@ export class AgentConfigManager {
     topP?: number;
     effort?: TModelEffortSelection;
   } {
-    // CORE-047: no readiness guard — see `setModel`.
+    // No readiness guard — see `setModel`.
     const currentProviderInfo = this.getAIProviders().getCurrentProvider();
     if (!currentProviderInfo) {
       throw new ConfigurationError('No provider is currently set', {

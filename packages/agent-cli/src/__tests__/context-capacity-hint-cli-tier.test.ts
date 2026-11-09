@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from './helpers/product-runtime.js';
 /**
- * NEUT-005 wave 2 — CLI-tier context-capacity hint.
+ * CLI-tier context-capacity hint.
  *
  * The zero-dependency core emits a product-neutral hard-capacity notice; the actionable
  * remediation wording is a SURFACE concern. The CLI registers a `/compact` command, so its
@@ -17,7 +17,7 @@ import type { IParsedCliArgs } from '../utils/cli-args.js';
 
 const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;
 
-describe('CLI-tier context-capacity hint (NEUT-005)', () => {
+describe('CLI-tier context-capacity hint', () => {
   it('registers a compact command in the default module set', () => {
     const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, { productRuntime: createTestProductRuntime() }, '0.0.0-test');
     const hasCompact = setup.baseCommandModules.some((m) =>

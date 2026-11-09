@@ -1,5 +1,5 @@
 /**
- * CLI-068: configure-provider failures name the actual cause — unknown provider
+ * Configure-provider failures name the actual cause — unknown provider
  * is diagnosed as unknown (with the supported list), an unset --api-key-env
  * target names the variable at configure time.
  */
@@ -10,8 +10,8 @@ import { buildProviderSetupPatch } from '../provider-settings.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
-// agent-framework must not depend on the agent-provider-* packages — fixture definitions
-// mirror the real default-definition shapes (CLI-066 test precedent).
+// agent-framework must not depend on the agent-provider package — fixture definitions
+// mirror the real default-definition shapes.
 function definition(partial: Partial<IProviderDefinition> & { type: string }): IProviderDefinition {
   return {
     createProvider: () => {
@@ -30,8 +30,8 @@ const definitions: readonly IProviderDefinition[] = [
   definition({ type: 'openai', defaults: { apiKey: '$ENV:OPENAI_API_KEY' } }),
 ];
 
-describe('configure-provider failure messages (CLI-068)', () => {
-  it('TC-01: unknown provider type names the cause and lists supported providers', () => {
+describe('configure-provider failure messages', () => {
+  it('unknown provider type names the cause and lists supported providers', () => {
     let thrown: Error | undefined;
     try {
       buildProviderSetupPatch(
@@ -48,7 +48,7 @@ describe('configure-provider failure messages (CLI-068)', () => {
     expect(thrown!.message).not.toContain('missing model');
   });
 
-  it('TC-02: unset --api-key-env target names the variable and the configure-time requirement', () => {
+  it('unset --api-key-env target names the variable and the configure-time requirement', () => {
     let thrown: Error | undefined;
     try {
       buildProviderSetupPatch(
@@ -70,7 +70,7 @@ describe('configure-provider failure messages (CLI-068)', () => {
     expect(thrown!.message).not.toContain('missing apiKey');
   });
 
-  it('TC-03: valid configure flow succeeds unchanged (regression)', () => {
+  it('valid configure flow succeeds unchanged (regression)', () => {
     const patch = buildProviderSetupPatch(
       {
         profile: 'anthropic',
@@ -89,7 +89,7 @@ describe('configure-provider failure messages (CLI-068)', () => {
     });
   });
 
-  it('TC-04: a known provider genuinely missing a model still reports the missing field', () => {
+  it('a known provider genuinely missing a model still reports the missing field', () => {
     // openai carries no default model by policy (live model discovery) — the
     // missing-model diagnosis is correct here and must be preserved.
     let thrown: Error | undefined;

@@ -121,7 +121,7 @@ export function wrapToolWithPermission(
     context?: IToolExecutionContext,
     beforeEffect?: TToolEffectAdmission,
   ): Promise<IToolResult> => {
-    // Issue #2429: the gate, the hooks, the logs and the tool all see ONE canonical form of the
+    // The gate, the hooks, the logs and the tool all see ONE canonical form of the
     // arguments — a relative path argument resolved against the session root — so a pattern judges
     // the path the tool will actually open. Canonicalising needs the tool's name, which is read
     // inside the try below, so until then this holds the raw form.
@@ -165,7 +165,7 @@ export function wrapToolWithPermission(
         hookInput = { ...hookInput, tool_input: parameters as IHookInput['tool_input'] };
       }
 
-      // RUNTIME-005: the turn's signal reaches this wrapper (CORE-018) and stopped here.
+      // The turn's signal reaches this wrapper and stopped here.
       const verdict = await enforcer.checkPermission(
         toolName,
         parameters as TToolArgs,
@@ -357,7 +357,7 @@ export function wrapToolWithPermission(
     } catch (err) {
       if (isExecutionControlError(err)) throw err;
       if (err instanceof DeferredPermissionRefusal) return err.result;
-      // CORE-027 — beside the envelope it returns, in `permission-types.ts`.
+      // Beside the envelope it returns, in `permission-types.ts`.
       return reportToolCrash(err, onToolExecution, {
         toolName,
         toolArgs: parameters as TToolArgs,
@@ -371,7 +371,7 @@ export function wrapToolWithPermission(
   wrappedTool.execute = executeAttributed;
   wrappedTool.executeWithAdmission = executeAttributed;
 
-  // SELFHOST-004: kept for the calls above, and still forwarded to the original tool, because
+  // Kept for the calls above, and still forwarded to the original tool, because
   // `Object.create(tool)` would otherwise shadow it onto the wrapper: a tool that reads only the
   // service set on it, such as an `AbstractTool` subclass, keeps receiving it.
   wrappedTool.setEventService = (eventService) => {

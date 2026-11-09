@@ -1,11 +1,11 @@
 /**
- * PEER-002 (#1809): how the harness addresses a turn as coming from another session.
+ * How the harness addresses a turn as coming from another session.
  *
  * A separate file because the reasoning is longer than the code, and because the harness is at its
  * size ratchet where the rule is to split rather than extend.
  */
 
-import type { ISubmitOptions } from '@robota-sdk/agent-interface-session';
+import type { ISubmitOptions } from '@robota-sdk/agent-interface/session';
 
 /**
  * Submission options for a message that arrived from a peer session.

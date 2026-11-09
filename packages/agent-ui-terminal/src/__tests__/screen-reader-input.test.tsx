@@ -1,5 +1,5 @@
 /**
- * CLI-2004 TC-10 — the input area in screen-reader mode.
+ * The input area in screen-reader mode.
  *
  * Two things, and they fail for the same reason. The hand-drawn rules above and below the input are
  * repainted with the line, so a reader hears a wall of dashes on every keystroke; and a word
@@ -26,7 +26,7 @@ function renderInput(enabled: boolean): ReturnType<typeof render> {
   );
 }
 
-describe('TC-10: the input area chrome', () => {
+describe('the input area chrome', () => {
   it('renders no rule line and no border in the mode', async () => {
     const { lastFrame, unmount } = renderInput(true);
     await tick();
@@ -48,7 +48,7 @@ describe('TC-10: the input area chrome', () => {
   });
 });
 
-describe('TC-10: the deletion announcement', () => {
+describe('the deletion announcement', () => {
   it('prints `[deleted: <word>]` exactly once after a word deletion', async () => {
     const { stdin, lastFrame, unmount } = renderInput(true);
     await tick();

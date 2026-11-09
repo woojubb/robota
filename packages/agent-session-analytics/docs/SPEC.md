@@ -13,12 +13,12 @@ lifecycle/persistence (`agent-session`) and from any CLI shell.
 - **Pure functions only — no file I/O, no `process.*`, no CLI/transport concerns.** Callers load
   records and write output.
 - Operates on the canonical session-record and history-entry projections owned by
-  `agent-interface-session` / `agent-core` — owns no duplicate session-record or history-entry
+  `agent-interface/session` / `agent-core` — owns no duplicate session-record or history-entry
   type itself.
-- Depends only on contract/record owners (`agent-interface-analytics`, `agent-interface-session`,
+- Depends only on contract/record owners (`agent-interface/analytics`, `agent-interface/session`,
   `agent-core`). No dependency on `agent-session`, `agent-framework`, or any CLI package.
 - The trace/cost read-model types this package produces are a **boundary contract owned by
-  `agent-interface-analytics`** (they cross the sidecar boundary via a server-message carrier);
+  `agent-interface/analytics`** (they cross the sidecar boundary via a server-message carrier);
   this package computes them and re-exports the types for co-located consumers, but does not own
   them.
 - For an explicit OTLP usage export, this package only projects normalized, de-duplicated stored

@@ -2,17 +2,17 @@ import { describe, expect, it } from 'vitest';
 
 import { SERVER_MESSAGE_HANDLING } from '../server-message-handling.js';
 
-describe('ARCH-2164 server-message handling contract', () => {
+describe('server-message handling contract', () => {
   it('keeps every declared disposition explicit and non-empty', () => {
     expect(Object.keys(SERVER_MESSAGE_HANDLING).length).toBeGreaterThan(30);
     expect(Object.values(SERVER_MESSAGE_HANDLING)).not.toContain(undefined);
     expect(SERVER_MESSAGE_HANDLING.error).toBe('visible-notice');
-    // #3186: a command's outcome is part of the conversation, kept in reducer state.
+    // A command's outcome is part of the conversation, kept in reducer state.
     expect(SERVER_MESSAGE_HANDLING.command_result).toBe('reducer-state');
     expect(SERVER_MESSAGE_HANDLING.usage_report).toBe('reducer-state');
-    // #3280 §2: a queued prompt is shown above the composer (Edit/Remove) — no longer dropped.
+    // A queued prompt is shown above the composer (Edit/Remove) — no longer dropped.
     expect(SERVER_MESSAGE_HANDLING.pending).toBe('reducer-state');
-    // #3282 §2 part 2: the model control's pop-up menu is fed by `list-models` -> `model_list`.
+    // The model control's pop-up menu is fed by `list-models` -> `model_list`.
     expect(SERVER_MESSAGE_HANDLING.model_list).toBe('reducer-state');
 
     expect(SERVER_MESSAGE_HANDLING.app_view).toBe('reducer-state');

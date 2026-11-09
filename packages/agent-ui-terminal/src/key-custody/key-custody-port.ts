@@ -20,7 +20,7 @@ declare const userReadRequestBrand: unique symbol;
  * Why a read the person started needs the keys. Each purpose is added together with the UI action
  * that mints it, and the product must word it before it compiles.
  */
-export type TReadPurpose = 'continue-fork';
+export type TReadPurpose = 'continue-fork' | 'follow-history';
 
 /**
  * A read the person started, from a UI event; made only by `mintUserReadRequest`. The brand stops a

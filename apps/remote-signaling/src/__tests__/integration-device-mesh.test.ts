@@ -14,7 +14,7 @@ import {
   type ISessionDescriptor,
   type ISigningKey,
 } from '@robota-sdk/agent-remote-pairing';
-import { DeviceMeshNode, WsMeshRelayClient } from '@robota-sdk/agent-transport-webrtc';
+import { DeviceMeshNode, WsMeshRelayClient } from '@robota-sdk/agent-transport/webrtc';
 import { createRequire } from 'node:module';
 
 import { afterEach, describe, expect, it } from 'vitest';

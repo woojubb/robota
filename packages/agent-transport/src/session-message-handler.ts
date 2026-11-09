@@ -21,7 +21,6 @@ import {
 } from './background-messages.js';
 import { handleLoopControlMessage, isLoopControlMessage } from './loop-control-messages.js';
 import { parseClientMessage } from './message-parser.js';
-import { isObserverMessageType } from './observer-messages.js';
 import { handleProjectReadMessage, isProjectReadMessage } from './project-read-messages.js';
 import {
   handleSessionDeleteMessage,
@@ -38,35 +37,29 @@ import {
   pendingFrame,
 } from './session-query-messages.js';
 import { handleSettingsMessage, isSettingsMessage } from './settings-messages.js';
+import { handleSurfaceRoleMessage } from './surface-role.js';
 import { handleUsageQueryMessage } from './usage-messages.js';
 
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession, TProjectReadCapableSession } from './protocol-session.js';
 import type { ISettingsReporter } from './settings-messages.js';
 import type { IUsageQueryReporters } from './usage-messages.js';
-import type { TClientMessage } from './wire-messages.js';
-import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface-command';
-import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
-import type { ISessionDirectory, TDriverId } from '@robota-sdk/agent-interface-session';
+import type { TClientMessage, TSessionSurfaceRole } from './wire-messages.js';
+import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface/command';
+import type { TUsageSurface } from '@robota-sdk/agent-interface/analytics';
+import type { ISessionDirectory, TDriverId } from '@robota-sdk/agent-interface/session';
 
-// Outbound session→TServerMessage fan-out (incl. CMD-004 requester-routed `ui_intent`) lives in
+// Outbound session→TServerMessage fan-out (incl. requester-routed `ui_intent`) lives in
 // `session-events.ts`; re-exported here for the bridge and existing importers.
 export { subscribeSessionEvents } from './session-events.js';
 export type { ISubscribeSessionEventsOptions } from './session-events.js';
 export { parseClientMessage } from './message-parser.js';
 
-/**
- * What a connected surface may do. `drive` sends prompts, answers questions and controls the session.
- * `observe` is read-only: it follows this session's conversation and state, but never submits, answers,
- * controls, or reads another session's records, and it never counts as a surface that can answer.
- */
-export type TSessionSurfaceRole = 'drive' | 'observe';
-
 export interface ISessionMessageHandlerOptions {
-  /** IProtocolSession to expose — `Partial<ISessionProjectRead>` is probed, not assumed (#3282 §4c). */
+  /** IProtocolSession to expose — `Partial<ISessionProjectRead>` is probed, not assumed. */
   session: TProjectReadCapableSession;
   /**
-   * ARCH-030: the CARRIER's connection-scoped outbound delivery boundary — not a raw `send`, and not a
+   * The CARRIER's connection-scoped outbound delivery boundary — not a raw `send`, and not a
    * `send` plus an error callback for this handler to assemble into one. The carrier owns both the sink
    * and the "what does a failed send mean for this connection" policy, so it builds the boundary and
    * passes it down; the raw sink never crosses this parameter, which is what stops a future reply family
@@ -74,7 +67,8 @@ export interface ISessionMessageHandlerOptions {
    */
   deliver: TOutboundDeliver;
   /**
-   * REMOTE-014 E5: the SERVER-ASSIGNED driver id for THIS remote surface (the E3 `deviceId`). Injected into
+   * The SERVER-ASSIGNED driver id for THIS remote surface (the paired device's `deviceId`).
+   * Injected into
    * every inbound `submit`/`command`/prompt-response so a co-drive turn/answer is attributed to this driver —
    * a client-supplied driver id is NEVER trusted. Absent → unattributed (the session defaults to the owner).
    */
@@ -89,12 +83,12 @@ export interface ISessionMessageHandlerOptions {
   usageReporter?: NonNullable<IUsageQueryReporters['usageReporter']>;
   /** Host-owned stored-session producer used by cross-session drill-down. */
   storedSessionUsageReporter?: NonNullable<IUsageQueryReporters['storedSessionUsageReporter']>;
-  /** Host-owned session directory (#3189): list, start and switch the host's sessions. */
+  /** Host-owned session directory: list, start and switch the host's sessions. */
   sessionDirectory?: ISessionDirectory;
-  /** #3282 §4a: host-owned read/write for the GUI Settings screen. */
+  /** Host-owned read/write for the GUI Settings screen. */
   settingsReporter?: ISettingsReporter;
   /**
-   * #3282 §4 part b-2: carrier-decided, like `role` — whether THIS carrier's connections are
+   * Carrier-decided, like `role` — whether THIS carrier's connections are
    * provably on this machine. The loopback WS carrier is `'local'`; the device-mesh/WebRTC carrier
    * sets `'remote'`. Absent → `'local'`, forwarded to `executeCommand` and the settings reporter so a
    * command that runs code from outside the session (installing a plugin) can refuse a remote device.
@@ -182,10 +176,7 @@ function createMessageHandler(
   return (data: string): void => {
     const msg = parseClientMessage(data, deliver);
     if (!msg) return;
-    if (role === 'observe' && !isObserverMessageType(msg.type)) {
-      deliver({ type: 'protocol_error', message: `Not permitted for an observer: ${msg.type}` });
-      return;
-    }
+    if (handleSurfaceRoleMessage(role, msg, deliver)) return;
     handleClientMessage(
       session,
       deliver,
@@ -208,8 +199,8 @@ const EMPTY_USAGE_REPORTERS: IUsageQueryReporters = {
 };
 
 /**
- * Route a parsed client message to the session (control/query/background/prompt-response). Exported for E4:
- * the {@link SessionResumeBridge} intercepts `resume`/`ack` itself and delegates everything else here.
+ * Route a parsed client message to the session (control/query/background/prompt-response). Exported so
+ * the {@link SessionResumeBridge} can intercept `resume`/`ack` itself and delegate everything else here.
  */
 export function handleClientMessage(
   session: TProjectReadCapableSession,
@@ -330,7 +321,7 @@ function isPromptResponseMessage(
 }
 
 /**
- * REMOTE-007: a driving client answered a pending prompt by id. `resolvePermission`/`resolveAsk` are
+ * A driving client answered a pending prompt by id. `resolvePermission`/`resolveAsk` are
  * idempotent — a stale id (already answered by another surface, or drained) is a safe no-op, so no
  * acknowledgement is needed; the resulting `prompt_resolved` server event is the shared signal.
  */
@@ -339,7 +330,7 @@ function handlePromptResponseMessage(
   msg: Extract<TClientMessage, { type: 'permission-response' | 'ask-response' }>,
   driverId?: TDriverId,
 ): void {
-  // REMOTE-014 E5: record the SERVER-ASSIGNED answering driver (not client-sent) on `prompt_resolved`.
+  // Record the SERVER-ASSIGNED answering driver (not client-sent) on `prompt_resolved`.
   if (msg.type === 'permission-response') {
     session.resolvePermission(msg.id, msg.result, driverId);
   } else {
@@ -356,7 +347,7 @@ function handleSessionControlMessage(
   commandSurfaceLocality?: TCommandSurfaceLocality,
 ): void {
   if (msg.type === 'submit') {
-    // TRANS-008 (issue #2045). A TYPE check, not a falsy one: `{}`, `[]`, `42` and `true` are truthy
+    // A TYPE check, not a falsy one: `{}`, `[]`, `42` and `true` are truthy
     // and passed the previous `!msg.prompt` guard. It matters more here than at the other payload
     // fields because the value does not stop at this session — it is re-emitted as `user_message` to
     // EVERY attached client inside a frame whose `content` is declared `string`.
@@ -364,7 +355,7 @@ function handleSessionControlMessage(
       deliver({ type: 'protocol_error', message: 'prompt must be a non-empty string' });
       return;
     }
-    // REMOTE-014 E5: attribute this remote turn to the SERVER-ASSIGNED driver id (never a client-sent one).
+    // Attribute this remote turn to the SERVER-ASSIGNED driver id (never a client-sent one).
     const submitOptions = {
       ...(driverId ? { driverId } : {}),
       ...(surface ? { surface } : {}),
@@ -377,7 +368,7 @@ function handleSessionControlMessage(
         Object.keys(submitOptions).length > 0 ? submitOptions : undefined,
       )
       .then(
-        // #3189: a prompt submitted during a turn resolves once it is queued. A `get-pending` sent
+        // A prompt submitted during a turn resolves once it is queued. A `get-pending` sent
         // beside the `submit` would be answered before that, so the queue is reported from here.
         () => deliver(pendingFrame(session)),
         (error: Error) => deliver({ type: 'protocol_error', message: error.message }),
@@ -388,8 +379,8 @@ function handleSessionControlMessage(
       deliver({ type: 'protocol_error', message: 'name is required', ...request });
       return;
     }
-    // REMOTE-003: a transport-origin command is tagged `'remote'` (optional policy, allow-by-default;
-    // REMOTE-006). CMD-004: the SERVER-ASSIGNED driver id (E5) is the command origin — intents route back here.
+    // A transport-origin command is tagged `'remote'` (optional policy, allow-by-default).
+    // The SERVER-ASSIGNED driver id is the command origin — intents route back here.
     session.executeCommand(msg.name, msg.args ?? '', 'remote', driverId, commandSurfaceLocality).then(
       (result) => {
         deliver({

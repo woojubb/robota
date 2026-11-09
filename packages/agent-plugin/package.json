@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-plugin",
-  "version": "3.0.1",
+  "version": "3.2.3",
   "description": "Lifecycle plugins for the Robota SDK: history, logging, usage, limits, performance, errors, analytics and webhooks",
   "type": "module",
   "main": "dist/index.js",
@@ -50,7 +50,7 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-core": "workspace:^",
     "jssha": "^3.3.2"
   },
   "devDependencies": {

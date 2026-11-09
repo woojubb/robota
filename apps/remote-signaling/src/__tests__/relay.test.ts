@@ -23,8 +23,8 @@ function lastFrame(peer: { readonly sent: string[] }): Record<string, unknown> {
   return JSON.parse(peer.sent[peer.sent.length - 1]) as Record<string, unknown>;
 }
 
-describe('SignalingRelay (REMOTE-002 Stage A — content-blind rendezvous)', () => {
-  it('TC-04: relays an SDP/ICE signal only to the counterpart sharing the rendezvous id', () => {
+describe('SignalingRelay (content-blind rendezvous)', () => {
+  it('relays an SDP/ICE signal only to the counterpart sharing the rendezvous id', () => {
     const relay = new SignalingRelay();
     const host = createFakePeer('host');
     const remote = createFakePeer('remote');
@@ -40,7 +40,7 @@ describe('SignalingRelay (REMOTE-002 Stage A — content-blind rendezvous)', () 
     expect(host.sent.some((f) => JSON.parse(f).kind === 'offer')).toBe(false);
   });
 
-  it('TC-04: never forwards a non-signaling payload to the counterpart', () => {
+  it('never forwards a non-signaling payload to the counterpart', () => {
     const relay = new SignalingRelay();
     const host = createFakePeer('host');
     const remote = createFakePeer('remote');
@@ -91,7 +91,7 @@ describe('SignalingRelay (REMOTE-002 Stage A — content-blind rendezvous)', () 
   });
 });
 
-describe('startSignalingServer (REMOTE-002 Stage A — loopback/ephemeral binding)', () => {
+describe('startSignalingServer (loopback/ephemeral binding)', () => {
   it('binds loopback on an ephemeral port and relays a real SDP offer between two WS peers', async () => {
     const server = await startSignalingServer(); // defaults: 127.0.0.1 : ephemeral
     expect(server.port).toBeGreaterThan(0);

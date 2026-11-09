@@ -1,9 +1,9 @@
 /**
- * #3189 step 3b: an attached client reads a workspace entry's detail, stops a waiting self-paced
+ * An attached client reads a workspace entry's detail, stops a waiting self-paced
  * loop, and follows status changes another client made.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { isObserverMessageType as isObserverMessageTypeFromClient } from '../client.js';
@@ -12,11 +12,11 @@ import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createSessionMessageHandler } from '../session-message-handler.js';
 
 import type { TClientMessage, TServerMessage } from '../wire-messages.js';
-import type { IExecutionDetailPage } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionDetailPage } from '@robota-sdk/agent-interface/execution';
 import type {
   IInteractiveSession,
   ISessionStatusSnapshot,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 type TListener = (...args: unknown[]) => void;
 

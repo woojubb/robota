@@ -22,7 +22,7 @@ export interface IPopupMenuSection {
 }
 
 /**
- * A HIG pop-up menu (#3282 §2): `role="menu"`, its choices as `menuitemradio` with `aria-checked`
+ * A HIG pop-up menu: `role="menu"`, its choices as `menuitemradio` with `aria-checked`
  * (or `menuitem` for a plain action, e.g. "Manage providers…"), grouped into optional labelled
  * sections. Arrow keys move a roving focus, Enter/Space activates the focused item, and Esc — or a
  * click outside — closes the menu and returns focus to the trigger that opened it, so the person

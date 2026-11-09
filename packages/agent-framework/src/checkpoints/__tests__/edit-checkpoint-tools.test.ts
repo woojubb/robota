@@ -31,7 +31,7 @@ describe('wrapEditCheckpointTools', () => {
         expect(existsSync(filePath)).toBe(false);
       }),
     };
-    // ARCH-010 — the context-free `writeTool` singleton is gone and the root is a required constructor
+    // The context-free `writeTool` singleton is gone and the root is a required constructor
     // argument. It is the per-case project directory, which is exactly where `filePath` lives.
     const [tool] = wrapEditCheckpointTools([createWriteTool({ cwd })], recorder);
 

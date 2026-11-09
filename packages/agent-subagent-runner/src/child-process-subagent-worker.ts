@@ -27,6 +27,7 @@ import {
 import { restoreAgentDefinition, restoreParentContext } from './subagent-worker-start-dto.js';
 import { restoreProjectedSandbox } from './worker-composition.js';
 import { withholdProviderCredential } from './worker-credential.js';
+import { runWorkerTurns } from './worker-turns.js';
 
 import type { IRecordSaveReporter } from './child-process-subagent-record-saves.js';
 import type { IClaimedResumeRecord } from './child-process-subagent-resume.js';
@@ -38,7 +39,7 @@ import type {
 import type { ITerminalOutput, TArtifactSealing, TToolArgs } from '@robota-sdk/agent-core';
 
 const CANCEL_EXIT_CODE = 130;
-/** DIST-006: worker mode reached without an IPC channel — a misuse, not a run that failed. */
+/** Worker mode reached without an IPC channel — a misuse, not a run that failed. */
 const WORKER_MISUSE_EXIT_CODE = 2;
 /** Force-exit fallback if the IPC flush callback never fires (broken channel). */
 const FLUSH_EXIT_FALLBACK_MS = 2000;
@@ -59,7 +60,7 @@ type TSubagentSessionToolEvent = Parameters<
 
 let session: ReturnType<typeof createSubagentSession> | null = null;
 let cancelled = false;
-/** Issue #3288 §1: requests awaiting the parent's answer, by the id this child minted for them. */
+/** Requests awaiting the parent's answer, by the id this child minted for them. */
 const pendingPermissionRequests = new Map<
   string,
   (result: TSubagentWorkerPermissionResult) => void
@@ -75,6 +76,13 @@ let latestWriteGrant: string | undefined;
 /** Whether this child bound its parent's grant at start, so a newer one is taken as it comes. */
 let sealingBound = false;
 let running: Promise<void> = Promise.resolve();
+/** Prompts the parent sent that are waiting for their turn, in the order they came. */
+const followUps: string[] = [];
+/**
+ * The job has run its last turn, or failed, or was cancelled: it takes no more prompts. Set in the same
+ * step that finds none queued, so a prompt is either queued before it and run, or refused after it.
+ */
+let finishing = false;
 /** A sealing parent handed this child a record: what has been seen of its saves. */
 let recordSaves: IRecordSaveReporter | undefined;
 /** The claim this child holds, under its parent's lease, on the record it resumes. */
@@ -117,7 +125,7 @@ function withRecordSaveRefusal(
 }
 
 /**
- * CORE-024 (RUNTIME-20): send the terminal message and exit ONLY after the IPC write has drained.
+ * Send the terminal message and exit ONLY after the IPC write has drained.
  * `process.send` is asynchronous; exiting from a `finally` before the write flushes made the
  * parent's `onExit` fire before the `result` arrived — a successful run was misreported as a crash
  * and its `usage` payload was lost. Exit from the flush callback; a fallback timer guards a broken
@@ -217,7 +225,7 @@ async function runInitialPrompt(
         'The provider connection environment changed after the parent checked it; the subagent was not started.',
       );
     }
-    // ARCH-021: the PRODUCT's registry, not an imported six-vendor default. A custom provider type
+    // The PRODUCT's registry, not an imported six-vendor default. A custom provider type
     // used to throw `Unknown provider` here while the parent ran on it perfectly well.
     const restoredSandbox = await restoreProjectedSandbox(
       payload.sandboxProjection,
@@ -239,7 +247,8 @@ async function runInitialPrompt(
           sealing,
         })
       : undefined;
-    const openedStore = openResumeSessionStore(payload, composition);
+    const openedStore = await openResumeSessionStore(payload, composition);
+    throwIfParentChangeFailed();
     const resumeSessionId = payload.request.resumeSessionId;
     // The record is this child's to write only under the lease its parent lent it: claimed before
     // anything reads it, released on every way out of the process.
@@ -268,21 +277,21 @@ async function runInitialPrompt(
     const toolSandbox = restoredSandbox ?? composedSandbox?.client;
     session = createSubagentSession({
       host: composition.host,
-      // ARCH-044 (issue #2047): explicit restore from the wire DTOs into the runtime models.
+      // Explicit restore from the wire DTOs into the runtime models.
       agentDefinition: restoreAgentDefinition(payload.agentDefinition),
       parentConfig: payload.parentConfig,
       parentContext: restoreParentContext(payload.parentContext),
-      // ARCH-010: the spawn request already carries the root; this call simply never passed it, so
+      // The spawn request already carries the root; this call simply never passed it, so
       // every tool the child built was unconfined. Same reader as the session root below — the tools
       // and the session being told DIFFERENT roots is the same class of defect as neither being told
       // one.
-      // ARCH-021: the product's tool surface, built at THIS child's execution root. Previously
+      // The product's tool surface, built at THIS child's execution root. Previously
       // `createDefaultTools(...)`, which meant dropping a pack did not drop its tools from a
-      // child-process subagent — ARCH-006's invariant was true in the parent and false here.
-      // ARCH-033: restore the parent's sandbox before building tools, so the child acts where the
+      // child-process subagent — the pack-owned-tools invariant would hold in the parent and not here.
+      // Restore the parent's sandbox before building tools, so the child acts where the
       // parent acts. An unregistered type throws here rather than degrading to host tools — a child
-      // that was told it is sandboxed and quietly is not is ARCH-010's shape.
-      // ARCH-034: the session tiers cross too, so the runner choice stays a packaging decision
+      // that was told it is sandboxed and quietly is not breaches containment.
+      // The session tiers cross too, so the runner choice stays a packaging decision
       // rather than a capability one. `includeGoalTool` rides on the payload because it is a property
       // of the PARENT'S session, not of this child's root.
       parentTools: composition.createTools({
@@ -300,7 +309,7 @@ async function runInitialPrompt(
       ...(composedSandbox?.commandSandbox !== undefined
         ? { commandSandbox: composedSandbox.commandSandbox }
         : {}),
-      // CORE-025: enforce the task's permission policy in the child-process subagent too.
+      // Enforce the task's permission policy in the child-process subagent too.
       ...(payload.request.permissionPolicy !== undefined
         ? { permissionPolicy: payload.request.permissionPolicy }
         : {}),
@@ -321,7 +330,7 @@ async function runInitialPrompt(
         : {}),
       onTextDelta: (delta) => sendChildMessage({ type: 'text_delta', delta }),
       onToolExecution: forwardToolExecution,
-      // Issue #3288 §1: without this, a call needing human approval had no approver in this process
+      // Without this, a call needing human approval had no approver in this process
       // at all, and the enforcer's own fail-closed default denied it silently — the parent's session
       // never learned it was asked.
       permissionHandler: requestParentPermission,
@@ -329,7 +338,7 @@ async function runInitialPrompt(
     resumeRequestedRecord(payload, session, resumeSessionStore, claimedRecord);
     recordSaves?.restored();
     throwIfParentChangeFailed();
-    const output = await session.run(payload.request.prompt);
+    const output = await runTurns(session, payload.request.prompt);
     if (parentChangeFailure !== undefined) {
       sendTerminalMessageAndExit({ type: 'error', message: parentChangeFailure }, 0);
       return;
@@ -341,19 +350,28 @@ async function runInitialPrompt(
       );
       return;
     }
-    // ANALYTICS-001 (Phase 2): forward the subagent's total token usage so the parent log can
+    // Forward the subagent's total token usage so the parent log can
     // attribute it to this agent as a source. Best-effort — usage capture must never fail the run.
     const usage = readSessionUsage(session);
-    // CORE-024 (RUNTIME-20): exit only after this result (with usage) has flushed over IPC, so the
+    // Exit only after this result (with usage) has flushed over IPC, so the
     // parent settles on the result instead of racing a crash-projection from an early exit.
     sendTerminalMessageAndExit(
       withRecordSaveRefusal({ type: 'result', output, ...(usage ? { usage } : {}) }, payload),
       0,
     );
   } catch (error) {
-    // allow-fallback: child process must report errors to parent via IPC, not crash silently; exit follows the IPC flush (CORE-024 RUNTIME-20)
+    finishing = true;
+    const unrun = followUps.length;
+    followUps.length = 0;
+    // allow-fallback: child process must report errors to parent via IPC, not crash silently; exit follows the IPC flush
     if (parentChangeFailure !== undefined) {
-      sendTerminalMessageAndExit({ type: 'error', message: parentChangeFailure }, 0);
+      sendTerminalMessageAndExit(
+        {
+          type: 'error',
+          message: `${parentChangeFailure}${unrun > 0 ? ` ${unrun} accepted follow-up(s) could not run.` : ''}`,
+        },
+        0,
+      );
       return;
     }
     if (cancelled) {
@@ -369,7 +387,7 @@ async function runInitialPrompt(
 }
 
 /**
- * Issue #3288 §1: forward a tool call needing approval to the parent, and wait for its answer.
+ * Forward a tool call needing approval to the parent, and wait for its answer.
  *
  * Wired as this child session's own `permissionHandler`, so the enforcer's existing session-allow-list
  * → custom-handler → fail-closed path reaches it exactly where it used to reach nothing — a spawn with
@@ -408,25 +426,42 @@ function forwardToolExecution(event: TSubagentSessionToolEvent): void {
   sendChildMessage({ type: 'tool_end', toolName: event.toolName, success: event.success ?? true });
 }
 
-function runFollowUp(prompt: string): void {
-  if (session === null) {
-    sendChildMessage({ type: 'error', message: 'Subagent worker has not started' });
+/**
+ * The job's turns: the initial prompt, then each follow-up the parent sent meanwhile, one at a time.
+ * The job's result is the last turn's output, and it is sent only once none is left — a follow-up
+ * queued behind a turn in flight would otherwise be cut off by the exit that follows the result.
+ */
+async function runTurns(
+  turnSession: { run(prompt: string): Promise<string> },
+  firstPrompt: string,
+): Promise<string> {
+  try {
+    return await runWorkerTurns(
+      turnSession,
+      firstPrompt,
+      followUps,
+      () => parentChangeFailure,
+      () => cancelled,
+    );
+  } finally {
+    finishing = true;
+  }
+}
+
+/** A follow-up prompt from the parent: queued for the next turn, or refused once the job is finishing. */
+function takeFollowUp(prompt: string, sendId: number): void {
+  if (finishing) {
+    sendChildMessage({ type: 'send_refused', sendId });
     return;
   }
-  running = running.then(async () => {
-    try {
-      // allow-fallback: child process must report errors to parent via IPC, not crash silently
-      await session?.run(prompt);
-    } catch (error) {
-      // allow-fallback: child process must report errors to parent via IPC, not crash silently
-      const message = error instanceof Error ? error.message : String(error);
-      sendChildMessage({ type: 'error', message });
-    }
-  });
+  followUps.push(prompt);
+  sendChildMessage({ type: 'send_accepted', sendId });
 }
 
 async function cancelWorker(reason?: string): Promise<void> {
   cancelled = true;
+  finishing = true;
+  followUps.length = 0;
   session?.abort();
   sendChildMessage({ type: 'cancelled', reason });
   await session?.shutdown({ reason: 'other' }).catch(() => undefined); // allow-fallback: shutdown during cancel — process will exit regardless
@@ -492,15 +527,15 @@ function followParentSealingKey(grant: string, composition: ISubagentWorkerCompo
 }
 
 /**
- * DIST-006: worker mode is ENTERED, not implied by loading this module.
+ * Worker mode is ENTERED, not implied by loading this module.
  *
  * These handlers used to run as module top-level side effects, which is what forced the worker to
  * be a separate file that something had to locate on disk. As a function, the composition root's
  * own entry can become the worker — so there is no second artifact and no path to get wrong.
  *
- * ARCH-021: `composition` is REQUIRED, deliberately. An optional parameter falling back to imported
+ * `composition` is REQUIRED, deliberately. An optional parameter falling back to imported
  * defaults would reinstate the exact defect this seam removes — and at this line conventions have a
- * measured failure rate of 100% (ARCH-010 and ARCH-006 are both findings here).
+ * measured failure rate of 100%.
  */
 export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): void {
   if (process.send === undefined) {
@@ -523,7 +558,7 @@ export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): 
         running = running.then(() => runInitialPrompt(message.payload, composition));
         break;
       case 'send':
-        runFollowUp(message.prompt);
+        takeFollowUp(message.prompt, message.sendId);
         break;
       case 'cancel':
         void cancelWorker(message.reason);
@@ -550,7 +585,7 @@ export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): 
       .then(releaseClaimedRecord);
   });
 
-  // ARCH-021: declare what this child composed. This is a VERIFICATION channel — the built-binary
+  // Declare what this child composed. This is a VERIFICATION channel — the built-binary
   // test and the port-level test read it; no production consumer does, and saying otherwise would
   // stop the next reader asking whether this public wire field has one. It turns "equivalent by
   // construction" into "verified per run" at a seam where two findings have already landed.

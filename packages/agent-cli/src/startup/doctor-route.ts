@@ -1,6 +1,5 @@
 /**
- * `the product doctor` / `checkup` / `diagnose` — the shell route over the `agent-command` doctor runner
- * (OBSERVABILITY-1991).
+ * `the product doctor` / `checkup` / `diagnose` — the shell route over the `agent-product/command` doctor runner.
  *
  * Reachable without a working session: matched in `runPreparsedCliCommand` BEFORE the route's shared
  * workspace composition and before the strict global parser, so a broken configuration cannot make
@@ -11,15 +10,15 @@
  */
 import { createInterface } from 'node:readline';
 
-import { applyDoctorRepair, renderDoctorReport, runDoctor } from '@robota-sdk/agent-command';
-import { createNodeDoctorDeps } from '@robota-sdk/agent-command/node';
+import { applyDoctorRepair, renderDoctorReport, runDoctor } from '@robota-sdk/agent-product/command';
+import { createNodeDoctorDeps } from '@robota-sdk/agent-product/command/node';
 import { productProviderDefinitions } from '../product/provider-definitions.js';
 
 import { buildDoctorInputs, resolveDoctorProjectAccess } from './doctor-inputs.js';
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
 
 import type { IStartCliOptions } from './command-setup.js';
-import type { IDoctorRepairPlan } from '@robota-sdk/agent-command';
+import type { IDoctorRepairPlan } from '@robota-sdk/agent-product/command';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
 const DOCTOR_COMMAND_NAMES = ['doctor', 'checkup', 'diagnose'] as const;

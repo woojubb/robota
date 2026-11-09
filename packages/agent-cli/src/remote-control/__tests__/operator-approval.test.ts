@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createTerminalOperatorApprover, type ITerminalHandoffHost } from '../operator-approval.js';
 
 import type { ISecretTerminal, ISecretTerminalSession } from '../../devices/secret-terminal.js';
-import type { ICapabilityApprovalRequest } from '@robota-sdk/agent-interface-session-mobility';
+import type { ICapabilityApprovalRequest } from '@robota-sdk/agent-interface/session-mobility';
 
 /**
  * The operator is asked on this machine's own terminal — never through the session, whose prompts any

@@ -1,11 +1,11 @@
 /**
- * CLI-1994 TC-01 / TC-02 — a fork is a COPY of the live conversation under a fresh id.
+ * A fork is a COPY of the live conversation under a fresh id.
  *
  * `buildForkedSessionRecord` is the whole mechanism `/fork` has for reading the parent: it copies
  * exactly the members a fork inherits (messages, the assembled system message, tool schemas, the
  * full history) and drops the members the startup `--fork-session` already drops (sandbox snapshot,
- * goal, plan, active branch). TC-02 is the append-only invariant `fork-restores-context.test.ts`
- * pins for the startup fork, restated for the in-session one: writing the copy never touches the
+ * goal, plan, active branch). It also restates, for the in-session fork, the append-only invariant
+ * `fork-restores-context.test.ts` pins for the startup fork: writing the copy never touches the
  * source file.
  */
 
@@ -24,9 +24,9 @@ import {
 import { listedRecords, loadedRecord } from './session-load-helpers.js';
 
 import type { IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
-const SOURCE_ID = 'session_cli-1994-source';
+const SOURCE_ID = 'session_source';
 const SOURCE_NAME = 'parent-work';
 const SYSTEM_PROMPT = 'You are the parent session. Remember everything.';
 
@@ -99,7 +99,7 @@ function sourceRecord(cwd: string): IInteractiveSessionRecord {
   };
 }
 
-describe('buildForkedSessionRecord (CLI-1994)', () => {
+describe('buildForkedSessionRecord', () => {
   let cwd: string;
   let store: NodeSessionStore;
 
@@ -113,7 +113,7 @@ describe('buildForkedSessionRecord (CLI-1994)', () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  it('TC-01: the copy has a fresh id, the source conversation and prompt, a distinct name, and none of the dropped fields', () => {
+  it('the copy has a fresh id, the source conversation and prompt, a distinct name, and none of the dropped fields', () => {
     const fork = buildForkedSessionRecord({
       source: sourceSession(),
       name: `${SOURCE_NAME} (fork)`,
@@ -139,7 +139,7 @@ describe('buildForkedSessionRecord (CLI-1994)', () => {
     expect(Date.parse(fork.createdAt)).toBeGreaterThan(Date.parse('2026-06-13T00:00:00.000Z'));
   });
 
-  it("TC-01: the copied arrays are the fork's own — mutating them never reaches the source", () => {
+  it("the copied arrays are the fork's own — mutating them never reaches the source", () => {
     const source = sourceSession();
     const fork = buildForkedSessionRecord({ source, name: 'copy', cwd });
 
@@ -156,7 +156,7 @@ describe('buildForkedSessionRecord (CLI-1994)', () => {
     expect(source.getFullHistory()).toHaveLength(2);
   });
 
-  it('TC-02: writing the forked record leaves the source file byte-identical and the store lists exactly two records', () => {
+  it('writing the forked record leaves the source file byte-identical and the store lists exactly two records', () => {
     const sourcePath = join(cwd, 'sessions', `${SOURCE_ID}.json`);
     const before = readFileSync(sourcePath, 'utf8');
 
@@ -175,13 +175,13 @@ describe('buildForkedSessionRecord (CLI-1994)', () => {
   });
 
   /**
-   * CLI-1994 — a fork's name has to be one no other record answers to.
+   * A fork's name has to be one no other record answers to.
    *
    * `resolveSessionIdByIdOrName` matches by name with `.find()`, so the moment two records share a
    * name, `--resume <name>` picks an arbitrary one. The first version of this guard compared only
    * against the SOURCE's name, which left the commonest case open: forking the same parent twice.
    */
-  describe('CLI-1994 — the fork name is unique in the store', () => {
+  describe('the fork name is unique in the store', () => {
     function write(requestedName?: string): { sessionId: string; name: string } {
       return writeForkedSessionRecord({
         source: sourceSession(),

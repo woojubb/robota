@@ -1,10 +1,17 @@
 # @robota-sdk/agent-product
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 The **product-assembly kernel** for the Robota SDK.
 
 `assembleProduct(profile)` is a **pure, deterministic, IO-free fold** over an `IProductProfile` — the
 composition mechanism a third party imports to build their OWN product on Robota's published runtime.
 Product identity and its runtime settings are supplied by the host; an external repo can define its own profile.
+The root entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun, and has no
+Node adapter. The pieces a product is assembled from are subpaths of the same package: the capability-pack
+contract, presets, the slash-command modules and Robota's coding pack. The ones that need a Node host are
+marked below.
 
 ## Installation
 
@@ -12,16 +19,28 @@ Product identity and its runtime settings are supplied by the host; an external 
 npm install @robota-sdk/agent-product
 ```
 
+## Entry points
+
+| Import path                                 | Environment      | What it contains                                                                                     |
+| ------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-product`                 | browser and Node | `assembleProduct`, `IProductProfile`, `IAssembledProduct`                                            |
+| `@robota-sdk/agent-product/capability-pack` | browser and Node | `ICapabilityPack`, `mergeCapabilityPacks` ([docs/capability-pack.md](docs/capability-pack.md))       |
+| `@robota-sdk/agent-product/preset`          | browser and Node | `IPreset`, the built-in presets and output styles, the registries ([docs/preset.md](docs/preset.md)) |
+| `@robota-sdk/agent-product/preset/node`     | Node only        | `loadExternalPresetsFromDir`                                                                         |
+| `@robota-sdk/agent-product/command`         | browser and Node | The slash-command modules, `createDefaultCommandModules` ([docs/command.md](docs/command.md))        |
+| `@robota-sdk/agent-product/command/node`    | Node only        | The host commands (`/shell`, `/editor`) and the Node adapters the commands take by injection         |
+| `@robota-sdk/agent-product/coding`          | Node only        | `createCodingPack`, Robota's coding capability pack ([docs/coding.md](docs/coding.md))               |
+
 ## Usage
 
 ```ts
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
-import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
+import type { ICapabilityPack } from '@robota-sdk/agent-product/capability-pack';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
-declare const providerDefinitions: readonly IProviderDefinition[]; // e.g. agent-builtin-providers
+declare const providerDefinitions: readonly IProviderDefinition[]; // e.g. from @robota-sdk/agent-provider/builtin
 declare const acmeJiraPack: ICapabilityPack;
 declare const cwd: string;
 
@@ -66,9 +85,9 @@ construction** to `agent-framework`'s `buildRuntimeSession` seam
   on top, for inspection), and `buildRuntime(input)`.
 - `IBuildRuntimeInput` — the session options the shell resolves and passes to `buildRuntime`.
 
-Capability packs come from [`@robota-sdk/agent-capability-pack`](../agent-capability-pack/README.md);
-[`@robota-sdk/pack-coding`](../pack-coding/README.md) is Robota's coding pack. See
-[`docs/SPEC.md`](./docs/SPEC.md) for the full contract.
+Capability packs come from the [`capability-pack`](docs/capability-pack.md) subpath;
+[`coding`](docs/coding.md) is Robota's coding pack. See [`docs/SPEC.md`](./docs/SPEC.md) for the full
+contract.
 
 ## License
 

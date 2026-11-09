@@ -1,33 +1,89 @@
 {
   "name": "@robota-sdk/agent-product",
-  "version": "3.0.1",
-  "description": "The product-assembly kernel for the Robota SDK: assembleProduct — a pure, IO-free fold over IProductProfile that delegates runtime construction to agent-framework",
+  "version": "3.3.1",
+  "description": "Product assembly for the Robota SDK: assembleProduct over IProductProfile, plus one subpath each for the capability-pack contract, presets, slash-command modules and the coding capability pack",
   "type": "module",
-  "main": "dist/node/index.js",
-  "types": "dist/node/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "browser": null,
-      "node": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./capability-pack": {
+      "source": "./src/capability-pack/index.ts",
+      "import": {
+        "types": "./dist/capability-pack/index.d.ts",
+        "default": "./dist/capability-pack/index.js"
+      },
+      "require": {
+        "types": "./dist/capability-pack/index.d.cts",
+        "default": "./dist/capability-pack/index.cjs"
+      }
+    },
+    "./preset": {
+      "source": "./src/preset/index.ts",
+      "import": {
+        "types": "./dist/preset/index.d.ts",
+        "default": "./dist/preset/index.js"
+      },
+      "require": {
+        "types": "./dist/preset/index.d.cts",
+        "default": "./dist/preset/index.cjs"
+      }
+    },
+    "./preset/node": {
+      "source": "./src/preset/node.ts",
+      "browser": null,
+      "import": {
+        "types": "./dist/preset/node.d.ts",
+        "default": "./dist/preset/node.js"
+      },
+      "require": {
+        "types": "./dist/preset/node.d.cts",
+        "default": "./dist/preset/node.cjs"
+      }
+    },
+    "./command": {
+      "source": "./src/command/index.ts",
+      "import": {
+        "types": "./dist/command/index.d.ts",
+        "default": "./dist/command/index.js"
+      },
+      "require": {
+        "types": "./dist/command/index.d.cts",
+        "default": "./dist/command/index.cjs"
+      }
+    },
+    "./command/node": {
+      "source": "./src/command/node.ts",
+      "browser": null,
+      "import": {
+        "types": "./dist/command/node.d.ts",
+        "default": "./dist/command/node.js"
+      },
+      "require": {
+        "types": "./dist/command/node.d.cts",
+        "default": "./dist/command/node.cjs"
+      }
+    },
+    "./coding": {
+      "source": "./src/coding/index.ts",
+      "browser": null,
+      "import": {
+        "types": "./dist/coding/index.d.ts",
+        "default": "./dist/coding/index.js"
+      },
+      "require": {
+        "types": "./dist/coding/index.d.cts",
+        "default": "./dist/coding/index.cjs"
       }
     },
     "./package.json": "./package.json"
@@ -45,21 +101,22 @@
     "build:types": "pnpm run build",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "scenario:verify": "pnpm scenario:verify:composition-contract",
+    "scenario:verify": "pnpm scenario:verify:composition-contract && pnpm scenario:verify:semantic-command-roles",
     "scenario:verify:composition-contract": "pnpm exec tsx --conditions=source examples/verify-composition-contract.ts",
+    "scenario:verify:semantic-command-roles": "pnpm exec tsx --conditions=source examples/verify-semantic-command-roles.ts",
     "typecheck": "tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit",
     "lint": "eslint src/ --ext .ts",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-capability-pack": "workspace:*",
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-framework": "workspace:*",
-    "@robota-sdk/agent-interface-transport": "workspace:*",
-    "@robota-sdk/agent-preset": "workspace:*"
+    "@robota-sdk/agent-core": "workspace:^",
+    "@robota-sdk/agent-framework": "workspace:^",
+    "@robota-sdk/agent-interface": "workspace:^",
+    "@robota-sdk/agent-tools": "workspace:^"
   },
   "devDependencies": {
+    "@types/node": "^22.19.21",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",

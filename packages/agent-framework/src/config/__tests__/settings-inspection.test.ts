@@ -32,7 +32,7 @@ function source(root: string, name: string, content?: string) {
 
 const SECRET = 'sk-doctor-marker-adjacent-1a2b3c';
 
-describe('inspectSettingsLayers (OBSERVABILITY-1991 TC-02)', () => {
+describe('inspectSettingsLayers', () => {
   it('classifies every layer state with a structured cause and no file content', () => {
     const root = tempRoot();
     const absent = source(root, 'absent.json');
@@ -178,7 +178,7 @@ describe('inspectSettingsLayers (OBSERVABILITY-1991 TC-02)', () => {
   });
 });
 
-describe('permission rules by settings layer (issue #3082)', () => {
+describe('permission rules by settings layer', () => {
   it("names the layers that declare each ask rule, and reads every layer's rules", () => {
     const root = tempRoot();
     const user = source(

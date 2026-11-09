@@ -23,7 +23,7 @@ import {
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { createNodeHttpEgress } from '@robota-sdk/agent-mcp/node';
 
-import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface/analytics';
 import type { IMCPCatalogToolEntry } from '@robota-sdk/agent-mcp';
 import type { IncomingHttpHeaders, Server } from 'node:http';
 

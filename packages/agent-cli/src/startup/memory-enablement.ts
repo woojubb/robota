@@ -1,11 +1,11 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * SELFHOST-008 P6 — memory enablement resolver (agent-cli owned).
+ * Memory enablement resolver (agent-cli owned).
  *
  * Resolves ONE user-facing `memory` switch (default OFF, opt-in) and, when ON, builds the
  * memory-related session option fields the three agent-cli surfaces (print / serve / TUI) inject into
  * `TInteractiveSessionOptions`. The enablement DECISION, policy default, and budget are surface-owned
- * here — the neutral `agent-framework` memory library is untouched (HARNESS-029 neutrality).
+ * here — the neutral `agent-framework` memory library is untouched (it stays neutral).
  *
  * Precedence (lowest → highest): `settings.json` `memory.enabled` (SSOT) ← `--memory`/`--no-memory`
  * CLI flag ← `PRODUCT_MEMORY=1|0` env (env wins). Default OFF ⇒ NO memory options injected (today's
@@ -133,7 +133,7 @@ export function buildMemorySessionOptions(
 
 /**
  * The whole memory decision as ONE call for the composition root: resolve the switch, build the
- * session fields, print the one-time enable notice. Extracted (CLI-2004) so `cli.ts` reads as one
+ * session fields, print the one-time enable notice. Extracted so `cli.ts` reads as one
  * line per surface concern instead of a resolver expanded inline — the same shape
  * `resolveScreenReaderRenderFields` uses, so the two surface switches are read side by side.
  *

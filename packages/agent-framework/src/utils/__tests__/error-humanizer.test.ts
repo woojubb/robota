@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { humanizeApiError } from '../error-humanizer';
 
 /**
- * #3275/#3289 §3: since built-in providers now throw the typed errors below (agent-core's
+ * Since built-in providers now throw the typed errors below (agent-core's
  * `toProviderError`), the `instanceof` branches here are the path actually taken in practice — not
  * just the HTTP-pattern regex fallback that used to be the only thing exercised.
  */

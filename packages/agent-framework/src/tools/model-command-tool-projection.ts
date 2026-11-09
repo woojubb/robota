@@ -58,7 +58,7 @@ export function createProviderSafeModelCommandToolName(
     throw new Error('Model command descriptor name must not be empty.');
   }
 
-  // `trimEdgeChars` rather than `/^_+|_+$/g`: the trailing half of that alternation is quadratic (SEC-003).
+  // `trimEdgeChars` rather than `/^_+|_+$/g`: the trailing half of that alternation is quadratic.
   const safeBody = trimEdgeChars(
     normalizedCommandName.replace(/[^A-Za-z0-9_-]/g, '_').replace(/_+/g, '_'),
     '_',

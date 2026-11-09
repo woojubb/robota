@@ -1,4 +1,4 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import {
   deriveIdentityId,
   exportPublicKey,
@@ -7,24 +7,16 @@ import {
 } from '@robota-sdk/agent-remote-pairing';
 import type { IPairingResult, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
 import type { SessionResumeBridge } from '@robota-sdk/agent-transport';
-import type { ICapabilityApprovalRequest } from '@robota-sdk/agent-interface-session-mobility';
+import type { ICapabilityApprovalRequest } from '@robota-sdk/agent-interface/session-mobility';
+import { createInMemorySignalingPair, WebRtcTransport } from '@robota-sdk/agent-transport/webrtc';
+import type { IDataChannelModule } from '@robota-sdk/agent-transport/webrtc';
 import { describe, expect, it, vi } from 'vitest';
 
 import { RemoteControlController } from '../remote-control-controller.js';
 import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-device-store.js';
 import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 
-// Exercise the production gate without adding its internal class to the public package API.
-const gateSource = '../../../../agent-transport-webrtc/src/pairing-gate.js';
-interface IFixtureGate {
-  onInbound(data: string): void;
-  cleanup(): void;
-}
-
 async function pendingFirstPair(lateCarrierCleanup = false) {
-  const { PairingGate } = (await import(gateSource)) as {
-    PairingGate: new (options: Record<string, unknown>) => IFixtureGate;
-  };
   const runtime = createTestRuntimeContext('/tmp/remote-control-approval-race-test');
   const keyPair = await generateIdentityKeyPair(true);
   const publicKeySpki = await exportPublicKey(keyPair.publicKey);
@@ -57,19 +49,15 @@ async function pendingFirstPair(lateCarrierCleanup = false) {
   const frames: { t?: string }[] = [];
   const waiting: TPairingFrame[] = [];
   let device: ReturnType<typeof startPairingHandshake> | undefined;
-  let gate!: IFixtureGate;
   let secret = '';
-  const channel = {
-    close: vi.fn(),
-    send(data: string) {
+  const carrier = fakeCarrier((data) => {
       const frame = JSON.parse(data) as { t?: string };
       frames.push(frame);
       if (frame.t === 'pair-nonce' || frame.t === 'pair-confirm') {
         if (device) device.onFrame(frame as TPairingFrame);
         else waiting.push(frame as TPairingFrame);
       }
-    },
-  };
+  });
   const session = createTestInteractiveSession();
   const controller = new RemoteControlController({
     productRuntime: runtime,
@@ -86,19 +74,24 @@ async function pendingFirstPair(lateCarrierCleanup = false) {
     }),
     operatorApprover: { approve },
     createResumeBridge: () => bridge as unknown as SessionResumeBridge,
-    createSignaling: () => ({ send: vi.fn(), onSignal: () => () => {}, close: vi.fn() }),
-    createTransport: (_context, _signaling, pairingSecret, hooks, _ice, reconnect) => {
+    createSignaling: () => {
+      const [host, remote] = createInMemorySignalingPair();
+      remote.onSignal((message) => {
+        if (message.kind === 'offer') {
+          remote.send({ kind: 'answer', data: { sdp: 'a=fingerprint:sha-256 BB:BB' } });
+        }
+      });
+      return host;
+    },
+    createTransport: (_context, signaling, pairingSecret, hooks, _ice, reconnect) => {
       secret = pairingSecret;
-      gate = new PairingGate({
+      const transport = new WebRtcTransport({
         cryptoContext: runtime.cryptoContext,
-        channel,
-        session,
+        signaling,
         secret,
-        role: 'initiator',
-        localFingerprint: 'FIXTURE:HOST',
-        remoteFingerprint: 'FIXTURE:DEVICE',
         reconnect,
-        resumeBridge: bridge,
+        resumeBridge: bridge as unknown as SessionResumeBridge,
+        loadDataChannel: () => carrier.module,
         connectionApproval: {
           approve: async (context: Parameters<typeof hooks.connectionApproval.approve>[0]) => {
             try {
@@ -108,38 +101,31 @@ async function pendingFirstPair(lateCarrierCleanup = false) {
             }
           },
         },
-        onAccept: (result?: IPairingResult) => {
+        onPaired: (result?: IPairingResult) => {
           accepted();
           hooks.onPaired(result);
         },
-        onReject: () => {
+        onPairingFailed: () => {
           rejected();
           hooks.onPairingFailed();
         },
-        timeoutMs: 1000,
       });
-      return {
-        name: 'webrtc',
-        lifecycle: { kind: 'service' },
-        defaultEnabled: false,
-        attach: vi.fn(),
-        start: async () => {},
-        validateOptions: () => true,
-        stop: async () => {
-          if (lateCarrierCleanup) await cleanup.promise;
-          gate.cleanup();
-          channel.close();
-        },
+      const stop = transport.stop.bind(transport);
+      transport.stop = async () => {
+        if (lateCarrierCleanup) await cleanup.promise;
+        await stop();
       };
+      return transport;
     },
   });
   await controller.enable();
+  await vi.waitFor(() => expect(carrier.ready()).toBe(true));
   device = startPairingHandshake(runtime.cryptoContext, {
     secret,
     role: 'responder',
-    localFingerprint: 'FIXTURE:DEVICE',
-    remoteFingerprint: 'FIXTURE:HOST',
-    send: (frame) => gate.onInbound(JSON.stringify(frame)),
+    localFingerprint: 'BB:BB',
+    remoteFingerprint: 'AA:AA',
+    send: (frame) => carrier.receive(JSON.stringify(frame)),
     timeoutMs: 1000,
   });
   for (const frame of waiting.splice(0)) device.onFrame(frame);
@@ -148,16 +134,15 @@ async function pendingFirstPair(lateCarrierCleanup = false) {
   const deviceKeys = await generateIdentityKeyPair(false);
   const deviceSpki = await exportPublicKey(deviceKeys.publicKey);
   const deviceId = await deriveIdentityId(deviceSpki);
-  gate.onInbound(JSON.stringify({ t: 'enroll-key', spki: deviceSpki }));
+  carrier.receive(JSON.stringify({ t: 'enroll-key', spki: deviceSpki }));
   await vi.waitFor(() => expect(approve).toHaveBeenCalledOnce());
   expect(approve.mock.calls[0]?.[0].deviceId).toBe(deviceId);
   expect(store.get(deviceId)).toBeUndefined();
   const heldFrame = JSON.stringify({ type: 'get-messages' });
-  gate.onInbound(heldFrame);
+  carrier.receive(heldFrame);
   expect(bridge.attach).not.toHaveBeenCalled();
   return {
     controller,
-    gate,
     store,
     answer,
     cleanup,
@@ -209,6 +194,39 @@ describe('controller and actual pairing gate approval race', () => {
     },
   );
 });
+
+/** Drive the installed transport's native boundary while exercising its real pairing gate. */
+function fakeCarrier(send: (data: string) => void) {
+  let inbound: ((message: string) => void) | undefined;
+  let onDescription: ((sdp: string, type: string) => void) | undefined;
+  let onState: ((state: string) => void) | undefined;
+  const PeerConnection = function () {
+    return {
+      close: () => {},
+      setLocalDescription: (type: string) => queueMicrotask(() => onDescription?.('a=fingerprint:sha-256 AA:AA', type)),
+      setRemoteDescription: () => onState?.('connected'),
+      remoteFingerprint: () => ({ value: 'BB:BB', algorithm: 'sha-256' }),
+      addRemoteCandidate: () => {},
+      onStateChange: (callback: (state: string) => void) => { onState = callback; },
+      onLocalDescription: (callback: (sdp: string, type: string) => void) => { onDescription = callback; },
+      onLocalCandidate: () => {},
+      onDataChannel: () => {},
+      createDataChannel: () => ({
+        close: () => {}, sendMessage: (data: string) => { send(data); return true; },
+        isOpen: () => true, bufferedAmount: () => 0, onOpen: () => {}, onClosed: () => {}, onError: () => {},
+        onMessage: (callback: (message: string) => void) => { inbound = callback; },
+      }),
+    };
+  } as unknown as IDataChannelModule['PeerConnection'];
+  return {
+    module: { PeerConnection },
+    ready: () => inbound !== undefined,
+    receive: (message: string) => {
+      if (!inbound) throw new Error('The data channel is not ready.');
+      inbound(message);
+    },
+  };
+}
 
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;

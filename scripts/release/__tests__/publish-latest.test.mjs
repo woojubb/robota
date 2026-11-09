@@ -33,6 +33,7 @@ function makeFixture({ failure = '', trusted = false } = {}) {
     '.changeset',
     'bin',
     'packages/agent-core',
+    'packages/agent-cli',
     'packages/amber-existing',
     'packages/cedar-new',
     'scripts/harness',
@@ -48,10 +49,13 @@ function makeFixture({ failure = '', trusted = false } = {}) {
     version,
     private: true,
   });
+  writeJson(path.join(directory, 'packages/agent-cli/package.json'), {
+    name: '@robota-sdk/agent-cli', version, private: false,
+  });
   for (const name of ['amber-existing', 'cedar-new'])
     writeJson(path.join(directory, `packages/${name}/package.json`), {
       name: `@robota-sdk/${name}`,
-      version,
+      version: name === 'amber-existing' ? '3.0.0-beta.92' : version,
       private: false,
     });
   copyFileSync(
@@ -84,7 +88,6 @@ function makeFixture({ failure = '', trusted = false } = {}) {
   );
   for (const relative of [
     'scripts/harness/check-publish-safety.mjs',
-    'scripts/harness/check-sdk-public-surface.mjs',
     'scripts/publish/verify-tarballs.mjs',
   ])
     writeFileSync(path.join(directory, relative), '\n');
@@ -149,7 +152,7 @@ const { execFileSync } = require('node:child_process');
 const args = process.argv.slice(2);
 if (args[0] === 'build') process.exit(0);
 if (args[0] === '-r' && args.includes('list')) {
-  console.log(JSON.stringify(['amber-existing', 'cedar-new'].map(name => ({
+  console.log(JSON.stringify(['amber-existing', 'cedar-new', 'agent-cli'].map(name => ({
     name: '@robota-sdk/' + name, version: '${version}', private: false,
     path: process.cwd() + '/packages/' + name,
   }))));
@@ -198,7 +201,7 @@ function lines(file) {
     : [];
 }
 
-function run(fixture, { failure = fixture.failure, args = [], registryMode = 'missing' } = {}) {
+function run(fixture, { failure = fixture.failure, args = [], registryMode = 'missing', component = 'sdk', packageName = component === 'sdk' ? 'cedar-new' : '' } = {}) {
   const result = spawnSync(
     'bash',
     [
@@ -223,6 +226,8 @@ function run(fixture, { failure = fixture.failure, args = [], registryMode = 'mi
         PROJECT_REPOSITORY_URL: 'https://github.com/robota/fixture',
         PROJECT_NPM_REGISTRY_URL: 'https://registry.npmjs.org/',
         PROJECT_PACKAGE_ACCESS: 'public',
+        RELEASE_COMPONENT: component,
+        RELEASE_PACKAGE: packageName,
         PUBLISH_RECORD: fixture.record,
         PACK_RECORD: fixture.packRecord,
         FIXTURE_FAILURE: failure,
@@ -234,12 +239,13 @@ function run(fixture, { failure = fixture.failure, args = [], registryMode = 'mi
   return { ...result, output: result.stdout + result.stderr, records: lines(fixture.record) };
 }
 
-it('publishes the exact reviewed tarballs under latest without touching prerelease state', () => {
+it('publishes the selected reviewed tarball under latest without touching prerelease state', () => {
   const fixture = makeFixture();
   const result = run(fixture);
   expect(result.status, result.output).toBe(0);
   const packed = Object.fromEntries(lines(fixture.packRecord).map((entry) => [entry.name, entry]));
-  expect(result.records).toHaveLength(2);
+  expect(result.records).toHaveLength(1);
+  expect(result.records[0].name).toBe('@robota-sdk/cedar-new');
   for (const record of result.records) {
     expect(record.accepted).toBe(true);
     expect(record.args).toContain('latest');
@@ -250,14 +256,35 @@ it('publishes the exact reviewed tarballs under latest without touching prerelea
   expect(existsSync(path.join(fixture.directory, '.changeset/.publish-prestate-lock'))).toBe(false);
 });
 
-it('retries idempotently by skipping a tarball published before a later failure', () => {
+it('selects another SDK package with its own version', () => {
+  const fixture = makeFixture();
+  const result = run(fixture, { packageName: 'amber-existing' });
+  expect(result.status, result.output).toBe(0);
+  expect(result.records).toMatchObject([{ name: '@robota-sdk/amber-existing', version: '3.0.0-beta.92' }]);
+  expect(lines(fixture.packRecord).map(({ name }) => name)).toEqual(['@robota-sdk/amber-existing']);
+});
+
+it.each(['', '../agent-core', 'agent-cli', 'agent-core'])('rejects invalid or private SDK selection %s', (packageName) => {
+  const result = run(makeFixture(), { packageName });
+  expect(result.status).not.toBe(0);
+  expect(result.records).toEqual([]);
+});
+
+it('selects only the CLI for a CLI release', () => {
+  const fixture = makeFixture();
+  const result = run(fixture, { component: 'cli' });
+  expect(result.status, result.output).toBe(0);
+  expect(lines(fixture.packRecord).map(({ name }) => name)).toEqual(['@robota-sdk/agent-cli']);
+  expect(result.records.map(({ name }) => name)).toEqual(['@robota-sdk/agent-cli']);
+});
+
+it('retries a failed package and then skips it once published', () => {
   const fixture = makeFixture({ failure: 'second' });
   expect(run(fixture).status).toBe(1);
   const repeated = run(fixture, { failure: '' });
   expect(repeated.status, repeated.output).toBe(0);
-  expect(repeated.records.filter((entry) => entry.name.endsWith('amber-existing'))).toHaveLength(1);
   expect(repeated.records.filter((entry) => entry.name.endsWith('cedar-new'))).toHaveLength(2);
-  expect(repeated.output).toContain('already exists');
+  expect(run(fixture, { failure: '' }).output).toContain('already exists');
 });
 
 it('refuses trusted publication when a package has never been published', () => {
@@ -298,7 +325,7 @@ it('passes an explicit OTP to each exact tarball', () => {
   const fixture = makeFixture({ failure: 'otp' });
   const result = run(fixture, { args: ['--otp=222222'] });
   expect(result.status, result.output).toBe(0);
-  expect(result.records.map(({ otp }) => otp)).toEqual(['222222', '222222']);
+  expect(result.records.map(({ otp }) => otp)).toEqual(['222222']);
 });
 
 it('never prompts without a terminal and fails as npm reports', () => {

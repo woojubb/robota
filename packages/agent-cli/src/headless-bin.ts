@@ -3,11 +3,11 @@ import {
   installProductChildSessions,
   installProductProcessEnvironment,
 } from './product/process-environment.js';
-/** RUNTIME-002: the desktop's presentation-free executable. */
+/** The desktop's presentation-free executable. */
 import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/agent-subagent-runner';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor/node';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 import { installCliDiagnostics } from './bootstrap-diagnostics.js';
 import { hardenProductProcess } from './process-hardening.js';
@@ -17,6 +17,7 @@ import { createProductSubagentComposition } from './product/subagent-composition
 import { parseCliArgs } from './utils/cli-args.js';
 import { optionArgv } from './utils/option-argv.js';
 import { assertLocalWorkerPosture } from './hosted/hosted-runtime-config.js';
+import { assertProductConversationLaunch } from './product/session-sealing.js';
 
 // Same first step as the CLI executable: this executable is its own entry, and so is its worker child.
 hardenProductProcess();
@@ -25,6 +26,7 @@ if (isSubagentWorkerModeArgv(optionArgv(process.argv))) {
   // The served parent's child re-executes process.execPath; this private route must survive bundling.
   try {
     const runtime = resolveCliRuntimeContext({});
+    assertProductConversationLaunch(runtime, process.argv);
     installProductProcessEnvironment(runtime);
     installProductChildSessions(runtime);
     installCliDiagnostics(runtime.config.identity.cliName);
@@ -37,6 +39,7 @@ if (isSubagentWorkerModeArgv(optionArgv(process.argv))) {
 } else {
   try {
     const productRuntime = resolveCliRuntimeContext({});
+    assertProductConversationLaunch(productRuntime, process.argv);
     installProductProcessEnvironment(productRuntime);
     installProductChildSessions(productRuntime);
     installCliDiagnostics(productRuntime.config.identity.cliName);

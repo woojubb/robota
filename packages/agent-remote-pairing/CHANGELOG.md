@@ -1,5 +1,46 @@
 # @robota-sdk/agent-remote-pairing
 
+## 3.2.3
+### Patch Changes
+
+- 454588f: Local-peer admission on Windows now refuses with a reason that names the platform, instead of refusing on an emulated "mode 666". Windows reports no owner uid and an emulated mode, so the evidence this admission reads does not exist there; the check no longer depends on that emulation staying non-passing.
+
+## 3.2.2
+### Patch Changes
+
+- Drop dangling tracker references (deleted backlog IDs, stage labels and closed issue numbers) from shipped comments, type declarations and runtime messages, so agents reading this package are not sent after tickets that no longer exist. No behavior change.
+
+## 3.2.1
+
+## 3.2.0
+
+## 3.1.2
+
+## 3.1.1
+
+## 3.1.0
+### Minor Changes
+
+- b56b5a9: Ship one build per package. The platform-neutral entries moved from `dist/node` to `dist`, and the second
+  `dist/browser` build of `@robota-sdk/agent-core`, `@robota-sdk/agent-transport`,
+  `@robota-sdk/agent-ui-web` and `@robota-sdk/agent-transport-webrtc-web` is gone: a neutral entry runs
+  unchanged in every runtime, so a subpath's `exports` map `import` and `require` to the same files and no
+  longer a `node` or `browser` condition (a Node-only subpath keeps `"browser": null`). Import specifiers
+  and the code behind them are unchanged; only a deep import of `dist/node/*` or `dist/browser/*` breaks.
+  `@robota-sdk/agent-transport/client` also ships a CommonJS build now.
+
+## 3.0.7
+
+## 3.0.6
+
+## 3.0.5
+
+## 3.0.4
+
+## 3.0.3
+
+## 3.0.2
+
 ## 3.0.1
 
 ## 3.0.0

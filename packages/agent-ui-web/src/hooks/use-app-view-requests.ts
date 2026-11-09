@@ -20,6 +20,7 @@ function nextRequestId(prefix: string): string {
 }
 
 const CONNECTION_CLOSED = 'The connection to the session closed.';
+const READ_ONLY = 'This session is read-only.';
 
 /**
  * The key a finished call's app view is read and called by, taken from the tool row's `appView`
@@ -53,6 +54,7 @@ function callAppToolMessage(
 export function useAppViewRequests(
   send: (msg: TClientMessage) => void,
   isConnected: () => boolean,
+  isObserving: () => boolean,
 ): {
   readAppView: (viewKey: string, signal?: AbortSignal) => Promise<TAppView>;
   callAppTool: (
@@ -92,6 +94,11 @@ export function useAppViewRequests(
           reject(new Error(signal?.aborted ? 'The app view closed.' : CONNECTION_CLOSED));
           return;
         }
+        // An observer's request is never sent, so no reply would come.
+        if (isObserving()) {
+          reject(new Error(READ_ONLY));
+          return;
+        }
         const requestId = nextRequestId(`${requestOwner}_${prefix}`);
         const dispose = (): void => signal?.removeEventListener('abort', abort);
         const abort = (): void => {
@@ -109,7 +116,7 @@ export function useAppViewRequests(
           reject(error instanceof Error ? error : new Error(String(error)));
         }
       }),
-    [isConnected, requestOwner, send],
+    [isConnected, isObserving, requestOwner, send],
   );
 
   const readAppView = useCallback(

@@ -7,7 +7,7 @@ import {
   forgetPeerOrigin,
 } from '../peer-message-ledger.js';
 
-import type { IPeerMessage } from '@robota-sdk/agent-interface-session-mobility';
+import type { IPeerMessage } from '@robota-sdk/agent-interface/session-mobility';
 
 function message(over: Partial<IPeerMessage> = {}): IPeerMessage {
   return {
@@ -20,7 +20,7 @@ function message(over: Partial<IPeerMessage> = {}): IPeerMessage {
   };
 }
 
-describe('PEER-001 — a retry gets the ORIGINAL answer back (#1809)', () => {
+describe('a retry gets the ORIGINAL answer back', () => {
   it('delivers a first message and refuses to deliver its retry', () => {
     const ledger = createPeerMessageLedger();
 
@@ -59,7 +59,7 @@ describe('PEER-001 — a retry gets the ORIGINAL answer back (#1809)', () => {
   });
 });
 
-describe('PEER-001 — sequence is per origin (#1809)', () => {
+describe('sequence is per origin', () => {
   it('does not let one peer create a gap in another peer’s stream', () => {
     // Two peers are independent senders. A shared counter would make peer B's traffic look like a
     // gap in peer A's, and the session would wait for a message that was never coming.
@@ -132,7 +132,7 @@ describe('PEER-001 — sequence is per origin (#1809)', () => {
   });
 });
 
-describe('PEER-001 — delivery and acknowledgement are different questions (#1809)', () => {
+describe('delivery and acknowledgement are different questions', () => {
   it('promotes a delivered message to acknowledged', () => {
     const ledger = createPeerMessageLedger();
     admitPeerMessage(ledger, message());
@@ -160,7 +160,7 @@ describe('PEER-001 — delivery and acknowledgement are different questions (#18
   });
 });
 
-describe('PEER-001 — disconnect and shutdown (#1809)', () => {
+describe('disconnect and shutdown', () => {
   it('forgetting an origin frees its sequence space for a reconnect', () => {
     // A peer that reconnects gets a fresh sequence space. Without this, its first message after a
     // restart would collide with the sequence it used before and be refused.

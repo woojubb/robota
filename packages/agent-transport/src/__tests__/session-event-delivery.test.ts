@@ -5,7 +5,7 @@ import { createSessionMessageHandler } from '../session-message-handler.js';
 import { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from '../session-events.js';
 
 import type { TServerMessage } from '../wire-messages.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 type TEmittingSession = IInteractiveSession & {
   emitForTest: (event: string, payload: unknown) => void;
@@ -28,7 +28,7 @@ function createSession(): TEmittingSession {
   } as unknown as TEmittingSession;
 }
 
-describe('protocol session-event delivery policy (ARCH-020/ARCH-028)', () => {
+describe('protocol session-event delivery policy', () => {
   it('mechanically matches every surface classification to an actual subscription', () => {
     const session = createSession();
     const { cleanup } = createSessionMessageHandler({

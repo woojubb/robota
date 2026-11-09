@@ -1,5 +1,5 @@
 /**
- * FLOW-002 (Layer 2): a background wake event re-enters the agent loop as a non-user turn.
+ * A background wake event re-enters the agent loop as a non-user turn.
  * A scheduled task carrying an `agentInstruction` fires `background_task_waking`; the session
  * injects an `agent-wakeup` turn via the execution controller's pending queue, coalescing
  * duplicate wakes by task id.
@@ -19,7 +19,7 @@ import type {
 import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { Session } from '@robota-sdk/agent-session';
-import type { IScheduledBackgroundTaskRequest } from '@robota-sdk/agent-interface-execution';
+import type { IScheduledBackgroundTaskRequest } from '@robota-sdk/agent-interface/execution';
 import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
@@ -119,8 +119,8 @@ async function setupSession(): Promise<{
   return { session, manager, started };
 }
 
-describe('FLOW-002 session wake injection', () => {
-  it('TC-01/TC-04: a wake injects one agent-wakeup turn carrying the instruction', async () => {
+describe('session wake injection', () => {
+  it('a wake injects one agent-wakeup turn carrying the instruction', async () => {
     const { session, manager, started } = await setupSession();
     const execCtrl = getExecCtrl(session);
     holdExecution(execCtrl);
@@ -141,7 +141,7 @@ describe('FLOW-002 session wake injection', () => {
     });
   });
 
-  it('TC-03: duplicate wakes for the same task id coalesce to a single turn', async () => {
+  it('duplicate wakes for the same task id coalesce to a single turn', async () => {
     const { session, manager, started } = await setupSession();
     const execCtrl = getExecCtrl(session);
     holdExecution(execCtrl);
@@ -159,7 +159,7 @@ describe('FLOW-002 session wake injection', () => {
     expect(execCtrl.pendingPrompt).toBe('do X');
   });
 
-  it('TC-02: while a turn is executing, the wake queues (not interleaved)', async () => {
+  it('while a turn is executing, the wake queues (not interleaved)', async () => {
     const { session, manager, started } = await setupSession();
     const execCtrl = getExecCtrl(session);
     holdExecution(execCtrl); // simulate an in-flight turn
@@ -170,11 +170,11 @@ describe('FLOW-002 session wake injection', () => {
     await Promise.resolve();
 
     expect(execCtrl.pendingPrompt).toBe('queued instruction');
-    // REMOTE-014 E5: the queue entry preserves the wake's turn options (agent-wakeup source).
+    // The queue entry preserves the wake's turn options (agent-wakeup source).
     expect(execCtrl.pending.contents[0]?.options.turnSource).toBe('agent-wakeup');
   });
 
-  it('RUNTIME-19: aborting a queued wake evicts its id so a future wake is not locked out', async () => {
+  it('aborting a queued wake evicts its id so a future wake is not locked out', async () => {
     const { session, manager, started } = await setupSession();
     const execCtrl = getExecCtrl(session);
     const releaseExecution = holdExecution(execCtrl); // a turn is in flight, so the wake queues instead of running
@@ -189,7 +189,7 @@ describe('FLOW-002 session wake injection', () => {
     expect(execCtrl.wakeTaskIds.has(created.id)).toBe(true);
 
     // Abort drops the queued wake — its id MUST be evicted, or every future wake for this task
-    // is silently rejected forever (RUNTIME-19).
+    // is silently rejected forever.
     session.abort();
     expect(execCtrl.wakeTaskIds.has(created.id)).toBe(false);
 

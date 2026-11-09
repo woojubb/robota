@@ -1,5 +1,5 @@
 /**
- * TRANS-005 (#2081) — decoders for the session-event payloads a record persists: skill activation,
+ * Decoders for the session-event payloads a record persists: skill activation,
  * automatic-memory events and their references, and context references.
  *
  * These contracts spell their instants as `string`, not `Date`, so they stay strings here — but they
@@ -33,7 +33,7 @@ import type {
   TSkillActivationMode,
   TSkillActivationSource,
   TSkillActivationStatus,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const SKILL_SOURCES = ['skill', 'plugin'] as const satisfies readonly TSkillActivationSource[];
 const SKILL_INVOCATIONS = [

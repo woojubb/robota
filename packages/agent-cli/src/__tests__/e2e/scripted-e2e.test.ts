@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../helpers/product-runtime.js';
 /**
- * Deterministic agent-loop E2E suites (CLI-074 TC-02..TC-05).
+ * Deterministic agent-loop E2E suites.
  *
  * A scripted provider replays declared turns through the REAL stack: startCli
  * print mode → agent loop → builtin tools → permission gate → session
@@ -104,7 +104,7 @@ function sessionFiles(project: string): string[] {
   }
 }
 
-describe('scripted agent-loop E2E (CLI-074)', () => {
+describe('scripted agent-loop E2E', () => {
   let project: string;
 
   beforeEach(() => {
@@ -157,7 +157,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     ['prompt', { type: 'prompt', prompt: 'review this action' }],
     ['agent', { type: 'agent', agent: 'reviewer' }],
   ] as const)(
-    'SEC-021: refuses settings-file %s hooks in the real CLI composition',
+    'refuses settings-file %s hooks in the real CLI composition',
     async (type, hook) => {
       writeFileSync(
         join(project, '.test-product', 'settings.json'),
@@ -179,12 +179,12 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     },
   );
 
-  it('TC-02: scripted Read→Edit→Bash turns mutate a real file through print mode', async () => {
+  it('scripted Read→Edit→Bash turns mutate a real file through print mode', async () => {
     const target = join(project, 'greet.txt');
     writeFileSync(target, 'Hello, world\n', 'utf8');
     const scripted = createScriptedProvider(editScript(target));
 
-    // Print mode defaults to `default` with no approver (issue #3081); this run states the mode it
+    // Print mode defaults to `default` with no approver; this run states the mode it
     // needs to edit and run a command unattended.
     const result = await runScripted(
       project,
@@ -203,7 +203,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     expect(toolContents.some((content) => content.includes('Goodbye, world'))).toBe(true);
   });
 
-  it('TC-03: --dry-run blocks the Edit and leaves the file untouched', async () => {
+  it('--dry-run blocks the Edit and leaves the file untouched', async () => {
     const target = join(project, 'greet.txt');
     writeFileSync(target, 'Hello, world\n', 'utf8');
     const scripted = createScriptedProvider([
@@ -221,7 +221,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     expect(readFileSync(target, 'utf8')).toBe('Hello, world\n');
   });
 
-  it('TC-03: --denied-tools Edit surfaces the denial in the tool result', async () => {
+  it('--denied-tools Edit surfaces the denial in the tool result', async () => {
     const target = join(project, 'greet.txt');
     writeFileSync(target, 'Hello, world\n', 'utf8');
     const scripted = createScriptedProvider([
@@ -250,9 +250,9 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     );
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
-    'TC-04: -c resume feeds the prior conversation into the next scripted request',
+    '-c resume feeds the prior conversation into the next scripted request',
     async () => {
       const first = createScriptedProvider([{ text: 'noted: 42' }]);
       const firstRun = await runScripted(project, ['-p', 'Remember the number 42'], first);
@@ -271,9 +271,9 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
-    'CLI-073: --fork-session restores the prior conversation into a NEW session',
+    '--fork-session restores the prior conversation into a NEW session',
     async () => {
       const first = createScriptedProvider([{ text: 'noted: 42' }]);
       const firstRun = await runScripted(project, ['-p', 'Remember the number 42'], first);
@@ -281,7 +281,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
       const [sourceFile] = sessionFiles(project);
       expect(sourceFile).toBeDefined();
       const sourceRaw = readFileSync(join(project, '.test-product', 'sessions', sourceFile!), 'utf8');
-      // TRANS-007: the persisted shape is `{ schemaVersion, record }`, so the id is one level down.
+      // The persisted shape is `{ schemaVersion, record }`, so the id is one level down.
       const sourceId = (JSON.parse(sourceRaw) as { record: { id: string } }).record.id;
 
       const second = createScriptedProvider([{ text: 'it was 42' }]);
@@ -292,16 +292,16 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
       );
       expect(secondRun.exitCode).toBe(0);
 
-      // TC-04: the forked session's first request carries the source conversation.
+      // The forked session's first request carries the source conversation.
       const request = second.requests[0] ?? [];
       const contents = request.map((message) => String(message.content));
       expect(contents.some((content) => content.includes('Remember the number 42'))).toBe(true);
       expect(contents.some((content) => content.includes('noted: 42'))).toBe(true);
 
-      // TC-02: fresh UUID — a second session file exists with a different id.
+      // Fresh UUID — a second session file exists with a different id.
       const files = sessionFiles(project);
       expect(files).toHaveLength(2);
-      // TC-03 corroboration: the source CONTENT is unchanged (append-only).
+      // Corroboration: the source CONTENT is unchanged (append-only).
       // (A pre-existing init-time persist refreshes the source file's updatedAt
       // metadata on any resume/fork run; the restore path itself never writes —
       // proven byte-identical at the unit level in fork-restores-context.test.ts.)
@@ -314,7 +314,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     },
   );
 
-  it('TC-05: output contracts — text, json, stream-json, --bare', async () => {
+  it('output contracts — text, json, stream-json, --bare', async () => {
     const textRun = await runScripted(
       project,
       ['-p', 'say it', '--no-session-persistence'],
@@ -360,7 +360,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     expect(bareRun.stdout.trim()).toBe('CONTRACT_BARE');
   });
 
-  it('GOAL-001: --goal pursues an objective autonomously across turns until satisfied', async () => {
+  it('--goal pursues an objective autonomously across turns until satisfied', async () => {
     const target = join(project, 'GOAL.txt');
     // Two goal-driven submits: the first writes the file and signals "continue", the second
     // signals "satisfied" — the loop then stops on its own.
@@ -400,7 +400,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     expect(result.stdout).toContain('Goal satisfied');
   });
 
-  it('GOAL-001: --goal stops cleanly at the iteration bound (exit 2) when never satisfied', async () => {
+  it('--goal stops cleanly at the iteration bound (exit 2) when never satisfied', async () => {
     // The agent does real work each turn (so the no-progress guard never trips) but only ever
     // signals "continue"; the loop must therefore stop at --goal-max-iterations.
     const iteration = (): TScriptedTurn[] => [
@@ -435,7 +435,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     expect(result.stderr).toContain('max-iterations');
   });
 
-  // ── TEST-009 Phase 1: headless flag matrix ──────────────────────────────────────────
+  // ── Headless flag matrix ──────────────────────────────────────────
   // All content the model "sees" for a turn (system + history) flattened from the first request.
   function firstRequestText(scripted: IScriptedProvider): string {
     return (scripted.requests[0] ?? [])
@@ -445,7 +445,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
       .join('\n');
   }
 
-  it('TEST-009: --system-prompt injects the custom system instruction into the model request', async () => {
+  it('--system-prompt injects the custom system instruction into the model request', async () => {
     const scripted = createScriptedProvider([{ text: 'ack' }]);
     const result = await runScripted(
       project,
@@ -456,7 +456,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     expect(firstRequestText(scripted)).toContain('SYS_MARKER_42');
   });
 
-  it('TEST-009: --append-system-prompt appends (does not replace) the system instruction', async () => {
+  it('--append-system-prompt appends (does not replace) the system instruction', async () => {
     const scripted = createScriptedProvider([{ text: 'ack' }]);
     const result = await runScripted(
       project,
@@ -470,7 +470,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     expect(text).toMatch(/system:/);
   });
 
-  it('TEST-009: --task-file appends the file content to the system prompt', async () => {
+  it('--task-file appends the file content to the system prompt', async () => {
     const taskFile = join(project, 'TASK.md');
     writeFileSync(taskFile, 'TASK_FILE_MARKER: do the thing\n', 'utf8');
     const scripted = createScriptedProvider([{ text: 'ack' }]);
@@ -483,7 +483,7 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     expect(firstRequestText(scripted)).toContain('TASK_FILE_MARKER');
   });
 
-  it('TEST-009: --allowed-tools auto-approves listed tools under the default permission mode', async () => {
+  it('--allowed-tools auto-approves listed tools under the default permission mode', async () => {
     // Semantics (confirmed against create-session: allowedTools → `Name(*)` auto-approve patterns):
     // `--allowed-tools` is an AUTO-APPROVE list, not a hard allowlist; `--denied-tools` is the hard
     // block. Under `--permission-mode default` (no interactive approver in print mode), an

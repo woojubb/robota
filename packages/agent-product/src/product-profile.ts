@@ -3,7 +3,7 @@ import type {
   ICapabilityPackMetadata,
   IRejectedCapability,
   IRejectedCapabilityPack,
-} from '@robota-sdk/agent-capability-pack';
+} from './capability-pack/index.js';
 import type {
   FunctionTool,
   IAIProvider,
@@ -20,13 +20,13 @@ import type {
   TInteractiveSessionOptions,
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-framework';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface/transport';
 import type {
   IPresetRegistry,
   IPreset,
   IResolvePresetContext,
   IResolvedPresetOptions,
-} from '@robota-sdk/agent-preset';
+} from './preset/index.js';
 
 /**
  * A declarative "this is my product" object — the sole argument of {@link assembleProduct}. Everything
@@ -34,7 +34,7 @@ import type {
  * assembler hard-codes no product's choices. the configured CLI is one profile among many; an external host brings
  * its own.
  *
- * The responsibility split (ARCH-005): **preset = behavior/persona**, **pack = capability**, **profile =
+ * The responsibility split: **preset = behavior/persona**, **pack = capability**, **profile =
  * product assembly** — the profile carries neither behavior nor capability *definitions*, it only
  * *references* them and supplies identity + injected adapters.
  */
@@ -47,7 +47,7 @@ export interface IProductProfile {
   /** Product version string. */
   version?: string;
 
-  // (2) provider surface — construction is IN-KERNEL (ARCH-005 S2, owner Decision 1)
+  // (2) provider surface — construction is IN-KERNEL (owner Decision 1)
   /**
    * The product's provider surface: the vendor definitions it offers. Required — a product declares which
    * providers it can speak to, and the kernel constructs from this registry. Pass `[]` for a product that
@@ -88,14 +88,14 @@ export interface IProductProfile {
    */
   presets?: readonly IPreset[];
   /**
-   * An ALREADY-BUILT instance-scoped registry (from `agent-preset`'s `createPresetRegistry`) to use
+   * An ALREADY-BUILT instance-scoped registry (from the `preset` subpath's `createPresetRegistry`) to use
    * instead of building one from {@link presets}. When supplied it WINS over `presets`.
    *
    * This is the seam for a shell that must resolve a preset BEFORE it can build the profile — a preset
    * can carry the `model` and `agentName` the profile itself is constructed from, so "resolve, then
    * assemble" is a real ordering constraint, not a product-specific quirk. Handing the registry in (rather than the
    * presets) is what keeps that pre-assembly resolution and `assembleProduct`'s own resolution on ONE
-   * registry instead of two equivalent-but-separate ones (ARCH-008). R8 is unaffected: the registry is
+   * registry instead of two equivalent-but-separate ones. R8 is unaffected: the registry is
    * still instance-scoped and no module-level state is read or mutated.
    */
   presetRegistry?: IPresetRegistry;
@@ -182,7 +182,7 @@ export interface IAssembledProduct {
   /**
    * The default preset id (passthrough) and its resolved posture — resolved over {@link presets} with the
    * profile's `presetContext`, so a shell that resolved the same id with the same overrides gets the same
-   * value here (ARCH-008), not a variant missing its override layers.
+   * value here, not a variant missing its override layers.
    */
   defaultPresetId?: string;
   defaultPreset?: IResolvedPresetOptions;

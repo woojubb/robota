@@ -19,7 +19,7 @@ export default function ToolCommandOutput({ tool }: IProps): React.ReactElement 
 
   // A successful command with no output renders nothing here: the parent
   // (MessageList ToolSummaryEntry) already shows a "✓ tool(args)" summary line for
-  // every tool, so a second "✓ ok" line was a duplicate success marker (SCREEN-007).
+  // every tool, so a second "✓ ok" line was a duplicate success marker.
   if (
     summary.statusLabel === 'ok' &&
     summary.previewLines.length === 0 &&

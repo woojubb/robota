@@ -1,5 +1,5 @@
 /**
- * Compacting the prompt-history file (#3679, secure conversation): every entry, plain or sealed,
+ * Compacting the prompt-history file (secure conversation): every entry, plain or sealed,
  * rewritten one per line under the one sealer it is given, swapped in by rename while terminals may
  * still be appending by path. The snapshot ends at the last newline, what is appended meanwhile is
  * caught up from the replaced file, what does not open is carried over as it is, and a plain line
@@ -35,11 +35,17 @@ import { NodePromptHistoryFile, PROMPT_HISTORY_OWNER_ID } from '../prompt-histor
 import { StoredLines } from '../stored-append-lines.js';
 
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
-import type { IPromptHistoryEntry } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistoryEntry } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-31d7-typed-prompt';
 const roots: string[] = [];
 const NO_PAUSE = async (): Promise<void> => {};
+/**
+ * Whether the platform lets a file be replaced while a handle on it is open. Windows does not: a
+ * writer holding the old file blocks the rename, and what is appended by path is caught up before it
+ * (`append-file-rewrite.ts`), so the cases about an append after the rename have a Windows twin.
+ */
+const REPLACES_OPEN_FILES = process.platform !== 'win32';
 
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
@@ -151,45 +157,77 @@ describe('compactPromptHistoryFile', () => {
     expect(readFileSync(path, 'utf8')).not.toContain(CANARY);
   });
 
-  it('catches up what a writer that opened the old file before the rename appends after it', async () => {
-    const path = join(directory(), 'history.jsonl');
-    const sealer = createTestArtifactSealer();
-    writeFileSync(path, line(1));
-    const writer = openSync(path, 'a');
-    let pauses = 0;
-    try {
+  it.runIf(REPLACES_OPEN_FILES)(
+    'catches up what a writer that opened the old file before the rename appends after it',
+    async () => {
+      const path = join(directory(), 'history.jsonl');
+      const sealer = createTestArtifactSealer();
+      writeFileSync(path, line(1));
+      const writer = openSync(path, 'a');
+      let pauses = 0;
+      try {
+        const result = await compactPromptHistoryFile(path, {
+          sealer,
+          pause: async () => {
+            pauses += 1;
+            if (pauses === 1) writeSync(writer, line(2));
+          },
+        });
+
+        expect(result).toMatchObject({ status: 'compacted', entries: 2, caughtUp: 1 });
+      } finally {
+        closeSync(writer);
+      }
+      expect(await readTexts(path, sealer)).toEqual([1, 2].map((i) => entry(i).text));
+    },
+  );
+
+  it.runIf(REPLACES_OPEN_FILES)(
+    'reports a plain line that reaches the new file during the catch-up',
+    async () => {
+      const path = join(directory(), 'history.jsonl');
+      const sealer = createTestArtifactSealer();
+      writeFileSync(path, line(1));
+      let pauses = 0;
+
+      // An older build appends by path after the rename: its plaintext lands in the new file.
       const result = await compactPromptHistoryFile(path, {
         sealer,
         pause: async () => {
           pauses += 1;
-          if (pauses === 1) writeSync(writer, line(2));
+          if (pauses === 1) appendFileSync(path, line(2));
         },
       });
 
-      expect(result).toMatchObject({ status: 'compacted', entries: 2, caughtUp: 1 });
-    } finally {
-      closeSync(writer);
-    }
-    expect(await readTexts(path, sealer)).toEqual([1, 2].map((i) => entry(i).text));
-  });
+      expect(result).toMatchObject({ status: 'compacted', plainLinesAfter: 1 });
+    },
+  );
 
-  it('reports a plain line that reaches the new file during the catch-up', async () => {
-    const path = join(directory(), 'history.jsonl');
-    const sealer = createTestArtifactSealer();
-    writeFileSync(path, line(1));
-    let pauses = 0;
+  it.runIf(!REPLACES_OPEN_FILES)(
+    'catches up, before its rename, a line appended by path while it waits for the history to be quiet',
+    async () => {
+      const path = join(directory(), 'history.jsonl');
+      const sealer = createTestArtifactSealer();
+      writeFileSync(path, line(1));
+      let pauses = 0;
 
-    // An older build appends by path after the rename: its plaintext lands in the new file.
-    const result = await compactPromptHistoryFile(path, {
-      sealer,
-      pause: async () => {
-        pauses += 1;
-        if (pauses === 1) appendFileSync(path, line(2));
-      },
-    });
+      const result = await compactPromptHistoryFile(path, {
+        sealer,
+        pause: async () => {
+          pauses += 1;
+          if (pauses === 1) appendFileSync(path, line(2));
+        },
+      });
 
-    expect(result).toMatchObject({ status: 'compacted', plainLinesAfter: 1 });
-  });
+      expect(result).toMatchObject({
+        status: 'compacted',
+        entries: 2,
+        caughtUp: 1,
+        plainLinesAfter: 0,
+      });
+      expect(await readTexts(path, sealer)).toEqual([1, 2].map((i) => entry(i).text));
+    },
+  );
 
   it('abandons its rename when another compaction replaced the history first, losing nothing of it', async () => {
     const root = directory();
@@ -204,6 +242,8 @@ describe('compactPromptHistoryFile', () => {
       pause: NO_PAUSE,
       beforeCommit: () => {
         writeFileSync(join(root, 'theirs.tmp'), theirs);
+        // Removed first: Windows will not rename over the file this compaction still has open.
+        rmSync(path);
         renameSync(join(root, 'theirs.tmp'), path);
       },
     });
@@ -228,37 +268,71 @@ describe('compactPromptHistoryFile', () => {
     expect(readdirSync(root)).toEqual([]);
   });
 
-  it('reports how much of the replaced file it could not catch up when the catch-up fails', async () => {
-    const path = join(directory(), 'history.jsonl');
-    const sealer = createTestArtifactSealer();
-    writeFileSync(path, line(1));
-    const writer = openSync(path, 'a');
-    const late = new StoredLines({ sealer }, 'prompt-history-line').encode(
-      line(2),
-      PROMPT_HISTORY_OWNER_ID,
-    );
-    let pauses = 0;
-    try {
-      const result = await compactPromptHistoryFile(path, {
-        sealer,
-        pause: async () => {
-          pauses += 1;
-          if (pauses !== 1) return;
-          // An append that opened the old file lands after the rename, and the keys lock before it is read.
-          writeSync(writer, late);
-          sealer.lock();
-        },
-      });
+  it.runIf(!REPLACES_OPEN_FILES)(
+    'abandons the compaction, replacing nothing, when the catch-up fails',
+    async () => {
+      const root = directory();
+      const path = join(root, 'history.jsonl');
+      const sealer = createTestArtifactSealer();
+      writeFileSync(path, line(1));
+      const late = new StoredLines({ sealer }, 'prompt-history-line').encode(
+        line(2),
+        PROMPT_HISTORY_OWNER_ID,
+      );
+      let pauses = 0;
 
-      expect(result).toMatchObject({
-        status: 'compacted',
-        entries: 1,
-        catchUpFailed: { unreadBytes: Buffer.byteLength(late), reason: 'ArtifactLockedError' },
-      });
-    } finally {
-      closeSync(writer);
-    }
-  });
+      await expect(
+        compactPromptHistoryFile(path, {
+          sealer,
+          pause: async () => {
+            pauses += 1;
+            if (pauses !== 1) return;
+            // Appended by path while it waits, and the keys lock before it is read.
+            appendFileSync(path, late);
+            sealer.lock();
+          },
+        }),
+      ).rejects.toMatchObject({ code: 'ARTIFACT_LOCKED' });
+
+      expect(readFileSync(path, 'utf8')).toBe(line(1) + late);
+      expect(readdirSync(root)).toEqual(['history.jsonl']);
+    },
+  );
+
+  it.runIf(REPLACES_OPEN_FILES)(
+    'reports how much of the replaced file it could not catch up when the catch-up fails',
+    async () => {
+      const path = join(directory(), 'history.jsonl');
+      const sealer = createTestArtifactSealer();
+      writeFileSync(path, line(1));
+      const writer = openSync(path, 'a');
+      const late = new StoredLines({ sealer }, 'prompt-history-line').encode(
+        line(2),
+        PROMPT_HISTORY_OWNER_ID,
+      );
+      let pauses = 0;
+      try {
+        const result = await compactPromptHistoryFile(path, {
+          sealer,
+          pause: async () => {
+            pauses += 1;
+            if (pauses !== 1) return;
+            // An append that opened the old file lands after the rename, and the keys lock before it is read.
+            writeSync(writer, late);
+            sealer.lock();
+          },
+        });
+
+        expect(result).toMatchObject({
+          status: 'compacted',
+          entries: 1,
+          catchUpFailed: { unreadBytes: Buffer.byteLength(late), reason: 'ArtifactLockedError' },
+        });
+      } finally {
+        closeSync(writer);
+      }
+    },
+  );
 
   it('carries lines that do not open, or that a newer build sealed, over unchanged and counts them', async () => {
     const path = join(directory(), 'history.jsonl');

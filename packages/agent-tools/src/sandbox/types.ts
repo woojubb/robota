@@ -129,7 +129,7 @@ export interface IWorkspaceManifestApplyResult {
 }
 
 /**
- * How a sandbox's filesystem relates to the host's (issue #3081).
+ * How a sandbox's filesystem relates to the host's.
  *
  * - `shared` — OS-level confinement of commands over the host filesystem (Seatbelt, bubblewrap).
  *   File tools stay on the host, bounded by the path guard and the permission rules.
@@ -182,9 +182,9 @@ export interface ISandboxToolOptions {
   /** Abort a host file read between bounded chunks. */
   signal?: AbortSignal;
   /**
-   * The tool's working-directory root on the host (non-sandbox) path. REQUIRED — ARCH-010.
+   * The tool's working-directory root on the host (non-sandbox) path. REQUIRED.
    *
-   * For the tools that read and enumerate — `Read`/`Write`/`Edit` and, since SEC-007, `Glob`/`Grep` —
+   * For the tools that read and enumerate — `Read`/`Write`/`Edit` and `Glob`/`Grep` —
    * this is a CONTAINMENT boundary: access outside it is refused, decided on canonical (symlink-
    * resolved) paths. For `Shell`/`Bash` it is the DEFAULT working directory and deliberately not a
    * boundary — a cwd guard on arbitrary command execution is undone by the first `cd` (see the

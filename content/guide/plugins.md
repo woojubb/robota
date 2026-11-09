@@ -276,8 +276,8 @@ describe('RunLoggerPlugin', () => {
 ### Publishing a runtime plugin
 
 A plugin package needs only `@robota-sdk/agent-core`. Declare it as a peer dependency so your plugin
-uses the application's copy. Robota is on the `3.0.0` beta line; a caret range on a beta version
-(`^3.0.0-beta.83`) accepts later betas and the stable release:
+uses the application's copy. The following range targets SDK 3.1.0; use it after that release is
+published and check your application's installed version:
 
 ```json
 {
@@ -291,10 +291,10 @@ uses the application's copy. Robota is on the `3.0.0` beta line; a caret range o
     }
   },
   "peerDependencies": {
-    "@robota-sdk/agent-core": "^3.0.0-beta.83"
+    "@robota-sdk/agent-core": "^3.1.0"
   },
   "devDependencies": {
-    "@robota-sdk/agent-core": "^3.0.0-beta.83"
+    "@robota-sdk/agent-core": "^3.1.0"
   }
 }
 ```

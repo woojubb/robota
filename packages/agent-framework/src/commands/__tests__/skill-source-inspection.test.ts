@@ -16,7 +16,7 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
+describe('inspectSkillSources', () => {
   it('reports discovered skills and the entries discovery silently skips, per root', () => {
     const home = mkdtempSync(join(tmpdir(), 'agent-skill-inspection-'));
     roots.push(home);
@@ -33,22 +33,22 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
       [createNodeHostContributionSource(home)],
       TEST_SKILL_ROOTS,
     );
-    const agent = inspection.roots.find((root) => root.root === join('.agent', 'skills'));
+    const agent = inspection.roots.find((root) => root.root === '.agent/skills');
     expect(agent?.present).toBe(true);
     expect(agent?.discovered).toEqual(['good', 'no-frontmatter']);
     expect(agent?.skipped).toEqual([
-      { path: join('.agent', 'skills', 'no-file'), reason: 'missing-skill-file' },
+      { path: '.agent/skills/no-file', reason: 'missing-skill-file' },
       {
-        path: join('.agent', 'skills', 'no-frontmatter', 'SKILL.md'),
+        path: '.agent/skills/no-frontmatter/SKILL.md',
         reason: 'frontmatter-missing',
       },
       {
-        path: join('.agent', 'skills', 'open-frontmatter', 'SKILL.md'),
+        path: '.agent/skills/open-frontmatter/SKILL.md',
         reason: 'frontmatter-unterminated',
         detail: expect.stringContaining('[unterminated]'),
       },
     ]);
-    const absent = inspection.roots.find((root) => root.root === join('.agents', 'skills'));
+    const absent = inspection.roots.find((root) => root.root === '.agents/skills');
     expect(absent).toEqual(
       expect.objectContaining({ present: false, discovered: [], skipped: [] }),
     );
@@ -75,17 +75,17 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
     expect(createTestSkillCommandSource(sources).getCommands()).toEqual([]);
 
     const agent = inspectSkillSources(sources, TEST_SKILL_ROOTS).roots.find(
-      (root) => root.root === join('.agent', 'skills'),
+      (root) => root.root === '.agent/skills',
     );
     expect(agent?.discovered).toEqual([]);
     expect(agent?.skipped).toEqual([
       {
-        path: join('.agent', 'skills', 'bad-effort', 'SKILL.md'),
+        path: '.agent/skills/bad-effort/SKILL.md',
         reason: 'frontmatter-invalid',
         detail: expect.stringContaining('[invalid-value] effort:'),
       },
       {
-        path: join('.agent', 'skills', 'bad-effort-open', 'SKILL.md'),
+        path: '.agent/skills/bad-effort-open/SKILL.md',
         reason: 'frontmatter-unterminated',
         detail: expect.stringContaining('[unterminated]'),
       },
@@ -95,7 +95,7 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
   it('inspects host-selected non-default roots without adding framework defaults', () => {
     const home = mkdtempSync(join(tmpdir(), 'agent-skill-inspection-custom-'));
     roots.push(home);
-    const customRoot = join('vendor', 'extensions');
+    const customRoot = 'vendor/extensions';
     mkdirSync(join(home, customRoot, 'custom'), { recursive: true });
     writeFileSync(
       join(home, customRoot, 'custom', 'SKILL.md'),

@@ -1,10 +1,10 @@
 /**
- * Wraps a catalog tool entry as a runtime tool (MCP-002 / TOOL-006).
+ * Wraps a catalog tool entry as a runtime tool.
  *
  * `IMCPCatalogToolEntry` is data — a name, a narrowed schema, a source name. This turns it into
  * something the runtime can actually call: an {@link IToolWithEventService}, the SAME generic
  * dynamic-tool contract every other tool in this repo satisfies. Nothing MCP-specific is added to
- * that contract — `agent-framework` is untouched by this unit (TC-08).
+ * that contract — `agent-framework` is untouched by this unit.
  *
  * Deliberately does NOT extend `AbstractTool`: `agent-mcp` sits below `agent-framework` in the
  * dependency graph, and `AbstractTool` lives in `agent-core` alongside types that pull the
@@ -216,7 +216,7 @@ class DiscoveredMCPTool implements IToolWithEventService {
   }
 
   validateParameters(parameters: TToolParameters): IParameterValidationResult {
-    // CORE-040: `this.schema.parameters` is `entry.schema`, narrowed and reported once at catalog
+    // `this.schema.parameters` is `entry.schema`, narrowed and reported once at catalog
     // registration, never the server's raw `inputSchema`.
     const errors = validateAgainstJsonSchema(this.schema.parameters, parameters, '');
     return { isValid: errors.length === 0, errors };
@@ -354,7 +354,7 @@ class DiscoveredMCPTool implements IToolWithEventService {
   }
 
   /**
-   * TOOL-006: retains the reference rather than discarding it. The runtime injects this so tool
+   * Retains the reference rather than discarding it. The runtime injects this so tool
    * lifecycle events are emitted; a no-op setter would satisfy the type and defeat the contract.
    */
   setEventService(eventService: IEventService | undefined): void {

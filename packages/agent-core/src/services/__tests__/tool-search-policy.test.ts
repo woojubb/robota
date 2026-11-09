@@ -1,5 +1,5 @@
 /**
- * CLI-1990 TC-04 — the threshold policy that decides whether deferral engages.
+ * The threshold policy that decides whether deferral engages.
  *
  * "On by default" means default-on as a THRESHOLD policy, never unconditional deferral: at the nine
  * resident built-ins of today's tree the answer is `'off'`, so nothing regresses, and it switches
@@ -65,7 +65,7 @@ const NINE_RESIDENT_BUILTINS = [
   'AskUserQuestion',
 ].map((name) => tool(name));
 
-describe('CLI-1990 TC-04 — resolveToolSearchMode', () => {
+describe('resolveToolSearchMode', () => {
   beforeEach(() => {
     registerModelMetadata(
       {

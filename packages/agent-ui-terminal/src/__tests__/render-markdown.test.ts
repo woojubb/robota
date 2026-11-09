@@ -9,7 +9,7 @@ const ANSI_LIGHT_RED = '\u001b[38;5;210m';
 const ANSI_LIGHT_GREEN = '\u001b[38;5;120m';
 const ANSI_DARK_RED_BACKGROUND = '\u001b[48;5;52m';
 const ANSI_DARK_GREEN_BACKGROUND = '\u001b[48;5;22m';
-// SCREEN-2002: the rows are styled through chalk now, which closes a background+foreground pair with
+// The rows are styled through chalk now, which closes a background+foreground pair with
 // its own paired resets instead of the blanket `ESC[0m` the hand-written escapes used. The colours
 // and their order are unchanged; this is the one recorded byte difference.
 const ANSI_RESET_FOREGROUND = '\u001b[39m';
@@ -74,7 +74,7 @@ describe('renderMarkdown', () => {
   });
 
   /**
-   * SCREEN-2002 TC-03 — the theme reaches `cli-highlight`.
+   * The theme reaches `cli-highlight`.
    *
    * This is the unit's most dependency-fragile claim, and the failure it guards against is SILENT:
    * `cli-highlight` falls back PER KEY to its own `DEFAULT_THEME`, whose `keyword` is red and whose
@@ -82,7 +82,7 @@ describe('renderMarkdown', () => {
    * red/green pair back with every other surface still daltonized, and nothing else in the suite
    * would notice.
    */
-  describe('SCREEN-2002 TC-03: syntax highlighting follows the theme', () => {
+  describe('syntax highlighting follows the theme', () => {
     const TS_BLOCK = ['```ts', 'const value = 1;', '```'].join('\n');
     const TRUECOLOR = 3;
     const previousLevel = chalk.level;
@@ -123,10 +123,10 @@ describe('renderMarkdown', () => {
   });
 
   /**
-   * CLI-2004 TC-04 — the `Header: value` flattening, asserted at the single choke point every
+   * The `Header: value` flattening, asserted at the single choke point every
    * render path shares. A box-drawn grid is read aloud as its rules; the pairing is the content.
    */
-  describe('CLI-2004 TC-04: screen-reader table flattening', () => {
+  describe('screen-reader table flattening', () => {
     const TABLE = ['| A | B |', '|---|---|', '| 1 | 2 |'].join('\n');
     const BOX_DRAWING = /[\u2502\u2500\u250c\u2510\u2514\u2518\u251c\u2524\u252c\u2534\u253c]/u;
 

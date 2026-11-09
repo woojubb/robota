@@ -1,5 +1,9 @@
 # Architecture
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Robota is a collection of TypeScript packages, not one framework you adopt whole. Each package owns
 one concern, and packages are stacked in layers so that a package only ever depends on the layers
 beneath it. This page explains what the layers are, why they are separate, and how a request moves
@@ -15,7 +19,7 @@ package's contract is in its `docs/SPEC.md`.
   into contracts that the lower layers define. Adding a vendor or a protocol is a new package, not an
   edit to the engine.
 - **Keep implementations independent.** Shared types live in contract-only packages
-  (`agent-interface-*`). A transport can talk to a session through those contracts without
+  (`agent-interface`, one subpath per family). A transport can talk to a session through those contracts without
   depending on the package that builds sessions.
 - **Keep product opinions at the edge.** Library packages stay neutral: they read no ambient config
   and pick no file locations on their own. The `__PRODUCT_CLI_NAME__` CLI is one application built on top of them,
@@ -29,12 +33,12 @@ list the exact members.
 ```mermaid
 flowchart TB
     SURF["**Surfaces**\nagent-cli · agent-ui-terminal · agent-ui-web · agent-gui-web"]
-    TRANS["**Transports**\nagent-transport · agent-transport-{http,ws,mcp,webrtc}"]
-    COMP["**Composition**\nagent-command · agent-preset\nagent-builtin-providers · agent-product · pack-coding"]
+    TRANS["**Transports**\nagent-transport (ws, http, mcp, acp, webrtc, link)"]
+    COMP["**Composition**\nagent-product (command, preset, coding, capability-pack)\nagent-provider/builtin"]
     FW["**Assembly**\nagent-framework"]
-    RT["**Runtime**\nagent-session · agent-executor · agent-tool-defaults"]
-    CAP["**Capabilities**\nagent-tools · agent-mcp · agent-plugin\nagent-provider-{anthropic,openai,openai-compatible,gemini,bytedance}"]
-    IF["**Contracts**\nagent-interface-*"]
+    RT["**Runtime**\nagent-session · agent-executor · agent-tools/defaults"]
+    CAP["**Capabilities**\nagent-tools · agent-mcp · agent-plugin\nagent-provider (anthropic, openai, gemini, deepseek, qwen, gemma, bytedance)"]
+    IF["**Contracts**\nagent-interface"]
     CORE["**Foundation**\nagent-core"]
 
     SURF --> TRANS
@@ -76,46 +80,45 @@ Its main entry is platform-neutral — it runs in a browser, a Web Worker, Node,
 everything that needs a Node host is on the separate `@robota-sdk/agent-core/node` entry point, which
 a Node application passes in (hook executors, the process environment).
 
-### Contracts — `agent-interface-*`
+### Contracts — `agent-interface`
 
 | Package                            | Contracts it owns                                                           |
 | ---------------------------------- | --------------------------------------------------------------------------- |
-| `agent-interface-session`          | Interactive sessions, session events, turns, persistence records            |
-| `agent-interface-command`          | Commands, command results, command modules, capability descriptors          |
-| `agent-interface-execution`        | Background tasks, job groups, subagent jobs, execution workspaces           |
-| `agent-interface-transport`        | Transport adapters (`ITransportAdapter`) and transport configuration        |
-| `agent-interface-session-mobility` | Moving a session between processes and devices                              |
-| `agent-interface-analytics`        | Usage snapshots, per-source totals, run-trace timelines                     |
-| `agent-interface-tui`              | Terminal command interactions (pickers, confirmations, missing-arg prompts) |
+| `agent-interface/session`          | Interactive sessions, session events, turns, persistence records            |
+| `agent-interface/command`          | Commands, command results, command modules, capability descriptors          |
+| `agent-interface/execution`        | Background tasks, job groups, subagent jobs, execution workspaces           |
+| `agent-interface/transport`        | Transport adapters (`ITransportAdapter`) and transport configuration        |
+| `agent-interface/session-mobility` | Moving a session between processes and devices                              |
+| `agent-interface/analytics`        | Usage snapshots, per-source totals, run-trace timelines                     |
+| `agent-interface/tui`              | Terminal command interactions (pickers, confirmations, missing-arg prompts) |
 
-These packages hold types, not behavior. An interface package depends only on `agent-core` and on
-lower interface packages, never on an implementation. That is what lets, for example, every
+This package holds types, not behavior. A subpath depends only on `agent-core` and on lower
+subpaths, never on an implementation. That is what lets, for example, every
 transport accept a session without depending on `agent-framework`.
 
 ### Capabilities — providers, tools, MCP, plugins
 
-| Package                                 | What it provides                                                                      |
-| --------------------------------------- | ------------------------------------------------------------------------------------- |
-| `agent-provider-anthropic`              | Anthropic Claude                                                                      |
-| `agent-provider-openai`                 | OpenAI                                                                                |
-| `agent-provider-openai-compatible`      | DeepSeek, Qwen, and Gemma-family models behind OpenAI-compatible endpoints            |
-| `agent-provider-gemini`                 | Google Gemini                                                                         |
-| `agent-provider-bytedance`              | ByteDance (ModelArk) video generation                                                 |
-| `agent-tools`                           | Tool factories (`createZodFunctionTool`, `createFunctionTool`) and the built-in tools |
-| `agent-mcp`                             | Model Context Protocol client: server definitions, activation, OAuth sign-in          |
-| `agent-plugin`                          | Eight ready-made plugins (logging, usage, limits, webhooks, and more)                 |
-| `agent-process`, `agent-file-authority` | Small helpers: process-tree termination, bounded root-relative file reads             |
-| `agent-keyring`                         | Key custody and public-key sealing for secure conversations (`node:crypto` only)      |
-| `agent-session-analytics`               | Session-log timing and usage analysis, reports and OTLP export                        |
-| `agent-telemetry-otel`                  | OpenTelemetry spans and metrics for agent runs and traces, GenAI or `agent.*` names   |
-| `agent-remote-pairing`                  | Pairing and channel binding for peer-to-peer connections (no Robota dependencies)     |
+| Package                                      | What it provides                                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `agent-provider/anthropic`                   | Anthropic Claude                                                                                  |
+| `agent-provider/openai`                      | OpenAI                                                                                            |
+| `agent-provider/deepseek`, `/qwen`, `/gemma` | DeepSeek, Qwen, and Gemma-family models behind OpenAI-compatible endpoints                        |
+| `agent-provider/gemini`                      | Google Gemini                                                                                     |
+| `agent-provider/bytedance`                   | ByteDance (ModelArk) video generation                                                             |
+| `agent-tools`                                | Tool factories (`createZodFunctionTool`, `createFunctionTool`) and the built-in tools             |
+| `agent-mcp`                                  | Model Context Protocol client: server definitions, activation, OAuth sign-in                      |
+| `agent-plugin`                               | Eight ready-made plugins (logging, usage, limits, webhooks, and more)                             |
+| `agent-os`                                   | Node host primitives: bounded root-relative file reads, operation locks, process-tree termination |
+| `agent-keyring`                              | Key custody and public-key sealing for secure conversations (`node:crypto` only)                  |
+| `agent-session-analytics`                    | Session-log timing and usage analysis, reports and OTLP export                                    |
+| `agent-telemetry-otel`                       | OpenTelemetry spans and metrics for agent runs and traces, GenAI or `agent.*` names               |
+| `agent-remote-pairing`                       | Pairing and channel binding for peer-to-peer connections (no Robota dependencies)                 |
 
-Each provider package is a leaf over `agent-core` (the OpenAI package also reuses
-`agent-provider-openai-compatible`), so a vendor SDK is installed only by the package that needs
-it. `agent-plugin` depends only on `agent-core`; plugins attach to the engine and never reach into
+`agent-provider` is a leaf over `agent-core` with one subpath per vendor; the vendor SDKs are optional
+peers, so an application installs only the SDKs of the providers it imports. `agent-plugin` depends only on `agent-core`; plugins attach to the engine and never reach into
 the layers above it.
 
-### Runtime — `agent-session`, `agent-executor`, `agent-tool-defaults`
+### Runtime — `agent-session`, `agent-executor`, `agent-tools/defaults`
 
 `agent-session` wraps a `Robota` instance in a `Session`: tool calls pass through permission checks
 and hooks, context usage is tracked, the conversation is compacted when it grows too large, and
@@ -126,10 +129,10 @@ on `@robota-sdk/agent-session/node`.
 `agent-executor` provides background-task lifecycles (queueing, cancellation, snapshots) and the
 subagent job ports.
 
-`agent-tool-defaults` holds `createDefaultTools()`, the default tool set (built on `agent-tools`).
+The `agent-tools/defaults` subpath holds `createDefaultTools()`, the default tool set.
 `agent-framework` loads it lazily when it assembles a session, and a caller replaces it by passing its
-own `defaultTools`; a library that needs only the tool mechanism depends on `agent-tools` and never
-pulls in the default catalog.
+own `defaultTools`; a library that needs only the tool mechanism imports the `agent-tools` root and never
+loads the default catalog.
 
 ### Assembly — `agent-framework`
 
@@ -145,15 +148,15 @@ loads no user settings, no project instructions and no project skills. See
 
 ### Composition — defaults, presets, commands, packs
 
-| Package                   | Role                                                                              |
-| ------------------------- | --------------------------------------------------------------------------------- |
-| `agent-builtin-providers` | `createDefaultProviderDefinitions()` — the built-in chat provider definitions     |
-| `agent-command`           | The slash-command modules (`/help`, `/compact`, `/permissions`, and the rest)     |
-| `agent-preset`            | Named bundles of session options (persona, model, permission posture)             |
-| `agent-capability-pack`   | `ICapabilityPack` and `mergeCapabilityPacks()` for adding tools, commands, agents |
-| `pack-coding`             | `createCodingPack()` — the coding tools, commands and subagents as one pack       |
-| `agent-product`           | `assembleProduct()` — builds a product from a declarative profile                 |
-| `agent-subagent-runner`   | Optional runner that executes subagents in child processes                        |
+| Package                         | Role                                                                              |
+| ------------------------------- | --------------------------------------------------------------------------------- |
+| `agent-provider/builtin`        | `createDefaultProviderDefinitions()` — the built-in chat provider definitions     |
+| `agent-product/command`         | The slash-command modules (`/help`, `/compact`, `/permissions`, and the rest)     |
+| `agent-product/preset`          | Named bundles of session options (persona, model, permission posture)             |
+| `agent-product/capability-pack` | `ICapabilityPack` and `mergeCapabilityPacks()` for adding tools, commands, agents |
+| `agent-product/coding`          | `createCodingPack()` — the coding tools, commands and subagents as one pack       |
+| `agent-product`                 | `assembleProduct()` — builds a product from a declarative profile                 |
+| `agent-subagent-runner`         | Optional runner that executes subagents in child processes                        |
 
 These packages are meant to be imported where an application is put together (its "composition
 root"), not by libraries in the middle of the stack, so a library that only needs the mechanisms
@@ -164,16 +167,16 @@ never drags in these defaults.
 | Package                  | Protocol                                                        |
 | ------------------------ | --------------------------------------------------------------- |
 | `agent-transport`        | Carrier-neutral wire messages, decoders and delivery helpers    |
-| `agent-transport-http`   | HTTP, built on Hono                                             |
-| `agent-transport-ws`     | WebSocket                                                       |
-| `agent-transport-mcp`    | Exposes a session as an MCP server (stdio and Streamable HTTP)  |
-| `agent-transport-acp`    | Serves a session to an editor as an ACP agent over stdio        |
-| `agent-transport-webrtc` | Peer-to-peer WebRTC data channels (remote control, device mesh) |
-| `agent-transport-link`   | Owner link to a local runtime, admitted by proof                |
+| `agent-transport/http`   | HTTP, built on Hono                                             |
+| `agent-transport/ws`     | WebSocket                                                       |
+| `agent-transport/mcp`    | Exposes a session as an MCP server (stdio and Streamable HTTP)  |
+| `agent-transport/acp`    | Serves a session to an editor as an ACP agent over stdio        |
+| `agent-transport/webrtc` | Peer-to-peer WebRTC data channels (remote control, device mesh) |
+| `agent-transport/link`   | Owner link to a local runtime, admitted by proof                |
 
 A transport is a thin adapter: it turns protocol messages into session calls (submit, abort,
 commands, permission answers) and sends session events back. Transports implement
-`ITransportAdapter` from `agent-interface-transport` and depend on the session contracts, not on
+`ITransportAdapter` from `agent-interface/transport` and depend on the session contracts, not on
 `agent-framework`. `agent-framework` itself provides the non-interactive runner (`text`, `json` or
 `stream-json` output) and the `TransportRegistry` that starts and stops several transports
 together. See [Deployment](./deployment.md).
@@ -186,7 +189,6 @@ together. See [Deployment](./deployment.md).
 | `agent-cli`                             | The `__PRODUCT_CLI_NAME__` command — a maintained agent interface built from the packages above     |
 | `agent-ui-web` (internal)               | GUI components and a session reducer over the transport wire protocol            |
 | `agent-gui-web` (internal)              | The GUI web app served by `__PRODUCT_CLI_NAME__ --serve --open` and loaded by the desktop app  |
-| `agent-transport-webrtc-web` (internal) | The browser side of a WebRTC remote-control connection                           |
 
 `agent-cli` bundles the Robota packages it uses into its own build, so installing it does not
 install the SDK packages separately. The desktop app (`apps/agent-app`) is an Electron shell: it
@@ -209,7 +211,7 @@ These rules keep the layering real rather than aspirational (the full list is in
 
 - Dependencies point one way, down the layers. There are no cycles.
 - `agent-core` depends on no other Robota package.
-- An `agent-interface-*` package depends only on `agent-core` and lower interface packages.
+- An `agent-interface` subpath depends only on `agent-core` and lower subpaths.
 - Plugin packages depend only on `agent-core`.
 - `agent-framework` and `agent-core` never depend on a transport or UI package.
 - No package re-exports another package wholesale; you import a symbol from the package that owns it.

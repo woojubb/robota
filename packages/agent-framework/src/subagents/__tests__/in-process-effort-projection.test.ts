@@ -56,6 +56,7 @@ describe('in-process subagent trace context', () => {
       run: vi.fn().mockResolvedValue('done'),
       abort: vi.fn(),
       getFullHistory: vi.fn().mockReturnValue([]),
+      getHistory: vi.fn().mockReturnValue([]),
     };
     mocks.createSubagentSession.mockReturnValue(session);
     createInProcessSubagentRunner(deps()).start(job());
@@ -64,12 +65,13 @@ describe('in-process subagent trace context', () => {
   });
 });
 
-describe('in-process subagent effort projection (BEHAVIOR-009)', () => {
+describe('in-process subagent effort projection', () => {
   it('uses the request effort when present and the definition effort otherwise', () => {
     const session = {
       run: vi.fn().mockResolvedValue('done'),
       abort: vi.fn(),
       getFullHistory: vi.fn().mockReturnValue([]),
+      getHistory: vi.fn().mockReturnValue([]),
     };
     mocks.createSubagentSession.mockReturnValue(session);
     const runner = createInProcessSubagentRunner(deps());
@@ -96,6 +98,7 @@ describe('the permission mode a subagent starts in', () => {
       run: vi.fn().mockResolvedValue('done'),
       abort: vi.fn(),
       getFullHistory: vi.fn().mockReturnValue([]),
+      getHistory: vi.fn().mockReturnValue([]),
     });
     let mode: 'default' | 'plan' = 'default';
     const runner = createInProcessSubagentRunner({
@@ -113,12 +116,13 @@ describe('the permission mode a subagent starts in', () => {
   });
 });
 
-describe('the parent rules a subagent inherits (issue #3081)', () => {
+describe('the parent rules a subagent inherits', () => {
   it('are the rules the parent gate enforces now, read at each spawn', () => {
     const session = {
       run: vi.fn().mockResolvedValue('done'),
       abort: vi.fn(),
       getFullHistory: vi.fn().mockReturnValue([]),
+      getHistory: vi.fn().mockReturnValue([]),
     };
     mocks.createSubagentSession.mockReturnValue(session);
     let live: IResolvedConfig['permissions'] = { allow: ['Read(*)'], deny: [], ask: [] };

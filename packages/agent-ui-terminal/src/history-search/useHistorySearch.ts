@@ -1,5 +1,5 @@
 /**
- * SCREEN-1993 — the reverse prompt-history search overlay's state.
+ * The reverse prompt-history search overlay's state.
  *
  * One loader per open: opening starts one read of the injected source under one `AbortController`,
  * and every close — insert, execute or cancel — aborts it. Blocks arrive newest-first and are appended
@@ -29,7 +29,7 @@ import type { IKeyInput } from '../keybindings/keybinding-registry.js';
 import type {
   IPromptHistoryEntry,
   IPromptHistorySource,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** What the surface injects to turn the overlay on; absent ⇒ `ctrl+r` does nothing. */
 export interface IHistorySearchSurface {

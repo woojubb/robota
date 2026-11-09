@@ -19,19 +19,19 @@ import type { IHeadlessOutput } from './headless-output.js';
 import type { IHeadlessSession } from './headless-session.js';
 import type { IModelEffortResolution } from '../../effort/effort-resolution.js';
 import type { IProviderErrorGuidance } from '../../utils/error-humanizer.js';
-import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface-session';
+import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface/session';
 import type { TOutputFormat } from './headless-output-format.js';
 
 export { OUTPUT_FORMATS } from './headless-output-format.js';
 export type { TOutputFormat } from './headless-output-format.js';
 export type { IHeadlessOutput, IHeadlessTextSink } from './headless-output.js';
 
-/** RUNTIME-36: normalize a caught unknown into an Error for the error/exit-code handlers. */
+/** Normalize a caught unknown into an Error for the error/exit-code handlers. */
 function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
 }
 
-/** GOAL-001: options for an autonomous headless goal run. */
+/** Options for an autonomous headless goal run. */
 export interface IHeadlessGoalOptions {
   maxIterations?: number;
 }
@@ -72,7 +72,7 @@ export function createHeadlessRunner(options: IHeadlessRunnerOptions): {
 }
 
 /**
- * GOAL-001: drive an autonomous goal to completion in headless mode. Streams each turn's response
+ * Drive an autonomous goal to completion in headless mode. Streams each turn's response
  * for progress, then resolves when the goal stops: exit 0 if satisfied, {@link GOAL_NOT_SATISFIED_EXIT_CODE}
  * if it stopped at a bound (max-iterations / no-progress / cancelled), or 1 on a turn error.
  */
@@ -124,7 +124,7 @@ function runGoalFormat(
 }
 
 /**
- * CI-001: run the terminal action exactly once and settle the exit code.
+ * Run the terminal action exactly once and settle the exit code.
  *
  * Two coupled hazards this closes:
  *  1. Ordering — the terminal `complete`/`interrupted`/`error` events fire from INSIDE the turn, BEFORE
@@ -148,7 +148,7 @@ function createExitCodeLatch(): {
       code = c;
       terminalAction();
     },
-    // RUNTIME-36: fail closed — an operation that drained without emitting a terminal event is a non-zero
+    // Fail closed — an operation that drained without emitting a terminal event is a non-zero
     // exit, never a hang and never a spurious 0.
     value: (): number => code ?? 1,
   };
@@ -201,8 +201,8 @@ async function runTextFormat(
         output.stdout.write(cmd.result.message + '\n');
       });
     } else if (cmd.kind !== 'session-execution') {
-      // CI-001: AWAIT submit so the turn's trailing work (persistSession / checkpoint finalize) drains
-      // before run() resolves. RUNTIME-36: a thrown submit surfaces a non-zero exit via onError.
+      // AWAIT submit so the turn's trailing work (persistSession / checkpoint finalize) drains
+      // before run() resolves. A thrown submit surfaces a non-zero exit via onError.
       await session.submit(prompt);
     }
   } catch (error) {
@@ -251,7 +251,7 @@ async function runJsonFormat(
         );
       });
     } else if (cmd.kind !== 'session-execution') {
-      // CI-001: AWAIT submit so trailing turn work drains before run() resolves (see createExitCodeLatch).
+      // AWAIT submit so trailing turn work drains before run() resolves (see createExitCodeLatch).
       await session.submit(prompt);
     }
   } catch (error) {
@@ -294,11 +294,11 @@ async function runStreamJsonFormat(
         );
       });
     } else if (cmd.kind !== 'session-execution') {
-      // CI-001: AWAIT submit so trailing turn work drains before run() resolves (see createExitCodeLatch).
+      // AWAIT submit so trailing turn work drains before run() resolves (see createExitCodeLatch).
       await session.submit(prompt);
     }
   } catch (error) {
-    // RUNTIME-36: route a thrown slash-command / failed submit to a non-zero exit instead of hanging.
+    // Route a thrown slash-command / failed submit to a non-zero exit instead of hanging.
     latch.finalize(1, () => {
       cleanup();
       writeJsonResult(output, getSessionId(session), '', 'error', toError(error));

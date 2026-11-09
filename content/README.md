@@ -22,8 +22,7 @@ built from the same libraries.
 [![License: AGPL-3.0 OR Commercial](https://img.shields.io/badge/license-AGPL--3.0%20OR%20Commercial-blue)](../LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org/)
 
-> **Beta** — the packages are published as `3.0.0-beta` versions. APIs may still change before a
-> stable release. [Report issues](__PROJECT_REPOSITORY_URL__/issues).
+> APIs may change between releases. [Report issues](__PROJECT_REPOSITORY_URL__/issues).
 
 ## Where to start
 
@@ -40,17 +39,19 @@ built from the same libraries.
 
 ## Install
 
-Published packages need Node.js 22.12 or later.
+These Node.js examples and the npm CLI need Node.js 22.12 or later. Published packages declare this
+minimum for Node installations. Neutral entries and Node adapters are separate in the current
+source; check your installed version for its available exports.
 
 ```bash
 # An agent: the core engine and one provider package
-npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-core @robota-sdk/agent-provider @anthropic-ai/sdk
 
 # Function tools with Zod schemas (agent-tools uses Zod 3)
 npm install @robota-sdk/agent-tools zod@3
 
 # Sessions with built-in tools, permission modes, hooks and project context
-npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-framework @robota-sdk/agent-provider @anthropic-ai/sdk
 
 # The CLI
 npm install -g @robota-sdk/agent-cli
@@ -60,7 +61,7 @@ npm install -g @robota-sdk/agent-cli
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const agent = new ConversationAgent({
   name: 'Assistant',
@@ -96,13 +97,13 @@ layers in full. The [packages index](/packages/) lists every package.
 
 ## Providers
 
-| Package                                        | Covers                                                                                                        |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `@robota-sdk/agent-provider-anthropic`         | Anthropic Claude                                                                                              |
-| `@robota-sdk/agent-provider-openai`            | OpenAI, and any OpenAI-compatible endpoint through `baseURL` (AI gateways, Azure OpenAI, vLLM, local servers) |
-| `@robota-sdk/agent-provider-gemini`            | Google Gemini, including image generation                                                                     |
-| `@robota-sdk/agent-provider-openai-compatible` | DeepSeek, Qwen, and local servers such as Ollama, LM Studio or llama.cpp                                      |
-| `@robota-sdk/agent-provider-bytedance`         | ByteDance ModelArk video generation (not a chat provider)                                                     |
+| Package                                                  | Covers                                                                                                        |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-provider/anthropic`                   | Anthropic Claude                                                                                              |
+| `@robota-sdk/agent-provider/openai`                      | OpenAI, and any OpenAI-compatible endpoint through `baseURL` (AI gateways, Azure OpenAI, vLLM, local servers) |
+| `@robota-sdk/agent-provider/gemini`                      | Google Gemini, including image generation                                                                     |
+| `@robota-sdk/agent-provider/deepseek`, `/qwen`, `/gemma` | DeepSeek, Qwen, and local servers such as Ollama, LM Studio or llama.cpp                                      |
+| `@robota-sdk/agent-provider/bytedance`                   | ByteDance ModelArk video generation (not a chat provider)                                                     |
 
 The [Providers Reference](./guide/providers.md) covers each one. To run a local model with no API key,
 see [Local LLM Setup](./guide/local-llm.md).
@@ -118,7 +119,7 @@ __PRODUCT_CLI_NAME__ -p "Explain this project"    # print mode: answer once, the
 
 On first run, the CLI asks for a provider and an API key, or offers a local model. In a Git repository
 you have not trusted yet, the terminal UI asks whether to trust it before loading anything from the
-project, and print mode refuses to start until you run `__PRODUCT_CLI_NAME__ trust --yes`. In a trusted workspace the
+project, and print mode refuses to start until you run `__PRODUCT_CLI_NAME__ trust --yes` and confirm it at a terminal. In a trusted workspace the
 CLI reads the project's `AGENTS.md` and the Claude Code conventions: `CLAUDE.md`,
 `.claude/settings.json`, `.claude/agents/`, `.claude/skills/` and `.claude/commands/`. The [CLI reference](./guide/cli.md) covers
 flags, slash commands and permission modes. How the CLI compares with other coding assistants:

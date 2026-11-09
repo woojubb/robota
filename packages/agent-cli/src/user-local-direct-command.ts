@@ -1,6 +1,7 @@
 import type { ICliRuntimeContext } from './product/runtime-context.js';
-import { executeUserLocalDirectCommand } from '@robota-sdk/agent-command';
+import { executeUserLocalDirectCommand } from '@robota-sdk/agent-product/command';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
+import { NodeFileSystemAsync } from '@robota-sdk/agent-framework/node';
 import { subcommandWord, type IParsedCliArgs } from './utils/cli-args.js';
 import { userLocalStorageRoot } from './product/user-paths.js';
 
@@ -17,6 +18,7 @@ export async function runUserLocalDirectCommandIfRequested(
   const result = await executeUserLocalDirectCommand({
     cwd,
     storageRoot: userLocalStorageRoot(runtime),
+    fsAsync: new NodeFileSystemAsync(),
     argv: args.positional.slice(1),
     format: args.format,
     summary: args.summary,

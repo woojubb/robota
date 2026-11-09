@@ -77,7 +77,7 @@ describe('buildSystemPrompt', () => {
     expect(result).toContain('Read: read file contents');
   });
 
-  it('interpolates every TPermissionMode value verbatim (CLI-072 TC-02)', () => {
+  it('interpolates every TPermissionMode value verbatim', () => {
     const modes: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
     for (const mode of modes) {
       const prompt = buildSystemPrompt({ ...BASE_PARAMS, permissionMode: mode });
@@ -86,7 +86,7 @@ describe('buildSystemPrompt', () => {
     }
   });
 
-  it('includes the active permission mode and no trust-level label (CLI-072)', () => {
+  it('includes the active permission mode and no trust-level label', () => {
     const resultPlan = buildSystemPrompt({ ...BASE_PARAMS, permissionMode: 'plan' });
     expect(resultPlan).toContain('- **Permission mode:** plan');
     expect(resultPlan).not.toContain('Trust level:');
@@ -169,20 +169,20 @@ describe('buildSystemPrompt', () => {
     expect(result.startsWith('## Agent Instructions\nAGENTS_MARKER')).toBe(true);
   });
 
-  describe('PRESET-003 persona section', () => {
-    it('TC-01: createPersonaSection returns a section with source "persona"', () => {
+  describe('persona section', () => {
+    it('createPersonaSection returns a section with source "persona"', () => {
       const section = createPersonaSection('x');
       expect(section.source).toBe('persona');
       expect(section.content).toBe('x');
     });
 
-    it('TC-02: persona section priority is 5 and sorts before AGENTS.md band (5 < 10)', () => {
+    it('persona section priority is 5 and sorts before AGENTS.md band (5 < 10)', () => {
       const section = createPersonaSection('x');
       expect(section.priority).toBe(5);
       expect(section.priority).toBeLessThan(10);
     });
 
-    it('TC-03/TC-04: composed prompt contains persona text AND a runtime base marker', () => {
+    it('composed prompt contains persona text AND a runtime base marker', () => {
       const result = buildSystemPrompt({
         ...BASE_PARAMS,
         persona: 'PERSONA_MARK',
@@ -195,7 +195,7 @@ describe('buildSystemPrompt', () => {
       expect(result).toContain('Bash: execute shell commands');
     });
 
-    it('TC-05: persona text comes before the project-instruction / runtime markers', () => {
+    it('persona text comes before the project-instruction / runtime markers', () => {
       const result = buildSystemPrompt({
         ...BASE_PARAMS,
         persona: 'PERSONA_MARK',
@@ -211,7 +211,7 @@ describe('buildSystemPrompt', () => {
       expect(personaIdx).toBeLessThan(cwdIdx);
     });
 
-    it('TC-06: no persona (default) produces a prompt identical to one with no persona field', () => {
+    it('no persona (default) produces a prompt identical to one with no persona field', () => {
       const withoutField = buildSystemPrompt({ ...BASE_PARAMS });
       const withUndefined = buildSystemPrompt({ ...BASE_PARAMS, persona: undefined });
       const withEmpty = buildSystemPrompt({ ...BASE_PARAMS, persona: '' });
@@ -223,14 +223,14 @@ describe('buildSystemPrompt', () => {
     });
   });
 
-  describe('PRESET-017 self-verification section', () => {
-    it('TC-01: selfVerification:true injects a verify-before-done directive into the prompt', () => {
+  describe('self-verification section', () => {
+    it('selfVerification:true injects a verify-before-done directive into the prompt', () => {
       const result = buildSystemPrompt({ ...BASE_PARAMS, selfVerification: true });
       expect(result).toMatch(/verify/i);
       expect(result).toMatch(/tool results?/i);
     });
 
-    it('NEUT-003: a string selfVerification value replaces the default directive text', () => {
+    it('a string selfVerification value replaces the default directive text', () => {
       const result = buildSystemPrompt({
         ...BASE_PARAMS,
         selfVerification: 'CUSTOM VERIFY DIRECTIVE.',
@@ -239,7 +239,7 @@ describe('buildSystemPrompt', () => {
       expect(result).not.toContain(createSelfVerificationSection().content);
     });
 
-    it('TC-01: selfVerification false/omitted produces no self-verification section', () => {
+    it('selfVerification false/omitted produces no self-verification section', () => {
       const omitted = buildSystemPrompt({ ...BASE_PARAMS });
       const disabled = buildSystemPrompt({ ...BASE_PARAMS, selfVerification: false });
       const sectionContent = createSelfVerificationSection().content;
@@ -248,20 +248,20 @@ describe('buildSystemPrompt', () => {
       expect(disabled).toBe(omitted);
     });
 
-    it('TC-02: createSelfVerificationSection has source "self-verification", priority 6, non-empty content', () => {
+    it('createSelfVerificationSection has source "self-verification", priority 6, non-empty content', () => {
       const section = createSelfVerificationSection();
       expect(section.source).toBe('self-verification');
       expect(section.priority).toBe(6);
       expect(section.content.trim().length).toBeGreaterThan(0);
     });
 
-    it('TC-02: section priority 6 sorts after persona (5) and before AGENTS.md (10)', () => {
+    it('section priority 6 sorts after persona (5) and before AGENTS.md (10)', () => {
       const section = createSelfVerificationSection();
       expect(section.priority).toBeGreaterThan(createPersonaSection('x').priority);
       expect(section.priority).toBeLessThan(10);
     });
 
-    it('TC-06: section content avoids heavy emphasis cues and contains no Hangul', () => {
+    it('section content avoids heavy emphasis cues and contains no Hangul', () => {
       const { content } = createSelfVerificationSection();
       expect(content).not.toMatch(/CRITICAL|MUST|show your reasoning/i);
       expect(content).not.toMatch(/\p{Script=Hangul}/u);

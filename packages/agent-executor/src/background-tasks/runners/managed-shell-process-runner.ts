@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
 import { endWithProcess, withChildSession } from '@robota-sdk/agent-core/node';
-import { DEFAULT_KILL_GRACE_MS, killProcessTree } from '@robota-sdk/agent-process';
+import { DEFAULT_KILL_GRACE_MS, killProcessTree } from '@robota-sdk/agent-os/process';
 
 import {
   appendPrefixedLogLines,
@@ -26,7 +26,7 @@ import { resolveBackgroundTaskShellCommand } from './shell-command-resolution.js
 
 const DEFAULT_OUTPUT_LIMIT_BYTES = 30_000;
 
-/** POSIX children are spawned detached so a process-group kill reaps grandchildren (CORE-023). */
+/** POSIX children are spawned detached so a process-group kill reaps grandchildren. */
 const SPAWN_DETACHED = process.platform !== 'win32';
 
 export interface IManagedShellProcessRunnerOptions {
@@ -41,11 +41,11 @@ interface IProcessTaskRuntime {
   logs: string[];
   capture: ILimitedOutputCapture;
   killGraceMs: number;
-  /** FLOW-004: present when the process is a monitor (matchPattern + agentInstruction set). */
+  /** Present when the process is a monitor (matchPattern + agentInstruction set). */
   wakeMatcher?: ILineWakeMatcher;
 }
 
-/** FLOW-004: build a line→wake matcher when the request configures monitoring. */
+/** Build a line→wake matcher when the request configures monitoring. */
 function createWakeMatcher(
   request: IProcessBackgroundTaskRequest,
   emit: ((event: TBackgroundTaskRunnerEvent) => void) | undefined,
@@ -145,7 +145,7 @@ function createProcessResult(
             'system',
             `timed out after ${runtime.request.timeoutMs}ms`,
           );
-          // CORE-023: escalate SIGTERM→grace→SIGKILL over the process group (reaps grandchildren)
+          // Escalate SIGTERM→grace→SIGKILL over the process group (reaps grandchildren)
           // instead of a bare SIGTERM. Fire-and-forget: reject the result now, escalate in background.
           void killProcessTree(runtime.child, {
             processGroup: SPAWN_DETACHED,
@@ -188,7 +188,7 @@ function createProcessResult(
       resolveOnce(code ?? undefined, signal ?? undefined);
     });
 
-    // RUNTIME-48: the initial write must have an error listener (an EPIPE here would otherwise
+    // The initial write must have an error listener (an EPIPE here would otherwise
     // throw unhandled); sendInput attaches one and ends stdin. With no initial stdin we leave
     // the pipe OPEN — this runner streams interactive input via handle.send(); closing it here
     // would break processes (e.g. `cat`) that read stdin after start.
@@ -241,7 +241,7 @@ async function cancelProcess(runtime: IProcessTaskRuntime, reason?: string): Pro
     'system',
     reason ? `cancel requested: ${reason}` : 'cancel requested',
   );
-  // CORE-023: SIGTERM→grace→SIGKILL over the process group, settling on the real exit event —
+  // SIGTERM→grace→SIGKILL over the process group, settling on the real exit event —
   // replaces the `child.killed` dead-guard (which only means "a signal was delivered", not
   // "process is dead"). Awaiting means the handle's cancel() resolves once the tree is truly gone.
   await killProcessTree(runtime.child, {

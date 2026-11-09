@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { resolvePluginCallbacks } from '../usePluginCallbacks.js';
 
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface/command';
 
 describe('resolvePluginCallbacks', () => {
   it('preserves the host-provided plugin capability', () => {

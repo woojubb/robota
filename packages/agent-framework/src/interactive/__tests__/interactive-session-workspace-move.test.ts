@@ -1,10 +1,10 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import '../../tools/tool-permission-profiles.js';
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import { withUniqueSessionName } from '../interactive-session-fork-record.js';
@@ -15,13 +15,13 @@ import {
 
 import type { IPrepareWorkspaceMoveInput } from '../interactive-session-workspace-move.js';
 
-/** Issue #3081 — what the session decides before a `/cd`. */
+/** What the session decides before a `/cd`. */
 let root: string;
 let from: string;
 let to: string;
 
 beforeEach(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-cd-')));
+  root = makeCanonicalTempDir('agent-cd-');
   from = join(root, 'a');
   to = join(root, 'b');
   mkdirSync(from);

@@ -14,19 +14,21 @@ import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
 import { startCliCore } from './cli-core.js';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor/node';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/agent-subagent-runner';
 import { createProductSubagentComposition } from './product/subagent-composition.js';
 import { optionArgv } from './utils/option-argv.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { resolveCliRuntimeContext } from './startup/product-bootstrap.js';
 import { assertLocalWorkerPosture } from './hosted/hosted-runtime-config.js';
+import { assertProductConversationLaunch } from './product/session-sealing.js';
 
 export type { IStartCliOptions };
 
 /** Full CLI entry: supplies its terminal presentation to the shared serve/bootstrap path. */
 export async function startCli(initialOptions: IStartCliOptions = {}): Promise<void> {
   const productRuntime = resolveCliRuntimeContext(initialOptions);
+  assertProductConversationLaunch(productRuntime, process.argv);
   installProductProcessEnvironment(productRuntime);
   installProductChildSessions(productRuntime);
   const options = { ...initialOptions, productRuntime };

@@ -24,7 +24,7 @@ import type {
   IWorkspaceTrustStoreSnapshot,
 } from './index.js';
 
-// @ts-expect-error ARCH-042: a structural object cannot satisfy the opaque authority type.
+// @ts-expect-error: a structural object cannot satisfy the opaque authority type.
 const structurallyForgedAuthority: IWorkspaceProjectAuthority = {};
 void structurallyForgedAuthority;
 
@@ -77,7 +77,7 @@ describe('WorkspaceTrustService project authority', () => {
     root: string;
     service: WorkspaceTrustService;
   } {
-    const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-arch-042-')));
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-authority-')));
     roots.push(root);
     const identity: IWorkspaceIdentity = {
       repositoryKey: `test:${root}`,
@@ -98,6 +98,45 @@ describe('WorkspaceTrustService project authority', () => {
     };
   }
 
+  it('lists a trusted project root and nested directory', async () => {
+    const { root, service } = fixture();
+    mkdirSync(join(root, 'nested'));
+    writeFileSync(join(root, 'nested', 'canary.txt'), 'trusted canary', 'utf8');
+    const granted = await service.grant(root);
+    if (granted.status !== 'trusted') throw new Error('expected trusted access');
+    const reader = getWorkspaceProjectReader(granted.authority);
+
+    expect(reader.listDirectory('', 'list trusted root')).toContainEqual({
+      name: 'nested',
+      kind: 'directory',
+    });
+    expect(reader.listDirectory('nested', 'list trusted nested directory')).toContainEqual({
+      name: 'canary.txt',
+      kind: 'file',
+    });
+  });
+
+  it('refuses to list a project directory link', async () => {
+    const { root, service } = fixture();
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-authority-list-outside-')));
+    roots.push(outside);
+    writeFileSync(join(outside, 'outside.txt'), 'outside', 'utf8');
+    symlinkSync(
+      outside,
+      join(root, 'linked-outside'),
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
+    const granted = await service.grant(root);
+    if (granted.status !== 'trusted') throw new Error('expected trusted access');
+
+    expect(() =>
+      getWorkspaceProjectReader(granted.authority).listDirectory(
+        'linked-outside',
+        'list linked directory',
+      ),
+    ).toThrowError(WorkspaceAuthorityRequiredError);
+  });
+
   it('returns Restricted until the host trust store grants the current identity', async () => {
     const { root, service } = fixture();
 
@@ -106,7 +145,7 @@ describe('WorkspaceTrustService project authority', () => {
       reason: 'WorkspaceAuthorityRequired',
       trustState: 'untrusted',
       displayPath: root,
-      // SCREEN-1993: the resolved identity rides on a restricted access so a consumer needing the
+      // The resolved identity rides on a restricted access so a consumer needing the
       // worktree root reads the one resolution already made.
       identity: { repositoryKey: `test:${root}`, displayPath: root, worktreeRoot: root },
     });
@@ -206,7 +245,7 @@ describe('WorkspaceTrustService project authority', () => {
     const { root, service } = fixture();
     mkdirSync(join(root, 'nested'));
     writeFileSync(join(root, 'nested', 'canary.txt'), 'trusted canary', 'utf8');
-    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-arch-042-outside-')));
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-authority-outside-')));
     roots.push(outside);
     writeFileSync(join(outside, 'secret.txt'), 'outside secret', 'utf8');
     symlinkSync(outside, join(root, 'linked-outside'));
@@ -247,12 +286,12 @@ describe('WorkspaceTrustService project authority', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'binds application state to a closed namespace and refuses linked write targets',
     async () => {
       const { root, service } = fixture();
-      const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-arch-042-state-outside-')));
+      const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-authority-state-outside-')));
       roots.push(outside);
       mkdirSync(join(root, '.agent'), { recursive: true });
       symlinkSync(outside, join(root, '.agent', 'sessions'));
@@ -279,7 +318,7 @@ describe('WorkspaceTrustService project authority', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'binds an approved settings writer to exactly one project settings target',
     async () => {
@@ -335,7 +374,7 @@ describe('WorkspaceTrustService project authority', () => {
     }
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'requires a separate approved mutation capability for project writes and deletes',
     async () => {

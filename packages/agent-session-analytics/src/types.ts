@@ -2,11 +2,11 @@
  * Types for session-log timing analysis.
  *
  * The input record shape is derived from the canonical `IInteractiveSessionRecord`
- * (agent-interface-session, DATA-001 SSOT) via `Pick` — this package owns no duplicate
+ * (agent-interface/session, the single source of truth) via `Pick` — this package owns no duplicate
  * session-record type. History entries are the canonical `IHistoryEntry` (agent-core).
  */
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 /** Minimal session-record projection the analyzer reads — SSOT-derived, not a duplicate. */
 export type TSessionAnalysisInput = Pick<

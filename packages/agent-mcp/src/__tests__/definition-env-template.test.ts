@@ -1,5 +1,5 @@
 /**
- * TC-02 — environment templates.
+ * Environment templates.
  *
  * The case that matters most is the last one: an unset reference with no default must leave its
  * literal text in place and be reported. Substituting an empty string would produce a URL or a

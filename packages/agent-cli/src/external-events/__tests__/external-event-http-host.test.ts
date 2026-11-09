@@ -17,7 +17,7 @@ import type {
   IAccessTokenVerifierConfig,
   IExternalEventGrant,
   TExternalEventAuditRecord,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 import type { CryptoKey, JWK } from 'jose';
 
 const testHost = createTestFrameworkHost();

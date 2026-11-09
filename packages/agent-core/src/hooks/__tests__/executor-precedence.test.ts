@@ -5,7 +5,7 @@ import { runHooks } from '../hook-runner.js';
 import type { IHookInput, IHookTypeExecutor, THooksConfig } from '../types.js';
 
 /**
- * SEC-016 — the LAST executor of a given type wins, and that is a correctness property.
+ * The LAST executor of a given type wins, and that is a correctness property.
  *
  * `runHooks` builds its lookup with `Map.set` in array order, so a later entry of the same `type`
  * replaces an earlier one. `create-session` depends on this: it seeds the built-in command/http
@@ -38,7 +38,7 @@ function recordingExecutor(type: string, label: string, ran: string[]): IHookTyp
   } as IHookTypeExecutor;
 }
 
-describe('SEC-016 — executor precedence within one type is last-wins', () => {
+describe('executor precedence within one type is last-wins', () => {
   it('runs the LATER executor when two share a type', async () => {
     const ran: string[] = [];
     const result = await runHooks(config, 'PreToolUse', input, [

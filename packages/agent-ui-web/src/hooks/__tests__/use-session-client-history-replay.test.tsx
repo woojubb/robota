@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3288 §2 (history replay): a reload, reconnect or session resume has no live stream to rebuild tool
+ * History replay: a reload, reconnect or session resume has no live stream to rebuild tool
  * rows from — only the `messages` frame's `display` projection (built server-side, tested in
  * `agent-framework`'s `interactive-session-history-projection.test.ts`). `useSessionClient` must turn
  * THAT into the same `TConversationEntry[]` shapes ('tools' rows with diffs, a 'changed-files' row per
@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { useSessionClient } from '../useSessionClient.js';
 
 import type { TMakeSessionClient } from '../useSessionClient.js';
-import type { IDiffLine, IToolState } from '@robota-sdk/agent-interface-session';
+import type { IDiffLine, IToolState } from '@robota-sdk/agent-interface/session';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 function setup(): {
@@ -59,7 +59,7 @@ function editToolState(overrides: Partial<IToolState> = {}): IToolState {
   };
 }
 
-describe('#3288 §2: a messages frame with display rebuilds tool rows, diffs and Changed files', () => {
+describe('a messages frame with display rebuilds tool rows, diffs and Changed files', () => {
   it('renders a denied tool as failed in both live and restored views', () => {
     const state = editToolState({ result: 'denied' });
     const live = setup();

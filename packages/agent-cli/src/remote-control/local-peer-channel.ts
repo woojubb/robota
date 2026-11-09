@@ -1,8 +1,8 @@
 /**
- * PEER-005 (issue #1863, stage 3) — the carrier that moves one peer message between two local sessions.
+ * The carrier that moves one peer message between two local sessions.
  *
  * Everything ABOVE this was already built and waiting for a carrier: the message and ack contracts
- * (`agent-interface-transport`), ordering, duplicates and ack issuance (`agent-transport`'s
+ * (`agent-interface/transport`), ordering, duplicates and ack issuance (`agent-transport`'s
  * ledger), and the session-side ingress (`agent-framework`). This file adds bytes on a wire and
  * nothing else. It must not re-decide any of those, and the one easiest to re-decide by accident is
  * duplicates — the ledger answers a repeated id with the ORIGINAL verdict, and this carries that
@@ -59,7 +59,7 @@ import type {
   IFileOffer,
   IPeerMessage,
   IPeerMessageAck,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 const LINE_TIMEOUT_MS = 10_000;
 /** Longer than any message or file frame; a longer line is a peer that does not speak this protocol. */

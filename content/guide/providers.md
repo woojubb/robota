@@ -24,13 +24,13 @@ OpenRouter), Azure, vLLM, Ollama, LM Studio. Model slugs pass through verbatim, 
 
 | Provider                  | Import path                                                | API surface it speaks                                                           | Auth method                                          |
 | ------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| OpenAI                    | `@robota-sdk/agent-provider-openai`                        | OpenAI API — official or ANY compatible endpoint (gateways, Azure, vLLM, local) | `OPENAI_API_KEY` (or gateway key)                    |
-| OpenRouter                | Built-in service using `@robota-sdk/agent-provider-openai` | OpenAI-compatible Chat Completions                                              | Browser connection, API key, or `OPENROUTER_API_KEY` |
-| Anthropic                 | `@robota-sdk/agent-provider-anthropic`                     | Anthropic Messages API                                                          | `ANTHROPIC_API_KEY`                                  |
-| Gemini                    | `@robota-sdk/agent-provider-gemini`                        | Google GenAI API                                                                | `GEMINI_API_KEY`                                     |
-| DeepSeek                  | `@robota-sdk/agent-provider-openai-compatible`             | OpenAI-compatible (DeepSeek endpoint default)                                   | `DEEPSEEK_API_KEY`                                   |
-| Qwen (Alibaba)            | `@robota-sdk/agent-provider-openai-compatible`             | OpenAI-compatible (DashScope endpoint default)                                  | `DASHSCOPE_API_KEY`                                  |
-| Gemma / OpenAI-compatible | `@robota-sdk/agent-provider-openai-compatible`             | OpenAI-compatible (bring your own endpoint)                                     | none for local servers                               |
+| OpenAI                    | `@robota-sdk/agent-provider/openai`                        | OpenAI API — official or ANY compatible endpoint (gateways, Azure, vLLM, local) | `OPENAI_API_KEY` (or gateway key)                    |
+| OpenRouter                | Built-in service using `@robota-sdk/agent-provider/openai` | OpenAI-compatible Chat Completions                                              | Browser connection, API key, or `OPENROUTER_API_KEY` |
+| Anthropic                 | `@robota-sdk/agent-provider/anthropic`                     | Anthropic Messages API                                                          | `ANTHROPIC_API_KEY`                                  |
+| Gemini                    | `@robota-sdk/agent-provider/gemini`                        | Google GenAI API                                                                | `GEMINI_API_KEY`                                     |
+| DeepSeek                  | `@robota-sdk/agent-provider/deepseek`                      | OpenAI-compatible (DeepSeek endpoint default)                                   | `DEEPSEEK_API_KEY`                                   |
+| Qwen (Alibaba)            | `@robota-sdk/agent-provider/qwen`                          | OpenAI-compatible (DashScope endpoint default)                                  | `DASHSCOPE_API_KEY`                                  |
+| Gemma / OpenAI-compatible | `@robota-sdk/agent-provider/gemma`                         | OpenAI-compatible (bring your own endpoint)                                     | none for local servers                               |
 
 > **AI gateways (Vercel AI Gateway, LiteLLM, OpenRouter):** Use the `OpenAIProvider` with the
 > gateway's `baseURL` and a gateway model slug — see [Through an AI gateway](#through-an-ai-gateway).
@@ -39,6 +39,16 @@ OpenRouter), Azure, vLLM, Ollama, LM Studio. Model slugs pass through verbatim, 
 > `baseURL`. See [Local LLM Setup](./local-llm.md) for a step-by-step guide.
 
 ---
+
+## Browser hosts
+
+A platform-neutral provider entry does not guarantee that every client configuration works in a
+browser. The OpenAI and Anthropic SDK clients created by Robota from an `apiKey` reject browser
+page use by default. Both providers also accept an injected `client` or `executor`; the host must
+choose a suitable way to reach the service and protect credentials. A server-side proxy can keep
+provider credentials on the server. Endpoint CORS and authentication still apply. The
+OpenRouter browser connection below authorizes the Node-hosted CLI or App; it does not run the
+provider client in the browser.
 
 ## Connect OpenRouter in the CLI or App
 
@@ -73,7 +83,7 @@ Claude models. Best for long-context tasks, code generation, and nuanced reasoni
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-provider @anthropic-ai/sdk
 ```
 
 The package depends on the Anthropic SDK itself; install `@anthropic-ai/sdk` in your project only if
@@ -82,7 +92,7 @@ you build the client yourself (below).
 ### Basic usage
 
 ```typescript
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -112,7 +122,7 @@ Google's terms attach conditions to showing and storing grounded results.
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -133,13 +143,13 @@ AI gateways, Azure OpenAI, vLLM, Ollama, LM Studio.
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider-openai
+npm install @robota-sdk/agent-provider openai
 ```
 
 ### Basic usage
 
 ```typescript
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 
 const provider = new OpenAIProvider({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -165,7 +175,7 @@ const provider = new OpenAIProvider({
 | `strictTools`               | `boolean`                                  | No                             | Strict function-parameter validation (rewrites tool schemas for strict mode)                                                                                                 |
 | `nativeWebTools`            | `IOpenAINativeWebToolsOptions`             | No                             | Hosted `webSearch` on OpenAI's own Responses API; `true` throws on a custom endpoint or Chat Completions                                                                     |
 | `includeStreamUsage`        | `boolean`                                  | No                             | Request token usage on streaming turns (default `true`; turn off for endpoints that reject it)                                                                               |
-| `payloadLogger`             | `IPayloadLogger`                           | No                             | Receives a summary of each Chat Completions request (`ConsolePayloadLogger` in `.../agent-provider-openai/loggers`, `FilePayloadLogger` in `.../agent-provider-openai/node`) |
+| `payloadLogger`             | `IPayloadLogger`                           | No                             | Receives a summary of each Chat Completions request (`ConsolePayloadLogger` in `@robota-sdk/agent-provider/openai/loggers`, `FilePayloadLogger` in `@robota-sdk/agent-provider/openai/node`) |
 | `executor`                  | `IExecutor`                                | No                             | Remote or local executor override                                                                                                                                            |
 | `logger`                    | `ILogger`                                  | No                             | Internal logger (default: silent)                                                                                                                                            |
 
@@ -176,7 +186,7 @@ models route through the same provider. Streaming and tool calling work unchange
 passed to the endpoint verbatim.
 
 ```typescript
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 
 // Vercel AI Gateway serving an Anthropic model
 const provider = new OpenAIProvider({
@@ -193,7 +203,7 @@ default `apiSurface` to `chat-completions` for endpoint compatibility.
 ### JSON output
 
 ```typescript
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 
 const provider = new OpenAIProvider({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -204,7 +214,7 @@ const provider = new OpenAIProvider({
 ### o-series reasoning
 
 ```typescript
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 
 const provider = new OpenAIProvider({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -222,13 +232,13 @@ multimodal inputs.
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider-gemini
+npm install @robota-sdk/agent-provider @google/genai
 ```
 
 ### Basic usage
 
 ```typescript
-import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
+import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
 
 const provider = new GeminiProvider({
   apiKey: process.env.GEMINI_API_KEY!,
@@ -255,8 +265,8 @@ const provider = new GeminiProvider({
 ### Thinking mode
 
 ```typescript
-import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
-import type { IGeminiThinkingConfig } from '@robota-sdk/agent-provider-gemini';
+import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
+import type { IGeminiThinkingConfig } from '@robota-sdk/agent-provider/gemini';
 
 const thinkingConfig: IGeminiThinkingConfig = {
   includeThoughts: true,
@@ -279,13 +289,13 @@ API under the hood.
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider-openai-compatible
+npm install @robota-sdk/agent-provider openai
 ```
 
 ### Basic usage
 
 ```typescript
-import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
 
 const provider = new DeepSeekProvider({
   apiKey: process.env.DEEPSEEK_API_KEY!,
@@ -309,7 +319,7 @@ const provider = new DeepSeekProvider({
 ### Reasoning model with extended thinking
 
 ```typescript
-import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
 
 const provider = new DeepSeekProvider({
   apiKey: process.env.DEEPSEEK_API_KEY!,
@@ -328,13 +338,13 @@ web extraction tools.
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider-openai-compatible
+npm install @robota-sdk/agent-provider openai
 ```
 
 ### Basic usage
 
 ```typescript
-import { QwenProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
 
 const provider = new QwenProvider({
   apiKey: process.env.DASHSCOPE_API_KEY!,
@@ -362,8 +372,8 @@ DashScope has region-specific endpoints. The default is Singapore
 endpoints for `singapore`, `usVirginia`, `beijing` and `hongKong`:
 
 ```typescript
-import { QwenProvider } from '@robota-sdk/agent-provider-openai-compatible';
-import { QWEN_PROVIDER_BASE_URLS } from '@robota-sdk/agent-provider-openai-compatible';
+import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
+import { QWEN_PROVIDER_BASE_URLS } from '@robota-sdk/agent-provider/qwen';
 
 const provider = new QwenProvider({
   apiKey: process.env.DASHSCOPE_API_KEY!,
@@ -374,7 +384,7 @@ const provider = new QwenProvider({
 ### Native web tools
 
 ```typescript
-import { QwenProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
 
 const provider = new QwenProvider({
   apiKey: process.env.DASHSCOPE_API_KEY!,
@@ -398,13 +408,13 @@ the placeholder key `lm-studio`.
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider-openai-compatible
+npm install @robota-sdk/agent-provider openai
 ```
 
 ### Basic usage
 
 ```typescript
-import { GemmaProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import { GemmaProvider } from '@robota-sdk/agent-provider/gemma';
 
 const provider = new GemmaProvider({
   apiKey: 'any-value', // many local servers do not validate this
@@ -428,7 +438,7 @@ const provider = new GemmaProvider({
 ### LM Studio
 
 ```typescript
-import { GemmaProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import { GemmaProvider } from '@robota-sdk/agent-provider/gemma';
 
 const provider = new GemmaProvider({
   apiKey: 'lm-studio',
@@ -444,11 +454,11 @@ llama.cpp configuration details.
 
 ## Other provider packages
 
-- **`@robota-sdk/agent-provider-bytedance`** — `BytedanceProvider`, a video-generation provider for
+- **`@robota-sdk/agent-provider/bytedance`** — `BytedanceProvider`, a video-generation provider for
   ByteDance ModelArk (Seedance). It implements `IVideoGenerationProvider` (`createVideo`,
   `getVideoJob`, `cancelVideoJob`) rather than the chat `IAIProvider`, so it is not an agent's chat
   model.
-- **`@robota-sdk/agent-builtin-providers`** — `createDefaultProviderDefinitions()`, the provider
+- **`@robota-sdk/agent-provider/builtin`** — `createDefaultProviderDefinitions()`, the provider
   definitions (setup steps, defaults, model catalogs) the `__PRODUCT_CLI_NAME__` CLI offers for `anthropic`,
   `openai`, `gemini`, `gemma`, `qwen` and `deepseek`. Use it when your own host wants the same
   settings-driven provider selection.
@@ -461,9 +471,9 @@ Because all providers implement `IAIProvider`, switching is a one-line change:
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
 
 // Register multiple providers — agent picks the right one from defaultModel.provider
 const agent = new ConversationAgent({

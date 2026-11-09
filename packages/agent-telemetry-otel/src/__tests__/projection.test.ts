@@ -1,4 +1,4 @@
-import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface/analytics';
 import { describe, expect, it } from 'vitest';
 
 import { GEN_AI_SCHEMA_URL, projectLivePromptTrace } from '../index.js';

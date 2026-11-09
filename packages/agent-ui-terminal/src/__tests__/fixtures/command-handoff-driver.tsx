@@ -1,5 +1,5 @@
 /**
- * TEST-007 / TERM-003 + TERM-004 fixture: run the real `/shell` and `/editor` command executors
+ * Fixture: run the real `/shell` and `/editor` command executors
  * through the real `TerminalHandoffController` on a real PTY.
  *
  * A real Ink app (input hooks below a suspend gate, like the App) provides the live handoff; a minimal
@@ -12,18 +12,22 @@
  * argv: [mode ('shell'|'editor'), outputPath]. The `/shell` command text is fixed here rather than
  * taken from argv: argv only selects the mode, so no process input becomes shell text.
  *
- * Markers: `@@READY canHandoff=…@@`, `@@CMD_DONE@@`, `@@INPUT_AFTER_HANDOFF …@@`. A JSON result
+ * Markers: `@@READY canHandoff=…@@`, `@@CMD_DONE@@`, `@@INPUT_READY n@@` (the input hook has mounted
+ * for the n-th time: 2 once the TUI has taken the terminal back), `@@INPUT_AFTER_HANDOFF …@@`. Each is
+ * also recorded as an event (`pty/fixture-event-log.ts`), which is what a test waits on. A JSON result
  * `{ success, exitCode?, message }` is written to outputPath.
  */
 import { writeFileSync } from 'node:fs';
 
-import { executeEditorCommand, executeShellCommand } from '@robota-sdk/agent-command/node';
+import { executeEditorCommand, executeShellCommand } from '@robota-sdk/agent-product/command/node';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 import { Box, Text, render, useInput } from 'ink';
 import React from 'react';
 
 import { useTerminalHandoffSuspension } from '../../hooks/useTerminalHandoffSuspension.js';
 import { TerminalHandoffController } from '../../terminal-handoff-controller.js';
+import { recordFixtureEvent } from '../pty/fixture-event-log.js';
+import { readOneLineScript } from './read-one-line-script.js';
 
 import type {
   ICommandHostTerminalHandoff,
@@ -32,8 +36,11 @@ import type {
 
 const MODE = process.argv[2];
 const OUTPUT_PATH = process.argv[3];
-/** Reads one line from the handed-off terminal and echoes it back, proving the child owned the TTY. */
-const SHELL_COMMAND = 'IFS= read -r line; printf "SHELL_GOT:[%s]\\n" "$line"';
+/**
+ * Reads one line from the handed-off terminal and echoes it back, proving the child owned the TTY.
+ * A `node -e` command runs the same in `sh` and in PowerShell, the shell `/shell` resolves on Windows.
+ */
+const SHELL_COMMAND = `node -e "${readOneLineScript('SHELL_GOT')}"`;
 
 const controller = new TerminalHandoffController();
 let resolveInputAfterHandoff: ((input: string) => void) | undefined;
@@ -45,8 +52,15 @@ const context = {
   getCwd: (): string => process.cwd(),
 } satisfies ICommandHostTerminalHandoff & Pick<ICommandHostWorkspace, 'getCwd'>;
 
+let inputMounts = 0;
+
 function InputCapture(): React.ReactElement {
   useInput((input) => resolveInputAfterHandoff?.(input));
+  // Declared after `useInput`, so its listener is attached when this runs. Keys sent earlier are lost.
+  React.useEffect(() => {
+    inputMounts += 1;
+    marker(`INPUT_READY ${inputMounts}`);
+  }, []);
   return <Text>READY</Text>;
 }
 
@@ -61,6 +75,7 @@ function CommandApp(): React.ReactElement {
 }
 
 function marker(line: string): void {
+  recordFixtureEvent(OUTPUT_PATH, line);
   process.stdout.write(`\r\n@@${line}@@\r\n`);
 }
 
@@ -74,10 +89,9 @@ async function main(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 300));
   marker(`READY canHandoff=${controller.canHandoffTerminal}`);
 
-  // ARCH-029: the fixture's `satisfies Pick<>` above is the honest part — it declares exactly the
-  // three members these executors read. The widening cast existed only because the executors demand
-  // the whole 46-member facade. S3's role ports remove the need to widen at all; until then the
-  // double supplies the rest so no cast is required.
+  // The fixture's `satisfies Pick<>` above is the honest part — it declares exactly the three
+  // members these executors read. The widening cast existed only because the executors demand the
+  // whole 46-member facade. The double supplies the rest so no cast is required.
   const ctx = createTestCommandHost({ overrides: context });
   const result =
     MODE === 'editor'
@@ -103,12 +117,12 @@ async function main(): Promise<void> {
 
 process.on('uncaughtException', (error) => {
   writeResult({ success: false, message: String(error) });
-  process.stdout.write(`\r\n@@ERROR ${String(error)}@@\r\n`);
+  marker(`ERROR ${String(error)}`);
   process.exit(1);
 });
 
 void main().catch((error) => {
   writeResult({ success: false, message: String(error) });
-  process.stdout.write(`\r\n@@ERROR ${String(error)}@@\r\n`);
+  marker(`ERROR ${String(error)}`);
   process.exit(1);
 });

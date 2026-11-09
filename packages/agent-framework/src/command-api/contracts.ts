@@ -2,7 +2,7 @@ import type { ICommandResult } from './command-result.js';
 import type { ICommandHostContext } from './host-context.js';
 import type { ICommand } from './types.js';
 import type { TCapabilitySafety } from '../capabilities/types.js';
-import type { TCommandRunner, TCommandSurface } from '@robota-sdk/agent-interface-command';
+import type { TCommandRunner, TCommandSurface } from '@robota-sdk/agent-interface/command';
 
 export type TSystemCommandLifecycle = 'inline' | 'blocking' | 'background';
 export type TSystemCommandSemanticRole =

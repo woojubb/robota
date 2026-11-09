@@ -24,7 +24,7 @@ export interface IResolveSidecarCommandOptions {
 }
 
 /**
- * Resolve the product CLI command (GUI-003). In a PACKAGED app its runtime binary is bundled at
+ * Resolve the product CLI command. In a PACKAGED app its runtime binary is bundled at
  * `<resourcesPath>/<desktopExecutableName>[.exe]`. In DEV/e2e, use the explicit test override or the
  * configured CLI executable on PATH.
  */
@@ -70,7 +70,7 @@ export function buildDaemonStartSpawn(
 }
 
 /**
- * One file the person chose from the native "Attach files" dialog (#3282 §4d), with its real size —
+ * One file the person chose from the native "Attach files" dialog, with its real size —
  * the composer refuses a file over its per-file limit, and needs the size to know that without a
  * round trip to read the file itself.
  */
@@ -101,7 +101,7 @@ export function buildPickedFiles(
 }
 
 /**
- * #3282 §4c — the Project panel's Memory "Open in editor": resolve a workspace-relative (or absolute)
+ * The Project panel's Memory "Open in editor": resolve a workspace-relative (or absolute)
  * path against `cwd` and refuse one that lands outside it, `undefined` for a refusal. `path` comes
  * from the SAME local daemon this window attached to (never a remote/untrusted source), so a lexical
  * `resolve`/`startsWith` check — not the full symlink-following canonicalization a server exposed to
@@ -119,7 +119,7 @@ export function resolveOpenPathTarget(cwd: string, path: string): string | undef
 export const RECENT_FOLDER_LIMIT = 10;
 
 /**
- * The folder the app opens on launch, before anyone picks one (#3354). A dev or e2e run keeps the folder
+ * The folder the app opens on launch, before anyone picks one. A dev or e2e run keeps the folder
  * it was started from, which `pnpm app:dev` sets to the project. A packaged app never uses its own
  * process cwd: started from Finder, the Dock, the Start menu or a launcher, that is `/` or the home
  * directory, not a project. It reopens the most recent folder that still exists, or none — and then the
@@ -160,7 +160,7 @@ export function windowTitle(appName: string, folder: string | undefined): string
   return folder === undefined ? appName : `${basename(folder) || folder} — ${appName}`;
 }
 
-/** What the window asks before a daemon starts in a folder not trusted yet (issue #3268). */
+/** What the window asks before a daemon starts in a folder not trusted yet. */
 export interface ITrustQuestion {
   /** The workspace a grant would cover. */
   readonly folder: string;
@@ -209,6 +209,34 @@ export function parseTrustStatusOutput(stdout: string): ITrustQuestion | undefin
     loads:
       rows.length > shown.length ? [...shown, `  … ${rows.length - shown.length} more`] : shown,
   };
+}
+
+/** The CLI's resolved root is also the Restricted choice when project trust cannot be offered. */
+export function parseTrustWorkspaceRoot(stdout: string): string | undefined {
+  const lines = stdout.split(/\r?\n/u).filter((line) => line.trim() !== '');
+  if (lines.length !== 1) return undefined;
+  try {
+    const value: unknown = JSON.parse(lines[0]!);
+    if (typeof value !== 'object' || value === null || !('workspace' in value)) return undefined;
+    const root = value.workspace;
+    return typeof root === 'string' && root.trim() !== '' ? root : undefined;
+  } catch { return undefined; }
+}
+
+/** The native main process retains the prepared root token; the renderer receives only the question. */
+export function parseTrustCandidate(stdout: string): string | undefined {
+  const lines = stdout.split(/\r?\n/u).filter((line) => line.trim() !== '');
+  if (lines.length !== 1) return undefined;
+  try {
+    const value: unknown = JSON.parse(lines[0]!);
+    if (typeof value !== 'object' || value === null || !('candidate' in value)) return undefined;
+    const token = value.candidate;
+    return typeof token === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(token)
+      ? token : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Environment variable names the trusted CLI identified for provider/transport use; values are never serialized. */

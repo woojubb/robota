@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * PLG-021 / issue #2025 — disabling a plugin and reloading in the SAME process must not load it.
+ * Disabling a plugin and reloading in the SAME process must not load it.
  *
  * `packages/agent-framework` already pins that a loader built per call sees a disable made after the
  * previous load, and that a cached one does not. Neither of those proves that THIS adapter builds a
@@ -8,7 +8,7 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
  * snapshot taken when the services object was built, so `disable()` wrote to disk and
  * `reloadPlugins()` kept reporting the plugin as loaded.
  *
- * That is PLG-021 one step over: not a MISSING enablement map, a STALE one, with an identical
+ * The cause here is not a MISSING enablement map but a STALE one, with an identical
  * symptom. So this drives the real adapter end to end rather than asserting on its shape — a test
  * that checked "createLoader is a function" would pass against `() => cached`.
  */
@@ -71,7 +71,7 @@ afterEach(() => {
   if (existsSync(home)) rmSync(home, { recursive: true, force: true });
 });
 
-describe('PLG-021: disable then reload, in one process', () => {
+describe('disable then reload, in one process', () => {
   it('a plugin disabled through the adapter is not loaded by a later reload', async () => {
     const adapter = createDefaultPluginCommandAdapter(home, createTestProductRuntime('test-product', { HOME: process.env['HOME'] }));
 

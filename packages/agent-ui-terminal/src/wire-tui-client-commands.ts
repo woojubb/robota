@@ -1,5 +1,5 @@
 /**
- * #3189: the commands that belong to the terminal the user sits at (`/shell`, `/editor`, `/theme`,
+ * The commands that belong to the terminal the user sits at (`/shell`, `/editor`, `/theme`,
  * `/keybindings`). A terminal attached to a workspace daemon runs these in its own process — on its
  * own terminal, in its own working directory — and sends nothing to the daemon.
  *
@@ -22,8 +22,8 @@ import type {
   ICommandResult,
   TAppearanceSettingsPatch,
   TCommandUiIntent,
-} from '@robota-sdk/agent-interface-command';
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/command';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface/session';
 
 /** What a client-run command may use: this terminal's handoff and working directory. */
 export type TTuiClientCommandHost = ICommandHostTerminalHandoff & ICommandHostWorkspace;

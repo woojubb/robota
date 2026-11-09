@@ -1,5 +1,5 @@
 /**
- * Restoring a record into a session a runner already built (#3679 step 3e).
+ * Restoring a record into a session a runner already built.
  *
  * Every path that turns a stored record into a conversation passes the same gate: a record a store
  * that seals calls unverified is refused, and the helper never reads the store on its own behalf, so

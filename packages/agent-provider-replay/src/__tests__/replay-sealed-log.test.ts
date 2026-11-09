@@ -1,5 +1,5 @@
 /**
- * `--session-log` replays plain logs only (#3679, secure conversation): a sealed log is refused with
+ * `--session-log` replays plain logs only (secure conversation): a sealed log is refused with
  * fixed text that says so, instead of an `ArtifactLockedError` escaping from the startup path. The
  * dev harness holds no keys, and a replay that opened sealed logs would need them.
  */

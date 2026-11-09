@@ -1,12 +1,12 @@
 /**
- * Builds an {@link IMCPCatalog} from what each configured server discovered (MCP-002).
+ * Builds an {@link IMCPCatalog} from what each configured server discovered.
  *
  * This is the ONE place that decides exposure: every discovered tool/prompt/resource ends up in
  * exactly one of `adopted`, `adapted` or `rejected` — never silently dropped
  * (`enforcement-architecture.md`, "Silence is not success"). Naming and its collisions are owned by
- * `./naming.ts`; CORE-040 schema narrowing is owned by `../third-party-schema.ts`. This module only
+ * `./naming.ts`; schema narrowing is owned by `../third-party-schema.ts`. This module only
  * sequences them: name first, resolve collisions, THEN narrow and report — narrowing a tool that a
- * collision will reject anyway would run CORE-040 for an entry nobody will ever call.
+ * collision will reject anyway would run narrowing for an entry nobody will ever call.
  */
 
 import { narrowToUniversalSubset } from '../third-party-schema.js';
@@ -99,7 +99,7 @@ interface IPendingResource extends IPendingBase {
 
 type TPendingItem = IPendingTool | IPendingPrompt | IPendingResource;
 
-/** Combines the naming reason with whether schema narrowing dropped anything, per TC-18. */
+/** Combines the naming reason with whether schema narrowing dropped anything. */
 function combineReasons(namingReason: string | undefined, narrowed: boolean): string | undefined {
   const parts: string[] = [];
   if (namingReason) parts.push(namingReason);
@@ -127,8 +127,8 @@ function rejectedTransportEntry(input: IMCPCatalogInput): IMCPCatalogRejection {
   // A deprecated/unsupported transport is a refusal, not a fallback. It is NOT also recorded
   // in `servers[]`: `IMCPCatalogServerEntry.transport` (`./types.ts`, not owned by this unit)
   // is typed to exactly the two supported transports, so there is no honest value to put there
-  // for a server that was never allowed to speak one of them — the spec's own TC-07 asserts
-  // only the `rejected` bucket for this case (§ Decision, "rejected transports are refusals").
+  // for a server that was never allowed to speak one of them — only the `rejected`
+  // bucket records this case (§ Decision, "rejected transports are refusals").
   return {
     kind: 'server',
     serverId: input.serverId,

@@ -9,17 +9,17 @@ import { deserializeSessionArtifact, serializeSessionArtifact } from '../session
 import { SESSION_RECORD_ENVELOPE_VERSION } from '../session-record-codec/index.js';
 import { NodeSessionStore } from '../session-store.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import { loadedOrMissing } from './store-load-helpers.js';
 
 /**
- * SELFHOST-014 — the export/import artifact envelope over the canonical interactive session record.
+ * The export/import artifact envelope over the canonical interactive session record.
  */
 
 /**
  * A record that actually satisfies `IInteractiveSessionRecord`.
  *
- * TRANS-006: this fixture used to be a stub cast through `as unknown as IInteractiveSessionRecord` —
+ * This fixture used to be a stub cast through `as unknown as IInteractiveSessionRecord` —
  * messages with no `id`, `timestamp` or `state`, history entries with a `text` member the contract
  * does not declare, background tasks carrying two of ten required members, a goal missing five. It
  * passed because nothing on this path validated anything, so the suite asserted round-trip fidelity
@@ -118,7 +118,7 @@ function newStore(): NodeSessionStore {
   });
 }
 
-describe('session artifact — round-trip fidelity (TC-01)', () => {
+describe('session artifact — round-trip fidelity', () => {
   it('deserialize(serialize(record)) deep-equals the record with no redaction', () => {
     const record = fullRecord();
     const restored = deserializeSessionArtifact(serializeSessionArtifact(record));
@@ -126,7 +126,7 @@ describe('session artifact — round-trip fidelity (TC-01)', () => {
   });
 });
 
-describe('session artifact — schema-version guard (TC-02)', () => {
+describe('session artifact — schema-version guard', () => {
   it('carries a schema-version header and imports a same-version artifact cleanly', () => {
     const bytes = serializeSessionArtifact(fullRecord());
     expect(JSON.parse(bytes).schemaVersion).toBe(SESSION_RECORD_ENVELOPE_VERSION);
@@ -141,7 +141,7 @@ describe('session artifact — schema-version guard (TC-02)', () => {
     );
   });
 
-  // TRANS-006: the rejection is now LOCATED. The assertion moved from "the message says malformed"
+  // The rejection is now LOCATED. The assertion moved from "the message says malformed"
   // to "the message names where", because a decoder that refuses without saying where leaves the
   // holder of an unimportable artifact with a boolean and no next step.
   it('rejects a degenerate/crafted record (array, {}, or missing id) and names the field', () => {
@@ -153,12 +153,12 @@ describe('session artifact — schema-version guard (TC-02)', () => {
   });
 });
 
-describe('session artifact — export-for-share redact seam (TC-07)', () => {
+describe('session artifact — export-for-share redact seam', () => {
   it('applies an app-supplied redact (strip cwd/sandboxSnapshotId + scrub secrets); no-redact keeps them', () => {
     const record = fullRecord();
     // App-owned FIELD policy lives here (in the test = the app), never in the library.
     const redact = (r: IInteractiveSessionRecord): IInteractiveSessionRecord => {
-      // TRANS-006: `cwd` is REQUIRED, so the host path is BLANKED rather than deleted — a redact
+      // `cwd` is REQUIRED, so the host path is BLANKED rather than deleted — a redact
       // returns a record, and deleting a required member returns something that is not one.
       // `sandboxSnapshotId` is optional, so removing it entirely is still a record.
       const { sandboxSnapshotId: _snap, ...rest } = r as IInteractiveSessionRecord & {
@@ -180,7 +180,7 @@ describe('session artifact — export-for-share redact seam (TC-07)', () => {
   });
 });
 
-describe('session artifact — async share → resume across two independent surfaces (TC-04)', () => {
+describe('session artifact — async share → resume across two independent surfaces', () => {
   it('exports from store A and re-imports into a DISTINCT store B; the record resumes identically', () => {
     const storeA = newStore();
     const record = fullRecord();
@@ -196,9 +196,8 @@ describe('session artifact — async share → resume across two independent sur
     expect(onB?.history).toEqual(record.history);
     expect(onB?.goal).toEqual(record.goal);
 
-    // TRANS-006 recorded an asymmetry here: the artifact path decoded and the store did not, so a
-    // record that came back through the store carried ISO strings. TRANS-007 made the store decode
-    // too, and this asserts the asymmetry is gone rather than leaving it merely untested.
+    // The artifact path and the store must both decode: a record that came back through the
+    // store must not carry ISO strings, and this asserts it rather than leaving it untested.
     expect(deserializeSessionArtifact(artifact).messages[0]?.timestamp).toBeInstanceOf(Date);
     expect(onB?.messages[0]?.timestamp).toBeInstanceOf(Date);
     // Stores are independent — deleting B's imported record does not affect A.
@@ -208,7 +207,7 @@ describe('session artifact — async share → resume across two independent sur
   });
 });
 
-describe('session artifact — a REDACTED artifact still resumes on B with import-side rebind (TC-08)', () => {
+describe('session artifact — a REDACTED artifact still resumes on B with import-side rebind', () => {
   it('redact BLANKS required cwd → import on B → app rebinds B cwd → resumes with content intact', () => {
     const record = fullRecord();
     const redactBlankCwd = (r: IInteractiveSessionRecord): IInteractiveSessionRecord => ({
@@ -233,13 +232,13 @@ describe('session artifact — a REDACTED artifact still resumes on B with impor
 });
 
 /**
- * TRANS-006 (issue #2097) — the importer decodes the whole record, not the envelope and one field.
+ * The importer decodes the whole record, not the envelope and one field.
  *
  * Before this leaf `deserializeSessionArtifact` checked `schemaVersion`, then that `record` was a
  * non-array object whose `id` was a string, and returned everything else unchecked. Every case below
  * imported successfully then.
  */
-describe('session artifact — the record is decoded, not cast (TRANS-006)', () => {
+describe('session artifact — the record is decoded, not cast', () => {
   function artifactOf(record: unknown): string {
     return JSON.stringify({ schemaVersion: SESSION_RECORD_ENVELOPE_VERSION, record });
   }
@@ -306,7 +305,7 @@ describe('session artifact — the record is decoded, not cast (TRANS-006)', () 
   });
 });
 
-describe('session artifact — one version constant, not two (TRANS-006)', () => {
+describe('session artifact — one version constant, not two', () => {
   it('exports the coordinated recovery envelope version', () => {
     expect(SESSION_RECORD_ENVELOPE_VERSION).toBe(2);
     expect(JSON.parse(serializeSessionArtifact(fullRecord())).schemaVersion).toBe(

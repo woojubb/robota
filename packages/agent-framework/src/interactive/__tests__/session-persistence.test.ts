@@ -14,7 +14,7 @@ import {
 } from '../session-persistence.js';
 import { loadedRecordOrMissing } from './session-load-helpers.js';
 
-// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+// Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
 describe.runIf(process.platform === 'linux')('session persistence facade', () => {
   it('creates a project-local session store and resolves resumable summaries', async () => {
     const cwd = await realpath(await mkdtemp(join(tmpdir(), 'agent-sdk-session-store-')));

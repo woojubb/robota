@@ -1,5 +1,5 @@
 /**
- * Presence (#3679): a process that builds a conversation store marks itself under the state root's
+ * Presence: a process that builds a conversation store marks itself under the state root's
  * `presence/` the first time it does, and a migration marks itself before it looks, so whichever comes
  * second sees the first. Real child processes stand in for the other side, so liveness is judged by
  * the same probes production uses.
@@ -29,7 +29,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { runSecureCommand } from '../../secure/secure-command.js';
+import { writeProductConversationMode } from '../../secure/conversation-mode-state.js';
 import { sweepStaleEphemeralState } from '../../startup/ephemeral-state.js';
+import { resolveCliRuntimeContext } from '../../startup/product-bootstrap.js';
 import {
   MIGRATION_RUNNING_MESSAGE,
   ProductMigrationRunningError,
@@ -104,6 +106,32 @@ function leaveOwnerless(prefix: string, suffix: string, ageMs: number): string {
 }
 
 describe.skipIf(posixOnly)('presence at store construction', () => {
+  it('keeps secure mode on when another process still owns a conversation store', async () => {
+    writeProductConversationMode(runtime.layout.userRoot, 'plain', 'preparing');
+    writeProductConversationMode(runtime.layout.userRoot, 'preparing', 'secure');
+    leavePresence('process-', await liveProcess(), 'interactive');
+    const selected = resolveCliRuntimeContext({
+      productConfig: runtime.config,
+      environment: runtime.environment,
+    });
+    const errors: string[] = [];
+
+    const code = await runSecureCommand(['disable'], {
+      productRuntime: selected,
+      stdinIsTTY: true,
+      confirm: async () => 'yes',
+      stdout: () => {},
+      stderr: (message) => errors.push(message),
+    });
+
+    expect(code).toBe(1);
+    expect(errors.join('')).toContain('remain active or uncertain');
+    expect(resolveCliRuntimeContext({
+      productConfig: runtime.config,
+      environment: runtime.environment,
+    }).conversationMode).toBe('secure');
+  });
+
   it('is created at the first store construction, once, naming this process', () => {
     createProductUserSessionStore(runtime);
     createProductPromptHistoryFile(runtime);
@@ -140,25 +168,18 @@ describe.skipIf(posixOnly)('presence at store construction', () => {
     expect(readFileSync(join(presenceDirectory(), name as string, 'mode'), 'utf8')).toBe('print');
   });
 
-  it('that cannot be created is reported on stderr, and the store is still built', () => {
+  it('refuses a store when its process presence cannot be created', () => {
     mkdirSync(runtime.layout.userRoot, { recursive: true });
     writeFileSync(presenceDirectory(), 'not a directory');
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
-    const store = createProductUserSessionStore(runtime);
-    createProductPromptHistoryFile(runtime);
-    store.save({
-      id: 'sess_still_saved',
-      cwd: '/work',
-      createdAt: '2026-11-03T00:00:00.000Z',
-      updatedAt: '2026-11-03T00:00:00.000Z',
-      messages: [],
-    });
+    expect(() => createProductUserSessionStore(runtime)).toThrow(/could not mark this process/i);
+    expect(() => createProductPromptHistoryFile(runtime)).toThrow(/could not mark this process/i);
 
     const notices = stderr.mock.calls.flat().join('');
     expect(notices).toMatch(/^Could not mark this process in .*presence \(E[A-Z]+\): a migration/u);
     expect(notices.split('Could not mark').length - 1).toBe(1);
-    expect(existsSync(join(runtime.layout.userPaths.sessions, 'sess_still_saved.json'))).toBe(true);
+    expect(existsSync(runtime.layout.userPaths.sessions)).toBe(false);
   });
 
   it('refuses to open stores while a migration is running, and takes its presence back', async () => {

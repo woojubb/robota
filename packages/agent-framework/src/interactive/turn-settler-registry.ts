@@ -1,5 +1,5 @@
 /**
- * RUNTIME-003 — one entry per accepted submission, until its turn ends or it is refused one.
+ * One entry per accepted submission, until its turn ends or it is refused one.
  *
  * Split out of the execution controller, which had grown well past its size ratchet. The controller
  * runs turns; keeping track of who is waiting on which submission is a different job, and it is the
@@ -11,11 +11,11 @@ import { randomId } from '@robota-sdk/agent-core';
 import { TurnNotRunError } from './turn-not-run-error.js';
 
 import type { IExecutionResult } from './types.js';
-import type { TTurnNotRunReason } from '@robota-sdk/agent-interface-session';
+import type { TTurnNotRunReason } from '@robota-sdk/agent-interface/session';
 
 export class TurnSettlerRegistry {
   /**
-   * RUNTIME-003: one entry per accepted submission, until its turn ends or it is refused a turn.
+   * One entry per accepted submission, until its turn ends or it is refused a turn.
    *
    * The map is what makes `ITurnHandle.completed` able to promise it always settles: every way a
    * submission can stop existing — it ran, it was coalesced away, it was dropped at capacity, the

@@ -1,5 +1,5 @@
 /**
- * ARCH-006 — the capability-pack TOOL axis at parity with the command and subagent axes.
+ * The capability-pack TOOL axis at parity with the command and subagent axes.
  *
  * Before this change `createSession` assembled `[...createDefaultTools(), ...additionalTools]` with NO
  * dedupe and NO suppression hook, so:
@@ -7,10 +7,10 @@
  *  - a contributor whose tool NAME matched a framework default was listed TWICE, and
  *  - no consumer could remove or replace a framework default at all.
  *
- * Two scoped additive seams close that, mirroring the adjacent NEUT-003 / ARCH-005 subagent precedent:
+ * Two scoped additive seams close that, mirroring the subagent seams (`builtInAgents`, `agentDefinitions`):
  *
  *  - `defaultTools` REPLACES the framework's `createDefaultTools()` tier (`[]` suppresses it entirely),
- *    exactly as NEUT-003's `builtInAgents` replaces `BUILT_IN_AGENTS`;
+ *    exactly as `builtInAgents` replaces `BUILT_IN_AGENTS`;
  *  - the assembled list is deduped BY TOOL NAME, first occurrence wins, over the fixed tier order
  *    `defaultTier ⊕ additionalTools ⊕ goalTool` — the same "first entry for a name wins" rule
  *    `AgentDefinitionLoader` already applies within the built-in tier.
@@ -95,7 +95,7 @@ async function assembleToolNames(
   overrides: Record<string, unknown> = {},
 ): Promise<{ names: string[]; tools: IToolWithEventService[] }> {
   const { createSession } = await import('../assembly/create-session.js');
-  // ARCH-035 made `createSession` async: the default tier is reached by dynamic import now, so the
+  // `createSession` is async: the default tier is reached by dynamic import now, so the
   // session is not constructed until that resolves. Without this await the ctor-call spy below reads
   // an empty array and every case here reports "no tools" as if the tier had vanished.
   await createSession({
@@ -111,7 +111,7 @@ async function assembleToolNames(
   return { names: tools.map((t) => t.getName()), tools };
 }
 
-describe('ARCH-006 — additionalTools dedupe by tool name', () => {
+describe('additionalTools dedupe by tool name', () => {
   beforeEach(() => {
     sessionCtorCalls.length = 0;
   });
@@ -146,12 +146,12 @@ describe('ARCH-006 — additionalTools dedupe by tool name', () => {
   });
 
   it('is byte-identical when no name collides (unchanged order: defaults, then additional)', async () => {
-    const { createDefaultTools } = await import('@robota-sdk/agent-tool-defaults');
+    const { createDefaultTools } = await import('@robota-sdk/agent-tools/defaults');
     const { names } = await assembleToolNames({
       additionalTools: [namedTool('AcmeTicketLookup', 'new')],
     });
 
-    // ARCH-010 — `createDefaultTools` now requires the root. `process.cwd()` is the root the assembled
+    // `createDefaultTools` now requires the root. `process.cwd()` is the root the assembled
     // session under test uses (`createSession` resolves `options.cwd ?? process.cwd()`), so the two
     // sides of this comparison are built the same way; only tool NAMES are read from either.
     expect(names).toEqual([
@@ -161,7 +161,7 @@ describe('ARCH-006 — additionalTools dedupe by tool name', () => {
   });
 });
 
-describe('ARCH-006 — the injectable/suppressible default tool tier', () => {
+describe('the injectable/suppressible default tool tier', () => {
   beforeEach(() => {
     sessionCtorCalls.length = 0;
   });
@@ -184,7 +184,7 @@ describe('ARCH-006 — the injectable/suppressible default tool tier', () => {
     expect(names).toEqual(['Read', 'AcmeTicketLookup']);
   });
 
-  it('REPLACES the framework tier with the injected set (NEUT-003 `builtInAgents` semantics)', async () => {
+  it('REPLACES the framework tier with the injected set (`builtInAgents` semantics)', async () => {
     const { names, tools } = await assembleToolNames({
       defaultTools: [namedTool('Read', 'injected-Read')],
     });
@@ -194,7 +194,7 @@ describe('ARCH-006 — the injectable/suppressible default tool tier', () => {
   });
 
   it('leaves the framework tier exactly `createDefaultTools()` when the option is absent', async () => {
-    const { createDefaultTools } = await import('@robota-sdk/agent-tool-defaults');
+    const { createDefaultTools } = await import('@robota-sdk/agent-tools/defaults');
     const { names } = await assembleToolNames();
 
     // Same mirroring as above: the session resolves its root to `process.cwd()` when none is supplied.
@@ -202,7 +202,7 @@ describe('ARCH-006 — the injectable/suppressible default tool tier', () => {
   });
 });
 
-/** As `namedTool`, but declaring itself deferred — schemas withheld until loaded (CLI-1990). */
+/** As `namedTool`, but declaring itself deferred — schemas withheld until loaded. */
 function deferredTool(name: string, marker: string): IToolWithEventService {
   const tool = namedTool(name, marker);
   return {
@@ -211,7 +211,7 @@ function deferredTool(name: string, marker: string): IToolWithEventService {
   } as unknown as IToolWithEventService;
 }
 
-describe('CLI-1990 TC-11 — tool residency through session assembly', () => {
+describe('tool residency through session assembly', () => {
   beforeEach(() => {
     sessionCtorCalls.length = 0;
   });

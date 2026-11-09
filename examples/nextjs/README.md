@@ -47,11 +47,11 @@ has none of the built-in tools that run commands, read or change files, reach th
 
 ## Swap provider
 
-Install the provider package (`npm install @robota-sdk/agent-provider-openai`) and change
+Install the provider package (`npm install @robota-sdk/agent-provider openai`) and change
 `AnthropicProvider` in `app/api/chat/route.ts`:
 
 ```ts
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 
 const agentRuntime = createAgentRuntime({
   host,

@@ -21,7 +21,7 @@ export function createConversationId(config: IAgentConfig): string {
 }
 
 /**
- * The tool manager, given the ONE policy source it needs (CLI-1990).
+ * The tool manager, given the ONE policy source it needs.
  *
  * The manager owns the residency state — which deferred tools are loaded — and asks this resolver
  * whether deferral is engaged on every projection. `readConfig` is read each time rather than
@@ -33,7 +33,7 @@ export function createConfiguredTools(readConfig: () => IAgentConfig): Tools {
   const tools: Tools = new Tools({
     resolveToolSearchMode: () => {
       const config = readConfig();
-      // Issue #3081: with the loader hidden by a deny rule, nothing could load a withheld schema,
+      // With the loader hidden by a deny rule, nothing could load a withheld schema,
       // so deferral is off and every visible tool is offered resident.
       if (config.isToolVisible?.(TOOL_SEARCH_TOOL_NAME) === false) return 'off';
       return resolveToolSearchMode(config, config.defaultModel.model, tools.getTools());

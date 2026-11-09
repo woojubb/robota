@@ -1,3 +1,5 @@
+import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
+
 import { isArtifactCorruptError, isArtifactLockedError } from '@robota-sdk/agent-core';
 import { createProcessMarkers } from '@robota-sdk/agent-core/node';
 import {
@@ -29,7 +31,7 @@ import type { TArtifactSealing } from '@robota-sdk/agent-core';
 import type {
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
@@ -43,7 +45,8 @@ import type {
   ISessionSaveOptions,
   ISessionStoreScan,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+  TSessionRestoreCommitOutcome,
+} from '@robota-sdk/agent-interface/session';
 import type { ISessionStoreOptions, TStoredSessionFile } from '@robota-sdk/agent-session/node';
 
 function assertNamespace(
@@ -136,6 +139,7 @@ export function projectSessionClaimsDirectory(sessions: IWorkspaceProjectStateSt
 
 /** Project session record adapter backed only by runtime-minted state facets. */
 export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
+  readonly supportsClaimDiscard = true as const;
   private readonly sessions: IWorkspaceProjectStateStorage;
   private readonly logs: IWorkspaceProjectStateStorage;
   /** How this store keeps what it writes; its replay logs are read with the same sealing. */
@@ -161,7 +165,9 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     assertWorkspaceProjectStateStoragePair(this.sessions, this.logs);
     // The writer markers are published by hard links, which no facet call makes, so the claims
     // directory beside the records is reached by its path, checked through the authority-gated facet.
-    const markers = createProcessMarkers(projectSessionClaimsDirectory(this.sessions));
+    const markers = createProcessMarkers(projectSessionClaimsDirectory(this.sessions), {
+      operationLock: createProcessOperationLock(projectSessionClaimsDirectory(this.sessions)),
+    });
     this.records = new StoredSessionRecords(
       this.sealing,
       {
@@ -214,10 +220,24 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     // destroy the only copy — unless it is provably exactly what this instance last wrote or holds,
     // which is how a locked process goes on saving the sessions it is running. A plain or absent
     // file is replaced.
-    // TRANS-007: the versioned envelope, the same shape the host store and the share artifact carry;
+    // The versioned envelope, the same shape the host store and the share artifact carry;
     // sealed to the session's id by a store that seals, and tagged when it can vouch that the content
     // is the owner's and the keys are unlocked.
     this.records.save(session, options);
+  }
+
+  saveRestoreTransaction(
+    session: IInteractiveSessionRecord,
+    options?: ISessionSaveOptions,
+  ): TSessionRestoreCommitOutcome {
+    if (!options?.claim)
+      throw new TypeError('A live session claim is required for restore commit.');
+    try {
+      this.save(session, options);
+      return { status: 'committed' };
+    } catch (error) {
+      return { status: 'unknown', error };
+    }
   }
 
   /**
@@ -243,7 +263,7 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
   /**
    * Load a session, saying which of the five things happened.
    *
-   * **The replay log runs for `missing` and only for `missing` (TRANS-007).** It used to run
+   * **The replay log runs for `missing` and only for `missing`.** It used to run
    * whenever the parse failed, so a damaged snapshot was quietly replaced by a partial
    * reconstruction — no `goal`, no `plan`, no `activeBranch`, no `toolSchemas`, and no indication
    * that a more complete record was sitting on disk unreadable. Recovery is for absence; a damaged
@@ -365,7 +385,7 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
   /**
    * The outcome for one directory entry, without letting a bad NAME remove it from the listing.
    *
-   * `load` validates the id because a caller's malformed id is a bug or an attack (SEC-006). A name
+   * `load` validates the id because a caller's malformed id is a bug or an attack. A name
    * read out of the project directory is neither, and the two wrong answers are symmetrical: throw,
    * and one file takes the listing down; filter, and the file disappears exactly the way an
    * unreadable record used to. The second is what this store did.

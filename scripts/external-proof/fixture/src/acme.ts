@@ -6,10 +6,10 @@
 
 import { FunctionTool } from '@robota-sdk/agent-core';
 
-import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
+import type { ICapabilityPack } from '@robota-sdk/agent-product/capability-pack';
 import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type { IAgentDefinition, ICommandModule } from '@robota-sdk/agent-framework';
-import type { IPreset } from '@robota-sdk/agent-preset';
+import type { IPreset } from '@robota-sdk/agent-product/preset';
 
 /**
  * Already-resolved provider settings. In a real product the SHELL reads these from its own settings

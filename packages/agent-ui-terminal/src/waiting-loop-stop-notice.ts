@@ -3,7 +3,7 @@
  * The session decides which loop, if any, stops; both channels show its answer in the same words.
  */
 
-import type { TWaitingLoopStopOutcome } from '@robota-sdk/agent-interface-session';
+import type { TWaitingLoopStopOutcome } from '@robota-sdk/agent-interface/session';
 
 /** The reason the session records for a loop Esc stopped. */
 export const WAITING_LOOP_STOP_REASON = 'Loop stopped by Esc';

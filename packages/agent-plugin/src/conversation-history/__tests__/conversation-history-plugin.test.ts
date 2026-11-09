@@ -81,7 +81,7 @@ describe('ConversationHistoryPlugin', () => {
       ).toThrow(ConfigurationError);
     });
 
-    it('throws when database storage is missing a databaseDriver (PLUGIN-002)', () => {
+    it('throws when database storage is missing a databaseDriver', () => {
       expect(() => new ConversationHistoryPlugin({ storage: 'database' })).toThrow(
         ConfigurationError,
       );

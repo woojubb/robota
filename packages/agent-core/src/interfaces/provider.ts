@@ -50,7 +50,7 @@ export type { IProviderSpecificOptions } from './provider-specific-options';
 export type { TModelEffort, TModelEffortSelection } from './model-effort-capability';
 export { isModelEffort, MODEL_EFFORT_VALUES } from './model-effort-capability';
 
-// The universal JSON-schema subset moved to `./tool-schema` (CORE-039): it is its own concept,
+// The universal JSON-schema subset moved to `./tool-schema`: it is its own concept,
 // reached by producers, validators and four provider adapters, and `provider.ts` was over its
 // frozen size baseline. Re-exported here so every existing `from './provider'` import resolves.
 export type {
@@ -138,7 +138,7 @@ export interface IProviderNativeRawPayloadEvent {
 export type TProviderNativeRawPayloadCallback = (event: IProviderNativeRawPayloadEvent) => void;
 
 /**
- * Tool-invocation directive threaded per model invocation (CORE-017).
+ * Tool-invocation directive threaded per model invocation.
  *
  * Canonical SSOT for the union. `'auto'` lets the model decide (provider default),
  * `'none'` suppresses tool calls for the invocation, `'required'` forces the model to call
@@ -199,7 +199,7 @@ export interface IChatOptions extends IProviderSpecificOptions {
   toolChoice?: TToolChoice;
   /** Provider-native hosted web tools requested for this call */
   nativeWebTools?: IProviderNativeWebToolRequest;
-  /** Request structured output from the provider (CORE-015: `json_schema` carries the schema). */
+  /** Request structured output from the provider (`json_schema` carries the schema). */
   responseFormat?:
     | { type: 'text' | 'json_object' }
     | { type: 'json_schema'; name?: string; schema: Record<string, TUniversalValue> };
@@ -275,7 +275,7 @@ export interface IAIProvider {
   getCapabilities?(): IProviderCapabilities;
 
   /**
-   * What this provider's models can do (PROV-006/PROV-008).
+   * What this provider's models can do.
    *
    * `supportsTools()` answers for the vendor, which is the wrong granularity when models differ.
    * This is the per-MODEL answer, declared by the package that ships the adapter and reachable from
@@ -291,7 +291,7 @@ export interface IAIProvider {
   effortTable?(): IProviderModelEffortTable | undefined;
 
   /**
-   * Whether this provider instance is pointed at its vendor's own endpoint. CORE-043.
+   * Whether this provider instance is pointed at its vendor's own endpoint.
    *
    * A provider configured with a custom `baseURL` still speaks the vendor's protocol, but the
    * vendor's guarantees are no longer the ones in force — a gateway can accept a structured-output

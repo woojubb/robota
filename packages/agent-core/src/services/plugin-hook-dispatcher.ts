@@ -17,7 +17,7 @@ export type TPluginWithHooks = IPluginContract<IPluginOptions, IPluginStats> & I
 type TPluginHookHandler = (plugin: TPluginWithHooks, context: IPluginContext) => Promise<void>;
 
 /**
- * PLG-020 (issue #2460): the execution-level context the official plugins consume. Built from the
+ * The execution-level context the official plugins consume. Built from the
  * dispatcher's `executionContext` (string ids) plus the conversation messages, so `LimitsPlugin`,
  * `WebhookPlugin` and friends are reached by the production dispatcher rather than only by tests.
  */
@@ -33,7 +33,7 @@ function toExecutionContext(context: IPluginContext): IPluginExecutionContext {
 
 /** Map from hook name to its handler function */
 const HOOK_HANDLERS: Record<string, TPluginHookHandler> = {
-  // PLG-020 (issue #2460): the four execution-level hooks the official plugins implement, and the
+  // The four execution-level hooks the official plugins implement, and the
   // message hook the history plugin implements, were declared on `IPluginHooks` and dispatched by
   // nothing. They are dispatched here, at the same sites as their run-level siblings.
   beforeExecution: async (plugin, context) => {

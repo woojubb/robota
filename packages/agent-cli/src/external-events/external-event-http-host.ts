@@ -16,7 +16,7 @@ import type {
   TExternalEventAdmission,
   TExternalEventAuditRecord,
   TExternalEventRefusal,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 /**
  * The first external-event carrier: `POST <publicUrl>/events/<grantId>` over HTTP on loopback, behind

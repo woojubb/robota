@@ -1,6 +1,6 @@
 /**
- * MCP-002: project the product's own workspace-trust decision into the secret-free
- * `IMCPActivationWorkspace` `agent-mcp`'s admission service reads (MCP-001). No I/O — both inputs
+ * Project the product's own workspace-trust decision into the secret-free
+ * `IMCPActivationWorkspace` `agent-mcp`'s admission service reads. No I/O — both inputs
  * are already-resolved decisions; this module only reshapes them.
  */
 

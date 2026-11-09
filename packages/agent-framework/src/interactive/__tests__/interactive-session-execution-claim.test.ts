@@ -105,7 +105,7 @@ describe('interactive foreground execution claim ownership', () => {
   it('keeps the claim through callbacks and hands the queue off before re-entry', async () => {
     let reentrant!: Promise<unknown>;
     // `controller` is read inside the callback only after `createController` returns, so a `const`
-    // declared below is safe here (prefer-const, issue #2254).
+    // declared below is safe here (prefer-const).
     const persistSession = vi.fn(() => {
       expect(controller.executing).toBe(true);
       reentrant = controller.executeForegroundCommand(

@@ -145,7 +145,7 @@ describe('PromptExecutor', () => {
     expect(result.outcome).toBe('allow');
   });
 
-  // SEC-015 TC-05 — the executor must stamp its OWN type, not whatever the decoder was handed.
+  // The executor must stamp its OWN type, not whatever the decoder was handed.
   it('every outcome carries source: "prompt"', async () => {
     const sources: string[] = [];
     for (const response of [

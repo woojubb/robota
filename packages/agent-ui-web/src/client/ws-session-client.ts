@@ -72,7 +72,7 @@ export function createWsSessionClient(
     ws.onmessage = (event: MessageEvent): void => {
       const data = event.data;
       if (typeof data !== 'string') return;
-      // Issue #2045: `raw → owner decoder → typed`. A malformed frame (invalid JSON or an invalid
+      // `raw → owner decoder → typed`. A malformed frame (invalid JSON or an invalid
       // shape) must not throw inside the handler (it would break the socket's message pump and
       // freeze the UI) and must not be cast onward; surface it via the normal path.
       const decoded = decodeFrame(data, decodeServerMessage);

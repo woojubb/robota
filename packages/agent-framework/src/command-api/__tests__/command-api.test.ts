@@ -223,7 +223,7 @@ describe('command-api contracts', () => {
         model: 'gpt-5.1',
         apiKeyEnv: 'OPENAI_API_KEY',
       },
-      // CLI-068: the referenced variable must be set at configure time.
+      // The referenced variable must be set at configure time.
       { env: { OPENAI_API_KEY: 'sk-test-068' } },
     );
 
@@ -281,7 +281,7 @@ describe('command-api contracts', () => {
       'bypassPermissions',
       'auto',
     ]);
-    // #3282 §2: a plain label beside every raw mode id, so the TUI's inline picker and the GUI's
+    // A plain label beside every raw mode id, so the TUI's inline picker and the GUI's
     // mode menu can show the same words instead of the id or inventing their own.
     expect(buildPermissionModeSubcommands().map((command) => command.displayName)).toEqual([
       'Plan only',

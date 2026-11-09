@@ -1,5 +1,5 @@
 /**
- * Real-PTY organization-policy engineering regression scenario (CLI-083).
+ * Real-PTY organization-policy engineering regression scenario.
  *
  * Drives the built Fixture Agent CLI with an isolated HOME. Nothing injects a policy object into the
  * command module: the refusal can only come from the shipped `loadOrgPolicy()` startup path. The
@@ -37,7 +37,7 @@ function writeOrgPolicyFixture(homeDir: string): void {
   );
 }
 
-describe('organization policy through the built CLI (CLI-083)', () => {
+describe('organization policy through the built CLI', () => {
   let projectDir: string;
   let homeDir: string;
   let session: IPtySession | undefined;

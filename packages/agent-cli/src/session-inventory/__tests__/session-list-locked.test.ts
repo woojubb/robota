@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import { executeSessionListCommand } from '../session-list-command.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 function record(id: string): IInteractiveSessionRecord {
   return {

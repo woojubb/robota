@@ -1,13 +1,16 @@
 # Getting Started
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Robota provides composable TypeScript libraries and agent interfaces on the same foundation.
 Our direction is [our agents developing and advancing our agents](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md);
 this guide covers current capabilities. Use the SDK to build an agent or the `__PRODUCT_CLI_NAME__` CLI
 as a coding assistant. This page takes you from installation to a first agent, a session with
 built-in tools, and the CLI.
 
-> **Beta** — the packages are published as `3.0.0-beta` versions. APIs may still change before a
-> stable release. [Report issues](__PROJECT_REPOSITORY_URL__/issues).
+> APIs may change between releases. [Report issues](__PROJECT_REPOSITORY_URL__/issues).
 
 ## Which path is right for you?
 
@@ -44,7 +47,9 @@ For Ollama or llama.cpp, see [Local LLM Setup](../guide/local-llm.md).
 ## Prerequisites
 
 - **Node.js 22.12 or later** — the Robota CLI and every published `@robota-sdk/*` package declare
-  `node >=22.12.0`. Check with `node --version`.
+  `node >=22.12.0` for Node installations. The npm CLI and Node examples below need Node; check with
+  `node --version`. The current source separates neutral entries from Node adapters; check your
+  installed version for its available exports.
 - **An API key** for Anthropic, OpenAI, Gemini, DeepSeek or Qwen — _or_ a local model server such as
   LM Studio or Ollama (no key needed).
 - **macOS, Linux or Windows.** The OS sandbox for shell commands is available on macOS, Linux and
@@ -67,13 +72,13 @@ npm install -g @robota-sdk/agent-cli
 ### A custom AI agent
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-core @robota-sdk/agent-provider @anthropic-ai/sdk
 ```
 
 ### Tool calling (function tools)
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider-anthropic zod@3
+npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider @anthropic-ai/sdk zod@3
 ```
 
 `agent-tools` uses Zod 3; install `zod@3` so your schemas match it.
@@ -81,7 +86,7 @@ npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-pro
 ### Sessions with built-in tools, permissions and hooks
 
 ```bash
-npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-framework @robota-sdk/agent-provider @anthropic-ai/sdk
 ```
 
 ## Quick Start — CLI
@@ -152,7 +157,7 @@ __PRODUCT_CLI_NAME__
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -180,7 +185,7 @@ runs, and types the function's input from that schema.
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { z } from 'zod';
 
 const provider = new AnthropicProvider({
@@ -216,8 +221,8 @@ console.log(response);
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const agent = new ConversationAgent({
   name: 'MultiProviderAgent',
@@ -250,8 +255,8 @@ permission modes, hooks, compaction and streaming events. The tools come from th
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const session = new InteractiveSession({
   host: createNodeFrameworkHost({ createDefaultTools }),
@@ -281,7 +286,7 @@ If you leave out `model`, the session asks the provider for `claude-opus-4-5`.
 # Interactive TUI
 __PRODUCT_CLI_NAME__
 
-# One-shot (print mode; in a Git repository, trust it first with `__PRODUCT_CLI_NAME__ trust --yes`)
+# One-shot (print mode; in a Git repository, approve trust at a terminal first or use --safe-mode)
 __PRODUCT_CLI_NAME__ -p "List all TODO comments in this project"
 
 # With model override
@@ -307,7 +312,7 @@ __PRODUCT_CLI_NAME__ --model claude-opus-4-6
 **[iTerm2](https://iterm2.com/)** or another terminal, or use print mode (`__PRODUCT_CLI_NAME__ -p`). The CLI warns
 when it starts in Terminal.app.
 
-**Node.js version**: Robota needs Node.js 22.12 or later. Check with `node --version`. Use
+**Node.js version**: The npm CLI and Node examples need Node.js 22.12 or later. Check with `node --version`. Use
 [Volta](https://volta.sh/) or [nvm](https://github.com/nvm-sh/nvm) to manage versions.
 
 **API key not found**: Set your key as an environment variable (`export ANTHROPIC_API_KEY=...`), or

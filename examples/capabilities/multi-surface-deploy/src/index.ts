@@ -1,5 +1,5 @@
 /**
- * Capability: one agent definition → many channels (SELFHOST-013).
+ * Capability: one agent definition → many channels.
  *
  * The runtime needs no "gateway" to serve one agent over many surfaces. You build ONE session from one definition
  * (`createAgentRuntime(...).createSession(...)` / `buildRuntimeSession`), then bind it to as many transports as
@@ -16,15 +16,15 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { bindTransportAdapter, createAgentRuntime } from '@robota-sdk/agent-framework';
-import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createAnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { TransportRegistry } from '@robota-sdk/agent-framework';
-import { createHttpTransport } from '@robota-sdk/agent-transport-http';
-import { WsTransport } from '@robota-sdk/agent-transport-ws';
+import { createHttpTransport } from '@robota-sdk/agent-transport/http';
+import { WsTransport } from '@robota-sdk/agent-transport/ws';
 import {
   createFileTransportSettingsRepository,
   createNodeFrameworkHost,
 } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const host = createNodeFrameworkHost({ createDefaultTools });
 

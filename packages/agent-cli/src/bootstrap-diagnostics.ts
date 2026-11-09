@@ -1,12 +1,12 @@
 import { setGlobalLoggerSink } from '@robota-sdk/agent-core';
 
 /**
- * CORE-029 / NEUT-010: the runtime's diagnostics have a destination in this product.
+ * The runtime's diagnostics have a destination in this product.
  *
  * `agent-core` defaults to a silent sink and nothing in the repository installed one, so every
  * diagnostic it emits went nowhere — including "no metadata registered for model X, using another
  * vendor's default". Adding the WARNING without connecting a sink would have left the defect exactly
- * where it was while claiming it was fixed; review of #1595 said so, correctly.
+ * where it was while claiming it was fixed.
  *
  * STDERR, not stdout: the TUI owns stdout, and this process already writes its own errors to stderr.
  * The global level defaults to `warn`, so this carries warnings and errors and stays out of the way

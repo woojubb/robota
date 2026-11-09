@@ -11,7 +11,7 @@ async function tick(ms = 25): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-describe('InputArea ↓ fall-through into the background list (SCREEN-014)', () => {
+describe('InputArea ↓ fall-through into the background list', () => {
   it('requests background-list focus when ↓ is pressed on an empty input', async () => {
     const onRequestFocusBackgroundList = vi.fn();
     const { stdin } = render(

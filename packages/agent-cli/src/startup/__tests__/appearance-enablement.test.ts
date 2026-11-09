@@ -1,5 +1,5 @@
 /**
- * SCREEN-2002 TC-08 — the reduced-motion precedence chain.
+ * The reduced-motion precedence chain.
  *
  * The property that matters is that an override is REPORTED, not just applied. A user who runs
  * `/theme motion on` while a flag pins stillness must be told the setting was saved and why this run
@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 import { resolveAppearanceRenderFields, resolveReducedMotion } from '../appearance-enablement.js';
 
-describe('reduced-motion precedence (SCREEN-2002 TC-08)', () => {
+describe('reduced-motion precedence', () => {
   it('uses the settings when nothing above them has an opinion', () => {
     expect(resolveReducedMotion({ settings: true })).toEqual({ reducedMotion: true });
     expect(resolveReducedMotion({ settings: false })).toEqual({ reducedMotion: false });
@@ -53,7 +53,7 @@ describe('reduced-motion precedence (SCREEN-2002 TC-08)', () => {
   });
 });
 
-describe('the render fields the CLI passes down (SCREEN-2002 TC-08)', () => {
+describe('the render fields the CLI passes down', () => {
   it('reports the PERSISTED appearance alongside what this run uses', () => {
     const fields = resolveAppearanceRenderFields(
       { theme: 'light', syntaxHighlighting: false, reducedMotion: false },

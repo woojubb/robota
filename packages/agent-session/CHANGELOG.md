@@ -1,5 +1,503 @@
 # @robota-sdk/agent-session
 
+## 3.2.5
+### Patch Changes
+
+- The previous version of this package was tagged but never published to npm, because `main` moved past its release commit first. This version carries the same consolidated package set from the current `main`, with comment and test-name cleanups and no behavior change.
+
+## 3.2.4
+### Patch Changes
+
+- 327999e: The contract packages are now one package, `@robota-sdk/agent-interface`, with one subpath per family: `session` (and `session/testing`), `session-mobility`, `command`, `execution`, `analytics`, `transport` (and `transport/testing`) and `tui`. Import the subpath of the family you use (`@robota-sdk/agent-interface/session`); there is no root export. `@robota-sdk/agent-core` is now an optional peer dependency: `analytics` and `tui` need nothing, and a project that imports another family installs `agent-core` itself (the SDK packages that import those families declare it). The exported names and signatures are unchanged. `@robota-sdk/agent-interface-session`, `-session-mobility`, `-command`, `-execution`, `-analytics`, `-transport` and `-tui` no longer receive releases. The SDK packages that import a contract depend on `@robota-sdk/agent-interface`.
+- 913d334: The host primitives are now one package, `@robota-sdk/agent-os`, with one subpath each: `file-authority` (and `file-authority/testing`), `node-lock` and `process`. Import the subpath you use (`@robota-sdk/agent-os/process`); there is no root export, and a bundle that imports `process` contains no native binding. Koffi is now an optional peer dependency pinned to `3.3.1`: a project that imports `file-authority` or `node-lock` installs it itself, and a project that imports only `process` installs nothing. The exported names and signatures are unchanged. `@robota-sdk/agent-file-authority`, `@robota-sdk/agent-node-lock` and `@robota-sdk/agent-process` no longer receive releases. The framework, session, tools, executor and subagent-runner packages depend on `@robota-sdk/agent-os`; the packages that used the file authority or the lock declare `koffi` themselves, so their installs are unchanged.
+- 6953fad: On Windows, session-log sealing, prompt-history compaction and every other in-place rewrite now work instead of refusing every file. The file is confirmed by its file index, since a Windows path reports no device number, and the replacement is made after the catch-up because Windows will not rename over an open file. A prompt-history path that is a directory is now an error there, as on Linux and macOS, instead of an empty history.
+- Updated dependencies [1f900da]
+- Updated dependencies [327999e]
+- Updated dependencies [913d334]
+- Updated dependencies [bf901d7]
+- Updated dependencies [44f28ee]
+  - @robota-sdk/agent-core@3.2.3
+  - @robota-sdk/agent-interface@3.3.0
+  - @robota-sdk/agent-os@3.3.0
+
+## 3.2.3
+### Patch Changes
+
+- Drop dangling tracker references (deleted backlog IDs, stage labels and closed issue numbers) from shipped comments, type declarations and runtime messages, so agents reading this package are not sent after tickets that no longer exist. No behavior change.
+- Updated dependencies
+  - @robota-sdk/agent-core@3.2.2
+  - @robota-sdk/agent-interface-execution@3.2.3
+  - @robota-sdk/agent-interface-session@3.2.3
+
+## 3.2.2
+### Patch Changes
+
+- 8d05c9b: Allow compatible SDK dependencies to update independently.
+- Updated dependencies [8d05c9b]
+  - @robota-sdk/agent-interface-execution@3.2.2
+  - @robota-sdk/agent-interface-session@3.2.2
+
+## 3.2.1
+### Patch Changes
+
+- Updated dependencies [9e86321]
+  - @robota-sdk/agent-node-lock@3.2.1
+  - @robota-sdk/agent-core@3.2.1
+  - @robota-sdk/agent-file-authority@3.2.1
+  - @robota-sdk/agent-interface-execution@3.2.1
+  - @robota-sdk/agent-interface-session@3.2.1
+
+## 3.2.0
+### Minor Changes
+
+- e5ce7d6: Preserve restored background task identities and prepare scheduled tasks before resuming them. A resumed schedule activates only after the store confirms a complete save; an unknown result stops initialization without assuming which record is present. Paused schedules stay paused, and a normal shutdown retains scheduled tasks for the next resume.
+
+  When a claimed session has a background manager, it requires an exclusively bound built-in manager. Scheduled tasks in a claimed session require the built-in scheduled runner and a verifiable writer claim. Restoring schedules also requires a store that supplies the restore transaction. Custom managers and scheduled runners remain available to unpersisted sessions, but their saved schedules cannot be resumed. A manager must reserve restored IDs before a session with stored tasks can resume; an already-used manager is refused for a restore.
+
+  The built-in stores serialize claim verification and record replacement with cooperating marker transitions. This requires all writers sharing a session directory to use the operation lock; older writers must be stopped before upgrading. A same-user program that replaces the lock path can bypass this coordination. External commands do not have an exactly-once guarantee.
+
+  When a claimed session detects that it no longer owns the writer claim, it stops admitting wakes and reports a failure without intentionally saving over the new owner. A claim lost after an effect check can still permit an external effect. In-flight subprocess cancellation is best effort, and a process that has already started may still have effects.
+- ad5e9fb: Allow a verified owner driving an attached terminal to review an unverified stored session. Bind each decision to the attached surface and the exact claimed bytes, and discard it when the owner cancels or the link or keys are lost.
+
+### Patch Changes
+
+- 384a855: Coordinate cooperating Node processes with an operating-system-backed operation lock.
+- Updated dependencies [e5ce7d6]
+- Updated dependencies [12ab3f5]
+- Updated dependencies [ffaf7d5]
+- Updated dependencies [384a855]
+- Updated dependencies [ad5e9fb]
+  - @robota-sdk/agent-interface-session@3.2.0
+  - @robota-sdk/agent-interface-execution@3.2.0
+  - @robota-sdk/agent-core@3.2.0
+  - @robota-sdk/agent-node-lock@3.2.0
+  - @robota-sdk/agent-file-authority@3.2.0
+
+## 3.1.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.1.2
+  - @robota-sdk/agent-file-authority@3.1.2
+  - @robota-sdk/agent-interface-execution@3.1.2
+  - @robota-sdk/agent-interface-session@3.1.2
+
+## 3.1.1
+### Patch Changes
+
+- Updated dependencies [7e55f21]
+  - @robota-sdk/agent-file-authority@3.1.1
+  - @robota-sdk/agent-core@3.1.1
+  - @robota-sdk/agent-interface-execution@3.1.1
+  - @robota-sdk/agent-interface-session@3.1.1
+
+## 3.1.0
+### Minor Changes
+
+- bc8de21: Every CLI process that builds a conversation store (session records, prompt history, tool-result
+  spill, edit checkpoints) now records that it is running: an owner-only directory under `presence/` in
+  its state root holding its pid, start time and how it was started, removed when it ends, including on
+  a hangup, interrupt or termination. A subagent worker does the same when it binds the grant its
+  parent sends. The next start removes one a killed process left once its pid has ended. A command that
+  builds no store creates none, and a presence that cannot be created is reported once on stderr while
+  the session goes on. A tool that lists the state root may see `presence/` while a process runs.
+
+  `secure migrate [--dry-run]` and `secure compact` are reserved for secure mode, which cannot be turned
+  on yet: until it can, both refuse with a fixed message and write nothing, and neither is listed in the
+  usage. Neither is a slash command, a skill or anything a transport can reach.
+
+  `@robota-sdk/agent-session` adds `compactPromptHistoryFile(path, { sealer })`, which rewrites the
+  prompt history with every entry sealed, one per line, replaces the file by rename and catches up what
+  terminals appended meanwhile, and `inspectPromptHistoryFile(path, { sealer })`.
+  `@robota-sdk/agent-core/node` adds `inspectProcessScopedDirectories(parent, prefix)`,
+  `ownerOnThisMachine(owner, current)` and `stageOwnerOnlyFile(path, content)`, and
+  `createProcessScopedDirectory` takes `readStartTime` and `durable`.
+
+  What to do: nothing.
+- bc8de21: `secure migrate`, still reserved for secure mode (which cannot be turned on yet), now converts every
+  conversation store after the prompt history: the user's session records, the subagent transcripts,
+  and the state of each trusted project on a host that can write project state (session records, replay
+  logs with their payload files, edit checkpoints, and pending memory candidates, which are deleted). It
+  then deletes what earlier runs left behind: temp files of crashed writes, sessions kept aside during a
+  hand-off, `/editor` buffers in the shared temporary directory and the scratch directories of
+  processes that are gone. What it cannot seal safely (a link or a file with another hard link,
+  untrusted and non-Linux projects, the SDK's spill directories, anything that does not open with the
+  keyring) is listed and left as it is. `--dry-run` shows exactly what a run would do and changes
+  nothing. A run that leaves plaintext which a rerun or moving a file aside would remove ends
+  incomplete (exit 5) and says what to do; plaintext it can never seal (a project record or log past
+  the project read limit once sealed, checkpoint turns kept plain) is listed, and the run still ends
+  done. A run stopped part-way finishes when started again. `/rewind` names `<cli> secure migrate`
+  for a checkpoint whose sealed copy is still waiting.
+
+  `@robota-sdk/agent-session` adds `migrateNodeSessionStore`, `readSessionStoreWorkingDirectories`,
+  `migrateSessionLogDirectory`, `readPromptHistoryProjects` and the format helpers they share.
+  `@robota-sdk/agent-framework` adds `migrateWorkspaceProjectSessionRecords`,
+  `migrateWorkspaceProjectSessionLogs`, `migrateWorkspaceEditCheckpoints` and
+  `migrateSubagentTranscripts`; `EditCheckpointUnreadableError` gains `unfinishedMigration`; and
+  `createNodeWorkspaceTrustStore(path, { tightenOnRead: false })` reads a trust store without narrowing
+  its mode. Nothing calls the converters outside a migration.
+
+  What to do: nothing.
+- bc8de21: `TSessionLoadOutcome` gains a fifth status, `locked`: the record is there and sealed, and this
+  process cannot open it right now (`reason: 'no-keys'` when the store keeps its records `'plain'`,
+  `'changed'` when a held session's file changed since). `list()` leaves locked sessions out, since
+  there is no record to describe; the optional `scan()` returns the listing together with how many it
+  left out — `locked`, which an unlock would list, and an optional `noKeys` for those sealed with keys
+  this process does not have — and `scanSessionStore`/`listResumableSessions` in
+  `@robota-sdk/agent-framework` read it. `lockedSessionReason`, `lockedSessionMessage(id, reason)` and
+  `lockedSessionsNotice(locked, noKeys)` word a sealed session by why it does not open, so only locked
+  keys are ever met with "unlock"; resume, rename, hand-off, usage and the CLI's notices follow them. A
+  served session listing carries how many sealed sessions the host cannot open, its keys locked or
+  none that open them, as `lockedSessionCount`; the reason does not cross the wire, so the terminal
+  picker and the web session list say how many are sealed and not listed, never to unlock.
+
+  `@robota-sdk/agent-interface-analytics` adds an optional `IPersonalUsageCoverage.lockedSessions`, the
+  number of sealed sessions a usage report could not open (locked keys, or none that open them).
+  `@robota-sdk/agent-session-analytics` adds an optional `IPersonalUsageSnapshot.lockedSessionCount`,
+  which fills it, and the formatted report then reads `locked N` in its coverage line.
+
+  What to do: a `switch` over `outcome.status` handles `locked`; when you write, treat it like
+  `corrupt` (do not save over it). A surface that lists sessions can show `scan().locked` and
+  `scan().noKeys` so sealed sessions do not look deleted.
+- bc8de21: A session file whose record carries an id other than the one in its file name now loads as
+  `corrupt` (issue `the record belongs to another session id`) instead of as that other session, and
+  a project replay log whose entries name another session no longer rebuilds one. A record copied or
+  renamed to another id's file was being resumed, listed and saved under the wrong id. A load that
+  cannot read the file for a reason other than "no such file" also reports `corrupt`, never `missing`.
+
+  What to do: if you renamed session files by hand, rename them back to `<record id>.json`.
+- bc8de21: Every store that keeps conversation content now states how it seals (`TArtifactSealing`, from
+  `@robota-sdk/agent-core`), and has no plain default: a store left plain beside sealed ones would
+  write plaintext next to them. `{ sealing: { sealer } }`
+  seals with an `IArtifactSealer` (bound to the record, line or file it belongs to), and
+  `{ sealing: 'plain' }` writes plain JSON, lines and files as before. A store that seals reads plain
+  content too and seals what it rewrites; a store that does not seal meets a sealed file as `locked`.
+
+  What breaks, and what to do: the `sealing` option is required (omitting it is a compile error and a
+  `TypeError` at run time) wherever a store is built or read, so pass `{ sealing: 'plain' }` to keep
+  what you have.
+
+  - `@robota-sdk/agent-session`: `NodeSessionStore(baseDir, { sealing, ownedRoot? })`, where `ownedRoot`
+    moves from a positional argument into the options; `NodePromptHistoryFile`, `NodeSessionLogSink`,
+    `NodeSessionLogSource`, `NodeExternalPayloadSource` (with an optional `ownerId`) and
+    `NodeToolResultSpillStore` take it in their options.
+  - `@robota-sdk/agent-framework`: `createUserSessionStore(dir, { sealing })`,
+    `createNodeHostSessionStore(dir, { sealing, ownedRoot? })` (same move of `ownedRoot`),
+    `createProjectSessionStore(sessions, logs, { sealing })`, `WorkspaceProjectSessionStore`,
+    `createUserPromptHistoryFile`, `WorkspaceSessionLogSink`, `WorkspaceSessionLogSource` and
+    `createNodeToolResultSpillStore`. `IWorkspaceProjectStateStorage.replaceBytes` is required: the
+    project session store replaces a record whole through it, so a storage of your own implements it
+    (the framework's storage does).
+
+  A sealing append store writes each append as one sealed line and each log sidecar sealed under a
+  random name. The log sources gain `readStoredLines()`, which returns every line as readable, locked,
+  not opening, or sealed by a newer build, while `readText()` stays strict and throws
+  `ArtifactLockedError`, `ArtifactCorruptError` or `SessionLogDecodeError`. `StoredLines`,
+  `StoredPayloads` and `splitStoredLines` are exported for hosts that build their own append stores.
+  `IPromptHistoryBlock` gains an optional `unreadable: { locked, noKeys }`, and the terminal's Ctrl+R
+  search says how many prompts are sealed and whether an unlock would let it search them. A project
+  store reads its replay logs with its own sealing and reports a log it cannot read as `locked`,
+  `corrupt` or `unsupported`; a plain log whose payload file is missing or does not match is now
+  `corrupt` too, where `load` and `list` used to throw, and `/validate-session` says when the log is
+  sealed instead of failing with an error.
+
+  A sealing spill store writes each result sealed and bound to its reference as `<token>.sealed` and
+  answers `read-failed` for one that does not open. In either mode a result whose file is already gone
+  when it expires or at shutdown now counts as removed, where that cleanup used to fail with
+  `cleanup-failed` every time, and with it every later write.
+- 82663df: One session has one writer across processes. Every claim of a session id now holds the id's writer
+  marker in a `claims/` directory beside the records, so a second opener of a session another process
+  has open is refused with `has_writer`, naming that process — `-r`, `-c`, the resume picker, ACP
+  `session/load`, the served and desktop pool, a served switch, rename and delete. This is a break: a
+  session that two processes could open at once before is now refused in the second one.
+
+  `@robota-sdk/agent-core` adds exclusive process markers: the neutral `IProcessMarkers` port with its
+  result types, and `createProcessMarkers` on `./node`. A marker is published by hard-linking a flushed
+  temp file, moved or removed only under its break lock, and re-verified by its handle before each
+  write. The owner record and its liveness rule are now one exported classifier,
+  `classifyProcessOwner`, shared with process-scoped directories.
+
+  `@robota-sdk/agent-interface-session` and `@robota-sdk/agent-session`: `StoredSessionRecords` takes
+  the marker port, and a store without one does not exist. `claim(id, { lease })` takes over a lent
+  marker and `claim(id, { copy: true })` reads a record to copy it without one. `lend(id)` is new: it
+  lends a record to another process for as long as that process runs and returns `{ nonce, end() }`.
+  Every write of an id holds its marker, and a save whose marker another process broke is refused as
+  `released`, never written. `hasWriter` now sees other store instances and processes. Removed, since
+  `lend` replaces them: `ISessionAuthorship.exportEnded`, the store's export bookkeeping
+  (`hasUnclaimedWriter`), the `exported` claim refusal and the `exported` adopt result.
+  `TSessionClaimRefusal` is `has_writer | released`, `TSessionAdoptResult` has `has_writer` in place of
+  `exported`, and `has_writer` is a session change and delete refusal code. A store may name its release
+  command for a refusal (`releaseCommand`). A refusal of a record lent to a subagent names the
+  subagent's process once it took the marker over, and says a subagent this process started holds it
+  before (`holder.lent`); `SessionClaimedError.closing` is true only for a session of this process that
+  has not let its claim go, which is the one refusal a caller may wait out (`still_closing`).
+
+  `@robota-sdk/agent-subagent-runner`: the parent lends a fork job's record before it spawns the child,
+  in either mode; the lease nonce rides on the start payload (`resumeLease`); the child claims its
+  record under the lease, saves under that claim and releases it on every exit; the parent ends the
+  lease once the child has exited and disconnected, then countersigns under its own marker. A running
+  child-process fork therefore has one writer, and attaching to it is refused until the job ends.
+
+  `@robota-sdk/agent-cli` adds `session release <id> [--force]`, the user's own command for a marker a
+  crashed or planted process left: on its own it removes only a marker whose process has ended, and
+  `--force` removes one whose process may still run only at a terminal and after a y/N. `secure migrate`
+  leaves a session open in another process as it is and names it.
+
+  A terminal start whose resumed session another process holds now ends with the store's refusal, as print
+  mode does, instead of Ink's error screen; `@robota-sdk/agent-framework` exports `claimRefusalMessage`
+  for it, and `claimChangeRefusal` / `claimDeleteRefusal`, which turn a store's claim refusal into the
+  client's: `still_closing` for a switch or rename (and `running` for a delete) when a session of this
+  process is still closing, `has_writer` in the store's words otherwise. Served rename and delete now
+  let the store's write refuse in those words. `@robota-sdk/agent-ui-terminal`: picking a session another process or a subagent holds in the
+  resume picker leaves the person on their session, with the store's words as a notice, instead of
+  stopping it and blocking the UI on a retry of the same refusal.
+- bc8de21: Subagent transcripts and fork jobs work with sealed conversation stores.
+
+  What breaks, and what to do:
+
+  - `createChildProcessSubagentRunnerFactory` and `ChildProcessSubagentRunner` require `logSealing`:
+    how the children keep their logs, `{ sealer }` or `'plain'`. A host that seals passes its sealer
+    and implements `bindWriteGrant(grant)` in its worker composition; any other host passes `'plain'`.
+  - `createSubagentLogger(parentSessionId, agentId, baseLogsDir, { sealing }, fs?)` requires `sealing`
+    as its fourth argument, ahead of the optional file system; pass `'plain'` for a plain log.
+  - `TSubagentWorkerParentMessage` gains `{ type: 'sealing_key'; grant }`, which
+    `isSubagentWorkerParentMessage` accepts: a worker of your own handles it by binding the new grant,
+    or stops when it cannot seal to it.
+
+  What is new:
+
+  - A fork job's log is now read from the file the child writes. The child names its log after the
+    session it runs (the forked record, else the task) and the parent read `<taskId>.jsonl`, so
+    `/agent read` on a fork job showed "No log lines", and with worktree isolation (the default for
+    `/fork`) the read was not offered at all. `resolveSubagentLogSessionId`,
+    `resolveSubagentTranscriptPath` and `readSubagentTranscriptPage(path, { sealing })`
+    (`@robota-sdk/agent-framework`) are the one rule both sides use.
+  - In a sealed log a page's offset counts stored records, so it names the same record whether or not
+    the keys are locked. `IBackgroundTaskLogPage` gains an optional `unreadable` count of records the
+    page could not show (`locked`, `noKeys`, `doesNotOpen`); a run of locked records shows as one fixed
+    line, and `/agent read` and `/background read` say whether an unlock would read them.
+  - `IInteractiveSessionStore.save` takes optional `{ handoff }`, and the store port gains optional
+    `exportHeld(id, { keep })` and `importHeld(id, token)`, implemented by `NodeSessionStore` and
+    `WorkspaceProjectSessionStore`: a record written for a fork job is kept apart from the sessions a
+    sealing store runs and handed to the job once. A fork job restores from a read made the way a
+    writer reads, so an in-process fork job restores the fork `/fork` just wrote while the keys are
+    locked. A sealed record a write-only store cannot open loads as
+    `{ status: 'locked', reason: 'no-keys' }`.
+  - `@robota-sdk/agent-subagent-runner`: with a sealer, the start payload carries the write grant (no
+    secret) the sealer issues when the payload is sent and, for a fork job, the parent's held record as
+    `resumeHeld` (at most 32 MiB; the job is refused before anything is made for it when none can be
+    handed over, naming "unlock" only when locked keys are why). A child already sent its payload gets
+    a newer grant as a `sealing_key` message, and one that cannot follow it stops. `bindWriteGrant`
+    must return a sealer whose `writeGrant()` equals the grant, or the job fails. `ISubagentRunner`
+    gains optional `preflight(job)`, which refuses what `start` would and changes nothing; the worktree
+    runner calls it before it prepares a worktree. A job whose start payload cannot be built or sent
+    after its child was spawned now cancels the child before it rejects.
+  - Job handles may say `transcriptSealed`, and the manager projects it into the task state beside
+    `transcriptPath` (`IBackgroundTaskState`, `ISubagentJobState`), where the session record codec
+    accepts it. A job-group result gets `transcriptSealed` too. SubagentStart/Stop hooks get
+    `transcript_sealed: true` beside the transcript path, and `summarizeBackgroundJobGroup` points at
+    `/agent read <taskId>` instead of the path, also for a group restored in a later session.
+- 04c3233: The universal parameter-schema subset gains size bounds: `minLength`, `maxLength`, `minItems`, `maxItems`, `minProperties` and `maxProperties`. They are enforced by `validateAgainstJsonSchema` and by `FunctionTool` (at the root too), persisted and reloaded in session records, and kept by MCP schema narrowing, so a server such as Exa no longer prints an unenforceable-schema diagnostic for them. A bound that is not a non-negative integer is dropped and reported. Per provider: OpenAI strict mode keeps `minItems`/`maxItems` and leaves the others off the wire with a Schema note, Gemini carries all six, standard JSON Schema surfaces carry them unchanged, and Anthropic's `output_config.format` omits them along with `minimum`/`maximum`, which it answers with a 400. `ISchemaClosureOptions` gains `omitKeywords`.
+- fab48ad: The CLI keeps spilled tool results and the `/editor` buffer in owner-only, per-process directories of its state root instead of the shared operating-system temporary directory. They are removed when the run ends, including on a hangup, interrupt or termination, and the next start removes those a killed run left behind.
+
+  `NodeToolResultSpillStore` and `createNodeToolResultSpillStore` take a `parentDirectory`: an existing owner-only directory the host owns, used as it is. A store there records its owner, is removed when the process ends without `shutdown()`, and can be cleaned up after a kill with the new `sweepStaleToolResultSpillDirectories(parent)`. The process-scoped directory helpers behind this are exported from `@robota-sdk/agent-core/node`.
+- d8cb04f: Make the session package platform-neutral.
+
+  - `@robota-sdk/agent-core` exports `isAbsolutePath`, `resolvePath` and `joinPath` — lexical path helpers that read the platform from the path text (a drive letter or `\\` is a Windows path, anything else POSIX) and never touch the process directory — and `utf8ByteLength`.
+  - `@robota-sdk/agent-session`: `NodeSessionStore`, `NodeSessionLogSink`, `NodeSessionLogSource`, `NodeExternalPayloadSource`, `NodeToolResultSpillStore` (with `ToolResultSpillError`, `sweepStaleToolResultSpillDirectories` and its option and code types) and `NodePromptHistoryFile` (with `DEFAULT_PROMPT_HISTORY_BLOCK_BYTES` and `parsePromptHistoryLine`) moved to the new `@robota-sdk/agent-session/node`, which also exports `createNodeWorkspacePathResolver` and `registerProcessExitFlush`. The main entry no longer reaches a Node built-in, a Node global or `@robota-sdk/agent-file-authority`; the sealed-store and migration exports (`StoredSessionRecords`, `StoredLines`, `StoredPayloads`, `sessionSealingOf`, `assertSessionSealing`, the `seal*` converters, `migrateNodeSessionStore`, `migrateSessionLogDirectory`, `compactPromptHistoryFile` and their companions) are on `./node` too. `ISessionLogSink`, `ISessionLogSource`, the external-payload ports, `createSessionLogExternalPayloadReference`, `loadSessionForUpdate` and the sealed-session and claim refusals stay on the main entry.
+  - `@robota-sdk/agent-session`: `hookTypeExecutors` is a required option of `Session`, `PermissionEnforcer` and `CompactionOrchestrator`; a missing list throws at construction instead of defaulting to the command and HTTP executors (pass `[new CommandExecutor(), new HttpExecutor()]` from `@robota-sdk/agent-core/node`, or `[]` to run no hook handler).
+  - `@robota-sdk/agent-session`: three host pieces became options with no Node default. `homeDirectory` is no longer read from the operating system — absent, the home directory is unknown, so `~` and any home-relative target not provably inside it (`~/..`) are refused, and a path inside it is not expanded. `resolveInWorkspace` replaces the built-in symlink-following resolver — absent, a shell command with a path operand is not judged read-only. `canonicalizePath` replaces `realpathSync` in snapshot, journal and approval checks — absent, directories are compared as written. `FileSessionLogger` takes `registerExitFlush` instead of listening on `process`; it registers once per distinct function.
+  - `@robota-sdk/agent-session`: the execution root accepts a Windows drive or UNC root on any host and rejects a drive-less rooted path (`\work`) on a Windows host, where it was accepted before; a payload reference's `relativePath` is always written with `/` (readers accept either separator).
+  - `@robota-sdk/agent-roundtable-robota`: `SessionHostOptions` requires `hookTypeExecutors`, as it extends the session options.
+  - `@robota-sdk/agent-framework` passes the Node home directory, workspace resolver, `realpathSync` and exit registrar, and the command and HTTP executors, wherever it builds a session, so the CLI behaves as before.
+- 44e9640: Serialize cooperating session record mutations and marker transitions with a crash-released per-session operation lock. Marker construction now requires a host lock, and hosts must stop older writers before sharing their session directory with the new version. Forced release does not stop a running writer or its children.
+- b56b5a9: Ship one build per package. The platform-neutral entries moved from `dist/node` to `dist`, and the second
+  `dist/browser` build of `@robota-sdk/agent-core`, `@robota-sdk/agent-transport`,
+  `@robota-sdk/agent-ui-web` and `@robota-sdk/agent-transport-webrtc-web` is gone: a neutral entry runs
+  unchanged in every runtime, so a subpath's `exports` map `import` and `require` to the same files and no
+  longer a `node` or `browser` condition (a Node-only subpath keeps `"browser": null`). Import specifiers
+  and the code behind them are unchanged; only a deep import of `dist/node/*` or `dist/browser/*` breaks.
+  `@robota-sdk/agent-transport/client` also ships a CommonJS build now.
+
+### Patch Changes
+
+- bc8de21: Rolling back through a session's first checkpoint now survives a resume. The next turn after such a
+  rollback starts a fresh root line, as documented, but the saved session kept no pointer for that
+  cleared head, so a resumed session continued the line that was rolled back. The session record now
+  saves `activeBranch` as `{ branchId, checkpointId: null }` for it, and `IActiveBranchPointer.checkpointId`
+  is `string | null`.
+
+  What to do: code that reads `activeBranch.checkpointId` handles `null`, which means the head was
+  cleared on purpose, not that the pointer is missing.
+- bc8de21: Edit checkpoints can be sealed, and every `EditCheckpointStore` now states how it keeps them.
+
+  - `EditCheckpointStore` requires `sealing`: `{ sealer }` seals every manifest and pre-image, bound to
+    its session, turn and pre-image number so one moved elsewhere does not open there; `'plain'` keeps
+    them as they are. `stateStorage` only says where they live (the project's checkpoint directory when
+    omitted), and `sealedOnly: true` is for state made for one process, which never held a plain
+    checkpoint. A sealed store numbers new checkpoints from directory names alone and refuses with
+    `EditCheckpointNumberingExhaustedError` at the highest number, after which an interactive turn runs
+    without a checkpoint and its history says why.
+  - `IEditCheckpointStateStorage` requires `replaceBytes(path, content, purpose)`, which replaces a file
+    whole; `createDirectoryEditCheckpointState` and the project's checkpoint state have it.
+  - A checkpoint that cannot be read (damaged, written by a newer build, or sealed and locked) is
+    reported instead of failing the whole read: `EditCheckpointsLockedError` (an `ArtifactLockedError`
+    with its `reason`) for locked keys or no keys, `EditCheckpointUnreadableError` for a restore or
+    rollback range holding one, refused before any project file is written. The store takes an optional
+    `keysLocked` gate, and `countUnreadable()` and `listing()` say how many `list()` left out. `/rewind
+  list` prints that count and `/rewind inspect` marks a recorded size and a plan that would be refused.
+  - The branch head moves to a new checkpoint only once its manifest is written; a failed write used to
+    leave the head on the unwritten checkpoint, so the next turn became its own parent and walking its
+    ancestors never ended. `CheckpointTree.ancestors` (`@robota-sdk/agent-session`) also stops where
+    parent edges loop back.
+
+  What to do: pass `sealing: 'plain'` to every `new EditCheckpointStore(...)` that does not seal, and add
+  `replaceBytes` to a storage of your own.
+- eabce48: A record a store that seals does not verify as the owner's is never resumed, chosen or vouched for
+  without the owner's word.
+
+  - Resume: `-c` continues the newest verified session and stops when a newer unverified one exists
+    (asking at a terminal, exiting elsewhere). `-r` takes a verified or plain record's exact id, then
+    such a record's name, then any other record's id, and refuses a text that is both a verified
+    record's name and the id of a record that is unverified or does not read
+    (`ambiguousSessionNameMessage`); a store that never seals has no verified record, so there an
+    exact id answers before a name and nothing is refused as ambiguous. Breaking:
+    `resolveSessionIdByIdOrName` returns a `TSessionIdResolution` (`found`, `ambiguous` with `namedId`
+    and `otherId`, `not-found`) instead of an id. An unverified id, or one picked in the picker, is
+    shown in fixed text (`unverifiedSessionNotice`, `UNVERIFIED_SESSION_QUESTION`) and asked about —
+    before startup only when stdin, stdout and stderr are all a terminal; a yes hands the session the
+    digest of exactly the bytes shown. Surfaces with no one to ask refuse
+    it, a served switch with the new change-refusal code `unverified`. Listings put unverified records
+    after verified ones, the picker marks them first and cuts their names short, and
+    `session list --json` adds `authorship`.
+  - Forks: a child handed a sealed record runs it only when the parent held it as the owner's, and
+    reports each save of it as the new `record_saved` member of
+    `TSubagentWorkerChildMessage`, and the parent vouches for the last one once the child is gone, when
+    the job started from the owner's own record and no save was refused.
+  - Migration: `secure migrate` offers once, at the end of a finished interactive run, to mark the
+    sessions it sealed from plaintext (`sealedRecords` on the migration results) as yours. Each store
+    is marked on its own; one it could not reach is named, and records the keys locked before marking
+    are said to be not marked, to be marked when resumed, apart from changed ones.
+
+  What to do: handle `unverified` and `record_saved` where you switch on `TSessionChangeRefusalCode`
+  or `TSubagentWorkerChildMessage`, and read `resolveSessionIdByIdOrName`'s `status`.
+- eabce48: Session stores claim the sessions a process runs, and a store that seals says whose each record is.
+
+  - Breaking: `IInteractiveSessionStore.claim(id, { fresh })` and `hasWriter(id)` are required.
+    `claim` reads the record as the hold read a running session restores from and claims the id; a
+    second claim, or a claim of a record handed to a subagent process that may still save it, throws
+    `SessionClaimedError` (`isSessionClaimedError`, from `@robota-sdk/agent-session`; reasons
+    `claimed`, `released`, `exported`), and a save of a claimed id must carry its live claim
+    (`ISessionSaveOptions.claim`), so a one-off save of a running session's id (a rename or a handoff
+    receive from elsewhere) is refused. `hasWriter` says whether a claim or such an export stands for
+    the id. `NodeSessionStore` and the project store claim whether or not they seal.
+  - A store that seals tags what an unlocked process writes with an authorship tag only the unlocked
+    keys make, and every `valid` outcome carries `authorship: 'verified' | 'unverified'`, the `digest`
+    of the stored bytes, and `diverged: true` for a running session's id whose file something
+    unverifiable changed. Its sealing-only operations are one member, `authorship?: ISessionAuthorship`
+    (`adopt`, `heldDigest`, `exportEnded`, `onUnlock`), absent from a store that never seals; `adopt`
+    raises exactly the bytes with that digest and never a record handed to a process that may still
+    save it (`'adopted' | 'pending' | 'changed' | 'exported'`). The token `exportHeld` hands a child
+    says whether the store held the record as the owner's, and the child reads it as verified only then.
+  - New: `ISessionSaveOptions.provenance`, `ISessionExportOptions.handoffOnly`,
+    `IResumableSessionSummary.authorship`. `StoredSessionRecords` reaches a store's files through one
+    adapter, `IStoredSessionFiles`, and keeps its bookkeeping internal. `decorateSessionStore`
+    (`@robota-sdk/agent-framework`) wraps a store without dropping a member.
+
+  What to do: a session store of your own implements `claim` and `hasWriter`. A store that keeps its
+  records plain writes no authorship and has no `authorship` member.
+- bc8de21: `NodeToolResultSpillStore` and `createNodeToolResultSpillStore` require `parentDirectory`, an existing
+  owner-only directory the host owns, and no longer fall back to a private directory under the shared
+  operating-system temporary directory. Spilled tool results are conversation content, so they never go
+  anywhere the host did not choose.
+
+  What to do: pass your own owner-only directory (the CLI passes one in its state root). The store's
+  directory in it is removed by `shutdown()`, when the process ends without reaching it, and, after a
+  kill, by `sweepStaleToolResultSpillDirectories(parent)`.
+- 0a677e9: Make model-native web search a provider construction option. Sessions no longer switch it on (`IAIProvider.configureNativeWebTools` is removed); an Anthropic profile enables it with `options.nativeWebTools.webSearch`, and a provider definition declares the hosted web tools it supports in `nativeWebTools`. The CLI turns native web search on by default for every definition that declares it, unless the profile sets `nativeWebTools` itself.
+- 1c19435: Give every process marker publication a fresh generation so a session writer cannot mistake a later marker from the same process for its own when the filesystem reuses an inode. Existing marker records remain readable. All writers sharing a session directory must use the cooperating operation-lock protocol.
+- Updated dependencies [bc8de21]
+- Updated dependencies [51ad6a4]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [82663df]
+- Updated dependencies [bc8de21]
+- Updated dependencies [04c3233]
+- Updated dependencies [9bc13f9]
+- Updated dependencies [830d3d2]
+- Updated dependencies [0a677e9]
+- Updated dependencies [5b46d43]
+- Updated dependencies [fab48ad]
+- Updated dependencies [ea0e424]
+- Updated dependencies [0fec62f]
+- Updated dependencies [b7b6cd0]
+- Updated dependencies [8069d0e]
+- Updated dependencies [f5e3057]
+- Updated dependencies [d8cb04f]
+- Updated dependencies [44e9640]
+- Updated dependencies [b56b5a9]
+- Updated dependencies [1c19435]
+- Updated dependencies [4e4c92a]
+  - @robota-sdk/agent-core@3.1.0
+  - @robota-sdk/agent-interface-session@3.1.0
+  - @robota-sdk/agent-interface-execution@3.1.0
+  - @robota-sdk/agent-file-authority@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.7
+  - @robota-sdk/agent-file-authority@3.0.7
+  - @robota-sdk/agent-interface-execution@3.0.7
+  - @robota-sdk/agent-interface-session@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+- Tighten legacy world-readable session records to owner-only when the session store reads or lists them.
+- Redact `authToken` values from persisted session logs and share artifacts.
+- Updated dependencies [7c4eb0d]
+  - @robota-sdk/agent-file-authority@3.0.6
+  - @robota-sdk/agent-core@3.0.6
+  - @robota-sdk/agent-interface-execution@3.0.6
+  - @robota-sdk/agent-interface-session@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-file-authority@3.0.5
+  - @robota-sdk/agent-interface-execution@3.0.5
+  - @robota-sdk/agent-interface-session@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+  - @robota-sdk/agent-file-authority@3.0.4
+  - @robota-sdk/agent-interface-execution@3.0.4
+  - @robota-sdk/agent-interface-session@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.3
+  - @robota-sdk/agent-file-authority@3.0.3
+  - @robota-sdk/agent-interface-execution@3.0.3
+  - @robota-sdk/agent-interface-session@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+  - @robota-sdk/agent-file-authority@3.0.2
+  - @robota-sdk/agent-interface-execution@3.0.2
+  - @robota-sdk/agent-interface-session@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

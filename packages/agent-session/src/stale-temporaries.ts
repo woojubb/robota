@@ -1,5 +1,5 @@
 /**
- * Temporary files a crashed write left in a store directory of the user state (#3679): an atomic
+ * Temporary files a crashed write left in a store directory of the user state: an atomic
  * owner-only write's `<name>.<pid>.tmp`, and an append-file rewrite's `.<name>.<pid>.<hex>.tmp`. Such
  * a file may hold a whole record in plaintext, and nothing ever reads or removes it.
  *

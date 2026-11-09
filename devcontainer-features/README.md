@@ -3,7 +3,7 @@
 The Feature installs the selected product CLI into an existing Debian or Ubuntu development
 container. It does not replace the hardened operator image in `docker/robota`.
 
-The proposed registry reference is **not published yet**:
+The published registry reference is:
 
 ```json
 {
@@ -27,12 +27,13 @@ under `/usr/local/lib/<product-id>` and exposed in `/usr/local/bin`, outside the
 volume cannot hide it. The default binary installer is the exact existing product installer bundled
 at preparation time, including its checksum verification.
 
-Profiles, settings and trust survive ordinary rebuilds with the same remote-user UID/GID. A state
+Profiles and settings survive ordinary rebuilds with the same remote-user UID/GID. Workspace trust
+belongs to the live trust manager and requires a new approval after it stops. A state
 path under an arbitrary remote home cannot be expressed portably in static Feature metadata; this
 explicit volume path avoids depending on the container user's HOME when remoteUser differs.
 Existing state in a user's home is left untouched. It is not copied, merged or migrated automatically.
 Move only the data you intend to retain after inspecting both locations; never bake credentials or
-trust grants into a shared image.
+private state into a shared image.
 
 Changing the remote user's UID/GID can leave either a fresh or existing volume with the previous
 owner. The launcher refuses that state before the CLI starts. It never changes ownership, widens
@@ -52,7 +53,8 @@ world-writable state directory as a workaround.
 
 ## Trust and sandbox
 
-No workspace is trusted automatically. Run `__PRODUCT_CLI_NAME__ trust` yourself when appropriate.
+No workspace is trusted automatically. Run `__PRODUCT_CLI_NAME__ trust` interactively when appropriate,
+or use `--restricted-workspace` for an unattended run.
 The Feature writes no product settings, including sandbox settings. Unlike the operator image,
 it does not seed an enabled-sandbox configuration. Inspect the actual configuration with
 `__PRODUCT_CLI_NAME__ doctor`.

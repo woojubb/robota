@@ -31,7 +31,7 @@ import type {
   IInteractiveSessionRecord,
   TSessionLoadOutcome,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const logger = createLogger('SessionHistoryOps');
 
@@ -84,7 +84,7 @@ export function buildCompactContext(
  *
  * @param instructions - Optional focus instructions for the summary
  * @param ctx - Session state and callbacks
- * @param signal - The turn's cancellation signal (RUNTIME-004). When it aborts the orchestrator
+ * @param signal - The turn's cancellation signal. When it aborts the orchestrator
  *   THROWS, so this propagates and the history replacement below is never reached — the conversation
  *   is append-only source data and a cancel must not replace it with a summary the user asked not to
  *   produce. The error is an `AbortError`, which `isAbortFailure` already classifies as the user's
@@ -95,7 +95,7 @@ export async function compact(
   ctx: ICompactContext,
   signal?: AbortSignal,
 ): Promise<void> {
-  // RUNTIME-004: before the CORE-031 guard, so a cancelled turn is reported as cancelled whether or
+  // Before the nothing-to-compact guard, so a cancelled turn is reported as cancelled whether or
   // not there was anything to compact. The orchestrator used to make this check for us, and the early
   // return below would otherwise resolve an aborted compaction quietly — a narrower abort contract
   // ("rejects if cancelled AND there was work") for no gain over the one already in force.
@@ -105,7 +105,7 @@ export async function compact(
 
   // Exclude system messages from compaction — they are preserved and re-injected after
   const nonSystemHistory = history.filter((msg) => msg.role !== 'system');
-  // CORE-031: guard on what will actually be compacted, not on the full history. Guarding on
+  // Guard on what will actually be compacted, not on the full history. Guarding on
   // `history` and then compacting `nonSystemHistory` let a system-messages-only conversation through
   // — a fresh session before its first turn holds exactly that — and the replacement below wrote an
   // empty `[Context Summary]` over it. There is nothing to summarise here, and nothing to summarise
@@ -116,8 +116,8 @@ export async function compact(
   const before = ctx.contextTracker.getContextState();
   const receipts = collectCompactionToolReceipts(history);
 
-  // RUNTIME-004: the orchestrator throws if the turn was cancelled, so the history replacement below
-  // is not reached — the same guarantee CORE-019 gives for an invalid summary.
+  // The orchestrator throws if the turn was cancelled, so the history replacement below
+  // is not reached — the same guarantee an invalid summary gets.
   const summary = await ctx.compactionOrchestrator.compact(
     ctx.aiProvider,
     nonSystemHistory,
@@ -175,7 +175,7 @@ export interface IPersistContext {
   systemPrompt: string;
   toolSchemas: IToolSchema[];
   sessionStore: IInteractiveSessionStore;
-  conversation: import('@robota-sdk/agent-interface-session').ISessionConversationSnapshot;
+  conversation: import('@robota-sdk/agent-interface/session').ISessionConversationSnapshot;
   getFullHistory: () => Array<{
     id: string;
     timestamp: Date;
@@ -188,7 +188,7 @@ export interface IPersistContext {
 /**
  * Persist the current session to the store.
  *
- * ## Why this can decline to write (TRANS-007)
+ * ## Why this can decline to write
  *
  * The existing record is read to preserve the members this function does not own. When `load`
  * answered `undefined` for both "no record" and "the file is damaged", the spread contributed

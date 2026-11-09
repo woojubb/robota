@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * MCP-004 (TC-11): `resolveMcpSettings` reads `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` from the
+ * `resolveMcpSettings` reads `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` from the
  * SAME layered settings documents `resolveMcpDefinitions` reads `mcpServers` from, folding per key by
  * the same precedence order — never through `agent-framework`'s `SettingsSchema`.
  */

@@ -18,6 +18,7 @@ import {
   ensureOwnerOnlyDirectory,
   writeOwnerOnlyFile,
 } from '@robota-sdk/agent-core/node';
+import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
 
 import {
   refuseProjectRead,
@@ -116,7 +117,9 @@ class DirectoryEditCheckpointState implements IEditCheckpointStateStorage {
   acquireTurn(sessionId: string, _purpose: string): IProcessMarkerHandle | undefined {
     const directory = this.resolve(join(sessionId, '.writer'));
     assertUnlinkedOwnerDirectory(directory, this.root);
-    const result = createProcessMarkers(directory).acquire('active');
+    const result = createProcessMarkers(directory, {
+      operationLock: createProcessOperationLock(directory),
+    }).acquire('active');
     return result.status === 'acquired' ? result.handle : undefined;
   }
 

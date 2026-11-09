@@ -1,0 +1,101 @@
+{
+  "name": "@robota-sdk/agent-os",
+  "version": "3.3.0",
+  "description": "Node host primitives for the Robota SDK: rooted file authority, nonblocking operation locks and child-process tree termination, one subpath per primitive",
+  "type": "module",
+  "exports": {
+    "./file-authority": {
+      "source": "./src/file-authority/index.ts",
+      "browser": null,
+      "import": {
+        "types": "./dist/file-authority/index.d.ts",
+        "default": "./dist/file-authority/index.js"
+      },
+      "require": {
+        "types": "./dist/file-authority/index.d.cts",
+        "default": "./dist/file-authority/index.cjs"
+      }
+    },
+    "./file-authority/testing": {
+      "source": "./src/file-authority/testing/index.ts",
+      "browser": null,
+      "import": {
+        "types": "./dist/file-authority/testing/index.d.ts",
+        "default": "./dist/file-authority/testing/index.js"
+      },
+      "require": {
+        "types": "./dist/file-authority/testing/index.d.cts",
+        "default": "./dist/file-authority/testing/index.cjs"
+      }
+    },
+    "./node-lock": {
+      "source": "./src/node-lock/index.ts",
+      "browser": null,
+      "import": {
+        "types": "./dist/node-lock/index.d.ts",
+        "default": "./dist/node-lock/index.js"
+      },
+      "require": {
+        "types": "./dist/node-lock/index.d.cts",
+        "default": "./dist/node-lock/index.cjs"
+      }
+    },
+    "./process": {
+      "source": "./src/process/index.ts",
+      "browser": null,
+      "import": {
+        "types": "./dist/process/index.d.ts",
+        "default": "./dist/process/index.js"
+      },
+      "require": {
+        "types": "./dist/process/index.d.cts",
+        "default": "./dist/process/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "files": [
+    "dist",
+    "src",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsdown",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "typecheck": "tsgo --noEmit",
+    "lint": "eslint src/ --ext .ts",
+    "clean": "rimraf dist",
+    "qualify:native": "node scripts/qualify-native.mjs",
+    "qualify:bun:build": "bun scripts/build-native-qualification.mjs",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "peerDependencies": {
+    "koffi": "3.3.1"
+  },
+  "peerDependenciesMeta": {
+    "koffi": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "koffi": "3.3.1",
+    "rimraf": "^5.0.10",
+    "tsdown": "^0.22.14",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.6"
+  },
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "publishConfig": {
+    "access": "public"
+  },
+  "volta": {
+    "extends": "../../package.json"
+  }
+}

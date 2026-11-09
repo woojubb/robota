@@ -23,8 +23,8 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@robota-sdk/agent-framework')>()),
   buildRuntimeSession: () => ({ shutdown: mock.shutdown }),
 }));
-vi.mock('@robota-sdk/agent-transport-mcp', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@robota-sdk/agent-transport-mcp')>()),
+vi.mock('@robota-sdk/agent-transport/mcp', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-transport/mcp')>()),
   createMcpTransport: (options: unknown) => {
     mock.stdioOptions(options);
     return {
@@ -49,7 +49,7 @@ import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { SecureSurfaceRefusedError } from '../../secure/secure-surfaces.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
-import type { IMcpRemoteHttpHostOptions } from '@robota-sdk/agent-transport-mcp';
+import type { IMcpRemoteHttpHostOptions } from '@robota-sdk/agent-transport/mcp';
 
 const testHost = createTestFrameworkHost();
 
@@ -196,7 +196,7 @@ describe('MCP serve startup lifecycle', () => {
   it.each([true, false])(
     'passes the operator’s --ask-client choice (%s) to the stdio carrier and both HTTP hosts',
     async (askClient) => {
-      // #3470: the switch belongs to the operator, so the carrier asks the client only when the
+      // The switch belongs to the operator, so the carrier asks the client only when the
       // operator passed it, and an unchanged run passes nothing new.
       mock.stdioOptions.mockClear();
       mock.loopbackOptions.mockClear();

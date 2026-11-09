@@ -1,5 +1,5 @@
 /**
- * Deciding — before the first model call — which transport can carry a schema. CORE-043.
+ * Deciding — before the first model call — which transport can carry a schema.
  *
  * `agentRunStructured` wrapped an ordinary run in a validate-and-retry loop and asked the provider
  * for `responseFormat: 'json_schema'` unconditionally. A provider whose surface cannot express that
@@ -34,13 +34,13 @@ export interface IStructuredOutputResolutionInput {
    */
   model: string;
   /**
-   * Whether the provider is pointed at its vendor's own endpoint (CORE-043).
+   * Whether the provider is pointed at its vendor's own endpoint.
    *
    * Deliberately NOT a field on the capability table. Endpoint identity and capability declaration
    * are independent facts: a provider that declines to declare a table — because it has no verified
    * source for one — must still be able to say it is pointed at a gateway. Coupling them would force
    * that provider to invent a table in order to report an endpoint, which is exactly the fabricated
-   * claim PROV-006 refused to make. `undefined` means the provider did not say.
+   * claim a provider must not make. `undefined` means the provider did not say.
    */
   endpointIsVendorDefault?: boolean | undefined;
 }
@@ -63,7 +63,7 @@ function mechanismFor(
  * What this model can be asked for, and how confident that answer is.
  *
  * A model absent from a table's deviations resolves to the vendor default — that is the table's own
- * miss policy (PROV-006), not a guess made here. What this function adds is the record of WHICH of
+ * miss policy, not a guess made here. What this function adds is the record of WHICH of
  * those routes produced the answer, because a caller told "no schema transport" deserves to know
  * whether that was declared for this model or inherited from a baseline.
  */
@@ -73,7 +73,7 @@ export function resolveStructuredOutputCapability(
   const { table, model, endpointIsVendorDefault } = input;
 
   if (!table) {
-    // Silence is not denial (PROV-006). A provider that declares nothing has said nothing, and
+    // Silence is not denial. A provider that declares nothing has said nothing, and
     // resolving that to `'none'` would strip a working `json_schema` from every provider that simply
     // has no verified table yet — reading a gap in our own records as a limitation of the vendor.
     // The request goes out as asked; `provenance` is what carries the uncertainty.

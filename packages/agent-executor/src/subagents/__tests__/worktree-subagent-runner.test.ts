@@ -65,6 +65,7 @@ function createCapturedRunner(onStart?: (job: ISubagentJobStart) => void): ICapt
             metadata: { existing: 'value' },
           }),
           cancel: () => Promise.resolve(),
+          send: () => Promise.resolve(),
         };
       },
     },
@@ -122,10 +123,10 @@ describe('WorktreeSubagentRunner', () => {
 
     const result = await runner.start(createJob('worktree')).result;
 
-    // ARCH-031: the runner no longer rewrites `request.cwd` to the worktree. The request keeps what the
+    // The runner no longer rewrites `request.cwd` to the worktree. The request keeps what the
     // CALLER asked for; the worktree the runner PREPARED rides on the envelope, and
     // `subagentExecutionRoot` is the single answer to which of the two the child runs in. Rewriting cwd
-    // as well gave that rule two carriers that could disagree — the duplication ARCH-010 exists to prevent.
+    // as well gave that rule two carriers that could disagree — the duplication `subagentExecutionRoot` exists to prevent.
     expect(captured.getJob()?.request.cwd).toBe('/repo');
     expect(captured.getJob()?.worktree?.path).toBe(TEST_WORKTREE.worktreePath);
     expect(subagentExecutionRoot(captured.getJob()!)).toBe(TEST_WORKTREE.worktreePath);
@@ -166,6 +167,7 @@ describe('WorktreeSubagentRunner', () => {
           taskId: job.taskId,
           result: Promise.reject(new Error('worker failed')),
           cancel: () => Promise.resolve(),
+          send: () => Promise.resolve(),
         };
       },
     };
@@ -205,6 +207,7 @@ describe('WorktreeSubagentRunner', () => {
           taskId: job.taskId,
           result: deferred.promise,
           cancel: () => Promise.resolve(),
+          send: () => Promise.resolve(),
         };
       },
     };
@@ -235,6 +238,7 @@ describe('WorktreeSubagentRunner', () => {
           taskId: job.taskId,
           result: new Promise<ISubagentJobResult>(() => undefined),
           cancel: () => Promise.resolve(),
+          send: () => Promise.resolve(),
         };
       },
     };
@@ -324,7 +328,7 @@ describe('WorktreeSubagentRunner', () => {
 });
 
 /**
- * #3679 step 3b: `/fork` runs in a worktree by default, so a handle the worktree runner rebuilds must
+ * `/fork` runs in a worktree by default, so a handle the worktree runner rebuilds must
  * keep what the inner runner's handle offers for its transcript — the paged read, the paths and the
  * in-memory fact that the transcript is sealed — or the parent can neither read the log nor say it is
  * sealed.
@@ -341,6 +345,7 @@ describe('WorktreeSubagentRunner keeps the transcript of the handle it wraps', (
           transcriptSealed: true,
           result: Promise.resolve({ taskId: job.taskId, output: 'done' }),
           cancel: () => Promise.resolve(),
+          send: () => Promise.resolve(),
           readLog: async (cursor) => {
             pages.push(cursor);
             return { taskId: job.taskId, lines: ['a record'] };
@@ -365,7 +370,7 @@ describe('WorktreeSubagentRunner keeps the transcript of the handle it wraps', (
     expect(pages).toEqual([{ offset: 3 }]);
   });
 
-  it('adds none of them when the wrapped handle has none', () => {
+  it('adds none of the optional ones when the wrapped handle has none', () => {
     const runner = new WorktreeSubagentRunner({
       runner: createCapturedRunner().runner,
       worktreeAdapter: createAdapter(true),
@@ -374,12 +379,35 @@ describe('WorktreeSubagentRunner keeps the transcript of the handle it wraps', (
 
     const handle = runner.start(createJob('worktree'));
 
-    expect(Object.keys(handle).sort()).toEqual(['cancel', 'result', 'taskId']);
+    expect(Object.keys(handle).sort()).toEqual(['cancel', 'result', 'send', 'taskId']);
+  });
+
+  it('hands a follow-up prompt to the job it wraps, as it was sent', async () => {
+    const sent: string[] = [];
+    const runner = new WorktreeSubagentRunner({
+      runner: {
+        start: (job: ISubagentJobStart): ISubagentJobHandle => ({
+          taskId: job.taskId,
+          result: Promise.resolve({ taskId: job.taskId, output: 'done' }),
+          cancel: () => Promise.resolve(),
+          send: (prompt) => {
+            sent.push(prompt);
+            return Promise.resolve();
+          },
+        }),
+      },
+      worktreeAdapter: createAdapter(true),
+      hookTypeExecutors: [],
+    });
+
+    await runner.start(createJob('worktree')).send('and another thing');
+
+    expect(sent).toEqual(['and another thing']);
   });
 });
 
 /**
- * #3679 step 3b: what a runner refuses before it starts a job — a sealing projection that cannot hand
+ * What a runner refuses before it starts a job — a sealing projection that cannot hand
  * the child what it needs — must leave nothing behind, and `/fork` isolates in a worktree by default,
  * so those checks run before a worktree is prepared or any worktree hook fires.
  */

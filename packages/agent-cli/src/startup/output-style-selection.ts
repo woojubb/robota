@@ -1,9 +1,9 @@
-import type { IOutputStyle, IOutputStyleRegistry } from '@robota-sdk/agent-preset';
+import type { IOutputStyle, IOutputStyleRegistry } from '@robota-sdk/agent-product/preset';
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
-/** CLI-1988: --output-style wins over the persisted user selection, then the neutral default. */
+/** --output-style wins over the persisted user selection, then the neutral default. */
 export function selectOutputStyleId(
   args: Pick<IParsedCliArgs, 'outputStyle'>,
   settingsOutputStyle: TSettingsData['outputStyle'],

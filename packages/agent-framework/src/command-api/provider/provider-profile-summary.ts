@@ -1,5 +1,5 @@
 /**
- * #3282 §4b — the Settings screen's "Providers & Models" list: every configured provider profile,
+ * The Settings screen's "Providers & Models" list: every configured provider profile,
  * with its provider's plain label, its model's label, whether it is the one in use, and a plain
  * connection state when one is known (only "Key missing" today).
  *
@@ -24,7 +24,7 @@ import type { IProviderDefinition, TProviderCredentialField } from '@robota-sdk/
 import type {
   ISettingsProviderProfile,
   ISettingsProvidersSection,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** The provider's plain display name — never its internal `type` id, unless nothing else is known. */
 function providerLabel(

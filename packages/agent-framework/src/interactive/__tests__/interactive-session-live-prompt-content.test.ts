@@ -16,12 +16,12 @@ import type {
   ILivePromptContentBatch,
   ILivePromptContentPolicy,
   ILivePromptTraceBatch,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 import type {
   IPromptHistoryEntry,
   IPromptHistoryWriter,
   ISubmitOptions,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

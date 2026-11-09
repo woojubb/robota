@@ -1,5 +1,5 @@
 /**
- * TRANS-005 (#2081) — the versioned total decoder for a persisted interactive-session record.
+ * The versioned total decoder for a persisted interactive-session record.
  *
  * Two table-driven suites do most of the work, both built from ONE maximal fixture:
  *   1. a malformed corpus, asserting `corrupt` and never a throw;
@@ -20,7 +20,7 @@ import {
 } from '../session-record-codec/index.js';
 
 import type { IParameterSchema } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import type { TSessionRecordDecodeOutcome } from '../session-record-codec/index.js';
 
 /** A record with every optional field populated and every nested contract family present. */
@@ -146,7 +146,6 @@ function maximalRecord(): IInteractiveSessionRecord {
           output: 'done',
           metadata: { lines: 12 },
           usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
-          // Issue #3288 §1.
           deniedToolCalls: {
             total: 2,
             byReason: {
@@ -179,7 +178,7 @@ function maximalRecord(): IInteractiveSessionRecord {
         },
       },
       {
-        // #2079: a scheduled-kind task, so `commandPreview`/`nextFireAt`/`schedule` — no longer
+        // A scheduled-kind task, so `commandPreview`/`nextFireAt`/`schedule` — no longer
         // legal on the agent-kind `t1` above — are still covered by the maximal fixture.
         id: 't3',
         kind: 'scheduled',
@@ -367,7 +366,7 @@ function issuePaths(outcome: TSessionRecordDecodeOutcome): string[] {
   return outcome.status === 'corrupt' ? outcome.issues.map((issue) => issue.path) : [];
 }
 
-describe('decodeInteractiveSessionRecord — TC-01 total over unknown input', () => {
+describe('decodeInteractiveSessionRecord — total over unknown input', () => {
   const corpus: Array<[string, unknown]> = [
     ['null', null],
     ['undefined', undefined],
@@ -396,7 +395,7 @@ describe('decodeInteractiveSessionRecord — TC-01 total over unknown input', ()
   });
 });
 
-describe('decodeInteractiveSessionRecord — TC-02 a maximal record round-trips', () => {
+describe('decodeInteractiveSessionRecord — a maximal record round-trips', () => {
   it('decodes a persisted maximal record to valid', () => {
     const outcome = decodeInteractiveSessionRecord(persisted());
     if (outcome.status !== 'valid') {
@@ -532,7 +531,7 @@ describe('decodeInteractiveSessionRecord — every subset keyword survives a rel
   );
 });
 
-describe('decodeInteractiveSessionRecord — background task result kind discrimination (#2079)', () => {
+describe('decodeInteractiveSessionRecord — background task result kind discrimination', () => {
   it('rejects an agent-kind result carrying process-only exitCode', () => {
     const outcome = decodeInteractiveSessionRecord(
       persistedWith('backgroundTasks[0].result.exitCode', 0),
@@ -559,7 +558,7 @@ describe('decodeInteractiveSessionRecord — background task result kind discrim
     expect(issuePaths(outcome)).toContain('backgroundTasks[0].result.usage');
   });
 
-  it('rejects a process-kind result carrying agent-only deniedToolCalls (#3288 §1)', () => {
+  it('rejects a process-kind result carrying agent-only deniedToolCalls', () => {
     const record = persisted() as { backgroundTasks: Array<Record<string, unknown>> };
     const task = record.backgroundTasks[0]!;
     task['kind'] = 'process';
@@ -570,7 +569,7 @@ describe('decodeInteractiveSessionRecord — background task result kind discrim
   });
 });
 
-describe('decodeInteractiveSessionRecord — background task state kind discrimination (#2079)', () => {
+describe('decodeInteractiveSessionRecord — background task state kind discrimination', () => {
   it('rejects a process-kind task carrying agent-only agentType', () => {
     const outcome = decodeInteractiveSessionRecord(
       persistedWith('backgroundTasks[1].agentType', 'general-purpose'),
@@ -635,7 +634,7 @@ describe('decodeInteractiveSessionRecord — background task state kind discrimi
   });
 });
 
-describe('decodeInteractiveSessionRecord — TC-03 every nested family reports its path', () => {
+describe('decodeInteractiveSessionRecord — every nested family reports its path', () => {
   const mutations: Array<[string, string, unknown]> = [
     ['root scalar', 'id', 42],
     ['message base', 'messages[0].state', 'halfway'],
@@ -699,7 +698,7 @@ describe('decodeInteractiveSessionRecord — TC-03 every nested family reports i
   });
 });
 
-describe('decodeInteractiveSessionRecord — TC-04 date revival', () => {
+describe('decodeInteractiveSessionRecord — date revival', () => {
   it('accepts an ISO-8601 string', () => {
     const outcome = decodeInteractiveSessionRecord(
       persistedWith('messages[0].timestamp', '2026-08-01T00:00:09.000Z'),
@@ -727,7 +726,7 @@ describe('decodeInteractiveSessionRecord — TC-04 date revival', () => {
   );
 });
 
-describe('decodeInteractiveSessionRecord — TC-05 string timestamps must parse', () => {
+describe('decodeInteractiveSessionRecord — string timestamps must parse', () => {
   it('rejects an updatedAt that Date.parse cannot read', () => {
     const outcome = decodeInteractiveSessionRecord(persistedWith('updatedAt', 'last thursday'));
     expect(outcome.status).toBe('corrupt');
@@ -747,7 +746,7 @@ describe('decodeInteractiveSessionRecord — TC-05 string timestamps must parse'
   });
 });
 
-describe('decodeInteractiveSessionRecord — TC-06 unknown keys', () => {
+describe('decodeInteractiveSessionRecord — unknown keys', () => {
   it.each([
     ['the root', 'surprise'],
     ['a message', 'messages[0].surprise'],
@@ -792,7 +791,7 @@ describe('decodeInteractiveSessionRecord — TC-06 unknown keys', () => {
   });
 });
 
-describe('decodeVersionedInteractiveSessionRecord — TC-07 version gate', () => {
+describe('decodeVersionedInteractiveSessionRecord — version gate', () => {
   it('decodes an envelope at the current version', () => {
     const outcome = decodeVersionedInteractiveSessionRecord({
       schemaVersion: SESSION_RECORD_ENVELOPE_VERSION,
@@ -806,7 +805,7 @@ describe('decodeVersionedInteractiveSessionRecord — TC-07 version gate', () =>
       schemaVersion: version,
       record: persisted(),
     });
-    // #3289 §1: the raw `cwd` is still readable despite the version mismatch, so it rides along —
+    // The raw `cwd` is still readable despite the version mismatch, so it rides along —
     // a caller that only wants to know which workspace this legacy record belongs to gets an answer.
     expect(outcome).toEqual({ status: 'unsupported', schemaVersion: version, cwd: '/work' });
   });
@@ -849,7 +848,7 @@ describe('decodeVersionedInteractiveSessionRecord — TC-07 version gate', () =>
   });
 });
 
-describe('decodeInteractiveSessionRecord — TC-08 issues accumulate', () => {
+describe('decodeInteractiveSessionRecord — issues accumulate', () => {
   it('reports every independent defect in one outcome', () => {
     const broken = persisted() as Record<string, unknown>;
     broken['id'] = 42;
@@ -902,7 +901,7 @@ describe('self-paced session-loop record', () => {
   });
 });
 
-describe('TC-09 key parity between the contract and the decoder', () => {
+describe('key parity between the contract and the decoder', () => {
   it('decodes every key the record contract declares', () => {
     const declared = {
       id: true,

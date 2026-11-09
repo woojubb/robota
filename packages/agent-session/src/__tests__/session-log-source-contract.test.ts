@@ -15,7 +15,7 @@ describe('session log source contract', () => {
     ]);
   });
 
-  it('writes the payload path with `/` and measures UTF-8 bytes, on any host (issue #3693)', () => {
+  it('writes the payload path with `/` and measures UTF-8 bytes, on any host', () => {
     const serialized = JSON.stringify({ text: '\u{1F600} \ud55c\uad6d\uc5b4' });
     const sha256 = createHash('sha256').update(serialized).digest('hex');
 
@@ -74,7 +74,7 @@ describe('session log source contract', () => {
 
   it('does not accept a bare file path as project authority', () => {
     const invokeWithBarePath = (): void => {
-      // @ts-expect-error ARCH-042: callers must inject an explicit session-log source.
+      // @ts-expect-error callers must inject an explicit session-log source.
       loadSessionLogEntries('ambient-session.jsonl');
     };
 

@@ -26,7 +26,7 @@ const catalog: TCommandCatalog = {
   ],
 };
 
-describe('HelpSheet (#3282 §4e)', () => {
+describe('HelpSheet', () => {
   it('is not rendered while closed', () => {
     render(<HelpSheet open={false} onClose={vi.fn()} catalog={catalog} />);
     expect(screen.queryByRole('dialog')).toBeNull();

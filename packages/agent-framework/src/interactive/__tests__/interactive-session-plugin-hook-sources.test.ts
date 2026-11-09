@@ -1,10 +1,10 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { createInteractiveSession } from '../interactive-session-init.js';
 import { createNodeHostSettingsSource } from '../../config/node-host-settings-source.js';
 import { TEST_PROJECT_SETTINGS_PATHS } from '../../testing/project-settings-path-fixture.js';
@@ -66,7 +66,7 @@ async function start(): Promise<Error | undefined> {
 
 describe('startup hook diagnostics retain effective plugin sources', () => {
   beforeEach(() => {
-    root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-plugin-hook-source-')));
+    root = makeCanonicalTempDir('agent-plugin-hook-source-');
     cwd = join(root, 'project');
     home = join(root, 'home');
     mkdirSync(cwd, { recursive: true });

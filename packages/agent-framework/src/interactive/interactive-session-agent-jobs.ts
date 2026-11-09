@@ -14,11 +14,11 @@ import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { TCommandInvocationSource } from '../commands/index.js';
 import type { TModelEffort } from '@robota-sdk/agent-core';
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface/execution';
 import type {
   ISubagentJobState,
   TBackgroundTaskIsolation,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type { Session } from '@robota-sdk/agent-session';
 
 /** Retrieve agent tool deps or throw. */
@@ -64,7 +64,7 @@ export function listAgentDefinitionsFromSession(
 }
 
 /**
- * #3282 §4: the agent type `/agent <name>` (no prompt) currently selects, and the agent switcher
+ * The agent type `/agent <name>` (no prompt) currently selects, and the agent switcher
  * shows checked. Never throws — a session with no agent runtime simply has the fallback default.
  */
 export function getDefaultAgentTypeFromSession(session: Session): string {
@@ -72,7 +72,7 @@ export function getDefaultAgentTypeFromSession(session: Session): string {
 }
 
 /**
- * #3282 §4: `/agent <name>` (bare, no prompt) sets this session's default agent type — the same
+ * `/agent <name>` (bare, no prompt) sets this session's default agent type — the same
  * mutable deps bag `spawnAgentJob` and friends already read (`getAgentToolDepsOrThrow`), so it lives
  * exactly as long as the agent runtime does and needs no separate store.
  */
@@ -88,7 +88,7 @@ export interface ISpawnAgentJobInput {
   model?: string;
   effort?: TModelEffort;
   isolation?: TBackgroundTaskIsolation;
-  /** CLI-1994: the forked session record the job restores before its first turn (id only). */
+  /** The forked session record the job restores before its first turn (id only). */
   resumeSessionId?: string;
 }
 
@@ -109,7 +109,7 @@ export async function spawnAgentJobFromSession(
     input.effort ?? definition.effort ?? (parentSelection === 'auto' ? undefined : parentSelection);
   return manager.spawn({
     agentType: input.agentType,
-    // ARCH-031: stated, not inherited from a default applied mid-projection.
+    // Stated, not inherited from a default applied mid-projection.
     permissionPolicy: DEFAULT_BACKGROUND_PERMISSION_POLICY,
     label: input.label,
     parentSessionId: sessionId,
@@ -120,7 +120,7 @@ export async function spawnAgentJobFromSession(
     model: input.model ?? definition.model,
     ...(effort !== undefined ? { effort } : {}),
     isolation: input.isolation,
-    // CLI-1994: forwarded as an id and nothing more — the conversation stays in the session store.
+    // Forwarded as an id and nothing more — the conversation stays in the session store.
     ...(input.resumeSessionId !== undefined ? { resumeSessionId: input.resumeSessionId } : {}),
     allowedTools: definition.tools,
     disallowedTools: definition.disallowedTools,

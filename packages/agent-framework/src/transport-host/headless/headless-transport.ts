@@ -5,18 +5,18 @@
  * `start()` launches the work and returns; `waitForCompletion()` owns the typed terminal outcome.
  */
 
-import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
+import { createTransportFailedOutcome } from '@robota-sdk/agent-interface/transport';
 
 import { createHeadlessRunner } from './headless-runner.js';
 
 import type { IHeadlessOutput, TOutputFormat } from './headless-runner.js';
 import type { IHeadlessSession } from './headless-session.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 import type {
   ITransportLifecycleError,
   ITransportRunnerAdapter,
   TTransportRunOutcome,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 export interface IHeadlessTransportOptions {
   /** Where results and diagnostics are written; the framework has no streams of its own. */

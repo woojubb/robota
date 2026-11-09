@@ -1,5 +1,5 @@
 /**
- * Sealing the subagent transcripts a host wrote in plaintext (#3679, secure conversation): every
+ * Sealing the subagent transcripts a host wrote in plaintext (secure conversation): every
  * parent's `subagents/` directory under the log root, each line one sealed record, so `/agent read`
  * pages the same lines at the same offsets before and after, and a parent entry that is a link is
  * never followed.
@@ -74,7 +74,13 @@ describe('migrateSubagentTranscripts', () => {
 
     const result = await migrateSubagentTranscripts(base, { sealer, apply: true });
 
-    expect(result).toMatchObject({ directories: 2, logs: 2, lines: 14, changed: [], refused: [] });
+    expect(result).toMatchObject({
+      directories: 2,
+      logs: 2,
+      lines: 14,
+      changed: [],
+      refused: [],
+    });
     for (const path of [first, second]) {
       const text = readFileSync(path, 'utf8');
       expect(text).not.toContain(CANARY);

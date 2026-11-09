@@ -59,7 +59,7 @@ export function validateEventEmitterOptions(
 /**
  * Execute a single registered event handler, catching errors via metrics.
  *
- * CORE-021 (SPEC § EventEmitterPlugin Error Containment): with catchErrors enabled
+ * SPEC § EventEmitterPlugin Error Containment: with catchErrors enabled
  * (the default) a throwing handler is recorded and structured-logged, then SWALLOWED —
  * rethrowing here turned every handler bug into an unhandled rejection through the
  * buffered flush timer. catchErrors: false rethrows to the emitter caller.

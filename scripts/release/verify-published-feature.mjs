@@ -185,13 +185,13 @@ export async function verifyPublished({
           'OPENAI_API_KEY',
           '--set-current',
         ]);
-        exec(['robota', 'trust', '--yes']);
       }
       for (const prompt of ['Complete this installed session.', '/local-proof']) {
-        const response = JSON.parse(exec(['robota', '-p', prompt, '--output-format', 'json']));
+        const response = JSON.parse(exec(['robota', '--restricted-workspace', '-p', prompt, '--output-format', 'json']));
         assert.equal(response.subtype, 'success');
         assert.equal(response.result, 'ANONYMOUS_FEATURE_COMPLETED');
         assert(response.session_id.startsWith('session_'));
+        assert.doesNotMatch(invocations.at(-1).stderr, /Could not mark this process/);
       }
     }
     const requests = call('docker', ['logs', name + '-provider'], env)

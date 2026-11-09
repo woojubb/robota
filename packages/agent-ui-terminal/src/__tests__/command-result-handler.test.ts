@@ -1,12 +1,12 @@
 /**
- * CMD-004 Phase 2: `applySystemCommandResult` is pure rendering. Host actions are applied (and
+ * `applySystemCommandResult` is pure rendering. Host actions are applied (and
  * consumed) by the session, UI intents arrive via the `ui_intent` session event, and state-change
  * notifications arrive as broadcast session events (`session_renamed`, `history_cleared`). The
  * only result-carried hint consumed here is `data.pluginRegistryReloaded` — the requester-local
  * command-registry/autocomplete refresh.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { homedir } from 'node:os';
 import { mkdirSync, mkdtempSync, writeFileSync, realpathSync } from 'node:fs';
@@ -20,7 +20,7 @@ import {
   PluginCommandSource,
 } from '@robota-sdk/agent-framework';
 import { NodeFileSystem } from '@robota-sdk/agent-framework/node';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { applySystemCommandResult } from '../hooks/command-result-handler.js';
 
@@ -100,7 +100,7 @@ describe('applySystemCommandResult', () => {
       data: { role: 'user', content: 'old message' },
     });
 
-    // Stage E: the transcript clear itself rides the broadcast `history_cleared` session event
+    // The transcript clear itself rides the broadcast `history_cleared` session event
     // (bound in TuiInteractionChannel and emitted while the command executes — before the result
     // returns), so by the time this renderer runs the history is already empty.
     manager.clearHistory();

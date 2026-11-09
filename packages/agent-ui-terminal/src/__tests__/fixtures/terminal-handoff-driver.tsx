@@ -1,5 +1,5 @@
 /**
- * TEST-007 / TERM-002 fixture: real-terminal handoff under a PTY.
+ * Fixture: real-terminal handoff under a PTY.
  *
  * Renders a real Ink app that takes raw mode (useInput) BELOW a suspend gate — exactly like the real
  * App — and uses the real `TerminalHandoffController` + `useTerminalHandoffSuspension`. It performs an
@@ -8,7 +8,9 @@
  * the child exits, `runWithTerminal` must RETURN and the App must resume.
  *
  * Driven by `terminal-handoff-pty-e2e.test.ts`. Markers the harness keys off: `@@READY@@`,
- * `@@HANDOFF_STARTED@@`, `CHILD_GOT:[...]`, `@@RESUMED exit=N@@`. A JSON result is written to argv[0].
+ * `@@HANDOFF_STARTED@@`, `CHILD_GOT:[...]`, `@@RESUMED exit=N@@`. Each `@@` marker is also recorded as
+ * an event (`pty/fixture-event-log.ts`), with `CHILD_SPAWNED` and `CHILD_EXITED <code>` from the parent,
+ * which is what the test waits on. A JSON result is written to argv[0].
  */
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
@@ -18,6 +20,8 @@ import React from 'react';
 
 import { useTerminalHandoffSuspension } from '../../hooks/useTerminalHandoffSuspension.js';
 import { TerminalHandoffController } from '../../terminal-handoff-controller.js';
+import { recordFixtureEvent } from '../pty/fixture-event-log.js';
+import { readOneLineScript } from './read-one-line-script.js';
 
 const OUTPUT_PATH = process.argv[2];
 const controller = new TerminalHandoffController();
@@ -40,6 +44,7 @@ function HandoffApp(): React.ReactElement {
 }
 
 function marker(line: string): void {
+  recordFixtureEvent(OUTPUT_PATH, line);
   process.stdout.write(`\r\n@@${line}@@\r\n`);
 }
 
@@ -59,10 +64,14 @@ async function main(): Promise<void> {
   const exitCode = await controller.runWithTerminal(async () => {
     marker('HANDOFF_STARTED');
     return await new Promise<number>((resolve) => {
-      const child = spawn('sh', ['-c', 'IFS= read -r line; printf "CHILD_GOT:[%s]\\n" "$line"'], {
+      const child = spawn(process.execPath, ['-e', readOneLineScript('CHILD_GOT')], {
         stdio: 'inherit',
       });
-      child.on('exit', (code) => resolve(code ?? 0));
+      child.on('spawn', () => recordFixtureEvent(OUTPUT_PATH, 'CHILD_SPAWNED'));
+      child.on('exit', (code) => {
+        recordFixtureEvent(OUTPUT_PATH, `CHILD_EXITED ${code}`);
+        resolve(code ?? 0);
+      });
     });
   });
 

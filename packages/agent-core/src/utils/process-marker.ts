@@ -73,6 +73,7 @@ import type {
   IProcessMarkerAcquireOptions,
   IProcessMarkerHandle,
   IProcessMarkerHolder,
+  IProcessMarkerOperationLock,
   IProcessMarkerRemoveOptions,
   IProcessMarkers,
   TProcessMarkerAcquireResult,
@@ -85,8 +86,6 @@ import type {
 export const PROCESS_MARKER_SUFFIX = '.owner';
 /** What a marker's break lock's file name ends with. */
 const BREAK_LOCK_SUFFIX = '.break';
-/** A break lock older than this is stale: a break takes milliseconds. */
-export const PROCESS_MARKER_BREAK_LOCK_STALE_MS = 10_000;
 /** How long an operation waits for another process's break to finish before it reports `busy`. */
 const DEFAULT_LOCK_WAIT_MS = 2_000;
 const LOCK_POLL_MS = 10;
@@ -146,9 +145,11 @@ export interface IProcessMarkerSteps {
 
 /** How a {@link createProcessMarkers} directory is kept. */
 export interface IProcessMarkersOptions extends IProcessOwnerProbes, IOwnerOnlyDurability {
+  /** Host-supplied process operation lock for this exact marker directory. */
+  readonly operationLock: IProcessMarkerOperationLock;
   /** What this process remembers publishing; the process's own by default. */
   readonly memory?: TProcessMarkerMemory;
-  /** The clock a break lock's age is read against; `Date.now` by default. */
+  /** The clock used to bound lock waits; `Date.now` by default. */
   readonly now?: () => number;
   /** How long to wait for another process's break before reporting `busy`; two seconds by default. */
   readonly lockWaitMs?: number;
@@ -267,6 +268,11 @@ class FileProcessMarkers implements IProcessMarkers {
   #prepared = false;
 
   constructor(directory: string, options: IProcessMarkersOptions, openedDirectory = false) {
+    if (typeof options?.operationLock?.tryAcquire !== 'function') {
+      throw new ProcessMarkerError(
+        'Process markers require an operation lock for their directory.',
+      );
+    }
     this.#directory = resolve(directory);
     this.#options = options;
     this.#memory = options.memory ?? processMemory();
@@ -386,7 +392,10 @@ class FileProcessMarkers implements IProcessMarkers {
   /** The record this process publishes, with `leaseDigest` when lent. */
   #recordText(leaseDigest: string | undefined): string {
     const fields = processOwnerRecordFields(this.#options.current ?? readCurrentProcessIdentity());
-    return JSON.stringify(leaseDigest === undefined ? fields : { ...fields, leaseDigest });
+    const generation = randomBytes(16).toString('hex');
+    return JSON.stringify(
+      leaseDigest === undefined ? { ...fields, generation } : { ...fields, generation, leaseDigest },
+    );
   }
 
   /** Who holds `file` at `path`: this process when it remembers publishing exactly it, else by its record. */
@@ -411,6 +420,8 @@ class FileProcessMarkers implements IProcessMarkers {
 
   #handle(name: string, path: string, published: IPublishedFile): IProcessMarkerHandle {
     let released = false;
+    let inOperation = false;
+    let pendingRelease = false;
     const forget = (): void => {
       const remembered = this.#memory.get(path);
       if (remembered !== undefined && sameFile(remembered, published)) this.#memory.delete(path);
@@ -419,6 +430,18 @@ class FileProcessMarkers implements IProcessMarkers {
     // filesystems, so device and inode alone name another process's marker as this one's.
     const isMine = (file: IMarkerFile | undefined): boolean =>
       file !== undefined && sameFile(published, file);
+    const releaseMarker = (): void => {
+      try {
+        const outcome = this.#withBreakLock(name, (ownsLock) => {
+          const again = readMarkerFile(path);
+          if (!isMine(again)) return true;
+          return ownsLock() && this.#moveAsideConfirmed(name, path, again as IMarkerFile);
+        });
+        if (outcome !== 'busy') forget();
+      } catch {
+        // allow-fallback: a marker that could not be removed is this process's until it ends.
+      }
+    };
     return Object.freeze({
       holds: (): boolean => {
         if (released) return false;
@@ -431,20 +454,35 @@ class FileProcessMarkers implements IProcessMarkers {
         if (!mine) forget();
         return mine;
       },
+      withGuard: <T>(operation: () => T) => {
+        if (released) return { status: 'lost' as const };
+        try {
+          const outcome = this.#withBreakLock(name, (ownsLock) => {
+            if (released || !ownsLock() || !isMine(readMarkerFile(path)))
+              return { status: 'lost' as const };
+            inOperation = true;
+            try {
+              return { status: 'ran' as const, value: operation() };
+            } finally {
+              inOperation = false;
+            }
+          });
+          return outcome === 'busy' ? { status: 'busy' as const } : outcome;
+        } finally {
+          if (pendingRelease) {
+            pendingRelease = false;
+            releaseMarker();
+          }
+        }
+      },
       release: (): void => {
         if (released) return;
         released = true;
-        try {
-          const outcome = this.#withBreakLock(name, (ownsLock) => {
-            const again = readMarkerFile(path);
-            if (!isMine(again)) return true;
-            return ownsLock() && this.#moveAsideConfirmed(name, path, again as IMarkerFile);
-          });
-          // A marker still standing as this process's own stays remembered: it is, until the process ends.
-          if (outcome !== 'busy') forget();
-        } catch {
-          // allow-fallback: a marker that could not be removed is this process's, and reads `gone` once it ends.
+        if (inOperation) {
+          pendingRelease = true;
+          return;
         }
+        releaseMarker();
       },
     });
   }
@@ -499,8 +537,16 @@ class FileProcessMarkers implements IProcessMarkers {
         ...(this.#options.linkFile === undefined ? {} : { linkFile: this.#options.linkFile }),
         beforeCommit: () => {
           // The link keeps this inode, so what is published is known before anyone can see it.
-          const stat = lstatSync(temporaryPath, { bigint: true });
-          placed = { dev: stat.dev, ino: stat.ino };
+          const descriptor = openSync(
+            temporaryPath,
+            constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+          );
+          try {
+            const stat = fstatSync(descriptor, { bigint: true });
+            placed = { dev: stat.dev, ino: stat.ino };
+          } finally {
+            closeSync(descriptor);
+          }
           if (!lock) this.#options.steps?.publishing?.(name);
         },
       });
@@ -545,6 +591,24 @@ class FileProcessMarkers implements IProcessMarkers {
    * `busy` when another process holds a fresh lock past the wait. A stale lock is removed first.
    */
   #withBreakLock<T>(name: string, run: (ownsLock: () => boolean) => T): T | 'busy' {
+    const now = this.#options.now ?? Date.now;
+    const deadline = now() + (this.#options.lockWaitMs ?? DEFAULT_LOCK_WAIT_MS);
+    for (let attempt = 0; attempt < 1_000; attempt += 1) {
+      const operationLock = this.#options.operationLock.tryAcquire(name);
+      if (operationLock !== undefined) {
+        try {
+          return this.#withLegacyBreakLock(name, run);
+        } finally {
+          operationLock.release();
+        }
+      }
+      if (now() >= deadline) return 'busy';
+      sleepSync(LOCK_POLL_MS);
+    }
+    return 'busy';
+  }
+
+  #withLegacyBreakLock<T>(name: string, run: (ownsLock: () => boolean) => T): T | 'busy' {
     const path = join(this.#directory, `${name}${BREAK_LOCK_SUFFIX}`);
     const now = this.#options.now ?? Date.now;
     const waitMs = this.#options.lockWaitMs ?? DEFAULT_LOCK_WAIT_MS;
@@ -568,7 +632,7 @@ class FileProcessMarkers implements IProcessMarkers {
       }
       const standing = readMarkerFile(path);
       if (standing === undefined) continue;
-      if (this.#isStaleLock(path, standing, now())) {
+      if (this.#isStaleLock(path, standing)) {
         this.#moveAsideConfirmed(name, path, standing);
         continue;
       }
@@ -578,9 +642,8 @@ class FileProcessMarkers implements IProcessMarkers {
     return 'busy';
   }
 
-  /** A lock is stale when its owner is gone, or it is older than a break could take; this process's own is not. */
-  #isStaleLock(path: string, lock: IMarkerFile, now: number): boolean {
-    if (now - lock.mtimeMs > PROCESS_MARKER_BREAK_LOCK_STALE_MS) return true;
+  /** Only a lock whose owner is provably gone can be recovered. */
+  #isStaleLock(path: string, lock: IMarkerFile): boolean {
     const holder = this.#holderOf(path, lock);
     return !holder.self && holder.liveness === 'gone';
   }
@@ -595,7 +658,7 @@ class FileProcessMarkers implements IProcessMarkers {
     try {
       unlinkSync(path);
     } catch {
-      // allow-fallback: a lock that cannot be removed is stale once this process ends or it ages.
+      // allow-fallback: a lock that cannot be removed stays until its owner is provably gone.
     }
   }
 }
@@ -607,18 +670,19 @@ class FileProcessMarkers implements IProcessMarkers {
  */
 export function createProcessMarkers(
   directory: string,
-  options: IProcessMarkersOptions = {},
+  options: IProcessMarkersOptions,
 ): IProcessMarkers {
   return new FileProcessMarkers(directory, options);
 }
 
 /**
  * Markers relative to an already opened directory descriptor on Linux. The caller retains the
- * descriptor until all handles have been released and is responsible for naming/authority checks.
+ * descriptor until all handles have been released and is responsible for naming/authority checks,
+ * and supplies the operation lock for that same directory like any other marker directory.
  */
 export function createProcessMarkersInOpenDirectory(
   descriptor: number,
-  options: IProcessMarkersOptions = {},
+  options: IProcessMarkersOptions,
 ): IProcessMarkers {
   if (process.platform !== 'linux' || !Number.isInteger(descriptor) || descriptor < 0) {
     throw new ProcessMarkerError('An open marker directory requires a Linux directory descriptor.');

@@ -1,5 +1,5 @@
 /**
- * CLI-1990 — deferred tool schemas and tool search, at the execution seam.
+ * Deferred tool schemas and tool search, at the execution seam.
  *
  * The tool list handed to the provider used to be a per-run SNAPSHOT: `resolveProviderAndTools` read
  * the registry once and every round spread the same array. A tool registered — or loaded — in round
@@ -49,7 +49,7 @@ const DEFERRED_PROBE_SCHEMA: IToolSchema = {
   deferLoading: true,
 };
 
-/** Named `Grep` so the by-name load below reads exactly as the spec's TC-03 states it. */
+/** Named `Grep` so the by-name load below reads exactly as the spec states it. */
 const DEFERRED_GREP_SCHEMA: IToolSchema = {
   name: 'Grep',
   description: 'searches file contents with a regular expression',
@@ -119,7 +119,7 @@ class LocalToolSearch extends AbstractTool {
   }
 }
 
-/** TC-10: the shape the session layer's permission wrapper gives a tool, over the real gate. */
+/** The shape the session layer's permission wrapper gives a tool, over the real gate. */
 class GatedDeferredTool extends SchemaTool {
   protected override async executeImpl(parameters: TToolParameters): Promise<IToolResult> {
     const decision = evaluatePermission(this.schema.name, parameters as TToolArgs, 'default', {
@@ -165,8 +165,8 @@ function toolMessages(agent: ConversationAgent): IToolMessage[] {
   return agent.getHistory().filter((message): message is IToolMessage => message.role === 'tool');
 }
 
-describe('CLI-1990 — deferred tool schemas reach the model only once loaded', () => {
-  it('TC-02: a deferred tool is withheld in round 0 and offered in round 1 after ToolSearch loads it', async () => {
+describe('deferred tool schemas reach the model only once loaded', () => {
+  it('a deferred tool is withheld in round 0 and offered in round 1 after ToolSearch loads it', async () => {
     const { agent, scripted } = buildAgent([
       { toolCalls: [{ name: TOOL_SEARCH_TOOL_NAME, args: { query: 'deferred' } }] },
       { text: 'done' },
@@ -190,7 +190,7 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
     expect(round1.map((tool) => tool.name)).not.toContain(DEFERRED_GREP_SCHEMA.name);
   });
 
-  it('TC-01 companion: with nothing deferred the projection is the identity', async () => {
+  it('with nothing deferred the projection is the identity', async () => {
     const { agent, scripted } = buildAgent([{ text: 'done' }], {
       tools: [new SchemaTool(RESIDENT_SCHEMA), new LocalToolSearch()],
       toolSearch: 'auto',
@@ -201,7 +201,7 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
     expect(toolNames(scripted, 0)).toEqual([RESIDENT_SCHEMA.name, TOOL_SEARCH_TOOL_NAME]);
   });
 
-  it('TC-03: ToolSearch({ names }) loads exactly the named tool', async () => {
+  it('ToolSearch({ names }) loads exactly the named tool', async () => {
     const { agent, scripted } = buildAgent([
       { toolCalls: [{ name: TOOL_SEARCH_TOOL_NAME, args: { names: ['Grep'] } }] },
       { text: 'done' },
@@ -214,7 +214,7 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
     expect(round1).not.toContain(DEFERRED_PROBE_SCHEMA.name);
   });
 
-  it('TC-03: an empty match is a normal result, and the next round is unchanged', async () => {
+  it('an empty match is a normal result, and the next round is unchanged', async () => {
     const { agent, scripted } = buildAgent([
       { toolCalls: [{ name: TOOL_SEARCH_TOOL_NAME, args: { query: 'nothing matches this' } }] },
       { text: 'done' },
@@ -231,7 +231,7 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
     expect(toolNames(scripted, 1)).toEqual(toolNames(scripted, 0));
   });
 
-  it('TC-03: an unknown entry in names is an error naming the entry', async () => {
+  it('an unknown entry in names is an error naming the entry', async () => {
     const { agent } = buildAgent([
       { toolCalls: [{ name: TOOL_SEARCH_TOOL_NAME, args: { names: ['NoSuchTool'] } }] },
       { text: 'done' },
@@ -244,7 +244,7 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
     expect(String(searchResult?.content)).toContain('NoSuchTool');
   });
 
-  it('TC-06: calling an unloaded deferred tool yields the unknown-tool error naming ToolSearch, without a forced summary', async () => {
+  it('calling an unloaded deferred tool yields the unknown-tool error naming ToolSearch, without a forced summary', async () => {
     const { agent, scripted } = buildAgent([
       { toolCalls: [{ name: DEFERRED_PROBE_SCHEMA.name, args: { target: 'x' } }] },
       { text: 'recovered' },
@@ -264,7 +264,7 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
     expect(toolNames(scripted, 1)).not.toContain(DEFERRED_PROBE_SCHEMA.name);
   });
 
-  it('TC-07: a run forcing a deferred tool loads it before the first request instead of throwing', async () => {
+  it('a run forcing a deferred tool loads it before the first request instead of throwing', async () => {
     const { agent, scripted } = buildAgent([
       { toolCalls: [{ name: DEFERRED_PROBE_SCHEMA.name, args: { target: 'forced' } }] },
       { text: 'done' },
@@ -280,7 +280,7 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
     expect(JSON.parse(String(probeResult?.content))).toEqual({ ran: DEFERRED_PROBE_SCHEMA.name });
   });
 
-  it('TC-10: a loaded deferred tool is permission-gated identically to a resident one', async () => {
+  it('a loaded deferred tool is permission-gated identically to a resident one', async () => {
     const gate = (): string =>
       evaluatePermission(DEFERRED_PROBE_SCHEMA.name, { target: 'x' }, 'default', {
         deny: [DEFERRED_PROBE_SCHEMA.name],
@@ -317,7 +317,7 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
   });
 });
 
-describe('CLI-1990 review — a withheld schema needs a loader', () => {
+describe('a withheld schema needs a loader', () => {
   it('refuses a run that withholds a deferred tool while no ToolSearch tool is offered', async () => {
     // The framework adds the loader whenever a declared tool is deferred; an SDK-direct configuration
     // that defers tools without registering it would otherwise withhold them silently — the model

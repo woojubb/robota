@@ -7,7 +7,7 @@
  * Run: ANTHROPIC_API_KEY=... pnpm dev
  */
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
@@ -23,7 +23,7 @@ const routeTool = createZodFunctionTool(
   'Choose the team that should handle the ticket',
   z.object({ team: z.enum(['billing', 'bugs', 'sales']) }),
   async (args) => {
-    decision = args.team; // typed as 'billing' | 'bugs' | 'sales' (SDK-009 inference)
+    decision = args.team; // typed as 'billing' | 'bugs' | 'sales' (inferred)
     return `routed to ${args.team}`;
   },
 );

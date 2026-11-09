@@ -18,7 +18,7 @@ import type { KeyHolder, TSealingKeyOutcome } from './key-holder.js';
 /** Raw mode does no newline translation, so lines on the secret terminal end with CRLF. */
 const NL = '\r\n';
 const NEW_PASSPHRASE_ATTEMPTS = 3;
-const UNLOCK_ATTEMPTS = 3;
+export const UNLOCK_ATTEMPTS = 3;
 const RECOVERY_CONFIRM_ATTEMPTS = 3;
 
 export type TCredentialKind = TKeyringCredential['type'];
@@ -79,7 +79,7 @@ export async function presentRecoveryKey(
 }
 
 /** The refusal to tell the person, for a credential that was typed wrong; other errors are not theirs to retry. */
-function retryableRefusal(error: unknown): string | undefined {
+export function retryableRefusal(error: unknown): string | undefined {
   if (!(error instanceof KeyringError)) return undefined;
   switch (error.code) {
     case 'wrong-credential':

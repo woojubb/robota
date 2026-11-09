@@ -10,7 +10,7 @@
 import type {
   ITransportStartupError,
   TTransportConfigurationErrorCode,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 /** A transport that is unknown to the registry, or known and not configurable. */
 export function configurationError(

@@ -14,6 +14,9 @@ const sourceCommit = process.env.RELEASE_SOURCE_COMMIT;
 const productConfigSha256 = process.env.PRODUCT_CONFIG_SHA256;
 const packageScope = process.env.PRODUCT_PACKAGE_SCOPE;
 const installLockOutput = process.env.RELEASE_INSTALL_LOCK;
+const component = process.env.RELEASE_COMPONENT ?? 'cli';
+const selected = process.env.RELEASE_PACKAGE ?? (component === 'cli' ? 'agent-cli' : '');
+const releaseVersion = process.env.RELEASE_VERSION;
 if (!registry?.startsWith('https://') || !tag || !/^[0-9A-Za-z._+-]+$/u.test(tag)) {
   throw new Error('release registry and a safe release tag are required');
 }
@@ -39,7 +42,10 @@ const packages = readdirSync(packDirectory)
     return { name: manifest.name, version: manifest.version, integrity };
   });
 
-if (packages.length === 0) throw new Error('no release tarballs were found');
+if (!['cli', 'sdk'].includes(component) || !/^[a-z0-9][a-z0-9._-]*$/u.test(selected) ||
+    (component === 'cli') !== (selected === 'agent-cli') || packages.length !== 1 ||
+    packages[0].name !== `${packageScope}/${selected}` || packages[0].version !== releaseVersion)
+  throw new Error('invalid release component or tarballs');
 // One bounded observation; a failed receipt can resume from the retained artifact without rebuilding.
 let cursor = 0;
 await Promise.all(Array.from({ length: Math.min(6, packages.length) }, async () => {
@@ -57,14 +63,16 @@ await Promise.all(Array.from({ length: Math.min(6, packages.length) }, async () 
   }
 }));
 const cli = packages.find((entry) => entry.name === `${packageScope}/agent-cli`);
-if (!cli) throw new Error('the configured CLI tarball was not published');
+if (component === 'cli' && !cli) throw new Error('the configured CLI tarball was not published');
+if (component === 'sdk' && cli) throw new Error('the SDK release must not contain the CLI');
+const roots = component === 'cli' ? [cli] : packages;
 
 const lockRoot = mkdtempSync(join(tmpdir(), 'robota-release-lock-'));
 let lockBytes;
 try {
   writeFileSync(
     join(lockRoot, 'package.json'),
-    `${JSON.stringify({ name: 'robota-release-image', private: true, dependencies: { [cli.name]: cli.version } }, null, 2)}\n`,
+    `${JSON.stringify({ name: component === 'cli' ? 'robota-release-image' : 'robota-sdk-release', private: true, dependencies: Object.fromEntries(roots.map((pkg) => [pkg.name, pkg.version])) }, null, 2)}\n`,
   );
   execFileSync(
     'npm',
@@ -82,9 +90,10 @@ try {
   );
   lockBytes = readFileSync(join(lockRoot, 'package-lock.json'));
   const lock = JSON.parse(lockBytes.toString('utf8'));
-  const lockedCli = lock.packages?.[`node_modules/${cli.name}`];
-  if (lockedCli?.version !== cli.version || lockedCli?.integrity !== cli.integrity) {
-    throw new Error('the release install graph does not select the reviewed CLI tarball');
+  for (const pkg of roots) {
+    const selected = lock.packages?.[`node_modules/${pkg.name}`];
+    if (selected?.version !== pkg.version || selected?.integrity !== pkg.integrity)
+      throw new Error(`the release install graph does not select the reviewed ${pkg.name} tarball`);
   }
   writeFileSync(installLockOutput, lockBytes, { mode: 0o600 });
 } finally {

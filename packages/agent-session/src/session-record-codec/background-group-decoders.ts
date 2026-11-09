@@ -1,5 +1,5 @@
 /**
- * TRANS-005 (#2081) — the job-group half of the persisted background state: a group, the per-task
+ * The job-group half of the persisted background state: a group, the per-task
  * result envelopes it collects, and the three-variant group event union.
  *
  * A group's `results` are decoded even when the group is still `running`, because the array is
@@ -26,7 +26,7 @@ import type {
   TBackgroundJobGroupEvent,
   TBackgroundJobGroupStatus,
   TBackgroundJobWaitPolicy,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 const WAIT_POLICIES = [
   'detached',

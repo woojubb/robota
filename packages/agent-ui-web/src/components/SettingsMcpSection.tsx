@@ -3,7 +3,7 @@
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import React, { useId, useState } from 'react';
 
-import type { ISettingsMcpServer, ISettingsSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISettingsMcpServer, ISettingsSnapshot } from '@robota-sdk/agent-interface/session';
 
 const STATUS_LABEL: Readonly<Record<ISettingsMcpServer['status'], string>> = {
   connected: 'Connected',
@@ -92,7 +92,7 @@ function ServerRow({
 }
 
 /**
- * The MCP Servers section (#3282 §4 part b-2): every configured server's name, where it is
+ * The MCP Servers section: every configured server's name, where it is
  * configured, its live connection status and tool count, an enable/disable switch (approve/reject),
  * an expandable list of its tool names, and a section-level Reload. Adding or editing a server is
  * left out — the runtime has no command path that writes MCP config (recorded in

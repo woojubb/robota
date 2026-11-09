@@ -1,7 +1,7 @@
 /**
  * Command hook executor — executes shell commands with JSON input on stdin.
  *
- * Exit-code mapping (SEC-015):
+ * Exit-code mapping:
  * - `0` → `allow`, stdout carried for the runner's response-protocol decode
  * - `2` → `deny`, stderr carried as the reason
  * - any other code → `error` / `nonzero-exit`
@@ -31,7 +31,7 @@ import type {
 
 /** Default timeout in seconds — matches Claude Code's 600s default */
 const DEFAULT_TIMEOUT_SECONDS = 600;
-/** ARCH-056: most bytes retained per hook stream (stdout head, stderr tail). */
+/** Most bytes retained per hook stream (stdout head, stderr tail). */
 const MAX_HOOK_OUTPUT_BYTES = 1_000_000;
 
 /**
@@ -52,7 +52,7 @@ function wireChildIo(
   child: ReturnType<typeof spawn>,
   inputJson: string,
 ): { stdoutOutput: IBoundedOutput; stderrOutput: IBoundedOutput } {
-  // ARCH-056: bounded while reading; a hook that floods stdout cannot grow the parent's memory.
+  // Bounded while reading; a hook that floods stdout cannot grow the parent's memory.
   const stdoutOutput = createBoundedOutput({ maxBytes: MAX_HOOK_OUTPUT_BYTES });
   const stderrOutput = createBoundedOutput({ maxBytes: MAX_HOOK_OUTPUT_BYTES, retain: 'tail' });
   child.stdout?.on('data', (chunk: Buffer) => stdoutOutput.append(chunk));

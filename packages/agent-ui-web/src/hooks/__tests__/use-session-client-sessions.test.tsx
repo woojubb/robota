@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3189 — the GUI reducer keeps the host's session list beside the conversation: it asks for it on
+ * The GUI reducer keeps the host's session list beside the conversation: it asks for it on
  * connect and whenever it may have changed, keeps only the latest answer, starts and switches
  * sessions through their wire messages, and re-reads everything the session shows after a switch.
  */
@@ -21,10 +21,11 @@ function setup(): {
   result: { current: ReturnType<typeof useSessionClient> };
   deliver: (msg: TServerMessage) => void;
   connect: () => void;
+  drop: () => void;
   wire: TClientMessage[];
 } {
   let onMessage: ((msg: TServerMessage) => void) | null = null;
-  let onStatusChange: ((status: 'connected') => void) | null = null;
+  let onStatusChange: ((status: 'connected' | 'disconnected') => void) | null = null;
   const wire: TClientMessage[] = [];
   const makeClient: TMakeSessionClient = (callbacks) => {
     onMessage = callbacks.onMessage;
@@ -37,6 +38,7 @@ function setup(): {
     wire,
     deliver: (msg) => act(() => onMessage?.(msg)),
     connect: () => act(() => onStatusChange?.('connected')),
+    drop: () => act(() => onStatusChange?.('disconnected')),
   };
 }
 
@@ -65,18 +67,20 @@ const listing = (currentSessionId: string) => ({
   unreadableSessionIds: ['broken'],
 });
 
-describe('#3189 — session list, start and switch in the GUI reducer', () => {
+describe('session list, start and switch in the GUI reducer', () => {
   it('asks for the session list on connect, beside the commands and status', () => {
     const { wire, connect } = setup();
     connect();
-    // #3280 §2: also asks for the queue — a reconnect to the same session gets no `session_switched`
+    // Also asks for the queue — a reconnect to the same session gets no `session_switched`
     // to trigger that ask otherwise, so a stale `queuedPrompt` from before a drop would linger.
     expect(wire.map((m) => m.type)).toEqual([
+      // The role comes first, so its reply precedes the listing the reconnect restore reads.
+      'get-surface-role',
       'get-commands',
       'get-status',
       'get-pending',
       'list-sessions',
-      // #3282 §4 part b-3: the Agents panel's Scheduled group also loads on connect.
+      // The Agents panel's Scheduled group also loads on connect.
       'get-background-tasks',
     ]);
   });
@@ -149,10 +153,10 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
       'get-status',
       'get-commands',
       'get-execution-workspace',
-      // #3280 §2: the queued-message row is per-session state too — a switch re-reads it.
+      // The queued-message row is per-session state too — a switch re-reads it.
       'get-pending',
       'list-sessions',
-      // #3282 §4 part b-3: schedules are per-session state too — a switch re-reads it.
+      // Schedules are per-session state too — a switch re-reads it.
       'get-background-tasks',
     ]);
   });
@@ -197,7 +201,7 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
       tone: 'info',
       content: expect.stringMatching(/cannot list sessions/),
     });
-    // Never the generic "not available on this surface" line (#3282 §4e).
+    // Never the generic "not available on this surface" line.
     const content = (result.current.messages.at(-1) as { content?: string }).content ?? '';
     expect(content).not.toMatch(/not available on this surface/i);
   });
@@ -217,7 +221,7 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
     act(() => result.current.send({ type: 'command', name: 'agent' }));
     // A still-genuinely-unsupported intent: every intent with a real GUI screen (session picker,
     // settings, plugin manager, agent switcher) now suppresses the reply's conversation card by
-    // design (#3282 §4), so this generic in-flight-pairing test needs one that still does not.
+    // design, so this generic in-flight-pairing test needs one that still does not.
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-theme-picker' } } } as TServerMessage);
     act(() => result.current.switchSession('b'));
     deliver({ type: 'protocol_error', message: 'Stop the running turn first.' });
@@ -257,13 +261,13 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
   });
 });
 
-describe('#3189 step 5 — a refused session change and a pool-capable host', () => {
+describe('a refused session change and a pool-capable host', () => {
   it('session_change_failed shows the reason and answers the change, not a command', () => {
     const { result, wire, deliver } = setup();
     act(() => result.current.send({ type: 'command', name: 'agent' }));
     // A still-genuinely-unsupported intent: every intent with a real GUI screen (session picker,
     // settings, plugin manager, agent switcher) now suppresses the reply's conversation card by
-    // design (#3282 §4), so this generic in-flight-pairing test needs one that still does not.
+    // design, so this generic in-flight-pairing test needs one that still does not.
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-theme-picker' } } } as TServerMessage);
     act(() => result.current.switchSession('b'));
     deliver({
@@ -354,7 +358,7 @@ describe('#3189 step 5 — a refused session change and a pool-capable host', ()
   });
 });
 
-describe("#3280 §5 — remembering the session across a desktop Reconnect's reload", () => {
+describe("remembering the session across a desktop Reconnect's reload", () => {
   const liveListing = (currentSessionId: string) => ({
     ...listing(currentSessionId),
     sessions: listing(currentSessionId).sessions.map((row) => ({
@@ -422,7 +426,7 @@ describe("#3280 §5 — remembering the session across a desktop Reconnect's rel
   });
 });
 
-describe('#3289 §1 — renaming and deleting a row from the list', () => {
+describe('renaming and deleting a row from the list', () => {
   it('sends rename-session on the wire and refreshes the listing once it lands', () => {
     const { result, wire, connect, deliver } = setup();
     connect();
@@ -493,5 +497,121 @@ describe('#3289 §1 — renaming and deleting a row from the list', () => {
     expect(result.current.sessionNotices.at(-1)).toMatchObject({
       message: 'Another client is on this session.',
     });
+  });
+});
+
+describe('the client follows the host role', () => {
+  const RESTORE_KEY = 'test-product.restoreSessionId';
+  const liveListing = (currentSessionId: string) => ({
+    ...listing(currentSessionId),
+    sessions: listing(currentSessionId).sessions.map((row) => ({
+      ...row,
+      live: row.id === currentSessionId,
+      clients: row.id === currentSessionId ? 1 : 0,
+    })),
+  });
+  const mutations: readonly TClientMessage[] = [
+    { type: 'submit', prompt: 'x' },
+    { type: 'command', name: 'model' },
+    { type: 'switch-session', sessionId: 'b' },
+    { type: 'new-session' },
+    { type: 'delete-session', sessionId: 'b', requestId: 'r1' },
+    { type: 'rename-session', sessionId: 'b', name: 'n', requestId: 'r2' },
+    { type: 'update-settings', patch: {} } as never,
+    { type: 'cancel-background-task', taskId: 't1' },
+  ];
+
+  function observing() {
+    const harness = setup();
+    harness.connect();
+    harness.deliver({ type: 'surface_role', role: 'observe' });
+    harness.wire.length = 0;
+    return harness;
+  }
+
+  it('sends get-surface-role first on connect and holds the answer as state.role', () => {
+    const { result, wire, connect, deliver } = setup();
+    expect(result.current.role).toBeNull();
+    connect();
+    expect(wire[0]).toEqual({ type: 'get-surface-role' });
+    deliver({ type: 'surface_role', role: 'observe' });
+    expect(result.current.role).toBe('observe');
+  });
+
+  it('an observer sends no mutation over the client but still reads', () => {
+    const { result, wire } = observing();
+    expect(result.current.role).toBe('observe');
+    act(() => {
+      for (const msg of mutations) result.current.send(msg);
+      result.current.switchSession('b');
+      result.current.newSession();
+      result.current.deleteSession('b');
+      result.current.renameSessionInList('b', 'n');
+      result.current.answerPermission('p1', 'allow' as never);
+      result.current.answerAsk('a1', { cancelled: true } as never);
+      result.current.sendCommandSilently('model');
+    });
+    expect(wire).toEqual([]);
+
+    act(() => {
+      result.current.send({ type: 'get-status' });
+      result.current.requestSessions();
+    });
+    expect(wire.map((m) => m.type)).toEqual(['get-status', 'list-sessions']);
+  });
+
+  it("an observer keeps the surface's own answers and starts no wait for a refused frame", () => {
+    const { result, wire } = observing();
+    act(() => {
+      result.current.send({ type: 'command', name: 'help' });
+      result.current.send({ type: 'send-background-task', taskId: 't1', input: { prompt: 'x' } });
+    });
+    expect(result.current.helpOpen).toBe(true);
+    expect(result.current.executionDetailInput).toBeUndefined();
+    expect(wire).toEqual([]);
+  });
+
+  it('a driver sends the same mutations as before', () => {
+    const { result, wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'surface_role', role: 'drive' });
+    wire.length = 0;
+    act(() => {
+      for (const msg of mutations) result.current.send(msg);
+    });
+    expect(wire.map((m) => m.type)).toEqual(mutations.map((m) => m.type));
+  });
+
+  it('app view requests reject at once while observing', async () => {
+    const { result } = observing();
+    await expect(result.current.readAppView('v1')).rejects.toThrow('This session is read-only.');
+    await expect(result.current.callAppTool('v1', 'tool', {})).rejects.toThrow(
+      'This session is read-only.',
+    );
+  });
+
+  it('the reconnect restore sends no switch-session while observing', () => {
+    rememberSessionForRestore('test-product', 'b');
+    const { wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'surface_role', role: 'observe' });
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
+    expect(wire.filter((m) => m.type === 'switch-session')).toEqual([]);
+    expect(window.sessionStorage.getItem(RESTORE_KEY)).toBeNull();
+  });
+
+  it('the reconnect restore still switches while driving', () => {
+    rememberSessionForRestore('test-product', 'b');
+    const { wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'surface_role', role: 'drive' });
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
+    expect(wire.filter((m) => m.type === 'switch-session')).toHaveLength(1);
+  });
+
+  it('the role resets to null after the connection drops', () => {
+    const { result, drop } = observing();
+    drop();
+    expect(result.current.role).toBeNull();
   });
 });

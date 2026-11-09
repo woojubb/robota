@@ -19,8 +19,8 @@ import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IContextWindowState } from '@robota-sdk/agent-core';
-import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
-import type { ISubmitOptions, ITurnHandle, TTurnSource } from '@robota-sdk/agent-interface-session';
+import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface/execution';
+import type { ISubmitOptions, ITurnHandle, TTurnSource } from '@robota-sdk/agent-interface/session';
 import type { Session } from '@robota-sdk/agent-session';
 
 export interface IExecutionControllerCallbacks {
@@ -43,7 +43,7 @@ export interface IExecutionControllerCallbacks {
   checkpointHistory: () => void;
   livePromptTrace?: ILivePromptTracePort;
   /**
-   * SELFHOST-008 P2: optional post-turn auto-capture. When set (surface supplied `automaticMemory`), it is
+   * Optional post-turn auto-capture. When set (surface supplied `automaticMemory`), it is
    * `await`ed in the executePrompt `finally` immediately BEFORE `persistSession()` on the completed-turn path,
    * so the returned `IMemoryEvent`s (recorded via the history tracker) land in THIS turn's persisted record.
    * Absent ⇒ capture OFF. It extracts/evaluates/curates through the injected `IMemoryStore` and returns the
@@ -54,17 +54,17 @@ export interface IExecutionControllerCallbacks {
     assistantMessage: string;
   }) => Promise<IMemoryEvent[]>;
   /**
-   * SELFHOST-008 P3: optional per-turn recall. When set (surface supplied a `recallMemory` policy), it is
+   * Optional per-turn recall. When set (surface supplied a `recallMemory` policy), it is
    * called at turn START with the turn's input and returns a rendered `<recalled-memory>` block (or '') to
    * inject EPHEMERALLY into that turn's model call (never persisted), plus the `memory_retrieved` events the
-   * recall produced (MEM-2055). Absent ⇒ recall OFF (startup-only injection). The controller guards the call
+   * recall produced. Absent ⇒ recall OFF (startup-only injection). The controller guards the call
    * (a recall failure skips injection, never breaks the turn) and — mirroring `captureMemory` above — records
    * the returned events itself in the `finally`, AFTER the turn's own messages are in history, so a recall
    * notice never renders ahead of the user message that triggered it.
    */
   recallMemory?: (query: string) => Promise<{ context: string; events: IMemoryEvent[] }>;
   /**
-   * SCREEN-1993: optional prompt-history append, called once per prompt turn right after
+   * Optional prompt-history append, called once per prompt turn right after
    * `user_message` is emitted, with the turn's source and driver so the recorder can keep only what
    * the owner typed. Absent ⇒ prompt history OFF.
    */
@@ -77,7 +77,7 @@ export interface IExecutionControllerCallbacks {
     toolExecutions: readonly ICompletedToolExecution[],
   ) => Promise<void>;
   /**
-   * #3288: provider tool name → source `/command` name, for the projected model-command tools this
+   * Provider tool name → source `/command` name, for the projected model-command tools this
    * session assembled (`model-command-tool-projection.ts`). Read at `tool_start` so the emitted
    * `IToolState.commandName` lets a surface show "Ran /<name>" without hardcoding the tool prefix.
    */
@@ -90,7 +90,7 @@ export interface ICompletedToolExecution {
   success: boolean;
 }
 
-/** Options threaded through submit/executePrompt for non-user turns (FLOW-002). */
+/** Options threaded through submit/executePrompt for non-user turns. */
 export interface ITurnOptions extends ISubmitOptions {
   turnSource?: TTurnSource;
   /** Host-owned preparation runs only after this accepted turn owns foreground execution. */
@@ -99,20 +99,20 @@ export interface ITurnOptions extends ISubmitOptions {
   wakeTaskId?: string;
 }
 
-/** REMOTE-014 E5: one queued input awaiting its turn (attributed). */
+/** One queued input awaiting its turn (attributed). */
 export interface IQueuedInput {
   readonly input: string;
   readonly displayInput?: string;
   readonly rawInput?: string;
   readonly options: ITurnOptions;
-  /** RUNTIME-006: this already-accepted submission's identity. Every terminal path settles by it. */
+  /** This already-accepted submission's identity. Every terminal path settles by it. */
   readonly turnId: string;
 }
 
 /**
  * A submit callback that optionally carries turn options (default = user turn).
  *
- * RUNTIME-003: the handle comes back and this callback's callers do not read it — the drain
+ * The handle comes back and this callback's callers do not read it — the drain
  * re-submits an input whose handle its original submitter already holds. Not reading a value is not
  * a reason to declare that it might not exist: `| void` was the old `Promise<void>` signature left
  * behind by this change, and it described a submission that answers with nothing, which no longer
@@ -126,5 +126,5 @@ export type TSubmitFn = (
   options?: ISubmitOptions,
 ) => Promise<ITurnHandle>;
 
-/** RUNTIME-006: resume one complete already-accepted queue entry without re-entering public submit. */
+/** Resume one complete already-accepted queue entry without re-entering public submit. */
 export type TResumeQueuedTurnFn = (entry: IQueuedInput) => Promise<void>;

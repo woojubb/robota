@@ -1,5 +1,5 @@
 /**
- * How a (provider, model) pair can be asked for structured output, and how sure we are. CORE-043.
+ * How a (provider, model) pair can be asked for structured output, and how sure we are.
  *
  * The runtime had no way to know whether the attempt it was wrapping carried a schema at all. A
  * provider whose surface cannot express `json_schema` accepted the request and ignored it, the

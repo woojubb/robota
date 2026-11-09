@@ -123,7 +123,7 @@ function createMockProvider() {
 }
 
 /**
- * ARCH-010 made `ISessionOptions.cwd` required — `Session` no longer reads `process.cwd()` itself. Every
+ * `ISessionOptions.cwd` is required — `Session` does not read `process.cwd()` itself. Every
  * session here is built with `tools: []`, so this root arms no tool guard; it is the session's execution
  * root, which reaches the hook and permission context these cases assert on, and the host process
  * directory is what the constructor used to derive on its own.

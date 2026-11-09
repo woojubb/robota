@@ -41,10 +41,16 @@ async function withControl(
 ): Promise<void> {
   const scratch = mkdtempSync(join(tmpdir(), 'rs-dmn-'));
   const root = join(scratch, 'supervised');
-  const control = await startSupervisedControl(
-    ID, () => undefined, root, () => 'idle', () => '/work/project', undefined, undefined, undefined,
-    undefined, undefined, undefined, daemon,
-  );
+  const control = await startSupervisedControl({
+    id: ID,
+    onStop: () => undefined,
+    root,
+    observe: {
+      activity: () => 'idle',
+      cwd: () => '/work/project',
+    },
+    daemon,
+  });
   try {
     await run(root);
   } finally {
@@ -74,7 +80,7 @@ describe('supervised daemon control', () => {
     });
   });
 
-  it('marks a daemon that runs Restricted, so a start asking for other access does not reuse it (#3268)', async () => {
+  it('marks a daemon that runs Restricted, so a start asking for other access does not reuse it', async () => {
     await withControl({ url: () => URL_WITH_TOKEN, restricted: true }, async (root) => {
       expect(await listSupervisedSessions(root, undefined, { includeDaemon: true })).toEqual([
         { id: ID, liveness: 'alive', control: 'available', activity: 'idle', daemon: true, restricted: true },

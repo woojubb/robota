@@ -1,5 +1,5 @@
 /**
- * #3282 §4c — the Project panel's one-file diff against a REAL temporary repository: a tracked
+ * The Project panel's one-file diff against a REAL temporary repository: a tracked
  * modification, an untracked file (shown as a whole-file addition), an unborn branch, the
  * non-repository case, the workspace-containment refusal, and the line cap. `HOME` is pointed at a
  * temp dir (AGENTS.md).

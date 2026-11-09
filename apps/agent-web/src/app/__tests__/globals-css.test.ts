@@ -1,5 +1,5 @@
 /**
- * The /remote page renders the GUI surface (agent-ui-web, through agent-transport-webrtc-web's
+ * The /remote page renders the GUI surface (agent-ui-web, through the remote client's
  * RemoteClient). Tailwind generates only the classes it scans, and the surface's tokens exist only if its
  * scoped styles are imported into this app's Tailwind entry.
  */
@@ -15,8 +15,7 @@ describe('the Tailwind entry', () => {
     expect(entry).not.toContain('agent-ui-web/styles/theme.css');
   });
 
-  it('scans the sources that render the surface', () => {
+  it('scans the package sources that render the surface', () => {
     expect(entry).toContain('@source "../../../../packages/agent-ui-web/src";');
-    expect(entry).toContain('@source "../../../../packages/agent-transport-webrtc-web/src";');
   });
 });

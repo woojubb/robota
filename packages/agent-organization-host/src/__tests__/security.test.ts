@@ -1,4 +1,5 @@
 import { chmodSync, renameSync, writeFileSync } from 'node:fs';
+import { performance } from 'node:perf_hooks';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OrganizationBroker, OrganizationLedger } from '../index.js';
 import type { IOrganizationAction, IOrganizationGrant, IOrganizationRequest } from '../index.js';
@@ -288,10 +289,35 @@ describe('operator-owned organization authority', () => {
     },
   );
 
+  it('retains the admission hold if the deadline expires before dispatch', async () => {
+    const clock = vi.spyOn(performance, 'now').mockReturnValueOnce(0).mockReturnValue(30);
+    try {
+      const f = setup();
+      const execute = vi.fn();
+      const broker = f.broker([{
+        resource: 'asset', operation: 'read', roles: ['operator'], requiresApproval: false,
+        reserve: () => ({ tokens: 10, timeMs: 20, costMicros: 10 }), execute,
+      }]);
+      const request = f.request();
+      await expect(broker.apply(f.call(request))).rejects.toThrow('outcome-unknown');
+      expect(execute).not.toHaveBeenCalled();
+      expect(f.ledger.budgetState('global').active).toBe(1);
+      await expect(broker.apply(f.call({ ...request, nonce: 'fresh-proof' }))).rejects.toThrow('outcome-unknown');
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it('refuses blind retry after a timed-out, throwing or over-budget effect, including after disk reopen', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+    const clock = vi.spyOn(performance, 'now').mockReturnValue(0);
+    try {
     for (const mode of ['timeout', 'throw', 'usage'] as const) {
       const f = setup();
+      let entered!: () => void;
+      const effectEntered = new Promise<void>((resolve) => { entered = resolve; });
       const execute = vi.fn(async () => {
+        entered();
         if (mode === 'timeout') return new Promise<never>(() => {});
         if (mode === 'throw') throw new Error('sensitive provider response');
         return { value: 'side-effect', usage: { tokens: 11, timeMs: 0, costMicros: 1 } };
@@ -307,7 +333,11 @@ describe('operator-owned organization authority', () => {
         },
       ]);
       const request = f.request();
-      await expect(broker.apply(f.call(request))).rejects.toThrow('outcome-unknown');
+      const pending = broker.apply(f.call(request));
+      const rejection = expect(pending).rejects.toThrow('outcome-unknown');
+      await effectEntered;
+      if (mode === 'timeout') await vi.advanceTimersByTimeAsync(20);
+      await rejection;
       expect(f.ledger.budgetState('global').active).toBe(1);
       f.ledger.close();
       const reopened = new OrganizationLedger(f.ledgerOptions);
@@ -322,6 +352,10 @@ describe('operator-owned organization authority', () => {
       expect(reopened.budgetState('global').held.tokens).toBe(10);
       reopened.close();
       expect(execute).toHaveBeenCalledTimes(1);
+    }
+    } finally {
+      clock.mockRestore();
+      vi.useRealTimers();
     }
   });
 
@@ -369,14 +403,21 @@ describe('operator-owned organization authority', () => {
       'policy-unavailable',
     );
     const broker = f.broker();
-    chmodSync(f.path, 0o644);
-    await expect(broker.apply(f.call(f.request()))).rejects.toThrow('policy-unavailable');
-    chmodSync(f.path, 0o600);
-    renameSync(f.path, `${f.path}.old`);
-    writeFileSync(f.path, 'not a database', { mode: 0o600 });
-    await expect(broker.apply(f.call(f.request()))).rejects.toThrow('policy-unavailable');
-    expect(() => new OrganizationLedger(f.ledgerOptions)).toThrow('policy-unavailable');
+    if (process.platform === 'win32') {
+      // Windows has no mode bits to widen, and it refuses to rename or delete a file SQLite holds open, so an
+      // open policy store cannot be swapped for another file; the corrupt store is written once it is closed.
+      expect(() => renameSync(f.path, `${f.path}.old`)).toThrow(/EBUSY|EPERM/u);
+    } else {
+      chmodSync(f.path, 0o644);
+      await expect(broker.apply(f.call(f.request()))).rejects.toThrow('policy-unavailable');
+      chmodSync(f.path, 0o600);
+      renameSync(f.path, `${f.path}.old`);
+      writeFileSync(f.path, 'not a database', { mode: 0o600 });
+      await expect(broker.apply(f.call(f.request()))).rejects.toThrow('policy-unavailable');
+    }
     f.ledger.close();
+    if (process.platform === 'win32') writeFileSync(f.path, 'not a database');
+    expect(() => new OrganizationLedger(f.ledgerOptions)).toThrow('policy-unavailable');
     await expect(broker.apply(f.call(f.request()))).rejects.toThrow('policy-unavailable');
   });
 

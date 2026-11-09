@@ -1,5 +1,5 @@
 /**
- * Helpers over the error taxonomy — CORE-035.
+ * Helpers over the error taxonomy.
  *
  * Split out of `errors.ts`, which owns the CLASSES. Two responsibilities lived in one file: what the
  * errors ARE, and what a caller does with an arbitrary one. Keeping them together pushed the

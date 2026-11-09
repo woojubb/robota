@@ -1,11 +1,11 @@
 /**
- * A project session write that fails part-way (#3679, secure conversation).
+ * A project session write that fails part-way (secure conversation).
  *
  * The project store's write goes through the trusted-root mutation boundary. A write that stops
  * after some of its bytes reached the disk must neither damage the record that was there nor leave
  * a file the store will not recognise as its own: either would block saving that session for the
  * rest of the process once the keys lock. The failure is injected, since a healthy disk never shows
- * it. ARCH-047: project writes need the Linux stable-root host, so this runs on Linux only.
+ * it. Project writes need the Linux stable-root host, so this runs on Linux only.
  */
 
 import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
@@ -19,7 +19,7 @@ import { createProjectSessionStore } from '../interactive/node-session-stores.js
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const io = vi.hoisted(() => ({
   failNextSessionWrite: false,
@@ -78,7 +78,7 @@ function record(id: string, text: string): IInteractiveSessionRecord {
 }
 
 /**
- * A valid outcome as a store that seals reports it (#3679 step 3e): it says whose the record is and
+ * A valid outcome as a store that seals reports it: it says whose the record is and
  * which stored bytes it came from. Saves here state no provenance, and a write-only child's handed-over
  * record is never the owner's, so the records are unverified.
  */

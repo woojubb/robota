@@ -1,5 +1,5 @@
 /**
- * TC-04 — capability state is three-valued (MCP-002).
+ * Capability state is three-valued.
  *
  * A server declaring no `prompts` capability yields `unsupported` and is NEVER called; a server
  * declaring `prompts` with zero items yields `supported/empty`; the two are distinguishable in the

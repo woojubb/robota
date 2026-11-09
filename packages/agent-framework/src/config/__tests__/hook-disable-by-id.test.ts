@@ -1,5 +1,5 @@
 /**
- * Issue #2320 — a hook can be named (`id`) and disabled from an EARLIER, higher-trust layer
+ * A hook can be named (`id`) and disabled from an EARLIER, higher-trust layer
  * (`disabledHooks`); a later layer naming an earlier layer's guard changes nothing.
  *
  * Both halves of the issue's falsification: the user-level disable works, and the project-level
@@ -29,7 +29,7 @@ function groupIds(settings: TEnvResolvedSettings): Array<string | undefined> {
   return (settings.hooks?.PreToolUse ?? []).map((group) => group.id);
 }
 
-describe('hook disable by id (issue #2320)', () => {
+describe('hook disable by id', () => {
   it('a user layer disables a named project hook', () => {
     const user: TEnvResolvedSettings = { disabledHooks: ['project-lint'] };
     const project: TEnvResolvedSettings = { hooks: { PreToolUse: [lint, anonymous] } };

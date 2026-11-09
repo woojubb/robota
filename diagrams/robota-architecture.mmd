@@ -4,8 +4,7 @@ graph TD
   %% relations, not package dependencies. Grouped boxes stand for several packages.
 
   subgraph Leaves["Leaves (no @robota-sdk dependency)"]
-    PROC[agent-process]
-    FA[agent-file-authority]
+    OS[agent-os<br/>file-authority · node-lock · process]
     KR[agent-keyring<br/>key custody and sealing]
     PAIR[agent-remote-pairing]
     RT[agent-roundtable<br/>turn scheduling, no runtime]
@@ -15,21 +14,15 @@ graph TD
     CORE[agent-core<br/>Robota engine · tool/plugin/provider contracts · permissions]
   end
 
-  subgraph Contracts["agent-interface-* (type-only contracts)"]
-    IFA[agent-interface-analytics]
-    IFTUI[agent-interface-tui]
-    IFCE[agent-interface-command · agent-interface-execution]
-    IFS[agent-interface-session]
-    IFM[agent-interface-session-mobility]
-    IFT[agent-interface-transport]
+  subgraph Contracts["agent-interface (type-only contracts)"]
+    IF[agent-interface<br/>one subpath per family]
   end
 
   subgraph Blocks["Building blocks"]
-    TOOLS[agent-tools]
+    TOOLS[agent-tools<br/>+ ./defaults default tool set]
     PLUG[agent-plugin]
     MCP[agent-mcp<br/>MCP client]
-    PROV[agent-provider-anthropic / -openai / -openai-compatible /<br/>-gemini / -bytedance]
-    BIP[agent-builtin-providers]
+    PROV[agent-provider<br/>one subpath per vendor + builtin]
     SA[agent-session-analytics]
     OTEL[agent-telemetry-otel<br/>OTel span and metric projection]
   end
@@ -38,7 +31,6 @@ graph TD
     SESS[agent-session]
     REPLAY[agent-provider-replay<br/>private · test replay]
     EXEC[agent-executor]
-    TD[agent-tool-defaults]
     RTR[agent-roundtable-robota<br/>Session/Robota roundtable participants]
   end
 
@@ -48,24 +40,20 @@ graph TD
 
   subgraph Transports["Transports"]
     TCORE[agent-transport<br/>wire protocol · delivery]
-    TCAR[agent-transport-ws · agent-transport-mcp · agent-transport-acp]
-    THTTP[agent-transport-http]
-    TWEBRTC[agent-transport-webrtc]
-    TLINK[agent-transport-link<br/>owner link carrier]
+    TCAR[agent-transport/ws · /mcp · /acp]
+    THTTP[agent-transport/http]
+    TWEBRTC[agent-transport/webrtc]
+    TLINK[agent-transport/link<br/>owner link carrier]
   end
 
   subgraph Presentation["Presentation"]
     TTUI[agent-ui-terminal<br/>React + Ink]
-    TGUI[agent-ui-web · agent-gui-web ·<br/>agent-transport-webrtc-web · private]
+    TGUI[agent-ui-web · agent-gui-web ·<br/>private]
   end
 
   subgraph Composition["Product composition"]
-    PRESET[agent-preset]
-    CMD[agent-command]
-    CAP[agent-capability-pack]
     SUB[agent-subagent-runner]
-    PROD[agent-product]
-    PACK[pack-coding]
+    PROD[agent-product<br/>assembleProduct + capability-pack · preset · command · coding subpaths]
   end
 
   WF["External @robota-sdk/workflows/command"]
@@ -80,53 +68,47 @@ graph TD
   end
 
   %% Contracts
-  CORE --> IFCE & IFS & IFM & IFT
-  IFA & IFCE --> IFS
-  IFS --> IFM
+  CORE --> IF
 
   %% Building blocks
   CORE --> TOOLS & PLUG & MCP & PROV & SA
-  PROC --> TOOLS
-  PROV --> BIP
-  IFA & IFS --> SA
-  IFA & CORE --> OTEL
+  OS --> TOOLS
+  IF --> SA
+  IF & CORE --> OTEL
 
   %% Runtime
   CORE --> SESS & EXEC
   CORE & SESS --> REPLAY
-  FA --> SESS
-  IFCE & IFS --> SESS
-  PROC --> EXEC
-  IFCE & IFT --> EXEC
-  TOOLS --> TD
+  OS --> SESS
+  IF --> SESS
+  OS --> EXEC
+  IF --> EXEC
   CORE & SESS & RT --> RTR
 
   %% Assembly (providers are injected by the composition root, never imported)
-  CORE & SESS & EXEC & TOOLS & TD & FA & RT --> FW
-  IFA & IFCE & IFS & IFM & IFT --> FW
+  CORE & SESS & EXEC & TOOLS & OS & RT --> FW
+  IF --> FW
   PROV -. injected .-> FW
 
   %% Transports
-  CORE & IFA & IFCE & IFS & IFM & IFT --> TCORE
+  CORE & IF --> TCORE
   TCORE --> TCAR & THTTP & TWEBRTC
   TCORE & KR --> TLINK
   PAIR --> TWEBRTC
 
   %% Presentation
-  FW & TCORE & IFTUI --> TTUI
+  FW & TCORE & IF --> TTUI
   TCORE & PAIR --> TGUI
 
   %% Product composition
-  FW --> PRESET & CMD & CAP & SUB & PROD
-  PRESET --> CMD & PROD
-  EXEC & PROC --> SUB
-  CAP --> PROD & PACK
-  CMD & TD --> PACK
+  FW --> SUB & PROD
+  TOOLS --> PROD
+  EXEC & OS --> SUB
 
   CORE & FW --> WF
 
   %% Composition roots
-  FW & CMD & PROD & PACK & SUB & MCP & BIP & SA --> CLI
+  FW & PROD & SUB & MCP & PROV & SA --> CLI
   TTUI & TCAR & TWEBRTC & TGUI & WF --> CLI
   KR --> CLI
   TGUI --> APP

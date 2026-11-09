@@ -12,7 +12,7 @@ export interface IModelConfig {
   temperature?: number;
   maxTokens?: number;
   topP?: number;
-  /** Reasoning effort selection read per-call by the execution round (PRESET-013 live re-application channel). */
+  /** Reasoning effort selection read per-call by the execution round (the live re-application channel). */
   effort?: TModelEffortSelection;
 }
 

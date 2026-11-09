@@ -15,23 +15,23 @@ import { ConfirmDialog } from './Dialog.js';
 import { DiffLines } from './DiffLines.js';
 
 import type { TPendingPrompt } from '../hooks/prompt-state.js';
-import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { TActionResponse } from '@robota-sdk/agent-interface/transport';
+import type { TDriverId } from '@robota-sdk/agent-interface/session';
 
 /**
- * Renders the owner's pending permission/ask prompts (REMOTE-007/009). Under local == remote the paired
+ * Renders the owner's pending permission/ask prompts. Under local == remote the paired
  * browser owner answers its OWN prompts; the first pending prompt is shown. A gated tool call blocks
  * until answered, so this is on the critical path — not decorative.
  *
  * `modal` covers the page; `dock` sits above the composer, as desktop agent apps place a pending
  * question next to where the answer is typed. Once armed and focused, its keys answer it: 1–9 picks
  * an option, Esc cancels a question or denies a permission — but it never takes that focus away from
- * a field the person is typing in (#3280 §1). A click on a button always answers at once. An ask whose
+ * a field the person is typing in. A click on a button always answers at once. An ask whose
  * request sets `allowFreeText` also shows a text field (masked when `masked` is set); Enter there
- * submits it, and its own keys never reach the prompt's shortcuts (#3280 §3). The field's typed value
+ * submits it, and its own keys never reach the prompt's shortcuts. The field's typed value
  * lives only in `FreeTextField`, keyed by `prompt.id`: a cancelled or answered prompt's text can
  * never reach the next prompt's render, masked or not, because the field is a fresh component
- * instance rather than a value carried over in this component's own state (#3280 §3 follow-up).
+ * instance rather than a value carried over in this component's own state.
  *
  * An ask whose `maxSelect` is above 1 is a multi-select: each option is a toggle (a click or 1–9 ticks
  * it, nothing answers yet), and Submit — or Enter at the prompt, once the selection is allowed —
@@ -43,7 +43,7 @@ interface IPermissionPromptProps {
   prompts: readonly TPendingPrompt[];
   onAnswerPermission: (id: string, result: boolean) => void;
   onAnswerAsk: (id: string, response: TActionResponse) => void;
-  /** This connection's own driver id (§3289 §3): a prompt raised by its own turn shows no requester. */
+  /** This connection's own driver id: a prompt raised by its own turn shows no requester. */
   ownDriverId?: TDriverId | null;
   layout?: 'modal' | 'dock';
   /** How long a new prompt waits before its keys answer it; tests pass their own. */
@@ -72,7 +72,7 @@ function isEditableElement(element: Element | null): boolean {
 }
 
 /**
- * #3282 §2 (part 2) — the one destructive option in the provider profile action menu (the ask built
+ * The one destructive option in the provider profile action menu (the ask built
  * by `askProviderProfileAction` in `agent-command`'s `provider-command-profile.ts`, `request.id`
  * `'provider-profile-action'`): "Delete" answers to no digit and renders apart from Switch/Edit/Test/
  * Duplicate, styled destructive — the exact audited bug ("Delete looks the same as Switch, answers to
@@ -132,7 +132,7 @@ export function PermissionPrompt({
   const promptId = prompt?.id;
   const containerRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLInputElement>(null);
-  // A question with a text field (#3280 §3): the field is the prompt's primary control, so focus goes
+  // A question with a text field: the field is the prompt's primary control, so focus goes
   // there instead of the container wherever this component would otherwise focus the container itself.
   const hasFreeText = prompt?.kind === 'ask' && prompt.request.allowFreeText === true;
   const [armedId, setArmedId] = useState<string | undefined>(undefined);
@@ -162,8 +162,8 @@ export function PermissionPrompt({
   // Answering one prompt renders the next into the same buttons, so a button focused to answer the
   // last one would take Enter, Space or a held key as an answer to this one. Focus goes back to the
   // prompt itself, whose keys wait for the prompt to arm. A reused button is still there to find this
-  // way — but the free-text field is its own component, remounted (not updated) for the new prompt.id
-  // (#3280 §3 follow-up), and removing a focused DOM node drops focus to <body> as an intrinsic side
+  // way — but the free-text field is its own component, remounted (not updated) for the new prompt.id,
+  // and removing a focused DOM node drops focus to <body> as an intrinsic side
   // effect, before this effect ever runs. `pendingFocusReturnRef` (set at answer time, and not yet
   // cleared — the effect that clears it is a passive one, ordered after this layout effect) still
   // remembers that focus was in this prompt, so that case is reclaimed too.
@@ -178,7 +178,7 @@ export function PermissionPrompt({
     }
   }, [promptId]);
   // Once armed the prompt takes focus, so its keys answer it rather than type wherever the person
-  // already is — UNLESS that is an editable field, whose keystrokes must never be stolen (#3280 §1).
+  // already is — UNLESS that is an editable field, whose keystrokes must never be stolen.
   useEffect(() => {
     if (!armed) return;
     if (isEditableElement(document.activeElement)) return;
@@ -199,8 +199,8 @@ export function PermissionPrompt({
   }, [promptId, onFocusReturn]);
   if (!prompt) return null;
 
-  // #3282 §2 (part 2): the provider-delete confirmation (`buildProviderDelete` in agent-command's
-  // `provider-command-profile-lifecycle.ts`) is now built on the shared `ConfirmDialog` (#3331)
+  // The provider-delete confirmation (`buildProviderDelete` in agent-command's
+  // `provider-command-profile-lifecycle.ts`) is now built on the shared `ConfirmDialog`
   // instead of the generic ask grid — a destructive-styled "Delete", Cancel focused by default, and
   // no accidental backdrop-click dismissal. `confirmAction`'s own `CONFIRM_YES`/`CONFIRM_NO` values
   // ('yes'/'no', from `@robota-sdk/agent-core`) are answered directly; this bypasses the rest of this
@@ -220,7 +220,7 @@ export function PermissionPrompt({
     );
   }
 
-  // REMOTE-014 E5 (display-only): the prompt belongs to the driver whose turn raised it. Shown so the owner
+  // Display-only: the prompt belongs to the driver whose turn raised it. Shown so the owner
   // can tell a co-driver's tool-gate from their own — it NEVER changes who is authorized to answer (owner).
   const requesterLabel =
     prompt.requesterDriverId && !isSameSurface(prompt.requesterDriverId, ownDriverId)
@@ -301,7 +301,7 @@ export function PermissionPrompt({
       if (index < 2) answerPermission(prompt.id, index === 0);
       return;
     }
-    // #3282 §2: a destructive option (Delete) is excluded from the digit-answerable list entirely —
+    // A destructive option (Delete) is excluded from the digit-answerable list entirely —
     // no stray digit, including the one it happened to render at before this menu was reordered, can
     // ever answer it.
     const digitOptions = (prompt.request.options ?? []).filter(
@@ -313,7 +313,7 @@ export function PermissionPrompt({
     if (multi) toggleOption(option.value);
     else answerAsk(prompt.id, { type: 'answer', values: [option.value] });
   };
-  // #3288: an Edit/Write request carries the same server-built diff `tool_end` would show.
+  // An Edit/Write request carries the same server-built diff `tool_end` would show.
   const hasDiff = prompt.kind === 'permission' && (prompt.diffLines?.length ?? 0) > 0;
   const shellCommand =
     prompt.kind === 'permission' && typeof prompt.toolArgs['command'] === 'string'
@@ -322,7 +322,7 @@ export function PermissionPrompt({
   const isShellCommand = prompt.kind === 'permission' && prompt.toolName === 'Bash' && shellCommand !== undefined;
   const askRequestId = prompt.kind === 'ask' ? prompt.request.id : undefined;
   const askOptions = prompt.kind === 'ask' ? (prompt.request.options ?? []) : [];
-  // #3282 §2: Delete (in the provider profile action menu) renders apart from the rest, destructive-
+  // Delete (in the provider profile action menu) renders apart from the rest, destructive-
   // styled and with no digit shortcut — every other ask's options are unaffected (`destructiveAskOption`
   // stays undefined, so `primaryAskOptions` is just `askOptions`, same order, same shortcuts).
   const destructiveAskOption = askOptions.find((opt) => isDestructiveAskOption(askRequestId, opt.value));
@@ -381,10 +381,10 @@ export function PermissionPrompt({
                     </>
                   )}
                 </p>
-                {/* #3288 §2: an Edit/Write request with a server-built diff preview shows "Edit
+                {/* An Edit/Write request with a server-built diff preview shows "Edit
                     <path>" (or "Background agent <label> wants to edit <path>") and the diff, in
                     place of "Allow <tool> to run?" and raw arguments.
-                    Issue #3288 §1: a background agent's own request ALWAYS names it — whether or
+                    A background agent's own request ALWAYS names it — whether or
                     not there's a diff to show — so this never reads as an unattributed ask for
                     exactly the riskiest calls (a diff-bearing Edit/Write). */}
                 {prompt.requester?.kind === 'background-agent' ? (
@@ -505,7 +505,7 @@ export function PermissionPrompt({
                   ))}
                 </div>
               )}
-              {/* #3282 §2: Delete sits apart at the bottom, styled destructive, with no digit
+              {/* Delete sits apart at the bottom, styled destructive, with no digit
                   shortcut — the audited bug was that it looked and behaved just like Switch. */}
               {destructiveAskOption && (
                 <div className="flex flex-wrap items-start gap-3">
@@ -579,7 +579,7 @@ const BUTTON =
 const PRIMARY_BUTTON = `${BUTTON} bg-primary text-primary-foreground hover:opacity-90`;
 const SECONDARY_BUTTON = `${BUTTON} bg-raised text-foreground hover:bg-hover`;
 const GHOST_BUTTON = `${BUTTON} text-muted-foreground hover:bg-hover hover:text-foreground`;
-/** #3282 §2: a destructive ask option (Delete) — visually distinct from Switch/Edit/Test/Duplicate. */
+/** A destructive ask option (Delete) — visually distinct from Switch/Edit/Test/Duplicate. */
 const DESTRUCTIVE_BUTTON = `${BUTTON} bg-destructive/12 text-destructive hover:bg-destructive/20`;
 
 /** Imperative escape hatch a parent can use to wipe the field's value without owning it. */
@@ -628,7 +628,7 @@ const FreeTextField = forwardRef<IFreeTextFieldHandle, IFreeTextFieldProps>(func
     onCancel();
   };
   /**
-   * A key that reaches the field types into it — the prompt's own shortcuts never see it (#3280 §3).
+   * A key that reaches the field types into it — the prompt's own shortcuts never see it.
    * The Enter that only finishes an IME composition (Korean/Japanese/Chinese) must not submit the
    * still-uncommitted text — `isComposing` (or `keyCode` 229, on browsers that predate it) marks that
    * Enter; the keystroke is left alone so the browser can commit the composition normally.
@@ -738,7 +738,7 @@ function ToolArgs({ args }: { args: unknown }): React.ReactElement | null {
 }
 
 /**
- * #3288: a Shell request shows just its command — and the working directory only when the server
+ * A Shell request shows just its command — and the working directory only when the server
  * says it differs from the workspace — instead of every raw argument.
  */
 function ShellCommandPreview({

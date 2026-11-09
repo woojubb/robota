@@ -9,7 +9,7 @@ import {
 } from './logger';
 
 /**
- * CORE-029 — every diagnostic `agent-core` emits was discarded BY CONSTRUCTION.
+ * Every diagnostic `agent-core` emits was discarded BY CONSTRUCTION.
  *
  * `createLogger(name, sink?)` fell back to `SilentLogger` when no sink was passed, no call site in
  * the repository ever passed one, and nothing could install one afterwards. So 157 `logger.*` calls
@@ -39,7 +39,7 @@ function recordingSink(): { sink: ILogger; lines: string[] } {
   };
 }
 
-describe('global logger sink (CORE-029)', () => {
+describe('global logger sink', () => {
   afterEach(() => {
     setGlobalLoggerSink(undefined);
     setGlobalLogLevel('warn');

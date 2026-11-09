@@ -56,7 +56,7 @@ export function buildPermissionEnforcer(
       : {}),
     transcriptPath,
     onProjectAllowTool: options.onProjectAllowTool,
-    // CORE-025: forward the background/subagent task permission policy + its own allow/deny lists.
+    // Forward the background/subagent task permission policy + its own allow/deny lists.
     permissionPolicy: options.permissionPolicy,
     taskPermissions: options.taskPermissions,
   });
@@ -105,7 +105,7 @@ export function buildConversationAgent(
       provider: provider.name,
       model,
       ...(options.effort !== undefined && { effort: options.effort }),
-      // ARCH-040: the same two channels `applyModelOptions` writes on a live session, so the
+      // The same two channels `applyModelOptions` writes on a live session, so the
       // startup answer and the mid-session answer are the same answer.
       ...(options.temperature !== undefined && { temperature: options.temperature }),
       ...(options.maxOutputTokens !== undefined && { maxTokens: options.maxOutputTokens }),
@@ -116,19 +116,19 @@ export function buildConversationAgent(
     ...(options.toolExecutionPolicy !== undefined
       ? { toolExecutionPolicy: options.toolExecutionPolicy }
       : {}),
-    // Issue #3081: a tool denied outright by name is withheld from the model, not offered and refused.
+    // A tool denied outright by name is withheld from the model, not offered and refused.
     isToolVisible: (toolName) => permissionEnforcer.isToolVisible(toolName),
     logging: { enabled: false },
-    // SELFHOST-004: the session-owned observable event bus. Tools (incl. the FunctionTool span
+    // The session-owned observable event bus. Tools (incl. the FunctionTool span
     // emit) are wired to it via the agent, so the interactive turn can subscribe to span-completion
     // events and project them onto session history. Absent this, the agent falls back to the no-op
     // default event service and no span events fire.
     eventService,
     ...(options.providerTimeout !== undefined && { timeout: options.providerTimeout }),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
-    // CMD-005: the "ask the user" port rides the agent config into tool execution contexts.
+    // The "ask the user" port rides the agent config into tool execution contexts.
     ...(options.ask ? { ask: options.ask } : {}),
-    // NEUT-005: surface-injected remediation wording for the core's hard-capacity notice.
+    // Surface-injected remediation wording for the core's hard-capacity notice.
     ...(options.contextCapacityHint !== undefined
       ? { contextCapacityHint: options.contextCapacityHint }
       : {}),

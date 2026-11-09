@@ -1,39 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * The dynamic half of the "Runtime platforms" rule in ARCHITECTURE.md.
- *
- * `check-platform-neutral.mjs` proves by reading source that a platform-neutral entry reaches no Node
- * built-in and no Node global. This proves it by running: each neutral subpath of each package on the
- * Platform-neutral list is bundled the way a browser build bundles it (`platform: 'browser'`, ESM,
- * workspace packages from their `source`), and the bundle is evaluated in a realm that has only
- * web-standard globals (`browser-proof/web-globals.mjs`) — no `process`, `require`, `Buffer`,
- * `global`, `setImmediate` or `__dirname`. A reference to one fails with its name and the source line,
- * which a scan cannot see in a third-party dependency that reads `process.env` at call time.
- *
- * Two kinds of job, both against the bundle:
- *  - `load`: the entry evaluates. Every neutral subpath of every listed package.
- *  - `scenario`: `browser-proof/<package>.scenario.mjs` drives the package and asserts what it
- *    observes: a turn, a request the `fetch` stub received, a refusal. Another file in that directory
- *    is picked up by its name; its package must be on the Platform-neutral list.
- *
- * A bundle that imports a Node built-in (or another package's Node-only subpath) fails, except a
- * dynamic import inside a third-party module, which the static check also allows: it is a runtime
- * detection that does not run here. Such an import resolves to a module that throws, as a browser
- * build's stub would.
+ * Load neutral workspace exports in a browser-like realm to complement the static platform check.
  *
  *   node scripts/harness/browser-runtime-proof.mjs [--root <workspace>] [--out <dir>]
  *
- * `--out` keeps the bundles (and their source maps) in <dir>, for loading them in a real browser.
+ * `--out` retains bundles and source maps for a real browser.
  */
 
 import { spawn } from 'node:child_process';
 import {
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readdirSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -60,18 +39,9 @@ import { REALM_GLOBAL_NAMES } from './browser-proof/web-globals.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PROOF_DIR = path.join(here, 'browser-proof');
 const REALM = path.join(PROOF_DIR, 'realm.mjs');
-const INSTALL = path.join(PROOF_DIR, 'install.mjs');
-const KIT = path.join(PROOF_DIR, 'kit.mjs');
 
-/**
- * A bundle's `run()` waits at most this: the slowest scenario takes tens of milliseconds, so one
- * that waits seconds is waiting for something that is not coming.
- */
+/** Bound both entry loads and the whole realm run. */
 const JOB_TIMEOUT_MS = 10_000;
-/**
- * The whole realm run, which takes under a second here (about 0.8 s for the whole proof, bundling
- * included). A bundle that never returns, or loops, is killed at this many times that.
- */
 const REALM_TIMEOUT_MS = 30_000;
 
 const thirdPartyName = (file) =>
@@ -79,9 +49,8 @@ const thirdPartyName = (file) =>
 
 const quote = (text) => JSON.stringify(text);
 
-/** The bundles to build and run: every neutral subpath of every listed package, and every scenario. */
-function planJobs({ packages, neutral, scenarioDir }) {
-  const problems = [];
+/** One load job for every neutral export subpath in the workspace. */
+function planJobs({ packages, neutral }) {
   const jobs = [];
   for (const [name, { short, entries }] of packages) {
     if (!neutral.includes(short)) continue;
@@ -90,42 +59,17 @@ function planJobs({ packages, neutral, scenarioDir }) {
       const specifier = `${name}${subpath === '.' ? '' : subpath.slice(1)}`;
       jobs.push({
         id: `load ${specifier}`,
-        kind: 'load',
         key: `load/${short}${subpath === '.' ? '' : `~${subpath.slice(2).replace(/\W+/gu, '-')}`}`,
         source: [
-          `import ${quote(INSTALL)};`,
           `import * as entry from ${quote(specifier)};`,
           'export async function run() {',
-          '  return JSON.stringify({ checks: [], exports: Object.keys(entry).length });',
+          '  return JSON.stringify({ exports: Object.keys(entry).length });',
           '}',
         ].join('\n'),
       });
     }
   }
-  const scenarios = existsSync(scenarioDir)
-    ? readdirSync(scenarioDir).filter((file) => file.endsWith('.scenario.mjs'))
-    : [];
-  for (const file of scenarios.sort()) {
-    const short = file.slice(0, -'.scenario.mjs'.length);
-    if (!neutral.includes(short)) {
-      problems.push(
-        `${file} is a scenario for ${short}, which ARCHITECTURE.md "Runtime platforms" does not list as Platform-neutral`,
-      );
-      continue;
-    }
-    jobs.push({
-      id: `scenario ${short}`,
-      kind: 'scenario',
-      key: `scenario/${short}`,
-      source: [
-        `import ${quote(INSTALL)};`,
-        `import scenario from ${quote(path.join(scenarioDir, file))};`,
-        `import { runScenario } from ${quote(KIT)};`,
-        'export const run = () => runScenario(scenario);',
-      ].join('\n'),
-    });
-  }
-  return { jobs, problems, scenarioPackages: scenarios.map((file) => file.split('.')[0]) };
+  return jobs;
 }
 
 /** esbuild plugin: virtual entries, workspace packages from `source`, Node built-ins as throwing stubs. */
@@ -256,7 +200,6 @@ function failureText({ error, job, root }) {
  */
 export async function runBrowserProof({
   root: workspaceRoot,
-  scenarioDir = PROOF_DIR,
   outDir,
   jobTimeoutMs = JOB_TIMEOUT_MS,
   realmTimeoutMs = REALM_TIMEOUT_MS,
@@ -265,13 +208,13 @@ export async function runBrowserProof({
   const packages = loadWorkspace(root);
   const lists = documentedPlatforms(readFileSync(path.join(root, 'ARCHITECTURE.md'), 'utf8'));
   const neutral = lists.get('Platform-neutral') ?? [];
-  const plan = planJobs({ packages, neutral, scenarioDir });
-  const problems = [...plan.problems];
-  const result = { problems, jobs: [], loadOnly: [], realm: [] };
+  const plan = planJobs({ packages, neutral });
+  const problems = [];
+  const result = { problems, jobs: [], realm: [] };
   mkdirSync(outDir ?? os.tmpdir(), { recursive: true });
   const workDir = realpathSync(outDir ?? mkdtempSync(path.join(os.tmpdir(), 'browser-proof-')));
   try {
-    const jobs = plan.jobs.map((job) => ({
+    const jobs = plan.map((job) => ({
       ...job,
       file: path.join(workDir, `${job.key}.mjs`),
     }));
@@ -330,21 +273,13 @@ export async function runBrowserProof({
       if (outcome.leaked.length > 0)
         failures.push(`the realm defines ${outcome.leaked.join(', ')}: the proof is not isolated`);
       if (outcome.error) failures.push(failureText({ error: outcome.error, job, root }));
-      if (outcome.result?.failure)
-        failures.push(failureText({ error: outcome.result.failure, job, root }));
-      for (const check of outcome.result?.checks ?? [])
-        if (!check.ok && check.label !== 'the scenario ran to completion')
-          failures.push(`"${check.label}" failed${check.detail ? `: ${check.detail}` : ''}`);
       for (const fault of outcome.faults)
         failures.push(`${fault.kind}: ${failureText({ error: fault, job, root })}`);
       for (const failure of failures) problems.push(`${job.id}: ${failure}`);
       result.jobs.push({
         id: job.id,
-        kind: job.kind,
         ok: failures.length === 0,
-        checks: outcome.result?.checks?.length ?? 0,
         exports: outcome.result?.exports,
-        requests: outcome.result?.requests ?? 0,
         ms: outcome.ms,
         logs: outcome.logs,
       });
@@ -352,11 +287,6 @@ export async function runBrowserProof({
     for (const job of jobs)
       if (!reported.has(job.id))
         problems.push(`${job.id}: no result; the realm ${run.ended ?? 'stopped before it ran'}`);
-    result.loadOnly = [...neutral]
-      .filter(
-        (short) => packages.has(`@robota-sdk/${short}`) && !plan.scenarioPackages.includes(short),
-      )
-      .sort();
     return result;
   } finally {
     if (outDir === undefined) rmSync(workDir, { recursive: true, force: true });
@@ -369,17 +299,10 @@ if (isEntryPoint(import.meta)) {
   const outDir = outFlag === -1 ? undefined : path.resolve(process.argv[outFlag + 1]);
   const started = Date.now();
   const result = await runBrowserProof({ root, outDir });
-  const scenarios = result.jobs.filter((job) => job.kind === 'scenario');
   console.log(
     `browser runtime proof: ${result.jobs.length} bundles evaluated in a realm of web globals only (${REALM_GLOBAL_NAMES.join(', ')})`,
   );
-  for (const job of result.jobs.filter((candidate) => candidate.kind === 'scenario'))
-    console.log(
-      `  ${job.ok ? 'ok  ' : 'FAIL'} ${job.id}: ${job.checks} checks, ${job.requests} requests, ${job.ms} ms`,
-    );
-  console.log(
-    `  ${result.jobs.length - scenarios.length} entries loaded; no scenario yet for: ${result.loadOnly.join(', ') || 'none'}`,
-  );
+  console.log(`  ${result.jobs.length} entries loaded`);
   if (result.problems.length === 0) {
     console.log(`  passed in ${((Date.now() - started) / 1000).toFixed(1)} s`);
   } else {

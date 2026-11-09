@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 
-// DIST-006: the runner spawns `execPath args… --__agent-subagent-worker`, so the fixture asserts
+// The runner spawns `execPath args… --__agent-subagent-worker`, so the fixture asserts
 // the same entry contract the real composition root satisfies. Without this it would pass while the
 // flag was never delivered.
 if (!process.argv.includes('--__agent-subagent-worker')) {
@@ -12,9 +12,28 @@ if (process.send === undefined) {
   process.exit(2);
 }
 
+// The process ends only after every message has been written to the IPC channel, as the real
+// worker does. `process.send` is asynchronous: an exit a timer tick later can end the process with
+// the result still unwritten, which the parent reads as "exited before result: exit code 0" (a
+// 300 KB result was lost in 143 of 150 such runs).
+let unflushed = 0;
+let exitRequested = false;
+const sendToParent = process.send.bind(process);
+process.send = (message) => {
+  unflushed += 1;
+  return sendToParent(message, undefined, undefined, () => {
+    unflushed -= 1;
+    if (exitRequested && unflushed === 0) process.exit(0);
+  });
+};
+function exitAfterFlush() {
+  exitRequested = true;
+  if (unflushed === 0) process.exit(0);
+}
+
 process.send({ type: 'ready' });
 
-// Issue #3256: records the settings the start payload carried and every change sent afterwards, in
+// Records the settings the start payload carried and every change sent afterwards, in
 // whatever order they arrive, and answers once it has the start and two changes.
 const sandboxEcho = { payloadSettings: null, updates: [], started: false };
 function answerSandboxEcho() {
@@ -26,7 +45,7 @@ function answerSandboxEcho() {
       updates: sandboxEcho.updates,
     }),
   });
-  setTimeout(() => process.exit(0), 0);
+  exitAfterFlush();
 }
 
 process.on('message', (message) => {
@@ -50,7 +69,7 @@ process.on('message', (message) => {
     if (process.env.AGENT_FIXTURE_MODE === 'wait') {
       return;
     }
-    // Issue #3288 §1: a tool call needing approval. Sends the request once, then reports whatever
+    // A tool call needing approval. Sends the request once, then reports whatever
     // answer arrives (or never resolves, for a test that cancels the job while it is outstanding).
     if (process.env.AGENT_FIXTURE_MODE === 'permission-request') {
       process.send?.({
@@ -65,13 +84,13 @@ process.on('message', (message) => {
       process.send?.({ type: 'permission_request', requestId: 'r1', toolName: 'Glob' });
       return;
     }
-    // Issue #3288 §1 (review item 3): sends the request, then — without waiting for an answer —
+    // Sends the request, then — without waiting for an answer —
     // immediately reports a result too, simulating the child settling while a request is still
     // outstanding on the parent side.
     if (process.env.AGENT_FIXTURE_MODE === 'permission-request-then-result') {
       process.send?.({ type: 'permission_request', requestId: 'r1', toolName: 'Glob' });
       process.send?.({ type: 'result', output: 'raced' });
-      setTimeout(() => process.exit(0), 0);
+      exitAfterFlush();
       return;
     }
     if (process.env.AGENT_FIXTURE_MODE === 'progress') {
@@ -79,22 +98,22 @@ process.on('message', (message) => {
       process.send?.({ type: 'text_delta', delta: 'partial ' });
       process.send?.({ type: 'tool_end', toolName: 'Read', success: true });
     }
-    // SEC-009: echoes the provider profile EXACTLY as it crossed the IPC boundary, so a test can
+    // Echoes the provider profile EXACTLY as it crossed the IPC boundary, so a test can
     // assert on the wire message rather than on the function that built it. A payload assertion
     // taken parent-side would still pass if the value were re-resolved before `send`.
     if (process.env.AGENT_FIXTURE_MODE === 'echo-profile') {
       process.send?.({ type: 'result', output: JSON.stringify(message.payload?.providerProfile) });
-      setTimeout(() => process.exit(0), 0);
+      exitAfterFlush();
       return;
     }
-    // #3679: keeps the WHOLE payload as it crossed the boundary in a file and answers with nothing
+    // Keeps the WHOLE payload as it crossed the boundary in a file and answers with nothing
     // from it, so a test can say where a fork's held record travels — and that nothing else, not
     // the task's result either, carries it.
     if (process.env.AGENT_FIXTURE_MODE === 'record-payload') {
       const payloadPath = process.env.AGENT_FIXTURE_PAYLOAD_PATH;
       writeFileSync(payloadPath, JSON.stringify(message.payload), 'utf8');
       process.send?.({ type: 'result', output: 'recorded' });
-      setTimeout(() => process.exit(0), 0);
+      exitAfterFlush();
       return;
     }
     if (process.env.AGENT_FIXTURE_MODE === 'echo-selected-environment') {
@@ -102,10 +121,10 @@ process.on('message', (message) => {
         selected: process.env.SYNTHETIC_SELECTED_PROVIDER_KEY,
         unrelated: process.env.SYNTHETIC_UNRELATED_PARENT_SECRET,
       }) });
-      setTimeout(() => process.exit(0), 0);
+      exitAfterFlush();
       return;
     }
-    // ARCH-033/ARCH-034: echoes the two projected fields EXACTLY as they crossed the boundary, for
+    // Echoes the two projected fields EXACTLY as they crossed the boundary, for
     // the same reason `echo-profile` exists — review found both declared here and read by the worker
     // while nothing ever SET them, and a parent-side assertion on the builder would not have caught
     // that the value never reached the wire.
@@ -118,14 +137,14 @@ process.on('message', (message) => {
           parentSandboxSettings: message.payload?.parentSandboxSettings ?? null,
         }),
       });
-      setTimeout(() => process.exit(0), 0);
+      exitAfterFlush();
       return;
     }
-    // ARCH-031: reports the forked process's own OS working directory, so a test can observe where
+    // Reports the forked process's own OS working directory, so a test can observe where
     // the child actually landed rather than where the request said it should.
     if (process.env.AGENT_FIXTURE_MODE === 'cwd') {
       process.send?.({ type: 'result', output: process.cwd() });
-      setTimeout(() => process.exit(0), 0);
+      exitAfterFlush();
       return;
     }
     if (process.env.AGENT_FIXTURE_MODE === 'usage') {
@@ -134,29 +153,31 @@ process.on('message', (message) => {
         output: `completed:${taskId}`,
         usage: { promptTokens: 300, completionTokens: 120, totalTokens: 420 },
       });
-      setTimeout(() => process.exit(0), 0);
+      exitAfterFlush();
       return;
     }
     process.send?.({ type: 'result', output: `completed:${taskId}` });
-    setTimeout(() => process.exit(0), 0);
+    exitAfterFlush();
     return;
   }
 
   if (message.type === 'send') {
+    // The real worker answers a follow-up before it runs it; this stand-in answers and ends.
+    process.send?.({ type: 'send_accepted', sendId: message.sendId });
     process.send?.({ type: 'result', output: `sent:${message.prompt}` });
-    setTimeout(() => process.exit(0), 0);
+    exitAfterFlush();
     return;
   }
 
   if (message.type === 'cancel') {
     process.send?.({ type: 'cancelled', reason: message.reason });
-    setTimeout(() => process.exit(0), 0);
+    exitAfterFlush();
     return;
   }
 
   if (message.type === 'permission_response') {
     process.send?.({ type: 'result', output: `permission:${message.requestId}:${message.result}` });
-    setTimeout(() => process.exit(0), 0);
+    exitAfterFlush();
     return;
   }
 

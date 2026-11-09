@@ -1,12 +1,12 @@
 /**
- * FLOW-2006: turn a parsed launch intent into a directory the session may actually start in.
+ * Turn a parsed launch intent into a directory the session may actually start in.
  *
  * The rule the whole feature rests on: a link opens only what the user has ALREADY trusted. An
- * interactive start in an untrusted directory now asks whether to trust it (issue #3268), but a link
+ * interactive start in an untrusted directory now asks whether to trust it, but a link
  * still refuses: whoever wrote the link chose its target, so the question would be about a directory
  * the user did not pick.
  *
- * Contained — TRUST-1989.
+ * Contained.
  */
 import { echoValue } from './launch-intent.js';
 
@@ -138,7 +138,7 @@ export function remoteUrlArgs(): readonly string[] {
   return ['config', '--get', 'remote.origin.url'];
 }
 
-/** Read `origin` through the BEHAVIOR-2437 git port; `undefined` when the clone has no origin. */
+/** Read `origin` through the git port; `undefined` when the clone has no origin. */
 export function createRemoteUrlReader(
   port: IGitProcessPort,
 ): (root: string) => Promise<string | undefined> {

@@ -2,17 +2,12 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
-const sourceRoot = fileURLToPath(new URL('../..', import.meta.url));
-const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-const executable = (name) =>
-  path.join(
-    sourceRoot,
-    'node_modules',
-    '.bin',
-    process.platform === 'win32' ? `${name}.cmd` : name,
-  );
+const require = createRequire(import.meta.url);
+const executable = (packageName, entry) =>
+  path.join(path.dirname(require.resolve(`${packageName}/package.json`)), entry);
 
 function run(command, args, cwd, timeout = 120_000) {
   const result = spawnSync(command, args, { cwd, stdio: 'inherit', timeout });
@@ -58,13 +53,29 @@ export function updateFeature(workspace) {
 }
 
 export function generateVersion(workspace) {
-  run(executable('changeset'), ['version'], workspace);
-  run(pnpm, ['install', '--lockfile-only', '--ignore-scripts'], workspace);
-  updateFeature(workspace);
+  const cliPath = path.join(workspace, 'packages/agent-cli/package.json');
+  const previousCliVersion = JSON.parse(readFileSync(cliPath, 'utf8')).version;
+  run(process.execPath, [executable('@changesets/cli', 'bin.js'), 'version'], workspace);
+  if (process.platform === 'win32') {
+    run(
+      'cmd.exe',
+      ['/d', '/s', '/c', 'pnpm.cmd install --lockfile-only --ignore-scripts'],
+      workspace,
+    );
+  } else {
+    run('pnpm', ['install', '--lockfile-only', '--ignore-scripts'], workspace);
+  }
+  if (JSON.parse(readFileSync(cliPath, 'utf8')).version !== previousCliVersion) updateFeature(workspace);
   const changed = output('git', ['diff', '--name-only', '-z', '--diff-filter=ACM'], workspace)
     .split('\0')
     .filter((file) => /\.(?:json|md|ya?ml)$/u.test(file));
-  if (changed.length) run(executable('prettier'), ['--write', ...changed], workspace, 60_000);
+  if (changed.length)
+    run(
+      process.execPath,
+      [executable('prettier', 'bin/prettier.cjs'), '--write', ...changed],
+      workspace,
+      60_000,
+    );
 }
 
 const args = process.argv.slice(2);

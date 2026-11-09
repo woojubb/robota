@@ -6,7 +6,7 @@ import { loadSessionRecord } from '../interactive-session-restore.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { Session } from '@robota-sdk/agent-session';
 
 describe('self-paced loop snapshot preservation', () => {

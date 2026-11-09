@@ -12,9 +12,9 @@ import { createTestFrameworkHost } from '../src/testing/framework-host.js';
 
 const testHost = createTestFrameworkHost();
 
-const LARGE_RESPONSE = `ARCH_014_LARGE:${'x'.repeat(40 * 1024)}`;
-const SENTINEL_RESPONSE = 'ARCH_014_SENTINEL';
-const EXPECTED_SHA256 = '42bc9897b0c5ebe94994f5ef0b494461e1133116821ed9141c0d2043a0168193';
+const LARGE_RESPONSE = `EXTERNAL_PAYLOAD_LARGE:${'x'.repeat(40 * 1024)}`;
+const SENTINEL_RESPONSE = 'EXTERNAL_PAYLOAD_SENTINEL';
+const EXPECTED_SHA256 = 'acae1f2d169f1e67b2c9aee5709252ca79e2c42330fce7bd5c73ef2c0ef905e5';
 
 interface IExternalReferenceView {
   readonly relativePath: string;
@@ -26,7 +26,7 @@ let replaySession: InteractiveSession | undefined;
 let replayWorkspace: string | undefined;
 
 try {
-  sourceWorkspace = mkdtempSync(join(tmpdir(), 'agent-arch-014-source-'));
+  sourceWorkspace = mkdtempSync(join(tmpdir(), 'agent-source-workspace-'));
   const sourceWorkspacePath = sourceWorkspace;
   const sourceProvider = createScriptedProvider([
     { text: LARGE_RESPONSE },
@@ -36,7 +36,7 @@ try {
     host: testHost,
     cwd: sourceWorkspacePath,
     provider: sourceProvider,
-    resumeSessionId: 'arch-014-source',
+    resumeSessionId: 'source-session',
     sessionLogSink: new NodeSessionLogSink(join(sourceWorkspacePath, 'state', 'logs'), {
       sealing: 'plain',
     }),
@@ -46,7 +46,7 @@ try {
   await submitAndWait(sourceSession, 'first recorded turn');
   await submitAndWait(sourceSession, 'second recorded turn');
 
-  const transcriptPath = join(sourceWorkspacePath, 'state', 'logs', 'arch-014-source.jsonl');
+  const transcriptPath = join(sourceWorkspacePath, 'state', 'logs', 'source-session.jsonl');
   const entries = readFileSync(transcriptPath, 'utf8')
     .split('\n')
     .filter((line) => line.trim().length > 0)
@@ -61,7 +61,7 @@ try {
   const replayProvider = createReplayProviderFromSource(
     new NodeSessionLogSource(transcriptPath, { sealing: 'plain' }),
   );
-  replayWorkspace = mkdtempSync(join(tmpdir(), 'agent-arch-014-replay-'));
+  replayWorkspace = mkdtempSync(join(tmpdir(), 'agent-replay-workspace-'));
   const replayWorkspacePath = replayWorkspace;
   replaySession = new InteractiveSession({
     host: testHost,
@@ -84,15 +84,15 @@ try {
   if (sentinel !== SENTINEL_RESPONSE) throw new Error('Sentinel response was not replay call 2.');
   const byteLength = Buffer.byteLength(largeResponse);
   const sha256 = createHash('sha256').update(largeResponse).digest('hex');
-  if (byteLength !== 40_975 || sha256 !== EXPECTED_SHA256) {
+  if (byteLength !== 40_983 || sha256 !== EXPECTED_SHA256) {
     throw new Error(`Large response integrity mismatch: ${byteLength} bytes, ${sha256}.`);
   }
 
-  await replaySession.shutdown({ reason: 'other', message: 'ARCH-014 scenario complete' });
+  await replaySession.shutdown({ reason: 'other', message: 'replay scenario complete' });
   replaySession = undefined;
   rmSync(replayWorkspacePath, { recursive: true, force: true });
   replayWorkspace = undefined;
-  await sourceSession.shutdown({ reason: 'other', message: 'ARCH-014 scenario complete' });
+  await sourceSession.shutdown({ reason: 'other', message: 'replay scenario complete' });
   sourceSession = undefined;
   rmSync(sourceWorkspacePath, { recursive: true, force: true });
   sourceWorkspace = undefined;
@@ -128,9 +128,9 @@ try {
     ),
   );
 } finally {
-  await replaySession?.shutdown({ reason: 'other', message: 'ARCH-014 scenario cleanup' });
+  await replaySession?.shutdown({ reason: 'other', message: 'replay scenario cleanup' });
   if (replayWorkspace) rmSync(replayWorkspace, { recursive: true, force: true });
-  await sourceSession?.shutdown({ reason: 'other', message: 'ARCH-014 scenario cleanup' });
+  await sourceSession?.shutdown({ reason: 'other', message: 'replay scenario cleanup' });
   if (sourceWorkspace) rmSync(sourceWorkspace, { recursive: true, force: true });
 }
 

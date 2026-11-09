@@ -28,7 +28,7 @@ export type {
   TSubagentWorkerWireValue,
 } from './child-process-subagent-ipc.js';
 
-// DIST-006: `getDefaultSubagentWorkerPath` is gone, not renamed. It answered "where is my worker
+// `getDefaultSubagentWorkerPath` is gone, not renamed. It answered "where is my worker
 // file on disk?" from a library that cannot know — the answer is a property of the packaging step —
 // and it was wrong twice. The composition root now states how to start a copy of itself.
 export {

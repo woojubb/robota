@@ -1,5 +1,5 @@
 /**
- * TRANS-007 (issue #2096) — every load path routes through the decoder, and the replay log is
+ * Every load path routes through the decoder, and the replay log is
  * reached only by `missing`.
  *
  * The decoder has its own exhaustive suite, and that suite proves the DECODER. It says nothing about
@@ -32,7 +32,7 @@ import { persistSessionRename } from '../interactive-session-rename.js';
 import { loadSessionRecord } from '../interactive-session-restore.js';
 import { listResumableSessionSummaries, listUnreadableSessions } from '../session-persistence.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const SESSION_ID = 'sess_routing';
 
@@ -59,14 +59,14 @@ async function projectFixture(): Promise<{ root: string; sessionsDir: string }> 
   return { root, sessionsDir: join(root, '.agent', 'sessions') };
 }
 
-describe('TC-01: the replay log is reached by missing and by nothing else', () => {
+describe('the replay log is reached by missing and by nothing else', () => {
   it('reports missing when there is neither a snapshot nor a log', async () => {
     const { root } = await projectFixture();
     const store = await createTrustedProjectSessionStoreFixture(root);
     expect(store.load('no-such-session')).toEqual({ status: 'missing' });
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'reports corrupt — NOT a replayed reconstruction — when the snapshot is damaged',
     async () => {
@@ -80,7 +80,7 @@ describe('TC-01: the replay log is reached by missing and by nothing else', () =
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'reports unsupported for a pre-envelope snapshot rather than replaying around it',
     async () => {
@@ -93,7 +93,7 @@ describe('TC-01: the replay log is reached by missing and by nothing else', () =
         'utf-8',
       );
 
-      // TRANS-007's best-effort cwd peek (#3289 §1) reads even an unsupported record's raw `cwd`, so
+      // The best-effort cwd peek reads even an unsupported record's raw `cwd`, so
       // a workspace-scoped "can't be opened" listing can tell this record is THIS workspace's own.
       expect(store.load(SESSION_ID)).toEqual({
         status: 'unsupported',
@@ -104,9 +104,9 @@ describe('TC-01: the replay log is reached by missing and by nothing else', () =
   );
 });
 
-// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+// Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
 describe.runIf(process.platform === 'linux')(
-  'TC-08 / TC-09: unreadable sessions are reported, not dropped',
+  'unreadable sessions are reported, not dropped',
   () => {
     it('lists an unreadable snapshot and excludes it from the resumable summaries', async () => {
       const { root, sessionsDir } = await projectFixture();
@@ -153,8 +153,8 @@ describe.runIf(process.platform === 'linux')(
   },
 );
 
-describe('TC-06: resume says why a session came back empty', () => {
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe('resume says why a session came back empty', () => {
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'reports the outcome instead of a session indistinguishable from a new one',
     async () => {
@@ -192,7 +192,7 @@ describe('TC-06: resume says why a session came back empty', () => {
     expect(restored.loadOutcome.status).toBe('missing');
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')('restores a readable session and says so', async () => {
     const { root } = await projectFixture();
     const store = await createTrustedProjectSessionStoreFixture(root);
@@ -208,30 +208,27 @@ describe('TC-06: resume says why a session came back empty', () => {
   });
 });
 
-// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
-describe.runIf(process.platform === 'linux')(
-  'TC-10: the project store writes the envelope too',
-  () => {
-    it('persists { schemaVersion, record } rather than the bare record', async () => {
-      const { root, sessionsDir } = await projectFixture();
-      const store = await createTrustedProjectSessionStoreFixture(root);
-      store.save(record());
+// Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe.runIf(process.platform === 'linux')('the project store writes the envelope too', () => {
+  it('persists { schemaVersion, record } rather than the bare record', async () => {
+    const { root, sessionsDir } = await projectFixture();
+    const store = await createTrustedProjectSessionStoreFixture(root);
+    store.save(record());
 
-      const outcome = store.load(SESSION_ID);
-      expect(outcome.status).toBe('valid');
-      const envelope = JSON.parse(await readFile(join(sessionsDir, `${SESSION_ID}.json`), 'utf-8'));
-      expect(SESSION_RECORD_ENVELOPE_VERSION).toBe(2);
-      expect(envelope).toMatchObject({
-        schemaVersion: SESSION_RECORD_ENVELOPE_VERSION,
-        record: { id: SESSION_ID, cwd: '/work' },
-      });
+    const outcome = store.load(SESSION_ID);
+    expect(outcome.status).toBe('valid');
+    const envelope = JSON.parse(await readFile(join(sessionsDir, `${SESSION_ID}.json`), 'utf-8'));
+    expect(SESSION_RECORD_ENVELOPE_VERSION).toBe(2);
+    expect(envelope).toMatchObject({
+      schemaVersion: SESSION_RECORD_ENVELOPE_VERSION,
+      record: { id: SESSION_ID, cwd: '/work' },
     });
-  },
-);
+  });
+});
 
-// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+// Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
 describe.runIf(process.platform === 'linux')(
-  'TC-05: the framework write path refuses mid read-modify-write',
+  'the framework write path refuses mid read-modify-write',
   () => {
     /**
      * The claim is not "a failed load is reported" — it is "a record this build cannot read is not
@@ -294,9 +291,9 @@ describe.runIf(process.platform === 'linux')(
   },
 );
 
-// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+// Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
 describe.runIf(process.platform === 'linux')(
-  'TC-01b: a replayed reconstruction is decoded like everything else',
+  'a replayed reconstruction is decoded like everything else',
   () => {
     /**
      * The decode guard was first written at the file-read path, and this store has two OTHER places a
@@ -382,7 +379,7 @@ describe.runIf(process.platform === 'linux')(
   },
 );
 
-describe('TC-07: a rename that cannot be written down says so', () => {
+describe('a rename that cannot be written down says so', () => {
   /**
    * This case exists because the first version of the fix was wrong in a way the plan did not catch.
    * `setName` reported the failure by throwing — from INSIDE a `try { … } catch { /* Session not
@@ -391,7 +388,7 @@ describe('TC-07: a rename that cannot be written down says so', () => {
    *
    * The assertion is therefore that the failure ESCAPES, not that a branch was taken.
    */
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'throws rather than silently failing when the stored record cannot be read',
     async () => {
@@ -416,7 +413,7 @@ describe('TC-07: a rename that cannot be written down says so', () => {
     expect(() => persistSessionRename(store, 'never-saved', 'a new name')).not.toThrow();
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'writes the name when the record is readable',
     async () => {

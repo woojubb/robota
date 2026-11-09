@@ -37,7 +37,7 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => ({
     return next;
   },
 }));
-vi.mock('@robota-sdk/agent-transport-acp', () => ({
+vi.mock('@robota-sdk/agent-transport/acp', () => ({
   createAcpTransport: (options: Record<string, unknown>) => {
     mock.options = options;
     return {
@@ -298,7 +298,7 @@ describe('ACP mode', () => {
     expect(mock.shutdown).toHaveBeenCalledOnce();
   });
 
-  // #3679 step 3e: the session the editor left still holds its record while it shuts down.
+  // The session the editor left still holds its record while it shuts down.
   it('tells the editor to try again while a session of that id is still closing here', async () => {
     const served = await serving({ sessionStore: storeWith({ id: 'stored-1' }) as never });
     const stillClosing = { loaded: false, message: SESSION_STILL_CLOSING_MESSAGE };
@@ -317,7 +317,7 @@ describe('ACP mode', () => {
     await served.stop();
   });
 
-  // #3679 3f: a fork's child is lent from this runtime's store, so a load of its id is refused as the
+  // A fork's child is lent from this runtime's store, so a load of its id is refused as the
   // child's, in the store's words; this process holds the marker until the child takes it over.
   it('tells the editor a subagent holds a lent session, not that it is closing', async () => {
     const served = await serving({ sessionStore: storeWith({ id: 'stored-1' }) as never });
@@ -413,7 +413,7 @@ describe('ACP mode', () => {
     await served.stop();
   });
 
-  // #3679 step 3e: an editor cannot yet be asked whether a record nobody vouched for is the owner's.
+  // An editor cannot yet be asked whether a record nobody vouched for is the owner's.
   it('refuses a record not verified as the owner’s, with the session’s own reason, building nothing', async () => {
     const served = await serving({
       sessionStore: storeWith(
@@ -425,7 +425,7 @@ describe('ACP mode', () => {
 
     await expect(served.load('planted-1')).resolves.toEqual({
       loaded: false,
-      message: new SessionAuthorshipRefusedError('planted-1', 'unverified').message,
+      message: `${new SessionAuthorshipRefusedError('planted-1', 'unverified').message} Review it in an interactive terminal with test-product --resume planted-1.`,
     });
     expect(mock.built).toHaveLength(1);
     await expect(served.load('mine-1')).resolves.toEqual({ loaded: true });

@@ -33,7 +33,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { IHistoryEntry, IResponseFormatConfig } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
+import type { ICompactEvent } from '@robota-sdk/agent-interface/session';
 import type {
   Session,
   ISessionOptions,
@@ -47,17 +47,17 @@ import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IToolCallHandoffPolicy } from './tool-call-handoff-types.js';
 
 /**
- * Issue #2056 (CLI-081): the session-level structured-output option is the provider contract's own
+ * The session-level structured-output option is the provider contract's own
  * `responseFormat` — including `json_schema` — so a product flag such as `--json-schema` is routed as
- * structured policy (provider capability, fallback, validation are CORE-043's) and never as prose.
+ * structured policy (provider capability, fallback, validation are not decided here) and never as
+ * prose.
  */
 export type TSessionResponseFormat = IResponseFormatConfig;
 
 /**
- * Issue #2052: the threshold vocabulary is owned by agent-session. This is the framework's OWN name
+ * The threshold vocabulary is owned by agent-session. This is the framework's OWN name
  * for it — an SDK-owned facade, not a pass-through re-export of the owner's binding — because
- * `agent-command` reads it and depends on this package alone, never on agent-session
- * (`sdk-public-surface` refuses the public graph passing through the owner directly).
+ * `agent-command` reads it and depends on this package rather than on agent-session.
  */
 export type TAutoCompactThreshold = TSessionAutoCompactThreshold;
 export type TSessionOptionsWithAutoCompact = ISessionOptions & {
@@ -106,7 +106,7 @@ export interface ICreateSessionOptions {
   /** Strict checkpoint supplied by the owner of an interactive session record. */
   checkpointHistory?: () => void;
   /**
-   * CLI-1994: the interactive-session record store a subagent RESUMES a `resumeSessionId` from — the
+   * The interactive-session record store a subagent RESUMES a `resumeSessionId` from — the
    * store `/fork` wrote the copy to. Read-only at the runner; distinct from `sessionStore`, which is
    * the underlying `Session`'s own persistence seam and would make the runtime a second writer of the
    * same records. Absent ⇒ a fork job cannot restore its record and fails, stated as such.
@@ -119,7 +119,7 @@ export interface ICreateSessionOptions {
   /** Host-authorized persistence for a project permission approved by the user. */
   persistProjectPermission?: (scope: string) => void;
   /**
-   * Injected "ask the user" port (CMD-005): forwarded into the session/agent so model-invoked tools
+   * Injected "ask the user" port: forwarded into the session/agent so model-invoked tools
    * (AskUserQuestion) can solicit a structured answer. Absent headless.
    */
   ask?: IUserInteraction['ask'];
@@ -140,15 +140,15 @@ export interface ICreateSessionOptions {
   /** Host-selected resource/dependency policy, independent of permission admission. */
   toolExecutionPolicy?: ISessionOptions['toolExecutionPolicy'];
   /**
-   * ARCH-006: REPLACES the host's default tool tier (`host.createDefaultTools`) for this session; `[]`
+   * REPLACES the host's default tool tier (`host.createDefaultTools`) for this session; `[]`
    * suppresses every default so a product's capability packs can own the whole tool surface. Mirrors
-   * NEUT-003's `builtInAgents` seam for subagents. Absent ⇒ the tier the host builds for the session,
+   * the `builtInAgents` seam for subagents. Absent ⇒ the tier the host builds for the session,
    * or none when the host lends no `createDefaultTools`. The injected tools are used as given — the framework cannot re-bind the session
    * context (`cwd`/`sandboxClient`) onto an already-constructed tool, so an injected replacement for a
    * context-sensitive default must carry that context itself.
    */
   defaultTools?: readonly IToolWithEventService[];
-  /** GOAL-001: include the `report_goal_status` completion-signal tool (interactive sessions). */
+  /** Include the `report_goal_status` completion-signal tool (interactive sessions). */
   includeGoalTool?: boolean;
   /** Include the structured self-paced loop decision signal for an interactive session. */
   includeSessionLoopDecisionTool?: boolean;
@@ -166,7 +166,7 @@ export interface ICreateSessionOptions {
     readonly agentType?: string;
   };
   /**
-   * MCP-004 §S3: when set AND a `tool-invocation` runner is present in `backgroundTaskRunners`,
+   * When set AND a `tool-invocation` runner is present in `backgroundTaskRunners`,
    * `buildToolCallHandoff` (`create-session-runtime.ts`) replaces each named tool in the
    * session-local tool list with a wrapper that hands a call exceeding `thresholdMs` to a
    * `tool-invocation` background task. Absent ⇒ no wrapping (unchanged behavior).
@@ -177,7 +177,7 @@ export interface ICreateSessionOptions {
   /** Enable agent tool, agent definitions, and subagent runtime wiring for this session. */
   enableAgentRuntime?: boolean;
   /**
-   * ARCH-005: subagent definitions contributed by the composition root (e.g. a capability pack merged by
+   * Subagent definitions contributed by the composition root (e.g. a capability pack merged by
    * `assembleProduct`). They compose INTO the built-in tier ahead of `BUILT_IN_AGENTS`, so precedence runs
    * discovered project/user definitions > these > `BUILT_IN_AGENTS`. Absent ⇒ the built-ins alone
    * (unchanged behavior). Only consulted when the agent runtime is active.
@@ -193,7 +193,7 @@ export interface ICreateSessionOptions {
   enableParallelSubagents?: boolean;
   /**
    * Preset execution capability: when true the framework composes a verify-before-done
-   * self-verification section into the system prompt (PRESET-017), as a normal
+   * self-verification section into the system prompt, as a normal
    * priority-sorted `source: 'self-verification'` section.
    */
   selfVerification?: boolean | string;
@@ -222,7 +222,7 @@ export interface ICreateSessionOptions {
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
   compactInstructions?: string;
   /**
-   * NEUT-005: concrete remediation wording for the core's hard-capacity notice, forwarded to the
+   * Concrete remediation wording for the core's hard-capacity notice, forwarded to the
    * session's ConversationAgent config. Absent ⇒ derived from the composed command set (see
    * `deriveContextCapacityHint`); if that yields nothing, the neutral core default applies.
    */
@@ -248,7 +248,7 @@ export interface ICreateSessionOptions {
   /** Explicitly omit the built-in command and HTTP hook executors. */
   disableBuiltInHookExecutors?: boolean;
   /**
-   * SELFHOST-005: registered guardrails (name → guardrail function). When present, a
+   * Registered guardrails (name → guardrail function). When present, a
    * `GuardrailExecutor` is added to the hook executors so a `{ type: 'guardrail' }` hook definition
    * runs the set in parallel and fails the turn fast. The POLICY is the consumer's; the mechanism is
    * neutral.
@@ -264,12 +264,12 @@ export interface ICreateSessionOptions {
   model?: string;
   /**
    * Reasoning-effort selection for this session, threaded to the provider request builder.
-   * Resolved from a preset's `effort` (PRESET-008). When unset, Core preserves `auto` so the
+   * Resolved from a preset's `effort`. When unset, Core preserves `auto` so the
    * adapter can use the selected model's documented default.
    */
   effort?: TModelEffortSelection;
   /**
-   * ARCH-040: sampling temperature and output cap. Same shape as `effort` one line up, and the same
+   * Sampling temperature and output cap. Same shape as `effort` one line up, and the same
    * cause — the live `/preset` path applied both through `applyModelOptions` and startup applied
    * neither, so one session held two answers for the same preset depending on when it was chosen.
    */
@@ -278,7 +278,7 @@ export interface ICreateSessionOptions {
   /** Text to append to the generated system prompt. */
   appendSystemPrompt?: string;
   /**
-   * ARCH-040: a PRESET-supplied system prompt, composed as a priority-4 section above persona.
+   * A PRESET-supplied system prompt, composed as a priority-4 section above persona.
    *
    * Distinct from `systemPrompt`, which REPLACES the composed prompt. A preset pointing at that seam
    * would silently drop the AGENTS.md, project-notes, skill and capability sections — context the
@@ -306,7 +306,7 @@ export interface ICreateSessionOptions {
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
   /**
-   * ARCH-033: the NAME a child process uses to rebuild a sandbox like this one.
+   * The NAME a child process uses to rebuild a sandbox like this one.
    *
    * A live client cannot cross a process boundary. `(type, snapshotId)` can: the type selects a
    * factory the composition root registered on the worker side, and the snapshot is a provider-owned
@@ -321,9 +321,9 @@ export interface ICreateSessionOptions {
   sandboxType?: string;
   /** Name reported to the underlying ConversationAgent agent config. Defaults to 'agent'. */
   agentName?: string;
-  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  /** Active preset id selected at startup (runtime state). Defaults to 'default'. */
   activePresetId?: string;
-  /** Request structured output from the provider for this session (issue #2056: incl. `json_schema`). */
+  /** Request structured output from the provider for this session (incl. `json_schema`). */
   responseFormat?: TSessionResponseFormat;
 }
 
@@ -333,8 +333,8 @@ export interface ICreateSessionResult {
   /**
    * Rebuild the system message using updated context strings.
    * Called by staleness detection when AGENTS.md or CLAUDE.md files change between turns.
-   * PRESET-014: an optional `overrides.persona` re-applies a preset persona to the live prompt;
-   * PRESET-017: an optional `overrides.selfVerification` toggles the verify-before-done section.
+   * An optional `overrides.persona` re-applies a preset persona to the live prompt;
+   * An optional `overrides.selfVerification` toggles the verify-before-done section.
    * Either override is retained for subsequent (override-less) rebuilds.
    */
   rebuildSystemMessage: (

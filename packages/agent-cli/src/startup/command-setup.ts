@@ -1,14 +1,19 @@
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
+import { resolve } from 'node:path';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
   createSettingsPermissionRulesAdapter,
   OrgPolicyParseError,
   readMergedProviderSettings,
+  inspectSettingsLayers,
+  getWorkspaceProjectIdentity,
+  getWorkspaceProjectReader,
   prepareWorkflowJsonMutation,
   resolveProviderSettingsWriteTarget,
 } from '@robota-sdk/agent-framework';
 import {
+  NodeFileSystemAsync,
   createGitProcess,
   deleteSettings,
   loadOrgPolicy,
@@ -21,6 +26,8 @@ import type {
   ICommandModule,
   IWorkspaceProjectMutation,
   TProviderSettingsDocument,
+  TSettingsSource,
+  TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import {
   getStartupCliUpdateNotice,
@@ -29,16 +36,16 @@ import {
 import type { ICliUpdateNotice } from '../update-check/update-check.js';
 import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
-import { createDefaultCommandModules } from '@robota-sdk/agent-command';
-import { createNodeDoctorDeps, openFileInEditor } from '@robota-sdk/agent-command/node';
+import { createDefaultCommandModules } from '@robota-sdk/agent-product/command';
+import { createNodeDoctorDeps, openFileInEditor } from '@robota-sdk/agent-product/command/node';
 import { createDevicesCommandPort } from '../devices/index.js';
 import type {
   IDevicesMeshStatus,
   IKeyCustodyCommandPort,
   IKeybindingsFilePort,
   IThemeCataloguePort,
-} from '@robota-sdk/agent-command';
-import { createOutputStyleRegistry, loadOutputStylesFromSources } from '@robota-sdk/agent-preset';
+} from '@robota-sdk/agent-product/command';
+import { createOutputStyleRegistry, loadOutputStylesFromSources } from '@robota-sdk/agent-product/preset';
 import { productProviderDefinitions } from '../product/provider-definitions.js';
 import {
   createWorkspaceWorkflowProject,
@@ -58,7 +65,7 @@ import { createDefaultPluginCommandAdapter } from '../plugins/default-plugin-com
 import { productUserSettingsPath } from '../product/user-settings.js';
 import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 import { buildOutputStyleSources } from './output-style-sources.js';
-import type { IOutputStyleRegistry } from '@robota-sdk/agent-preset';
+import type { IOutputStyleRegistry } from '@robota-sdk/agent-product/preset';
 import {
   createCliWorkspaceComposition,
   type ICliWorkspaceComposition,
@@ -72,7 +79,7 @@ import {
 export type { IStartCliOptions } from './cli-options-types.js';
 
 /**
- * Build the `/workflows` command module (WORKFLOW-003). INFRA-028: the DAG/workflow subsystem is
+ * Build the `/workflows` command module. The DAG/workflow subsystem is
  * **bundled** into agent-cli's published artifact (it is a build-time devDependency, compiled into
  * `dist`, NOT a runtime `@robota-sdk` edge). It is therefore statically imported and always present —
  * in the monorepo and in a packed/published install alike.
@@ -84,7 +91,7 @@ function loadWorkflowsCommandModule(
   allowDetachedRuns: boolean,
   environment: Readonly<Record<string, string | undefined>>,
 ): ICommandModule {
-  // FLOW-007: pass the provider definitions so `/workflows create` can resolve the ACTIVE provider
+  // Pass the provider definitions so `/workflows create` can resolve the ACTIVE provider
   // to author a workflow from natural language. Workspace layout defaults to `.workflows/`.
   const project =
     workspaceComposition.projectAccess.status === 'trusted'
@@ -128,7 +135,7 @@ export interface ICliSetup {
   outputStyleLoadErrors: readonly { file: string; error: string }[];
   providerDefinitions: readonly IProviderDefinition[];
   /**
-   * ARCH-109: whether `providerDefinitions` above came from the caller rather than from
+   * Whether `providerDefinitions` above came from the caller rather than from
    * `productProviderDefinitions()`.
    *
    * Reported rather than re-derived, because it cannot be re-derived. The definitions carry
@@ -139,7 +146,7 @@ export interface ICliSetup {
    */
   callerSuppliedProviderDefinitions: boolean;
   /**
-   * CLI-083 (issue #2287) — the org policy read from `the configured user root/org-policy.json`, `null` when there
+   * The org policy read from `the configured user root/org-policy.json`, `null` when there
    * is none. Surfaced because it feeds TWO destinations and only one of them is inside this file:
    * the command-module chain built here (provider `allowedProviders` / `requireApiKeyFromEnv`), and
    * the SESSION, which `cli.ts` assembles for both the served and TUI paths.
@@ -155,7 +162,7 @@ export interface ICliSetup {
    */
   orgPolicy?: IOrgPolicy | undefined;
   /**
-   * ARCH-005 S2: the product's BASE command modules — the default set MINUS the modules a capability pack
+   * The product's BASE command modules — the default set MINUS the modules a capability pack
    * supplies (`packCommandModuleNames`). They are handed to `assembleProduct` as
    * `IProductProfile.baseCommandModules`, which merges the packs on top; the preset's
    * enabled/disabled delta is applied to that merged superset AFTERWARDS (spec: "this merger only
@@ -166,12 +173,12 @@ export interface ICliSetup {
   /**
    * Modules the preset delta never filters: `/workflows` (bundled into the CLI artifact) and any modules a
    * caller injected via {@link IStartCliOptions.commandModules}. Appended after the selected set, exactly
-   * as before the ARCH-005 restructure.
+   * as the selected set is built.
    */
   fixedCommandModules: readonly ICommandModule[];
   startupUpdateNoticePromise: Promise<ICliUpdateNotice | undefined> | undefined;
   /**
-   * REMOTE-006: optional command-execution policy for remote-origin commands (WebSocket / WebRTC). **Allow by
+   * Optional command-execution policy for remote-origin commands (WebSocket / WebRTC). **Allow by
    * default** — local == remote (pairing is the trust boundary; the universal permission system governs anything
    * dangerous). Injected only so a consumer can opt into a restriction.
    */
@@ -188,6 +195,28 @@ export interface ICliSetup {
  * rather than rejecting them as base collisions. Removing the pack from the profile therefore genuinely
  * removes those commands from the product.
  */
+/** Resolve the effective declaration without granting write authority to its source. */
+export function providerSelectionSettingsPath(
+  cwd: string,
+  sources: readonly TSettingsSource[],
+  fallback: TSettingsSource,
+  projectAccess?: TWorkspaceProjectAccess,
+): string | undefined {
+  try {
+    const inspection = inspectSettingsLayers(sources);
+    if (inspection.partial) return undefined;
+    const source = inspection.layers.findLast((layer) => layer.settings?.currentProvider !== undefined)?.source ?? fallback;
+    if (source.kind === 'project') {
+      if (projectAccess?.status !== 'trusted') return undefined;
+      if (source.reader !== getWorkspaceProjectReader(projectAccess.authority)) return undefined;
+      return resolve(getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot, source.relativePath);
+    }
+    return source.path === undefined ? undefined : resolve(cwd, source.path);
+  } catch {
+    return undefined;
+  }
+}
+
 export function buildCommandSetup(
   cwd: string,
   args: IParsedCliArgs,
@@ -206,10 +235,11 @@ export function buildCommandSetup(
     readonly identityChanged: () => void;
   },
   /**
-   * #3679 3f: the TUI's hold on the keys of secure conversations; `/unlock` and `/lock` exist only
+   * The TUI's hold on the keys of secure conversations; `/unlock` and `/lock` exist only
    * with it, so a plain product, or a process with no terminal to ask on, has neither.
    */
   keyCustodyPort?: IKeyCustodyCommandPort,
+  reportedCredentialNames?: readonly string[],
 ): ICliSetup {
   const productRuntime = resolveCliRuntimeContext(options);
   const workspaceComposition = createCliWorkspaceComposition({
@@ -237,11 +267,11 @@ export function buildCommandSetup(
     settings: {
       read: () => readSettings(productUserSettingsPath(productRuntime)),
       write: (settings) => writeSettings(productUserSettingsPath(productRuntime), settings),
-      // CMD-004 Phase 2: the host-executed `settings-reset` action deletes the user settings document.
+      // The host-executed `settings-reset` action deletes the user settings document.
       delete: () => deleteSettings(productUserSettingsPath(productRuntime)),
     },
     plugin: createDefaultPluginCommandAdapter(cwd, productRuntime),
-    // #3282 §4a: `settingsStores` gives the adapter a WRITE target per scope, so the Settings
+    // `settingsStores` gives the adapter a WRITE target per scope, so the Settings
     // screen's rule Remove button rewrites the same file `/permissions` reads the rule from.
     permissionRules: createSettingsPermissionRulesAdapter(
       workspaceComposition.settingsSources,
@@ -266,7 +296,7 @@ export function buildCommandSetup(
     writeTargetSettings: (settings: TProviderSettingsDocument) =>
       providerSettingsStore.write(settings),
   };
-  // DAG workflow engine surfaced as `/workflows` (WORKFLOW-003) — INFRA-028: bundled into the
+  // DAG workflow engine surfaced as `/workflows`, bundled into the
   // self-contained CLI, so it is always present (statically imported, no runtime `@robota-sdk` edge).
   const workflowsModule = loadWorkflowsCommandModule(
     providerDefinitions,
@@ -277,16 +307,15 @@ export function buildCommandSetup(
   );
   // The pack-supplied modules are excluded from the base; `assembleProduct` merges them back in from the
   // profile's packs. `unknownModuleNames` is not read here — a pack may supply a module the default set
-  // does not build (`/shell` and `/editor` live on `agent-command/node`), and the preset delta's
+  // does not build (`/shell` and `/editor` live on `agent-product/command/node`), and the preset delta's
   // unknown-name diagnostics are computed by the shell against the MERGED superset.
-  // CLI-083 (issue #2287). This call is where `loadOrgPolicy()` used to be: `48ebec353` added it,
-  // `92596bc6f` removed it two days later while slimming this file, and four implemented enforcement
-  // sites have been unreachable since. Nothing failed, because the parameter is optional and its
+  // This call is where `loadOrgPolicy()` is read: dropping it leaves four implemented enforcement
+  // sites unreachable. Nothing fails, because the parameter is optional and its
   // consumers read absence as "no policy configured".
   const orgPolicy = loadOrgPolicy(userPaths(productRuntime).orgPolicy);
   const providerConnectionHost =
     options.providerConnectionHost ?? createCliOpenRouterConnectionHost(productRuntime, orgPolicy);
-  // OBSERVABILITY-1991: `/doctor` runs the same runner as `the product doctor`, over the inputs this host
+  // `/doctor` runs the same runner as `the product doctor`, over the inputs this host
   // composed; the shell supplies them, the command package owns the behaviour.
   const doctorInputs = buildDoctorInputs({
     cwd,
@@ -300,10 +329,25 @@ export function buildCommandSetup(
   const { modules: baseCommandModules } = createDefaultCommandModules({
     cwd,
     userLocalStorageRoot: userLocalStorageRoot(productRuntime),
+    userLocalFileSystem: new NodeFileSystemAsync(),
     providerDefinitions,
     providerSettingsAdapter,
     providerConnectionHost,
     providerCredentialResolver: providerConnectionHost.resolveCredential,
+    ...(reportedCredentialNames === undefined ? {} : {
+      missingEnvironmentCredentialHint: (profile: string, name: string): string => {
+        const report = reportedCredentialNames.includes(name)
+          ? `The launching process reported ${name} was set, but it was not forwarded.`
+          : `The launching process did not report ${name} as set. Set it in the environment used to start the runtime.`;
+        const path = providerSelectionSettingsPath(cwd, providerSettingsSources, providerSettingsStore.source, workspaceComposition.projectAccess);
+        const selection = path === undefined
+          ? 'The effective settings source could not be determined; inspect the settings layers before changing "currentProvider".'
+          : `In ${JSON.stringify(path)}, set "currentProvider" to ${JSON.stringify(profile)}.`;
+        const cli = productRuntime.vocabulary.cliName;
+        const stop = args.supervisedSessionId === undefined ? 'Stop this secure runtime' : `Stop it with ${cli} session stop ${args.supervisedSessionId}`;
+        return `${report} ${selection} ${stop}; then start a new secure daemon with ${cli} daemon start from the workspace, using an environment where ${name} is set, or restart through a supervisor that supports secure forwarding.`;
+      },
+    }),
     // The provider commands check `$ENV:` credentials against the snapshot taken before the runtime
     // withheld its own credentials from `process.env` — the live env no longer has them.
     providerEnvironment: productRuntime.environment,
@@ -351,11 +395,11 @@ export function buildCommandSetup(
     providerDefinitions,
     callerSuppliedProviderDefinitions: options.providerDefinitions !== undefined,
     baseCommandModules,
-    // CLI-083 (issue #2287). Returned, not just consumed above: the command-module chain reaches the
+    // Returned, not just consumed above: the command-module chain reaches the
     // provider checks, and the SESSION-level `blockedCommands` enforcement is fed from `cli.ts`
     // instead. Loading it here and not surfacing it left three of the four enforcement sites dead
-    // and looked wired — the same "the chain exists but is not fed" shape this item is about, one
-    // level up. Found in review of this change.
+    // and looked wired — the "chain exists but is not fed" shape, one
+    // level up.
     //
     // Normalised to `undefined` here so every downstream forward is a plain `orgPolicy,` rather than
     // a conditional spread: a spread bypasses the excess-property check, which is how the third
@@ -363,7 +407,7 @@ export function buildCommandSetup(
     orgPolicy: orgPolicy ?? undefined,
     fixedCommandModules: [workflowsModule, ...(options.commandModules ?? [])],
     startupUpdateNoticePromise,
-    remoteCommandPolicy: createDefaultRemoteCommandPolicy(), // REMOTE-006: allow-by-default (local == remote).
+    remoteCommandPolicy: createDefaultRemoteCommandPolicy(), // Allow-by-default (local == remote).
     workspaceComposition,
   };
 }
@@ -371,7 +415,7 @@ export function buildCommandSetup(
 /**
  * `buildCommandSetup`, with the one startup failure that is terminal presented rather than thrown.
  *
- * Issue #2023: an org policy file that EXISTS and cannot be read means the policy is NOT applied.
+ * An org policy file that EXISTS and cannot be read means the policy is NOT applied.
  * Starting anyway is the fail-open that change removed, and crashing with a stack trace is the
  * "must not crash CLI startup" outcome the comment it replaced was protecting — an administrator
  * needs to see which file to fix, not a trace.

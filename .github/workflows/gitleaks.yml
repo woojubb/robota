@@ -3,7 +3,7 @@ name: Secret Scan
 # Detect secrets/keys committed in a PR's diff. Runs the gitleaks binary directly (mirrors the osv-scanner
 # pattern in ci.yml) — no third-party action, no license key. A committed secret is an irreversible leak
 # (it stays in history and is indexed even if deleted), so this is a cheap gate against a severe, unrecoverable
-# failure. The repo routinely handles tokens (SEC-001 loopback tokens, provider API keys, deploy keys).
+# failure. The repo routinely handles tokens (loopback tokens, provider API keys, deploy keys).
 on:
   workflow_call:
     inputs:
@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 env:
-  # INFRA-061: 8.24+ is a FLOOR, not a preference. `.gitleaks.toml` scopes its fixture suppression to a
+  # 8.24+ is a FLOOR, not a preference. `.gitleaks.toml` scopes its fixture suppression to a
   # single rule via `[[allowlists]] targetRules`, and older gitleaks drops those keys SILENTLY — the config
   # would still parse, the scan would still run, and every rule would again be suppressed in all test paths.
   GITLEAKS_VERSION: 8.30.1
@@ -42,11 +42,11 @@ jobs:
     # Read-only and safe for fork PRs: external contributions receive the same secret-detection floor
     # as same-repository work. The checkout and downloaded scanner receive no write-capable token.
     steps:
-      # INFRA-050: full history, and NO depth-limited fetch. A `--depth` fetch GRAFTS the whole
+      # Full history, and NO depth-limited fetch. A `--depth` fetch GRAFTS the whole
       # repository, and the scan range below (`<resolved base>..HEAD`) is a history walk: a truncated
       # ancestry both re-emits commits already merged into the base AND can drop commits the PR
       # itself authored — a secret introduced by this PR would then never be scanned, silently.
-      # INFRA-049 measured that exact divergence (109 commits locally vs 97, a different set, in CI).
+      # That divergence was measured: 109 commits locally vs 97, a different set, in CI.
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.head_ref }}
@@ -66,7 +66,9 @@ jobs:
       - name: Install gitleaks
         run: |
           set -euo pipefail
-          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+          # GitHub release downloads fail intermittently (HTTP 504); the checksum below still verifies the file.
+          curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
             -o "$RUNNER_TEMP/gitleaks.tar.gz"
           echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks

@@ -1,5 +1,5 @@
 /**
- * SELFHOST-002: explicit plan-mode phase controller.
+ * Explicit plan-mode phase controller.
  *
  * Pure decision logic (no session/permission/IO dependency) so it is unit-testable in isolation —
  * mirroring {@link GoalController}. It owns the plan phase machine (`planning` →
@@ -18,7 +18,7 @@ import type {
   IPlanArtifact,
   IPlanStep,
   TPlanStepStatus,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** An approval decision: flip to `acceptEdits`. */
 export type TPlanApproveDecision = {

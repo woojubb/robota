@@ -1,28 +1,28 @@
 /**
- * CORE-041 — the converter's unsupported-construct tail, split by whether the TARGET can express it.
+ * The converter's unsupported-construct tail, split by whether the TARGET can express it.
  *
- * The item's instruction was to re-run CORE-039's library-vs-hand-map decision rather than
- * mechanically add cases. Re-run, the answer is that the two groups below are different problems and
+ * Rather than mechanically adding cases, the library-vs-hand-map decision is revisited here; the
+ * answer is that the two groups below are different problems and
  * no library changes either of them:
  *
  * - `ZodNativeEnum` and `ZodDate` are EXACTLY expressible in the universal subset (`enum`, and
  *   `{type:'string', format:'date-time'}` — JSON has no date type, so a string is what the provider
- *   receives either way). They were missing for no reason. Added.
+ *   receives either way). They are mapped.
  * - `ZodTuple`, `ZodIntersection` and `ZodLazy` are not expressible. A tuple needs positional
  *   `items`, which the subset models as ONE schema; an intersection needs `allOf`; recursion needs
- *   `$ref`. Adopting `zod-to-json-schema` would emit exactly those constructs — the ones CORE-039
- *   rejected the library for, because the field-enumerated provider mappers silently drop them. The
+ *   `$ref`. Adopting `zod-to-json-schema` would emit exactly those constructs — the ones the library is
+ *   rejected for, because the field-enumerated provider mappers silently drop them. The
  *   difficulty was never parsing Zod; it is that the target language cannot say these things, and a
  *   library that emits a richer document makes the gap wider rather than dissolving it.
  *
- * So they still throw, which the item called the correct posture. What changes is that the boundary
- * is PUBLISHED rather than discovered: the message names the construct, says why the subset cannot
+ * So they throw, which is the correct posture. The boundary is PUBLISHED rather than discovered: the message names the construct, says why the subset cannot
  * carry it, and names what to write instead.
  *
  * Mapping them lossily was considered and rejected. A tuple flattened to
  * `array of anyOf[string, number]` would advertise a contract the author did not write — the model
  * would be told any order and any length are acceptable. Silently weakening a declared schema is the
- * same defect class as CORE-040, arrived at from the other side.
+ * same defect class as forwarding an untrusted schema construct unchanged, arrived at from the other
+ * side.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -35,7 +35,7 @@ import type { IZodSchema } from '../zod-schema-types';
 
 const asZod = (schema: unknown): IZodSchema => schema as IZodSchema;
 
-describe('CORE-041 — constructs the universal subset CAN express', () => {
+describe('constructs the universal subset CAN express', () => {
   it('converts a native enum to an enum node, and the values validate', () => {
     enum Direction {
       Up = 'up',
@@ -108,7 +108,7 @@ describe('CORE-041 — constructs the universal subset CAN express', () => {
   });
 });
 
-describe('CORE-041 — constructs it cannot, and the published boundary', () => {
+describe('constructs it cannot, and the published boundary', () => {
   const cases: Array<[string, () => unknown, RegExp]> = [
     ['ZodTuple', () => z.object({ pair: z.tuple([z.string(), z.number()]) }), /tuple/i],
     [

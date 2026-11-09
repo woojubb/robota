@@ -7,7 +7,7 @@ function mutableClock(start = 0): IClock & { set(t: number): void } {
   return { now: () => t, set: (v: number) => (t = v) };
 }
 
-describe('TokenBucketLimiter (REMOTE-004 B2)', () => {
+describe('TokenBucketLimiter', () => {
   it('allows up to the burst, then refuses until refill', () => {
     const clock = mutableClock(0);
     const limiter = new TokenBucketLimiter({ burst: 3, refillPerMs: 0.001 }, clock);
@@ -34,7 +34,7 @@ describe('TokenBucketLimiter (REMOTE-004 B2)', () => {
     expect(limiter.tryConsume('b')).toBe(true); // separate bucket
   });
 
-  it('TC-06: evict(key) drops a key bucket (memory bound); an absent key is a no-op', () => {
+  it('evict(key) drops a key bucket (memory bound); an absent key is a no-op', () => {
     const clock = mutableClock(0);
     const limiter = new TokenBucketLimiter({ burst: 1, refillPerMs: 0 }, clock);
     limiter.tryConsume('a');

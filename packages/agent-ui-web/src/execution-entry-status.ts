@@ -1,5 +1,5 @@
 /**
- * #3288 §1: one true-status label for an execution-workspace entry, shared by the Agents panel row
+ * One true-status label for an execution-workspace entry, shared by the Agents panel row
  * and its detail sheet so the two never say something different about the same entry.
  *
  * A completed task whose result still reports a refused tool call is not "Done" — it is "Needs
@@ -11,7 +11,7 @@ import type {
   IExecutionWorkspaceEntry,
   TExecutionAttention,
   TExecutionWorkspaceStatus,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 export type TExecutionStatusTone = 'warning' | 'destructive' | 'success' | 'muted';
 

@@ -1,5 +1,5 @@
 /**
- * SEC-010 composition (#1862): WHERE the guarded rendezvous lives, and who tears it down.
+ * Composition: WHERE the guarded rendezvous lives, and who tears it down.
  *
  * The security leaf owns what `guarded` MEANS and how to build one; it deliberately knows nothing
  * about this host's layout. Choosing the path is composition, and composition is this package.
@@ -55,7 +55,7 @@ export function resolveRendezvousDirectory(productRuntime: ICliRuntimeContext): 
  * Returns the security leaf's own admission shape rather than a boolean, so a caller cannot lose
  * the distinction between "usable" and "usable, and here is what was established". A refusal here
  * means local peering is unavailable — it is not a reason to fall back to an unguarded directory,
- * which would be the copyable-credential failure SEC-010 exists to prevent, wearing a path.
+ * which would be the copyable-credential failure the guarded directory exists to prevent, wearing a path.
  */
 export function ensureRendezvousDirectory(
   productRuntime: ICliRuntimeContext,

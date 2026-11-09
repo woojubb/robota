@@ -37,7 +37,7 @@ import { runShellCommand } from '../startup/shell-exec.js';
 import { commandEnvironment } from '../product/command-environment.js';
 
 /**
- * ARCH-006: the tool surface the kernel overlay resolved. `additionalTools` carries the capability packs'
+ * The tool surface the kernel overlay resolved. `additionalTools` carries the capability packs'
  * tools; `defaultTools` REPLACES `agent-framework`'s `createDefaultTools()` tier (`the product` passes an empty
  * array, so its packs are the sole source of tools).
  */
@@ -57,9 +57,9 @@ export interface IPrintModeSessionResolution {
 
 /** Preset-resolved identity/persona the thin-shell CLI forwards into the headless session. */
 /**
- * ARCH-041: ONE declaration. This used to be a hand-written copy of `IPresetSurfaceOptions`, and the
+ * ONE declaration. This used to be a hand-written copy of `IPresetSurfaceOptions`, and the
  * two had already drifted — `model` was declared here and on neither of the other two surfaces,
- * which is the shape ARCH-013 was filed about surviving the extraction meant to end it.
+ * which is the drift one shared declaration prevents.
  *
  * `Partial` because a caller may supply none of it; the shared type states which fields exist, this
  * states only that they are all optional here.
@@ -75,9 +75,9 @@ export async function runPrintMode(
   sessionStore: ReturnType<typeof createProjectSessionStore>,
   backgroundTaskRunners: IBackgroundTaskRunner[],
   subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>,
-  /** ARCH-005: composition-root-contributed subagent definitions (merged pack subagents). */
+  /** Composition-root-contributed subagent definitions (merged pack subagents). */
   agentDefinitions: readonly IAgentDefinition[],
-  /** ARCH-006: the kernel-resolved tool surface (pack tools + the replaced framework default tier). */
+  /** The kernel-resolved tool surface (pack tools + the replaced framework default tier). */
   toolOptions: IPrintModeToolOptions,
   commandModules: readonly ICommandModule[],
   commandHostAdapters: ICommandHostAdapters,
@@ -122,7 +122,7 @@ export async function runPrintMode(
     process.exit(1);
   }
 
-  // CMD-004 Phase 2 (Stage B): print-mode process adapter. Print mode ALWAYS exits when the run
+  // Print-mode process adapter. Print mode ALWAYS exits when the run
   // completes (the exit-code contract below), so a host-executed exit action is satisfied by the
   // mode itself — nothing extra to do. A restart cannot be performed headlessly; it is surfaced
   // explicitly (never a silent skip).
@@ -161,11 +161,11 @@ export async function runPrintMode(
     ...(taskContext !== undefined ? { taskContext } : {}),
     output: { stdout: process.stdout, stderr: process.stderr },
     outputFormat: args.outputFormat ?? 'text',
-    // CLI-076: forward the resolved model so `--model` takes effect (an invalid model then surfaces the
+    // Forward the resolved model so `--model` takes effect (an invalid model then surfaces the
     // provider's error and a non-zero exit, instead of a silent substitution succeeding with exit 0).
     ...(presetOptions.model !== undefined ? { model: presetOptions.model } : {}),
     ...(presetOptions.outputStyle !== undefined ? { outputStyle: presetOptions.outputStyle } : {}),
-    // Issue #3081: `default`, not bypass. Print mode has no approver, so anything that would ask is
+    // `default`, not bypass. Print mode has no approver, so anything that would ask is
     // denied; `--permission-mode` (or a preset) states a wider mode where one is wanted.
     permissionMode: args.permissionMode ?? presetOptions.permissionMode ?? 'default',
     baselinePermissionAllow: productRuntime.layout.baselinePermissionAllow,
@@ -181,7 +181,7 @@ export async function runPrintMode(
     forkSession: sessionResolution.forkSession,
     sessionName: args.sessionName,
     bare: args.bare || args.safeMode || undefined,
-    // `--safe-mode`: no hook from any settings layer either (issue #3082).
+    // `--safe-mode`: no hook from any settings layer either.
     ...(args.safeMode ? { skipConfiguredHooks: true } : {}),
     ...presetSessionFields(presetOptions),
     ...(presetOptions.persona !== undefined ? { persona: presetOptions.persona } : {}),
@@ -204,7 +204,7 @@ export async function runPrintMode(
       ? { responseFormat: presetOptions.responseFormat }
       : {}),
     ...(presetOptions.language !== undefined ? { language: presetOptions.language } : {}),
-    // ARCH-040: onto the SEED key, never onto `systemPrompt` — that one replaces the composed prompt.
+    // Onto the SEED key, never onto `systemPrompt` — that one replaces the composed prompt.
     ...(presetOptions.systemPrompt !== undefined
       ? { presetSystemPrompt: presetOptions.systemPrompt }
       : {}),
@@ -229,12 +229,12 @@ export async function runPrintMode(
       : {}),
     commandModules,
     commandHostAdapters,
-    // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
+    // Surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...memorySessionOptions,
     ...(editCheckpointStore !== undefined ? { editCheckpointStore } : {}),
   });
 
-  // RUNTIME-36: a throw from run/runGoal must NOT bypass the exit-code contract — surface a non-zero exit
+  // A throw from run/runGoal must NOT bypass the exit-code contract — surface a non-zero exit
   // instead of leaving the process to an unhandled rejection. `process.exit(getExitCode())` stays OUTSIDE the
   // try so a NORMAL exit (including code 0) is not caught by the error branch.
   try {

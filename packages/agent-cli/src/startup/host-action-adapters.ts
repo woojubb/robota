@@ -1,6 +1,6 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * CMD-004 Phase 2 (Stage B) — composition-root wiring for host-executed command actions.
+ * Composition-root wiring for host-executed command actions.
  *
  * The session layer executes a command's host actions through `ICommandHostAdapters`; this module
  * owns the CLI-side adapter pieces: the remote-control enable/stop wiring (off the TUI props, onto
@@ -39,7 +39,7 @@ import type {
   IPeerMessaging,
   IPeerMessagingOptions,
 } from '../remote-control/local-peer-messaging.js';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 /** What `/peers` and `/handoff` use of the device mesh. */
 type TMeshPeers = Pick<
@@ -69,7 +69,7 @@ import type { RemoteControlController } from '../remote-control/index.js';
 import type { ICommandHostAdapters, ICommandProcessAdapter } from '@robota-sdk/agent-framework';
 
 /**
- * REMOTE-008 + CMD-004: assemble the `/remote-control` host adapter over the controller. Made
+ * Assemble the `/remote-control` host adapter over the controller. Made
  * module-private when `attachHostAdapters` absorbed its only call site — an export nobody
  * calls is a claim that someone might — status +
  * trusted-device queries, and the HOST-EXECUTED enable/stop actions returning the user-facing
@@ -94,7 +94,7 @@ function buildRemoteControlHostAdapter(
 }
 
 /**
- * PEER-004 (#1863): the `/peers` adapter over the presence leaf. Module-private — it is a step of
+ * The `/peers` adapter over the presence leaf. Module-private — it is a step of
  * `attachHostAdapters`, and an export nobody calls is a claim that someone might.
  *
  * Thin on purpose. The guarded directory, its permissions and the liveness rule all belong to the
@@ -196,7 +196,7 @@ function buildMeshOnlyPeersAdapter(
 }
 
 /**
- * PEER-004: announce this session, or say why it is not announced — and never both silently.
+ * Announce this session, or say why it is not announced — and never both silently.
  *
  * A refused rendezvous does not stop the session. Discovery is an optional capability, so the
  * failure is REPORTED; with no device mesh the adapter is left unset, and `/peers` then says the
@@ -233,7 +233,7 @@ function attachLocalPeerDiscovery(
 }
 
 /**
- * PEER-006: start the listener and fill in `send`, once there is a session to deliver into.
+ * Start the listener and fill in `send`, once there is a session to deliver into.
  *
  * Separate from discovery because the two become possible at different moments: a session can be
  * announced before it can run a turn, and announcing late would leave a window where the operator's

@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 const SRC_ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 /**
- * SEC-003 regression floor for CodeQL `js/insecure-temporary-file` (CWE-377).
+ * Regression floor for CodeQL `js/insecure-temporary-file` (CWE-377).
  *
  * The rule's taint source is an `os.tmpdir()` call or a `'/tmp/…'` string literal; its sink
  * is the path argument of an `fs` write that does not pass an owner-only `mode`. Taint stops
@@ -16,8 +16,7 @@ const SRC_ROOT = fileURLToPath(new URL('..', import.meta.url));
  * So the one pattern that must not come back is a path built by string-joining a name onto
  * `os.tmpdir()`. `mkdtemp(join(tmpdir(), 'prefix-'))` is the sanctioned form and is allowed.
  *
- * This floor is scoped to the CLI package until a repo-wide harness scan takes over
- * (SEC-003 follow-up).
+ * This floor is scoped to the CLI package until a repo-wide harness scan takes over.
  */
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -33,7 +32,7 @@ function walk(dir: string): string[] {
   return out;
 }
 
-describe('SEC-003 floor: no insecure temp paths in agent-cli', () => {
+describe('no insecure temp paths in agent-cli', () => {
   it('never string-joins a name onto os.tmpdir() outside of mkdtemp', () => {
     const offenders: string[] = [];
 

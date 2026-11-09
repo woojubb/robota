@@ -8,21 +8,19 @@
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   readdirSync,
-  realpathSync,
   rmSync,
   statSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import {
   WorkspaceAuthorityRequiredError,
@@ -42,7 +40,7 @@ let previousUmask: number;
 
 beforeEach(() => {
   previousUmask = process.umask(0o022);
-  base = realpathSync(mkdtempSync(join(tmpdir(), 'checkpoint-directory-state-')));
+  base = makeCanonicalTempDir('checkpoint-directory-state-');
 });
 
 afterEach(() => {
@@ -55,7 +53,7 @@ function filesUnder(dir: string): string[] {
   const found: string[] = [];
   const walk = (current: string, prefix: string): void => {
     for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const relative = join(prefix, entry.name);
+      const relative = posix.join(prefix, entry.name);
       if (entry.isDirectory()) walk(join(current, entry.name), relative);
       else found.push(relative);
     }
@@ -257,7 +255,10 @@ describe('an EditCheckpointStore given state held outside the project', () => {
     );
 
     expect(readdirSync(project)).toEqual(['notes.txt']);
+    // The writer lease leaves its operation-lock file behind: the lock file is never unlinked while its
+    // directory is in use, and it holds no session data.
     expect(filesUnder(root)).toEqual([
+      'session_1/.writer/active.guard',
       'session_1/turn-0001/files/000001.content',
       'session_1/turn-0001/manifest.json',
     ]);
@@ -288,7 +289,7 @@ describe('an EditCheckpointStore given state held outside the project', () => {
     expect(summary?.fileCount).toBe(1);
   });
 
-  // ARCH-047: restoring writes the project's files back, and project mutation is Linux-only.
+  // Restoring writes the project's files back, and project mutation is Linux-only.
   it.runIf(process.platform === 'linux')(
     'still restores the project file from the pre-image it kept elsewhere',
     async () => {

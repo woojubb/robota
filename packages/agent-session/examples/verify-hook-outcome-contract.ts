@@ -1,5 +1,5 @@
 /**
- * SEC-015 — user-execution scenario for the decoded hook outcome contract (issue #2083).
+ * User-execution scenario for the decoded hook outcome contract.
  *
  * Run it with:
  *   pnpm --filter @robota-sdk/agent-session scenario:verify
@@ -10,17 +10,15 @@
  *   2. A hook that FAILS (its process could not start) now BLOCKS too, and the failure is reported
  *      on `IRunHooksResult.errors` with its `kind` and `source`.
  *   3. A hook that answers `{"ok": "false"}` — a string, not a boolean — blocks the same way.
- *      Before SEC-015 that body was truthy, so the engine read it as approval and the gate was
- *      silently disabled. Its mirror image, `{}`, was falsy and blocked on a verdict no endpoint
- *      issued. Both are now `error`, and under SEC-016 `PreToolUse` fails closed on `error`.
+ *      A truthy string body must never read as approval, or the gate would be silently
+ *      disabled. Its mirror image, `{}`, is falsy and must not block on a verdict no endpoint
+ *      issued. Both are `error`, and `PreToolUse` fails closed on `error`.
  *   4. A hook that allows lets the tool run.
  *
- * **Cases 2 and 3 changed with SEC-016 (issue #2093), and this file is the record of that.** Under
- * SEC-015 alone they printed "tool NOT blocked": the failure was representable and nothing consumed
- * it, because deciding that a failed hook must DENY was the next leaf's job. SEC-016 made that
- * decision, `runPreToolHook` now reads `errors`, and these two cases block. `pnpm scenario:verify`
- * refused the push until this file said so — a scenario asserting the old behaviour is a scenario
- * that has become false, not one that needs its expectation relaxed.
+ * **Cases 2 and 3 block because a failure must DENY.** A failure that is representable but that
+ * nothing consumes leaves the tool unblocked; `runPreToolHook` reads `errors` and denies, so these
+ * two cases block. A scenario asserting the unblocked behaviour would be a scenario that has
+ * become false, not one that needs its expectation relaxed.
  */
 
 import { createServer, type Server } from 'node:http';
@@ -44,7 +42,7 @@ import type {
 import type { ISpinner, ITerminalOutput } from '../src/index.js';
 import type { IPermissionEnforcerOptions } from '../src/permission-types.js';
 
-const DENY_REASON = 'SEC-015 scenario: denied by command hook';
+const DENY_REASON = 'denied by command hook';
 
 const silentTerminal: ITerminalOutput = {
   writeError(): void {},
@@ -67,7 +65,7 @@ const silentTerminal: ITerminalOutput = {
  *
  * Every member of `IToolContract` is implemented rather than asserted past with
  * `as unknown as`. A blind cast here would be the same "trust me, this is the right shape" that
- * SEC-015 removes from the hook contract, and it would hide a real signal: if the interface gains a
+ * the hook contract rules out, and it would hide a real signal: if the interface gains a
  * member, this example should stop compiling rather than start lying.
  */
 function makeTool(ran: { value: boolean }): IToolWithEventService {
@@ -101,7 +99,7 @@ async function toolRuns(
 ): Promise<boolean> {
   const ran = { value: false };
   const options: IPermissionEnforcerOptions = {
-    sessionId: 'sec-015-scenario',
+    sessionId: 'hook-outcome-scenario',
     cwd,
     getPermissionMode: () => 'bypassPermissions',
     config: { permissions: { allow: [], deny: [] }, hooks },
@@ -116,7 +114,7 @@ async function toolRuns(
 
 function hookInput(cwd: string): IHookInput {
   return {
-    session_id: 'sec-015-scenario',
+    session_id: 'hook-outcome-scenario',
     cwd,
     hook_event_name: 'PreToolUse',
     tool_name: 'Bash',
@@ -134,7 +132,7 @@ function check(condition: boolean, line: string): void {
 }
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'sec-015-scenario-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'hook-outcome-scenario-'));
   let server: Server | undefined;
 
   try {
@@ -165,7 +163,7 @@ async function main(): Promise<void> {
       // `!spawnResult.blocked` is the half that makes this demo show the DESIGN rather than just
       // the outcome: the runner still does not set `blocked` on an error — it reports and the
       // BOUNDARY decides. Dropping it left the demo proving the tool was stopped without showing
-      // which layer stopped it, which is the whole split SEC-015 and SEC-016 rest on.
+      // which layer stopped it, which is the whole split between runner and boundary.
       !spawnToolRan &&
         !spawnResult.blocked &&
         spawnError?.kind === 'spawn-failure' &&
@@ -209,10 +207,10 @@ async function main(): Promise<void> {
   }
 
   if (failed) {
-    console.error('SEC-015 hook outcome contract scenario FAILED');
+    console.error('Hook outcome contract scenario FAILED');
     process.exit(1);
   }
-  console.log('SEC-015 hook outcome contract scenario passed.');
+  console.log('Hook outcome contract scenario passed.');
 }
 
 await main();

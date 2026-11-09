@@ -119,7 +119,7 @@ export async function executeRun(
     response = await ctx.agent.run(enrichedMessage, {
       signal: abortSignal,
       maxExecutionRounds: ctx.maxTurns ?? 0,
-      // Thin pass-through of the per-turn options to agent-core (SELFHOST-008 P3, PEER-007).
+      // Thin pass-through of the per-turn options to agent-core.
       ...perTurnRunOptions(runOptions),
       ...createRunObservers(ctx, traceContext),
     });

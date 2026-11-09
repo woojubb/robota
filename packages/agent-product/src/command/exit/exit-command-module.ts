@@ -1,0 +1,47 @@
+import { EXIT_COMMAND_DESCRIPTION } from '@robota-sdk/agent-framework';
+
+import { executeExitCommand } from './exit-command.js';
+
+import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface/command';
+
+export function createExitCommandEntry(): ICommand {
+  return {
+    name: 'exit',
+    displayName: 'Exit Session',
+    description: EXIT_COMMAND_DESCRIPTION,
+    source: 'exit',
+    // User-only: ending the session is the user's decision.
+    modelInvocable: false,
+  };
+}
+
+function createExitSystemCommand(): ISystemCommand {
+  const entry = createExitCommandEntry();
+  return {
+    name: entry.name,
+    displayName: entry.displayName,
+    description: entry.description,
+    requiresPermission: true,
+    userInvocable: true,
+    modelInvocable: false,
+    lifecycle: 'inline',
+    execute: executeExitCommand,
+  };
+}
+
+export class ExitCommandSource implements ICommandSource {
+  readonly name = 'exit';
+
+  getCommands(): ICommand[] {
+    return [createExitCommandEntry()];
+  }
+}
+
+export function createExitCommandModule(): ICommandModule {
+  return {
+    name: 'agent-command-exit',
+    commandSources: [new ExitCommandSource()],
+    systemCommands: [createExitSystemCommand()],
+  };
+}

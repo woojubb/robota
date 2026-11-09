@@ -1,5 +1,5 @@
 /**
- * TRANS-010 (issue #2480): the file-backed `ITransportSettingsRepository`, a Node adapter exported
+ * The file-backed `ITransportSettingsRepository`, a Node adapter exported
  * from `@robota-sdk/agent-framework/node`.
  *
  * It is the ONLY place the transport package touches the framework settings file helpers; the
@@ -13,7 +13,7 @@ import type { TSettingsData } from '../config/settings-store-types.js';
 import type {
   ITransportSavedConfig,
   ITransportSettingsRepository,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

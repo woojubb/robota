@@ -54,8 +54,8 @@ export function checkpointTreeNodesOf(
 }
 
 /**
- * A checkpoint manifest named a snapshot that is not inside its own checkpoint directory
- * (issue #2076). The manifest is mutable bytes on disk, not a trusted object: restore re-establishes
+ * A checkpoint manifest named a snapshot that is not inside its own checkpoint directory.
+ * The manifest is mutable bytes on disk, not a trusted object: restore re-establishes
  * containment before it deletes, writes or reads anything, and one bad entry aborts the whole
  * restore rather than being skipped.
  */
@@ -99,7 +99,7 @@ export function resolveContainedSnapshotPath(checkpointDir: string, snapshotFile
 }
 
 /**
- * SELFHOST-007 migration: reconstruct the branch tree for legacy (v1) manifests. A v1 manifest has no
+ * Migration: reconstruct the branch tree for legacy (v1) manifests. A v1 manifest has no
  * `parentId`/`branchId`, so — sorted by sequence — it is treated as a LINEAR chain: each node's parent
  * is the previous node, all on the `'main'` branch. v2 manifests keep their stored branch fields. Pure;
  * does not mutate the inputs.

@@ -1,5 +1,5 @@
 /**
- * SCREEN-2002 — the resolved theme, published to the tree.
+ * The resolved theme, published to the tree.
  *
  * The `screen-reader-context` shape: one resolved value in a React context, defaulting to the `dark`
  * built-in outside a provider so a component rendered in a test behaves exactly as it did before the
@@ -71,7 +71,7 @@ export function useMotion(): boolean {
 }
 
 /**
- * SCREEN-2002: whether a fenced code block is highlighted. It travels with the theme rather than as
+ * Whether a fenced code block is highlighted. It travels with the theme rather than as
  * a prop because every markdown render site already reads the theme from here, and a setting that
  * reaches only some of them is worse than one that reaches none — `/theme syntax off` would report
  * success while a block somewhere kept its colours.

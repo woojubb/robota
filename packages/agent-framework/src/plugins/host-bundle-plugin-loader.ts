@@ -6,7 +6,7 @@
  * enabled. So a caller that omits the map does not get "enablement unknown" — it gets "everything
  * enabled", which is the same shape as a user who has disabled nothing.
  *
- * Every production site omitted it (PLG-021 / issue #2025). A user who disabled a plugin saw it
+ * Every production site omitted it. A user who disabled a plugin saw it
  * reported as disabled while its hooks, commands and skills kept loading — and disable is a
  * containment action, so the assurance is at its most misleading exactly when it matters.
  *
@@ -70,7 +70,7 @@ export function createHostBundlePluginLoader(
 }
 
 /**
- * Load bundle plugins from several scope directories, most specific first (issue #2487).
+ * Load bundle plugins from several scope directories, most specific first.
  *
  * A project-scope install lands in a different directory from the user scope, and a loader built
  * for one directory cannot see the other. A plugin present in more than one scope is taken from the
@@ -78,7 +78,7 @@ export function createHostBundlePluginLoader(
  * composition root above, so the enablement treatment is not bypassed.
  */
 /**
- * The inspection counterpart of {@link loadHostBundlePluginsFromScopes} (OBSERVABILITY-1991): one
+ * The inspection counterpart of {@link loadHostBundlePluginsFromScopes}: one
  * inspection per scope directory, in the same order, with the same enablement treatment. Plugins
  * shadowed by an earlier scope are not deduplicated here — a diagnostic wants to see both copies.
  */

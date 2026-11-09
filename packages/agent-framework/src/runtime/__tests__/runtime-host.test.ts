@@ -1,14 +1,15 @@
 /**
- * RUNTIME-001 TC-01 — the shared runtime host builds the session, owns the transport lifecycle
+ * The shared runtime host builds the session, owns the transport lifecycle
  * (startAll on start, stopAll on shutdown), and shuts down idempotently. Presentation-free: this test
  * imports no `agent-ui-terminal`/ink.
  */
 
 import { createHook } from 'node:async_hooks';
-import { mkdirSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { mkdirSync, rmSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { InteractiveSession } from '../../interactive/interactive-session.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,11 +17,11 @@ import { buildRuntimeSession, startRuntimeHost } from '../runtime-host.js';
 import { SessionSlot } from '../session-slot.js';
 import { listResumableSessionSummaries } from '../../interactive/session-persistence.js';
 import { createNodeHostSessionStore } from '../../interactive/node-session-stores.js';
-import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
+import { createTransportFailedOutcome } from '@robota-sdk/agent-interface/transport';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface-transport';
+import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface/transport';
 
 const testHost = createTestFrameworkHost();
 
@@ -65,7 +66,7 @@ function stubRegistry(): ITransportLifecycleRegistryView & {
   };
 }
 
-describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
+describe('startRuntimeHost', () => {
   let cwd: string;
   let home: string;
   let savedHome: string | undefined;
@@ -79,10 +80,10 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     else process.env.USERPROFILE = savedProfile;
   }
   beforeEach(() => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'runtime-host-')));
+    cwd = makeCanonicalTempDir('runtime-host-');
     // Keep the Node home used for plugin directory resolution isolated from the developer's home.
     // The runtime has no ambient user settings source, so this no longer admits hooks by itself.
-    homeRoot = realpathSync(mkdtempSync(join(tmpdir(), 'runtime-host-home-')));
+    homeRoot = makeCanonicalTempDir('runtime-host-home-');
     home = join(homeRoot, 'home');
     mkdirSync(home);
     savedHome = process.env.HOME;
@@ -116,7 +117,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     await host.shutdown();
   });
 
-  it('shutdown() leaves no timer holding the event loop open (#1852)', async () => {
+  it('shutdown() leaves no timer holding the event loop open', async () => {
     // The bound exists so a WEDGED subsystem cannot block exit. Its own timer must therefore not
     // become a reason to stay alive: the losing side of a `Promise.race` is not cancelled, so an
     // un-unref'd bound keeps the process alive for its full 5s even when shutdown finished in 1ms.
@@ -128,7 +129,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     // Asserted on the identity of the timers armed during the host's lifetime rather than on elapsed
     // time (a timing assertion would pass on a fast machine for the wrong reason) and rather than on
     // a process-wide `getActiveResourcesInfo` count (which moves with whatever else the worker has
-    // running — issue #2383). The claim is loop-holding, as the #1852 title says: a timer armed while
+    // running). The claim is loop-holding: a timer armed while
     // the host lived — by the host or the session it built — and still ref'd after `shutdown()`.
     // An unref'd timer is accepted; a `clearTimeout → unref()` regression in the host would pass
     // here, and the host's own comment explains why cancelling is the stronger statement.
@@ -180,7 +181,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     ).toEqual([]);
   });
 
-  it("resolves the isolated home for plugin discovery, not the developer's (TEST-012 control)", () => {
+  it("resolves the isolated home for plugin discovery, not the developer's (control)", () => {
     // `homedir()` follows `process.env.HOME` in Vitest's forked worker. A worker-pool change must
     // preserve this isolation for any test that deliberately admits user plugin discovery.
     expect(homedir()).toBe(home);
@@ -212,7 +213,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     await expect(host.shutdown()).resolves.toBeUndefined();
   });
 
-  it('binds transports to a slot that follows a switch to another session (#3189)', async () => {
+  it('binds transports to a slot that follows a switch to another session', async () => {
     const registry = stubRegistry();
     const store = createNodeHostSessionStore(join(homeRoot, 'sessions'), { sealing: 'plain' });
     const bindTransports = vi.fn();
@@ -245,7 +246,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     await host.shutdown();
   });
 
-  it('shutdown() drains every pooled session, the primary included (#3189)', async () => {
+  it('shutdown() drains every pooled session, the primary included', async () => {
     const registry = stubRegistry();
     const host = await startRuntimeHost({
       session: { host: testHost, cwd, provider: stubProvider() },
@@ -270,7 +271,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     await expect(pool.acquire()).rejects.toMatchObject({ code: 'stopping' });
   });
 
-  it('holds one session and no pool unless asked for one (#3189)', async () => {
+  it('holds one session and no pool unless asked for one', async () => {
     const host = await startRuntimeHost({
       session: { host: testHost, cwd, provider: stubProvider() },
     });

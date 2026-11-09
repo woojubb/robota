@@ -1,5 +1,5 @@
 /**
- * A fork job run in this process over a store that seals (#3679 step 3e).
+ * A fork job run in this process over a store that seals.
  *
  * The job claims the record `/fork` left for it, for as long as it runs, the way every session this
  * process runs claims its own: the claim's read is what it restores from, it must be the owner's, and

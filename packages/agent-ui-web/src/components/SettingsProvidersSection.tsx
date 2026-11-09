@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 import { PopupMenu } from './PopupMenu.js';
 
-import type { ISettingsProviderProfile, ISettingsSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISettingsProviderProfile, ISettingsSnapshot } from '@robota-sdk/agent-interface/session';
 import type { TModelListSnapshot } from '../hooks/session-client-types.js';
 
 const BUTTON =
@@ -14,7 +14,7 @@ const PRIMARY_BUTTON = `${BUTTON} bg-primary text-primary-foreground hover:opaci
 const SECONDARY_BUTTON = `${BUTTON} bg-raised text-foreground hover:bg-hover`;
 const DESTRUCTIVE_BUTTON = `${BUTTON} text-destructive hover:bg-destructive/10`;
 
-/** The "Model" action: a `PopupMenu` of this ONE profile's catalog models (#3282 §4b). */
+/** The "Model" action: a `PopupMenu` of this ONE profile's catalog models. */
 function ProviderModelButton({
   profile,
   modelList,
@@ -142,7 +142,7 @@ function ProviderProfileRow({
 }
 
 /**
- * The configured provider profiles (#3282 §4b), each row a plain provider name, its model's label,
+ * The configured provider profiles, each row a plain provider name, its model's label,
  * a checkmark on the one in use, and a plain connection state when one is known. Every action goes
  * through the same path the equivalent command does: Use/Model apply through `state.updateSettings`
  * (the same `field` patterns Preset/Mode/Sandbox use); Edit/Test/Duplicate/Add dispatch the raw
@@ -169,7 +169,7 @@ export function SettingsProvidersSection({
   onRequestDelete: (profileName: string) => void;
 }): React.ReactElement {
   // The "Model" button needs each profile's catalog as soon as this section is visible, not only
-  // once a person opens one — `list-models` is a cheap, observer-safe read (#3282 §2).
+  // once a person opens one — `list-models` is a cheap, observer-safe read.
   // Intentionally empty deps: fetch once per mount, not on every render.
   useEffect(() => {
     onRequestModelList();

@@ -1,5 +1,5 @@
 /**
- * Tool residency (CLI-1990): which registered schemas the model is offered.
+ * Tool residency: which registered schemas the model is offered.
  *
  * Three words, used consistently across the layers that read this module:
  *

@@ -1,5 +1,5 @@
 /**
- * Provider-failure exit-code integration tests (CLI-064).
+ * Provider-failure exit-code integration tests.
  *
  * Drives a real InteractiveSession with a provider whose chat() throws (the 401 class
  * observed in product verification) and asserts the headless transport surfaces the
@@ -84,7 +84,7 @@ function captureStream(stream: NodeJS.WriteStream): { writes: string[]; restore(
   };
 }
 
-describe('headless provider failure exit codes (CLI-064)', () => {
+describe('headless provider failure exit codes', () => {
   let cwd: string | undefined;
 
   afterEach(() => {
@@ -92,7 +92,7 @@ describe('headless provider failure exit codes (CLI-064)', () => {
     cwd = undefined;
   });
 
-  it('TC-02: text format exits 1 and writes the auth failure to stderr', async () => {
+  it('text format exits 1 and writes the auth failure to stderr', async () => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-headless-fail-')));
     const session = new InteractiveSession({
       host: testHost,
@@ -123,7 +123,7 @@ describe('headless provider failure exit codes (CLI-064)', () => {
     }
   });
 
-  it('TC-02: json format exits 1 with subtype error and error_code api_error', async () => {
+  it('json format exits 1 with subtype error and error_code api_error', async () => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-headless-fail-')));
     const session = new InteractiveSession({
       host: testHost,
@@ -159,7 +159,7 @@ describe('headless provider failure exit codes (CLI-064)', () => {
     }
   });
 
-  it('CORE-027: a failure whose prose says "abort" exits non-zero, not as a successful interruption', async () => {
+  it('a failure whose prose says "abort" exits non-zero, not as a successful interruption', async () => {
     // The user-execution scenario, run by the harness: a provider failure of exactly the
     // shape 'connection aborted by peer' used to come back success: true, interrupted: true —
     // empty response, exit 0, nothing downstream able to tell it from a user interruption.

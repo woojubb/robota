@@ -1,4 +1,4 @@
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 import React from 'react';
 
 import { Text } from './SafeText.js';
@@ -10,13 +10,13 @@ import { usePalette } from './theme/index.js';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 /**
- * Who a transcript line is attributed to, and in what colour. Extracted from MessageList when
- * PEER-007 gave the `user` case a second thing to decide: the label stopped being a constant per
- * role, so it is its own responsibility rather than four inline returns.
+ * Who a transcript line is attributed to, and in what colour. Extracted from MessageList because
+ * the `user` case has a second thing to decide: the label is not a constant per role, so it is
+ * its own responsibility rather than four inline returns.
  */
 
 /**
- * PEER-007 (issue #1915): the operator's own turns stay `You:`; a turn driven by anyone else is
+ * The operator's own turns stay `You:`; a turn driven by anyone else is
  * labelled with WHO drove it, so a co-driven transcript can be read after the fact. `owner` is the
  * operator, so it reads as `You:` too; anything else prints as itself (`peer:<session-id>`, `agent`).
  */
@@ -35,7 +35,7 @@ export function RoleLabel({
   const screenReader = useScreenReader();
   const productDisplayName = useProductDisplayName();
   if (screenReader) {
-    // CLI-2004: the label comes from the ROLE, never the vendor — `assistant:` under every
+    // The label comes from the ROLE, never the vendor — `assistant:` under every
     // agent-provider-*. No colour: in this mode the searchable word is the whole cue.
     const label =
       role === 'user' && driverId !== undefined && driverId !== OWNER_DRIVER_ID

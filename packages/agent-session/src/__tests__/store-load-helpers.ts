@@ -1,5 +1,5 @@
 /**
- * TRANS-007 — narrowing helpers for tests whose subject is not the load outcome.
+ * Narrowing helpers for tests whose subject is not the load outcome.
  *
  * `load` returns an outcome rather than `record | undefined`, because `undefined` was one answer for
  * four situations. Tests about something else should not restate that at every call site — but they
@@ -10,7 +10,7 @@
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** The stored record when there is one, `undefined` for `missing` — a failure for the other two. */
 export function loadedOrMissing(

@@ -1,8 +1,8 @@
 /**
- * MCP-004 §S1 — the `tool-invocation` background-task runner.
+ * The `tool-invocation` background-task runner.
  *
  * Every other runner in this directory STARTS work when `start()` is called. This one does not: the
- * work is already running in the foreground (an MCP tool call the wrapper, `agent-framework` S3,
+ * work is already running in the foreground (an MCP tool call the `agent-framework` wrapper
  * decided to hand off past a threshold) by the time `manager.spawn()` is even called. The runner
  * instead ADOPTS it — `adopt()` registers the in-flight promise and its abort under a token BEFORE
  * `spawn()` runs, and `start()`'s only job is to look that token up.

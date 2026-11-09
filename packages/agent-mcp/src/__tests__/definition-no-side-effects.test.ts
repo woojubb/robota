@@ -1,5 +1,5 @@
 /**
- * TC-05 — parse, import, resolve, list, get and status open no socket and spawn no process.
+ * Parse, import, resolve, list, get and status open no socket and spawn no process.
  *
  * The SPEC states this as a property of the control plane, and a property nothing checks is a
  * comment. Two checks, because either alone passes for the wrong reason:

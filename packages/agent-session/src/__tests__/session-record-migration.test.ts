@@ -1,5 +1,5 @@
 /**
- * Sealing a host-filesystem session store's plain records in place (#3679, secure conversation): the
+ * Sealing a host-filesystem session store's plain records in place (secure conversation): the
  * raw bytes of every plain record sealed under its stem, so the store reports the same status after
  * opening them; what is already sealed, or sealed so it does not open here, left as it is; a replace
  * made only while the file still holds what was read; and planning writes nothing.
@@ -23,6 +23,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
+import { createProcessMarkers } from '@robota-sdk/agent-core/node';
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { SESSION_RECORD_ENVELOPE_VERSION } from '../session-record-codec/index.js';
@@ -33,10 +35,10 @@ import {
 import { NodeSessionStore } from '../session-store.js';
 
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-4b8d-typed-before-sealing';
-const posixOnly = process.platform === 'win32';
+const onWindows = process.platform === 'win32';
 const roots: string[] = [];
 
 afterEach(() => {
@@ -150,7 +152,7 @@ describe('migrateNodeSessionStore', () => {
     expect(before.valid_one).toMatchObject({ status: 'valid', authorship: 'unverified' });
     expect((before.corrupt_one as { status: string }).status).toBe('corrupt');
     expect((before.unsupported_one as { status: string }).status).toBe('unsupported');
-    if (!posixOnly) {
+    if (!onWindows) {
       expect(statSync(join(dir, 'valid_one.json')).mode & 0o777).toBe(0o600);
     }
   });
@@ -247,7 +249,7 @@ describe('migrateNodeSessionStore', () => {
     expect(readFileSync(join(dir, 'newer_one.json'))).toEqual(newer);
   });
 
-  it.skipIf(posixOnly)('never follows a record name that is a link', () => {
+  it('never follows a record name that is a link', () => {
     const dir = directory();
     const elsewhere = join(directory(), 'elsewhere.json');
     writeFileSync(elsewhere, envelope(record('linked')));
@@ -262,24 +264,42 @@ describe('migrateNodeSessionStore', () => {
     expect(readFileSync(elsewhere, 'utf8')).toContain(CANARY);
   });
 
-  it.skipIf(posixOnly)(
-    'refuses a record with another name, which sealing in place would leave holding the plaintext',
-    () => {
-      const dir = directory();
-      new NodeSessionStore(dir, { sealing: 'plain' }).save(record('linked_one'));
-      const backup = join(directory(), 'backup.json');
-      linkSync(join(dir, 'linked_one.json'), backup);
+  it('refuses a record with another name, which sealing in place would leave holding the plaintext', () => {
+    const dir = directory();
+    new NodeSessionStore(dir, { sealing: 'plain' }).save(record('linked_one'));
+    const backup = join(directory(), 'backup.json');
+    linkSync(join(dir, 'linked_one.json'), backup);
 
-      const result = migrateNodeSessionStore(dir, {
-        sealer: createTestArtifactSealer(),
-        apply: true,
-      });
+    const result = migrateNodeSessionStore(dir, {
+      sealer: createTestArtifactSealer(),
+      apply: true,
+    });
 
-      expect(result).toMatchObject({ sealed: 0, refused: [join(dir, 'linked_one.json')] });
-      expect(readFileSync(join(dir, 'linked_one.json'), 'utf8')).toContain(CANARY);
-      expect(statSync(backup).nlink).toBe(2);
-    },
-  );
+    expect(result).toMatchObject({ sealed: 0, refused: [join(dir, 'linked_one.json')] });
+    expect(readFileSync(join(dir, 'linked_one.json'), 'utf8')).toContain(CANARY);
+    expect(statSync(backup).nlink).toBe(2);
+  });
+
+  it('keeps a forced release from crossing a migration replacement', () => {
+    const dir = directory();
+    const id = 'migrating_one';
+    new NodeSessionStore(dir, { sealing: 'plain' }).save(record(id));
+    const claims = join(dir, 'claims');
+    const breaker = createProcessMarkers(claims, {
+      operationLock: createProcessOperationLock(claims),
+      lockWaitMs: 0,
+    });
+    let forced: string | undefined;
+    const result = migrateNodeSessionStore(dir, {
+      sealer: createTestArtifactSealer(),
+      apply: true,
+      beforeCommit: () => {
+        forced = breaker.remove(id, { force: true }).status;
+      },
+    });
+    expect(forced).toBe('busy');
+    expect(result.sealed).toBe(1);
+  });
 
   it('writes and flushes every sealed record beside its file before it puts any in place', () => {
     const dir = directory();

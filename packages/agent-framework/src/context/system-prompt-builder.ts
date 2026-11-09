@@ -33,14 +33,14 @@ export interface ISystemPromptParams {
    */
   persona?: string;
   /**
-   * ARCH-040: a preset-supplied system prompt, composed as a priority-4 section ABOVE persona. It
+   * A preset-supplied system prompt, composed as a priority-4 section ABOVE persona. It
    * seeds the prompt rather than replacing it — see `createPresetSystemPromptSection`.
    */
   presetSystemPrompt?: string;
   /**
-   * PRESET-017: when enabled, a concise verify-before-done directive is composed as a
+   * When enabled, a concise verify-before-done directive is composed as a
    * `source: 'self-verification'` section with priority 6; false/undefined adds no section.
-   * NEUT-003: `true` keeps the default directive; a non-blank string replaces its text.
+   * `true` keeps the default directive; a non-blank string replaces its text.
    */
   selfVerification?: boolean | string;
   /** Concatenated AGENTS.md content (may be empty string) */
@@ -77,7 +77,7 @@ function appendOptionalSection(
 }
 
 /**
- * NEUT-003: `selfVerification` is a string-valued seam — `true` keeps the default
+ * `selfVerification` is a string-valued seam — `true` keeps the default
  * directive; a non-blank string replaces the directive text; false/undefined/blank
  * adds no section.
  */

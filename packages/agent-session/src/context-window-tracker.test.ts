@@ -26,7 +26,7 @@ function assistantMessage(inputTokens: number, outputTokens: number): TUniversal
 }
 
 describe('ContextWindowTracker', () => {
-  it('TC-02: falls back to serialized estimate when the latest message carries no usage', () => {
+  it('falls back to serialized estimate when the latest message carries no usage', () => {
     const tracker = new ContextWindowTracker('claude-haiku-4-5', 200_000);
 
     // Latest message (the giant user message) has no provider usage → serialized estimate dominates.
@@ -38,7 +38,7 @@ describe('ContextWindowTracker', () => {
     expect(tracker.shouldAutoCompact()).toBe(false);
   });
 
-  it('TC-01: reflects the provider-reported tokens (system prompt + tools) when the latest message carries usage', () => {
+  it('reflects the provider-reported tokens (system prompt + tools) when the latest message carries usage', () => {
     const tracker = new ContextWindowTracker('claude-haiku-4-5', 200_000);
 
     // Tiny serialized history, but the provider counted 40.5K tokens for the last turn — i.e. the

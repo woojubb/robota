@@ -140,6 +140,30 @@ describe('parseCliArgs', () => {
     ).toThrow();
   });
 
+  it('accepts the spawner pair flag only from a supervised launch, as a bare flag, and not with a token', () => {
+    const id = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
+    expect(
+      parseCliArgs(['--serve', '--supervised-session-id', id, '--supervised-spawner-pair'])
+        .supervisedSpawnerPair,
+    ).toBe(true);
+    expect(parseCliArgs(['--serve', '--supervised-session-id', id]).supervisedSpawnerPair).toBeUndefined();
+    expect(() => parseCliArgs(['--serve', '--supervised-spawner-pair'])).toThrow(
+      /--supervised-spawner-pair is set only by a supervised launch/,
+    );
+    expect(() =>
+      parseCliArgs([
+        '--serve',
+        '--supervised-session-id',
+        id,
+        '--supervised-spawner-pair',
+        '--supervised-transport-token-fd',
+      ]),
+    ).toThrow(/exclusive/);
+    expect(() =>
+      parseCliArgs(['--serve', '--supervised-session-id', id, '--supervised-spawner-pair=4']),
+    ).toThrow();
+  });
+
   it('accepts the supervised grant handoff flag only from a supervised launch', () => {
     const id = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
     expect(
@@ -280,7 +304,7 @@ describe('parseCliArgs', () => {
     expect(args.appendSystemPrompt).toBe('Focus on tests');
   });
 
-  it('memory flag is tri-state (SELFHOST-008 P6)', () => {
+  it('memory flag is tri-state', () => {
     process.argv = ['node', 'cli', '-p', 'x'];
     expect(parseCliArgs().memory).toBeUndefined();
     process.argv = ['node', 'cli', '-p', '--memory', 'x'];
@@ -463,25 +487,25 @@ describe('--dry-run permission mode alias', () => {
     process.argv = originalArgv;
   });
 
-  it('TC-03: maps --dry-run to permissionMode plan', () => {
+  it('maps --dry-run to permissionMode plan', () => {
     process.argv = ['node', 'cli', '--dry-run'];
     const args = parseCliArgs();
     expect(args.dryRun).toBe(true);
     expect(args.permissionMode).toBe('plan');
   });
 
-  it('TC-03: accepts --dry-run with explicit --permission-mode plan', () => {
+  it('accepts --dry-run with explicit --permission-mode plan', () => {
     process.argv = ['node', 'cli', '--dry-run', '--permission-mode', 'plan'];
     expect(parseCliArgs().permissionMode).toBe('plan');
   });
 
-  it('TC-03: throws on --dry-run with a conflicting --permission-mode', () => {
+  it('throws on --dry-run with a conflicting --permission-mode', () => {
     process.argv = ['node', 'cli', '--dry-run', '--permission-mode', 'acceptEdits'];
     expect(() => parseCliArgs()).toThrow(/--dry-run.*--permission-mode/);
   });
 });
 
-describe('print-mode session flag validation (CLI-063)', () => {
+describe('print-mode session flag validation', () => {
   let originalArgv: string[];
 
   beforeEach(() => {
@@ -492,54 +516,54 @@ describe('print-mode session flag validation (CLI-063)', () => {
     process.argv = originalArgv;
   });
 
-  it('TC-04: throws on print mode with an empty resume id (-r "")', () => {
+  it('throws on print mode with an empty resume id (-r "")', () => {
     process.argv = ['node', 'cli', '-p', 'hi', '-r', ''];
     expect(() => parseCliArgs()).toThrow(/Print mode requires an explicit session id/);
   });
 
-  it('TC-04: bare -r is a parse error in any mode (parseArgs argument missing)', () => {
+  it('bare -r is a parse error in any mode (parseArgs argument missing)', () => {
     process.argv = ['node', 'cli', '-p', 'hi', '-r'];
     expect(() => parseCliArgs()).toThrow(/argument missing/);
   });
 
-  it('TC-04: accepts print mode with an explicit -r id', () => {
+  it('accepts print mode with an explicit -r id', () => {
     process.argv = ['node', 'cli', '-p', 'hi', '-r', 'session_abc'];
     expect(parseCliArgs().resumeId).toBe('session_abc');
   });
 
-  it('TC-04: accepts an empty -r "" outside print mode (TUI session picker)', () => {
+  it('accepts an empty -r "" outside print mode (TUI session picker)', () => {
     process.argv = ['node', 'cli', '-r', ''];
     expect(parseCliArgs().resumeId).toBe('');
   });
 
-  it('TC-05: throws on print mode with -c and --no-session-persistence', () => {
+  it('throws on print mode with -c and --no-session-persistence', () => {
     process.argv = ['node', 'cli', '-p', 'hi', '-c', '--no-session-persistence'];
     expect(() => parseCliArgs()).toThrow(/--no-session-persistence conflicts/);
   });
 
-  it('TC-05: throws on print mode with -r <id> and --no-session-persistence', () => {
+  it('throws on print mode with -r <id> and --no-session-persistence', () => {
     process.argv = ['node', 'cli', '-p', 'hi', '-r', 'session_abc', '--no-session-persistence'];
     expect(() => parseCliArgs()).toThrow(/--no-session-persistence conflicts/);
   });
 
-  it('TC-05: accepts --no-session-persistence in print mode without -c/-r', () => {
+  it('accepts --no-session-persistence in print mode without -c/-r', () => {
     process.argv = ['node', 'cli', '-p', 'hi', '--no-session-persistence'];
     expect(parseCliArgs().noSessionPersistence).toBe(true);
   });
 });
 
 describe('printHelp flag coverage', () => {
-  it('TC-04: lists --json-schema', () => {
+  it('lists --json-schema', () => {
     expect(printHelp(createTestProductRuntime())).toContain('--json-schema');
   });
 
-  it('TC-04: describes --dry-run as a plan-mode alias', () => {
+  it('describes --dry-run as a plan-mode alias', () => {
     expect(printHelp(createTestProductRuntime())).toMatch(
       /--dry-run\s+Alias for --permission-mode plan/,
     );
   });
 
-  it('TC-04: lists tool filter flags', () => {
+  it('lists tool filter flags', () => {
     expect(printHelp(createTestProductRuntime())).toContain('--allowed-tools');
     expect(printHelp(createTestProductRuntime())).toContain('--denied-tools');
   });

@@ -14,11 +14,11 @@ import type {
   ISubagentSpawnRequest,
   TSubagentJobMode,
   TSubagentJobStatus,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 /**
- * ARCH-031: imported and re-exported here for INTRA-PACKAGE use only. The owner is
- * `agent-interface-execution`; this package's PUBLIC index does not re-export them, because a
+ * Imported and re-exported here for INTRA-PACKAGE use only. The owner is
+ * `agent-interface/execution`; this package's PUBLIC index does not re-export them, because a
  * pass-through re-export of another package's symbols is banned. Consumers import from the owner.
  */
 export type {
@@ -33,7 +33,7 @@ export interface ISubagentJobStart {
   taskId: string;
   request: ISubagentSpawnRequest;
   /**
-   * ARCH-031: the worktree a runner PREPARED for this job, when it isolated one. Runner-produced, so
+   * The worktree a runner PREPARED for this job, when it isolated one. Runner-produced, so
    * it lives on the envelope rather than on the request, which models what the caller asked for — the
    * worktree does not exist at the moment a request is built. The execution root is read through
    * {@link subagentExecutionRoot}, the single answer to "which directory does this run in".
@@ -63,7 +63,13 @@ export interface ISubagentJobHandle {
   readonly transcriptSealed?: true;
   result: Promise<ISubagentJobResult>;
   cancel(reason?: string): Promise<void>;
-  send?(prompt: string): Promise<void>;
+  /**
+   * Hands the job a follow-up prompt, to run as its next turn after the one in flight. The job ends
+   * only once every turn it accepted has run, and a prompt it cannot take — it has ended, or is
+   * ending — is refused with a rejection, never dropped. Required: the `send` control is offered for
+   * every running agent, so a runner without it would offer a control that always refuses.
+   */
+  send(prompt: string): Promise<void>;
   readLog?(cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
 }
 

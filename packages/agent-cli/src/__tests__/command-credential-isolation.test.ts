@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { respond, type WireRequest } from './helpers/provider-wire-fixture.js';
+import { approveTestWorkspaceCommand, stopTestWorkspaceBroker } from './helpers/approve-test-workspace.js';
 
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const launcher = path.join(repoRoot, 'scripts', 'dev', 'agent');
@@ -145,7 +146,7 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
       '---\nname: probe\ndescription: Inspect command environment isolation with synthetic credentials.\n---\n!`printf "%s" "${OPENAI_API_KEY:-absent}" > skill-probe.txt`\n' +
         `!\`${runtimeProbeCommand('runtime-probe.json')}\`\n`,
     );
-    const trust = await run(['trust', '--yes']);
+    const trust = await approveTestWorkspaceCommand(launcher, workspace, environment);
     expect(trust.code, trust.stderr).toBe(0);
     const result = await run([
       '-p',
@@ -167,7 +168,7 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
       subtype: 'success',
       result: 'PROBE_DONE',
     });
-    // #3459: the provider commands check `$ENV:` credentials against the startup snapshot, not the
+    // The provider commands check `$ENV:` credentials against the startup snapshot, not the
     // live env the runtime just emptied — so validation passes and the probe itself runs.
     const providerTest = await run(['-p', '/provider test openai', '--output-format', 'json']);
     expect(providerTest.code, `${providerTest.stdout}\n${providerTest.stderr}`).toBe(0);
@@ -186,6 +187,7 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
+    await stopTestWorkspaceBroker(state);
     rmSync(root, { recursive: true, force: true });
   }
 }
@@ -194,7 +196,7 @@ describe.runIf(process.platform !== 'win32')(
   'provider credentials and the commands the runtime runs',
   () => {
     it('authenticates with the referenced credential but withholds it from a Bash command', async () => {
-      const { probe, skillProbe, authorizations, runtimeProbe, bashRuntimeProbe } =
+      const { probe, skillProbe, authorizations, providerTest, runtimeProbe, bashRuntimeProbe } =
         await runScenario({});
       expect(authorizations.length).toBeGreaterThanOrEqual(2);
       for (const authorization of authorizations) expect(authorization).toBe(`Bearer ${KEY}`);
@@ -202,10 +204,6 @@ describe.runIf(process.platform !== 'win32')(
       expect(skillProbe).toBe('absent');
       expect(bashRuntimeProbe).toEqual({ withheld: true, identity: 'robota', unrelated: 'kept' });
       expect(runtimeProbe).toEqual({ withheld: true, identity: 'robota', unrelated: 'kept' });
-    }, 150_000);
-
-    it('still lets the provider commands see the credential it withholds from commands', async () => {
-      const { providerTest } = await runScenario({});
       expect(providerTest).toMatch(/^Provider "openai" test (passed|failed: (?!.*missing))/);
       expect(providerTest).not.toContain('missing apiKey');
     }, 150_000);

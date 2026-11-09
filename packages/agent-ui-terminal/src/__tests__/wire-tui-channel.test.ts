@@ -6,7 +6,7 @@ import type { IAttachedSessionConnection } from '../attached-session-connection.
 import type { ITuiClientCommand, ITuiClientCommands } from '../wire-tui-client-commands.js';
 import type { TAttachedSessionEnd } from '../attached-session-connection.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { ISessionStatusSnapshot, IUiIntentEvent } from '@robota-sdk/agent-interface-session';
+import type { ISessionStatusSnapshot, IUiIntentEvent } from '@robota-sdk/agent-interface/session';
 import type {
   IWireHistoryEntry,
   TClientMessage,
@@ -306,9 +306,13 @@ describe('WireTuiChannel', () => {
     await channel.stop();
   });
 
-  it('issue #3288 §1: carries a background agent requester onto the shown permission request', async () => {
+  it('carries a background agent requester onto the shown permission request', async () => {
     const { channel, link } = await attached();
-    const requester = { kind: 'background-agent' as const, label: 'general-purpose', taskId: 'agent_1' };
+    const requester = {
+      kind: 'background-agent' as const,
+      label: 'general-purpose',
+      taskId: 'agent_1',
+    };
     link.push({
       type: 'permission_request',
       event: { id: 'p1', toolName: 'Glob', toolArgs: { pattern: '**/*' }, requester },
@@ -690,7 +694,7 @@ describe('WireTuiChannel', () => {
   });
 });
 
-describe('WireTuiChannel history, read in pages (#3189)', () => {
+describe('WireTuiChannel history, read in pages', () => {
   it('asks for the next page after each one, and shows the history once all of it arrived', async () => {
     const { channel, link } = await attached();
     link.sent.length = 0;
@@ -861,7 +865,7 @@ describe('WireTuiChannel history, read in pages (#3189)', () => {
   });
 });
 
-describe('WireTuiChannel session state (#3189)', () => {
+describe('WireTuiChannel session state', () => {
   it("shows the host's status, and labels the session by its name or else its id", async () => {
     const { channel, link } = await attached();
     const renames: string[] = [];
@@ -958,7 +962,7 @@ describe('WireTuiChannel session state (#3189)', () => {
   });
 });
 
-describe('WireTuiChannel questions open at attach (#3189)', () => {
+describe('WireTuiChannel questions open at attach', () => {
   it('shows a question the host sends again only once, and answers it once', async () => {
     const { channel, link } = await attached();
     expect(types(link.sent)).toContain('get-prompts');
@@ -977,7 +981,7 @@ describe('WireTuiChannel questions open at attach (#3189)', () => {
   });
 });
 
-describe('WireTuiChannel commands (#3189)', () => {
+describe('WireTuiChannel commands', () => {
   it('settles a command only on its own answer; a failure without a request settles nothing', async () => {
     const { channel, link } = await attached();
     link.sent.length = 0;
@@ -1042,7 +1046,7 @@ describe('WireTuiChannel commands (#3189)', () => {
   });
 });
 
-describe('WireTuiChannel abort and queue cancel (#3189)', () => {
+describe('WireTuiChannel abort and queue cancel', () => {
   it('abort stops the host turn and turns down the questions it shows', async () => {
     const { channel, link } = await attached();
     link.push({ type: 'permission_request', event: { id: 'p1', toolName: 'Bash', toolArgs: {} } });
@@ -1094,7 +1098,7 @@ describe('WireTuiChannel abort and queue cancel (#3189)', () => {
   });
 });
 
-describe('WireTuiChannel terminal-owned commands (#3189)', () => {
+describe('WireTuiChannel terminal-owned commands', () => {
   /** Stands in for `/shell`: it runs where this terminal is. */
   const shell: ITuiClientCommand = {
     name: 'shell',
@@ -1224,7 +1228,7 @@ function lastSwitchRequestId(sent: readonly TClientMessage[]): string {
   return switches.at(-1)?.requestId ?? '';
 }
 
-describe('WireTuiChannel refused session changes (#3189 step 5)', () => {
+describe('WireTuiChannel refused session changes', () => {
   it('shows why a switch was refused and settles the switch, but no command', async () => {
     const { channel, link } = await attached();
     link.sent.length = 0;
@@ -1270,7 +1274,7 @@ describe('WireTuiChannel refused session changes (#3189 step 5)', () => {
     await channel.stop();
   });
 
-  it("settles a switch an older host refuses with a protocol error that names no request", async () => {
+  it('settles a switch an older host refuses with a protocol error that names no request', async () => {
     const { channel, link } = await attached();
     const switched = channel.requestSessionSwitch('s2');
     link.push({ type: 'protocol_error', message: 'Stop the running turn first.' });
@@ -1307,7 +1311,23 @@ function lastNotice(channel: WireTuiChannel): unknown {
   return (channel.getSnapshot().history.at(-1)?.data as { content?: unknown } | undefined)?.content;
 }
 
-describe('WireTuiChannel background work and loops (#3189 step 3b)', () => {
+describe('WireTuiChannel background work and loops', () => {
+  it('sends the requested transcript cursor to the host', async () => {
+    const { channel, link } = await attached();
+    const read = channel.readExecutionWorkspaceDetail('task-1', { offset: 20 });
+    expect(link.sent.at(-1)).toMatchObject({
+      type: 'read-execution-detail',
+      entryId: 'task-1',
+      cursor: { offset: 20 },
+    });
+    link.push({
+      type: 'execution_detail',
+      requestId: lastRequestId(link.sent, 'read-execution-detail'),
+      page: { entryId: 'task-1', records: [] },
+    });
+    await read;
+    await channel.stop();
+  });
   it("reads a workspace entry's detail page from the host, and fails with the host's reason", async () => {
     const { channel, link } = await attached();
     const page = { entryId: 'task-1', items: [], nextCursor: undefined } as never;
@@ -1347,11 +1367,26 @@ describe('WireTuiChannel background work and loops (#3189 step 3b)', () => {
       taskId: 'task-1',
       input: { prompt: 'more please' },
     });
-    link.push({ type: 'background_task_control_result', action: 'cancel', taskId: 'task-1', success: true });
-    link.push({ type: 'background_task_control_result', action: 'send', taskId: 'task-2', success: true });
+    link.push({
+      type: 'background_task_control_result',
+      action: 'cancel',
+      taskId: 'task-1',
+      success: true,
+    });
+    link.push({
+      type: 'background_task_control_result',
+      action: 'send',
+      taskId: 'task-2',
+      success: true,
+    });
     await flush();
     expect(settled).toBe(false);
-    link.push({ type: 'background_task_control_result', action: 'send', taskId: 'task-1', success: true });
+    link.push({
+      type: 'background_task_control_result',
+      action: 'send',
+      taskId: 'task-1',
+      success: true,
+    });
     await sending;
 
     const refused = channel.sendAgentJob('task-1', 'again');
@@ -1403,7 +1438,7 @@ describe('WireTuiChannel background work and loops (#3189 step 3b)', () => {
   });
 });
 
-describe('WireTuiChannel observing (#3189 step 3b)', () => {
+describe('WireTuiChannel observing', () => {
   async function observing(): Promise<{ channel: WireTuiChannel; link: IScriptedConnection }> {
     const link = scriptedConnection();
     const channel = new WireTuiChannel({

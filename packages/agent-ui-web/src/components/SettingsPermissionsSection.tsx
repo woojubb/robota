@@ -3,7 +3,7 @@ import React, { useId } from 'react';
 
 import { SettingsPopupField } from './SettingsFields.js';
 
-import type { ISettingsPermissionRule, ISettingsSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISettingsPermissionRule, ISettingsSnapshot } from '@robota-sdk/agent-interface/session';
 
 const KIND_LABEL: Readonly<Record<ISettingsPermissionRule['kind'], string>> = {
   allow: 'Allow',
@@ -48,7 +48,7 @@ function PermissionRuleRow({
 }
 
 /**
- * Default permission mode, the rules `/permissions` shows, and the sandbox switch (#3282 §4a).
+ * Default permission mode, the rules `/permissions` shows, and the sandbox switch.
  * "Skip all checks" as the mode and a preset that would set it both go through
  * `onRequestModeChange`'s parent-owned confirmation before anything is sent.
  */

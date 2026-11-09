@@ -1,5 +1,5 @@
 /**
- * PEER-006 (issue #1863, stage 4) — the join, over REAL sockets.
+ * The join, over REAL sockets.
  *
  * A stub would show that this module calls the functions it calls. What has to be established is
  * that a message written by one session's send path arrives at another's ingress with the right
@@ -19,7 +19,7 @@ import { listenForPeerMessages, sendPeerMessage } from '../local-peer-channel.js
 import { peerDriverId, startLocalPeerMessaging } from '../local-peer-messaging.js';
 
 import type { IAddressablePeer, IPeerIngressPort } from '../local-peer-messaging.js';
-import type { IPeerMessageIngress } from '@robota-sdk/agent-interface-session-mobility';
+import type { IPeerMessageIngress } from '@robota-sdk/agent-interface/session-mobility';
 
 let guardedDirectory: string;
 
@@ -66,7 +66,7 @@ const alive =
   (): readonly IAddressablePeer[] =>
     ids.map((sessionId) => ({ sessionId, liveness: 'alive' }));
 
-describe('PEER-006 — /peers send reaches the other session', () => {
+describe('/peers send reaches the other session', () => {
   it('carries a message from one session to the other and returns the ack', async () => {
     const receiver = recordingIngress();
     const b = await startLocalPeerMessaging({
@@ -164,7 +164,7 @@ describe('PEER-006 — /peers send reaches the other session', () => {
 
     await a.send('B', 'attributed');
 
-    // Not 'owner', and not anything the sender chose: issue #1809 fixed that a peer must not pick
+    // Not 'owner', and not anything the sender chose: a peer must not pick
     // the name a transcript's reader trusts.
     expect(receiver.seen[0]?.message.origin.driverId).toBe(peerDriverId('A'));
     expect(receiver.seen[0]?.admission.origin?.driverId).toBe(peerDriverId('A'));

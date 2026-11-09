@@ -7,7 +7,7 @@
  * place a new transport option is threaded, so it is worth being findable.
  */
 
-import { WebRtcTransport } from '@robota-sdk/agent-transport-webrtc';
+import { WebRtcTransport } from '@robota-sdk/agent-transport/webrtc';
 
 import type {
   IConnectionApproval,
@@ -15,9 +15,9 @@ import type {
   IHostReconnectConfig,
   ILocalPeerProof,
   ISignalingClient,
-} from '@robota-sdk/agent-transport-webrtc';
+} from '@robota-sdk/agent-transport/webrtc';
 import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
-import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transport';
 import { HISTORY_PAGE_MAX_BYTES, SessionResumeBridge } from '@robota-sdk/agent-transport';
 import type { IProtocolSession, ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
 import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
@@ -34,7 +34,7 @@ export function defaultCreateResumeBridge(
   return new SessionResumeBridge({
     session,
     surface: 'remote',
-    // #3282 §4 part b-2: this is the reconnectable WebRTC path, so it can never prove locality.
+    // This is the reconnectable WebRTC path, so it can never prove locality.
     commandSurfaceLocality: 'remote',
     // The bridge buffers a frame before it is sent, over a data channel that carries a fraction of
     // the inbound limit: an app view or tool result over a history page is refused, not buffered.

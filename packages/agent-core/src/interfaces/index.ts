@@ -137,7 +137,7 @@ export {
   getProviderCredentialRequirement,
 } from './provider-definition';
 
-// PROV-006/PROV-008: what a model can do, declared by the package that ships the adapter.
+// What a model can do, declared by the package that ships the adapter.
 export {
   modelDeclaresCapability,
   resolveModelCapabilities,
@@ -145,7 +145,7 @@ export {
 } from './model-capability.js';
 export type { IModelCapabilityDeviation, IProviderCapabilityTable } from './model-capability.js';
 
-// CORE-043: which transport can carry a schema to a given model, and how sure that answer is.
+// Which transport can carry a schema to a given model, and how sure that answer is.
 export type {
   IProviderStructuredOutputCapability,
   TStructuredOutputMechanism,
@@ -184,7 +184,7 @@ export {
 
 export type { TManagerToolParameters, IAIProviderManager, IToolManager } from './manager';
 
-// CLI-1990: tool residency vocabulary — the deferred-tool catalog port and the policy settings.
+// Tool residency vocabulary — the deferred-tool catalog port and the policy settings.
 export type { IDeferredToolCatalog, TToolSearchMode, TToolSearchSetting } from './tool-search';
 export { TOOL_SEARCH_TOOL_NAME } from './tool-search';
 
@@ -207,11 +207,11 @@ export type {
 
 export type { IToolFactory, IOpenAPIToolConfig } from './tool-integration';
 
-// SELFHOST-006: per-role model routing contract (opaque-key role→fallback-chain map).
+// Per-role model routing contract (opaque-key role→fallback-chain map).
 export type { IModelRef, TRoleModelMap } from './role-model';
 export type { IModelFallbackNotice, TModelFallbackCallback } from './model-fallback';
 
-// Interaction action contract + ask port (CMD-004) — SSOT in agent-core so command and tool sources
+// Interaction action contract + ask port — SSOT in agent-core so command and tool sources
 // both reach it.
 export type {
   IActionOption,
@@ -307,13 +307,15 @@ export type {
   IProcessMarkerAcquireOptions,
   IProcessMarkerHandle,
   IProcessMarkerHolder,
+  IProcessMarkerOperationLock,
   IProcessMarkerRemoveOptions,
   IProcessMarkers,
   TProcessMarkerAcquireResult,
+  TProcessMarkerGuardResult,
   TProcessMarkerRemoveResult,
   TProcessMarkerState,
   TProcessMarkerTakeOverResult,
   TProcessOwnerLiveness,
 } from './process-marker';
-// Issue #2056: the structured-output shape a session forwards into the agent config.
+// The structured-output shape a session forwards into the agent config.
 export type { IResponseFormatConfig } from './response-format';

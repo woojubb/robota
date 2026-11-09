@@ -20,7 +20,7 @@ function textResponse(
   return new Response(body, { status: init.status ?? 200, headers: init.headers });
 }
 
-describe('isPrivateAddress (#2026)', () => {
+describe('isPrivateAddress', () => {
   it.each([
     '127.0.0.1',
     '127.255.255.254',
@@ -64,7 +64,7 @@ describe('isPrivateAddress (#2026)', () => {
   );
 });
 
-describe('rejectDestination (#2026)', () => {
+describe('rejectDestination', () => {
   const lookup = tableLookup({
     'intranet.corp': ['10.1.2.3'],
     'rebind.example': ['1.2.3.4', '127.0.0.1'],
@@ -141,7 +141,7 @@ describe('rejectDestination (#2026)', () => {
   });
 });
 
-describe('fetchWithEgressPolicy (#2026)', () => {
+describe('fetchWithEgressPolicy', () => {
   const lookup = tableLookup({ 'intranet.corp': ['10.1.2.3'] });
 
   it('re-validates every redirect hop and refuses a public-to-private redirect', async () => {

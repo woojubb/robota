@@ -47,7 +47,7 @@ describe('ExecutionCacheService', () => {
     });
   });
 
-  // DATA-007: lookup and store share the ONE identity function (CacheKeyBuilder.build), so this
+  // Lookup and store share the ONE identity function (CacheKeyBuilder.build), so this
   // exercises that a stored entry keyed by one effort selection is invisible to a lookup keyed by a
   // different one, and visible again to a lookup keyed by the same one.
   describe('effort selection identity', () => {

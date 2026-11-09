@@ -1,10 +1,10 @@
 /**
- * Neutral multi-agent orchestration contracts + event-type unions (SELFHOST-001).
+ * Neutral multi-agent orchestration contracts + event-type unions.
  *
  * agent-core owns these; the framework layer implements the mechanism over
  * `agent-executor`'s `ISubagentRunner` port. Pure types only — no runtime.
  *
- * Extraction trigger (B3): when a second implementer family lands (a dag-* adapter
+ * Extraction trigger: when a second implementer family lands (a dag-* adapter
  * mapping sequential/parallel onto the graph engine), BOTH these contracts AND the
  * event-type unions move to a new `agent-interface-orchestration` package
  * (deps ⊆ {agent-core}), so that adapter need not depend on heavy agent-core for

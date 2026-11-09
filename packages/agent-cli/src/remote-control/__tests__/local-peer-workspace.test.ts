@@ -1,5 +1,5 @@
 /**
- * #3101 (B2) — how two sessions on one host are related by workspace, over REAL git repositories.
+ * How two sessions on one host are related by workspace, over REAL git repositories.
  *
  * A stubbed git would show that the module compares the strings it was handed. What has to hold is
  * that the reader's own reading of the filesystem decides the relation, so these cases build the

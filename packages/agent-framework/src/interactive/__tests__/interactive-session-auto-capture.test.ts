@@ -20,7 +20,7 @@ import { createTestFrameworkHost } from '../../testing/framework-host.js';
 const testHost = createTestFrameworkHost();
 
 /**
- * SELFHOST-008 P2 — post-turn auto-capture wired into the live turn (option B: awaited in the execution
+ * Post-turn auto-capture wired into the live turn (option B: awaited in the execution
  * controller's `finally`, before `persistSession()`, on the completed-turn path, guarded).
  */
 
@@ -66,8 +66,8 @@ afterEach(() => {
   if (existsSync(TMP_BASE)) rmSync(TMP_BASE, { recursive: true, force: true });
 });
 
-describe('SELFHOST-008 P2 TC-01/TC-05 — capture fires on a completed turn (queue-by-default)', () => {
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe('capture fires on a completed turn (queue-by-default)', () => {
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'approval_required: a memory cue turn QUEUES a candidate + records a memory event (not auto-saved)',
     async () => {
@@ -96,7 +96,7 @@ describe('SELFHOST-008 P2 TC-01/TC-05 — capture fires on a completed turn (que
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'auto_save: a high-confidence cue turn SAVES durably + records a saved event',
     async () => {
@@ -123,8 +123,8 @@ describe('SELFHOST-008 P2 TC-01/TC-05 — capture fires on a completed turn (que
   );
 });
 
-describe('SELFHOST-008 P2 TC-03 — adapter-gating: no automaticMemory ⇒ capture OFF', () => {
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe('adapter-gating: no automaticMemory ⇒ capture OFF', () => {
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'a memory-cue turn writes NO pending and records NO memory events',
     async () => {
@@ -148,7 +148,7 @@ describe('SELFHOST-008 P2 TC-03 — adapter-gating: no automaticMemory ⇒ captu
   );
 });
 
-describe('SELFHOST-008 P2 TC-04 — sensitive content is refused on the capture path', () => {
+describe('sensitive content is refused on the capture path', () => {
   it('auto_save: a cue containing a secret yields NO durable save and NO queued candidate', async () => {
     const cwd = makeProject();
     const session = new InteractiveSession({
@@ -174,7 +174,7 @@ describe('SELFHOST-008 P2 TC-04 — sensitive content is refused on the capture 
   });
 });
 
-describe('SELFHOST-008 P2 TC-02a — guarded: a capture failure never breaks the turn', () => {
+describe('guarded: a capture failure never breaks the turn', () => {
   it('an injected store whose writes REJECT does not fail the turn (submit resolves)', async () => {
     const cwd = makeProject();
     const base = await createMemoryStore(cwd);
@@ -202,17 +202,17 @@ describe('SELFHOST-008 P2 TC-02a — guarded: a capture failure never breaks the
       automaticMemory: AUTO_SAVE,
     });
 
-    // must resolve (not reject) despite the capture store throwing. RUNTIME-003 changed what submit
-    // resolves WITH — the turn's identity rather than nothing — so the case now names what it always
-    // meant: the turn finished. Asserting `toBeUndefined()` would be asserting the old return type.
+    // must resolve (not reject) despite the capture store throwing. Submit resolves WITH the
+    // turn's identity rather than nothing, so the case names what it always meant: the turn
+    // finished. Asserting `toBeUndefined()` would assert a return type submit no longer has.
     const handle = await session.submit(CUE);
     expect(handle.turnId).toEqual(expect.any(String));
     await expect(handle.completed).resolves.toBeDefined();
   });
 });
 
-describe('SELFHOST-008 P2 TC-02b — event lands in the SAME turn record even when capture resolves on a deferred tick', () => {
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe('event lands in the SAME turn record even when capture resolves on a deferred tick', () => {
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'a deferred-resolving injected store still has its event in the persisted record (await-before-persist)',
     async () => {

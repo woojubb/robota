@@ -1,3 +1,4 @@
+export { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
 // @robota-sdk/agent-session/node — what only a Node host can provide: the file-system store, log
 // sink and source, the spill store and prompt-history file, and the process hooks. The main entry is
 // platform-neutral (ARCHITECTURE.md "Runtime platforms") and takes each of these by injection.
@@ -31,7 +32,7 @@ export type { INodeExternalPayloadSourceOptions } from './session-log-sources.js
 // so a prompt-history file, a log sink and a log source cannot disagree about what a line means.
 export { StoredLines, StoredPayloads, splitStoredLines } from './stored-append-lines.js';
 export type { IStoredPayloadWrite, TAppendLineKind, TStoredLine } from './stored-append-lines.js';
-// #3679: sealing in place what a store kept in plaintext before its host sealed, each converter
+// Sealing in place what a store kept in plaintext before its host sealed, each converter
 // beside the format it converts. Optional additions: nothing else calls them.
 export {
   countPlainSessionLogLines,

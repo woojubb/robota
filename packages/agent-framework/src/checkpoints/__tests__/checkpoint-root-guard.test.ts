@@ -3,12 +3,12 @@
  * from the host's layout in whatever spelling the host used (`.a\cp` from a Windows host), while the
  * path under test comes from `node:path`, so the guard compares segments, not text.
  */
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createWorkspaceProjectMutation } from '../../workspace-trust/index.js';
 import { EditCheckpointStore } from '../edit-checkpoint-store.js';
@@ -45,7 +45,7 @@ describe('isInsideCheckpointRoot', () => {
 
 let base: string;
 beforeEach(() => {
-  base = realpathSync(mkdtempSync(join(tmpdir(), 'checkpoint-root-guard-')));
+  base = makeCanonicalTempDir('checkpoint-root-guard-');
 });
 afterEach(() => {
   rmSync(base, { recursive: true, force: true });

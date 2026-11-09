@@ -15,10 +15,10 @@ import type { TModelEffortSelection, TPermissionMode } from '@robota-sdk/agent-c
  * structurally, so a consumer can hand a `resolvePreset(...)` result straight to
  * {@link applyPresetToSession} without framework importing agent-preset (no dependency cycle).
  *
- * PRESET-012 carries the permission/trust group (`permissionMode`); PRESET-013 adds the model group
- * (`model`, `effort`, `temperature`, `maxOutputTokens`); PRESET-014 adds the `persona` block,
- * re-applied to the live system prompt; PRESET-015 adds the command-module selection group
- * (`enabledCommandModules`/`disabledCommandModules`), re-filtered against the session-start set.
+ * It carries the permission/trust group (`permissionMode`), the model group (`model`, `effort`,
+ * `temperature`, `maxOutputTokens`), the `persona` block, re-applied to the live system prompt, and
+ * the command-module selection group (`enabledCommandModules`/`disabledCommandModules`),
+ * re-filtered against the session-start set.
  */
 export interface IPresetApplicationOptions {
   permissionMode?: TPermissionMode;
@@ -26,16 +26,16 @@ export interface IPresetApplicationOptions {
   effort?: TModelEffortSelection;
   temperature?: number;
   maxOutputTokens?: number;
-  /** PRESET-014 — preset persona re-applied to the live system prompt. */
+  /** Preset persona re-applied to the live system prompt. */
   persona?: string;
-  /** ARCH-040 — the agent's identity label, re-applied to the live agent. */
+  /** The agent's identity label, re-applied to the live agent. */
   agentName?: string;
-  /** ARCH-040 — response language, re-applied as a prompt section. */
+  /** Response language, re-applied as a prompt section. */
   language?: string;
-  /** ARCH-040 — a preset-supplied system prompt that SEEDS the composed prompt (priority 4). */
+  /** A preset-supplied system prompt that SEEDS the composed prompt (priority 4). */
   systemPrompt?: string;
   /**
-   * ARCH-040 Group C — the preset's tool lists, re-applied to the live enforcer.
+   * The preset's tool lists, re-applied to the live enforcer.
    *
    * An allowlist REPLACES what the preset layer previously contributed; a denylist UNIONS, because a
    * denial is not weakened by a later layer that forgot to repeat it. Both halves ship together: an
@@ -44,12 +44,12 @@ export interface IPresetApplicationOptions {
    */
   allowedTools?: readonly string[];
   deniedTools?: readonly string[];
-  /** PRESET-015 — allowlist of command-module names to keep on the live session. */
+  /** Allowlist of command-module names to keep on the live session. */
   enabledCommandModules?: readonly string[];
-  /** PRESET-015 — denylist of command-module names to remove from the live session. */
+  /** Denylist of command-module names to remove from the live session. */
   disabledCommandModules?: readonly string[];
-  /** PRESET-016 — runtime gate toggle for subagent dispatch on the live session. */
+  /** Runtime gate toggle for subagent dispatch on the live session. */
   enableParallelSubagents?: boolean;
-  /** PRESET-017 — toggle the verify-before-done self-verification section on the live prompt. */
+  /** Toggle the verify-before-done self-verification section on the live prompt. */
   selfVerification?: boolean;
 }

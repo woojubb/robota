@@ -20,7 +20,7 @@ import { isUserReadRequest } from '@robota-sdk/agent-ui-terminal';
 import { SecretInputCancelled } from '../devices/secret-terminal.js';
 import { terminalHandoffHostOf } from '../remote-control/operator-approval.js';
 import { SealingKeyMismatchError } from '../secure/key-holder.js';
-import { createKeyringFileStore } from '../secure/keyring-store.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import {
   describeMismatchFailure,
   fingerprintOf,
@@ -38,10 +38,10 @@ import type { ICliRuntimeContext } from './runtime-context.js';
 import type { ISecretTerminalSession } from '../devices/secret-terminal.js';
 import type { ITerminalHandoffHost } from '../remote-control/operator-approval.js';
 import type { KeyHolder } from '../secure/key-holder.js';
-import type { IKeyringStore } from '../secure/keyring-store.js';
-import type { IKeyCustodyCommandPort, IUnlockResult } from '@robota-sdk/agent-command';
+import type { IKeyringStore } from '@robota-sdk/agent-local-host';
+import type { IKeyCustodyCommandPort, IUnlockResult } from '@robota-sdk/agent-product/command';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 import type {
   IKeyCustodyPort,
   TReadability,
@@ -58,6 +58,7 @@ const NL = '\r\n';
  */
 export const READ_PURPOSES: { readonly [P in TReadPurpose]: string } = {
   'continue-fork': 'Unlock to continue the forked conversation; it is sealed to your keyring.',
+  'follow-history': 'Unlock to read the earlier fork conversation; it is sealed to your keyring.',
 };
 
 /** The line `/unlock` shows above the prompt. */

@@ -1,5 +1,5 @@
 /**
- * Where a sealed session record carries its authorship tag (#3679 step 3e): a byte header in front of
+ * Where a sealed session record carries its authorship tag: a byte header in front of
  * the exact envelope bytes, inside the sealed plaintext —
  *
  *     robota-authorship/v1 <canonical unpadded base64url of the 32-byte tag>\n<envelope bytes>

@@ -3,7 +3,7 @@
 import { RefreshCw, Trash2 } from 'lucide-react';
 import React, { useId, useState } from 'react';
 
-import type { ISettingsPlugin, ISettingsSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISettingsPlugin, ISettingsSnapshot } from '@robota-sdk/agent-interface/session';
 
 function PluginRow({
   plugin,
@@ -60,7 +60,7 @@ function PluginRow({
 }
 
 /**
- * The Plugins section (#3282 §4 part b-2): every installed plugin's name, description and enabled
+ * The Plugins section: every installed plugin's name, description and enabled
  * state, an enable/disable switch, a section-level Reload, and — local surfaces only — install and
  * uninstall, since installing runs third-party code. `canInstall` (from the snapshot) mirrors the
  * refusal `/plugin install|uninstall` itself gives a remote device or an observer.

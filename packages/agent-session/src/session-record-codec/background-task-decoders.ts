@@ -1,5 +1,5 @@
 /**
- * TRANS-005 (#2081) — the background-task state decoder.
+ * The background-task state decoder.
  *
  * The state carries thirteen optional plain-string members and four optional timestamp members.
  * They are decoded from key tables rather than written out one call at a time: a table is checked
@@ -37,10 +37,10 @@ import type {
   IProcessBackgroundTaskState,
   IScheduledBackgroundTaskState,
   IToolInvocationBackgroundTaskState,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 /**
- * #2079: the base members shared by every kind — identical across the four discriminated members,
+ * The base members shared by every kind — identical across the four discriminated members,
  * so `IAgentBackgroundTaskState` (any one member would do) is the source for their shape here.
  */
 type TBaseBackgroundTaskState = Pick<
@@ -68,9 +68,9 @@ type TBaseBackgroundTaskState = Pick<
   | 'metadata'
 >;
 
-/** Base string members every kind may carry (#2079: `logPath`/`transcriptPath`/`pid` are shared — see contracts). */
+/** Base string members every kind may carry (`logPath`/`transcriptPath`/`pid` are shared — see contracts). */
 const BASE_OPTIONAL_STRING_KEYS = ['parentTaskId', 'currentAction', 'logPath', 'transcriptPath'] as const;
-/** #2079: agent-only string members — a value here on a non-agent task is a corrupt cross-kind field. */
+/** Agent-only string members — a value here on a non-agent task is a corrupt cross-kind field. */
 const AGENT_OPTIONAL_STRING_KEYS = [
   'agentType',
   'resumeSessionId',
@@ -82,7 +82,7 @@ const AGENT_OPTIONAL_STRING_KEYS = [
   'worktreeBaseRevision',
   'parentWorktreeStatus',
 ] as const;
-/** #2079: produced by every runner except the agent one (a process command, an MCP tool summary, a schedule's shell command / wake instruction). */
+/** Produced by every runner except the agent one (a process command, an MCP tool summary, a schedule's shell command / wake instruction). */
 const NON_AGENT_OPTIONAL_STRING_KEYS = ['commandPreview'] as const;
 
 const OPTIONAL_TIMESTAMP_KEYS = ['startedAt', 'lastActivityAt', 'completedAt'] as const;
@@ -114,12 +114,12 @@ const TASK_STATE_KEYS: readonly string[] = [
 ];
 
 /**
- * TRANS-005 (#2081), discriminated by kind (#2079): the persisted state carries base members every
+ * Discriminated by kind: the persisted state carries base members every
  * kind may set, plus a set of kind-exclusive members — agent-only (`agentType`, `isolation`,
  * `resumeSessionId`, `promptPreview`, the worktree-isolation fields), scheduled-only (`schedule`,
  * `nextFireAt`), or produced by every runner except the agent one (`commandPreview`). A value on a
  * field outside its own kind is reported as corrupt at that field's own path — exactly how
- * `decodeBackgroundTaskResult` (#2079) and the pre-existing `result.kind` check just below already
+ * `decodeBackgroundTaskResult` and the pre-existing `result.kind` check just below already
  * treat a cross-kind field — and the switch below then builds only the fields that belong to the
  * decoded `kind`, so a foreign field never reaches the returned object even though it was read (and
  * flagged) above.

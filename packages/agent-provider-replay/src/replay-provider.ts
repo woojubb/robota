@@ -1,12 +1,12 @@
 /**
- * INFRA-017: session-log replay provider.
+ * Session-log replay provider.
  *
  * A deterministic AI provider that answers each `chat()` call with a response recorded in a session
  * log — so a real conversation can run offline with no network/model key. The replay substrate is the
  * `provider_response_normalized` event the framework already logs per provider call (carrying the
  * normalized `TUniversalMessage`). Responses are replayed in recorded order.
  *
- * This is the provider axis of TEST-008. A log that passes `validateSessionReplayLogEntries`
+ * A log that passes `validateSessionReplayLogEntries`
  * (agent-session) is guaranteed to carry a response for every recorded provider call.
  */
 import { AbstractAIProvider } from '@robota-sdk/agent-core';

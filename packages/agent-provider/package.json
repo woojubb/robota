@@ -1,0 +1,200 @@
+{
+  "name": "@robota-sdk/agent-provider",
+  "version": "3.3.1",
+  "description": "AI provider implementations for the Robota SDK: Anthropic, OpenAI, Gemini, DeepSeek, Qwen, Gemma, ByteDance and the OpenAI-compatible protocol base, one subpath per vendor",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./anthropic": {
+      "source": "./src/anthropic/index.ts",
+      "import": {
+        "types": "./dist/anthropic/index.d.ts",
+        "default": "./dist/anthropic/index.js"
+      },
+      "require": {
+        "types": "./dist/anthropic/index.d.cts",
+        "default": "./dist/anthropic/index.cjs"
+      }
+    },
+    "./bytedance": {
+      "source": "./src/bytedance/index.ts",
+      "import": {
+        "types": "./dist/bytedance/index.d.ts",
+        "default": "./dist/bytedance/index.js"
+      },
+      "require": {
+        "types": "./dist/bytedance/index.d.cts",
+        "default": "./dist/bytedance/index.cjs"
+      }
+    },
+    "./gemini": {
+      "source": "./src/gemini/index.ts",
+      "import": {
+        "types": "./dist/gemini/index.d.ts",
+        "default": "./dist/gemini/index.js"
+      },
+      "require": {
+        "types": "./dist/gemini/index.d.cts",
+        "default": "./dist/gemini/index.cjs"
+      }
+    },
+    "./google": {
+      "source": "./src/google/index.ts",
+      "import": {
+        "types": "./dist/google/index.d.ts",
+        "default": "./dist/google/index.js"
+      },
+      "require": {
+        "types": "./dist/google/index.d.cts",
+        "default": "./dist/google/index.cjs"
+      }
+    },
+    "./openai": {
+      "source": "./src/openai/index.ts",
+      "import": {
+        "types": "./dist/openai/index.d.ts",
+        "default": "./dist/openai/index.js"
+      },
+      "require": {
+        "types": "./dist/openai/index.d.cts",
+        "default": "./dist/openai/index.cjs"
+      }
+    },
+    "./openai/loggers": {
+      "source": "./src/openai/loggers/index.ts",
+      "import": {
+        "types": "./dist/openai/loggers/index.d.ts",
+        "default": "./dist/openai/loggers/index.js"
+      },
+      "require": {
+        "types": "./dist/openai/loggers/index.d.cts",
+        "default": "./dist/openai/loggers/index.cjs"
+      }
+    },
+    "./openai/node": {
+      "source": "./src/openai/node.ts",
+      "browser": null,
+      "import": {
+        "types": "./dist/openai/node.d.ts",
+        "default": "./dist/openai/node.js"
+      },
+      "require": {
+        "types": "./dist/openai/node.d.cts",
+        "default": "./dist/openai/node.cjs"
+      }
+    },
+    "./deepseek": {
+      "source": "./src/deepseek/index.ts",
+      "import": {
+        "types": "./dist/deepseek/index.d.ts",
+        "default": "./dist/deepseek/index.js"
+      },
+      "require": {
+        "types": "./dist/deepseek/index.d.cts",
+        "default": "./dist/deepseek/index.cjs"
+      }
+    },
+    "./qwen": {
+      "source": "./src/qwen/index.ts",
+      "import": {
+        "types": "./dist/qwen/index.d.ts",
+        "default": "./dist/qwen/index.js"
+      },
+      "require": {
+        "types": "./dist/qwen/index.d.cts",
+        "default": "./dist/qwen/index.cjs"
+      }
+    },
+    "./gemma": {
+      "source": "./src/gemma/index.ts",
+      "import": {
+        "types": "./dist/gemma/index.d.ts",
+        "default": "./dist/gemma/index.js"
+      },
+      "require": {
+        "types": "./dist/gemma/index.d.cts",
+        "default": "./dist/gemma/index.cjs"
+      }
+    },
+    "./openai-compatible": {
+      "source": "./src/openai-compatible/index.ts",
+      "import": {
+        "types": "./dist/openai-compatible/index.d.ts",
+        "default": "./dist/openai-compatible/index.js"
+      },
+      "require": {
+        "types": "./dist/openai-compatible/index.d.cts",
+        "default": "./dist/openai-compatible/index.cjs"
+      }
+    },
+    "./builtin": {
+      "source": "./src/builtin/index.ts",
+      "import": {
+        "types": "./dist/builtin/index.d.ts",
+        "default": "./dist/builtin/index.js"
+      },
+      "require": {
+        "types": "./dist/builtin/index.d.cts",
+        "default": "./dist/builtin/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsdown",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build",
+    "typecheck": "tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit",
+    "scenario:verify": "node examples/deepseek-provider-demo.mjs",
+    "scenario:verify:tool-schema-projection": "pnpm exec tsx --conditions=source examples/verify-tool-schema-projection.ts",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "lint": "eslint src/ --ext .ts",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-core": "workspace:^"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": "^0.114.0",
+    "@google/genai": "^1.52.0",
+    "openai": "^6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@google/genai": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^0.114.0",
+    "@google/genai": "^1.52.0",
+    "@types/node": "^22.19.21",
+    "openai": "^6.0.0",
+    "rimraf": "^5.0.10",
+    "tsdown": "^0.22.14",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "volta": {
+    "extends": "../../package.json"
+  }
+}

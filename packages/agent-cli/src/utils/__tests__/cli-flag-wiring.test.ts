@@ -1,8 +1,8 @@
 /**
- * Flag wiring guard (HARNESS-006).
+ * Flag wiring guard.
  *
  * Every field parsed into IParsedCliArgs must have at least one consumer
- * outside cli-args.ts — the CLI-053/054 incident class was flags parsed,
+ * outside cli-args.ts — the incident class is flags parsed,
  * advertised in help, and silently never read (--denied-tools, --dry-run).
  */
 
@@ -19,7 +19,7 @@ const CLI_ARGS_PATH = resolve(__dirname, '../cli-args.ts');
  * Adding a field here requires a written reason — silent additions defeat the guard.
  */
 const PARSE_INTERNAL_FIELDS = new Map<string, string>([
-  ['dryRun', 'normalized to permissionMode: plan inside parseCliArgs (CLI-054 alias)'],
+  ['dryRun', 'normalized to permissionMode: plan inside parseCliArgs (alias)'],
   [
     'disableUpdateCheck',
     'consumed via shouldRunStartupCliUpdateCheck(args) in agent-cli update-check.ts (whole-args pass-through from command-setup.ts)',
@@ -64,7 +64,7 @@ function consumerCorpus(): string {
 }
 
 describe('IParsedCliArgs wiring', () => {
-  it('TC-01: every parsed field has a consumer outside cli-args.ts (or a reasoned allowlist entry)', () => {
+  it('every parsed field has a consumer outside cli-args.ts (or a reasoned allowlist entry)', () => {
     const fields = extractParsedArgsFields();
     expect(fields.length).toBeGreaterThan(20);
 
@@ -76,18 +76,18 @@ describe('IParsedCliArgs wiring', () => {
 
     expect(
       unconsumed,
-      `Parsed but never consumed (CLI-053/054 incident class): ${unconsumed.join(', ')} — ` +
+      `Parsed but never consumed (incident class): ${unconsumed.join(', ')} — ` +
         'wire the flag or add a reasoned PARSE_INTERNAL_FIELDS entry',
     ).toEqual([]);
   });
 
-  it('TC-02: the search logic detects wired and unwired names correctly', () => {
+  it('the search logic detects wired and unwired names correctly', () => {
     const corpus = consumerCorpus();
     expect(new RegExp('\\bdeniedTools\\b').test(corpus)).toBe(true);
     expect(new RegExp('\\btotallyFakeUnusedFlagName\\b').test(corpus)).toBe(false);
   });
 
-  it('TC-02: extractor enumerates known fields', () => {
+  it('extractor enumerates known fields', () => {
     const fields = extractParsedArgsFields();
     for (const known of ['deniedTools', 'allowedTools', 'dryRun', 'printMode', 'positional']) {
       expect(fields).toContain(known);

@@ -1,5 +1,5 @@
 /**
- * MCP server definitions — the raw, validated and resolved forms (MCP-001).
+ * MCP server definitions — the raw, validated and resolved forms.
  *
  * `agent-mcp` is the sole owner of these shapes (docs/SPEC.md). Nothing here performs I/O: a definition
  * is data about a server, not a connection to one, and the separation is what lets configuration be
@@ -23,8 +23,8 @@ export type TMCPDefinitionSource = TMCPActivationSource;
  * The transports a definition can name.
  *
  * `streamable-http` is accepted on input as an alias of `http` and normalised away, so downstream
- * code compares one spelling. Naming a transport is not the same as having one: MCP-002 owns the
- * clients, and MCP-2522 owns stdio execution.
+ * code compares one spelling. Naming a transport is not the same as having one: the clients and stdio
+ * execution live elsewhere.
  */
 export type TMCPTransport = 'stdio' | 'http' | 'sse' | 'ws';
 

@@ -1,0 +1,77 @@
+/**
+ * Red-first `/rename` host-side persistence proof.
+ *
+ * `executeRenameCommand` only RETURNS the `session-renamed` effect; the HOST executes the rename
+ * inside the `executeCommand` pipeline, so a session with NO TUI attached still renames. The host
+ * runs it (direct-on-session action), strips the applied action from the returned
+ * result (so the TUI's duplicate application cannot fire — no double rename), and broadcasts
+ * `session_renamed` so every attached surface updates its title.
+ */
+
+import { describe, expect, it, vi } from 'vitest';
+import { InteractiveSession } from '@robota-sdk/agent-framework';
+import type { ISessionRenamedEvent } from '@robota-sdk/agent-interface/session';
+import { createSessionCommandModule } from '../session-command-module.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
+
+function createRuntimeSession(): Record<string, unknown> {
+  return {
+    run: vi.fn().mockResolvedValue('answer'),
+    abort: vi.fn(),
+    clearHistory: vi.fn(),
+    getHistory: vi.fn().mockReturnValue([]),
+    injectMessage: vi.fn(),
+    getContextState: () => ({
+      maxTokens: 100,
+      usedTokens: 0,
+      usedPercentage: 0,
+      remainingPercentage: 100,
+    }),
+    getSessionId: () => 'session_rename_host',
+    getMessageCount: () => 0,
+    getSystemMessage: vi.fn().mockReturnValue('system'),
+    getToolSchemas: vi.fn().mockReturnValue([]),
+    getEventService: () => ({ subscribe: () => {}, unsubscribe: () => {} }),
+  };
+}
+
+describe('/rename persists host-side without any TUI handler', () => {
+  it('mutates the session name via executeCommand alone and broadcasts session_renamed', async () => {
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: createRuntimeSession() as never,
+      commandModules: [createSessionCommandModule()],
+    });
+    const renamedEvents: ISessionRenamedEvent[] = [];
+    session.on('session_renamed', (event) => renamedEvents.push(event));
+
+    const result = await session.executeCommand('rename', 'My Renamed Session');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toBe('Session renamed to "My Renamed Session".');
+    // The HOST executed the mutation — no surface handler involved (the defect this TC pins).
+    expect(session.getName()).toBe('My Renamed Session');
+    // Broadcast so every attached surface (incl. co-driving ones) updates its title.
+    expect(renamedEvents).toEqual([{ name: 'My Renamed Session' }]);
+    // The applied host action is CONSUMED from the returned result — no surface can double-apply it.
+    expect(result?.hostActions).toBeUndefined();
+  });
+
+  it('applies the rename exactly once (single-execution guard)', async () => {
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: createRuntimeSession() as never,
+      commandModules: [createSessionCommandModule()],
+    });
+    const setNameSpy = vi.spyOn(session, 'setName');
+
+    await session.executeCommand('rename', 'once');
+
+    expect(setNameSpy).toHaveBeenCalledTimes(1);
+    expect(setNameSpy).toHaveBeenCalledWith('once');
+  });
+});

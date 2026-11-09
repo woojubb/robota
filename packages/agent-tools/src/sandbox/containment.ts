@@ -1,5 +1,5 @@
 /**
- * Where tool execution is contained, named rather than inferred from an absent value (issue #3081).
+ * Where tool execution is contained, named rather than inferred from an absent value.
  *
  * Without a sandbox client every command runs on the host, and "no client" read as "nothing to say".
  * Naming it lets a host report the choice (the configured CLI's doctor command) and lets the tool factories route file

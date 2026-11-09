@@ -8,8 +8,8 @@ import {
 } from '../permission-gate.js';
 
 /**
- * One implementation registered under two names (`Shell` and its model-familiar alias `Bash`,
- * issue #3115). A rule naming either name governs both, so a deny cannot be sidestepped by calling
+ * One implementation registered under two names (`Shell` and its model-familiar alias `Bash`).
+ * A rule naming either name governs both, so a deny cannot be sidestepped by calling
  * the name it did not spell out.
  */
 beforeEach(() => {

@@ -1,5 +1,5 @@
 /**
- * SCREEN-2002 — the theme file boundary.
+ * The theme file boundary.
  *
  * A theme file is `{ name?, base?, overrides? }`: a name, a built-in to start from, and a SPARSE map
  * over the same token paths the built-ins use. It is refused WHOLE on the first unknown token or

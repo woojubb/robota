@@ -20,7 +20,7 @@ import { usePalette } from './theme/index.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
 
 import type { IThemeColors } from './theme/index.js';
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+import type { IToolState } from '@robota-sdk/agent-interface/session';
 
 function getToolStyle(
   t: IToolState,
@@ -82,7 +82,7 @@ function ActiveTools({ activeTools }: { activeTools: readonly IToolState[] }): R
 }
 
 /**
- * CLI-2004: the whole progress indicator collapses to ONE static line. A spinner is a repaint per
+ * The whole progress indicator collapses to ONE static line. A spinner is a repaint per
  * frame, and a repaint is an announcement — the reader would hear the same line forever. The line
  * still carries what changed (which tools are running, how far the reply has got), just once per
  * actual change instead of once per frame.

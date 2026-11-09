@@ -1,12 +1,12 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * #3282 §1 — a served session (`the product daemon start`, `the product --serve`) needs the same provider
+ * A served session (`the product daemon start`, `the product --serve`) needs the same provider
  * definitions the TUI gets.
  *
  * `buildServeSessionOptions` never forwarded `providerDefinitions`, so a served session's
  * `/provider switch` throws `Unknown provider: <name>. Currently supported: ` — an empty
  * supported-list — while `provider-command-profile-operations.ts` had ALREADY written the new
- * `currentProvider` to disk. The TUI carries this since #1844 (see
+ * `currentProvider` to disk. The TUI carries this (see
  * `packages/agent-ui-terminal/src/__tests__/provider-definitions-reach-the-session.test.ts` and the
  * comment on `providerDefinitions` in `tui-channel-options.ts`); this is the same gap in serve mode.
  *
@@ -23,7 +23,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
-import { createProviderCommandModule } from '@robota-sdk/agent-command';
+import { createProviderCommandModule } from '@robota-sdk/agent-product/command';
 
 import { buildServeSessionOptions } from '../serve-mode.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
@@ -49,7 +49,7 @@ const DEFINITIONS: readonly IProviderDefinition[] = [
   },
 ];
 
-describe('#3282 — provider definitions reach a served session', () => {
+describe('provider definitions reach a served session', () => {
   it('buildServeSessionOptions forwards them into the session options', () => {
     const options = buildServeSessionOptions({
       host: testHost,

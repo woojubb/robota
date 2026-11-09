@@ -1,5 +1,5 @@
 /**
- * SEC-020 (issue #2021) — creating a host directory or file that only its owner can read.
+ * Creating a host directory or file that only its owner can read.
  *
  * A host application persists session records, logs, settings and device credentials under a directory
  * of its own choosing. They carry prompts, model output, tool results and, in the settings case,
@@ -105,7 +105,7 @@ export interface IEnsureOwnerOnlyOptions extends IOwnerOnlyIo {
    * Needed because `mkdirSync(path, { recursive: true, mode })` applies the mode only to the
    * directories it CREATES. A store root an older version already made sits at whatever mode it was
    * given and this call would leave it there — which is the module's own headline defect surviving
-   * one level up, on the very path it exists to protect. Found in review of PR #2224.
+   * one level up, on the very path it exists to protect.
    *
    * It is a parameter rather than a walk up to some inferred boundary because WHICH ancestors belong
    * to the caller is the caller's knowledge. This module must not guess that a parent is ours; it
@@ -362,7 +362,7 @@ function writeOwnerOnlyTemporary(
   // Removed with `force` rather than `if (exists) unlink`: checking and then acting on a path is a
   // race, and the race is exploitable here — another process can create the path between the two
   // calls, and the `wx` write below would then fail on a file this call believed it had cleared.
-  // CodeQL flagged the check-then-act form on PR #2224 and it was right to.
+  // CodeQL flags the check-then-act form, rightly.
   rmSync(temporaryPath, { force: true });
   // `wx` guarantees this call CREATES the file, which is the only condition under which `mode` is
   // applied. There is deliberately no `chmod` after it: tightening a file that was created wide

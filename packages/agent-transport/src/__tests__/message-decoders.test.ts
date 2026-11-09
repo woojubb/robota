@@ -1,4 +1,4 @@
-import { SESSION_CHANGE_REFUSAL_CODES } from '@robota-sdk/agent-interface-session';
+import { SESSION_CHANGE_REFUSAL_CODES } from '@robota-sdk/agent-interface/session';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -13,7 +13,7 @@ import {
 import type { TClientMessage, TServerMessage } from '../wire-messages.js';
 
 /**
- * Issue #2045 — the owner-side runtime decoders. One well-formed sample per union variant round-trips
+ * The owner-side runtime decoders. One well-formed sample per union variant round-trips
  * through JSON; a shared malformed corpus (null, arrays, missing fields, wrong primitives, malformed
  * nested values, oversized frames) is refused consistently. Both carriers call these same functions.
  */
@@ -28,6 +28,7 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'get-context': { type: 'get-context' },
   'get-commands': { type: 'get-commands' },
   'get-status': { type: 'get-status' },
+  'get-surface-role': { type: 'get-surface-role' },
   'list-models': { type: 'list-models', requestId: 'request-6' },
   'get-agent-definitions': { type: 'get-agent-definitions', requestId: 'request-7' },
   'list-sessions': { type: 'list-sessions', requestId: 'request-3' },
@@ -117,8 +118,8 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     success: true,
     requestId: 'command-1',
   },
-  // #3288 §2: `display` is optional (an older host may not send it) and foreign-owned
-  // (`IHistoryDisplaySegment`, `agent-interface-session`) — checked shallowly here, same as
+  // `display` is optional (an older host may not send it) and foreign-owned
+  // (`IHistoryDisplaySegment`, `agent-interface/session`) — checked shallowly here, same as
   // `tool_start`'s `state`, per this file's own header.
   messages: {
     type: 'messages',
@@ -147,6 +148,7 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
   turn_source: { type: 'turn_source', source: 'peer' },
   commands: { type: 'commands', commands: [], skills: [] },
   session_status: { type: 'session_status', status: {} as never },
+  surface_role: { type: 'surface_role', role: 'observe' },
   model_list: {
     type: 'model_list',
     requestId: 'request-6',
@@ -408,6 +410,8 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
   ['get-history from a fractional index', { type: 'get-history', fromIndex: 1.5 }],
   ['command with an empty requestId', { type: 'command', name: 'n', requestId: '' }],
   ['switch-session with an empty sessionId', { type: 'switch-session', sessionId: '' }],
+  ['switch-session with owner acceptance', { type: 'switch-session', sessionId: 's', acceptedDigest: 'a'.repeat(64) }],
+  ['switch-session with an owner digest', { type: 'switch-session', sessionId: 's', digest: 'a'.repeat(64) }],
   [
     'switch-session with a numeric requestId',
     { type: 'switch-session', sessionId: 's', requestId: 1 },
@@ -657,6 +661,7 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
     { type: 'waiting_loop_stop', requestId: 'r', outcome: { kind: 'toString' } },
   ],
   ['settings without requestId', { type: 'settings', settings: {} }],
+  ['surface_role with an unknown role', { type: 'surface_role', role: 'admin' }],
   ['settings with an array settings', { type: 'settings', requestId: 'r', settings: [] }],
   [
     'settings_error with an unknown code',
@@ -665,7 +670,7 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
   ['settings_error without message', { type: 'settings_error', requestId: 'r', code: 'invalid' }],
 ];
 
-describe('decodeClientMessage (issue #2045)', () => {
+describe('decodeClientMessage', () => {
   it('has a shape for every union variant and every sample decodes through JSON', () => {
     for (const [type, sample] of Object.entries(CLIENT_SAMPLES)) {
       expect(CLIENT_MESSAGE_SHAPES).toHaveProperty(type);
@@ -680,7 +685,7 @@ describe('decodeClientMessage (issue #2045)', () => {
     expect(decodeClientMessage(value).ok).toBe(false);
   });
 
-  // #3282 §4b: "Providers & Models" — Use, Model and Delete each add one `update-settings` patch
+  // "Providers & Models" — Use, Model and Delete each add one `update-settings` patch
   // field; `CLIENT_SAMPLES` above only round-trips one field (`outputStyle`) per variant, so these
   // three get their own explicit round trip.
   it.each([
@@ -709,7 +714,7 @@ describe('decodeClientMessage (issue #2045)', () => {
     { field: 'reloadPlugins' },
     { field: 'installPlugin', pluginId: 'linter@fixture-agent' },
     { field: 'uninstallPlugin', pluginId: 'formatter@fixture-agent' },
-  ] as const)('accepts the $field settings patch (#3282 §4 part b-2)', (patch) => {
+  ] as const)('accepts the $field settings patch', (patch) => {
     const message = { type: 'update-settings' as const, requestId: 'r', patch };
     expect(decodeClientMessage(JSON.parse(JSON.stringify(message)))).toEqual({
       ok: true,
@@ -743,7 +748,7 @@ describe('the app tool and app view frames', () => {
   });
 });
 
-describe('decodeServerMessage (issue #2045)', () => {
+describe('decodeServerMessage', () => {
   it('has a shape for every union variant and every sample decodes through JSON', () => {
     for (const [type, sample] of Object.entries(SERVER_SAMPLES)) {
       expect(SERVER_MESSAGE_SHAPES).toHaveProperty(type);
@@ -788,7 +793,7 @@ describe('decodeServerMessage (issue #2045)', () => {
     });
   });
 
-  it('accepts an error frame carrying its classification (#3289 §3), and one without it', () => {
+  it('accepts an error frame carrying its classification, and one without it', () => {
     const classified = {
       type: 'error',
       message: 'Authentication Error: invalid x-api-key',

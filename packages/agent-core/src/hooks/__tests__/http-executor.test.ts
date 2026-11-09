@@ -1,5 +1,5 @@
 /**
- * SEC-015 — `HttpExecutor` outcome decoding, driven against a REAL `node:http` server.
+ * `HttpExecutor` outcome decoding, driven against a REAL `node:http` server.
  *
  * The previous suite stubbed `fetch`. A stub is the wrong instrument for this contract: the three
  * failure kinds it must separate (`timeout`, `transport-failure`, `malformed-response`) are
@@ -81,15 +81,15 @@ describe('HttpExecutor', () => {
   });
 
   it('interpolates $VAR references in headers from process.env', async () => {
-    process.env['SEC_015_TOKEN'] = 'sekrit';
+    process.env['HOOK_TOKEN'] = 'sekrit';
     try {
       await executor.execute(
-        { type: 'http', url, headers: { Authorization: 'Bearer $SEC_015_TOKEN' } },
+        { type: 'http', url, headers: { Authorization: 'Bearer $HOOK_TOKEN' } },
         input,
       );
       expect(lastHeaders['authorization']).toBe('Bearer sekrit');
     } finally {
-      delete process.env['SEC_015_TOKEN'];
+      delete process.env['HOOK_TOKEN'];
     }
   });
 
@@ -114,13 +114,13 @@ describe('HttpExecutor', () => {
     expect(outcome.outcome === 'deny' && outcome.reason).toBe('Blocked by http hook');
   });
 
-  // ── SEC-015 TC-01 / TC-02: the truthiness coercion, in BOTH directions ──────────────────────
+  // ── The truthiness coercion, in BOTH directions ──────────────────────
   //
   // These are the regression rows. Reverse-apply this executor's diff and both blocks go red on a
   // value, not on a type: the pre-fix code answers `exitCode: 0` for the first group (gate silently
   // disabled) and `exitCode: 2` for the second (a tool call blocked by a verdict no endpoint
   // issued). Neither is `outcome: 'error'`.
-  describe('TC-01 — a truthy non-boolean `ok` must NOT read as allow', () => {
+  describe('a truthy non-boolean `ok` must NOT read as allow', () => {
     it.each(['{"ok":"false"}', '{"ok":1}', '{"ok":"true"}', '{"ok":{}}'])(
       '%s is error/malformed-response',
       async (body) => {
@@ -132,7 +132,7 @@ describe('HttpExecutor', () => {
     );
   });
 
-  describe('TC-02 — a falsy or absent `ok` must NOT read as deny', () => {
+  describe('a falsy or absent `ok` must NOT read as deny', () => {
     it.each(['{}', '{"ok":null}', '{"ok":0}', '{"ok":""}', '"not an object"', '[]', 'null'])(
       '%s is error/malformed-response, not a denial',
       async (body) => {
@@ -147,7 +147,7 @@ describe('HttpExecutor', () => {
     );
   });
 
-  // ── SEC-015 TC-04: transport conditions are separate kinds ──────────────────────────────────
+  // ── Transport conditions are separate kinds ──────────────────────────────────
   it('a non-2xx response is error/http-status', async () => {
     reply(503, 'service unavailable', 'text/plain');
     const outcome = await executor.execute({ type: 'http', url }, input);
@@ -188,7 +188,7 @@ describe('HttpExecutor', () => {
     expect(outcome.outcome === 'error' && outcome.kind).toBe('timeout');
   }, 15_000);
 
-  // ── SEC-015 TC-05 ───────────────────────────────────────────────────────────────────────────
+  // ── Source attribution ───────────────────────────────────────────────────────────────────────
   it('every outcome carries source: "http"', async () => {
     const bodies = ['{"ok":true}', '{"ok":false}', '{}'];
     for (const body of bodies) {

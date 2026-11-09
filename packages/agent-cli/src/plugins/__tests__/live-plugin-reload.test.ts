@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { createPluginCommandModule, createSkillsCommandModule } from '@robota-sdk/agent-command';
+import {
+  createPluginCommandModule,
+  createSkillsCommandModule,
+} from '@robota-sdk/agent-product/command';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import {
   createNodeHostContributionSource,

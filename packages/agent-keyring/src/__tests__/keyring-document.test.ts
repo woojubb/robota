@@ -13,6 +13,7 @@ import {
 import { MAX_KEYRING_JSON_CHARS, MAX_KEYSLOTS } from '../keyring-document.js';
 import { codeOf, KNOWN_SEALING_PUBLIC_KEY_HEX, hex } from './helpers.js';
 
+// Read as stored: .gitattributes keeps this fixture on LF, which the byte-for-byte comparison relies on.
 const fixtureText = readFileSync(
   fileURLToPath(new URL('./fixtures/keyring-v1.json', import.meta.url)),
   'utf8',

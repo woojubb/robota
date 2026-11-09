@@ -54,7 +54,6 @@ function workspace({ packages, lists, thirdParty = {} }) {
       item('Platform-neutral', lists.neutral ?? []),
       item('Browser (DOM)', lists.dom ?? []),
       item('Node host', lists.host ?? []),
-      item('Not yet neutral', lists.pending ?? []),
       '',
       '## Next',
       '',
@@ -315,6 +314,23 @@ describe('platform-neutral entry check', () => {
     expect(await checkPlatformNeutral(root)).toEqual([]);
   });
 
+  it('reports a package that is in two lists, and a list ARCHITECTURE.md lacks', async () => {
+    const root = workspace({
+      packages: { a: { exports: neutralExport(), files: { 'src/index.ts': '' } } },
+      lists: { neutral: ['a'], dom: ['a'] },
+    });
+    expect(await checkPlatformNeutral(root)).toEqual([
+      'a is listed as both Platform-neutral and Browser (DOM)',
+    ]);
+    writeFileSync(
+      path.join(root, 'ARCHITECTURE.md'),
+      '## Runtime platforms\n\n- **Platform-neutral**: `a`\n- **Browser (DOM)**: none\n\n## Next\n',
+    );
+    expect(await checkPlatformNeutral(root)).toEqual([
+      'ARCHITECTURE.md "Runtime platforms" has no "Node host" list',
+    ]);
+  });
+
   it('reports lists that disagree with the manifests', async () => {
     const root = workspace({
       packages: {
@@ -337,5 +353,22 @@ describe('platform-neutral entry check', () => {
         'unlisted is not in any ARCHITECTURE.md "Runtime platforms" list',
       ].sort(),
     );
+  });
+
+  it('judges a package without a root export by its subpaths', async () => {
+    const hostOnly = { './a': { source: './src/index.ts', browser: null, default: './dist/a.js' } };
+    const mixed = { ...hostOnly, './b': { source: './src/index.ts', default: './dist/b.js' } };
+    const packages = {
+      host: { exports: hostOnly, files: { 'src/index.ts': '' } },
+      mixed: { exports: mixed, files: { 'src/index.ts': '' } },
+    };
+    expect(
+      await checkPlatformNeutral(
+        workspace({ packages, lists: { neutral: ['mixed'], host: ['host'] } }),
+      ),
+    ).toEqual([]);
+    expect(
+      await checkPlatformNeutral(workspace({ packages, lists: { neutral: ['host', 'mixed'] } })),
+    ).toEqual(['host is listed as Platform-neutral, but its subpaths map browser: null']);
   });
 });

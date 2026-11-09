@@ -10,7 +10,7 @@ permission, conversation and reconnect state to `@robota-sdk/agent-ui-web/client
 The manifest intentionally omits SDK dependencies. For final acceptance, copy this folder outside
 the monorepo and install **exact published registry versions** of `@robota-sdk/agent-cli`,
 `@robota-sdk/product-config`, `@robota-sdk/agent-framework`,
-`@robota-sdk/agent-provider-openai-compatible` and `@robota-sdk/agent-ui-web` with
+`@robota-sdk/agent-provider` and `@robota-sdk/agent-ui-web` with
 `npm install --save-exact`. Commit that consumer's npm lockfile with integrity hashes only after the
 new public versions are approved and published. For prerelease source-readiness checks, install
 local tarballs in a disposable copy and label the results as local-pack evidence. Do not use a

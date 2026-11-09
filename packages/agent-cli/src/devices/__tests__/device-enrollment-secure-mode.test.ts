@@ -1,5 +1,5 @@
 /**
- * #3679 3f PR 3a — linking a device opens WebRTC peers outside the mesh host, so both sides of an
+ * Linking a device opens WebRTC peers outside the mesh host, so both sides of an
  * enrollment open under the `device-mesh` row. Under the secure-mode test seam the existing device
  * shows no code and never waits on the relay, and the joining device never dials.
  */
@@ -13,7 +13,7 @@ import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { SecureSurfaceRefusedError } from '../../secure/secure-surfaces.js';
 import { joinEnrollment, offerEnrollment } from '../device-enrollment.js';
 
-import type { IMeshRelay } from '@robota-sdk/agent-transport-webrtc';
+import type { IMeshRelay } from '@robota-sdk/agent-transport/webrtc';
 
 afterEach(() => cleanupTestProductRuntimes());
 

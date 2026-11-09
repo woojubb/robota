@@ -11,7 +11,7 @@ import {
 import { startDeviceReconnect, startHostReconnect, type TReconnectFrame } from '../reconnect.js';
 
 /**
- * REMOTE-012 E3 TC-03 — the MUTUAL reconnect controller: both sides authenticate before accept. Wires a
+ * The MUTUAL reconnect controller: both sides authenticate before accept. Wires a
  * device controller and a host controller in-memory and asserts mutual accept + fail-closed on a rogue host,
  * an unknown device, and a tampered device proof.
  */
@@ -77,10 +77,14 @@ function connect(
     send: toHost,
     timeoutMs: 1000,
   });
+  // A case awaits one side; the other would reject unobserved when its timer fires, which on a slow
+  // host lands in a later case and fails the whole file as an unhandled rejection.
+  host.result.catch(() => undefined);
+  device.result.catch(() => undefined);
   return { host, device };
 }
 
-describe('mutual reconnect (REMOTE-012 TC-03)', () => {
+describe('mutual reconnect', () => {
   it('both sides accept when the device is pinned and the host key matches', async () => {
     const h = await setup();
     const { host, device } = connect(h);

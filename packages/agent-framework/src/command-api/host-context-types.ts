@@ -14,12 +14,12 @@ import type {
   ICommandListEntry,
   ICommandSkillListEntry,
   TCommandInvocationSource,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
 
-// ICommandListEntry SSOT relocated to @robota-sdk/agent-interface-command (DATA-001).
-// TCommandInvocationSource SSOT relocated to @robota-sdk/agent-interface-command (REMOTE-003).
-// ICommandSkillListEntry SSOT relocated to @robota-sdk/agent-interface-command: the session contract
+// ICommandListEntry SSOT relocated to @robota-sdk/agent-interface/command.
+// TCommandInvocationSource SSOT relocated to @robota-sdk/agent-interface/command.
+// ICommandSkillListEntry SSOT relocated to @robota-sdk/agent-interface/command: the session contract
 // lists skills to every client.
 export type { ICommandListEntry, ICommandSkillListEntry, TCommandInvocationSource };
 
@@ -38,7 +38,7 @@ export interface ICommandSkillActivationRequest {
 export type TAutoCompactThresholdSource = 'default' | 'settings' | 'session';
 
 /**
- * Live model re-application options (PRESET-013). Carries the model group a preset switch may
+ * Live model re-application options. Carries the model group a preset switch may
  * re-apply to a running session; `maxOutputTokens` maps to the agent's `maxTokens` channel.
  */
 export interface IModelReapplyOptions {
@@ -50,7 +50,7 @@ export interface IModelReapplyOptions {
 
 /**
  * A preset `enabledCommandModules`/`disabledCommandModules` name that matched no built command
- * module (INFRA-032). Surfaced as a non-fatal notice on both the startup `--preset` path and the
+ * module. Surfaced as a non-fatal notice on both the startup `--preset` path and the
  * in-session `/preset` path instead of being silently dropped. `kind` records which list the
  * unmatched name came from.
  */

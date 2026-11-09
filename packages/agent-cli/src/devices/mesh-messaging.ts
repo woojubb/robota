@@ -20,8 +20,8 @@ import type {
   IPeerMessage,
   IPeerMessageAck,
   TPeerDeliveryState,
-} from '@robota-sdk/agent-interface-session-mobility';
-import type { IDeviceMeshLink } from '@robota-sdk/agent-transport-webrtc';
+} from '@robota-sdk/agent-interface/session-mobility';
+import type { IDeviceMeshLink } from '@robota-sdk/agent-transport/webrtc';
 
 /** How long a sender waits for the receiver to say it has the message. */
 const ACK_TIMEOUT_MS = 30_000;

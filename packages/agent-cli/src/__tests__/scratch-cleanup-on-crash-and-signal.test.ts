@@ -24,11 +24,13 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
+import { resolveSdk } from './helpers/sdk-url.js';
 
 const CHILD_TIMEOUT_MS = 60_000;
 const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
 const source = (relative: string): string =>
   pathToFileURL(fileURLToPath(new URL(relative, import.meta.url))).href;
+const sdk = resolveSdk;
 const roots: string[] = [];
 
 afterEach(() => {
@@ -53,7 +55,7 @@ function runEntry(
   options: { cwd: string; env: NodeJS.ProcessEnv; ready?: string; send?: NodeJS.Signals },
 ): Promise<IChildEnd> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ['--import', tsx, '--conditions=source', entry], {
+    const child = spawn(process.execPath, ['--import', tsx, '--conditions=product-source', entry], {
       cwd: options.cwd,
       env: options.env,
       stdio: ['ignore', 'ignore', 'pipe'],
@@ -89,7 +91,7 @@ describe('a crash the CLI crash policy rethrows', () => {
         entry,
         [
           `import { installCliCrashPolicy } from ${JSON.stringify(source('../cli-crash-policy.ts'))};`,
-          `import { createProcessScopedDirectory, removeDirectoryOnProcessExit } from ${JSON.stringify(source('../../../agent-core/src/node.ts'))};`,
+          `import { createProcessScopedDirectory, removeDirectoryOnProcessExit } from ${JSON.stringify(sdk('@robota-sdk/agent-core/node'))};`,
           "import { writeFileSync } from 'node:fs';",
           "installCliCrashPolicy('test-product');",
           `const directory = createProcessScopedDirectory(${JSON.stringify(parent)}, 'agent-tool-results-');`,
@@ -129,7 +131,7 @@ describe.skipIf(process.platform === 'win32')('a print run ended by a signal mid
             `import { startCli } from ${JSON.stringify(source('../cli.ts'))};`,
             `import { createTestProductRuntime } from ${JSON.stringify(source('./helpers/product-runtime.ts'))};`,
             `import { prepareSpillParentDirectory } from ${JSON.stringify(source('../startup/ephemeral-state.ts'))};`,
-            `import { createNodeToolResultSpillStore } from ${JSON.stringify(source('../../../agent-framework/src/node.ts'))};`,
+            `import { createNodeToolResultSpillStore } from ${JSON.stringify(sdk('@robota-sdk/agent-framework/node'))};`,
             `const productRuntime = createTestProductRuntime('test-product', { HOME: ${JSON.stringify(home)}, PRODUCT_SCRATCH_END_TEST_KEY: 'test-only-key' });`,
             'const providerDefinition = {',
             "  type: 'scratch-end-test',",

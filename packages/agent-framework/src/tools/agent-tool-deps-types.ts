@@ -22,10 +22,10 @@ export interface IAgentToolDeps extends IInProcessSubagentRunnerDeps {
   agentDefinitions?: IAgentDefinition[];
   /** The parent Session's concrete effort, if it overrides provider-default selection. */
   getParentModelEffort?: () => TModelEffort | undefined;
-  /** PRESET-016 — runtime gate; when present and returns false, subagent dispatch is refused. */
+  /** Runtime gate; when present and returns false, subagent dispatch is refused. */
   isParallelSubagentsEnabled?: () => boolean;
   /**
-   * #3282 §4: the agent type `/agent <name>` (no prompt) selects and the agent switcher shows
+   * The agent type `/agent <name>` (no prompt) selects and the agent switcher shows
    * checked — mutable session-scoped state, read back through `getDefaultAgentType`. Absent means
    * `DEFAULT_AGENT_TYPE` (`general-purpose`), never persisted past this session.
    */

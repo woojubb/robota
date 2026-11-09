@@ -33,6 +33,8 @@ export interface IWorkspaceIdentity {
 
 export interface IWorkspaceIdentityResolver {
   resolve(cwd: string): IWorkspaceIdentity;
+  /** A native host may bind an operation's already-open root to its live approval. */
+  assertOpenedRootDescriptor?(descriptor: number): void;
 }
 
 export interface IWorkspaceTrustStoreSnapshot {
@@ -42,8 +44,9 @@ export interface IWorkspaceTrustStoreSnapshot {
 }
 
 /**
- * One recorded grant, as the store persists it. FLOW-2006 reads these to resolve a deep link's
- * `repo=owner/name` against clones the user has ALREADY trusted; nothing else enumerates them.
+ * One recorded grant, as the store persists it. Deep-link handling reads these to resolve a deep
+ * link's `repo=owner/name` against clones the user has ALREADY trusted; nothing else enumerates
+ * them.
  */
 export interface IWorkspaceTrustGrant {
   readonly repositoryKey: string;
@@ -59,7 +62,7 @@ export interface IWorkspaceTrustStore {
    * Every recorded grant, read-only — OPTIONAL, and optional on purpose.
    *
    * This is a deliberate widening: it hands its caller the list of every local path the user has
-   * ever trusted, so it exists for one consumer (FLOW-2006's `repo=owner/name` resolution) and
+   * ever trusted, so it exists for one consumer (deep-link `repo=owner/name` resolution) and
    * returns the same validated shape the store already enforces. A corrupt store throws rather than
    * returning a partial list — "could not read" is never "no grants".
    *
@@ -279,8 +282,8 @@ export interface ITrustedWorkspaceProjectAccess {
 }
 
 /**
- * The owner error behind an `identity-unavailable` or `store-unavailable` trust state
- * (OBSERVABILITY-1991). Name and message only — never file content.
+ * The owner error behind an `identity-unavailable` or `store-unavailable` trust state. Name and
+ * message only — never file content.
  */
 export interface IWorkspaceTrustCause {
   readonly name: string;
@@ -293,7 +296,7 @@ export interface IRestrictedWorkspaceProjectAccess {
   readonly trustState: Exclude<TWorkspaceTrustState, 'trusted'>;
   readonly displayPath?: string;
   /**
-   * SCREEN-1993: the identity the trust service resolved before deciding the state — present for
+   * The identity the trust service resolved before deciding the state — present for
    * every state except `identity-unavailable`, so a consumer that needs the worktree root (the
    * prompt-history project key) reads the one resolution already made instead of resolving again.
    */
@@ -306,7 +309,7 @@ export type TWorkspaceProjectAccess =
   ITrustedWorkspaceProjectAccess | IRestrictedWorkspaceProjectAccess;
 
 /**
- * ARCH-043: where a session runs and what it may read of that project, as one immutable value.
+ * Where a session runs and what it may read of that project, as one immutable value.
  * Collaborators receive this value, never copies of its parts, so no lazy operation can hold an
  * answer that differs from the session's.
  */

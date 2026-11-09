@@ -9,7 +9,7 @@ import {
 import { sealHandoffRecord, verifyHandoffPayload } from '../node/handoff-manifest.js';
 import koreanText from './__fixtures__/korean-text.json';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const ID = 'handoff_1';
 
@@ -19,7 +19,7 @@ function assemble(chunks: readonly IHandoffChunk[], assembler = new HandoffChunk
   return { assembler, last };
 }
 
-describe('HANDOFF-001 — a payload larger than one frame travels in pieces', () => {
+describe('a payload larger than one frame travels in pieces', () => {
   it('every chunk fits the byte budget', () => {
     // The channel's limit is in bytes, so the budget has to be honoured in bytes. A payload of
     // multi-byte characters is where a character-based cut overflows the frame.
@@ -75,7 +75,7 @@ describe('HANDOFF-001 — a payload larger than one frame travels in pieces', ()
   });
 });
 
-describe('HANDOFF-001 — reordering and retries are normal; inconsistency is not', () => {
+describe('reordering and retries are normal; inconsistency is not', () => {
   it('accepts chunks out of order', () => {
     const chunks = [...chunkHandoffPayload(ID, 'x'.repeat(100), 10)].reverse();
 
@@ -163,7 +163,7 @@ describe('HANDOFF-001 — reordering and retries are normal; inconsistency is no
   });
 });
 
-describe('HANDOFF-001 TC-06 — a mangled chunk is caught where it arrives', () => {
+describe('a mangled chunk is caught where it arrives', () => {
   it('refuses data that is not decodable base64', () => {
     // Buffer.from is lenient: it drops what it cannot parse rather than throwing, so a mangled
     // chunk would silently become a shorter one and corrupt the payload in a way only the final

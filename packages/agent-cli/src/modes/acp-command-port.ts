@@ -1,6 +1,6 @@
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 
-import type { ISessionCommands } from '@robota-sdk/agent-interface-session';
+import type { ISessionCommands } from '@robota-sdk/agent-interface/session';
 
 /** The session roles the command port uses; a full interactive session satisfies it. */
 export interface IAcpCommandSession extends Pick<ISessionCommands, 'executeCommand'> {

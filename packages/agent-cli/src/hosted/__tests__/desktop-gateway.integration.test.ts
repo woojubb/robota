@@ -383,6 +383,11 @@ it.each(['/desktop/', '/'])(
         return { ws, messages };
       };
       const first = await open(access);
+      // A session client reads its role the moment it connects; the worker answers it through the port.
+      first.ws.send(JSON.stringify({ type: 'get-surface-role' }));
+      await expect
+        .poll(() => first.messages.find((frame) => frame.type === 'surface_role'))
+        .toEqual({ type: 'surface_role', role: 'drive' });
       await expect
         .poll(() =>
           first.messages.some(
@@ -392,6 +397,7 @@ it.each(['/desktop/', '/'])(
           ),
         )
         .toBe(true);
+      expect(first.ws.readyState).toBe(WebSocket.OPEN);
       first.ws.send(JSON.stringify({ type: 'submit', prompt: 'Hello remote worker' }));
       await expect
         .poll(() => JSON.stringify(first.messages), { timeout: 15_000 })

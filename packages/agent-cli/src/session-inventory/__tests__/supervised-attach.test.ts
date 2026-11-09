@@ -3,7 +3,7 @@ import { createConnection, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createRemoteControlCommandModule } from '@robota-sdk/agent-command';
+import { createRemoteControlCommandModule } from '@robota-sdk/agent-product/command';
 import { InteractiveSession, SessionChangeRefusal } from '@robota-sdk/agent-framework';
 import { MAX_INBOUND_FRAME_BYTES } from '@robota-sdk/agent-transport';
 import { describe, expect, it, vi } from 'vitest';
@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { once } from 'node:events';
 import { PassThrough } from 'node:stream';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import {
   createHandshakeApprover,
@@ -27,7 +27,7 @@ import {
 } from '../supervised-session-control.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
-import type { ISessionBinder, ISessionDirectory } from '@robota-sdk/agent-interface-session';
+import type { ISessionBinder, ISessionDirectory } from '@robota-sdk/agent-interface/session';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
@@ -164,15 +164,20 @@ async function withTarget(
   const registry = (session as unknown as { promptRegistry: IPromptRegistry }).promptRegistry;
   let control: ISupervisedControl | undefined;
   try {
-    control = await startSupervisedControl(
-      ID, () => undefined, root, () => session.getLocalActivityStatus(), undefined, undefined,
-      undefined, undefined, undefined, options.externalEvents,
-      options.attachable === false
+    control = await startSupervisedControl({
+      id: ID,
+      onStop: () => undefined,
+      root,
+      observe: {
+        activity: () => session.getLocalActivityStatus(),
+      },
+      externalEvents: options.externalEvents,
+      attachTarget: options.attachable === false
         ? undefined
         : options.sessionDirectory !== undefined
           ? { binder: binderOf(session, options.sessionDirectory) }
           : { session },
-    );
+    });
     const attach = (mode: 'drive' | 'observe', extra: Record<string, unknown> = {}, pipelined = '') =>
       handshake(
         root, { command: 'attach', id: ID, generation: generationOf(root), mode, protocol: 1, ...extra },
@@ -256,6 +261,31 @@ describe('supervised attach carrier', () => {
       expect(reply).toMatchObject({ status: 'attached' });
       expect(await client.waitFor('executing')).toEqual({ type: 'executing', executing: false });
       client.socket.destroy();
+    });
+  });
+
+  it('keeps a multi-byte character whole when the first frame is cut inside it, behind the handshake line', async () => {
+    await withTarget('rs-mb-', async ({ root, session }) => {
+      const socketName = readdirSync(root).find((name) => name.endsWith('.sock'))!;
+      const socket = createConnection(join(root, socketName));
+      socket.on('error', () => undefined);
+      await new Promise<void>((resolve) => socket.once('connect', resolve));
+      let received = '';
+      socket.setEncoding('utf8');
+      socket.on('data', (chunk: string) => { received += chunk; });
+      const line = `${JSON.stringify({
+        command: 'attach', id: ID, generation: generationOf(root), mode: 'drive', protocol: 1,
+      })}\n`;
+      const submit = Buffer.from(`${JSON.stringify({ type: 'submit', prompt: 'caf\u00e9 au lait' })}\n`);
+      // The first byte of the two-byte \u00e9 is the last this write carries.
+      const cut = submit.indexOf(0xc3) + 1;
+      socket.write(Buffer.concat([Buffer.from(line), submit.subarray(0, cut)]));
+      await vi.waitFor(() => expect(received).toContain('"status":"attached"'));
+      socket.write(submit.subarray(cut));
+      await vi.waitFor(() => expect(received).toContain('"type":"complete"'));
+      expect(JSON.stringify(session.getFullHistory())).toContain('caf\u00e9 au lait');
+      expect(JSON.stringify(session.getFullHistory())).not.toContain('\ufffd');
+      socket.destroy();
     });
   });
 
@@ -449,7 +479,7 @@ describe('attach handshake approval', () => {
   });
 });
 
-describe('attach bindings (#3189)', () => {
+describe('attach bindings', () => {
   it('binds each admitted connection in its own role and releases it when that connection closes', async () => {
     const directory: ISessionDirectory = {
       listSessions: vi.fn(),

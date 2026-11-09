@@ -1,5 +1,5 @@
 /**
- * #3282 §4 part b-3 — plain-words schedule presentation: never an ISO string or a cron expression.
+ * Plain-words schedule presentation: never an ISO string or a cron expression.
  */
 import { describe, expect, it, vi } from 'vitest';
 
@@ -10,7 +10,7 @@ import {
   formatPlainLocalTime,
 } from '../schedule-view.js';
 
-import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface/execution';
 
 function schedule(
   overrides: Partial<IBackgroundTaskState<'scheduled'>> = {},

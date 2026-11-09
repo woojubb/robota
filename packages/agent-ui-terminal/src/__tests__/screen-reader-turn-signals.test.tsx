@@ -1,5 +1,5 @@
 /**
- * CLI-2004 — the long-tool bell, at the hook that decides when a tool finished.
+ * The long-tool bell, at the hook that decides when a tool finished.
  *
  * `attention-bell.ts` already has its own tests, and they pass whatever this hook feeds it. The
  * defect the review found lives HERE: completion was inferred from an entry leaving `activeTools`,
@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BELL, LONG_TOOL_BELL_MS } from '../attention-bell.js';
 import { useScreenReaderTurnSignals } from '../hooks/useScreenReaderTurnSignals.js';
 
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+import type { IToolState } from '@robota-sdk/agent-interface/session';
 
 function tool(overrides: Partial<IToolState> = {}): IToolState {
   return { toolName: 'Bash', firstArg: 'ls', isRunning: true, ...overrides };
@@ -59,7 +59,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('CLI-2004 — the long-tool bell fires on the isRunning transition', () => {
+describe('the long-tool bell fires on the isRunning transition', () => {
   it('rings when a tool that outlived the threshold reports isRunning: false', () => {
     const { rerender, unmount } = render(<Probe activeTools={[tool()]} />);
     vi.advanceTimersByTime(LONG_TOOL_BELL_MS + 1000);

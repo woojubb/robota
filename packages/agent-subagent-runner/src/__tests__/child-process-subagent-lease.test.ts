@@ -1,5 +1,5 @@
 /**
- * #3679: a fork job's record is lent to its child process, in either mode, so it has one writer while
+ * A fork job's record is lent to its child process, in either mode, so it has one writer while
  * the child runs — the child, under the lease — and is free again once the child is gone.
  *
  * The child is the real worker entry over a plain store (the sealing fixture started plain), held
@@ -164,18 +164,19 @@ function readEvents(path: string): Record<string, unknown>[] {
     .map((line) => JSON.parse(line) as Record<string, unknown>);
 }
 
-/** The running fork as the parent's execution workspace shows it. */
-function runningFork(): Parameters<typeof resolveExecutionAttach>[0] {
+/** The fork as the parent's execution workspace shows it, while it runs or after it ended. */
+function fork(status: 'running' | 'completed'): Parameters<typeof resolveExecutionAttach>[0] {
   return {
     title: 'experiment',
-    status: 'running',
+    sourceId: 'agent_1',
+    status,
     resumeSessionId: FORK_ID,
   } as unknown as Parameters<typeof resolveExecutionAttach>[0];
 }
 
 describe('a plain parent’s child-process fork', () => {
   it(
-    'has one writer while it runs — attach and a second opener are refused — and none once it ends',
+    'has one writer while it runs — attach follows it and a second opener is refused — and none once it ends',
     async () => {
       const cwd = directory('lease-plain-');
       const recordPath = join(cwd, 'record.jsonl');
@@ -196,13 +197,20 @@ describe('a plain parent’s child-process fork', () => {
         timeout: 15_000,
       });
 
-      // The parent sees the writer, so attach is neither offered nor honoured.
+      // The parent sees the writer, so attach follows the job instead of opening the record again.
       expect(parent.hasWriter(FORK_ID)).toBe(true);
-      const attach = resolveExecutionAttach(runningFork(), {
-        hasSessionRecord: (id) => parent.load(id).status === 'valid',
-        hasWriter: (id) => parent.hasWriter(id),
+      const facts = {
+        kind: 'store',
+        hasSessionRecord: (id: string) => parent.load(id).status === 'valid',
+        hasWriter: (id: string) => parent.hasWriter(id),
+      } as const;
+      expect(resolveExecutionAttach(fork('running'), facts)).toEqual({
+        type: 'follow',
+        taskId: 'agent_1',
+        sessionId: FORK_ID,
       });
-      expect(attach).toMatchObject({ type: 'refused', resumeSessionId: FORK_ID });
+      // Ended, the job's record still has its writer until the child is gone: continue is refused.
+      expect(resolveExecutionAttach(fork('completed'), facts).type).toBe('refused');
       // A second opener — this process is another one to the child — is refused, naming the child.
       let refusal: unknown;
       try {
@@ -227,7 +235,11 @@ describe('a plain parent’s child-process fork', () => {
       );
 
       await vi.waitFor(() => expect(parent.hasWriter(FORK_ID)).toBe(false));
-      expect(readdirSync(join(sessions, 'claims'))).toEqual([]);
+      expect(resolveExecutionAttach(fork('completed'), facts)).toEqual({
+        type: 'switch-session',
+        sessionId: FORK_ID,
+      });
+      expect(readdirSync(join(sessions, 'claims'))).toEqual([`${FORK_ID}.guard`]);
       createUserSessionStore(sessions, { sealing: 'plain' }).claim(FORK_ID).release();
     },
     TEST_TIMEOUT_MS,

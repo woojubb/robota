@@ -1,7 +1,5 @@
 /**
- * MCP-004 §S3 — unit tests for the tool-call handoff wrapper.
- *
- * TC-01, TC-02, TC-04 (real manager + real S1 runner), TC-09, TC-10 (first half), TC-21, TC-23.
+ * Unit tests for the tool-call handoff wrapper.
  */
 
 import {
@@ -29,7 +27,7 @@ import type { IBackgroundTaskManager, IToolInvocationAdopter } from '@robota-sdk
 import type {
   IBackgroundTaskState,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type { ISessionLogger } from '@robota-sdk/agent-session';
 
 const PROVENANCE: IToolCallHandoffProvenance = {
@@ -119,7 +117,7 @@ describe('ToolCallHandoffTool — delegation', () => {
   });
 });
 
-describe('TC-01: settles before the threshold', () => {
+describe('settles before the threshold', () => {
   afterEach(() => vi.useRealTimers());
 
   it('returns the inner result unchanged, never spawns, and leaves no armed timer', async () => {
@@ -149,7 +147,7 @@ describe('TC-01: settles before the threshold', () => {
   });
 });
 
-describe('TC-02: still pending at the threshold', () => {
+describe('still pending at the threshold', () => {
   afterEach(() => vi.useRealTimers());
 
   it('spawns exactly one tool-invocation task and returns backgroundTaskId + running status', async () => {
@@ -173,7 +171,7 @@ describe('TC-02: still pending at the threshold', () => {
   });
 });
 
-describe('TC-09: spawned request/state carries provenance and the informational budget', () => {
+describe('spawned request/state carries provenance and the informational budget', () => {
   afterEach(() => vi.useRealTimers());
 
   it('the spawned state carries toolName + flattened provenance in metadata, and maxRuntimeMs === budgetMs - elapsed', async () => {
@@ -250,7 +248,7 @@ describe('TC-09: spawned request/state carries provenance and the informational 
   });
 });
 
-describe('TC-10 (first half): construction-time wrap and additionalTools stays unwrapped', () => {
+describe('construction-time wrap and additionalTools stays unwrapped', () => {
   it('replaces the named tool in the session-local list, leaving additionalTools untouched', () => {
     const runner = {
       kind: 'tool-invocation' as const,
@@ -331,7 +329,7 @@ describe('TC-10 (first half): construction-time wrap and additionalTools stays u
   });
 });
 
-describe('TC-21: turn-claim abort — before threshold, after successful spawn, after a refused spawn', () => {
+describe('turn-claim abort — before threshold, after successful spawn, after a refused spawn', () => {
   afterEach(() => vi.useRealTimers());
 
   it('before threshold: aborts the call as before', async () => {
@@ -416,7 +414,7 @@ describe('TC-21: turn-claim abort — before threshold, after successful spawn, 
   });
 });
 
-describe('TC-23: the one declared fallback — spawn refuses after the threshold fired', () => {
+describe('the one declared fallback — spawn refuses after the threshold fired', () => {
   afterEach(() => vi.useRealTimers());
 
   it('releases the token, keeps the turn link, reports once, and returns the eventual foreground result', async () => {
@@ -504,7 +502,7 @@ describe('TC-23: the one declared fallback — spawn refuses after the threshold
   });
 });
 
-describe('TC-04: exactly-one delivery across a settle × spawn-latency sweep (real manager + real runner)', () => {
+describe('exactly-one delivery across a settle × spawn-latency sweep (real manager + real runner)', () => {
   afterEach(() => vi.useRealTimers());
 
   it('every combination of settle tick (threshold ± 5) and spawn latency (0-2) yields exactly one delivery', async () => {
@@ -581,7 +579,7 @@ describe('TC-04: exactly-one delivery across a settle × spawn-latency sweep (re
   });
 });
 
-/** Calls `execute` with an explicit `context.signal` (the turn claim) — a thin wrapper for TC-21. */
+/** Calls `execute` with an explicit `context.signal` (the turn claim). */
 function wrapExecute(
   tool: IToolWithEventService,
   deps: IToolCallHandoffDeps,

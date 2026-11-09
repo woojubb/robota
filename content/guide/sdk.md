@@ -1,12 +1,16 @@
 # Using the SDK
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 `@robota-sdk/agent-framework` assembles the lower Robota packages — `agent-core`, `agent-session`,
 `agent-tools` and `agent-executor` — into a ready-to-use agent session: built-in file, shell and web
 tools, permission checks, hooks, context tracking and compaction, slash commands, subagents, and
 optional persistence. You construct the provider and pass it in; the framework never imports a
 provider package itself. The platform it runs on is passed in as `host`: on Node, build one with
 `createNodeFrameworkHost({ createDefaultTools })` from `@robota-sdk/agent-framework/node`, with
-`createDefaultTools` from `@robota-sdk/agent-tool-defaults`; `{}` is a host that lends nothing.
+`createDefaultTools` from `@robota-sdk/agent-tools/defaults`; `{}` is a host that lends nothing.
 
 ## Choosing an entry point
 
@@ -15,7 +19,7 @@ provider package itself. The platform it runs on is passed in as `host`: on Node
 | Drive a long-lived agent from your own UI, server or bot   | `new InteractiveSession({ host, cwd, provider })`                               |
 | Ask a question and get a string back                       | `createQuery({ host, cwd, provider })`                                          |
 | Create many sessions that share one configuration          | `createAgentRuntime({ host, cwd, provider })` — see [Embedding](./embedding.md) |
-| Expose a session over HTTP, WebSocket or MCP               | `agent-transport-{http,ws,mcp}` — see [Deployment](./deployment.md)             |
+| Expose a session over HTTP, WebSocket or MCP               | `agent-transport/{http,ws,mcp}` — see [Deployment](./deployment.md)             |
 | Build a small agent with only your own tools, no framework | `new Robota()` from `agent-core` — see [Building Agents](./building-agents.md)  |
 | Assemble your own session loop from the parts              | `new Session()` from `agent-session`, with your own provider and tools          |
 
@@ -27,8 +31,8 @@ prompts, listen for events, and the session runs one turn at a time.
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const session = new InteractiveSession({
   host: createNodeFrameworkHost({ createDefaultTools }),
@@ -55,7 +59,7 @@ await session.shutdown();
   (`submit(input, undefined, undefined, { driverId })`) replaces the one still waiting; prompts from
   different drivers wait one after another. A prompt that never runs has its `completed` reject with
   a `TurnNotRunError` whose `reason` is `'coalesced'` (replaced), `'dropped'` (the queue was full)
-  or `'cancelled'` (the queue was cleared); `isTurnNotRunError()` from `agent-interface-session`
+  or `'cancelled'` (the queue was cleared); `isTurnNotRunError()` from `agent-interface/session`
   recognizes it.
 - `abort()` stops the running turn and clears the queue. The partial reply is kept with
   `state: 'interrupted'`, the `interrupted` event fires, and `completed` resolves with
@@ -103,7 +107,7 @@ The `__PRODUCT_CLI_NAME__` CLI is one host that makes these choices for you; see
 ### Events
 
 Subscribe with `on(event, listener)` and unsubscribe with `off(event, listener)`. The payload types
-are exported from `@robota-sdk/agent-interface-session` (`IContextWindowState` from
+are exported from `@robota-sdk/agent-interface/session` (`IContextWindowState` from
 `@robota-sdk/agent-core`).
 
 | Event                | Payload                   | When                                                                              |
@@ -124,7 +128,7 @@ are exported from `@robota-sdk/agent-interface-session` (`IContextWindowState` f
 | `status_changed`     | `ISessionStatusSnapshot`  | The mode, model, effort, goal or name changed                                     |
 
 The full list, including background-task, skill, goal, plan and checkpoint events, is
-`IInteractiveSessionEvents` in `agent-interface-session`.
+`IInteractiveSessionEvents` in `agent-interface/session`.
 
 ### Answering permission prompts
 
@@ -184,8 +188,8 @@ with `createNodeFrameworkHost({ createDefaultTools })` the built-in tools, with 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const query = createQuery({
   host: createNodeFrameworkHost({ createDefaultTools }),
@@ -336,7 +340,7 @@ profile options are listed in the [Providers Reference](./providers.md).
 The framework owns the command infrastructure — `CommandRegistry`, `SystemCommandExecutor`, and the
 command sources `SkillCommandSource` and `PluginCommandSource` — but ships no user-visible commands
 of its own. Commands come from command modules (`ICommandModule`) that the host passes as
-`commandModules`; `@robota-sdk/agent-command` provides the modules the `__PRODUCT_CLI_NAME__` CLI uses
+`commandModules`; `@robota-sdk/agent-product/command` provides the modules the `__PRODUCT_CLI_NAME__` CLI uses
 (`/help`, `/compact`, `/permissions`, `/skills` and the rest).
 
 Call commands through the session (this assumes the host composed a module that provides
@@ -370,8 +374,8 @@ it.
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { E2BSandboxClient } from '@robota-sdk/agent-tools';
 import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
 import { Sandbox } from 'e2b';
@@ -436,7 +440,7 @@ The framework appends a short instruction to a subagent's system prompt asking f
 a fork worker is asked for a structured report of at most 500 words. A subagent's transcript is
 written as JSONL to `{logsDir}/{parentSessionId}/subagents/{agentId}.jsonl` while it streams.
 
-The `agent` command module (from `agent-command`) is how the model and the user start subagents as
+The `agent` command module (from `agent-product/command`) is how the model and the user start subagents as
 background jobs. Its `parallel` form starts several jobs as one group and, unless `--detach` is
 given, waits for all of them and returns a combined summary. Each job is `LABEL:"PROMPT"` or
 `LABEL=AGENT_NAME:"PROMPT"`:
@@ -468,10 +472,10 @@ Git commands and `fs` is the file system the directory is read through: `new Nod
 
 ## Transports
 
-A transport exposes a session over a protocol. `agent-transport-http` (Hono), `agent-transport-ws`
-(WebSocket), `agent-transport-mcp` (MCP server over stdio or Streamable HTTP) and
-`agent-transport-acp` (Agent Client Protocol agent over stdio, for editors) are separate
-packages; each implements `ITransportAdapter` from `agent-interface-transport` and translates
+A transport exposes a session over a protocol. `agent-transport/http` (Hono), `agent-transport/ws`
+(WebSocket), `agent-transport/mcp` (MCP server over stdio or Streamable HTTP) and
+`agent-transport/acp` (Agent Client Protocol agent over stdio, for editors) are separate
+packages; each implements `ITransportAdapter` from `agent-interface/transport` and translates
 protocol messages into session calls and session events back into messages. `agent-framework` itself
 provides the non-interactive runner (`createHeadlessRunner`, with `text`, `json` or `stream-json`
 output) and `TransportRegistry` for starting and stopping several transports together. The

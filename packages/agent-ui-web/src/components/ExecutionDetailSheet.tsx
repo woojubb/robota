@@ -7,13 +7,15 @@ import type { TExecutionDetailStatus } from '../hooks/use-execution-detail.js';
 import type {
   IExecutionDetailRecord,
   IExecutionWorkspaceEntry,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 const STATUS_TAG_TONE: Record<string, string> = {
   warning: 'bg-warning/15 text-warning',
   destructive: 'bg-destructive/12 text-destructive',
   muted: 'bg-subtle/15 text-subtle',
 };
+
+const FOLLOW_BOTTOM_MARGIN_PX = 32;
 
 const RECORD_KIND_LABEL: Record<IExecutionDetailRecord['kind'], string> = {
   message: '',
@@ -26,7 +28,7 @@ const RECORD_KIND_LABEL: Record<IExecutionDetailRecord['kind'], string> = {
 };
 
 /**
- * #3288 §1: opening an Agents panel entry — status, what it was asked (one line, from its
+ * Opening an Agents panel entry — status, what it was asked (one line, from its
  * headline), its transcript so far (paginated via `onLoadMore`) and, once it has one, its result.
  * `entry === null` renders nothing; the caller owns showing/hiding this over the panel.
  */
@@ -39,6 +41,13 @@ export function ExecutionDetailSheet({
   onClose,
   onLoadMore,
   onStop,
+  onSend,
+  inputState,
+  onContinue,
+  mode = 'live',
+  unreadable,
+  onShowEarlier,
+  onShowLive,
 }: {
   entry: IExecutionWorkspaceEntry | null;
   status: TExecutionDetailStatus;
@@ -48,10 +57,45 @@ export function ExecutionDetailSheet({
   onClose: () => void;
   onLoadMore: () => void;
   onStop?: () => void;
+  onSend?: (prompt: string) => void;
+  inputState?: { taskId: string; status: 'pending' | 'sent' | 'failed' };
+  onContinue?: () => void;
+  mode?: 'live' | 'transcript';
+  unreadable?: { locked: number; noKeys: number; doesNotOpen: number };
+  onShowEarlier?: () => void;
+  onShowLive?: () => void;
 }): React.ReactElement | null {
+  const [prompt, setPrompt] = React.useState('');
+  const submitted = React.useRef<string | null>(null);
+  const outputRef = React.useRef<HTMLDivElement | null>(null);
+  const followingRef = React.useRef(true);
+  const isFork = Boolean(entry?.resumeSessionId && entry.controls.includes('attach'));
+  React.useLayoutEffect(() => {
+    followingRef.current = true;
+  }, [entry?.id, mode]);
+  React.useLayoutEffect(() => {
+    const output = outputRef.current;
+    if (output && isFork && mode === 'live' && followingRef.current) {
+      output.scrollTop = output.scrollHeight;
+    }
+  }, [entry?.id, isFork, mode, records]);
+  React.useEffect(() => {
+    setPrompt('');
+    submitted.current = null;
+  }, [entry?.id]);
+  React.useEffect(() => {
+    if (!entry || inputState?.taskId !== entry.sourceId || inputState.status === 'pending') return;
+    if (inputState.status === 'sent' && submitted.current !== null) {
+      const sent = submitted.current;
+      setPrompt((current) => (current.trim() === sent ? '' : current));
+    }
+    submitted.current = null;
+  }, [entry, inputState]);
   if (!entry) return null;
   const described = describeExecutionEntryStatus(entry);
   const canStop = onStop !== undefined && entry.controls.includes('cancel');
+  const ended =
+    entry.status === 'completed' || entry.status === 'failed' || entry.status === 'cancelled';
   const askedLine = entry.headline?.text ?? entry.preview;
 
   return (
@@ -105,11 +149,39 @@ export function ExecutionDetailSheet({
       )}
       {entry.deniedToolCalls !== undefined && entry.deniedToolCalls > 0 && (
         <p className="flex-shrink-0 px-4 pt-2 text-[12px] text-warning">
-          {entry.deniedToolCalls} tool {entry.deniedToolCalls === 1 ? 'call was' : 'calls were'} refused.
+          {entry.deniedToolCalls} tool {entry.deniedToolCalls === 1 ? 'call was' : 'calls were'}{' '}
+          refused.
         </p>
       )}
 
-      <div className="flex-1 space-y-2 overflow-y-auto px-4 py-3">
+      {isFork && onShowEarlier && onShowLive && (
+        <div className="flex gap-3 border-b border-subtle/15 px-4 py-2 text-[12px]">
+          <button type="button" onClick={onShowLive} disabled={mode === 'live'}>
+            Live output
+          </button>
+          <button type="button" onClick={onShowEarlier} disabled={mode === 'transcript'}>
+            Earlier output
+          </button>
+        </div>
+      )}
+      <div
+        ref={outputRef}
+        role={isFork ? (mode === 'live' ? 'log' : 'region') : undefined}
+        aria-label={
+          isFork ? (mode === 'live' ? 'Live fork output' : 'Earlier fork output') : undefined
+        }
+        aria-live={isFork && mode === 'live' ? 'polite' : undefined}
+        aria-relevant={isFork && mode === 'live' ? 'additions text' : undefined}
+        aria-atomic={isFork && mode === 'live' ? false : undefined}
+        tabIndex={isFork ? 0 : undefined}
+        onScroll={(event) => {
+          if (!isFork || mode !== 'live') return;
+          const output = event.currentTarget;
+          followingRef.current =
+            output.scrollHeight - output.scrollTop - output.clientHeight <= FOLLOW_BOTTOM_MARGIN_PX;
+        }}
+        className="flex-1 space-y-2 overflow-y-auto px-4 py-3"
+      >
         {records.map((record) => (
           <div key={record.id} className="text-[13px] leading-relaxed text-foreground">
             {RECORD_KIND_LABEL[record.kind] && (
@@ -124,7 +196,13 @@ export function ExecutionDetailSheet({
           <p className="text-[13px] text-subtle">Loading…</p>
         )}
         {error && <p className="text-[13px] text-destructive">{error}</p>}
-        {!complete && status !== 'loading' && (
+        {unreadable && (
+          <p className="text-[12px] text-warning">
+            Some records could not be read: {unreadable.locked} locked, {unreadable.noKeys} without
+            keys, {unreadable.doesNotOpen} unavailable.
+          </p>
+        )}
+        {(!isFork || mode === 'transcript') && !complete && status !== 'loading' && (
           <button
             type="button"
             onClick={onLoadMore}
@@ -133,10 +211,42 @@ export function ExecutionDetailSheet({
             Load more
           </button>
         )}
-        {!complete && status === 'loading' && records.length > 0 && (
-          <p className="text-[12px] text-subtle">Loading more…</p>
-        )}
+        {(!isFork || mode === 'transcript') &&
+          !complete &&
+          status === 'loading' &&
+          records.length > 0 && <p className="text-[12px] text-subtle">Loading more…</p>}
       </div>
+      {isFork && !ended && entry.controls.includes('send') && onSend && (
+        <form
+          className="border-t border-subtle/15 p-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!prompt.trim() || submitted.current !== null || inputState?.status === 'pending')
+              return;
+            submitted.current = prompt.trim();
+            onSend(submitted.current);
+          }}
+        >
+          <textarea
+            aria-label="Message the fork"
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            className="w-full rounded border border-subtle/20 bg-background p-2 text-foreground"
+          />
+          <button type="submit" disabled={!prompt.trim() || inputState?.status === 'pending'}>
+            Send to fork
+          </button>
+        </form>
+      )}
+      {isFork && ended && onContinue && (
+        <button
+          type="button"
+          onClick={onContinue}
+          className="border-t border-subtle/15 p-3 text-foreground"
+        >
+          Continue as session
+        </button>
+      )}
     </div>
   );
 }

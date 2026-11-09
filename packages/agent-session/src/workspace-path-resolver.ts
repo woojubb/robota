@@ -1,6 +1,6 @@
 /**
- * Where a path a shell command names really is, for the gate's read-only command check (issue
- * #3082). Symlinks are followed, as `Read`'s own containment check does: a link committed inside
+ * Where a path a shell command names really is, for the gate's read-only command check.
+ * Symlinks are followed, as `Read`'s own containment check does: a link committed inside
  * the workspace can point anywhere, so a string check alone cannot say a command stays inside.
  */
 

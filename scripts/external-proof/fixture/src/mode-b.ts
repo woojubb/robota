@@ -4,14 +4,14 @@
  * The consumer hand-writes an `IPreset` against the published contract and passes it in the profile. Two
  * things must hold: the RESOLVED options reflect the preset (persona / model / permission posture, and the
  * posture reaches the runtime session options), and the preset does NOT leak — `assembleProduct` builds a
- * PER-CALL instance-scoped registry (ARCH-005 R8) without mutating an independently owned built-in registry.
+ * PER-CALL instance-scoped registry without mutating an independently owned built-in registry.
  */
 
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '@robota-sdk/agent-product/preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 import { ACME_PROVIDER_SETTINGS, acmeReviewerPreset } from './acme.js';
 import { check, checkEqual, checkThrows, mode, note, section } from './harness.js';
@@ -101,7 +101,7 @@ export function runModeB(): void {
     'bypassPermissions',
   );
 
-  section('B4 — R8: the preset does NOT leak into a second assembleProduct call');
+  section('B4 — the preset does NOT leak into a second assembleProduct call');
   const second = assembleProduct({ id: 'acme-other-tool', providerDefinitions });
   check(
     "the second product's registry does not know the first product's preset",

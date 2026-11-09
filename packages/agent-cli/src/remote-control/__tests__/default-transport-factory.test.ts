@@ -4,7 +4,7 @@
  * view over a history page's worth must be refused before it is buffered, not after `send` throws.
  */
 import { HISTORY_PAGE_MAX_BYTES } from '@robota-sdk/agent-transport';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { defaultCreateResumeBridge } from '../default-transport-factory.js';

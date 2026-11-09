@@ -8,7 +8,8 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * run here too, as the plain TUI runs them.
  */
 import { productProviderDefinitions } from '../product/provider-definitions.js';
-import { createTerminalClientCommands } from '@robota-sdk/agent-command/node';
+import { createTerminalClientCommands } from '@robota-sdk/agent-product/command/node';
+import { SECURE_EDITOR_UNAVAILABLE } from '../product/product-profile.js';
 import { applyAppearanceSettings } from '@robota-sdk/agent-framework';
 import { createNodeHostSettingsStore } from '@robota-sdk/agent-framework/node';
 
@@ -85,7 +86,7 @@ export function createAttachedAppRender(
       access: projectAccess,
       cwd,
     });
-    // The plain TUI's survival guards (ERR-001 G1): an error it survives must not end this terminal.
+    // The plain TUI's survival guards: an error it survives must not end this terminal.
     // No session runs in this process to show the error in, so it is written to the terminal.
     presentation.installTuiProcessGuards(context.productRuntime.config.identity.cliName);
     return presentation.renderAttachedApp({
@@ -114,6 +115,9 @@ export function createAttachedAppRender(
           shellExecutable: resolveProductShellExecutable(context.productRuntime.environment),
           editorTemporaryDirectoryPrefix:
             context.productRuntime.vocabulary.editorTemporaryDirectoryPrefix,
+          ...(context.productRuntime.conversationMode === 'secure'
+            ? { editorUnavailableMessage: SECURE_EDITOR_UNAVAILABLE }
+            : {}),
           keybindingsFile: keybindingsSource,
           themeCatalogue: theme.cataloguePort,
           ...(enabledCommandModules !== undefined ? { enabledCommandModules } : {}),

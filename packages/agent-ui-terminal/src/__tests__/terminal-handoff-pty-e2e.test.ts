@@ -1,5 +1,5 @@
 /**
- * TEST-007 / TERM-002: real-terminal handoff, end-to-end through a PTY.
+ * Real-terminal handoff, end-to-end through a PTY.
  *
  * Drives `fixtures/terminal-handoff-driver.tsx` (a real Ink app using the real
  * `TerminalHandoffController` + `useTerminalHandoffSuspension`) inside a pseudo-terminal. This is the
@@ -18,14 +18,18 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { waitForFixtureEvent } from './pty/fixture-events.js';
 import { createPtyEnv } from './pty/isolated-home.js';
-import { spawnPtyFixture } from './pty/spawn-pty.js';
+import { PTY_TIME_FACTOR, spawnPtyFixture } from './pty/spawn-pty.js';
 
 import type { IPtyRunSession } from './pty/spawn-pty.js';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/terminal-handoff-driver.tsx', import.meta.url));
 const PACKAGE_DIR = fileURLToPath(new URL('../..', import.meta.url));
-const TEST_TIMEOUT_MS = 30_000;
+/** One wait per phase, as it would be on a developer machine; the harness scales it for the host. */
+const PHASE_TIMEOUT_MS = 10_000;
+/** Five waits in sequence: a stuck phase must report its own timeout, with the events, before this fires. */
+const TEST_TIMEOUT_MS = PHASE_TIMEOUT_MS * 5 * PTY_TIME_FACTOR;
 
 const tempDirs: string[] = [];
 const sessions: IPtyRunSession[] = [];
@@ -46,21 +50,22 @@ describe('terminal handoff PTY E2E', () => {
       const session = spawnPtyFixture(FIXTURE, {
         argv: [outputPath],
         cwd: PACKAGE_DIR,
-        // HARNESS-025: isolated HOME — the child must not read the developer's `~`.
+        // Isolated HOME — the child must not read the developer's `~`.
         env: createPtyEnv(),
       });
       sessions.push(session);
 
-      await session.waitFor('READY canHandoff=true', 10_000);
-      await session.waitFor('HANDOFF_STARTED', 10_000);
-      // Let the child reach its read() before sending the line.
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await waitForFixtureEvent(session, outputPath, 'READY canHandoff=true');
+      await waitForFixtureEvent(session, outputPath, 'HANDOFF_STARTED');
+      // The child says so once it holds the terminal, where nothing redraws over it. Keys sent
+      // before that wait in the console's input queue, and a fixed pause is not a guarantee.
+      await session.waitFor('CHILD_GOT_READY', PHASE_TIMEOUT_MS);
       await session.sendKeys('hello-from-pty', 10);
       session.write('\r');
 
       // The crux: the handoff must RETURN and the TUI must resume (no hang).
-      await session.waitFor('RESUMED exit=0', 10_000);
-      expect(await session.expectExit(5_000)).toBe(0);
+      await waitForFixtureEvent(session, outputPath, 'RESUMED exit=0');
+      expect(await session.expectExit(PHASE_TIMEOUT_MS)).toBe(0);
 
       const snapshot = session.snapshot();
       expect(snapshot).toContain('CHILD_GOT:[hello-from-pty]');

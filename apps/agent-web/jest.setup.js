@@ -29,8 +29,8 @@ jest.mock('next/image', () => ({
   },
 }));
 
-// Mock window objects
-Object.defineProperty(window, 'matchMedia', {
+// Mock window objects (node-environment tests have no `window`)
+if (typeof window !== 'undefined') Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: jest.fn().mockImplementation((query) => ({
     matches: false,

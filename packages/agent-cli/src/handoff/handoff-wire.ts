@@ -13,7 +13,7 @@
 import type {
   IFileFrameChannel,
   IHandoffCommitAck,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 /** Why one side ended a hand-off, as it tells the other. */
 export type THandoffWireRefusal =

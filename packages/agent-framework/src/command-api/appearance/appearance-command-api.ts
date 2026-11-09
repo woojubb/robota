@@ -3,12 +3,12 @@ import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type {
   IAppearanceSettings,
   TAppearanceSettingsPatch,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 
 export type { IAppearanceSettings, TAppearanceSettingsPatch };
 
 /**
- * SCREEN-2002 — the appearance settings, read and written in one place.
+ * The appearance settings, read and written in one place.
  *
  * Three FLAT keys, not one nested object: this is the shape `screenReader`, `promptHistory` and
  * `outputStyle` already use, it is what a user hand-editing the settings file expects, and

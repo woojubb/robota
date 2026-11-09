@@ -53,7 +53,7 @@ import {
   splitSealedBlob,
 } from '@robota-sdk/agent-keyring';
 
-import { KeyringStoreError, type TKeyringStoreErrorCode } from './keyring-store.js';
+import { KeyringStoreError, type TKeyringStoreErrorCode } from '@robota-sdk/agent-local-host';
 
 import type { IArtifactContext, IArtifactSealer, TArtifactKind } from '@robota-sdk/agent-core';
 import type { IKeyPair } from '@robota-sdk/agent-keyring';

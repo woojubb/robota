@@ -19,7 +19,7 @@ import {
   type IHandoffManifestRequest,
   type IHandoffOutcome,
   type TSourceAbandonReason,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 import { sendFileOverChannel } from '@robota-sdk/agent-transport/node';
 
 import { describeFileRefusal } from '../peer-files/receiving.js';
@@ -27,7 +27,7 @@ import { handoffChannelFingerprint } from './handoff-grant.js';
 import { openHandoffWire, type IHandoffWire } from './handoff-wire.js';
 
 import type { THandoffWireRefusal } from './handoff-wire.js';
-import type { IFileFrameChannel } from '@robota-sdk/agent-interface-session-mobility';
+import type { IFileFrameChannel } from '@robota-sdk/agent-interface/session-mobility';
 import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 
 /** For the receiving operator to answer. */

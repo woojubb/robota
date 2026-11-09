@@ -16,7 +16,7 @@ import {
   resolveSubagentTranscriptPath,
 } from '@robota-sdk/agent-framework/node';
 import { CommandExecutor, HttpExecutor, withChildSession } from '@robota-sdk/agent-core/node';
-import { DEFAULT_KILL_GRACE_MS } from '@robota-sdk/agent-process';
+import { DEFAULT_KILL_GRACE_MS } from '@robota-sdk/agent-os/process';
 
 import {
   preflightStartPayloadSealing,
@@ -28,6 +28,7 @@ import {
   type IProjectedStartSealing,
 } from './child-process-subagent-projection.js';
 import { followForkRecordSaves } from './child-process-subagent-record-saves.js';
+import { createSendChannel } from './child-process-subagent-send.js';
 import {
   cancelUnstartedChild,
   createCancellationResult,
@@ -45,7 +46,7 @@ import type {
   ISubagentWorkerStartPayload,
   TSubagentWorkerPermissionResult,
 } from './child-process-subagent-ipc.js';
-import type { TParentSandboxSettings, TResumeSessionStore } from './worker-composition.js';
+import type { TParentSandboxSettings, TResumeSessionStore, TResumeStoreReference } from './worker-composition.js';
 import type {
   IProviderDefinition,
   IProviderDefinitionConfig,
@@ -59,12 +60,12 @@ import type {
 import type {
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
-/** POSIX children are forked detached so a process-group kill reaps grandchildren (CORE-023). */
+/** POSIX children are forked detached so a process-group kill reaps grandchildren. */
 const SPAWN_DETACHED = process.platform !== 'win32';
 
-/** Issue #3288 §1: how a job's child asks the parent's own approver for a tool call. */
+/** How a job's child asks the parent's own approver for a tool call. */
 type TPermissionApprover = (
   toolName: string,
   toolArgs: TToolArgs,
@@ -72,8 +73,10 @@ type TPermissionApprover = (
 ) => Promise<TSubagentWorkerPermissionResult>;
 
 export interface IChildProcessSubagentRunnerOptions {
+  /** Parent-selected store reference; the worker composition must independently verify it. */
+  resumeStore?: TResumeStoreReference;
   /**
-   * DIST-006: how to start a copy of the running artifact in subagent-worker mode, stated by the
+   * How to start a copy of the running artifact in subagent-worker mode, stated by the
    * composition root. It replaced `workerPath`, which asked this package to locate a file whose
    * location is a property of the packaging step — a question no library can answer, and one that
    * was answered wrongly twice.
@@ -165,6 +168,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private readonly expectedEnvironment?: NodeJS.ProcessEnv;
   private readonly inheritEnvironment: boolean;
   private readonly logsDir?: string;
+  private readonly resumeStore?: TResumeStoreReference;
   private readonly keepProviderCredential: boolean;
   private readonly parentSandboxSettings?: () => TParentSandboxSettings | undefined;
   private readonly watchParentSandboxSettings?: IChildProcessSubagentRunnerOptions['watchParentSandboxSettings'];
@@ -191,6 +195,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       );
     }
     this.logsDir = options.logsDir;
+    this.resumeStore = options.resumeStore;
     this.keepProviderCredential = options.keepProviderCredential === true;
     this.parentSandboxSettings = options.parentSandboxSettings;
     this.watchParentSandboxSettings = options.watchParentSandboxSettings;
@@ -223,7 +228,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   }
 
   start(job: ISubagentJobStart): ISubagentJobHandle {
-    // DIST-006: `spawn` rather than `fork` — `fork` is `spawn(process.execPath, [module, …])` with
+    // `spawn` rather than `fork` — `fork` is `spawn(process.execPath, [module, …])` with
     // an ipc stdio, and the module is exactly the thing that cannot be named for every artifact.
     // Stating execPath and args outright is the same mechanism without the assumption.
     const entry = this.workerEntry;
@@ -258,13 +263,13 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
         entry.execPath,
         [...(entry.execArgv ?? []), ...entry.args, SUBAGENT_WORKER_MODE_FLAG],
         withChildSession({
-          // ARCH-010/ARCH-031: the forked process's OS working directory answers the same question
+          // The forked process's OS working directory answers the same question
           // as the session's execution root, so it reads the same rule. Reading `request.cwd`
-          // directly was only ever correct while the worktree runner rewrote that field — this is
-          // the second carrier that removal would have left disagreeing with the first.
+          // directly would be correct only if the worktree runner rewrote that field — it would be
+          // a second carrier that could disagree with the first.
           cwd: subagentExecutionRoot(job),
           env,
-          // DIST-006: stderr was `'ignore'`, so a child that died before its first IPC message
+          // Stderr was `'ignore'`, so a child that died before its first IPC message
           // reported only `exit code 1`. That is why this defect's second occurrence had to be
           // diagnosed by hand — the cause was written to a stream nothing was reading.
           stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
@@ -318,7 +323,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       void cancelUnstartedChild(runtime);
       throw error;
     }
-    // Issue #3288 §1: owned here (not inside the result controller) so `cancel()` below can abort it
+    // Owned here (not inside the result controller) so `cancel()` below can abort it
     // the moment cancellation is REQUESTED — a still-parked permission ask must not outlive that
     // decision by however long the child takes to confirm it. The controller also aborts it on its
     // own settlement, covering a crash or a normal finish with one still in flight.
@@ -339,12 +344,13 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     const cancellation = createCancellationResult(job.taskId);
     void workerResult.catch(() => undefined);
     const result = Promise.race([workerResult, cancellation.promise]);
-    // CORE-023: cancel() now awaits the SIGTERM→grace→SIGKILL escalation, so it settles later
+    // cancel() now awaits the SIGTERM→grace→SIGKILL escalation, so it settles later
     // than the synchronous cancellation.reject(). Guard `result` so its rejection is never
     // "unhandled" during that window; real consumers still await it and receive the rejection.
     void result.catch(() => undefined);
     const transcriptPath = this.resolveTranscriptPath(job);
     const logSealing = this.logSealing;
+    const sendToChild = createSendChannel(child);
 
     return {
       taskId: job.taskId,
@@ -355,15 +361,13 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
         logSealing !== 'plain' && { transcriptSealed: true as const }),
       result,
       cancel: async (reason?: string) => {
-        // Issue #3288 §1: dismiss a still-parked permission ask before anything else — the GUI must
+        // Dismiss a still-parked permission ask before anything else — the GUI must
         // not keep asking about a task the person just told to stop.
         permissionAbort.abort(reason);
         cancellation.reject(reason);
         await cancelChildProcess(runtime, reason);
       },
-      send: async (prompt: string) => {
-        await sendWorkerMessage(child, { type: 'send', prompt });
-      },
+      send: sendToChild,
       ...(transcriptPath !== undefined && {
         readLog: async (cursor?: IBackgroundTaskLogCursor) =>
           readTranscriptLog(job.taskId, transcriptPath, cursor, logSealing),
@@ -442,9 +446,9 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
 
   /**
    * The payload the child is started with. The builder lives in
-   * `child-process-subagent-projection.ts` (CLI-1994 moved it there so the ARCH-044 key-set test
-   * pins the code that produces it); review of ARCH-033/ARCH-034 is the reason it is a named
-   * producer at all — both fields were declared on the wire type, read by the worker, and set by
+   * `child-process-subagent-projection.ts` (it lives there so the key-set test
+   * pins the code that produces it); it is a named
+   * producer because fields could be declared on the wire type, read by the worker, and set by
    * nothing, because this was the only production site that constructs a payload and no test
    * reached it.
    */
@@ -458,6 +462,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       connection,
       providerDefinitions: this.providerDefinitions,
       ...(this.logsDir !== undefined ? { logsDir: this.logsDir } : {}),
+      ...(this.resumeStore !== undefined ? { resumeStore: this.resumeStore } : {}),
       ...(this.keepProviderCredential ? { keepProviderCredential: true } : {}),
       ...(parentSandboxSettings !== undefined ? { parentSandboxSettings } : {}),
       ...sealing,
@@ -513,7 +518,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   }
 
   /**
-   * Issue #3288 §1: how this job's child gets a human's yes/no — the parent session's own approver
+   * How this job's child gets a human's yes/no — the parent session's own approver
    * (`deps.permissionHandler`, the exact function the in-process runner already hands its own child
    * session), bound to a `requester` identity that names this task so a surface can say "Background
    * agent X wants to …" instead of an unattributed prompt. `undefined` when the parent session has no

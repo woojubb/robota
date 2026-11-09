@@ -1,5 +1,5 @@
 /**
- * #3282 §4d — pure logic behind the composer's attach button and drag-and-drop, kept apart from
+ * Pure logic behind the composer's attach button and drag-and-drop, kept apart from
  * `Composer.tsx` so it is testable without React or a DOM.
  *
  * The runtime resolves `@relative/path` references already (`prompt-file-reference-resolver.ts` in
@@ -26,7 +26,7 @@ export const MAX_ATTACHMENT_TOTAL_BYTES = 256 * 1024;
  */
 export const MAX_ATTACHMENT_COUNT = 8;
 
-/** Shown whenever a file cannot be resolved to a path inside the workspace — rule 3 (#3282 §4). */
+/** Shown whenever a file cannot be resolved to a path inside the workspace — rule 3. */
 export const ATTACHMENT_NO_PATH_NOTICE = 'Only files inside this project folder can be attached.';
 
 /** Shown once the running count of attachments would pass `MAX_ATTACHMENT_COUNT`. */
@@ -50,7 +50,7 @@ export interface IDraftAttachment {
 }
 
 /**
- * One file the desktop host's native "Attach files" dialog returned (#3282 §4d). Kept in structural
+ * One file the desktop host's native "Attach files" dialog returned. Kept in structural
  * sync with `IPickedFile` in `apps/agent-gui-web/src/gui-host.ts` and
  * `apps/agent-app/electron/sidecar.ts` — the three are not imported across the Electron/browser/
  * presentation package boundaries, same as this codebase already does for the trust question.
@@ -228,11 +228,11 @@ export function evaluateCandidateFile(
 }
 
 /**
- * Inserts each chip as the runtime's existing `@relative/path` reference syntax — rule 2 (#3282 §4).
+ * Inserts each chip as the runtime's existing `@relative/path` reference syntax — rule 2.
  * Always prefixed with `./`: the parser's `isPathLikeReference` only treats a token as a file
  * reference when it has a `.` somewhere or an explicit relative-path prefix, so a dotless name like
  * `Makefile`, `Dockerfile` or `LICENSE` — common, useful, and never refused for lacking one — would
- * otherwise be sent as plain text with no file and no diagnostic (follow-up to #3282 §4d). `./` makes
+ * otherwise be sent as plain text with no file and no diagnostic. `./` makes
  * every path path-like regardless of its name, and the resolver collapses it back to the plain
  * relative path before use.
  */

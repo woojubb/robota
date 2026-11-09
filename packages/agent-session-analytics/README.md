@@ -24,7 +24,7 @@ import {
   formatUsageReport,
   summarizeUsageBySource,
 } from '@robota-sdk/agent-session-analytics';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 declare const record: IInteractiveSessionRecord; // loaded by the caller
 
@@ -71,6 +71,6 @@ Unknown cost or token splits stay visible as unknown rather than being reported 
 The record and history types are the canonical `IInteractiveSessionRecord` and `IHistoryEntry`; this
 package defines no duplicates. The usage and trace report types (`IUsageBySourceReport`,
 `IUsageSourceTotals`, `IRunTraceSpan`, `IRunTraceTurn`) are owned by
-`@robota-sdk/agent-interface-analytics` and re-exported here for convenience.
+`@robota-sdk/agent-interface/analytics` and re-exported here for convenience.
 
 See [docs/SPEC.md](./docs/SPEC.md) for the full contract.

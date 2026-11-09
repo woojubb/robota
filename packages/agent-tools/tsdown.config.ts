@@ -1,12 +1,16 @@
+import { builtinModules } from 'node:module';
+
 import { defineConfig } from 'tsdown';
 
 export default defineConfig([
   {
-    entry: { index: 'src/index.ts', node: 'src/node.ts' },
+    // One build for every runtime. The Node-only `./node` and `./defaults` entries are built in the same
+    // pass so they share the neutral entry's chunks.
+    entry: { index: 'src/index.ts', node: 'src/node.ts', defaults: 'src/defaults/index.ts' },
     // Each format ships its own declarations: .d.ts for import, .d.cts for require.
     format: { esm: {}, cjs: {} },
-    outDir: 'dist/node',
-    platform: 'node',
+    outDir: 'dist',
+    platform: 'neutral',
     clean: true,
     dts: true,
     sourcemap: false,
@@ -15,6 +19,6 @@ export default defineConfig([
       js: format === 'cjs' ? '.cjs' : '.js',
       dts: format === 'cjs' ? '.d.cts' : '.d.ts',
     }),
-    deps: { neverBundle: [/^@robota-sdk\/.*/] },
+    deps: { neverBundle: [/^@robota-sdk\/.*/, /^node:/, ...builtinModules] },
   },
 ]);

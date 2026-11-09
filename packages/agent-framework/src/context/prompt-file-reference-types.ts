@@ -1,10 +1,10 @@
 import type { IWorkspaceProjectReader } from '../workspace-trust/index.js';
 // IPromptFileReferenceRecord / TPromptFileReferenceReason SSOT relocated to
-// @robota-sdk/agent-interface-session (DATA-001).
+// @robota-sdk/agent-interface/session.
 import type {
   IPromptFileReferenceRecord,
   TPromptFileReferenceReason,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export type { IPromptFileReferenceRecord, TPromptFileReferenceReason };
 

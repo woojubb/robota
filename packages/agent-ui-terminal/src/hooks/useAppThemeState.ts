@@ -8,7 +8,7 @@ import type {
   IAppearanceSettings,
   IThemeAppearanceState,
   TReducedMotionOverride,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 
 /** The tier that pinned motion for this run and what it pinned — the contract's own pair. */
 type IReducedMotionPin = NonNullable<IThemeAppearanceState['reducedMotionPin']>;
@@ -70,7 +70,7 @@ interface IOptions {
 }
 
 /**
- * SCREEN-2002 — which theme the live region renders with, and the picker over it.
+ * Which theme the live region renders with, and the picker over it.
  *
  * Two inputs, one answer. The PERSISTED appearance is the baseline; a preview is a local overlay
  * that exists only while the picker is open. Selecting does not write — it submits `/theme <id>`,

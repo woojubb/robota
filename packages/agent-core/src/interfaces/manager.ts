@@ -91,17 +91,17 @@ export interface IToolManager {
   getTools(): IToolSchema[];
 
   /**
-   * CLI-1990: the schemas the model is offered at the next request — every registered tool while
+   * The schemas the model is offered at the next request — every registered tool while
    * deferral is not engaged; the resident ones plus the loaded deferred ones once it is. Read per
    * round by the execution loop; it is never a snapshot.
    */
   getOfferedTools(): IToolSchema[];
 
-  /** CLI-1990: whether a call to this tool would execute now — registered AND offered. */
+  /** Whether a call to this tool would execute now — registered AND offered. */
   isToolOffered(name: string): boolean;
 
   /**
-   * CLI-1990: deferred tools not yet loaded — the population a search discovers. Empty while
+   * Deferred tools not yet loaded — the population a search discovers. Empty while
    * deferral is not engaged. The same member `IDeferredToolCatalog` declares.
    */
   listDeferredTools(): IToolSchema[];
@@ -110,7 +110,7 @@ export interface IToolManager {
   getLoadedDeferredTools?(): string[];
 
   /**
-   * CLI-1990: mark deferred tools loaded for the rest of the session and return their schemas; an
+   * Mark deferred tools loaded for the rest of the session and return their schemas; an
    * unknown name throws, naming it, before anything is loaded. The same member
    * `IDeferredToolCatalog` declares.
    */

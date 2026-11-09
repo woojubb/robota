@@ -1,5 +1,101 @@
 # @robota-sdk/agent-mcp
 
+## 3.2.2
+### Patch Changes
+
+- Drop dangling tracker references (deleted backlog IDs, stage labels and closed issue numbers) from shipped comments, type declarations and runtime messages, so agents reading this package are not sent after tickets that no longer exist. No behavior change.
+
+## 3.2.1
+
+## 3.2.0
+
+## 3.1.2
+
+## 3.1.1
+
+## 3.1.0
+### Minor Changes
+
+- 04c3233: The universal parameter-schema subset gains size bounds: `minLength`, `maxLength`, `minItems`, `maxItems`, `minProperties` and `maxProperties`. They are enforced by `validateAgainstJsonSchema` and by `FunctionTool` (at the root too), persisted and reloaded in session records, and kept by MCP schema narrowing, so a server such as Exa no longer prints an unenforceable-schema diagnostic for them. A bound that is not a non-negative integer is dropped and reported. Per provider: OpenAI strict mode keeps `minItems`/`maxItems` and leaves the others off the wire with a Schema note, Gemini carries all six, standard JSON Schema surfaces carry them unchanged, and Anthropic's `output_config.format` omits them along with `minimum`/`maximum`, which it answers with a 400. `ISchemaClosureOptions` gains `omitKeywords`.
+- 9bc13f9: Keep a session readable whatever an MCP server declares. Narrowing now carries only the values the universal parameter schema admits, so `default: []`, `enum: ['x', null]`, `required: true`, a non-numeric `minimum` and similar no longer make the session record refuse to load, and a `null` property or union branch no longer throws. A dropped constraint is reported; a dropped annotation is not. A tool holding `type` beside `anyOf` is no longer quarantined, a `pattern` JavaScript cannot compile no longer throws at validation, a root that named no properties no longer refuses every argument, an empty `anyOf` or `enum` no longer refuses every value, a schema nested thousands of levels deep no longer stops startup, a `__proto__` property is no longer lost unreported, a `required` name with no property no longer stops the agent initializing, and a tool with no description no longer fails to register, a truncated tool name stays inside the alphabet vendors accept, and a duplicate `required` name no longer reaches the wire.
+
+  Breaking: `ThirdPartySchemaValidator` and the `report` option of `createDiscoveredTool` are removed. A discovered tool validates against the schema narrowed at catalog registration, which reports through `buildCatalog`'s `report` option.
+- b7b6cd0: Make the MCP client platform-neutral.
+
+  - `@robota-sdk/agent-core` exports `sha1Hex` (string or bytes), beside `sha256Hex`, for a digest that names something and must stay equal to the one an earlier run wrote.
+  - `@robota-sdk/agent-mcp`: the main entry no longer reaches a Node built-in, a Node global or `@robota-sdk/agent-core/node`, and the package moves to the platform-neutral list. `createStdioAdapter` (with `IMCPAdmittedStdioEndpoint`, `IMCPStdioAdapterOptions`, `IMCPStdioAuthority`, `IMCPStdioExecutable` and `IMCPStdioInput`), `createFileOAuthCredentialStore`, `createFileOAuthRefreshLock` (with `IFileOAuthRefreshLockOptions`) and `startOAuthCallbackServer` moved to the new `@robota-sdk/agent-mcp/node`. `MCPStdioError`, `MCPTransportEgressRefusedError` and `isExecutionEnvironmentName` stay on the main entry, so the session and the supervisor still classify a stdio or egress failure on every platform.
+  - `@robota-sdk/agent-mcp`: `IMCPHttpTransportDeps` is `{ egress }`, required, instead of `{ policy?, lookup?, fetch? }`; `createStreamableHttpAdapter(deps)` and `admitHttpEndpoint(endpoint, deps)` no longer default it, `IMCPAdmittedHttpEndpoint.egress` is required, and `constructStreamableHttpTransport(admitted)` takes no second argument. `IMCPHttpEgress` judges a destination and opens the carrier every request of an admitted endpoint is sent through. `createNodeHttpEgress({ policy, lookup, fetch })` on `/node` is the egress of before — resolved-address policy, pinned connection, owner/test `fetch`. A browser host passes `{ egress: createWebFetchEgress() }` (web `fetch`, any `http:` or `https:` URL, nothing resolved or classified). A call without an egress does not compile, and one that omits it anyway is refused at admission with `egress-unavailable` before anything is sent.
+  - `@robota-sdk/agent-mcp`: cancelling a tool call over Streamable HTTP still withdraws that call's own request on a legacy connection, as before; it is now done by JSON-RPC id and needs nothing from the host. A call's `traceparent` is its own per-request header, and its cancellation repeats it. A refused redirect is reported as one where a browser's `fetch` hides it as an `opaqueredirect` with status 0; it was retried as a transient failure.
+  - `@robota-sdk/agent-mcp`: `IMCPOAuthNetwork` is a port (`get` and `post` returning a bounded response or a refusal) instead of `{ policy, lookup, fetch }`; `createNodeOAuthNetwork` on `/node` is the egress-policy implementation. `runMCPOAuthLogin` takes the loopback listener as an optional `callbackListener` (`IMCPOAuthCallbackListener`; `loopbackOAuthCallbackListener` on `/node`); without one a sign-in that needs it fails with `callback-unavailable`. The sign-in `state` is 32 random bytes in hex (it was base64url).
+  - `@robota-sdk/agent-mcp`: a `headersHelper.command` is judged absolute by its own text (`C:\tool.exe` is absolute on any host) instead of by the host's `path`. Activation identity, definition fingerprints, security identities, truncated tool names and skill manifest digests keep the bytes they had.
+  - `@robota-sdk/agent-cli` composes the Node pieces itself: its MCP composition, OAuth host and login command build the Node egress, OAuth network, credential files and loopback listener from the same options as before, so HTTP servers keep the pinned connection, the private-address refusal and trace propagation.
+- b56b5a9: Ship one build per package. The platform-neutral entries moved from `dist/node` to `dist`, and the second
+  `dist/browser` build of `@robota-sdk/agent-core`, `@robota-sdk/agent-transport`,
+  `@robota-sdk/agent-ui-web` and `@robota-sdk/agent-transport-webrtc-web` is gone: a neutral entry runs
+  unchanged in every runtime, so a subpath's `exports` map `import` and `require` to the same files and no
+  longer a `node` or `browser` condition (a Node-only subpath keeps `"browser": null`). Import specifiers
+  and the code behind them are unchanged; only a deep import of `dist/node/*` or `dist/browser/*` breaks.
+  `@robota-sdk/agent-transport/client` also ships a CommonJS build now.
+
+### Patch Changes
+
+- 51ad6a4: Children in their own session for secure mode (issue #3679). Nothing turns secure mode on yet, so
+  spawning in every product process is unchanged except for the pull-request opener below.
+
+  `@robota-sdk/agent-core/node` adds the child-session policy: `enableOwnChildSessions()` (one-way,
+  process-wide, nothing on Windows), `withChildSession(options)`, `execFileInChildSession(...)`,
+  `endWithProcess(child)` and `signalChildGroup(child, signal)`, with `resetChildSessionsForTesting()`
+  in `@robota-sdk/agent-core/testing`. While the policy is off each returns or runs exactly what the
+  caller did before. While on, a child leads its own session and process group, may not inherit a
+  terminal descriptor, and its group is killed when the process ends. Command hooks, the identity
+  readers, stdio MCP servers, git, the sandbox, background tasks and the CLI's own children use it; the
+  terminal handover (`/editor`, `/keybindings`, `/shell`, the workspace-move re-exec) does not.
+
+  Breaking: `removeProcessScopedDirectoriesNow()` is renamed `runProcessEndNow()`, since it now also
+  ends the groups of children in their own session. What to do: call `runProcessEndNow()` where a
+  crash handler called the old name.
+
+  Plain-mode changes in `@robota-sdk/agent-cli`: the session view opens a pull request with the
+  product's own browser opener instead of the `open` package, which is no longer a dependency. macOS
+  still runs `open <url>`; Linux runs the `xdg-open` found on `PATH`; Windows runs
+  `rundll32 url.dll,FileProtocolHandler <url>` rather than PowerShell's `Start`; and only an https
+  link opens. That opener, which sign-in also uses, is now started detached and let go: it settles once
+  the opener has started rather than when it exits (it no longer fails after 15 seconds when
+  `xdg-open` stays in the foreground), and it is never ended with the process. What to do: nothing.
+- 04c3233: Narrowing replaces an inexpressible `anyOf` branch with the accepts-anything node instead of leaving `{}`. A `$ref` branch, as in Parallel's `web_decisions`, used to fail tool registration, so every turn failed while that server was connected.
+- 45c11a2: The peer dependencies on `@robota-sdk/agent-core` and `@robota-sdk/agent-session` accept the release line (`^`) instead of one exact version, so a minor release of the SDK stays a minor instead of becoming a major.
+- 0a677e9: Narrow a third-party MCP tool schema to exactly the keywords the universal subset declares. A constraint the subset cannot check (such as `multipleOf`) is now dropped and reported instead of being carried along, which made the session record refuse to load ("Session record cannot be updated: corrupt") once a server such as Exa was connected; annotations such as `title` are dropped quietly, and a standard JSON Schema `$schema` dialect is no longer reported as unenforceable.
+
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

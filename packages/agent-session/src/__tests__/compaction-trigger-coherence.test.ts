@@ -40,7 +40,7 @@ function createOrchestrator(): CompactionOrchestrator {
   return new CompactionOrchestrator({
     hookTypeExecutors: [],
     sessionId: 'session-trigger',
-    cwd: '/tmp/arch-016',
+    cwd: '/tmp/compaction-trigger',
     model: 'offline-model',
     hooks: { PreCompact: [] },
   });

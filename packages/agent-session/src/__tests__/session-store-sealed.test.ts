@@ -1,5 +1,5 @@
 /**
- * Sealed session records (#3679, secure conversation) — what NodeSessionStore writes and concludes
+ * Sealed session records (secure conversation) — what NodeSessionStore writes and concludes
  * when it is given an artifact sealer.
  *
  * Every case reads the BYTES on disk or drives a real load path, because the claim is about what is
@@ -12,6 +12,8 @@
  *   - the plaintext never reaches the disk once a sealer is configured;
  *   - a store with no sealer is the store it always was.
  */
+
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
 
 import {
   chmodSync,
@@ -41,7 +43,7 @@ import { StoredSessionRecords } from '../stored-session-record.js';
 
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-7c2e91-secret-conversation-text';
 
@@ -59,7 +61,10 @@ function decodeStoredSessionBytes(
       current: () => ({ kind: 'absent' }),
       replace: () => undefined,
     },
-    createProcessMarkers(path.join(newStoreDir(), 'claims')),
+    ((directory: string) =>
+      createProcessMarkers(directory, { operationLock: createProcessOperationLock(directory) }))(
+      path.join(newStoreDir(), 'claims'),
+    ),
   ).load(id);
 }
 
@@ -86,7 +91,7 @@ function record(id: string, text = CANARY, updatedAt = '2026-08-01T01:00:00.000Z
 }
 
 /**
- * A valid outcome as a store that seals reports it (#3679 step 3e): it says whose the record is and
+ * A valid outcome as a store that seals reports it: it says whose the record is and
  * which stored bytes it came from. Saves here state no provenance, so the records are unverified.
  */
 function sealedValid(value: IInteractiveSessionRecord, authorship = 'unverified') {

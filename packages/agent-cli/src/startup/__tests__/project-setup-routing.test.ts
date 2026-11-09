@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * #3282 §3 — a served runtime (`--serve`, and a daemon's spawned child, which is also `--serve`) with
+ * A served runtime (`--serve`, and a daemon's spawned child, which is also `--serve`) with
  * no usable provider configuration starts in setup mode instead of exiting. The TUI and print mode are
  * unchanged: they still exit with the same message.
  */
@@ -61,7 +61,7 @@ function emptyWorkspace(name: string, { tty = false }: { tty?: boolean } = {}) {
   return { cwd: project, workspace, productRuntime };
 }
 
-describe('routeProjectSetup — #3282 §3 setup mode', () => {
+describe('routeProjectSetup — setup mode', () => {
   afterEach(() => {
     Object.defineProperty(process.stdin, 'isTTY', { value: ORIGINAL_STDIN_TTY, configurable: true });
     Object.defineProperty(process.stdout, 'isTTY', { value: ORIGINAL_STDOUT_TTY, configurable: true });

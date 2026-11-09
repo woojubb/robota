@@ -15,7 +15,7 @@ import type {
   IEditCheckpointStore,
   IEditCheckpointSummary,
 } from '../../checkpoints/edit-checkpoint-types.js';
-import type { IActiveBranchPointer, IBranchEvent } from '@robota-sdk/agent-interface-session';
+import type { IActiveBranchPointer, IBranchEvent } from '@robota-sdk/agent-interface/session';
 
 const SESSION = 'session_in_memory';
 

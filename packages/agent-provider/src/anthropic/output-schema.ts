@@ -1,0 +1,88 @@
+import { closeObjectSchemas } from '@robota-sdk/agent-core';
+
+import type Anthropic from '@anthropic-ai/sdk';
+import type {
+  IChatOptions,
+  IModelEffortResolution,
+  TModelEffort,
+  TUniversalValue,
+} from '@robota-sdk/agent-core';
+
+/**
+ * Bounds `output_config.format` answers with a 400. Only a `minItems` of 0 or 1 is accepted, and that
+ * one is not worth a value test: every bound stays enforced by the core-side validate-and-retry loop,
+ * which reads the consumer's own schema, so leaving it off the wire costs the model a hint and
+ * nothing else.
+ */
+const UNSUPPORTED_BOUNDS = [
+  'minimum',
+  'maximum',
+  'minLength',
+  'maxLength',
+  'minItems',
+  'maxItems',
+  'minProperties',
+  'maxProperties',
+];
+
+/**
+ * Map a `json_schema` response format onto Anthropic's native structured-output
+ * surface (`output_config.format`). Other formats have no Anthropic
+ * equivalent and rely on the core-side validation loop.
+ *
+ * Anthropic rejects open-world objects, so every object node is closed on the way out. That
+ * recursion is shared with the OpenAI strict seam rather than kept private here — a walk
+ * over this subset that misses a route leaves exactly the nodes it was written to fix untouched, and
+ * a second copy has to be found and fixed separately. Anthropic asks only for closure; it does NOT
+ * force every property into `required`, which is why no closure option is passed.
+ */
+export function buildOutputConfig(
+  options: IChatOptions | undefined,
+): Pick<Anthropic.MessageCreateParams, 'output_config'> | Record<string, never> {
+  const effort = resolveAnthropicNativeEffort(options?.effortResolution);
+  if (options?.responseFormat?.type !== 'json_schema' && effort === undefined) {
+    return {};
+  }
+  return {
+    output_config: {
+      ...(effort !== undefined && { effort }),
+      ...(options?.responseFormat?.type === 'json_schema' && {
+        format: {
+          type: 'json_schema' as const,
+          schema: closeObjectSchemas(options.responseFormat.schema, {
+            omitKeywords: UNSUPPORTED_BOUNDS,
+          }) as Record<string, TUniversalValue>,
+        },
+      }),
+    },
+  };
+}
+
+function resolveAnthropicNativeEffort(
+  resolution: IModelEffortResolution | undefined,
+): Anthropic.OutputConfig['effort'] | undefined {
+  if (
+    resolution === undefined ||
+    resolution.effective === null ||
+    resolution.disposition === 'model-default'
+  ) {
+    return undefined;
+  }
+  return toAnthropicNativeEffort(resolution.effective);
+}
+
+function toAnthropicNativeEffort(
+  effort: TModelEffort,
+): NonNullable<Anthropic.OutputConfig['effort']> {
+  switch (effort) {
+    case 'low':
+    case 'medium':
+    case 'high':
+    case 'xhigh':
+    case 'max':
+      return effort;
+    case 'none':
+    case 'minimal':
+      throw new Error(`Anthropic does not support output_config.effort=${effort}.`);
+  }
+}

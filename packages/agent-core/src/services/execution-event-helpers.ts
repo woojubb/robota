@@ -146,7 +146,7 @@ export function buildResponseOwnerContext(
 }
 
 /**
- * Announce the message just appended to the conversation store — CORE-033.
+ * Announce the message just appended to the conversation store.
  *
  * `history_mutation` is a REQUIRED family (`agent-core/docs/SPEC.md`), and `agent-session` builds
  * its session log from it: a consumer replays the appends to reconstruct the conversation. Three

@@ -3,7 +3,7 @@
  * a session over the wire. Kept apart from the channel so each is testable without a connection.
  */
 
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
@@ -11,7 +11,7 @@ import type {
   ICommandListEntry,
   ICommandSkillListEntry,
   ICommandSubcommandEntry,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 import type { IWireHistoryEntry } from '@robota-sdk/agent-transport/client';
 
 /**

@@ -1,6 +1,6 @@
 import { createBuiltInBinaryEnvironment, createBuiltInBinaryRuntime } from '../helpers/product-runtime.js';
 /**
- * INFRA-020 TC-04: cross-fidelity proof that `IAgentDriver` is a real contract.
+ * Cross-fidelity proof that `IAgentDriver` is a real contract.
  *
  * The SAME scenario (`runScenario`) is written once against the `IAgentDriver` interface and run on
  * two independent implementers:
@@ -24,7 +24,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createBinaryAgentDriver } from '../../testing/binary-agent-driver.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
-import type { IAgentDriver } from '@robota-sdk/agent-interface-session';
+import type { IAgentDriver } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 
@@ -56,7 +56,7 @@ function writeProviderSettings(homeDir: string): void {
   );
 }
 
-describe('IAgentDriver cross-fidelity (INFRA-020 TC-04)', () => {
+describe('IAgentDriver cross-fidelity', () => {
   let progCwd: string;
   let binCwd: string;
   let homeDir: string;

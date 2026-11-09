@@ -24,7 +24,7 @@ import {
   resolveContainedSnapshotPath,
 } from '../edit-checkpoint-store-helpers.js';
 
-describe('resolveContainedSnapshotPath (issue #2076)', () => {
+describe('resolveContainedSnapshotPath', () => {
   const checkpointDir = join('session_1', 'cp-0001');
 
   it('accepts a snapshot that is a strict descendant of the checkpoint directory', () => {
@@ -100,7 +100,7 @@ describe('EditCheckpointStore', () => {
     ).toThrowError(WorkspaceAuthorityRequiredError);
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given two edited turns When restoring to the first turn Then later file changes are reverted in reverse order',
     async () => {
@@ -125,16 +125,16 @@ describe('EditCheckpointStore', () => {
       expect(readFileSync(filePath, 'utf8')).toBe('version 2');
       expect(result.restoredCheckpointCount).toBe(1);
       expect(result.restoredFileCount).toBe(1);
-      // SELFHOST-007 TC-03: restore is NON-destructive — the later checkpoint is NOT deleted; it stays
+      // Restore is NON-destructive — the later checkpoint is NOT deleted; it stays
       // reachable (a sibling branch). Nothing is removed.
       expect(result.removedCheckpointCount).toBe(0);
       expect(store.list('session_1')).toHaveLength(2);
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
-    'issue #2076 Given a manifest whose snapshotFile escapes the checkpoint directory When restoring Then the whole restore aborts with a typed error and nothing is restored',
+    'Given a manifest whose snapshotFile escapes the checkpoint directory When restoring Then the whole restore aborts with a typed error and nothing is restored',
     async () => {
       const cwd = makeProject();
       const filePath = join(cwd, 'src', 'example.ts');
@@ -183,7 +183,7 @@ describe('EditCheckpointStore', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given a file created after a checkpoint When restoring to that checkpoint Then the created file is removed',
     async () => {
@@ -206,7 +206,7 @@ describe('EditCheckpointStore', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given checkpoints When inspecting a checkpoint Then captured files and restore plans are returned',
     async () => {
@@ -250,7 +250,7 @@ describe('EditCheckpointStore', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given edited turns When rolling back through a checkpoint Then the selected turn and later turns are reverted',
     async () => {
@@ -275,14 +275,14 @@ describe('EditCheckpointStore', () => {
       expect(readFileSync(filePath, 'utf8')).toBe('version 1');
       expect(result.restoredCheckpointCount).toBe(2);
       expect(result.restoredFileCount).toBe(2);
-      // SELFHOST-007 TC-03: rollback is NON-destructive — the rolled-back checkpoints stay on disk as a
+      // Rollback is NON-destructive — the rolled-back checkpoints stay on disk as a
       // sibling branch rather than being deleted.
       expect(result.removedCheckpointCount).toBe(0);
       expect(store.list('session_1')).toHaveLength(2);
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given a missing snapshot file When rollback fails Then checkpoint directories are preserved',
     async () => {
@@ -311,7 +311,7 @@ describe('EditCheckpointStore', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given the same file is captured twice in one turn When finalizing Then only the first pre-image is stored',
     async () => {
@@ -331,8 +331,8 @@ describe('EditCheckpointStore', () => {
     },
   );
 
-  // SELFHOST-007 TC-03: branching (non-destructive divergence) + v1 back-compat migration.
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Branching (non-destructive divergence) + v1 back-compat migration.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'forking after a restore diverges — the old future AND the new branch are both listed',
     async () => {
@@ -400,8 +400,8 @@ describe('EditCheckpointStore', () => {
     expect(store.list('session_1')).toHaveLength(2);
   });
 
-  // SELFHOST-007 TC-05: navigation (list-branches / ancestors / switch) delegates to the neutral tree.
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Navigation (list-branches / ancestors / switch) delegates to the neutral tree.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'lists branch tips and switches the active branch via the neutral checkpoint tree',
     async () => {
@@ -431,8 +431,8 @@ describe('EditCheckpointStore', () => {
     },
   );
 
-  // SELFHOST-007 TC-05: the active-branch pointer survives a save→resume round-trip; drift degrades.
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // The active-branch pointer survives a save→resume round-trip; drift degrades.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'captures and restores the active-branch pointer (and degrades gracefully on drift)',
     async () => {

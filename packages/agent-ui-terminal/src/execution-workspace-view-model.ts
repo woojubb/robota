@@ -6,7 +6,7 @@ import type {
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
   TExecutionWorkspaceStatus,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 // "Active" for the in-flight COUNT (countActiveBackgroundWorkspaceEntries) —
 // intentionally includes `waiting_permission` (a task awaiting permission is still
@@ -21,19 +21,22 @@ const ACTIVE_STATUSES: readonly TExecutionWorkspaceStatus[] = [
   'sleeping',
 ];
 const DETAIL_RECORD_TEXT_LIMIT = 160;
+export const FOLLOW_ROW_TAIL_CHARACTERS = 300;
+const FOLLOW_TOTAL_CHARACTERS = 1300;
+const FOLLOW_MAX_ROWS = 12;
 const PREVIEW_WHITESPACE = /\s+/g;
 const PREVIEW_SEPARATOR = ' ';
 
 export interface IExecutionWorkspaceEntryRow {
   id: string;
   radio: '●' | '○';
-  /** SCREEN-1992: the five-word state, rendered beside the radio and carried in the accessible text. */
+  /** The five-word state, rendered beside the radio and carried in the accessible text. */
   state: string;
   title: string;
   subtitle?: string;
   statusLabel: string;
   preview?: string;
-  /** SCREEN-2002: the status KIND; the component resolves its colour from the live theme. */
+  /** The status KIND; the component resolves its colour from the live theme. */
   statusKind: TUiStatusKind;
   isSelected: boolean;
   accessibleText: string;
@@ -86,6 +89,29 @@ export function formatExecutionDetailRecord(record: IExecutionDetailRecord): str
     : text;
 }
 
+/** Retain the newest output within the terminal's display budget. */
+export function formatFollowRows(
+  records: readonly IExecutionDetailRecord[],
+): IExecutionDetailRecord[] {
+  const result: IExecutionDetailRecord[] = [];
+  let remaining = FOLLOW_TOTAL_CHARACTERS;
+  for (const record of records.slice(-FOLLOW_MAX_ROWS).reverse()) {
+    const text = record.text.trim().replace(PREVIEW_WHITESPACE, PREVIEW_SEPARATOR);
+    const limit = Math.min(FOLLOW_ROW_TAIL_CHARACTERS, remaining);
+    if (limit <= 0) break;
+    let tail = text;
+    if (text.length > limit) {
+      let start = text.length - limit + 1;
+      const code = text.charCodeAt(start);
+      if (code >= 0xdc00 && code <= 0xdfff) start++;
+      tail = `…${text.slice(start)}`;
+    }
+    result.unshift({ ...record, text: tail });
+    remaining -= tail.length;
+  }
+  return result;
+}
+
 function formatEntryTitle(entry: IExecutionWorkspaceEntry): string {
   if (entry.kind === 'main_thread') return entry.title;
   if (entry.kind === 'background_group') return `${entry.title} group`;
@@ -113,9 +139,9 @@ function formatStatusLabel(status: TExecutionWorkspaceStatus): string {
   return status.replace(/_/g, ' ');
 }
 
-// SCREEN-2002: the view model names the status KIND, not a colour — a colour belongs to the theme
+// The view model names the status KIND, not a colour — a colour belongs to the theme
 // resolved at render time, and the kind is what keeps an entry's colour matching the glyph shown for
-// the same status everywhere (SCREEN-007). The component resolves it through `statusGlyphColor`.
+// the same status everywhere. The component resolves it through `statusGlyphColor`.
 function getEntryStatusKind(entry: IExecutionWorkspaceEntry): TUiStatusKind {
   return workspaceStatusKind(entry.status, entry.attention);
 }

@@ -1,0 +1,51 @@
+name: Windows SDK checks
+description: Build and exercise SDK native code on Windows without building the product.
+inputs:
+  workspace:
+    required: false
+    default: .
+  plan:
+    required: false
+    default: '{}'
+  install:
+    required: false
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      working-directory: ${{ inputs.workspace }}
+      env:
+        SDK_PLAN: ${{ inputs.plan }}
+        INSTALL_SDK: ${{ inputs.install }}
+      run: |
+        set -euo pipefail
+        node -e 'const p=JSON.parse(process.env.SDK_PLAN).windowsChecks ?? []; if (!Array.isArray(p) || p.some(x => typeof x !== "string" || !/^packages\/[a-z0-9][a-z0-9._-]*$/.test(x))) throw Error("Invalid Windows SDK selection"); process.stdout.write(p.join("\n"))' > "$RUNNER_TEMP/windows-sdk-paths"
+        build_filters=(--filter "{packages/agent-os}..." --filter "{packages/agent-keyring}..." --filter "{packages/agent-transport}...")
+        test_filters=()
+        while IFS= read -r dir || [ -n "$dir" ]; do
+          [ -z "$dir" ] && continue
+          build_filters+=(--filter "{$dir}...")
+          [ "$dir" = packages/agent-os ] || test_filters+=(--filter "./$dir")
+        done < "$RUNNER_TEMP/windows-sdk-paths"
+        if [ "$INSTALL_SDK" = true ]; then
+          # The native modules' install scripts download prebuilt binaries from GitHub release assets, and
+          # those downloads fail intermittently. A failed install script runs again on the next install, so retry.
+          for attempt in 1 2 3 4; do
+            pnpm install --frozen-lockfile --filter robota-monorepo "${build_filters[@]}" && break
+            if [ "$attempt" = 4 ]; then exit 1; fi
+            sleep $((attempt * 20))
+          done
+        fi
+        pnpm -r "${build_filters[@]}" run build
+        pnpm --filter './packages/agent-os' exec vitest run --no-file-parallelism
+        pnpm --filter './packages/agent-os' qualify:native
+        pnpm --filter './packages/agent-transport' exec vitest run --no-file-parallelism src/link/__tests__/spawner-pair-process.test.ts
+        qualifier="$RUNNER_TEMP/native-qualification.exe"
+        pnpm --filter './packages/agent-os' qualify:bun:build -- "$qualifier"
+        "$qualifier"
+        pnpm --filter './packages/agent-keyring' smoke:bun
+        pnpm --filter './packages/agent-transport' smoke:bun:link
+        if [ "${#test_filters[@]}" -gt 0 ]; then
+          pnpm -r "${test_filters[@]}" --if-present run test
+        fi

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createBoundedOutput } from './bounded-output';
 import koreanText from './__fixtures__/korean-text.json';
 
-describe('createBoundedOutput (ARCH-056)', () => {
+describe('createBoundedOutput', () => {
   it('head retention keeps the first maxBytes and reports what was dropped', () => {
     const output = createBoundedOutput({ maxBytes: 5 });
     output.append('abc');

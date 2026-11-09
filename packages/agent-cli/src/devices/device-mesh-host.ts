@@ -15,7 +15,7 @@ import {
   MeshRelayNeededError,
   WsMeshRelayClient,
   type IMeshRelay,
-} from '@robota-sdk/agent-transport-webrtc';
+} from '@robota-sdk/agent-transport/webrtc';
 
 import { holdExclusiveFileLock } from '../credentials/exclusive-file-lock.js';
 import { createHostCredentialStore } from '../credentials/select-credential-store.js';
@@ -44,14 +44,14 @@ import type { TReceiveHandoffOutcome } from '../handoff/handoff-receive.js';
 import type { IPushHandoffOptions, IPushHandoffResult } from '../handoff/handoff-push.js';
 import type { IOutgoingFile } from '../peer-files/outgoing-file.js';
 import type { IPeerIngressPort, IPeerSendOptions } from '../remote-control/local-peer-messaging.js';
-import type { IDevicesMeshStatus } from '@robota-sdk/agent-command';
+import type { IDevicesMeshStatus } from '@robota-sdk/agent-product/command';
 import type { ICredentialStore } from '@robota-sdk/agent-core';
 import type { ILinkedDeviceSummary } from '@robota-sdk/agent-framework';
 import type {
   IOperatorApprover,
   IPeerMessageAck,
-} from '@robota-sdk/agent-interface-session-mobility';
-import type { IDeviceMeshLink } from '@robota-sdk/agent-transport-webrtc';
+} from '@robota-sdk/agent-interface/session-mobility';
+import type { IDeviceMeshLink } from '@robota-sdk/agent-transport/webrtc';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 export interface IDeviceMeshHostOptions {

@@ -1,4 +1,4 @@
-import { createGemmaProviderDefinition } from '@robota-sdk/agent-provider-openai-compatible';
+import { createGemmaProviderDefinition } from '@robota-sdk/agent-provider/gemma';
 
 import { providerUrl, type TFixtureProduct } from './product.js';
 

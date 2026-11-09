@@ -1,6 +1,7 @@
 /**
- * Shared low-level crypto primitives for the remote-pairing package (extracted for SSOT between the B3
- * pairing handshake and the E3 device-identity / reconnect layer). **Isomorphic**: WebCrypto + standard web
+ * Shared low-level crypto primitives for the remote-pairing package (extracted for SSOT between the
+ * pairing handshake and the device-identity / reconnect layer). **Isomorphic**: WebCrypto +
+ * standard web
  * APIs only (`globalThis.crypto`, `btoa`/`atob`, `TextEncoder`) — no `node:` imports, no workspace deps — so
  * the same code runs on the Node host (agent-cli, Node 22) and the browser remote client.
  */

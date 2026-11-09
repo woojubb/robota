@@ -1,9 +1,7 @@
 /**
- * `pnpm cli:dev` runs the CLI from TypeScript source with `--conditions=source`: every workspace package
- * it reaches must resolve to `src/` through a `source` export condition. One subpath without it resolves
- * to `dist/`, and the source run then fails until the workspace is built — which is how `cli:dev` came to
- * need a build first. This walks the CLI's workspace dependency closure and checks every export subpath
- * that loads under Node.
+ * `pnpm cli:dev` runs the CLI from TypeScript source with `--conditions=product-source`: every workspace package
+ * product packages it reaches must resolve to `src/`. Published SDK packages resolve to their built files.
+ * This walks the CLI's workspace dependency closure and checks every product export subpath for Node.
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -83,18 +81,19 @@ describe('pnpm cli:dev runs without a build', () => {
 
   it('reaches the workspace packages the CLI depends on', () => {
     const names = closure.map(({ manifest }) => manifest.name);
-    expect(names).toContain('@robota-sdk/agent-core');
+    expect(names).toContain('@robota-sdk/agent-local-host');
+    expect(names).not.toContain('@robota-sdk/agent-core');
     expect(names).not.toContain('@robota-sdk/agent-command-workflows');
     expect(names.some((name) => name.startsWith('@robota-sdk/dag-'))).toBe(false);
   });
 
   it('resolves every reached export subpath to an existing source file', () => {
-    const missing = closure.flatMap(({ dir, manifest }) =>
+    const missing = closure.filter(({ manifest }) => manifest.name !== '@robota-sdk/agent-cli').flatMap(({ dir, manifest }) =>
       nodeSubpaths(manifest)
         .filter(
           ([, entry]) =>
-            typeof entry['source'] !== 'string' ||
-            !existsSync(path.join(dir, entry['source'] as string)),
+            typeof entry['product-source'] !== 'string' ||
+            !existsSync(path.join(dir, entry['product-source'] as string)),
         )
         .map(([subpath]) => `${manifest.name} ${subpath}`),
     );

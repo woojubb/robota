@@ -57,10 +57,10 @@ it('requires separate-product assets rather than serving the installed CLI monit
 });
 
 /**
- * GUI-007 — the CLI-served web monitor static host. Verifies: index.html gets the live `ws-url` injected, a
+ * The CLI-served web monitor static host. Verifies: index.html gets the live `ws-url` injected, a
  * static asset is served, a missing path is 404, and a path-traversal attempt is rejected (403).
  */
-describe('startMonitorUiServer (GUI-007)', () => {
+describe('startMonitorUiServer', () => {
   let fixtureRoot: string;
   let webRoot: string;
   let server: IMonitorUiServer;
@@ -250,7 +250,7 @@ describe('startMonitorUiServer (GUI-007)', () => {
     expect(server.url.startsWith('http://127.0.0.1:')).toBe(true);
   });
 
-  it('returns 400 (not a crash) on a malformed percent-encoding (PR #1249 SHOULD)', async () => {
+  it('returns 400 (not a crash) on a malformed percent-encoding', async () => {
     // `GET /%` throws URIError in decodeURIComponent — the handler must catch it and 400, never crash.
     const res = await rawGet(server.url, '/%');
     expect(res.status).toBe(400);
@@ -258,16 +258,16 @@ describe('startMonitorUiServer (GUI-007)', () => {
     expect((await fetch(`${server.url}/`)).status).toBe(200);
   });
 
-  it('rejects a non-loopback Host header (403) — DNS-rebinding defense (PR #1249 CONSIDER)', async () => {
+  it('rejects a non-loopback Host header (403) — DNS-rebinding defense', async () => {
     const res = await rawGet(server.url, '/', { host: 'evil.example.com' });
     expect(res.status).toBe(403);
     expect(res.body).not.toContain('ws-url');
   });
 
-  it('returns 404 (not a crash) when the resolved path is a DIRECTORY (SEC-006)', async () => {
+  it('returns 404 (not a crash) when the resolved path is a DIRECTORY', async () => {
     // `existsSync` is true for a directory, so the handler fell through to `readFileSync(dir)`, which
     // throws EISDIR synchronously inside the request callback — an uncaught exception that kills the
-    // whole serve host. SEC-001 treats localhost as hostile: a co-resident process must not be able to
+    // whole serve host. Localhost is treated as hostile: a co-resident process must not be able to
     // DoS the running agent with a one-line `GET /assets`.
     const res = await rawGet(server.url, '/assets');
     expect(res.status).toBe(404);
@@ -275,7 +275,7 @@ describe('startMonitorUiServer (GUI-007)', () => {
     expect((await fetch(`${server.url}/`)).status).toBe(200);
   });
 
-  it('rejects a bare-dot path instead of crashing on webRoot itself (SEC-006)', async () => {
+  it('rejects a bare-dot path instead of crashing on webRoot itself', async () => {
     // `/.` used to resolve to webRoot and reach readFileSync(<dir>) → EISDIR → uncaught crash.
     // A `.` is not a plain path segment, so it is now refused up front (403 rather than 404).
     const res = await rawGet(server.url, '/.');
@@ -283,7 +283,7 @@ describe('startMonitorUiServer (GUI-007)', () => {
     expect((await fetch(`${server.url}/`)).status).toBe(200);
   });
 
-  it('does not follow a symlink under webRoot that escapes it (SEC-006)', async () => {
+  it('does not follow a symlink under webRoot that escapes it', async () => {
     // The containment check was LEXICAL: `normalize`/`join` do not resolve symlinks, so a link
     // sitting inside webRoot satisfied `startsWith(webRoot + sep)` while `openSync` followed it
     // straight out. `escape` is an ordinary path segment, so segment validation cannot catch this —
@@ -293,7 +293,7 @@ describe('startMonitorUiServer (GUI-007)', () => {
     expect(res.body).not.toContain('top-secret');
   });
 
-  it('does not follow a symlinked FILE under webRoot (SEC-006)', async () => {
+  it('does not follow a symlinked FILE under webRoot', async () => {
     const res = await rawGet(server.url, '/secret-link.txt');
     expect(res.status).toBe(403);
     expect(res.body).not.toContain('top-secret');
@@ -301,10 +301,10 @@ describe('startMonitorUiServer (GUI-007)', () => {
 });
 
 /**
- * #3289 §3 — `--serve --open` used to print "Web monitor: <url>", naming an observability tool
+ * `--serve --open` used to print "Web monitor: <url>", naming an observability tool
  * rather than the running session the person just opened.
  */
-describe('servedAtMessage (#3289 §3)', () => {
+describe('servedAtMessage', () => {
   it('says test-product Agent is open, not "Web monitor"', () => {
     expect(servedAtMessage('http://127.0.0.1:4321', createTestProductRuntime())).toBe(
       'test-product Agent is open at http://127.0.0.1:4321\n',

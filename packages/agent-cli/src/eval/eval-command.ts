@@ -1,5 +1,5 @@
 /**
- * `the product eval <definition>` — the evals-as-code CI gate (SELFHOST-011 P2).
+ * `the product eval <definition>` — the evals-as-code CI gate.
  *
  * Thin CLI wiring around the neutral `@robota-sdk/agent-framework` eval runner (`runEval`): it loads the
  * consumer's eval definition module, builds the default `runFn` from the CLI-resolved provider
@@ -37,7 +37,7 @@ import type {
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 
-/** Injection seams so the exit-code contract test can run without a live provider (TC-03). */
+/** Injection seams so the exit-code contract test can run without a live provider. */
 export interface IRunEvalDeps {
   /** The platform the default run source's sessions run on; required unless `runFn` is given. */
   host?: IFrameworkHost;
@@ -137,7 +137,7 @@ async function buildDefaultRunFn(cwd: string, deps: IRunEvalDeps): Promise<TEval
   });
   return createSessionRunFn(runtime);
 }
-// SELFHOST-011 P3: the report is rendered by the shared SDK `formatEvalReport` (the CLI's private copy was removed).
+// The report is rendered by the shared SDK `formatEvalReport` (the CLI's private copy was removed).
 
 /**
  * Load a definition, run it, print the report, and return the CI exit code (`0` pass / `1` fail). A missing

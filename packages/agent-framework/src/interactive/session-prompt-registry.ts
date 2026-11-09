@@ -1,5 +1,5 @@
 /**
- * Transport-neutral pending-prompt registry (REMOTE-007 / B4-2a).
+ * Transport-neutral pending-prompt registry.
  *
  * A permission decision and an "ask the user" request are no longer served by a single injected
  * callback bound to one surface. Instead the session's event-emitting default handler asks this
@@ -9,14 +9,14 @@
  * emits `prompt_resolved` so a co-driving second surface dismisses it; later resolves for a settled id
  * are no-ops.
  *
- * **Fail-closed (D2) — a parked prompt is GUARANTEED to settle:**
+ * **Fail-closed — a parked prompt is GUARANTEED to settle:**
  * - at emit: if the gating event has zero listeners, resolve deny / `cancelled` immediately (never park);
  * - on detach: when a surface unsubscribes and the gating event drops to zero listeners, reconcile —
  *   any still-parked prompt of that kind resolves deny / `cancelled` (a disconnect mid-prompt cannot hang);
  * - backstop: an optional bounded timeout is the unconditional last resort (a subscribed surface that
  *   died without unsubscribing). Generous — a human answering never hits it.
  *
- * **Teardown drain (D3):** on abort / cancelQueue / shutdown the session calls {@link drain}, settling
+ * **Teardown drain:** on abort / cancelQueue / shutdown the session calls {@link drain}, settling
  * every parked prompt (deny permissions, cancel asks) so an aborted turn never leaves the enforcer's
  * `await` — or a wrapped tool — hanging forever.
  *
@@ -30,18 +30,18 @@ import { buildDiffState } from './interactive-session-streaming.js';
 
 import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IActionRequest, TActionResponse, TToolArgs } from '@robota-sdk/agent-core';
-import type { IExecutionPendingRequest } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionPendingRequest } from '@robota-sdk/agent-interface/execution';
 import type {
   IAskRequestEvent,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
   TDriverId,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { IPermissionAskContext } from '@robota-sdk/agent-session';
 
 /**
- * #3288: a Shell request's working directory, but only when it differs from the workspace — a prompt
+ * A Shell request's working directory, but only when it differs from the workspace — a prompt
  * for a command that just runs where the session already is needs no cwd line.
  */
 function resolveShellCwdIfDifferent(
@@ -67,19 +67,19 @@ function isOutsideParty(driverId: TDriverId | undefined): boolean {
 /** Kind of a parked prompt — decides its fail-closed default and which event gates it. */
 type TParkedKind = 'permission' | 'ask';
 
-/** The gating event whose listener count governs each kind (D2 per-event gate). */
+/** The gating event whose listener count governs each kind (per-event gate). */
 type TGatingEvent = 'permission_request' | 'ask_request';
 
 interface IParkedPrompt {
   kind: TParkedKind;
-  /** SCREEN-1992: the question a surface can show while the prompt is parked. */
+  /** The question a surface can show while the prompt is parked. */
   text: string;
   /** Settle the awaiting promise with a real answer or the fail-closed default. */
   resolve: (value: TPermissionResultValue | TActionResponse) => void;
   /** Backstop timer (cleared on settle), when a backstop is configured. */
   timer?: ReturnType<typeof setTimeout>;
   /**
-   * Issue #3288 §1: detach the caller's own abort listener (idempotent), when `requestPermission` was
+   * Detach the caller's own abort listener (idempotent), when `requestPermission` was
    * given a `signal`. Called on every settle path, not only the abort one, so a prompt a person
    * answered normally does not leave a listener on a signal the caller may hold onto afterward.
    */
@@ -97,10 +97,10 @@ export interface ISessionPromptRegistryDeps {
   emitPromptResolved: (event: IPromptResolvedEvent) => void;
   /** Live listener count for a gating event (reads the session's per-event emitter map). */
   countListeners: (event: TGatingEvent) => number;
-  /** REMOTE-014 E5: the ACTIVE driver's id (a turn's, or a direct call's), stamped as `requesterDriverId`. */
+  /** The ACTIVE driver's id (a turn's, or a direct call's), stamped as `requesterDriverId`. */
   getActiveDriverId?: () => TDriverId | null;
   /**
-   * #3288: the session's cwd — an Edit/Write permission request uses it to build the same diff
+   * The session's cwd — an Edit/Write permission request uses it to build the same diff
    * preview `tool_end` would carry, and a Shell request uses it to note its working directory only
    * when that differs from the workspace. Absent ⇒ neither field is attached (legacy callers).
    */
@@ -128,7 +128,7 @@ export class SessionPromptRegistry {
   /**
    * Request a permission decision. Resolves deny (`false`) when no surface can answer (fail-closed).
    *
-   * Issue #3288 §1: `context.requester` names who is asking when it is not the person's own turn (a
+   * `context.requester` names who is asking when it is not the person's own turn (a
    * background agent's forwarded tool call), carried on the emitted event for display, and
    * `context.executionId` names the call itself (the id its `tool_start`/`tool_end` carry), so a
    * surface can hold one row from the request to the call's end. `context.signal`
@@ -152,7 +152,7 @@ export class SessionPromptRegistry {
     }
     const requesterDriverId = this.deps.getActiveDriverId?.() ?? undefined;
     const cwd = this.deps.getCwd?.();
-    // #3288 §2: the SAME diff builder `tool_end` uses — a no-op ({}) for any tool that isn't Edit/Write.
+    // The SAME diff builder `tool_end` uses — a no-op ({}) for any tool that isn't Edit/Write.
     const { diffLines, diffFile } = buildDiffState({ toolName, toolArgs }, cwd, this.deps.files);
     const shellCwd = resolveShellCwdIfDifferent(toolName, toolArgs, cwd);
     return new Promise<TPermissionResultValue>((resolvePrompt) => {
@@ -219,7 +219,7 @@ export class SessionPromptRegistry {
   /**
    * Answer a parked permission by id. `answererDriverId` is server-assigned. Idempotent (first resolve wins).
    *
-   * AUTHORIZATION INVARIANT (REMOTE-014 E5 / OWNER PRINCIPLE): `answererDriverId` is recorded for DISPLAY
+   * AUTHORIZATION INVARIANT (OWNER PRINCIPLE): `answererDriverId` is recorded for DISPLAY
    * attribution only — it is NEVER an authorization check. Under local == remote every paired driver holds
    * full owner authority, so any driver may answer any prompt; who answered is surfaced, not gated here.
    * A peer session or an external sender is not a driver: an answer in its name is ignored.
@@ -242,7 +242,7 @@ export class SessionPromptRegistry {
   }
 
   /**
-   * Reconcile after a surface unsubscribes (D2): if the gating event dropped to zero listeners, settle
+   * Reconcile after a surface unsubscribes: if the gating event dropped to zero listeners, settle
    * every still-parked prompt of that kind fail-closed. Called from the session's `off`.
    */
   reconcileOnDetach(event: TGatingEvent): void {
@@ -253,7 +253,7 @@ export class SessionPromptRegistry {
     }
   }
 
-  /** Teardown drain (D3): settle every parked prompt fail-closed (deny permissions, cancel asks). */
+  /** Teardown drain: settle every parked prompt fail-closed (deny permissions, cancel asks). */
   drain(): void {
     for (const [id, parked] of [...this.parked]) {
       this.settle(id, failClosedValue(parked.kind));
@@ -265,7 +265,7 @@ export class SessionPromptRegistry {
     return this.parked.size;
   }
 
-  /** SCREEN-1992: the oldest parked prompt as the question a surface shows, or undefined. */
+  /** The oldest parked prompt as the question a surface shows, or undefined. */
   pending(): IExecutionPendingRequest | undefined {
     const first = this.parked.values().next();
     return first.done ? undefined : { kind: first.value.kind, text: first.value.text };

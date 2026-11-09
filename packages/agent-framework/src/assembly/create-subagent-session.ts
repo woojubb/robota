@@ -62,12 +62,12 @@ const MODEL_SHORTCUTS: Record<string, string> = {
 const LEGACY_AGENT_TOOL_NAME = 'Agent';
 
 /**
- * Issue #2317: the context members a subagent assembly READS, and no others.
+ * The context members a subagent assembly READS, and no others.
  *
  * `parentContext` demanded the parent's whole `ILoadedContext` — seven members, two of them
  * (`agentsFileEntries`, `projectNotesFileEntries`) carrying the full text of every AGENTS.md and
  * CLAUDE.md the parent loaded — while this assembly reads exactly two. Declared structurally, as
- * ARCH-044 did for `parentConfig`: the in-process runner passes its full `ILoadedContext` and
+ * `parentConfig` is: the in-process runner passes its full `ILoadedContext` and
  * satisfies it, and the child-process runner passes a projection carrying only these two, which is
  * what keeps the file contents off the wire.
  */
@@ -84,7 +84,7 @@ export interface ISubagentOptions {
   /** Agent definition (built-in or custom). */
   agentDefinition: IAgentDefinition;
   /**
-   * ARCH-044 (issue #2047): the config members this assembly READS, not the parent's whole config.
+   * The config members this assembly READS, not the parent's whole config.
    *
    * Declared structurally so both callers satisfy it — the in-process runner passes its full
    * `IResolvedConfig`, and the child-process runner passes a projection carrying only these. Before
@@ -97,14 +97,14 @@ export interface ISubagentOptions {
     readonly defaultTrustLevel: IResolvedConfig['defaultTrustLevel'];
     readonly hooks?: IResolvedConfig['hooks'];
   };
-  /** The two members of the parent's loaded context this assembly reads (issue #2317). */
+  /** The two members of the parent's loaded context this assembly reads. */
   parentContext: ISubagentParentContext;
   /** Parent session's available tools (to inherit/filter). */
   parentTools: IToolWithEventService[];
   /** AI provider instance. */
   provider: IAIProvider;
   /**
-   * SELFHOST-006: optional per-role model routing map. When set, a subagent with no explicit `model`
+   * Optional per-role model routing map. When set, a subagent with no explicit `model`
    * alias resolves its model from its role's fallback chain (primary first) keyed by
    * `agentDefinition.role ?? agentDefinition.name`. Rides the existing provider DIP.
    */
@@ -112,7 +112,7 @@ export interface ISubagentOptions {
   /** Terminal output interface. */
   terminal: ITerminalOutput;
   /**
-   * The subagent's execution root. REQUIRED — ARCH-010.
+   * The subagent's execution root. REQUIRED.
    *
    * The spawn contract has always declared it required (`ISubagentSpawnRequest.cwd: string`), but
    * this assembly had no field for it, so the runner could not pass it on and the child session fell
@@ -129,19 +129,19 @@ export interface ISubagentOptions {
   /** Whether this is a fork worker (uses fork suffix instead of standard). */
   isForkWorker?: boolean;
   /**
-   * NEUT-003: replaces the framework prompt suffix (string verbatim, or a function
+   * Replaces the framework prompt suffix (string verbatim, or a function
    * of the assembly context). Omitted keeps the documented default suffixes.
    */
   suffix?: TSubagentSuffix;
   /** Permission mode from parent (bypassPermissions, acceptEdits, etc.). */
   permissionMode?: TPermissionMode;
   /**
-   * CORE-025: the spawned task's permission policy. Resolved BEFORE the session-mode gate, so
+   * The spawned task's permission policy. Resolved BEFORE the session-mode gate, so
    * `deny`/`preapproved`/`inherit-allowlist` bind even when `permissionMode` would auto-allow. Absent →
    * the inherited session-mode gate alone.
    */
   permissionPolicy?: TBackgroundPermissionPolicy;
-  /** CORE-025: the task's OWN declared tool allow/deny lists (what `preapproved` consults). */
+  /** The task's OWN declared tool allow/deny lists (what `preapproved` consults). */
   taskAllowedTools?: readonly string[];
   taskDisallowedTools?: readonly string[];
   /** Permission handler from parent. */
@@ -157,6 +157,8 @@ export interface ISubagentOptions {
   hookTypeExecutors?: IHookTypeExecutor[];
   /** Streaming callback. */
   onTextDelta?: (delta: string) => void;
+  /** Called after the session replaces its model context with a compaction summary. */
+  onCompact?: (summary: string) => void;
   /** Tool execution callback. */
   onToolExecution?: (event: {
     type: 'start' | 'end';
@@ -187,7 +189,7 @@ function resolveModelId(shortName: string, _parentModel: string): string {
  * Filter parent tools according to the agent definition's tool constraints.
  *
  * Filtering order:
- * 0. MCP-004 §S3: unwrap any tool-call handoff wrapper — this is the ONE derivation point every
+ * 0. Unwrap any tool-call handoff wrapper — this is the ONE derivation point every
  *    derived session's tool list passes through (in-process subagents via this function, forks via
  *    `interactive-session-fork.ts`), so subagents and forks never hold a wrapper even though the
  *    parent's session-local list does. A no-op for a tool that was never wrapped.
@@ -229,7 +231,7 @@ function filterTools(
 }
 
 /**
- * CLI-1990: the residency contract crosses into the child unchanged. A deferred tool that survives
+ * The residency contract crosses into the child unchanged. A deferred tool that survives
  * the allow/deny lists is unreachable without its loader, and an allowlist naming the tool does not
  * name the loader — so the parent's loader travels with it. A set in which every survivor is
  * deferred is refused, exactly as the parent's assembly refuses it. Mutates `tools` in place, which
@@ -244,7 +246,7 @@ function carryResidencyContract(
   if (!hasDeferred || tools.some((tool) => tool.getName() === TOOL_SEARCH_TOOL_NAME)) return;
   const loader = parentTools.find((tool) => tool.getName() === TOOL_SEARCH_TOOL_NAME);
   if (loader === undefined) throw new Error(DEFERRED_WITHOUT_LOADER_MESSAGE);
-  // MCP-004 §S3: this loader comes from the RAW `parentTools`, not the already-unwrapped `tools`
+  // This loader comes from the RAW `parentTools`, not the already-unwrapped `tools`
   // array — unwrap it too, so a (hypothetical) wrapped loader never reaches the child.
   tools.push(unwrapToolCallHandoff(loader));
 }
@@ -263,7 +265,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
   // nothing to run a declared hook with, and the child must not run on as if it had: its parent
   // refused that config at assembly, and a hook on an advisory event (PostToolUse, Stop, ...) would
   // otherwise run nothing without a word. An explicit list, empty included, is the parent's choice
-  // and keeps the fail-closed gate (SEC-016) for the types it lacks.
+  // and keeps the fail-closed gate for the types it lacks.
   const hookTypeExecutors = options.hookTypeExecutors ?? options.host.createHookExecutors?.({});
   if (hookTypeExecutors === undefined) {
     assertConfiguredHookTypesExecutable(options.hooks as THooksConfig | undefined, []);
@@ -284,7 +286,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
 
   carryResidencyContract(tools, parentTools);
 
-  // Resolve model (precedence): explicit alias override > SELFHOST-006 per-role routing > parent model.
+  // Resolve model (precedence): explicit alias override > per-role routing > parent model.
   // v1 resolution site (per opaque role key = role ?? name). The subagent runs on the PARENT provider
   // instance (no provider registry to swap providers in v1), so only apply a role's model when its
   // chain entry targets that SAME provider — pick the first `IModelRef` whose `provider` matches. A
@@ -336,7 +338,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
           }),
         }
       : {}),
-    // CORE-025: the task policy pre-empts the session-mode gate (deny/preapproved/inherit override even
+    // The task policy pre-empts the session-mode gate (deny/preapproved/inherit override even
     // bypassPermissions); `preapproved` reads the task's own lists, `inherit-allowlist` reads
     // `parentConfig.permissions` (passed above as `permissions`).
     ...(options.permissionPolicy !== undefined
@@ -353,6 +355,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     hookTypeExecutors: hookTypeExecutors ?? [],
     ...hostSessionPorts(options.host, options.cwd),
     onTextDelta: options.onTextDelta,
+    onCompact: options.onCompact,
     onToolExecution: options.onToolExecution,
   });
   return childSession;

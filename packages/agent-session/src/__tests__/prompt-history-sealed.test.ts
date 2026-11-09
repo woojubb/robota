@@ -1,5 +1,5 @@
 /**
- * The prompt-history file with a sealer (#3679, secure conversation). A sealing file appends each
+ * The prompt-history file with a sealer (secure conversation). A sealing file appends each
  * entry as one sealed line that opens on its own, so the backward block reader renders newest-first
  * without any line waiting for another, and says how many prompts it could not open — locked, or no
  * keys in this process — instead of letting them look absent. A plain file holds one plain JSON line
@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { NodePromptHistoryFile } from '../prompt-history-file.js';
 
-import type { IPromptHistoryBlock, IPromptHistoryEntry } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistoryBlock, IPromptHistoryEntry } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-8be1-a-prompt-the-person-typed';
 const roots: string[] = [];

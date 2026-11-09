@@ -1,5 +1,5 @@
 /**
- * CMD-004 Phase 2 Stage C — the TUI as a pure renderer.
+ * The TUI as a pure renderer.
  *
  * The session layer (the host) executes every command host action via `ICommandHostAdapters`
  * BEFORE the command result returns (language change, settings reset, exit/restart, rename,
@@ -15,17 +15,17 @@
  *    persisted settings (refresh-on-result — the host applied any patch via the settings adapter).
  */
 
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import type { IUseSideEffectsOptions, IUseSideEffectsResult } from './side-effects-types.js';
 import type { ITuiSessionUiEventPort } from '../tui-app-channel-port.js';
-import type { ISessionRenamedEvent, IUiIntentEvent } from '@robota-sdk/agent-interface-session';
+import type { ISessionRenamedEvent, IUiIntentEvent } from '@robota-sdk/agent-interface/session';
 
 interface IUiEventHandlers {
   setSessionName: (name: string) => void;
   refreshStatusLineSettings: () => void;
-  /** SCREEN-2002: re-read the persisted appearance after a slash command may have patched it. */
+  /** Re-read the persisted appearance after a slash command may have patched it. */
   refreshAppearanceSettings: () => void;
   openAgentSwitcher?: (() => void) | undefined;
 }

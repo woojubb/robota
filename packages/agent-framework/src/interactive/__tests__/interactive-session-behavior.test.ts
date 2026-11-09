@@ -6,7 +6,7 @@
  * If a feature works, these tests pass. If a feature breaks, these fail.
  */
 
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { describe, it, expect, vi } from 'vitest';
 
 import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
@@ -15,7 +15,7 @@ import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { TInteractiveSessionOptions } from '../interactive-session.js';
 import type { IExecutionResult, IToolState } from '../types.js';
-import type { IUsageObservation } from '@robota-sdk/agent-interface-analytics';
+import type { IUsageObservation } from '@robota-sdk/agent-interface/analytics';
 
 const testHost = createTestFrameworkHost();
 
@@ -747,9 +747,9 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(JSON.stringify(observation)).not.toContain('API rate limit exceeded');
   });
 
-  // ── Scenario: ERR-001 — mid-stream failure surfacing + liveness ─
+  // ── Scenario: mid-stream failure surfacing + liveness ─
 
-  it('ERR-001: mid-stream failure preserves the partial answer, marks a styled error entry, and the next submit succeeds', async () => {
+  it('mid-stream failure preserves the partial answer, marks a styled error entry, and the next submit succeeds', async () => {
     const mockSession = createMockSession();
     const controllableRun = createControllableRun();
     mockSession.run.mockImplementationOnce(controllableRun.run);
@@ -803,7 +803,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(assistant).toContain('mock response');
   });
 
-  it('ERR-001 G1: reportBackgroundError surfaces an out-of-turn error into history and events', async () => {
+  it('reportBackgroundError surfaces an out-of-turn error into history and events', async () => {
     const session = new InteractiveSession({
       host: testHost,
       session: createMockSession() as never,

@@ -4,6 +4,7 @@ import { isAbsolute, join } from 'node:path';
 import { organizationCanonical } from './canonical.js';
 import { OrganizationRefused } from './types.js';
 import { identifier } from './verification.js';
+import { isOwnerOnly } from './store-ownership.js';
 import type { IOrganizationLedgerAnchor, IOrganizationLedgerHead } from './ledger-anchor.js';
 
 /** Owner-selected independent custody directory. Never include it in a worker or authority-store backup. */
@@ -18,8 +19,7 @@ export class OrganizationFileLedgerAnchor implements IOrganizationLedgerAnchor {
     if (!isAbsolute(options.directory)) throw new OrganizationRefused('policy-unavailable');
     this.directory = realpathSync(options.directory);
     const stat = lstatSync(this.directory);
-    if (!stat.isDirectory() || (stat.mode & 0o077) !== 0 ||
-      (process.getuid !== undefined && stat.uid !== process.getuid()))
+    if (!stat.isDirectory() || !isOwnerOnly(stat))
       throw new OrganizationRefused('policy-unavailable');
     this.file = join(this.directory, 'head.json');
     this.lock = join(this.directory, 'head.lock');
@@ -30,8 +30,7 @@ export class OrganizationFileLedgerAnchor implements IOrganizationLedgerAnchor {
     try {
       fd = openSync(this.file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
       const stat = fstatSync(fd);
-      if (!stat.isFile() || stat.size > 4096 || (stat.mode & 0o077) !== 0 ||
-        (process.getuid !== undefined && stat.uid !== process.getuid()))
+      if (!stat.isFile() || stat.size > 4096 || !isOwnerOnly(stat))
         throw new OrganizationRefused('policy-unavailable');
       const value: unknown = JSON.parse(readFileSync(fd, 'utf8'));
       this.validate(value as IOrganizationLedgerHead);
@@ -70,8 +69,12 @@ export class OrganizationFileLedgerAnchor implements IOrganizationLedgerAnchor {
       finally { closeSync(fd); }
       renameSync(temporary, this.file);
       temporary = undefined;
-      const directory = openSync(this.directory, constants.O_RDONLY);
-      try { fsyncSync(directory); } finally { closeSync(directory); }
+      // Windows has no directory flush and refuses one with EPERM; there the rename is as durable as
+      // NTFS makes it.
+      if (process.platform !== 'win32') {
+        const directory = openSync(this.directory, constants.O_RDONLY);
+        try { fsyncSync(directory); } finally { closeSync(directory); }
+      }
     } catch { throw new OrganizationRefused('policy-unavailable'); }
     finally {
       if (temporary !== undefined) { try { unlinkSync(temporary); } catch { /* Preserve uncertain evidence for the owner. */ } }

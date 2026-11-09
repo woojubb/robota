@@ -1,5 +1,8 @@
 # @robota-sdk/agent-roundtable
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Coordinates independent agents and people in one shared conversation. Each participant keeps its own
 runtime and private state; the roundtable decides who speaks next, runs a turn or a parallel group of
 turns, and publishes their messages to a shared transcript in a stable order. The host supplies the

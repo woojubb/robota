@@ -1,5 +1,5 @@
 /**
- * Issue #3693 — the logger no longer watches the process itself: the host that has one hands a
+ * The logger no longer watches the process itself: the host that has one hands a
  * registrar in. One registrar gets one flush-everything function however many loggers use it, so a
  * process still has a single exit listener and nothing accumulates per logger.
  */

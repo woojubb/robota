@@ -1,7 +1,7 @@
 /**
- * TC-15: a `listChanged` notification refreshes the affected catalog domain WITHOUT reconnecting, and
+ * A `listChanged` notification refreshes the affected catalog domain WITHOUT reconnecting, and
  * a refresh that fails preserves the prior catalog and exposes `stale` plus the error rather than
- * emptying it (MCP-003).
+ * emptying it.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -14,7 +14,7 @@ import {
 } from './supervisor-test-helpers.js';
 import { MCPConnectionSupervisor } from '../supervisor/connection.js';
 
-describe('MCPConnectionSupervisor — last-known-good on listChanged (TC-15)', () => {
+describe('MCPConnectionSupervisor — last-known-good on listChanged', () => {
   it('refreshes the affected domain without opening a second session', async () => {
     const identity = fixtureIdentity();
     let openCount = 0;

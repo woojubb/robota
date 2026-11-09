@@ -15,7 +15,7 @@ directory — is either behind the `./node` subpath or an injected port; the pac
 default, so a composition root decides what a session may touch.
 
 The package also owns the **runtime codec** for the persisted session record: the record's type
-is owned by `agent-interface-session`, but a decoder is a mechanism, and an interface package
+is owned by `agent-interface/session`, but a decoder is a mechanism, and an interface package
 publishes contracts and vocabulary rather than mechanisms. The codec lives beside the
 persistence paths that consume it (the store, the artifact envelope, the replay path).
 
@@ -33,7 +33,7 @@ persistence paths that consume it (the store, the artifact envelope, the replay 
 - Owns the file-persistence _primitive_ and the stored form of a record (whoever builds a store
   states whether it seals, with a sealer or `'plain'`; there is no default), not the record or port
   shape: `NodeSessionStore` (on `./node`) implements the store port and record type declared in
-  `agent-interface-session`.
+  `agent-interface/session`.
 - No dependency on tool-registry or provider packages — tool and provider assembly, workspace
   trust, and project-path interpretation are the consuming layer's responsibility. This package
   never imports or reconstructs a workspace authority from a path.
@@ -349,13 +349,15 @@ it, so a surface names an unlock only when one would help.
 
 Compaction rewrites every entry sealed, one per line, under the one sealer it is given. The file has
 no lock and writers append by path, so the new file replaces it by rename and what reached the old one
-meanwhile is caught up from its descriptor; a crash inside that window can lose those entries, which
-is accepted because the file is a derived copy of the records. Nothing that does not open is dropped,
-plaintext that reaches the new file anyway is reported rather than hidden, a catch-up that fails says
-how much it left unread, a compaction that finds the file already replaced by another abandons its
-rename rather than discard what that one caught up, one that finds it deleted puts nothing back, and
-a history that is a link or has another name is refused, since a rename would leave the plaintext
-where it points.
+meanwhile is caught up from its descriptor — before the rename on Windows, which will not replace a
+file while any handle on it is open, so a rename another handle blocks is retried and then fails with
+nothing replaced; a crash inside that window can lose those entries, which is accepted because the
+file is a derived copy of the records. Nothing that does not open is dropped, plaintext that reaches
+the new file anyway is reported rather than hidden, a catch-up that fails says how much it left unread
+(on Windows it abandons the compaction instead, replacing nothing), a compaction that finds the file
+already replaced by another abandons its rename rather than discard what that one caught up, one that
+finds it deleted puts nothing back, and a history that is a link or has another name is refused, since
+a rename would leave the plaintext where it points.
 
 ### Compaction
 
@@ -454,9 +456,9 @@ prefix is product-neutral and does not disclose the host product's name.
   files: a claim holds the id's writer marker in a directory beside the records, so a second opener
   anywhere is refused and told which process holds it, and every other write of the id — a save
   without a claim, a delete, an adoption, a tag at unlock — holds the marker for that write. A claim
-  fences every save made under it once it is released or its marker is no longer its own, so a
-  session that outlived its claim, or lost its marker to a break, cannot overwrite the one that took
-  the id next; a read made only to copy a session takes no marker, so a session another process runs
+  fences every save made under it once it is released or its marker is no longer its own; a shared
+  operation lock keeps the marker check and record mutation indivisible with respect to cooperating
+  forced releases, so a session that lost its marker cannot overwrite the one that took the id next; a read made only to copy a session takes no marker, so a session another process runs
   can still be copied. The marker is a coordination device and never a trust anchor: any program of
   the same user can plant or remove one, so a planted marker denies service until it is released. In a
   store that seals a claimed id is also answered only from the owner's content, so a file something

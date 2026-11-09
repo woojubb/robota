@@ -29,8 +29,8 @@ inputs:
     required: false
   load-project:
     description: >-
-      Trust the checked-out repository so the CLI loads its settings, hooks, skills and MCP servers.
-      Leave it 'false' (safe mode) when the checkout may contain untrusted code, such as a pull request.
+      Unsupported in unattended Actions: 'true' fails because workspace trust requires a person at
+      a terminal. Leave it 'false' to run Restricted in safe mode.
     required: false
     default: 'false'
   cli-version:

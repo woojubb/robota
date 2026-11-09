@@ -142,7 +142,7 @@ describe('MCP serve through a synthetic host and the built-in binary', () => {
     const transport = new StdioClientTransport({
       command: TSX,
       args: [
-        '--conditions=source',
+        '--conditions=product-source',
         BIDIRECTIONAL_HOST,
         '--allowed-tools',
         'probe__echo,Read',

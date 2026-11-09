@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * HOOK-003 User Execution Test Scenario
+ * User Execution Test Scenario
  *
  * Demonstrates that when a PreToolUse hook blocks (exit code 2),
  * runHooks returns a blocking verdict and reason. The later tool-result formatting
@@ -26,8 +26,9 @@ const hooksConfig = {
       hooks: [
         {
           type: 'command',
-          // Prints reason to stderr, exits 2 to signal block
-          command: `echo "Bash tool blocked: dangerous command detected" >&2; exit 2`,
+          // Prints reason to stderr, exits 2 to signal block. A node one-liner runs the same in sh
+          // and in PowerShell, the shell command hooks use on Windows.
+          command: `node -e "console.error('Bash tool blocked: dangerous command detected'); process.exit(2)"`,
           timeout: 5,
         },
       ],
@@ -45,7 +46,7 @@ const hookInput = {
   permission_mode: 'default',
 };
 
-console.log('=== HOOK-003 User Execution Test Scenario ===\n');
+console.log('=== User Execution Test Scenario ===\n');
 console.log('Hook input (sent to hook scripts via stdin):');
 console.log(JSON.stringify(hookInput, null, 2));
 console.log();
@@ -85,7 +86,7 @@ if (hookResult.blocked) {
   );
   console.log();
   if (hasNewFormat && !hasOldFormat) {
-    console.log('PASS — HOOK-003 hook blocking observed; illustrative result formatting checked.');
+    console.log('PASS — hook blocking observed; illustrative result formatting checked.');
     process.exit(0);
   } else {
     console.log('FAIL — unexpected format.');

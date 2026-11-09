@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * PEER-004 (#1863) — the composition step, and what it does when a capability cannot be assembled.
+ * The composition step, and what it does when a capability cannot be assembled.
  *
  * The unit cases underneath prove the presence leaf and the command. This one proves they are
  * REACHED, which is the half that was missing: the rendezvous directory and the registry both landed
@@ -153,7 +153,7 @@ describe('assembling the host adapters', () => {
   });
 });
 
-describe('PEER-006 — messaging is attached separately from discovery', () => {
+describe('messaging is attached separately from discovery', () => {
   const PRESENCE = {
     sessionId: 'me',
     guardedDirectory: '/tmp/does-not-matter',
@@ -272,7 +272,7 @@ describe('PEER-006 — messaging is attached separately from discovery', () => {
   });
 });
 
-describe('PEER-006 — a session switch does not leak a listener', () => {
+describe('a session switch does not leak a listener', () => {
   const PRESENCE2 = {
     sessionId: 'me',
     guardedDirectory: '/tmp/does-not-matter',

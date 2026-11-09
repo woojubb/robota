@@ -1,5 +1,5 @@
 /**
- * ARCH-029: the one guarantee every command-axis double makes about its overrides.
+ * The one guarantee every command-axis double makes about its overrides.
  *
  * It lives here rather than in either double because both make it, and review found the second copy
  * had been re-implemented inline with a comment pointing at "the sibling double" — two copies of a
@@ -10,8 +10,8 @@
  * An override may replace a member, never remove one.
  *
  * `Partial<T>` admits `{ setPlan: undefined }`, and object spread then writes that `undefined` over
- * the double's answer — reintroducing an ABSENT member at runtime, fully type-checked, which is the
- * exact state ARCH-029 S4 removed.
+ * the double's answer — reintroducing an ABSENT member at runtime, fully type-checked, which is a
+ * state the doubles must never reach.
  *
  * The type alone does NOT close it, and an earlier revision of this comment claimed it did.
  * Measured: `NonNullable` strips `undefined` from the VALUE type, but the `?` modifier re-admits it

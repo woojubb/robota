@@ -31,7 +31,7 @@ import type {
   TAccessTokenAdmission,
   TAccessTokenAlgorithm,
   TAccessTokenRefusal,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 import type { JWK, JWTPayload } from 'jose';
 
 /** Longest token offered to the parser. Real access tokens are a few hundred bytes to a few KiB. */

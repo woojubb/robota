@@ -5,14 +5,14 @@
  * hook reached a verdict at all; this says what a response additionally requests — `continue: false`,
  * a `permissionDecision`, an `updatedInput`, injected context.
  *
- * `interpretAllowOutcome` is the whole interpretation of one approving body (issue #2191): what to
+ * `interpretAllowOutcome` is the whole interpretation of one approving body: what to
  * inject, whether it blocks, which `permissionDecision` it states and the `updatedInput` riding with
  * it. `runHooks` only loops and aggregates — priority across hooks and the result shape stay there.
  *
  * The two contracts are mostly independent, with ONE crossing point: `explicitBlockDirective` below. A body may
  * carry a directive that unambiguously means "block" while the `{ ok, reason }` verdict beside it is
  * undecodable, and that body HAS rendered a verdict — discarding it because a sibling field was
- * malformed would be fail-open in an enforcement gate, which is the defect SEC-015 exists to remove
+ * malformed would be fail-open in an enforcement gate, which is the coercion this protocol exists to remove
  * rather than relocate.
  */
 
@@ -133,7 +133,7 @@ function parseHookJson(stdout: string): Record<string, unknown> | null {
  * is a decision the hook stated outright — unlike `ok`, which can be malformed into meaning nothing.
  * A body carrying one has spoken, whatever else in it did not decode.
  *
- * Scoped by event exactly as `runHooks` scopes them (issue #2196): `continue: false` blocks on every
+ * Scoped by event exactly as `runHooks` scopes them: `continue: false` blocks on every
  * event; `decision: "block"` is the `UserPromptSubmit` vocabulary; `permissionDecision: "deny"` is
  * the `PreToolUse` vocabulary. The decoder used to read all three on any event, so a body like
  * `{"ok": "maybe", "decision": "block"}` denied a tool call the runner would not have blocked — one

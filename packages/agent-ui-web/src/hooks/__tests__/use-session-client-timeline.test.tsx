@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3186 — command output and tool calls belong to the conversation timeline, as the TUI renders
+ * Command output and tool calls belong to the conversation timeline, as the TUI renders
  * them, not to banners stacked above it.
  */
 
@@ -27,7 +27,7 @@ function setup(): {
   return { result, deliver: (msg) => act(() => onMessage?.(msg)) };
 }
 
-describe('#3186 — the GUI conversation timeline', () => {
+describe('the GUI conversation timeline', () => {
   it('a command result becomes a command entry in the conversation, not a notice', () => {
     const { result, deliver } = setup();
     deliver({ type: 'command_result', name: 'cost', message: 'line 1\nline 2', success: true });
@@ -52,7 +52,7 @@ describe('#3186 — the GUI conversation timeline', () => {
     expect(result.current.messages).toEqual([]);
   });
 
-  it('#3282 §4 part b-2: a ui_intent for the plugin manager opens Settings on Plugins, not an info entry', () => {
+  it('a ui_intent for the plugin manager opens Settings on Plugins, not an info entry', () => {
     const { result, deliver } = setup();
     act(() => result.current.send({ type: 'command', name: 'plugin' }));
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-plugin-manager' } } } as TServerMessage);
@@ -64,7 +64,7 @@ describe('#3186 — the GUI conversation timeline', () => {
     expect(result.current.messages).toEqual([]);
   });
 
-  it('#3282 §4a: a ui_intent for settings opens the Settings screen instead of an info entry', () => {
+  it('a ui_intent for settings opens the Settings screen instead of an info entry', () => {
     const { result, deliver } = setup();
     act(() => result.current.send({ type: 'command', name: 'settings' }));
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-settings' } } } as TServerMessage);
@@ -75,7 +75,7 @@ describe('#3186 — the GUI conversation timeline', () => {
     expect(result.current.messages).toEqual([]);
   });
 
-  it('#3282 §4 part b-3: a ui_intent for show-agent-switcher opens the sheet instead of an info entry', () => {
+  it('a ui_intent for show-agent-switcher opens the sheet instead of an info entry', () => {
     const { result, deliver } = setup();
     act(() => result.current.send({ type: 'command', name: 'agent' }));
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-agent-switcher' } } } as TServerMessage);
@@ -86,18 +86,19 @@ describe('#3186 — the GUI conversation timeline', () => {
     expect(result.current.messages).toEqual([]);
   });
 
-  it('#3186 review: a screen request with no command of ours in flight shows at once', () => {
+  it('a screen request with no command of ours in flight shows at once', () => {
     const { result, deliver } = setup();
     // A still-genuinely-unsupported intent: every intent with a real GUI screen (session picker,
     // settings, plugin manager, agent switcher) now suppresses the reply's conversation card by
-    // design (#3282 §4), so this generic no-command-in-flight test needs one that still does not.
+    // design, so this generic no-command-in-flight test needs one that still does not.
     // A model-run `/theme` asks for the theme picker; no command_result follows on this surface.
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-theme-picker' } } } as TServerMessage);
     expect(result.current.messages).toEqual([
       expect.objectContaining({ role: 'command', name: 'theme', tone: 'info' }),
     ]);
-    // …and it never replaces the reply of a later, unrelated command. (Not `/help` — #3282 §4e made
-    // that one the GUI's own Help sheet, never sent to the session at all.)
+    // …and it never replaces the reply of a later, unrelated command. (Not `/help` — the GUI
+    // answers
+    // that one with its own Help sheet, never sent to the session at all.)
     act(() => result.current.send({ type: 'command', name: 'cost' }));
     deliver({ type: 'command_result', name: 'cost', message: 'Available commands', success: true });
     expect(result.current.messages.at(-1)).toEqual(
@@ -105,12 +106,12 @@ describe('#3186 — the GUI conversation timeline', () => {
     );
   });
 
-  it('#3186 review: a protocol error in place of the reply still shows the screen request', () => {
+  it('a protocol error in place of the reply still shows the screen request', () => {
     const { result, deliver } = setup();
     act(() => result.current.send({ type: 'command', name: 'agent' }));
     // A still-genuinely-unsupported intent: every intent with a real GUI screen (session picker,
     // settings, plugin manager, agent switcher) now suppresses the reply's conversation card by
-    // design (#3282 §4), so this generic in-flight-pairing test needs one that still does not.
+    // design, so this generic in-flight-pairing test needs one that still does not.
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-theme-picker' } } } as TServerMessage);
     deliver({ type: 'protocol_error', message: 'boom' });
     expect(result.current.messages).toEqual([
@@ -120,7 +121,7 @@ describe('#3186 — the GUI conversation timeline', () => {
     expect(result.current.messages.at(-1)).toEqual(expect.objectContaining({ tone: 'success' }));
   });
 
-  it('#3189: a reply that completes before a render is kept, not lost', () => {
+  it('a reply that completes before a render is kept, not lost', () => {
     let onMessage: ((msg: TServerMessage) => void) | null = null;
     const makeClient: TMakeSessionClient = (callbacks) => {
       onMessage = callbacks.onMessage;
@@ -138,7 +139,7 @@ describe('#3186 — the GUI conversation timeline', () => {
     );
   });
 
-  it('#3280 §2: an interrupted (stopped) turn keeps its partial reply, not just a completed one', () => {
+  it('an interrupted (stopped) turn keeps its partial reply, not just a completed one', () => {
     const { result, deliver } = setup();
     deliver({ type: 'text_delta', delta: 'partial resu' });
     deliver({ type: 'interrupted', result: { response: 'partial resu' } } as TServerMessage);
@@ -167,7 +168,7 @@ describe('#3186 — the GUI conversation timeline', () => {
     expect(result.current.activeTools).toEqual([]);
   });
 
-  it('#3288: two parallel same-named calls are attributed by executionId, not the first running one', () => {
+  it('two parallel same-named calls are attributed by executionId, not the first running one', () => {
     const { result, deliver } = setup();
     deliver({
       type: 'tool_start',
@@ -196,7 +197,7 @@ describe('#3186 — the GUI conversation timeline', () => {
     expect(b?.status).toBe('running');
   });
 
-  it('#3288: tool_end carries the diff, output, and executionId onto the conversation entry', () => {
+  it('tool_end carries the diff, output, and executionId onto the conversation entry', () => {
     const { result, deliver } = setup();
     deliver({ type: 'user_message', content: 'edit it' });
     deliver({
@@ -233,7 +234,7 @@ describe('#3186 — the GUI conversation timeline', () => {
     );
   });
 
-  it("#3288: a finished turn keeps tool calls where they happened relative to the text, not grouped before all of it", () => {
+  it("a finished turn keeps tool calls where they happened relative to the text, not grouped before all of it", () => {
     const { result, deliver } = setup();
     deliver({ type: 'user_message', content: 'go' });
     deliver({ type: 'text_delta', delta: 'checking first' });
@@ -260,7 +261,7 @@ describe('#3186 — the GUI conversation timeline', () => {
     expect(result.current.messages[3]).toEqual(expect.objectContaining({ content: 'done now' }));
   });
 
-  it('#3288: a turn that changed files ends with a Changed files summary row', () => {
+  it('a turn that changed files ends with a Changed files summary row', () => {
     const { result, deliver } = setup();
     deliver({ type: 'user_message', content: 'fix it' });
     deliver({
@@ -292,7 +293,7 @@ describe('#3186 — the GUI conversation timeline', () => {
     );
   });
 
-  it('#3288: a turn with no file changes has no Changed files row', () => {
+  it('a turn with no file changes has no Changed files row', () => {
     const { result, deliver } = setup();
     deliver({ type: 'user_message', content: 'read it' });
     deliver({
@@ -309,7 +310,7 @@ describe('#3186 — the GUI conversation timeline', () => {
   });
 });
 
-describe('#3186 — commands and status for the composer', () => {
+describe('commands and status for the composer', () => {
   function connectedSetup(): {
     result: { current: ReturnType<typeof useSessionClient> };
     deliver: (msg: TServerMessage) => void;
@@ -360,7 +361,7 @@ describe('#3186 — commands and status for the composer', () => {
     expect(result.current.sessionStatus).toEqual(status);
   });
 
-  it('#3280 §2: a (re)connect also asks for the queue, so a reconnect to the same session refreshes it', () => {
+  it('a (re)connect also asks for the queue, so a reconnect to the same session refreshes it', () => {
     const { wire, connect } = connectedSetup();
     connect();
     expect(wire.filter((m) => (m as { type: string }).type === 'get-pending')).toHaveLength(1);
@@ -370,13 +371,13 @@ describe('#3186 — commands and status for the composer', () => {
     expect(wire.filter((m) => (m as { type: string }).type === 'get-pending')).toHaveLength(2);
   });
 
-  it('#3186 review: a reconnect forgets a command whose reply was lost with the connection', () => {
+  it('a reconnect forgets a command whose reply was lost with the connection', () => {
     const { result, deliver, connect } = connectedSetup();
     act(() => result.current.send({ type: 'command', name: 'settings' }));
     connect();
     // A still-genuinely-unsupported intent: every intent with a real GUI screen (session picker,
     // settings, plugin manager, agent switcher) now suppresses the reply's conversation card by
-    // design (#3282 §4), so this generic no-command-in-flight (post-reconnect) test needs one that
+    // design, so this generic no-command-in-flight (post-reconnect) test needs one that
     // still does not.
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-theme-picker' } } } as TServerMessage);
     expect(result.current.messages).toEqual([
@@ -392,14 +393,14 @@ describe('#3186 — commands and status for the composer', () => {
     expect(wire).toContainEqual({ type: 'get-commands' });
   });
 
-  it('#3280 §2: a finished turn (complete or interrupted) re-asks for the queue', () => {
+  it('a finished turn (complete or interrupted) re-asks for the queue', () => {
     const { wire, deliver } = connectedSetup();
     deliver({ type: 'complete', result: { response: '' } } as TServerMessage);
     deliver({ type: 'interrupted', result: { response: '' } } as TServerMessage);
     expect(wire.filter((m) => (m as { type: string }).type === 'get-pending')).toHaveLength(2);
   });
 
-  it('#3282 §4 part b-3: fetches the schedule roster once connected', () => {
+  it('fetches the schedule roster once connected', () => {
     const { wire, connect } = connectedSetup();
     connect();
     expect(wire).toContainEqual({
@@ -409,7 +410,7 @@ describe('#3186 — commands and status for the composer', () => {
   });
 });
 
-describe('#3282 §4 part b-3 — the agent switcher sheet', () => {
+describe('the agent switcher sheet', () => {
   function setupWithWire(): {
     result: { current: ReturnType<typeof useSessionClient> };
     deliver: (msg: TServerMessage) => void;
@@ -501,7 +502,7 @@ describe('#3282 §4 part b-3 — the agent switcher sheet', () => {
   });
 });
 
-describe('#3282 §4 part b-3 — schedules in the Agents panel', () => {
+describe('schedules in the Agents panel', () => {
   const schedule = {
     id: 'sched_1',
     kind: 'scheduled' as const,
@@ -582,7 +583,7 @@ describe('#3282 §4 part b-3 — schedules in the Agents panel', () => {
   });
 
   it("a failed schedule delete carries its plain message as a session notice — Delete has no conversation card", () => {
-    // #3288 §1's `background-task-control-failed` notice already covers every failed
+    // The `background-task-control-failed` notice already covers every failed
     // `cancel-background-task`, including a schedule's Delete — no separate error state here.
     const { result, deliver } = setup();
     deliver({

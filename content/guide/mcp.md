@@ -15,7 +15,7 @@ programs serve, and lets other programs use an agent. Robota does both:
 
 The same building blocks are libraries: [`@robota-sdk/agent-mcp`](../../packages/agent-mcp/docs/README.md)
 (client: definitions, approval, connections, OAuth) and
-[`@robota-sdk/agent-transport-mcp`](../../packages/agent-transport-mcp/docs/README.md) (server).
+[`@robota-sdk/agent-transport/mcp`](../../packages/agent-transport/docs/mcp.md) (server).
 This guide covers the CLI.
 
 The last section covers **external events** — how an outside system can start a turn in a session.
@@ -399,5 +399,5 @@ sign-in required, signed out.
 - [Sessions, background sessions and the daemon](./sessions-and-daemon.md) — workspace trust and background sessions
 - [Devices and remote control](./devices-and-remote.md)
 - [`@robota-sdk/agent-mcp`](../../packages/agent-mcp/docs/README.md) and its [SPEC](../../packages/agent-mcp/docs/SPEC.md) — the MCP client
-- [`@robota-sdk/agent-transport-mcp`](../../packages/agent-transport-mcp/docs/README.md) and its [SPEC](../../packages/agent-transport-mcp/docs/SPEC.md) — the MCP server transport
+- [`@robota-sdk/agent-transport/mcp`](../../packages/agent-transport/docs/mcp.md) and its [SPEC](../../packages/agent-transport/docs/SPEC.md) — the MCP server transport
 - [`@robota-sdk/agent-cli` SPEC](../../packages/agent-cli/docs/SPEC.md) — the CLI's MCP composition and its current limitation

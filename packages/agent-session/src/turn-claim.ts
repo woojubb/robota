@@ -1,5 +1,5 @@
 /**
- * Thrown when a turn is started on a session that is already running one. RUNTIME-003.
+ * Thrown when a turn is started on a session that is already running one.
  *
  * A distinct type rather than a bare `Error`, because the point of giving the session a claim is to
  * let consumers STOP maintaining their own busy flags — and a consumer that has to regex-match an
@@ -17,7 +17,7 @@ export class SessionBusyError extends Error {
 }
 
 /**
- * The identity of the turn a session is currently running. RUNTIME-003.
+ * The identity of the turn a session is currently running.
  *
  * A session used to express "is something running?" as a bare `AbortController | null` field that
  * `run()` overwrote on entry. That field was doing three jobs at once — cancellation channel, busy
@@ -89,8 +89,8 @@ export class TurnClaim {
    * This does NOT release the claim, and that is deliberate. An earlier version cleared it here, so
    * `isRunning()` answered `false` the instant `abort()` returned — while the aborted turn was still
    * unwinding, still able to write history and finish tool calls. A new `run()` could then claim the
-   * session and interleave with it: exactly the two-turns-on-one-session defect RUNTIME-003 is
-   * about, just moved behind the abort boundary. Review of the first draft caught it.
+   * session and interleave with it: exactly the two-turns-on-one-session defect the claim
+   * prevents, just moved behind the abort boundary. Review of the first draft caught it.
    *
    * A turn is not over when it is asked to stop; it is over when it has stopped. The claim is
    * therefore held until the owning turn's `finally` releases it, and until then `isRunning()` says

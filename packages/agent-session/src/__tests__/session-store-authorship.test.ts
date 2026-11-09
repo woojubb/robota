@@ -1,5 +1,5 @@
 /**
- * Authorship of sealed session records (#3679 step 3e). Sealing needs only the public key, so a record
+ * Authorship of sealed session records. Sealing needs only the public key, so a record
  * that opens says nothing about who wrote it; a resumed record is fed back to the model as its own
  * history, so the store decides whose each record is when it opens the bytes, and says so on every
  * `valid` outcome. These drive NodeSessionStore with the agent-core sealer double (its tags are an
@@ -23,7 +23,7 @@ import { SESSION_RECORD_ENVELOPE_VERSION } from '../session-record-codec/index.j
 import { NodeSessionStore } from '../session-store.js';
 
 import type { IArtifactSealerDouble } from '@robota-sdk/agent-core/testing';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-authorship-51e0-owner-text';
 const FORGED = 'CANARY-authorship-9d22-forged-text';

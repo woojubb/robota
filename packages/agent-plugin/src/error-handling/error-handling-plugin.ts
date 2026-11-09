@@ -144,7 +144,7 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
   }
 
   /**
-   * PLG-020 (issue #2460): the production dispatcher's error hook. A run that fails is recorded and
+   * The production dispatcher's error hook. A run that fails is recorded and
    * routed by the configured strategy without any caller wrapping it in `executeWithRetry`.
    */
   override async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
@@ -269,7 +269,7 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
   /**
    * Cleanup resources
    */
-  // CORE-022: dispose() is the single disposal entry point (SPEC § Disposal Chain Contract).
+  // dispose() is the single disposal entry point (SPEC § Disposal Chain Contract).
   override async dispose(): Promise<void> {
     await super.dispose();
     this.logger.info('ErrorHandlingPlugin destroyed');

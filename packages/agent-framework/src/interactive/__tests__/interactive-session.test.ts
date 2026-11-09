@@ -2,7 +2,7 @@
  * Tests for InteractiveSession — event-driven session wrapper.
  */
 
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { mkdtemp, rm, writeFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -94,7 +94,7 @@ function createControllableRun(): {
 function createMockSessionStore(records: Record<string, unknown> = {}) {
   const store = new Map<string, unknown>(Object.entries(records));
   return withHoldReadClaim({
-    // TRANS-007: the port returns an outcome, so a double that returns a record (or `undefined`)
+    // The port returns an outcome, so a double that returns a record (or `undefined`)
     // no longer satisfies it. The cast at the call site hid that from the compiler; the tests found
     // it at runtime instead.
     load: vi.fn((id: string) => {
@@ -718,11 +718,11 @@ describe('InteractiveSession', () => {
     });
   });
 
-  // ── BEHAVIOR-001: Session resume correctness tests ──────────────────────────
+  // ── Session resume correctness tests ──────────────────────────
 
-  describe('session resume — BEHAVIOR-001 correctness', () => {
-    // TC-01: tool_use+tool_result pairs are restored as structures (not as JSON.stringify strings)
-    it('TC-01: restores tool_use+tool_result pairs as structured objects, not stringified', () => {
+  describe('session resume correctness', () => {
+    // tool_use+tool_result pairs are restored as structures (not as JSON.stringify strings)
+    it('restores tool_use+tool_result pairs as structured objects, not stringified', () => {
       const mockSession = createMockSession({ sessionId: 'tool-session' });
       const toolCalls = [
         {
@@ -805,8 +805,8 @@ describe('InteractiveSession', () => {
       expect(toolMsg.content).toBe('file content');
     });
 
-    // TC-02: after resume, the messages array length equals the stored messages
-    it('TC-02: restores exact number of messages from session record', () => {
+    // After resume, the messages array length equals the stored messages
+    it('restores exact number of messages from session record', () => {
       const mockSession = createMockSession({ sessionId: 's2' });
       const messages = [
         { id: 'u1', role: 'user', content: 'msg1', state: 'complete', timestamp: new Date() },
@@ -836,8 +836,8 @@ describe('InteractiveSession', () => {
       expect(mockSession.injectRawMessage).toHaveBeenCalledTimes(messages.length);
     });
 
-    // TC-04: the history turn count matches the stored history
-    it('TC-04: restores history entries with correct count', () => {
+    // The history turn count matches the stored history
+    it('restores history entries with correct count', () => {
       const mockSession = createMockSession();
       const historyEntries = [
         {
@@ -893,8 +893,8 @@ describe('InteractiveSession', () => {
       expect(restoredHistory[2]?.category).toBe('event');
     });
 
-    // TC-05: when sessionName exists, getName() returns the stored name
-    it('TC-05: restores sessionName so getName() returns the saved name', () => {
+    // When sessionName exists, getName() returns the stored name
+    it('restores sessionName so getName() returns the saved name', () => {
       const mockSession = createMockSession({ sessionId: 'named-session' });
       const mockStore = createMockSessionStore({
         'named-session': {
@@ -919,8 +919,8 @@ describe('InteractiveSession', () => {
       expect(session.getName()).toBe('My Important Session');
     });
 
-    // TC-06: pairing is preserved when resuming a session with multi-turn tool calls (3 or more)
-    it('TC-06: restores multi-turn tool calls preserving tool_use+tool_result pairing order', () => {
+    // Pairing is preserved when resuming a session with multi-turn tool calls (3 or more)
+    it('restores multi-turn tool calls preserving tool_use+tool_result pairing order', () => {
       const mockSession = createMockSession({ sessionId: 'multi-tool-session' });
       const tc1 = [
         { id: 'call1', type: 'function' as const, function: { name: 'readFile', arguments: '{}' } },
@@ -1044,7 +1044,7 @@ describe('InteractiveSession', () => {
 });
 
 describe('memory_event emission', () => {
-  it('TC-03: emits memory_event to subscribed listeners on recordMemoryEvent', () => {
+  it('emits memory_event to subscribed listeners on recordMemoryEvent', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
       host: testHost,

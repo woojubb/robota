@@ -1,5 +1,5 @@
 /**
- * `session list` over a store that seals (#3679): each saved record says whose it is, and records
+ * `session list` over a store that seals: each saved record says whose it is, and records
  * nobody vouched for come after every other, never ranked among them. Over a plain store the output
  * says nothing of authorship.
  */
@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 import { executeSessionListCommand } from '../session-list-command.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 function record(id: string): IInteractiveSessionRecord {
   return {

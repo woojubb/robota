@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,27 +8,19 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 /**
  * The CLI mints a workspace authority through `@robota-sdk/agent-framework/node`; the bundled
- * `@robota-sdk/workflows` 0.0.3 (published, not rebuilt here) imports only the framework's main
+ * `@robota-sdk/workflows` (the published release, not rebuilt here) imports only the framework's main
  * entry and calls `assertWorkspaceProjectAuthority`, `getWorkspaceProjectReader`,
  * `getWorkspaceProjectIdentity` and `assertWorkspaceProjectMutationForAuthority` on it. The two
  * entries must therefore be one module instance in the built output, in ESM and in CJS. This runs
  * the real workflows dist over the framework's real dist in plain Node.
  *
- * Build-dependent: it needs the framework's `dist`, and is skipped where that was not built; CI
- * builds first and sets `CI`, where a missing build fails the test instead.
+ * Both packages are resolved from the CLI's pinned dependencies.
  */
 const FIXTURE = join(
   dirname(fileURLToPath(import.meta.url)),
   'fixtures',
   'workflows-dist-authority.mjs',
 );
-const FRAMEWORK_DIST = fileURLToPath(
-  new URL('../../../agent-framework/dist/node/', import.meta.url),
-);
-const built = ['index.js', 'index.cjs', 'node.js', 'node.cjs'].every((name) =>
-  existsSync(join(FRAMEWORK_DIST, name)),
-);
-const requireBuilt = process.env['CI'] !== undefined;
 /** Each case starts a Node process that loads two built packages. */
 const SPAWN_TIMEOUT_MS = 60_000;
 
@@ -47,7 +39,7 @@ function projectRoot(): { root: string; store: string } {
   return { root, store: join(base, 'trust.json') };
 }
 
-describe.skipIf(!built && !requireBuilt)(
+describe(
   'the published workflows dist over the framework dist',
   () => {
     it.each(['esm', 'cjs'] as const)(
@@ -67,7 +59,7 @@ describe.skipIf(!built && !requireBuilt)(
         expect(result).toMatchObject({
           trust: 'trusted',
           canMutate: true,
-          executionRoot: root,
+          executionRoot: realpathSync.native(root),
           read: '# project guidance\n',
           forged: 'WorkspaceAuthorityRequiredError',
         });

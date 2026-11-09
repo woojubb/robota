@@ -4,16 +4,18 @@
 
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import { createBashTool } from '@robota-sdk/agent-tools/node';
 import { describe, expect, it, onTestFinished } from 'vitest';
+
+import { stderrCommand } from '../testing/shell-command-fixture.js';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
 
 /**
- * ARCH-010 — the context-free `bashTool` singleton is gone and `cwd` is required. For the shell family
+ * The context-free `bashTool` singleton is gone and `cwd` is required. For the shell family
  * `cwd` is the DEFAULT WORKING DIRECTORY and deliberately not a containment boundary, so the host process
  * directory is what these cases already ran in; it is now said out loud. No case here reads or writes a
  * file — the two that care about a directory pass `workingDirectory` explicitly.
@@ -26,7 +28,8 @@ async function run(params: TToolParameters): Promise<IToolInvocationResult> {
   return JSON.parse(rawResult.data as string) as IToolInvocationResult;
 }
 
-describe('BashTool', () => {
+// The first PowerShell a Windows runner starts takes seconds, and the default is five.
+describe('BashTool', { timeout: 30_000 }, () => {
   it('executes a simple command and returns stdout', async () => {
     const result = await run({ command: 'echo hello' });
     expect(result.success).toBe(true);
@@ -35,7 +38,7 @@ describe('BashTool', () => {
   });
 
   it('captures stderr output', async () => {
-    const result = await run({ command: 'echo error-msg >&2' });
+    const result = await run({ command: stderrCommand('error-msg') });
     expect(result.success).toBe(true);
     expect(result.output).toContain('error-msg');
   });
@@ -53,10 +56,13 @@ describe('BashTool', () => {
   });
 
   it('uses workingDirectory when specified', async () => {
-    const result = await run({ command: 'pwd', workingDirectory: '/tmp' });
+    const directory = mkdtempSync(join(tmpdir(), 'agent-bash-cwd-'));
+    onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
+    const result = await run({ command: 'pwd', workingDirectory: directory });
     expect(result.success).toBe(true);
-    // On macOS /tmp is a symlink to /private/tmp, so we check it ends with /tmp
-    expect(result.output.trim()).toMatch(/\/tmp$/);
+    // The directory's own name survives every spelling of its parents (a symlinked /tmp on macOS,
+    // an 8.3 short name on Windows), and PowerShell prints its location under a header.
+    expect(result.output).toContain(basename(directory));
   });
 
   it('runs multi-line shell commands', async () => {

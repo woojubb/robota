@@ -30,7 +30,7 @@ import {
   securityIdentity,
 } from '@robota-sdk/agent-mcp';
 import { FunctionTool } from '@robota-sdk/agent-core';
-import { executeMCPActivationCommand } from '@robota-sdk/agent-command';
+import { executeMCPActivationCommand } from '@robota-sdk/agent-product/command';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 import { Session } from '@robota-sdk/agent-session';
 

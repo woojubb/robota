@@ -12,11 +12,11 @@ import {
 
 import type { IActionRequest, IUserInteraction, TActionResponse } from '../index.js';
 
-// TC-01 (CMD-004): the unified action contract + ask port are exported from agent-core's public
+// The unified action contract + ask port are exported from agent-core's public
 // surface and carry the full field set. Importing the symbols above from '../index.js' is itself the
 // "exported from agent-core" assertion (the module fails to load otherwise).
 
-describe('CMD-004 interaction contract (agent-core SSOT)', () => {
+describe('interaction contract (agent-core SSOT)', () => {
   it('IActionRequest carries the full field set (compile + shape)', () => {
     // Type-level coverage: every documented field is assignable. A dropped field would fail to compile.
     const request: IActionRequest = {

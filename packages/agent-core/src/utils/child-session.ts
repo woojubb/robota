@@ -1,6 +1,6 @@
 /**
  * Whether the children this process starts share its controlling terminal: one decision for the
- * whole process, made once by its entry, and read at every spawn (decided design change 4 of #3679).
+ * whole process, made once by its entry, and read at every spawn.
  *
  * ## Why a child leaves the session
  *
@@ -61,6 +61,7 @@ import { endProcessGroupOnProcessExit } from './process-exit-removals.js';
 import type { ChildProcess, ExecFileException, ExecFileOptions } from 'node:child_process';
 
 const POLICY = Symbol.for('@robota-sdk/agent-core:child-sessions@1');
+const SPAWN_HOLDS = Symbol.for('@robota-sdk/agent-core:spawn-holds@1');
 /** `execFile`'s own default, kept so a caller sees the same bound either way. */
 const EXEC_FILE_MAX_BUFFER = 1024 * 1024;
 
@@ -92,6 +93,26 @@ export function enableOwnChildSessions(options: IEnableOwnChildSessionsOptions =
   policy().own = true;
 }
 
+function spawnHolds(): Set<object> {
+  const holder = globalThis as { [SPAWN_HOLDS]?: Set<object> };
+  holder[SPAWN_HOLDS] ??= new Set();
+  return holder[SPAWN_HOLDS];
+}
+
+/** Hold child-session spawn paths while a handed-over descriptor is being consumed. */
+export function holdChildSpawns(): () => void {
+  const holds = spawnHolds();
+  const hold = {};
+  holds.add(hold);
+  return () => { holds.delete(hold); };
+}
+
+function assertChildSpawnsAllowed(): void {
+  if (spawnHolds().size > 0) {
+    throw new Error('Cannot spawn a child while a handover descriptor is open.');
+  }
+}
+
 /** A stdio entry that would hand the child this process's terminal. */
 function inheritsTerminal(entry: unknown): boolean {
   return (
@@ -121,6 +142,7 @@ export type TChildSessionOptions<T> = {
  * hand the child this process's terminal is refused.
  */
 export function withChildSession<const T extends object>(options: T): TChildSessionOptions<T> {
+  assertChildSpawnsAllowed();
   if (!policy().own) return options as TChildSessionOptions<T>;
   const stdio = (options as { readonly stdio?: unknown }).stdio;
   const entries: readonly unknown[] = Array.isArray(stdio) ? stdio : [stdio];
@@ -191,6 +213,7 @@ export function execFileInChildSession(
   options: IExecFileInChildSessionOptions,
   callback: TExecFileCallback,
 ): ChildProcess {
+  assertChildSpawnsAllowed();
   if (!policy().own) {
     return execFile(file, [...args], options, (error, stdout, stderr) =>
       callback(error, String(stdout), String(stderr)),
@@ -357,5 +380,6 @@ export function resetChildSessionPolicy(): void {
   const state = policy();
   for (const cancel of state.tracked.values()) cancel();
   state.tracked.clear();
+  spawnHolds().clear();
   state.own = false;
 }

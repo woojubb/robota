@@ -59,18 +59,22 @@ describe('atomicWriteUtf8File', () => {
     expect(await listAgentRuntimeTempFiles(dirname(filePath))).toEqual([]);
   });
 
-  it('Given an executable target file When writing replacement content Then the target permissions are preserved', async () => {
-    const dir = await makeTempDir();
-    tempDirs.push(dir);
-    const filePath = join(dir, 'script.sh');
-    writeFileSync(filePath, '#!/bin/sh\necho before\n', 'utf8');
-    chmodSync(filePath, 0o755);
+  // The execute bit exists only in POSIX modes; a Windows file has no per-file mode to carry across the replacement.
+  it.skipIf(process.platform === 'win32')(
+    'Given an executable target file When writing replacement content Then the target permissions are preserved',
+    async () => {
+      const dir = await makeTempDir();
+      tempDirs.push(dir);
+      const filePath = join(dir, 'script.sh');
+      writeFileSync(filePath, '#!/bin/sh\necho before\n', 'utf8');
+      chmodSync(filePath, 0o755);
 
-    await atomicWriteUtf8File(filePath, '#!/bin/sh\necho after\n');
+      await atomicWriteUtf8File(filePath, '#!/bin/sh\necho after\n');
 
-    expect(readFileSync(filePath, 'utf8')).toBe('#!/bin/sh\necho after\n');
-    expect(statSync(filePath).mode & 0o777).toBe(0o755);
-  });
+      expect(readFileSync(filePath, 'utf8')).toBe('#!/bin/sh\necho after\n');
+      expect(statSync(filePath).mode & 0o777).toBe(0o755);
+    },
+  );
 
   it('Given a target path that is a directory When replacement fails Then the directory remains and temp files are cleaned', async () => {
     const dir = await makeTempDir();

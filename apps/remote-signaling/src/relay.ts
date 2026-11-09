@@ -57,7 +57,7 @@ export type TInboundFrame =
   | { readonly type: 'presence'; readonly topics: readonly string[] }
   | { readonly type: 'message'; readonly topic: string; readonly data: unknown };
 
-/** Context passed to the join seam (REMOTE-004 — widened from the Stage-A `(rendezvous, peerId)` form). */
+/** Context passed to the join seam (wider than a bare `(rendezvous, peerId)` form). */
 export interface IJoinAttemptContext {
   readonly rendezvous: string;
   readonly peerId: string;
@@ -77,7 +77,7 @@ export interface ISignalingRelayOptions {
   /** Maximum distinct source buckets retained by join/presence limiting. */
   readonly maxSourceBuckets?: number;
   /**
-   * Per-connection **message rate** for the relayed `signal` path (REMOTE-011 E2; default
+   * Per-connection **message rate** for the relayed `signal` path (default
    * {@link DEFAULT_MESSAGE_RATE}). Bounds a `signal` flood from an already-joined peer — distinct from the
    * per-source `join` bucket (`rateLimit`). Keyed by peer id and evicted on `remove()`.
    */
@@ -247,7 +247,7 @@ export class SignalingRelay {
       this.reject(peer, 'not-joined');
       return;
     }
-    // Per-connection message-rate bound (REMOTE-011 E2): a joined peer flooding `signal` frames is
+    // Per-connection message-rate bound: a joined peer flooding `signal` frames is
     // throttled here — the frame is dropped (never forwarded) rather than closing the connection.
     if (!this.messageLimiter.tryConsume(peer.id)) {
       this.reject(peer, 'message-rate-limited');
@@ -311,7 +311,7 @@ export class SignalingRelay {
   public remove(peer: ISignalingPeer): void {
     const rendezvous = this.peerRendezvous.get(peer.id);
     this.peerRendezvous.delete(peer.id);
-    // Evict the per-connection message bucket (REMOTE-011 E2) so the map is bounded by LIVE connections,
+    // Evict the per-connection message bucket so the map is bounded by LIVE connections,
     // not by every peer id ever admitted — the unbounded-growth class this stage exists to close.
     this.messageLimiter.evict(peer.id);
     this.presence.withdraw(peer);
@@ -386,7 +386,7 @@ export class SignalingRelay {
     return this.presence.size;
   }
 
-  /** Diagnostics only (REMOTE-011 E2): live per-connection message-bucket count — asserts the memory bound. */
+  /** Diagnostics only: live per-connection message-bucket count — asserts the memory bound. */
   public get messageBucketCount(): number {
     return this.messageLimiter.size;
   }

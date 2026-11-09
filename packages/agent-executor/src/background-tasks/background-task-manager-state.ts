@@ -5,7 +5,7 @@ import {
   normalizeBackgroundTaskError,
   type ITrackedBackgroundTask,
 } from './background-task-manager-helpers.js';
-import { transitionBackgroundTaskStatus } from './state-machine.js';
+import { isTerminalBackgroundTaskStatus, transitionBackgroundTaskStatus } from './state-machine.js';
 import { BackgroundTaskError } from './types.js';
 
 import type {
@@ -13,6 +13,7 @@ import type {
   TBackgroundTaskRequest,
   IBackgroundTaskResult,
   IBackgroundTaskRunner,
+  IBackgroundTaskStart,
   IBackgroundTaskState,
   TBackgroundTaskRunnerEvent,
 } from './types.js';
@@ -92,7 +93,7 @@ export function markBackgroundTaskCancelled(
   reason: string | undefined,
   now: string,
 ): { task: IBackgroundTaskState } {
-  // CORE-024: `wasActive` was dropped — slot accounting is now id-keyed and idempotent
+  // `wasActive` was dropped — slot accounting is now id-keyed and idempotent
   // (releaseSlot), so the caller no longer needs a was-it-active flag to decide the decrement.
   task.state.status = transitionBackgroundTaskStatus(task.state.status, 'CANCEL');
   task.state.error = {
@@ -105,13 +106,13 @@ export function markBackgroundTaskCancelled(
   return { task: cloneBackgroundTaskState(task.state) };
 }
 
-/** SELFHOST-012: non-destructive pause — `paused` is non-terminal; the schedule stops firing but is kept. */
+/** Non-destructive pause — `paused` is non-terminal; the schedule stops firing but is kept. */
 export function markBackgroundTaskPaused(
   task: ITrackedBackgroundTask,
   now: string,
 ): IBackgroundTaskState {
   task.state.status = transitionBackgroundTaskStatus(task.state.status, 'PAUSE');
-  // #2079: `nextFireAt` is scheduled-only on the discriminated state; pause is only ever called on
+  // `nextFireAt` is scheduled-only on the discriminated state; pause is only ever called on
   // a scheduled task (the manager's `requireScheduledTask` guard), but the kind check here is what
   // lets TypeScript narrow `task.state` to write it.
   if (task.state.kind === 'scheduled') task.state.nextFireAt = undefined; // no pending fire while paused
@@ -119,7 +120,7 @@ export function markBackgroundTaskPaused(
   return cloneBackgroundTaskState(task.state);
 }
 
-/** SELFHOST-012: resume a paused schedule back to `sleeping`; the runner's re-emitted sleeping sets nextFireAt. */
+/** Resume a paused schedule back to `sleeping`; the runner's re-emitted sleeping sets nextFireAt. */
 export function markBackgroundTaskResumed(
   task: ITrackedBackgroundTask,
   now: string,
@@ -151,14 +152,14 @@ export function applyBackgroundTaskRunnerStateEvent(
     if (task.state.status !== 'sleeping') {
       task.state.status = transitionBackgroundTaskStatus(task.state.status, 'SLEEP');
     }
-    // #2079: `nextFireAt` is scheduled-only on the discriminated state — `background_task_sleeping`
+    // `nextFireAt` is scheduled-only on the discriminated state — `background_task_sleeping`
     // is only emitted by the scheduled runner, but the kind check is what lets TypeScript narrow.
     if (task.state.kind === 'scheduled') task.state.nextFireAt = event.nextFireAt;
     task.state.updatedAt = now;
     return cloneBackgroundTaskState(task.state);
   }
   if (event.type === 'background_task_waking') {
-    // A scheduled task wakes from 'sleeping' → 'running'. A monitor (FLOW-004, `process`-kind) is
+    // A scheduled task wakes from 'sleeping' → 'running'. A monitor (`process`-kind) is
     // already 'running' and fires wakes on output matches without changing status — keep it as-is.
     if (task.state.status === 'sleeping') {
       task.state.status = transitionBackgroundTaskStatus(task.state.status, 'WAKE');
@@ -174,6 +175,7 @@ export function applyBackgroundTaskRunnerStateEvent(
 interface IStartBackgroundTaskRunnerOptions {
   task: ITrackedBackgroundTask;
   runner: IBackgroundTaskRunner;
+  startOverride?: (task: IBackgroundTaskStart) => IBackgroundTaskHandle;
   now: () => string;
   onEvent: (event: TBackgroundTaskRunnerEvent) => void;
   onStarted: () => void;
@@ -192,11 +194,23 @@ export function startBackgroundTaskRunner(options: IStartBackgroundTaskRunnerOpt
     }
     // The kind check establishes the correlation that TypeScript cannot recover from a
     // runtime registry of the four runner variants.
-    const handle = options.runner.start({
+    const input = {
       taskId: options.task.state.id,
       request: options.task.request,
       emit: options.onEvent,
-    } as never);
+    };
+    const handle = options.startOverride
+      ? options.startOverride(input as IBackgroundTaskStart)
+      : options.runner.start(input as never);
+    if (isTerminalBackgroundTaskStatus(options.task.state.status)) {
+      void handle.result.catch(() => undefined);
+      try {
+        void handle.cancel('Task ended during runner startup').catch(() => undefined);
+      } catch {
+        /* Best-effort cancellation. */
+      }
+      return;
+    }
     const updated = attachBackgroundTaskHandleMetadata(options.task, handle, options.now);
     if (updated) options.onUpdated(updated);
     options.onStarted();

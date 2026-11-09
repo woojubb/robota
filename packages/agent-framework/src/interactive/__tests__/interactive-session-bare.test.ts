@@ -44,7 +44,7 @@ vi.mock('../../config/config-loader.js', () => ({
 }));
 
 // Mock the plugin loader — bare mode must skip plugin loading.
-// PLG-021: the module under test now builds its loader through the composition root
+// The module under test now builds its loader through the composition root
 // (`createHostBundlePluginLoader`) rather than the bare constructor, so that is what is stubbed.
 // `BundlePluginLoader` stays in the mock because the module's TYPE surface still names it.
 const mockLoadPluginsSync = vi.fn().mockReturnValue([]);
@@ -173,8 +173,8 @@ describe('createInteractiveSession — bare mode', () => {
     });
 
     expect(mockLoadContext).toHaveBeenCalledTimes(1);
-    // ARCH-042: no project-access decision means Restricted, so no project source is passed.
-    // SELFHOST-008/NEUT-004: the optional memory store and context options remain explicit.
+    // No project-access decision means Restricted, so no project source is passed.
+    // The optional memory store and context options remain explicit.
     expect(mockLoadContext).toHaveBeenCalledWith(undefined, undefined, {});
   });
 
@@ -244,7 +244,7 @@ describe('createInteractiveSession — bare mode', () => {
   });
 });
 
-describe('createInteractiveSession — skipConfiguredHooks (issue #3082)', () => {
+describe('createInteractiveSession — skipConfiguredHooks', () => {
   it('runs no hook a settings layer declares', async () => {
     const hooks = {
       PreToolUse: [{ matcher: '*', hooks: [{ type: 'command', command: 'echo x' }] }],
@@ -287,7 +287,7 @@ describe('createInteractiveSession — skipConfiguredHooks (issue #3082)', () =>
   });
 });
 
-describe('initializeInteractiveSessionAsync — skipConfiguredHooks reaches the session (issue #3082)', () => {
+describe('initializeInteractiveSessionAsync — skipConfiguredHooks reaches the session', () => {
   it('drops settings hooks on the path every InteractiveSession takes', async () => {
     mockLoadConfigWithHookSources.mockResolvedValue({
       config: {

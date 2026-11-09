@@ -25,7 +25,7 @@ import {
   createKeyringFileStore,
   type IKeyringStore,
   type IMachineIdentity,
-} from '../keyring-store.js';
+} from '@robota-sdk/agent-local-host';
 import { FIXTURE_PASSPHRASE, OTHER_PASSPHRASE, fixtureKeyring } from './helpers.js';
 
 const PERMISSIVE_UMASK = 0o022;
@@ -249,7 +249,7 @@ describe('keyring store — saving', () => {
     expect(error.message).toContain('ENOSPC');
     expect(error.message).not.toContain('/secret/path');
     expect(readFileSync(keyringPath, 'utf8')).toBe(serializeKeyring(keyring));
-    expect(readdirSync(join(root, 'secure'))).toEqual(['keyring.json']);
+    expect(readdirSync(join(root, 'secure'))).toEqual(['keyring.guard', 'keyring.json']);
   });
 
   it('reads the keyring back and refuses a result that is not what was written', async () => {
@@ -284,7 +284,7 @@ describe('keyring store — saving', () => {
     );
     store.save(updated, keyring);
 
-    expect(readdirSync(join(root, 'secure'))).toEqual(['keyring.json']);
+    expect(readdirSync(join(root, 'secure'))).toEqual(['keyring.guard', 'keyring.json']);
     const everythingOnDisk = [root, join(root, 'secure')]
       .flatMap((directory) => readdirSync(directory, { withFileTypes: true }))
       .filter((entry) => entry.isFile())
@@ -312,6 +312,12 @@ describe('keyring store — saving', () => {
     writeFileSync(unrelated, 'keep', { mode: 0o600 });
 
     storeFor().create(keyring);
+    if (readBootId() === undefined) {
+      // The pid is not trustworthy without a boot identity: leave the fresh file alone.
+      expect(existsSync(crashed)).toBe(true);
+      ageFile(crashed, 10 * 60_000);
+      storeFor().save(reordered(keyring), keyring);
+    }
     expect(existsSync(crashed)).toBe(false);
     expect(existsSync(legacy)).toBe(false);
     expect(existsSync(unrelated)).toBe(true);
@@ -446,7 +452,7 @@ describe('keyring store — one writer at a time', () => {
 
     expect(refusal(() => store.create(reordered(keyring))).code).toBe('exists');
     expect(readFileSync(keyringPath, 'utf8')).toBe(serializeKeyring(keyring));
-    expect(readdirSync(join(root, 'secure'))).toEqual(['keyring.json']);
+    expect(readdirSync(join(root, 'secure'))).toEqual(['keyring.guard', 'keyring.json']);
   });
 
   it('waits for a lock a live process holds, then refuses with busy and writes nothing', async () => {
@@ -455,7 +461,7 @@ describe('keyring store — one writer at a time', () => {
     const held = lockOf(process.pid, thisMachine());
     writeFileSync(lockPath(), held, { mode: 0o600 });
 
-    const error = refusal(() => storeFor({ lockWaitMs: 100 }).save(reordered(keyring), keyring));
+    const error = refusal(() => storeFor().save(reordered(keyring), keyring));
     expect(error.code).toBe('busy');
     expect(readFileSync(keyringPath, 'utf8')).toBe(serializeKeyring(keyring));
     expect(readFileSync(lockPath(), 'utf8')).toBe(held);
@@ -465,8 +471,14 @@ describe('keyring store — one writer at a time', () => {
     const { keyring } = await fixtureKeyring();
     writeKeyringFile(keyring);
     writeFileSync(lockPath(), lockOf(deadPid(), thisMachine()), { mode: 0o600 });
+    if (readBootId() === undefined) {
+      expect(
+        refusal(() => storeFor().save(reordered(keyring), keyring)).code,
+      ).toBe('busy');
+      ageFile(lockPath(), 10 * 60_000);
+    }
 
-    storeFor({ lockWaitMs: 100 }).save(reordered(keyring), keyring);
+    storeFor().save(reordered(keyring), keyring);
     expect(readFileSync(keyringPath, 'utf8')).toBe(serializeKeyring(reordered(keyring)));
     expect(existsSync(lockPath())).toBe(false);
   });
@@ -478,7 +490,7 @@ describe('keyring store — one writer at a time', () => {
     const held = lockOf(deadPid(), OTHER_HOST);
     writeFileSync(lockPath(), held, { mode: 0o600 });
 
-    const error = refusal(() => storeFor({ lockWaitMs: 100 }).save(reordered(keyring), keyring));
+    const error = refusal(() => storeFor().save(reordered(keyring), keyring));
     expect(error.code).toBe('busy');
     expect(readFileSync(keyringPath, 'utf8')).toBe(serializeKeyring(keyring));
     expect(readFileSync(lockPath(), 'utf8')).toBe(held);
@@ -492,7 +504,7 @@ describe('keyring store — one writer at a time', () => {
       writeFileSync(lockPath(), held, { mode: 0o600 });
       ageFile(lockPath(), 10 * 60_000);
       const next = reordered(current);
-      storeFor({ lockWaitMs: 100 }).save(next, current);
+      storeFor().save(next, current);
       expect(readFileSync(keyringPath, 'utf8')).toBe(serializeKeyring(next));
       expect(existsSync(lockPath())).toBe(false);
       current = next;
@@ -508,9 +520,7 @@ describe('keyring store — one writer at a time', () => {
         writeFileSync(lockPath(), held, { mode: 0o600 });
         const clock = vi.spyOn(Date, 'now').mockReturnValue(realNow + step);
         try {
-          const error = refusal(() =>
-            storeFor({ lockWaitMs: 100 }).save(reordered(keyring), keyring),
-          );
+          const error = refusal(() => storeFor().save(reordered(keyring), keyring));
           expect(error.code).toBe('busy');
         } finally {
           clock.mockRestore();
@@ -554,6 +564,11 @@ describe('keyring store — one writer at a time', () => {
     ageFile(elsewhereOld, 10 * 60_000);
 
     storeFor().save(reordered(keyring), keyring);
+    if (readBootId() === undefined) {
+      expect(existsSync(gone)).toBe(true);
+      ageFile(gone, 10 * 60_000);
+      storeFor().save(keyring, reordered(keyring));
+    }
     expect(existsSync(gone)).toBe(false);
     expect(existsSync(live)).toBe(true);
     expect(existsSync(elsewhereFresh)).toBe(true);
@@ -584,61 +599,38 @@ describe('keyring store — a write that reached the file but was not confirmed'
   });
 });
 
-/** The lock as it is now, with its holder's pid swapped for a gone one: judged abandoned from here on. */
-function abandonCurrentLock(): void {
-  const held = JSON.parse(readFileSync(lockPath(), 'utf8')) as Record<string, unknown>;
-  writeFileSync(lockPath(), JSON.stringify({ ...held, pid: deadPid() }), { mode: 0o600 });
-}
-
-describe('keyring store — a writer overtaken while it stalls', () => {
-  it('re-checks immediately before its commit, so it reports changed instead of undoing the writer that took over', async () => {
+describe('keyring store — a writer held through its commit', () => {
+  it('refuses a competing update while a writer is about to commit', async () => {
     const { keyring } = await fixtureKeyring();
     writeKeyringFile(keyring);
     const mine = await changePassphrase(keyring, passphraseCredential, OTHER_PASSPHRASE);
-    const theirs = reordered(keyring);
-    let overtaken = false;
+    let sawBusy = false;
     const stalling = storeFor({
       durability: {
-        // Between writing its temp file and committing it, this writer stalls past the stale bound:
-        // another writer judges its lock abandoned, takes it, and saves a change of its own.
         syncFile: () => {
-          if (overtaken) return;
-          overtaken = true;
-          abandonCurrentLock();
-          storeFor({ lockWaitMs: 100 }).save(theirs, keyring);
+          sawBusy = refusal(() => storeFor().save(reordered(keyring), keyring)).code === 'busy';
         },
       },
     });
-
-    const error = refusal(() => stalling.save(mine, keyring));
-    expect(error.code).toBe('changed');
-    expect(readFileSync(keyringPath, 'utf8')).toBe(serializeKeyring(theirs));
-    expect(readdirSync(join(root, 'secure')).sort()).toEqual(['keyring.json']);
+    stalling.save(mine, keyring);
+    expect(sawBusy).toBe(true);
+    expect(readFileSync(keyringPath, 'utf8')).toBe(serializeKeyring(mine));
   });
 
-  it('re-checks after its read-back, so a lock taken over meanwhile leaves the result unconfirmed', async () => {
+  it('refuses a competing update until a committed write is confirmed', async () => {
     const { keyring } = await fixtureKeyring();
     writeKeyringFile(keyring);
     const mine = reordered(keyring);
-    let overtaken = false;
+    let sawBusy = false;
     const stalling = storeFor({
       durability: {
-        // After the rename, before the read-back: another writer takes the lock over (and, finding
-        // the file changed under the keyring it expected, writes nothing).
         syncDirectory: () => {
-          if (overtaken) return;
-          overtaken = true;
-          abandonCurrentLock();
-          expect(refusal(() => storeFor({ lockWaitMs: 100 }).save(keyring, keyring)).code).toBe(
-            'changed',
-          );
+          sawBusy = refusal(() => storeFor().save(keyring, keyring)).code === 'busy';
         },
       },
     });
-
-    const error = refusal(() => stalling.save(mine, keyring));
-    expect(error.code).toBe('committed-unconfirmed');
-    expect(error.reason).toBe('lock-lost');
+    stalling.save(mine, keyring);
+    expect(sawBusy).toBe(true);
     expect(readFileSync(keyringPath, 'utf8')).toBe(serializeKeyring(mine));
   });
 });
@@ -656,7 +648,7 @@ describe('keyring store — a filesystem without hard links', () => {
     expect(noHardLinks).toHaveBeenCalledOnce();
     expect(readFileSync(keyringPath, 'utf8')).toBe(serializeKeyring(keyring));
     if (!isWindows) expect(mode(keyringPath)).toBe(0o600);
-    expect(readdirSync(join(root, 'secure'))).toEqual(['keyring.json']);
+    expect(readdirSync(join(root, 'secure'))).toEqual(['keyring.guard', 'keyring.json']);
   });
 
   it('still refuses with exists where a keyring already is', async () => {
@@ -666,6 +658,6 @@ describe('keyring store — a filesystem without hard links', () => {
       'exists',
     );
     expect(readFileSync(keyringPath, 'utf8')).toBe(serializeKeyring(keyring));
-    expect(readdirSync(join(root, 'secure'))).toEqual(['keyring.json']);
+    expect(readdirSync(join(root, 'secure'))).toEqual(['keyring.guard', 'keyring.json']);
   });
 });

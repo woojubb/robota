@@ -4,7 +4,7 @@ import { ResumeBuffer } from '../resume-buffer.js';
 import type { TServerMessage } from '../wire-messages.js';
 
 /**
- * REMOTE-013 E4 TC-01 — the bounded un-acked resume buffer: monotonic seq, ack-drop, tail replay, overrun
+ * The bounded un-acked resume buffer: monotonic seq, ack-drop, tail replay, overrun
  * marker (never a silent gap), and drop-oldest bound enforcement.
  */
 
@@ -12,7 +12,7 @@ function msg(delta: string): TServerMessage {
   return { type: 'text_delta', delta };
 }
 
-describe('ResumeBuffer (REMOTE-013 TC-01)', () => {
+describe('ResumeBuffer', () => {
   it('append assigns a monotonic seq starting at 1 and tracks lastSeq', () => {
     const b = new ResumeBuffer();
     expect(b.append(msg('a'))).toBe(1);

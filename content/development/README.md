@@ -69,8 +69,8 @@ it in the directory the app serves, so the next `app:dev` starts a daemon on the
 
 ## Repository Layout
 
-- `packages/` — the agent libraries (`agent-*`), their shared contracts (`agent-interface-*`), the
-  and the coding capability pack (`pack-coding`).
+- `packages/` — the agent libraries (`agent-*`), their shared contracts (`agent-interface`), the
+  and the coding capability pack (`agent-product/coding`).
 - `apps/` — deployable apps, none published to npm (listed below).
 - `examples/` — runnable example projects. They are workspace members, so they build against the
   local packages.
@@ -101,7 +101,7 @@ The apps:
   non-goals; what the code already shows stays out of it.
 - **Dependencies point one way.** `pnpm deps:check` enforces the dependency rules between packages,
   including no circular imports.
-- **Conventional commits**, checked by commitlint — `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, …
+- **Conventional commits** — `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, …
 
 [CONTRIBUTING.md](../../CONTRIBUTING.md) has the full workflow, and
 [AGENTS.md](../../AGENTS.md) the working rules for coding agents in this repository.
@@ -150,28 +150,25 @@ serving a production build). The marketing site (`apps/www`, __PROJECT_WEBSITE_H
 
 ## Publishing
 
-Every package that is not `private` is published to npm under `@robota-sdk/`, all with one shared
-version. Private packages and the apps are never published.
+Every package that is not `private` is published to npm under `@robota-sdk/` with its own version.
+Private packages and the apps are never published to npm.
 
 Releases publish from GitHub Actions: run the **Publish to npm** workflow (`.github/workflows/publish.yml`) on
-`main` and approve the `npm-publish` environment. It uses npm trusted publishing (OIDC), so no npm token is
+`main` for the selected package and approve the `npm-publish` environment. It uses npm trusted publishing (OIDC), so no npm token is
 stored anywhere and every package carries a provenance attestation. Packages are published under `latest`
 only.
 
 A package's first publish cannot use trusted publishing, so the workflow refuses a release that contains a
-package npm has never seen. The owner publishes that release locally instead (every package of the release,
-without provenance) and then registers the workflow as the new package's trusted publisher, so later releases
-use the workflow again:
+package npm has never seen. The owner publishes that package locally without provenance and then registers
+the workflow as its trusted publisher, so later releases use the workflow again:
 
 ```bash
-pnpm publish:beta --dry-run
-pnpm publish:beta
+RELEASE_PACKAGE=agent-core pnpm publish:beta --dry-run
+RELEASE_PACKAGE=agent-core pnpm publish:beta
 bash scripts/publish/configure-trusted-publishers.sh @robota-sdk/<new-package>
 ```
 
-`pnpm publish:beta` builds, runs the release checks, packs and verifies every tarball, and then publishes
-each public package whose version is not on npm yet (it prompts for the npm OTP). If npm authentication
-fails, run `npm login --registry https://registry.npmjs.org/`.
-
-Never publish individual packages with `--filter`. The scripts resolve `workspace:*` dependencies correctly
-and keep the monorepo package set on one version.
+The command builds the selected package and its dependencies, verifies its tarball, and publishes that
+package only (it prompts for the npm OTP). Set `RELEASE_COMPONENT=cli` for the CLI. Publish updated
+dependencies before packages that need them. If npm authentication fails, run
+`npm login --registry https://registry.npmjs.org/`.

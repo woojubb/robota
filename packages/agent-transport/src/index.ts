@@ -18,7 +18,7 @@
  * `scripts/harness/check-platform-neutral.mjs` bundles this entry on every lint run to keep it so.
  *
  * Handoff authority, offer refusal, and inventory decisions live in
- * `agent-interface-session-mobility`, outside this wire package.
+ * `agent-interface/session-mobility`, outside this wire package.
  *
  * The handoff MANIFEST types are omitted along with their functions: they describe what only `./node`
  * seals and verifies, so a consumer that needs them is asking for the Node surface and should say so
@@ -26,11 +26,10 @@
  */
 
 export { createSessionMessageHandler } from './session-message-handler.js';
-export type {
-  ISessionMessageHandlerOptions,
-  TSessionSurfaceRole,
-} from './session-message-handler.js';
-// ARCH-030: the connection-scoped outbound delivery boundary every carrier builds and passes down.
+export type { ISessionMessageHandlerOptions } from './session-message-handler.js';
+export { handleSurfaceRoleMessage, resolveSurfaceRole } from './surface-role.js';
+export type { TSurfaceRoleDecision, TSurfaceRoleRefusal } from './surface-role.js';
+// The connection-scoped outbound delivery boundary every carrier builds and passes down.
 export {
   ATTACHED_SURFACE_MAX_PENDING_BYTES,
   createOutboundDelivery,
@@ -58,9 +57,10 @@ export type {
   TClientMessage,
   TServerMessage,
   TSeqServerMessage,
+  TSessionSurfaceRole,
   TWireExecutionResult,
 } from './wire-messages.js';
-// Issue #2045: the owner-side runtime decoders; carriers implement `raw → decodeFrame → typed`.
+// The owner-side runtime decoders; carriers implement `raw → decodeFrame → typed`.
 export {
   MAX_INBOUND_FRAME_BYTES,
   decodeClientMessage,
@@ -70,7 +70,7 @@ export {
 export type { TMessageDecodeResult } from './message-decoders.js';
 export { ResumeBuffer } from './resume-buffer.js';
 export type { IResumeBufferOptions, IBufferedFrame, TResumeTail } from './resume-buffer.js';
-// TRANS-001 — payload-agnostic channel frame codec (transport-neutral, body-opaque).
+// Payload-agnostic channel frame codec (transport-neutral, body-opaque).
 export {
   CHANNEL_FRAME_MAGIC,
   CHANNEL_FRAME_VERSION,
@@ -85,12 +85,12 @@ export type {
   TResumeSink,
   IAttachOptions,
 } from './session-resume-bridge.js';
-// #3282 §4a: the Settings screen's host-owned read/write seam (parallels `IUsageQueryReporters`).
+// The Settings screen's host-owned read/write seam (parallels `IUsageQueryReporters`).
 export { handleSettingsMessage, isSettingsMessage } from './settings-messages.js';
 export type { ISettingsReporter, TSettingsUpdateOutcome } from './settings-messages.js';
 
-// SEC-008: the admission decision every transport resolves through, and the bearer-header and
-// credential helpers that apply it. The shape of the decision is `agent-interface-transport`'s.
+// The admission decision every transport resolves through, and the bearer-header and
+// credential helpers that apply it. The shape of the decision is `agent-interface/transport`'s.
 export {
   bearerCredential,
   credentialMatches,
@@ -98,7 +98,7 @@ export {
   resolveAdmission,
 } from './admission.js';
 
-// PEER-001 (#1809): the receiver's record of what it has already taken responsibility for. Lives
+// The receiver's record of what it has already taken responsibility for. Lives
 // here rather than in a carrier because duplicate, retry and gap are questions about what was SEEN
 // BEFORE, and no socket or frame codec has the memory to answer them.
 export {

@@ -1,5 +1,5 @@
 /**
- * SCREEN-1992 — DECSET/DECRST 1004: ask the terminal to report focus changes (`CSI I` / `CSI O`).
+ * DECSET/DECRST 1004: ask the terminal to report focus changes (`CSI I` / `CSI O`).
  *
  * Written OUTSIDE Ink, following the `terminal-marks.ts` carve-out: the two sequences are constants,
  * so nothing needs sanitizing, and no component may emit an escape sequence. A terminal that does not

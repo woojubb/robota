@@ -1,7 +1,7 @@
 import { createOtlpPromptRootTraces } from './otlp-prompt-root-traces.js';
 import { normalizeRecord } from './personal-usage-decode.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 /** A non-additive, content-free snapshot. Consumers must read the latest Gauge, not sum exports. */
 export function createOtlpUsageSnapshot(

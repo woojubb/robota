@@ -56,7 +56,7 @@ export class SystemCommandExecutor {
     this.semanticRoles = state.semanticRoles;
   }
 
-  /** Replace the entire command set (used by live preset command-module re-selection — PRESET-015). */
+  /** Replace the entire command set (used by live preset command-module re-selection). */
   replaceCommands(commands: readonly ISystemCommand[]): void {
     const state = buildCommandState(commands);
     this.commands = state.commands;

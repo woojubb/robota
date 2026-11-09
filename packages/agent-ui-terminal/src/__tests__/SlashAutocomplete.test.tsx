@@ -3,7 +3,7 @@ import { render } from 'ink-testing-library';
 import { describe, it, expect } from 'vitest';
 import SlashAutocomplete from '../SlashAutocomplete.js';
 import { formatKeyHints, SELECTION_INDICATOR } from '../key-hint-footer.js';
-import type { ICommand } from '@robota-sdk/agent-interface-command';
+import type { ICommand } from '@robota-sdk/agent-interface/command';
 
 // ink-testing-library fixes stdout.columns = 100
 // outer box chrome = 4 → rowWidth = 96 in tests
@@ -139,7 +139,7 @@ describe('SlashAutocomplete', () => {
     expect(frame).toContain('Run task');
   });
 
-  // SCREEN-005: footer renders through the key-hint SSOT grammar; selected row uses the indicator.
+  // Footer renders through the key-hint SSOT grammar; selected row uses the indicator.
   it('renders the footer in the shared key-hint grammar', () => {
     const { lastFrame } = render(
       <SlashAutocomplete

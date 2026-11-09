@@ -30,7 +30,7 @@ function keepsSessionsLive(listing: TSessionListing): boolean {
 }
 
 /**
- * Issue #3280 §5: a desktop Reconnect reloads the page, which loses every bit of JS state — so the
+ * A desktop Reconnect reloads the page, which loses every bit of JS state — so the
  * session to go back to cannot live in a ref like `lastSwitchedIdRef` below. `sessionStorage` survives
  * the reload (and only that tab), so it carries the id across it. Namespaced so a page hosting other
  * state under the same origin does not collide.
@@ -74,14 +74,17 @@ function initialSidebarOpen(): boolean {
 }
 
 /**
- * #3189 — the host's session list beside the conversation: requests correlated by id (the latest
+ * The host's session list beside the conversation: requests correlated by id (the latest
  * wins), the start/switch commands, and whether the sidebar is shown.
  *
  * A host that keeps sessions live binds each connection to its own session and puts a new connection
  * on its primary one. After a reconnect to such a host this surface goes back to the session it was
  * on; an older host has one session for everyone, so there is nothing to go back to.
  */
-export function useSessionDirectoryState(send: (msg: TClientMessage) => void): TSessionDirectoryState & {
+export function useSessionDirectoryState(
+  send: (msg: TClientMessage) => void,
+  isObserving: () => boolean,
+): TSessionDirectoryState & {
   handleSessionsMessage: (msg: TServerMessage) => boolean;
   /** Whether the host can list sessions, as far as its last answer says. */
   canListSessions: () => boolean;
@@ -117,7 +120,7 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
     (): void => send({ type: 'new-session', requestId: nextRequestId('session_change') }),
     [send, browserNamespace],
   );
-  // #3289 §1: rename or delete a row in the list — current or not. Both answer on their own
+  // Rename or delete a row in the list — current or not. Both answer on their own
   // correlated reply (`session_renamed_in_list`/`session_deleted`, or a `_failed` counterpart); the
   // reducer in `useSessionClient` refreshes the listing on success and raises a notice on failure.
   const renameSessionInList = useCallback(
@@ -135,7 +138,7 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
   const lastSwitchedIdRef = useRef<string | null>(null);
   const restoreTargetRef = useRef<string | null>(null);
   const armRestore = useCallback((): void => {
-    // A remembered id (issue #3280 §5, a desktop Reconnect's reload) wins over the same-page target:
+    // A remembered id (a desktop Reconnect's reload) wins over the same-page target:
     // on a fresh page, `lastSwitchedIdRef` is always null anyway, so this only ever adds a source.
     restoreTargetRef.current = readStoredRestoreId(browserNamespace) ?? lastSwitchedIdRef.current;
   }, [browserNamespace]);
@@ -148,12 +151,14 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
       // launch with no remembered id never reaches here (target stays null), so nothing switches.
       clearStoredRestoreId(browserNamespace);
       if (target === listing.currentSessionId) return;
+      // An observer never moves the session, so there is nothing to go back to.
+      if (isObserving()) return;
       if (!keepsSessionsLive(listing)) return;
       // A session the host no longer lists (an empty one it never saved) is nothing to go back to.
       if (!listing.sessions.some((row) => row.id === target)) return;
       send({ type: 'switch-session', sessionId: target, requestId: nextRequestId('session_change') });
     },
-    [send, browserNamespace],
+    [send, browserNamespace, isObserving],
   );
 
   const handleSessionsMessage = useCallback(

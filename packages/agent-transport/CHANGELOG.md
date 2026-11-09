@@ -1,5 +1,220 @@
 # @robota-sdk/agent-transport
 
+## 3.4.1
+### Patch Changes
+
+- The previous version of this package was tagged but never published to npm, because `main` moved past its release commit first. This version carries the same consolidated package set from the current `main`, with comment and test-name cleanups and no behavior change.
+
+## 3.4.0
+### Minor Changes
+
+- 16795cb: The transport carriers are now subpaths of `@robota-sdk/agent-transport`: `ws`, `http`, `mcp`, `acp`, `webrtc` and `link`, next to the existing root, `client` and `node`. Import the subpath of the carrier you use (`@robota-sdk/agent-transport/ws`); a bundle that imports one carrier contains no other carrier, and the root and `client` entries still run in the browser. Every carrier except `http` is Node only and maps `browser: null`. The carrier libraries (`ws`, `hono`, `@modelcontextprotocol/server` and `@modelcontextprotocol/node`, `@agentclientprotocol/sdk` and `zod`, `bittorrent-dht`, `multicast-dns`, `nostr-tools`, `node-datachannel`) and the `@robota-sdk/agent-remote-pairing` and `@robota-sdk/agent-keyring` packages that `webrtc` and `link` build on are optional peer dependencies: install the ones for the carriers you import. The exported names and signatures are unchanged. `@robota-sdk/agent-transport-ws`, `-http`, `-mcp`, `-acp`, `-webrtc` and `-link` no longer receive releases.
+
+### Patch Changes
+
+- 661b834: An owner link client now delivers what the runtime sent behind its first custody notice even when the runtime closed the stream right behind it. A Windows socket reports that end before the caller has attached its listeners, so the client dropped those session messages and custody notices and reported the link closed without them. They are now read first, and the end is reported after them.
+- 327999e: The contract packages are now one package, `@robota-sdk/agent-interface`, with one subpath per family: `session` (and `session/testing`), `session-mobility`, `command`, `execution`, `analytics`, `transport` (and `transport/testing`) and `tui`. Import the subpath of the family you use (`@robota-sdk/agent-interface/session`); there is no root export. `@robota-sdk/agent-core` is now an optional peer dependency: `analytics` and `tui` need nothing, and a project that imports another family installs `agent-core` itself (the SDK packages that import those families declare it). The exported names and signatures are unchanged. `@robota-sdk/agent-interface-session`, `-session-mobility`, `-command`, `-execution`, `-analytics`, `-transport` and `-tui` no longer receive releases. The SDK packages that import a contract depend on `@robota-sdk/agent-interface`.
+- Updated dependencies [1f900da]
+- Updated dependencies [327999e]
+- Updated dependencies [bf901d7]
+  - @robota-sdk/agent-core@3.2.3
+  - @robota-sdk/agent-interface@3.3.0
+
+## 3.3.1
+### Patch Changes
+
+- Drop dangling tracker references (deleted backlog IDs, stage labels and closed issue numbers) from shipped comments, type declarations and runtime messages, so agents reading this package are not sent after tickets that no longer exist. No behavior change.
+- Updated dependencies
+  - @robota-sdk/agent-core@3.2.2
+  - @robota-sdk/agent-interface-analytics@3.2.2
+  - @robota-sdk/agent-interface-command@3.2.3
+  - @robota-sdk/agent-interface-execution@3.2.3
+  - @robota-sdk/agent-interface-session@3.2.3
+  - @robota-sdk/agent-interface-session-mobility@3.2.3
+  - @robota-sdk/agent-interface-transport@3.2.3
+
+## 3.3.0
+### Minor Changes
+
+- be1504a: Decide a connection's role once for every carrier: the host's grant, lowered when the client asks for less. The resume bridge applies the same role, and a client can read its effective role.
+
+### Patch Changes
+
+- 8d05c9b: Allow compatible SDK dependencies to update independently.
+- Updated dependencies [8d05c9b]
+  - @robota-sdk/agent-interface-command@3.2.2
+  - @robota-sdk/agent-interface-execution@3.2.2
+  - @robota-sdk/agent-interface-session@3.2.2
+  - @robota-sdk/agent-interface-session-mobility@3.2.2
+  - @robota-sdk/agent-interface-transport@3.2.2
+
+## 3.2.1
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.2.1
+  - @robota-sdk/agent-interface-analytics@3.2.1
+  - @robota-sdk/agent-interface-command@3.2.1
+  - @robota-sdk/agent-interface-execution@3.2.1
+  - @robota-sdk/agent-interface-session@3.2.1
+  - @robota-sdk/agent-interface-session-mobility@3.2.1
+  - @robota-sdk/agent-interface-transport@3.2.1
+
+## 3.2.0
+### Patch Changes
+
+- ad5e9fb: Allow a verified owner driving an attached terminal to review an unverified stored session. Bind each decision to the attached surface and the exact claimed bytes, and discard it when the owner cancels or the link or keys are lost.
+- Updated dependencies [e5ce7d6]
+- Updated dependencies [12ab3f5]
+- Updated dependencies [ffaf7d5]
+- Updated dependencies [ad5e9fb]
+  - @robota-sdk/agent-interface-session@3.2.0
+  - @robota-sdk/agent-interface-execution@3.2.0
+  - @robota-sdk/agent-core@3.2.0
+  - @robota-sdk/agent-interface-session-mobility@3.2.0
+  - @robota-sdk/agent-interface-command@3.2.0
+  - @robota-sdk/agent-interface-transport@3.2.0
+  - @robota-sdk/agent-interface-analytics@3.2.0
+
+## 3.1.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.1.2
+  - @robota-sdk/agent-interface-analytics@3.1.2
+  - @robota-sdk/agent-interface-command@3.1.2
+  - @robota-sdk/agent-interface-execution@3.1.2
+  - @robota-sdk/agent-interface-session@3.1.2
+  - @robota-sdk/agent-interface-session-mobility@3.1.2
+  - @robota-sdk/agent-interface-transport@3.1.2
+
+## 3.1.1
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.1.1
+  - @robota-sdk/agent-interface-analytics@3.1.1
+  - @robota-sdk/agent-interface-command@3.1.1
+  - @robota-sdk/agent-interface-execution@3.1.1
+  - @robota-sdk/agent-interface-session@3.1.1
+  - @robota-sdk/agent-interface-session-mobility@3.1.1
+  - @robota-sdk/agent-interface-transport@3.1.1
+
+## 3.1.0
+### Minor Changes
+
+- 437ca9e: Make the HTTP transport platform-neutral.
+
+  - `@robota-sdk/agent-transport`: `resolveAdmission`, `bearerCredential`, `credentialMatches` and `mintTransportToken` moved from `@robota-sdk/agent-transport/node` to the main entry, and `./node` no longer exports them. Minting uses `randomHex` and comparing uses `constantTimeEqual` from `@robota-sdk/agent-core` instead of `node:crypto`, so every refusal and the idempotence of `resolveAdmission` are unchanged; a credential is now compared as the string it is, where it used to be compared as UTF-8 bytes (a lone surrogate no longer matches another).
+  - `@robota-sdk/agent-transport-http`: the main entry reaches no Node built-in or Node global, so its `exports` no longer map `"browser": null`.
+  - `@robota-sdk/agent-transport-mcp`, `@robota-sdk/agent-transport-webrtc`, `@robota-sdk/agent-transport-ws`, `@robota-sdk/agent-cli` import the four admission helpers from `@robota-sdk/agent-transport`. `@robota-sdk/agent-interface-transport` only corrects where its comments and README say the admission machinery lives.
+- b56b5a9: Ship one build per package. The platform-neutral entries moved from `dist/node` to `dist`, and the second
+  `dist/browser` build of `@robota-sdk/agent-core`, `@robota-sdk/agent-transport`,
+  `@robota-sdk/agent-ui-web` and `@robota-sdk/agent-transport-webrtc-web` is gone: a neutral entry runs
+  unchanged in every runtime, so a subpath's `exports` map `import` and `require` to the same files and no
+  longer a `node` or `browser` condition (a Node-only subpath keeps `"browser": null`). Import specifiers
+  and the code behind them are unchanged; only a deep import of `dist/node/*` or `dist/browser/*` breaks.
+  `@robota-sdk/agent-transport/client` also ships a CommonJS build now.
+
+### Patch Changes
+
+- Updated dependencies [bc8de21]
+- Updated dependencies [51ad6a4]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [82663df]
+- Updated dependencies [bc8de21]
+- Updated dependencies [04c3233]
+- Updated dependencies [9bc13f9]
+- Updated dependencies [0a677e9]
+- Updated dependencies [5b46d43]
+- Updated dependencies [fab48ad]
+- Updated dependencies [ea0e424]
+- Updated dependencies [0fec62f]
+- Updated dependencies [b7b6cd0]
+- Updated dependencies [8069d0e]
+- Updated dependencies [f5e3057]
+- Updated dependencies [d8cb04f]
+- Updated dependencies [437ca9e]
+- Updated dependencies [44e9640]
+- Updated dependencies [b56b5a9]
+- Updated dependencies [1c19435]
+  - @robota-sdk/agent-core@3.1.0
+  - @robota-sdk/agent-interface-session@3.1.0
+  - @robota-sdk/agent-interface-analytics@3.1.0
+  - @robota-sdk/agent-interface-execution@3.1.0
+  - @robota-sdk/agent-interface-transport@3.1.0
+  - @robota-sdk/agent-interface-command@3.1.0
+  - @robota-sdk/agent-interface-session-mobility@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.7
+  - @robota-sdk/agent-interface-analytics@3.0.7
+  - @robota-sdk/agent-interface-command@3.0.7
+  - @robota-sdk/agent-interface-execution@3.0.7
+  - @robota-sdk/agent-interface-session@3.0.7
+  - @robota-sdk/agent-interface-session-mobility@3.0.7
+  - @robota-sdk/agent-interface-transport@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.6
+  - @robota-sdk/agent-interface-analytics@3.0.6
+  - @robota-sdk/agent-interface-command@3.0.6
+  - @robota-sdk/agent-interface-execution@3.0.6
+  - @robota-sdk/agent-interface-session@3.0.6
+  - @robota-sdk/agent-interface-session-mobility@3.0.6
+  - @robota-sdk/agent-interface-transport@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-interface-analytics@3.0.5
+  - @robota-sdk/agent-interface-command@3.0.5
+  - @robota-sdk/agent-interface-execution@3.0.5
+  - @robota-sdk/agent-interface-session@3.0.5
+  - @robota-sdk/agent-interface-session-mobility@3.0.5
+  - @robota-sdk/agent-interface-transport@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+  - @robota-sdk/agent-interface-analytics@3.0.4
+  - @robota-sdk/agent-interface-command@3.0.4
+  - @robota-sdk/agent-interface-execution@3.0.4
+  - @robota-sdk/agent-interface-session@3.0.4
+  - @robota-sdk/agent-interface-session-mobility@3.0.4
+  - @robota-sdk/agent-interface-transport@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.3
+  - @robota-sdk/agent-interface-analytics@3.0.3
+  - @robota-sdk/agent-interface-command@3.0.3
+  - @robota-sdk/agent-interface-execution@3.0.3
+  - @robota-sdk/agent-interface-session@3.0.3
+  - @robota-sdk/agent-interface-session-mobility@3.0.3
+  - @robota-sdk/agent-interface-transport@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+  - @robota-sdk/agent-interface-analytics@3.0.2
+  - @robota-sdk/agent-interface-command@3.0.2
+  - @robota-sdk/agent-interface-execution@3.0.2
+  - @robota-sdk/agent-interface-session@3.0.2
+  - @robota-sdk/agent-interface-session-mobility@3.0.2
+  - @robota-sdk/agent-interface-transport@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

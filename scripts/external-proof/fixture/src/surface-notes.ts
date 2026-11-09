@@ -14,7 +14,7 @@
  * return type does not track the branch of the input that produced it. Not a blocker (the narrowing below is
  * three lines), but the kernel could return the input's branch and remove the step entirely.
  *
- * STILL OPEN after ARCH-007, and now the reference product meets it too: `agent-cli`'s
+ * STILL OPEN, and now the reference product meets it too: `agent-cli`'s
  * `buildProductRuntimeOptions` performs the identical narrowing (and throws on the injected branch) to read
  * back `additionalTools` / `agentDefinitions`. Two independent consumers writing the same three lines is
  * the signal that the kernel should return the input's branch.
@@ -29,7 +29,7 @@
  * FINDING F3 — `ICommandResult` is not re-exported from `@robota-sdk/agent-framework`.
  *
  * `ICommandModule` / `ISystemCommand` / `ICommandHostContext` are all exported, but the type an
- * `ISystemCommand.execute` RETURNS lives in `@robota-sdk/agent-interface-transport`. Authoring a command
+ * `ISystemCommand.execute` RETURNS lives in `@robota-sdk/agent-interface/transport`. Authoring a command
  * module works because the return literal is contextually typed (see `acme.ts` — it needs no extra import),
  * but a consumer who wants to name the return type must reach into a second package.
  */

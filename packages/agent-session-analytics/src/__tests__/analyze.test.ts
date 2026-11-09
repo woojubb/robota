@@ -1,5 +1,5 @@
 /**
- * Unit tests for session-log timing analysis (ported from agent-cli OBS-001 parser tests).
+ * Unit tests for session-log timing analysis (ported from the agent-cli parser tests).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -20,9 +20,9 @@ function entry(
   return { id: `e-${offsetMs}`, timestamp: ts(offsetMs), category, type };
 }
 
-// TC-03: timestamp diff calculation is accurate
+// Timestamp diff calculation is accurate
 describe('gapMs', () => {
-  it('TC-03: computes gap correctly between ISO 8601 timestamps', () => {
+  it('computes gap correctly between ISO 8601 timestamps', () => {
     expect(gapMs('2026-04-30T10:00:00.000Z', '2026-04-30T10:00:23.400Z')).toBe(23_400);
   });
 
@@ -40,9 +40,9 @@ describe('gapMs', () => {
   });
 });
 
-// TC-04: interval kind classification
+// Interval kind classification
 describe('computeTimingIntervals', () => {
-  it('TC-04a: classifies user→assistant interval as user_to_assistant', () => {
+  it('classifies user→assistant interval as user_to_assistant', () => {
     const intervals = computeTimingIntervals([
       entry('user', 0, 'chat'),
       entry('assistant', 5_000, 'chat'),
@@ -52,7 +52,7 @@ describe('computeTimingIntervals', () => {
     expect(intervals[0]?.durationMs).toBe(5_000);
   });
 
-  it('TC-04b: classifies tool-start→tool-end as tool_exec (code processing)', () => {
+  it('classifies tool-start→tool-end as tool_exec (code processing)', () => {
     const intervals = computeTimingIntervals([
       entry('user', 0, 'chat'),
       entry('tool-start', 3_000),
@@ -66,7 +66,7 @@ describe('computeTimingIntervals', () => {
     expect(toolExec?.toType).toBe('tool-end');
   });
 
-  it('TC-04c: classifies user→tool-start as user_to_first_tool (LLM decision time)', () => {
+  it('classifies user→tool-start as user_to_first_tool (LLM decision time)', () => {
     const intervals = computeTimingIntervals([
       entry('user', 0, 'chat'),
       entry('tool-start', 11_000),
@@ -77,7 +77,7 @@ describe('computeTimingIntervals', () => {
     expect(intervals.find((iv) => iv.kind === 'user_to_first_tool')?.durationMs).toBe(11_000);
   });
 
-  it('TC-04d: classifies tool-end→tool-start as llm_between_tools', () => {
+  it('classifies tool-end→tool-start as llm_between_tools', () => {
     const intervals = computeTimingIntervals([
       entry('user', 0, 'chat'),
       entry('tool-start', 5_000),
@@ -92,7 +92,7 @@ describe('computeTimingIntervals', () => {
     );
   });
 
-  it('TC-04e: classifies tool-end→tool-summary as llm_final_response', () => {
+  it('classifies tool-end→tool-summary as llm_final_response', () => {
     const intervals = computeTimingIntervals([
       entry('user', 0, 'chat'),
       entry('tool-start', 3_000),

@@ -1,5 +1,5 @@
 /**
- * Persisted tool-summary → status-SSOT mapping (SCREEN-006).
+ * Persisted tool-summary → status-SSOT mapping.
  *
  * MessageList used to hand-roll its own glyph/color mapping for tool summaries, which drifted
  * from `status-glyph.ts` (denied rendered plain yellow vs the SSOT's yellowBright). These
@@ -12,7 +12,7 @@ import { STATUS_SYMBOL, toolStateStatusKind } from './status-glyph.js';
 
 import type { TUiStatusKind } from './status-glyph.js';
 import type { IToolCallSummary } from './utils/tool-call-extractor.js';
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+import type { IToolState } from '@robota-sdk/agent-interface/session';
 
 /** A tool item as persisted in a `tool-summary` history entry (loosely-typed session data). */
 export type TToolSummaryItem = {

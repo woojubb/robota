@@ -16,7 +16,7 @@ const resolveInWorkspace: TResolveInWorkspace = (base, path) =>
     : `${base ?? '/w'}/${path}`;
 const inWorkspace = { resolveInWorkspace };
 
-/** Issue #3082 — built-in read-only shell commands run without a prompt. */
+/** Built-in read-only shell commands run without a prompt. */
 describe('isReadOnlyCommandLine', () => {
   it.each([
     'ls -la',
@@ -205,7 +205,7 @@ describe('the gate decides a read-only command like a read', () => {
   });
 });
 
-describe('a command the OS sandbox confines (issue #3082)', () => {
+describe('a command the OS sandbox confines', () => {
   beforeEach(() => {
     clearRegisteredToolProfiles();
     registerToolPermissionProfile('Bash', {

@@ -18,7 +18,7 @@ import {
 } from './rate-limiter.js';
 
 /**
- * Resolve the per-IP cap key from a connection's request (REMOTE-011 E2). Default reads the TCP peer
+ * Resolve the per-IP cap key from a connection's request. Default reads the TCP peer
  * address; a `trustProxy` deployment reads a trusted `X-Forwarded-For` hop. Returning `undefined` maps to a
  * fixed sentinel so a missing address neither crashes nor bypasses the cap. Injectable so the server-level
  * test can present distinct source keys over loopback.
@@ -38,15 +38,15 @@ export interface ISignalingServerOptions {
   readonly host?: string;
   /** Relay behavior — custom-auth hooks + abuse-control params (rate limit, TTL, caps). Defaults are safe. */
   readonly relay?: ISignalingRelayOptions;
-  /** Max bytes per WebSocket frame (REMOTE-011 E2; default {@link DEFAULT_MAX_FRAME_BYTES}). `ws` closes an oversized frame with 1009 before buffering it. */
+  /** Max bytes per WebSocket frame (default {@link DEFAULT_MAX_FRAME_BYTES}). `ws` closes an oversized frame with 1009 before buffering it. */
   readonly maxFrameBytes?: number;
-  /** Ceiling on total concurrent connections (REMOTE-011 E2; default {@link DEFAULT_MAX_CONNECTIONS}). */
+  /** Ceiling on total concurrent connections (default {@link DEFAULT_MAX_CONNECTIONS}). */
   readonly maxConnections?: number;
-  /** Ceiling on concurrent connections per resolved source key (REMOTE-011 E2; default {@link DEFAULT_MAX_CONNECTIONS_PER_IP}). `0` disables the per-IP cap (for proxy deployments that cannot supply a real client IP). */
+  /** Ceiling on concurrent connections per resolved source key (default {@link DEFAULT_MAX_CONNECTIONS_PER_IP}). `0` disables the per-IP cap (for proxy deployments that cannot supply a real client IP). */
   readonly maxConnectionsPerIp?: number;
-  /** When true, resolve the per-IP key from a trusted `X-Forwarded-For` hop instead of the TCP address (REMOTE-011 E2). Assumes a single trusted proxy directly in front; ignored when a custom {@link ISignalingServerOptions.addressResolver} is supplied. */
+  /** When true, resolve the per-IP key from a trusted `X-Forwarded-For` hop instead of the TCP address. Assumes a single trusted proxy directly in front; ignored when a custom {@link ISignalingServerOptions.addressResolver} is supplied. */
   readonly trustProxy?: boolean;
-  /** Custom per-IP key resolver (REMOTE-011 E2). Overrides `trustProxy`. Primarily a test seam for distinct source keys over loopback. */
+  /** Custom per-IP key resolver. Overrides `trustProxy`. Primarily a test seam for distinct source keys over loopback. */
   readonly addressResolver?: TAddressResolver;
 }
 
@@ -55,7 +55,7 @@ export interface ISignalingServerHandle {
   readonly port: number;
   /** The relay instance (diagnostics/tests). */
   readonly relay: SignalingRelay;
-  /** Diagnostics only (REMOTE-011 E2): current live connection count — asserts the cap/counter memory bound. */
+  /** Diagnostics only: current live connection count — asserts the cap/counter memory bound. */
   readonly connectionCount: number;
   /** Stop accepting connections and close the server. */
   close(): Promise<void>;
@@ -118,7 +118,7 @@ export function startSignalingServer(
   const maxConnectionsPerIp = options.maxConnectionsPerIp ?? DEFAULT_MAX_CONNECTIONS_PER_IP;
   const resolveSourceKey = selectResolver(options);
 
-  // Connection-cap bookkeeping (REMOTE-011 E2): a total counter + a per-source-key counter map. A socket
+  // Connection-cap bookkeeping: a total counter + a per-source-key counter map. A socket
   // that connects and never `join`s is otherwise invisible to the relay's per-source join bucket, so caps
   // are enforced here at accept time. The per-source map deletes a key when its count returns to 0 so it is
   // itself bounded by live connections.

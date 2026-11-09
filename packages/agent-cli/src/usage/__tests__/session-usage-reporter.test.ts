@@ -1,10 +1,10 @@
 /**
- * #3189 — a served runtime binds its transports to a session slot, and the per-session usage report
+ * A served runtime binds its transports to a session slot, and the per-session usage report
  * reads the slot's current session: the report follows a switch rather than failing on the slot.
  */
 
 import { SessionSlot } from '@robota-sdk/agent-framework';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it } from 'vitest';
 
 import { reportCurrentSessionUsage } from '../session-usage-reporter.js';

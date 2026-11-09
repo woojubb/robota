@@ -68,6 +68,11 @@ does not own session lifecycle, conversation history, or agent runtime state.
   a schedule or a goal alone (no running background task or loop) still opens the rail, and a
   schedule's Pause/Resume and Delete, and a goal's Cancel, run the same command/control paths their
   slash commands already use — the panel adds no write this package did not already expose.
+- **The surface follows the host's role.** The session client learns its effective role from the
+  host when it connects and, while it observes, sends nothing an observer may not send; the surface
+  then offers only what an observer can do: the conversation, its work and the project's reads, with
+  no composer, answers, session switching or control that changes the session or its work. The host
+  remains the authority; hiding a control is presentation, not enforcement.
 - The title bar and the page title both name the workspace folder the session works in, once the
   host has said one; the desktop window follows the page title.
 - A pending permission or ask prompt is visible whatever view is open, because a gated turn waits
@@ -90,7 +95,7 @@ does not own session lifecycle, conversation history, or agent runtime state.
   representation, when it has one, is only its disposable wake timer — cancelling that would leave
   the loop itself running. Every other entry sends `cancel-background-task`.
 - The Project panel (git status, one file's diff, project memory) correlates its own requests the
-  same way, and every file status it shows is a plain word, never a raw git XY code (#3277 "usable by
+  same way, and every file status it shows is a plain word, never a raw git XY code ("usable by
   anyone"); a workspace that is not a git repository, or a diff whose path the host refused, is one
   plain sentence, never left as a stuck loading state.
 - A session error finalizes any partial streamed text and clears thinking/running-tool state
@@ -110,8 +115,9 @@ does not own session lifecycle, conversation history, or agent runtime state.
 - Does not own the wire protocol framing (message types) — that belongs to the transport package.
 - Does not own the transport-facing contract types (interaction/event/workspace) — those belong to
   the transport-interface package.
-- Does not own session/runtime contracts or agent-core types, and has no dependency on the
-  agent framework, session, or core packages.
+- Does not own session/runtime contracts or agent-core types, and imports nothing from the
+  agent framework, session, or core packages (it declares `agent-core` only so the contract types
+  resolve).
 - Does not own the CLI sidecar server.
 - Does not own the WebRTC remote peer or pairing flow — that is a separate package that consumes
   this package's reducer and components and widens the status union.

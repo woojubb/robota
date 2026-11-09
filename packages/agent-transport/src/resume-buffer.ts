@@ -1,5 +1,5 @@
 /**
- * Bounded un-acked output buffer for session-resume (REMOTE-013 Stage E4).
+ * Bounded un-acked output buffer for session-resume.
  *
  * Holds the tail of outbound `TServerMessage`s that a reconnecting client may not have received, keyed by a
  * monotonic sequence number. On reconnect the client sends `resume{lastSeq}` and the host replays

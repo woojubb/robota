@@ -1,12 +1,12 @@
 /**
  * Zod → JSON Schema conversion (SSOT).
  *
- * Owned by agent-core (CORE-015): the structured-output run pipeline and the
+ * Owned by agent-core: the structured-output run pipeline and the
  * tools package both convert Zod schemas to the universal JSON-schema subset
  * (`IParameterSchema`), so the single converter lives at the bottom of the
  * dependency graph. The tools package imports these functions from core.
  *
- * CORE-039: the object shape walk is written ONCE and used by both the root and
+ * The object shape walk is written ONCE and used by both the root and
  * every nested object. Two copies is how the two levels came to disagree — the
  * root named its fields while a nested object was emitted as a bare
  * `{ type: 'object' }`, so a model was told "this is an object" and nothing else.
@@ -141,12 +141,12 @@ function convertZodTypeToProperty(
     }
 
     case 'ZodNativeEnum': {
-      // CORE-041: `_def.values` is the enum OBJECT here, not the array `ZodEnum` carries.
+      // `_def.values` is the enum OBJECT here, not the array `ZodEnum` carries.
       return { ...convertNativeEnum(typeDef.values), ...base };
     }
 
     case 'ZodDate':
-      // CORE-041: JSON has no date type, so a string is what the provider receives either way —
+      // JSON has no date type, so a string is what the provider receives either way —
       // this is the faithful description of the payload, not a lossy stand-in. `format` carries the
       // intent to a provider that reads it, and `validateAgainstJsonSchema` checks the type.
       return { type: 'string', format: 'date-time', ...base };
@@ -253,7 +253,7 @@ function convertLiteral(value: TUniversalValue | undefined): IParameterSchema {
 }
 
 /**
- * Convert a `ZodNativeEnum`'s value set — CORE-041.
+ * Convert a `ZodNativeEnum`'s value set.
  *
  * A NUMERIC TypeScript enum compiles to an object with a reverse mapping, so `Object.values` on
  * `enum Level { Low, High }` yields `['Low', 'High', 0, 1]`. Emitting that would advertise `"Low"` as
@@ -286,8 +286,7 @@ function convertNativeEnum(values: IZodSchemaDef['values']): IParameterSchema {
 }
 
 /**
- * The boundary between Zod and the universal JSON-schema subset, stated where a consumer hits it —
- * CORE-041.
+ * The boundary between Zod and the universal JSON-schema subset, stated where a consumer hits it.
  *
  * The old message was `Unsupported Zod type: ZodTuple`: the name of the consumer's own construct,
  * and nothing they could act on. The boundary is real and staying — these constructs need

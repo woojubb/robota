@@ -1,5 +1,5 @@
 /**
- * Sealing a trusted project's plain session records and replay logs in place (#3679, secure
+ * Sealing a trusted project's plain session records and replay logs in place (secure
  * conversation), through the project's runtime-minted state storage: records sealed as their raw
  * bytes, logs one sealed record per line after their sidecars, a file that would be past the project
  * read limit sealed left plain, a file that changed or does not open left alone. Project writes are
@@ -22,6 +22,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
+import { createProcessMarkers } from '@robota-sdk/agent-core/node';
+import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
 import { FileSessionLogger } from '@robota-sdk/agent-session';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -30,6 +32,7 @@ import { getWorkspaceProjectStateStorage } from '../../workspace-trust/index.js'
 import { MAX_PROJECT_READ_BYTES } from '../../workspace-trust/project-reader-path.js';
 import { createProjectSessionStore } from '../node-session-stores.js';
 import { WorkspaceSessionLogSink } from '../workspace-session-io.js';
+import { projectSessionClaimsDirectory } from '../workspace-session-store.js';
 import {
   migrateWorkspaceProjectSessionLogs,
   migrateWorkspaceProjectSessionRecords,
@@ -37,7 +40,7 @@ import {
 
 import type { IWorkspaceProjectStateStorage } from '../../workspace-trust/index.js';
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-77b3-said-in-a-trusted-project';
 
@@ -318,6 +321,26 @@ describe.runIf(process.platform === 'linux')('migrating a trusted project sessio
       expect(readFileSync(path)).toEqual(readFileSync(join(base, `backup-${index}`)));
     }
     expect(result.records.sealed).toBe(2);
+  });
+
+  it('keeps a forced release from crossing a project record replacement', () => {
+    const id = 'migrating_one';
+    createProjectSessionStore(sessions, logs, { sealing: 'plain' }).save(record(id));
+    const claims = projectSessionClaimsDirectory(sessions);
+    const breaker = createProcessMarkers(claims, {
+      operationLock: createProcessOperationLock(claims),
+      lockWaitMs: 0,
+    });
+    let forced: string | undefined;
+    const result = migrateWorkspaceProjectSessionRecords(sessions, {
+      sealer: createTestArtifactSealer(),
+      apply: true,
+      beforeCommit: () => {
+        forced = breaker.remove(id, { force: true }).status;
+      },
+    });
+    expect(forced).toBe('busy');
+    expect(result.sealed).toBe(1);
   });
 
   it('writes and flushes every sealed record beside its file before it puts any in place', () => {
