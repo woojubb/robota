@@ -11,7 +11,7 @@ afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: 
 function fixture() {
   const root = mkdtempSync(path.join(os.tmpdir(), 'ci-scope-'));
   roots.push(root);
-  for (const dir of ['packages/agent-core', 'packages/agent-extra', 'packages/agent-cli', 'apps/agent-app'])
+  for (const dir of ['packages/agent-core', 'packages/agent-extra', 'packages/agent-organization-host', 'packages/agent-cli', 'apps/agent-app'])
     mkdirSync(path.join(root, dir), { recursive: true });
   const write = (file, data) => writeFileSync(path.join(root, file), typeof data === 'string' ? data : `${JSON.stringify(data)}\n`);
   const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
@@ -21,6 +21,7 @@ function fixture() {
   write('.npmrc', 'link-workspace-packages=false\n');
   write('packages/agent-core/package.json', { name: '@fixture/core', version: '1.0.0', devDependencies: { '@fixture/extra': 'workspace:*' } });
   write('packages/agent-extra/package.json', { name: '@fixture/extra', version: '1.0.0' });
+  write('packages/agent-organization-host/package.json', { name: '@fixture/organization-host', version: '1.0.0' });
   write('packages/agent-cli/package.json', { name: '@fixture/cli', version: '1.0.0', devDependencies: { '@fixture/core': 'npm:@fixture/core@1.0.0' } });
   write('apps/agent-app/package.json', { name: '@fixture/app', version: '1.0.0', dependencies: { '@fixture/cli': 'workspace:*' } });
   const lock = (importer, snapshot = '{}') => `lockfileVersion: "6.0"\nimporters:\n  packages/agent-core:\n    dependencies: ${importer}\n  packages/agent-cli:\n    dependencies: {}\n  apps/agent-app:\n    dependencies: {}\npackages:\n  /other@1.0.0:\n    resolution: ${snapshot}\n`;
@@ -90,4 +91,16 @@ it('does not turn an ordinary SDK source change into a Windows check when only i
   const plan = selectScope({ cwd: f.root, event: 'pull_request', base: f.base });
   expect(plan.windowsChecks).toEqual(['packages/agent-extra']);
   expect(plan.windows).toBe(false);
+});
+
+it('selects the Windows suite of agent-organization-host when that package changes and not otherwise', () => {
+  const f = fixture();
+  f.write('packages/agent-extra/index.ts', 'export const value = 1;\n');
+  f.commit();
+  expect(selectScope({ cwd: f.root, event: 'pull_request', base: f.base }).windowsChecks).not.toContain('packages/agent-organization-host');
+  f.write('packages/agent-organization-host/index.ts', 'export const value = 1;\n');
+  f.commit();
+  const plan = selectScope({ cwd: f.root, event: 'pull_request', base: f.base });
+  expect(plan.windowsChecks).toContain('packages/agent-organization-host');
+  expect(plan.windows).toBe(true);
 });
