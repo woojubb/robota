@@ -78,30 +78,38 @@ describe('where a subagent transcript is', () => {
     );
   });
 
-  it.runIf(process.platform !== 'win32')('protects the log root and every parent directory it owns', () => {
-    const parent = root();
-    const logs = join(parent, 'logs');
-    const session = join(logs, 'session_parent');
-    mkdirSync(session, { recursive: true });
-    chmodSync(logs, 0o755);
-    chmodSync(session, 0o755);
-    const logger = createSubagentLogger('session_parent', 'agent_1', logs, { sealing: 'plain' });
-    logger.log('agent_1', 'user', { input: 'hello' });
-    logger.flush?.();
-    for (const dir of [logs, session, join(session, 'subagents')]) {
-      expect(statSync(dir).mode & 0o777).toBe(0o700);
-    }
-  });
+  it.runIf(process.platform !== 'win32')(
+    'protects the log root and every parent directory it owns',
+    () => {
+      const parent = root();
+      const logs = join(parent, 'logs');
+      const session = join(logs, 'session_parent');
+      mkdirSync(session, { recursive: true });
+      chmodSync(logs, 0o755);
+      chmodSync(session, 0o755);
+      const logger = createSubagentLogger('session_parent', 'agent_1', logs, { sealing: 'plain' });
+      logger.log('agent_1', 'user', { input: 'hello' });
+      logger.flush?.();
+      for (const dir of [logs, session, join(session, 'subagents')]) {
+        expect(statSync(dir).mode & 0o777).toBe(0o700);
+      }
+    },
+  );
 
-  it.runIf(process.platform !== 'win32')('refuses a linked parent without changing the target', () => {
-    const logs = join(root(), 'logs');
-    const outside = root();
-    mkdirSync(logs);
-    chmodSync(outside, 0o755);
-    symlinkSync(outside, join(logs, 'session_parent'));
-    expect(() => createSubagentLogger('session_parent', 'agent_1', logs, { sealing: 'plain' })).toThrow();
-    expect(statSync(outside).mode & 0o777).toBe(0o755);
-  });
+  it.runIf(process.platform !== 'win32')(
+    'refuses a linked parent without changing the target',
+    () => {
+      const logs = join(root(), 'logs');
+      const outside = root();
+      mkdirSync(logs);
+      chmodSync(outside, 0o755);
+      symlinkSync(outside, join(logs, 'session_parent'));
+      expect(() =>
+        createSubagentLogger('session_parent', 'agent_1', logs, { sealing: 'plain' }),
+      ).toThrow();
+      expect(statSync(outside).mode & 0o777).toBe(0o755);
+    },
+  );
 
   it('is where the logger writes, plain when it says plain and sealed when it says sealed', () => {
     const dir = root();

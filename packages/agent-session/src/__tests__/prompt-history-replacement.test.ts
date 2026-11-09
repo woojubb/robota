@@ -8,8 +8,16 @@ vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
   return {
     ...actual,
-    openSync(path: Parameters<typeof actual.openSync>[0], flags: Parameters<typeof actual.openSync>[1], mode?: Parameters<typeof actual.openSync>[2]) {
-      if (path === swap.path && typeof flags === 'number' && (flags & actual.constants.O_WRONLY) !== 0) {
+    openSync(
+      path: Parameters<typeof actual.openSync>[0],
+      flags: Parameters<typeof actual.openSync>[1],
+      mode?: Parameters<typeof actual.openSync>[2],
+    ) {
+      if (
+        path === swap.path &&
+        typeof flags === 'number' &&
+        (flags & actual.constants.O_WRONLY) !== 0
+      ) {
         if (swap.stage === 1) {
           swap.stage = 2;
           actual.renameSync(swap.path, swap.moved);
@@ -34,15 +42,20 @@ afterEach(() => {
   swap.stage = 0;
 });
 
-it.runIf(process.platform !== 'win32' && process.getuid?.() !== 0)('refuses a history replacement between repair and append', () => {
-  root = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'history-replacement-')));
-  swap.path = join(root, 'history.jsonl');
-  swap.moved = join(root, 'original.jsonl');
-  fs.writeFileSync(swap.path, 'original\n');
-  fs.chmodSync(swap.path, 0o400);
-  const history = new NodePromptHistoryFile(swap.path, { sealing: 'plain', ownedRoot: root });
-  expect(() => history.append({ at: '2026-01-01T00:00:00Z', sessionId: 's', project: '/p', text: 'new' })).toThrow(/history.*changed/i);
-  expect(swap.stage).toBe(2);
-  expect(fs.readFileSync(swap.path, 'utf8')).toBe('replacement');
-  expect(fs.readFileSync(swap.moved, 'utf8')).toBe('original\n');
-});
+it.runIf(process.platform !== 'win32' && process.getuid?.() !== 0)(
+  'refuses a history replacement between repair and append',
+  () => {
+    root = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'history-replacement-')));
+    swap.path = join(root, 'history.jsonl');
+    swap.moved = join(root, 'original.jsonl');
+    fs.writeFileSync(swap.path, 'original\n');
+    fs.chmodSync(swap.path, 0o400);
+    const history = new NodePromptHistoryFile(swap.path, { sealing: 'plain', ownedRoot: root });
+    expect(() =>
+      history.append({ at: '2026-01-01T00:00:00Z', sessionId: 's', project: '/p', text: 'new' }),
+    ).toThrow(/history.*changed/i);
+    expect(swap.stage).toBe(2);
+    expect(fs.readFileSync(swap.path, 'utf8')).toBe('replacement');
+    expect(fs.readFileSync(swap.moved, 'utf8')).toBe('original\n');
+  },
+);

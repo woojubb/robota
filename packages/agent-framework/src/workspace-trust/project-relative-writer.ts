@@ -450,13 +450,15 @@ function acquireWorkspaceRelativeWriter(
         const observed = fstatSync(current, { bigint: true });
         return observed.dev === original.dev && observed.ino === original.ino;
       }) ?? false;
-    if (!stillNamed()) refuseProjectRead('The checkpoint writer directory is no longer named by the project.');
+    if (!stillNamed())
+      refuseProjectRead('The checkpoint writer directory is no longer named by the project.');
     const result = createProcessMarkersInOpenDirectory(retained, {
       operationLock: createProcessOperationLock(descriptorPath(retained)),
     }).acquire('active');
     if (result.status !== 'acquired') return undefined;
     acquired = result.handle;
-    if (!stillNamed()) refuseProjectRead('The checkpoint writer directory is no longer named by the project.');
+    if (!stillNamed())
+      refuseProjectRead('The checkpoint writer directory is no longer named by the project.');
     const marker = acquired;
     let released = false;
     const namedNow = (): boolean => {
@@ -488,7 +490,11 @@ function acquireWorkspaceRelativeWriter(
       release: () => {
         if (released) return;
         released = true;
-        try { marker.release(); } finally { closeSync(retained); }
+        try {
+          marker.release();
+        } finally {
+          closeSync(retained);
+        }
       },
     };
     acquired = undefined;
@@ -505,20 +511,25 @@ function claimWorkspaceRelativeDirectory(
   identityResolver: IWorkspaceIdentityResolver,
   relativePath: string,
 ): boolean {
-  return withAnchoredParent(identity, identityResolver, workspacePathSegments(relativePath), (parent, name) => {
-    const target = descriptorPath(parent, name);
-    try {
-      mkdirSync(target, { mode: OWNER_ONLY_DIRECTORY_MODE });
-      return true;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-      const metadata = lstatSync(target, { throwIfNoEntry: false });
-      if (metadata !== undefined && !metadata.isDirectory()) {
-        refuseProjectRead('A checkpoint directory claim collided with a non-directory.');
+  return withAnchoredParent(
+    identity,
+    identityResolver,
+    workspacePathSegments(relativePath),
+    (parent, name) => {
+      const target = descriptorPath(parent, name);
+      try {
+        mkdirSync(target, { mode: OWNER_ONLY_DIRECTORY_MODE });
+        return true;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+        const metadata = lstatSync(target, { throwIfNoEntry: false });
+        if (metadata !== undefined && !metadata.isDirectory()) {
+          refuseProjectRead('A checkpoint directory claim collided with a non-directory.');
+        }
+        return false;
       }
-      return false;
-    }
-  });
+    },
+  );
 }
 
 function appendWorkspaceRelativeFile(

@@ -11,7 +11,10 @@ const access = await createTrustedProjectAccessFixture(project);
 if (access.status !== 'trusted') throw new Error('fixture trust missing');
 const store = new EditCheckpointStore({
   authority: access.authority,
-  mutation: createWorkspaceProjectMutation(access.authority, { status: 'approved', purpose: 'checkpoint ordering test' }),
+  mutation: createWorkspaceProjectMutation(access.authority, {
+    status: 'approved',
+    purpose: 'checkpoint ordering test',
+  }),
   ...(kind === 'directory' ? { stateStorage: createDirectoryEditCheckpointState(stateRoot) } : {}),
   sealing: 'plain',
 });

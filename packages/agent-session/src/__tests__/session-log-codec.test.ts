@@ -182,10 +182,22 @@ const malformedField = {
 
 describe('session-log codec', () => {
   it('decodes a refused handoff and names an unknown event without echoing arbitrary contents', () => {
-    expect(decodeSessionLogEntries([{ ...envelope, event: 'tool_call_handoff_refused', toolName: 'search', reason: 'blocked' }])[0]).toMatchObject({ event: 'tool_call_handoff_refused', toolName: 'search', reason: 'blocked' });
-    expect(() => decodeSessionLogEntries([{ ...envelope, event: 'future_event' }])).toThrow(/future_event/);
-    expect(() => decodeSessionLogEntries([{ ...envelope, event: 'secret with spaces' }])).not.toThrow(/secret with spaces/);
-    expect(() => decodeSessionLogEntries([{ ...envelope, event: 'tool_call_handoff_refused', toolName: 4, reason: 'blocked' }])).toThrow(SessionLogDecodeError);
+    expect(
+      decodeSessionLogEntries([
+        { ...envelope, event: 'tool_call_handoff_refused', toolName: 'search', reason: 'blocked' },
+      ])[0],
+    ).toMatchObject({ event: 'tool_call_handoff_refused', toolName: 'search', reason: 'blocked' });
+    expect(() => decodeSessionLogEntries([{ ...envelope, event: 'future_event' }])).toThrow(
+      /future_event/,
+    );
+    expect(() =>
+      decodeSessionLogEntries([{ ...envelope, event: 'secret with spaces' }]),
+    ).not.toThrow(/secret with spaces/);
+    expect(() =>
+      decodeSessionLogEntries([
+        { ...envelope, event: 'tool_call_handoff_refused', toolName: 4, reason: 'blocked' },
+      ]),
+    ).toThrow(SessionLogDecodeError);
   });
 
   it('decodes the forced-summary provider request without discarding its marker', () => {

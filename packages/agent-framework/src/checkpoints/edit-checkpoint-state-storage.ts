@@ -187,15 +187,19 @@ export function createDirectoryEditCheckpointState(root: string): IEditCheckpoin
 }
 
 /** Bind the project authority's state facet to its per-session checkpoint writer markers. */
-export function createProjectEditCheckpointState(storage: IWorkspaceProjectStateStorage): IEditCheckpointStateStorage {
+export function createProjectEditCheckpointState(
+  storage: IWorkspaceProjectStateStorage,
+): IEditCheckpointStateStorage {
   return {
     rootRelativePath: storage.rootRelativePath,
     acquireTurn: (sessionId, purpose) => {
-      if (storage.acquireWriter === undefined) throw new Error('The project host must support checkpoint writer leases.');
+      if (storage.acquireWriter === undefined)
+        throw new Error('The project host must support checkpoint writer leases.');
       return storage.acquireWriter(join(sessionId, '.writer'), purpose);
     },
     claimDirectory: (path, purpose) => {
-      if (storage.claimDirectory === undefined) throw new Error('Checkpoint storage must support atomic directory claims.');
+      if (storage.claimDirectory === undefined)
+        throw new Error('Checkpoint storage must support atomic directory claims.');
       return storage.claimDirectory(path, purpose);
     },
     readText: (path, purpose) => storage.readText(path, purpose),

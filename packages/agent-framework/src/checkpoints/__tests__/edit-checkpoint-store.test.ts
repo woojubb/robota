@@ -366,39 +366,42 @@ describe('EditCheckpointStore', () => {
     },
   );
 
-  it.runIf(process.platform === 'linux')('loads a legacy v1 manifest as a linear chain (back-compat migration)', async () => {
-    const cwd = makeProject();
-    const sessionDir = join(cwd, '.agent', 'checkpoints', 'session_1');
-    // hand-write two legacy v1 manifests (no parentId/branchId)
-    for (const [seq, id] of [
-      [1, 'turn-0001'],
-      [2, 'turn-0002'],
-    ] as const) {
-      mkdirSync(join(sessionDir, id), { recursive: true });
-      writeFileSync(
-        join(sessionDir, id, 'manifest.json'),
-        JSON.stringify({
-          version: 1,
-          id,
-          sessionId: 'session_1',
-          sequence: seq,
-          prompt: `legacy ${seq}`,
-          createdAt: new Date(1_700_000_000_000 + seq).toISOString(),
-          fileCount: 0,
-          files: [],
-        }),
-        'utf8',
-      );
-    }
+  it.runIf(process.platform === 'linux')(
+    'loads a legacy v1 manifest as a linear chain (back-compat migration)',
+    async () => {
+      const cwd = makeProject();
+      const sessionDir = join(cwd, '.agent', 'checkpoints', 'session_1');
+      // hand-write two legacy v1 manifests (no parentId/branchId)
+      for (const [seq, id] of [
+        [1, 'turn-0001'],
+        [2, 'turn-0002'],
+      ] as const) {
+        mkdirSync(join(sessionDir, id), { recursive: true });
+        writeFileSync(
+          join(sessionDir, id, 'manifest.json'),
+          JSON.stringify({
+            version: 1,
+            id,
+            sessionId: 'session_1',
+            sequence: seq,
+            prompt: `legacy ${seq}`,
+            createdAt: new Date(1_700_000_000_000 + seq).toISOString(),
+            fileCount: 0,
+            files: [],
+          }),
+          'utf8',
+        );
+      }
 
-    const store = await createStore(cwd);
-    // migration does not crash, lists both in sequence order (linear chain)
-    expect(store.list('session_1').map((c) => c.id)).toEqual(['turn-0001', 'turn-0002']);
-    // restore over a migrated v1 chain is non-destructive
-    const result = await store.restoreToCheckpoint('session_1', 'turn-0001');
-    expect(result.removedCheckpointCount).toBe(0);
-    expect(store.list('session_1')).toHaveLength(2);
-  });
+      const store = await createStore(cwd);
+      // migration does not crash, lists both in sequence order (linear chain)
+      expect(store.list('session_1').map((c) => c.id)).toEqual(['turn-0001', 'turn-0002']);
+      // restore over a migrated v1 chain is non-destructive
+      const result = await store.restoreToCheckpoint('session_1', 'turn-0001');
+      expect(result.removedCheckpointCount).toBe(0);
+      expect(store.list('session_1')).toHaveLength(2);
+    },
+  );
 
   // Navigation (list-branches / ancestors / switch) delegates to the neutral tree.
   // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.

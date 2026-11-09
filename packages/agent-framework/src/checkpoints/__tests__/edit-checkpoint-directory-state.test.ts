@@ -191,9 +191,13 @@ describe('atomic checkpoint directory claims', () => {
     const project = join(base, 'project');
     mkdirSync(project);
     const backing = createDirectoryEditCheckpointState(join(base, 'state'));
-    const state = Object.create(backing, { claimDirectory: { value: undefined } }) as IEditCheckpointStateStorage;
+    const state = Object.create(backing, {
+      claimDirectory: { value: undefined },
+    }) as IEditCheckpointStateStorage;
     const store = await storeKeepingStateIn(project, state);
-    await expect(store.beginTurn({ sessionId: 'session_1', prompt: 'edit' })).rejects.toThrow(/atomic directory claims/);
+    await expect(store.beginTurn({ sessionId: 'session_1', prompt: 'edit' })).rejects.toThrow(
+      /atomic directory claims/,
+    );
     expect(readdirSync(join(base, 'state', 'session_1'))).toEqual(['.writer']);
   });
 });
@@ -206,10 +210,16 @@ describe('checkpoint session writer lease', () => {
     const first = await storeKeepingStateIn(project, state);
     const second = await storeKeepingStateIn(project, state);
     await first.beginTurn({ sessionId: 'session_1', prompt: 'one' });
-    await expect(second.beginTurn({ sessionId: 'session_1', prompt: 'two' })).rejects.toThrow(/Another checkpoint writer/);
-    await expect(second.rollbackThroughCheckpoint('session_1', 'turn-0001')).rejects.toThrow(/Another checkpoint writer/);
+    await expect(second.beginTurn({ sessionId: 'session_1', prompt: 'two' })).rejects.toThrow(
+      /Another checkpoint writer/,
+    );
+    await expect(second.rollbackThroughCheckpoint('session_1', 'turn-0001')).rejects.toThrow(
+      /Another checkpoint writer/,
+    );
     await first.finalizeTurn();
-    await expect(second.beginTurn({ sessionId: 'session_1', prompt: 'two' })).resolves.toMatchObject({ id: 'turn-0002' });
+    await expect(
+      second.beginTurn({ sessionId: 'session_1', prompt: 'two' }),
+    ).resolves.toMatchObject({ id: 'turn-0002' });
     await second.finalizeTurn();
   });
 
@@ -226,7 +236,9 @@ describe('checkpoint session writer lease', () => {
     await expect(first.captureFile(path)).rejects.toThrow(/lease was lost/);
     await expect(first.finalizeTurn()).rejects.toThrow(/lease was lost/);
     const second = await storeKeepingStateIn(project, state);
-    await expect(second.beginTurn({ sessionId: 'session_1', prompt: 'two' })).resolves.toMatchObject({ id: 'turn-0002' });
+    await expect(
+      second.beginTurn({ sessionId: 'session_1', prompt: 'two' }),
+    ).resolves.toMatchObject({ id: 'turn-0002' });
     await second.finalizeTurn();
     expect(readFileSync(path, 'utf8')).toBe('original');
   });

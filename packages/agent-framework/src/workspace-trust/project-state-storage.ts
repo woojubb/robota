@@ -80,7 +80,9 @@ class WorkspaceProjectStateStorage {
     assertWorkspaceProjectAuthority(this.#authority);
     assertProjectReadPurpose(purpose);
     if (this.#mutationBoundary.acquireWriter === undefined) {
-      throw new WorkspaceAuthorityRequiredError('The project host cannot acquire checkpoint writer leases.');
+      throw new WorkspaceAuthorityRequiredError(
+        'The project host cannot acquire checkpoint writer leases.',
+      );
     }
     return this.#mutationBoundary.acquireWriter(this.projectRelativePath(relativeDirectory));
   }
@@ -89,7 +91,9 @@ class WorkspaceProjectStateStorage {
     assertWorkspaceProjectAuthority(this.#authority);
     assertProjectReadPurpose(purpose);
     if (this.#mutationBoundary.claimDirectory === undefined) {
-      throw new WorkspaceAuthorityRequiredError('The project host cannot claim checkpoint directories atomically.');
+      throw new WorkspaceAuthorityRequiredError(
+        'The project host cannot claim checkpoint directories atomically.',
+      );
     }
     return this.#mutationBoundary.claimDirectory(this.projectRelativePath(relativePath));
   }

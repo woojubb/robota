@@ -1,9 +1,27 @@
-import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, unlinkSync } from 'node:fs';
+import {
+  chmodSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  unlinkSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
 
-const swap = vi.hoisted(() => ({ parent: '', moved: '', outside: '', phase: 0, markerPublished: false }));
+const swap = vi.hoisted(() => ({
+  parent: '',
+  moved: '',
+  outside: '',
+  phase: 0,
+  markerPublished: false,
+}));
 
 vi.mock('@robota-sdk/agent-core/node', async (importOriginal) => {
   const original = await importOriginal<typeof import('@robota-sdk/agent-core/node')>();
@@ -36,7 +54,9 @@ vi.mock('@robota-sdk/agent-core/node', async (importOriginal) => {
     createProcessMarkers(...args: Parameters<typeof original.createProcessMarkers>) {
       return wrap(original.createProcessMarkers(...args));
     },
-    createProcessMarkersInOpenDirectory(...args: Parameters<typeof original.createProcessMarkersInOpenDirectory>) {
+    createProcessMarkersInOpenDirectory(
+      ...args: Parameters<typeof original.createProcessMarkersInOpenDirectory>
+    ) {
       return wrap(original.createProcessMarkersInOpenDirectory(...args));
     },
   };
@@ -57,28 +77,32 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-it.runIf(process.platform === 'linux')('never publishes a writer marker outside the trusted project when its parent is swapped and restored', async () => {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'checkpoint-marker-root-')));
-  const outside = realpathSync(mkdtempSync(join(tmpdir(), 'checkpoint-marker-outside-')));
-  roots.push(root, outside);
-  const session = join(root, '.agent', 'checkpoints', 'session_1');
-  mkdirSync(session, { recursive: true });
-  mkdirSync(join(outside, '.writer'));
-  chmodSync(join(outside, '.writer'), 0o755);
-  const access = await createTrustedProjectAccessFixture(root);
-  if (access.status !== 'trusted') throw new Error('fixture trust missing');
-  const storage = getWorkspaceProjectStateStorage(access.authority, 'checkpoints');
-  const state = createProjectEditCheckpointState(storage);
-  swap.parent = session;
-  swap.moved = `${session}-moved`;
-  swap.outside = outside;
-  swap.phase = 1;
-  const lease = state.acquireTurn?.('session_1', 'test');
-  expect(swap.phase).toBe(3);
-  expect(swap.markerPublished).toBe(true);
-  expect(lstatSync(outside).isDirectory()).toBe(true);
-  expect(statSync(join(outside, '.writer')).mode & 0o777).toBe(0o755);
-  expect(readdirSync(join(outside, '.writer'))).toEqual([]);
-  expect(lease?.holds()).toBe(true);
-  lease?.release();
-}, 30_000);
+it.runIf(process.platform === 'linux')(
+  'never publishes a writer marker outside the trusted project when its parent is swapped and restored',
+  async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'checkpoint-marker-root-')));
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'checkpoint-marker-outside-')));
+    roots.push(root, outside);
+    const session = join(root, '.agent', 'checkpoints', 'session_1');
+    mkdirSync(session, { recursive: true });
+    mkdirSync(join(outside, '.writer'));
+    chmodSync(join(outside, '.writer'), 0o755);
+    const access = await createTrustedProjectAccessFixture(root);
+    if (access.status !== 'trusted') throw new Error('fixture trust missing');
+    const storage = getWorkspaceProjectStateStorage(access.authority, 'checkpoints');
+    const state = createProjectEditCheckpointState(storage);
+    swap.parent = session;
+    swap.moved = `${session}-moved`;
+    swap.outside = outside;
+    swap.phase = 1;
+    const lease = state.acquireTurn?.('session_1', 'test');
+    expect(swap.phase).toBe(3);
+    expect(swap.markerPublished).toBe(true);
+    expect(lstatSync(outside).isDirectory()).toBe(true);
+    expect(statSync(join(outside, '.writer')).mode & 0o777).toBe(0o755);
+    expect(readdirSync(join(outside, '.writer'))).toEqual([]);
+    expect(lease?.holds()).toBe(true);
+    lease?.release();
+  },
+  30_000,
+);

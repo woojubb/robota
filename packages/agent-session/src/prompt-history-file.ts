@@ -12,7 +12,16 @@
  * opens on its own (`stored-append-lines.ts`), so no line waits for another and the first block
  * still renders before the rest is read.
  */
-import { closeSync, constants, fchmodSync, fstatSync, lstatSync, openSync, readSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  constants,
+  fchmodSync,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname } from 'node:path';
 
 import {
@@ -120,7 +129,8 @@ function openHistoryForAppend(path: string): number {
   try {
     return openSync(path, appendFlags | constants.O_CREAT, OWNER_ONLY_FILE_MODE);
   } catch (error) {
-    if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'EACCES') throw error;
+    if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'EACCES')
+      throw error;
   }
 
   let original: number;
@@ -128,7 +138,10 @@ function openHistoryForAppend(path: string): number {
     original = openSync(path, constants.O_RDONLY | safeFlags);
   } catch (error) {
     if (error instanceof Error && (error as NodeJS.ErrnoException).code === 'EACCES') {
-      throw new Error('Prompt history cannot be opened safely; restore owner read/write permissions on the history file and retry.', { cause: error });
+      throw new Error(
+        'Prompt history cannot be opened safely; restore owner read/write permissions on the history file and retry.',
+        { cause: error },
+      );
     }
     throw error;
   }

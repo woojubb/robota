@@ -32,10 +32,17 @@ describe('session log replay support', () => {
     const logDir = realpathSync(mkdtempSync(join(tmpdir(), 'handoff-log-')));
     try {
       const logger = new FileSessionLogger(new NodeSessionLogSink(logDir, { sealing: 'plain' }));
-      logger.log('session_1', 'tool_call_handoff_refused', { toolName: 'search', reason: 'manager stopped' });
+      logger.log('session_1', 'tool_call_handoff_refused', {
+        toolName: 'search',
+        reason: 'manager stopped',
+      });
       logger.flush?.();
-      const entries = loadSessionLogEntries(new NodeSessionLogSource(join(logDir, 'session_1.jsonl'), { sealing: 'plain' }));
-      expect(entries).toMatchObject([{ event: 'tool_call_handoff_refused', toolName: 'search', reason: 'manager stopped' }]);
+      const entries = loadSessionLogEntries(
+        new NodeSessionLogSource(join(logDir, 'session_1.jsonl'), { sealing: 'plain' }),
+      );
+      expect(entries).toMatchObject([
+        { event: 'tool_call_handoff_refused', toolName: 'search', reason: 'manager stopped' },
+      ]);
       expect(replaySessionLogEntries(entries).sessionId).toBe('session_1');
     } finally {
       rmSync(logDir, { recursive: true, force: true });

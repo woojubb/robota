@@ -154,11 +154,13 @@ function recordingState(inner: IEditCheckpointStateStorage, options: IRecordingO
   };
   const state: IEditCheckpointStateStorage = {
     acquireTurn: (id, purpose) => {
-      if (inner.acquireTurn === undefined) throw new Error('fixture requires checkpoint writer leases');
+      if (inner.acquireTurn === undefined)
+        throw new Error('fixture requires checkpoint writer leases');
       return inner.acquireTurn(id, purpose);
     },
     claimDirectory: (path, purpose) => {
-      if (inner.claimDirectory === undefined) throw new Error('fixture requires atomic directory claims');
+      if (inner.claimDirectory === undefined)
+        throw new Error('fixture requires atomic directory claims');
       return inner.claimDirectory(path, purpose);
     },
     readText: (path, purpose) => read(path, () => inner.readText(path, purpose)),

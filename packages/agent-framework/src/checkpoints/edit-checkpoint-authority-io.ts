@@ -64,7 +64,8 @@ export class EditCheckpointAuthorityIO {
       throw new Error('Checkpoint storage must support an exclusive session writer lease.');
     }
     const lease = this.state.acquireTurn(sessionId, 'acquire checkpoint writer');
-    if (lease === undefined) throw new Error('Another checkpoint writer is active for this session.');
+    if (lease === undefined)
+      throw new Error('Another checkpoint writer is active for this session.');
     return lease;
   }
 
