@@ -292,6 +292,15 @@ describe('rendezvous records', () => {
     const network = createInMemoryItemNetwork();
     const store = network.store();
     const at: number[] = [];
+    // A publish seals its record with WebCrypto after its timer fires, which takes longer the busier the
+    // machine is. The clock stays frozen meanwhile, so the time a publish records does not depend on how
+    // long that took: the checks that expect a publish wait for it, and `settle` only backs the ones that
+    // expect none.
+    const published = async (count: number): Promise<void> => {
+      for (let polls = 0; polls < 2_000 && at.length < count; polls += 1) {
+        await new Promise<void>((resolve) => realSleep(resolve, 10));
+      }
+    };
     const spy: IRendezvousItemStore = {
       put: (address, value, now) => {
         at.push(Date.now() - NOW);
@@ -316,13 +325,13 @@ describe('rendezvous records', () => {
     await settle();
     expect(at).toEqual([]);
     await vi.advanceTimersByTimeAsync(1);
-    await settle();
+    await published(1);
     expect(at).toEqual([2_500]);
     await vi.advanceTimersByTimeAsync(6_499);
     await settle();
     expect(at).toEqual([2_500]);
     await vi.advanceTimersByTimeAsync(1);
-    await settle();
+    await published(2);
     expect(at).toEqual([2_500, 9_000]);
 
     expect(publishJitter(10_000, () => 0)).toBe(0);
