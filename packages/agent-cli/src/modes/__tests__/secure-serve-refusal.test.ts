@@ -8,9 +8,17 @@ import { describe, expect, it } from 'vitest';
 import { SECURE_SURFACES } from '../../secure/secure-surfaces.js';
 import { secureServeRefusal } from '../secure-serve-refusal.js';
 
-const none = { http: false, open: false, externalEventGrants: false, daemon: false };
+const none = {
+  http: false,
+  observer: false,
+  open: false,
+  externalEventGrants: false,
+  daemon: false,
+};
 
-function reasonOf(row: 'serve-http' | 'serve-monitor' | 'external-events'): string {
+function reasonOf(
+  row: 'websocket-transport' | 'serve-http' | 'serve-monitor' | 'external-events',
+): string {
   const secure = SECURE_SURFACES[row].secure;
   if (secure.admit !== 'none') throw new Error(`${row} is expected to be refused in secure mode.`);
   return secure.reason;
@@ -22,6 +30,7 @@ describe('what a secure runtime refuses at start', () => {
   });
 
   it.each([
+    ['--observer-port', { ...none, observer: true }, reasonOf('websocket-transport')],
     ['--http', { ...none, http: true }, reasonOf('serve-http')],
     ['--open', { ...none, open: true }, reasonOf('serve-monitor')],
     ['event grants', { ...none, externalEventGrants: true }, reasonOf('external-events')],
@@ -34,8 +43,10 @@ describe('what a secure runtime refuses at start', () => {
   });
 
   it('names the first thing it refuses, in the order of the listeners the host would open', () => {
-    expect(secureServeRefusal({ http: true, open: true, externalEventGrants: true, daemon: true })).toBe(
-      reasonOf('serve-http'),
+    const everything = { ...none, http: true, open: true, externalEventGrants: true, daemon: true };
+    expect(secureServeRefusal({ ...everything, observer: true })).toBe(
+      reasonOf('websocket-transport'),
     );
+    expect(secureServeRefusal(everything)).toBe(reasonOf('serve-http'));
   });
 });

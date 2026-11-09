@@ -498,7 +498,12 @@ the environment, because a server's clients must outlive a restart that a per-la
 not. That bearer is only as safe as the machine boundary, so any other address is bound only as the
 same OAuth resource server `mcp serve` offers, whose shared gate alone admits; its turns keep the
 host-assigned remote attribution, because the subject allowlist already says who may reach the
-session. This is the backend the desktop GUI spawns: TUI and GUI are sibling
+session. With `--observer-port` it also opens a second loopback WebSocket listener that grants only
+the observe role, admitted by its own operator-chosen token, which must not be shared with a driving
+credential because a shared one would let a read-only holder drive through the other listener.
+Observers never own the session: they come and go, so the runtime stops only with its owner. It is
+not offered in a secure runtime or a hosted task worker, because it admits whoever holds a token.
+This is the backend the desktop GUI spawns: TUI and GUI are sibling
 presentations over the same runtime host, and the GUI never controls the CLI. The composition root
 assigns trusted WS driver identities (`app`, `browser`, `remote:ws`) so a turn's persisted usage
 surface reflects the launch path rather than a client-provided claim.

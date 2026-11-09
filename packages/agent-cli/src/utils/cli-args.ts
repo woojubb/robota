@@ -60,6 +60,8 @@ export interface IParsedCliArgs {
   mcpHttpTokenFile?: string;
   /** The loopback HTTP port: `mcp serve` HTTP mode, or the agent HTTP API of `--serve`. */
   httpPort?: number;
+  /** With `--serve`, the loopback port of the read-only observer listener. */
+  observerPort?: number;
   /** `the product mcp serve` remote resource-server settings; a non-loopback bind requires them. */
   mcpHttpHost?: string;
   mcpHttpPublicUrl?: string;
@@ -216,6 +218,7 @@ const PARSE_ARGS_CONFIG = {
     'external-event-trusted-proxy': { type: 'string', multiple: true },
     'http-token-file': { type: 'string' },
     'http-port': { type: 'string' },
+    'observer-port': { type: 'string' },
     'http-host': { type: 'string' },
     'http-public-url': { type: 'string' },
     'oauth-issuer': { type: 'string' },
@@ -378,6 +381,8 @@ function mapParsedValues(
       : {}),
     mcpHttpTokenFile: values['http-token-file'],
     httpPort: values['http-port'] === undefined ? undefined : Number(values['http-port']),
+    observerPort:
+      values['observer-port'] === undefined ? undefined : Number(values['observer-port']),
     mcpHttpHost: values['http-host'],
     mcpHttpPublicUrl: values['http-public-url'],
     mcpOauthIssuer: values['oauth-issuer'],
@@ -456,6 +461,12 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     (!Number.isInteger(args.httpPort) || args.httpPort < 1 || args.httpPort > 65535)
   ) {
     throw new Error('--http-port must be an integer in 1..65535');
+  }
+  if (
+    args.observerPort !== undefined &&
+    (!Number.isInteger(args.observerPort) || args.observerPort < 1 || args.observerPort > 65535)
+  ) {
+    throw new Error('--observer-port must be an integer in 1..65535');
   }
   if (values['supervised-forwarded-environment'] === true && values['supervised-spawner-pair'] !== true) {
     throw new Error('--supervised-forwarded-environment requires a spawner pair');

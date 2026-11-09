@@ -5,6 +5,8 @@ import type { TListenerRule } from '../secure/secure-surfaces.js';
 /** What a served runtime was asked to open or be. */
 export interface ISecureServeRequest {
   readonly http: boolean;
+  /** Whether the read-only observer listener was asked for. */
+  readonly observer: boolean;
   readonly open: boolean;
   readonly externalEventGrants: boolean;
   readonly daemon: boolean;
@@ -24,6 +26,7 @@ function reasonOf(rule: TListenerRule): string {
  * role is not a listener: a certified runtime becomes its workspace's daemon when its owner asks.
  */
 export function secureServeRefusal(request: ISecureServeRequest): string | undefined {
+  if (request.observer) return reasonOf(SECURE_SURFACES['websocket-transport']);
   if (request.http) return reasonOf(SECURE_SURFACES['serve-http']);
   if (request.open) return reasonOf(SECURE_SURFACES['serve-monitor']);
   if (request.externalEventGrants) return reasonOf(SECURE_SURFACES['external-events']);

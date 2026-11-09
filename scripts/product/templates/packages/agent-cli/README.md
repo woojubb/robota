@@ -368,6 +368,31 @@ run `__PRODUCT_CLI_NAME__ acp` with the project folder as its working directory.
 the sandbox apply as in the terminal, and the editor asks you to approve each tool call the terminal
 would. See [Editors](../../content/guide/cli.md#editors-agent-client-protocol).
 
+### Watch a session read-only
+
+`__PRODUCT_CLI_NAME__ --serve --observer-port <port>` also opens a second WebSocket listener on
+`127.0.0.1:<port>` that only watches. It has its own token, which you choose in
+`PRODUCT_OBSERVER_TOKEN` (at least 32 characters); nothing is minted, and the runtime prints only
+`Observer listening on ws://127.0.0.1:<port> (read-only)` on stderr. A client presents the token as
+`?token=` or as the WebSocket subprotocol, as on the driver listener. The token and the port must
+differ from the driver listener's and from `PRODUCT_HTTP_TOKEN` and `--http-port`: a shared
+credential would let the holder of the read-only token drive through the other listener. A busy
+port fails the start instead of moving to the next one.
+
+```bash
+PRODUCT_OBSERVER_TOKEN="$(openssl rand -hex 32)" __PRODUCT_CLI_NAME__ --serve --observer-port 7171
+```
+
+An observer reads the session's conversation and state and the host's list of sessions. It cannot
+submit, answer prompts, run commands, abort, switch or start sessions, or write settings, and it
+never receives prompts; asking for the `drive` role is refused. It joins the session the runtime
+started with and a driver's switch to another session does not move it. When it disconnects, the
+session and the runtime go on, and its reconnect joins the same session. The runtime removes the
+token from its environment, so the commands it runs do not inherit it, but a command running as the
+same OS user can still read the server's launch environment unless the OS sandbox confines it, so
+enable the sandbox on a server. A secure runtime and a hosted task worker refuse the flag, and it
+is valid only with `--serve`.
+
 ### Reach other sessions and your other devices
 
 `/peers` lists the other live `__PRODUCT_CLI_NAME__` sessions on this machine, and `/peers send <session-id>

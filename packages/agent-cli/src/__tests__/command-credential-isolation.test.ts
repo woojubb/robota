@@ -24,6 +24,8 @@ const runtimeValues = {
   ROBOTA_HTTP_TOKEN: 'fixture-http-alias-3452-0123456789abcdef',
   PRODUCT_WS_TOKEN: 'fixture-ws-token-3452-0123456789abcdef',
   ROBOTA_WS_TOKEN: 'fixture-ws-alias-3452-0123456789abcdef',
+  PRODUCT_OBSERVER_TOKEN: 'fixture-observer-token-0123456789abcdef',
+  ROBOTA_OBSERVER_TOKEN: 'fixture-observer-alias-0123456789abcdef',
   PRODUCT_TELEMETRY_ENABLED: '0',
   ROBOTA_TELEMETRY_ENABLED: '0',
   PRODUCT_TELEMETRY_OTLP_HEADERS: 'Authorization=Bearer%20fixture-collector',
