@@ -1,5 +1,12 @@
 # @robota-sdk/agent-ui-web
 
+## 3.3.3
+### Patch Changes
+
+- The previous version of this package was tagged but never published to npm, because `main` moved past its release commit first. This version carries the same consolidated package set from the current `main`, with comment and test-name cleanups and no behavior change.
+- Updated dependencies
+  - @robota-sdk/agent-transport@3.4.1
+
 ## 3.3.2
 ### Patch Changes
 

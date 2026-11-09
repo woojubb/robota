@@ -1,5 +1,13 @@
 # @robota-sdk/agent-ui-terminal
 
+## 3.2.4
+### Patch Changes
+
+- The previous version of this package was tagged but never published to npm, because `main` moved past its release commit first. This version carries the same consolidated package set from the current `main`, with comment and test-name cleanups and no behavior change.
+- Updated dependencies
+  - @robota-sdk/agent-transport@3.4.1
+  - @robota-sdk/agent-framework@3.2.5
+
 ## 3.2.3
 ### Patch Changes
 
