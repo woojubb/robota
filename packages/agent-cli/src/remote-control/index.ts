@@ -16,7 +16,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TransportRegistry } from '@robota-sdk/agent-framework';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 import type { ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
 
 type TUsageReporters = Pick<

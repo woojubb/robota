@@ -10,7 +10,7 @@ and a browser remote client.
 ## Boundaries
 
 - Does NOT open or own the WebRTC connection or signaling — it consumes the DTLS fingerprints of the negotiated
-  channel + a data channel `send`, supplied by the caller (`agent-transport-webrtc` on the host; the browser client
+  channel + a data channel `send`, supplied by the caller (`agent-transport/webrtc` on the host; the browser client
   elsewhere).
 - Does NOT wire an enable path — no command, no session exposure. That belongs to the transport.
 - **Zero workspace dependencies; no `node:` imports; no WebRTC implementation dependency** in the main entry point.

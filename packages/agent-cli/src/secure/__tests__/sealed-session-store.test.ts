@@ -21,7 +21,7 @@ import { KeyHolderArtifactSealer, WriteOnlyArtifactSealer } from '../artifact-se
 import { KeyHolder } from '../key-holder.js';
 import { FIXTURE_PASSPHRASE, createMemoryKeyringStore, fixtureKeyring } from './helpers.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-e60a-the-prompt-the-user-typed';
 

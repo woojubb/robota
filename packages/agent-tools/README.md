@@ -231,14 +231,13 @@ its screenshot bytes without a Node global. There is no host fallback without a 
 
 ## Dependencies
 
-| Dependency                         | Kind | Purpose                                                        |
-| ---------------------------------- | ---- | -------------------------------------------------------------- |
-| `@robota-sdk/agent-core`           | Peer | Tool contract, `FunctionTool`, schemas, event types            |
-| `@robota-sdk/agent-process`        | Prod | Terminating shell process trees on cancel or timeout (`/node`) |
-| `@robota-sdk/agent-file-authority` | Prod | Atomic rooted writes for Write and Edit (`/node`)              |
-| `fast-glob`                        | Prod | Glob matching (`/node`)                                        |
-| `p-limit`                          | Prod | Concurrency limit in the Glob tool (`/node`)                   |
-| `zod`                              | Prod | Tool parameter schemas and validation                          |
+| Dependency               | Kind | Purpose                                                                                                                                                |
+| ------------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@robota-sdk/agent-core` | Peer | Tool contract, `FunctionTool`, schemas, event types                                                                                                    |
+| `@robota-sdk/agent-os`   | Prod | Terminating shell process trees on cancel or timeout (`./process`) and atomic rooted writes for Write and Edit (`./file-authority`), both from `/node` |
+| `fast-glob`              | Prod | Glob matching (`/node`)                                                                                                                                |
+| `p-limit`                | Prod | Concurrency limit in the Glob tool (`/node`)                                                                                                           |
+| `zod`                    | Prod | Tool parameter schemas and validation                                                                                                                  |
 
 ## Documentation
 

@@ -100,8 +100,8 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework/node';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
-import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession, ISessionLoopState } from '@robota-sdk/agent-interface-session';
+import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface/transport';
+import type { IInteractiveSession, ISessionLoopState } from '@robota-sdk/agent-interface/session';
 
 /** Preset-resolved identity/posture the thin-shell CLI forwards into the headless runtime session. */
 /**

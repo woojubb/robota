@@ -21,7 +21,7 @@ import { overrideProductSecureMode } from '../session-sealing.js';
 import type {
   IInteractiveSession,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 afterEach(() => {
   vi.unstubAllEnvs();

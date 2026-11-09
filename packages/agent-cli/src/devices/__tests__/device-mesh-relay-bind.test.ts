@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createInMemoryItemNetwork } from '@robota-sdk/agent-transport-webrtc';
+import { createInMemoryItemNetwork } from '@robota-sdk/agent-transport/webrtc';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';

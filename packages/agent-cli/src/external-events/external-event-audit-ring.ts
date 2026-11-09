@@ -12,7 +12,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
-import type { TExternalEventAuditRecord } from '@robota-sdk/agent-interface-transport';
+import type { TExternalEventAuditRecord } from '@robota-sdk/agent-interface/transport';
 
 /** Bytes one session's current audit file may hold before it is rotated to its one previous file. */
 const MAX_FILE_BYTES = 256 * 1024;

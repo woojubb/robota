@@ -24,7 +24,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createBinaryAgentDriver } from '../../testing/binary-agent-driver.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
-import type { IAgentDriver } from '@robota-sdk/agent-interface-session';
+import type { IAgentDriver } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

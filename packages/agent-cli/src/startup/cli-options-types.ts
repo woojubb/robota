@@ -12,7 +12,7 @@ import type {
   IWorkspaceProjectSettingsWriter,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
-import type { IOutputStyleSource } from '@robota-sdk/agent-preset';
+import type { IOutputStyleSource } from '@robota-sdk/agent-product/preset';
 import type { IProductConfig, TConfigEnvironment } from '@robota-sdk/product-config';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { THostedRuntimeExecutorFactory } from '../hosted/hosted-runtime-types.js';

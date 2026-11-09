@@ -19,7 +19,7 @@ import {
 import { executeUsageExportCommand } from '../usage-export-command.js';
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 function record(id: string): IInteractiveSessionRecord {
   return {

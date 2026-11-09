@@ -23,7 +23,7 @@ worktree adapter.
   (`assertChildProcessSubagentsCanReproduce()`). A provider it cannot rebuild — a `--session-log`
   replay provider, or provider definitions a caller passed to `startCli()` — makes the session use the
   in-process runner instead, so the subagent runs on the parent's provider without process isolation.
-- Agent command behaviour belongs to `@robota-sdk/agent-command`; the terminal UI only renders it.
+- Agent command behaviour belongs to `@robota-sdk/agent-product/command`; the terminal UI only renders it.
 
 ## Internal Structure
 

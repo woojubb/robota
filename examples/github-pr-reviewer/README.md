@@ -55,5 +55,5 @@ Add this secret to the target repository:
 
 Edit the prompt in `src/review.ts` to focus on specific concerns (security, performance, etc.).
 
-To use a different provider, install it (for example `npm install @robota-sdk/agent-provider-openai`) and swap
+To use a different provider, install it (for example `npm install @robota-sdk/agent-provider openai`) and swap
 `AnthropicProvider` for `OpenAIProvider`.

@@ -10,7 +10,7 @@ extra dependency.
 
 ## Non-goals / Boundaries
 
-- Must not import from `agent-command`, `agent-cli`, or (directly) `agent-session` — session
+- Must not import from `agent-product/command`, `agent-cli`, or (directly) `agent-session` — session
   lifecycle is accessed through `agent-framework` facades.
 - A neutral runner must not compose the product's surface: the tool factory and provider registry
   are supplied by the composition root through a required port, never imported as defaults.

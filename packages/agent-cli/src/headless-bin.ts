@@ -7,7 +7,7 @@ import {
 import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/agent-subagent-runner';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor/node';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 import { installCliDiagnostics } from './bootstrap-diagnostics.js';
 import { hardenProductProcess } from './process-hardening.js';

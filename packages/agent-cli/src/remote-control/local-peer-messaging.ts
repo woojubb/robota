@@ -2,7 +2,7 @@
  * The join between the carrier and the session ingress.
  *
  * Every piece below this file was built and merged, and none of them touched each other: the
- * contracts and ledger in `agent-interface-transport` / `agent-transport`, the session
+ * contracts and ledger in `agent-interface/transport` / `agent-transport`, the session
  * ingress in `agent-framework`, discovery, and the unix-socket carrier. This
  * module owns exactly the wiring, and deliberately re-decides nothing any of them settled.
  *
@@ -24,7 +24,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { ConnectionAuthority } from '@robota-sdk/agent-interface-session-mobility';
+import { ConnectionAuthority } from '@robota-sdk/agent-interface/session-mobility';
 
 import { describeFileRefusal, describeReceived, fileReceiving } from '../peer-files/receiving.js';
 import { listenForPeerMessages } from './local-peer-channel.js';
@@ -41,7 +41,7 @@ import type {
   IPeerMessageIngress,
   IPeerOrigin,
   TWorkspaceRelation,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 import type { TFileReceiveOutcome } from '@robota-sdk/agent-transport/node';
 
 /** What this module needs from `PeerMessageIngress`, and nothing more. */

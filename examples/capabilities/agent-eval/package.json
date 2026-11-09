@@ -12,12 +12,13 @@
     "test": "node --import tsx --test src/outcome-*.test.ts"
   },
   "dependencies": {
-    "@robota-sdk/agent-framework": "^3.2.1",
-    "@robota-sdk/agent-provider-anthropic": "^3.2.1",
+    "@anthropic-ai/sdk": "^0.114.0",
     "@robota-sdk/agent-core": "workspace:^",
+    "@robota-sdk/agent-framework": "^3.2.5",
     "@robota-sdk/agent-mcp": "workspace:^",
+    "@robota-sdk/agent-provider": "^3.3.0",
     "@robota-sdk/agent-provider-replay": "workspace:^",
-    "@robota-sdk/agent-tool-defaults": "^3.2.1"
+    "@robota-sdk/agent-tools": "^3.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -45,7 +45,7 @@ import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { AuthenticationError } from '@robota-sdk/agent-core';
-import { WsTransport } from '@robota-sdk/agent-transport-ws';
+import { WsTransport } from '@robota-sdk/agent-transport/ws';
 
 
 /** One line of output (scripts write to the streams directly). */
@@ -1096,7 +1096,7 @@ const session = new ScriptedSession();
 
 /**
  * A refusal the transport recognises, so it answers `session_change_failed` with this code (the shape
- * `isSessionChangeRefusal` in agent-interface-session checks).
+ * `isSessionChangeRefusal` in agent-interface/session checks).
  */
 const refusal = (code, message) => Object.assign(new Error(message), { name: 'SessionChangeRefusal', code });
 

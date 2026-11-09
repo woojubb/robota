@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Duplex } from 'node:stream';
 
 import { createRuntimeIdentity, startSpawnerExchange } from '@robota-sdk/agent-keyring';
-import { completeSpawnerPair, openSpawnerLink } from '@robota-sdk/agent-transport-link';
+import { completeSpawnerPair, openSpawnerLink } from '@robota-sdk/agent-transport/link';
 import { afterEach, expect, it } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';

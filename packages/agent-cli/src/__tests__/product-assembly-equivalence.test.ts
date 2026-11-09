@@ -10,7 +10,7 @@ import { createTestProductRuntime } from './helpers/product-runtime.js';
  *
  * The bar is the SET of assembled materials, as the spec states ("same provider, same command-module set,
  * same preset resolution, same transport registry"). Module ORDER shifts by design: the coding modules
- * (`/shell`, `/editor`) now arrive from `pack-coding` and so are appended after the base instead of sitting
+ * (`/shell`, `/editor`) now arrive from `agent-product/coding` and so are appended after the base instead of sitting
  * mid-list.
  *
  * That order IS user-visible, and the delta is ACCEPTED, not absent: `CommandRegistry.getCommands()`
@@ -26,10 +26,10 @@ import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { BUILT_IN_AGENTS, SystemCommandExecutor } from '@robota-sdk/agent-framework';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
+import { createPresetRegistry } from '@robota-sdk/agent-product/preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import {
@@ -49,7 +49,7 @@ import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { ICommandModule } from '@robota-sdk/agent-framework';
-import type { IPreset } from '@robota-sdk/agent-preset';
+import type { IPreset } from '@robota-sdk/agent-product/preset';
 
 const testHost = createTestFrameworkHost();
 const PRODUCT_DEFAULT_AGENT_NAME = productDefaultAgentName(createTestProductRuntime());
@@ -292,7 +292,7 @@ describe('the assembled test-product runtime matches the pre-change baseline', (
     expect(assembleProductFixture().product.rejectedCapabilities).toEqual([]);
   });
 
-  it('sources the coding modules from pack-coding, not from the base set', () => {
+  it('sources the coding modules from agent-product/coding, not from the base set', () => {
     const { product } = assembleProductFixture();
     const packNames = PRODUCT_PACK_COMMAND_MODULE_NAMES;
 
@@ -431,7 +431,7 @@ describe('the assembled test-product runtime matches the pre-change baseline', (
 
   it('resolves presets identically (built-ins reachable through the instance registry)', () => {
     const { product } = assembleProductFixture();
-    // The comparison partner used to be agent-preset's module-global resolver. It is now a
+    // The comparison partner used to be agent-product/preset's module-global resolver. It is now a
     // registry constructed with no external presets, which is the same built-ins by construction —
     // and the registry a host that supplies none gets.
     const builtIns = createPresetRegistry();
@@ -501,7 +501,7 @@ describe('test-product resolves presets through the kernel’s per-call registry
     expect(preset.options.persona).toBe('external-preset persona');
     expect(product.resolvePreset(EXTERNAL_PRESET.id)).toMatchObject({
       persona: 'external-preset persona',
-      // `act-first` maps to acceptEdits in agent-preset's posture derivation.
+      // `act-first` maps to acceptEdits in agent-product/preset's posture derivation.
       permissionMode: 'acceptEdits',
     });
     expect(product.presets.listPresets().map((p) => p.id)).toContain(EXTERNAL_PRESET.id);

@@ -8,7 +8,7 @@ import type {
   TExternalEventAuditRecord,
   TExternalEventRefusal,
   TExternalEventSettlementOutcome,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 /** What a grant has seen. Counts only: no principal, token, claim, content or address. */
 export interface IExternalEventGrantCounters {

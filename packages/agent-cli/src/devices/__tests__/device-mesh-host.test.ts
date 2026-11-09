@@ -20,12 +20,12 @@ import { createTestRuntimeContext } from './runtime-context-fixture.js';
 import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 
 import type { IDeviceMeshEndpoint, IOpenDeviceMeshOptions } from '../device-mesh.js';
-import type { IOperatorApprover } from '@robota-sdk/agent-interface-session-mobility';
+import type { IOperatorApprover } from '@robota-sdk/agent-interface/session-mobility';
 import {
   MeshLinkEndedError,
   MeshRelayNeededError,
   type IDeviceMeshRefusal,
-} from '@robota-sdk/agent-transport-webrtc';
+} from '@robota-sdk/agent-transport/webrtc';
 
 let home: string;
 let root: string;

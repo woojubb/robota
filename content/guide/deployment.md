@@ -25,10 +25,10 @@ import {
   createAgentRuntime,
 } from '@robota-sdk/agent-framework';
 import { createFileTransportSettingsRepository, createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
-import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createHttpTransport } from '@robota-sdk/agent-transport-http';
-import { WsTransport } from '@robota-sdk/agent-transport-ws';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
+import { createAnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createHttpTransport } from '@robota-sdk/agent-transport/http';
+import { WsTransport } from '@robota-sdk/agent-transport/ws';
 
 // 1. One definition → one session, built once.
 const runtime = createAgentRuntime({
@@ -78,7 +78,7 @@ The runnable version, which also prints the channels it serves, is
 | Plain `ITransportAdapter`                               | Always, once bound and registered                       | No                                                          |
 
 A transport with `defaultEnabled: false`, such as the pairing-gated `WebRtcTransport` in
-`@robota-sdk/agent-transport-webrtc`, is not started by `startAll()` until it is enabled. It is
+`@robota-sdk/agent-transport/webrtc`, is not started by `startAll()` until it is enabled. It is
 attached to the same session when its own trigger fires (a paired device connecting), so two
 transports share one session at the same time.
 
@@ -90,10 +90,10 @@ transports share one session at the same time.
 - **`__PRODUCT_CLI_NAME__ daemon start`** keeps one such runtime per workspace; the desktop app, `__PRODUCT_CLI_NAME__ --attach`
   and the served GUI connect to it. See
   [Sessions, Background Sessions and the Daemon](./sessions-and-daemon.md).
-- **`__PRODUCT_CLI_NAME__ mcp serve`** serves one session to MCP clients (`@robota-sdk/agent-transport-mcp`). See
+- **`__PRODUCT_CLI_NAME__ mcp serve`** serves one session to MCP clients (`@robota-sdk/agent-transport/mcp`). See
   [Model Context Protocol (MCP)](./mcp.md).
 - **`__PRODUCT_CLI_NAME__ acp`** serves one session to an editor as an Agent Client Protocol agent over stdio
-  (`@robota-sdk/agent-transport-acp`). See [Editors](./cli.md#editors-agent-client-protocol).
+  (`@robota-sdk/agent-transport/acp`). See [Editors](./cli.md#editors-agent-client-protocol).
 - **Remote control** attaches a pairing-gated WebRTC transport to the running session. See
   [Devices, Peers and Remote Control](./devices-and-remote.md).
 

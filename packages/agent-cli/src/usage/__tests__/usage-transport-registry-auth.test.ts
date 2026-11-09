@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createCliUsageTransportRegistry, resolveCliUsageAttribution } from '../usage-transport-registry.js';
 
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 afterEach(() => vi.unstubAllEnvs());
 

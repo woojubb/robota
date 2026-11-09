@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { runAcpSlashCommand } from '../acp-command-port.js';
 
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
-import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
+import type { IExecutionResult } from '@robota-sdk/agent-interface/session';
 
 type TListener = (result: IExecutionResult) => void;
 

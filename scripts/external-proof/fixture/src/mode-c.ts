@@ -3,7 +3,7 @@
  *
  * Three claims: an agent runtime built-in preset (`careful-reviewer`) is reusable by id with nothing registered;
  * a consumer-authored `ICapabilityPack` merges ADDITIVELY on top of the product's base modules and our
- * `pack-coding`; and a deliberate id collision is REPORTED on the rejection channel rather than silently
+ * `agent-product/coding`; and a deliberate id collision is REPORTED on the rejection channel rather than silently
  * dropped or silently overridden.
  *
  * TOOL AXIS. All three axes are now additive on the same terms. `agent-framework`'s
@@ -14,13 +14,13 @@
  * each of those from the published surface.
  */
 
-import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
+import { mergeCapabilityPacks } from '@robota-sdk/agent-product/capability-pack';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import * as frameworkNamespace from '@robota-sdk/agent-framework';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
-import { createCodingPack } from '@robota-sdk/pack-coding';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
+import { createCodingPack } from '@robota-sdk/agent-product/coding';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 
 import {
@@ -40,7 +40,7 @@ import { check, checkEqual, mode, note, section } from './harness.js';
 const codingPack = createCodingPack({ cwd: process.cwd() });
 import { asStandardOptions } from './surface-notes.js';
 
-import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
+import type { ICapabilityPack } from '@robota-sdk/agent-product/capability-pack';
 
 /** The platform the proof's sessions run on: this Node process, with the framework's default tools. */
 const host = createNodeFrameworkHost({ createDefaultTools });
@@ -172,7 +172,7 @@ export async function runModeC(): Promise<void> {
     'the consumer tool reaches the session options as an additionalTool',
     (options.additionalTools ?? []).some((tool) => tool.getName() === 'AcmeTicketLookup'),
   );
-  checkEqual('all eleven merged tools are overlaid', (options.additionalTools ?? []).length, 11);
+  checkEqual('all ten merged tools are overlaid', (options.additionalTools ?? []).length, 10);
   checkEqual(
     'the command-module axis is overlaid on the same path',
     (options.commandModules ?? []).map((commandModule) => commandModule.name),
@@ -202,7 +202,7 @@ export async function runModeC(): Promise<void> {
       (options.additionalTools ?? []).some((tool) => tool.getName() === 'AcmeTicketLookup'),
   );
   // The four assertions the item's verification scenario names. Until this change the
-  // aggregator was published by `@robota-sdk/agent-framework` and `pack-coding` rebuilt the same list
+  // aggregator was published by `@robota-sdk/agent-framework` and `agent-product/coding` rebuilt the same list
   // by hand; the two were held together by a NAME-equality pin, which is a pin that can pass while
   // being unable to fail. The set has ONE owner now, so the questions worth
   // asking from outside the monorepo changed.
@@ -224,7 +224,7 @@ export async function runModeC(): Promise<void> {
   );
 
   checkEqual(
-    "pack-coding's tools ARE the always-present set — structurally now, not by a name pin",
+    "agent-product/coding's tools ARE the always-present set — structurally now, not by a name pin",
     codingPackToolNames,
     ALWAYS_PRESENT,
   );
@@ -335,7 +335,7 @@ export async function runModeC(): Promise<void> {
       'from the published surface is the seam that makes it reachable: the `defaultTools` option on the ' +
       'shipped session-options type, the overlay that carries the pack tools into it, and the scoping of ' +
       'the pack-owned file tools. the reference CLI now consumes exactly this shape — its profile builds ' +
-      'pack-coding with the shell cwd and passes `defaultTools: []`, so its coding tools come FROM the ' +
+      'agent-product/coding with the shell cwd and passes `defaultTools: []`, so its coding tools come FROM the ' +
       'pack (asserted in-repo by agent-cli src/__tests__/product-runtime-seam.test.ts).',
   );
   note(

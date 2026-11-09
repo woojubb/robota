@@ -40,11 +40,11 @@ To switch providers, you change one import and one constructor:
 
 ```typescript
 // Before: $15 / 1M tokens
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // After: $0.14 / 1M tokens (DeepSeek V3)
-import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
 const provider = new DeepSeekProvider({ apiKey: process.env.DEEPSEEK_API_KEY });
 ```
 

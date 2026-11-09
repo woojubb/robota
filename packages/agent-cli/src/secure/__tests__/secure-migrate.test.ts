@@ -77,7 +77,7 @@ import {
 } from './helpers.js';
 
 import type { IProcessIdentity } from '@robota-sdk/agent-core/node';
-import type { IPromptHistoryEntry } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistoryEntry } from '@robota-sdk/agent-interface/session';
 import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 
 vi.mock('@robota-sdk/agent-keyring', async (importOriginal) => {

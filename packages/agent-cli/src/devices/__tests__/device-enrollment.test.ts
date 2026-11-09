@@ -31,8 +31,8 @@ import {
   listenForEnrollment,
   type IEnrollmentChannel,
   type IInMemoryMeshRelayHub,
-} from '@robota-sdk/agent-transport-webrtc';
-import { createDevicesCommandModule } from '@robota-sdk/agent-command';
+} from '@robota-sdk/agent-transport/webrtc';
+import { createDevicesCommandModule } from '@robota-sdk/agent-product/command';
 import { scriptedSession, type ScriptedSessionHarness } from '@robota-sdk/agent-framework/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -50,8 +50,8 @@ import { filesUnder } from './secret-leak.js';
 import { createTestRuntimeContext } from './runtime-context-fixture.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
-import type { IDevicesCommandPort, TDevicesOutcome } from '@robota-sdk/agent-command';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { IDevicesCommandPort, TDevicesOutcome } from '@robota-sdk/agent-product/command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 interface IHome {
   readonly root: string;

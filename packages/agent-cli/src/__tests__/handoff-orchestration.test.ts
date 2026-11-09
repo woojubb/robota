@@ -13,7 +13,7 @@
  * two halves fit.
  */
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -22,7 +22,7 @@ import {
   type IHandoffCarrier,
   type IHandoffChunkFrame,
   type IHandoffManifestRequest,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 import { createHandoffComposition } from '../handoff/handoff-composition-root.js';
 

@@ -45,13 +45,13 @@ source; check your installed version for its available exports.
 
 ```bash
 # An agent: the core engine and one provider package
-npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-core @robota-sdk/agent-provider @anthropic-ai/sdk
 
 # Function tools with Zod schemas (agent-tools uses Zod 3)
 npm install @robota-sdk/agent-tools zod@3
 
 # Sessions with built-in tools, permission modes, hooks and project context
-npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-framework @robota-sdk/agent-provider @anthropic-ai/sdk
 
 # The CLI
 npm install -g @robota-sdk/agent-cli
@@ -61,7 +61,7 @@ npm install -g @robota-sdk/agent-cli
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const agent = new ConversationAgent({
   name: 'Assistant',
@@ -97,13 +97,13 @@ layers in full. The [packages index](/packages/) lists every package.
 
 ## Providers
 
-| Package                                        | Covers                                                                                                        |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `@robota-sdk/agent-provider-anthropic`         | Anthropic Claude                                                                                              |
-| `@robota-sdk/agent-provider-openai`            | OpenAI, and any OpenAI-compatible endpoint through `baseURL` (AI gateways, Azure OpenAI, vLLM, local servers) |
-| `@robota-sdk/agent-provider-gemini`            | Google Gemini, including image generation                                                                     |
-| `@robota-sdk/agent-provider-openai-compatible` | DeepSeek, Qwen, and local servers such as Ollama, LM Studio or llama.cpp                                      |
-| `@robota-sdk/agent-provider-bytedance`         | ByteDance ModelArk video generation (not a chat provider)                                                     |
+| Package                                                  | Covers                                                                                                        |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-provider/anthropic`                   | Anthropic Claude                                                                                              |
+| `@robota-sdk/agent-provider/openai`                      | OpenAI, and any OpenAI-compatible endpoint through `baseURL` (AI gateways, Azure OpenAI, vLLM, local servers) |
+| `@robota-sdk/agent-provider/gemini`                      | Google Gemini, including image generation                                                                     |
+| `@robota-sdk/agent-provider/deepseek`, `/qwen`, `/gemma` | DeepSeek, Qwen, and local servers such as Ollama, LM Studio or llama.cpp                                      |
+| `@robota-sdk/agent-provider/bytedance`                   | ByteDance ModelArk video generation (not a chat provider)                                                     |
 
 The [Providers Reference](./guide/providers.md) covers each one. To run a local model with no API key,
 see [Local LLM Setup](./guide/local-llm.md).

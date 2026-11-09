@@ -14,7 +14,7 @@
  * restart would drop every connected window — so `applyPatch`'s `language` case suppresses just
  * that restart request for the duration of its one `executeCommand` call (see its own comment).
  */
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '@robota-sdk/agent-product/preset';
 import {
   buildPermissionModeSubcommands,
   buildProviderProfilesSnapshot,
@@ -29,7 +29,7 @@ import type {
   ISettingsDocumentStore,
   TSettingsSource,
 } from '@robota-sdk/agent-framework';
-import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface-command';
+import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface/command';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
   ISettingsChoice,
@@ -38,7 +38,7 @@ import type {
   ISettingsPlugin,
   ISettingsSnapshot,
   TSettingsPatch,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type {
   IProtocolSession,
   ISettingsReporter,
@@ -193,7 +193,7 @@ async function buildSnapshot(
   }));
   const activePreset = asString(presetData['active']);
 
-  // Pure/no-side-effect resolution (agent-preset's own contract) — peeks at what applying a preset
+  // Pure/no-side-effect resolution (agent-product/preset's own contract) — peeks at what applying a preset
   // WOULD set the permission mode to, so the client can ask for confirmation before it ever sends
   // the patch, the same way it confirms picking "Skip all checks" from the mode control directly.
   const presetRegistry = createPresetRegistry();

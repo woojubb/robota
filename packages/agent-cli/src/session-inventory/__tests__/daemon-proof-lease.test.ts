@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
-import type { IOwnerRuntimeLinkClient } from '@robota-sdk/agent-transport-link';
+import type { IOwnerRuntimeLinkClient } from '@robota-sdk/agent-transport/link';
 
 const opener = vi.hoisted(() => ({ open: vi.fn() }));
 vi.mock('../owner-link-client.js', () => ({ openRegisteredOwnerLink: opener.open }));

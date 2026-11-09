@@ -1,4 +1,4 @@
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { createServer } from 'node:http';
 
 import { describe, expect, it, vi } from 'vitest';
@@ -8,7 +8,7 @@ import { executeUsageExportCommand } from '../usage-export-command.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 function record(): IInteractiveSessionRecord {
   const usage = {

@@ -6,7 +6,7 @@ import { buildPresetSurfaceOptions, toSessionOptions } from '../preset-surface-o
 import type { IServeModePresetOptions } from '../../modes/serve-mode.js';
 import type { IPrintModePresetOptions } from '../../modes/print-mode.js';
 import type { IPresetSurfaceOptions } from '../preset-surface-options.js';
-import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import type { IResolvedPresetOptions } from '@robota-sdk/agent-product/preset';
 
 /**
  * The projection is declared ONCE.

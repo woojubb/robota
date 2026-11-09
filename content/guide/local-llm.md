@@ -150,7 +150,7 @@ Then run `__PRODUCT_CLI_NAME__ --configure`, choose **Ollama / LM Studio / llama
 The same provider is available to your own code as `GemmaProvider`:
 
 ```typescript
-import { GemmaProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import { GemmaProvider } from '@robota-sdk/agent-provider/gemma';
 
 const provider = new GemmaProvider({
   apiKey: 'ollama', // placeholder; use your server's token if it requires one

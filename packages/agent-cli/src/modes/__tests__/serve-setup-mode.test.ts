@@ -12,7 +12,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { createProviderCommandModule } from '@robota-sdk/agent-command';
+import { createProviderCommandModule } from '@robota-sdk/agent-product/command';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 

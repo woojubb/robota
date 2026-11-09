@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { createSettingsReporter } from '../settings-reporter.js';
@@ -31,7 +31,7 @@ import type {
   TSettingsData,
 } from '@robota-sdk/agent-framework';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 /** An isolated temp-file-backed provider settings source, cleaned up when the test ends. */
@@ -171,7 +171,7 @@ describe('createSettingsReporter', () => {
   it('flags no built-in preset today — none of them resolve to bypassPermissions', async () => {
     // Documents the current catalog rather than asserting a specific id: `autonomous-builder`'s
     // `autonomy: 'act-first'` maps to `acceptEdits`, not `bypassPermissions` (see
-    // `AUTONOMY_TO_PERMISSION_MODE` in `agent-preset`). The GUI shows no preset-confirmation dialog
+    // `AUTONOMY_TO_PERMISSION_MODE` in `agent-product/preset`). The GUI shows no preset-confirmation dialog
     // today; a host-supplied preset that DOES set `permissionMode: 'bypassPermissions'` would be
     // flagged the same way, since the check reads the resolved option directly.
     const executeCommand = vi.fn(async (name: string, args: string) => {
@@ -993,7 +993,7 @@ describe('createSettingsReporter', () => {
 
       // `--confirmed`: this write already went through the GUI's own ConfirmDialog before reaching
       // here — a modal write has nowhere to render a follow-up ask, unlike a plainly-typed
-      // `/provider delete <profile>`, which confirms interactively first (agent-command's own tests).
+      // `/provider delete <profile>`, which confirms interactively first (agent-product/command's own tests).
       expect(executeCommand).toHaveBeenCalledWith(
         'provider',
         'delete anthropic --confirmed',

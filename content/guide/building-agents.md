@@ -17,7 +17,7 @@ prompts, project instructions and session persistence, use `@robota-sdk/agent-fr
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const agent = new ConversationAgent({
   name: 'MyAgent',
@@ -71,14 +71,12 @@ message format and the vendor API. Options for every provider are in the
 [Providers Reference](./providers.md).
 
 ```typescript
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
-import {
-  DeepSeekProvider,
-  GemmaProvider,
-  QwenProvider,
-} from '@robota-sdk/agent-provider-openai-compatible';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
+import { GemmaProvider } from '@robota-sdk/agent-provider/gemma';
+import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
 
 const anthropic = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 const openai = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
@@ -248,7 +246,7 @@ File and shell tools are factories that take the directory they may work in —
 | `webFetchTool`        | `WebFetch`        | Fetches a URL and returns its text                                |
 | `askUserQuestionTool` | `AskUserQuestion` | Asks the user a question and waits for the answer (main entry)    |
 
-`createDefaultTools({ cwd })` from `@robota-sdk/agent-tool-defaults` returns this whole set at once.
+`createDefaultTools({ cwd })` from `@robota-sdk/agent-tools/defaults` returns this whole set at once.
 When you give these tools to a bare `Robota`, no permission prompts run — the agent can use them
 freely. `agent-framework` wraps them with permission checks; see
 [Permissions and Hooks](./permissions-and-hooks.md).

@@ -19,7 +19,7 @@ import type {
   ICommandMarketplaceSource,
   ICommandPluginAdapter,
   TPluginInstallScope,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 import { productPluginDirectories } from '../product/plugin-paths.js';
 
 interface IPluginServices {

@@ -77,13 +77,13 @@ npm install -g @robota-sdk/agent-cli
 ### 커스텀 AI 에이전트
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-core @robota-sdk/agent-provider @anthropic-ai/sdk
 ```
 
 ### 도구 호출(함수 도구)
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider-anthropic zod@3
+npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider @anthropic-ai/sdk zod@3
 ```
 
 `agent-tools`는 Zod 3를 사용합니다. 스키마가 맞도록 `zod@3`를 설치하세요.
@@ -91,7 +91,7 @@ npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-pro
 ### 내장 도구·권한·훅을 갖춘 세션
 
 ```bash
-npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-framework @robota-sdk/agent-provider @anthropic-ai/sdk
 ```
 
 ## 빠른 시작 — CLI
@@ -142,7 +142,7 @@ __PRODUCT_CLI_NAME__
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -170,7 +170,7 @@ console.log(response);
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { z } from 'zod';
 
 const provider = new AnthropicProvider({
@@ -206,8 +206,8 @@ console.log(response);
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const agent = new ConversationAgent({
   name: 'MultiProviderAgent',
@@ -239,8 +239,8 @@ response = await agent.run('대화를 이어가 주세요.');
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const session = new InteractiveSession({
   host: createNodeFrameworkHost({ createDefaultTools }),

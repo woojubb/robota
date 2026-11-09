@@ -15,13 +15,13 @@
  * checked "it refused" would pass against an implementation that had collapsed them.
  */
 
-import { HandoffDestination, HandoffSource } from '@robota-sdk/agent-interface-session-mobility';
+import { HandoffDestination, HandoffSource } from '@robota-sdk/agent-interface/session-mobility';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createHandoffComposition } from '../handoff/handoff-composition-root.js';
 
-import type { IHandoffCarrier, IHandoffChunkFrame } from '@robota-sdk/agent-interface-session-mobility';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IHandoffCarrier, IHandoffChunkFrame } from '@robota-sdk/agent-interface/session-mobility';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const composition = createHandoffComposition();
 

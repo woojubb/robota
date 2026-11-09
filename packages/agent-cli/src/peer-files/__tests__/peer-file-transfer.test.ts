@@ -34,7 +34,7 @@ import { openQuarantineSink, quarantineTarget, sanitizeReceivedFileName } from '
 import type {
   ICapabilityApprovalRequest,
   IOperatorApprover,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 let scratch: string;
 let guardedDirectory: string;

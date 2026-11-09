@@ -43,7 +43,7 @@ import type {
   ISessionLoopState,
   TSessionBindingRole,
   TOwnerSessionQuestion,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /**
  * The members of a session the directory reads: its id, whether a prompt waits on it, and

@@ -69,8 +69,8 @@ it in the directory the app serves, so the next `app:dev` starts a daemon on the
 
 ## Repository Layout
 
-- `packages/` — the agent libraries (`agent-*`), their shared contracts (`agent-interface-*`), the
-  and the coding capability pack (`pack-coding`).
+- `packages/` — the agent libraries (`agent-*`), their shared contracts (`agent-interface`), the
+  and the coding capability pack (`agent-product/coding`).
 - `apps/` — deployable apps, none published to npm (listed below).
 - `examples/` — runnable example projects. They are workspace members, so they build against the
   local packages.

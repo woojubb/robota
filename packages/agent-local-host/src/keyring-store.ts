@@ -52,7 +52,7 @@ import { basename, dirname, join } from 'node:path';
 import {
   createProcessOperationLock,
   type IProcessOperationLockHandle,
-} from '@robota-sdk/agent-node-lock';
+} from '@robota-sdk/agent-os/node-lock';
 
 import {
   KeyringError,

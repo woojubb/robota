@@ -21,7 +21,7 @@ import {
   DEFAULT_NOSTR_RELAYS,
   DEFAULT_PKARR_RELAYS,
   type IIceServer,
-} from '@robota-sdk/agent-transport-webrtc';
+} from '@robota-sdk/agent-transport/webrtc';
 
 import { parseIceServers } from '../remote-control/ice-config.js';
 

@@ -24,7 +24,7 @@ import type {
   TSettingsData,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
-import type { IPromptHistorySource } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistorySource } from '@robota-sdk/agent-interface/session';
 import { createProductPromptHistoryFile } from '../product/session-stores.js';
 
 const PROMPT_HISTORY_ENV = 'PRODUCT_PROMPT_HISTORY';

@@ -7,11 +7,11 @@
  * PER-CALL instance-scoped registry without mutating an independently owned built-in registry.
  */
 
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '@robota-sdk/agent-product/preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 import { ACME_PROVIDER_SETTINGS, acmeReviewerPreset } from './acme.js';
 import { check, checkEqual, checkThrows, mode, note, section } from './harness.js';

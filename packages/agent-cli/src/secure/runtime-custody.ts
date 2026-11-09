@@ -32,7 +32,7 @@ import {
   type IRuntimeLinkPorts,
   type TGrantOutcome,
   type TOwnerControlResult,
-} from '@robota-sdk/agent-transport-link';
+} from '@robota-sdk/agent-transport/link';
 
 import { KeyringStoreError } from '@robota-sdk/agent-local-host';
 import { LinkSession } from './link-session.js';

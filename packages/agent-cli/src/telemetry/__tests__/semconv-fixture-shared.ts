@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface/analytics';
 import { createNodeOtlpLiveTracePort } from '../live-trace-otlp.js';
 import type { INodeOtlpLiveTraceOptions } from '../live-trace-otlp.js';
 

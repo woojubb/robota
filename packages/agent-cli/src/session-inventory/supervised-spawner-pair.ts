@@ -1,5 +1,5 @@
 import { createRuntimeIdentity, type IRuntimeIdentity } from '@robota-sdk/agent-keyring';
-import { answerSpawnerPair } from '@robota-sdk/agent-transport-link';
+import { answerSpawnerPair } from '@robota-sdk/agent-transport/link';
 
 /** The argument a secure supervised launch adds when it hands the child the pair its spawner holds. */
 export const SUPERVISED_SPAWNER_PAIR_FLAG = '--supervised-spawner-pair';

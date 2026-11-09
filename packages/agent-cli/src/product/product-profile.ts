@@ -1,4 +1,4 @@
-import { createCodingPack } from '@robota-sdk/pack-coding';
+import { createCodingPack } from '@robota-sdk/agent-product/coding';
 import type { ICliRuntimeContext } from './runtime-context.js';
 
 import type {
@@ -11,14 +11,14 @@ import type {
   ICommandModule,
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-framework';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface/transport';
 import type { IProductProfile } from '@robota-sdk/agent-product';
 import type { IShellPresetResolution } from '../startup/preset-selection.js';
-import type { ICodingPackOptions } from '@robota-sdk/pack-coding';
+import type { ICodingPackOptions } from '@robota-sdk/agent-product/coding';
 
 /**
  * A capability pack, reached through the kernel's own profile contract rather than a direct dependency on
- * `@robota-sdk/agent-capability-pack` — the shell composes packs, it does not author the pack contract.
+ * `@robota-sdk/agent-product/capability-pack` — the shell composes packs, it does not author the pack contract.
  */
 type TCapabilityPack = NonNullable<IProductProfile['packs']>[number];
 
@@ -30,7 +30,7 @@ export const SECURE_EDITOR_UNAVAILABLE =
  * its command modules, its subagents AND its tools, because the profile hands the packs
  * the whole tool surface (see {@link PACKS_OWN_TOOL_SURFACE}).
  *
- * A FACTORY over the session context, not a constant: `pack-coding`'s file tools are scoped to the `cwd`
+ * A FACTORY over the session context, not a constant: `agent-product/coding`'s file tools are scoped to the `cwd`
  * they are built with, and a context-free pack would carry a disarmed working-directory path guard.
  */
 export function createProductCapabilityPacks(

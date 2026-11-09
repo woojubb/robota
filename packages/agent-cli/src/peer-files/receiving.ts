@@ -8,7 +8,7 @@ import path from 'node:path';
 
 import { openQuarantineSink, quarantineTarget } from './quarantine.js';
 
-import type { ConnectionAuthority } from '@robota-sdk/agent-interface-session-mobility';
+import type { ConnectionAuthority } from '@robota-sdk/agent-interface/session-mobility';
 import type {
   IReceiveFileOptions,
   TFileReceiveOutcome,

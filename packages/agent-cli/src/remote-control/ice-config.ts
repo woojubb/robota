@@ -1,4 +1,4 @@
-import type { IIceServer } from '@robota-sdk/agent-transport-webrtc';
+import type { IIceServer } from '@robota-sdk/agent-transport/webrtc';
 
 /**
  * Validating reader for the HOST WebRTC ICE config. `transports.webrtc.options.iceServers` is an

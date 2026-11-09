@@ -14,7 +14,7 @@ import {
   writeSupervisedGrantHandoff,
 } from '../../session-inventory/supervised-session-control.js';
 
-import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface/transport';
 
 const VARIED: IExternalEventGrant[] = [
   {

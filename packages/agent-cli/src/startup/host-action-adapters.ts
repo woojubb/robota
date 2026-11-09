@@ -39,7 +39,7 @@ import type {
   IPeerMessaging,
   IPeerMessagingOptions,
 } from '../remote-control/local-peer-messaging.js';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 /** What `/peers` and `/handoff` use of the device mesh. */
 type TMeshPeers = Pick<

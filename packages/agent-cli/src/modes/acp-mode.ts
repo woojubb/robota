@@ -11,7 +11,7 @@ import {
   SessionSlot,
 } from '@robota-sdk/agent-framework';
 import { isSessionClaimedError } from '@robota-sdk/agent-session';
-import { createAcpTransport } from '@robota-sdk/agent-transport-acp';
+import { createAcpTransport } from '@robota-sdk/agent-transport/acp';
 
 import { runAcpSlashCommand } from './acp-command-port.js';
 import { buildPooledSessionOptions } from './serve-mode.js';
@@ -24,8 +24,8 @@ import type {
   InteractiveSession,
   TInteractiveSessionOptions,
 } from '@robota-sdk/agent-framework';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
-import type { TAcpSessionLoad, TAcpWorkspaceAdmission } from '@robota-sdk/agent-transport-acp';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
+import type { TAcpSessionLoad, TAcpWorkspaceAdmission } from '@robota-sdk/agent-transport/acp';
 import type { Readable, Writable } from 'node:stream';
 
 export interface IAcpModeOptions {

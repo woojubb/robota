@@ -135,8 +135,8 @@ not. Jobs without `resumeSessionId` remain transient.
 - `@robota-sdk/agent-executor` — `ISubagentRunner`, worktree isolation, and background task primitives
 - `@robota-sdk/agent-framework` — `TSubagentRunnerFactory` and session assembly for the worker
 - `@robota-sdk/agent-core` — provider and tool types
-- `@robota-sdk/agent-interface-execution` — subagent job contracts
-- `@robota-sdk/agent-process` — process-tree termination
+- `@robota-sdk/agent-interface/execution` — subagent job contracts
+- `@robota-sdk/agent-os/process` — process-tree termination
 
 See [docs/SPEC.md](./docs/SPEC.md) for the package contract: required composition, IPC validation, and
 how the provider connection is checked across the process boundary.

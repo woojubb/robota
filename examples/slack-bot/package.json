@@ -10,9 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@robota-sdk/agent-framework": "^3.0.0-beta.67",
-    "@robota-sdk/agent-provider-anthropic": "^3.0.0-beta.67",
-    "@robota-sdk/agent-tool-defaults": "^3.0.0-beta.67",
+    "@anthropic-ai/sdk": "^0.114.0",
+    "@robota-sdk/agent-framework": "^3.2.5",
+    "@robota-sdk/agent-provider": "^3.3.0",
+    "@robota-sdk/agent-tools": "^3.3.0",
     "@slack/bolt": "^3.21.1",
     "dotenv": "^16.4.5"
   },

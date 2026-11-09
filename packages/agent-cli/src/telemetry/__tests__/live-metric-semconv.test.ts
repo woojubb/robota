@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { JsonMetricsSerializer, ProtobufMetricsSerializer } from '@opentelemetry/otlp-transformer';
 import type { ResourceMetrics } from '@opentelemetry/sdk-metrics';
-import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface/analytics';
 import {
   GEN_AI_SCHEMA_URL,
   GEN_AI_AGENT_DURATION_BUCKETS_S, GEN_AI_CALL_COUNT_BUCKETS, GEN_AI_DURATION_BUCKETS_S, GEN_AI_TOKEN_BUCKETS,

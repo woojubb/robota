@@ -15,8 +15,8 @@ import type { IProviderDefinition, IProviderDefinitionConfig } from '@robota-sdk
 /** What each built-in definition's own `createProvider` was handed, recorded beneath the product wrap. */
 const received = vi.hoisted(() => [] as IProviderDefinitionConfig[]);
 
-vi.mock('@robota-sdk/agent-builtin-providers', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@robota-sdk/agent-builtin-providers')>();
+vi.mock('@robota-sdk/agent-provider/builtin', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@robota-sdk/agent-provider/builtin')>();
   return {
     ...actual,
     createDefaultProviderDefinitions: () =>

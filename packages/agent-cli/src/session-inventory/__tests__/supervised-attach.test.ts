@@ -3,7 +3,7 @@ import { createConnection, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createRemoteControlCommandModule } from '@robota-sdk/agent-command';
+import { createRemoteControlCommandModule } from '@robota-sdk/agent-product/command';
 import { InteractiveSession, SessionChangeRefusal } from '@robota-sdk/agent-framework';
 import { MAX_INBOUND_FRAME_BYTES } from '@robota-sdk/agent-transport';
 import { describe, expect, it, vi } from 'vitest';
@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { once } from 'node:events';
 import { PassThrough } from 'node:stream';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import {
   createHandshakeApprover,
@@ -27,7 +27,7 @@ import {
 } from '../supervised-session-control.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
-import type { ISessionBinder, ISessionDirectory } from '@robota-sdk/agent-interface-session';
+import type { ISessionBinder, ISessionDirectory } from '@robota-sdk/agent-interface/session';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 

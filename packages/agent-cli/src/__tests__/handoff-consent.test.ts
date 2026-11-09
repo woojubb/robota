@@ -1,4 +1,4 @@
-import { ConnectionAuthority } from '@robota-sdk/agent-interface-session-mobility';
+import { ConnectionAuthority } from '@robota-sdk/agent-interface/session-mobility';
 import { describe, expect, it } from 'vitest';
 
 import { createHandoffConsent } from '../handoff/handoff-consent.js';
@@ -8,7 +8,7 @@ import type {
   IHandoffManifest,
   IOperatorApprover,
   IPeerAdmission,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 /**
  * The consent at the DESTINATION is the connection's `handoff` authority: the operator here is asked

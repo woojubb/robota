@@ -12,7 +12,7 @@ import { createTestProductRuntime } from './helpers/product-runtime.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
-import type { IKeyCustodyCommandPort } from '@robota-sdk/agent-command';
+import type { IKeyCustodyCommandPort } from '@robota-sdk/agent-product/command';
 
 const homes: string[] = [];
 afterEach(() => {

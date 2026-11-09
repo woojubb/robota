@@ -1,7 +1,7 @@
 import { once } from 'node:events';
 import { spawn } from 'node:child_process';
 import { Duplex } from 'node:stream';
-import { completeSpawnerPair } from '@robota-sdk/agent-transport-link';
+import { completeSpawnerPair } from '@robota-sdk/agent-transport/link';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';

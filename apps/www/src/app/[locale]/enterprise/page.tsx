@@ -121,7 +121,7 @@ export default async function EnterprisePage({ params }: { params: Promise<{ loc
           <p>
             <span className="text-purple-400">import</span> {'{ OpenAIProvider }'}{' '}
             <span className="text-purple-400">from</span>{' '}
-            <span className="text-green-400">&apos;@robota-sdk/agent-provider-openai&apos;</span>;
+            <span className="text-green-400">&apos;@robota-sdk/agent-provider/openai&apos;</span>;
           </p>
           <p className="mt-2">
             <span className="text-purple-400">const</span> provider ={' '}

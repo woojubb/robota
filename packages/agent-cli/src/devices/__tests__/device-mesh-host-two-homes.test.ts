@@ -22,7 +22,7 @@ import {
   generateDeviceSignKeyPair,
   issueDeviceRoster,
 } from '@robota-sdk/agent-remote-pairing';
-import { createInMemoryMeshRelayHub } from '@robota-sdk/agent-transport-webrtc';
+import { createInMemoryMeshRelayHub } from '@robota-sdk/agent-transport/webrtc';
 import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -52,11 +52,11 @@ import { createTestRuntimeContext } from './runtime-context-fixture.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
 import type { ICliRuntimeContext } from '../../product/runtime-context.js';
-import type { IInteractiveSessionRecord, ITurnHandle } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord, ITurnHandle } from '@robota-sdk/agent-interface/session';
 import type {
   ICapabilityApprovalRequest,
   IOperatorApprover,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 interface IHome {
   readonly home: string;

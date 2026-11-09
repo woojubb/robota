@@ -53,7 +53,7 @@ IDs. A consumer that never asks for content never holds any.
 - `@robota-sdk/agent-session-analytics` assembles reports: `summarizeUsageBySource` returns an
   `IUsageBySourceReport`, `summarizePersonalUsage` returns an `IPersonalUsageReport`.
 - `@robota-sdk/agent-transport` carries usage reports in its wire messages, and transports such as
-  `@robota-sdk/agent-transport-ws` tag the turns they accept with a `TUsageSurface`.
+  `@robota-sdk/agent-transport/ws` tag the turns they accept with a `TUsageSurface`.
 - `@robota-sdk/agent-ui-terminal` renders per-turn usage.
 - `@robota-sdk/agent-interface/session` names `IUsageSnapshot` and `TUsageSurface` in its turn and
   submit contracts.

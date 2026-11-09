@@ -5,7 +5,7 @@
  */
 
 import type { IStartupResumeInput, TStartupResume } from './startup-resume.js';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 /** The run's surface and terminal, as far as asking a person before the session starts goes. */
 export interface IStartupAskSurface {

@@ -132,13 +132,13 @@ no mechanism, and no runtime value except a small set of discriminators.
 
 ### Boundaries
 
-| Concern                                                | Owner                                  |
-| ------------------------------------------------------ | -------------------------------------- |
-| Command implementations and their modules              | `agent-command`, command-module owners |
-| Command infrastructure and reusable host APIs          | `agent-framework`                      |
-| Rendering a command's result                           | `agent-ui-terminal`, `agent-ui-web`    |
-| Session, interaction, event, turn and driver contracts | `agent-interface/session`              |
-| Background task, workspace and subagent contracts      | `agent-interface/execution`            |
+| Concern                                                | Owner                                          |
+| ------------------------------------------------------ | ---------------------------------------------- |
+| Command implementations and their modules              | `agent-product/command`, command-module owners |
+| Command infrastructure and reusable host APIs          | `agent-framework`                              |
+| Rendering a command's result                           | `agent-ui-terminal`, `agent-ui-web`            |
+| Session, interaction, event, turn and driver contracts | `agent-interface/session`                      |
+| Background task, workspace and subagent contracts      | `agent-interface/execution`                    |
 
 ### Design decisions
 
@@ -409,7 +409,7 @@ by another, and its authorization is the receiving operator's, asked by the host
 | Concern                                  | Owner                                                                                                                                        |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | What a session IS                        | `agent-interface/session`                                                                                                                    |
-| Carrying a peer message over a wire      | `agent-transport-webrtc`, `agent-transport`                                                                                                  |
+| Carrying a peer message over a wire      | `agent-transport/webrtc`, `agent-transport`                                                                                                  |
 | Sealing and verifying handoff payloads   | `agent-transport`                                                                                                                            |
 | Deciding whether a handoff is authorized | the receiving operator, asked by the host application; this subpath fixes that every request is asked and declares the shape of the question |
 | Transport adapters, channels, admission  | `agent-interface/transport`                                                                                                                  |

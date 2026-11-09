@@ -6,7 +6,7 @@
  * never expose the tail of a secret the full text would have masked.
  */
 import { realpathSync } from 'node:fs';
-import { redactDiagnosticText } from '@robota-sdk/agent-command';
+import { redactDiagnosticText } from '@robota-sdk/agent-product/command';
 
 const REDACTED = '[redacted]';
 const TRUNCATED = '[truncated]';

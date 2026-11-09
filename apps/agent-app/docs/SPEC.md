@@ -12,11 +12,11 @@ that package's build output.
 - All session/command/permission logic lives below the wire, in the workspace's runtime CLI daemon
   reached through an authenticated host connection. The GUI never imports `@robota-sdk/agent-framework` or
   `agent-core`, and does not own the wire protocol or session contract (owned by `agent-transport`
-  / `agent-interface-transport`).
+  / `agent-interface/transport`).
 - The renderer receives only a loopback endpoint with a local nonce. Remote issuer and operator credentials stay in the main process, bound to the owner-selected HTTPS task and session; remote task paths never confer access to the local filesystem. Remote permission approval requires a native owner decision and a separate scoped operator credential, never a renderer response or model text. Invalid remote configuration refuses startup rather than selecting a local runtime.
 - The transport closes any connection that does not present the correct token (constant-time compare)
   before emitting any session data, closing the otherwise-unauthenticated loopback port against a
-  co-resident browser page. This contract is owned by `@robota-sdk/agent-transport-ws`.
+  co-resident browser page. This contract is owned by `@robota-sdk/agent-transport/ws`.
 - The renderer is hardened: context isolation, no Node integration, sandboxed, loads only local
   content, a CSP restricted to `self` plus the loopback WebSocket origin, and navigation/new-window
   lockdown — so the nonce-holding renderer cannot carry the session to an external origin.

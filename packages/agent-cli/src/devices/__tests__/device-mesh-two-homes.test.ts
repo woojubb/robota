@@ -29,7 +29,7 @@ import {
   createInMemoryMdnsBus,
   createInMemoryMeshRelayHub,
   createInMemoryNostrHub,
-} from '@robota-sdk/agent-transport-webrtc';
+} from '@robota-sdk/agent-transport/webrtc';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';
@@ -73,9 +73,9 @@ import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 
 import type { TReceiveHandoffOutcome } from '../../handoff/handoff-receive.js';
 import type { ICredentialStore } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
-import type { ICapabilityApprovalRequest } from '@robota-sdk/agent-interface-session-mobility';
-import type { IDeviceMeshLink } from '@robota-sdk/agent-transport-webrtc';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
+import type { ICapabilityApprovalRequest } from '@robota-sdk/agent-interface/session-mobility';
+import type { IDeviceMeshLink } from '@robota-sdk/agent-transport/webrtc';
 import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 
 const HOUR = 60 * 60 * 1000;

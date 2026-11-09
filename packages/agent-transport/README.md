@@ -64,7 +64,7 @@ and state but cannot submit, answer prompts or control the session.
 ## Composing a handoff offer
 
 Moving a session to another device is split between two packages. Readiness and the offer policy
-belong to `@robota-sdk/agent-interface-session-mobility`; this package seals the serialized record so
+belong to `@robota-sdk/agent-interface/session-mobility`; this package seals the serialized record so
 the receiver can verify it arrived intact. Check readiness first, then pass the integrity of those
 exact bytes to the offer:
 
@@ -73,7 +73,7 @@ import {
   assessHandoffReadiness,
   prepareHandoffOffer,
   type IPrepareHandoffOfferInput,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 import { sealHandoffRecord } from '@robota-sdk/agent-transport/node';
 
 function buildOffer(request: Omit<IPrepareHandoffOfferInput, 'integrity'>) {
@@ -118,8 +118,8 @@ starts and stops a set of transports together, live in `@robota-sdk/agent-framew
 ## Dependencies
 
 - `@robota-sdk/agent-core`
-- `@robota-sdk/agent-interface-analytics`, `-command`, `-execution`, `-session`, `-session-mobility`,
-  `-transport` (contract packages)
+- `@robota-sdk/agent-interface` (the `analytics`, `command`, `execution`, `session`, `session-mobility` and
+  `transport` contract subpaths)
 - `jose` (access-token signature verification under `./node`)
 
 The carrier libraries (`ws`, `hono`, `@modelcontextprotocol/server` and `@modelcontextprotocol/node`,
