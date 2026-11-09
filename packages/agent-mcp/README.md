@@ -1,5 +1,8 @@
 # @robota-sdk/agent-mcp
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 The Model Context Protocol (MCP) client for the Robota SDK: everything needed to let an agent use tools
 from external MCP servers. It keeps three concerns separate:
 
@@ -22,7 +25,7 @@ Transports are Streamable HTTP and host-authorized stdio. Discovered tools enter
 ordinary tool slot, so there is no MCP-specific runtime path. The agent runtime CLI uses this package for its
 `mcpServers` configuration; see the [MCP guide](../../content/guide/mcp.md) for that side. To expose a
 agent session _as_ an MCP server, use
-[`@robota-sdk/agent-transport-mcp`](../agent-transport-mcp/README.md).
+[`@robota-sdk/agent-transport/mcp`](../agent-transport/docs/mcp.md).
 
 Tool results retain ordered resource links, embedded text or binary resources, and inline audio
 alongside structured state, including failed observations. Resource URIs remain opaque references;

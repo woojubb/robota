@@ -24,7 +24,7 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-describe('prompt-history enablement (SCREEN-1993 TC-06)', () => {
+describe('prompt-history enablement', () => {
   it('is on by default; settings turn it off; the env kill switch and opt-in win over settings', () => {
     expect(resolvePromptHistoryEnablement({ settings: undefined, env: {} })).toBe(true);
     expect(resolvePromptHistoryEnablement({ settings: false, env: {} })).toBe(false);
@@ -76,9 +76,9 @@ describe('prompt-history enablement (SCREEN-1993 TC-06)', () => {
   });
 });
 
-describe('prompt-history composition (SCREEN-1993 TC-07)', () => {
+describe('prompt-history composition', () => {
   // A live trusted authority can only be minted by the trust service against a repository; the
-  // identity-carrying restricted access takes the same project-key path (TC-06 covers the table).
+  // identity-carrying restricted access takes the same project-key path (another case covers the table).
   const trusted: TWorkspaceProjectAccess = {
     status: 'restricted',
     reason: 'WorkspaceAuthorityRequired',

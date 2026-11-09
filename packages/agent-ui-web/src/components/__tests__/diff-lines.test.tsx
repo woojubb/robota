@@ -6,10 +6,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { DiffLines } from '../DiffLines.js';
 
-import type { IDiffLine } from '@robota-sdk/agent-interface-session';
+import type { IDiffLine } from '@robota-sdk/agent-interface/session';
 
 /**
- * #3288 review SHOULD 3: a diff long enough to need it folds behind "Show more", instead of
+ * A diff long enough to need it folds behind "Show more", instead of
  * dumping every line into the DOM at once; a diff already short enough to read whole never folds.
  */
 

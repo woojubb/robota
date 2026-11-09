@@ -1,5 +1,5 @@
 /**
- * #3679 3f: `/unlock` and `/lock` reach the command set only through the key custody the TUI was
+ * `/unlock` and `/lock` reach the command set only through the key custody the TUI was
  * given. With secure mode off there is no custody, so a plain product has neither command.
  */
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
@@ -12,7 +12,7 @@ import { createTestProductRuntime } from './helpers/product-runtime.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
-import type { IKeyCustodyCommandPort } from '@robota-sdk/agent-command';
+import type { IKeyCustodyCommandPort } from '@robota-sdk/agent-product/command';
 
 const homes: string[] = [];
 afterEach(() => {

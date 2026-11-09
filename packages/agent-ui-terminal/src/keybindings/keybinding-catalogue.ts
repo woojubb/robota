@@ -1,7 +1,7 @@
 export const KEYBINDING_ACTIONS = {
   app: ['open-workspace-switcher'],
   thinking: ['abort'],
-  'background-detail': ['return-to-main'],
+  'background-detail': ['return-to-main', 'follow-earlier'],
   recovery: ['retry'],
   'chat-input': [
     'submit',
@@ -43,10 +43,10 @@ export const KEYBINDING_ACTIONS = {
   'workspace-switcher': ['previous', 'next', 'select', 'close', 'attach'],
   'background-list': ['previous', 'next', 'open', 'close'],
   'transport-settings': ['previous', 'next', 'toggle', 'close'],
-  /** SCREEN-1993: the reverse prompt-history search overlay. */
+  /** The reverse prompt-history search overlay. */
   'history-search': ['previous', 'next', 'cycle-scope', 'insert', 'execute', 'cancel'],
   /**
-   * SCREEN-2002: the theme picker. Navigation PREVIEWS; only `select` applies. Printable keys are
+   * The theme picker. Navigation PREVIEWS; only `select` applies. Printable keys are
    * fine here because the picker takes no text.
    */
   'theme-picker': ['previous', 'next', 'select', 'toggle-syntax', 'toggle-motion', 'cancel'],
@@ -65,7 +65,7 @@ type TDefaultKeybindings = {
 export const DEFAULT_KEYBINDINGS = {
   app: { 'open-workspace-switcher': ['ctrl+b'] },
   thinking: { abort: ['escape'] },
-  'background-detail': { 'return-to-main': ['escape'] },
+  'background-detail': { 'return-to-main': ['escape'], 'follow-earlier': ['ctrl+o'] },
   recovery: { retry: ['enter'] },
   'chat-input': {
     submit: ['enter'],

@@ -1,13 +1,13 @@
 /**
- * Connection and catalog lifecycle supervisor (MCP-002, absorbing MCP-003).
+ * Connection and catalog lifecycle supervisor.
  *
  * Owns open / reuse / close, ALL retry state, the four typed timeouts, `list_changed` refresh without
  * reconnecting, the last-known-good catalog with explicit identity, and — the SSOT the package
- * asserts at package scope (TC-23) — the ONE connection-state union, `TMCPConnectionState`.
+ * asserts at package scope — the ONE connection-state union, `TMCPConnectionState`.
  * `../client/session.ts` is stateless about liveness by contract.
  *
  * Contract file: the types below are authoritative; `MCPConnectionSupervisor` is completed against
- * them (TC-09, TC-10, TC-13 … TC-17, TC-22).
+ * them.
  */
 
 import { UnauthorizedError } from '@modelcontextprotocol/client';
@@ -59,10 +59,10 @@ const HTTP_SERVER_ERROR_MAX_EXCLUSIVE = 600;
 const JSON_RPC_METHOD_NOT_FOUND = -32601;
 const JSON_RPC_INVALID_PARAMS = -32602;
 
-/** Only `transient` is ever retried; the other three are refused on first response (TC-13). */
+/** Only `transient` is ever retried; the other three are refused on first response. */
 export type TMCPFailureClass = 'transient' | 'auth' | 'config' | 'not-found';
 
-/** Five DISTINCT typed settings; setting one never changes another (TC-16, TC-18). */
+/** Five DISTINCT typed settings; setting one never changes another. */
 export interface IMCPTimeouts {
   readonly startupMs: number;
   readonly perCallMs: number;
@@ -84,7 +84,7 @@ export interface IMCPBackoffPolicy {
 
 /**
  * THE connection-state union. The `failed` member carries its classification so a caller reads it
- * rather than re-deriving it (TC-10); its presence is required by the type (TC-23).
+ * rather than re-deriving it; its presence is required by the type.
  */
 export type TMCPConnectionState =
   | { readonly kind: 'idle' }
@@ -108,7 +108,7 @@ export type TMCPConnectionState =
  */
 export type TMCPTimerHandle = ReturnType<typeof setTimeout> | number;
 
-/** Injected so retry timing is deterministic under a fake clock; never polled in the foreground (TC-14). */
+/** Injected so retry timing is deterministic under a fake clock; never polled in the foreground. */
 export interface IMCPSupervisorClock {
   now(): number;
   setTimeout(callback: () => void, ms: number): TMCPTimerHandle;
@@ -270,7 +270,7 @@ function isTransientFailure(
   );
 }
 
-/** Classify a thrown failure; owned here so every caller reads one answer (TC-13). */
+/** Classify a thrown failure; owned here so every caller reads one answer. */
 export function classifyMcpFailure(error: unknown): TMCPFailureClass {
   if (error instanceof MCPSupervisorError) return error.classification;
   if (error instanceof MCPStatelessProtocolError) return 'config';
@@ -325,7 +325,7 @@ export function classifyMcpFailure(error: unknown): TMCPFailureClass {
 
 /**
  * Thrown by `callTool` (and internally by `discover`/`refresh`) so the caller reads the classification
- * off the thrown value itself rather than re-deriving it (TC-10). A class, not a union member — it is
+ * off the thrown value itself rather than re-deriving it. A class, not a union member — it is
  * not a second connection-state model.
  */
 export class MCPSupervisorError extends Error {
@@ -443,7 +443,7 @@ export class MCPConnectionSupervisor {
       try {
         // `IMCPSession.discover` has no per-domain filter in its contract (`../client/session.ts`), so
         // a single-domain refresh is implemented by re-listing every domain over the SAME live session
-        // and keeping only the one domain asked for. What TC-15 requires is "no reconnect" — asserted
+        // and keeping only the one domain asked for. What matters is "no reconnect" — asserted
         // by `openSession` having been called exactly once across the whole test — not a smaller
         // request.
         const full = await session.discover({
@@ -593,7 +593,7 @@ export class MCPConnectionSupervisor {
     return this.beginConnect(1, signal);
   }
 
-  /** Cancels any armed timer, closes the session and its transport; leaves no live request (TC-17). */
+  /** Cancels any armed timer, closes the session and its transport; leaves no live request. */
   shutdown(): Promise<void> {
     if (this.shutdownPromise !== undefined) return this.shutdownPromise;
     this.shutdownPromise = this.shutdownOwned();
@@ -878,7 +878,7 @@ export class MCPConnectionSupervisor {
   private onConnected(session: IMCPSession): void {
     const newIdentity = catalogIdentityOf(session.identity);
     if (this.lastKnownGood && !sameCatalogIdentity(this.lastKnownGood.identity, newIdentity)) {
-      // TC-22: a reconnect whose identity differs invalidates the retained catalog; nothing is
+      // A reconnect whose identity differs invalidates the retained catalog; nothing is
       // inferred from a stale session id.
       this.lastKnownGood = undefined;
     }
@@ -893,7 +893,7 @@ export class MCPConnectionSupervisor {
 
   private handleListChanged(domain: TMCPCapabilityDomain): void {
     if (this.lastKnownGood) {
-      // TC-09: mark the affected domain stale immediately; `refresh` below resolves it either way.
+      // Mark the affected domain stale immediately; `refresh` below resolves it either way.
       this.lastKnownGood = {
         ...this.lastKnownGood,
         stale: { ...this.lastKnownGood.stale, [domain]: true },

@@ -10,7 +10,7 @@ import type { TSettingsData } from './settings-store-types.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 /**
- * CLI-069: missing file → empty defaults (non-error); an EXISTING file that
+ * Missing file → empty defaults (non-error); an EXISTING file that
  * fails to parse throws SettingsParseError — no warn-and-continue masking.
  */
 export function readSettings(path: string): TSettingsData {
@@ -25,14 +25,14 @@ export function readSettings(path: string): TSettingsData {
 }
 
 /**
- * SEC-003: settings files can hold a plaintext provider credential — `provider-settings.ts`
+ * Settings files can hold a plaintext provider credential — `provider-settings.ts`
  * persists `apiKey` verbatim when `--api-key-env` is not used (and warns while doing it). A
  * default-umask create would leave that credential world-readable, so the file is created
  * owner-only. `mode` applies at creation, so a settings file an older version already wrote keeps
- * its mode — which is why SEC-020 tightens it before the write rather than trusting `mode` alone.
+ * its mode — which is why it is tightened before the write rather than trusting `mode` alone.
  */
 export function writeSettings(path: string, settings: TSettingsData): void {
-  // SEC-020: created with no mode at all, so the settings directory came out 0755 under umask 022
+  // Created with no mode at all, so the settings directory came out 0755 under umask 022
   // and every account on the host could list what it holds. The file itself was already
   // owner-only, but a rewrite leaves an older 0644 copy at 0644 — `mode` applies only at create.
   ensureOwnerOnlyDirectory(dirname(path));
@@ -41,7 +41,7 @@ export function writeSettings(path: string, settings: TSettingsData): void {
 }
 
 /**
- * CONFIG-002: writes `providers[currentProvider].model`, the only shape `loadConfig()` accepts.
+ * Writes `providers[currentProvider].model`, the only shape `loadConfig()` accepts.
  * A file with no active profile (missing file, or legacy flat `provider`) is refused with
  * `NoCurrentProviderProfileError` and left untouched — the writer never emits a loader-rejected shape.
  */

@@ -1,5 +1,5 @@
 /**
- * FLOW-2006: the line that says a prompt did not come from the person at the keyboard.
+ * The line that says a prompt did not come from the person at the keyboard.
  *
  * A deep link can fill the composer, so the provenance has to be visible for as long as the composer
  * holds exactly what the link supplied — otherwise a prompt the user never typed reads exactly like

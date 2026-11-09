@@ -10,7 +10,7 @@ import type {
 import type {
   IExternalEventGrant,
   TExternalEventAuditRecord,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 function grant(grantId: string, principal: 'subject' | 'client' = 'client'): IExternalEventGrant {
   return {

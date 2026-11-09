@@ -12,7 +12,7 @@ function tracker(options: { focusReporting: boolean }) {
   return { instance, events };
 }
 
-describe('AttentionTracker (SCREEN-1992 TC-01)', () => {
+describe('AttentionTracker', () => {
   it('with focus reporting, focus-out and focus-in emit once per transition and the idle source is inert', () => {
     vi.useFakeTimers();
     try {

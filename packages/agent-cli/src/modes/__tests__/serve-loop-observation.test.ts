@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { nextWaitingLoopAt } from '../serve-mode.js';
 
-import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
+import type { ISessionLoopState } from '@robota-sdk/agent-interface/session';
 
 const NOW = Date.parse('2026-09-24T00:00:00.000Z');
 

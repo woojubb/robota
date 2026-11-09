@@ -1,6 +1,6 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * SCREEN-1993 — prompt-history enablement and project key (agent-cli owned).
+ * Prompt-history enablement and project key (agent-cli owned).
  *
  * The TUI's Ctrl+R search reads `the configured user root/history.jsonl`, a derived projection of the prompts the
  * owner typed, written by the interactive session on every owner turn. Two product decisions live
@@ -24,7 +24,7 @@ import type {
   TSettingsData,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
-import type { IPromptHistorySource } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistorySource } from '@robota-sdk/agent-interface/session';
 import { createProductPromptHistoryFile } from '../product/session-stores.js';
 
 const PROMPT_HISTORY_ENV = 'PRODUCT_PROMPT_HISTORY';

@@ -2,7 +2,7 @@ import { calculateModelCost } from '@robota-sdk/agent-core';
 
 import type { IUsageSnapshot } from './types.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IUsageModelShare, IUsageObservation } from '@robota-sdk/agent-interface-analytics';
+import type { IUsageModelShare, IUsageObservation } from '@robota-sdk/agent-interface/analytics';
 import type { Session } from '@robota-sdk/agent-session';
 
 function usageSurface(driverId: string | undefined): IUsageObservation['surface'] {
@@ -13,7 +13,7 @@ function usageSurface(driverId: string | undefined): IUsageObservation['surface'
   return 'unknown';
 }
 
-/** DATA-2577: project a started turn into the canonical content-free analytics observation. */
+/** Project a started turn into the canonical content-free analytics observation. */
 export function createUsageObservationEntry(input: {
   turnId: string;
   outcome: IUsageObservation['outcome'];

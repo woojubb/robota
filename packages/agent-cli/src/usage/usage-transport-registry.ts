@@ -5,10 +5,10 @@ import { createPersonalUsageReporter, createStoredSessionUsageReporter } from '.
 import type {
   IInteractiveSessionStore,
   ISessionBinder,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { IProtocolSession, ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
-import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
+import type { TDriverId } from '@robota-sdk/agent-interface/session';
+import type { TUsageSurface } from '@robota-sdk/agent-interface/analytics';
 
 /** Compose the host-owned report producers into the default WebSocket transport. */
 function createDefaultUsageTransportRegistry(
@@ -57,10 +57,10 @@ export function createCliUsageTransportRegistry(
   projectStore: IInteractiveSessionStore,
   projectTrusted: boolean,
   open: boolean,
-  /** #3189: binds each client to the sessions it lists, starts and switches (serve mode only). */
+  /** Binds each client to the sessions it lists, starts and switches (serve mode only). */
   sessionBinder?: ISessionBinder<IProtocolSession>,
   daemon = false,
-  /** #3282 §4a: host-owned read/write for the GUI Settings screen. */
+  /** Host-owned read/write for the GUI Settings screen. */
   settingsReporter?: ISessionMessageHandlerOptions['settingsReporter'],
   /** A token handed over outside the environment (a supervised daemon's pipe); never written back to it. */
   transportToken?: string,

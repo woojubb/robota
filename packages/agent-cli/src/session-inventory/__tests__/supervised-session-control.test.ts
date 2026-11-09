@@ -46,10 +46,15 @@ describe('supervised session control', () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-pr-'));
     const root = join(scratch, 'supervised');
     let association: ReturnType<typeof parseSupervisedPr>;
-    const control = await startSupervisedControl(
-      ID, () => undefined, root, () => 'idle', undefined, undefined, undefined, undefined,
-      { get: () => association, set: (value) => { association = value; } },
-    );
+    const control = await startSupervisedControl({
+      id: ID,
+      onStop: () => undefined,
+      root,
+      observe: {
+        activity: () => 'idle',
+      },
+      pr: { get: () => association, set: (value) => { association = value; } },
+    });
     const first = 'https://github.com/team/repo/pull/123';
     const second = 'https://git.example.org/team/repo/-/merge_requests/24';
     try {
@@ -82,10 +87,17 @@ describe('supervised session control', () => {
     const pr = parseSupervisedPr(url)!;
     const cwd = `/projects/${'x'.repeat(1900)}`;
     const name = 'N'.repeat(80);
-    const control = await startSupervisedControl(
-      ID, () => undefined, root, () => 'idle', () => cwd, undefined, () => name, undefined,
-      { get: () => pr, set: () => undefined },
-    );
+    const control = await startSupervisedControl({
+      id: ID,
+      onStop: () => undefined,
+      root,
+      observe: {
+        activity: () => 'idle',
+        cwd: () => cwd,
+        name: () => name,
+      },
+      pr: { get: () => pr, set: () => undefined },
+    });
     try {
       expect(await listSupervisedSessions(root, undefined, {
         includePr: true, includeCwd: true, includeName: true, pr: 24,
@@ -100,7 +112,11 @@ describe('supervised session control', () => {
   it('aborts an in-flight listing probe and closes its control socket', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-abrt-'));
     const root = join(scratch, 'supervised');
-    const control = await startSupervisedControl(ID, () => undefined, root);
+    const control = await startSupervisedControl({
+      id: ID,
+      onStop: () => undefined,
+      root,
+    });
     const socketName = readdirSync(root).find((name) => name.endsWith('.sock'))!;
     const socketPath = join(root, socketName);
     rmSync(socketPath);
@@ -132,7 +148,14 @@ describe('supervised session control', () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-activity-'));
     const root = join(scratch, 'supervised');
     let activity: 'working' | 'needs-input' | 'idle' | undefined;
-    const control = await startSupervisedControl(ID, () => undefined, root, () => activity);
+    const control = await startSupervisedControl({
+      id: ID,
+      onStop: () => undefined,
+      root,
+      observe: {
+        activity: () => activity,
+      },
+    });
     try {
       expect(await listSupervisedSessions(root)).toEqual([
         { id: ID, liveness: 'alive', control: 'available', activity: 'unknown' },
@@ -158,9 +181,15 @@ describe('supervised session control', () => {
     const root = join(scratch, 'supervised');
     let activity: 'idle' | 'working' = 'idle';
     let nextLoopAt = '2030-01-01T00:10:00.000Z';
-    const control = await startSupervisedControl(
-      ID, () => undefined, root, () => activity, undefined, () => nextLoopAt,
-    );
+    const control = await startSupervisedControl({
+      id: ID,
+      onStop: () => undefined,
+      root,
+      observe: {
+        activity: () => activity,
+        nextLoopAt: () => nextLoopAt,
+      },
+    });
     try {
       expect(await listSupervisedSessions(root)).toEqual([{
         id: ID, liveness: 'alive', control: 'available', activity: 'idle', nextLoopAt,
@@ -184,9 +213,15 @@ describe('supervised session control', () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-nm-'));
     const root = join(scratch, 'supervised');
     let name = 'Morning review';
-    const control = await startSupervisedControl(
-      ID, () => undefined, root, () => 'idle', undefined, undefined, () => name,
-    );
+    const control = await startSupervisedControl({
+      id: ID,
+      onStop: () => undefined,
+      root,
+      observe: {
+        activity: () => 'idle',
+        name: () => name,
+      },
+    });
     try {
       const named = { id: ID, liveness: 'alive', control: 'available', activity: 'idle', name };
       expect(await listSupervisedSessions(root)).toEqual([{
@@ -215,9 +250,16 @@ describe('supervised session control', () => {
       if (refuse) throw new Error('private storage failure');
       name = next;
     });
-    const control = await startSupervisedControl(
-      ID, () => undefined, root, () => 'idle', undefined, undefined, () => name, onRename,
-    );
+    const control = await startSupervisedControl({
+      id: ID,
+      onStop: () => undefined,
+      root,
+      observe: {
+        activity: () => 'idle',
+        name: () => name,
+      },
+      rename: onRename,
+    });
     try {
       await renameSupervisedSession(ID, 'Evening review', root);
       expect(onRename).toHaveBeenCalledExactlyOnceWith('Evening review');
@@ -240,7 +282,14 @@ describe('supervised session control', () => {
   it('keeps activity unknown when the live process control reply cannot be verified', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-lost-'));
     const root = join(scratch, 'supervised');
-    const control = await startSupervisedControl(ID, () => undefined, root, () => 'working');
+    const control = await startSupervisedControl({
+      id: ID,
+      onStop: () => undefined,
+      root,
+      observe: {
+        activity: () => 'working',
+      },
+    });
     try {
       const socketName = readdirSync(root).find((name) => name.endsWith('.sock'));
       rmSync(join(root, socketName!));
@@ -263,7 +312,14 @@ describe('supervised session control', () => {
     const other = join(scratch, 'other');
     mkdirSync(project);
     mkdirSync(other);
-    const control = await startSupervisedControl(ID, () => undefined, root, undefined, () => project);
+    const control = await startSupervisedControl({
+      id: ID,
+      onStop: () => undefined,
+      root,
+      observe: {
+        cwd: () => project,
+      },
+    });
     try {
       const row = { id: ID, liveness: 'alive', control: 'available', activity: 'unknown' };
       expect(await listSupervisedSessions(root)).toEqual([row]);
@@ -290,7 +346,11 @@ describe('supervised session control', () => {
     let resolveStopped: () => void = () => undefined;
     const stopped = new Promise<void>((resolve) => { resolveStopped = resolve; });
     const stop = vi.fn(() => { void control.close().then(resolveStopped); });
-    control = await startSupervisedControl(ID, stop, root);
+    control = await startSupervisedControl({
+      id: ID,
+      onStop: stop,
+      root,
+    });
     try {
       expect(await listSupervisedSessions(root)).toEqual([
         { id: ID, liveness: 'alive', control: 'available', activity: 'unknown' },
@@ -318,11 +378,19 @@ describe('supervised session control', () => {
       const unsafe = join(scratch, 'unsafe');
       mkdirSync(unsafe);
       chmodSync(unsafe, 0o755);
-      await expect(startSupervisedControl(ID, () => undefined, unsafe)).rejects.toThrow(/private/i);
+      await expect(startSupervisedControl({
+        id: ID,
+        onStop: () => undefined,
+        root: unsafe,
+      })).rejects.toThrow(/private/i);
 
       const linked = join(scratch, 'linked');
       symlinkSync(unsafe, linked);
-      await expect(startSupervisedControl(ID, () => undefined, linked)).rejects.toThrow(/private/i);
+      await expect(startSupervisedControl({
+        id: ID,
+        onStop: () => undefined,
+        root: linked,
+      })).rejects.toThrow(/private/i);
     } finally {
       rmSync(scratch, { recursive: true, force: true });
     }
@@ -331,7 +399,11 @@ describe('supervised session control', () => {
   it('does not let a half-open control client block supervisor shutdown', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-hanging-'));
     const root = join(scratch, 'supervised');
-    const control = await startSupervisedControl(ID, () => undefined, root);
+    const control = await startSupervisedControl({
+      id: ID,
+      onStop: () => undefined,
+      root,
+    });
     const socketName = readdirSync(root).find((name) => name.endsWith('.sock'));
     expect(socketName).toBeDefined();
     const client = createConnection({ path: join(root, socketName!), allowHalfOpen: true });
@@ -351,7 +423,11 @@ describe('supervised session control', () => {
   it('keeps healthy registrations visible while an unpublished or incomplete sibling exists', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-i-'));
     const root = join(scratch, 'supervised');
-    const control = await startSupervisedControl(ID, () => undefined, root);
+    const control = await startSupervisedControl({
+      id: ID,
+      onStop: () => undefined,
+      root,
+    });
     try {
       mkdirSync(join(root, `.${INCOMPLETE_ID}.pending`), { mode: 0o700 });
       expect(await listSupervisedSessions(root)).toEqual([
@@ -372,7 +448,11 @@ describe('supervised session control', () => {
   it('keeps the supervisor alive when clients reset during status replies', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-reset-'));
     const root = join(scratch, 'supervised');
-    const control = await startSupervisedControl(ID, () => undefined, root);
+    const control = await startSupervisedControl({
+      id: ID,
+      onStop: () => undefined,
+      root,
+    });
     const socketName = readdirSync(root).find((name) => name.endsWith('.sock'));
     try {
       await Promise.all(Array.from({ length: 16 }, async () => {
@@ -395,7 +475,11 @@ describe('supervised session control', () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-long-'));
     const root = join(scratch, 'x'.repeat(85));
     try {
-      await expect(startSupervisedControl(ID, () => undefined, root)).rejects.toThrow(/too long/i);
+      await expect(startSupervisedControl({
+        id: ID,
+        onStop: () => undefined,
+        root,
+      })).rejects.toThrow(/too long/i);
       expect(existsSync(join(root, ID))).toBe(false);
     } finally {
       rmSync(scratch, { recursive: true, force: true });

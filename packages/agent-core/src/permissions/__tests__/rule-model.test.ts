@@ -12,7 +12,7 @@ import {
 } from '../pattern-validation.js';
 
 /**
- * Issue #3081 — the rule model beyond one primary argument: named-parameter rules, globs in the
+ * The rule model beyond one primary argument: named-parameter rules, globs in the
  * tool-name position, and a bare-name deny that removes the tool.
  */
 beforeEach(() => {

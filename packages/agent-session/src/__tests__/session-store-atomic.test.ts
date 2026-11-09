@@ -1,5 +1,5 @@
 /**
- * CORE-019 — SessionStore atomic persistence tests.
+ * SessionStore atomic persistence tests.
  *
  * save() must write via a same-directory temp file + rename so a crash mid-write can
  * never leave a truncated/corrupt JSON in place of the previous record. Observable
@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { NodeSessionStore } from '../session-store.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import { loadedOrMissing } from './store-load-helpers.js';
 
@@ -50,7 +50,7 @@ afterEach(() => {
   rmSync(baseDir, { recursive: true, force: true });
 });
 
-describe('SessionStore atomic persistence (CORE-019)', () => {
+describe('SessionStore atomic persistence', () => {
   it('loads linked resource and audio receipts through a fresh store after a disk roundtrip', () => {
     const record = createRecord({
       messages: [

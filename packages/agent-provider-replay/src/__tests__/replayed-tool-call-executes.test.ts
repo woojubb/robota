@@ -1,5 +1,5 @@
 /**
- * Issue #2302 — a tool call carried by a replayed provider response IS dispatched and executed.
+ * A tool call carried by a replayed provider response IS dispatched and executed.
  *
  * The measurement behind the issue (`-p` print mode, a `Read` probe whose content never reached
  * stdout) could not tell three causes apart. This drives the real `Session` loop with a
@@ -39,7 +39,7 @@ const TERMINAL = {
 // An `inspect` tool is auto-approved in `default` mode, so no approver is needed to reach `execute`.
 registerToolPermissionProfile('Probe', { riskClass: 'inspect' });
 
-describe('a replayed tool call executes against the live tool set (issue #2302)', () => {
+describe('a replayed tool call executes against the live tool set', () => {
   it('dispatches the recorded call, feeds its result back, and returns the final recorded text', async () => {
     const execute = vi.fn().mockResolvedValue({ success: true, data: 'PROBE-RESULT' });
     const probe = new FunctionTool(

@@ -9,7 +9,7 @@ import { SessionSidebar, SessionSidebarRail } from '../SessionSidebar.js';
 import type { IWsSessionState, TSessionListing } from '../../hooks/session-client-types.js';
 
 /**
- * #3189 — a host that keeps several sessions live says which rows run now and how many clients are
+ * A host that keeps several sessions live says which rows run now and how many clients are
  * on each. The count on this surface's own row leaves this surface out: it reads "others".
  */
 
@@ -19,7 +19,7 @@ function row(
   extra: { live?: boolean; clients?: number } = {},
   updatedAt = '2026-09-26T00:00:00.000Z',
 ) {
-  // `title` (#3289 §1) is what the row now shows; `preview` still rides along on the wire but is no
+  // `title` is what the row now shows; `preview` still rides along on the wire but is no
   // longer what the sidebar renders, so it is set to the same text here for these count-focused tests.
   return { id, cwd: '/w', updatedAt, messageCount: 1, preview, title: preview, ...extra };
 }
@@ -101,7 +101,7 @@ describe('SessionSidebar — live sessions and their clients', () => {
   });
 });
 
-describe('SessionSidebar rows have a clean accessible name and a description (#3289 §3)', () => {
+describe('SessionSidebar rows have a clean accessible name and a description', () => {
   it('names the row by its title alone, not the run-together visible text', () => {
     renderSidebar({
       currentSessionId: 'x',
@@ -161,7 +161,7 @@ describe('SessionSidebar rows have a clean accessible name and a description (#3
 });
 
 /**
- * #3679 — a sealed session the host cannot open has no readable record, so the host leaves it out of
+ * A sealed session the host cannot open has no readable record, so the host leaves it out of
  * the listing and says how many it left out; the list says so too, instead of reading as "gone".
  * Whether the host's keys are locked or it has none does not cross the wire, so the line never sends
  * anyone to unlock.
@@ -192,7 +192,7 @@ describe('SessionSidebar — sealed sessions the listing leaves out', () => {
   });
 });
 
-describe('#3282 §4a — the sidebar footer opens Settings', () => {
+describe('the sidebar footer opens Settings', () => {
   afterEach(cleanup);
 
   it('the footer gear has an accessible name "Settings" and opens the screen', () => {
@@ -219,7 +219,7 @@ describe('#3282 §4a — the sidebar footer opens Settings', () => {
 });
 
 /**
- * #3282 §2 (part 2): session switching is one of the controls disabled while disconnected, with a
+ * Session switching is one of the controls disabled while disconnected, with a
  * short tooltip explaining why (matching the status chips and the `/` command menu).
  */
 describe('SessionSidebar — disabled while disconnected', () => {

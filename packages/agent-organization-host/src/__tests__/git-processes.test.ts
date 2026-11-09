@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { OrganizationLedger } from '../index.js';
 import type { IOrganizationRequest, TOrganizationJson } from '../index.js';
-import { gitFixture } from './git-fixtures.js';
+import { gitExecutable, gitFixture } from './git-fixtures.js';
 
 interface IMessage {
   readonly kind: string;
@@ -89,25 +89,33 @@ afterEach(async () => {
 async function setup(crash?: 'before' | 'after') {
   const f = gitFixture();
   fixtures.push(f);
-  let gitPath = '/usr/bin/git';
+  const git = gitExecutable();
+  let gitPath = git;
   const marker = join(f.directory, 'git-barrier-pid');
-  if (crash) {
+  let pause: { point: 'before' | 'after'; marker: string } | undefined;
+  if (crash && process.platform === 'win32') {
+    // Windows starts a program, never a script, as the owner's Git executable, so the pause cannot sit in
+    // a wrapper there. The replica pauses at the same call instead, inside its open ledger transaction.
+    pause = { point: crash, marker };
+  } else if (crash) {
     gitPath = join(f.directory, 'git-fixture-wrapper');
     const barrier = `printf '%s' "$$" > '${marker}'\nkill -STOP "$$"\n`;
     // Pause in the owner executable, exactly before/after the real update-ref. Parent explicitly reaps it.
     writeFileSync(
       gitPath,
-      `#!/bin/sh\nfixture_update=0\nfor fixture_arg in "$@"; do\n  if [ "$fixture_arg" = update-ref ]; then fixture_update=1; fi\ndone\n${crash === 'before' ? `if [ "$fixture_update" = 1 ]; then\n${barrier}fi\n` : ''}/usr/bin/git "$@"\nfixture_status=$?\n${crash === 'after' ? `if [ "$fixture_update" = 1 ] && [ "$fixture_status" = 0 ]; then\n${barrier}fi\n` : ''}exit "$fixture_status"\n`,
+      `#!/bin/sh\nfixture_update=0\nfor fixture_arg in "$@"; do\n  if [ "$fixture_arg" = update-ref ]; then fixture_update=1; fi\ndone\n${crash === 'before' ? `if [ "$fixture_update" = 1 ]; then\n${barrier}fi\n` : ''}${git} "$@"\nfixture_status=$?\n${crash === 'after' ? `if [ "$fixture_update" = 1 ] && [ "$fixture_status" = 0 ]; then\n${barrier}fi\n` : ''}exit "$fixture_status"\n`,
       { mode: 0o700 },
     );
   }
   const options = f.ledgerOptions;
-  const replicaOptions = { options, asset: { path: f.path, ref: 'refs/heads/work', gitPath } };
+  const asset = { path: f.path, ref: 'refs/heads/work', gitPath };
+  const replicaOptions = { options, asset, pause };
   const replicas = await Promise.all([
     launch('./git-replica.mjs', f.directory, replicaOptions),
     launch('./git-replica.mjs', f.directory, {
       ...replicaOptions,
-      asset: { ...replicaOptions.asset, gitPath: '/usr/bin/git' },
+      asset: { ...replicaOptions.asset, gitPath: git },
+      pause: undefined,
     }),
   ]);
   const workers = await Promise.all(
@@ -145,13 +153,14 @@ async function setup(crash?: 'before' | 'after') {
   return { ...f, options, replicas, workers, marker, apply };
 }
 
-async function barrier(path: string): Promise<number> {
+async function barrier(path: string, replicaPid: number | undefined): Promise<number> {
   const deadline = Date.now() + 5000;
   while (Date.now() < deadline) {
     // Creation and printf are separate syscalls; do not mistake a momentarily empty file for a PID.
     const pid = existsSync(path) ? Number(readFileSync(path, 'utf8')) : 0;
     if (Number.isSafeInteger(pid) && pid > 1) {
-      wrapperPids.push(pid);
+      // Only a wrapper outlives the replica it paused; a paused replica is the process the test kills.
+      if (pid !== replicaPid) wrapperPids.push(pid);
       return pid;
     }
     await new Promise((resolve) => setTimeout(resolve, 5));
@@ -201,10 +210,13 @@ describe('real worker/broker Git races and cross-store crash recovery', () => {
       };
       const id = randomUUID();
       const pending = f.apply(0, 0, 'git.publish', parameters, id);
-      const pid = await barrier(f.marker);
-      await kill(f.replicas[0]!.child);
-      process.kill(pid, 'SIGKILL');
-      wrapperPids.splice(wrapperPids.indexOf(pid), 1);
+      const replica = f.replicas[0]!.child;
+      const pid = await barrier(f.marker, replica.pid);
+      await kill(replica);
+      if (pid !== replica.pid) {
+        process.kill(pid, 'SIGKILL');
+        wrapperPids.splice(wrapperPids.indexOf(pid), 1);
+      }
       const lost = await pending;
       expect(lost.status).toBe(503);
       f.ledger.close();

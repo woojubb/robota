@@ -1,6 +1,6 @@
 /**
  * Which saved session a run starts in, from `-c`, `-r <id|name>` and a served runtime's launch, and
- * what a person must say first when that session is not verified as theirs (#3679).
+ * what a person must say first when that session is not verified as theirs.
  *
  * A store that seals says whose each record is. Sealing needs only the public key, so a record that
  * opens says nothing about who wrote it, and a resumed record is fed to the model as this
@@ -39,7 +39,7 @@ import {
 import type {
   IInteractiveSessionStore,
   IResumableSessionSummary,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** Asks on stderr and reads the answer from stdin, which the caller checked are both a terminal. */
 export async function confirmResumeOnTerminal(question: string): Promise<boolean> {

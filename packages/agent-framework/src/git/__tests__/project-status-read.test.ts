@@ -1,5 +1,5 @@
 /**
- * #3282 §4c — the Project panel's git status against a REAL temporary repository: plain-word status
+ * The Project panel's git status against a REAL temporary repository: plain-word status
  * per file (never a raw XY code), added/removed counts, the non-repository case, and the file-count
  * cap. `HOME` is pointed at a temp dir (AGENTS.md: a test that runs git points `HOME` at a temp dir)
  * so no real user git config leaks in.

@@ -39,7 +39,7 @@ const TEST_PROVIDER_DEFINITIONS: readonly IProviderDefinition[] = [
 type ILoadedContext = IInProcessSubagentRunnerDeps['context'];
 
 /**
- * ARCH-044 (issue #2047): the start payload's agent definition and parent context are JSON-safe DTOs
+ * The start payload's agent definition and parent context are JSON-safe DTOs
  * owned by the process boundary. Every variant round-trips encode → JSON → decode → restore, arrays
  * are rejected where records are required, and a malformed nested value fails with a reason.
  */
@@ -69,7 +69,7 @@ const FULL_CONTEXT: ILoadedContext = {
 };
 const MINIMAL_CONTEXT: ILoadedContext = { agentsMd: '', projectNotesMd: '' };
 
-describe('subagent worker start DTOs (ARCH-044, issue #2047)', () => {
+describe('subagent worker start DTOs', () => {
   it.each([FULL_DEFINITION, MINIMAL_DEFINITION])(
     'agent definition round-trips %#',
     (definition) => {
@@ -140,7 +140,7 @@ describe('subagent worker start DTOs (ARCH-044, issue #2047)', () => {
   });
 });
 
-describe('child-process effort projection (BEHAVIOR-009)', () => {
+describe('child-process effort projection', () => {
   const DEPS: IInProcessSubagentRunnerDeps = {
     host: testHost,
     config: {
@@ -241,9 +241,9 @@ describe('child-process permission mode projection', () => {
 });
 
 /**
- * CLI-1994 TC-06 / #3679 — what a FORK job puts on the wire.
+ * What a FORK job puts on the wire.
  *
- * Plain mode keeps the ARCH-044 argument for Alternative 1 (spec § Decision): the parent writes the
+ * Plain mode keeps the argument for Alternative 1 (spec § Decision): the parent writes the
  * copy to the session store and sends the child an id, which the child resolves on its own side, so
  * a plain fork payload is the plain job's payload plus one string on the request. A sealing parent
  * cannot keep to that — a subagent never holds the keys that open a sealed record — so the record it
@@ -252,12 +252,12 @@ describe('child-process permission mode projection', () => {
  * against `projectStartPayloadSealing` and `projectStartPayload`, the functions that build it; the
  * runner adds the grant its sealer issues when it sends the payload, as these cases do.
  */
-describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', () => {
-  const FORK_SESSION_ID = 'session_cli-1994-fork';
+describe('what a fork job puts on the wire', () => {
+  const FORK_SESSION_ID = 'session_fork';
   /** Text that exists ONLY in the forked record; finding it outside `resumeHeld` is the failure. */
   const COPIED_CONVERSATION_TEXT = 'Remember the number 42.';
   /** The resolved credential: config loading turns the reference into the value itself. */
-  const PROVIDER_SECRET = 'sk-tc06-provider-secret';
+  const PROVIDER_SECRET = 'sk-provider-secret';
 
   const DEPS: IInProcessSubagentRunnerDeps = {
     host: testHost,
@@ -268,13 +268,13 @@ describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', (
         name: 'openai',
         model: 'test-model',
         apiKey: PROVIDER_SECRET,
-        apiKeyEnv: 'TC06_PROVIDER_KEY',
+        apiKeyEnv: 'PROVIDER_KEY_VAR',
         baseURL: 'http://localhost/v1',
       },
       permissions: { allow: [], deny: [] },
       env: {},
     },
-    // The parent's loaded context, file entries included — #2317 narrows it, and a fork must not
+    // The parent's loaded context, file entries included — it is narrowed, and a fork must not
     // widen it back: the entries carry the full text of every AGENTS.md and CLAUDE.md.
     context: {
       agentsMd: '# agents',
@@ -348,7 +348,7 @@ describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', (
   function sealedParent() {
     const sealer = createTestArtifactSealer({ locked: true });
     const store = createUserSessionStore(
-      join(realpathSync(mkdtempSync(join(tmpdir(), 'tc06-sealed-'))), 'sessions'),
+      join(realpathSync(mkdtempSync(join(tmpdir(), 'sealed-sessions-'))), 'sessions'),
       { sealing: { sealer } },
     );
     store.save(
@@ -387,11 +387,11 @@ describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', (
     const added = Object.keys(fork.request).filter((key) => !(key in plain.request));
     expect(added).toEqual(['resumeSessionId']);
     expect(fork.request.resumeSessionId).toBe(FORK_SESSION_ID);
-    // The parent context is what #2317 narrowed it to, fork or not.
+    // The parent context is the narrowed one, fork or not.
     expect(Object.keys(fork.parentContext).sort()).toEqual(Object.keys(plain.parentContext).sort());
   });
 
-  it('tells the worker to keep its credential only when the owner opted it in (#3429)', async () => {
+  it('tells the worker to keep its credential only when the owner opted it in', async () => {
     const plain = await projectStartPayload(job(undefined), DEPS, {
       providerDefinitions: TEST_PROVIDER_DEFINITIONS,
     });
@@ -401,6 +401,15 @@ describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', (
     });
     expect('keepProviderCredential' in plain).toBe(false);
     expect(kept.keepProviderCredential).toBe(true);
+  });
+
+  it('carries the selected store reference only for a fork', async () => {
+    const resumeStore = { scope: 'project' as const, repositoryKey: 'repo', worktreeRoot: '/workspace' };
+    const options = { providerDefinitions: TEST_PROVIDER_DEFINITIONS, resumeStore };
+    const plain = await projectStartPayload(job(undefined), DEPS, options);
+    const fork = await projectStartPayload(job(FORK_SESSION_ID), DEPS, options);
+    expect(plain.resumeStore).toBeUndefined();
+    expect(fork.resumeStore).toEqual(resumeStore);
   });
 
   it('no message array and no copied-conversation or AGENTS.md/CLAUDE.md text crosses a plain wire', async () => {
@@ -461,7 +470,7 @@ describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', (
     expect(payload.writeGrant).toBe(sealer.writeGrant());
     // The double's grant is a handle into this process — it names a key and never holds one.
     expect(payload.writeGrant).toMatch(/^robota-test-grant\/v1:[0-9a-f-]+$/);
-    expect(payload.providerProfile.apiKeyEnv).toBe('TC06_PROVIDER_KEY');
+    expect(payload.providerProfile.apiKeyEnv).toBe('PROVIDER_KEY_VAR');
     expect(JSON.stringify(payload)).not.toContain(PROVIDER_SECRET);
   });
 

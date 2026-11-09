@@ -1,0 +1,138 @@
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+/**
+ * `the product init` keeps runtime session data out of Git.
+ *
+ * The claim is about what GIT does, so the last case asks git rather than reading the file back. A
+ * test that asserts the file's TEXT proves the writer wrote what it was told to write, which is the
+ * uninteresting half — the interesting half is that `the configured project directory/settings.json` and `the configured project directory/agents/`
+ * stay tracked while the transcripts do not.
+ */
+
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { createWorkspaceProjectMutation } from '@robota-sdk/agent-framework';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { createTrustedWorkspaceProjectAccess } from '../../__tests__/helpers/trusted-workspace-project-access.js';
+import { runInitCommand } from '../init-command.js';
+
+import type { ITerminalOutput } from '@robota-sdk/agent-core';
+import type {
+  ITrustedWorkspaceProjectAccess,
+  IWorkspaceProjectMutation,
+} from '@robota-sdk/agent-framework';
+
+const IGNORE_PATH = join('.test-product', '.gitignore');
+
+function createTerminal(): { terminal: ITerminalOutput; output(): string } {
+  const lines: string[] = [];
+  const push = (text = ''): void => {
+    lines.push(text);
+  };
+  return {
+    terminal: { writeLine: push, writeError: push, write: push } as unknown as ITerminalOutput,
+    output: () => lines.join('\n'),
+  };
+}
+
+// Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe.runIf(process.platform === 'linux')(
+  'test-product init writes targeted runtime-data ignore rules',
+  () => {
+    let cwd: string;
+    let projectAccess: ITrustedWorkspaceProjectAccess;
+    let projectMutation: IWorkspaceProjectMutation;
+
+    beforeEach(async () => {
+      cwd = realpathSync(mkdtempSync(join(tmpdir(), 'runtime-data-ignore-')));
+      projectAccess = await createTrustedWorkspaceProjectAccess(cwd);
+      projectMutation = createWorkspaceProjectMutation(projectAccess.authority, {
+        status: 'approved',
+        purpose: 'initialize test project',
+      });
+    });
+
+    afterEach(() => {
+      rmSync(cwd, { recursive: true, force: true });
+    });
+
+    async function init(): Promise<string> {
+      const { terminal, output } = createTerminal();
+      await runInitCommand(terminal, {productRuntime: createTestProductRuntime(),
+        projectAccess,
+        projectMutation,
+        yes: true,
+        promptFn: vi.fn(async () => 'n') as never,
+        isTTY: false,
+        ci: false,
+      });
+      return output();
+    }
+
+    it('creates .test-product/.gitignore with the four runtime-data entries', async () => {
+      const output = await init();
+      const text = readFileSync(join(cwd, IGNORE_PATH), 'utf8');
+      for (const entry of ['sessions/', 'logs/', 'checkpoints/', 'settings.local.json']) {
+        expect(text).toContain(entry);
+      }
+      expect(output).toContain('Created: .test-product/.gitignore');
+    });
+
+    it('does NOT ignore project memory, which is a decision rather than an omission', async () => {
+      // `.agents/memory/` is checked in by design in this repository and project memory is the same
+      // kind of artefact. Ignoring it by default would make that choice for every user of the CLI.
+      await init();
+      expect(readFileSync(join(cwd, IGNORE_PATH), 'utf8')).not.toContain('memory/');
+    });
+
+    it('running init twice changes nothing and says so', async () => {
+      await init();
+      const first = readFileSync(join(cwd, IGNORE_PATH), 'utf8');
+      const output = await init();
+      expect(readFileSync(join(cwd, IGNORE_PATH), 'utf8')).toBe(first);
+      expect(output).toContain('already covers runtime session data');
+    });
+
+    it('a line the user added by hand survives, and a missing entry is added', async () => {
+      await init();
+      const path = join(cwd, IGNORE_PATH);
+      writeFileSync(path, '# mine\nscratch/\nsessions/\n', 'utf8');
+      const output = await init();
+      const text = readFileSync(path, 'utf8');
+      expect(text).toContain('scratch/');
+      expect(text).toContain('# mine');
+      expect(text).toContain('logs/');
+      expect(output).toContain('Updated: .test-product/.gitignore');
+    });
+
+    it('git itself ignores the transcripts and tracks the reviewable settings', async () => {
+      const git = (...args: string[]): string =>
+        execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
+      git('init', '-q', '.');
+      git('config', 'user.email', 'test@example.invalid');
+      git('config', 'user.name', 'test');
+      await init();
+
+      mkdirSync(join(cwd, '.test-product', 'sessions'), { recursive: true });
+      mkdirSync(join(cwd, '.test-product', 'logs'), { recursive: true });
+      mkdirSync(join(cwd, '.test-product', 'agents'), { recursive: true });
+      writeFileSync(join(cwd, '.test-product', 'sessions', 'a.json'), '{}');
+      writeFileSync(join(cwd, '.test-product', 'logs', 'a.jsonl'), '{}');
+      writeFileSync(join(cwd, '.test-product', 'agents', 'a.md'), '# agent');
+      writeFileSync(join(cwd, '.test-product', 'settings.local.json'), '{}');
+
+      git('add', '-A');
+      const staged = git('diff', '--cached', '--name-only').split('\n');
+
+      expect(staged).toContain('.test-product/settings.json');
+      expect(staged).toContain('.test-product/agents/a.md');
+      expect(staged).toContain('.test-product/.gitignore');
+      expect(staged).not.toContain('.test-product/sessions/a.json');
+      expect(staged).not.toContain('.test-product/logs/a.jsonl');
+      expect(staged).not.toContain('.test-product/settings.local.json');
+    });
+  },
+);

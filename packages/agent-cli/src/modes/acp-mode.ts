@@ -11,7 +11,7 @@ import {
   SessionSlot,
 } from '@robota-sdk/agent-framework';
 import { isSessionClaimedError } from '@robota-sdk/agent-session';
-import { createAcpTransport } from '@robota-sdk/agent-transport-acp';
+import { createAcpTransport } from '@robota-sdk/agent-transport/acp';
 
 import { runAcpSlashCommand } from './acp-command-port.js';
 import { buildPooledSessionOptions } from './serve-mode.js';
@@ -24,8 +24,8 @@ import type {
   InteractiveSession,
   TInteractiveSessionOptions,
 } from '@robota-sdk/agent-framework';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
-import type { TAcpSessionLoad, TAcpWorkspaceAdmission } from '@robota-sdk/agent-transport-acp';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
+import type { TAcpSessionLoad, TAcpWorkspaceAdmission } from '@robota-sdk/agent-transport/acp';
 import type { Readable, Writable } from 'node:stream';
 
 export interface IAcpModeOptions {
@@ -109,6 +109,10 @@ function createSessionLoader(
   let closing = false;
   let pending: Promise<unknown> = Promise.resolve();
   const refuse = (message: string): TAcpSessionLoad => ({ loaded: false, message });
+  const unverifiedMessage = (sessionId: string, message: string): string =>
+    /^[A-Za-z0-9._:-]{1,256}$/.test(sessionId)
+      ? `${message} Review it in an interactive terminal with ${options.productRuntime.vocabulary.resumeCommand(sessionId)}.`
+      : `${message} Review it by session id in an interactive terminal.`;
 
   const load = async (sessionId: string): Promise<TAcpSessionLoad> => {
     await slot.whenInitialized();
@@ -136,7 +140,7 @@ function createSessionLoader(
     if (record === undefined) return refuse(`No session ${sessionId} in this workspace.`);
     // An editor has no way yet to ask whether a record nobody vouched for is the owner's.
     if (outcome?.status === 'valid' && outcome.authorship === 'unverified') {
-      return refuse(new SessionAuthorshipRefusedError(sessionId, 'unverified').message);
+      return refuse(unverifiedMessage(sessionId, new SessionAuthorshipRefusedError(sessionId, 'unverified').message));
     }
     const disableSessionLoops = options.sessionOptions.disableSessionLoops ?? false;
     if (runsOnItsOwn(record, Date.now(), disableSessionLoops))
@@ -161,6 +165,9 @@ function createSessionLoader(
       // The session this connection just left still holds the record while it shuts down, or a
       // subagent of a fork runs on it: the store's words say which.
       if (isSessionClaimedError(error)) return refuse(claimedSessionMessage(error));
+      if (isSessionAuthorshipRefusedError(error) && error.reason === 'unverified') {
+        return refuse(unverifiedMessage(sessionId, error.message));
+      }
       if (error instanceof AcpLoadRefusedError || isSessionAuthorshipRefusedError(error)) {
         return refuse(error.message);
       }

@@ -246,7 +246,7 @@ describe('BackgroundTaskManager', () => {
     expect(manager.get(created.id)?.metadata).toEqual(created.metadata);
   });
 
-  it('a sleeping scheduled task releases its concurrency slot (CORE-024 RUNTIME-17)', async () => {
+  it('a sleeping scheduled task releases its concurrency slot', async () => {
     // A scheduled runner that goes to sleep immediately after start (like the real cron runner).
     const scheduledStarted: IStartedTask<'scheduled'>[] = [];
     const scheduledRunner: IBackgroundTaskRunner<'scheduled'> = {
@@ -640,5 +640,79 @@ describe('BackgroundTaskManager', () => {
     expect(controlled.started[0]?.cancelReason).toBe('session shutdown');
     await expect(manager.wait(first.id)).rejects.toThrow('session shutdown');
     await expect(manager.wait(second.id)).rejects.toThrow('session shutdown');
+  });
+});
+
+describe('restored task ID reservation', () => {
+  it('releases only its own reservation and is safe to release twice', () => {
+    const manager = new BackgroundTaskManager({ runners: [] });
+    const first = manager.reserveTaskIds(['same']);
+    first.release();
+    const second = manager.reserveTaskIds(['same']);
+    first.release();
+    expect(() => manager.reserveTaskIds(['same'])).toThrow(/already in use/i);
+    second.release();
+    expect(() => manager.reserveTaskIds(['same'])).not.toThrow();
+  });
+
+  it('keeps its reserved identities even if the caller changes the input array', () => {
+    const manager = new BackgroundTaskManager({ runners: [] });
+    const ids = ['one'];
+    const reservation = manager.reserveTaskIds(ids);
+    ids[0] = 'two';
+    reservation.release();
+    expect(() => manager.reserveTaskIds(['one'])).not.toThrow();
+  });
+
+  it('refuses the same restored ID for two independent reservations', () => {
+    const manager = new BackgroundTaskManager({ runners: [] });
+    manager.reserveTaskIds(['shared']);
+    expect(() => manager.reserveTaskIds(['other', 'shared'])).toThrow(/already in use/i);
+    expect(() => manager.reserveTaskIds(['other'])).not.toThrow();
+  });
+
+  it('skips restored IDs when allocating new tasks', async () => {
+    const manager = new BackgroundTaskManager({ runners: [createResolvedRunner('done')] });
+    manager.reserveTaskIds(['task_1', 'task_2']);
+    const created = await manager.spawn(createAgentRequest('new work'));
+    expect(created.id).toBe('task_3');
+    await manager.wait(created.id);
+  });
+
+  it('refuses an already-live restored ID without partially reserving other IDs', async () => {
+    const manager = new BackgroundTaskManager({ runners: [createResolvedRunner('done')] });
+    const first = await manager.spawn(createAgentRequest('first'));
+    await manager.wait(first.id);
+    expect(() => manager.reserveTaskIds(['task_2', first.id])).toThrow(/already in use/i);
+    const second = await manager.spawn(createAgentRequest('second'));
+    expect(second.id).toBe('task_2');
+    await manager.wait(second.id);
+  });
+
+  it('does not recycle an allocated task ID after the task was closed', async () => {
+    const manager = new BackgroundTaskManager({
+      runners: [createResolvedRunner('done')],
+      idFactory: () => 'same',
+    });
+    const first = await manager.spawn(createAgentRequest('first'));
+    await manager.wait(first.id);
+    await manager.close(first.id);
+    await expect(manager.spawn(createAgentRequest('second'))).rejects.toThrow(
+      /unique background task ID/i,
+    );
+    expect(() => manager.reserveTaskIds([first.id])).toThrow(/already in use/i);
+  });
+
+  it('refuses a custom ID factory that can only produce a reserved ID before starting work', async () => {
+    const runner = createControllableRunner();
+    const manager = new BackgroundTaskManager({
+      runners: [runner.runner],
+      idFactory: () => 'reserved',
+    });
+    manager.reserveTaskIds(['reserved']);
+    await expect(manager.spawn(createAgentRequest('unsafe work'))).rejects.toThrow(
+      /task.*id|id.*task/i,
+    );
+    expect(runner.started).toHaveLength(0);
   });
 });

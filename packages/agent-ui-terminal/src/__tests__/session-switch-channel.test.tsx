@@ -1,16 +1,15 @@
 /**
- * CLI-B11 TC-01/03/05 + CLI-B12 TC-01/02/04: session-switch channel ownership
- * at the App boundary.
+ * Session-switch channel ownership at the App boundary.
  *
  * The 2026-05-31 context-loss bug lived between render.tsx, App.tsx and
  * TuiInteractionChannel — InteractiveSession-level tests stayed green through it.
  * These tests render the REAL App with a mocked createChannel factory and drive
  * switches through the real SessionPicker, pinning the factory-call contract.
- * Since CLI-B12 the factory is the SOLE channel source: App creates the initial
+ * The factory is the SOLE channel source: App creates the initial
  * channel in its useState initializer and replaces it on every switch.
  */
 
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -30,7 +29,7 @@ import type { ITuiAppChannelPort } from '../tui-app-channel-port.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const TICK_MS = 30;
 const FRAME_DEADLINE_MS = 3000;
@@ -74,17 +73,17 @@ interface IFakeChannel {
   readExecutionWorkspaceDetail: ReturnType<typeof vi.fn>;
   getSession: () => unknown;
   getRegistry: () => unknown;
-  /** Test handle: emit a session event to this channel's subscribers (CMD-004 `ui_intent` path). */
+  /** Test handle: emit a session event to this channel's subscribers (`ui_intent` path). */
   emitSessionEvent: (event: string, payload: unknown) => void;
   /** Test handle: which resumeSessionId this channel was created for. */
   createdFor: string | undefined;
 }
 
 function createFakeChannel(createdFor: string | undefined): IFakeChannel & ITuiAppChannelPort {
-  // CMD-004 Stage C: App subscribes to `ui_intent`/`session_renamed` on the session.
+  // App subscribes to `ui_intent`/`session_renamed` on the session.
   const sessionListeners = new Map<string, Set<(payload: unknown) => void>>();
   const fakeSession = {
-    // ARCH-012: required. `useTuiChannel` reads the co-drive queue length live from the session; the
+    // Required. `useTuiChannel` reads the co-drive queue length live from the session; the
     // `?.() ?? …` that tolerated its absence was a branch nothing could take once the member became
     // required, and a wrong count if it ever did.
     getPendingCount: (): number => 0,
@@ -151,6 +150,9 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel & ITuiA
       pendingPrompt: manager.pendingPrompt,
       pendingCount: 0,
       executionWorkspaceSnapshot: manager.executionWorkspaceSnapshot,
+      ...(manager.selectedExecutionEntryId === undefined
+        ? {}
+        : { selectedExecutionEntryId: manager.selectedExecutionEntryId }),
       permissionRequest: null,
       pendingUserAction: null,
       contextState: manager.contextState,
@@ -158,7 +160,10 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel & ITuiA
     getSessionUiEventPort: () => fakeSession,
     getCommandQueryPort: () => fakeRegistry,
     getRuntimeStatusSnapshot: (permissionMode) => ({ permissionMode, sessionId: '' }),
-    addEntry: (entry) => manager.addEntry(entry),
+    addEntry: (entry) => {
+      manager.addEntry(entry);
+      onChange?.();
+    },
     sendAgentJob: vi.fn(async () => {}),
     resolveUserAction: vi.fn(),
     emitSessionEvent: (event, payload) => {
@@ -217,7 +222,7 @@ function createCliAdapter(settingsPath: string): ITuiCliAdapter {
   };
 }
 
-describe('App session-switch channel ownership (CLI-B11)', () => {
+describe('App session-switch channel ownership', () => {
   let cwd: string;
   let created: IFakeChannel[];
   let createChannel: ReturnType<typeof vi.fn>;
@@ -266,24 +271,136 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     return { ...instance, records };
   }
 
-  it('TC-01 (B11) / TC-01 (B12): the factory is the sole channel source — once at mount, once per switch with the selected sessionId', async () => {
+  it('asks before continuing a fork when another job is running', async () => {
+    const forkId = 'session-aaaaaaaa';
+    const { stdin, lastFrame, unmount } = renderApp({ showSessionPickerOnStart: false });
+    await tick();
+    const initial = created[0]!;
+    const base = {
+      kind: 'background_task' as const,
+      taskKind: 'agent' as const,
+      origin: { kind: 'slash_command' as const, sessionId: 'parent' },
+      state: 'working' as const,
+      subtitle: 'general-purpose',
+      unread: false,
+      attention: 'none' as const,
+      visibility: 'default' as const,
+      updatedAt: '2026-11-05T00:00:00.000Z',
+    };
+    initial.stateManager.executionWorkspaceSnapshot = {
+      sessionId: 'parent',
+      selectedEntryId: 'task:fork',
+      updatedAt: base.updatedAt,
+      entries: [
+        {
+          ...base,
+          id: 'task:fork',
+          sourceId: 'fork',
+          title: 'fork',
+          status: 'completed',
+          controls: ['select', 'attach'],
+          resumeSessionId: forkId,
+        },
+        {
+          ...base,
+          id: 'task:other',
+          sourceId: 'other',
+          title: 'other',
+          status: 'running',
+          controls: ['select', 'cancel'],
+        },
+      ],
+    };
+    initial.onChange?.();
+    await tick();
+    stdin.write('\x02');
+    await waitForFrame(lastFrame, (frame) => frame.includes('Execution workspace'));
+    stdin.write('a');
+    await waitForFrame(lastFrame, (frame) => frame.includes('1 background job is still running'));
+    stdin.write('\x02');
+    await tick();
+    expect(lastFrame()).not.toContain('Execution workspace');
+    stdin.write('\r'); // Default is No.
+    await tick();
+    expect(initial.stop).not.toHaveBeenCalled();
+    expect(createChannel).toHaveBeenCalledTimes(1);
+
+    stdin.write('\x02');
+    await waitForFrame(lastFrame, (frame) => frame.includes('Execution workspace'));
+    stdin.write('a');
+    await waitForFrame(lastFrame, (frame) => frame.includes('1 background job is still running'));
+    stdin.write('y');
+    await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 2);
+    expect(initial.stop).toHaveBeenCalledTimes(1);
+    expect(createChannel).toHaveBeenLastCalledWith(forkId);
+    unmount();
+  });
+
+  it('reads earlier fork output from the actual background view on the user key', async () => {
+    const { stdin, lastFrame, unmount } = renderApp({ showSessionPickerOnStart: false });
+    await tick();
+    const initial = created[0]!;
+    initial.readExecutionWorkspaceDetail.mockImplementation(async (_id, cursor) => ({
+      entryId: 'task:fork',
+      records: cursor ? [{ id: 'earlier', kind: 'message', text: 'earlier fork output' }] : [],
+    }));
+    initial.stateManager.executionWorkspaceSnapshot = {
+      sessionId: 'parent',
+      selectedEntryId: 'task:fork',
+      updatedAt: '2026-11-05T00:00:00.000Z',
+      entries: [
+        {
+          id: 'task:fork',
+          sourceId: 'fork',
+          kind: 'background_task',
+          taskKind: 'agent',
+          origin: { kind: 'slash_command', sessionId: 'parent' },
+          status: 'running',
+          state: 'working',
+          title: 'fork',
+          unread: false,
+          attention: 'none',
+          visibility: 'default',
+          updatedAt: '2026-11-05T00:00:00.000Z',
+          controls: ['select', 'send', 'attach'],
+          resumeSessionId: 'session-aaaaaaaa',
+        },
+      ],
+    };
+    initial.stateManager.selectedExecutionEntryId = 'task:fork';
+    initial.onChange?.();
+    await waitForFrame(lastFrame, (frame) => frame.includes('Earlier output'));
+    await vi.waitFor(() =>
+      expect(initial.readExecutionWorkspaceDetail).toHaveBeenCalledWith('task:fork', undefined),
+    );
+    await tick();
+    stdin.write('\x0f');
+    await vi.waitFor(() =>
+      expect(initial.readExecutionWorkspaceDetail).toHaveBeenCalledWith('task:fork', { offset: 0 }),
+    );
+    await waitForFrame(lastFrame, (frame) => frame.includes('earlier fork output'));
+    expect(initial.readExecutionWorkspaceDetail).toHaveBeenCalledWith('task:fork', { offset: 0 });
+    unmount();
+  });
+
+  it('the factory is the sole channel source — once at mount, once per switch with the selected sessionId', async () => {
     const { stdin, lastFrame } = renderApp();
     await waitForSessionPicker(lastFrame);
     expect(lastFrame()).toContain('Select a session to resume');
 
-    // CLI-B12 TC-01: initial channel from the useState initializer, exactly once.
+    // Initial channel from the useState initializer, exactly once.
     expect(createChannel).toHaveBeenCalledTimes(1);
     expect(createChannel).toHaveBeenNthCalledWith(1, undefined);
 
     stdin.write('\r'); // select first item (newest first — equal timestamps keep list order)
     await tick();
 
-    // CLI-B11 TC-A: the switch asks the factory for exactly one channel with the id.
+    // The switch asks the factory for exactly one channel with the id.
     expect(createChannel).toHaveBeenCalledTimes(2);
     expect(createChannel).toHaveBeenNthCalledWith(2, 'session-aaaaaaaa');
   });
 
-  it('TC-03 (B11) / TC-02 (B12): the previous channel is stopped before the new one becomes active', async () => {
+  it('the previous channel is stopped before the new one becomes active', async () => {
     const { stdin, lastFrame } = renderApp();
     await waitForSessionPicker(lastFrame);
     const initialChannel = created[0]!;
@@ -300,14 +417,14 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     expect(newChannel.start).toHaveBeenCalled();
     expect(newChannel.stop).not.toHaveBeenCalled();
 
-    // CLI-B12 TC-02 ordering: old stop() was invoked BEFORE the factory built
+    // Ordering: old stop() was invoked BEFORE the factory built
     // the replacement channel (stop-before-active contract).
     const stopOrder = initialChannel.stop.mock.invocationCallOrder[0]!;
     const replacementOrder = createChannel.mock.invocationCallOrder[1]!;
     expect(stopOrder).toBeLessThan(replacementOrder);
   });
 
-  it('TC-02 (REFACTOR-025): waits for the prior stop to finish before constructing the replacement', async () => {
+  it('waits for the prior stop to finish before constructing the replacement', async () => {
     const { stdin, lastFrame } = renderApp();
     await waitForSessionPicker(lastFrame);
     const initialChannel = created[0]!;
@@ -347,7 +464,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     expect(createChannel).toHaveBeenCalledTimes(1);
   });
 
-  it('TC-02 (REFACTOR-025): keeps the old channel selected and renders a stop failure', async () => {
+  it('keeps the old channel selected and renders a stop failure', async () => {
     const { stdin, lastFrame } = renderApp();
     await waitForSessionPicker(lastFrame);
     created[0]!.stop.mockRejectedValueOnce(new Error('transport stop failed'));
@@ -366,8 +483,8 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     expect(created[0]!.stop).toHaveBeenCalledTimes(2);
   });
 
-  it('TC-04 (B12): App renders from the factory alone — no channel prop exists', async () => {
-    // The old no-factory fallback (B11 TC-D) is deleted with CLI-B12: createChannel
+  it('App renders from the factory alone — no channel prop exists', async () => {
+    // The old no-factory fallback is deleted: createChannel
     // is required and `channel` is no longer a prop (enforced at the type level —
     // passing one is a compile error). This pins the runtime half: a render with
     // only the factory boots, starts the initial channel, and keeps rendering.
@@ -379,7 +496,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     expect(created[0]!.start).toHaveBeenCalled();
   });
 
-  it('REFACTOR-025: renders a start failure, blocks normal input, and retries on Enter', async () => {
+  it('renders a start failure, blocks normal input, and retries on Enter', async () => {
     initialStartError = new Error('transport start failed');
     const { stdin, lastFrame } = renderApp();
     await waitForFrame(lastFrame, (frame) =>
@@ -394,7 +511,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     expect(lastFrame()).toContain('Select a session to resume');
   });
 
-  it('REFACTOR-025: ignores workspace shortcuts while recovery owns input', async () => {
+  it('ignores workspace shortcuts while recovery owns input', async () => {
     initialStartError = new Error('transport start failed');
     const { stdin, lastFrame } = renderApp({ showSessionPickerOnStart: false });
     await waitForFrame(lastFrame, (frame) =>
@@ -409,15 +526,15 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     expect(lastFrame()).not.toContain('Execution workspace');
   });
 
-  it('REFACTOR-025: subscribes to UI events before channel startup', async () => {
+  it('subscribes to UI events before channel startup', async () => {
     initialStartIntent = true;
     const { lastFrame } = renderApp({ showSessionPickerOnStart: false });
 
-    await tick(100);
+    await waitForSessionPicker(lastFrame);
     expect(lastFrame()).toContain('Select a session to resume');
   });
 
-  it('TC-05: consecutive switches A→B→C create one channel per switch and stop each prior channel', async () => {
+  it('consecutive switches A→B→C create one channel per switch and stop each prior channel', async () => {
     // Selection always takes the top (newest) entry; arrow-key navigation itself
     // is covered by ListPicker.test.tsx. updatedAt ordering decides the target.
     const ids = ['aaaaaaaa-1111', 'bbbbbbbb-2222', 'cccccccc-3333'];
@@ -438,7 +555,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     await tick(); // allow the replacement view's session-event subscription to attach
 
     // Switch 2: reopen the picker via the requester-routed ui_intent (real /resume path since
-    // CMD-004 Stage C: the session emits `ui_intent` and the owner surface renders it).
+    // The session emits `ui_intent` and the owner surface renders it).
     touch(records, 'bbbbbbbb-2222', '2026-06-13T02:00:00.000Z'); // B on top
     channelA.emitSessionEvent('ui_intent', {
       intent: { type: 'show-session-picker' },
@@ -475,12 +592,14 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
 });
 
 /**
- * #3679: the store refuses to claim the session the person picked, because a process or a subagent
+ * The store refuses to claim the session the person picked, because a process or a subagent
  * holds it. The refusal comes from the new channel's own claim, which the in-process switch makes after
  * it has stopped the old one, so a held id is asked about first and the person stays where they are.
  */
-describe('picking a session the store will not claim (#3679)', () => {
+describe('picking a session the store will not claim', () => {
   const HELD_ID = 'session_aaaaaaaa-held';
+  // Windows reads no process start time, so the store cannot say the holder is alive and says it may be.
+  const HOLDER_OPEN = process.platform === 'win32' ? 'may be open' : 'is open';
   const FREE_ID = 'session_bbbbbbbb-free';
   const CURRENT_ID = 'session_cccccccc-current';
   const DOWN = '\x1b[B';
@@ -581,7 +700,7 @@ describe('picking a session the store will not claim (#3679)', () => {
     // Nothing was stopped or built over the held id, and the notice is the store's.
     expect(created[0]!.stop).not.toHaveBeenCalled();
     expect(createChannel).toHaveBeenCalledTimes(1);
-    expect(saidIn(created[0]!)).toContain(`Session ${HELD_ID} is open in another process`);
+    expect(saidIn(created[0]!)).toContain(`Session ${HELD_ID} ${HOLDER_OPEN} in another process`);
     expect(lastFrame()).not.toContain('Session switch failed');
     expect(lastFrame()).not.toContain('Press Enter to retry');
 

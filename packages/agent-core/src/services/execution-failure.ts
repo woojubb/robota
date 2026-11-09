@@ -1,5 +1,5 @@
 /**
- * CORE-027 — the failure a result carries is the failure that happened.
+ * The failure a result carries is the failure that happened.
  *
  * A round that ends in a provider failure records a `Request failed: …` assistant message for the
  * READER; the failure's representation is the thrown value itself, carried out of the round on
@@ -27,7 +27,7 @@ export interface IFinalResultScope {
    * the turn ended before its input was recorded: the turn then has no messages.
    */
   readonly turnMessageId?: string;
-  /** CORE-011: a turn that ends in tool results, with no text after them, is complete. */
+  /** A turn that ends in tool results, with no text after them, is complete. */
   readonly allowToolOnlyCompletion?: boolean;
   /** The run was aborted: it resolves with the text committed so far, never as a failure. */
   readonly interrupted?: boolean;
@@ -122,7 +122,7 @@ export function buildFinalResult(
       }, 0),
     toolsExecuted,
     success: !failed,
-    // CORE-027: the ORIGINAL thrown value, by identity — see resolveProviderFailureError.
+    // The ORIGINAL thrown value, by identity — see resolveProviderFailureError.
     ...(failed && endedWithProviderError
       ? { error: resolveProviderFailureError(providerFailure, response) }
       : {}),

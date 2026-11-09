@@ -21,7 +21,7 @@ import {
   ensureProviderConfig,
   runProviderStartupSetup,
   type TPromptInput,
-} from '@robota-sdk/agent-command';
+} from '@robota-sdk/agent-product/command';
 import type { ITerminalOutput, IUserInteraction } from '@robota-sdk/agent-core';
 import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';

@@ -1,18 +1,17 @@
 import { productEnvironment } from '../../../product-config/src/__tests__/product-environment.js';
 /**
- * `pnpm gui:dev` serves the page from source: the dev server resolves the workspace UI library through its
- * `source` export condition, so a fresh checkout needs no build and edits to the library hot-reload
- * instead of going stale behind its `dist`. `vite build` keeps resolving the built `dist`.
+ * `pnpm gui:dev` serves the product from source and resolves its SDK UI library from the pinned artifact.
  */
 
 import path from 'node:path';
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { createServer } from 'vite';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const packageRoot = fileURLToPath(new URL('../..', import.meta.url));
-const uiWebSource = path.resolve(packageRoot, '..', 'agent-ui-web', 'src', 'index.ts');
+const installedUi = realpathSync(path.join(packageRoot, 'node_modules/@robota-sdk/agent-ui-web'));
 
 describe('the GUI dev server', () => {
   let server: Awaited<ReturnType<typeof createServer>>;
@@ -23,6 +22,7 @@ describe('the GUI dev server', () => {
       root: packageRoot,
       configFile: path.join(packageRoot, 'vite.config.ts'),
       server: { middlewareMode: true, hmr: false },
+      optimizeDeps: { noDiscovery: true, include: [] },
       logLevel: 'silent',
     });
   });
@@ -32,12 +32,13 @@ describe('the GUI dev server', () => {
     vi.unstubAllEnvs();
   });
 
-  it('resolves the workspace UI library to its TypeScript source', async () => {
+  it('resolves the UI library to the installed SDK artifact', async () => {
     const resolved = await server.pluginContainer.resolveId(
       '@robota-sdk/agent-ui-web/client',
       path.join(packageRoot, 'src', 'main.tsx'),
     );
 
-    expect(resolved?.id).toBe(uiWebSource);
+    expect(resolved).toBeDefined();
+    expect(realpathSync(resolved!.id.split('?')[0]!).startsWith(`${installedUi}${path.sep}`)).toBe(true);
   });
 });

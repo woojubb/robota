@@ -1,9 +1,10 @@
 import type { IIdentityContext } from './identity/crypto-context.js';
 /**
- * Pairing handshake (REMOTE-005 Stage B3) — transport-agnostic protocol run over the WebRTC data channel BEFORE
+ * Pairing handshake — transport-agnostic protocol run over the WebRTC data channel BEFORE
  * any session is exposed. It drives the directional, nonce-bound channel-confirmation exchange and resolves
  * **accept** only after the counterpart's confirmation is verified; on mismatch/timeout it **hard-rejects** so the
- * caller closes the channel (no silent pass — fail closed). B4 wires this so a session handler cannot be attached
+ * caller closes the channel (no silent pass — fail closed). The remote-control enable path wires
+ * this so a session handler cannot be attached
  * until `run()` resolves accept.
  *
  * Isomorphic (WebCrypto only). The caller supplies the data-channel `send`, feeds inbound frames via `onFrame`,
@@ -36,7 +37,7 @@ export interface IPairingHandshakeOptions {
 }
 
 export interface IPairingResult {
-  /** Domain-separated session key (base64url) for Stage-E use. */
+  /** Domain-separated application session key (base64url). */
   readonly sessionKey: string;
 }
 
@@ -49,7 +50,7 @@ interface IPairingController {
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
-/** The rejection reason a failed async transition settles with (issue #2046). */
+/** The rejection reason a failed async transition settles with. */
 export function settleMessage(error: unknown): string {
   return `pairing rejected: ${error instanceof Error ? error.message : String(error)}`;
 }
@@ -141,7 +142,7 @@ export function startPairingHandshake(
     result,
     onFrame(frame: TPairingFrame): void {
       if (settled) return;
-      // Issue #2046: every async transition settles the ONE result channel. A rejected crypto call
+      // Every async transition settles the ONE result channel. A rejected crypto call
       // used to detach as an unhandled rejection while the handshake sat open until its timeout.
       if (frame.t === 'pair-nonce') {
         if (peerNonce !== undefined) return; // ignore duplicates

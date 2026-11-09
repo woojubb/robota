@@ -10,10 +10,10 @@ import { createTestFrameworkHost } from '../src/testing/framework-host.js';
 
 const testHost = createTestFrameworkHost();
 
-const FIRST_PROMPT = 'ARCH-023 remember runtime-default-store';
-const FIRST_RESPONSE = 'ARCH-023 stored runtime-default-store';
-const SECOND_PROMPT = 'ARCH-023 recall runtime-default-store';
-const SECOND_RESPONSE = 'ARCH-023 restored runtime-default-store';
+const FIRST_PROMPT = 'remember runtime-default-store';
+const FIRST_RESPONSE = 'stored runtime-default-store';
+const SECOND_PROMPT = 'recall runtime-default-store';
+const SECOND_RESPONSE = 'restored runtime-default-store';
 
 function assertCondition(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -25,7 +25,7 @@ async function completeTurn(session: InteractiveSession, prompt: string): Promis
 }
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'arch-023-example-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'runtime-session-store-example-'));
   let firstSession: InteractiveSession | undefined;
   let secondSession: InteractiveSession | undefined;
   let result:
@@ -123,7 +123,7 @@ async function main(): Promise<void> {
   assertCondition(result !== undefined, 'scenario did not produce a result');
   assertCondition(!existsSync(cwd), 'scenario cleanup did not remove its temporary directory');
   process.stdout.write(
-    `${JSON.stringify({ scenario: 'ARCH-023', ...result, cleanupRemoved: true })}\n`,
+    `${JSON.stringify({ scenario: 'runtime-session-store', ...result, cleanupRemoved: true })}\n`,
   );
 }
 

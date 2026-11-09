@@ -1,0 +1,399 @@
+/**
+ * `/peers` is the surface that makes local discovery observable.
+ *
+ * Discovery landed as two leaves — a guarded rendezvous directory and a registry whose liveness is
+ * settled by pid AND process start time — and measured on this tree before this command existed, no
+ * source outside those modules and their tests called either one. A discovery layer nobody can look
+ * at is one nobody can catch being wrong, so what these cases pin is the READING: what an operator
+ * is told, and in particular what they are told when the answer is "I could not determine".
+ */
+
+import { describe, expect, it } from 'vitest';
+
+import { executePeersCommand } from '../peers-command.js';
+
+import type { ICommandHostAdapterAccess, ICommandHostAdapters } from '@robota-sdk/agent-framework';
+
+type TPeerSummary = ReturnType<NonNullable<ICommandHostAdapters['localPeers']>['list']>[number];
+
+const OWN = 'session-self';
+
+function hostWithPeers(peers: readonly TPeerSummary[]): ICommandHostAdapterAccess {
+  return {
+    getCommandHostAdapters: () => ({
+      localPeers: { list: () => peers, ownSessionId: () => OWN },
+    }),
+  } as ICommandHostAdapterAccess;
+}
+
+describe('what the operator is told', () => {
+  it('lists another live session, and marks which row is this one', async () => {
+    const result = await executePeersCommand(
+      hostWithPeers([
+        { sessionId: OWN, liveness: 'alive' },
+        { sessionId: 'session-other', name: 'review', liveness: 'alive' },
+      ]),
+    );
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('session-other');
+    expect(result.message).toContain('review');
+    expect(result.message).toMatch(/session-self.*\(this session\)/);
+  });
+
+  it('says so plainly when this session is the only one', async () => {
+    // Not an empty list rendered as a header with nothing under it. "No other live session" is the
+    // answer, and it is different from "discovery is unavailable" below.
+    const result = await executePeersCommand(
+      hostWithPeers([{ sessionId: OWN, liveness: 'alive' }]),
+    );
+    expect(result.message).toContain('No other live session');
+    expect(result.success).toBe(true);
+  });
+
+  it('prints `unknown` liveness rather than rounding it to alive', async () => {
+    // A host that cannot read process start times answers `unknown` for every peer. A reader who is
+    // not told that would take a stale entry for a live session — which is the exact guess the
+    // registry refuses to make, and it must not be reintroduced by the surface that displays it.
+    const result = await executePeersCommand(
+      hostWithPeers([
+        { sessionId: OWN, liveness: 'alive' },
+        { sessionId: 'session-other', liveness: 'unknown' },
+      ]),
+    );
+    expect(result.message).toContain('liveness unknown');
+  });
+
+  it('shows observed activity and marks missing activity unknown', async () => {
+    const result = await executePeersCommand(
+      hostWithPeers([
+        { sessionId: OWN, liveness: 'alive', status: 'idle' },
+        { sessionId: 'busy', liveness: 'alive', status: 'working' },
+        { sessionId: 'waiting', liveness: 'alive', status: 'needs-input' },
+        { sessionId: 'unobserved', liveness: 'unknown', status: 'unknown' },
+      ]),
+    );
+    expect(result.message).toMatch(/busy.*working/);
+    expect(result.message).toMatch(/waiting.*needs input/);
+    expect(result.message).toMatch(/unobserved.*status unknown/);
+  });
+
+  it('shows how each peer is related by workspace', async () => {
+    const result = await executePeersCommand(
+      hostWithPeers([
+        { sessionId: OWN, liveness: 'alive', workspaceRelation: 'same-worktree' },
+        { sessionId: 'here', liveness: 'alive', workspaceRelation: 'same-worktree' },
+        { sessionId: 'sibling', liveness: 'alive', workspaceRelation: 'same-repo' },
+        { sessionId: 'elsewhere', liveness: 'alive', workspaceRelation: 'different-repo' },
+        { sessionId: 'plain', liveness: 'alive', workspaceRelation: 'unknown' },
+      ]),
+    );
+    expect(result.message).toMatch(/here.*same worktree/);
+    expect(result.message).toMatch(/sibling.*same repo/);
+    expect(result.message).toMatch(/elsewhere.*different repo/);
+    expect(result.message).toMatch(/plain.*workspace unknown/);
+  });
+
+  it('reads the workspace-judged listing when the host offers one', async () => {
+    const result = await executePeersCommand({
+      getCommandHostAdapters: () => ({
+        localPeers: {
+          list: () => [
+            { sessionId: OWN, liveness: 'alive' },
+            { sessionId: 'sibling', liveness: 'alive' },
+          ],
+          listWithWorkspace: async () => [
+            { sessionId: OWN, liveness: 'alive' },
+            { sessionId: 'sibling', liveness: 'alive', workspaceRelation: 'same-repo' },
+          ],
+          ownSessionId: () => OWN,
+        },
+      }),
+    } as ICommandHostAdapterAccess);
+    expect(result.message).toMatch(/sibling.*same repo/);
+  });
+
+  it('says a mismatched workspace claim was not believed', async () => {
+    const result = await executePeersCommand(
+      hostWithPeers([
+        { sessionId: OWN, liveness: 'alive' },
+        {
+          sessionId: 'liar',
+          liveness: 'alive',
+          workspaceRelation: 'unknown',
+          workspaceClaim: 'mismatched',
+        },
+      ]),
+    );
+    expect(result.message).toMatch(/liar.*workspace claim mismatched, not believed/);
+    expect(result.message).not.toMatch(/liar.*same (worktree|repo)/);
+  });
+
+  it('does not show a dead entry', async () => {
+    // A crashed session leaves its file behind. That is debris, not a peer, and offering it as one
+    // would make the operator address something that cannot answer.
+    const result = await executePeersCommand(
+      hostWithPeers([
+        { sessionId: OWN, liveness: 'alive' },
+        { sessionId: 'session-gone', liveness: 'dead' },
+      ]),
+    );
+    expect(result.message).not.toContain('session-gone');
+    expect(result.message).toContain('No other live session');
+  });
+});
+
+describe('linked devices of the device mesh', () => {
+  const DEVICE = 'D'.repeat(43);
+
+  function hostWithDevices(
+    peers: readonly TPeerSummary[],
+    devices: readonly { deviceId: string; name?: string; locality: 'same-host' | 'another-host' }[],
+  ): ICommandHostAdapterAccess {
+    return {
+      getCommandHostAdapters: () => ({
+        localPeers: { list: () => peers, ownSessionId: () => OWN, listDevices: () => devices },
+      }),
+    } as ICommandHostAdapterAccess;
+  }
+
+  it('lists a linked device beside the sessions on this host, addressable by its id', async () => {
+    const result = await executePeersCommand(
+      hostWithDevices(
+        [
+          { sessionId: OWN, liveness: 'alive' },
+          { sessionId: 'session-other', liveness: 'alive' },
+        ],
+        [{ deviceId: DEVICE, name: 'desktop', locality: 'another-host' }],
+      ),
+    );
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('session-other');
+    expect(result.message).toMatch(new RegExp(`${DEVICE}\\s+desktop\\s+on another machine`));
+    expect(result.message).toContain('/peers send <session-or-device-id>');
+  });
+
+  it('lists a linked device even when this is the only session on this host', async () => {
+    const result = await executePeersCommand(
+      hostWithDevices(
+        [{ sessionId: OWN, liveness: 'alive' }],
+        [{ deviceId: DEVICE, locality: 'same-host' }],
+      ),
+    );
+    expect(result.message).not.toContain('No other live session');
+    expect(result.message).toMatch(new RegExp(`${DEVICE}\\s+on this machine`));
+  });
+});
+
+describe('when local discovery is off but the device mesh is not', () => {
+  const DEVICE = 'D'.repeat(43);
+
+  function hostWithoutDiscovery(
+    devices: readonly { deviceId: string; name?: string; locality: 'same-host' | 'another-host' }[],
+  ): ICommandHostAdapterAccess {
+    return {
+      getCommandHostAdapters: () => ({
+        localPeers: {
+          list: () => [],
+          ownSessionId: () => OWN,
+          listDevices: () => devices,
+          localDiscoveryOff: 'the rendezvous directory was not admitted',
+        },
+      }),
+    } as ICommandHostAdapterAccess;
+  }
+
+  it('lists the linked devices and says why sessions on this host are not listed', async () => {
+    const result = await executePeersCommand(
+      hostWithoutDiscovery([{ deviceId: DEVICE, name: 'desktop', locality: 'another-host' }]),
+    );
+    expect(result.success).toBe(true);
+    expect(result.message).toMatch(new RegExp(`${DEVICE}\\s+desktop\\s+on another machine`));
+    expect(result.message).toContain('not admitted');
+    expect(result.message).not.toContain('Live sessions');
+    expect(result.message).toContain('/peers send <device-id>');
+  });
+
+  it('with no device linked, says discovery is off rather than that nobody is there', async () => {
+    const result = await executePeersCommand(hostWithoutDiscovery([]));
+    expect(result.message).toContain('not admitted');
+    expect(result.message).not.toContain('No other live session');
+  });
+});
+
+describe('when the host wires no discovery', () => {
+  it('says the feature is unavailable rather than reporting no peers', async () => {
+    // The two are different facts and the difference matters: "nobody is there" invites the operator
+    // to start a second session, and "this build cannot see them" does not.
+    const result = await executePeersCommand({
+      getCommandHostAdapters: () => ({}),
+    } as ICommandHostAdapterAccess);
+    expect(result.message).toContain('not available');
+    expect(result.message).not.toContain('No other live session');
+  });
+});
+
+describe('/peers send', () => {
+  function hostWithSend(
+    send: (target: string, text: string) => Promise<{ state: string; reason?: string }>,
+  ): ICommandHostAdapterAccess {
+    return {
+      getCommandHostAdapters: () => ({
+        localPeers: {
+          list: () => [{ sessionId: 'other', liveness: 'alive' as const }],
+          ownSessionId: () => OWN,
+          send,
+        },
+      }),
+    } as unknown as ICommandHostAdapterAccess;
+  }
+
+  it('passes the whole message, not just its first word', async () => {
+    const calls: Array<[string, string]> = [];
+    await executePeersCommand(
+      hostWithSend(async (target, text) => {
+        calls.push([target, text]);
+        return { state: 'acknowledged' };
+      }),
+      'send other look at the failing test in cli.ts',
+    );
+
+    expect(calls).toEqual([['other', 'look at the failing test in cli.ts']]);
+  });
+
+  it('reports `pending` as waiting, never as delivered', async () => {
+    const result = await executePeersCommand(
+      hostWithSend(async () => ({ state: 'pending' })),
+      'send other hello',
+    );
+
+    // The operator has to be able to see the wait. "Delivered" here would hide a turn already
+    // running on the other side, which is the one thing they might want to act on.
+    expect(result.message).toContain('waiting');
+    expect(result.message).not.toContain('Delivered');
+    expect(result.success).toBe(true);
+  });
+
+  it('carries the refusal reason back to the operator', async () => {
+    const result = await executePeersCommand(
+      hostWithSend(async () => ({ state: 'refused', reason: 'no session ghost is announced' })),
+      'send ghost hello',
+    );
+
+    expect(result.message).toContain('no session ghost is announced');
+    expect(result.success).toBe(false);
+  });
+
+  it('explains what it needs when the message is missing', async () => {
+    const result = await executePeersCommand(
+      hostWithSend(async () => ({ state: 'acknowledged' })),
+      'send other',
+    );
+
+    expect(result.message).toContain('Usage: /peers send');
+    expect(result.success).toBe(false);
+  });
+
+  it('does not read a session id beginning with `send` as the subcommand', async () => {
+    // `startsWith('send')` would claim this as `/peers send`, leaving `er-1` as the target.
+    const result = await executePeersCommand(
+      hostWithSend(async () => ({ state: 'acknowledged' })),
+      'sender-1',
+    );
+
+    expect(result.message).toContain('Live sessions:');
+  });
+
+  it('says so when the host can discover peers but not address them', async () => {
+    const result = await executePeersCommand(
+      {
+        getCommandHostAdapters: () => ({
+          localPeers: { list: () => [], ownSessionId: () => OWN },
+        }),
+      } as ICommandHostAdapterAccess,
+      'send other hello',
+    );
+
+    expect(result.message).toContain('cannot address them');
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('/peers send-file', () => {
+  type TPrepareFile = NonNullable<NonNullable<ICommandHostAdapters['localPeers']>['prepareFile']>;
+
+  function hostWithFiles(prepareFile: TPrepareFile): ICommandHostAdapterAccess {
+    return {
+      getCwd: () => '/work',
+      getCommandHostAdapters: () => ({
+        localPeers: {
+          list: () => [{ sessionId: 'other', liveness: 'alive' as const }],
+          ownSessionId: () => OWN,
+          prepareFile,
+        },
+      }),
+    } as unknown as ICommandHostAdapterAccess;
+  }
+
+  it('sends the named file as the operator, spaces in the path and all', async () => {
+    const calls: unknown[] = [];
+    const result = await executePeersCommand(
+      hostWithFiles(async (target, path, options) => {
+        calls.push([target, path, options]);
+        return {
+          ok: true,
+          file: {
+            path: '/work/my notes.txt',
+            size: 5,
+            sha256: 'e'.repeat(64),
+            send: async () => ({ state: 'delivered' }),
+          },
+        };
+      }),
+      'send-file other my notes.txt',
+    );
+
+    expect(calls).toEqual([['other', 'my notes.txt', { origin: 'operator', cwd: '/work' }]]);
+    expect(result.success).toBe(true);
+    expect(result.message).toContain(`5 bytes, sha256 ${'e'.repeat(64)}`);
+  });
+
+  it('carries a refusal back to the operator', async () => {
+    const result = await executePeersCommand(
+      hostWithFiles(async () => ({
+        ok: true,
+        file: {
+          path: '/work/a.txt',
+          size: 1,
+          sha256: 'e'.repeat(64),
+          send: async () => ({ state: 'refused', reason: 'the receiving side did not accept it' }),
+        },
+      })),
+      'send-file other a.txt',
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('did not accept it');
+  });
+
+  it('says what it needs when the path is missing', async () => {
+    const result = await executePeersCommand(
+      hostWithFiles(async () => ({ ok: false, reason: 'unused' })),
+      'send-file other',
+    );
+    expect(result.message).toContain('Usage: /peers send-file');
+    expect(result.success).toBe(false);
+  });
+
+  it('says so when the host cannot send files', async () => {
+    const result = await executePeersCommand(
+      {
+        getCommandHostAdapters: () => ({
+          localPeers: { list: () => [], ownSessionId: () => OWN },
+        }),
+      } as ICommandHostAdapterAccess,
+      'send-file other a.txt',
+    );
+    expect(result.message).toContain('cannot send files');
+    expect(result.success).toBe(false);
+  });
+});

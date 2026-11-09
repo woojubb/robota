@@ -1,6 +1,6 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * `/cd` in the TUI (issue #3081): the move is a new the product run in the target directory.
+ * `/cd` in the TUI: the move is a new the product run in the target directory.
  *
  * Startup already composes everything a session needs from `(cwd, access)` — settings, trust, tools,
  * skills, MCP, instructions — so the move reuses it exactly rather than re-deriving any of it

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createOutputStyleRegistry } from '@robota-sdk/agent-preset';
+import { createOutputStyleRegistry } from '@robota-sdk/agent-product/preset';
 
 import { resolveOutputStyle, selectOutputStyleId } from '../output-style-selection.js';
 

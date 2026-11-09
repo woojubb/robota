@@ -8,7 +8,7 @@
 
 import { claimRefusalMessage } from '@robota-sdk/agent-framework';
 
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 /**
  * The store's words for refusing to open `sessionId` while another writer holds it, or `undefined`

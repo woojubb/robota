@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { settleOnServeTransportFailure } from '../serve-transport-failure.js';
-import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
+import { createTransportFailedOutcome } from '@robota-sdk/agent-interface/transport';
 
-describe('serve runner failure propagation (ARCH-011)', () => {
+describe('serve runner failure propagation', () => {
   it('sets the real nonzero runner exit code and enters owned shutdown', async () => {
     const setExitCode = vi.fn();
     const writeError = vi.fn();

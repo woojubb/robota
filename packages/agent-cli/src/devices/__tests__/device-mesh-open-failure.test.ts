@@ -7,7 +7,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createInMemoryMeshRelayHub } from '@robota-sdk/agent-transport-webrtc';
+import { createInMemoryMeshRelayHub } from '@robota-sdk/agent-transport/webrtc';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';
@@ -17,8 +17,8 @@ import { openDeviceMesh } from '../device-mesh.js';
 import { scriptedOperator } from './fake-secret-terminal.js';
 import { createTestRuntimeContext } from './runtime-context-fixture.js';
 
-vi.mock('@robota-sdk/agent-transport-webrtc', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@robota-sdk/agent-transport-webrtc')>();
+vi.mock('@robota-sdk/agent-transport/webrtc', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@robota-sdk/agent-transport/webrtc')>();
   return {
     ...actual,
     DeviceMeshNode: class {

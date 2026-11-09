@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runDaemonCommand, type IDaemonCommandOptions } from '../daemon-command.js';
+import { overrideProductSecureMode } from '../../product/session-sealing.js';
 
 import { readProcessStartTime } from '../../remote-control/local-peer-registry.js';
 import { acquireSupervisedDaemonStartLock, type ISupervisedSessionRow } from '../supervised-session-control.js';
@@ -65,6 +66,25 @@ function harness(rows: readonly ISupervisedSessionRow[], overrides: Partial<IDae
 }
 
 describe('test-product daemon', () => {
+  it('refuses a secure start with no terminal before taking a lock or launching', async () => {
+    const lock = vi.fn(async () => () => {});
+    const h = harness([], { lock, openSecureOwner: async () => undefined });
+    overrideProductSecureMode(h.options.productRuntime, true);
+    expect(await runDaemonCommand(['start'], h.options)).toBe(1);
+    expect(h.err()).toMatch(/not started.*secure mode needs an unlock/i);
+    expect(h.err()).toContain('test-product daemon start');
+    expect(lock).not.toHaveBeenCalled();
+    expect(h.launch).not.toHaveBeenCalled();
+  });
+
+  it('reports secure daemon status without opening an owner or requesting a URL', async () => {
+    const h = harness([daemonRow(LIVE, { secure: { certified: true } })]);
+    overrideProductSecureMode(h.options.productRuntime, true);
+    expect(await runDaemonCommand(['status', '--json'], h.options)).toBe(0);
+    expect(h.connect).not.toHaveBeenCalled();
+    expect(JSON.parse(h.out())).toEqual({ running: true, mode: 'secure', id: LIVE, generation: GENERATION, control: 'available', keyring: null, certified: true, verified: false });
+    expect(h.out()).not.toContain('url');
+  });
   it.each(['new', 'reused'])('reports ignored settings for a successful %s Restricted daemon start', async (mode) => {
     const h = harness(mode === 'new' ? [] : [daemonRow(LIVE, { restricted: true })]);
     expect(await runDaemonCommand(['start', '--restricted-workspace', '--json'], h.options)).toBe(0);
@@ -168,7 +188,7 @@ describe('test-product daemon', () => {
     expect(none.out()).toBe(`No daemon is running in ${workspace}.\n`);
   });
 
-  it('starts a daemon Restricted when a person chose that, in either flag order (#3268)', async () => {
+  it('starts a daemon Restricted when a person chose that, in either flag order', async () => {
     for (const args of [
       ['start', '--json', '--restricted-workspace'],
       ['start', '--restricted-workspace', '--json'],
@@ -189,7 +209,7 @@ describe('test-product daemon', () => {
     expect(h.err()).toContain('cannot be started Restricted. Run: test-product daemon stop');
   });
 
-  it('reuses a running Restricted daemon for a Restricted start, as a relaunched app asks (#3268)', async () => {
+  it('reuses a running Restricted daemon for a Restricted start, as a relaunched app asks', async () => {
     const h = harness([daemonRow(LIVE, { restricted: true })]);
     expect(await runDaemonCommand(['start', '--json', '--restricted-workspace'], h.options)).toBe(0);
     expect(h.launch).not.toHaveBeenCalled();
@@ -197,7 +217,7 @@ describe('test-product daemon', () => {
     expect(h.out()).toBe(`${JSON.stringify({ id: LIVE, url: URL_WITH_TOKEN })}\n`);
   });
 
-  it('does not quietly hand a plain start a Restricted daemon in a folder trusted since (#3268)', async () => {
+  it('does not quietly hand a plain start a Restricted daemon in a folder trusted since', async () => {
     const h = harness([daemonRow(LIVE, { restricted: true })], { trusted: vi.fn(async () => true) });
     expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(1);
     expect(h.connect).not.toHaveBeenCalled();
@@ -206,7 +226,7 @@ describe('test-product daemon', () => {
     );
   });
 
-  it('hands a plain start the Restricted daemon of a folder that is not trusted, outside Git included (#3268)', async () => {
+  it('hands a plain start the Restricted daemon of a folder that is not trusted, outside Git included', async () => {
     const h = harness([daemonRow(LIVE, { restricted: true })]);
     expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(0);
     expect(h.trusted).toHaveBeenCalledWith(workspace);
@@ -272,7 +292,7 @@ describe('test-product daemon', () => {
       expect(existsSync(lockFile(root))).toBe(false);
     });
 
-    it('never removes a lock left by a start that is gone: the start refuses and names unlock', async () => {
+    it('never removes a lock left by a start that is gone: the start refuses and names clear-start-lock', async () => {
       const h = harness([]);
       const root = h.options.root as string;
       mkdirSync(root, { mode: 0o700 });
@@ -280,44 +300,50 @@ describe('test-product daemon', () => {
       writeFileSync(lockFile(root), `${gone} Mon Jan  1 00:00:00 2024`, { mode: 0o600 });
       expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(1);
       expect(h.launch).not.toHaveBeenCalled();
-      expect(h.err()).toMatch(/no longer running.*test-product daemon unlock\n$/u);
+      expect(h.err()).toMatch(/no longer running.*test-product daemon clear-start-lock\n$/u);
       expect(existsSync(lockFile(root))).toBe(true);
     });
 
-    it('unlock removes a lock whose owner is gone, and only at the user\'s request', async () => {
+    it('clear-start-lock removes a lock whose owner is gone, and only at the user\'s request', async () => {
       const h = harness([]);
       const root = h.options.root as string;
       mkdirSync(root, { mode: 0o700 });
       const gone = spawnSync(process.execPath, ['-e', '']).pid;
       writeFileSync(lockFile(root), `${gone} Mon Jan  1 00:00:00 2024`, { mode: 0o600 });
-      expect(await runDaemonCommand(['unlock'], h.options)).toBe(0);
+      expect(await runDaemonCommand(['clear-start-lock'], h.options)).toBe(0);
       expect(h.out()).toMatch(/^Removed the daemon start lock in /u);
       expect(existsSync(lockFile(root))).toBe(false);
-      expect(await runDaemonCommand(['unlock'], h.options)).toBe(0);
+      expect(await runDaemonCommand(['clear-start-lock'], h.options)).toBe(0);
       expect(h.out()).toMatch(/No daemon start lock in /u);
       expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(0);
       expect(h.launch).toHaveBeenCalledTimes(1);
     });
 
-    it('a lock whose pid was reused by another process counts as gone: start refuses, unlock removes it', async () => {
+    it('a lock whose pid was reused by another process counts as gone: start refuses, clear-start-lock removes it', async () => {
       const h = harness([]);
       const root = h.options.root as string;
       mkdirSync(root, { mode: 0o700 });
       // This pid is alive, but not the process that took the lock.
       writeFileSync(lockFile(root), `${process.pid} Mon Jan  1 00:00:00 2024`, { mode: 0o600 });
       expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(1);
-      expect(h.err()).toMatch(/no longer running.*test-product daemon unlock\n$/u);
+      expect(h.err()).toMatch(/no longer running.*test-product daemon clear-start-lock\n$/u);
       expect(h.launch).not.toHaveBeenCalled();
-      expect(await runDaemonCommand(['unlock'], h.options)).toBe(0);
+      expect(await runDaemonCommand(['clear-start-lock'], h.options)).toBe(0);
       expect(existsSync(lockFile(root))).toBe(false);
     });
 
-    it('unlock keeps a lock whose start is still running', async () => {
+    it('refuses the former daemon unlock alias', async () => {
+      const h = harness([]);
+      expect(await runDaemonCommand(['unlock'], h.options)).toBe(1);
+      expect(h.err()).toContain('daemon clear-start-lock');
+    });
+
+    it('clear-start-lock keeps a lock whose start is still running', async () => {
       const h = harness([]);
       const root = h.options.root as string;
       mkdirSync(root, { mode: 0o700 });
       writeFileSync(lockFile(root), `${process.pid} ${readProcessStartTime(process.pid)}`, { mode: 0o600 });
-      expect(await runDaemonCommand(['unlock'], h.options)).toBe(1);
+      expect(await runDaemonCommand(['clear-start-lock'], h.options)).toBe(1);
       expect(h.err()).toMatch(/still running.*its lock was kept/u);
       expect(existsSync(lockFile(root))).toBe(true);
     });
@@ -328,7 +354,7 @@ describe('test-product daemon', () => {
       mkdirSync(root, { mode: 0o700 });
       writeFileSync(lockFile(root), `${process.pid} ${readProcessStartTime(process.pid)}`, { mode: 0o600 });
       await expect(acquireSupervisedDaemonStartLock(workspace, root, { cliName: 'test-product', timeoutMs: 200, pollMs: 20 }))
-        .rejects.toThrow(/Another daemon start is still running.*test-product daemon unlock/u);
+        .rejects.toThrow(/Another daemon start is still running.*test-product daemon clear-start-lock/u);
       expect(existsSync(lockFile(root))).toBe(true);
     });
   });

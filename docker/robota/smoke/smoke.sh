@@ -7,7 +7,7 @@
 #   apparmor-profile defaults to robota-userns; pass `unconfined` on a host without AppArmor.
 #
 # Checks, each in a fresh container on an internal network (no route beyond the fixture):
-#   1. with all security options: trust, doctor, a normal prompt and /help complete, and the Bash
+#   1. with all security options: restricted mode, doctor, a normal prompt and /help complete, and the Bash
 #      command the fixture asks for runs confined (own PID namespace, no secrets, no network,
 #      writes only in the workspace);
 #   2. without systempaths=unconfined: startup refuses (sandbox.failIfUnavailable);
@@ -87,15 +87,14 @@ robota_container configure full robota --configure-provider fixture --type opena
 robota_container batch full sh -c '
   set -e
   git init -q /workspace/repo && cd /workspace/repo
-  robota trust --yes
   robota doctor || true
-  robota -p "Reply with the smoke word." --output-format json
-  robota -p /help --output-format json
+  robota --restricted-workspace -p "Reply with the smoke word." --output-format json
+  robota --restricted-workspace -p /help --output-format json
 '
 robota_container no-systempaths no-systempaths sh -c '
-  git init -q /workspace/repo && cd /workspace/repo && robota trust --yes >/dev/null && robota -p "hello" --output-format json'
+  git init -q /workspace/repo && cd /workspace/repo && robota --restricted-workspace -p "hello" --output-format json'
 robota_container docker-default docker-default sh -c '
-  git init -q /workspace/repo && cd /workspace/repo && robota trust --yes >/dev/null && robota -p "hello" --output-format json'
+  git init -q /workspace/repo && cd /workspace/repo && robota --restricted-workspace -p "hello" --output-format json'
 robota_container untrusted full sh -c '
   git init -q /workspace/repo && cd /workspace/repo && robota -p "hello" --output-format json'
 docker history --no-trunc "$IMAGE" >"$WORK/history"
@@ -104,7 +103,6 @@ docker logs "$ID-fixture" >"$WORK/fixture.log" 2>&1
 echo "----- results"
 check "provider configured" grep -qx 0 "$WORK/configure.status"
 check "batch run exits 0" grep -qx 0 "$WORK/batch.status"
-check "trust granted" grep -q 'Workspace trust: trusted' "$WORK/batch.out"
 check "sandbox active (doctor)" grep -q 'Command containment \[execution.containment\] ok: sandbox-shared' "$WORK/batch.out"
 success() { grep -F -- "$1" "$WORK/batch.out" | grep -q '"subtype":"success"'; }
 check "prompt answered by the fixture" success '"result":"SMOKE_OK'
@@ -119,6 +117,7 @@ check "no systempaths: non-zero exit" grep -qvx 0 "$WORK/no-systempaths.status"
 check "docker defaults: refused" grep -q 'Refusing to start (sandbox.failIfUnavailable)' "$WORK/docker-default.out"
 check "docker defaults: non-zero exit" grep -qvx 0 "$WORK/docker-default.status"
 check "untrusted workspace: non-zero exit" grep -qvx 0 "$WORK/untrusted.status"
+check "untrusted workspace: trust admission refused" grep -q 'Workspace trust is required before headless startup' "$WORK/untrusted.out"
 check "credential absent from outputs, container configuration, image history and fixture log" \
   bash -c '! grep -rqF -- "$1" "$2"/*.out "$2"/*.inspect "$2"/history "$2"/fixture.log' _ "$KEY" "$WORK"
 # Known gap, reported rather than counted: the shell tool hands confined commands the CLI's own

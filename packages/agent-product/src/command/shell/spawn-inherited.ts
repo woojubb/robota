@@ -1,0 +1,36 @@
+/**
+ * Pure-Node spawn with the real terminal inherited (interactive input + output). Used inside a
+ * terminal-handoff `runWithTerminal(fn)` — the framework/transport own the suspend/restore; this just
+ * runs the child attached to the real TTY and resolves with its exit code.
+ *
+ * The one deliberate exception to children in their own session (`withChildSession` in
+ * `@robota-sdk/agent-core/node`): the owner asked for this program to have the terminal, and it runs
+ * only while the interface has given the terminal up, so never during a secret prompt.
+ */
+import { spawn } from 'node:child_process';
+import { constants } from 'node:os';
+
+export function spawnInherited(
+  command: string,
+  args: readonly string[],
+  cwd: string,
+): Promise<number> {
+  return new Promise<number>((resolve, reject) => {
+    const child = spawn(command, [...args], { cwd, stdio: 'inherit', env: process.env });
+    child.on('error', reject);
+    child.on('exit', (code, signal) => {
+      // A signal-terminated child reports code=null; resolving 0 there is a false
+      // success. Translate to the shell convention 128 + signal number so callers see the failure.
+      if (code !== null) {
+        resolve(code);
+        return;
+      }
+      if (signal) {
+        const signalNumber = constants.signals[signal as keyof typeof constants.signals];
+        resolve(128 + (signalNumber ?? 0));
+        return;
+      }
+      resolve(0);
+    });
+  });
+}

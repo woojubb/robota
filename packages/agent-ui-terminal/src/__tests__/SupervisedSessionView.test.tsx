@@ -388,7 +388,7 @@ describe('supervised session view', () => {
     }
   });
 
-  it('asks about a folder not trusted yet, and starts as the answer says (#3268)', async () => {
+  it('asks about a folder not trusted yet, and starts as the answer says', async () => {
     const start = vi.fn(async () => SECOND.id);
     const view = render(
       <SupervisedSessionView
@@ -1003,6 +1003,42 @@ describe('supervised session view', () => {
         view.unmount();
       }
     }
+  });
+
+  it('hands secure attach to its host without an extra confirmation', async () => {
+    const onAttach = vi.fn();
+    const view = render(<SupervisedSessionView loadRows={async () => [FIRST]} onAttach={onAttach} attachWithoutConfirmation />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('p');
+      await vi.waitFor(() => expect(onAttach).toHaveBeenCalledExactlyOnceWith({
+        id: FIRST.id, generation: FIRST.generation, mode: 'observe', groupByDirectory: false,
+      }));
+    } finally { view.unmount(); }
+  });
+
+  it('hands a secure start to its host after leaving the view', async () => {
+    const start = vi.fn(async () => 'new-id');
+    const defer = vi.fn();
+    const view = render(<SupervisedSessionView loadRows={async () => [FIRST]} onStart={start} onDeferredStart={defer} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(defer).toHaveBeenCalledOnce());
+      expect(start).not.toHaveBeenCalled();
+    } finally { view.unmount(); }
+  });
+
+  it('hands secure PR lookup to its host even when the public row has no PR', async () => {
+    const deferred = vi.fn();
+    const open = vi.fn(async () => {});
+    const view = render(<SupervisedSessionView loadRows={async () => [{ ...FIRST, pr: undefined }]} onOpenPr={open} onDeferredPr={deferred} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('o');
+      await vi.waitFor(() => expect(deferred).toHaveBeenCalledExactlyOnceWith(FIRST.id, FIRST.generation));
+      expect(open).not.toHaveBeenCalled();
+    } finally { view.unmount(); }
   });
 
   it('refuses an attach when the row restarts or leaves control while confirmation is open', async () => {

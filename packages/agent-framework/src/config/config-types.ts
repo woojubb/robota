@@ -84,7 +84,7 @@ const AgentHookDefinitionSchema = z.object({
   timeout: z.number().optional(),
 });
 
-/** SELFHOST-005: guardrail hook — runs the registered guardrail set (by name, or all) in parallel. */
+/** Guardrail hook — runs the registered guardrail set (by name, or all) in parallel. */
 const GuardrailHookDefinitionSchema = z.object({
   type: z.literal('guardrail'),
   guardrails: z.array(z.string()).optional(),
@@ -101,8 +101,8 @@ const HookDefinitionSchema = z.discriminatedUnion('type', [
 
 const HookGroupSchema = z.object({
   /**
-   * Optional identity, so a hook group can be REFERRED TO — which is what `disabledHooks` needs
-   * (issue #2320). Optional so every settings file already in the wild stays valid; a group without
+   * Optional identity, so a hook group can be REFERRED TO — which is what `disabledHooks` needs.
+   * Optional so every settings file already in the wild stays valid; a group without
    * an id simply cannot be disabled from another layer.
    */
   id: z.string().optional(),
@@ -112,12 +112,12 @@ const HookGroupSchema = z.object({
 
 /**
  * Supported hook events — every member of agent-core's `THookEvent`, and kept that way by
- * `config/__tests__/hooks-schema-event-parity.test.ts` (issue #2430). A `z.object` STRIPS keys it
+ * `config/__tests__/hooks-schema-event-parity.test.ts`. A `z.object` STRIPS keys it
  * does not name, so an event missing here is not refused, it is silently discarded at settings load:
  * a `hooks.PermissionDecision` command hook never fired while the `permissions` block beside it in
  * the same file took effect, in every mode.
  */
-/** Exported for the plugin loader's inspection (OBSERVABILITY-1991); the schema stays owned here. */
+/** Exported for the plugin loader's inspection; the schema stays owned here. */
 export const HooksSchema = z
   .object({
     PreToolUse: z.array(HookGroupSchema).optional(),
@@ -202,7 +202,7 @@ export const SettingsSchema = z.object({
   commandEnvAllow: z.array(z.string()).optional(),
   hooks: HooksSchema,
   /**
-   * Hook-group ids this layer turns off (issue #2320). Applies only to groups declared by LATER
+   * Hook-group ids this layer turns off. Applies only to groups declared by LATER
    * (lower-trust) layers — a user layer may disable a project hook; a project layer can never
    * disable a user's guard. See `mergeSettings`.
    */
@@ -217,7 +217,7 @@ export const SettingsSchema = z.object({
   transports: z.record(z.string(), TransportSettingsSchema).optional(),
   /** OS-level confinement of shell commands (bubblewrap on Linux, Seatbelt on macOS). */
   sandbox: SandboxSettingsSchema.optional(),
-  /** NEUT-004: host-selected active-task context root and optional enablement. */
+  /** Host-selected active-task context root and optional enablement. */
   taskContext: z
     .object({
       enabled: z.boolean().optional(),
@@ -231,7 +231,7 @@ export type TProviderSettings = z.infer<typeof ProviderSchema>;
 export type TPermissionsSettings = z.infer<typeof PermissionsSchema>;
 
 /**
- * SEC-009: a settings object AFTER `$ENV:` resolution. `apiKeyEnv` — the name of the variable
+ * A settings object AFTER `$ENV:` resolution. `apiKeyEnv` — the name of the variable
  * `apiKey` was resolved from — is DERIVED during loading, never written by a user, which is why it
  * is absent from the schemas above: declaring it there would document an input key that is really
  * an output.
@@ -265,7 +265,7 @@ export interface IResolvedConfig {
     apiKey: string | undefined;
     /**
      * Name of the environment variable `apiKey` was resolved FROM, when the stored value was a
-     * `$ENV:` reference (SEC-009). Present so a caller that must SERIALIZE this config can carry
+     * `$ENV:` reference. Present so a caller that must SERIALIZE this config can carry
      * the reference and leave the resolved secret behind.
      */
     apiKeyEnv?: string;
@@ -277,7 +277,7 @@ export interface IResolvedConfig {
   permissions: {
     allow: string[];
     deny: string[];
-    /** Patterns that always ask, in every mode including bypassPermissions (issue #3081). */
+    /** Patterns that always ask, in every mode including bypassPermissions. */
     ask?: string[];
   };
   env: Record<string, string>;
@@ -294,7 +294,7 @@ export interface IResolvedConfig {
   /** Transport enable/disable + options: transport name -> { enabled, options } */
   transports?: Record<string, { enabled?: boolean; options?: Record<string, unknown> }>;
   /**
-   * NEUT-004: active-task context selection. A directory is required to scan; omitted
+   * Active-task context selection. A directory is required to scan; omitted
    * directories do not fall back to a framework-owned path. `enabled: false` disables it.
    */
   taskContext?: { enabled?: boolean; dir?: string };

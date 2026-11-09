@@ -1,5 +1,5 @@
 /**
- * MCP-001 user-execution scenario — the definition control plane, end to end.
+ * User-execution scenario — the definition control plane, end to end.
  *
  * Run: `pnpm exec tsx examples/verify-mcp-definition-control-plane.ts` from `packages/agent-mcp`.
  *
@@ -42,7 +42,7 @@ function source(
  *   It must resolve `unresolved` and still shadow the user entry rather than falling through.
  * - `alpha`'s managed entry references `${MISSING_TOKEN}`, which is unset and has no default.
  * - A second managed source (`policy-2.json`) is entirely unreadable (`mcpServers` is not an
- *   object) — a source-level problem (issue #2794) that names no server and must not vanish.
+ *   object) — a source-level problem that names no server and must not vanish.
  */
 const SOURCES: readonly IMCPSourceCandidates[] = [
   source('plugin', 'plugin-a', { alpha: { type: 'http', url: 'https://plugin.example/mcp' } }),

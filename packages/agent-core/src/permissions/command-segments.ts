@@ -1,5 +1,5 @@
 /**
- * Shell-line segmentation for the `command` argument matcher (issue #2427).
+ * Shell-line segmentation for the `command` argument matcher.
  *
  * Split out of `argument-matchers.ts`, which owns HOW a pattern of a declared kind is compared with
  * an argument; this module owns the one question underneath the `command` kind — where a shell line
@@ -8,7 +8,7 @@
  * individual commands are ({@link splitCommandSegments}, which the DENY direction judges one by
  * one). Keeping both here is what keeps them agreeing on what a separator IS.
  *
- * No Node builtin: `agent-core` ships a browser bundle (CORE-028), and this is pure string work.
+ * No Node builtin: `agent-core` ships a browser bundle, and this is pure string work.
  */
 
 /**
@@ -17,7 +17,7 @@
  * quotes do not stop the shell from running what is inside `"$(…)"`. A backslash outside single
  * quotes escapes the next character. `Bash(git *)` then does not match `git status; rm -rf /`.
  *
- * The anti-goal (issue #2427): refusal comes from RECOGNISING a separator, not from escaping more
+ * The anti-goal: refusal comes from RECOGNISING a separator, not from escaping more
  * characters in the glob — `*` in a pattern still stands for any run of characters, so the
  * pattern's author keeps writing `git *` and the gate keeps `git commit -m "a; b"` matchable.
  */

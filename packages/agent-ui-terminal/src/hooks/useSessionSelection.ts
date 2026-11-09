@@ -1,38 +1,20 @@
-/**
- * What picking a session in the resume picker does, over a store that seals.
- *
- * A record that opens says nothing about who wrote it, so a picked record the store cannot show to be
- * the person's own is not resumed on the pick. The person is told so in fixed text (never anything the
- * record says) and asked whether it is theirs; a yes switches with the digest of exactly the bytes they
- * were asked about, and the session that opens the record resumes only those and raises them to the
- * person's once it has restored from them. A store that never seals lists no unverified record, so
- * every pick there switches at once.
- */
-
+/** The picker asks one surface-bound decision port before it switches or requests acceptance. */
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import {
-  unacceptableSessionMessage,
-  UNVERIFIED_SESSION_QUESTION,
-  unverifiedSessionNotice,
-} from '@robota-sdk/agent-framework';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { UNVERIFIED_SESSION_QUESTION, unverifiedSessionNotice } from '@robota-sdk/agent-framework';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { IAppSessionAcceptanceViewModel } from '../app-view-model.js';
 import type { TSessionSwitch } from '../types.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type {
-  IInteractiveSessionStore,
-  ISessionListingEntry,
-} from '@robota-sdk/agent-interface-session';
+import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface/session';
 
-/** Said when a pick ends without a session being resumed: cancelled in the list, or answered no. */
 export const RESUME_CANCELLED_NOTICE = 'Session resume cancelled.';
+const OWNER_REFUSAL = 'The session could not be resumed.';
 
 export interface IUseSessionSelectionOptions {
-  readonly sessions: readonly ISessionListingEntry[];
-  readonly sessionStore: IInteractiveSessionStore | undefined;
-  /** The listing is a host's, not read from `sessionStore`: the host's session judges its own records. */
-  readonly hostListing: boolean;
+  /** An adapter that validates ids and supplies only fixed, safe refusal text. */
+  readonly ownerSessions: IOwnerSessionDirectory;
+  readonly onOwnerInvalidated?: ((listener: () => void) => () => void) | undefined;
   readonly pickerVisible: boolean;
   readonly setPickerVisible: (visible: boolean) => void;
   readonly onSessionSwitch: TSessionSwitch;
@@ -41,74 +23,127 @@ export interface IUseSessionSelectionOptions {
 
 export interface ISessionSelection {
   readonly select: (sessionId: string) => void;
+  readonly cancel: () => void;
+  readonly pickerKey: number;
   readonly pendingAcceptance: IAppSessionAcceptanceViewModel | undefined;
 }
 
 interface IPendingAcceptance {
   readonly sessionId: string;
-  /** The SHA-256 of the stored bytes the person is asked about, which the probe read. */
   readonly digest: string;
+  readonly questionId: string;
+  readonly generation: number;
+  readonly owner: IOwnerSessionDirectory;
 }
 
 export function useSessionSelection(options: IUseSessionSelectionOptions): ISessionSelection {
-  const { sessions, sessionStore, hostListing, pickerVisible, setPickerVisible } = options;
-  const { onSessionSwitch, addEntry } = options;
+  const { pickerVisible, setPickerVisible, onSessionSwitch, addEntry, ownerSessions, onOwnerInvalidated } = options;
   const [pending, setPending] = useState<IPendingAcceptance | undefined>();
+  const [pickerKey, setPickerKey] = useState(0);
+  const generation = useRef(0);
+  const ownerQuestionActive = useRef<IOwnerSessionDirectory | undefined>(undefined);
+  const renderedOwner = useRef(ownerSessions);
+  // A stale callback cannot use a decision from a different store or connection, even before the
+  // old effect's cleanup sends its cancellation.
+  if (renderedOwner.current !== ownerSessions) {
+    renderedOwner.current = ownerSessions;
+    generation.current += 1;
+  }
   const say = useCallback(
     (content: string) => addEntry(messageToHistoryEntry(createSystemMessage(content))),
     [addEntry],
   );
-  // A question left open when the picker goes away is not asked again the next time it opens.
+  const cancelOwnerQuestion = useCallback(() => {
+    if (ownerQuestionActive.current !== ownerSessions) return;
+    ownerQuestionActive.current = undefined;
+    try {
+      void Promise.resolve(ownerSessions.cancelQuestion()).catch(() => undefined);
+    } catch {
+      // The linked adapter closes its owner connection if cancellation fails.
+    }
+  }, [ownerSessions]);
   useEffect(() => {
-    if (!pickerVisible) setPending(undefined);
-  }, [pickerVisible]);
-
-  const select = useCallback(
-    (sessionId: string) => {
-      const listedAuthorship = sessions.find((entry) => entry.id === sessionId)?.authorship;
-      if (listedAuthorship === 'unverified' && !hostListing && sessionStore !== undefined) {
-        // A plain read, taken now rather than trusted from the listing: it names the bytes the
-        // person will be asked about, and if the record is no longer unverified there is nothing to ask.
-        const probe = sessionStore.load(sessionId);
-        if (probe.status === 'valid' && probe.authorship === 'unverified') {
-          if (probe.digest === undefined) {
-            setPickerVisible(false);
-            say(unacceptableSessionMessage(sessionId));
-          } else {
-            setPending({ sessionId, digest: probe.digest });
-          }
-          return;
-        }
-      }
-      setPickerVisible(false);
-      void onSessionSwitch(sessionId);
-    },
-    [sessions, hostListing, sessionStore, setPickerVisible, say, onSessionSwitch],
-  );
-
-  const answer = useCallback(
-    (accepted: boolean) => {
-      if (pending === undefined) return;
+    if (!pickerVisible) {
+      generation.current += 1;
+      cancelOwnerQuestion();
       setPending(undefined);
+    }
+  }, [pickerVisible, cancelOwnerQuestion]);
+  useEffect(() => () => { generation.current += 1; cancelOwnerQuestion(); }, [cancelOwnerQuestion]);
+  useEffect(() => onOwnerInvalidated?.(() => {
+    generation.current += 1;
+    if (ownerQuestionActive.current === ownerSessions) ownerQuestionActive.current = undefined;
+    setPending(undefined);
+    setPickerVisible(false);
+  }), [onOwnerInvalidated, ownerSessions, setPickerVisible]);
+
+  const cancel = useCallback(() => {
+    generation.current += 1;
+    cancelOwnerQuestion();
+    setPending(undefined);
+    setPickerVisible(false);
+    say(RESUME_CANCELLED_NOTICE);
+  }, [cancelOwnerQuestion, setPickerVisible, say]);
+
+  const select = useCallback((sessionId: string) => {
+    const current = ++generation.current;
+    cancelOwnerQuestion();
+    setPending(undefined);
+    // A list resolves Enter; remount it while the question is in flight so the person can cancel
+    // or choose a different row without waiting for the host's answer.
+    setPickerKey((key) => key + 1);
+    ownerQuestionActive.current = ownerSessions;
+    // Requests on a linked adapter are written immediately in selection order. The runtime applies
+    // question and cancel state changes synchronously in stream order, independent of their replies.
+    try {
+      void Promise.resolve(ownerSessions.question(sessionId)).then((result) => {
+        if (generation.current !== current || renderedOwner.current !== ownerSessions) return;
+        if (result.kind === 'accept') {
+          setPending({ sessionId, digest: result.digest, questionId: result.questionId, generation: current, owner: ownerSessions });
+        } else {
+          ownerQuestionActive.current = undefined;
+          setPickerVisible(false);
+          if (result.kind === 'open') void onSessionSwitch(sessionId);
+          else say(result.message);
+        }
+      }).catch(() => {
+        if (generation.current !== current || renderedOwner.current !== ownerSessions) return;
+        cancelOwnerQuestion();
+        setPickerVisible(false);
+        say(OWNER_REFUSAL);
+      });
+    } catch {
+      cancelOwnerQuestion();
       setPickerVisible(false);
-      if (!accepted) {
-        say(RESUME_CANCELLED_NOTICE);
-        return;
-      }
-      void onSessionSwitch(pending.sessionId, { acceptedDigest: pending.digest });
-    },
-    [pending, setPickerVisible, say, onSessionSwitch],
-  );
+      say(OWNER_REFUSAL);
+    }
+  }, [ownerSessions, cancelOwnerQuestion, setPickerVisible, onSessionSwitch, say]);
+
+  const answer = useCallback((accepted: boolean) => {
+    if (pending === undefined || generation.current !== pending.generation ||
+        renderedOwner.current !== pending.owner) return;
+    generation.current += 1;
+    setPending(undefined);
+    setPickerVisible(false);
+    if (!accepted) {
+      cancelOwnerQuestion();
+      say(RESUME_CANCELLED_NOTICE);
+      return;
+    }
+    ownerQuestionActive.current = undefined;
+    try {
+      void Promise.resolve(pending.owner.openAccepted(pending.sessionId, pending.digest, pending.questionId))
+        .catch(() => say(OWNER_REFUSAL));
+    } catch {
+      say(OWNER_REFUSAL);
+    }
+  }, [pending, cancelOwnerQuestion, setPickerVisible, say]);
 
   const pendingAcceptance = useMemo(
-    () =>
-      pickerVisible && pending !== undefined
-        ? {
-            message: `${unverifiedSessionNotice(pending.sessionId)}\n${UNVERIFIED_SESSION_QUESTION}`,
-            answer,
-          }
-        : undefined,
-    [pickerVisible, pending, answer],
+    () => pickerVisible && pending !== undefined && pending.owner === ownerSessions
+      ? { message: `${unverifiedSessionNotice(pending.sessionId)}\n${UNVERIFIED_SESSION_QUESTION}`, answer }
+      : undefined,
+    [pickerVisible, pending, ownerSessions, answer],
   );
-  return { select, pendingAcceptance };
+  return { select, cancel, pickerKey, pendingAcceptance };
 }

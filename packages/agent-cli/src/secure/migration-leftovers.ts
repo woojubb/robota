@@ -1,6 +1,6 @@
 /**
- * What earlier runs left behind that may hold conversation content and that nothing reads again
- * (#3679), for `secure migrate` to delete — never seal — once no other product process is running:
+ * What earlier runs left behind that may hold conversation content and that nothing reads again,
+ * for `secure migrate` to delete — never seal — once no other product process is running:
  *
  * - sessions handed over to this side and kept aside until saved (`handoff/<sender>/<id>.json`), and
  *   the partial files of transfers that never finished (`.partial-*`);
@@ -157,6 +157,7 @@ function newestChange(directory: string): number {
 function editorLeftovers(
   runtime: ICliRuntimeContext,
   temporaryDirectory: string,
+  names: readonly string[],
   options: ILeftoverOptions,
   refused: string[],
 ): { readonly removed: number; readonly recent: number } {
@@ -168,7 +169,7 @@ function editorLeftovers(
   const now = (options.now ?? Date.now)();
   let idle = 0;
   let recent = 0;
-  for (const name of namesIn(temporaryDirectory, refused) ?? []) {
+  for (const name of names) {
     if (!pattern.test(name)) continue;
     const path = join(temporaryDirectory, name);
     const isDirectory = realDirectory(path);
@@ -193,12 +194,15 @@ function editorLeftovers(
   return { removed: idle, recent };
 }
 
-function sdkSpillDirectories(temporaryDirectory: string): string[] {
-  return readdirSync(temporaryDirectory)
-    .filter((name) => name.startsWith(SDK_SPILL_PREFIX))
-    .map((name) => join(temporaryDirectory, name))
-    .filter((path) => realDirectory(path) === true)
-    .sort();
+function sdkSpillDirectories(temporaryDirectory: string, names: readonly string[], refused: string[]): string[] {
+  const directories: string[] = [];
+  for (const name of names) {
+    if (!name.startsWith(SDK_SPILL_PREFIX)) continue;
+    const path = join(temporaryDirectory, name);
+    if (realDirectory(path) === true) directories.push(path);
+    else refused.push(path);
+  }
+  return directories;
 }
 
 /** The scratch directories of gone processes, by the owner record each holds; removed only with `apply`. */
@@ -227,15 +231,6 @@ function deadProcessDirectories(runtime: ICliRuntimeContext, apply: boolean): nu
   );
 }
 
-function temporaryEntries(directory: string): boolean {
-  try {
-    readdirSync(directory);
-    return true;
-  } catch {
-    return false; // allow-fallback: a temporary directory that cannot be listed holds nothing found here.
-  }
-}
-
 /** Finds, and with `apply` removes, the leftovers the module documentation describes. */
 export function sweepMigrationLeftovers(
   runtime: ICliRuntimeContext,
@@ -244,17 +239,20 @@ export function sweepMigrationLeftovers(
   const temporaryDirectory = options.temporaryDirectory ?? tmpdir();
   const refused: string[] = [];
   const handoffFiles = handoffLeftovers(runtime, options.apply, refused);
-  const listable = temporaryEntries(temporaryDirectory);
-  const editor = listable
-    ? editorLeftovers(runtime, temporaryDirectory, options, refused)
-    : { removed: 0, recent: 0 };
+  let names: string[] = [];
+  if (realDirectory(temporaryDirectory) === true) {
+    names = namesIn(temporaryDirectory, refused) ?? [];
+  } else {
+    refused.push(temporaryDirectory);
+  }
+  const editor = editorLeftovers(runtime, temporaryDirectory, names, options, refused);
   return {
     temporaryDirectory,
     handoffFiles,
     editorDirectories: editor.removed,
     recentEditorDirectories: editor.recent,
     deadProcessDirectories: deadProcessDirectories(runtime, options.apply),
-    sdkSpillDirectories: listable ? sdkSpillDirectories(temporaryDirectory) : [],
+    sdkSpillDirectories: sdkSpillDirectories(temporaryDirectory, names, refused),
     refused,
   };
 }

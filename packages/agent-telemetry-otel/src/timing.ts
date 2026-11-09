@@ -1,4 +1,4 @@
-import type { ILivePromptDurationTotal, ILivePromptQueueSummary } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptDurationTotal, ILivePromptQueueSummary } from '@robota-sdk/agent-interface/analytics';
 
 interface IProjectedTimingTotals {
   provider?: ILivePromptDurationTotal;

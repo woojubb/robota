@@ -1,10 +1,12 @@
 import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { lstatSync, realpathSync } from 'node:fs';
+import type { BigIntStats } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { organizationCanonical } from './canonical.js';
 import { OrganizationRefused } from './types.js';
+import { isOwnerOnly, isSameFile } from './store-ownership.js';
 import { integer, record } from './verification.js';
 
 export interface IOrganizationGitIntent {
@@ -57,8 +59,7 @@ export class OrganizationGitAsset {
   readonly identity: string;
   readonly phaseTimeoutMs: number;
   private readonly path: string;
-  private readonly ino: number;
-  private readonly dev: number;
+  private readonly root: BigIntStats;
   private readonly ref: string;
   private readonly gitPath: string;
 
@@ -72,15 +73,15 @@ export class OrganizationGitAsset {
     )
       throw new OrganizationRefused('invalid-schema');
     this.path = realpathSync(options.path);
-    const root = lstatSync(this.path);
-    this.ino = root.ino;
-    this.dev = root.dev;
+    this.root = lstatSync(this.path, { bigint: true });
     this.ref = options.ref;
     this.gitPath = realpathSync(options.gitPath);
     this.phaseTimeoutMs = integer(options.phaseTimeoutMs ?? 1000, 1);
     if (this.phaseTimeoutMs > 1000) throw new OrganizationRefused('invalid-schema');
+    // Strings: a Windows file index can exceed the safe integers the canonical form carries.
+    const { dev, ino } = this.root;
     this.identity = createHash('sha256')
-      .update(organizationCanonical([this.path, this.dev, this.ino, this.ref]))
+      .update(organizationCanonical([this.path, String(dev), String(ino), this.ref]))
       .digest('hex');
     this.phase((run) => {
       if (run(['rev-parse', '--is-bare-repository']) !== 'true')
@@ -91,15 +92,8 @@ export class OrganizationGitAsset {
 
   private verify(): void {
     try {
-      const root = lstatSync(this.path);
-      const uid = process.getuid?.();
-      if (
-        !root.isDirectory() ||
-        root.ino !== this.ino ||
-        root.dev !== this.dev ||
-        (root.mode & 0o077) !== 0 ||
-        (uid !== undefined && uid !== root.uid)
-      )
+      const root = lstatSync(this.path, { bigint: true });
+      if (!root.isDirectory() || !isSameFile(root, this.root) || !isOwnerOnly(root))
         throw new Error('changed asset');
     } catch {
       throw new OrganizationRefused('policy-unavailable');

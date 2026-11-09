@@ -24,10 +24,10 @@ function nextRequestId(prefix: string): string {
 }
 
 /**
- * #3282 §4 part b-3: the agent switcher sheet's own correlated request/response state, the same
+ * The agent switcher sheet's own correlated request/response state, the same
  * shape `useSettingsState` already uses for `get-settings`/`update-settings` — independent from the
  * chat conversation, because choosing an agent is answered by the sheet's own confirmation line
- * ("Default agent: Explore"), never a conversation card (issue #3282 §4's decided design).
+ * ("Default agent: Explore"), never a conversation card.
  *
  * `openAgentSwitcher` re-fetches every time (`/agent` bare, or reopening after a close), so a change
  * made elsewhere reaches an open-then-reopened sheet, matching `useSettingsState`'s own reasoning.

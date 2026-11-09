@@ -8,8 +8,8 @@ import type { TSettingsData } from '@robota-sdk/agent-framework';
 /**
  * Read the user settings, presenting an unreadable file rather than throwing it at the user.
  *
- * Issue #2342. `readSettings` throws `SettingsParseError` for a file that EXISTS and does not parse —
- * deliberately, under CLI-069, because an existing settings file that fails to parse is an error
+ * `readSettings` throws `SettingsParseError` for a file that EXISTS and does not parse —
+ * deliberately, because an existing settings file that fails to parse is an error
  * condition and never silently equated with a missing one. That decision is right and this does not
  * change it.
  *
@@ -28,8 +28,8 @@ import type { TSettingsData } from '@robota-sdk/agent-framework';
  * and one that still passes a test asserting only the happy refusal.
  *
  * It lives here rather than at the call site because `cli.ts` is at its `file-size` floor: the same
- * guard inlined cost 17 lines when issue #2023 did this for the org policy and broke the freeze. The
- * second reason survives the first being removed — the presentation of a read failure belongs beside
+ * guard inlined cost 17 lines and broke the freeze. The
+ * second reason holds regardless — the presentation of a read failure belongs beside
  * the read rather than in the shell that happens to call it.
  */
 export function readUserSettingsOrExit(runtime: ICliRuntimeContext): TSettingsData {

@@ -1,5 +1,5 @@
 /**
- * Shared factory options for the builtin tools (NEUT-002).
+ * Shared factory options for the builtin tools.
  *
  * Builtin tool descriptions are a model-facing contract (see docs/SPEC.md — "Tool Descriptions").
  * The library ships neutral, mechanism-only default text; a consumer that wants product- or
@@ -17,7 +17,7 @@ export interface IBuiltinToolDescriptionOptions {
 }
 
 /**
- * Options for a builtin that touches the host filesystem WITHOUT a sandbox seam (SEC-007).
+ * Options for a builtin that touches the host filesystem WITHOUT a sandbox seam.
  *
  * `Glob` and `Grep` enumerate; they have no provider-sandbox mode to route through, so a containment
  * root is the only boundary they can have. Splitting this out of {@link ISandboxBuiltinToolOptions}
@@ -26,7 +26,7 @@ export interface IBuiltinToolDescriptionOptions {
 export interface IContainedBuiltinToolOptions
   extends IBuiltinToolDescriptionOptions, IEditorFileOptions {
   /**
-   * The directory the tool's filesystem access is confined to. REQUIRED — ARCH-010. An out-of-root
+   * The directory the tool's filesystem access is confined to. REQUIRED. An out-of-root
    * search root is refused, no entry whose CANONICAL path escapes the root is enumerated, and relative
    * paths the model supplies resolve against this root rather than `process.cwd()`.
    *

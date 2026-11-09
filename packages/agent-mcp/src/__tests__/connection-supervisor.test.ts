@@ -1,6 +1,6 @@
 /**
- * TC-09: the supervisor opens, reuses and closes a connection, and a `listChanged` notification marks
- * the affected catalog domain stale (absorbed MCP-003).
+ * The supervisor opens, reuses and closes a connection, and a `listChanged` notification marks
+ * the affected catalog domain stale.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -13,7 +13,7 @@ import {
 } from './supervisor-test-helpers.js';
 import { MCPConnectionSupervisor, type TMCPConnectionState } from '../supervisor/connection.js';
 
-describe('MCPConnectionSupervisor — open / reuse / close / listChanged (TC-09)', () => {
+describe('MCPConnectionSupervisor — open / reuse / close / listChanged', () => {
   it('opens a session on first ensureConnected() and reports connected with the session identity', async () => {
     const identity = fixtureIdentity();
     let openCount = 0;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'ink-testing-library';
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface/execution';
 import BackgroundTaskPanel from '../BackgroundTaskPanel.js';
 import { ScreenReaderProvider } from '../screen-reader-context.js';
 
@@ -24,7 +24,7 @@ function makeEntry(overrides: Partial<IExecutionWorkspaceEntry>): IExecutionWork
   };
 }
 
-/** SCREEN-1992 TC-04: the tick advances the countdown once a second, only while one exists. */
+/** The tick advances the countdown once a second, only while one exists. */
 describe('BackgroundTaskPanel countdown tick', () => {
   beforeEach(() => {
     vi.useFakeTimers();

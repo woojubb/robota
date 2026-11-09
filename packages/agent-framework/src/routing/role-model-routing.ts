@@ -1,5 +1,5 @@
 /**
- * SELFHOST-006 — per-role model routing policy (neutral, over the provider DIP).
+ * Per-role model routing policy (neutral, over the provider DIP).
  *
  * Pure resolution + fallback-walking over a `TRoleModelMap` (opaque role id → ordered fallback chain).
  * No provider coupling: the caller injects `run(ref)` which performs execution against the given

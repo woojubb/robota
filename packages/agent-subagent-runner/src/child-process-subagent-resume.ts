@@ -1,7 +1,7 @@
 /**
- * CLI-1994: how a fork job's conversation reaches the CHILD process.
+ * How a fork job's conversation reaches the CHILD process.
  *
- * From a plain parent only the id crossed the wire (ARCH-044) — the copy `/fork` wrote stays in the
+ * From a plain parent only the id crossed the wire — the copy `/fork` wrote stays in the
  * session store on the far side, and this is where the id becomes the conversation again. A sealing
  * parent also hands over the record it holds (`resumeHeld`), since a child never holds the keys that
  * open a sealed one; the store takes it before the claim reads the record. Either way the parent lent
@@ -139,10 +139,10 @@ function sealedRecordRefusal(
 }
 
 /** Open the store once so the resumed child can both restore and persist its copied record. */
-export function openResumeSessionStore(
+export async function openResumeSessionStore(
   payload: ISubagentWorkerStartPayload,
   composition: ISubagentWorkerComposition,
-): TResumeSessionStore | undefined {
+): Promise<TResumeSessionStore | undefined> {
   const resumeSessionId = payload.request.resumeSessionId;
   if (resumeSessionId === undefined) return undefined;
   if (composition.openSessionStore === undefined) {
@@ -152,7 +152,10 @@ export function openResumeSessionStore(
         'at the composition root — the same place providerDefinitions is registered.',
     );
   }
-  const store = composition.openSessionStore({ cwd: payload.request.cwd });
+  const store = await composition.openSessionStore({
+    cwd: payload.request.cwd,
+    ...(payload.resumeStore !== undefined ? { resumeStore: payload.resumeStore } : {}),
+  });
   if (payload.resumeHeld !== undefined) {
     if (store.importHeld === undefined) {
       throw new Error(

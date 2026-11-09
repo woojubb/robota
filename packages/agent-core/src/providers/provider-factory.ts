@@ -23,9 +23,9 @@ import type { TUniversalValue } from '../interfaces/types.js';
  * provider's default model — never a second field); `apiKey` `$ENV:` references are resolved here via
  * {@link resolveEnvReference}. This resolver lives in `agent-core` (it imports only `agent-core` symbols)
  * so any consumer — including the `dag-node-llm-text` leaf, which depends on `agent-core` alone — reuses
- * the one credential-resolution path instead of re-reading `process.env` (ARCH-PROVIDER-003).
+ * the one credential-resolution path instead of re-reading `process.env`.
  *
- * #2347: the environment is INJECTED as `resolve`. This function is deterministic from its arguments
+ * The environment is INJECTED as `resolve`. This function is deterministic from its arguments
  * and that resolver; it never reads `process.env` itself. A composition root with a host passes
  * `processEnvResolver` from `@robota-sdk/agent-core/node`.
  */

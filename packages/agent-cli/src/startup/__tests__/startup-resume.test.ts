@@ -1,6 +1,6 @@
 /**
  * Which saved session a run starts in when a store that seals says some records are not verified as
- * the owner's (#3679). The stores are real sealing stores over the agent-core sealer double: owner
+ * the owner's. The stores are real sealing stores over the agent-core sealer double: owner
  * records are written by the store while unlocked (tagged); unverified ones are planted with the
  * public side alone, as any program of the same user can.
  */
@@ -21,7 +21,7 @@ import {
   unverifiedSessionNotice,
 } from '@robota-sdk/agent-framework';
 import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { SESSION_RECORD_ENVELOPE_VERSION } from '@robota-sdk/agent-session';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -40,7 +40,7 @@ import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 

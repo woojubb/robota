@@ -10,6 +10,11 @@ import type {
   restoreSessionRecordIntoSession,
 } from '@robota-sdk/agent-framework';
 
+/** A reference to the parent's chosen store, never project authority by itself. */
+export type TResumeStoreReference =
+  | { readonly scope: 'user' }
+  | { readonly scope: 'project'; readonly repositoryKey: string; readonly worktreeRoot: string };
+
 /**
  * The session record store a fork job's `resumeSessionId` names a record in, typed FROM the one
  * function that reads it (`restoreSessionRecordIntoSession`, agent-framework) rather than from the
@@ -19,7 +24,7 @@ import type {
 export type TResumeSessionStore = Parameters<typeof restoreSessionRecordIntoSession>[0];
 
 /**
- * ARCH-021: what the product composes, stated by the composition root.
+ * What the product composes, stated by the composition root.
  *
  * This is the sibling of {@link ISubagentWorkerEntry} one level up. That seam answers "how is this
  * artifact started"; this one answers "what does this product compose" — and the same rule decides
@@ -29,7 +34,7 @@ export type TResumeSessionStore = Parameters<typeof restoreSessionRecordIntoSess
  * `createDefaultProviderDefinitions()` and building the child's surface from them, while the
  * composition root had already handed the runner the fully composed surface. So a product's custom
  * providers and pack-owned tools reached an in-process subagent and not a child-process one, and
- * ARCH-006's invariant — every tool agent runs comes from a pack — was false in the child.
+ * the invariant that every tool agent runs comes from a pack was false in the child.
  *
  * **Why a recipe rather than the instances.** A composition cannot be projected across a process
  * boundary, because it is code: `createProvider` is a function and a tool carries `execute`. The two
@@ -54,7 +59,7 @@ export interface ISubagentWorkerComposition {
   /**
    * The product's tool surface for THIS subagent's execution root.
    *
-   * `cwd` is a required argument for the same reason `ICreateDefaultToolsOptions.cwd` is (ARCH-010):
+   * `cwd` is a required argument for the same reason `ICreateDefaultToolsOptions.cwd` is:
    * a tool set built without its root carries a disarmed path guard, and the measured consequence
    * was a subagent `Read` returning `/etc/hostname`. Passing the root through the call rather than
    * capturing it in the factory is what stops a child from inheriting the parent's.
@@ -62,7 +67,7 @@ export interface ISubagentWorkerComposition {
   createTools(context: {
     readonly cwd: string;
     /**
-     * ARCH-034: the tiers session assembly adds ON TOP of the product's tool set.
+     * The tiers session assembly adds ON TOP of the product's tool set.
      *
      * The two runners of `ISubagentRunner` were handing a subagent different surfaces, and the
      * difference was silent because both paths succeed. In-process passes the parent's fully
@@ -79,7 +84,7 @@ export interface ISubagentWorkerComposition {
       readonly includeGoalTool?: boolean;
     };
     /**
-     * ARCH-033: the sandbox the child restored, when the parent projected one.
+     * The sandbox the child restored, when the parent projected one.
      *
      * Threaded rather than captured, for the same reason `cwd` is: a tool surface built without the
      * sandbox it is supposed to act in would run on the HOST while the parent runs sandboxed, which
@@ -97,7 +102,7 @@ export interface ISubagentWorkerComposition {
   readonly providerDefinitions: readonly IProviderDefinition[];
 
   /**
-   * How the child rebuilds a SANDBOX that the parent is running in (ARCH-033).
+   * How the child rebuilds a SANDBOX that the parent is running in.
    *
    * The same shape as `providerDefinitions`, and for the same reason. A live `ISandboxClient` is an
    * open session against a remote machine; it cannot cross a process boundary. What CAN cross is the
@@ -119,19 +124,22 @@ export interface ISubagentWorkerComposition {
   readonly sandboxFactories?: Readonly<Record<string, TSandboxClientFactory>>;
 
   /**
-   * CLI-1994: how the child opens the session store a fork job's record was written to.
+   * How the child opens the session store a fork job's record was written to.
    *
    * The same shape as `providerDefinitions` and `sandboxFactories`, and for the same reason: where a
-   * product keeps its session records is the composition root's knowledge, and it cannot be
-   * projected onto the wire without also projecting the records — which is exactly what ARCH-044
-   * keeps off it. So the parent sends the id, and the child asks the composition to open the store
+   * product keeps its session records is the composition root's knowledge. The parent sends the id
+   * and, when supplied by the product, a store reference, never authority. The composition must
+   * independently verify any project reference. The child asks the composition to open the store
    * FOR THE PARENT'S cwd (`request.cwd`, not the execution root — a worktree-isolated child runs in
    * a directory that has no session records of its own).
    *
    * Absent ⇒ the product composes no store, and a job that names a record to resume fails, stated
    * as such, rather than starting with an empty conversation that looks like a fork.
    */
-  readonly openSessionStore?: (context: { readonly cwd: string }) => TResumeSessionStore;
+  readonly openSessionStore?: (context: {
+    readonly cwd: string;
+    readonly resumeStore?: TResumeStoreReference;
+  }) => TResumeSessionStore | Promise<TResumeSessionStore>;
 
   /**
    * How the child seals, decided by its parent: called with the start payload's write grant BEFORE
@@ -192,10 +200,10 @@ export type TSandboxClientFactory = (snapshotId: string) => Promise<TProjectedSa
  * What the factory hands back, expressed STRUCTURALLY rather than as `ISandboxClient`.
  *
  * This package is the neutral runner: it depends on `agent-core`, `agent-executor`,
- * `agent-framework`, `agent-interface-execution` and `agent-process` — deliberately not on
+ * `agent-framework`, `agent-interface/execution` and `agent-os` — deliberately not on
  * `agent-tools`, where `ISandboxClient` lives. Importing that type to describe a value this package
  * only ever passes through would add a dependency edge for a pass-through, which is the shape
- * ARCH-021 removed from here on the provider axis.
+ * this package already avoids on the provider axis.
  *
  * So the seam names the minimum it needs to be honest about — the object is opaque to the runner and
  * meaningful only to the composition root that registered the factory and the tools that receive it.
@@ -228,7 +236,7 @@ export async function restoreProjectedSandbox(
   const factory = factories?.[projection.type];
   if (factory === undefined) {
     // Fail loudly rather than silently running unsandboxed. A child that was TOLD to be sandboxed and
-    // quietly was not is ARCH-010's shape — the measured breach there was a subagent reading outside
+    // quietly was not breaches containment — a subagent could read outside
     // its root — so an unregistered type must stop the job, not degrade it.
     throw new Error(
       `subagent worker: sandbox type "${projection.type}" is not registered in the worker composition. ` +

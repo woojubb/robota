@@ -1,5 +1,9 @@
 # 5-Minute Quick Start
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Two ways to use the same agent foundation: the CLI, or the SDK in your own code.
 
 ## Prerequisites
@@ -29,7 +33,7 @@ DAG workflow from your description, saves it under `.workflows/`, and runs it. S
 ## Option B — Use the SDK in your code
 
 ```bash
-npm install @robota-sdk/agent-framework @robota-sdk/agent-tool-defaults @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-framework @robota-sdk/agent-tools @robota-sdk/agent-provider @anthropic-ai/sdk
 ```
 
 Save this as `agent.mts` and run it with `npx tsx agent.mts`:
@@ -37,8 +41,8 @@ Save this as `agent.mts` and run it with `npx tsx agent.mts`:
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createAnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 // The framework runs on the platform you pass as `host`. On Node, createNodeFrameworkHost lends the
 // files, processes and environment, and createDefaultTools is the set of built-in tools. createQuery
@@ -72,8 +76,8 @@ A host that lends no `createDefaultTools` (`host: {}`) gives the query no built-
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const session = new InteractiveSession({
   host: createNodeFrameworkHost({ createDefaultTools }),
@@ -97,8 +101,8 @@ calling use the same chat-completions protocol:
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const session = new InteractiveSession({
   host: createNodeFrameworkHost({ createDefaultTools }),

@@ -48,7 +48,7 @@ entry and sources this package's `src`:
 ```
 
 A different transport supplies its own `makeClient` (a `TMakeSessionClient<TStatus>`) and, if it adds
-connection states, instantiates `useSessionClient<ItsStatus>` — see `useRtcSession` in `@robota-sdk/agent-transport-webrtc-web`.
+connection states, instantiates `useSessionClient<ItsStatus>` — see `useRtcSession` in `apps/agent-web/src/remote-client`.
 
 See [SPEC.md](./SPEC.md) for the full contract.
 

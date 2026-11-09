@@ -7,8 +7,8 @@ import type {
   IPeerMessageIngress,
   IPeerOrigin,
   TPeerTrust,
-} from '@robota-sdk/agent-interface-session-mobility';
-import type { ITurnHandle, TTurnNotRunReason } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session-mobility';
+import type { ITurnHandle, TTurnNotRunReason } from '@robota-sdk/agent-interface/session';
 
 function ingress(
   over: { id?: string; sequence?: number; trust?: TPeerTrust; admitted?: boolean } = {},
@@ -63,7 +63,7 @@ function host(): IPeerIngressHost & {
   return state;
 }
 
-describe('PEER-002 — the message reaches the runtime, still saying where it came from (#1809)', () => {
+describe('the message reaches the runtime, still saying where it came from', () => {
   it('submits the peer text attributed to the peer', async () => {
     const h = host();
 
@@ -168,7 +168,7 @@ describe('PEER-002 — the message reaches the runtime, still saying where it ca
   });
 });
 
-describe('PEER-002 — the session settles the turn, and that settlement IS the ack (#1809)', () => {
+describe('the session settles the turn, and that settlement IS the ack', () => {
   it('a turn that ran acknowledges', async () => {
     const h = host();
     const result = await new PeerMessageIngress(h).receive(ingress());
@@ -183,7 +183,7 @@ describe('PEER-002 — the session settles the turn, and that settlement IS the 
   it.each(['coalesced', 'dropped', 'cancelled'] as const)(
     'reports %s as the typed reason, not a message string',
     async (reason) => {
-      // RUNTIME-003's whole point: these are different facts, and a sender forced to regex-match an
+      // The typed reason matters: these are different facts, and a sender forced to regex-match an
       // error message to tell them apart has learned nothing it can act on.
       const h = host();
       const result = await new PeerMessageIngress(h).receive(ingress());
@@ -207,9 +207,9 @@ describe('PEER-002 — the session settles the turn, and that settlement IS the 
   });
 });
 
-describe('PEER-002 — the strict posture is opt-in, not assumed (#1809/#1810)', () => {
+describe('the strict posture is opt-in, not assumed', () => {
   it('accepts a token-only peer by default', async () => {
-    // #1809 owns message flow; #1810 owns admission. This module must not quietly become a second
+    // Message flow and admission are separate concerns. This module must not quietly become a second
     // admission gate, so the stricter posture is asked for explicitly.
     const h = host();
 

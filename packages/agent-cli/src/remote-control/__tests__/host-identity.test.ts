@@ -18,7 +18,7 @@ import { hostIdentityCredentialKey, loadOrCreateHostIdentity } from '../host-ide
 import type { ICredentialStore } from '@robota-sdk/agent-core';
 
 /**
- * REMOTE-012 E3 — the host identity is the stationary trust anchor every trusted device pins. Minting a
+ * The host identity is the stationary trust anchor every trusted device pins. Minting a
  * SECOND identity (or clobbering the stored one) silently invalidates every pin and forces a re-pair, so
  * first-run creation must converge on one key and a malformed stored key must fail fast.
  *

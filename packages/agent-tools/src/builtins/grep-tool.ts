@@ -8,7 +8,7 @@
  *
  * headLimit caps the number of result lines; excess is truncated with a marker.
  *
- * SEC-007: when a containment root is configured the search is confined to it. Grep is the most
+ * When a containment root is configured the search is confined to it. Grep is the most
  * disclosing of the file tools — `content` mode returns the matching LINES — so it must be contained
  * at least as strictly as `Read`, which it could otherwise stand in for.
  */
@@ -29,7 +29,7 @@ import type { IContainedBuiltinToolOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
-// CORE-030: defining a tool and telling the permission system what it does arrive together.
+// Defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
 
 const GrepSchema = z.object({
@@ -131,7 +131,7 @@ async function grepFileTool(args: TGrepArgs, options: IGrepToolOptions): Promise
   }
 
   // A fixed number of readers prevents a directory's file count from creating
-  // one promise per file. Result slots retain file-enumeration order (CLI-042).
+  // one promise per file. Result slots retain file-enumeration order.
   const search = new IsolatedGrepSearch(pattern, options.signal);
   const readAbort = new AbortController();
   const abortReads = (): void => readAbort.abort();
@@ -257,7 +257,7 @@ async function grepFileTool(args: TGrepArgs, options: IGrepToolOptions): Promise
   return JSON.stringify(result);
 }
 
-/** The registered name of the shell tool this package's default assembly ships (NEUT-002). */
+/** The registered name of the shell tool this package's default assembly ships. */
 const DEFAULT_SHELL_TOOL_NAME = 'Shell';
 
 /** Options for the grep tool factory: containment root + description seam + shell-tool reference. */

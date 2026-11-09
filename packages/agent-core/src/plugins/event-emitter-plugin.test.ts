@@ -1,5 +1,5 @@
 /**
- * CORE-021 — EventEmitterPlugin error containment (SPEC § EventEmitterPlugin Error
+ * EventEmitterPlugin error containment (SPEC § EventEmitterPlugin Error
  * Containment). A throwing handler must never take down the process:
  * catchErrors: true (default) swallows after metrics + structured log; the buffered
  * flush timer and the maxSize-overflow flush must never float a rejecting promise.
@@ -12,7 +12,7 @@ import { EVENT_EMITTER_EVENTS } from './event-emitter/types';
 
 const EVENT = EVENT_EMITTER_EVENTS.TOOL_SUCCESS;
 
-describe('EventEmitterPlugin error containment (CORE-021)', () => {
+describe('EventEmitterPlugin error containment', () => {
   let unhandled: unknown[];
   const onUnhandled = (reason: unknown): void => {
     unhandled.push(reason);

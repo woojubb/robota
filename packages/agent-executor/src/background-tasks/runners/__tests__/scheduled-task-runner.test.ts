@@ -1,6 +1,11 @@
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 import { nextScheduledFireOnOrAfter } from '../scheduled-fire-time.js';
 import { createScheduledTaskRunner } from '../scheduled-task-runner.js';
+import { NODE_BINARY_ENV, nodeCommand } from './node-shell-command.js';
 import type {
   IBackgroundTaskHandle,
   IBackgroundTaskStart,
@@ -8,6 +13,10 @@ import type {
 } from '../../types.js';
 
 const TEST_TIMEOUT_MS = 15_000;
+// Two fires, 4 s apart, each with a 2.5 s timeout: the test needs time that a loaded runner can eat.
+const HUNG_FIRE_TEST_TIMEOUT_MS = 60_000;
+const HELD_WAKES_DEADLINE_MS = 25_000;
+const HELD_WAKES_TEST_TIMEOUT_MS = HELD_WAKES_DEADLINE_MS + 5_000;
 
 describe('nextScheduledFireOnOrAfter', () => {
   it('selects the first cron slot after a boundary between slots', () => {
@@ -28,13 +37,6 @@ describe('nextScheduledFireOnOrAfter', () => {
     ).toBe('2026-09-24T00:20:00.000Z');
   });
 });
-
-/** The absolute node binary reaches the child through the task env; the command stays a literal. */
-const NODE_BINARY_ENV = 'PRODUCT_TEST_NODE';
-
-function nodeCommand(script: string): string {
-  return `"$${NODE_BINARY_ENV}" -e ${JSON.stringify(script)}`;
-}
 
 function isAlive(pid: number): boolean {
   try {
@@ -78,7 +80,252 @@ function makeScheduledTask(
   };
 }
 
+function restoredWake(events: TBackgroundTaskRunnerEvent[]): IBackgroundTaskStart<'scheduled'> {
+  return {
+    taskId: 'restore_1',
+    request: {
+      kind: 'scheduled',
+      cronExpression: '* * * * * *',
+      agentInstruction: 'wake',
+      label: 'wake',
+      mode: 'background',
+      parentSessionId: 'session_1',
+      depth: 0,
+      cwd: process.cwd(),
+    },
+    emit: (event) => events.push(event),
+  };
+}
+
 describe('createScheduledTaskRunner', () => {
+  it('closes the timer and reports claim loss if ownership verification throws', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const onClaimLoss = vi.fn();
+      const prepared = createScheduledTaskRunner().prepareRestore!(restoredWake(events), {
+        paused: false,
+        canRun: () => {
+          throw new Error('cannot verify');
+        },
+        onClaimLoss,
+      });
+      const result = expect(prepared.handle.result).rejects.toThrow(/claim.*lost/i);
+      expect(prepared.activate()).toBe('active');
+      await vi.advanceTimersByTimeAsync(2000);
+      await result;
+      expect(events.filter((event) => event.type === 'background_task_waking')).toHaveLength(0);
+      expect(onClaimLoss).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('rechecks ownership after wake observers and before a shell command starts', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      let owned = true;
+      const onClaimLoss = vi.fn();
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const wake = restoredWake(events);
+      wake.request.command = nodeCommand('process.exit(42)');
+      wake.request.env = { [NODE_BINARY_ENV]: process.execPath };
+      wake.emit = (event) => {
+        events.push(event);
+        if (event.type === 'background_task_waking') owned = false;
+      };
+      const prepared = createScheduledTaskRunner().prepareRestore!(wake, {
+        paused: false,
+        canRun: () => owned,
+        onClaimLoss,
+      });
+      const result = expect(prepared.handle.result).rejects.toThrow(/claim.*lost/i);
+      expect(prepared.activate()).toBe('active');
+      await vi.advanceTimersByTimeAsync(1000);
+      await result;
+      expect(onClaimLoss).toHaveBeenCalledTimes(1);
+      expect(events.filter((event) => event.type === 'background_task_waking')).toHaveLength(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('refuses activation when the prepared handle was cancelled', async () => {
+    const prepared = createScheduledTaskRunner().prepareRestore!(restoredWake([]), {
+      paused: false,
+    });
+    await prepared.handle.cancel();
+    expect(prepared.activate()).toBe('aborted');
+  });
+  it('continues firing after a restored paused schedule is resumed and edited', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const prepared = createScheduledTaskRunner().prepareRestore!(restoredWake(events), {
+        paused: true,
+      });
+      expect(prepared.activate()).toBe('active');
+      await prepared.handle.resume!();
+      await prepared.handle.editSchedule!({ cronExpression: '* * * * * *' });
+      await vi.advanceTimersByTimeAsync(2100);
+      expect(
+        events.filter((event) => event.type === 'background_task_waking').length,
+      ).toBeGreaterThan(0);
+      await prepared.handle.cancel();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('refuses lifecycle changes until a prepared schedule is activated', async () => {
+    const events: TBackgroundTaskRunnerEvent[] = [];
+    const prepared = createScheduledTaskRunner().prepareRestore!(restoredWake(events), {
+      paused: true,
+    });
+    try {
+      await expect(prepared.handle.pause?.()).rejects.toThrow(/not active/i);
+      await expect(prepared.handle.resume?.()).rejects.toThrow(/not active/i);
+      await expect(prepared.handle.editSchedule?.({ cronExpression: '0 0 * * *' })).rejects.toThrow(
+        /not active/i,
+      );
+      expect(events).toEqual([]);
+    } finally {
+      prepared.abort();
+    }
+  });
+
+  it(
+    'runs held shell wakes without overlapping or losing a child process',
+    async () => {
+      const directory = mkdtempSync(join(tmpdir(), 'prepared-schedule-'));
+      const log = join(directory, 'fires.log');
+      let handle: IBackgroundTaskHandle<'scheduled'> | undefined;
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+        const script =
+          "const fs=require('fs');fs.appendFileSync(process.env.LOG,'start\\n');setTimeout(()=>fs.appendFileSync(process.env.LOG,'end\\n'),150)";
+        const task = makeScheduledTask('* * * * * *', nodeCommand(script));
+        task.request.env = { ...task.request.env, LOG: log };
+        const prepared = createScheduledTaskRunner().prepareRestore!(task, { paused: false });
+        handle = prepared.handle;
+        await vi.advanceTimersByTimeAsync(3000);
+        vi.useRealTimers();
+        prepared.activate();
+        // Three fires run one after another, and each starts a shell and then node: PowerShell takes
+        // seconds to start the first time on a loaded Windows runner. The loop leaves at the sixth
+        // line, so a generous deadline costs nothing where the shell starts fast.
+        const deadline = Date.now() + HELD_WAKES_DEADLINE_MS;
+        let lines: string[] = [];
+        while (Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 25));
+          try {
+            lines = readFileSync(log, 'utf8').trim().split('\n');
+          } catch {
+            /* Child has not written yet. */
+          }
+          if (lines.length >= 6) break;
+        }
+        expect(lines).toEqual(['start', 'end', 'start', 'end', 'start', 'end']);
+      } finally {
+        vi.useRealTimers();
+        await handle?.cancel();
+        rmSync(directory, { recursive: true, force: true });
+      }
+    },
+    HELD_WAKES_TEST_TIMEOUT_MS,
+  );
+
+  it('holds every wake until a prepared restore is activated, then delivers it asynchronously', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const runner = createScheduledTaskRunner();
+      const prepared = runner.prepareRestore!(restoredWake(events), { paused: false });
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(events).toEqual([]);
+      prepared.activate();
+      expect(events).toEqual([]);
+      for (let index = 0; index < 3; index += 1) await Promise.resolve();
+      expect(events.filter((event) => event.type === 'background_task_waking')).toHaveLength(3);
+      await prepared.handle.cancel();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('retains held wakes while paused and delivers them after resume', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const task = restoredWake(events);
+      let handle: IBackgroundTaskHandle<'scheduled'> | undefined;
+      task.emit = (event) => {
+        events.push(event);
+        if (
+          event.type === 'background_task_waking' &&
+          events.filter((item) => item.type === 'background_task_waking').length === 1
+        ) {
+          void handle?.pause?.();
+        }
+      };
+      const prepared = createScheduledTaskRunner().prepareRestore!(task, { paused: false });
+      handle = prepared.handle;
+      await vi.advanceTimersByTimeAsync(3000);
+      prepared.activate();
+      for (let index = 0; index < 4; index += 1) await Promise.resolve();
+      expect(events.filter((event) => event.type === 'background_task_waking')).toHaveLength(1);
+      await handle.resume?.();
+      for (let index = 0; index < 4; index += 1) await Promise.resolve();
+      expect(events.filter((event) => event.type === 'background_task_waking')).toHaveLength(3);
+      await handle.cancel();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps a restored paused schedule paused before and after activation', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const prepared = createScheduledTaskRunner().prepareRestore!(restoredWake(events), {
+        paused: true,
+      });
+      await vi.advanceTimersByTimeAsync(3000);
+      prepared.activate();
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(events).toEqual([]);
+      await prepared.handle.cancel();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not deliver held or later wakes after an aborted restore', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const prepared = createScheduledTaskRunner().prepareRestore!(restoredWake(events), {
+        paused: false,
+      });
+      await vi.advanceTimersByTimeAsync(3000);
+      prepared.abort();
+      prepared.activate();
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(events).toEqual([]);
+      await expect(prepared.handle.result).resolves.toMatchObject({ taskId: 'restore_1' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('has kind "scheduled"', () => {
     const runner = createScheduledTaskRunner();
     expect(runner.kind).toBe('scheduled');
@@ -106,7 +353,7 @@ describe('createScheduledTaskRunner', () => {
   it(
     'emits background_task_sleeping synchronously on start with a strictly-future nextFireAt',
     async () => {
-      // BEHAVIOR-003: the initial sleeping event is emitted synchronously inside start(),
+      // The initial sleeping event is emitted synchronously inside start(),
       // so the previous "wait 200ms then compare to Date.now()" was a flake — if start ran just
       // before a cron boundary, the 200ms wait crossed it and the (correct-at-emit) nextFireAt
       // fell behind the moved wall clock. Pin the clock so nextFireAt is computed against a known
@@ -181,7 +428,7 @@ describe('createScheduledTaskRunner', () => {
   );
 
   it(
-    'kills a hung fire after timeoutMs so subsequent fires still run (CORE-024 RUNTIME-18)',
+    'kills a hung fire after timeoutMs so subsequent fires still run',
     async () => {
       const runner = createScheduledTaskRunner();
       const emittedEvents: TBackgroundTaskRunnerEvent[] = [];
@@ -190,8 +437,10 @@ describe('createScheduledTaskRunner', () => {
       const command = nodeCommand(
         "process.stdout.write('hung-ready:' + process.pid + '\\n'); setInterval(() => {}, 1000);",
       );
+      // The child has to start and report before its own timeout kills it, so the timeout and the
+      // cadence are sized for a Windows runner under load, where starting node takes over a second.
       const task = makeScheduledTask(
-        '* * * * * *',
+        '*/4 * * * * *',
         command,
         (e) => {
           emittedEvents.push(e);
@@ -200,7 +449,7 @@ describe('createScheduledTaskRunner', () => {
           }
         },
         {
-          timeoutMs: 700,
+          timeoutMs: 2_500,
         },
       );
 
@@ -218,9 +467,10 @@ describe('createScheduledTaskRunner', () => {
             );
             expect(pids.length).toBeGreaterThanOrEqual(1);
           },
-          { timeout: 10_000, interval: 20 },
+          { timeout: 30_000, interval: 20 },
         );
-        expect(isAlive(pids[0]!)).toBe(true);
+        // No liveness assertion on a child here: each fire is killed by its own timeout, so on a loaded
+        // runner a child can already be gone when the poll that saw its readiness returns.
         await vi.waitFor(
           async () => {
             const page = await readLog({ offset: 0 });
@@ -231,14 +481,13 @@ describe('createScheduledTaskRunner', () => {
             );
             expect(new Set(pids).size).toBeGreaterThanOrEqual(2);
           },
-          { timeout: 10_000, interval: 20 },
+          { timeout: 30_000, interval: 20 },
         );
         expect((await readLog({ offset: 0 })).lines.join('\n')).toContain(
-          'fire timed out after 700ms',
+          'fire timed out after 2500ms',
         );
         expect(priorChildAliveAtWake).toEqual([false]);
         expect(isAlive(pids[0]!)).toBe(false);
-        expect(isAlive(pids[1]!)).toBe(true);
         expect(emittedEvents.slice(0, 4).map((e) => e.type)).toEqual([
           'background_task_sleeping',
           'background_task_waking',
@@ -255,10 +504,10 @@ describe('createScheduledTaskRunner', () => {
         }
       }
     },
-    TEST_TIMEOUT_MS,
+    HUNG_FIRE_TEST_TIMEOUT_MS,
   );
 
-  // SELFHOST-012 TC-02: a paused schedule does not fire, and resumes correctly with the same task id.
+  // A paused schedule does not fire, and resumes correctly with the same task id.
   it(
     'does not fire while paused (croner .pause(), not .stop()) and fires again after resume',
     async () => {
@@ -309,7 +558,7 @@ describe('createScheduledTaskRunner', () => {
     TEST_TIMEOUT_MS,
   );
 
-  // SELFHOST-012 TC-03: edit re-arms the schedule in place (same task id) with the new cadence.
+  // Edit re-arms the schedule in place (same task id) with the new cadence.
   it('edits a schedule in place — new cadence applies, same task id', async () => {
     vi.useFakeTimers();
     try {
@@ -342,8 +591,8 @@ describe('createScheduledTaskRunner', () => {
     }
   });
 
-  // SELFHOST-012 (review CONSIDER): editing while paused re-pauses the rebuilt job and emits no sleeping while
-  // paused; resuming then announces the NEW cadence. Locks in the `if (state.paused)` re-pause + no-emit guards.
+  // Editing while paused re-pauses the rebuilt job and emits no sleeping while paused; resuming
+  // then announces the NEW cadence. Locks in the `if (state.paused)` re-pause + no-emit guards.
   it('edit while paused stays paused (no sleeping emit) and resumes with the new cadence', async () => {
     vi.useFakeTimers();
     try {

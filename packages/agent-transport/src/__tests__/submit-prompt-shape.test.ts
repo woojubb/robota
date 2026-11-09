@@ -1,5 +1,5 @@
 /**
- * TRANS-008 (issue #2045) — a `submit` prompt that is not a string must not reach the session.
+ * A `submit` prompt that is not a string must not reach the session.
  *
  * `parseClientMessage` does `JSON.parse(data) as TClientMessage`, and the only guard in the submit
  * handler is `if (!msg.prompt)`. That is a FALSY check, not a type check: `{}`, `[]` and `42` are
@@ -20,7 +20,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createSessionMessageHandler } from '../session-message-handler.js';
@@ -40,7 +40,7 @@ function setup() {
   return { submit, sent, onMessage };
 }
 
-describe('TRANS-008: a non-string submit prompt is refused at the ingress', () => {
+describe('a non-string submit prompt is refused at the ingress', () => {
   it.each([
     ['an object', {}],
     ['an array', []],

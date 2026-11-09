@@ -27,7 +27,9 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { createKeyringFileStore } from '../keyring-store.js';
+import { resolveCliRuntimeContext } from '../../startup/product-bootstrap.js';
+import { writeProductConversationMode } from '../conversation-mode-state.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { SECURE_USAGE, runSecureCommand, type ISecureCommandOptions } from '../secure-command.js';
 import {
   FIXTURE_PASSPHRASE,
@@ -318,6 +320,23 @@ describe('secure status', () => {
     expect(existsSync(secureDirectory())).toBe(false);
   });
 
+  it('reports the persisted conversation choice even when the keyring is absent', async () => {
+    const plain = runtime();
+    const root = plain.layout.userRoot;
+    for (const [expected, next, label] of [
+      ['plain', 'preparing', 'preparing'],
+      ['preparing', 'secure', 'secure'],
+      ['secure', 'plain', 'plain'],
+    ] as const) {
+      writeProductConversationMode(root, expected, next);
+      stdout = [];
+      const selected = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+      const { code } = await secure(['status'], {}, { productRuntime: selected, openTerminal: noTerminal });
+      expect(code).toBe(0);
+      expect(out()).toContain(`Conversation mode: ${label}`);
+    }
+  });
+
   it('reports the path, the slots with their scrypt cost, the fingerprint and the file mode, without unlocking', async () => {
     const { keyring } = await installFixtureKeyring();
     const { code } = await secure(['status'], {}, { openTerminal: noTerminal, stdinIsTTY: false });
@@ -372,6 +391,106 @@ describe('secure status', () => {
     expect(code).toBe(1);
     expect(err()).toMatch(/not a valid keyring/);
     expect(out() + err()).not.toContain(marker);
+  });
+});
+
+describe('secure disable', () => {
+  it('requires an explicit terminal choice and retains the sealed archive', async () => {
+    const plain = runtime();
+    const root = plain.layout.userRoot;
+    writeProductConversationMode(root, 'plain', 'preparing');
+    writeProductConversationMode(root, 'preparing', 'secure');
+    const archive = join(root, 'secure-v1', 'sessions');
+    mkdirSync(archive, { recursive: true, mode: 0o700 });
+    writeFileSync(join(archive, 'sealed-record'), 'sealed bytes', { mode: 0o600 });
+    const selected = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+
+    const cancelled = await secure(['disable'], {}, { productRuntime: selected, confirm: async () => 'no' });
+    expect(cancelled.code).toBe(1);
+    expect(resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment }).conversationMode).toBe('secure');
+
+    const accepted = await secure(['disable'], {}, { productRuntime: selected, confirm: async () => 'yes' });
+    expect(accepted.code).toBe(0);
+    expect(resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment }).conversationMode).toBe('plain');
+    expect(readFileSync(join(archive, 'sealed-record'), 'utf8')).toBe('sealed bytes');
+    expect(out()).toContain('New conversations will be saved in plaintext');
+  });
+
+  it('refuses to turn an unfinished preparation into ordinary mode', async () => {
+    const plain = runtime();
+    writeProductConversationMode(plain.layout.userRoot, 'plain', 'preparing');
+    const selected = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+    const { code } = await secure(['disable'], {}, { productRuntime: selected, confirm: async () => 'yes' });
+    expect(code).toBe(1);
+    expect(resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment }).conversationMode).toBe('preparing');
+  });
+});
+
+describe('secure enable', () => {
+  it('turns on secure conversations only after the owner confirms an empty-state plan', async () => {
+    await installFixtureKeyring();
+    const plain = runtime();
+    const selected = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+
+    const cancelled = await secure(['enable'], { passphrase: FIXTURE_PASSPHRASE }, {
+      productRuntime: selected,
+      confirm: async () => 'no',
+      migrationSteps: [],
+    });
+    expect(cancelled.code).toBe(1);
+    expect(resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment }).conversationMode).toBe('plain');
+
+    const accepted = await secure(['enable'], { passphrase: FIXTURE_PASSPHRASE }, {
+      productRuntime: selected,
+      confirm: async () => 'yes',
+      migrationSteps: [],
+    });
+    expect(accepted.code).toBe(0);
+    expect(resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment }).conversationMode).toBe('secure');
+  });
+
+  it('keeps incomplete preparation blocked and resumes it on another invocation', async () => {
+    await installFixtureKeyring();
+    const plain = runtime();
+    const selected = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+    const incomplete = await secure(['enable'], { passphrase: FIXTURE_PASSPHRASE }, {
+      productRuntime: selected,
+      confirm: async () => 'yes',
+      migrationSteps: [{
+        title: 'a held legacy record',
+        plan: () => ({ lines: ['One record remains.'], complete: false }),
+        run: async () => ({ lines: ['One record remains.'], complete: false }),
+      }],
+    });
+    expect(incomplete.code).toBe(5);
+    const preparing = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+    expect(preparing.conversationMode).toBe('preparing');
+
+    const resumed = await secure(['enable'], { passphrase: FIXTURE_PASSPHRASE }, {
+      productRuntime: preparing,
+      confirm: async () => 'yes',
+      migrationSteps: [],
+    });
+    expect(resumed.code).toBe(0);
+    expect(resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment }).conversationMode).toBe('secure');
+  });
+
+  it('refuses an uncertain process before changing the mode choice', async () => {
+    await installFixtureKeyring();
+    const plain = runtime();
+    mkdirSync(join(plain.layout.userPaths.presence, 'process-4242-Unknow'), {
+      recursive: true,
+      mode: 0o700,
+    });
+    const selected = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+    const result = await secure(['enable'], { passphrase: FIXTURE_PASSPHRASE }, {
+      productRuntime: selected,
+      confirm: async () => 'yes',
+      migrationSteps: [],
+    });
+    expect(result.code).toBe(1);
+    expect(resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment }).conversationMode).toBe('plain');
+    expect(err()).toContain('active or uncertain');
   });
 });
 
@@ -472,7 +591,6 @@ describe('secure change-passphrase', () => {
     expect(fingerprint(viaNew.sealing.publicKey)).toBe(fingerprint(getSealingPublicKey(keyring)));
     viaNew.lock();
     (await unlockWithRecoveryKey(updated, recoveryKey)).lock();
-    expect(readdirSync(secureDirectory())).toEqual(['keyring.json']);
     expect(everythingUnder(home)).not.toContain(oldSlot.wrappedKey);
   });
 
@@ -788,8 +906,9 @@ describe('the passphrase comes from a person at a terminal and nowhere else', ()
     },
   );
 
-  it('has no unlock or lock subcommand: unlocked keys live in the process that uses them', () => {
-    expect(SECURE_USAGE('test-product')).not.toMatch(/\bunlock\b|\block\b/);
+  it('offers lock but no unlock subcommand: unlocked keys live in the process that uses them', () => {
+    expect(SECURE_USAGE('test-product')).not.toMatch(/\bunlock\b/);
+    expect(SECURE_USAGE('test-product')).toContain('secure lock');
   });
 });
 

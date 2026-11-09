@@ -1,7 +1,7 @@
 import type { TAppToolArguments, TAppToolOutcome, TAppView } from '../app-view/types.js';
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
 import type { TPendingPrompt } from './prompt-state.js';
-import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
+import type { TActionResponse } from '@robota-sdk/agent-interface/transport';
 import type {
   IDiffLine,
   IToolAppViewRef,
@@ -10,13 +10,17 @@ import type {
   TDriverId,
   TPermissionResultValue,
   TSettingsPatch,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type {
   IBackgroundTaskState,
   IExecutionDetailRecord,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
-import type { IWireAgentDefinitionSummary, TServerMessage } from '@robota-sdk/agent-transport';
+} from '@robota-sdk/agent-interface/execution';
+import type {
+  IWireAgentDefinitionSummary,
+  TServerMessage,
+  TSessionSurfaceRole,
+} from '@robota-sdk/agent-transport';
 
 export type { TAppToolArguments, TAppToolOutcome, TAppView } from '../app-view/types.js';
 
@@ -34,7 +38,7 @@ export type TCommandCatalog = Omit<Extract<TServerMessage, { type: 'commands' }>
 export type TSessionStatus = Extract<TServerMessage, { type: 'session_status' }>['status'];
 
 /**
- * #3282 §2 (part 2): the models a person may switch to, grouped by configured provider profile —
+ * The models a person may switch to, grouped by configured provider profile —
  * what the model control's pop-up menu is built from. `null` until requested (`list-models`).
  */
 export type TModelListSnapshot = Omit<
@@ -55,7 +59,7 @@ export type TCurrentSessionUsageReport = Extract<
   { type: 'usage_report' }
 >['report'];
 
-/** #3282 §4c — the Project panel's reads. Each result crosses the wire unchanged from the session
+/** The Project panel's reads. Each result crosses the wire unchanged from the session
  *  method's own return value (see `wire-messages.ts`'s doc comment on `project_status`). */
 export type TProjectStatusRead = Extract<TServerMessage, { type: 'project_status' }>['result'];
 export type TProjectDiffRead = Extract<TServerMessage, { type: 'project_diff' }>['result'];
@@ -66,7 +70,7 @@ export interface IConversationMessage {
   role: 'user' | 'assistant';
   content: string;
   isStreaming?: boolean;
-  /** REMOTE-014 E5: the co-driving author of a user turn. */
+  /** The co-driving author of a user turn. */
   author?: string;
 }
 
@@ -97,7 +101,7 @@ export interface IChangedFileSummary {
   diffLines: readonly IDiffLine[];
 }
 
-/** #3288: a turn that changed files ends with this compact summary row. */
+/** A turn that changed files ends with this compact summary row. */
 export interface IChangedFilesEntry {
   id: string;
   role: 'changed-files';
@@ -113,28 +117,28 @@ export interface IActiveTool {
   status: 'running' | 'done' | 'error';
   input?: string;
   result?: IToolState['result'];
-  /** #3288: correlates this call across `tool_start`/`tool_end` — how a finished call is matched. */
+  /** Correlates this call across `tool_start`/`tool_end` — how a finished call is matched. */
   executionId?: string;
-  /** #3288: a unified diff (Edit/Write), built server-side — the same one an approval prompt showed. */
+  /** A unified diff (Edit/Write), built server-side — the same one an approval prompt showed. */
   diffLines?: readonly IDiffLine[];
-  /** #3288: the file `diffLines` concerns, workspace-relative when the server could make it so. */
+  /** The file `diffLines` concerns, workspace-relative when the server could make it so. */
   diffFile?: string;
-  /** #3288: the tool's raw result payload (Shell output, Read content, …), already capped server-side. */
+  /** The tool's raw result payload (Shell output, Read content, …), already capped server-side. */
   toolResultData?: string;
   /** Admitted observations; opaque resource URIs do not authorize a client-side fetch. */
   toolResultParts?: IToolState['toolResultParts'];
-  /** #3288: a workspace-relative display form of a path argument, additive to `input`/`firstArg`. */
+  /** A workspace-relative display form of a path argument, additive to `input`/`firstArg`. */
   displayPath?: string;
-  /** #3288: set when this call is a projected `/command` tool — render "Ran /<commandName>". */
+  /** Set when this call is a projected `/command` tool — render "Ran /<commandName>". */
   commandName?: string;
-  /** #3288: true for an internal signal tool (e.g. goal-status) — never rendered as a call. */
+  /** True for an internal signal tool (e.g. goal-status) — never rendered as a call. */
   internal?: boolean;
 
   appView?: IToolAppViewRef;
 }
 
 /**
- * #3280 §2: a prompt the host queued behind the running turn — the server has already taken it, so it
+ * A prompt the host queued behind the running turn — the server has already taken it, so it
  * is not lost, but it will not run until the turn ends. `count` is the TOTAL number waiting (the shown
  * `text` plus any behind it), matching the wire's `pendingCount`.
  */
@@ -148,7 +152,7 @@ export interface ISessionNotice {
   /**
    * `session-change-refused`: the host refused a new or switch this surface asked for.
    * `background-task-control-failed`: a Stop in the Agents panel did not take effect.
-   * `command-failed` (#3282 §2 part 2): a change made through a status control (model/mode/effort)
+   * `command-failed`: a change made through a status control (model/mode/effort)
    * failed — a plain notice rather than a conversation card, since the control's own label is where
    * a successful change confirms itself and the label stays unchanged when it fails.
    */
@@ -161,7 +165,7 @@ export interface ISessionNotice {
     | 'context-compacted';
   message: string;
   /**
-   * A `session-error` classified at the wire boundary (#3289 §3) — present only when the host could
+   * A `session-error` classified at the wire boundary — present only when the host could
    * tell what kind of failure this was. `SessionNotices` maps it to one plain sentence and keeps
    * `message` behind a "Details" disclosure; absent, it shows `message` as before.
    */
@@ -191,7 +195,7 @@ export type TMakeSessionClient<TStatus extends string = TConnectionStatus> = (ca
 export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   status: TStatus;
   /**
-   * Set by `useWsSession` once its reconnect retries give up (issue #3280 §5): the runtime is not
+   * Set by `useWsSession` once its reconnect retries give up: the runtime is not
    * coming back by itself. Cleared again once `status` reaches `connected`. Undefined for a reducer
    * with no such concept (e.g. the WebRTC surface, which has its own `failed`/`refused` statuses).
    */
@@ -204,12 +208,14 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   sessionName: string | null;
   /** This connection's own driver id, learned from the server's first frame; null until then. */
   ownDriverId: TDriverId | null;
+  /** The role the host gave this connection, learned when it connects; null until the host answers. */
+  role: TSessionSurfaceRole | null;
   /** Null until the session has answered; refreshed after every command. */
   commandCatalog: TCommandCatalog | null;
   /** Null until the session has answered; refreshed after every command and turn. */
   sessionStatus: TSessionStatus | null;
   /**
-   * #3282 §2 (part 2): the models the model control's pop-up menu offers. Null until requested — the
+   * The models the model control's pop-up menu offers. Null until requested — the
    * menu asks for it when it opens (or refreshes it) rather than every surface fetching it eagerly.
    */
   modelList: TModelListSnapshot | null;
@@ -233,13 +239,13 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   setSessionSidebarOpen: (open: boolean) => void;
   send: (msg: TClientMessage) => void;
   /**
-   * #3282 §2 (part 2): run a command the SAME way `send({type:'command', ...})` does, but mark its
+   * Run a command the SAME way `send({type:'command', ...})` does, but mark its
    * outcome as controls-triggered — `useSessionClient` skips the conversation card for a change made
    * this way (the control's own label confirms it instead), while a typed command keeps its card.
    */
   sendCommandSilently: (name: string, args?: string) => void;
   pendingPrompts: readonly TPendingPrompt[];
-  /** #3280 §2: the prompt queued behind a running turn, or null when none is queued. */
+  /** The prompt queued behind a running turn, or null when none is queued. */
   queuedPrompt: IQueuedPrompt | null;
   answerPermission: (id: string, result: TPermissionResultValue) => void;
   answerAsk: (id: string, response: TActionResponse) => void;
@@ -257,53 +263,58 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   requestCurrentSessionUsage: () => void;
   sessionNotices: readonly ISessionNotice[];
   dismissSessionNotice: (id: string) => void;
-  /** #3282 §4a: whether the Settings modal is shown. `/settings` and the gear button both open it. */
+  /** Whether the Settings modal is shown. `/settings` and the gear button both open it. */
   settingsOpen: boolean;
   settingsStatus: 'idle' | 'loading' | 'ready' | 'error';
   /** Null until the first `get-settings` reply arrives. */
   settingsSnapshot: ISettingsSnapshot | null;
   /** The plain message from the most recent failed read or write, if any. */
   settingsError: string | null;
-  /** #3282 §4 part b-2: which section the screen should land on for the open in progress. */
+  /** Which section the screen should land on for the open in progress. */
   settingsInitialSectionId: string | null;
   /**
    * Opens the screen and (re-)fetches its snapshot — the "reopen and see the new value" path.
    * `sectionId` jumps straight to that section (e.g. `/plugin` → `'plugins'`, "Manage providers…"
-   * (#3282 §2/§4b) → `'providers'`); omitted opens on the screen's own default (General).
+   * → `'providers'`); omitted opens on the screen's own default (General).
    */
   openSettings: (sectionId?: string) => void;
   closeSettings: () => void;
   /** A failed write leaves `settingsSnapshot` at its previous value; `settingsError` names why. */
   updateSettings: (patch: TSettingsPatch) => void;
-  /** #3282 §4e: whether the Help sheet is shown. `/help` opens it instead of reaching the session. */
+  /** Whether the Help sheet is shown. `/help` opens it instead of reaching the session. */
   helpOpen: boolean;
   openHelp: () => void;
   closeHelp: () => void;
-  /** #3288 §1: the id of the execution-workspace entry open in the detail sheet, or null when closed. */
+  /** The id of the execution-workspace entry open in the detail sheet, or null when closed. */
   openEntryId: string | null;
   executionDetailStatus: 'idle' | 'loading' | 'ready' | 'error';
   executionDetailRecords: readonly IExecutionDetailRecord[];
   executionDetailError: string | null;
   /** True once the last page read had no further cursor — nothing more to load. */
   executionDetailComplete: boolean;
+  executionDetailInput?: { taskId: string; status: 'pending' | 'sent' | 'failed' };
+  executionDetailMode?: 'live' | 'transcript';
+  executionDetailUnreadable?: { locked: number; noKeys: number; doesNotOpen: number };
+  showEarlierExecutionDetail?: () => void;
+  showLiveExecutionDetail?: () => void;
   openExecutionDetail: (entryId: string) => void;
   loadMoreExecutionDetail: () => void;
   closeExecutionDetail: () => void;
-  /** #3282 §4c — the Project panel's "Changes" section (git status). */
+  /** The Project panel's "Changes" section (git status). */
   projectStatusState: 'idle' | 'loading' | 'ready' | 'error';
   projectStatus: TProjectStatusRead | null;
   requestProjectStatus: () => void;
-  /** #3282 §4c — the Project panel's "File diff" section, for the file `projectDiffPath` names. */
+  /** The Project panel's "File diff" section, for the file `projectDiffPath` names. */
   projectDiffState: 'idle' | 'loading' | 'ready' | 'error';
   projectDiffPath: string | null;
   projectDiff: TProjectDiffRead | null;
   requestProjectDiff: (path: string) => void;
-  /** #3282 §4c — the Project panel's "Memory" section. */
+  /** The Project panel's "Memory" section. */
   projectMemoryState: 'idle' | 'loading' | 'ready' | 'error';
   projectMemory: TProjectMemoryRead | null;
   requestProjectMemory: () => void;
   /**
-   * #3282 §4 part b-3: whether the agent switcher sheet is shown. `/agent` (bare) and this surface's
+   * Whether the agent switcher sheet is shown. `/agent` (bare) and this surface's
    * own control both open it.
    */
   agentSwitcherOpen: boolean;
@@ -320,7 +331,7 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   /** Runs the same path as `/agent <name>`. */
   selectAgent: (agentType: string) => void;
   /**
-   * #3282 §4 part b-3: the schedules shown in the Agents panel's "Scheduled" group — every
+   * The schedules shown in the Agents panel's "Scheduled" group — every
    * `IBackgroundTaskState` of `kind: 'scheduled'`, refreshed on connect and after a write.
    */
   scheduledTasks: readonly IBackgroundTaskState<'scheduled'>[];
@@ -329,7 +340,7 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   resumeSchedule: (taskId: string) => void;
   /**
    * Permanently stops a schedule — the same `cancel-background-task` write Stop already uses. A
-   * failure surfaces the same way a failed Stop does (#3288 §1's `background-task-control-failed`
+   * failure surfaces the same way a failed Stop does (the `background-task-control-failed`
    * session notice) — no separate error state here.
    */
   deleteSchedule: (taskId: string) => void;

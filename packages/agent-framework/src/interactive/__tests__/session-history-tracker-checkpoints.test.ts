@@ -1,5 +1,5 @@
 /**
- * #3679 — a session over sealed edit checkpoints: a turn its store cannot checkpoint still runs, and
+ * A session over sealed edit checkpoints: a turn its store cannot checkpoint still runs, and
  * says so where the person reads the conversation; `/rewind list` lists and counts from one read.
  */
 import { mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -17,7 +17,7 @@ import { createWorkspaceProjectMutation } from '../../workspace-trust/index.js';
 
 import type { IEditCheckpointStateStorage } from '../../checkpoints/edit-checkpoint-state-storage.js';
 import type { TArtifactSealing } from '@robota-sdk/agent-core';
-import type { IBranchEvent } from '@robota-sdk/agent-interface-session';
+import type { IBranchEvent } from '@robota-sdk/agent-interface/session';
 
 const SESSION = 'session_1';
 

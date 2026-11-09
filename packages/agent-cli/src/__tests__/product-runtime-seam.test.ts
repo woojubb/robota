@@ -1,15 +1,15 @@
 import { createTestProductRuntime } from './helpers/product-runtime.js';
 /**
- * ARCH-007 — `the product` consumes the composition kernel's RUNTIME SEAM, not just its materials.
+ * `the product` consumes the composition kernel's RUNTIME SEAM, not just its materials.
  *
- * The ARCH-005 S2 disclosure (B1) was that `cli.ts` passed the assembled materials into
+ * The failure to guard against is a shell that passed the assembled materials into
  * `renderApp` / `runPrintMode` / `runServeMode` by hand and never called
  * `product.buildRuntimeOptions` — so the kernel's OVERLAY (pack tools → `additionalTools`, pack
  * subagents → `agentDefinitions`, the default preset's `permissionMode`) was exercised only by tests
  * and by external Mode-A consumers, never by the reference product.
  *
  * These tests pin the seam through the SHIPPED helper (`buildProductRuntimeOptions`) that `cli.ts`
- * actually calls — never a re-implementation of it. That is the S2 F4 lesson: an equivalence gate that
+ * actually calls — never a re-implementation of it. That is the rule: an equivalence gate that
  * re-derives the shipped logic tests the test, not the product.
  */
 
@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '@robota-sdk/agent-product/preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { afterAll, describe, expect, it } from 'vitest';
 
@@ -37,7 +37,7 @@ import { resolveShellPreset } from '../startup/preset-selection.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
-import type { IPreset } from '@robota-sdk/agent-preset';
+import type { IPreset } from '@robota-sdk/agent-product/preset';
 
 const testHost = createTestFrameworkHost();
 const PRODUCT_DEFAULT_AGENT_NAME = productDefaultAgentName(createTestProductRuntime());
@@ -51,7 +51,7 @@ const PRODUCT_PACK_COMMAND_MODULE_NAMES = packCommandModuleNames(PRODUCT_PACKS);
 
 const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;
 
-/** The nine coding tools `pack-coding` contributes — pinned so a drift fails here, not silently. */
+/** The nine coding tools `agent-product/coding` contributes — pinned so a drift fails here, not silently. */
 const CODING_TOOL_NAMES = [
   'Shell',
   'Bash',
@@ -86,7 +86,7 @@ function productFixture(overrides: IProbeOverrides = {}) {
     agentName: PRODUCT_DEFAULT_AGENT_NAME,
     providerDefinitions,
     provider: createScriptedProvider([{ text: 'ok' }]).provider,
-    // ARCH-008: the SHIPPED shell resolution (registry + id + override context as one value), exactly as
+    // The SHIPPED shell resolution (registry + id + override context as one value), exactly as
     // `startCli` builds it — never a hand-rolled registry, which would test the test.
     preset: resolveShellPreset(
       overrides.presets ?? [],
@@ -126,7 +126,7 @@ function runtimeFixtureOptions(overrides: IProbeOverrides = {}) {
   });
 }
 
-describe('ARCH-007 — the kernel overlay is test-product’s single assembly path', () => {
+describe('the kernel overlay is test-product’s single assembly path', () => {
   it('keeps test-product Agent model-visible identifiers on the resolved runtime options', () => {
     const options = runtimeFixtureOptions();
     expect(options.promptFileReferenceTag).toBe('test_product_references');
@@ -157,7 +157,7 @@ describe('ARCH-007 — the kernel overlay is test-product’s single assembly pa
     );
   });
 
-  it('SUPPRESSES the framework default tier so the packs are the SOLE source of tools (ARCH-006)', () => {
+  it('SUPPRESSES the framework default tier so the packs are the SOLE source of tools', () => {
     // `defaultTools: []` REPLACES `createDefaultTools()`. Without it the framework would still contribute
     // its own nine tools and the pack's would merely dedupe away — the pack would be decorative.
     expect(runtimeFixtureOptions().toolOptions.defaultTools).toEqual([]);
@@ -173,7 +173,7 @@ describe('ARCH-007 — the kernel overlay is test-product’s single assembly pa
   });
 
   it('gives test-product the PACK’s cwd-scoped tools, not the framework defaults', async () => {
-    // The identity check that makes the axis real: the product's `Read` is the instance `pack-coding` built
+    // The identity check that makes the axis real: the product's `Read` is the instance `agent-product/coding` built
     // with the shell's cwd, so it DENIES a path outside it. A framework default built with a different
     // cwd — or, worse, a context-free pack instance — would not.
     const read = runtimeFixtureOptions().toolOptions.additionalTools.find(
@@ -220,7 +220,7 @@ describe('ARCH-007 — the kernel overlay is test-product’s single assembly pa
   });
 
   it('lets the kernel apply the default preset’s permission posture when the shell left it unset', () => {
-    // `careful-reviewer` maps autonomy 'ask-first' → permissionMode 'default' in agent-preset.
+    // `careful-reviewer` maps autonomy 'ask-first' → permissionMode 'default' in agent-product/preset.
     expect(runtimeFixtureOptions({ defaultPresetId: 'careful-reviewer' }).permissionMode).toBe(
       'default',
     );
@@ -235,32 +235,30 @@ describe('ARCH-007 — the kernel overlay is test-product’s single assembly pa
     ).toBe('bypassPermissions');
   });
 
-  it('keeps ONE preset SSOT — the same external preset resolves identically on both paths (B2)', () => {
-    // ARCH-007 B2 decided the shell would keep `agent-preset`'s MODULE-GLOBAL registry as the SSOT,
-    // because the resolved preset is needed BEFORE the base command modules are built and because
-    // in-session `/preset` read that same registry. ARCH-009 removed the global: BOTH surfaces now read
-    // the instance registry the shell built, and the product adopts that very instance. The gate is
-    // unchanged in what it protects — the two paths must not split — but there is now one registry to
-    // split FROM rather than two that happen to agree.
+  it('keeps ONE preset SSOT — the same external preset resolves identically on both paths', () => {
+    // The resolved preset is needed BEFORE the base command modules are built, and in-session
+    // `/preset` reads the same registry: BOTH surfaces read the instance registry the shell built,
+    // and the product adopts that very instance. The gate protects that the two paths must not
+    // split — there is one registry to split FROM rather than two that happen to agree.
     const external: IPreset = {
-      id: 'arch-007-probe',
+      id: 'probe-preset',
       title: 'probe',
-      description: 'B2 split-SSOT gate',
+      description: 'split-SSOT gate',
       persona: 'probe persona',
       autonomy: 'ask-first',
     };
     const shellRegistry = createPresetRegistry([external]);
 
     // (a) visible to the registry the startup delta + `/preset` discovery read…
-    expect(shellRegistry.getPreset('arch-007-probe')).toBeDefined();
-    expect(shellRegistry.listPresets().map((p) => p.id)).toContain('arch-007-probe');
+    expect(shellRegistry.getPreset('probe-preset')).toBeDefined();
+    expect(shellRegistry.listPresets().map((p) => p.id)).toContain('probe-preset');
 
     // (b) …and to the assembled product, resolving to exactly the same options.
     const { product } = productFixture({ presets: [external] });
-    expect(product.resolvePreset('arch-007-probe')).toEqual(
-      shellRegistry.resolvePreset('arch-007-probe'),
+    expect(product.resolvePreset('probe-preset')).toEqual(
+      shellRegistry.resolvePreset('probe-preset'),
     );
-    expect(product.resolvePreset('arch-007-probe')).toMatchObject({
+    expect(product.resolvePreset('probe-preset')).toMatchObject({
       persona: 'probe persona',
       permissionMode: 'default',
     });

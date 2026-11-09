@@ -1,4 +1,4 @@
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
 import { summarizeUsageBySource } from '@robota-sdk/agent-session-analytics';
 import { describe, expect, it, vi } from 'vitest';
@@ -19,7 +19,7 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskResult,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 const testHost = createTestFrameworkHost();
 
@@ -323,6 +323,9 @@ describe('InteractiveSession background task integration', () => {
 
   it('marks restored running background tasks as stale when they cannot be reattached', () => {
     const sessionStub = createSharedSessionStub({ getSessionId: () => 'session_parent' });
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: new BackgroundTaskManager({ runners: [] }),
+    } as unknown as IAgentToolDeps);
     const sessionStore = createSessionStoreStub();
     sessionStore.save({
       id: 'session_stale',
@@ -373,7 +376,7 @@ describe('InteractiveSession background task integration', () => {
     });
   });
 
-  it("attributes a completed background agent task's token usage to its source in the parent log (ANALYTICS-001 P2)", async () => {
+  it("attributes a completed background agent task's token usage to its source in the parent log", async () => {
     const runner: IBackgroundTaskRunner<'agent'> = {
       kind: 'agent',
       start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
@@ -403,7 +406,7 @@ describe('InteractiveSession background task integration', () => {
     const created = await manager.spawn(createAgentRequest('Find files'));
     await manager.wait(created.id);
 
-    // Phase 2: the completed task's usage is appended to the parent log as a source-attributed
+    // The completed task's usage is appended to the parent log as a source-attributed
     // usage-summary, so the usage report attributes those tokens to the task (not the main thread).
     const history = interactiveSession.getFullHistory();
     const backgroundUsage = history.find(

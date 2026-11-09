@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3289 §3 review — every state `SessionSurface`'s conversation slot can show renders exactly one
+ * Every state `SessionSurface`'s conversation slot can show renders exactly one
  * `main` landmark. Nothing above `SessionSurface` (agent-gui-web's `App`, or a host embedding the
  * package directly) can be relied on to supply one, so each of the slot's own states — the empty
  * state before a first turn, the provider-setup gate, and the real conversation (`ConversationView`,
@@ -56,7 +56,7 @@ function baseState(overrides: Record<string, unknown> = {}): IWsSessionState {
   } as unknown as IWsSessionState;
 }
 
-describe('SessionSurface renders exactly one main landmark in every conversation-slot state (#3289 §3 review)', () => {
+describe('SessionSurface renders exactly one main landmark in every conversation-slot state', () => {
   it('the empty state before a first turn', () => {
     const { container } = render(<SessionSurface state={baseState()} />);
     expect(container.querySelectorAll('main')).toHaveLength(1);

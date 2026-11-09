@@ -1,14 +1,17 @@
 ---
 title: Migrating to 3.0
-description: Upgrade from the Robota SDK 2.x packages to the 3.0.0 beta line, and between 3.0.0 betas.
+description: Upgrade from the Robota SDK 2.x packages and earlier 3.0 versions.
 ---
 
 # Migrating to 3.0
 
-Robota 3.0 is published as the `3.0.0-beta.x` line (for example `3.0.0-beta.83`). npm's `latest` tag
-points at the newest beta, so `npm install @robota-sdk/agent-core` installs it. In `package.json`,
-use a caret range on a beta version such as `^3.0.0-beta.83`: it accepts later betas and the stable
-`3.0.0`, while a plain `^3.0.0` does not match any beta.
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
+The 3.0.7 SDK is published. This source describes the planned 3.1.0 platform changes; check the
+registry and install that release only after it is published. npm dist-tags can move, so check the
+version installed before relying on its exports.
 
 This guide has two parts: moving from the 2.x packages, and changes between 3.0.0 betas.
 
@@ -35,15 +38,19 @@ The 2.x packages had short names; 3.0 packages are named by role.
 -  "@robota-sdk/openai": "^2.0.9",
 -  "@robota-sdk/anthropic": "^2.0.9",
 -  "@robota-sdk/google": "^2.0.9",
-+  "@robota-sdk/agent-core": "^3.0.0-beta.83",
-+  "@robota-sdk/agent-plugin": "^3.0.0-beta.83",
-+  "@robota-sdk/agent-provider-openai": "^3.0.0-beta.83",
-+  "@robota-sdk/agent-provider-anthropic": "^3.0.0-beta.83",
-+  "@robota-sdk/agent-provider-gemini": "^3.0.0-beta.83",
++  "@robota-sdk/agent-core": "^3.1.0",
++  "@robota-sdk/agent-plugin": "^3.1.0",
++  "@robota-sdk/agent-provider-openai": "^3.1.0",
++  "@robota-sdk/agent-provider-anthropic": "^3.1.0",
++  "@robota-sdk/agent-provider-gemini": "^3.1.0",
 ```
 
 Each provider package brings its vendor SDK (`openai`, `@anthropic-ai/sdk`, `@google/genai`) as its
 own dependency.
+
+The provider packages named here, and the other packages that 3.3 merged, are subpaths of `@robota-sdk/agent-provider` and
+the other merged packages today, and a vendor SDK is an optional peer the application installs; see
+[Packages merged into subpaths](#packages-merged-into-subpaths) for the current names.
 
 ### What stays the same
 
@@ -156,15 +163,36 @@ subagent sessions with their own tools and history, and the `__PRODUCT_CLI_NAME_
 
 ### Package names from earlier betas
 
-| Earlier beta package                                      | Now                                                                                                                                                                                |
-| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@robota-sdk/agent-sdk`                                   | `@robota-sdk/agent-framework`                                                                                                                                                      |
-| `@robota-sdk/agent-sessions`                              | `@robota-sdk/agent-session`                                                                                                                                                        |
-| `@robota-sdk/agent-executor`                               | `@robota-sdk/agent-executor`                                                                                                                                                       |
-| `@robota-sdk/agent-provider-google`                       | `@robota-sdk/agent-provider-gemini`                                                                                                                                                |
-| `@robota-sdk/agent-provider-deepseek`                     | `@robota-sdk/agent-provider-openai-compatible` (`DeepSeekProvider`)                                                                                                                |
-| `@robota-sdk/agent-provider` (all vendors in one package) | `@robota-sdk/agent-provider-anthropic`, `-openai`, `-gemini`, `-openai-compatible`, `-bytedance`; `createDefaultProviderDefinitions()` is in `@robota-sdk/agent-builtin-providers` |
-| `@robota-sdk/agent-transport-tui`                         | `@robota-sdk/agent-ui-terminal` (`renderApp`, `TuiInteractionChannel`)                                                                                                             |
+| Earlier beta package                                      | Now                                                                               |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-sdk`                                   | `@robota-sdk/agent-framework`                                                     |
+| `@robota-sdk/agent-sessions`                              | `@robota-sdk/agent-session`                                                       |
+| `@robota-sdk/agent-executor`                              | `@robota-sdk/agent-executor`                                                      |
+| `@robota-sdk/agent-provider-google`                       | `@robota-sdk/agent-provider/gemini`                                               |
+| `@robota-sdk/agent-provider-deepseek`                     | `@robota-sdk/agent-provider/deepseek` (`DeepSeekProvider`)                        |
+| `@robota-sdk/agent-provider` (all vendors in one package) | `@robota-sdk/agent-provider`, now with one subpath per vendor; see the next table |
+| `@robota-sdk/agent-transport-tui`                         | `@robota-sdk/agent-ui-terminal` (`renderApp`, `TuiInteractionChannel`)            |
+
+### Packages merged into subpaths
+
+Fewer packages are published: each former package below is now a subpath of the merged one. Import
+paths change; exported names and signatures do not.
+
+| Former packages                                                                                              | Now                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `agent-provider-anthropic`, `-openai`, `-gemini`, `-bytedance`                                               | `@robota-sdk/agent-provider/anthropic`, `/openai`, `/gemini` (`/google` is a deprecated alias), `/bytedance`             |
+| `agent-provider-openai-compatible`                                                                           | `@robota-sdk/agent-provider/deepseek`, `/qwen`, `/gemma`; the shared protocol base is `/openai-compatible`               |
+| `agent-builtin-providers`                                                                                    | `@robota-sdk/agent-provider/builtin`                                                                                     |
+| `agent-file-authority`, `agent-node-lock`, `agent-process`                                                   | `@robota-sdk/agent-os/file-authority`, `/node-lock`, `/process`                                                          |
+| `agent-transport-ws`, `-http`, `-mcp`, `-acp`, `-webrtc`, `-link`                                            | `@robota-sdk/agent-transport/ws`, `/http`, `/mcp`, `/acp`, `/webrtc`, `/link`                                            |
+| `agent-tool-defaults`                                                                                        | `@robota-sdk/agent-tools/defaults`                                                                                       |
+| `agent-capability-pack`, `agent-preset`, `agent-command`, `pack-coding`                                      | `@robota-sdk/agent-product/capability-pack`, `/preset`, `/command`, `/coding`                                            |
+| `agent-interface-session`, `-session-mobility`, `-command`, `-execution`, `-analytics`, `-transport`, `-tui` | `@robota-sdk/agent-interface/session`, `/session-mobility`, `/command`, `/execution`, `/analytics`, `/transport`, `/tui` |
+
+The libraries a subpath needs are optional peer dependencies, so install the ones for the subpaths you
+import: `@anthropic-ai/sdk`, `openai` or `@google/genai` for a provider, `ws`, `hono` and the MCP or ACP
+SDKs for a transport carrier, `koffi` for `agent-os/file-authority` and `agent-os/node-lock`, and
+`@robota-sdk/agent-core` for an `agent-interface` family other than `analytics` and `tui`.
 
 ### API changes
 
@@ -174,7 +202,7 @@ subagent sessions with their own tools and history, and the `__PRODUCT_CLI_NAME_
   `createEditTool({ cwd })`, `createGlobTool({ cwd })`, `createGrepTool({ cwd })`,
   `createShellTool({ cwd })` and `createBashTool({ cwd })`, imported from
   `@robota-sdk/agent-tools/node`. A tool without a root refuses to run.
-- **`createDefaultTools()`** is in `@robota-sdk/agent-tool-defaults`.
+- **`createDefaultTools()`** is in `@robota-sdk/agent-tools/defaults`.
 - **`createSession`** is not exported from `@robota-sdk/agent-framework`; use `InteractiveSession`,
   `createAgentRuntime().createSession(...)` or `createQuery()`.
 - **Headless default permission mode.** `createQuery()` and headless sessions default to `default`
@@ -186,7 +214,8 @@ subagent sessions with their own tools and history, and the `__PRODUCT_CLI_NAME_
   server definitions and the client are in `@robota-sdk/agent-mcp`.
 - **ESM only.** `@robota-sdk/agent-cli` and `@robota-sdk/agent-ui-terminal` have no CommonJS entry;
   load them with `import`.
-- **Node.js 22.12.0 or newer** is required by every published package.
+- **Node.js 22.12.0 or newer** is declared by published packages for Node installations; the npm CLI
+  and Node adapters require a Node host. Check the released version for its available entries.
 
 ---
 

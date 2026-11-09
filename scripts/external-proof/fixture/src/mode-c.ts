@@ -3,10 +3,10 @@
  *
  * Three claims: an agent runtime built-in preset (`careful-reviewer`) is reusable by id with nothing registered;
  * a consumer-authored `ICapabilityPack` merges ADDITIVELY on top of the product's base modules and our
- * `pack-coding`; and a deliberate id collision is REPORTED on the rejection channel rather than silently
+ * `agent-product/coding`; and a deliberate id collision is REPORTED on the rejection channel rather than silently
  * dropped or silently overridden.
  *
- * TOOL AXIS (ARCH-006). All three axes are now additive on the same terms. `agent-framework`'s
+ * TOOL AXIS. All three axes are now additive on the same terms. `agent-framework`'s
  * `createSession` no longer hard-codes its default tool set: `defaultTools` REPLACES that tier (`[]`
  * suppresses it entirely) and the assembled list is deduped BY NAME, first occurrence wins. So a pack
  * contributing a NEW tool is additive, a pack whose tools mirror the framework defaults is no longer
@@ -14,13 +14,13 @@
  * each of those from the published surface.
  */
 
-import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
+import { mergeCapabilityPacks } from '@robota-sdk/agent-product/capability-pack';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import * as frameworkNamespace from '@robota-sdk/agent-framework';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
-import { createCodingPack } from '@robota-sdk/pack-coding';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
+import { createCodingPack } from '@robota-sdk/agent-product/coding';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 
 import {
@@ -33,14 +33,14 @@ import {
 import { check, checkEqual, mode, note, section } from './harness.js';
 
 /**
- * ARCH-006: the pack is built by a FACTORY bound to the session's working directory — a context-free pack
- * would carry a disarmed working-directory path guard on its file tools (ARCH-010 has since made that guard fail closed; the pack's rule is now the same one stated a layer up). A consumer builds it exactly as
- * configured product's own shell does, with the cwd it assembles the session under.
+ * The pack is built by a FACTORY bound to the session's working directory — a context-free pack
+ * would carry a disarmed working-directory path guard on its file tools. A consumer builds it
+ * exactly as a configured product's own shell does, with the cwd it assembles the session under.
  */
 const codingPack = createCodingPack({ cwd: process.cwd() });
 import { asStandardOptions } from './surface-notes.js';
 
-import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
+import type { ICapabilityPack } from '@robota-sdk/agent-product/capability-pack';
 
 /** The platform the proof's sessions run on: this Node process, with the framework's default tools. */
 const host = createNodeFrameworkHost({ createDefaultTools });
@@ -172,7 +172,7 @@ export async function runModeC(): Promise<void> {
     'the consumer tool reaches the session options as an additionalTool',
     (options.additionalTools ?? []).some((tool) => tool.getName() === 'AcmeTicketLookup'),
   );
-  checkEqual('all eleven merged tools are overlaid', (options.additionalTools ?? []).length, 11);
+  checkEqual('all ten merged tools are overlaid', (options.additionalTools ?? []).length, 10);
   checkEqual(
     'the command-module axis is overlaid on the same path',
     (options.commandModules ?? []).map((commandModule) => commandModule.name),
@@ -188,8 +188,8 @@ export async function runModeC(): Promise<void> {
     'the subagent axis reaches the runtime via the agentDefinitions injection seam',
     (options.agentDefinitions ?? []).some((definition) => definition.name === 'acme-triager'),
   );
-  section('C5 — the tool axis at PARITY with the command and subagent axes (ARCH-006)');
-  // ARCH-010: `cwd` is required. This proof only compares tool NAMES, so any root would do — which
+  section('C5 — the tool axis at PARITY with the command and subagent axes');
+  // `cwd` is required. This proof only compares tool NAMES, so any root would do — which
   // is exactly why it must be an explicit one rather than an omission: the omission is what used to
   // produce a tool set with no containment boundary at all.
   const frameworkDefaultToolNames = createDefaultTools({ cwd: process.cwd() }).map((tool) =>
@@ -201,10 +201,10 @@ export async function runModeC(): Promise<void> {
     !frameworkDefaultToolNames.includes('AcmeTicketLookup') &&
       (options.additionalTools ?? []).some((tool) => tool.getName() === 'AcmeTicketLookup'),
   );
-  // ARCH-035 — the four assertions the item's verification scenario names. Until this change the
-  // aggregator was published by `@robota-sdk/agent-framework` and `pack-coding` rebuilt the same list
-  // by hand; the two were held together by a NAME-equality pin, which is the pin that let ARCH-021's
-  // first TC-05 pass while being unable to fail. The set has ONE owner now, so the questions worth
+  // The four assertions the item's verification scenario names. Until this change the
+  // aggregator was published by `@robota-sdk/agent-framework` and `agent-product/coding` rebuilt the same list
+  // by hand; the two were held together by a NAME-equality pin, which is a pin that can pass while
+  // being unable to fail. The set has ONE owner now, so the questions worth
   // asking from outside the monorepo changed.
   const ALWAYS_PRESENT = [
     'Shell',
@@ -218,13 +218,13 @@ export async function runModeC(): Promise<void> {
     'AskUserQuestion',
   ];
   checkEqual(
-    'ARCH-035: the leaf ships exactly the always-present set, read from the published tarball',
+    'the leaf ships exactly the always-present set, read from the published tarball',
     frameworkDefaultToolNames,
     ALWAYS_PRESENT,
   );
 
   checkEqual(
-    "ARCH-035: pack-coding's tools ARE the always-present set — structurally now, not by a name pin",
+    "agent-product/coding's tools ARE the always-present set — structurally now, not by a name pin",
     codingPackToolNames,
     ALWAYS_PRESENT,
   );
@@ -233,7 +233,7 @@ export async function runModeC(): Promise<void> {
   // no manifest edge to the leaf) belongs to `pnpm typecheck`; what a consumer of the tarballs can
   // observe is that the symbol is simply gone from the framework's runtime barrel.
   check(
-    'ARCH-035: @robota-sdk/agent-framework no longer exports createDefaultTools',
+    '@robota-sdk/agent-framework no longer exports createDefaultTools',
     !Object.prototype.hasOwnProperty.call(frameworkNamespace, 'createDefaultTools'),
   );
   check(
@@ -335,11 +335,11 @@ export async function runModeC(): Promise<void> {
       'from the published surface is the seam that makes it reachable: the `defaultTools` option on the ' +
       'shipped session-options type, the overlay that carries the pack tools into it, and the scoping of ' +
       'the pack-owned file tools. the reference CLI now consumes exactly this shape — its profile builds ' +
-      'pack-coding with the shell cwd and passes `defaultTools: []`, so its coding tools come FROM the ' +
+      'agent-product/coding with the shell cwd and passes `defaultTools: []`, so its coding tools come FROM the ' +
       'pack (asserted in-repo by agent-cli src/__tests__/product-runtime-seam.test.ts).',
   );
   note(
     'COMMAND + SUBAGENT AXES: fully additive — command modules are passed as data and subagents arrive ' +
-      'through the framework agentDefinitions injection seam added by ARCH-005 S2.',
+      'through the framework agentDefinitions injection seam.',
   );
 }

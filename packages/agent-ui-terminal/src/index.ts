@@ -24,7 +24,7 @@ export type { ITerminalCapabilityOverrides } from './terminal-capabilities-conte
 export type { TScreenReaderChannel } from './screen-reader-announcement.js';
 export type { IScreenReaderPacingOverrides } from './screen-reader-pacing.js';
 export type { ITuiCliAdapter } from './tui-cli-adapter.js';
-// #3679 3f: the product implements the port and checks each request with the guard; the mint that
+// The product implements the port and checks each request with the guard; the mint that
 // makes the requests is not exported.
 export { isUserReadRequest } from './key-custody/key-custody-port.js';
 export type {
@@ -36,7 +36,7 @@ export type {
 export type { IDefaultTuiCliAdapterOptions } from './create-default-tui-cli-adapter.js';
 export { createDefaultTuiCliAdapter } from './create-default-tui-cli-adapter.js';
 export { createNodeKeybindingsSource } from './keybindings/node-keybindings-source.js';
-// SCREEN-2002: the product shell assembles one registry and hands it to both `/theme` and
+// The product shell assembles one registry and hands it to both `/theme` and
 // `renderApp`. The theme DATA stays unexported — a caller asks the registry, never a built-in.
 export { createThemeCataloguePort, createThemeRegistry } from './theme/theme-registry.js';
 // The product shell composes the registry, so it must be able to enumerate the built-ins, parse the

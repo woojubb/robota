@@ -102,7 +102,7 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
                 ownDriverId={ownDriverId}
               />
             ) : (
-              // #3289 §3 review: this renders in the same slot as `ConversationView` (never
+              // This renders in the same slot as `ConversationView` (never
               // together), so it carries this page's `main` landmark here too — nothing above this
               // slot supplies one.
               <main className="flex h-full items-center justify-center" aria-label="Conversation">

@@ -4,7 +4,7 @@
  * does not list either message. A call is limited to the tools of the view it names, a connection
  * that goes away cancels its calls, and no answering frame exceeds what the channel carries.
  */
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -26,7 +26,7 @@ import type {
   IRuntimeToolInvokeOptions,
   ISessionRuntimeTools,
   ISessionToolAppViews,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 function collect(): { sent: TServerMessage[]; deliver: TOutboundDeliver } {
   const sent: TServerMessage[] = [];

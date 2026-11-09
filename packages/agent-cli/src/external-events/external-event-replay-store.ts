@@ -16,7 +16,7 @@ import { ensureGuardedDirectory } from '@robota-sdk/agent-remote-pairing/local';
 import {
   assertWindowsPrivatePath,
   createWindowsPrivateDirectory,
-} from '../session-inventory/windows-security.js';
+} from '@robota-sdk/agent-local-host';
 
 import type { IExternalEventTokenClaimStore } from '@robota-sdk/agent-framework';
 

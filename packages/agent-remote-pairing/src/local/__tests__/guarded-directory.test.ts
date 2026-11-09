@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ensureGuardedDirectory, GUARDED_MODE } from '../guarded-directory.js';
 
 /**
- * SEC-010 — creating the directory whose permissions are the proof.
+ * Creating the directory whose permissions are the proof.
  *
  * The umask cases run against a REAL filesystem, deliberately. The whole defect being guarded
  * against is that `mkdir(…, { mode: 0o700 })` returns successfully having produced 0755, and a
@@ -15,8 +15,14 @@ import { ensureGuardedDirectory, GUARDED_MODE } from '../guarded-directory.js';
  */
 const made: string[] = [];
 
+// Mode bits, the umask and an owner uid are POSIX facts: Windows reports a fixed emulated mode and
+// no uid, and `chmod` there only toggles the read-only attribute. The tests that read those facts
+// run where the platform defines them; the Windows counterpart, a refusal that is never a pass on
+// an emulated value, is asserted by the last two tests of the first block.
+const posixOnly = it.skipIf(process.platform === 'win32');
+
 function scratch(): string {
-  // mkdtemp, not join(tmpdir(), name): the OS chooses the name and creates it 0700 (SEC-003).
+  // mkdtemp, not join(tmpdir(), name): the OS chooses the name and creates it 0700.
   const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'agent-test-guarded-')));
   made.push(dir);
   return dir;
@@ -29,8 +35,8 @@ afterEach(() => {
   }
 });
 
-describe('SEC-010 — a created rendezvous directory is verified, not assumed', () => {
-  it('creates it 0700 and admits it', () => {
+describe('a created rendezvous directory is verified, not assumed', () => {
+  posixOnly('creates it 0700 and admits it', () => {
     const target = path.join(scratch(), 'peers');
 
     const result = ensureGuardedDirectory(target, { expectedUid: process.getuid?.() ?? 0 });
@@ -40,27 +46,30 @@ describe('SEC-010 — a created rendezvous directory is verified, not assumed', 
     expect(statSync(target).mode & 0o777).toBe(GUARDED_MODE);
   });
 
-  it('a umask cannot widen the result, and this pins the reason the chmod is NOT for that', () => {
-    // This test previously claimed the umask could turn a 0700 request into 0755, and it passed
-    // with the chmod removed — an assertion that holds either way asserts nothing. A umask only
-    // ever CLEARS bits, so the request can come back tighter and never looser.
-    //
-    // Kept, restated, because the wrong reason is worth one test to keep from being re-adopted:
-    // if this ever fails, the platform's umask semantics changed and the module's justification
-    // needs re-reading.
-    const previous = process.umask(0o077);
-    try {
-      const target = path.join(scratch(), 'peers');
+  posixOnly(
+    'a umask cannot widen the result, and this pins the reason the chmod is NOT for that',
+    () => {
+      // This test previously claimed the umask could turn a 0700 request into 0755, and it passed
+      // with the chmod removed — an assertion that holds either way asserts nothing. A umask only
+      // ever CLEARS bits, so the request can come back tighter and never looser.
+      //
+      // Kept, restated, because the wrong reason is worth one test to keep from being re-adopted:
+      // if this ever fails, the platform's umask semantics changed and the module's justification
+      // needs re-reading.
+      const previous = process.umask(0o077);
+      try {
+        const target = path.join(scratch(), 'peers');
 
-      ensureGuardedDirectory(target, { expectedUid: process.getuid?.() ?? 0 });
+        ensureGuardedDirectory(target, { expectedUid: process.getuid?.() ?? 0 });
 
-      expect(statSync(target).mode & 0o077).toBe(0);
-    } finally {
-      process.umask(previous);
-    }
-  });
+        expect(statSync(target).mode & 0o077).toBe(0);
+      } finally {
+        process.umask(previous);
+      }
+    },
+  );
 
-  it('tightens a directory that already existed with wider permissions', () => {
+  posixOnly('tightens a directory that already existed with wider permissions', () => {
     // `mkdir` with `recursive: true` succeeds on an existing directory WITHOUT touching its mode,
     // so a directory somebody else created 0777 would otherwise be adopted as ours.
     const target = path.join(scratch(), 'peers');
@@ -73,7 +82,7 @@ describe('SEC-010 — a created rendezvous directory is verified, not assumed', 
     expect(statSync(target).mode & 0o777).toBe(GUARDED_MODE);
   });
 
-  it('refuses when the post-creation check says the directory is not ours', () => {
+  posixOnly('refuses when the post-creation check says the directory is not ours', () => {
     // The validation is not a formality: it is the step that would catch a mode or owner the two
     // calls above did not actually achieve. Driven here by claiming a uid we are not.
     const target = path.join(scratch(), 'peers');
@@ -83,9 +92,38 @@ describe('SEC-010 — a created rendezvous directory is verified, not assumed', 
     expect(result.admitted).toBe(false);
     expect(result.reason).toMatch(/belongs to uid/);
   });
+
+  it('refuses on a platform that has no mode evidence instead of passing on an emulated mode', () => {
+    // Windows reports an emulated mode and no uid. Whatever the host, a directory created under
+    // that platform's semantics is refused with a reason that names the platform.
+    const target = path.join(scratch(), 'peers');
+
+    const result = ensureGuardedDirectory(target, {
+      expectedUid: process.getuid?.() ?? 0,
+      platform: 'win32',
+    });
+
+    expect(result.admitted).toBe(false);
+    expect(result.trust).toBe('unproven');
+    expect(result.binding).toBeUndefined();
+    expect(result.reason).toMatch(/Windows/);
+  });
+
+  it.runIf(process.platform === 'win32')(
+    'refuses on the Windows host itself, without being told the platform',
+    () => {
+      const target = path.join(scratch(), 'peers');
+
+      const result = ensureGuardedDirectory(target, { expectedUid: 0 });
+
+      expect(result.admitted).toBe(false);
+      expect(result.trust).toBe('unproven');
+      expect(result.reason).toMatch(/Windows/);
+    },
+  );
 });
 
-describe('SEC-010 — a directory that could not be made is a refusal, never a pass', () => {
+describe('a directory that could not be made is a refusal, never a pass', () => {
   it('refuses when creation throws', () => {
     const result = ensureGuardedDirectory('/anywhere', {
       expectedUid: 0,

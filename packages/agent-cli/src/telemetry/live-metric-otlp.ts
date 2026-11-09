@@ -5,7 +5,7 @@ import { resourceFromAttributes } from '@opentelemetry/resources';
 import { AggregationTemporality, DataPointType } from '@opentelemetry/sdk-metrics';
 import type { MetricData, ResourceMetrics } from '@opentelemetry/sdk-metrics';
 import { calculateModelCost } from '@robota-sdk/agent-core';
-import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface/analytics';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 import { GEN_AI_SCHEMA_URL, projectLivePromptMetricSamples } from '@robota-sdk/agent-telemetry-otel';
 import type { IOtelMetricSample, TOtelProjectionMode } from '@robota-sdk/agent-telemetry-otel';

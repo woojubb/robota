@@ -1,5 +1,5 @@
 /**
- * Test helper: a background policy decided through the one evaluator (issue #3081).
+ * Test helper: a background policy decided through the one evaluator.
  *
  * Runs under bypassPermissions by default — the mode a policy exists to be stricter than — and maps
  * the evaluator's answer onto the policy vocabulary the cases are written in.

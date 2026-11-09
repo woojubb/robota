@@ -8,7 +8,7 @@ import { shortSessionId } from '../short-session-id.js';
 import type {
   IResumableSessionSummary,
   ISessionListingEntry,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 function summary(id: string, name?: string): IResumableSessionSummary {
   return {
@@ -50,7 +50,7 @@ describe('session ids on screen', () => {
   });
 });
 
-describe('live sessions in the picker (#3189)', () => {
+describe('live sessions in the picker', () => {
   function entry(id: string, name: string, extra: Partial<ISessionListingEntry>): ISessionListingEntry {
     return { ...summary(id, name), ...extra };
   }

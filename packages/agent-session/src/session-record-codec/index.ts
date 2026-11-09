@@ -1,5 +1,5 @@
 /**
- * TRANS-005 (#2081) — the persisted interactive-session record codec.
+ * The persisted interactive-session record codec.
  *
  * The single runtime owner of "is this a valid session record?", living beside the contract it
  * decodes. Every store, artifact, handoff and replay ingress is meant to reach the record through

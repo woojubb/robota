@@ -1,5 +1,5 @@
 /**
- * #3679 3f, change 5: nothing the model runs can open the passphrase prompt. In a secure TUI session
+ * Nothing the model runs can open the passphrase prompt. In a secure TUI session
  * whose keys are locked, every command the model may invoke and every tool the session gives it is
  * run, and the gate's terminal, the session's terminal handoff and the keys stay untouched.
  *
@@ -19,7 +19,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { KeyHolder } from '../../secure/key-holder.js';
 import { fixtureKeyring } from '../../secure/__tests__/helpers.js';
-import { createKeyringFileStore } from '../../secure/keyring-store.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { buildCommandSetup } from '../../startup/command-setup.js';
 import { keyCustodyChannelOf, productKeyCustody } from '../key-custody.js';
 import { createProductCapabilityPacks, packCommandModuleNames } from '../product-profile.js';
@@ -28,7 +28,7 @@ import { userPaths } from '../user-paths.js';
 
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
 import type { ICommandModule } from '@robota-sdk/agent-framework';
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface/session';
 
 const roots: string[] = [];
 const harnesses: ScriptedSessionHarness[] = [];

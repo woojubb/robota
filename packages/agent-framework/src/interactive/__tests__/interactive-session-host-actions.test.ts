@@ -1,9 +1,8 @@
 /**
- * CMD-004 Phase 2 (TC-02) — host-action executor in the `executeCommand` pipeline.
+ * Host-action executor in the `executeCommand` pipeline.
  *
  * Drives `InteractiveSession.executeCommand` with stub `ICommandHostAdapters` and inline command
- * modules emitting the split contract (`hostActions` / `uiIntents` — Stage E deleted the legacy
- * effect union), asserting:
+ * modules emitting the split contract (`hostActions` / `uiIntents`), asserting:
  * - `language-change` writes via the settings adapter and requests a restart via the process adapter;
  * - `settings-reset` deletes via the settings adapter and requests an exit;
  * - applied host actions and emitted intents are CONSUMED — the returned result carries neither;
@@ -22,7 +21,7 @@ import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandHostAdapters } from '../../command-api/host-adapters.js';
 import type { ICommandModule, ICommandResult } from '../../commands/index.js';
-import type { IUiIntentEvent } from '@robota-sdk/agent-interface-session';
+import type { IUiIntentEvent } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 
@@ -88,7 +87,7 @@ function stubSettings(initial: Record<string, unknown> = {}): {
   };
 }
 
-describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () => {
+describe('host-action executor over ICommandHostAdapters', () => {
   it('language-change writes via the settings adapter, requests restart, and strips the effect', async () => {
     const settings = stubSettings({ theme: 'dark' });
     const requestRestart = vi.fn();
@@ -208,11 +207,11 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
   });
 
   /**
-   * SCREEN-2002. These three keys live at the settings document's ROOT, beside the provider
+   * These three keys live at the settings document's ROOT, beside the provider
    * profiles and their credentials — unlike `statusline`, which is contained by its own nesting.
    * So the tests that matter are the ones about what does NOT get written.
    */
-  describe('appearance-settings-patch (SCREEN-2002)', () => {
+  describe('appearance-settings-patch', () => {
     it('merges the patch over what is stored and leaves every other setting alone', async () => {
       const settings = stubSettings({
         language: 'ko',
@@ -510,7 +509,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
   it('a model-invoked command with no origin falls back to the active turn driver — idle turn ⇒ unattributed', async () => {
     // `activeDriverId` is a TURN attribute; outside a running turn it is null, so a model-sourced
     // command executed while idle emits an unattributed intent (the fallback engages only when a
-    // turn is active — the CMD-005 model-command path). This pins the fallback branch's idle half.
+    // turn is active — the model-command path). This pins the fallback branch's idle half.
     const session = createSession({}, [
       moduleReturning('settings', {
         success: true,
@@ -560,7 +559,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
     });
   });
 
-  it('executes hostActions emitted directly on the split contract (Stage-E emitters)', async () => {
+  it('executes hostActions emitted directly on the split contract (direct emitters)', async () => {
     const requestExit = vi.fn();
     const session = createSession({ process: { requestExit, requestRestart: vi.fn() } }, [
       moduleReturning('bye', {
@@ -578,7 +577,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
   });
 });
 
-describe('workspace-move (issue #3081)', () => {
+describe('workspace-move', () => {
   const cd = moduleReturning('cd', {
     success: true,
     message: '',

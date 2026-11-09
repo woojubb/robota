@@ -1,5 +1,5 @@
 /**
- * `pnpm gui:dev` asks about an untrusted folder before it starts the sidecar (issue #3268), the way
+ * `pnpm gui:dev` asks about an untrusted folder before it starts the sidecar, the way
  * the terminal UI does: the sidecar is headless and would refuse, but a person is at this terminal.
  */
 

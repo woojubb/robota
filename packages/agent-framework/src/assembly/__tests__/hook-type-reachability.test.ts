@@ -1,5 +1,5 @@
 /**
- * Issue #2245 — a config declaring a hook type the session cannot execute is refused at assembly,
+ * A config declaring a hook type the session cannot execute is refused at assembly,
  * naming the type and why, instead of validating and then denying every tool call.
  */
 import { describe, expect, it } from 'vitest';
@@ -17,7 +17,7 @@ function executor(type: IHookTypeExecutor['type']): IHookTypeExecutor {
 
 const BUILTINS = [executor('command'), executor('http')];
 
-describe('unrunnableHookTypes (issue #2245)', () => {
+describe('unrunnableHookTypes', () => {
   it('names a prompt hook with no providerFactory-backed executor, once', () => {
     const hooks: THooksConfig = {
       PreToolUse: [{ matcher: '', hooks: [{ type: 'prompt', prompt: 'ok?' }] }],

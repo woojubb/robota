@@ -1,12 +1,12 @@
 import type { ICommand } from '../command-api/types.js';
-// Skill-activation event contracts SSOT relocated to @robota-sdk/agent-interface-session (DATA-001).
+// Skill-activation event contracts SSOT relocated to @robota-sdk/agent-interface/session.
 import type {
   ISkillActivationEvent,
   TSkillActivationInvocation,
   TSkillActivationSource,
   TSkillActivationMode,
   TSkillActivationStatus,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export type {
   TSkillActivationSource,

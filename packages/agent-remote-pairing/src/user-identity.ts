@@ -1,6 +1,6 @@
 import type { IIdentityContext } from './identity/crypto-context.js';
 /**
- * SEC-011 (#1812): proving two DEVICES belong to one USER.
+ * Proving two DEVICES belong to one USER.
  *
  * ## The question nothing here answered before
  *

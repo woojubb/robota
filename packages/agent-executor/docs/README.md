@@ -4,7 +4,7 @@
 task manager and its state machine, snapshots, watchdogs and log pages; the shell, scheduled and
 tool-invocation runners; the subagent manager and runner ports with worktree isolation; and helpers
 that build providers from serializable profiles. The task data contracts belong to
-`@robota-sdk/agent-interface-execution`.
+`@robota-sdk/agent-interface/execution`.
 
 ## Documents
 

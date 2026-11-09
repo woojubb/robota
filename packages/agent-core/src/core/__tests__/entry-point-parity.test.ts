@@ -1,5 +1,5 @@
 /**
- * CORE-042 — `run()` and `runStream()` are two ENTRIES into one turn, asserted as such.
+ * `run()` and `runStream()` are two ENTRIES into one turn, asserted as such.
  *
  * Every case below runs the SAME assertion against BOTH entry points from one table. That shape is
  * the deliverable, not a convenience: the turn used to be implemented twice, and each capability was
@@ -125,7 +125,7 @@ function buildAgent(
   return { agent, scripted };
 }
 
-describe.each(ENTRY_POINTS)('CORE-042 turn parity — %s()', (entry) => {
+describe.each(ENTRY_POINTS)('turn parity — %s()', (entry) => {
   it('carries the configured system prompt into the provider request', async () => {
     // The capability that reached the beta missing on one path, and the reason this table exists.
     const { agent, scripted } = buildAgent([{ text: 'done' }], {

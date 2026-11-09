@@ -61,7 +61,6 @@ export type {
   TProcessMarkerMemory,
 } from './utils/process-marker.js';
 export {
-  PROCESS_MARKER_BREAK_LOCK_STALE_MS,
   PROCESS_MARKER_SUFFIX,
   ProcessMarkerError,
   createProcessMarkerMemory,
@@ -78,6 +77,7 @@ export {
   enableOwnChildSessions,
   endWithProcess,
   execFileInChildSession,
+  holdChildSpawns,
   signalChildGroup,
   withChildSession,
 } from './utils/child-session.js';
@@ -96,7 +96,7 @@ export {
 } from './utils/process-identity.js';
 export { CommandExecutor, HttpExecutor } from './hooks/executors/index.js';
 
-// #2026: the shared egress boundary is Node-only (node:dns, node:net) and lives on this subpath.
+// The shared egress boundary is Node-only (node:dns, node:net) and lives on this subpath.
 export {
   BLOCKED_HOSTNAMES,
   fetchWithEgressPolicy,

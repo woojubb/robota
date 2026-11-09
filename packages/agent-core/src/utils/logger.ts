@@ -95,7 +95,7 @@ export interface ILoggerOptions {
    * This logger's own threshold, so a component can be quieter or louder than the process.
    *
    * Without it the only knob was `setGlobalLogLevel`, which is why a per-agent `logging` config
-   * ended up silencing the whole process (CORE-029).
+   * ended up silencing the whole process.
    */
   level?: TUtilLogLevel;
 }
@@ -108,7 +108,7 @@ export class ConsoleLogger implements ILogger {
   /**
    * This logger's own threshold. `undefined` means "follow the process-wide level".
    *
-   * CORE-029: the field existed and nothing ever set it, so the only way to change a level was
+   * The field existed and nothing ever set it, so the only way to change a level was
    * `setGlobalLogLevel` — and `ConversationAgent`'s constructor called it from `config.logging`, which meant one
    * agent's per-agent setting silenced every other agent AND every other package in the process.
    * A per-agent option has to reach a per-agent logger.
@@ -118,7 +118,7 @@ export class ConsoleLogger implements ILogger {
   private explicitSink: ILogger | undefined;
 
   /**
-   * CORE-029: the sink is resolved PER CALL, not frozen at construction.
+   * The sink is resolved PER CALL, not frozen at construction.
    *
    * It used to be `logger || SilentLogger`, decided once in the constructor. No call site in the
    * repository ever passed one and there was no way to set one afterwards, so every diagnostic this
@@ -246,7 +246,7 @@ export function getGlobalLogLevel(): TUtilLogLevel {
 }
 
 /**
- * Install the process-wide sink every logger writes to. CORE-029.
+ * Install the process-wide sink every logger writes to.
  *
  * Without this there was no way to receive anything this package logs: `createLogger`'s optional
  * sink parameter had no caller anywhere in the repository, and nothing could supply one later, so

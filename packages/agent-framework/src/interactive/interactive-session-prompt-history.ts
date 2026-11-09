@@ -1,5 +1,5 @@
 /**
- * SCREEN-1993 — the session-side append to the prompt-history projection.
+ * The session-side append to the prompt-history projection.
  *
  * An injected port called inside the turn path, not a `user_message` subscriber: that event is also
  * emitted for `[remote-control]` notices with no preceding `turn_source`, so a subscriber could not
@@ -7,13 +7,13 @@
  * remote co-driver's prompt is not — and the recorded text is what was typed, never a skill's
  * synthesized display text.
  */
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 
 import type {
   IPromptHistoryWriter,
   TDriverId,
   TTurnSource,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** What the surface supplies to turn prompt history on. */
 export interface IPromptHistoryOptions {

@@ -33,7 +33,13 @@ describe('Hook flow integration', () => {
       PreToolUse: [
         {
           matcher: 'Bash',
-          hooks: [{ type: 'command', command: 'echo "denied" >&2; exit 2' }],
+          hooks: [
+            {
+              type: 'command',
+              // Shell-neutral: `sh` and PowerShell both run a double-quoted `node -e` argument.
+              command: `node -e "console.error('denied'); process.exit(2)"`,
+            },
+          ],
         },
       ],
     };
@@ -218,18 +224,18 @@ describe('Hook flow integration', () => {
   });
 
   // ────────────────────────────────────────────────────────────────────────────────────────────
-  // SEC-015 TC-06 / TC-07 — the outcome contract at the runner.
+  // The outcome contract at the runner.
   //
   // These are the mutant-killing cases. The failure mode this leaf exists to prevent is an `error`
   // outcome silently folded into `allow`, and asserting `blocked` CANNOT catch it: within this
-  // leaf's boundary an `error` correctly does not block (that is issue #2093's decision), so the
+  // leaf's boundary an `error` correctly does not block (that is the per-event enforcement policy's decision), so the
   // folded implementation returns the SAME `blocked` value as correct code on every enforcing path.
   // A suite that only checked `blocked` would be green against exactly the bug it was written for.
   //
   // What separates them is what a fold DESTROYS: the record that a hook failed, and the fact that a
   // failed hook said nothing. Hence the two assertions below.
   // ────────────────────────────────────────────────────────────────────────────────────────────
-  describe('SEC-015 — errors are reported, not folded into a verdict', () => {
+  describe('errors are reported, not folded into a verdict', () => {
     /** An executor that always fails, in the way its `kind` names. */
     const failing = (kind: 'timeout' | 'transport-failure'): IHookTypeExecutor => ({
       type: 'command',
@@ -245,7 +251,7 @@ describe('Hook flow integration', () => {
       PreToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'x' }] }],
     };
 
-    it('TC-06: a failed hook lands in `errors` with its kind, reason and source', async () => {
+    it('a failed hook lands in `errors` with its kind, reason and source', async () => {
       const result = await runHooks(oneHook, 'PreToolUse', baseInput, [failing('timeout')]);
 
       // Kill point 1. A fold-to-allow implementation leaves `errors` undefined and fails here,
@@ -260,7 +266,7 @@ describe('Hook flow integration', () => {
       expect(result.blocked).toBe(false);
     });
 
-    it('TC-06: `errors` is absent when every hook rendered a verdict', async () => {
+    it('`errors` is absent when every hook rendered a verdict', async () => {
       const result = await runHooks(oneHook, 'PreToolUse', baseInput, [
         {
           type: 'command',
@@ -276,7 +282,7 @@ describe('Hook flow integration', () => {
       expect(result.errors).toBeUndefined();
     });
 
-    it('TC-06: a failed hook contributes NO stdout — its output is not a response', async () => {
+    it('a failed hook contributes NO stdout — its output is not a response', async () => {
       // Kill point 2, independent of the first. A fold-to-allow implementation runs the errored
       // hook's stdout through the response-protocol decode and pushes it into `stdout`; correct
       // code never reads it, because a hook that failed has not said anything.
@@ -300,7 +306,7 @@ describe('Hook flow integration', () => {
       expect(result.stdout).not.toContain('THIS MUST NOT APPEAR');
     });
 
-    it('TC-06: several failures are all reported, in order', async () => {
+    it('several failures are all reported, in order', async () => {
       const twoHooks: THooksConfig = {
         PreToolUse: [
           { matcher: '', hooks: [{ type: 'command', command: 'a' }] },
@@ -321,7 +327,7 @@ describe('Hook flow integration', () => {
       expect(result.errors?.map((e) => e.reason)).toEqual(['failure 1', 'failure 2']);
     });
 
-    it('TC-06: an error is still reported when a LATER hook blocks', async () => {
+    it('an error is still reported when a LATER hook blocks', async () => {
       // The blocked path returns early. A diagnostics field that is only assembled at the bottom of
       // the function would be silently dropped exactly when something went wrong — the failure mode
       // that made `unknownHookTypes` carry the same note.
@@ -349,7 +355,7 @@ describe('Hook flow integration', () => {
       expect(result.errors?.[0]?.kind).toBe('transport-failure');
     });
 
-    it('TC-07: enforcement policy is unchanged — deny blocks, error does not', async () => {
+    it('enforcement policy is unchanged — deny blocks, error does not', async () => {
       const deny = await runHooks(oneHook, 'PreToolUse', baseInput, [
         {
           type: 'command',

@@ -14,7 +14,7 @@ import { argvCarryingSafeMode, createWorkspaceMoveAdapter } from '../workspace-m
 
 import type { IWorkspaceMoveRequest } from '@robota-sdk/agent-framework';
 
-/** Issue #3081 — `/cd` in the TUI: save the conversation for the target, then run the product there. */
+/** `/cd` in the TUI: save the conversation for the target, then run the product there. */
 describe('buildWorkspaceMoveArgv', () => {
   it('keeps this run\'s flags and drops what to resume and what to run', () => {
     expect(
@@ -64,7 +64,7 @@ describe('buildWorkspaceMoveArgv', () => {
   });
 });
 
-describe('a /cd target keeps safe mode (issue #3082)', () => {
+describe('a /cd target keeps safe mode', () => {
   it('adds the flag when safe mode came from the embedder, and carries it into the target argv', () => {
     const argv = argvCarryingSafeMode(['--model', 'm1'], true);
     expect(argv).toEqual(['--model', 'm1', '--safe-mode']);
@@ -200,7 +200,7 @@ describe('createWorkspaceMoveAdapter', () => {
     process.exitCode = previousExitCode;
   });
 
-  // #3679 step 3e: the copy is the moving session's own state, which its claim's gate let in.
+  // The copy is the moving session's own state, which its claim's gate let in.
   it('saves the copy as the owner’s', async () => {
     const save = vi.spyOn(NodeSessionStore.prototype, 'save');
     const adapter = createWorkspaceMoveAdapter({
@@ -241,7 +241,7 @@ describe('createWorkspaceMoveAdapter', () => {
   });
 });
 
-describe('a /cd target never widens access (issue #3081)', () => {
+describe('a /cd target never widens access', () => {
   it('starts restricted under the flag, whatever access the directory would get', async () => {
     const trusted = { status: 'trusted' } as never;
     const access = await resolveStartupWorkspaceProjectAccess(

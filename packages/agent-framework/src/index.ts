@@ -5,7 +5,7 @@ export { decodeFrontmatterJson } from './frontmatter/frontmatter-json.js';
 export { decodeFrontmatter } from './frontmatter/frontmatter-decoder.js';
 export type { TFrontmatterJsonResult } from './frontmatter/frontmatter-json.js';
 
-// Runtime-host implementations (STRUCT-012): these symbols are owned here.
+// Runtime-host implementations: these symbols are owned here.
 export { HeadlessInteractionChannel } from './transport-host/headless/HeadlessInteractionChannel.js';
 export type { IHeadlessInteractionChannelOptions } from './transport-host/headless/HeadlessInteractionChannel.js';
 export { createHeadlessRunner, OUTPUT_FORMATS } from './transport-host/headless/headless-runner.js';
@@ -31,7 +31,7 @@ export { createMemoryTransportSettingsRepository } from './transport-host/memory
 // ── The platform the host lends: the `host` every session, runtime and query takes ────────
 export type { IAsyncScope, IFrameworkHost } from './host/framework-host.js';
 
-// ── Explicit workspace project authority (ARCH-042) ────────
+// ── Explicit workspace project authority ────────
 export {
   WorkspaceAuthorityRequiredError,
   WorkspaceTrustService,
@@ -90,7 +90,7 @@ export {
   isLoopStopVerb,
 } from './interactive/index.js';
 export { withUniqueSessionName } from './interactive/interactive-session-fork-record.js';
-// TERM-001: a client attached to a runtime in another process hands its own terminal to the
+// A client attached to a runtime in another process hands its own terminal to the
 // client-run commands (`/shell`, `/editor`) through the same gate the session uses.
 export { SessionTerminalHandoffGate } from './interactive/interactive-session-terminal-handoff.js';
 export type {
@@ -103,7 +103,7 @@ export type {
   TExternalEventSettlement,
 } from './interactive/index.js';
 
-// ── Autonomous goal pursuit (GOAL-001) ──────────────────────
+// ── Autonomous goal pursuit ──────────────────────
 export {
   GoalController,
   extractGoalSignal,
@@ -119,7 +119,7 @@ export {
   type IGoalStartOptions,
 } from './goal/index.js';
 
-// ── Explicit plan-mode (SELFHOST-002) ───────────────────────
+// ── Explicit plan-mode ───────────────────────
 export { PlanController, type TPlanDecision, type IPlanControllerDeps } from './plan/index.js';
 export {
   ambiguousSessionNameMessage,
@@ -142,6 +142,7 @@ export {
   restoredScheduleDisposition,
   resumeRefusal,
   SessionAuthorshipRefusedError,
+  OWNER_SANDBOX_REVIEW_UNAVAILABLE,
   UNVERIFIED_SESSION_QUESTION,
   isSessionAuthorshipRefusedError,
   unacceptableSessionMessage,
@@ -529,7 +530,7 @@ export type {
   IMemoryExtractorPolicy,
   IMemoryExtractorTrigger,
 } from './memory/index.js';
-// ── Prompt history (SCREEN-1993) ────────────────────────────
+// ── Prompt history ────────────────────────────
 export type { IPromptHistoryOptions } from './interactive/interactive-session-prompt-history.js';
 // ── Edit checkpointing ─────────────────────────────────────
 export {
@@ -659,35 +660,9 @@ export type {
   ISubagentParentContext,
   TSubagentSuffix,
 } from './assembly/index.js';
-// `ICreateSessionOptions` stays exported although `createSession` does not (issue #2270).
-//
-// It is agent-framework's OWN type, and four packages read indexed-access types off it as the option
-// SSOT: agent-preset, agent-cli, agent-transport, agent-ui-terminal. Exporting a type this package
-// owns is ownership, not pass-through.
-//
-// The tempting alternative — re-export `agent-core`'s `TPermissionMode` / `TModelEffort` from here so
-// the options type can go — is banned as a pass-through re-export of another package's symbols
-// (STRUCT-07). Consumers that want those unions take them from `agent-core`, which exports both from
-// its root. NOTE for anyone re-deriving this: an earlier version of this comment claimed
-// `TPermissionMode` is exported from no package root. That was false — agent-core's root re-exports
-// its permissions barrel wholesale (a star re-export), so the symbol never appears BY NAME in that
-// index and a grep for the name cannot see it. Resolve exports against the built .d.ts instead of
-// grepping barrels.
-//
-// Written without the literal re-export syntax on purpose: `check-sdk-public-surface.mjs` (scan id
-// `sdk-public-surface`) matches raw source, so spelling it out here registers a phantom export-star
-// in this barrel and fails that scan.
-// That is issue #2258's defect — comment text read as code — arriving from the other direction.
-//
-// The type is inert without the factory: no exported function accepts it, so nothing public reaches
-// `additionalHookExecutors` through it.
-//
-// `ICreateSessionResult` is no longer re-exported from this root (it stays on `assembly/index.ts`).
-// The ground is not that it had few consumers — `.agents/project-structure.md` bans that reasoning
-// about a public surface at any count. It is the return type of a factory that is no longer public,
-// so it describes nothing a consumer can obtain.
+// The framework owns this options type even though its session factory is not public.
 export type { ICreateSessionOptions, TSessionResponseFormat } from './assembly/index.js';
-// MCP-004 §S3: the `toolCallHandoff` policy shape reachable from `ICreateSessionOptions` — the ONLY
+// The `toolCallHandoff` policy shape reachable from `ICreateSessionOptions` — the ONLY
 // barrel addition this unit makes; `buildToolCallHandoff`, the wrapper class and
 // `unwrapToolCallHandoff` stay off the barrel (`tool-call-handoff.ts`'s own module doc).
 export type { IToolCallHandoffPolicy, IToolCallHandoffProvenance } from './assembly/index.js';
@@ -725,16 +700,21 @@ export {
   createMainThreadExecutionEntryId,
   EXECUTION_ORIGIN_METADATA_KEYS,
   parseExecutionWorkspaceEntryId,
-  // CLI-1994: a surface asks this whether an entry can be attached to; the answer is the framework's
-  // because the same module decides when the `attach` control is offered.
+  // A surface asks this what attaching to an entry does; the answer is the framework's
+  // because the same table (`attachKind`) decides when the `attach` control is offered.
+  attachKind,
+  liveBackgroundJobCount,
   resolveExecutionAttach,
   summarizeBackgroundJobGroup,
 } from './background-tasks/index.js';
 export type {
-  IResolveExecutionAttachInput,
+  IHostAttachFacts,
+  IStoreAttachFacts,
+  TExecutionAttachFacts,
+  TExecutionAttachKind,
   TExecutionAttachOutcome,
 } from './background-tasks/execution-workspace-attach.js';
-// ARCH-039: nine `agent-executor` names were re-exported here through the background-tasks barrel
+// Nine `agent-executor` names were re-exported here through the background-tasks barrel
 // and had NO external importer — this barrel was their only consumer, re-publishing what nothing
 // asked for. The per-symbol exemption made that visible; they are imported from
 // `@robota-sdk/agent-executor` by anyone who needs them.
@@ -750,11 +730,11 @@ export type {
 
 // ── Subagent process manager contracts ─────────────────────
 export { createInProcessSubagentRunner } from './subagents/index.js';
-// ARCH-031 removed eleven type-only `agent-executor` republications. Import from the owner: the SPI
-// from `@robota-sdk/agent-executor`, data contracts from `@robota-sdk/agent-interface-execution`.
+// The type-only `agent-executor` republications are gone. Import from the owner: the SPI
+// from `@robota-sdk/agent-executor`, data contracts from `@robota-sdk/agent-interface/execution`.
 export type { IInProcessSubagentRunnerDeps, TSubagentRunnerFactory } from './subagents/index.js';
 
-// ── Multi-agent orchestration mechanism (SELFHOST-001) ──────
+// ── Multi-agent orchestration mechanism ──────
 export {
   runSequential,
   runParallel,
@@ -845,8 +825,8 @@ export type {
   IContextReferenceUpsertResult,
 } from './context/context-reference-inventory.js';
 
-// ── Interaction channel contracts: SSOT is @robota-sdk/agent-interface-session ─────
-// (HARNESS-022 / CONTRACT-013: the residual type-only pass-through re-exports were removed;
+// ── Interaction channel contracts: SSOT is @robota-sdk/agent-interface/session ─────
+// (the residual type-only pass-through re-exports were removed;
 // consumers import IInteractionChannel/InteractionEvent/ICommandInfo from the SSOT.)
 export { parseInput, isSlashCommand, tokeniseSlashCommand } from './interaction/input-parser.js';
 export type { TParsedInput } from './interaction/input-parser.js';
@@ -855,14 +835,14 @@ export { createInteractiveRuntime } from './interaction/createInteractiveRuntime
 export type { IInteractiveRuntimeOptions } from './interaction/createInteractiveRuntime.js';
 
 // ── Permissions ─────────────────────────────────────────────
-// Issue #2351: `consentScopeFor` is what "allow always" grants, so every prompt surface prints the
+// `consentScopeFor` is what "allow always" grants, so every prompt surface prints the
 // same scope — the framework's own facade over agent-session's rule (see permission-prompt.ts).
 export { consentScopeFor, promptForApproval } from './permissions/permission-prompt.js';
 
 // ── Testing utilities ────────────────────────────────────────
 // Test-only fixtures (the functional session harness + stub session) are exported from the
 // `@robota-sdk/agent-framework/testing` subpath, not the runtime entry, so they stay out of the
-// runtime bundle (TEST-003).
+// runtime bundle.
 
 // ── Settings I/O ─────────────────────────────────────────────
 export {
@@ -907,7 +887,7 @@ export { SettingsParseError } from './config/settings-parse-error.js';
 export { NoCurrentProviderProfileError } from './config/no-current-provider-profile-error.js';
 
 // ── Git utilities ─────────────────────────────────────────────
-// BEHAVIOR-2437 / #3282 §4c: the git process port and the `/git status` + `/git diff` readers moved
+// The git process port and the `/git status` + `/git diff` readers moved
 // here from `agent-command` (which depends on this package, never the reverse) so the Project panel's
 // session-level reads and the `/git` command run through the exact SAME functions — never a second,
 // possibly-drifting implementation of "what changed" or "what does this diff show".
@@ -959,7 +939,7 @@ export type {
   IHeadlessSessionOptions,
   IStatelessRuntimeConfig,
 } from './runtime/index.js';
-// RUNTIME-001: the shared, presentation-free runtime host (build session + transport lifecycle).
+// The shared, presentation-free runtime host (build session + transport lifecycle).
 export { buildRuntimeSession, startRuntimeHost } from './runtime/index.js';
 export type { IRuntimeHostOptions, IRuntimeHostHandle } from './runtime/index.js';
 export { SessionSlot } from './runtime/index.js';
@@ -988,7 +968,7 @@ export type {
 export type { IResolvedConfig } from './config/config-types.js';
 export type { IOutputStylePrompt } from './context/output-style-prompt.js';
 
-// SELFHOST-006: per-role model routing policy (neutral, over the provider DIP).
+// Per-role model routing policy (neutral, over the provider DIP).
 export {
   resolveRoleModel,
   resolveRoleFallbackChain,
@@ -1019,15 +999,12 @@ export type {
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):
 //   createProvider()       — REMOVED (provider comes from consumer)
-//   createSession()        — assembly factory (restored to this ledger by issue #2270; the entry
-//                            was deleted by 2d3b2c028 in the same commit that made it public)
+//   createSession()        — assembly factory
 //   loadConfig()           — config loading (used by InteractiveSession internally)
 //   loadContext()          — context loading (used by InteractiveSession internally)
 // ──────────────────────────────────────────────────────────────
 
-// ARCH-029: the command-axis role ports. Named explicitly (the barrels carry no `export *` —
-// sdk-public-surface enforces that, so owner boundaries stay auditable) and sourced straight from
-// the contract module rather than through ./commands, which keeps that barrel under its size floor.
+// Command-axis role ports come directly from the contract module.
 export type {
   IAgentJobDispatch,
   IAgentJobGroups,

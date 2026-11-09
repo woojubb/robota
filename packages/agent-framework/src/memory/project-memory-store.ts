@@ -5,8 +5,8 @@ import { MemoryTopicLifecycle } from './memory-topic-lifecycle.js';
 import { assertWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
-// TMemoryType SSOT relocated to @robota-sdk/agent-interface-session (DATA-001).
-import type { TMemoryType } from '@robota-sdk/agent-interface-session';
+// TMemoryType SSOT relocated to @robota-sdk/agent-interface/session.
+import type { TMemoryType } from '@robota-sdk/agent-interface/session';
 
 export type { TMemoryType };
 
@@ -78,7 +78,7 @@ export function sanitizeTopic(topic: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9\uAC00-\uD7A3_-]+/g, '-');
   // `trimEdgeChars` rather than `/^-+|-+$/g`: `-` survives the collapse above (it is inside the kept class), so
-  // a long dash run reaches the trailing half of that alternation, which is quadratic (SEC-003).
+  // a long dash run reaches the trailing half of that alternation, which is quadratic.
   const normalized = trimEdgeChars(collapsed, '-').slice(0, MAX_TOPIC_LENGTH);
   return normalized || DEFAULT_TOPIC;
 }

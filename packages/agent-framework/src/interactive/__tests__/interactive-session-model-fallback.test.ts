@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { InteractiveSession } from '../interactive-session.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
-import type { IUsageObservation } from '@robota-sdk/agent-interface-analytics';
+import type { IUsageObservation } from '@robota-sdk/agent-interface/analytics';
 
 const testHost = createTestFrameworkHost();
 

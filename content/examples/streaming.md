@@ -1,5 +1,9 @@
 # Streaming
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Show text as the model generates it instead of waiting for the whole answer.
 
 ## With `runStream()`
@@ -9,7 +13,7 @@ the complete response.
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const agent = new ConversationAgent({
   name: 'StreamAgent',
@@ -34,7 +38,7 @@ When you want the complete response as the return value and the deltas on the si
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const agent = new ConversationAgent({
   name: 'StreamAgent',
@@ -59,12 +63,15 @@ An `InteractiveSession` emits a `text_delta` event for each delta while `submit(
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 declare const provider: IAIProvider;
 
 const session = new InteractiveSession({
   cwd: process.cwd(),
+  host: createNodeFrameworkHost({ createDefaultTools }),
   provider,
 });
 

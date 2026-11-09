@@ -1,5 +1,5 @@
 /**
- * GOAL-001: autonomous objective-pursuit controller.
+ * Autonomous objective-pursuit controller.
  *
  * Pure decision logic (no session/IO dependency) so it is unit-testable in isolation. It owns the
  * goal state machine: it reads the deterministic completion signal from a finished turn, advances
@@ -17,7 +17,7 @@ import type {
   IGoalState,
   IToolSummary,
   TGoalStopReason,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export const DEFAULT_GOAL_MAX_ITERATIONS = 25;
 export const DEFAULT_GOAL_NO_PROGRESS_LIMIT = 2;

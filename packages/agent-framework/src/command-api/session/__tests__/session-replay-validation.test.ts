@@ -16,7 +16,7 @@ import {
 } from '../session-command-api.js';
 
 /**
- * ARCH-029 TC-08 — one computed path, one owner.
+ * One computed path, one owner.
  *
  * `validateCurrentSessionReplayLog` used to be an OPTIONAL override with a framework-computed
  * default. Measured before this change: no production host implemented it, so the framework's
@@ -32,7 +32,7 @@ function writeLog(
   sessionId: string,
   lines: readonly string[],
 ): { source: NodeSessionLogSource; reference: string } {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'arch-029-replay-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'replay-validation-')));
   const logs = join(root, '.agent', 'logs');
   mkdirSync(logs, { recursive: true });
   const logFile = join(logs, `${sessionId}.jsonl`);
@@ -43,7 +43,7 @@ function writeLog(
   };
 }
 
-describe('ARCH-029 TC-08 — session replay validation has one owner', () => {
+describe('session replay validation has one owner', () => {
   it('returns the HOST report verbatim, with no second path behind it', () => {
     // A report no computation could produce. If a fallback is ever restored and taken, the
     // returned object stops being this one — which is the whole property under test.

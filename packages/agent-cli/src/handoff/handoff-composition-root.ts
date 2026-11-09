@@ -1,5 +1,5 @@
 /**
- * Where handoff orchestration meets domain authority and wire codecs (HANDOFF-001, issue #1864).
+ * Where handoff orchestration meets domain authority and wire codecs.
  *
  * Session mobility owns handoff orchestration, offers, and authority transactions. `agent-transport`
  * seals and verifies payload bytes and owns chunking; `agent-session` decodes the restored record.
@@ -9,7 +9,7 @@
  * the boundary checkable by reading one file rather than by trusting a rule.
  */
 
-import type { IHandoffComposition } from '@robota-sdk/agent-interface-session-mobility';
+import type { IHandoffComposition } from '@robota-sdk/agent-interface/session-mobility';
 import { decodeInteractiveSessionRecord } from '@robota-sdk/agent-session';
 import { HandoffChunkAssembler, chunkHandoffPayload } from '@robota-sdk/agent-transport';
 import { sealHandoffRecord, verifyHandoffPayload } from '@robota-sdk/agent-transport/node';

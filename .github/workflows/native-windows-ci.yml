@@ -1,0 +1,95 @@
+name: Windows development
+
+on:
+  push:
+    branches: [develop]
+  schedule:
+    - cron: '30 16 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-development-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  scope:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      plan: ${{ steps.scope.outputs.plan }}
+      native: ${{ steps.scope.outputs.native }}
+      windows: ${{ steps.scope.outputs.windows }}
+      followup: ${{ steps.scope.outputs.followup }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/ci-setup
+        with:
+          install: 'false'
+      - id: scope
+        run: node scripts/ci.mjs scope
+        env:
+          CI_EVENT: push
+          CI_BASE: ${{ github.event.before }}
+
+  windows:
+    needs: scope
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || needs.scope.result != 'success' || (needs.scope.outputs.followup == 'true' && needs.scope.outputs.native == 'true' && (needs.scope.outputs.windows != 'true' || fromJSON(needs.scope.outputs.plan).full))) }}
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      IS_PULL_REQUEST: 'true'
+      FIXTURE_PRODUCT: cedar
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.sha }}
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 8.15.4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
+      - name: Generate product workspace
+        id: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec tsx scripts/product/prepare-workflow-workspace.mjs
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Build and exercise Windows binaries
+        shell: bash
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm -r --filter "{packages/agent-cli}..." run build
+          bun packages/agent-cli/scripts/build-bun.mjs windows-x64
+          standalone_root="$(mktemp -d "$RUNNER_TEMP/windows-validation-XXXXXX")"
+          binary="$standalone_root/${{ steps.product.outputs.artifact_prefix }}-windows-x64.exe"
+          cp "packages/agent-cli/dist-bun/${{ steps.product.outputs.artifact_prefix }}-windows-x64.exe" "$binary"
+          chmod +x "$binary"
+          node packages/agent-cli/scripts/e2e-native-file-authority.mjs "$binary"
+          node packages/agent-cli/scripts/e2e-standalone-autoload.mjs "$binary"
+          node packages/agent-cli/scripts/e2e-regex-worker.mjs "$binary"
+          pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism src/startup/__tests__/secure-runtime-spawn-guard.test.ts src/startup/__tests__/spawn-recorder.test.ts src/startup/__tests__/secure-runtime-process.test.ts
+          pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism src/session-inventory/__tests__/forwarded-stderr-redaction.test.ts src/startup/__tests__/forwarded-environment.test.ts src/secure/__tests__/secure-lock-command.test.ts
+          pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts src/session-inventory/__tests__/supervised-transport-token.test.ts src/session-inventory/__tests__/supervised-session-launch-token.test.ts src/__tests__/supervised-transport-token-refusal.test.ts
+          pnpm --filter './apps/agent-app' build
+          pnpm --filter './apps/agent-app' bundle:runtime
+          pnpm --filter './apps/agent-app' exec electron-builder --dir --publish never -c.mac.notarize=false -c.mac.identity=null
+          pnpm --filter './apps/agent-app' test:e2e:packaged
+          pnpm --filter './apps/agent-app' test:e2e:bundled
+      - name: Exercise the developing SDK on Windows
+        uses: ./.github/actions/windows-sdk-check
+        with:
+          workspace: ${{ env.PRODUCT_WORKSPACE }}

@@ -1,7 +1,7 @@
 import { isAbsolutePath } from '@robota-sdk/agent-core';
 
 /**
- * The session's execution root. ARCH-010.
+ * The session's execution root.
  *
  * `Session` used to read `process.cwd()` in its constructor, and that ambient value became the
  * session's identity everywhere it matters — every hook input, `CLAUDE_PROJECT_DIR`, the permission
@@ -17,7 +17,7 @@ import { isAbsolutePath } from '@robota-sdk/agent-core';
 export function requireExecutionRoot(cwd: unknown): string {
   if (typeof cwd !== 'string' || cwd.length === 0) {
     throw new Error(
-      'Session requires `cwd`: the absolute path this session executes in (ARCH-010). It feeds ' +
+      'Session requires `cwd`: the absolute path this session executes in. It feeds ' +
         'every hook input, CLAUDE_PROJECT_DIR, the permission root and the persisted record. Pass ' +
         '`process.cwd()` explicitly if that is genuinely what you mean.',
     );
@@ -27,7 +27,7 @@ export function requireExecutionRoot(cwd: unknown): string {
   // VALUE instead of through its absence — the same defect wearing a different shape.
   if (!isAbsolutePath(cwd)) {
     throw new Error(
-      `Session requires an ABSOLUTE \`cwd\`; got ${JSON.stringify(cwd)} (ARCH-010). A relative ` +
+      `Session requires an ABSOLUTE \`cwd\`; got ${JSON.stringify(cwd)}. A relative ` +
         'root is resolved against the process directory downstream, which is the ambient value this ' +
         'field exists to replace. Resolve it at your composition root.',
     );

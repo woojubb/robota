@@ -2,6 +2,8 @@
 
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { createConnection } from 'node:net';
 import {
   existsSync,
   mkdirSync,
@@ -20,10 +22,99 @@ function run(command, arguments_, cwd, env) {
   return spawnSync(command, arguments_, { cwd, env, encoding: 'utf8' });
 }
 
+/** The fixture answers the real terminal question; the product has no headless grant route. */
+export function approveOnTerminal(command, arguments_, cwd, env) {
+  const require = createRequire(import.meta.url);
+  const pty = require('@homebridge/node-pty-prebuilt-multiarch');
+  return new Promise((resolve, reject) => {
+    let terminal;
+    try {
+      terminal = pty.spawn(command, arguments_, { cwd, env, cols: 100, rows: 30 });
+    } catch (error) {
+      reject(error);
+      return;
+    }
+    let output = '';
+    let answered = false;
+    const timer = setTimeout(() => {
+      terminal.kill();
+      reject(new Error('The native trust question timed out.'));
+    }, 30_000);
+    terminal.onData((chunk) => {
+      output += chunk;
+      if (!answered && output.includes('Trust this exact folder? [y/N]')) {
+        answered = true;
+        terminal.write('y\r');
+      }
+    });
+    terminal.onExit(({ exitCode }) => {
+      clearTimeout(timer);
+      resolve({ status: exitCode, stdout: output, stderr: '' });
+    });
+  });
+}
+
 function commandFailure(label, result) {
   return new Error(
     `${label} failed with status ${String(result.status)}.\nstdout:\n${result.stdout ?? ''}\nstderr:\n${result.stderr ?? ''}`,
   );
+}
+
+/** Stop only the broker at this fixture's unique product-state endpoint. */
+export async function stopFixtureBroker(env) {
+  const namespace = createHash('sha256').update(env.PRODUCT_USER_STATE_DIR).digest('hex').slice(0, 24);
+  const endpoint = process.platform === 'win32'
+    ? `\\\\.\\pipe\\robota-root-${namespace}`
+    : join('/tmp', `robota-root-${process.getuid()}-${namespace}`, 'broker.sock');
+  const pid = await new Promise((resolvePid, reject) => {
+    const socket = createConnection(endpoint);
+    let response = '';
+    let settled = false;
+    const timer = setTimeout(() => finish(new Error('Fixture broker ping timed out.')), 5_000);
+    function finish(error, value) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      socket.destroy();
+      if (error) reject(error);
+      else resolvePid(value);
+    }
+    socket.once('connect', () => socket.write('{"version":1,"op":"ping"}\n'));
+    socket.once('error', (error) => {
+      if (error.code === 'ENOENT' || error.code === 'ECONNREFUSED') finish(undefined, undefined);
+      else finish(error);
+    });
+    socket.on('data', (chunk) => {
+      response += chunk.toString('utf8');
+      if (response.length > 1_024) return finish(new Error('Fixture broker ping was oversized.'));
+      if (!response.includes('\n')) return;
+      try {
+        const ready = JSON.parse(response.trim());
+        if (ready.status !== 'ready' || !Number.isSafeInteger(ready.pid) || ready.pid <= 0 ||
+            ready.pid === process.pid) throw new Error('Fixture broker ping returned an invalid PID.');
+        finish(undefined, ready.pid);
+      } catch (error) {
+        finish(error);
+      }
+    });
+    socket.once('end', () => finish(new Error('Fixture broker ping ended without a response.')));
+  });
+  if (pid === undefined) return;
+  try { process.kill(pid, 'SIGTERM'); }
+  catch (error) {
+    if (error.code !== 'ESRCH') throw error;
+    return;
+  }
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    try { process.kill(pid, 0); }
+    catch (error) {
+      if (error.code !== 'ESRCH') throw error;
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Fixture broker ${pid} did not exit after SIGTERM.`);
 }
 
 export function assertStandaloneNativeRuntime(binaryPath) {
@@ -48,8 +139,8 @@ export function resolveNativeFixtureWorkspace(cwd, env) {
 }
 
 /**
- * Whether this host can prove a project-relative write stays under the trusted workspace root
- * (ARCH-047). The proof walks descriptor-relative paths through `/proc/self/fd`, which only Linux
+ * Whether this host can prove a project-relative write stays under the trusted workspace root.
+ * The proof walks descriptor-relative paths through `/proc/self/fd`, which only Linux
  * provides — see `supportsWorkspaceProjectMutation` in
  * `packages/agent-framework/src/workspace-trust/project-relative-writer.ts`, the CLI-internal
  * function this mirrors. Everywhere else, `trustedSessionStore`
@@ -171,7 +262,8 @@ function runProjectFileAuthorityScenario(
   const refusalOutput = `${refused.stdout ?? ''}\n${refused.stderr ?? ''}`;
   const replacementDenied =
     refused.status !== 0 &&
-    /link|unsafe|authority/iu.test(refusalOutput) &&
+    (/link|unsafe|authority/iu.test(refusalOutput) ||
+      refusalOutput.includes('The live workspace broker refused the operation (operation-unavailable).')) &&
     !refusalOutput.includes(marker) &&
     !refusalOutput.includes(outside);
   if (!replacementDenied) throw commandFailure('replaced-parent session analyze refusal', refused);
@@ -233,7 +325,7 @@ function runUserSessionStoreScenario(command, prefixArguments, home, workspace, 
   return { replaySucceeded: true, projectStateWritten };
 }
 
-export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
+export async function runNativeFileAuthorityE2e(binaryPath, options = {}) {
   const binary = resolve(binaryPath);
   if (!existsSync(binary)) throw new Error(`The packaged agent executable is missing: ${binary}`);
   if (options.node !== true) assertStandaloneNativeRuntime(binary);
@@ -255,7 +347,7 @@ export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
     if (git.status !== 0) throw commandFailure('git init', git);
     const workspace = resolveNativeFixtureWorkspace(workspaceDirectory, env);
 
-    const trust = run(command, [...prefixArguments, 'trust', '--yes'], workspace, env);
+    const trust = await approveOnTerminal(command, [...prefixArguments, 'trust', '--yes'], workspace, env);
     if (trust.status !== 0 || !/Workspace trust: trusted/u.test(trust.stdout ?? '')) {
       throw commandFailure(`${env.PRODUCT_CLI_NAME} trust --yes`, trust);
     }
@@ -271,6 +363,7 @@ export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
         )
       : runUserSessionStoreScenario(command, prefixArguments, home, workspace, env, sessionId);
   } finally {
+    await stopFixtureBroker(env);
     rmSync(fixtureRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
   }
 
@@ -292,11 +385,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     if (!binaryPath) {
       throw new Error('Usage: e2e-native-file-authority.mjs [--node] <agent-executable>');
     }
-    process.stdout.write(`${runNativeFileAuthorityE2e(binaryPath, { node: nodeMode })}\n`);
+    process.stdout.write(`${await runNativeFileAuthorityE2e(binaryPath, { node: nodeMode })}\n`, () => process.exit(0));
   } catch (error) {
     process.stderr.write(
       `native-file-authority e2e: ${error instanceof Error ? error.message : String(error)}\n`,
+      () => process.exit(1),
     );
-    process.exitCode = 1;
   }
 }

@@ -1,4 +1,4 @@
-// #3282 §3: a child that dies with an ANSI-colored line carrying two secrets before its readiness
+// A child that dies with an ANSI-colored line carrying two secrets before its readiness
 // handshake — an exact value from ITS OWN env (what a real child could echo back verbatim, e.g. into
 // a connection-error message) and a Bearer token it never got from this process's env (what a real
 // child could see over the wire — a vendor's own error body). The reported stderr tail must show

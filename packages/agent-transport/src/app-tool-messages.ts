@@ -14,7 +14,7 @@ import type {
   ISessionRuntimeTools,
   ISessionToolAppViews,
   TDriverId,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 type TCallAppToolMessage = Extract<TClientMessage, { type: 'call-app-tool' }>;
 type TReadAppViewMessage = Extract<TClientMessage, { type: 'read-app-view' }>;

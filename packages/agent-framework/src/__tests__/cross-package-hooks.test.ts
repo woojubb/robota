@@ -17,6 +17,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
 import { PromptExecutor, AgentExecutor } from '../hooks/index.js';
 import { BundlePluginLoader } from '../plugins/index.js';
+import { denyCommand } from '../testing/shell-command-fixture.js';
 
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { IPromptProvider } from '../hooks/index.js';
@@ -93,7 +94,7 @@ describe('Cross-package: config -> hook runner', () => {
       PreToolUse: [
         {
           matcher: 'dangerous',
-          hooks: [{ type: 'command', command: 'echo "denied" >&2; exit 2' }],
+          hooks: [{ type: 'command', command: denyCommand('denied') }],
         },
       ],
     };

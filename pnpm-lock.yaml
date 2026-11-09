@@ -84,12 +84,6 @@ importers:
       '@changesets/cli':
         specifier: ^2.31.1
         version: 2.31.1(@types/node@20.19.43)
-      '@commitlint/cli':
-        specifier: ^21.2.1
-        version: 21.2.1(@types/node@20.19.43)(typescript@6.0.3)
-      '@commitlint/config-conventional':
-        specifier: ^21.2.0
-        version: 21.2.0
       '@stryker-mutator/core':
         specifier: ^9.6.1
         version: 9.6.1(@types/node@20.19.43)
@@ -135,9 +129,6 @@ importers:
       husky:
         specifier: ^9.1.7
         version: 9.1.7
-      lint-staged:
-        specifier: ^15.5.2
-        version: 15.5.2
       marked:
         specifier: ^9.1.6
         version: 9.1.6
@@ -164,7 +155,7 @@ importers:
         version: 0.3.1
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
       yaml:
         specifier: 2.9.0
         version: 2.9.0
@@ -172,27 +163,51 @@ importers:
   apps/action:
     devDependencies:
       '@robota-sdk/agent-cli':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/agent-cli
       '@types/node':
         specifier: ^22.19.21
         version: 22.19.21
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   apps/agent-app:
     dependencies:
+      '@robota-sdk/agent-cli':
+        specifier: workspace:^
+        version: link:../../packages/agent-cli
+      '@robota-sdk/agent-local-host':
+        specifier: workspace:^
+        version: link:../../packages/agent-local-host
+      '@robota-sdk/agent-transport':
+        specifier: npm:@robota-sdk/agent-transport@3.4.1
+        version: 3.4.1(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.1)(@robota-sdk/agent-remote-pairing@3.2.3)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       '@robota-sdk/product-config':
-        specifier: workspace:*
-        version: link:../../packages/product-config
+        specifier: npm:@robota-sdk/product-config@3.2.1
+        version: 3.2.1
       ws:
         specifier: ^8.21.1
         version: 8.21.1
     devDependencies:
+      '@electron/asar':
+        specifier: ^3.4.1
+        version: 3.4.1
+      '@robota-sdk/agent-framework':
+        specifier: npm:@robota-sdk/agent-framework@3.2.5
+        version: 3.2.5
       '@robota-sdk/agent-gui-web':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/agent-gui-web
+      '@robota-sdk/agent-keyring':
+        specifier: npm:@robota-sdk/agent-keyring@3.2.1
+        version: 3.2.1
+      '@robota-sdk/agent-session':
+        specifier: npm:@robota-sdk/agent-session@3.2.5
+        version: 3.2.5
+      '@robota-sdk/agent-ui-web':
+        specifier: npm:@robota-sdk/agent-ui-web@3.3.3
+        version: 3.3.3(@robota-sdk/agent-keyring@3.2.1)(@types/react@19.2.17)(react@19.2.8)(ws@8.21.1)(zod@4.6.7)
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
@@ -210,7 +225,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   apps/agent-web:
     dependencies:
@@ -218,16 +233,16 @@ importers:
         specifier: workspace:^
         version: link:../../packages/agent-core
       '@robota-sdk/agent-remote-pairing':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/agent-remote-pairing
-      '@robota-sdk/agent-transport-webrtc-web':
-        specifier: workspace:*
-        version: link:../../packages/agent-transport-webrtc-web
+      '@robota-sdk/agent-transport':
+        specifier: workspace:^
+        version: link:../../packages/agent-transport
       '@robota-sdk/agent-ui-web':
         specifier: workspace:^
         version: link:../../packages/agent-ui-web
       '@robota-sdk/product-config':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/product-config
       next:
         specifier: ^15.5.24
@@ -417,7 +432,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
       wrangler:
         specifier: ^4.123.0
         version: 4.123.0
@@ -428,24 +443,36 @@ importers:
         specifier: ^8.21.1
         version: 8.21.1
     devDependencies:
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../../packages/agent-interface-session
+      '@robota-sdk/agent-core':
+        specifier: workspace:^
+        version: link:../../packages/agent-core
+      '@robota-sdk/agent-interface':
+        specifier: workspace:^
+        version: link:../../packages/agent-interface
       '@robota-sdk/agent-remote-pairing':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/agent-remote-pairing
-      '@robota-sdk/agent-transport-webrtc':
-        specifier: workspace:*
-        version: link:../../packages/agent-transport-webrtc
+      '@robota-sdk/agent-transport':
+        specifier: workspace:^
+        version: link:../../packages/agent-transport
       '@types/node':
         specifier: ^22.19.21
         version: 22.19.21
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      bittorrent-dht:
+        specifier: ^11.0.12
+        version: 11.0.12
+      multicast-dns:
+        specifier: ^7.2.5
+        version: 7.2.5
       node-datachannel:
         specifier: ^0.33.4
         version: 0.33.4
+      nostr-tools:
+        specifier: ^2.25.2
+        version: 2.25.2(patch_hash=cwhzskwbpwfbe2z3roazz7mtuy)(typescript@6.0.3)
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
@@ -457,19 +484,22 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   apps/starter-nextjs:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@robota-sdk/agent-framework':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/agent-framework
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: workspace:*
-        version: link:../../packages/agent-provider-anthropic
-      '@robota-sdk/agent-tool-defaults':
-        specifier: workspace:*
-        version: link:../../packages/agent-tool-defaults
+      '@robota-sdk/agent-provider':
+        specifier: workspace:^
+        version: link:../../packages/agent-provider
+      '@robota-sdk/agent-tools':
+        specifier: workspace:^
+        version: link:../../packages/agent-tools
       next:
         specifier: ^15.5.24
         version: 15.5.28(@babel/core@7.29.7)(@types/node@22.19.21)(react-dom@19.2.8)(react@19.2.8)
@@ -481,7 +511,7 @@ importers:
         version: 19.2.8(react@19.2.8)
     devDependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/agent-core
       '@types/node':
         specifier: ^22.19.21
@@ -497,7 +527,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   apps/www:
     dependencies:
@@ -546,22 +576,25 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
       wrangler:
         specifier: ^4.123.0
         version: 4.123.0
 
   examples/batch-processor:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-framework
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-provider-anthropic
-      '@robota-sdk/agent-tool-defaults':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-tool-defaults
+        specifier: ^3.2.5
+        version: 3.2.5
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
+      '@robota-sdk/agent-tools':
+        specifier: ^3.3.0
+        version: 3.3.1(@robota-sdk/agent-core@3.2.3)
       p-limit:
         specifier: ^6.1.0
         version: 6.2.0
@@ -578,24 +611,27 @@ importers:
 
   examples/capabilities/agent-eval:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../../packages/agent-core
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.1
-        version: link:../../../packages/agent-framework
+        specifier: ^3.2.5
+        version: 3.2.5
       '@robota-sdk/agent-mcp':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../../packages/agent-mcp
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.1
-        version: link:../../../packages/agent-provider-anthropic
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
       '@robota-sdk/agent-provider-replay':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../../packages/agent-provider-replay
-      '@robota-sdk/agent-tool-defaults':
-        specifier: ^3.0.1
-        version: link:../../../packages/agent-tool-defaults
+      '@robota-sdk/agent-tools':
+        specifier: ^3.3.0
+        version: 3.3.1(@robota-sdk/agent-core@packages+agent-core)
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -609,15 +645,18 @@ importers:
 
   examples/capabilities/decision-agent:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@robota-sdk/agent-core':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-core
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-provider-anthropic
+        specifier: ^3.2.3
+        version: 3.2.3
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
       '@robota-sdk/agent-tools':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-tools
+        specifier: ^3.3.0
+        version: 3.3.1(@robota-sdk/agent-core@3.2.3)
       zod:
         specifier: '>=4.6.7 <5.0.0'
         version: 4.6.7
@@ -634,21 +673,27 @@ importers:
 
   examples/capabilities/multi-surface-deploy:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-framework
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-provider-anthropic
-      '@robota-sdk/agent-tool-defaults':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-tool-defaults
-      '@robota-sdk/agent-transport-http':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-transport-http
-      '@robota-sdk/agent-transport-ws':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-transport-ws
+        specifier: ^3.2.5
+        version: 3.2.5
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
+      '@robota-sdk/agent-tools':
+        specifier: ^3.3.0
+        version: 3.3.1(@robota-sdk/agent-core@3.2.3)
+      '@robota-sdk/agent-transport':
+        specifier: ^3.4.0
+        version: 3.4.1(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.1)(@robota-sdk/agent-remote-pairing@3.2.3)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
+      hono:
+        specifier: '>=4.13.11 <5.0.0'
+        version: 4.13.14
+      ws:
+        specifier: ^8.21.1
+        version: 8.21.1
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -663,11 +708,14 @@ importers:
   examples/capabilities/openai-compatible-gateway:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-core
-      '@robota-sdk/agent-provider-openai':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-provider-openai
+        specifier: ^3.2.3
+        version: 3.2.3
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(openai@6.0.0)
+      openai:
+        specifier: ^6.0.0
+        version: 6.0.0(ws@8.21.1)(zod@4.6.7)
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -682,17 +730,14 @@ importers:
   examples/capabilities/sandboxed-tools:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-core
+        specifier: ^3.2.3
+        version: 3.2.3
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-framework
-      '@robota-sdk/agent-tool-defaults':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-tool-defaults
+        specifier: ^3.2.5
+        version: 3.2.5
       '@robota-sdk/agent-tools':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-tools
+        specifier: ^3.3.0
+        version: 3.3.1(@robota-sdk/agent-core@3.2.3)
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -703,12 +748,15 @@ importers:
 
   examples/capabilities/stateless-turns:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@robota-sdk/agent-core':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-core
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-provider-anthropic
+        specifier: ^3.2.3
+        version: 3.2.3
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -722,12 +770,15 @@ importers:
 
   examples/capabilities/streaming:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@robota-sdk/agent-core':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-core
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-provider-anthropic
+        specifier: ^3.2.3
+        version: 3.2.3
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
       zod:
         specifier: '>=4.6.7 <5.0.0'
         version: 4.6.7
@@ -744,15 +795,18 @@ importers:
 
   examples/cli:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-framework
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-provider-anthropic
-      '@robota-sdk/agent-tool-defaults':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-tool-defaults
+        specifier: ^3.2.5
+        version: 3.2.5
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
+      '@robota-sdk/agent-tools':
+        specifier: ^3.3.0
+        version: 3.3.1(@robota-sdk/agent-core@3.2.3)
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -766,18 +820,21 @@ importers:
 
   examples/discord-bot:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@discordjs/rest':
         specifier: ^2.6.3
         version: 2.6.3
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-framework
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-provider-anthropic
-      '@robota-sdk/agent-tool-defaults':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-tool-defaults
+        specifier: ^3.2.5
+        version: 3.2.5
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
+      '@robota-sdk/agent-tools':
+        specifier: ^3.3.0
+        version: 3.3.1(@robota-sdk/agent-core@3.2.3)
       discord-api-types:
         specifier: ^0.38.50
         version: 0.38.50
@@ -800,18 +857,18 @@ importers:
 
   examples/express:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-framework
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-provider-anthropic
-      '@robota-sdk/agent-tool-defaults':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-tool-defaults
+        specifier: ^3.2.5
+        version: 3.2.5
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
       '@robota-sdk/agent-tools':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-tools
+        specifier: ^3.3.0
+        version: 3.3.1(@robota-sdk/agent-core@3.2.3)
       express:
         specifier: ^4.18.0
         version: 4.22.2
@@ -834,18 +891,21 @@ importers:
 
   examples/github-pr-reviewer:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@octokit/rest':
         specifier: ^20.1.1
         version: 20.1.2
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-framework
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-provider-anthropic
-      '@robota-sdk/agent-tool-defaults':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-tool-defaults
+        specifier: ^3.2.5
+        version: 3.2.5
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
+      '@robota-sdk/agent-tools':
+        specifier: ^3.3.0
+        version: 3.3.1(@robota-sdk/agent-core@3.2.3)
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -862,15 +922,18 @@ importers:
 
   examples/nextjs:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-framework
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-provider-anthropic
-      '@robota-sdk/agent-tool-defaults':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-tool-defaults
+        specifier: ^3.2.5
+        version: 3.2.5
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
+      '@robota-sdk/agent-tools':
+        specifier: ^3.3.0
+        version: 3.3.1(@robota-sdk/agent-core@3.2.3)
       next:
         specifier: ^15.5.24
         version: 15.5.28(@babel/core@7.29.7)(@types/node@22.19.21)(react-dom@19.2.8)(react@19.2.8)
@@ -896,15 +959,18 @@ importers:
 
   examples/slack-bot:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-framework
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-provider-anthropic
-      '@robota-sdk/agent-tool-defaults':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-tool-defaults
+        specifier: ^3.2.5
+        version: 3.2.5
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
+      '@robota-sdk/agent-tools':
+        specifier: ^3.3.0
+        version: 3.3.1(@robota-sdk/agent-core@3.2.3)
       '@slack/bolt':
         specifier: ^3.21.1
         version: 3.22.0
@@ -924,15 +990,18 @@ importers:
 
   examples/telegram-bot:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-framework
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-provider-anthropic
-      '@robota-sdk/agent-tool-defaults':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-tool-defaults
+        specifier: ^3.2.5
+        version: 3.2.5
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
+      '@robota-sdk/agent-tools':
+        specifier: ^3.3.0
+        version: 3.3.1(@robota-sdk/agent-core@3.2.3)
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -952,15 +1021,18 @@ importers:
 
   examples/websocket-chat:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.114.0
+        version: 0.114.0(zod@4.6.7)
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-framework
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-provider-anthropic
-      '@robota-sdk/agent-tool-defaults':
-        specifier: ^3.0.0-beta.67
-        version: link:../../packages/agent-tool-defaults
+        specifier: ^3.2.5
+        version: 3.2.5
+      '@robota-sdk/agent-provider':
+        specifier: ^3.3.0
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
+      '@robota-sdk/agent-tools':
+        specifier: ^3.3.0
+        version: 3.3.1(@robota-sdk/agent-core@3.2.3)
       ws:
         specifier: ^8.21.1
         version: 8.21.1
@@ -977,65 +1049,6 @@ importers:
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
-
-  packages/agent-builtin-providers:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: workspace:*
-        version: link:../agent-provider-anthropic
-      '@robota-sdk/agent-provider-bytedance':
-        specifier: workspace:*
-        version: link:../agent-provider-bytedance
-      '@robota-sdk/agent-provider-gemini':
-        specifier: workspace:*
-        version: link:../agent-provider-gemini
-      '@robota-sdk/agent-provider-openai':
-        specifier: workspace:*
-        version: link:../agent-provider-openai
-      '@robota-sdk/agent-provider-openai-compatible':
-        specifier: workspace:*
-        version: link:../agent-provider-openai-compatible
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-capability-pack:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../agent-framework
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-cli:
     dependencies:
@@ -1161,120 +1174,75 @@ importers:
       '@homebridge/node-pty-prebuilt-multiarch':
         specifier: ^0.14.1
         version: 0.14.1
-      '@robota-sdk/agent-builtin-providers':
-        specifier: workspace:*
-        version: link:../agent-builtin-providers
-      '@robota-sdk/agent-command':
-        specifier: workspace:*
-        version: link:../agent-command
       '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
+        specifier: npm:@robota-sdk/agent-core@3.2.3
+        version: 3.2.3
       '@robota-sdk/agent-executor':
-        specifier: workspace:*
-        version: link:../agent-executor
+        specifier: npm:@robota-sdk/agent-executor@3.2.4
+        version: 3.2.4(koffi@3.3.1)
       '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../agent-framework
+        specifier: npm:@robota-sdk/agent-framework@3.2.5
+        version: 3.2.5
       '@robota-sdk/agent-gui-web':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-gui-web
-      '@robota-sdk/agent-interface-analytics':
-        specifier: workspace:*
-        version: link:../agent-interface-analytics
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:*
-        version: link:../agent-interface-command
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-session-mobility':
-        specifier: workspace:*
-        version: link:../agent-interface-session-mobility
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
+      '@robota-sdk/agent-interface':
+        specifier: npm:@robota-sdk/agent-interface@3.3.0
+        version: 3.3.0(@robota-sdk/agent-core@3.2.3)
       '@robota-sdk/agent-keyring':
-        specifier: workspace:*
-        version: link:../agent-keyring
+        specifier: npm:@robota-sdk/agent-keyring@3.2.1
+        version: 3.2.1
+      '@robota-sdk/agent-local-host':
+        specifier: workspace:^
+        version: link:../agent-local-host
       '@robota-sdk/agent-mcp':
-        specifier: workspace:*
-        version: link:../agent-mcp
+        specifier: npm:@robota-sdk/agent-mcp@3.2.2
+        version: 3.2.2(@robota-sdk/agent-core@3.2.3)
       '@robota-sdk/agent-organization-host':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-organization-host
-      '@robota-sdk/agent-preset':
-        specifier: workspace:*
-        version: link:../agent-preset
+      '@robota-sdk/agent-os':
+        specifier: npm:@robota-sdk/agent-os@3.3.0
+        version: 3.3.0(koffi@3.3.1)
       '@robota-sdk/agent-product':
-        specifier: workspace:*
-        version: link:../agent-product
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: workspace:*
-        version: link:../agent-provider-anthropic
-      '@robota-sdk/agent-provider-gemini':
-        specifier: workspace:*
-        version: link:../agent-provider-gemini
-      '@robota-sdk/agent-provider-openai':
-        specifier: workspace:*
-        version: link:../agent-provider-openai
-      '@robota-sdk/agent-provider-openai-compatible':
-        specifier: workspace:*
-        version: link:../agent-provider-openai-compatible
+        specifier: npm:@robota-sdk/agent-product@3.3.1
+        version: 3.3.1
+      '@robota-sdk/agent-provider':
+        specifier: npm:@robota-sdk/agent-provider@3.3.1
+        version: 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
       '@robota-sdk/agent-provider-replay':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-provider-replay
       '@robota-sdk/agent-remote-pairing':
-        specifier: workspace:*
-        version: link:../agent-remote-pairing
+        specifier: npm:@robota-sdk/agent-remote-pairing@3.2.3
+        version: 3.2.3
       '@robota-sdk/agent-session':
-        specifier: workspace:*
-        version: link:../agent-session
+        specifier: npm:@robota-sdk/agent-session@3.2.5
+        version: 3.2.5
       '@robota-sdk/agent-session-analytics':
-        specifier: workspace:*
-        version: link:../agent-session-analytics
+        specifier: npm:@robota-sdk/agent-session-analytics@3.2.5
+        version: 3.2.5
       '@robota-sdk/agent-subagent-runner':
-        specifier: workspace:*
-        version: link:../agent-subagent-runner
+        specifier: npm:@robota-sdk/agent-subagent-runner@3.2.5
+        version: 3.2.5(koffi@3.3.1)
       '@robota-sdk/agent-telemetry-otel':
-        specifier: workspace:*
-        version: link:../agent-telemetry-otel
-      '@robota-sdk/agent-tool-defaults':
-        specifier: workspace:*
-        version: link:../agent-tool-defaults
+        specifier: npm:@robota-sdk/agent-telemetry-otel@3.2.4
+        version: 3.2.4(@opentelemetry/api@1.9.1)
       '@robota-sdk/agent-tools':
-        specifier: workspace:*
-        version: link:../agent-tools
+        specifier: npm:@robota-sdk/agent-tools@3.3.1
+        version: 3.3.1(@robota-sdk/agent-core@3.2.3)
       '@robota-sdk/agent-transport':
-        specifier: workspace:*
-        version: link:../agent-transport
-      '@robota-sdk/agent-transport-acp':
-        specifier: workspace:*
-        version: link:../agent-transport-acp
-      '@robota-sdk/agent-transport-http':
-        specifier: workspace:*
-        version: link:../agent-transport-http
-      '@robota-sdk/agent-transport-mcp':
-        specifier: workspace:*
-        version: link:../agent-transport-mcp
-      '@robota-sdk/agent-transport-webrtc':
-        specifier: workspace:*
-        version: link:../agent-transport-webrtc
-      '@robota-sdk/agent-transport-ws':
-        specifier: workspace:*
-        version: link:../agent-transport-ws
+        specifier: npm:@robota-sdk/agent-transport@3.4.1
+        version: 3.4.1(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.1)(@robota-sdk/agent-remote-pairing@3.2.3)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       '@robota-sdk/agent-ui-terminal':
-        specifier: workspace:*
-        version: link:../agent-ui-terminal
-      '@robota-sdk/pack-coding':
-        specifier: workspace:*
-        version: link:../pack-coding
+        specifier: npm:@robota-sdk/agent-ui-terminal@3.2.4
+        version: 3.2.4(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.1)(@robota-sdk/agent-remote-pairing@3.2.3)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       '@robota-sdk/product-config':
-        specifier: workspace:*
-        version: link:../product-config
+        specifier: npm:@robota-sdk/product-config@3.2.1
+        version: 3.2.1
       '@robota-sdk/workflows':
-        specifier: 0.0.3
-        version: 0.0.3(@robota-sdk/agent-builtin-providers@packages+agent-builtin-providers)(@robota-sdk/agent-core@packages+agent-core)(@robota-sdk/agent-framework@packages+agent-framework)(@robota-sdk/agent-interface-command@packages+agent-interface-command)(@robota-sdk/agent-tools@packages+agent-tools)
+        specifier: 0.0.6
+        version: 0.0.6(@robota-sdk/agent-core@3.2.3)(@robota-sdk/agent-framework@3.2.5)(@robota-sdk/agent-interface@3.3.0)(@robota-sdk/agent-provider@3.3.1)(@robota-sdk/agent-tools@3.3.1)
       '@types/marked':
         specifier: ^6.0.0
         version: 6.0.0
@@ -1316,44 +1284,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-command:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../agent-framework
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:*
-        version: link:../agent-interface-command
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:*
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-preset':
-        specifier: workspace:*
-        version: link:../agent-preset
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-core:
     dependencies:
@@ -1396,22 +1327,19 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-executor:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-core
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:*
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-process':
-        specifier: workspace:*
-        version: link:../agent-process
+      '@robota-sdk/agent-interface':
+        specifier: workspace:^
+        version: link:../agent-interface
+      '@robota-sdk/agent-os':
+        specifier: workspace:^
+        version: link:../agent-os
       croner:
         specifier: ^10.0.1
         version: 10.0.1
@@ -1430,68 +1358,34 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-file-authority:
-    dependencies:
-      koffi:
-        specifier: 3.3.1
-        version: 3.3.1
-    devDependencies:
-      '@types/node':
-        specifier: ^20.19.43
-        version: 20.19.43
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-framework:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-core
       '@robota-sdk/agent-executor':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-executor
-      '@robota-sdk/agent-file-authority':
-        specifier: workspace:*
-        version: link:../agent-file-authority
-      '@robota-sdk/agent-interface-analytics':
-        specifier: workspace:*
-        version: link:../agent-interface-analytics
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:*
-        version: link:../agent-interface-command
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:*
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-session-mobility':
-        specifier: workspace:*
-        version: link:../agent-interface-session-mobility
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
+      '@robota-sdk/agent-interface':
+        specifier: workspace:^
+        version: link:../agent-interface
+      '@robota-sdk/agent-os':
+        specifier: workspace:^
+        version: link:../agent-os
       '@robota-sdk/agent-roundtable':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-roundtable
       '@robota-sdk/agent-session':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-session
-      '@robota-sdk/agent-tool-defaults':
-        specifier: workspace:*
-        version: link:../agent-tool-defaults
       '@robota-sdk/agent-tools':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-tools
+      koffi:
+        specifier: 3.3.1
+        version: 3.3.1
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
@@ -1502,18 +1396,27 @@ importers:
       '@modelcontextprotocol/client':
         specifier: ^2.3.0
         version: 2.3.0
-      '@robota-sdk/agent-provider-openai-compatible':
-        specifier: workspace:*
-        version: link:../agent-provider-openai-compatible
+      '@modelcontextprotocol/node':
+        specifier: ^2.1.0
+        version: 2.1.0(@modelcontextprotocol/server@2.3.0)(hono@4.13.14)
+      '@modelcontextprotocol/server':
+        specifier: ^2.3.0
+        version: 2.3.0
+      '@robota-sdk/agent-provider':
+        specifier: workspace:^
+        version: link:../agent-provider
       '@robota-sdk/agent-provider-replay':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-provider-replay
       '@robota-sdk/agent-session-analytics':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-session-analytics
-      '@robota-sdk/agent-transport-mcp':
-        specifier: workspace:*
-        version: link:../agent-transport-mcp
+      '@robota-sdk/agent-transport':
+        specifier: workspace:^
+        version: link:../agent-transport
+      openai:
+        specifier: ^6.0.0
+        version: 6.0.0(ws@8.21.1)(zod@4.6.7)
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
@@ -1528,13 +1431,13 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-gui-web:
     dependencies:
       '@robota-sdk/agent-ui-web':
-        specifier: workspace:*
-        version: link:../agent-ui-web
+        specifier: npm:@robota-sdk/agent-ui-web@3.3.3
+        version: 3.3.3(@robota-sdk/agent-keyring@3.2.1)(@types/react@19.2.17)(react@19.2.8)(ws@8.21.1)(zod@4.6.7)
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -1543,14 +1446,17 @@ importers:
         version: 19.2.8(react@19.2.8)
     devDependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-transport-ws':
-        specifier: workspace:*
-        version: link:../agent-transport-ws
+        specifier: npm:@robota-sdk/agent-core@3.2.3
+        version: 3.2.3
+      '@robota-sdk/agent-framework':
+        specifier: npm:@robota-sdk/agent-framework@3.2.5
+        version: 3.2.5
+      '@robota-sdk/agent-transport':
+        specifier: npm:@robota-sdk/agent-transport@3.4.1
+        version: 3.4.1(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.1)(@robota-sdk/agent-remote-pairing@3.2.3)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       '@robota-sdk/product-config':
-        specifier: workspace:*
-        version: link:../product-config
+        specifier: npm:@robota-sdk/product-config@3.2.1
+        version: 3.2.1
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@6.4.3)
@@ -1586,102 +1492,19 @@ importers:
         version: 6.4.3(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+      ws:
+        specifier: ^8.21.1
+        version: 8.21.1
 
-  packages/agent-interface-analytics:
+  packages/agent-interface:
     devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-interface-command:
-    dependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-core
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-interface-execution:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-interface-session:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-interface-analytics':
-        specifier: workspace:*
-        version: link:../agent-interface-analytics
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:*
-        version: link:../agent-interface-command
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:*
-        version: link:../agent-interface-execution
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-interface-session-mobility:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-interface-transport:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-    devDependencies:
+      '@types/node':
+        specifier: ^20.19.43
+        version: 20.19.43
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
@@ -1693,22 +1516,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-interface-tui:
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-keyring:
     devDependencies:
@@ -1723,7 +1531,38 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+
+  packages/agent-local-host:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: npm:@robota-sdk/agent-core@3.2.3
+        version: 3.2.3
+      '@robota-sdk/agent-keyring':
+        specifier: npm:@robota-sdk/agent-keyring@3.2.1
+        version: 3.2.1
+      '@robota-sdk/agent-os':
+        specifier: npm:@robota-sdk/agent-os@3.3.0
+        version: 3.3.0(koffi@3.3.1)
+      '@robota-sdk/agent-remote-pairing':
+        specifier: npm:@robota-sdk/agent-remote-pairing@3.2.3
+        version: 3.2.3
+      koffi:
+        specifier: 3.3.1
+        version: 3.3.1
+    devDependencies:
+      '@types/node':
+        specifier: ^20.19.43
+        version: 20.19.43
+      rimraf:
+        specifier: ^5.0.10
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.14
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-mcp:
     dependencies:
@@ -1744,7 +1583,7 @@ importers:
         specifier: ^2.3.0
         version: 2.3.0
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-core
       '@types/node':
         specifier: ^20.10.0
@@ -1760,7 +1599,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-organization:
     devDependencies:
@@ -1778,13 +1617,13 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-organization-host:
     dependencies:
       '@robota-sdk/agent-organization':
-        specifier: workspace:*
-        version: link:../agent-organization
+        specifier: npm:@robota-sdk/agent-organization@3.2.1
+        version: 3.2.1
     devDependencies:
       '@types/node':
         specifier: ^20.19.43
@@ -1800,12 +1639,33 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+
+  packages/agent-os:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.19.43
+        version: 20.19.43
+      koffi:
+        specifier: 3.3.1
+        version: 3.3.1
+      rimraf:
+        specifier: ^5.0.10
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.14
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-plugin:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-core
       jssha:
         specifier: ^3.3.2
@@ -1825,63 +1685,26 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-preset:
-    dependencies:
-      '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../agent-framework
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-process:
-    devDependencies:
-      '@types/node':
-        specifier: ^20.19.43
-        version: 20.19.43
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-product:
     dependencies:
-      '@robota-sdk/agent-capability-pack':
-        specifier: workspace:*
-        version: link:../agent-capability-pack
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-core
       '@robota-sdk/agent-framework':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-framework
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-preset':
-        specifier: workspace:*
-        version: link:../agent-preset
+      '@robota-sdk/agent-interface':
+        specifier: workspace:^
+        version: link:../agent-interface
+      '@robota-sdk/agent-tools':
+        specifier: workspace:^
+        version: link:../agent-tools
     devDependencies:
+      '@types/node':
+        specifier: ^22.19.21
+        version: 22.19.21
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
@@ -1893,95 +1716,26 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/agent-provider-anthropic:
+  packages/agent-provider:
     dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:^
+        version: link:../agent-core
+    devDependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.114.0
         version: 0.114.0(zod@4.6.7)
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-provider-bytedance:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-provider-gemini:
-    dependencies:
       '@google/genai':
         specifier: ^1.52.0
         version: 1.52.0
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-    devDependencies:
       '@types/node':
         specifier: ^22.19.21
         version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-provider-openai:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-provider-openai-compatible':
-        specifier: workspace:*
-        version: link:../agent-provider-openai-compatible
       openai:
         specifier: ^6.0.0
         version: 6.0.0(ws@8.21.1)(zod@4.6.7)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
@@ -1993,41 +1747,16 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-provider-openai-compatible:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      openai:
-        specifier: ^6.0.0
-        version: 6.0.0(ws@8.21.1)(zod@4.6.7)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-provider-replay:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
+        specifier: npm:@robota-sdk/agent-core@3.2.3
+        version: 3.2.3
       '@robota-sdk/agent-session':
-        specifier: workspace:*
-        version: link:../agent-session
+        specifier: npm:@robota-sdk/agent-session@3.2.5
+        version: 3.2.5
     devDependencies:
       '@types/node':
         specifier: ^20.19.43
@@ -2043,7 +1772,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-remote-pairing:
     dependencies:
@@ -2062,7 +1791,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-roundtable:
     devDependencies:
@@ -2071,44 +1800,44 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-roundtable-robota:
     dependencies:
       '@robota-sdk/agent-roundtable':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-roundtable
     devDependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-core
       '@robota-sdk/agent-session':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-session
-      '@robota-sdk/agent-tool-defaults':
-        specifier: workspace:*
-        version: link:../agent-tool-defaults
+      '@robota-sdk/agent-tools':
+        specifier: workspace:^
+        version: link:../agent-tools
       tsdown:
         specifier: ^0.22.14
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-session:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-core
-      '@robota-sdk/agent-file-authority':
-        specifier: workspace:*
-        version: link:../agent-file-authority
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:*
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
+      '@robota-sdk/agent-interface':
+        specifier: workspace:^
+        version: link:../agent-interface
+      '@robota-sdk/agent-os':
+        specifier: workspace:^
+        version: link:../agent-os
+      koffi:
+        specifier: 3.3.1
+        version: 3.3.1
     devDependencies:
       eslint:
         specifier: ^8.57.1
@@ -2124,19 +1853,16 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-session-analytics:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-core
-      '@robota-sdk/agent-interface-analytics':
-        specifier: workspace:*
-        version: link:../agent-interface-analytics
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
+      '@robota-sdk/agent-interface':
+        specifier: workspace:^
+        version: link:../agent-interface
     devDependencies:
       rimraf:
         specifier: ^5.0.10
@@ -2149,25 +1875,25 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-subagent-runner:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-core
       '@robota-sdk/agent-executor':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-executor
       '@robota-sdk/agent-framework':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-framework
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:*
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-process':
-        specifier: workspace:*
-        version: link:../agent-process
+      '@robota-sdk/agent-interface':
+        specifier: workspace:^
+        version: link:../agent-interface
+      '@robota-sdk/agent-os':
+        specifier: workspace:^
+        version: link:../agent-os
     devDependencies:
       '@types/node':
         specifier: ^22.19.21
@@ -2183,16 +1909,16 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-telemetry-otel:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-core
-      '@robota-sdk/agent-interface-analytics':
-        specifier: workspace:*
-        version: link:../agent-interface-analytics
+      '@robota-sdk/agent-interface':
+        specifier: workspace:^
+        version: link:../agent-interface
     devDependencies:
       '@opentelemetry/api':
         specifier: ^1.9.1
@@ -2214,41 +1940,19 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-tool-defaults:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-tools':
-        specifier: workspace:*
-        version: link:../agent-tools
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-tools:
     dependencies:
-      '@robota-sdk/agent-file-authority':
-        specifier: workspace:*
-        version: link:../agent-file-authority
-      '@robota-sdk/agent-process':
-        specifier: workspace:*
-        version: link:../agent-process
+      '@robota-sdk/agent-os':
+        specifier: workspace:^
+        version: link:../agent-os
       fast-glob:
         specifier: ^3.3.3
         version: 3.3.3
+      koffi:
+        specifier: 3.3.1
+        version: 3.3.1
       p-limit:
         specifier: ^7.3.0
         version: 7.3.0
@@ -2257,7 +1961,7 @@ importers:
         version: 4.6.7
     devDependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-core
       rimraf:
         specifier: ^5.0.10
@@ -2270,282 +1974,59 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-transport:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-core
-      '@robota-sdk/agent-interface-analytics':
-        specifier: workspace:*
-        version: link:../agent-interface-analytics
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:*
-        version: link:../agent-interface-command
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:*
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-session-mobility':
-        specifier: workspace:*
-        version: link:../agent-interface-session-mobility
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
+      '@robota-sdk/agent-interface':
+        specifier: workspace:^
+        version: link:../agent-interface
       jose:
         specifier: 6.2.3
         version: 6.2.3
     devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      tsx:
-        specifier: ^4.23.1
-        version: 4.23.1
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-acp:
-    dependencies:
       '@agentclientprotocol/sdk':
         specifier: 1.9.0
         version: 1.9.0(zod@4.6.7)
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-transport':
-        specifier: workspace:*
-        version: link:../agent-transport
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      '@types/node':
-        specifier: ^20.19.43
-        version: 20.19.43
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-http:
-    dependencies:
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-transport':
-        specifier: workspace:*
-        version: link:../agent-transport
-      hono:
-        specifier: '>=4.13.11 <5.0.0'
-        version: 4.13.14
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-link:
-    dependencies:
-      '@robota-sdk/agent-keyring':
-        specifier: workspace:*
-        version: link:../agent-keyring
-      '@robota-sdk/agent-transport':
-        specifier: workspace:*
-        version: link:../agent-transport
-    devDependencies:
-      '@types/node':
-        specifier: ^20.19.43
-        version: 20.19.43
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-mcp:
-    dependencies:
+      '@modelcontextprotocol/client':
+        specifier: ^2.3.0
+        version: 2.3.0
       '@modelcontextprotocol/node':
         specifier: ^2.1.0
         version: 2.1.0(@modelcontextprotocol/server@2.3.0)(hono@4.13.14)
       '@modelcontextprotocol/server':
         specifier: ^2.3.0
         version: 2.3.0
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-transport':
-        specifier: workspace:*
-        version: link:../agent-transport
-    devDependencies:
-      '@modelcontextprotocol/client':
-        specifier: ^2.3.0
-        version: 2.3.0
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-webrtc:
-    dependencies:
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-session-mobility':
-        specifier: workspace:*
-        version: link:../agent-interface-session-mobility
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
+      '@robota-sdk/agent-keyring':
+        specifier: workspace:^
+        version: link:../agent-keyring
       '@robota-sdk/agent-remote-pairing':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-remote-pairing
-      '@robota-sdk/agent-transport':
-        specifier: workspace:*
-        version: link:../agent-transport
+      '@types/node':
+        specifier: ^20.19.43
+        version: 20.19.43
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       bittorrent-dht:
         specifier: ^11.0.12
         version: 11.0.12
+      hono:
+        specifier: '>=4.13.11 <5.0.0'
+        version: 4.13.14
       multicast-dns:
         specifier: ^7.2.5
         version: 7.2.5
-      nostr-tools:
-        specifier: ^2.25.2
-        version: 2.25.2(patch_hash=cwhzskwbpwfbe2z3roazz7mtuy)(typescript@6.0.3)
-      ws:
-        specifier: ^8.21.1
-        version: 8.21.1
-    devDependencies:
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
       node-datachannel:
         specifier: ^0.33.4
         version: 0.33.4
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-webrtc-web:
-    dependencies:
-      '@robota-sdk/agent-remote-pairing':
-        specifier: workspace:*
-        version: link:../agent-remote-pairing
-      '@robota-sdk/agent-transport':
-        specifier: workspace:*
-        version: link:../agent-transport
-      '@robota-sdk/agent-ui-web':
-        specifier: workspace:*
-        version: link:../agent-ui-web
-    devDependencies:
-      '@types/react':
-        specifier: ^19.2.17
-        version: 19.2.17
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.17)
-      react:
-        specifier: 19.2.8
-        version: 19.2.8
-      react-dom:
-        specifier: 19.2.8
-        version: 19.2.8(react@19.2.8)
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-ws:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-interface-analytics':
-        specifier: workspace:*
-        version: link:../agent-interface-analytics
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-transport':
-        specifier: workspace:*
-        version: link:../agent-transport
-      ws:
-        specifier: ^8.21.1
-        version: 8.21.1
-    devDependencies:
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
+      nostr-tools:
+        specifier: ^2.25.2
+        version: 2.25.2(patch_hash=cwhzskwbpwfbe2z3roazz7mtuy)(typescript@6.0.3)
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
@@ -2560,36 +2041,27 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+      ws:
+        specifier: ^8.21.1
+        version: 8.21.1
+      zod:
+        specifier: '>=4.6.7 <5.0.0'
+        version: 4.6.7
 
   packages/agent-ui-terminal:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-core
       '@robota-sdk/agent-framework':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-framework
-      '@robota-sdk/agent-interface-analytics':
-        specifier: workspace:*
-        version: link:../agent-interface-analytics
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:*
-        version: link:../agent-interface-command
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:*
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-interface-tui':
-        specifier: workspace:*
-        version: link:../agent-interface-tui
+      '@robota-sdk/agent-interface':
+        specifier: workspace:^
+        version: link:../agent-interface
       '@robota-sdk/agent-transport':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-transport
       chalk:
         specifier: ^5.6.2
@@ -2613,9 +2085,9 @@ importers:
       '@homebridge/node-pty-prebuilt-multiarch':
         specifier: ^0.14.1
         version: 0.14.1
-      '@robota-sdk/agent-command':
-        specifier: workspace:*
-        version: link:../agent-command
+      '@robota-sdk/agent-product':
+        specifier: workspace:^
+        version: link:../agent-product
       '@types/react':
         specifier: ^19.2.17
         version: 19.2.17
@@ -2636,24 +2108,18 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-ui-web:
     dependencies:
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:*
-        version: link:../agent-interface-command
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:*
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
+      '@robota-sdk/agent-core':
+        specifier: workspace:^
+        version: link:../agent-core
+      '@robota-sdk/agent-interface':
+        specifier: workspace:^
+        version: link:../agent-interface
       '@robota-sdk/agent-transport':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../agent-transport
       lucide-react:
         specifier: ^1.26.0
@@ -2697,38 +2163,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/pack-coding:
-    dependencies:
-      '@robota-sdk/agent-capability-pack':
-        specifier: workspace:*
-        version: link:../agent-capability-pack
-      '@robota-sdk/agent-command':
-        specifier: workspace:*
-        version: link:../agent-command
-      '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../agent-framework
-      '@robota-sdk/agent-tool-defaults':
-        specifier: workspace:*
-        version: link:../agent-tool-defaults
-      '@robota-sdk/agent-tools':
-        specifier: workspace:*
-        version: link:../agent-tools
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/product-config:
     devDependencies:
@@ -2737,36 +2172,33 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   scratch:
     dependencies:
-      '@robota-sdk/agent-builtin-providers':
-        specifier: workspace:*
-        version: link:../packages/agent-builtin-providers
       '@robota-sdk/agent-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../packages/agent-core
       '@robota-sdk/agent-executor':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../packages/agent-executor
       '@robota-sdk/agent-framework':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../packages/agent-framework
       '@robota-sdk/agent-mcp':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../packages/agent-mcp
-      '@robota-sdk/agent-provider-openai':
-        specifier: workspace:*
-        version: link:../packages/agent-provider-openai
+      '@robota-sdk/agent-provider':
+        specifier: workspace:^
+        version: link:../packages/agent-provider
       '@robota-sdk/agent-session':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../packages/agent-session
       '@robota-sdk/agent-subagent-runner':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../packages/agent-subagent-runner
       '@robota-sdk/agent-tools':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../packages/agent-tools
       zod:
         specifier: '>=4.6.7 <5.0.0'
@@ -2794,7 +2226,6 @@ packages:
       zod: '>=4.6.7 <5.0.0'
     dependencies:
       zod: 4.6.7
-    dev: false
 
   /@alcalzone/ansi-tokenize@0.3.0:
     resolution: {integrity: sha512-p+CMKJ93HFmLkjXKlXiVGlMQEuRb6H0MokBSwUsX+S6BRX8eV5naFZpQJFfJHjRZY0Hmnqy1/r6UWl3x+19zYA==}
@@ -2802,7 +2233,6 @@ packages:
     dependencies:
       ansi-styles: 6.2.3
       is-fullwidth-code-point: 5.1.0
-    dev: false
 
   /@alloc/quick-lru@5.2.0:
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -2840,7 +2270,6 @@ packages:
       json-schema-to-ts: 3.1.1
       standardwebhooks: 1.0.0
       zod: 4.6.7
-    dev: false
 
   /@arethetypeswrong/cli@0.18.5:
     resolution: {integrity: sha512-gM+8vRsQOD/Uc7EnBedUhkG5OCsDWE4uoak5QvomGpMpaky0Eh41p04nIMgrWb8EOmqZUJGc6zz9hsP6E56R7g==}
@@ -4008,167 +3437,6 @@ packages:
     requiresBuild: true
     optional: true
 
-  /@commitlint/cli@21.2.1(@types/node@20.19.43)(typescript@6.0.3):
-    resolution: {integrity: sha512-blsZGe29hJ72VGEFVl72IVYX+1vsfINpjA9yWQA6i7OKD/McGEOXg08sKIRKjFk4JvzhV/9n0l3i6NooPLTNfg==}
-    engines: {node: '>=22.12.0'}
-    hasBin: true
-    dependencies:
-      '@commitlint/config-conventional': 21.2.0
-      '@commitlint/format': 21.2.0
-      '@commitlint/lint': 21.2.0
-      '@commitlint/load': 21.2.0(@types/node@20.19.43)(typescript@6.0.3)
-      '@commitlint/read': 21.2.1
-      '@commitlint/types': 21.2.0
-      tinyexec: 1.2.4
-      yargs: 18.0.0
-    transitivePeerDependencies:
-      - '@types/node'
-      - conventional-commits-filter
-      - conventional-commits-parser
-      - typescript
-    dev: true
-
-  /@commitlint/config-conventional@21.2.0:
-    resolution: {integrity: sha512-Qf8WRDVcyVd14if6VTWenebxFbKnVnbzPUJjlzjkyJGeHK2xCGd63Dr1XZzj0plXKQb9P0BfOxoc1HVeCo2BWQ==}
-    engines: {node: '>=22.12.0'}
-    dependencies:
-      '@commitlint/types': 21.2.0
-      conventional-changelog-conventionalcommits: 10.2.1
-    dev: true
-
-  /@commitlint/config-validator@21.2.0:
-    resolution: {integrity: sha512-t7AzNHAKeIdo/3NRGwzpufKHsKkPHmFs/56N2Fnsh0/r0rGtnQzTxk6vnFgjaGr4hdSQKNB50/KAhR9Yk4LJKA==}
-    engines: {node: '>=22.12.0'}
-    dependencies:
-      '@commitlint/types': 21.2.0
-      ajv: 8.20.0
-    dev: true
-
-  /@commitlint/ensure@21.2.0:
-    resolution: {integrity: sha512-76IF9vDNS13lAzEEik9eKwzt8f9hYhWiwVXZ2AnyLCz5/f511FsEQ3pw1X3/zSQpdRLQU7i5qDMVKyXi1GWjSg==}
-    engines: {node: '>=22.12.0'}
-    dependencies:
-      '@commitlint/types': 21.2.0
-      es-toolkit: 1.50.0
-    dev: true
-
-  /@commitlint/execute-rule@21.0.1:
-    resolution: {integrity: sha512-RifH+FmImozKBE6mozhF4K3r2RRKP7SMi/Q/zLCmExtp5e05lhHOUYqGBlFBAGNHaZxU/WYw1XuugYK9jQzqnA==}
-    engines: {node: '>=22.12.0'}
-    dev: true
-
-  /@commitlint/format@21.2.0:
-    resolution: {integrity: sha512-c4q64xaav2U83t7k7RyzJerBZurPer7FxUOY0RL5L/6CZijZ7K+s6HIBGIghj0ey1P2+seRX0J9XQYtDued6tg==}
-    engines: {node: '>=22.12.0'}
-    dependencies:
-      '@commitlint/types': 21.2.0
-      picocolors: 1.1.1
-    dev: true
-
-  /@commitlint/is-ignored@21.2.0:
-    resolution: {integrity: sha512-4/eB0vBN7L88O/oC4ajAEqi7j2ZfNgxl/+11RfAV9YosejZgDXhY2C9VcHnHJhOzPLoSy5P3Mg/46kqeyJfXKw==}
-    engines: {node: '>=22.12.0'}
-    dependencies:
-      '@commitlint/types': 21.2.0
-      semver: 7.8.5
-    dev: true
-
-  /@commitlint/lint@21.2.0:
-    resolution: {integrity: sha512-ceO5dp9pLjEZ6y6qbq/uXWXDPykqqlTsyzoQ0NzecpisSJhK3kTy9qzQoPeJuWG/IMNdV1lO0RgmzqoAlSi1uw==}
-    engines: {node: '>=22.12.0'}
-    dependencies:
-      '@commitlint/is-ignored': 21.2.0
-      '@commitlint/parse': 21.2.0
-      '@commitlint/rules': 21.2.0
-      '@commitlint/types': 21.2.0
-    dev: true
-
-  /@commitlint/load@21.2.0(@types/node@20.19.43)(typescript@6.0.3):
-    resolution: {integrity: sha512-RjlzWQqruRwIenJEfZtq7kG97co97nKoHpflE5YnF61tDLXxHPrdWImgzw6VL6MlFyaOcVlk74eBV8ZQmc3oIA==}
-    engines: {node: '>=22.12.0'}
-    dependencies:
-      '@commitlint/config-validator': 21.2.0
-      '@commitlint/execute-rule': 21.0.1
-      '@commitlint/resolve-extends': 21.2.0
-      '@commitlint/types': 21.2.0
-      cosmiconfig: 9.0.2(typescript@6.0.3)
-      cosmiconfig-typescript-loader: 6.3.0(@types/node@20.19.43)(cosmiconfig@9.0.2)(typescript@6.0.3)
-      es-toolkit: 1.50.0
-      is-plain-obj: 4.1.0
-      picocolors: 1.1.1
-    transitivePeerDependencies:
-      - '@types/node'
-      - typescript
-    dev: true
-
-  /@commitlint/message@21.2.0:
-    resolution: {integrity: sha512-YxGoiXD/HXNXLJPrQwE5poXa+XH0CBEm+mdvbHQP0g6MV/dmJyUFCzPNzZbxL93GvZ70TmtTK0Z0/IBpAqHv8g==}
-    engines: {node: '>=22.12.0'}
-    dev: true
-
-  /@commitlint/parse@21.2.0:
-    resolution: {integrity: sha512-QHWxG4d0PLTF634/AdyZ0MQS+CLn5YOuJlCFhMMlSGKFxzYGUetkHBj18xgBD+6fVzUrA2lrCdi/vlS2f/oYXg==}
-    engines: {node: '>=22.12.0'}
-    dependencies:
-      '@commitlint/types': 21.2.0
-      conventional-changelog-angular: 9.2.1
-      conventional-commits-parser: 7.1.0
-    dev: true
-
-  /@commitlint/read@21.2.1:
-    resolution: {integrity: sha512-hUW7EJQnNTL0vPOmVMNK4CrnrNBN0nN+JJHReFkdHO5y4iyHeEmTBwuC15OCqUTjxWo7idnH1LftfpWVIaPWIA==}
-    engines: {node: '>=22.12.0'}
-    dependencies:
-      '@commitlint/top-level': 21.2.0
-      '@commitlint/types': 21.2.0
-      '@conventional-changelog/git-client': 3.1.0
-      tinyexec: 1.3.1
-    transitivePeerDependencies:
-      - conventional-commits-filter
-      - conventional-commits-parser
-    dev: true
-
-  /@commitlint/resolve-extends@21.2.0:
-    resolution: {integrity: sha512-4O/1j51+79Wth9s/MGxt/5gs0XYLDgNlYpltQfhAvLE0itusLKs9zruxbiNg1oOkmkb9L9L4USYGjEj7n87NxA==}
-    engines: {node: '>=22.12.0'}
-    dependencies:
-      '@commitlint/config-validator': 21.2.0
-      '@commitlint/types': 21.2.0
-      es-toolkit: 1.50.0
-      global-directory: 5.0.0
-      resolve-from: 5.0.0
-    dev: true
-
-  /@commitlint/rules@21.2.0:
-    resolution: {integrity: sha512-C2yXMNpiB8ETZKfx5JD8+ExgF8vTU1VQMKPSUUYwqKpw9oJWQBrlXBpdU038mj2WPjof7o9UzFpmTyBeGMZwZg==}
-    engines: {node: '>=22.12.0'}
-    dependencies:
-      '@commitlint/ensure': 21.2.0
-      '@commitlint/message': 21.2.0
-      '@commitlint/to-lines': 21.0.1
-      '@commitlint/types': 21.2.0
-    dev: true
-
-  /@commitlint/to-lines@21.0.1:
-    resolution: {integrity: sha512-bd1BFII7p1EQZre9Kaj+kKaMFP3cFCdt21K7DItVux9XP5WjLgJ0/Uy1pJJh9aPwVJ6SKg62PxqlZaHI8hQAXw==}
-    engines: {node: '>=22.12.0'}
-    dev: true
-
-  /@commitlint/top-level@21.2.0:
-    resolution: {integrity: sha512-Y5gmQ+KxzqCrBFJfLvFEPvvwD3LDiNZoTT2yeFBm96M8qhmqSzQc5DvX3rheAaAMjyIvMXOCLS/mWfdpONsjyQ==}
-    engines: {node: '>=22.12.0'}
-    dependencies:
-      escalade: 3.2.0
-    dev: true
-
-  /@commitlint/types@21.2.0:
-    resolution: {integrity: sha512-7zVFCDB2reMvJH5dmbKnOQPjZEvjdJTH8jc0U/PIPU1r3/+vf5pD1HlfitV2MWsWXrvu7u39iY1lyLUPOaN0Gw==}
-    engines: {node: '>=22.12.0'}
-    dependencies:
-      conventional-commits-parser: 7.1.0
-      picocolors: 1.1.1
-    dev: true
-
   /@connectrpc/connect-web@2.2.0(@bufbuild/protobuf@2.16.0)(@connectrpc/connect@2.2.0):
     resolution: {integrity: sha512-uuBUcBTYfb/r1o98LzCCZk1H90yx0vmZ5m21dpw/q4EUwsKwkCDGI8H0aEdjcZld+Q2jJ5A5ADvPqfb6lzQ/sg==}
     peerDependencies:
@@ -4185,28 +3453,6 @@ packages:
       '@bufbuild/protobuf': ^2.7.0
     dependencies:
       '@bufbuild/protobuf': 2.16.0
-    dev: true
-
-  /@conventional-changelog/git-client@3.1.0:
-    resolution: {integrity: sha512-Tqa/gHco2WJWa740NRjOrfKVvzIqxkZpecb8bemaQ8sKM5PXb1UK4uTyTb/1wIqNuOVaDOFxyBdhTIQZn6gdjQ==}
-    engines: {node: '>=22'}
-    peerDependencies:
-      conventional-commits-filter: ^6.0.1
-      conventional-commits-parser: ^7.0.1
-    peerDependenciesMeta:
-      conventional-commits-filter:
-        optional: true
-      conventional-commits-parser:
-        optional: true
-    dependencies:
-      '@simple-libs/child-process-utils': 2.0.0
-      '@simple-libs/stream-utils': 2.0.0
-      semver: 7.8.5
-    dev: true
-
-  /@conventional-changelog/template@1.2.1:
-    resolution: {integrity: sha512-TzlTVpKPjaqW6qOYjQcYUDuGsLCNsvFHVBXkYGTAnf5V37jCWrE5haKNXzz0WZUtVHjrpV76L1buANjwXMfT8w==}
-    engines: {node: '>=22'}
     dev: true
 
   /@cspotcode/source-map-support@0.8.1:
@@ -4582,7 +3828,6 @@ packages:
     cpu: [ppc64]
     os: [aix]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/android-arm64@0.28.1:
@@ -4599,7 +3844,6 @@ packages:
     cpu: [arm64]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/android-arm@0.28.1:
@@ -4616,7 +3860,6 @@ packages:
     cpu: [arm]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/android-x64@0.28.1:
@@ -4633,7 +3876,6 @@ packages:
     cpu: [x64]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/darwin-arm64@0.28.1:
@@ -4650,7 +3892,6 @@ packages:
     cpu: [arm64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/darwin-x64@0.28.1:
@@ -4667,7 +3908,6 @@ packages:
     cpu: [x64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/freebsd-arm64@0.28.1:
@@ -4684,7 +3924,6 @@ packages:
     cpu: [arm64]
     os: [freebsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/freebsd-x64@0.28.1:
@@ -4701,7 +3940,6 @@ packages:
     cpu: [x64]
     os: [freebsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-arm64@0.28.1:
@@ -4718,7 +3956,6 @@ packages:
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-arm@0.28.1:
@@ -4735,7 +3972,6 @@ packages:
     cpu: [arm]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-ia32@0.28.1:
@@ -4752,7 +3988,6 @@ packages:
     cpu: [ia32]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-loong64@0.28.1:
@@ -4769,7 +4004,6 @@ packages:
     cpu: [loong64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-mips64el@0.28.1:
@@ -4786,7 +4020,6 @@ packages:
     cpu: [mips64el]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-ppc64@0.28.1:
@@ -4803,7 +4036,6 @@ packages:
     cpu: [ppc64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-riscv64@0.28.1:
@@ -4820,7 +4052,6 @@ packages:
     cpu: [riscv64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-s390x@0.28.1:
@@ -4837,7 +4068,6 @@ packages:
     cpu: [s390x]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-x64@0.28.1:
@@ -4854,7 +4084,6 @@ packages:
     cpu: [x64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/netbsd-arm64@0.28.1:
@@ -4871,7 +4100,6 @@ packages:
     cpu: [arm64]
     os: [netbsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/netbsd-x64@0.28.1:
@@ -4888,7 +4116,6 @@ packages:
     cpu: [x64]
     os: [netbsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/openbsd-arm64@0.28.1:
@@ -4905,7 +4132,6 @@ packages:
     cpu: [arm64]
     os: [openbsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/openbsd-x64@0.28.1:
@@ -4922,7 +4148,6 @@ packages:
     cpu: [x64]
     os: [openbsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/openharmony-arm64@0.28.1:
@@ -4939,7 +4164,6 @@ packages:
     cpu: [arm64]
     os: [openharmony]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/sunos-x64@0.28.1:
@@ -4956,7 +4180,6 @@ packages:
     cpu: [x64]
     os: [sunos]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/win32-arm64@0.28.1:
@@ -4973,7 +4196,6 @@ packages:
     cpu: [arm64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/win32-ia32@0.28.1:
@@ -4990,7 +4212,6 @@ packages:
     cpu: [ia32]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/win32-x64@0.28.1:
@@ -5007,7 +4228,6 @@ packages:
     cpu: [x64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@eslint-community/eslint-utils@4.9.1(eslint@8.57.1):
@@ -5155,7 +4375,6 @@ packages:
       - bufferutil
       - supports-color
       - utf-8-validate
-    dev: false
 
   /@grammyjs/types@4.0.0:
     resolution: {integrity: sha512-Z8lDLTvOlo12e5Vnly/vQh3JC9ppaitS1dGZ3w068gNitOd/y8tTSiib+Xm38aBGbtYGmUZwOc6afYrLs2CSTg==}
@@ -6329,7 +5548,6 @@ packages:
     cpu: [arm64]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-android-x64@3.3.1:
@@ -6337,7 +5555,6 @@ packages:
     cpu: [x64]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-darwin-arm64@3.3.1:
@@ -6345,7 +5562,6 @@ packages:
     cpu: [arm64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-darwin-x64@3.3.1:
@@ -6353,7 +5569,6 @@ packages:
     cpu: [x64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-freebsd-arm64@3.3.1:
@@ -6361,7 +5576,6 @@ packages:
     cpu: [arm64]
     os: [freebsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-freebsd-ia32@3.3.1:
@@ -6369,7 +5583,6 @@ packages:
     cpu: [ia32]
     os: [freebsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-freebsd-x64@3.3.1:
@@ -6377,7 +5590,6 @@ packages:
     cpu: [x64]
     os: [freebsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-linux-arm64@3.3.1:
@@ -6385,7 +5597,6 @@ packages:
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-linux-arm@3.3.1:
@@ -6393,7 +5604,6 @@ packages:
     cpu: [arm]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-linux-ia32@3.3.1:
@@ -6401,7 +5611,6 @@ packages:
     cpu: [ia32]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-linux-loong64@3.3.1:
@@ -6409,7 +5618,6 @@ packages:
     cpu: [loong64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-linux-ppc64@3.3.1:
@@ -6417,7 +5625,6 @@ packages:
     cpu: [ppc64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-linux-riscv64@3.3.1:
@@ -6425,7 +5632,6 @@ packages:
     cpu: [riscv64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-linux-x64@3.3.1:
@@ -6433,7 +5639,6 @@ packages:
     cpu: [x64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-openbsd-arm64@3.3.1:
@@ -6441,7 +5646,6 @@ packages:
     cpu: [arm64]
     os: [openbsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-openbsd-ia32@3.3.1:
@@ -6449,7 +5653,6 @@ packages:
     cpu: [ia32]
     os: [openbsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-openbsd-x64@3.3.1:
@@ -6457,7 +5660,6 @@ packages:
     cpu: [x64]
     os: [openbsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-win32-arm64@3.3.1:
@@ -6465,7 +5667,6 @@ packages:
     cpu: [arm64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-win32-ia32@3.3.1:
@@ -6473,7 +5674,6 @@ packages:
     cpu: [ia32]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@koromix/koffi-win32-x64@3.3.1:
@@ -6481,12 +5681,10 @@ packages:
     cpu: [x64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@leichtgewicht/ip-codec@2.0.5:
     resolution: {integrity: sha512-Vo+PSpZG2/fmgmiNzYK9qWRh8h/CHrwD0mo1h1DzL4yzHNSfWYujGTYsWGreD000gcgmZ7K4Ys6Tx9TxtsKdDw==}
-    dev: false
 
   /@loaderkit/resolve@1.0.6:
     resolution: {integrity: sha512-G8FdIoF5CypfwmD9rl8BXod5HDn8JqB0CCNBXDTaRZ+yRYhARrrSToX1zg1zy9jX3zLqigsELwhT4gNtkdQAUg==}
@@ -6955,14 +6153,12 @@ packages:
   /@noble/ciphers@2.1.1:
     resolution: {integrity: sha512-bysYuiVfhxNJuldNXlFEitTVdNnYUc+XNJZd7Qm2a5j1vZHgY+fazadNFWFaMK/2vye0JVlxV3gHmC0WDfAOQw==}
     engines: {node: '>= 20.19.0'}
-    dev: false
 
   /@noble/curves@2.0.1:
     resolution: {integrity: sha512-vs1Az2OOTBiP4q0pwjW5aF0xp9n4MxVrmkFBxc6EKZc6ddYx5gaZiAsZoq0uRRXWbi3AT/sBqn05eRPtn1JCPw==}
     engines: {node: '>= 20.19.0'}
     dependencies:
       '@noble/hashes': 2.0.1
-    dev: false
 
   /@noble/hashes@1.4.0:
     resolution: {integrity: sha512-V1JJ1WTRUqHHrOSh597hURcMqVKVGL/ea3kv0gSnEdsEZ0/+VyPghM1lMNGc00z7CIQorSvbKpuJkxvuHbvdbg==}
@@ -6972,12 +6168,10 @@ packages:
   /@noble/hashes@1.8.0:
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
     engines: {node: ^14.21.3 || >=16}
-    dev: false
 
   /@noble/hashes@2.0.1:
     resolution: {integrity: sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw==}
     engines: {node: '>= 20.19.0'}
-    dev: false
 
   /@noble/hashes@2.2.0:
     resolution: {integrity: sha512-IYqDGiTXab6FniAgnSdZwgWbomxpy9FtYvLKs7wCUs2a8RkITG+DFGO1DM9cr+E3/RgADRpFjrKVaJ1z6sjtEg==}
@@ -7001,7 +6195,6 @@ packages:
     cpu: [arm64]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@node-datachannel/darwin-arm64@0.33.4:
@@ -7017,7 +6210,6 @@ packages:
     cpu: [arm64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@node-datachannel/darwin-x64@0.33.4:
@@ -7033,7 +6225,6 @@ packages:
     cpu: [x64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@node-datachannel/linux-arm64-gnu@0.33.4:
@@ -7049,7 +6240,6 @@ packages:
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@node-datachannel/linux-arm64-musl@0.33.4:
@@ -7065,7 +6255,6 @@ packages:
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@node-datachannel/linux-x64-gnu@0.33.4:
@@ -7081,7 +6270,6 @@ packages:
     cpu: [x64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@node-datachannel/linux-x64-musl@0.33.4:
@@ -7097,7 +6285,6 @@ packages:
     cpu: [x64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@node-datachannel/win32-arm64-msvc@0.33.4:
@@ -7113,7 +6300,6 @@ packages:
     cpu: [arm64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@node-datachannel/win32-x64-msvc@0.33.4:
@@ -7129,7 +6315,6 @@ packages:
     cpu: [x64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@nodelib/fs.scandir@2.1.5:
@@ -7361,7 +6546,6 @@ packages:
 
   /@oxc-project/types@0.155.0:
     resolution: {integrity: sha512-SeE8JPwW1xs1tHeNycjUtUBdhorRa8o4jlvjwk49R7/Z291i+4DQa7JJIgOm/TaYQZx+QrPQbVJ/9c8dMIZN8Q==}
-    dev: false
 
   /@pagefind/darwin-arm64@1.5.2:
     resolution: {integrity: sha512-MXpI+7HsAdPkvJ0gk9xj9g541BCqBZOBbdwj9g6lB5LCj6kSV6nqDSjzcAJwvOsfu0fjwvC8hQU+ecfhp+MpiQ==}
@@ -7630,22 +6814,350 @@ packages:
       quansync: 1.0.0
     dev: true
 
-  /@robota-sdk/workflows@0.0.3(@robota-sdk/agent-builtin-providers@packages+agent-builtin-providers)(@robota-sdk/agent-core@packages+agent-core)(@robota-sdk/agent-framework@packages+agent-framework)(@robota-sdk/agent-interface-command@packages+agent-interface-command)(@robota-sdk/agent-tools@packages+agent-tools):
-    resolution: {integrity: sha512-SGIugfMJPSi8FS/rxiK0x+9QIiVjc+d5IQLXfVoB3AZWXoUHzsgynddnfzC/uRwG3QUi9nG54CIsx+p3Er1Www==}
+  /@robota-sdk/agent-core@3.2.3:
+    resolution: {integrity: sha512-pvaXGojI1dZgSl0THNa33h1eP3LY/F6BxcIpaMMOfwUfzxlrySZ9WXEr7NA45zCbc8D7Zblpr1J+En037KVVRQ==}
+    engines: {node: '>=22.12.0'}
+    dependencies:
+      jssha: 3.3.2
+      undici: 7.30.1
+      zod: 4.6.7
+
+  /@robota-sdk/agent-executor@3.2.4(koffi@3.3.1):
+    resolution: {integrity: sha512-x+FO11uLQoEBg+kJpYvzIOZDiD8SsH2FEjZYtV0hEnm8gmAV2NDXEal2rrpcdGwVeApxkLZPAqe95F/jgulmjg==}
+    engines: {node: '>=22.12.0'}
+    dependencies:
+      '@robota-sdk/agent-core': 3.2.3
+      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.2.3)
+      '@robota-sdk/agent-os': 3.3.0(koffi@3.3.1)
+      croner: 10.0.1
+    transitivePeerDependencies:
+      - koffi
+
+  /@robota-sdk/agent-framework@3.2.5:
+    resolution: {integrity: sha512-Cc9DeZ92HNNLTcQh4wifZE5+HfveoP8TFQAV5Le07MQfcIiYtxFqWoNXkQZQwu5EJa6PA3PMoE6ZX4/hKkORHw==}
+    engines: {node: '>=22.12.0'}
+    dependencies:
+      '@robota-sdk/agent-core': 3.2.3
+      '@robota-sdk/agent-executor': 3.2.4(koffi@3.3.1)
+      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.2.3)
+      '@robota-sdk/agent-os': 3.3.0(koffi@3.3.1)
+      '@robota-sdk/agent-roundtable': 3.2.1
+      '@robota-sdk/agent-session': 3.2.5
+      '@robota-sdk/agent-tools': 3.3.1(@robota-sdk/agent-core@3.2.3)
+      koffi: 3.3.1
+      yaml: 2.9.0
+      zod: 4.6.7
+
+  /@robota-sdk/agent-interface@3.3.0(@robota-sdk/agent-core@3.2.3):
+    resolution: {integrity: sha512-P0gPbcB31aMYuAQEWjKo4UALWxOw+nNbdjAXJTygf0ISHgjsQoo3rvbGvv4NIar7sosZ9XvrCMJDwUvfdo/QAQ==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      '@robota-sdk/agent-core': ^3.2.3
+    peerDependenciesMeta:
+      '@robota-sdk/agent-core':
+        optional: true
+    dependencies:
+      '@robota-sdk/agent-core': 3.2.3
+
+  /@robota-sdk/agent-keyring@3.2.1:
+    resolution: {integrity: sha512-csP8svZTd4dDqhWseAVr5v3YId27EPaNtEBPihFzaHjiR2yf6jUcX5XTRAEOLLD5EvaK0FKM1iybgkhKRF3b4g==}
+    engines: {node: '>=22.12.0'}
+
+  /@robota-sdk/agent-mcp@3.2.2(@robota-sdk/agent-core@3.2.3):
+    resolution: {integrity: sha512-96nyGgpl20wR5P7VSqDV0wfBpEeKbDPti2BNpYp8zNmKM0G2EejprtsfAFp9vsHWHwAQF2c39cTQSxuJScpUjg==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      '@robota-sdk/agent-core': ^3.2.2
+    dependencies:
+      '@modelcontextprotocol/client': 2.3.0
+      '@modelcontextprotocol/core': 2.3.0
+      '@robota-sdk/agent-core': 3.2.3
+    dev: true
+
+  /@robota-sdk/agent-organization@3.2.1:
+    resolution: {integrity: sha512-0+NkZQ+N7ThgO/7Ha9xzKL9Vx8WBwW1W+FdakjGQTWZ++3UxcqNMCFw51djQGql5iJ8QD+jKlRIKkg1vi+zqYg==}
+    engines: {node: '>=22.12.0'}
+    dev: false
+
+  /@robota-sdk/agent-os@3.3.0(koffi@3.3.1):
+    resolution: {integrity: sha512-7P0IPm+79w/NJ2JWNtelTZ+0/xaUbVhibckMEEEbhIBLyu8lYMKyCLGndUwp7Veq954MaC5Wlp8gMc20peZ/MQ==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      koffi: 3.3.1
+    peerDependenciesMeta:
+      koffi:
+        optional: true
+    dependencies:
+      koffi: 3.3.1
+
+  /@robota-sdk/agent-product@3.3.1:
+    resolution: {integrity: sha512-heWseNDBZ1m3dIYi/Z4Tcz0Gsuz1Gej9cZwUu7quc0Mg2/y9h26hB11N+XxGlteGyPgUpQucHRNS8OHPBIyGNw==}
+    engines: {node: '>=22.12.0'}
+    dependencies:
+      '@robota-sdk/agent-core': 3.2.3
+      '@robota-sdk/agent-framework': 3.2.5
+      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.2.3)
+      '@robota-sdk/agent-tools': 3.3.1(@robota-sdk/agent-core@3.2.3)
+    dev: true
+
+  /@robota-sdk/agent-provider@3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0):
+    resolution: {integrity: sha512-6+NOZLZ3Ny/AWczdkQ4RHu+mv2JFyJW9ekKpfu+fEBSYpt4unto4bzYmWuhGNTzdiTCix0gI8/npAZdJJrG9Pg==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      '@anthropic-ai/sdk': ^0.114.0
+      '@google/genai': ^1.52.0
+      openai: ^6.0.0
+    peerDependenciesMeta:
+      '@anthropic-ai/sdk':
+        optional: true
+      '@google/genai':
+        optional: true
+      openai:
+        optional: true
+    dependencies:
+      '@anthropic-ai/sdk': 0.114.0(zod@4.6.7)
+      '@google/genai': 1.52.0
+      '@robota-sdk/agent-core': 3.2.3
+      openai: 6.0.0(ws@8.21.1)(zod@4.6.7)
+
+  /@robota-sdk/agent-provider@3.3.1(openai@6.0.0):
+    resolution: {integrity: sha512-6+NOZLZ3Ny/AWczdkQ4RHu+mv2JFyJW9ekKpfu+fEBSYpt4unto4bzYmWuhGNTzdiTCix0gI8/npAZdJJrG9Pg==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      '@anthropic-ai/sdk': ^0.114.0
+      '@google/genai': ^1.52.0
+      openai: ^6.0.0
+    peerDependenciesMeta:
+      '@anthropic-ai/sdk':
+        optional: true
+      '@google/genai':
+        optional: true
+      openai:
+        optional: true
+    dependencies:
+      '@robota-sdk/agent-core': 3.2.3
+      openai: 6.0.0(ws@8.21.1)(zod@4.6.7)
+    dev: false
+
+  /@robota-sdk/agent-remote-pairing@3.2.3:
+    resolution: {integrity: sha512-3rdjhECZ5pbTNeoiPVVwMx3WpcIG+cMaiUidFCAAWbf2IwhDrLpdZXJoptJh8x8ne1VLQej0yBb4p2MSuSr9AQ==}
+    engines: {node: '>=22.12.0'}
+    dependencies:
+      '@scure/bip39': 1.6.0
+
+  /@robota-sdk/agent-roundtable@3.2.1:
+    resolution: {integrity: sha512-fL1tRziaSlPiS1crdjAfhoagm3aESnDwQjNcwaeAnDRFKX+aNBEjUXtg4CAWCMP71nvLRREE6V7DquyLGQU/0A==}
+    engines: {node: '>=22.12.0'}
+
+  /@robota-sdk/agent-session-analytics@3.2.5:
+    resolution: {integrity: sha512-gOIHfHuQYwf7IbiJnMtCIMM/lnorMb4YW2L+HxrJw5Q0uibOq2Tkr4JiSPzdswy6h+vpvbArpWOi/X1qb+ii2g==}
+    engines: {node: '>=22.12.0'}
+    dependencies:
+      '@robota-sdk/agent-core': 3.2.3
+      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.2.3)
+    dev: true
+
+  /@robota-sdk/agent-session@3.2.5:
+    resolution: {integrity: sha512-iFCZ0hth/DItKXO892He/sQXWAlsJw/1my9SnHZJTQLcvI+N5PMw7MqwLZEZAuogSzea7gfL18ROg4rKo6hDgA==}
+    engines: {node: '>=22.12.0'}
+    dependencies:
+      '@robota-sdk/agent-core': 3.2.3
+      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.2.3)
+      '@robota-sdk/agent-os': 3.3.0(koffi@3.3.1)
+      koffi: 3.3.1
+
+  /@robota-sdk/agent-subagent-runner@3.2.5(koffi@3.3.1):
+    resolution: {integrity: sha512-3za9jzFRKuMCkUm2Q+T6d0MVwG0p8BhgM6rEPg2NZ562r+tsBmCG+YMSVKREPjRTF+c5Z41GmGSqhW4zWImjmA==}
+    engines: {node: '>=22.12.0'}
+    dependencies:
+      '@robota-sdk/agent-core': 3.2.3
+      '@robota-sdk/agent-executor': 3.2.4(koffi@3.3.1)
+      '@robota-sdk/agent-framework': 3.2.5
+      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.2.3)
+      '@robota-sdk/agent-os': 3.3.0(koffi@3.3.1)
+    transitivePeerDependencies:
+      - koffi
+    dev: true
+
+  /@robota-sdk/agent-telemetry-otel@3.2.4(@opentelemetry/api@1.9.1):
+    resolution: {integrity: sha512-IWc9oGTDsgHHGNHLisvU5T78RzXoF56cCJx96hDDc3zCfrSKL1Ve+u0wTT1/ETTaS6xu+jxx26a+2b0pjy4C1Q==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      '@opentelemetry/api': ^1.9.0
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      '@robota-sdk/agent-core': 3.2.3
+      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.2.3)
+    dev: true
+
+  /@robota-sdk/agent-tools@3.3.1(@robota-sdk/agent-core@3.2.3):
+    resolution: {integrity: sha512-YbPAI8l0E7dB0g6ZM7OO3bvm6dsDCsGtswoW4/4Spos1CvahnWwok2DtpnrbjRpFQrDBEBnd9tut0soEkyvEng==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      '@robota-sdk/agent-core': ^3.2.3
+    dependencies:
+      '@robota-sdk/agent-core': 3.2.3
+      '@robota-sdk/agent-os': 3.3.0(koffi@3.3.1)
+      fast-glob: 3.3.3
+      koffi: 3.3.1
+      p-limit: 7.3.3
+      zod: 4.6.7
+
+  /@robota-sdk/agent-tools@3.3.1(@robota-sdk/agent-core@packages+agent-core):
+    resolution: {integrity: sha512-YbPAI8l0E7dB0g6ZM7OO3bvm6dsDCsGtswoW4/4Spos1CvahnWwok2DtpnrbjRpFQrDBEBnd9tut0soEkyvEng==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      '@robota-sdk/agent-core': ^3.2.3
+    dependencies:
+      '@robota-sdk/agent-core': link:packages/agent-core
+      '@robota-sdk/agent-os': 3.3.0(koffi@3.3.1)
+      fast-glob: 3.3.3
+      koffi: 3.3.1
+      p-limit: 7.3.3
+      zod: 4.6.7
+    dev: false
+
+  /@robota-sdk/agent-transport@3.4.1(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.1)(@robota-sdk/agent-remote-pairing@3.2.3)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7):
+    resolution: {integrity: sha512-LqiArkVzy+GJ/NwlA/keWAbEVD096qGpfWXS4ux6LFlvHaduZ8dzaprSTHwyvr7qKIQF8ICfET8DLZvBJIfL+g==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      '@agentclientprotocol/sdk': 1.9.0
+      '@modelcontextprotocol/node': ^2.1.0
+      '@modelcontextprotocol/server': ^2.3.0
+      '@robota-sdk/agent-keyring': ^3.2.1
+      '@robota-sdk/agent-remote-pairing': ^3.2.3
+      bittorrent-dht: ^11.0.12
+      hono: '>=4.13.11 <5.0.0'
+      multicast-dns: ^7.2.5
+      node-datachannel: ^0.33.4
+      nostr-tools: ^2.25.2
+      ws: ^8.21.1
+      zod: '>=4.6.7 <5.0.0'
+    peerDependenciesMeta:
+      '@agentclientprotocol/sdk':
+        optional: true
+      '@modelcontextprotocol/node':
+        optional: true
+      '@modelcontextprotocol/server':
+        optional: true
+      '@robota-sdk/agent-keyring':
+        optional: true
+      '@robota-sdk/agent-remote-pairing':
+        optional: true
+      bittorrent-dht:
+        optional: true
+      hono:
+        optional: true
+      multicast-dns:
+        optional: true
+      node-datachannel:
+        optional: true
+      nostr-tools:
+        optional: true
+      ws:
+        optional: true
+      zod:
+        optional: true
+    dependencies:
+      '@agentclientprotocol/sdk': 1.9.0(zod@4.6.7)
+      '@modelcontextprotocol/node': 2.1.0(@modelcontextprotocol/server@2.3.0)(hono@4.13.14)
+      '@modelcontextprotocol/server': 2.3.0
+      '@robota-sdk/agent-core': 3.2.3
+      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.2.3)
+      '@robota-sdk/agent-keyring': 3.2.1
+      '@robota-sdk/agent-remote-pairing': 3.2.3
+      bittorrent-dht: 11.0.12
+      hono: 4.13.14
+      jose: 6.2.3
+      multicast-dns: 7.2.5
+      node-datachannel: 0.33.6
+      nostr-tools: 2.25.2(patch_hash=cwhzskwbpwfbe2z3roazz7mtuy)(typescript@6.0.3)
+      ws: 8.21.1
+      zod: 4.6.7
+
+  /@robota-sdk/agent-ui-terminal@3.2.4(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.1)(@robota-sdk/agent-remote-pairing@3.2.3)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7):
+    resolution: {integrity: sha512-OZoMfhmT+X3CeWVP7nrWf51k/A0Qmh4N9r1sMsiL8JE2OSYiuIQSjiiikUhXHvuUj21x9pelaBQr8kx3W8BOkw==}
+    engines: {node: '>=22.12.0'}
+    dependencies:
+      '@robota-sdk/agent-core': 3.2.3
+      '@robota-sdk/agent-framework': 3.2.5
+      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.2.3)
+      '@robota-sdk/agent-transport': 3.4.1(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.1)(@robota-sdk/agent-remote-pairing@3.2.3)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
+      chalk: 5.6.2
+      ink: 7.1.1(@types/react@19.2.17)(react@19.2.8)
+      marked: 9.1.6
+      marked-terminal: 7.3.0(marked@9.1.6)
+      react: 19.2.8
+      string-width: 8.2.2
+    transitivePeerDependencies:
+      - '@agentclientprotocol/sdk'
+      - '@modelcontextprotocol/node'
+      - '@modelcontextprotocol/server'
+      - '@robota-sdk/agent-keyring'
+      - '@robota-sdk/agent-remote-pairing'
+      - '@types/react'
+      - bittorrent-dht
+      - bufferutil
+      - hono
+      - multicast-dns
+      - node-datachannel
+      - nostr-tools
+      - react-devtools-core
+      - utf-8-validate
+      - ws
+      - zod
+    dev: true
+
+  /@robota-sdk/agent-ui-web@3.3.3(@robota-sdk/agent-keyring@3.2.1)(@types/react@19.2.17)(react@19.2.8)(ws@8.21.1)(zod@4.6.7):
+    resolution: {integrity: sha512-U4r0cM4Lb9z1Jzkscw0r3l/qjI/OFseeyhg0W0VBRv5ISBWcHEglbXYVfgw36s1rKetTUxk3f0ZFnwYYhq6PZQ==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      react: '>=18'
+    dependencies:
+      '@robota-sdk/agent-core': 3.2.3
+      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.2.3)
+      '@robota-sdk/agent-transport': 3.4.1(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.1)(@robota-sdk/agent-remote-pairing@3.2.3)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
+      lucide-react: 1.26.0(react@19.2.8)
+      pretendard: 1.3.9
+      react: 19.2.8
+      react-markdown: 10.1.0(@types/react@19.2.17)(react@19.2.8)
+      remark-gfm: 4.0.1
+    transitivePeerDependencies:
+      - '@agentclientprotocol/sdk'
+      - '@modelcontextprotocol/node'
+      - '@modelcontextprotocol/server'
+      - '@robota-sdk/agent-keyring'
+      - '@robota-sdk/agent-remote-pairing'
+      - '@types/react'
+      - bittorrent-dht
+      - hono
+      - multicast-dns
+      - node-datachannel
+      - nostr-tools
+      - supports-color
+      - ws
+      - zod
+
+  /@robota-sdk/product-config@3.2.1:
+    resolution: {integrity: sha512-plK13zVPm82/k3wobtv7qw4wKYSOttNbRGfbImZNG68OnoaL05xW4ujed/ywpwRvoeJF1g2Msl9Dj9JdRnKYRA==}
+    engines: {node: '>=22.12.0'}
+
+  /@robota-sdk/workflows@0.0.6(@robota-sdk/agent-core@3.2.3)(@robota-sdk/agent-framework@3.2.5)(@robota-sdk/agent-interface@3.3.0)(@robota-sdk/agent-provider@3.3.1)(@robota-sdk/agent-tools@3.3.1):
+    resolution: {integrity: sha512-vf2T9vPZwHylFOfmKy/270+Ca/FNUpM+l29MWwsOncG3YC0B0Q9BKm9lu8A/j2PmVEQVAJXPGPk1gbyE3HU9qQ==}
     engines: {node: ^22.14.0}
     peerDependencies:
-      '@robota-sdk/agent-builtin-providers': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
-      '@robota-sdk/agent-core': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
-      '@robota-sdk/agent-framework': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
-      '@robota-sdk/agent-interface-command': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
-      '@robota-sdk/agent-tools': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
+      '@robota-sdk/agent-core': ~3.2.0
+      '@robota-sdk/agent-framework': ~3.2.0
+      '@robota-sdk/agent-interface': ~3.3.0
+      '@robota-sdk/agent-provider': ~3.3.0
+      '@robota-sdk/agent-tools': ~3.3.0
     dependencies:
       '@marcbachmann/cel-js': 7.6.1
-      '@robota-sdk/agent-builtin-providers': link:packages/agent-builtin-providers
-      '@robota-sdk/agent-core': link:packages/agent-core
-      '@robota-sdk/agent-framework': link:packages/agent-framework
-      '@robota-sdk/agent-interface-command': link:packages/agent-interface-command
-      '@robota-sdk/agent-tools': link:packages/agent-tools
+      '@robota-sdk/agent-core': 3.2.3
+      '@robota-sdk/agent-framework': 3.2.5
+      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.2.3)
+      '@robota-sdk/agent-provider': 3.3.1(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
+      '@robota-sdk/agent-tools': 3.3.1(@robota-sdk/agent-core@3.2.3)
       better-sqlite3: 11.10.0
       zod: 4.6.7
     dev: true
@@ -7656,7 +7168,6 @@ packages:
     cpu: [arm]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/binding-android-arm64@1.0.3:
@@ -7692,7 +7203,6 @@ packages:
     cpu: [arm64]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/binding-darwin-arm64@1.0.3:
@@ -7728,7 +7238,6 @@ packages:
     cpu: [arm64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/binding-darwin-x64@1.0.3:
@@ -7764,7 +7273,6 @@ packages:
     cpu: [x64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/binding-freebsd-x64@1.0.3:
@@ -7800,7 +7308,6 @@ packages:
     cpu: [x64]
     os: [freebsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/binding-linux-arm-gnueabihf@1.0.3:
@@ -7836,7 +7343,6 @@ packages:
     cpu: [arm]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/binding-linux-arm64-gnu@1.0.3:
@@ -7872,7 +7378,6 @@ packages:
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/binding-linux-arm64-musl@1.0.3:
@@ -7908,7 +7413,6 @@ packages:
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/binding-linux-ppc64-gnu@1.0.3:
@@ -7944,7 +7448,6 @@ packages:
     cpu: [ppc64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/binding-linux-s390x-gnu@1.0.3:
@@ -7980,7 +7483,6 @@ packages:
     cpu: [s390x]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/binding-linux-x64-gnu@1.0.3:
@@ -8016,7 +7518,6 @@ packages:
     cpu: [x64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/binding-linux-x64-musl@1.0.3:
@@ -8052,7 +7553,6 @@ packages:
     cpu: [x64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/binding-openharmony-arm64@1.0.3:
@@ -8088,7 +7588,6 @@ packages:
     cpu: [arm64]
     os: [openharmony]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/binding-wasm32-wasi@1.0.3:
@@ -8160,7 +7659,6 @@ packages:
     cpu: [arm64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/binding-win32-x64-msvc@1.0.3:
@@ -8196,7 +7694,6 @@ packages:
     cpu: [x64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@rolldown/pluginutils@1.0.0-beta.27:
@@ -8438,11 +7935,9 @@ packages:
 
   /@scure/base@1.2.6:
     resolution: {integrity: sha512-g/nm5FgUa//MCj1gV09zTJTaM6KBAHqLN907YVQqf7zC49+DcO4B1so4ZX07Ef10Twr6nuqYEH9GEggFXA4Fmg==}
-    dev: false
 
   /@scure/base@2.0.0:
     resolution: {integrity: sha512-3E1kpuZginKkek01ovG8krQ0Z44E3DHPjc5S2rjJw9lZn3KSQOs8S7wqikF/AH7iRanHypj85uGyxk0XAyC37w==}
-    dev: false
 
   /@scure/bip32@2.0.1:
     resolution: {integrity: sha512-4Md1NI5BzoVP+bhyJaY3K6yMesEFzNS1sE/cP+9nuvE7p/b0kx9XbpDHHFl8dHtufcbdHRUUQdRqLIPHN/s7yA==}
@@ -8450,21 +7945,18 @@ packages:
       '@noble/curves': 2.0.1
       '@noble/hashes': 2.0.1
       '@scure/base': 2.0.0
-    dev: false
 
   /@scure/bip39@1.6.0:
     resolution: {integrity: sha512-+lF0BbLiJNwVlev4eKelw1WWLaiKXw7sSl8T6FvBlWkdX+94aGJ4o8XjUdlyhTCjd8c+B3KT3JfS8P0bLRNU6A==}
     dependencies:
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
-    dev: false
 
   /@scure/bip39@2.0.1:
     resolution: {integrity: sha512-PsxdFj/d2AcJcZDX1FXN3dDgitDDTmwf78rKZq1a6c1P1Nan1X/Sxc7667zU3U+AN60g7SxxP0YCVw2H/hBycg==}
     dependencies:
       '@noble/hashes': 2.0.1
       '@scure/base': 2.0.0
-    dev: false
 
   /@sec-ant/readable-stream@0.4.1:
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
@@ -8629,18 +8121,6 @@ packages:
   /@shikijs/vscode-textmate@10.0.2:
     resolution: {integrity: sha512-83yeghZ2xxin3Nj8z1NMd/NCuca+gsYXswywDy5bHvwlWL8tpTQmzGeUuHd9FC3E/SBEMvzJRwWEOz5gGes9Qg==}
 
-  /@simple-libs/child-process-utils@2.0.0:
-    resolution: {integrity: sha512-dvNoRKLijXnD0XoJAz94pbNuB5GQgDr55UhpSPhffDkTT0Cmcqh9jSCOtwfT2d4H6MI9E7c4SgtMuJXZ6F3c6A==}
-    engines: {node: '>=22'}
-    dependencies:
-      '@simple-libs/stream-utils': 2.0.0
-    dev: true
-
-  /@simple-libs/stream-utils@2.0.0:
-    resolution: {integrity: sha512-fCTuZK4QBa+39Oz9l4OGfJfz+GpwCp3AqO7Zch3to99xHPgstVsRFpeQ8LNd2o1Gv8raL2mCFwiaHh7bFSp5DQ==}
-    engines: {node: '>=22'}
-    dev: true
-
   /@sinclair/typebox@0.34.49:
     resolution: {integrity: sha512-brySQQs7Jtn0joV8Xh9ZV/hZb9Ozb0pmazDIASBkYKCjXrXU3mpcFahmK/z4YDhGkQvP9mWJbVyahdtU5wQA+A==}
     dev: true
@@ -8774,7 +8254,6 @@ packages:
 
   /@stablelib/base64@1.0.1:
     resolution: {integrity: sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ==}
-    dev: false
 
   /@stryker-mutator/api@9.6.1:
     resolution: {integrity: sha512-g8VNoFWQWbx0pdal3Vt8jVCZW+v3sc3gi94iI0GVtVgUGTqphAjJF6EAruPTx0lqvtonsaAxn5TD36hcG1d6Wg==}
@@ -8858,7 +8337,7 @@ packages:
       '@stryker-mutator/util': 9.6.1
       semver: 7.8.5
       tslib: 2.8.1
-      vitest: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+      vitest: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
     dev: true
 
   /@swc/core-darwin-arm64@1.15.46:
@@ -9542,7 +9021,6 @@ packages:
     resolution: {integrity: sha512-WPs+bbQw5aCj+x6laNGWLH3wviHtoCv/P3+otBhbOhJgG8qtpdAMlTCxLtsTWA7LH1Oh/bFCHsBn0TPS5m30EQ==}
     dependencies:
       '@types/unist': 3.0.3
-    dev: false
 
   /@types/hast@3.0.5:
     resolution: {integrity: sha512-rp/ezSWaD1m44dPKICGhiskI13nVr7qTloFwDa/IYkhhf5nzwP+zIQcIJh3WIFSBOy/H1PzB40jPjMDksN4F+g==}
@@ -9695,7 +9173,6 @@ packages:
 
   /@types/retry@0.12.0:
     resolution: {integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==}
-    dev: false
 
   /@types/sax@1.2.7:
     resolution: {integrity: sha512-rO73L89PJxeYM3s3pPPjiPgVVcymqU490g0YO5n5By0k2Erzj6tay/4lr1CHAAU4JyOWd1rpQ8bCf6cZfHU96A==}
@@ -10291,7 +9768,7 @@ packages:
       std-env: 3.10.0
       test-exclude: 7.0.2
       tinyrainbow: 2.0.0
-      vitest: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+      vitest: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -10320,7 +9797,7 @@ packages:
       '@vitest/spy': 3.2.6
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 8.0.16(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.0.16(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
     dev: true
 
   /@vitest/pretty-format@3.2.6:
@@ -10852,11 +10329,6 @@ packages:
   /argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
 
-  /argue-cli@3.1.0:
-    resolution: {integrity: sha512-DhBpBfXL4SS2uC0N922MMajKR3CdrTG0u2or1PNYgXMsrSzViJrbtvT0nCLlLGUI0plam/ZZCs7aAauHtW9thw==}
-    engines: {node: '>=22'}
-    dev: true
-
   /aria-query@5.3.0:
     resolution: {integrity: sha512-b0P0sZPKtyu8HkeRAfCq0IfURZK+SuwMjY1UXGBU27wpAiTwQAIlq56IbIO+ytk/JjS1fMR14ee5WBBfKi5J6A==}
     dependencies:
@@ -11137,7 +10609,6 @@ packages:
   /auto-bind@5.0.1:
     resolution: {integrity: sha512-ooviqdwwgfIfNmDwo94wlshcdzfO64XV0Cg6oDsDYBJfITDz1EngD2z7DkbvCWn+XIMsIqW27sEVF6qcpJrRcg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
-    dev: false
 
   /available-typed-arrays@1.0.7:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
@@ -11177,7 +10648,6 @@ packages:
     peerDependenciesMeta:
       react-native-b4a:
         optional: true
-    dev: false
 
   /babel-jest@30.4.1(@babel/core@7.29.7):
     resolution: {integrity: sha512-fATAbM8piYxkiXQp3RBXmZHxZVNJZAVXXfyeyCN2Tida3+qJ8ea9UxhiJ2y4fLO90ZImKt6k9FlcH2+rLkJGhw==}
@@ -11278,14 +10748,12 @@ packages:
 
   /bencode@2.0.3:
     resolution: {integrity: sha512-D/vrAD4dLVX23NalHwb8dSvsUsxeRPO8Y7ToKA015JQYq69MLDOMkC0uGZYA/MPpltLO8rt8eqFC2j8DxjTZ/w==}
-    dev: false
 
   /bencode@4.0.1:
     resolution: {integrity: sha512-/bCR3FvgfB8AZk4LlowShU+nfaTNRM2vruJ9aejDa5LpgkCoRjFyEauFiZFxbpxVxQbBFapYCN42Er2dkE/Qgw==}
     engines: {node: '>=12.20.0'}
     dependencies:
       uint8-util: 2.3.2
-    dev: false
 
   /better-path-resolve@1.0.0:
     resolution: {integrity: sha512-pbnl5XzGBdrFU/wT4jqmJVPn2B6UHPBOhzMQkY/SPUPB6QtUXtmBHBIwCbXJol93mOpGMnQyP/+BB19q04xj7g==}
@@ -11305,7 +10773,6 @@ packages:
   /bignumber.js@9.3.1:
     resolution: {integrity: sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ==}
     requiresBuild: true
-    dev: false
 
   /bindings@1.5.0:
     resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
@@ -11328,7 +10795,6 @@ packages:
     transitivePeerDependencies:
       - react-native-b4a
       - supports-color
-    dev: false
 
   /bl@4.1.0:
     resolution: {integrity: sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w==}
@@ -11439,7 +10905,6 @@ packages:
 
   /buffer-equal-constant-time@1.0.1:
     resolution: {integrity: sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA==}
-    dev: false
 
   /buffer-from@1.1.2:
     resolution: {integrity: sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==}
@@ -11643,19 +11108,16 @@ packages:
     dependencies:
       inherits: 2.0.4
       run-series: 1.1.9
-    dev: false
 
   /chrome-dns@1.0.1:
     resolution: {integrity: sha512-HqsYJgIc8ljJJOqOzLphjAs79EUuWSX3nzZi2LNkzlw3GIzAeZbaSektC8iT/tKvLqZq8yl1GJu5o6doA4TRbg==}
     dependencies:
       chrome-net: 3.3.4
-    dev: false
 
   /chrome-net@3.3.4:
     resolution: {integrity: sha512-Jzy2EnzmE+ligqIZUsmWnck9RBXLuUy6CaKyuNMtowFG3ZvLt8d+WBJCTPEludV0DHpIKjAOlwjFmTaEdfdWCw==}
     dependencies:
       inherits: 2.0.4
-    dev: false
 
   /chromium-pickle-js@0.2.0:
     resolution: {integrity: sha512-1R5Fho+jBq0DDydt+/vHWj5KJNJCKdARKOCwZUen84I5BreWoLqRLANH1U87eJy1tiASPtMnGqJJq0ZsLoRPOw==}
@@ -11681,21 +11143,12 @@ packages:
   /cli-boxes@4.0.1:
     resolution: {integrity: sha512-5IOn+jcCEHEraYolBPs/sT4BxYCe2nHg374OPiItB1O96KZFseS2gthU4twyYzeDcFew4DaUM/xwc5BQf08JJw==}
     engines: {node: '>=18.20 <19 || >=20.10'}
-    dev: false
 
   /cli-cursor@4.0.0:
     resolution: {integrity: sha512-VGtlMu3x/4DOtIUwEkRezxUZ2lBacNJCHash0N0WeZDBS+7Ux1dm3XWAgWYxLJFMMdOeXMHXorshEFhbMSGelg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
     dependencies:
       restore-cursor: 4.0.0
-    dev: false
-
-  /cli-cursor@5.0.0:
-    resolution: {integrity: sha512-aCj4O5wKyszjMmDT4tZj93kxyydN/K5zPWSCe6/0AV/AA1pqe5ZBIw0a2ZfPQV7lL5/yb5HsUreJ6UFAF1tEQw==}
-    engines: {node: '>=18'}
-    dependencies:
-      restore-cursor: 5.1.0
-    dev: true
 
   /cli-highlight@2.1.11:
     resolution: {integrity: sha512-9KDcoEVwyUXrjcJNvHD0NFc/hiwe/WPVYIleQh2O1N2Zro5gWJZ/K+3DGn8w8P/F6FxOgzyC5bxDyHIgCSPhGg==}
@@ -11717,21 +11170,12 @@ packages:
     optionalDependencies:
       '@colors/colors': 1.5.0
 
-  /cli-truncate@4.0.0:
-    resolution: {integrity: sha512-nPdaFdQ0h/GEigbPClz11D0v/ZJEwxmeVZGeMo3Z5StPtUTkA9o1lD6QwoirYiSDzbcwn2XcjwmCp68W1IS4TA==}
-    engines: {node: '>=18'}
-    dependencies:
-      slice-ansi: 5.0.0
-      string-width: 7.2.0
-    dev: true
-
   /cli-truncate@6.1.1:
     resolution: {integrity: sha512-06p9vyLahLa4zkGcgsGxU6iEkSOiuI4fhCH6Emhe2lPAcoUv73n72DnODsnHA+5wwXGnV0n9M9/qOQJSjYhFhw==}
     engines: {node: '>=22'}
     dependencies:
       slice-ansi: 9.0.0
       string-width: 8.2.2
-    dev: false
 
   /cli-width@4.1.0:
     resolution: {integrity: sha512-ouuZd4/dm2Sw5Gmqy6bGyNNNe1qt9RpmxveLSO7KcgsTnU7RXfsw+/bukWGo1abgBiMAic068rclZsO4IWmmxQ==}
@@ -11766,15 +11210,6 @@ packages:
       wrap-ansi: 7.0.0
     dev: true
 
-  /cliui@9.0.1:
-    resolution: {integrity: sha512-k7ndgKhwoQveBL+/1tqGJYNz097I7WOvwbmmU2AR5+magtbjPWQTS1C5vzGkBC8Ym8UWRzfKUzUUqFLypY4Q+w==}
-    engines: {node: '>=20'}
-    dependencies:
-      string-width: 7.2.0
-      strip-ansi: 7.2.0
-      wrap-ansi: 9.0.2
-    dev: true
-
   /clone-response@1.0.3:
     resolution: {integrity: sha512-ROoL94jJH2dUVML2Y/5PEDNaSHgeOdSDicUyS7izcF63G6sTc/FTjLub4b8Il9S8S0beOfYt0TaA5qvFK+w0wA==}
     dependencies:
@@ -11796,7 +11231,6 @@ packages:
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
     dependencies:
       convert-to-spaces: 2.0.1
-    dev: false
 
   /collapse-white-space@2.1.0:
     resolution: {integrity: sha512-loKTxY1zCOuG4j9f6EPnuyyYkf58RnhhWTvRoZEokgB+WbdXehfjFviyOVYkqzEWz1Q5kRiZdBYS5SwxbQYwzw==}
@@ -11813,10 +11247,6 @@ packages:
 
   /color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
-
-  /colorette@2.0.20:
-    resolution: {integrity: sha512-IfEDxwoWIjkeXL1eXcDiow4UbKjhLdq6/EuSVR9GMN7KVH3r9gQ83e73hsz1Nd1T3ijd5xv1wcWRYO+D6kCI2w==}
-    dev: true
 
   /combined-stream@1.0.8:
     resolution: {integrity: sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==}
@@ -11837,11 +11267,6 @@ packages:
     resolution: {integrity: sha512-yPVavfyCcRhmorC7rWlkHn15b4wDVgVmBA7kV4QVBsF7kv/9TKJAbAXVTxvTnwP8HHKjRCJDClKbciiYS7p0DQ==}
     engines: {node: '>=16'}
     dev: false
-
-  /commander@13.1.0:
-    resolution: {integrity: sha512-/rFeCpNJQbhSZjGVwO9RFV3xPqbnERS8MmIQzCtD/zl6gpJuV/bMLuN92oG3F7d8oDEHHRrujSXNUr8fpjntKw==}
-    engines: {node: '>=18'}
-    dev: true
 
   /commander@14.0.3:
     resolution: {integrity: sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw==}
@@ -11908,36 +11333,12 @@ packages:
     engines: {node: '>=18'}
     dev: true
 
-  /conventional-changelog-angular@9.2.1:
-    resolution: {integrity: sha512-oWSL6ZhnXbYraOFTK3PgRAQJ8fADDAEv5K6AdeyQPLvjFmhG8+ejL0jZZp/R7vTmGJaBvZEE+sE7dB4bCv7sAw==}
-    engines: {node: '>=22'}
-    dependencies:
-      '@conventional-changelog/template': 1.2.1
-    dev: true
-
-  /conventional-changelog-conventionalcommits@10.2.1:
-    resolution: {integrity: sha512-n4Kr1HFMTf3iMbES0TMxKIcYtUUv4rKqyQQp2JwfOEfFCOfGT3Tq4mCyJ8S9/YPyWhydjfKrrvnyl+gCjA+mJQ==}
-    engines: {node: '>=22'}
-    dependencies:
-      '@conventional-changelog/template': 1.2.1
-    dev: true
-
-  /conventional-commits-parser@7.1.0:
-    resolution: {integrity: sha512-DPp6hkUjvwIivxbkrTiLXeRswNv1A/4GFA2X6scXma0AMa9632V3TwxmrlkUIEtUktiM3Ln+RrSH2xlP3/jUTw==}
-    engines: {node: '>=22'}
-    hasBin: true
-    dependencies:
-      '@simple-libs/stream-utils': 2.0.0
-      argue-cli: 3.1.0
-    dev: true
-
   /convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
   /convert-to-spaces@2.0.1:
     resolution: {integrity: sha512-rcQ1bsQO9799wq24uE5AM2tAILy4gXGIK/njFWcVQkGNZ96edlpY+A7bjwvzjYvLDyzmG1MmMLZhpcsb+klNMQ==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
-    dev: false
 
   /cookie-es@1.2.3:
     resolution: {integrity: sha512-lXVyvUvrNXblMqzIRrxHb57UUVmqsSWlxqt3XIjCkUP0wDAf6uicO6KMbEgYrMNtEvWgWHwe42CKxPu9MYAnWw==}
@@ -11990,40 +11391,9 @@ packages:
       layout-base: 2.0.1
     dev: false
 
-  /cosmiconfig-typescript-loader@6.3.0(@types/node@20.19.43)(cosmiconfig@9.0.2)(typescript@6.0.3):
-    resolution: {integrity: sha512-Akr82WH1Wfqatyiqpj8HDkO2o2KmJRu1FhKfSNJP3K4IdXwHfEyL7MOb62i1AGQVLtIQM+iCE9CGOtrfhR+mmA==}
-    engines: {node: '>=v18'}
-    peerDependencies:
-      '@types/node': '*'
-      cosmiconfig: '>=9'
-      typescript: '>=5'
-    dependencies:
-      '@types/node': 20.19.43
-      cosmiconfig: 9.0.2(typescript@6.0.3)
-      jiti: 2.6.1
-      typescript: 6.0.3
-    dev: true
-
-  /cosmiconfig@9.0.2(typescript@6.0.3):
-    resolution: {integrity: sha512-gtTZxTDau1wL7Y7zifc2dd8jHSK/k6BTx/2Xp/BpdlAdnlYWFVt7qhJqgwi7637yRwRQ3qL4ZidbB4I8tA5VOg==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      typescript: '>=4.9.5'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-    dependencies:
-      env-paths: 2.2.1
-      import-fresh: 3.3.1
-      js-yaml: 4.3.2
-      parse-json: 5.2.0
-      typescript: 6.0.3
-    dev: true
-
   /croner@10.0.1:
     resolution: {integrity: sha512-ixNtAJndqh173VQ4KodSdJEI6nuioBWI0V1ITNKhZZsO0pEMoDxz539T4FTTbSZ/xIOSuDnzxLVRqBVSvPNE2g==}
     engines: {node: '>=18.0'}
-    dev: false
 
   /cross-dirname@0.1.0:
     resolution: {integrity: sha512-+R08/oI0nl3vfPcqftZRpytksBXDzOUveBq/NBVx0sUp1axwzPQrKinNx5yd5sxPu8j1wIy8AfnVQ+5eFdha6Q==}
@@ -12406,7 +11776,6 @@ packages:
   /data-uri-to-buffer@4.0.1:
     resolution: {integrity: sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==}
     engines: {node: '>= 12'}
-    dev: false
 
   /data-urls@5.0.0:
     resolution: {integrity: sha512-ZYP5VBHshaDAiVZxjbRVcFJpc+4xGgT0bK3vzy1HLN8jTO975HEbuYzZJcHoQEY5K1a0z8YayJkyVETa08eNTg==}
@@ -12722,7 +12091,6 @@ packages:
     engines: {node: '>=6'}
     dependencies:
       '@leichtgewicht/ip-codec': 2.0.5
-    dev: false
 
   /dockerfile-ast@0.7.1:
     resolution: {integrity: sha512-oX/A4I0EhSkGqrFv0YuvPkBUSYp1XiY8O8zAKc8Djglx8ocz+JfOr8gP0ryRMC2myqvDLagmnZaU9ot1vG2ijw==}
@@ -12862,7 +12230,6 @@ packages:
     resolution: {integrity: sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ==}
     dependencies:
       safe-buffer: 5.2.1
-    dev: false
 
   /ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
@@ -13288,7 +12655,6 @@ packages:
       '@esbuild/win32-arm64': 0.28.2
       '@esbuild/win32-ia32': 0.28.2
       '@esbuild/win32-x64': 0.28.2
-    dev: false
 
   /escalade@3.2.0:
     resolution: {integrity: sha512-WUj2qlxaQtO4g6Pq5c29GTcWGDyd8itL8zTlipgECz3JesAiiOKotd8JU6otB3PACgG6xkJUyVhboMS+bje/jA==}
@@ -13769,6 +13135,7 @@ packages:
 
   /eventemitter3@5.0.4:
     resolution: {integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==}
+    dev: false
 
   /eventsource-parser@3.1.0:
     resolution: {integrity: sha512-kJezFj9YFAMLeORyi7aCLxLbD5/qWMQnoMVlVPyHIll7lgRJCc3JVln9Vgl9nwQi0YkMnhdGTMNn7CkRRAptMg==}
@@ -13797,21 +13164,6 @@ packages:
       onetime: 5.1.2
       signal-exit: 3.0.7
       strip-final-newline: 2.0.0
-    dev: true
-
-  /execa@8.0.1:
-    resolution: {integrity: sha512-VyhnebXciFV2DESc+p6B+y0LjSm0krU4OgJN44qFAhBY0TJ+1V61tYD2+wHusZ6F9n5K+vl8k0sTy7PEfV4qpg==}
-    engines: {node: '>=16.17'}
-    dependencies:
-      cross-spawn: 7.0.6
-      get-stream: 8.0.1
-      human-signals: 5.0.0
-      is-stream: 3.0.0
-      merge-stream: 2.0.0
-      npm-run-path: 5.3.0
-      onetime: 6.0.0
-      signal-exit: 4.1.0
-      strip-final-newline: 3.0.0
     dev: true
 
   /execa@9.6.1:
@@ -13997,7 +13349,6 @@ packages:
 
   /fast-sha256@1.3.0:
     resolution: {integrity: sha512-n11RGP/lrWEFI/bWdygLxhI+pVeo1ZYIVwvvPkW7azl/rOy+F3HYRZ2K5zeE9mmkhQppyv9sQFx0JM9UabnpPQ==}
-    dev: false
 
   /fast-string-truncated-width@3.0.3:
     resolution: {integrity: sha512-0jjjIEL6+0jag3l2XWWizO64/aZVtpiGE3t0Zgqxv0DPuxiMjvB3M24fCyhZUO4KomJQPj3LTSUnDP3GpdwC0g==}
@@ -14074,7 +13425,6 @@ packages:
     dependencies:
       node-domexception: 1.0.0
       web-streams-polyfill: 3.3.3
-    dev: false
 
   /fflate@0.8.3:
     resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
@@ -14261,7 +13611,6 @@ packages:
     engines: {node: '>=12.20.0'}
     dependencies:
       fetch-blob: 3.2.0
-    dev: false
 
   /forwarded@0.2.0:
     resolution: {integrity: sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow==}
@@ -14395,7 +13744,6 @@ packages:
       node-fetch: 3.3.2
     transitivePeerDependencies:
       - supports-color
-    dev: false
 
   /gcp-metadata@8.1.2:
     resolution: {integrity: sha512-zV/5HKTfCeKWnxG0Dmrw51hEWFGfcF2xiXqcA3+J90WDuP0SvoiSO5ORvcBsifmx/FoIjgQN3oNOGaQ5PhLFkg==}
@@ -14406,7 +13754,6 @@ packages:
       json-bigint: 1.0.0
     transitivePeerDependencies:
       - supports-color
-    dev: false
 
   /generator-function@2.0.1:
     resolution: {integrity: sha512-SFdFmIJi+ybC0vjlHN0ZGVGHc3lgE0DxPAT0djjVg+kjOnSqclqmj0KQ7ykTOLP6YxoqOvuAODGdcHJn+43q3g==}
@@ -14461,11 +13808,6 @@ packages:
   /get-stream@6.0.1:
     resolution: {integrity: sha512-ts6Wi+2j3jQjqi70w5AlN8DFnkSwC+MqmxEzdEALB2qXZYV3X/b1CTfgPLGJNMeAWxdPfU8FO1ms3NUfaHCPYg==}
     engines: {node: '>=10'}
-    dev: true
-
-  /get-stream@8.0.1:
-    resolution: {integrity: sha512-VaUJspBffn/LMCJVoMvSAdmscJyS1auj5Zulnn5UoYcY531UWmdwhRWkcGKnGU93m5HSXP9LP2usOryrBtQowA==}
-    engines: {node: '>=16'}
     dev: true
 
   /get-stream@9.0.1:
@@ -14583,13 +13925,6 @@ packages:
       ini: 4.1.1
     dev: true
 
-  /global-directory@5.0.0:
-    resolution: {integrity: sha512-1pgFdhK3J2LeM+dVf2Pd424yHx2ou338lC0ErNP2hPx4j8eW1Sp0XqSjNxtk6Tc4Kr5wlWtSvz8cn2yb7/SG/w==}
-    engines: {node: '>=20'}
-    dependencies:
-      ini: 6.0.0
-    dev: true
-
   /globals@13.24.0:
     resolution: {integrity: sha512-AhO5QUcj8llrbG09iWhPU2B204J1xnPeL8kQmVorSsy+Sjj1sk8gIyh6cUocGmH4L0UuhAJy+hJMRA4mgA4mFQ==}
     engines: {node: '>=8'}
@@ -14633,12 +13968,10 @@ packages:
       jws: 4.0.1
     transitivePeerDependencies:
       - supports-color
-    dev: false
 
   /google-logging-utils@1.1.3:
     resolution: {integrity: sha512-eAmLkjDjAFCVXg7A1unxHsLf961m6y17QFqXqAXGj/gVkKFrEICfStRfwUlGNfeCEjNRa32JEWOUTlYXPyyKvA==}
     engines: {node: '>=14'}
-    dev: false
 
   /gopd@1.2.0:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
@@ -14939,7 +14272,6 @@ packages:
 
   /html-url-attributes@3.0.1:
     resolution: {integrity: sha512-ol6UPyBWqsrO6EJySPz2O7ZSr856WDrEzM5zMqp+FJJLGMW35cLYmmZnl0vztAZxRUoNZJFTCohfjuIJ8I4QBQ==}
-    dev: false
 
   /html-void-elements@3.0.0:
     resolution: {integrity: sha512-bEqo66MRXsUGxWHV5IP0PUiAWwoEjba4VCzg0LjFJBpchPaTfyfCKTG6bc5F8ucKec3q5y6qOdGyYTSBEvhCrg==}
@@ -15003,11 +14335,6 @@ packages:
   /human-signals@2.1.0:
     resolution: {integrity: sha512-B4FFZ6q/T2jhhksgkbEW3HBvWIfDW85snkQgawt07S7J5QXTk6BkNV+0yAeZrM5QpMAdYlocGoljn0sJ/WQkFw==}
     engines: {node: '>=10.17.0'}
-    dev: true
-
-  /human-signals@5.0.0:
-    resolution: {integrity: sha512-AXcZb6vzzrFAUE61HnN4mpLqd/cSIwNQjtNWR0euPm6y0iqx3G4gOXaIDdtdDwZmhwe82LA6+zinmW4UBWVePQ==}
-    engines: {node: '>=16.17.0'}
     dev: true
 
   /human-signals@8.0.1:
@@ -15100,7 +14427,6 @@ packages:
   /indent-string@5.0.0:
     resolution: {integrity: sha512-m6FAo/spmsW2Ab2fU35JTYwtOKa2yAwXSwgjSv1TJzh4Mh7mC3lzAOVLBprb72XsTrgkEIsl7YrFNAiDiRhIGg==}
     engines: {node: '>=12'}
-    dev: false
 
   /inflight@1.0.6:
     resolution: {integrity: sha512-k92I/b08q4wvFscXCLvqfsHCrjrF7yiXsQuIVvVE7N82W3+aqpzuUdBbfhWcy/FZR3/4IgflMgKLOsvPDrGCJA==}
@@ -15120,11 +14446,6 @@ packages:
   /ini@4.1.1:
     resolution: {integrity: sha512-QQnnxNyfvmHFIsj7gkPcYymR8Jdw/o7mp5ZFihxn6h8Ci6fh3Dx4E1gPjpQEpIuPo9XVNY/ZUwh4BPMjGyL01g==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
-    dev: true
-
-  /ini@6.0.0:
-    resolution: {integrity: sha512-IBTdIkzZNOpqm7q3dRqJvMaldXjDHWkEDfrwGEQTs5eaQMWV+djAhR+wahyNNMAa+qpbDUhBMVt4ZKNwpPm7xQ==}
-    engines: {node: ^20.17.0 || >=22.9.0}
     dev: true
 
   /ink-testing-library@4.0.0(@types/react@19.2.17):
@@ -15182,7 +14503,6 @@ packages:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
-    dev: false
 
   /inline-style-parser@0.2.7:
     resolution: {integrity: sha512-Nb2ctOyNR8DqQoR0OwRG95uNWIC0C1lCgf5Naz5H6Ji72KZ8OcFZLz2P5sNgwlyoJ8Yif11oMuYs5pBQa86csA==}
@@ -15351,11 +14671,6 @@ packages:
     resolution: {integrity: sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg==}
     engines: {node: '>=8'}
 
-  /is-fullwidth-code-point@4.0.0:
-    resolution: {integrity: sha512-O4L094N2/dZ7xqVdrXhh9r1KODPJpFms8B5sGdJLPy664AgvXsreZUyCQQNItZRDlYug4xStLjNp/sz3HvBowQ==}
-    engines: {node: '>=12'}
-    dev: true
-
   /is-fullwidth-code-point@5.1.0:
     resolution: {integrity: sha512-5XHYaSyiqADb4RnZ1Bdad6cPp8Toise4TzEjcOYDHZkTCbKgiUl7WTUCpNWHuxmDt91wnsZBc9xinNzopv3JMQ==}
     engines: {node: '>=18'}
@@ -15390,7 +14705,6 @@ packages:
     resolution: {integrity: sha512-cFeerHriAnhrQSbpAxL37W1wcJKUUX07HyLWZCW1URJT/ra3GyUTzBgUnh24TMVfNTV2Hij2HLxkPHFZfOZy5w==}
     engines: {node: '>=20'}
     hasBin: true
-    dev: false
 
   /is-installed-globally@1.0.0:
     resolution: {integrity: sha512-K55T22lfpQ63N4KEN57jZUAaAYqYHEe8veb/TycJRk9DdSCLLcovXz/mL6mOnhQaZsQGwPhuFopdQIlqGSEjiQ==}
@@ -15473,11 +14787,6 @@ packages:
   /is-stream@2.0.1:
     resolution: {integrity: sha512-hFoiJiTl63nn+kstHGBtewWSKnQLpyb155KHheA1l39uvtO9nWIop1p3udqPcUd/xbF1VLMO4n7OI6p7RbngDg==}
     engines: {node: '>=8'}
-    dev: true
-
-  /is-stream@3.0.0:
-    resolution: {integrity: sha512-LnQR4bZ9IADDRSkvpqMGvt/tEJWclzklNgSw48V5EAaAeDd6qGvN8ei6k5p0tvxSR171VmGyHuTiAOfxAbr8kA==}
-    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
     dev: true
 
   /is-stream@4.0.1:
@@ -16132,11 +15441,6 @@ packages:
       - ts-node
     dev: true
 
-  /jiti@2.6.1:
-    resolution: {integrity: sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==}
-    hasBin: true
-    dev: true
-
   /jiti@2.7.0:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
@@ -16201,7 +15505,7 @@ packages:
       whatwg-encoding: 3.1.1
       whatwg-mimetype: 4.0.0
       whatwg-url: 14.2.0
-      ws: 8.21.0
+      ws: 8.21.1
       xml-name-validator: 5.0.0
     transitivePeerDependencies:
       - bufferutil
@@ -16254,7 +15558,6 @@ packages:
     requiresBuild: true
     dependencies:
       bignumber.js: 9.3.1
-    dev: false
 
   /json-buffer@3.0.1:
     resolution: {integrity: sha512-4bV5BfR2mqfQTJm+V5tPPdf+ZpuhiIvTuAB5g8kcrXOZpTT/QwwVRWBywX1ozr6lEuPdbHxwaJlm9G6mI2sfSQ==}
@@ -16274,7 +15577,6 @@ packages:
     dependencies:
       '@babel/runtime': 7.29.7
       ts-algebra: 2.0.0
-    dev: false
 
   /json-schema-traverse@0.4.1:
     resolution: {integrity: sha512-xbbCH5dCYU5T8LcEhhuh7HJ88HXuW3qsI3Y0zOZFKfZEHcpWiHU/Jxzk629Brsab/mMiHQti9wMP+845RPe3Vg==}
@@ -16346,7 +15648,6 @@ packages:
 
   /jssha@3.3.2:
     resolution: {integrity: sha512-0RhFxzijV4W0qTXa97D5b6twAWXX7SEOpw8qzAZyZ+oeGOP9e84PnDSLjl7SBB1vBQ+chSUwsZR06i1AzA+nEA==}
-    dev: false
 
   /jsx-ast-utils@3.3.5:
     resolution: {integrity: sha512-ZZow9HBI5O6EPgSJLUb8n2NKgmVWTwCvHGwFuJlMjvLFqlGG6pjirPhtdsseaLZjSibD8eegzmYpUZwoIlj2cQ==}
@@ -16365,7 +15666,6 @@ packages:
       buffer-equal-constant-time: 1.0.1
       ecdsa-sig-formatter: 1.0.11
       safe-buffer: 5.2.1
-    dev: false
 
   /jws@4.0.1:
     resolution: {integrity: sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==}
@@ -16373,13 +15673,11 @@ packages:
     dependencies:
       jwa: 2.0.1
       safe-buffer: 5.2.1
-    dev: false
 
   /k-bucket@5.1.0:
     resolution: {integrity: sha512-Fac7iINEovXIWU20GPnOMLUbjctiS+cnmyjC4zAUgvs3XPf1vo9akfCHkigftSic/jiKqKl+KA3a/vFcJbHyCg==}
     dependencies:
       randombytes: 2.1.0
-    dev: false
 
   /k-rpc-socket@1.11.1:
     resolution: {integrity: sha512-8xtA8oqbZ6v1Niryp2/g4GxW16EQh5MvrUylQoOG+zcrDff5CKttON2XUXvMwlIHq4/2zfPVFiinAccJ+WhxoA==}
@@ -16388,7 +15686,6 @@ packages:
       chrome-dgram: 3.0.6
       chrome-dns: 1.0.1
       chrome-net: 3.3.4
-    dev: false
 
   /k-rpc@5.1.0:
     resolution: {integrity: sha512-FGc+n70Hcjoa/X2JTwP+jMIOpBz+pkRffHnSl9yrYiwUxg3FIgD50+u1ePfJUOnRCnx6pbjmVk5aAeB1wIijuQ==}
@@ -16396,7 +15693,6 @@ packages:
       k-bucket: 5.1.0
       k-rpc-socket: 1.11.1
       randombytes: 2.1.0
-    dev: false
 
   /katex@0.19.1:
     resolution: {integrity: sha512-jG8uKntjSEcm2EpQOh0XturpPuuC9r3Sq5HLHdsFdWZT27E672SF19QEi+of0/YeOy15lDgRhKvr5614uRrEfA==}
@@ -16454,7 +15750,6 @@ packages:
       '@koromix/koffi-win32-arm64': 3.3.1
       '@koromix/koffi-win32-ia32': 3.3.1
       '@koromix/koffi-win32-x64': 3.3.1
-    dev: false
 
   /language-subtag-registry@0.3.23:
     resolution: {integrity: sha512-0K65Lea881pHotoGEa5gDlMxt3pctLi2RplBb7Ezh4rRdLEOtgi7n4EwK9lamnUCkKBqaeKRVebTq6BAxSkpXQ==}
@@ -16469,7 +15764,6 @@ packages:
 
   /last-one-wins@1.0.4:
     resolution: {integrity: sha512-t+KLJFkHPQk8lfN6WBOiGkiUXoub+gnb2XTYI2P3aiISL+94xgZ1vgz1SXN/N4hthuOoLXarXfBZPUruyjQtfA==}
-    dev: false
 
   /layout-base@1.0.2:
     resolution: {integrity: sha512-8h2oVEZNktL4BH2JCOI90iD1yXwL6iNW7KcCKT2QZgQJR2vbqDsldCTPRU9NifTCqHZci57XvQQ15YTu+sTYPg==}
@@ -16511,7 +15805,6 @@ packages:
     cpu: [arm64]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /lightningcss-darwin-arm64@1.32.0:
@@ -16529,7 +15822,6 @@ packages:
     cpu: [arm64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /lightningcss-darwin-x64@1.32.0:
@@ -16547,7 +15839,6 @@ packages:
     cpu: [x64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /lightningcss-freebsd-x64@1.32.0:
@@ -16565,7 +15856,6 @@ packages:
     cpu: [x64]
     os: [freebsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /lightningcss-linux-arm-gnueabihf@1.32.0:
@@ -16583,7 +15873,6 @@ packages:
     cpu: [arm]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /lightningcss-linux-arm64-gnu@1.32.0:
@@ -16601,7 +15890,6 @@ packages:
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /lightningcss-linux-arm64-musl@1.32.0:
@@ -16619,7 +15907,6 @@ packages:
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /lightningcss-linux-x64-gnu@1.32.0:
@@ -16637,7 +15924,6 @@ packages:
     cpu: [x64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /lightningcss-linux-x64-musl@1.32.0:
@@ -16655,7 +15941,6 @@ packages:
     cpu: [x64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /lightningcss-win32-arm64-msvc@1.32.0:
@@ -16673,7 +15958,6 @@ packages:
     cpu: [arm64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /lightningcss-win32-x64-msvc@1.32.0:
@@ -16691,7 +15975,6 @@ packages:
     cpu: [x64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /lightningcss@1.32.0:
@@ -16730,46 +16013,9 @@ packages:
       lightningcss-linux-x64-musl: 1.33.0
       lightningcss-win32-arm64-msvc: 1.33.0
       lightningcss-win32-x64-msvc: 1.33.0
-    dev: false
-
-  /lilconfig@3.1.3:
-    resolution: {integrity: sha512-/vlFKAoH5Cgt3Ie+JLhRbwOsCQePABiU3tJ1egGvyQ+33R/vcwM2Zl2QR/LzjsBeItPt3oSVXapn+m4nQDvpzw==}
-    engines: {node: '>=14'}
-    dev: true
 
   /lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
-    dev: true
-
-  /lint-staged@15.5.2:
-    resolution: {integrity: sha512-YUSOLq9VeRNAo/CTaVmhGDKG+LBtA8KF1X4K5+ykMSwWST1vDxJRB2kv2COgLb1fvpCo+A/y9A0G0znNVmdx4w==}
-    engines: {node: '>=18.12.0'}
-    hasBin: true
-    dependencies:
-      chalk: 5.6.2
-      commander: 13.1.0
-      debug: 4.4.3
-      execa: 8.0.1
-      lilconfig: 3.1.3
-      listr2: 8.3.3
-      micromatch: 4.0.8
-      pidtree: 0.6.1
-      string-argv: 0.3.2
-      yaml: 2.9.0
-    transitivePeerDependencies:
-      - supports-color
-    dev: true
-
-  /listr2@8.3.3:
-    resolution: {integrity: sha512-LWzX2KsqcB1wqQ4AHgYb4RsDXauQiqhjLk+6hjbaeHG4zpjjVAB6wC/gz6X0l+Du1cN3pUB5ZlrvTbhGSNnUQQ==}
-    engines: {node: '>=18.0.0'}
-    dependencies:
-      cli-truncate: 4.0.0
-      colorette: 2.0.20
-      eventemitter3: 5.0.4
-      log-update: 6.1.0
-      rfdc: 1.4.1
-      wrap-ansi: 9.0.2
     dev: true
 
   /locate-path@5.0.0:
@@ -16836,20 +16082,8 @@ packages:
   /lodash@4.18.1:
     resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
 
-  /log-update@6.1.0:
-    resolution: {integrity: sha512-9ie8ItPR6tjY5uYJh8K/Zrv/RMZ5VOlOWvtZdEHYSTFKZfIBPQa9tOAEeAWhd+AnIneLJ22w5fjOYtoutpWq5w==}
-    engines: {node: '>=18'}
-    dependencies:
-      ansi-escapes: 7.3.0
-      cli-cursor: 5.0.0
-      slice-ansi: 7.1.2
-      strip-ansi: 7.2.0
-      wrap-ansi: 9.0.2
-    dev: true
-
   /long@5.3.2:
     resolution: {integrity: sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==}
-    dev: false
 
   /longest-streak@3.1.0:
     resolution: {integrity: sha512-9Ri+o0JYgehTaVBBDoMqIl8GXtbWg711O3srftcHhZ0dqnETqLaoIK0x17fUw9rFSlK/0NlsKe0Ahhyl5pXE2g==}
@@ -16901,7 +16135,6 @@ packages:
     engines: {node: '>= 0.4.0'}
     dependencies:
       inherits: 2.0.4
-    dev: false
 
   /lucide-react@1.26.0(react@19.2.8):
     resolution: {integrity: sha512-raglYVR2+VkMfJL158krjVmE+rV5ST2lzA/KQm1FRSjMHT4MnWaegHxoVEpmc2So3nOEhp9oGejJwAPX8MoAjg==}
@@ -16909,7 +16142,6 @@ packages:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
     dependencies:
       react: 19.2.8
-    dev: false
 
   /lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
@@ -17616,16 +16848,6 @@ packages:
     resolution: {integrity: sha512-OqbOk5oEQeAZ8WXWydlu9HJjz9WVdEIvamMCcXmuqUYjTknH/sqsWvhQ3vgwKFRR1HpjvNBKQ37nbJgYzGqGcg==}
     engines: {node: '>=6'}
 
-  /mimic-fn@4.0.0:
-    resolution: {integrity: sha512-vqiC06CuhBTUdZH+RYl8sFrL096vA45Ok5ISO6sE/Mr1jRbGH4Csnhi8f3wKVl7x8mO4Au7Ir9D3Oyv1VYMFJw==}
-    engines: {node: '>=12'}
-    dev: true
-
-  /mimic-function@5.0.1:
-    resolution: {integrity: sha512-VP79XUPxV2CigYP3jWwAUFSku2aKqBH7uTAapFWCBqutsbmDo96KY5o8uh6U+/YSIn5OxJnXp73beVkpqMIGhA==}
-    engines: {node: '>=18'}
-    dev: true
-
   /mimic-response@1.0.1:
     resolution: {integrity: sha512-j5EctnkH7amfV/q5Hgmoal1g2QHFJRraOtmx0JpIqkxhBhI/lJSl1nMpQ45hVarwNETOoWEimndZ4QK0RHxuxQ==}
     engines: {node: '>=4'}
@@ -17736,7 +16958,6 @@ packages:
     dependencies:
       dns-packet: 5.6.1
       thunky: 1.1.0
-    dev: false
 
   /mutation-server-protocol@0.4.1:
     resolution: {integrity: sha512-SBGK0j8hLDne7bktgThKI8kGvGTx3rY3LAeQTmOKZ5bVnL/7TorLMvcVF7dIPJCu5RNUWhkkuF53kurygYVt3g==}
@@ -17787,7 +17008,6 @@ packages:
     resolution: {integrity: sha512-uKdg2G3GNCKQn9byYOpxbGqrT2fGO5KRt5J/8b3pok8rT6qxGWF6hxMyJiEYtAf+FVyYuD9hRaDqX5uPFYJ4ZQ==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
-    dev: false
 
   /napi-build-utils@2.0.0:
     resolution: {integrity: sha512-GEbrYkbfF7MoNaoh2iGG84Mnf/WZfB0GdGEsM8wz7Expx/LlWf5U8t9nvJKXSp3qr5IsEbK04cBGhol/KwOsWA==}
@@ -18030,14 +17250,11 @@ packages:
       '@node-datachannel/linux-x64-musl': 0.33.6
       '@node-datachannel/win32-arm64-msvc': 0.33.6
       '@node-datachannel/win32-x64-msvc': 0.33.6
-    dev: false
-    optional: true
 
   /node-domexception@1.0.0:
     resolution: {integrity: sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==}
     engines: {node: '>=10.5.0'}
     deprecated: Use your platform's native DOMException instead
-    dev: false
 
   /node-emoji@2.2.0:
     resolution: {integrity: sha512-Z3lTE9pLaJF47NyMhd4ww1yFTAP8YhYI8SleJiHzM46Fgpm5cnNzSl9XfzFNqbaz+VlJrIj3fXQ4DeN1Rjm6cw==}
@@ -18080,7 +17297,6 @@ packages:
       data-uri-to-buffer: 4.0.1
       fetch-blob: 3.2.0
       formdata-polyfill: 4.0.10
-    dev: false
 
   /node-gyp@12.4.0:
     resolution: {integrity: sha512-OMcPNvqTCFUnNaBlmdgq+lfNqY7gTiSmNRDjY3uAXRyudeKZEZxu3CLtjMQrx4zZxCX2b/mpNqTtwuCJgXhHkw==}
@@ -18144,25 +17360,16 @@ packages:
       '@scure/bip39': 2.0.1
       nostr-wasm: 0.1.0
       typescript: 6.0.3
-    dev: false
     patched: true
 
   /nostr-wasm@0.1.0:
     resolution: {integrity: sha512-78BTryCLcLYv96ONU8Ws3Q1JzjlAt+43pWQhIl86xZmWeegYCNLPml7yQ+gG3vR6V5h4XGj+TxO+SS5dsThQIA==}
-    dev: false
 
   /npm-run-path@4.0.1:
     resolution: {integrity: sha512-S48WzZW777zhNIrn7gxOlISNAqi9ZC/uQFnRdbeIHhZhCA6UqpkOT8T1G7BvfdgP4Er8gF4sUbaS0i7QvIfCWw==}
     engines: {node: '>=8'}
     dependencies:
       path-key: 3.1.1
-    dev: true
-
-  /npm-run-path@5.3.0:
-    resolution: {integrity: sha512-ppwTtiJZq0O/ai0z7yfudtBpWIoxM8yE6nHi1X47eFR2EWORqfbu6CnPlNsjeN683eT0qG6H/Pyf9fCcvjnnnQ==}
-    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
-    dependencies:
-      path-key: 4.0.0
     dev: true
 
   /npm-run-path@6.0.0:
@@ -18284,20 +17491,6 @@ packages:
     dependencies:
       mimic-fn: 2.1.0
 
-  /onetime@6.0.0:
-    resolution: {integrity: sha512-1FlR+gjXK7X+AsAHso35MnyN5KqGwJRi/31ft6x0M194ht7S+rWAvd7PHss9xSKMzE0asv1pyIHaJYq+BbacAQ==}
-    engines: {node: '>=12'}
-    dependencies:
-      mimic-fn: 4.0.0
-    dev: true
-
-  /onetime@7.0.0:
-    resolution: {integrity: sha512-VXJjc87FScF88uafS3JllDgvAm+c/Slfz06lorj2uAY34rlUu0Nt+v8wreiImcrgAjjIHp1rXpTDlLOGw29WwQ==}
-    engines: {node: '>=18'}
-    dependencies:
-      mimic-function: 5.0.1
-    dev: true
-
   /oniguruma-parser@0.12.2:
     resolution: {integrity: sha512-6HVa5oIrgMC6aA6WF6XyyqbhRPJrKR02L20+2+zpDtO5QAzGHAUGw5TKQvwi5vctNnRHkJYmjAhRVQF2EKdTQw==}
 
@@ -18330,7 +17523,6 @@ packages:
     dependencies:
       ws: 8.21.1
       zod: 4.6.7
-    dev: false
 
   /openapi-fetch@0.14.1:
     resolution: {integrity: sha512-l7RarRHxlEZYjMLd/PR0slfMVse2/vvIAGm75/F7J6MlQ8/b9uUQmUF2kCPrQhJqMXSxmYWObVgeYXbFYzZR+A==}
@@ -18424,7 +17616,6 @@ packages:
     engines: {node: '>=20'}
     dependencies:
       yocto-queue: 1.2.2
-    dev: false
 
   /p-locate@4.1.0:
     resolution: {integrity: sha512-R79ZZ/0wAxKGu3oYMlz8jy/kbhsNrS7SKZ7PxEHBgJ5+F2mtFW2fK2cOtBh1cHYkQsbzFV7I+EoRKe6Yt0oK7A==}
@@ -18466,7 +17657,6 @@ packages:
     dependencies:
       '@types/retry': 0.12.0
       retry: 0.13.1
-    dev: false
 
   /p-timeout@3.2.0:
     resolution: {integrity: sha512-rhIwUycgwwKcP9yTOOFK/AKsAopjjCakVqLHePO3CC6Mir1Z99xT+R63jZxAT5lFZLa2inS5h+ZS2GvR99/FBg==}
@@ -18584,7 +17774,6 @@ packages:
   /patch-console@2.0.0:
     resolution: {integrity: sha512-0YNdUceMdaQwoKce1gatDScmMo5pu/tfABfnzEqeG0gtTmd7mh/WcwgUjtAeOU7N8nFFlbQBnFK2gXW5fGvmMA==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
-    dev: false
 
   /path-data-parser@0.1.0:
     resolution: {integrity: sha512-NOnmBpt5Y2RWbuv0LMzsayp3lVylAHLPUTut412ZA3l+C4uw4ZVkQbjShYCQ8TCpUMdPapr4YjUqLYD6v68j+w==}
@@ -18686,12 +17875,6 @@ packages:
   /picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
-
-  /pidtree@0.6.1:
-    resolution: {integrity: sha512-e0F9AOF1JMrCfBsyJOwU9lNvQ0WtXTq0j/4jk0BQ5JSI9VAybPXmDpPRw/2FQ3e5d3ZFN1mLh7jW99m/jjaptw==}
-    engines: {node: '>=0.10'}
-    hasBin: true
-    dev: true
 
   /pify@4.0.1:
     resolution: {integrity: sha512-uB80kBFb/tfd68bVleG9T5GGsGPjJrLAUpR5PZIrhBnIaRTQRjqdJSsIKkOP6OAIFbj7GOrcudc5pNjZ+geV2g==}
@@ -18809,7 +17992,6 @@ packages:
       nanoid: 3.3.20
       picocolors: 1.1.1
       source-map-js: 1.2.2
-    dev: false
 
   /postject@1.0.0-alpha.6:
     resolution: {integrity: sha512-b9Eb8h2eVqNE8edvKdwqkrY6O7kAwmI8kcnBv1NScolYJbo59XUF0noFq+lxbC1yN20bmC0WBEbDC5H/7ASb0A==}
@@ -18848,7 +18030,6 @@ packages:
 
   /pretendard@1.3.9:
     resolution: {integrity: sha512-PaQAADyLY5v4kYFwkpSJHbSSYIkiriY/1xXw75TKoZ9UQQqeU+tvP05yTdZAWibiIYoo8ZKtRv8PM7w0IaywSw==}
-    dev: false
 
   /prettier@2.8.8:
     resolution: {integrity: sha512-tdN8qQGvNjw4CHbY+XXk0JgCXn9QiF21a55rBe5LJAU+kDyC4WQn4+awm2Xfk2lQMk5fKup9XgzTZtGkjBdP9Q==}
@@ -18968,7 +18149,6 @@ packages:
     engines: {node: '>=12.0.0'}
     dependencies:
       long: 5.3.2
-    dev: false
 
   /proxy-addr@2.0.8:
     resolution: {integrity: sha512-5nnx0yGyVUcY6t9RnWcARWtwT9F1D8O9rt08htPvnd49W1IgZtmLkhu9WfMzQj1cFxjHIO6connUNVW5k7AVyQ==}
@@ -19061,7 +18241,6 @@ packages:
     resolution: {integrity: sha512-vYl3iOX+4CKUWuxGi9Ukhie6fsqXqS9FE2Zaic4tNFD2N2QQaXOMFbuKK4QmDHC0JO6B1Zp41J0LpT0oR68amQ==}
     dependencies:
       safe-buffer: 5.2.1
-    dev: false
 
   /range-parser@1.2.1:
     resolution: {integrity: sha512-Hrgsx+orqoygnmhFbKaHE6c296J+HTAQXoxEF6gNupROmmGJRoyzfG3ccAveqCBrwr/2yxQ5BVd/GTl5agOwSg==}
@@ -19142,7 +18321,6 @@ packages:
       vfile: 6.0.3
     transitivePeerDependencies:
       - supports-color
-    dev: false
 
   /react-reconciler@0.33.0(react@19.2.8):
     resolution: {integrity: sha512-KetWRytFv1epdpJc3J4G75I4WrplZE5jOL7Yq0p34+OVOKF4Se7WrdIdVC45XsSSmUTlht2FM/fM1FZb1mfQeA==}
@@ -19152,7 +18330,6 @@ packages:
     dependencies:
       react: 19.2.8
       scheduler: 0.27.0
-    dev: false
 
   /react-refresh@0.17.0:
     resolution: {integrity: sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==}
@@ -19257,7 +18434,6 @@ packages:
       b4a: 1.9.0
     transitivePeerDependencies:
       - react-native-b4a
-    dev: false
 
   /redent@3.0.0:
     resolution: {integrity: sha512-6tDA8g98We0zd0GvVeMT9arEOnTw9qM03L9cJXaCjrip1OO764RDBLBfrB4cwzNGDj5OA5ioymC9GkizgWJDUg==}
@@ -19546,15 +18722,6 @@ packages:
     dependencies:
       onetime: 5.1.2
       signal-exit: 3.0.7
-    dev: false
-
-  /restore-cursor@5.1.0:
-    resolution: {integrity: sha512-oMA2dcrw6u0YfxJQXm342bFKX/E4sG9rbTzO9ptUcR/e8A33cHuvStiYOwH7fszkZlZ1z/ta9AAoPk2F4qIOHA==}
-    engines: {node: '>=18'}
-    dependencies:
-      onetime: 7.0.0
-      signal-exit: 4.1.0
-    dev: true
 
   /retext-latin@4.0.0:
     resolution: {integrity: sha512-hv9woG7Fy0M9IlRQloq/N6atV82NxLGveq+3H2WOi79dtIYWN8OaxogDm77f8YnVXJL2VD3bbqowu5E3EMhBYA==}
@@ -19594,15 +18761,10 @@ packages:
     resolution: {integrity: sha512-XQBQ3I8W1Cge0Seh+6gjj03LbmRFWuoszgK9ooCpwYIrhhoO80pfq4cUkU5DkknwfOfFteRwlZ56PYOGYyFWdg==}
     engines: {node: '>= 4'}
     requiresBuild: true
-    dev: false
 
   /reusify@1.1.0:
     resolution: {integrity: sha512-g6QUff04oZpHs0eG5p83rFLhHeV00ug/Yf9nZM6fLeUrPguBTkTQOdpAWWspMh55TZfVQDPaN3NQJfbVRAxdIw==}
     engines: {iojs: '>=1.0.0', node: '>=0.10.0'}
-
-  /rfdc@1.4.1:
-    resolution: {integrity: sha512-q1b3N5QkRUWUl7iyylaaj3kOpIT0N2i9MqIEQXP73GVsN9cw3fdx8X63cEmWhJGi2PPCF23Ijp7ktmd39rawIA==}
-    dev: true
 
   /rimraf@2.6.3:
     resolution: {integrity: sha512-mwqeW5XsA2qAejG46gYdENaxXjx9onRNCfn7L0duuP4hCuTIi/QO7PDK07KJfp1d+izWPrzEJDcSqBa0OZQriA==}
@@ -19775,7 +18937,6 @@ packages:
       '@rolldown/binding-openharmony-arm64': 1.2.15
       '@rolldown/binding-win32-arm64-msvc': 1.2.15
       '@rolldown/binding-win32-x64-msvc': 1.2.15
-    dev: false
 
   /rollup@4.59.1:
     resolution: {integrity: sha512-iZKH8BeoCwTCBTZBZWQQMreekd4mdomwdjIQ40GC1oZm6o+8PnNMIxFOiCsGMWeS8iDJ7KZcl7KwmKk/0HOQpA==}
@@ -19849,7 +19010,6 @@ packages:
 
   /run-series@1.1.9:
     resolution: {integrity: sha512-Arc4hUN896vjkqCYrUXquBFtRZdv1PfLbTYP71efP6butxyQ0kWpiNJyAgsxscmQg1cqvHY32/UCBzXedTpU2g==}
-    dev: false
 
   /rw@1.3.3:
     resolution: {integrity: sha512-PdhdWy89SiZogBLaw42zdeqtRJ//zFd2PgQavcICDUgJT5oW10QCRKbJ6bg4r0/UY2M6BWd5tkxuGFRvCkgfHQ==}
@@ -20380,29 +19540,12 @@ packages:
     engines: {node: '>=8'}
     dev: true
 
-  /slice-ansi@5.0.0:
-    resolution: {integrity: sha512-FC+lgizVPfie0kkhqUScwRu1O/lF6NOgJmlCgK+/LYxDCTk8sGelYaHDhFcDN+Sn3Cv+3VSa4Byeo+IMCzpMgQ==}
-    engines: {node: '>=12'}
-    dependencies:
-      ansi-styles: 6.2.3
-      is-fullwidth-code-point: 4.0.0
-    dev: true
-
-  /slice-ansi@7.1.2:
-    resolution: {integrity: sha512-iOBWFgUX7caIZiuutICxVgX1SdxwAVFFKwt1EvMYYec/NWO5meOJ6K5uQxhrYBdQJne4KxiqZc+KptFOWFSI9w==}
-    engines: {node: '>=18'}
-    dependencies:
-      ansi-styles: 6.2.3
-      is-fullwidth-code-point: 5.1.0
-    dev: true
-
   /slice-ansi@9.0.0:
     resolution: {integrity: sha512-SO/3iYL5S3W57LLEniscOGPZgOqZUPCx6d3dB+52B80yJ0XstzsC/eV8gnA4tM3MHDrKz+OCFSLNjswdSC+/bA==}
     engines: {node: '>=22'}
     dependencies:
       ansi-styles: 6.2.3
       is-fullwidth-code-point: 5.1.0
-    dev: false
 
   /smol-toml@1.9.1:
     resolution: {integrity: sha512-j7WyPdf0CJoutMzMoPLF/bVXHtKZIT9Rb4eGeEbWw8X2t5oirjPgpL+OpaENZrILYaXqYwnVH+qgUwVbl+pUJQ==}
@@ -20482,7 +19625,6 @@ packages:
     dependencies:
       '@stablelib/base64': 1.0.1
       fast-sha256: 1.3.0
-    dev: false
 
   /stat-mode@1.0.0:
     resolution: {integrity: sha512-jH9EhtKIjuXZ2cWxmXS8ZP80XyC3iasQxMDV8jzhNJpfDb7VbQLVW4Wvsxz9QZvzV+G4YoSfBUVKDOyxLzi/sg==}
@@ -20507,11 +19649,6 @@ packages:
   /stream-replace-string@2.0.0:
     resolution: {integrity: sha512-TlnjJ1C0QrmxRNrON00JvaFFlNh5TTG00APw23j74ET7gkQpTASi6/L2fuiav8pzK715HXtUeClpBTw2NPSn6w==}
     dev: false
-
-  /string-argv@0.3.2:
-    resolution: {integrity: sha512-aqD2Q0144Z+/RqG52NeHEkZauTAUWJO8c6yTftGJKO3Tja5tUgIfmIl6kExvhtxSDP7fXB6DvzkfMpCd/F3G+Q==}
-    engines: {node: '>=0.6.19'}
-    dev: true
 
   /string-length@4.0.2:
     resolution: {integrity: sha512-+l6rNN5fYHNhZZy41RXsYptCjA2Igmq4EG7kZAYFQI1E1VTXarr6ZPXBg6eq7Y6eK4FEhY6AJlyuFIb/v/S0VQ==}
@@ -20538,22 +19675,12 @@ packages:
       strip-ansi: 7.2.0
     dev: true
 
-  /string-width@7.2.0:
-    resolution: {integrity: sha512-tsaTIkKW9b4N+AEj+SVA+WhJzV7/zMhcSu78mLKWSk7cXMOSHsBKFWUs0fWwq8QyK3MgJBQRX6Gbi4kYbdvGkQ==}
-    engines: {node: '>=18'}
-    dependencies:
-      emoji-regex: 10.6.0
-      get-east-asian-width: 1.6.0
-      strip-ansi: 7.2.0
-    dev: true
-
   /string-width@8.2.2:
     resolution: {integrity: sha512-GaPUh5gfdrYzqeVNZvUfT23vYYxXzKYidUcnMtJg/3rxRV63EFZy3k6xfKlmfeJD0176lnUV/Usr3XcwSvFzpg==}
     engines: {node: '>=20'}
     dependencies:
       get-east-asian-width: 1.6.0
       strip-ansi: 7.2.0
-    dev: false
 
   /string.prototype.includes@2.0.1:
     resolution: {integrity: sha512-o7+c9bW6zpAdJHTtujeePODAhkuicdAryFsfVKwA+wGw89wJ4GTY484WTucM9hLtDEOpOvI+aHnzqnC5lHp4Rg==}
@@ -20669,11 +19796,6 @@ packages:
   /strip-final-newline@2.0.0:
     resolution: {integrity: sha512-BrpvfNAE3dcvq7ll3xVumzjKjZQ5tI1sEUIKr3Uoks0XUl45St3FlatVqef9prk4jRDzhW6WZg+3bk93y6pLjA==}
     engines: {node: '>=6'}
-    dev: true
-
-  /strip-final-newline@3.0.0:
-    resolution: {integrity: sha512-dOESqjYr96iWYylGObzd39EuNTa5VJxyvVAEm5Jnh7KGo75V43Hk1odPQkNDyXNmUR6k+gEiDVXnjB8HJ3crXw==}
-    engines: {node: '>=12'}
     dev: true
 
   /strip-final-newline@4.0.0:
@@ -20809,7 +19931,6 @@ packages:
   /tagged-tag@1.0.0:
     resolution: {integrity: sha512-yEFYrVhod+hdNyx7g5Bnkkb0G6si8HJurOoOEgC8B/O0uXLHlaey/65KRv6cuWBNhBgHKAROVpc7QyYqE5gFng==}
     engines: {node: '>=20'}
-    dev: false
 
   /tailwindcss@4.3.3:
     resolution: {integrity: sha512-gOhV3P7ufE62QDGg1zVaTgCR+EtPv92k2nIhVcVKcLmxT1sUBsQGhnZj175j+MqRt4zLF7ic+sCYjfhxMxj7YQ==}
@@ -20874,7 +19995,6 @@ packages:
   /terminal-size@4.0.1:
     resolution: {integrity: sha512-avMLDQpUI9I5XFrklECw1ZEUPJhqzcwSWsyyI8blhRLT+8N1jLJWLWWYQpB2q2xthq8xDvjZPISVh53T/+CLYQ==}
     engines: {node: '>=18'}
-    dev: false
 
   /test-exclude@6.0.0:
     resolution: {integrity: sha512-cAGWPIyOHU6zlmg88jwm7VRyXnMN7iV68OGAbYDk/Mh/xC/pzVPlQtY6ngoIH/5/tciuhGfvESU8GrHrcxD56w==}
@@ -20911,7 +20031,6 @@ packages:
 
   /thunky@1.1.0:
     resolution: {integrity: sha512-eHY7nBftgThBqOyHGVN+l8gF0BucP09fMo0oO/Lb0w1OF80dJv+lDVpXG60WMQvkcxAkNybKsrEIE3ZtKGmPrA==}
-    dev: false
 
   /tiny-async-pool@1.3.0:
     resolution: {integrity: sha512-01EAw5EDrcVrdgyCLgoSPvqznC0sVxDSVeiOz09FUpjh71G79VCqneOr+xvt7T1r76CF6ZZfPjHorN2+d+3mqA==}
@@ -21044,7 +20163,6 @@ packages:
 
   /ts-algebra@2.0.0:
     resolution: {integrity: sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==}
-    dev: false
 
   /ts-api-utils@1.4.3(typescript@6.0.3):
     resolution: {integrity: sha512-i3eMG77UTMD0hZhgRS562pv83RC6ukSAC2GMNWc+9dieh/+jDM5u5YG+NHX6VNDRHQcHwmsTHctP9LhbC3WxVw==}
@@ -21218,7 +20336,6 @@ packages:
     engines: {node: '>=20'}
     dependencies:
       tagged-tag: 1.0.0
-    dev: false
 
   /type-is@1.6.18:
     resolution: {integrity: sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==}
@@ -21311,7 +20428,6 @@ packages:
 
   /uint8-util@2.3.2:
     resolution: {integrity: sha512-u1c0/eiT1IW+c5+ogbmE2Fu2hmtJQPkuzDmXD/4crMU4FPMjkTkFnjJ2NN/9AsZ9YWcc7yE869uc3WB8wIZEEA==}
-    dev: false
 
   /ultrahtml@1.7.0:
     resolution: {integrity: sha512-2xRd0VHoAQE4M+vF/DvFFB7pUV0ZxTW1TLi7lHQWnF/Sb5TPeEUV/l+hxcNnGO00ZXGnR0voCMmYRKQf+rvJ2g==}
@@ -21719,7 +20835,7 @@ packages:
       '@types/unist': 3.0.3
       vfile-message: 4.0.3
 
-  /vite-node@3.2.4(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0):
+  /vite-node@3.2.4(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0):
     resolution: {integrity: sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
@@ -21728,7 +20844,7 @@ packages:
       debug: 4.4.3
       es-module-lexer: 1.7.0
       pathe: 2.0.3
-      vite: 8.0.16(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.3.5(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
     transitivePeerDependencies:
       - '@types/node'
       - '@vitejs/devtools'
@@ -21745,7 +20861,7 @@ packages:
       - yaml
     dev: true
 
-  /vite-node@3.2.4(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0):
+  /vite-node@3.2.4(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0):
     resolution: {integrity: sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
@@ -21754,7 +20870,7 @@ packages:
       debug: 4.4.3
       es-module-lexer: 1.7.0
       pathe: 2.0.3
-      vite: 8.0.16(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.0.16(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
     transitivePeerDependencies:
       - '@types/node'
       - '@vitejs/devtools'
@@ -21824,7 +20940,7 @@ packages:
       fsevents: 2.3.3
     dev: true
 
-  /vite@8.0.16(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0):
+  /vite@8.0.16(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0):
     resolution: {integrity: sha512-h9bXPmJichP5fLmVQo3PyaGSDE2n3aPuomeAlVRm0JLmt4rY6zmPKd59HYI4LNW8oTK7tlTsuC7l/m7awx9Jcw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
@@ -21868,6 +20984,7 @@ packages:
         optional: true
     dependencies:
       '@types/node': 20.19.43
+      esbuild: 0.28.2
       lightningcss: 1.32.0
       picomatch: 4.0.5
       postcss: 8.5.28
@@ -21879,7 +20996,7 @@ packages:
       fsevents: 2.3.3
     dev: true
 
-  /vite@8.0.16(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0):
+  /vite@8.0.16(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0):
     resolution: {integrity: sha512-h9bXPmJichP5fLmVQo3PyaGSDE2n3aPuomeAlVRm0JLmt4rY6zmPKd59HYI4LNW8oTK7tlTsuC7l/m7awx9Jcw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
@@ -21923,6 +21040,7 @@ packages:
         optional: true
     dependencies:
       '@types/node': 22.19.21
+      esbuild: 0.28.2
       lightningcss: 1.32.0
       picomatch: 4.0.5
       postcss: 8.5.28
@@ -21988,7 +21106,6 @@ packages:
       yaml: 2.9.0
     optionalDependencies:
       fsevents: 2.3.3
-    dev: false
 
   /vitefu@1.1.3(vite@8.3.5):
     resolution: {integrity: sha512-ub4okH7Z5KLjb6hDyjqrGXqWtWvoYdU3IGm/NorpgHncKoLTCfRIbvlhBm7r0YstIaQRYlp4yEbFqDcKSzXSSg==}
@@ -22001,7 +21118,7 @@ packages:
       vite: 8.3.5(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
     dev: false
 
-  /vitest@3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0):
+  /vitest@3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0):
     resolution: {integrity: sha512-xejya+bT/j/+R/AGa1XOfRxLmNUlLtlwjRsFUILF+xHfzElmGcmFydy2gqqIrd62ptIEfwVMofd19uNWD9L7Nw==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
@@ -22051,8 +21168,8 @@ packages:
       tinyglobby: 0.2.17
       tinypool: 1.1.1
       tinyrainbow: 2.0.0
-      vite: 8.0.16(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0)
-      vite-node: 3.2.4(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.0.16(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
+      vite-node: 3.2.4(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - '@vitejs/devtools'
@@ -22070,7 +21187,7 @@ packages:
       - yaml
     dev: true
 
-  /vitest@3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0):
+  /vitest@3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0):
     resolution: {integrity: sha512-xejya+bT/j/+R/AGa1XOfRxLmNUlLtlwjRsFUILF+xHfzElmGcmFydy2gqqIrd62ptIEfwVMofd19uNWD9L7Nw==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
@@ -22119,8 +21236,8 @@ packages:
       tinyglobby: 0.2.17
       tinypool: 1.1.1
       tinyrainbow: 2.0.0
-      vite: 8.0.16(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
-      vite-node: 3.2.4(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.0.16(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
+      vite-node: 3.2.4(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - '@vitejs/devtools'
@@ -22175,7 +21292,6 @@ packages:
   /web-streams-polyfill@3.3.3:
     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
     engines: {node: '>= 8'}
-    dev: false
 
   /webcrypto-core@1.9.2:
     resolution: {integrity: sha512-gsXecm82UQNlTBURJGuqOWy1Ww08S3kZUcr3aOJS02Pk0xLtkfeUAVC0u0xhgdonFme80edSJUIJyuvL/7250Q==}
@@ -22335,7 +21451,6 @@ packages:
     engines: {node: '>=20'}
     dependencies:
       string-width: 8.2.2
-    dev: false
 
   /word-wrap@1.2.5:
     resolution: {integrity: sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA==}
@@ -22387,7 +21502,6 @@ packages:
       ansi-styles: 6.2.3
       string-width: 8.2.2
       strip-ansi: 7.2.0
-    dev: false
 
   /wrap-ansi@6.2.0:
     resolution: {integrity: sha512-r6lPcBGxZXlIcymEu7InxDMhdW0KDxpLgoFLcguasxCaJ/SOIZwINatK9KY/tf+ZrlywOKU0UDj3ATXUBfxJXA==}
@@ -22412,15 +21526,6 @@ packages:
     dependencies:
       ansi-styles: 6.2.3
       string-width: 5.1.2
-      strip-ansi: 7.2.0
-    dev: true
-
-  /wrap-ansi@9.0.2:
-    resolution: {integrity: sha512-42AtmgqjV+X1VpdOfyTGOYRi0/zsoLqtXQckTmqTeybT+BDIbM/Guxo7x3pE2vtpr1ok6xRqM9OpBe+Jyoqyww==}
-    engines: {node: '>=18'}
-    dependencies:
-      ansi-styles: 6.2.3
-      string-width: 7.2.0
       strip-ansi: 7.2.0
     dev: true
 
@@ -22546,6 +21651,7 @@ packages:
   /yargs-parser@22.0.0:
     resolution: {integrity: sha512-rwu/ClNdSMpkSrUb+d6BRsSkLUq1fmfsY6TOpYzTwvwkg1/NRG85KBy3kq++A8LKQwX6lsu+aWad+2khvuXrqw==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=23}
+    dev: false
 
   /yargs@15.4.1:
     resolution: {integrity: sha512-aePbxDmcYW++PaqBsJ+HYUFwCdv4LVvdnhBy78E57PIor8/OVvhMrADFFEDh8DHDFRv/O9i3lPhsENjO7QX0+A==}
@@ -22589,18 +21695,6 @@ packages:
       yargs-parser: 21.1.1
     dev: true
 
-  /yargs@18.0.0:
-    resolution: {integrity: sha512-4UEqdc2RYGHZc7Doyqkrqiln3p9X2DZVxaGbwhn2pi7MrRagKaOcIKe8L3OxYcbhXLgLFUS3zAYuQjKBQgmuNg==}
-    engines: {node: ^20.19.0 || ^22.12.0 || >=23}
-    dependencies:
-      cliui: 9.0.1
-      escalade: 3.2.0
-      get-caller-file: 2.0.5
-      string-width: 7.2.0
-      y18n: 5.0.8
-      yargs-parser: 22.0.0
-    dev: true
-
   /yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
@@ -22610,7 +21704,6 @@ packages:
   /yocto-queue@1.2.2:
     resolution: {integrity: sha512-4LCcse/U2MHZ63HAJVE+v71o7yOdIe4cZ70Wpf8D/IyjDKYQLV5GD46B+hSTjJsvV5PztjvHoU580EftxjDZFQ==}
     engines: {node: '>=12.20'}
-    dev: false
 
   /yoctocolors@2.1.2:
     resolution: {integrity: sha512-CzhO+pFNo8ajLM2d2IW/R93ipy99LWjtwblvC1RsoSUMZgyLbYFr221TnSNT7GjGdYui6P459mw9JH/g/zW2ug==}
@@ -22619,7 +21712,6 @@ packages:
 
   /yoga-layout@3.2.1:
     resolution: {integrity: sha512-0LPOt3AxKqMdFBZA3HBAt/t/8vIKq7VaQYbuA8WxCgung+p9TVyKRYdpvCb80HcdTN2NkbIKbhNwKUfm3tQywQ==}
-    dev: false
 
   /youch-core@0.3.3:
     resolution: {integrity: sha512-ho7XuGjLaJ2hWHoK8yFnsUGy2Y5uDpqSTq1FkHLK4/oqKtyUU1AFbOOxY4IpC9f0fTLjwYbslUz0Po5BpD1wrA==}

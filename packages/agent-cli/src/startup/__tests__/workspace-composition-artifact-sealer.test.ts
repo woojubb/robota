@@ -36,7 +36,7 @@ import {
 import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IWorkspaceIdentity, IWorkspaceTrustStoreSnapshot } from '@robota-sdk/agent-framework';
 import type { TArtifactSealing } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const resolver = vi.hoisted(() => ({ sealing: 'plain' as unknown }));
 

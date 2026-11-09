@@ -79,7 +79,7 @@ afterEach(() => {
   if (existsSync(TMP_BASE)) rmSync(TMP_BASE, { recursive: true, force: true });
 });
 
-// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+// Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
 describe.runIf(process.platform === 'linux')('InteractiveSession edit checkpointing', () => {
   it('Given the model edits a file When the turn completes Then a checkpoint can restore a later edit', async () => {
     const cwd = makeProject();
@@ -129,7 +129,7 @@ describe.runIf(process.platform === 'linux')('InteractiveSession edit checkpoint
     await session.restoreEditCheckpoint(firstCheckpoint!.id);
 
     expect(readFileSync(filePath, 'utf8')).toBe('first edit');
-    // SELFHOST-007 TC-03: restore is non-destructive — later checkpoints are preserved (sibling
+    // Restore is non-destructive — later checkpoints are preserved (sibling
     // branch), so the first checkpoint remains reachable and nothing is deleted.
     expect(session.listEditCheckpoints().map((checkpoint) => checkpoint.id)).toContain(
       firstCheckpoint!.id,
@@ -172,7 +172,7 @@ describe.runIf(process.platform === 'linux')('InteractiveSession edit checkpoint
     await session.rollbackEditCheckpoint(firstCheckpoint!.id);
 
     expect(readFileSync(filePath, 'utf8')).toBe('initial');
-    // SELFHOST-007 TC-03: rollback reverts the files but no longer deletes the checkpoints — they
+    // Rollback reverts the files but no longer deletes the checkpoints — they
     // remain on disk as a sibling branch (capability-preservation: the linear revert still works).
     expect(session.listEditCheckpoints().length).toBeGreaterThanOrEqual(1);
   });

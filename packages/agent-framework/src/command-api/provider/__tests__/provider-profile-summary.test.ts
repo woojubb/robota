@@ -1,5 +1,5 @@
 /**
- * #3282 §4b — `buildProviderProfilesSnapshot`, the Settings screen's "Providers & Models" list.
+ * `buildProviderProfilesSnapshot`, the Settings screen's "Providers & Models" list.
  */
 
 import { describe, expect, it } from 'vitest';

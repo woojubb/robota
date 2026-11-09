@@ -99,7 +99,7 @@ export async function runExecutionLoop(
     lastMsg.content.length > 0 &&
     (!('toolCalls' in lastMsg) || (lastMsg.toolCalls as unknown[]).length === 0);
 
-  // CORE-011: a caller that already extracted its tool outcome can abort away the summary call,
+  // A caller that already extracted its tool outcome can abort away the summary call,
   // and a decision-agent run can declare tool-only endings valid completions outright.
   if (signal?.aborted) return;
   if (fullContext.allowToolOnlyCompletion === true) {
@@ -176,7 +176,7 @@ export async function finalizeExecution(
     },
     logger,
   );
-  // PLG-020 (issue #2460): the execution-level hooks, carrying the run's result. `afterToolExecution`
+  // The execution-level hooks, carrying the run's result. `afterToolExecution`
   // fires only when a tool ran (the dispatcher checks `toolCalls`).
   const pluginContext = {
     messages: result.messages,

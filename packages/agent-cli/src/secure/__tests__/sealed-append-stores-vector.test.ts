@@ -1,5 +1,5 @@
 /**
- * The append stores over the PRODUCTION sealer, pinned by checked-in known answers (#3679, secure
+ * The append stores over the PRODUCTION sealer, pinned by checked-in known answers (secure
  * conversation). The stores' own cases run against a test double in agent-session and
  * agent-framework; this is the join the product relies on once secure mode is on: lines and sidecars
  * `KeyHolderArtifactSealer` wrote, read back by the prompt-history reader and by project replay
@@ -45,7 +45,7 @@ import { createMemoryKeyringStore } from './helpers.js';
 import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { TWorkspaceProjectStateDirectories } from '@robota-sdk/agent-framework';
 import type { TArtifactSealing } from '@robota-sdk/agent-core';
-import type { IPromptHistoryBlock, IPromptHistoryEntry } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistoryBlock, IPromptHistoryEntry } from '@robota-sdk/agent-interface/session';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));

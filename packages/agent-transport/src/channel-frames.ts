@@ -1,5 +1,5 @@
 /**
- * Payload-agnostic channel frame codec (TRANS-001).
+ * Payload-agnostic channel frame codec.
  *
  * The single place that knows the channel envelope. Pure and transport-neutral: a WebSocket binary
  * frame, a WebRTC data-channel message, or any other byte carrier can use it unchanged. It NEVER
@@ -26,7 +26,7 @@ import type {
   IBinaryFrame,
   IChannelEventFrame,
   TChannelReceiveResult,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 /**
  * The JSON-serializable payload type an event frame carries. Read off the contract (rather than

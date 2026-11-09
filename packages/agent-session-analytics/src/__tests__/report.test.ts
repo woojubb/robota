@@ -1,5 +1,5 @@
 /**
- * Unit tests for the session timing reporter (ported from agent-cli OBS-001 reporter tests).
+ * Unit tests for the session timing reporter (ported from the agent-cli reporter tests).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -25,7 +25,7 @@ function makeReport(overrides: Partial<ISessionTimingReport> = {}): ISessionTimi
 }
 
 describe('formatSingleSession', () => {
-  it('TC-05: shows slow intervals section when intervals >= 10s exist', () => {
+  it('shows slow intervals section when intervals >= 10s exist', () => {
     const report = makeReport({
       slowIntervals: [
         {

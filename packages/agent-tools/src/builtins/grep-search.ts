@@ -1,7 +1,7 @@
 /**
  * The `Grep` tool's search internals — file enumeration and per-file matching.
  *
- * Split out of `grep-tool.ts` (SEC-007) when adding containment pushed that file past the
+ * Split out of `grep-tool.ts` when adding containment pushed that file past the
  * anti-monolith limit. The split is by responsibility, not by line count: this module is HOW the
  * search is performed, while `grep-tool.ts` is the tool SURFACE — schema, model-facing description,
  * factory, and the result envelope. Neither half needs to know the other's concerns.
@@ -47,7 +47,7 @@ export interface ICollectFilesResult {
  * Gather files under a directory recursively, excluding node_modules/.git, stopping once `maxFiles`
  * entries have been visited.
  *
- * `containmentRoot` (SEC-007) drops any entry whose CANONICAL path escapes the root, before it is
+ * `containmentRoot` drops any entry whose CANONICAL path escapes the root, before it is
  * descended into or read. `stat` follows symlinks, so without this a link inside the root pointing
  * out of it made the whole target tree readable — including, for a symlinked FILE, its contents.
  */

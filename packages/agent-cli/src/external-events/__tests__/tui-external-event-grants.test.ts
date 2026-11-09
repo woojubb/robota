@@ -9,7 +9,7 @@ import {
 import { createExternalEventGrantHistory, ExternalEventIngress } from '@robota-sdk/agent-framework';
 
 import type { IExternalEventSourceOptions } from '@robota-sdk/agent-framework';
-import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface/transport';
 
 function grant(grantId: string): IExternalEventGrant {
   return {
@@ -223,7 +223,7 @@ describe('TUI external event grants', () => {
   });
 });
 
-describe('grants across a switch on a run-level history (#3189)', () => {
+describe('grants across a switch on a run-level history', () => {
   it('a revoke survives the switch without taking the other grants or the switch down', async () => {
     const history = createExternalEventGrantHistory();
     const submit = vi.fn(async () => ({

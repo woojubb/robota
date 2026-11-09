@@ -12,7 +12,7 @@ import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js'
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createWorkspaceProjectMutation } from '../../workspace-trust/index.js';
 
-import type { IBranchEvent } from '@robota-sdk/agent-interface-session';
+import type { IBranchEvent } from '@robota-sdk/agent-interface/session';
 
 const roots: string[] = [];
 
@@ -25,7 +25,7 @@ async function createTracker(): Promise<{
   events: IBranchEvent[];
   order: string[];
 }> {
-  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'arch-020-branch-events-')));
+  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'branch-events-')));
   roots.push(cwd);
   const events: IBranchEvent[] = [];
   const order: string[] = [];
@@ -41,7 +41,7 @@ async function createTracker(): Promise<{
   });
   const tracker = new SessionHistoryTracker(
     { cwd, projectAccess: access },
-    () => 'session-arch-020',
+    () => 'session-branch-events',
     () => false,
     () => order.push('persist'),
     vi.fn(),
@@ -55,7 +55,7 @@ async function createTracker(): Promise<{
   return { tracker, events, order };
 }
 
-describe('SessionHistoryTracker branch-event operation matrix (ARCH-020)', () => {
+describe('SessionHistoryTracker branch-event operation matrix', () => {
   it('classifies every operation explicitly', () => {
     expect(BRANCH_OPERATION_EVENT_MATRIX).toEqual({
       create: 'checkpoint_created',
@@ -67,7 +67,7 @@ describe('SessionHistoryTracker branch-event operation matrix (ARCH-020)', () =>
     });
   });
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'emits the exact post-persistence event for create, restore, fork, switch, and rollback',
     async () => {
@@ -109,7 +109,7 @@ describe('SessionHistoryTracker branch-event operation matrix (ARCH-020)', () =>
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'classifies resume-pointer hydration as a non-event',
     async () => {

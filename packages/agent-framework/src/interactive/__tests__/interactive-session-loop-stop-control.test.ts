@@ -1,5 +1,5 @@
 /**
- * #3288 §1: `/loop stop <id>` is a mid-turn CONTROL action, like `/goal cancel` (#3280 §2) — it must
+ * `/loop stop <id>` is a mid-turn CONTROL action, like `/goal cancel` — it must
  * reach the loop command while a turn is still running, since a runaway loop is exactly when
  * stopping it matters. Unlike `/goal cancel`, it does NOT abort the running turn: stopping a loop
  * only stops its FUTURE iterations (`stopSelfPacedLoop`/`cancelBackgroundTask` already let an
@@ -73,7 +73,7 @@ function holdExecution(execCtrl: SessionExecutionController): void {
   );
 }
 
-describe('InteractiveSession /loop stop as a mid-turn control action (#3288 §1)', () => {
+describe('InteractiveSession /loop stop as a mid-turn control action', () => {
   it('reaches the loop command while a turn is running, and leaves the turn running', async () => {
     const execute = vi.fn().mockResolvedValue({ success: true, message: 'Loop stopped: loop_x.' });
     const session = createSession(execute);

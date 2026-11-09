@@ -2,25 +2,25 @@
  * MODE A — build a product on the published framework, from outside the monorepo.
  *
  * The consumer declares a profile (branding + `providerDefinitions`), calls `assembleProduct`, and gets
- * runnable materials back. The load-bearing claim (ARCH-005 S2, owner Decision 1) is that the PROVIDER is
+ * runnable materials back. The load-bearing claim (owner Decision 1) is that the PROVIDER is
  * constructed IN-KERNEL from the definitions + the shell's already-resolved settings — the consumer never
  * builds a provider itself and never imports a vendor SDK.
  */
 
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
-import { createCodingPack } from '@robota-sdk/pack-coding';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
+import { createCodingPack } from '@robota-sdk/agent-product/coding';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 import { ACME_PROVIDER_SETTINGS } from './acme.js';
 import { check, checkEqual, checkThrows, mode, note, section } from './harness.js';
 
 /**
- * ARCH-006: the pack is built by a FACTORY bound to the session's working directory — a context-free pack
- * would carry a disarmed working-directory path guard on its file tools (ARCH-010 has since made that guard fail closed; the pack's rule is now the same one stated a layer up). A consumer builds it exactly as
- * configured product's own shell does, with the cwd it assembles the session under.
+ * The pack is built by a FACTORY bound to the session's working directory — a context-free pack
+ * would carry a disarmed working-directory path guard on its file tools. A consumer builds it
+ * exactly as a configured product's own shell does, with the cwd it assembles the session under.
  */
 const codingPack = createCodingPack({ cwd: process.cwd() });
 import { asStandardOptions } from './surface-notes.js';
@@ -84,7 +84,7 @@ export function runModeA(): void {
       }),
     /Unknown provider: acme-llm/,
   );
-  note('Mode A consumers do not depend on any @robota-sdk/agent-provider-* package directly');
+  note('Mode A consumers do not import any @robota-sdk/agent-provider subpath directly');
 
   section(
     "A3 — the reference CLI's runtime capability arrives as a pack (their branding, our runtime)",
@@ -124,7 +124,7 @@ export function runModeA(): void {
   );
   check(
     'the overlay carries the pack tools as additionalTools',
-    (options.additionalTools ?? []).length === 10,
+    (options.additionalTools ?? []).length === 9,
   );
   const session = product.buildRuntime({
     session: { host, cwd: process.cwd(), provider: product.provider!, bare: true },

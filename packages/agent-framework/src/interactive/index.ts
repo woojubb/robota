@@ -18,7 +18,7 @@ export {
 } from './session-persistence.js';
 export type { TSessionIdResolution } from './session-persistence.js';
 export type { IHostToolResultSpillStore } from './session-store-types.js';
-// #3679 step 3e: the one way a session store is decorated, so no view drops a member of the port.
+// The one way a session store is decorated, so no view drops a member of the port.
 export { decorateSessionStore } from './session-store-view.js';
 export type { TSessionStoreOverrides } from './session-store-view.js';
 export type { TLockedSessionReason } from './locked-session-wording.js';
@@ -28,13 +28,14 @@ export { isLoopStopVerb } from './session-loop-stop-verb.js';
 // stored session would start work on its own, by the same rule the re-arm applies.
 export { restoredScheduleDisposition } from './schedule-rearm.js';
 export type { TRestoredScheduleDisposition } from './schedule-rearm.js';
-// CLI-1994: the one restore a subagent runner in ANY process performs for a fork job — the id it
+// The one restore a subagent runner in ANY process performs for a fork job — the id it
 // received becomes the copied conversation here, so no runner re-derives the injection.
 export { restoreSessionRecordIntoSession, resumeRefusal } from './interactive-session-restore.js';
 export type { ISessionRecordRestoreResult } from './interactive-session-restore.js';
-// #3679 step 3e: why a resume over a store that seals was refused, for every surface that resumes.
+// Why a resume over a store that seals was refused, for every surface that resumes.
 export {
   SessionAuthorshipRefusedError,
+  OWNER_SANDBOX_REVIEW_UNAVAILABLE,
   UNVERIFIED_SESSION_QUESTION,
   isSessionAuthorshipRefusedError,
   unacceptableSessionMessage,
@@ -70,7 +71,7 @@ export type {
   ITransportAdapter,
   IConfigurableTransport,
   ITransportConfig,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 export { PeerMessageIngress } from './peer-message-ingress.js';
 export {
   createExternalEventGrantHistory,
@@ -87,7 +88,7 @@ export type {
   TExternalEventSettlement,
 } from './external-event-ingress.js';
 
-// TRANS-007: a rename can fail because the stored record is unreadable, and a caller has to be able
+// A rename can fail because the stored record is unreadable, and a caller has to be able
 // to tell that from any other error — so the error type is part of the surface, not an internal.
 export {
   SessionRenameUnavailableError,

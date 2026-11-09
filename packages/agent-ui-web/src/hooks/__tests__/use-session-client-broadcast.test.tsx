@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 /**
- * CMD-004 Phase 2 Stage E — the GUI reducer folds the broadcast session events.
+ * The GUI reducer folds the broadcast session events.
  *
  * `session_renamed` updates the surface's session name (co-driving titles follow the host rename);
  * `history_cleared` empties the reconstructed transcript (a clear performed by ANY surface refreshes
- * this one). Red-first: pre-Stage-E the reducer had no case for either message — the name never
- * existed and a cleared conversation stayed rendered.
+ * this one). Red-first: a reducer with no case for either message never learns the name and
+ * leaves a cleared conversation rendered.
  */
 
 import { renderHook } from '../../testing/product-provider.js';
@@ -35,7 +35,7 @@ function setup(): {
   };
 }
 
-describe('CMD-004 Stage E — GUI folds the broadcast session events', () => {
+describe('GUI folds the broadcast session events', () => {
   it('session_renamed updates the exposed session name', () => {
     const { result, deliver } = setup();
     expect(result.current.sessionName).toBeNull();
@@ -58,7 +58,7 @@ describe('CMD-004 Stage E — GUI folds the broadcast session events', () => {
     expect(result.current.streamingText).toBe('');
   });
 
-  it('ARCH-2164: a session error finalizes partial text, fails tools, and becomes visible', () => {
+  it('a session error finalizes partial text, fails tools, and becomes visible', () => {
     const { result, deliver } = setup();
     deliver({
       type: 'tool_start',
@@ -80,7 +80,7 @@ describe('CMD-004 Stage E — GUI folds the broadcast session events', () => {
     });
   });
 
-  it('#3289 §3: a coded error frame carries its classification onto the session notice', () => {
+  it('a coded error frame carries its classification onto the session notice', () => {
     const { result, deliver } = setup();
     deliver({
       type: 'error',
@@ -99,7 +99,7 @@ describe('CMD-004 Stage E — GUI folds the broadcast session events', () => {
     });
   });
 
-  it('#3289 §3: an uncoded error frame carries no classification, exactly as before', () => {
+  it('an uncoded error frame carries no classification, exactly as before', () => {
     const { result, deliver } = setup();
     deliver({ type: 'error', message: 'provider failed' });
 
@@ -156,7 +156,7 @@ describe('CMD-004 Stage E — GUI folds the broadcast session events', () => {
     expect(result.current.sessionNotices.at(-1)).toMatchObject({ model: 'model-x' });
   });
 
-  it('ARCH-2164: requests and receives the existing current-session usage report', () => {
+  it('requests and receives the existing current-session usage report', () => {
     let onMessage: ((msg: TServerMessage) => void) | null = null;
     const wire: import('@robota-sdk/agent-transport').TClientMessage[] = [];
     const makeClient: TMakeSessionClient = (callbacks) => {
@@ -191,7 +191,7 @@ describe('CMD-004 Stage E — GUI folds the broadcast session events', () => {
   });
 });
 
-describe('SCREEN-2577 — personal usage request correlation', () => {
+describe('personal usage request correlation', () => {
   it('keeps the latest request when replies arrive out of order', () => {
     let onMessage: ((msg: TServerMessage) => void) | null = null;
     const sent: Parameters<TMakeSessionClient>[0][] = [];

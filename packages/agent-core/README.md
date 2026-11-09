@@ -1,5 +1,9 @@
 # @robota-sdk/agent-core
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 The foundation of the Robota SDK. It provides the `ConversationAgent` class (a conversation loop with
 tool calling), the provider, tool and plugin contracts with their abstract base classes, the
 permission evaluator, the hook runner, event services, typed errors, model metadata, and structured
@@ -13,13 +17,14 @@ npm install @robota-sdk/agent-core
 
 The main entry runs on any standard JavaScript runtime; the `./node` entry requires Node.js 22.12
 or later. A provider package supplies the model connection, for example
-`@robota-sdk/agent-provider-anthropic`.
+`@robota-sdk/agent-provider/anthropic`. Provider clients have their own host and credential
+requirements; see [Browser hosts](../../content/guide/providers.md#browser-hosts).
 
 ## Quick Start
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -272,7 +277,7 @@ scheduling by supplying `scheduling`; its existing unplanned strategies retain t
 ```
 agent-core            ← this package (no workspace dependencies)
   ↑
-agent-tools, agent-session, agent-plugin, agent-mcp, agent-provider-* (one package per vendor)
+agent-tools, agent-session, agent-plugin, agent-mcp, agent-provider (one subpath per vendor)
   ↑
 agent-framework       ← assembles sessions, commands, permissions and hooks
   ↑

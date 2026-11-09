@@ -1,6 +1,6 @@
 import { createBuiltInBinaryEnvironment } from '../helpers/product-runtime.js';
 /**
- * DIST-006 — black-box e2e proving the BUILT binary can start a subagent worker.
+ * Black-box e2e proving the BUILT binary can start a subagent worker.
  *
  * The defect: `/agent run` failed on the built binary with
  * `Subagent worker exited before result: exit code 1`, and the child's real stderr was
@@ -15,14 +15,14 @@ import { createBuiltInBinaryEnvironment } from '../helpers/product-runtime.js';
  * ARTIFACT, and only an artifact can be asked.
  *
  * Coverage:
- *   TC-A  the built binary, re-executed with the worker-mode flag, completes the IPC handshake
- *         — the exact step that failed with `Cannot find module`;
- *   TC-B  the same flag typed by hand, with no IPC channel, is refused loudly and non-zero
+ * - the built binary, re-executed with the worker-mode flag, completes the IPC handshake
+ *   — the exact step that failed with `Cannot find module`;
+ * - the same flag typed by hand, with no IPC channel, is refused loudly and non-zero
  *         ("Silence is not success" — a worker that cannot report must not look started);
- *   TC-C  the shipped bundle names no worker file at all, so there is no path left to get wrong.
+ * - the shipped bundle names no worker file at all, so there is no path left to get wrong.
  *
  * Deliberately NOT a full subagent run: that needs a model provider in the child, which this
- * change does not own. The handshake is the whole of what DIST-006 broke.
+ * change does not own. The handshake is the whole of what the worker entry change could break.
  *
  * Build-gated (`*.bintest.ts`, `test:bin` project): requires `pnpm --filter @robota-sdk/agent-cli build`.
  */
@@ -85,9 +85,9 @@ function handshakeWithWorker(): Promise<IWorkerHandshake> {
   });
 }
 
-describe('DIST-006 — the built binary is its own subagent worker', () => {
+describe('the built binary is its own subagent worker', () => {
   it(
-    'TC-A completes the worker IPC handshake',
+    'completes the worker IPC handshake',
     async () => {
       const { message, stderr } = await handshakeWithWorker();
 
@@ -99,7 +99,7 @@ describe('DIST-006 — the built binary is its own subagent worker', () => {
   );
 
   it(
-    'TC-B refuses the flag when there is no IPC channel',
+    'refuses the flag when there is no IPC channel',
     async () => {
       const result = await new Promise<{ code: number | null; stderr: string }>((resolve) => {
         const home = mkdtempSync(join(tmpdir(), 'agent-worker-home-'));
@@ -122,21 +122,21 @@ describe('DIST-006 — the built binary is its own subagent worker', () => {
   );
 
   it(
-    "ARCH-021: the built binary composes PRODUCT's pack tools, not an imported default set",
+    "the built binary composes PRODUCT's pack tools, not an imported default set",
     async () => {
       // The strongest available real-artifact check, and the one the scratch-pack scenario could not
       // reach: the built binary composes statically, so there is no runtime pack-injection path. The
       // child declares what it composed, so the claim is verified per run rather than assumed.
       //
-      // Red against unfixed code in the direction that matters: before ARCH-021 the child built from
-      // `createDefaultTools()` regardless of the product, so this assertion was about the DEFAULT
-      // tier and said nothing about the product's packs. It now reads the product's own surface.
+      // Red against unfixed code in the direction that matters: a child built from
+      // `createDefaultTools()` regardless of the product would make this assertion about the DEFAULT
+      // tier and say nothing about the product's packs. It reads the product's own surface.
       const { message } = await handshakeWithWorker();
       const names = (message as { composedToolNames?: readonly string[] }).composedToolNames;
 
       expect(names).toBeDefined();
       expect(names?.length ?? 0).toBeGreaterThan(0);
-      // ARCH-006's invariant, asserted in the CHILD: these come from `pack-coding`, which the
+      // The invariant, asserted in the CHILD: these come from `agent-product/coding`, which the
       // product profile hands the whole tool surface.
       expect(names).toEqual(
         expect.arrayContaining(['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash']),
@@ -145,7 +145,7 @@ describe('DIST-006 — the built binary is its own subagent worker', () => {
     TEST_TIMEOUT_MS,
   );
 
-  it('TC-C ships no worker file for anything to look for', () => {
+  it('ships no worker file for anything to look for', () => {
     // The fix is not "emit the file where the resolver looks" — it is that nothing looks.
     // The executable can share emitted chunks with another entry. Inspect its reachable graph,
     // not only the small entry file, so the worker flag cannot disappear behind an import.

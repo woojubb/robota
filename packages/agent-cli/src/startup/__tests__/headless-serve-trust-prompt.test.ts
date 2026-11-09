@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * Issue #3282 §3: `the product --serve --open` asks the same trust question the TUI does, but with the
+ * `the product --serve --open` asks the same trust question the TUI does, but with the
  * `pnpm gui:dev` sidecar wrapper's three-way answer (trust / start Restricted / quit) instead of the
  * TUI's plain yes-means-trust-no-means-Restricted, since a headless start also needs a way to not start
  * at all.
@@ -12,6 +12,7 @@ import { join } from 'node:path';
 
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { stopTestWorkspaceBroker } from '../../__tests__/helpers/approve-test-workspace.js';
 
 import {
   askServeOpenTrustQuestion,
@@ -19,9 +20,9 @@ import {
 } from '../headless-serve-trust-prompt.js';
 import { resolveInitialCliWorkspaceProjectAccess } from '../workspace-project-composition.js';
 
-const cleanup: Array<() => void> = [];
-afterEach(() => {
-  for (const undo of cleanup.splice(0)) undo();
+const cleanup: Array<() => void | Promise<void>> = [];
+afterEach(async () => {
+  for (const undo of cleanup.splice(0).reverse()) await undo();
 });
 
 /** `isTTY` is a plain own property (not a getter) on Node's stdio streams — set and restore it directly. */
@@ -50,6 +51,7 @@ function untrustedRepository(): string {
     if (previousHome === undefined) delete process.env['HOME'];
     else process.env['HOME'] = previousHome;
   });
+  cleanup.push(() => stopTestWorkspaceBroker(createTestProductRuntime('test-product', { HOME: home })));
   return repo;
 }
 

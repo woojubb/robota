@@ -1,5 +1,5 @@
 /**
- * What the user's session store does when the disk fails it part-way (#3679, secure conversation).
+ * What the user's session store does when the disk fails it part-way (secure conversation).
  *
  * A failure a healthy disk never shows, so it is injected: reading the file already at a session's
  * path fails after it was opened. Only "no such file" means there is nothing to protect, so anything
@@ -17,10 +17,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NodeSessionStore } from '../session-store.js';
 import { SealedSessionUnreadableError } from '../sealed-session-refusal.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const io = vi.hoisted(() => ({
   failNextBodyRead: false,
+  recordDescriptor: undefined as number | undefined,
 }));
 
 vi.mock('fs', async (importOriginal) => {
@@ -29,8 +30,14 @@ vi.mock('fs', async (importOriginal) => {
     ...actual,
     readSync: (...args: Parameters<typeof actual.readSync>) => {
       // The first read of a guard is the magic; the one after it is the body.
-      const [, , , length] = args as unknown as [number, Uint8Array, number, number];
-      if (io.failNextBodyRead && typeof length === 'number' && length > 4) {
+      const [descriptor, , , length] = args as unknown as [number, Uint8Array, number, number];
+      if (io.failNextBodyRead && length === 4) io.recordDescriptor = descriptor;
+      if (
+        io.failNextBodyRead &&
+        descriptor === io.recordDescriptor &&
+        typeof length === 'number' &&
+        length > 4
+      ) {
         io.failNextBodyRead = false;
         throw Object.assign(new Error('EIO: i/o error, read'), { code: 'EIO' });
       }
@@ -48,6 +55,7 @@ vi.mock('fs', async (importOriginal) => {
 
 afterEach(() => {
   io.failNextBodyRead = false;
+  io.recordDescriptor = undefined;
 });
 
 function newStoreDir(): string {

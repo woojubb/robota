@@ -79,7 +79,7 @@ function createMockToolManager(overrides: Partial<IToolManager> = {}): IToolMana
     getTool: vi.fn(),
     getToolSchema: vi.fn(),
     getTools: vi.fn().mockReturnValue([]),
-    // CLI-1990: with nothing deferred the offered set IS the registered set.
+    // With nothing deferred the offered set IS the registered set.
     getOfferedTools: vi.fn().mockReturnValue([]),
     isToolOffered: vi.fn().mockReturnValue(true),
     listDeferredTools: vi.fn().mockReturnValue([]),
@@ -329,10 +329,10 @@ describe('ToolExecutionService', () => {
       expect(requests[0]?.metadata).toEqual({ toolCallId: 'call_1' });
     });
 
-    // Issue #2875 (follow-up to #2078): a decode failure no longer aborts request construction for
+    // A decode failure does not abort request construction for
     // the whole batch — it marks THIS request so the batch executor can turn it into a per-call
     // failure, while sibling calls in the same array still get real, executable requests.
-    it('marks malformed JSON as a per-call decode failure instead of throwing (#2078)', () => {
+    it('marks malformed JSON as a per-call decode failure instead of throwing', () => {
       const service = new ToolExecutionService(createMockToolManager());
       const toolCalls = [{ id: 'call_bad', function: { name: 'tool_a', arguments: '{not json' } }];
 
@@ -346,7 +346,7 @@ describe('ToolExecutionService', () => {
       expect(requests[0]?.executionId).toBe('call_bad');
     });
 
-    // Issue #2078: JSON syntax is not the contract — the root must be a non-null, non-array object.
+    // JSON syntax is not the contract — the root must be a non-null, non-array object.
     it.each([
       ['null', 'null'],
       ['a number', '42'],
@@ -354,7 +354,7 @@ describe('ToolExecutionService', () => {
       ['a boolean', 'true'],
       ['an array', '[{"x": 1}]'],
     ])(
-      'marks a JSON body whose root is %s as a per-call decode failure, naming the tool and call (#2078)',
+      'marks a JSON body whose root is %s as a per-call decode failure, naming the tool and call',
       (_label, args) => {
         const service = new ToolExecutionService(createMockToolManager());
         const toolCalls = [{ id: 'call_bad', function: { name: 'tool_a', arguments: args } }];
@@ -370,7 +370,7 @@ describe('ToolExecutionService', () => {
       },
     );
 
-    it('isolates a malformed call from a valid call in the same batch (#2875)', () => {
+    it('isolates a malformed call from a valid call in the same batch', () => {
       const service = new ToolExecutionService(createMockToolManager());
       const toolCalls = [
         { id: 'call_bad', function: { name: 'search', arguments: '[1]' } },
@@ -595,7 +595,7 @@ describe('ToolExecutionService', () => {
         expect(errors).toHaveLength(1);
       });
 
-      // Issue #2875 (follow-up to #2078): a decode-error request is a normal failed result to the
+      // A decode-error request is a normal failed result to the
       // batch executor — it follows the SAME continueOnError policy as any other failed result,
       // never calling `executor.executeTool` for it.
       it('treats a malformed-argument request like any other failed result: stops the batch when continueOnError is false', async () => {

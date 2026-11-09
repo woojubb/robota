@@ -20,9 +20,9 @@ import {
   loadedRecordOrMissing,
 } from '../interactive/__tests__/session-load-helpers.js';
 
-// TRANS-007: the store is no longer opaque. It used to persist and return the record without
+// The store is no longer opaque. It used to persist and return the record without
 // inspecting it, so these tests crossed the same `as` trust boundary `load` did and asserted the
-// store's indifference to what it held. `load` now decodes, which is what issue #2096 asks for —
+// store's indifference to what it held. `load` now decodes —
 // distinguishing corrupt from valid IS inspection — so a payload that is not a session record is a
 // `corrupt` outcome rather than a value the store hands back.
 //
@@ -93,7 +93,7 @@ describe('SessionStore', () => {
       expect(loaded).toEqual(record);
     });
 
-    // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+    // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
     it.runIf(process.platform === 'linux')(
       'persists project session CRUD only through minted project state facets',
       async () => {
@@ -187,7 +187,7 @@ describe('SessionStore', () => {
       expect(result).toBeUndefined();
     });
 
-    // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+    // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
     it.runIf(process.platform === 'linux')(
       'falls back to append-only replay logs when project session json is missing',
       async () => {
@@ -352,7 +352,7 @@ describe('SessionStore', () => {
   });
 
   describe('project session log degradation', () => {
-    // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+    // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
     it.runIf(process.platform === 'linux')(
       'enforces the caller-supplied payload read budget',
       async () => {

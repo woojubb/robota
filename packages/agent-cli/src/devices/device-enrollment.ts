@@ -45,7 +45,7 @@ import {
   type IEnrollmentChannel,
   type IIceServer,
   type IMeshRelay,
-} from '@robota-sdk/agent-transport-webrtc';
+} from '@robota-sdk/agent-transport/webrtc';
 
 import { withExclusiveFileLock } from '../credentials/exclusive-file-lock.js';
 import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
@@ -66,7 +66,7 @@ import type {
   IDevicesJoinResult,
   TDevicesOutcome,
   TDevicesRefusal,
-} from '@robota-sdk/agent-command';
+} from '@robota-sdk/agent-product/command';
 /** How long a code works. */
 export const ENROLLMENT_CODE_TTL_MS = 5 * 60 * 1000;
 /** Attempts that fail to prove the code before it stops working. */

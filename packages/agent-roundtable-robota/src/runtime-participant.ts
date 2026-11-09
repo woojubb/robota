@@ -102,7 +102,7 @@ export function runtimeParticipant(options: RuntimeParticipantOptions): AgentPar
                 ...(options.runOptions ?? {}),
               });
               // An aborted run RESOLVES, not rejects — agent-core reports the text it had
-              // committed so far, with the turn's messages marked `interrupted` (see CORE-027) —
+              // committed so far, with the turn's messages marked `interrupted` —
               // so a check only in `catch` below never sees this. Publishing that partial text as
               // this turn's `speak` would let a cancelled turn's words reach the shared transcript
               // next run; the caller cancelled specifically to prevent that.

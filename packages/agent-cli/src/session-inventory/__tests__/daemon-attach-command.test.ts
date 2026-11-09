@@ -80,11 +80,18 @@ async function withDaemon(
 ): Promise<void> {
   const root = join(scratch, 'supervised');
   const session = new InteractiveSession({ host: testHost, session: runtime() as never, cwd: workspace });
-  const control: ISupervisedControl = await startSupervisedControl(
-    ID, () => undefined, root, () => session.getLocalActivityStatus(), () => workspace, undefined,
-    () => 'Main daemon', undefined, undefined, undefined, { session },
-    { url: () => 'ws://127.0.0.1:9?token=test' },
-  );
+  const control: ISupervisedControl = await startSupervisedControl({
+    id: ID,
+    onStop: () => undefined,
+    root,
+    observe: {
+      activity: () => session.getLocalActivityStatus(),
+      cwd: () => workspace,
+      name: () => 'Main daemon',
+    },
+    attachTarget: { session },
+    daemon: { url: () => 'ws://127.0.0.1:9?token=test' },
+  });
   try {
     await run({
       root,

@@ -29,13 +29,13 @@ import WaveText from './WaveText.js';
 import type { IInputAreaHistorySearch } from './hooks/useInputAreaHistorySearch.js';
 import type { ITuiCommandQueryPort } from './tui-app-channel-port.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { ICommand } from '@robota-sdk/agent-interface-command';
+import type { ICommand } from '@robota-sdk/agent-interface/command';
 
 const PENDING_PROMPT_DISPLAY_MAX = 50;
 const PENDING_PROMPT_TAIL_KEEP = 47;
 
 interface IProps {
-  /** FLOW-2006: a deep link's prefill, seeded once. */
+  /** A deep link's prefill, seeded once. */
   initialValue?: string | undefined;
   /** Told to the controller the first time the prefill is taken. */
   consumeInitialValue?: (() => void) | undefined;
@@ -47,17 +47,17 @@ interface IProps {
   isQueueCancellationDisabled?: boolean;
   isAborting?: boolean;
   pendingPrompt?: string | null;
-  /** REMOTE-014 E5: total queued turns (owner + co-drivers); >1 surfaces a co-driver-queued hint. */
+  /** Total queued turns (owner + co-drivers); >1 surfaces a co-driver-queued hint. */
   pendingCount?: number;
   commandQueryPort?: ITuiCommandQueryPort;
   sessionName?: string;
   history?: readonly IHistoryEntry[];
   /**
-   * SCREEN-014: called when ↓ is pressed on an empty input at the bottom of prompt history, so the
+   * Called when ↓ is pressed on an empty input at the bottom of prompt history, so the
    * parent can move focus into the background-work list (a no-op for the input today).
    */
   onRequestFocusBackgroundList?: () => void;
-  /** SCREEN-1993: the stored-prompt search surface; absent ⇒ `ctrl+r` is inert. */
+  /** The stored-prompt search surface; absent ⇒ `ctrl+r` is inert. */
   historySearch?: IInputAreaHistorySearch | undefined;
 }
 
@@ -99,7 +99,7 @@ export default function InputArea({
   externalPromptOrigin,
 }: IProps): React.ReactElement {
   const palette = usePalette();
-  // FLOW-2006: the deep link's prefill arrives as a prop and is taken exactly once; the controller
+  // The deep link's prefill arrives as a prop and is taken exactly once; the controller
   // then drops it, so a remount (the handoff-suspend path) never re-seeds a cleared prompt.
   const [value, setValue] = useState(initialValue ?? '');
   // The text the link supplied, held for as long as it is still what the composer holds. The
@@ -111,7 +111,7 @@ export default function InputArea({
     consumeInitialValue?.();
   }, [initialValue, consumeInitialValue]);
   const [cursorHint, setCursorHint] = useState<number | null>(null);
-  // CLI-2004: the text the last word/line delete removed, announced once and cleared on the next
+  // The text the last word/line delete removed, announced once and cleared on the next
   // ordinary edit. A reader announces the line it is ON — what left it is otherwise unrecoverable.
   const screenReader = useScreenReader();
   const [deletedText, setDeletedText] = useState<string | null>(null);

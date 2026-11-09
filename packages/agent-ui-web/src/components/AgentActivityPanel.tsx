@@ -26,27 +26,27 @@ import type {
   IExecutionWorkspaceEntry,
   TExecutionAttention,
   TExecutionWorkspaceStatus,
-} from '@robota-sdk/agent-interface-execution';
-import type { IGoalState } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/execution';
+import type { IGoalState } from '@robota-sdk/agent-interface/session';
 
 interface IAgentActivityPanelProps {
   tasks: readonly IExecutionWorkspaceEntry[];
-  /** #3282 §4 part b-3: the "Scheduled" group — every `kind: 'scheduled'` background task. */
+  /** The "Scheduled" group — every `kind: 'scheduled'` background task. */
   schedules?: readonly IBackgroundTaskState<'scheduled'>[];
-  /** #3282 §4 part b-3: the current goal (`/goal`), or null/absent when none is set. */
+  /** The current goal (`/goal`), or null/absent when none is set. */
   goal?: IGoalState | null;
   onPauseSchedule?: (taskId: string) => void;
   onResumeSchedule?: (taskId: string) => void;
   onDeleteSchedule?: (taskId: string) => void;
   onCancelGoal?: () => void;
   className?: string;
-  /** #3288 §1: open a non-main-thread entry's detail sheet. */
+  /** Open a non-main-thread entry's detail sheet. */
   onSelect?: (entry: IExecutionWorkspaceEntry) => void;
-  /** #3288 §1: the main thread entry was clicked — the conversation beside this panel is it. */
+  /** The main thread entry was clicked — the conversation beside this panel is it. */
   onReturnToConversation?: () => void;
-  /** #3288 §1: Stop was clicked on a running/queued entry. */
+  /** Stop was clicked on a running/queued entry. */
   onStop?: (entry: IExecutionWorkspaceEntry) => void;
-  /** #3288 §1: the entry whose detail sheet is currently open, for a highlighted row. */
+  /** The entry whose detail sheet is currently open, for a highlighted row. */
   selectedEntryId?: string;
 }
 
@@ -115,7 +115,7 @@ export function AgentActivityPanel({
                   task={task}
                   onPause={onPauseSchedule}
                   onResume={onResumeSchedule}
-                  onRequestDelete={() => setPendingDeleteId(task.id)}
+                  onRequestDelete={onDeleteSchedule ? () => setPendingDeleteId(task.id) : undefined}
                 />
               ))}
             </div>
@@ -221,7 +221,7 @@ function AgentCard({
   );
 }
 
-/** #3282 §4 part b-3: one row of the "Scheduled" group — what it runs, when next, status, controls. */
+/** One row of the "Scheduled" group — what it runs, when next, status, controls. */
 function ScheduleCard({
   task,
   onPause,
@@ -231,7 +231,8 @@ function ScheduleCard({
   task: IBackgroundTaskState<'scheduled'>;
   onPause?: (taskId: string) => void;
   onResume?: (taskId: string) => void;
-  onRequestDelete: () => void;
+  /** Absent when the schedule is shown without controls (an observer). */
+  onRequestDelete?: () => void;
 }): React.ReactElement {
   const isPaused = task.status === 'paused';
   return (
@@ -242,39 +243,45 @@ function ScheduleCard({
       <p className="mt-1 text-[13px] text-muted-foreground">
         {describeScheduleTiming(task)} · {describeScheduleStatus(task)}
       </p>
-      <div className="mt-2 flex items-center gap-3">
-        {isPaused ? (
-          <button
-            type="button"
-            onClick={() => onResume?.(task.id)}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
-          >
-            <Play size={11} fill="currentColor" aria-hidden="true" />
-            Resume
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onPause?.(task.id)}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
-          >
-            <Pause size={11} fill="currentColor" aria-hidden="true" />
-            Pause
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onRequestDelete}
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-destructive hover:bg-destructive/10"
-        >
-          Delete…
-        </button>
-      </div>
+      {onResume || onPause || onRequestDelete ? (
+        <div className="mt-2 flex items-center gap-3">
+          {isPaused
+            ? onResume && (
+                <button
+                  type="button"
+                  onClick={() => onResume(task.id)}
+                  className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
+                >
+                  <Play size={11} fill="currentColor" aria-hidden="true" />
+                  Resume
+                </button>
+              )
+            : onPause && (
+                <button
+                  type="button"
+                  onClick={() => onPause(task.id)}
+                  className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
+                >
+                  <Pause size={11} fill="currentColor" aria-hidden="true" />
+                  Pause
+                </button>
+              )}
+          {onRequestDelete && (
+            <button
+              type="button"
+              onClick={onRequestDelete}
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-destructive hover:bg-destructive/10"
+            >
+              Delete…
+            </button>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-/** #3282 §4 part b-3: the current goal — objective, plain-word status, and Cancel. */
+/** The current goal — objective, plain-word status, and Cancel. */
 function GoalCard({
   goal,
   onCancel,
@@ -293,7 +300,7 @@ function GoalCard({
       <p className="mt-1.5 pl-[26px] text-[13px] text-muted-foreground">
         {describeGoalStatus(goal)}
       </p>
-      {goal.status === 'active' && (
+      {goal.status === 'active' && onCancel && (
         <div className="mt-2 pl-[26px]">
           <button
             type="button"

@@ -1,4 +1,4 @@
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 

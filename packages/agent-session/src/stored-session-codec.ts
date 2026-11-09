@@ -22,7 +22,7 @@ import type { IArtifactContext, IArtifactSealer } from '@robota-sdk/agent-core';
 import type {
   IInteractiveSessionRecord,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** What a listing says about a sealed file that does not open; fixed, so it can carry no content. */
 export const DOES_NOT_OPEN_MESSAGE =
@@ -57,7 +57,7 @@ export function utf8Text(bytes: Uint8Array): string {
 }
 
 /**
- * The versioned envelope of `record` (TRANS-007 — without a version on disk "written by a build this
+ * The versioned envelope of `record` (without a version on disk "written by a build this
  * one does not read" cannot be told from "damaged"), the same pretty-printed JSON the stores always wrote.
  */
 export function envelopeText(record: IInteractiveSessionRecord): string {
@@ -83,7 +83,7 @@ export function encodeStoredSession(
   };
 }
 
-/** What a record's stored bytes are to a migration that seals what is still plain (#3679). */
+/** What a record's stored bytes are to a migration that seals what is still plain. */
 export type TStoredSessionMigrationState =
   /** Not sealed framing: whatever it holds — a valid, corrupt, unsupported or bare record. */
   | 'plain'

@@ -40,7 +40,7 @@ import type { IPromptFileReferenceRecord } from '../context/prompt-file-referenc
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IWorkspacePolicy } from '../workspace-trust/index.js';
 import type { IHistoryEntry, TUniversalValue } from '@robota-sdk/agent-core';
-import type { IActiveBranchPointer, IBranchEvent } from '@robota-sdk/agent-interface-session';
+import type { IActiveBranchPointer, IBranchEvent } from '@robota-sdk/agent-interface/session';
 export { BRANCH_OPERATION_EVENT_MATRIX } from './session-branch-events.js';
 export type { IHistoryTrackerState } from './session-history-state.js';
 
@@ -49,7 +49,7 @@ export class SessionHistoryTracker {
   private editCheckpointStore: IEditCheckpointStore | null = null;
   private readonly branchEvents: SessionBranchEvents;
   /**
-   * SELFHOST-007: a persisted active-branch pointer restored on resume, before the session (and
+   * A persisted active-branch pointer restored on resume, before the session (and
    * possibly the store) exists — stashed here and applied on the first checkpoint operation, so
    * `--resume` reaches the store instead of throwing or silently dropping the pointer.
    */
@@ -187,7 +187,7 @@ export class SessionHistoryTracker {
     return result;
   }
 
-  // SELFHOST-007: branching time-travel — navigation delegates to the store's neutral tree.
+  // Branching time-travel — navigation delegates to the store's neutral tree.
   listCheckpointBranches(): string[] {
     return this.getCheckpointStore().listCheckpointBranches(this.getSessionId());
   }
@@ -224,7 +224,7 @@ export class SessionHistoryTracker {
     this.branchEvents.emit('switch', checkpointId);
   }
 
-  /** SELFHOST-007: the active-branch pointer to persist (so a branch survives --resume). */
+  /** The active-branch pointer to persist (so a branch survives --resume). */
   getActiveBranchPointer(): IActiveBranchPointer | undefined {
     if (!this.editCheckpointStore) return undefined;
     // Apply any stashed resume pointer first, so a persist that fires BEFORE the first checkpoint op
@@ -234,7 +234,7 @@ export class SessionHistoryTracker {
   }
 
   /**
-   * SELFHOST-007: restore the active branch from a persisted pointer on resume (graceful on drift).
+   * Restore the active branch from a persisted pointer on resume (graceful on drift).
    * The pointer is always stashed and applied on the first checkpoint operation: on the standard
    * path a resume restores its record before the underlying session exists, so the session id the
    * store keys by cannot be read yet, whether or not the store was given at construction.
@@ -253,7 +253,7 @@ export class SessionHistoryTracker {
 
   async beginEditCheckpointTurn(prompt: string): Promise<void> {
     if (!this.editCheckpointStore) return;
-    // SELFHOST-007: apply any stashed --resume branch pointer now (session is ready) so this turn's
+    // Apply any stashed --resume branch pointer now (session is ready) so this turn's
     // parent is the restored HEAD, not the last-by-sequence tip.
     this.applyPendingActiveBranch();
     try {
@@ -271,7 +271,7 @@ export class SessionHistoryTracker {
 
   setEditCheckpointStore(store: IEditCheckpointStore): void {
     this.editCheckpointStore = store;
-    // SELFHOST-007: do NOT apply the stashed pointer here — this runs during async init BEFORE the
+    // Do NOT apply the stashed pointer here — this runs during async init BEFORE the
     // underlying session is assigned, so getSessionId() would throw. It is applied lazily on the first
     // checkpoint operation (beginEditCheckpointTurn / getCheckpointStore), when the session is ready.
   }

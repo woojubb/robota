@@ -9,7 +9,7 @@ import { SessionSidebar, sessionTitle } from '../SessionSidebar.js';
 import type { IWsSessionState, TSessionListing } from '../../hooks/session-client-types.js';
 
 /**
- * #3289 §1 — a stable title instead of the raw latest reply, no message count, rename in place, and
+ * A stable title instead of the raw latest reply, no message count, rename in place, and
  * delete with confirmation.
  */
 
@@ -48,7 +48,7 @@ function makeState(overrides: Partial<IWsSessionState> = {}): IWsSessionState {
 
 afterEach(cleanup);
 
-describe('sessionTitle (#3289 §1)', () => {
+describe('sessionTitle', () => {
   it('prefers name, then title, then "New session"', () => {
     expect(sessionTitle(row('a', { name: 'Named', title: 'first request' }))).toBe('Named');
     expect(sessionTitle(row('a', { title: 'first request' }))).toBe('first request');
@@ -60,7 +60,7 @@ describe('sessionTitle (#3289 §1)', () => {
   });
 });
 
-describe('SessionSidebar rows (#3289 §1)', () => {
+describe('SessionSidebar rows', () => {
   it('shows the stable title, not the raw preview', () => {
     render(<SessionSidebar state={makeState()} />);
     expect(screen.getByText('first request')).toBeTruthy();
@@ -75,7 +75,7 @@ describe('SessionSidebar rows (#3289 §1)', () => {
   });
 });
 
-describe('SessionSidebar inline rename (#3289 §1)', () => {
+describe('SessionSidebar inline rename', () => {
   it('opens the row menu and starts an inline rename, saving on Enter', () => {
     const send = vi.fn();
     render(<SessionSidebar state={makeState({ send })} />);
@@ -123,7 +123,7 @@ describe('SessionSidebar inline rename (#3289 §1)', () => {
   });
 });
 
-describe('SessionSidebar delete confirmation (#3289 §1)', () => {
+describe('SessionSidebar delete confirmation', () => {
   it('asks for confirmation, and only sends delete-session on confirming', () => {
     const deleteSession = vi.fn();
     render(<SessionSidebar state={makeState({ deleteSession })} />);
@@ -209,7 +209,7 @@ describe('SessionSidebar delete confirmation (#3289 §1)', () => {
   });
 });
 
-describe('SessionSidebar row menu accessibility (#3289 §1)', () => {
+describe('SessionSidebar row menu accessibility', () => {
   it('marks the "More" trigger as a menu popup, expanded only while its menu is open', () => {
     render(<SessionSidebar state={makeState()} />);
     const trigger = screen.getByRole('button', { name: 'More for first request' });
@@ -225,7 +225,7 @@ describe('SessionSidebar row menu accessibility (#3289 §1)', () => {
   });
 });
 
-describe('SessionSidebar unreadable sessions wording (#3289 §1)', () => {
+describe('SessionSidebar unreadable sessions wording', () => {
   it('uses plain singular/plural wording, ids only inside the details', () => {
     render(
       <SessionSidebar

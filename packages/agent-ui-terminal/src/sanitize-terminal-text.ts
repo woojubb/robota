@@ -1,5 +1,5 @@
 /**
- * SEC-019 (issue #2022) - the one place untrusted text is made safe to put on a terminal.
+ * The one place untrusted text is made safe to put on a terminal.
  *
  * Model output, tool output, file contents and plugin text all reach Ink `<Text>`, and from there a
  * terminal. What that terminal actually receives was MEASURED against a real stream rather than
@@ -84,7 +84,7 @@ const CRLF = /\r\n/g;
  *    terminator costs nothing. A DCS body is `[\s\S]*?`, which is lazy - and a lazy quantifier
  *    followed by an OPTIONAL group prefers the empty match at every position, so the alternative
  *    would consume the two-character introducer and nothing else, leaving `q#0;2;0;0;0` from a Sixel
- *    sequence standing as visible text. Found in review of PR #2212, and the reason every case in
+ *    sequence standing as visible text. A review found it, and it is the reason every case in
  *    the test table now asserts the exact output rather than "no control byte survives" - the weaker
  *    assertion holds for a sanitizer that strips only introducers.
  *  - `\x1b[P^_X][\s\S]*$`  the same, unterminated at the end of the input. Written as its own
@@ -96,7 +96,7 @@ const CRLF = /\r\n/g;
  *    omits `:`, `<`, `=` and `>`, and the omission is not academic: `ESC [ 38:2:255:0:0 m` is the
  *    colon form of a truecolor SGR and `ESC [ < 0;10;20 M` is an SGR mouse report. Neither matched
  *    any alternative, so the lone-control fallback took the ESC and left `38:2:255:0:0m` as visible
- *    text. Found in review of PR #2212.
+ *    text.
  *  - `\x9b[0-?]*[ -/]*[@-~]`  the same, 8-bit introducer.
  *  - `\x1b[@-Z\\-_]`  any other two-character escape.
  *  - `[\x00-\x1f\x7f]`  a lone control character, including a bare ESC or BEL.
@@ -117,9 +117,9 @@ const CONTROL_SEQUENCE =
  *
  * So each body excludes its own terminators through a negative lookahead: a sequence that has already
  * ended is not an incomplete tail. The OSC and CSI branches need no such guard — `[^\x07\x1b]*`
- * cannot cross BEL or ESC, and a CSI without its final byte is incomplete by construction. Found in
- * review of PR #2212, one round after the same asymmetry was fixed in {@link CONTROL_SEQUENCE}: the
- * two patterns describe the same grammar and have to be changed together.
+ * cannot cross BEL or ESC, and a CSI without its final byte is incomplete by construction. The
+ * same asymmetry applies in {@link CONTROL_SEQUENCE}: the two patterns describe the same grammar
+ * and have to be changed together.
  */
 const INCOMPLETE_TAIL =
   // eslint-disable-next-line no-control-regex

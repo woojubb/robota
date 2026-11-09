@@ -4,7 +4,7 @@ import { Session } from '../session.js';
 import { SessionBusyError, TurnClaim } from '../turn-claim.js';
 
 /**
- * RUNTIME-003 — a session had no turn identity, so a second concurrent `run()` ORPHANED the first.
+ * A session had no turn identity, so a second concurrent `run()` ORPHANED the first.
  *
  * `run()` overwrote `this.abortController` unconditionally, and everything follows from that one
  * line: `abort()` cancelled only whichever turn owned the field, the first turn to finish cleared it
@@ -98,7 +98,7 @@ async function outcomeWithin<T>(
   }
 }
 
-describe('a session runs one turn at a time (RUNTIME-003)', () => {
+describe('a session runs one turn at a time', () => {
   it('REFUSES a second concurrent turn instead of starting it alongside the first', async () => {
     const { provider, release, callCount } = blockingProvider();
     const session = makeSession(provider);
@@ -145,7 +145,7 @@ describe('a session runs one turn at a time (RUNTIME-003)', () => {
     // A turn is not over when it is asked to stop; it is over when it has stopped. The first draft
     // of this fix released the claim inside `abort()`, so `isRunning()` answered `false` while the
     // aborted turn was still live — and a new `run()` could interleave with it on the same history.
-    // That is the RUNTIME-003 defect itself, moved behind the abort boundary; review caught it.
+    // That is the two-turns-on-one-session defect itself, moved behind the abort boundary; review caught it.
     const { provider, release } = blockingProvider();
     const session = makeSession(provider);
 
@@ -200,7 +200,7 @@ describe('a session runs one turn at a time (RUNTIME-003)', () => {
  * three lines of logic and the cost of a mistake in them is a bricked session, so they are worth
  * stating where a reader can see them without assembling a provider.
  */
-describe('TurnClaim (RUNTIME-003)', () => {
+describe('TurnClaim', () => {
   it('refuses a second claim with a typed, identifiable error', () => {
     const claim = new TurnClaim();
     claim.claim();

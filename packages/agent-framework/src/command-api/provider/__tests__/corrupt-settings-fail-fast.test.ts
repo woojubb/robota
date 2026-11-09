@@ -1,5 +1,5 @@
 /**
- * CLI-069: an existing settings file that fails to parse throws a typed
+ * An existing settings file that fails to parse throws a typed
  * SettingsParseError (file path + parse message + remediation) instead of being
  * silently treated as missing. Missing and valid files keep their behavior.
  */
@@ -22,7 +22,7 @@ import { readProviderSettings, ProviderConfigError } from '../provider-factory.j
 
 import type { TSettingsSource } from '../../../config/settings-source.js';
 
-describe('corrupt settings fail fast (CLI-069)', () => {
+describe('corrupt settings fail fast', () => {
   let home: string;
   let cwd: string;
 
@@ -58,7 +58,7 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     ];
   }
 
-  it('TC-01: corrupt user-level settings throws SettingsParseError naming the file — not ProviderConfigError', async () => {
+  it('corrupt user-level settings throws SettingsParseError naming the file — not ProviderConfigError', async () => {
     const corruptPath = writeSettingsFile(home, '{ broken');
 
     let thrown: unknown;
@@ -75,7 +75,7 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     expect(parseError.message).toContain('invalid JSON');
   });
 
-  it('TC-02: corrupt project-level settings throws the same typed error', async () => {
+  it('corrupt project-level settings throws the same typed error', async () => {
     writeSettingsFile(cwd, '{ "currentProvider": ');
 
     const settingsSources = await sources();
@@ -89,11 +89,11 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     }
   });
 
-  it('TC-03: missing files at both levels keep the CLI-066 order — ProviderConfigError without env key, env-default with one', () => {
+  it('missing files at both levels keep the order — ProviderConfigError without env key, env-default with one', () => {
     expect(() => readProviderSettings([], { env: {} })).toThrowError(ProviderConfigError);
   });
 
-  it('TC-04: valid settings files resolve unchanged (regression)', async () => {
+  it('valid settings files resolve unchanged (regression)', async () => {
     writeSettingsFile(
       cwd,
       JSON.stringify({
@@ -107,7 +107,7 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     expect(config.model).toBe('claude-test');
   });
 
-  it('TC-05: the error message carries remediation guidance; settings-io.readSettings throws the same error with no stderr warning', () => {
+  it('the error message carries remediation guidance; settings-io.readSettings throws the same error with no stderr warning', () => {
     const corruptPath = writeSettingsFile(home, 'not json at all');
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 

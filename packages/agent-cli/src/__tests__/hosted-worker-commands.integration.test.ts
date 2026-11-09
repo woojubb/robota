@@ -104,7 +104,7 @@ describe('public hosted CLI child execution', () => {
         const projected = allowEffects ? readFileSync(workerEnv, 'utf8') : JSON.stringify(workers);
         expect(projected).not.toContain('runtime-management-canary');
         expect(projected).not.toContain('runtime-upstream-canary');
-        // A subagent worker is started with the broker token; a command never sees it (#3429).
+        // A subagent worker is started with the broker token; a command never sees it.
         expect(projected.includes('synthetic-task-token')).toBe(!allowEffects);
         expect(projected).not.toContain('PRODUCT_HOSTED_RUNTIME_CONFIG');
         expect(readFileSync(receipts, 'utf8')).not.toContain('runtime-management-canary');

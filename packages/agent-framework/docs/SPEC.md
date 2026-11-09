@@ -3,11 +3,13 @@
 ## Purpose
 
 `@robota-sdk/agent-framework` is the assembly layer of the Robota SDK. It composes `agent-core`,
-`agent-session`, `agent-tools`, `agent-executor`, and the `agent-interface-transport` type contracts
+`agent-session`, `agent-tools`, `agent-executor`, and the `agent-interface/transport` type contracts
 into a single, provider-neutral SDK surface. `InteractiveSession` is the primary entry point,
 preserving observed tool outcomes across live and restored presentation without replaying effects; a
 `createQuery({ host, cwd, provider })` factory covers single-shot prompt use; `createAgentRuntime()` composes a
-headless/multi-session runtime.
+headless/multi-session runtime. Its main entry is platform-neutral: it runs in a browser, a Web Worker,
+Node, Deno and Bun, and what only a Node host can provide is on the `./node` subpath (`./testing` is
+Node-only too).
 
 This package owns config loading, context loading (AGENTS.md/CLAUDE.md discovery), command
 infrastructure (contracts, registry, sources, common APIs consumed by command modules), permission
@@ -186,7 +188,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   program of the user can seal a record that opens. Accepted bytes become the owner's only once the
   session restored from them and never through a copy, so a refused resume or a fork leaves the
   record as it was, and what an unverified record says of itself never decides what a run resumes.
-  The claim fences every save of the id and ends however the session ends, so a session its host
+  The claim fences every save of the id and ends however the session ends; the marker check and
+  record mutation share an operation lock with cooperating forced releases, so a session its host
   stopped waiting for cannot overwrite the next one, and no surface opens a second session on an id
   that has a writer, in this process or another: a served pool tells its client to try again only for
   a session of its own that is still closing, and names whoever holds the id otherwise, a fork's
@@ -196,8 +199,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   names, since merging the file would launder it and overwriting it could destroy newer work; a
   refusal only the locked keys stand behind is decided at the unlock, and a session that ends while
   either refusal stands saves that copy as it ends and reports a copy it could not write. A project
-  session record is replaced whole and flushed, so a write that fails part-way leaves the previous
-  record; a replay log rebuilds only the session it names.
+  session record is replaced whole, so a failed write can leave either the prior record or the
+  complete replacement; a replay log rebuilds only the session it names.
 - **Fork vs. resume is exactly one bit of difference.** Resume reuses the source session id; fork
   generates a fresh id while still restoring the same messages and the parent's assembled system
   prompt verbatim — a fork inherits the parent's full assembled prompt (including any active output
@@ -205,7 +208,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   project files. A plain resume is not a copy and always rebuilds, so edits to AGENTS.md between
   sessions still reach it. Writing a fork's record leaves the source record byte-identical; the two
   conversations never rejoin. An unresolved recovery conversation cannot be copied to another
-  session or workspace because discovery is bound to its existing owner. Attaching a surface's view to a fork is a _view switch_, never a merge.
+  session or workspace because discovery is bound to its existing owner. Following a running fork or
+  continuing an ended fork keeps its record separate from the parent; the live view is bounded and
+  transient so observing it does not add another persisted conversation copy.
 - **Host-action parity.** A command's host actions (language change, settings reset, session
   exit/restart/rename, …) are executed by the session through injected host adapters, so headless and
   programmatic embeddings get the same command semantics as an attached UI. An embedding with no

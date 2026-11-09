@@ -7,7 +7,7 @@ import type { ITool, IToolRegistry } from '../interfaces/tool';
 /**
  * The parameter kinds a registered tool may declare — every member of `TJSONSchemaKind`.
  *
- * CORE-039: this list previously omitted `integer` and `null`, so a tool declaring an `integer`
+ * This list previously omitted `integer` and `null`, so a tool declaring an `integer`
  * parameter was refused at registration by a type the subset itself defines. Derived from the union
  * rather than re-listed, so a new kind cannot be added to the subset and forgotten here.
  */
@@ -168,7 +168,7 @@ export class ToolRegistry implements IToolRegistry {
 
     // Validate parameter properties, at every depth. Checking only the top level let a nested node
     // declaring neither `type` nor `anyOf` register cleanly and then fail on EVERY invocation --
-    // newly constructible once `type` became optional (CORE-039).
+    // newly constructible once `type` became optional.
     if (schema.parameters.properties) {
       for (const [propName, propSchema] of Object.entries(schema.parameters.properties)) {
         assertParameterNodeValid(propName, propSchema);
@@ -197,7 +197,7 @@ export class ToolRegistry implements IToolRegistry {
  * failure to every later invocation.
  */
 function assertParameterNodeValid(path: string, node: IParameterSchema | undefined): void {
-  // CORE-039: a union node carries `anyOf` INSTEAD of `type`, so demanding a type here would reject
+  // A union node carries `anyOf` INSTEAD of `type`, so demanding a type here would reject
   // every tool with a union-typed argument at registration -- the converter would emit it correctly
   // and this check would throw on it.
   if (node?.anyOf) {

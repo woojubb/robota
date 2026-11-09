@@ -1,5 +1,5 @@
 /**
- * A fork record handed to a subagent process (#3679 step 3b, secure conversation).
+ * A fork record handed to a subagent process (secure conversation).
  *
  * A subagent child holds only a write grant, so it can never open a sealed fork record; the parent
  * hands over the record it holds. These pin the store side of that handoff: a fork write is kept
@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { loadSessionForUpdate } from '../load-session-for-update.js';
 import { NodeSessionStore } from '../session-store.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const CANARY = 'CANARY-fork-handoff-4d1c-conversation-text';
 const HELD_LIMIT = 32;

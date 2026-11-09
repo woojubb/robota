@@ -1,6 +1,5 @@
 /**
- * A running session's claim on its record, and what the session may do while it holds it (#3679
- * step 3e).
+ * A running session's claim on its record, and what the session may do while it holds it.
  *
  * Sealing needs only the public key, so a record that opens says nothing about who wrote it. A
  * session therefore restores only from the read its claim makes — never from an earlier check that
@@ -33,7 +32,7 @@ import type {
   ISessionClaim,
   ISessionSaveOptions,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type { SealedSessionUnreadableError, Session } from '@robota-sdk/agent-session';
 
 /** What the claim asks of the session it belongs to. */
@@ -96,6 +95,7 @@ export class SessionRecordClaim {
     this.#store = store;
     this.#acceptedDigest = acceptedDigest;
     this.#host = host;
+    const saveRestoreTransaction = store.saveRestoreTransaction?.bind(store);
     this.store = decorateSessionStore(store, {
       save: (record: IInteractiveSessionRecord, options?: ISessionSaveOptions): void => {
         const claimed = this.#saveOptionsFor(record.id);
@@ -106,6 +106,20 @@ export class SessionRecordClaim {
         }
         store.save(record, { ...options, ...claimed });
       },
+      ...(saveRestoreTransaction
+        ? {
+            saveRestoreTransaction: (
+              record: IInteractiveSessionRecord,
+              options?: ISessionSaveOptions,
+            ) => {
+              const claimed = this.#saveOptionsFor(record.id);
+              if (claimed?.claim === undefined) {
+                throw new TypeError('A live session claim is required for restore commit.');
+              }
+              return saveRestoreTransaction(record, { ...options, ...claimed });
+            },
+          }
+        : {}),
     });
   }
 
@@ -141,6 +155,33 @@ export class SessionRecordClaim {
     return !this.#ended && this.#claim !== undefined && this.#claimedId === id;
   }
 
+  holdsWriter(id: string): boolean {
+    if (!this.holds(id) || !this.#claim?.holdsWriter) return false;
+    try {
+      return this.#claim.holdsWriter() === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Fence all later saves before releasing a writer whose ownership is no longer reliable. */
+  loseWriter(): void {
+    if (this.#ended) return;
+    this.#ended = true;
+    this.#stopWaitingForUnlock();
+    try {
+      this.#source?.release();
+    } catch {
+      /* The claim is already fenced in this session. */
+    }
+    this.#source = undefined;
+    try {
+      this.#claim?.release();
+    } catch {
+      /* A stale marker must not permit another save here. */
+    }
+  }
+
   /**
    * Claims `id` and returns the outcome the session restores from, gated: a record a store that seals
    * calls unverified is refused unless it is the accepted bytes, and the claim let go. A `copy` keeps
@@ -153,7 +194,8 @@ export class SessionRecordClaim {
     try {
       assertClaimedOutcomeAccepted(id, claim.outcome, this.#acceptedDigest);
     } catch (error) {
-      claim.release();
+      if (claim.discard !== undefined) claim.discard();
+      else claim.release();
       throw error;
     }
     const outcome = claim.outcome;
@@ -167,6 +209,17 @@ export class SessionRecordClaim {
       this.#toAdopt = { id, digest: outcome.digest };
     }
     return outcome;
+  }
+
+  /** A decision held across initialization still names the current on-disk bytes at commit. */
+  assertAcceptedStillCurrent(): void {
+    const id = this.#claimedId;
+    const accepted = this.#acceptedDigest;
+    if (id === undefined || accepted === undefined) return;
+    const current = this.#store.load(id);
+    if (current.status !== 'valid' || current.diverged === true || current.digest !== accepted) {
+      throw new SessionAuthorshipRefusedError(id, 'changed-since-accepted');
+    }
   }
 
   /**
@@ -258,9 +311,18 @@ export class SessionRecordClaim {
    * failed earlier is tried once more.
    */
   end(): void {
+    this.#end(false);
+  }
+
+  /** An uncommitted owner decision must not keep the abandoned record's held plaintext. */
+  discard(): void {
+    this.#end(true);
+  }
+
+  #end(discard: boolean): void {
     if (this.#ended) return;
     const id = this.#claimedId;
-    if (id !== undefined && this.#claim !== undefined) {
+    if (!discard && id !== undefined && this.#claim !== undefined) {
       if (this.#refusal === 'locked') this.#saveCopy(id, 'locked', true);
       else if (this.#refusal === 'changed' && this.#copy === 'owed') {
         this.#saveCopy(id, 'changed', true);
@@ -270,7 +332,8 @@ export class SessionRecordClaim {
     this.#stopWaitingForUnlock();
     this.#source?.release();
     this.#source = undefined;
-    this.#claim?.release();
+    if (discard && this.#claim?.discard !== undefined) this.#claim.discard();
+    else this.#claim?.release();
   }
 
   /** What a save of `id` carries: the claim, and that the content is the owner's, for its own id only. */

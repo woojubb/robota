@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 import SessionPicker from '../SessionPicker.js';
 
-import type { IResumableSessionSummary } from '@robota-sdk/agent-interface-session';
+import type { IResumableSessionSummary } from '@robota-sdk/agent-interface/session';
 
 const UPDATED_AT = '2026-09-26T10:00:00.000Z';
 

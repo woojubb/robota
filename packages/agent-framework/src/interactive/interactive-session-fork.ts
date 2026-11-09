@@ -22,7 +22,7 @@ function resolveForkAgentDefinition(
   parentSession: Session,
 ): IAgentDefinition {
   const deps = retrieveAgentToolDeps(parentSession);
-  // NEUT-003: an injected built-in set replaces the module built-ins here too.
+  // An injected built-in set replaces the module built-ins here too.
   const definition =
     deps?.customAgentRegistry?.(agentType) ??
     (deps?.builtInAgents
@@ -56,13 +56,13 @@ export async function runSkillInFork(
     host: deps.host,
     pathProtection: deps.pathProtection,
     agentDefinition,
-    // Issue #3081: the rules the parent's gate enforces now (presets included), not the settings file.
+    // The rules the parent's gate enforces now (presets included), not the settings file.
     parentConfig: parentConfigWithEffectiveRules(deps),
     parentContext: deps.context,
     parentTools: deps.tools,
     provider: deps.provider,
     terminal: deps.terminal,
-    // ARCH-010: a fork continues the SAME conversation in the same place, so it inherits the parent
+    // A fork continues the SAME conversation in the same place, so it inherits the parent
     // session's root rather than re-deriving one.
     cwd: parentSession.getCwd(),
     isForkWorker: true,

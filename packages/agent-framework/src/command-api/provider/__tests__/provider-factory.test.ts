@@ -1,5 +1,5 @@
 /**
- * Provider factory error typing tests (CLI-064).
+ * Provider factory error typing tests.
  *
  * Missing provider configuration must be a typed, catchable error class so the CLI can
  * map it to the documented exit code 3 without message matching.
@@ -13,7 +13,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { ProviderConfigError, readProviderSettings } from '../provider-factory.js';
 
-describe('readProviderSettings error typing (CLI-064)', () => {
+describe('readProviderSettings error typing', () => {
   let cwd: string | undefined;
 
   afterEach(() => {
@@ -21,10 +21,10 @@ describe('readProviderSettings error typing (CLI-064)', () => {
     cwd = undefined;
   });
 
-  it('TC-04: throws ProviderConfigError when no provider configuration exists', () => {
+  it('throws ProviderConfigError when no provider configuration exists', () => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-provider-factory-')));
     try {
-      // Issue #1929: `cwd` isolates the PROJECT settings and nothing else — the default list also
+      // `cwd` isolates the PROJECT settings and nothing else — the default list also
       // reads the developer's real `~/.agent/settings.json`, so "no configuration exists" has to be
       // stated rather than assumed of the host. `env: {}` closes the other environment-shaped input.
       readProviderSettings([], { env: {} });

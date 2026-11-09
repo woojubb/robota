@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import type { ICommandCostBudget, ICommandCostBudgetAdapter } from '@robota-sdk/agent-framework';
 
 /**
- * CMD-007 (issue #2058): this product's `/cost budget` storage — `the configured project directory/budget.json` under the
+ * This product's `/cost budget` storage — `the configured project directory/budget.json` under the
  * workspace. The command package sees only `ICommandCostBudgetAdapter`; the path literal and every
  * filesystem call live here, at the shell, where product storage policy belongs.
  *

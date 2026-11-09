@@ -1,4 +1,4 @@
-import { isTransportRunOutcome } from '@robota-sdk/agent-interface-transport';
+import { isTransportRunOutcome } from '@robota-sdk/agent-interface/transport';
 
 import type {
   IBoundTransportRunnerAdapter,
@@ -6,7 +6,7 @@ import type {
   ITransportFailureRecord,
   ITransportLifecycleError,
   TTransportAbandonmentReason,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 interface IDeferred<T> {
   readonly promise: Promise<T>;

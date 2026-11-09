@@ -1,5 +1,5 @@
 /**
- * SELFHOST-008 — the neutral durable-memory port (P1R: async + role-segregated).
+ * The neutral durable-memory port (P1R: async + role-segregated).
  *
  * `IMemoryStore` is the single DIP seam for the memory capability, mirroring the STRUCTURE of the
  * sandbox precedent (`ISandboxClient` in `@robota-sdk/agent-tools`): the port + its neutral reference
@@ -7,7 +7,8 @@
  * command-api), NOT in `agent-core` and NOT in a new interface package. It unifies what today is split
  * across `ProjectMemoryStore` (durable write/read), `MemoryRetrievalService` (budgeted keyword recall),
  * and `PendingMemoryStore` (curation queue) so a surface can swap the whole store without editing the
- * library — and (P1R) is composed from segregated role interfaces so each consumer depends only on its slice.
+ * library — and is composed from segregated role interfaces so each consumer depends only on its
+ * slice.
  *
  * The surface is **async** (`Promise`-returning), matching the repo's I/O-capability port precedents
  * (`ISandboxClient`, `IRetrievalAdapter`) so a remote/heavy backend fits behind the same port. v1's recall
@@ -54,7 +55,7 @@ export interface IMemoryBudget {
 }
 
 /**
- * SELFHOST-008 P3: surface-supplied per-turn recall policy. Its PRESENCE enables per-turn recall
+ * Surface-supplied per-turn recall policy. Its PRESENCE enables per-turn recall
  * (adapter-gated — absent ⇒ OFF, startup-only injection); `budget` caps each turn's recalled slice
  * (topK / char). The enable decision + budget are surface-owned; the library ships only the neutral wiring.
  */
@@ -135,7 +136,7 @@ export interface ISemanticMemoryQueryResult {
 }
 
 /**
- * DEFERRED (P3) duck-typed port for a heavy semantic/vector memory backend, mirroring the way
+ * DEFERRED duck-typed port for a heavy semantic/vector memory backend, mirroring the way
  * `E2BSandboxClient` duck-types the E2B SDK via `IE2BSandboxAdapter` — so a concrete vector-DB SDK is
  * NEVER an `agent-framework` dependency. v1 defines the shape only; no library code consumes it yet.
  * A surface injecting one of these upgrades recall from keyword/FTS to embedding nearest-neighbor

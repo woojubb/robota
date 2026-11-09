@@ -1,5 +1,9 @@
 # One-Shot Query
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 `createQuery()` is the shortest way to drive a full agent session from code: it returns a function
 that takes a prompt and resolves with the agent's final answer. The session behind it has the tools
 its host builds: with a Node host built from `createDefaultTools`, the built-in tools (file, shell,
@@ -8,8 +12,8 @@ search) working in `cwd`. A host that lends no `createDefaultTools` (`host: {}`)
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 const query = createQuery({
@@ -72,8 +76,8 @@ const response = await query('Refactor the error handling in src/utils.ts and ru
 #!/usr/bin/env tsx
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const task = process.argv[2];
 if (!task) {

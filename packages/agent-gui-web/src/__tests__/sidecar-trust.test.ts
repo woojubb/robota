@@ -6,7 +6,7 @@ import {
   trustQuestionLines,
 } from '../../scripts/sidecar-trust.mjs';
 
-/** Issue #3268: `pnpm gui:dev` asks about an untrusted folder at its terminal before the sidecar starts. */
+/** `pnpm gui:dev` asks about an untrusted folder at its terminal before the sidecar starts. */
 describe('gui:dev sidecar trust question', () => {
   const untrusted = {
     state: 'untrusted',

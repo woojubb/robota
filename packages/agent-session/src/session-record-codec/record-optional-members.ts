@@ -1,6 +1,6 @@
 import { decodePendingExecution } from './pending-execution-decoder.js';
 /**
- * TRANS-005 (#2081) — the optional members of a persisted session record.
+ * The optional members of a persisted session record.
  *
  * Written out one member at a time rather than driven from a key→decoder table. A table would be
  * shorter, but its entries decode to a union of every member type, so the assignment back onto the
@@ -29,7 +29,7 @@ import { decodeArray, decodeOptional, decodeString } from './scalars.js';
 import { decodeToolSchema } from './tool-schema-decoders.js';
 
 import type { TDecodeIssues } from './decode-outcome.js';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 /** Decode an optional array member: absent stays absent, present is decoded element by element. */
 function optionalArray<TItem>(

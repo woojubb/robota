@@ -1,4 +1,4 @@
-import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface/session';
 import type { ICommandProductVocabulary } from '../command-api/host-context-types.js';
 import {
   basenamePath,
@@ -7,7 +7,7 @@ import {
   randomId,
   utf8ByteLength,
 } from '@robota-sdk/agent-core';
-import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 import { loadSessionForUpdate } from '@robota-sdk/agent-session';
 
 import { requireFrameworkHost } from '../host/require-framework-host.js';
@@ -38,6 +38,8 @@ import { applyModelFallback } from '../routing/model-fallback-chain.js';
 import { persistSessionRename } from './interactive-session-rename.js';
 import { loadSessionRecord, resumeRefusal } from './interactive-session-restore.js';
 import { SessionRecordClaim } from './session-record-claim.js';
+import { resolveSessionWorkspaceCwd } from './session-workspace-cwd.js';
+import { isSessionAuthorshipRefusedError } from './session-authorship-gate.js';
 import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-tools.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { loadSessionPluginSkills, requireSessionPluginFiles } from './session-plugin-skills.js';
@@ -150,7 +152,7 @@ import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type {
   IBackgroundTaskState,
   IExecutionPendingRequest,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IGoalState,
   IRuntimeToolInvokeOptions,
@@ -168,8 +170,8 @@ import type {
   TProjectMemoryRead,
   TProjectStatusRead,
   TWaitingLoopStopOutcome,
-} from '@robota-sdk/agent-interface-session';
-import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/session';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface/transport';
 import type { IPermissionAskContext, Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IWorkspaceMoveInstructions } from './interactive-session-workspace-move.js';
@@ -180,7 +182,7 @@ export interface IInteractiveSessionShutdownOptions {
   message?: string;
 }
 
-/** REMOTE-007: fail-closed last resort for a parked prompt whose subscribed surface disappeared. */
+/** Fail-closed last resort for a parked prompt whose subscribed surface disappeared. */
 const PROMPT_BACKSTOP_MS = 30 * 60 * 1000;
 
 export class InteractiveSession
@@ -214,24 +216,24 @@ export class InteractiveSession
   private readonly pendingLoopStops = new Set<string>();
   private sessionName?: string;
   /**
-   * ARCH-043: the working directory and the project-access decision, as ONE value fixed for the life
+   * The working directory and the project-access decision, as ONE value fixed for the life
    * of this session and handed by reference to everything that needs either. They used to be two
    * fields copied into collaborators separately, which is how a lazy operation could end up holding a
    * different answer from the session. A move to another directory is a new session (`/cd`), never a
    * mutation of this one.
    */
   private readonly workspace: IWorkspacePolicy;
-  /** A `/cd` was handed to the host; this session is ending (issue #3081). */
+  /** A `/cd` was handed to the host; this session is ending. */
   private workspaceMovePending = false;
   private pendingRestoreMessages: TUniversalMessage[] | null = null;
   private pendingRestoreConversation: ISessionConversationSnapshot | null = null;
-  /** CLI-1994: the resumed record's assembled prompt, applied when this session is a fork. */
+  /** The resumed record's assembled prompt, applied when this session is a fork. */
   private restoredSystemPrompt?: string;
   private resumeSessionId?: string;
   /**
    * Whether THIS session was started as a copy of the record it resumed (`--fork-session`), rather
    * than as a continuation of it. Named for the property it holds, not for the flag that sets it:
-   * CLI-1994 gives the class a `forkSession()` member — the in-session fork the command host calls —
+   * the class has a `forkSession()` member — the in-session fork the command host calls —
    * and one identifier cannot be both a boolean about the past and the verb that makes a new copy.
    */
   private startedAsFork: boolean;
@@ -243,19 +245,20 @@ export class InteractiveSession
     resumeQueuedTurn: (entry) => this.resumeQueuedTurn(entry),
   });
   private shutdownPromise: Promise<void> | null = null;
+  private restoredOwnershipLost = false;
   private externalEventIngress?: ExternalEventIngress;
   private readonly peerTurnRate = new PeerTurnRateLimiter();
   private readonly sandboxClient?: ISandboxClient;
-  // SELFHOST-008 P1R: the durable-memory port for this session — the surface-injected store or the neutral
+  // The durable-memory port for this session — the surface-injected store or the neutral
   // fs default (lazily created + cached so it is ONE shared instance). Exposed to the `/memory` command
   // host context via getMemoryStore() so command reads/writes hit the SAME store as startup + capture.
   private injectedMemoryStore?: IMemoryStore;
   private readonly startupMemoryEnabled: boolean;
-  // SELFHOST-008 P2: optional post-turn auto-capture policy (surface-supplied); absent ⇒ capture OFF.
+  // Optional post-turn auto-capture policy (surface-supplied); absent ⇒ capture OFF.
   private readonly automaticMemory?: IAutomaticMemoryConfig;
-  // SELFHOST-008 P3: optional per-turn recall policy (surface-supplied); absent ⇒ recall OFF.
+  // Optional per-turn recall policy (surface-supplied); absent ⇒ recall OFF.
   private readonly recallMemory?: IPerTurnRecallConfig;
-  /** SELFHOST-008 P2/P3: the capture + recall hooks over the one shared memory store. */
+  /** The capture + recall hooks over the one shared memory store. */
   private readonly turnMemory: SessionTurnMemory;
   private sandboxSnapshotId?: string;
   private agentsFileEntries: IContextFileEntry[] = [];
@@ -266,7 +269,7 @@ export class InteractiveSession
   private readonly resolveProviderCredential?: IInteractiveSessionStandardOptions['resolveProviderCredential'];
   private activeOutputStyleId = 'default';
   private orgPolicy: IOrgPolicy | null = null;
-  /** #3282 §3 — see the option doc comment on `IInteractiveSessionStandardOptions.setupRequired`. */
+  /** See the option doc comment on `IInteractiveSessionStandardOptions.setupRequired`. */
   private setupRequired = false;
   /** The model fallback chain the session started with, re-read for each primary a switch picks. */
   private modelFallback?: {
@@ -284,24 +287,24 @@ export class InteractiveSession
   protected readonly execCtrl: SessionExecutionController;
   private readonly stoppedWakeTaskIds = new Set<string>();
   private readonly sessionLoopExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  /** GOAL-001: autonomous objective-pursuit controller (inert until a goal is set). */
+  /** Autonomous objective-pursuit controller (inert until a goal is set). */
   private readonly goalController = new GoalController();
-  /** SELFHOST-002: plan-mode phase controller (inert until a plan is started). */
+  /** Plan-mode phase controller (inert until a plan is started). */
   private readonly planController = new PlanController();
-  /** GOAL-001: origin of the most recently started turn — gates goal-loop advancement. */
+  /** Origin of the most recently started turn — gates goal-loop advancement. */
   private currentTurnSource: TTurnSource = 'user';
-  /** TERM-001: exclusivity + fast-fail over the transport-provided handoff capability. */
+  /** Exclusivity + fast-fail over the transport-provided handoff capability. */
   private readonly terminalHandoffGate: SessionTerminalHandoffGate;
   private readonly externalEventVerifierFactory?: TExternalEventVerifierFactory;
   private readonly externalEventGrantHistory?: ExternalEventGrantHistory;
   /**
-   * REMOTE-007: the framework's event-emitting "ask the user" default (never undefined). It emits
+   * The framework's event-emitting "ask the user" default (never undefined). It emits
    * `ask_request` and parks the answer in {@link promptRegistry}. `getUserInteraction()` gates the
    * COMMAND port on the live `ask_request` listener count (D4a) so the headless `undefined`
    * "no-human ⇒ proceed" contract survives; the TOOL seam gets this default always-present.
    */
   private readonly askHandler: IUserInteraction['ask'];
-  /** REMOTE-007: transport-neutral pending permission/ask registry (parking + fail-closed + drain). */
+  /** Transport-neutral pending permission/ask registry (parking + fail-closed + drain). */
   private readonly promptRegistry: SessionPromptRegistry;
   private readonly providerErrorGuidance?: IProviderErrorGuidance;
   private readonly promptFileReferenceTag?: string;
@@ -328,13 +331,16 @@ export class InteractiveSession
    * ends on every way out of the session.
    */
   private readonly recordClaim?: SessionRecordClaim;
+  private pendingAcceptedAdmission: { readonly signal: AbortSignal; readonly onAbort: () => void } | undefined;
+  private discardedAcceptedAdmission = false;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
     const host = requireFrameworkHost(options.host, 'InteractiveSession');
     this.frameworkHost = host;
     // The session's own environment snapshot wins; without one the host's environment answers.
-    this.providerEnvironment = ('environment' in options ? options.environment : undefined) ?? host.env;
+    this.providerEnvironment =
+      ('environment' in options ? options.environment : undefined) ?? host.env;
     if ('pluginDirectories' in options && options.pluginDirectories !== undefined) {
       requireSessionPluginFiles(host.files?.sync);
     }
@@ -378,10 +384,15 @@ export class InteractiveSession
     this.resolveDefaultLoopPrompt = options.resolveDefaultLoopPrompt;
     this.userSettingsSources = options.userSettingsSources ?? [];
     this.sessionLoopsDisabled = options.disableSessionLoops ?? false;
+    const projectAccess =
+      options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable');
     this.workspace = Object.freeze({
-      cwd: ('cwd' in options ? options.cwd : undefined) ?? '',
-      projectAccess:
-        options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable'),
+      cwd: resolveSessionWorkspaceCwd(
+        ('cwd' in options ? options.cwd : undefined) ?? '',
+        projectAccess,
+        host,
+      ),
+      projectAccess,
     });
     this.sessionName = options.sessionName;
     if ('outputStyle' in options && options.outputStyle !== undefined) {
@@ -391,9 +402,9 @@ export class InteractiveSession
     this.externalEventVerifierFactory = options.externalEventVerifierFactory;
     this.externalEventGrantHistory = options.externalEventGrantHistory;
 
-    // REMOTE-007: the framework owns one event-emitting prompt registry. Attached surfaces subscribe
+    // The framework owns one event-emitting prompt registry. Attached surfaces subscribe
     // to requests and answer through resolvePermission/resolveAsk; with none subscribed it fails closed.
-    // SCREEN-1992: a prompt parking or settling changes the main thread's normalized state, so the
+    // A prompt parking or settling changes the main thread's normalized state, so the
     // workspace snapshot is re-emitted right after each prompt event (`park` precedes the emit).
     this.promptRegistry = new SessionPromptRegistry({
       emitPermissionRequest: (event) => {
@@ -409,9 +420,9 @@ export class InteractiveSession
         this.execCtrl.emitExecutionWorkspaceUpdated('main_thread');
       },
       countListeners: (event) => this.listeners.get(event)?.size ?? 0,
-      // REMOTE-014 E5: stamp the active turn's driver as the prompt's requester (display-only attribution).
+      // Stamp the active turn's driver as the prompt's requester (display-only attribution).
       getActiveDriverId: () => this.execCtrl.activeDriverId,
-      // #3288: so an Edit/Write permission request can attach the same server-built diff preview
+      // So an Edit/Write permission request can attach the same server-built diff preview
       // `tool_end` gets, and a Shell request can note its cwd only when it differs from this one.
       getCwd: () => this.getCwd(),
       files: options.host.files,
@@ -492,7 +503,7 @@ export class InteractiveSession
       contributionSources,
       skillRoots,
       commandHostAdapters,
-      // ARCH-029 S1: no cast — `implements ICommandHostContext` above makes this compiler-checked.
+      // No cast — `implements ICommandHostContext` above makes this compiler-checked.
       () => this,
       () => this.session?.getSessionId() ?? '',
       (prompt, displayInput, rawInput, submitOptions) =>
@@ -525,7 +536,7 @@ export class InteractiveSession
       },
     );
 
-    // #3288: tool name -> source `/command` name, for the projected model-command tools this
+    // Tool name -> source `/command` name, for the projected model-command tools this
     // session's descriptors would produce (`model-command-tool-projection.ts`). Computed here —
     // independently of whether `create-session.ts` actually registered those tools as callable —
     // because `tool_start` classification only needs the NAME MAP; a session with the projection
@@ -558,7 +569,7 @@ export class InteractiveSession
       ...(options.livePromptTrace ? { livePromptTrace: options.livePromptTrace } : {}),
       onWakeTurnFinalizing: (wakeTaskId, result, outcome, toolExecutions) =>
         this.finalizeSelfPacedIteration(wakeTaskId, result, outcome, toolExecutions),
-      // SELFHOST-008 P2: adapter-gated — only wire capture when the surface supplied an `automaticMemory`
+      // Adapter-gated — only wire capture when the surface supplied an `automaticMemory`
       // policy (absent ⇒ undefined ⇒ capture OFF, zero behavior change).
       ...(this.automaticMemory
         ? {
@@ -566,12 +577,12 @@ export class InteractiveSession
               this.turnMemory.capture(turn),
           }
         : {}),
-      // SELFHOST-008 P3: adapter-gated — only wire per-turn recall when the surface supplied a
+      // Adapter-gated — only wire per-turn recall when the surface supplied a
       // `recallMemory` policy (absent ⇒ undefined ⇒ recall OFF, startup-only injection unchanged).
       ...(this.recallMemory
         ? { recallMemory: (query: string) => this.turnMemory.recall(query) }
         : {}),
-      // SCREEN-1993: adapter-gated — only wire the prompt-history append when the surface supplied
+      // Adapter-gated — only wire the prompt-history append when the surface supplied
       // a writer (absent ⇒ undefined ⇒ nothing is written).
       ...(promptHistory
         ? {
@@ -603,12 +614,12 @@ export class InteractiveSession
       }
     }
 
-    // GOAL-001: observe turn origin and completion to drive the autonomous goal loop.
+    // Observe turn origin and completion to drive the autonomous goal loop.
     this.on('turn_source', (source) => {
       this.currentTurnSource = source;
     });
     this.on('complete', (result) => this.handleGoalTurnComplete(result));
-    // #3189: status pushes and self-naming are their own modules; the session only wires them.
+    // Status pushes and self-naming are their own modules; the session only wires them.
     this.statusPush = new SessionStatusPush({
       read: () => (this.session ? this.getStatusSnapshot() : undefined),
       emit: (status) => this.emit('status_changed', status),
@@ -624,12 +635,32 @@ export class InteractiveSession
       });
     }
 
+    // A revoked owner decision immediately gives up its claim, including while initialization waits.
+    const admission = options.resumeAdmissionSignal;
+    const cancelAdmission = (): void => {
+      this.discardedAcceptedAdmission = true;
+      this.execCtrl.shuttingDown = true;
+      this.recordClaim?.discard();
+    };
+    if (admission !== undefined) this.pendingAcceptedAdmission = { signal: admission, onAbort: cancelAdmission };
+    admission?.addEventListener('abort', cancelAdmission, { once: true });
     // A claim taken from here on is let go if the session never comes to exist.
     try {
+      admission?.throwIfAborted();
+      if (admission !== undefined && options.sessionStore?.supportsClaimDiscard !== true) {
+        throw new Error('This session store cannot discard an abandoned owner decision.');
+      }
+      if (admission !== undefined && 'workspaceManifest' in options && options.workspaceManifest !== undefined) {
+        throw new Error('This session uses a sandbox workspace that cannot be cancelled safely; review it in a local interactive terminal.');
+      }
       const hasInjectedSession = this.configureInjectedSession(options);
       this.restoreSessionRecordIfNeeded(options);
       if (hasInjectedSession) this.recordClaim?.claimSession(this.session!.getSessionId());
       this.startAsyncInitializationIfNeeded(options, hasInjectedSession);
+      if (this.initPromise !== null) void this.initPromise.catch(() => {
+        admission?.removeEventListener('abort', cancelAdmission);
+        this.pendingAcceptedAdmission = undefined;
+      });
       // The baseline is the initialized session's status, so the first push is a real change.
       if (this.initialized) this.statusPush.prime();
       else
@@ -638,14 +669,18 @@ export class InteractiveSession
           () => undefined,
         );
 
-      if (this.initialized) {
-        this.bgTracker.subscribe(this.session!);
+      if (this.initialized && admission === undefined) {
+        this.subscribeBackgroundTasks(this.session!);
         this.resumeSelfPacedLoops();
       }
-      if (this.initialized) this.persistCurrentSession();
-      this.resumeGoalIfActive();
+      if (this.initialized && admission === undefined) this.persistCurrentSession();
+      if (admission === undefined) this.resumeGoalIfActive();
     } catch (error) {
-      this.recordClaim?.end();
+      admission?.removeEventListener('abort', cancelAdmission);
+      if (admission === undefined) this.recordClaim?.end();
+      else this.recordClaim?.discard();
+      this.bgTracker.releaseTaskIdReservation();
+      this.clearSessionLoopExpiryTimers();
       throw error;
     }
   }
@@ -656,10 +691,6 @@ export class InteractiveSession
 
   getProjectAccess(): TWorkspaceProjectAccess {
     return this.workspace.projectAccess;
-  }
-
-  protected sessionRecordHasWriter(sessionId: string): boolean {
-    return this.sessionStore?.hasWriter(sessionId) ?? false;
   }
 
   protected getSessionReplayValidator(): IFrameworkHost['validateSessionReplayLog'] {
@@ -674,6 +705,23 @@ export class InteractiveSession
     return true;
   }
 
+  private subscribeBackgroundTasks(session: Session): void {
+    this.bgTracker.subscribe(session, {
+      ownsRecord: this.recordClaim !== undefined,
+      canRun: () =>
+        this.session === session &&
+        !this.execCtrl.shuttingDown &&
+        (this.recordClaim === undefined || this.recordClaim.holdsWriter(session.getSessionId())),
+      canCommit: () =>
+        typeof this.sessionStore?.saveRestoreTransaction === 'function' &&
+        this.session === session &&
+        !this.execCtrl.shuttingDown &&
+        this.recordClaim?.holdsWriter(session.getSessionId()) === true,
+      commit: () => this.persistCurrentSession(true, undefined, undefined, true),
+      onLoss: () => this.loseRestoredOwnership(),
+    });
+  }
+
   private restoreSessionRecordIfNeeded(options: TInteractiveSessionOptions): void {
     if (!options.resumeSessionId || !this.recordClaim) return;
     const copy =
@@ -681,12 +729,16 @@ export class InteractiveSession
       ('workspaceMovedFrom' in options && options.workspaceMovedFrom !== undefined);
     // The claim's own read is the one the session restores from — gated there, so nothing can swap
     // the file between a check and the restore. A copy claims its source only for that read. Accepted
-    // bytes are raised to the owner's only once the restore went ahead.
+    // bytes are raised only after restore, or at the binding move for a revocable owner decision.
     const outcome = this.recordClaim.readForRestore(options.resumeSessionId, this.startedAsFork);
     try {
+      if (options.resumeAdmissionSignal !== undefined && outcome.status === 'valid' && outcome.record.sandboxSnapshotId) {
+        throw new Error('This session uses a sandbox snapshot that cannot be cancelled safely; review it in a local interactive terminal.');
+      }
       if (outcome.status === 'valid') options.checkRestoredRecord?.(outcome.record);
       this.restoreFromOutcome(options.resumeSessionId, outcome, copy);
-      this.recordClaim.restored();
+      options.resumeAdmissionSignal?.throwIfAborted();
+      if (options.resumeAdmissionSignal === undefined) this.recordClaim.restored();
     } finally {
       if (this.startedAsFork) this.recordClaim.copied();
     }
@@ -713,26 +765,29 @@ export class InteractiveSession
       skillActivationEvents: restored.skillActivationEvents,
     });
     if (restored.sessionName) this.sessionName = restored.sessionName;
-    this.bgTracker.restoreState({
-      tasks: restored.backgroundTasks,
-      taskEvents: restored.backgroundTaskEvents,
-      groups: restored.backgroundJobGroups,
-      groupEvents: restored.backgroundJobGroupEvents,
-    });
+    this.bgTracker.restoreState(
+      {
+        tasks: restored.backgroundTasks,
+        taskEvents: restored.backgroundTaskEvents,
+        groups: restored.backgroundJobGroups,
+        groupEvents: restored.backgroundJobGroupEvents,
+      },
+      !copy,
+    );
     this.pendingRestoreMessages = restored.pendingRestoreMessages;
     this.pendingRestoreConversation = restored.pendingRestoreConversation;
-    // CLI-1994: a fork is a copy, prompt included; the deferred path applies it after assembly.
+    // A fork is a copy, prompt included; the deferred path applies it after assembly.
     this.restoredSystemPrompt = restored.restoredSystemPrompt;
     if (this.session && this.startedAsFork && restored.restoredSystemPrompt !== undefined) {
       this.session.updateSystemMessage(restored.restoredSystemPrompt);
     }
     this.sandboxSnapshotId = this.startedAsFork ? undefined : restored.sandboxSnapshotId;
-    // GOAL-001: a fork starts fresh; a true resume restores any in-flight goal so pursuit continues.
+    // A fork starts fresh; a true resume restores any in-flight goal so pursuit continues.
     if (!this.startedAsFork && restored.goal) this.goalController.restore(restored.goal);
-    // SELFHOST-002: likewise restore an in-flight plan artifact on a true resume (not a fork).
+    // Likewise restore an in-flight plan artifact on a true resume (not a fork).
     if (!this.startedAsFork && restored.plan) this.planController.restore(restored.plan);
     if (!this.startedAsFork) this.selfPacedLoops.restore(restored.sessionLoops);
-    // SELFHOST-007: restore the active checkpoint branch on a true resume (graceful on manifest drift).
+    // Restore the active checkpoint branch on a true resume (graceful on manifest drift).
     if (!this.startedAsFork) this.histTracker.restoreActiveBranch(restored.activeBranch);
     if (this.session && restored.pendingRestoreMessages === null) {
       // Injected-session path: messages were injected immediately — sync context estimate.
@@ -751,7 +806,8 @@ export class InteractiveSession
     this.initPromise.catch((error: unknown) => {
       this.initFailure = error instanceof Error ? error : new Error(String(error));
       // A session that never came to exist holds nothing: its claim ends with the build.
-      this.recordClaim?.end();
+      if (options.resumeAdmissionSignal === undefined) this.recordClaim?.end();
+      else this.recordClaim?.discard();
     });
   }
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
@@ -761,13 +817,18 @@ export class InteractiveSession
         options.projectSettingsPaths,
         options.host,
       ) !== undefined;
-    const result = await initializeInteractiveSessionAsync(options, {
+    // Initialization reads the project from the directory the session is bound to.
+    const initOptions =
+      (options.cwd ?? '') === this.workspace.cwd
+        ? options
+        : { ...options, cwd: this.workspace.cwd };
+    const result = await initializeInteractiveSessionAsync(initOptions, {
       sandboxSnapshotId: this.sandboxSnapshotId,
       resumeSessionId: this.resumeSessionId,
       pendingRestoreMessages: this.pendingRestoreMessages,
       pendingRestoreConversation: this.pendingRestoreConversation,
       restoredSystemPrompt: this.restoredSystemPrompt,
-      // Issue #3288 §1: `context` is optional here so this stays assignable to the narrower
+      // `context` is optional here so this stays assignable to the narrower
       // `TInteractivePermissionHandler` this deps field is typed as (2 args). The callers that supply
       // one — the session's approval path (the call's `executionId`) and the subagent runners (a
       // `requester`, a `signal`) — hold this same function through the session layer's wider
@@ -831,6 +892,10 @@ export class InteractiveSession
         },
       },
     });
+    if (options.resumeAdmissionSignal?.aborted === true) {
+      void result.session.shutdown({ reason: 'other' }).catch(() => undefined);
+      options.resumeAdmissionSignal.throwIfAborted();
+    }
     // A new session claims its id before its first save; a resumed one already holds it.
     try {
       this.recordClaim?.claimSession(result.session.getSessionId());
@@ -854,13 +919,81 @@ export class InteractiveSession
       this.announceWorkspaceMove(options.workspaceMovedFrom, result.agentsFileEntries);
     }
     this.initialized = true;
-    this.bgTracker.subscribe(this.session);
-    this.resumeSelfPacedLoops();
-    this.persistCurrentSession();
-    this.emit('context_update', this.getContextState());
+    if (options.resumeAdmissionSignal === undefined) {
+      try {
+        this.subscribeBackgroundTasks(this.session);
+      } catch (error) {
+        this.initialized = false;
+        this.session = null;
+        this.bgTracker.releaseTaskIdReservation();
+        this.clearSessionLoopExpiryTimers();
+        await result.session.shutdown({ reason: 'other' }).catch(() => undefined);
+        throw error;
+      }
+      this.resumeSelfPacedLoops();
+      this.persistCurrentSession();
+      this.emit('context_update', this.getContextState());
+    }
   }
 
-  /** Issue #3081: tell the model (once) that it now works in this directory, with what it loaded. */
+  /** Activate a privately initialized owner acceptance only as its binding moves onto it. */
+  commitAcceptedAdmission(): boolean {
+    const admission = this.pendingAcceptedAdmission;
+    if (admission === undefined) return !this.discardedAcceptedAdmission;
+    admission.signal.throwIfAborted();
+    const session = this.getSessionOrThrow();
+    this.recordClaim?.assertAcceptedStillCurrent();
+    try {
+      this.recordClaim?.restored();
+    } catch (error) {
+      if (isSessionAuthorshipRefusedError(error)) throw error;
+      // An I/O error can follow the on-disk replacement. Keep the binding where it is, but do not
+      // run or save this session when the adoption result cannot be confirmed.
+      this.discardAcceptedAdmission();
+      try {
+        this.reportBackgroundError(new Error(
+          'The session may have been marked as yours, but the result could not be confirmed. ' +
+          'No turns will start here; reopen it in a local interactive terminal to check it.',
+        ), 'session-admission');
+      } catch {
+        // allow-fallback: an observer cannot turn an uncertain write into a false rollback.
+      }
+      return false;
+    }
+    admission.signal.removeEventListener('abort', admission.onAbort);
+    this.pendingAcceptedAdmission = undefined;
+    // Adoption has committed: an observer or subsequent activation step cannot undo the binding.
+    const steps = [
+      () => this.subscribeBackgroundTasks(session),
+      () => this.resumeSelfPacedLoops(),
+      () => this.persistCurrentSession(),
+      () => this.emit('context_update', this.getContextState()),
+      () => this.resumeGoalIfActive(),
+    ];
+    for (const step of steps) {
+      try {
+        step();
+      } catch (error) {
+        try {
+          this.reportBackgroundError(error instanceof Error ? error : new Error(String(error)), 'session-admission');
+        } catch {
+          // allow-fallback: reporting cannot undo a record already adopted at this binding.
+        }
+      }
+    }
+    return true;
+  }
+
+  /** Drop a private accepted session without starting work or creating a sandbox snapshot. */
+  discardAcceptedAdmission(): void {
+    const admission = this.pendingAcceptedAdmission;
+    if (admission === undefined) return;
+    admission.signal.removeEventListener('abort', admission.onAbort);
+    this.pendingAcceptedAdmission = undefined;
+    admission.onAbort();
+  }
+
+  /** Tell the model (once) that it now works in this directory, with what it loaded. */
   private announceWorkspaceMove(
     fromCwd: string,
     instructions: readonly IWorkspaceMoveInstructions[],
@@ -895,7 +1028,7 @@ export class InteractiveSession
   }
 
   /**
-   * SELFHOST-008 P1R — the durable-memory port the `/memory` command host context reads/writes through.
+   * The durable-memory port the `/memory` command host context reads/writes through.
    * Returns the surface-injected store if one was supplied, else a lazily-created + cached neutral fs
    * store over `cwd` (ONE shared instance, so command operations are the SSOT with startup + capture — no
    * split-brain).
@@ -906,7 +1039,7 @@ export class InteractiveSession
   }
 
   /**
-   * #3282 §4c — the Project panel's "Changes" section. The SAME reader `/git status` runs
+   * The Project panel's "Changes" section. The SAME reader `/git status` runs
    * (`readProjectGitStatus`, `agent-framework/src/git`), over this session's own `cwd` — a
    * `not-a-repository` result is the panel's one plain sentence, never a thrown error.
    */
@@ -931,8 +1064,8 @@ export class InteractiveSession
   }
 
   /**
-   * #3282 §4c — the Project panel's "File diff" section, for one file `readProjectStatus` reported.
-   * `readProjectGitDiff` checks workspace containment itself (`isPathInside`, SEC-006) before any git
+   * The Project panel's "File diff" section, for one file `readProjectStatus` reported.
+   * `readProjectGitDiff` checks workspace containment itself (`isPathInside`) before any git
    * or filesystem call.
    */
   async readProjectDiff(path: string): Promise<TProjectDiffRead> {
@@ -960,7 +1093,7 @@ export class InteractiveSession
   }
 
   /**
-   * #3282 §4c — the Project panel's "Memory" section: the SAME store `/memory show` reads
+   * The Project panel's "Memory" section: the SAME store `/memory show` reads
    * (`getMemoryStore()`), read-only. `getMemoryStore()` throwing (memory off by default, or
    * unavailable on this host — `WorkspaceAuthorityRequiredError`) becomes the panel's plain message,
    * never a thrown error — the same fix `executeMemoryCommand` needed for the red toast.
@@ -995,7 +1128,7 @@ export class InteractiveSession
 
   off<E extends TInteractiveEventName>(event: E, handler: IInteractiveSessionEvents[E]): void {
     this.listeners.get(event)?.delete(handler as (...args: unknown[]) => void);
-    // REMOTE-007 D2: if a surface just detached and the gating event dropped to zero listeners,
+    // If a surface just detached and the gating event dropped to zero listeners,
     // reconcile any still-parked prompt of that kind fail-closed (a disconnect mid-prompt cannot hang).
     if (event === 'permission_request' || event === 'ask_request') {
       this.promptRegistry.reconcileOnDetach(event);
@@ -1032,7 +1165,7 @@ export class InteractiveSession
     rawInput?: string,
     options: ISubmitOptions = {},
   ): Promise<ITurnHandle> {
-    // #3282 §3: no provider is configured yet — refuse the turn outright rather than reaching the
+    // No provider is configured yet — refuse the turn outright rather than reaching the
     // placeholder provider. A client shows a setup screen instead of a composer while this holds
     // (see `getStatusSnapshot().setupRequired`); this is the backstop for one that submits anyway.
     if (this.setupRequired) {
@@ -1114,6 +1247,7 @@ export class InteractiveSession
   }
 
   private async executeAcceptedTurn(entry: IQueuedInput): Promise<void> {
+    if (!this.admitRestoredWake(entry)) return;
     try {
       this.getSessionOrThrow().assertInputAllowed();
     } catch (error) {
@@ -1203,6 +1337,7 @@ export class InteractiveSession
       const memory = await this.injectedMemoryStore.loadStartupMemory();
       this.rebuildLivePrompt({ memoryMd: memory.content });
     }
+    if (!this.admitRestoredWake(entry)) return;
     await this.execCtrl.executePrompt(
       input,
       displayInput,
@@ -1221,20 +1356,20 @@ export class InteractiveSession
     );
   }
 
-  // REMOTE-014 E5: active-turn attribution; null when idle.
+  // Active-turn attribution; null when idle.
   getActiveDriverId(): TDriverId | null {
     return this.execCtrl.activeDriverId;
   }
 
-  // REMOTE-014 E5: queued co-drive input count.
+  // Queued co-drive input count.
   getPendingCount(): number {
     return this.execCtrl.pendingCount();
   }
 
   /**
-   * FLOW-002: inject a background wake; coalesce repeated in-flight wakes by source task id.
+   * Inject a background wake; coalesce repeated in-flight wakes by source task id.
    *
-   * Issue #2354: the woken turn is an ordinary `submitNewTurn` and runs under THIS session's
+   * The woken turn is an ordinary `submitNewTurn` and runs under THIS session's
    * permission configuration (mode, rules, hooks, consent) — a schedule carries no policy of its own,
    * by the decision recorded on `IScheduledBackgroundTaskRequest`. `turnSource: 'agent-wakeup'` is
    * how a consumer tells it apart from a typed prompt; it does not change what the turn may do.
@@ -1286,7 +1421,7 @@ export class InteractiveSession
     if (this.stoppedWakeTaskIds.has(sourceTaskId)) return false;
     if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return false;
     this.execCtrl.wakeTaskIds.add(sourceTaskId);
-    // RUNTIME-26: the wake turn runs detached — route its rejection to reportBackgroundError instead of
+    // The wake turn runs detached — route its rejection to reportBackgroundError instead of
     // letting it vanish (e.g. a turn error, or the "shutting down" throw when a wake races teardown).
     void this.submitNewTurn(instruction, displayInput, undefined, {
       turnSource: 'agent-wakeup',
@@ -1300,6 +1435,11 @@ export class InteractiveSession
       );
     });
     return true;
+  }
+
+  private clearSessionLoopExpiryTimers(): void {
+    for (const timer of this.sessionLoopExpiryTimers.values()) clearTimeout(timer);
+    this.sessionLoopExpiryTimers.clear();
   }
 
   private armSessionLoopExpiry(task: IBackgroundTaskState, retryDelayMs?: number): void {
@@ -1411,7 +1551,7 @@ export class InteractiveSession
     return state;
   }
 
-  /** #3189: stop the one loop waiting for its wake; with several waiting, say how to choose. */
+  /** Stop the one loop waiting for its wake; with several waiting, say how to choose. */
   stopWaitingSelfPacedLoop(reason?: string): Promise<TWaitingLoopStopOutcome> {
     return stopWaitingSelfPacedLoop(
       {
@@ -1634,6 +1774,7 @@ export class InteractiveSession
   }
 
   override async cancelBackgroundTask(taskId: string, reason?: string): Promise<void> {
+    if (this.execCtrl.shuttingDown) throw new Error('The session is shutting down.');
     const task = this.getBackgroundTaskManager()?.get(taskId);
     if (task?.metadata?.['sessionLoopSelfPaced'] === true) {
       const loopId = task.metadata['sessionLoopId'];
@@ -1730,10 +1871,10 @@ export class InteractiveSession
   abort(): void {
     for (const error of this.skillRouter.abortSkillActivations())
       this.reportBackgroundError(error, 'skill-activation');
-    // REMOTE-014 E5: clearing the WHOLE shared queue is an OWNER-PRINCIPLE-legit cross-driver effect — emit an
+    // Clearing the WHOLE shared queue is an OWNER-PRINCIPLE-legit cross-driver effect — emit an
     // attributed notice so a co-driver whose queued input was cleared sees why (and every wakeTaskId is freed).
     this.notifyQueueCleared(this.execCtrl.clearPendingQueue(), 'aborted');
-    // REMOTE-007 D3: deny/cancel every parked prompt so an aborted turn never leaves the enforcer's
+    // Deny/cancel every parked prompt so an aborted turn never leaves the enforcer's
     // `await` (or a wrapped tool) hanging — reproduces the TUI's cancel-all-permissions/actions semantics.
     this.promptRegistry.drain();
     this.session?.abort();
@@ -1744,7 +1885,7 @@ export class InteractiveSession
     this.promptRegistry.drain();
   }
 
-  /** REMOTE-014 E5: emit an attributed system notice when a whole-queue clear dropped other drivers' input. */
+  /** Emit an attributed system notice when a whole-queue clear dropped other drivers' input. */
   private notifyQueueCleared(clearedDrivers: TDriverId[], verb: 'aborted' | 'cancelled'): void {
     const others = clearedDrivers.filter((d) => d !== OWNER_DRIVER_ID);
     if (others.length > 0) {
@@ -1757,10 +1898,10 @@ export class InteractiveSession
 
   shutdown(options: IInteractiveSessionShutdownOptions = {}): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
+    this.discardAcceptedAdmission();
     this.execCtrl.shuttingDown = true;
     this.externalEventIngress?.closeAll();
-    for (const timer of this.sessionLoopExpiryTimers.values()) clearTimeout(timer);
-    this.sessionLoopExpiryTimers.clear();
+    this.clearSessionLoopExpiryTimers();
     this.shutdownPromise = (async () => {
       try {
         await this.ensureInitialized();
@@ -1769,15 +1910,19 @@ export class InteractiveSession
         session?.abort();
         const moduleShutdownErrors = await this.skillRouter.shutdownModules();
         await this.runtimeTools.drain();
+        const preservedSchedules =
+          this.sessionStore !== undefined && this.bgTracker.preserveSchedulesForShutdown();
         await this.getBackgroundTaskManager()?.shutdown(options.message ?? 'Session shutdown');
         this.bgTracker.dispose();
-        await this.captureSandboxSnapshot();
-        this.persistCurrentSession();
+        if (!this.discardedAcceptedAdmission) {
+          await this.captureSandboxSnapshot();
+          this.persistCurrentSession(preservedSchedules);
+        }
         await session?.shutdown({ reason: options.reason ?? 'other' });
         // Shutdown can still write the session log, so keep the record claimed until it finishes.
         // A refusal still standing is saved as a copy and said while listeners still hear it.
         this.recordClaim?.end();
-        // REMOTE-007 D3: drain before dropping listeners so any prompt still parked at shutdown settles
+        // Drain before dropping listeners so any prompt still parked at shutdown settles
         // fail-closed (the awaiting checkPermission/tool unblocks) rather than hanging on a cleared emitter.
         this.promptRegistry.drain();
         this.execCtrl.appViews.clear();
@@ -1787,6 +1932,7 @@ export class InteractiveSession
         }
       } finally {
         this.recordClaim?.end();
+        this.bgTracker.releaseTaskIdReservation();
       }
     })();
     return this.shutdownPromise;
@@ -1799,7 +1945,44 @@ export class InteractiveSession
    * persists nothing.
    */
   releaseSessionClaim(): void {
-    this.recordClaim?.end();
+    this.loseRestoredOwnership();
+  }
+
+  private loseRestoredOwnership(): void {
+    if (this.restoredOwnershipLost) return;
+    this.restoredOwnershipLost = true;
+    const ids = this.bgTracker.invalidateRestoredSchedules(this.sessionId, () =>
+      this.recordClaim?.loseWriter(),
+    );
+    for (const id of ids) {
+      this.stoppedWakeTaskIds.add(id);
+      this.execCtrl.wakeTaskIds.delete(id);
+    }
+    if (this.recordClaim)
+      this.execCtrl.failPendingQueue(new Error('Session writer claim was lost.'));
+    if (this.recordClaim && this.execCtrl.executing) {
+      this.promptRegistry.drain();
+      this.session?.abort();
+    }
+    this.clearSessionLoopExpiryTimers();
+    if (this.recordClaim)
+      this.reportBackgroundError(new Error('Session writer claim was lost.'), 'session-claim');
+  }
+
+  private admitRestoredWake(entry: IQueuedInput): boolean {
+    const id = entry.options.wakeTaskId;
+    if (this.restoredOwnershipLost && this.recordClaim) {
+      this.execCtrl.turns.fail(entry.turnId, new Error('Session writer claim was lost.'));
+      if (id) this.execCtrl.wakeTaskIds.delete(id);
+      return false;
+    }
+    if (!id || !this.bgTracker.requiresWriterForWake(id, this.sessionId)) return true;
+    if (!this.restoredOwnershipLost && this.recordClaim?.holdsWriter(this.sessionId) === true)
+      return true;
+    this.loseRestoredOwnership();
+    this.execCtrl.turns.fail(entry.turnId, new Error('Session writer claim was lost.'));
+    this.execCtrl.wakeTaskIds.delete(id);
+    return false;
   }
 
   get isInitialized(): boolean {
@@ -1835,8 +2018,8 @@ export class InteractiveSession
 
   /**
    * The ONE way a preset field reaches the live prompt — recompose from the tracked context entries
-   * plus the override. No-op before init. Extracted by ARCH-040: PRESET-014 and PRESET-017 were the
-   * same five lines twice, and a third copy is how the next one diverges.
+   * plus the override. No-op before init. Persona and self-verification share it: separate
+   * copies are how the next preset field diverges.
    */
   private rebuildLivePrompt(overrides: TLivePromptOverrides): void {
     if (this.rebuildSystemMessage === null) return;
@@ -1872,9 +2055,9 @@ export class InteractiveSession
   }
 
   /**
-   * PRESET-015: re-apply a preset's command-module selection to the live session by delegating to
+   * Re-apply a preset's command-module selection to the live session by delegating to
    * the skill router, which re-filters the session-start module set and rebuilds the executor.
-   * INFRA-032: returns any `enabled`/`disabled` names that matched no live command module so the
+   * Returns any `enabled`/`disabled` names that matched no live command module so the
    * `/preset` command can surface them as a non-fatal notice.
    */
   applyCommandModuleSelection(
@@ -1889,11 +2072,11 @@ export class InteractiveSession
   }
 
   /**
-   * CMD-004: the command "ask the user" port, or undefined when no interactive surface can answer
+   * The command "ask the user" port, or undefined when no interactive surface can answer
    * (headless/automation) — a command must treat absence as "no human available", never a silent
    * guess. The model-invocation guard lives in {@link createUserInteractionPort}.
    *
-   * REMOTE-007 D4a: the framework's ask default is now always defined, so PRESENCE is gated on the live
+   * The framework's ask default is always defined, so PRESENCE is gated on the live
    * `ask_request` listener count (evaluated per call — the port is rebuilt each call). Zero subscribed
    * surfaces ⇒ `undefined`, preserving the load-bearing headless "no-human ⇒ proceed" contract
    * (`/exit` exits, `/clear` clears); a subscribed TUI/WS/WebRTC surface ⇒ a live port. This is
@@ -1905,7 +2088,7 @@ export class InteractiveSession
   }
 
   /**
-   * REMOTE-007: answer a pending `permission_request` by id (any attached surface; first resolve wins,
+   * Answer a pending `permission_request` by id (any attached surface; first resolve wins,
    * later resolves for a settled id are no-ops). Idempotent and safe for an unknown/settled id.
    */
   resolvePermission(
@@ -1913,27 +2096,27 @@ export class InteractiveSession
     result: TPermissionResultValue,
     answererDriverId?: TDriverId,
   ): void {
-    // REMOTE-014 E5: a LOCAL answer (no explicit id) is the owner; a remote transport injects its bound id.
+    // A LOCAL answer (no explicit id) is the owner; a remote transport injects its bound id.
     this.promptRegistry.resolvePermission(id, result, answererDriverId ?? OWNER_DRIVER_ID);
   }
 
-  /** REMOTE-007: answer a pending `ask_request` by id (see {@link resolvePermission}). REMOTE-014: `answererDriverId`. */
+  /** Answer a pending `ask_request` by id (see {@link resolvePermission}). Optional `answererDriverId` attributes the answer. */
   resolveAsk(id: string, response: TActionResponse, answererDriverId?: TDriverId): void {
     this.promptRegistry.resolveAsk(id, response, answererDriverId ?? OWNER_DRIVER_ID);
   }
 
-  /** TERM-001 — see {@link SessionTerminalHandoffGate}. */
+  /** See {@link SessionTerminalHandoffGate}. */
   canHandoffTerminal(): boolean {
     return this.terminalHandoffGate.canHandoffTerminal();
   }
 
-  /** TERM-001 — see {@link SessionTerminalHandoffGate}. */
+  /** See {@link SessionTerminalHandoffGate}. */
   runWithTerminal<T>(fn: () => Promise<T>): Promise<T> {
     return this.terminalHandoffGate.runWithTerminal(fn);
   }
 
   /**
-   * CLI-1994: write a COPY of this conversation under a fresh id and a distinct name. The copy
+   * Write a COPY of this conversation under a fresh id and a distinct name. The copy
    * carries the messages, the assembled system message, the tool schemas and the transcript; it
    * drops what the startup `--fork-session` drops. This session is untouched — the caller (`/fork`)
    * starts the background job that resumes the copy, and attaching to it later is a view switch,
@@ -1958,8 +2141,8 @@ export class InteractiveSession
   }
 
   /**
-   * `/cd` (issue #3081): check the move, copy the conversation for the target, and hand both to the
-   * host, which starts the session there. This session is never re-rooted (ARCH-043).
+   * `/cd`: check the move, copy the conversation for the target, and hand both to the
+   * host, which starts the session there. This session is never re-rooted.
    */
   async moveWorkspace(requestedPath: string): Promise<string> {
     await this.ensureInitialized();
@@ -2026,14 +2209,14 @@ export class InteractiveSession
     this.execCtrl.appViews.clear();
     this.persistCurrentSession();
     this.emit('context_update', this.getContextState());
-    this.emit('history_cleared'); // CMD-004 Stage E: broadcast — every surface refreshes its transcript
+    this.emit('history_cleared'); // Broadcast — every surface refreshes its transcript
   }
 
   getName(): string | undefined {
     return this.sessionName;
   }
 
-  /** The one status read every client renders beside the conversation (#3186). */
+  /** The one status read every client renders beside the conversation. */
   getStatusSnapshot(): ISessionStatusSnapshot {
     const session = this.getSessionOrThrow();
     let workspace: { name: string; path: string } | undefined;
@@ -2058,7 +2241,7 @@ export class InteractiveSession
   }
 
   /**
-   * The models a client's model menu may switch to (#3282 §2), grouped by configured provider
+   * The models a client's model menu may switch to, grouped by configured provider
    * profile. Reads the same merged settings and `providerDefinitions` `/provider switch` and
    * `/model` already read, so the GUI's list and what `/model <id>` accepts never drift apart.
    */
@@ -2075,7 +2258,7 @@ export class InteractiveSession
   }
 
   /**
-   * #3282 §3 — {@link ICommandHostSetupState}: whether THIS session is still running the placeholder
+   * {@link ICommandHostSetupState}: whether THIS session is still running the placeholder
    * provider. `/provider add` reads this (never settings) to decide hot-swap vs. restart, because a
    * settings-inferred "no `currentProvider`" is also true of an ordinary env-default session that was
    * never in setup mode.
@@ -2099,7 +2282,7 @@ export class InteractiveSession
         this.sessionName = name; // Session not initialized yet — nothing on disk to rename.
         return;
       }
-      // TRANS-007: the store outcome is NOT swallowed. It used to sit inside the catch above, so a
+      // The store outcome is NOT swallowed. It used to sit inside the catch above, so a
       // record this build cannot read made the rename a silent no-op.
       persistSessionRename(this.sessionStore, id, name);
     }
@@ -2116,7 +2299,7 @@ export class InteractiveSession
 
   /**
    * Surface an error that happened OUTSIDE the turn boundary (background task, catalog
-   * refresh, persistence, un-caught promise) into the conversation (ERR-001 G1). The entry
+   * refresh, persistence, un-caught promise) into the conversation. The entry
    * carries `metadata.kind: 'error'` so transports render it as a styled error block, and the
    * 'error' event drives transport error state. The session stays fully usable.
    */
@@ -2147,6 +2330,7 @@ export class InteractiveSession
     strict = false,
     acceptedLoopId?: string,
     loopStateOverride?: readonly ISessionLoopState[],
+    restoreTransaction = false,
   ): void {
     if (!this.sessionStore || !this.session) {
       if (strict) throw new Error('A session store is required for a resumable loop.');
@@ -2176,6 +2360,7 @@ export class InteractiveSession
       strict,
       state.sessionLoops,
       this.reportRefusedSave,
+      restoreTransaction,
     );
   }
 
@@ -2189,7 +2374,7 @@ export class InteractiveSession
     const histState = this.histTracker.getState();
     const goalState = this.goalController.getState();
     const planState = this.planController.getState();
-    // SELFHOST-007: persist the active branch pointer so a branch survives --resume.
+    // Persist the active branch pointer so a branch survives --resume.
     const activeBranchState = this.histTracker.getActiveBranchPointer();
     const sessionLoops = loopStateOverride ?? this.selfPacedLoops.snapshotForOrdinarySave();
     return {
@@ -2250,7 +2435,7 @@ export class InteractiveSession
   }
 
   /**
-   * GOAL-001: assign an autonomous goal and begin pursuing it. The agent takes follow-up turns
+   * Assign an autonomous goal and begin pursuing it. The agent takes follow-up turns
    * on its own until it signals the goal satisfied or a bound fires (max iterations, no-progress,
    * or {@link cancelGoal}). Returns the seeded goal state. Throws on an empty objective.
    */
@@ -2264,12 +2449,12 @@ export class InteractiveSession
     return goal;
   }
 
-  /** GOAL-001: the current goal state, or `null` when no goal has been set. */
+  /** The current goal state, or `null` when no goal has been set. */
   getGoalState(): IGoalState | null {
     return this.goalController.getState();
   }
 
-  /** GOAL-001: cancel an in-flight goal. Returns the stopped state, or `null` when none is active. */
+  /** Cancel an in-flight goal. Returns the stopped state, or `null` when none is active. */
   cancelGoal(): IGoalState | null {
     const stopped = this.goalController.cancel();
     if (stopped) {
@@ -2280,7 +2465,7 @@ export class InteractiveSession
   }
 
   /**
-   * SELFHOST-002: start a plan — draft it (phase `planning`) for review. Establishes the existing
+   * Start a plan — draft it (phase `planning`) for review. Establishes the existing
    * `plan` permission mode so drafting is genuinely read-only (the mutation block), making the
    * "read-only until approved" contract true regardless of the mode the session was in.
    * {@link approvePlan} flips to `acceptEdits`. Returns the seeded artifact; throws on empty objective.
@@ -2295,13 +2480,13 @@ export class InteractiveSession
     return plan;
   }
 
-  /** SELFHOST-002: the current plan artifact, or `null` when no plan has been started. */
+  /** The current plan artifact, or `null` when no plan has been started. */
   getPlanState(): IPlanArtifact | null {
     return this.planController.getState();
   }
 
   /**
-   * SELFHOST-002: approve the current plan. The controller decides the mode flip (`plan →
+   * Approve the current plan. The controller decides the mode flip (`plan →
    * acceptEdits`); THIS method applies it via `setPermissionMode` — the controller never does.
    * Approving auto-applies edits while shell stays per-call confirmed (`MODE_POLICY.acceptEdits`).
    */
@@ -2317,7 +2502,7 @@ export class InteractiveSession
     return decision.plan;
   }
 
-  /** SELFHOST-002: revert the plan to drafting, returning permission mode to `plan`. */
+  /** Revert the plan to drafting, returning permission mode to `plan`. */
   revertPlan(): IPlanArtifact {
     const session = this.getSessionOrThrow(); // fail fast before mutating controller phase
     const decision = this.planController.revert();
@@ -2327,11 +2512,11 @@ export class InteractiveSession
     return decision.plan;
   }
 
-  /** GOAL-001: schedule the next goal-driven turn via the FLOW-002 wakeup primitive. */
+  /** Schedule the next goal-driven turn via the wakeup primitive. */
   private scheduleGoalTurn(prompt: string, goal: IGoalState): void {
     if (this.execCtrl.shuttingDown) return;
     const wakeId = `goal:${goal.id}:${goal.iterations}`;
-    // #3201: the model gets the full instruction; every surface shows one line naming the goal —
+    // The model gets the full instruction; every surface shows one line naming the goal —
     // the same split a self-paced `/loop` iteration makes between its prompt and its display.
     const display = `Goal: ${goal.objective} (iteration ${goal.iterations + 1} of ${goal.maxIterations})`;
     // Defer past the current turn's finalization so the wakeup is not coalesced away and the
@@ -2339,7 +2524,7 @@ export class InteractiveSession
     setTimeout(() => this.requestWakeup(prompt, wakeId, display), 0);
   }
 
-  /** GOAL-001: advance the goal loop after an agent-driven turn completes. */
+  /** Advance the goal loop after an agent-driven turn completes. */
   private handleGoalTurnComplete(result: IExecutionResult): void {
     if (!this.goalController.isActive()) return;
     // Only agent-driven turns advance the goal; a user's own message is not a goal iteration.
@@ -2355,11 +2540,11 @@ export class InteractiveSession
     }
   }
 
-  /** GOAL-001: after a resume, continue pursuing a restored active goal once initialized. */
+  /** After a resume, continue pursuing a restored active goal once initialized. */
   private resumeGoalIfActive(): void {
     const goal = this.goalController.getState();
     if (!goal || goal.status !== 'active') return;
-    // RUNTIME-26: route a detached init/goal-resume rejection to reportBackgroundError rather than dropping it.
+    // Route a detached init/goal-resume rejection to reportBackgroundError rather than dropping it.
     void this.ensureInitialized()
       .then(() => {
         if (!this.goalController.isActive() || this.execCtrl.shuttingDown) return;
@@ -2382,7 +2567,7 @@ export class InteractiveSession
       this.providerEnvironment,
       this.resolveProviderCredential,
     );
-    // #3282 §3: a real provider resolved — whether this switch came from `/provider switch` (already
+    // A real provider resolved — whether this switch came from `/provider switch` (already
     // configured, a no-op here) or from the setup flow's own hot-swap onto the first profile ever
     // added, the session is no longer waiting on setup.
     this.setupRequired = false;
@@ -2414,7 +2599,7 @@ export class InteractiveSession
     session.swapProvider(applied.provider, settings.model);
   }
 
-  /** CMD-004: after the command runs, the HOST applies its host actions via
+  /** After the command runs, the HOST applies its host actions via
    * {@link applyCommandHostActions} and emits requester-routed `ui_intent` events. */
   override async executeCommand(
     name: string,
@@ -2433,7 +2618,7 @@ export class InteractiveSession
         success: false,
       };
     }
-    // #3280 §2: `/goal cancel` is a CONTROL action, not an ordinary command — like abort or
+    // `/goal cancel` is a CONTROL action, not an ordinary command — like abort or
     // cancel-queue, it must work WHILE the goal's own turn is running, exactly when a runaway goal
     // needs stopping (the base class's mid-turn gate below would otherwise refuse it with "Another
     // prompt or command is already running"). Cancel the goal FIRST, so the still-running turn's
@@ -2452,7 +2637,7 @@ export class InteractiveSession
         ? { message: `Goal cancelled: ${stopped.objective}`, success: true }
         : { message: 'No active goal to cancel.', success: false };
     }
-    // #3288 §1: `/loop stop <id>` is a CONTROL action too — it must reach the loop mid-turn, since a
+    // `/loop stop <id>` is a CONTROL action too — it must reach the loop mid-turn, since a
     // runaway loop is exactly when stopping it matters (the base class's mid-turn gate below would
     // otherwise refuse it with "Another prompt or command is already running"). Unlike `/goal
     // cancel`, this does NOT abort the running turn: `stopSelfPacedLoop`/`cancelBackgroundTask` (the

@@ -1,5 +1,5 @@
 /**
- * HANDOFF-001 (#1811): what actually gets built and sent, and how the destination knows it arrived
+ * What actually gets built and sent, and how the destination knows it arrived
  * whole.
  *
  * Session mobility decides whether a source can offer a session and what its inventory says.
@@ -14,8 +14,8 @@
 
 import { createHash } from 'node:crypto';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
-import type { IHandoffIntegrity } from '@robota-sdk/agent-interface-session-mobility';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
+import type { IHandoffIntegrity } from '@robota-sdk/agent-interface/session-mobility';
 
 /**
  * Serialize a record and describe what was serialized.

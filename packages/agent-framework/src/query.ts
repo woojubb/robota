@@ -31,7 +31,7 @@ export interface ICreateQueryOptions {
   userSettingsSources?: readonly IHostSettingsSource[];
   /**
    * Permission mode. Defaults to `'default'`: with no `permissionHandler`, anything that would ask is
-   * denied (issue #3081). Pass `'bypassPermissions'` explicitly for unattended driving.
+   * denied. Pass `'bypassPermissions'` explicitly for unattended driving.
    */
   permissionMode?: TPermissionMode;
   /**
@@ -91,7 +91,7 @@ async function submitQuery(
  * ```typescript
  * import { createQuery } from '@robota-sdk/agent-framework';
  * import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
- * import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+ * import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
  * import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
  *
  * const query = createQuery({

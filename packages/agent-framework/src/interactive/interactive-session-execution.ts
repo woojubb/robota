@@ -32,14 +32,14 @@ import type {
   IEventService,
   TEventListener,
 } from '@robota-sdk/agent-core';
-import type { IUsageSource, ISpanEntry } from '@robota-sdk/agent-interface-analytics';
+import type { IUsageSource, ISpanEntry } from '@robota-sdk/agent-interface/analytics';
 import type { IProviderCallTraceObservation } from '@robota-sdk/agent-session';
-import type { ILivePromptQueueSummary } from '@robota-sdk/agent-interface-analytics';
+import type { ILivePromptQueueSummary } from '@robota-sdk/agent-interface/analytics';
 import { LiveQueueSummary } from './interactive-session-queue-summary.js';
 
 export { createUsageObservationEntry } from './interactive-session-usage-observation.js';
 
-/** Detect an abort/cancel. CORE-027: the substring heuristic that stood here reported a provider
+/** Detect an abort/cancel. A substring heuristic would report a provider
  * failure as the user's own cancellation; `isAbortFailure` owns the decision and says why. */
 export function isAbortError(err: unknown): boolean {
   return isAbortFailure(err);
@@ -133,11 +133,11 @@ export function createUsageSummaryEntry(usage: IUsageSnapshot): IHistoryEntry<IU
 }
 
 /**
- * ANALYTICS-001 (Phase 2): build a usage-summary entry attributed to a non-main source (a subagent /
+ * Build a usage-summary entry attributed to a non-main source (a subagent /
  * background task) so the parent session log can report token usage per source. Context fields are
  * not meaningful for a child run and are left at 0; the usage reducer only reads the token totals.
  * Cost is NOT derived here (no model id is in scope for the child run), so `costStatus: 'unknown'`
- * and `costUsd` is omitted — honoring the SELFHOST-004 invariant "costUsd present iff costStatus !==
+ * and `costUsd` is omitted — honoring the invariant "costUsd present iff costStatus !==
  * 'unknown'" (the `kind: 'exact'` still reflects exact TOKENS).
  */
 export function createSourceUsageSummaryEntry(
@@ -159,11 +159,11 @@ export function createSourceUsageSummaryEntry(
 }
 
 /**
- * SELFHOST-004 (P2, TC-07): build a per-operation span entry from the `agent-core` span-completion
+ * Build a per-operation span entry from the `agent-core` span-completion
  * event (`ISpanCompletionEventData`), mirroring `createUsageSummaryEntry`. This is the ONLY place the
  * event's joined `spanId + durationMs + op` becomes a record-side `IHistoryEntry<ISpanEntry>` — so
  * `agent-core` surfaces raw timing while `agent-framework` (which already depends on transport) owns
- * the record projection. No `agent-core → agent-interface-transport` edge; no `agent-plugin` edge.
+ * the record projection. No `agent-core → agent-interface/transport` edge; no `agent-plugin` edge.
  */
 export function createSpanEntry(event: ISpanCompletionEventData): IHistoryEntry<ISpanEntry> {
   return {
@@ -225,7 +225,7 @@ export interface IToolPermissionDecisionObservation {
 }
 
 /**
- * SELFHOST-004 (P6): subscribe to a session's event bus and project each `SPAN_EVENTS.COMPLETED`
+ * Subscribe to a session's event bus and project each `SPAN_EVENTS.COMPLETED`
  * event into a record span entry (via {@link createSpanEntry}). The interactive turn drains the
  * collected entries onto `history` at the turn boundary — BEFORE the turn's `usage-summary` entry —
  * so the read-model groups them under the owning turn. Tools publish raw (unbound) local event names,

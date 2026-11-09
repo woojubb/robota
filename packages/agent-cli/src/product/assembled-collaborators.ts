@@ -1,7 +1,7 @@
 import type { IAssembledProduct } from '@robota-sdk/agent-product';
 
 /**
- * CLI-078 (issue #2443): the runner collaborators every mode receives are the ones ASSEMBLY returned.
+ * The runner collaborators every mode receives are the ones ASSEMBLY returned.
  *
  * Decision recorded here: `backgroundTaskRunners` and `subagentRunnerFactory` are product-fold
  * OUTPUTS, not shell exceptions. The shell still constructs them (the fold takes them as profile
@@ -11,7 +11,7 @@ import type { IAssembledProduct } from '@robota-sdk/agent-product';
  *
  * The fold passes both through by identity. This binding VERIFIES that rather than assuming it: a
  * fold that one day substitutes a collaborator would otherwise leave the modes on the shell's input
- * while the product carried something else — the split CLI-078 was filed for, reintroduced silently.
+ * while the product carried something else — a silent split between shell and product.
  *
  * `TInput` keeps the shell's narrower types (the child-process factory) for the modes' signatures.
  */

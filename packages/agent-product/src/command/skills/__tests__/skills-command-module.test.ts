@@ -1,0 +1,206 @@
+import { describe, expect, it, vi } from 'vitest';
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  InteractiveSession,
+  SystemCommandExecutor,
+  WorkspaceTrustService,
+} from '@robota-sdk/agent-framework';
+import { createNodeHostContributionSource } from '@robota-sdk/agent-framework/node';
+import { createSkillsCommandModule } from '../skills-command-module.js';
+import {
+  createTestCommandHost,
+  type ICreateTestCommandHostOptions,
+  createTestFrameworkHost,
+} from '@robota-sdk/agent-framework/testing';
+
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
+import type { IWorkspaceIdentity, IWorkspaceTrustStore } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
+
+async function createTrustedProjectAccess(cwd: string) {
+  const root = realpathSync(cwd);
+  const identity: IWorkspaceIdentity = {
+    repositoryKey: `skills-command-test:${root}`,
+    displayPath: root,
+    worktreeRoot: root,
+  };
+  const store: IWorkspaceTrustStore = {
+    inspect: () => Promise.resolve({ state: 'trusted', generation: 1 }),
+    grant: () => Promise.resolve({ state: 'trusted', generation: 1 }),
+    revoke: () => Promise.resolve({ state: 'revoked', generation: 2 }),
+  };
+  return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
+    identityResolver: { resolve: () => identity },
+    store,
+  }).inspect(root);
+}
+
+function createTempSkill(cwd: string): void {
+  const skillDir = join(cwd, '.agents', 'skills', 'audit');
+  mkdirSync(skillDir, { recursive: true });
+  writeFileSync(
+    join(skillDir, 'SKILL.md'),
+    ['---', 'name: audit', 'description: Audit code', '---', 'Audit $ARGUMENTS'].join('\n'),
+    'utf8',
+  );
+}
+
+function makeParentSession() {
+  return {
+    run: vi.fn().mockResolvedValue('parent response'),
+    abort: vi.fn(),
+    assertInputAllowed: vi.fn(),
+    getHistory: vi.fn().mockReturnValue([]),
+    getContextState: vi.fn().mockReturnValue({
+      usedPercentage: 10,
+      usedTokens: 100,
+      maxTokens: 1000,
+    }),
+    injectMessage: vi.fn(),
+    getSessionId: vi.fn().mockReturnValue('parent-session-id'),
+    // The span collector subscribes to the session bus each turn.
+    getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
+    getSystemMessage: vi.fn().mockReturnValue('# system'),
+    getToolSchemas: vi.fn().mockReturnValue([]),
+  };
+}
+
+function createMockContext(overrides?: ICreateTestCommandHostOptions['overrides']) {
+  // Overrides over a conformant host rather than a 20-member literal asserting it IS one.
+  return createTestCommandHost({
+    overrides: {
+      getSession: vi.fn(),
+      getContextState: vi.fn(),
+      getAutoCompactThreshold: vi.fn().mockReturnValue(0.835),
+      compactContext: vi.fn(),
+      getCwd: vi.fn().mockReturnValue('/workspace'),
+      listEditCheckpoints: vi.fn().mockReturnValue([]),
+      restoreEditCheckpoint: vi.fn(),
+      rollbackEditCheckpoint: vi.fn(),
+      getUsedMemoryReferences: vi.fn().mockReturnValue([]),
+      recordMemoryEvent: vi.fn(),
+      listBackgroundTasks: vi.fn().mockReturnValue([]),
+      readBackgroundTaskLog: vi.fn(),
+      cancelBackgroundTask: vi.fn(),
+      closeBackgroundTask: vi.fn(),
+      ...overrides,
+    },
+  });
+}
+
+describe('createSkillsCommandModule', () => {
+  it('exposes skills as a normal model-invocable command module', () => {
+    const module = createSkillsCommandModule({ contributionSources: [] });
+    const command = module.systemCommands?.[0];
+
+    expect(module.name).toBe('agent-command-skills');
+    expect(module.commandSources?.[0]?.getCommands().map((entry) => entry.name)).toEqual([
+      'skills',
+      'skill-read',
+    ]);
+    expect(command).toMatchObject({
+      name: 'skills',
+      semanticRole: 'skillActivation',
+      userInvocable: true,
+      modelInvocable: true,
+      lifecycle: 'inline',
+      argumentHint: '[list | <skill-name> [args]]',
+      safety: 'read-only',
+    });
+    expect(command?.modelDescription).toContain('projected skills command tool');
+  });
+
+  it('lists skill metadata from the SDK host context', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createSkillsCommandModule({ contributionSources: [] }).systemCommands ?? []),
+    ]);
+
+    const result = await executor.execute(
+      'skills',
+      createMockContext({
+        listSkills: vi.fn().mockReturnValue([
+          {
+            name: 'repo-writing',
+            description: 'Repository writing rules',
+            source: 'skill',
+            modelInvocable: true,
+            userInvocable: true,
+          },
+        ]),
+      }),
+      '',
+    );
+
+    expect(result?.message).toContain('repo-writing: Repository writing rules');
+    expect(result?.message).toContain('Use /skills <skill-name> [args]');
+    expect(result?.data?.['activationContract']).toMatchObject({
+      activateWith: '/skills <skill-name> [args]',
+      activationRequiredBeforeWorkflow: true,
+    });
+  });
+
+  it('activates skills through the SDK host skill activation API', async () => {
+    const executeSkillCommandByName = vi.fn().mockResolvedValue({
+      success: true,
+      message: 'Skill activated: repo-writing',
+      data: { skill: 'repo-writing' },
+    });
+    const executor = new SystemCommandExecutor([
+      ...(createSkillsCommandModule({ contributionSources: [] }).systemCommands ?? []),
+    ]);
+
+    const result = await executor.execute(
+      'skills',
+      createMockContext({
+        getCommandInvocationSource: vi.fn().mockReturnValue('model'),
+        executeSkillCommandByName,
+      }),
+      'repo-writing update docs',
+    );
+
+    expect(executeSkillCommandByName).toHaveBeenCalledWith('repo-writing', 'update docs', {
+      invocationSource: 'model',
+      displayInput: '/repo-writing update docs',
+      rawInput: '/repo-writing update docs',
+    });
+    expect(result?.message).toBe('Skill activated: repo-writing');
+  });
+
+  it('lets the SDK normalize virtual /skill-name commands into the composed skills command', async () => {
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-skills-command-module-')));
+    createTempSkill(cwd);
+    const parentSession = makeParentSession();
+    const session = new InteractiveSession({
+      host: testHost,
+      session: parentSession as never,
+      cwd,
+      projectAccess: await createTrustedProjectAccess(cwd),
+      contributionSources: [createNodeHostContributionSource(cwd)],
+      skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
+      commandModules: [
+        createSkillsCommandModule({
+          contributionSources: [createNodeHostContributionSource(cwd)],
+          skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
+        }),
+      ],
+    });
+
+    const result = await session.executeCommand('audit', 'src/index.ts');
+
+    expect(result).toMatchObject({
+      success: true,
+      data: expect.objectContaining({
+        skill: 'audit',
+        sessionExecution: true,
+      }),
+    });
+    expect(parentSession.run).toHaveBeenCalledWith(
+      expect.stringContaining('Audit src/index.ts'),
+      '/audit src/index.ts',
+    );
+  });
+});

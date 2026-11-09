@@ -1,10 +1,10 @@
 /**
- * SCREEN-1993 — the prompt-history file at the path the host names (its user-level `history.jsonl`):
+ * The prompt-history file at the path the host names (its user-level `history.jsonl`):
  * one JSON object per line, append-only, owner-only. A derived projection of what the session record
  * already holds, kept so the terminal UI can search prompts across sessions and projects without
  * decoding a record.
  *
- * Writes follow the `NodeSessionLogSink` regime (SEC-020): the directory is made owner-only when the
+ * Writes follow the `NodeSessionLogSink` regime: the directory is made owner-only when the
  * file is constructed, and every append tightens the file before writing with the owner-only mode.
  * Reads walk the file BACKWARDS in fixed blocks so the newest prompts are yielded first and the UI
  * can render them before the rest is read; the file is opened no-follow like every other session
@@ -32,7 +32,7 @@ import type {
   IPromptHistoryReadOptions,
   IPromptHistorySource,
   IPromptHistoryWriter,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const KIB = 1024;
 const DEFAULT_BLOCK_KIB = 64;
@@ -44,7 +44,7 @@ const NEWLINE = 0x0a;
 export const PROMPT_HISTORY_OWNER_ID = 'user';
 
 export interface INodePromptHistoryFileOptions extends ISessionStoreOptions {
-  /** An ancestor of the file the host also owns, tightened along with the directory (SEC-020). */
+  /** An ancestor of the file the host also owns, tightened along with the directory. */
   readonly ownedRoot?: string;
   /** Test seam: the read block size in bytes. */
   readonly blockBytes?: number;
@@ -140,7 +140,7 @@ export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHisto
       directory,
       this.ownedRoot === undefined ? {} : { withinRoot: this.ownedRoot },
     );
-    // SEC-020: `mode` applies only when the file is created; tightening first repairs an older file.
+    // `mode` applies only when the file is created; tightening first repairs an older file.
     tightenExistingFile(this.path);
     appendFileSync(this.path, stored, { mode: OWNER_ONLY_FILE_MODE });
   }
@@ -158,7 +158,15 @@ export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHisto
       throw error;
     }
     try {
-      let position = fstatSync(descriptor).size;
+      const opened = fstatSync(descriptor);
+      // POSIX fails the first read of a directory; Windows opens one and reads it as empty, which
+      // would show a path that is not a history file as a history with nothing in it.
+      if (opened.isDirectory()) {
+        throw Object.assign(new Error('EISDIR: illegal operation on a directory, read'), {
+          code: 'EISDIR',
+        });
+      }
+      let position = opened.size;
       // The bytes after the last newline seen so far: a line the previous block cut in half.
       let carry = Buffer.alloc(0);
       // The first block yielded holds the end of the file, and so any append still in progress.

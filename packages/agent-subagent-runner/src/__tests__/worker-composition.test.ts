@@ -10,7 +10,7 @@ import { SUBAGENT_WORKER_MODE_FLAG } from '../index.js';
 import { sealConnectionEnvironment } from '@robota-sdk/agent-executor';
 
 /**
- * ARCH-021 TC-01 — the injected composition is what the worker uses, on the REAL entry point.
+ * The injected composition is what the worker uses, on the REAL entry point.
  *
  * `agent-cli`'s bintest asserts what agent composes, but `composedToolNames` is derived from the
  * composition independently of `runInitialPrompt`, so it stays green if `parentTools:` is reverted or
@@ -22,7 +22,7 @@ import { sealConnectionEnvironment } from '@robota-sdk/agent-executor';
  */
 const ENTRY = fileURLToPath(new URL('./fixtures/composition-worker-entry.mjs', import.meta.url));
 const DIST = fileURLToPath(new URL('../../dist/node/index.js', import.meta.url));
-const SCRATCH_TOOL_NAME = 'arch021ScratchTool';
+const SCRATCH_TOOL_NAME = 'scratchTool';
 const TEST_TIMEOUT_MS = 30_000;
 
 interface IWorkerObservation {
@@ -39,11 +39,14 @@ interface IWorkerObservation {
 function runWorker(options: {
   start?: { cwd: string; worktree?: string; snapshotId?: string };
 }): Promise<IWorkerObservation> {
-  const recordPath = join(realpathSync(mkdtempSync(join(tmpdir(), 'arch-021-'))), 'records.jsonl');
+  const recordPath = join(
+    realpathSync(mkdtempSync(join(tmpdir(), 'worker-composition-'))),
+    'records.jsonl',
+  );
   return new Promise<IWorkerObservation>((resolve, reject) => {
     const child = spawn(process.execPath, [ENTRY, SUBAGENT_WORKER_MODE_FLAG], {
       stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
-      env: { ...process.env, ARCH_021_RECORD_PATH: recordPath },
+      env: { ...process.env, WORKER_RECORD_PATH: recordPath },
     });
     let stderr = '';
     child.stderr?.setEncoding('utf8');
@@ -92,7 +95,7 @@ function runWorker(options: {
           ...(options.start.snapshotId
             ? { sandboxProjection: { type: 'scratch', snapshotId: options.start.snapshotId } }
             : {}),
-          // ARCH-044: both DTOs are decoded totally at the worker, so the fixture carries every
+          // Both DTOs are decoded totally at the worker, so the fixture carries every
           // required field — a payload the guard refuses never reaches `createTools` at all.
           agentDefinition: {
             name: 'general-purpose',
@@ -101,7 +104,7 @@ function runWorker(options: {
           },
           parentConfig: {},
           parentContext: { agentsMd: '', projectNotesMd: '' },
-          providerProfile: { type: 'arch021-scratch-provider', model: 'scratch-model' },
+          providerProfile: { type: 'scratch-provider', model: 'scratch-model' },
           // The environment check the parent seals before spawning; this test compares none.
           connectionCheck: sealConnectionEnvironment([], {}),
         },
@@ -119,58 +122,55 @@ function runWorker(options: {
   });
 }
 
-describe.skipIf(!existsSync(DIST))(
-  'ARCH-021 — the injected composition reaches the real worker',
-  () => {
-    it(
-      'declares the INJECTED tool surface, not an imported default set',
-      async () => {
-        const { ready } = await runWorker({});
+describe.skipIf(!existsSync(DIST))('the injected composition reaches the real worker', () => {
+  it(
+    'declares the INJECTED tool surface, not an imported default set',
+    async () => {
+      const { ready } = await runWorker({});
 
-        // A default tier would report Read/Write/Edit/…; only the injected recipe reports this name.
-        expect(ready?.composedToolNames).toEqual([SCRATCH_TOOL_NAME]);
-      },
-      TEST_TIMEOUT_MS,
-    );
+      // A default tier would report Read/Write/Edit/…; only the injected recipe reports this name.
+      expect(ready?.composedToolNames).toEqual([SCRATCH_TOOL_NAME]);
+    },
+    TEST_TIMEOUT_MS,
+  );
 
-    it(
-      'builds the job tools at the execution root, not at the parent cwd (ARCH-010)',
-      async () => {
-        // The line the bintest cannot reach: `parentTools: composition.createTools({ cwd:
-        // subagentExecutionRoot(payload) })`. Reverting it to `[]`, or to `payload.request.cwd`,
-        // changes what this observes.
-        const worktree = realpathSync(mkdtempSync(join(tmpdir(), 'arch-021-worktree-')));
-        const requestCwd = realpathSync(mkdtempSync(join(tmpdir(), 'arch-021-parent-')));
+  it(
+    'builds the job tools at the execution root, not at the parent cwd',
+    async () => {
+      // The line the bintest cannot reach: `parentTools: composition.createTools({ cwd:
+      // subagentExecutionRoot(payload) })`. Reverting it to `[]`, or to `payload.request.cwd`,
+      // changes what this observes.
+      const worktree = realpathSync(mkdtempSync(join(tmpdir(), 'worker-worktree-')));
+      const requestCwd = realpathSync(mkdtempSync(join(tmpdir(), 'worker-parent-')));
 
-        const { records } = await runWorker({ start: { cwd: requestCwd, worktree } });
+      const { records } = await runWorker({ start: { cwd: requestCwd, worktree } });
 
-        const roots = records.map((record) => record.createToolsCwd).filter(Boolean);
-        // The worktree wins over `request.cwd` — that is `subagentExecutionRoot`.
-        expect(roots).toContain(worktree);
-        expect(roots).not.toContain(requestCwd);
-      },
-      TEST_TIMEOUT_MS,
-    );
-    it(
-      'hands the restored sandbox and execution root to the hook factory',
-      async () => {
-        const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'hook-boundary-parent-')));
-        const worktree = realpathSync(mkdtempSync(join(tmpdir(), 'hook-boundary-child-')));
-        try {
-          const { records } = await runWorker({
-            start: { cwd, worktree, snapshotId: 'task-checkpoint' },
-          });
-          expect(records).toContainEqual({
-            createToolsCwd: worktree,
-            toolSnapshot: 'task-checkpoint',
-          });
-          expect(records).toContainEqual({ hookCwd: worktree, hookSnapshot: 'task-checkpoint' });
-        } finally {
-          rmSync(cwd, { recursive: true, force: true });
-          rmSync(worktree, { recursive: true, force: true });
-        }
-      },
-      TEST_TIMEOUT_MS,
-    );
-  },
-);
+      const roots = records.map((record) => record.createToolsCwd).filter(Boolean);
+      // The worktree wins over `request.cwd` — that is `subagentExecutionRoot`.
+      expect(roots).toContain(worktree);
+      expect(roots).not.toContain(requestCwd);
+    },
+    TEST_TIMEOUT_MS,
+  );
+  it(
+    'hands the restored sandbox and execution root to the hook factory',
+    async () => {
+      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'hook-boundary-parent-')));
+      const worktree = realpathSync(mkdtempSync(join(tmpdir(), 'hook-boundary-child-')));
+      try {
+        const { records } = await runWorker({
+          start: { cwd, worktree, snapshotId: 'task-checkpoint' },
+        });
+        expect(records).toContainEqual({
+          createToolsCwd: worktree,
+          toolSnapshot: 'task-checkpoint',
+        });
+        expect(records).toContainEqual({ hookCwd: worktree, hookSnapshot: 'task-checkpoint' });
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+        rmSync(worktree, { recursive: true, force: true });
+      }
+    },
+    TEST_TIMEOUT_MS,
+  );
+});

@@ -17,8 +17,8 @@ import type {
   ISubagentManager,
   ISubagentRunner,
 } from '@robota-sdk/agent-executor';
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
-import type { ISubagentJobState } from '@robota-sdk/agent-interface-execution';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface/execution';
+import type { ISubagentJobState } from '@robota-sdk/agent-interface/execution';
 import { runSequential } from '../sequential';
 import { createInProcessSubagentRunner } from '../../subagents/index';
 
@@ -108,9 +108,9 @@ const twoStepSpec: ISequentialOrchestrationSpec = {
   ],
 };
 
-describe('SELFHOST-001 P1 — sequential orchestration', () => {
-  // TC-02: the sequential primitive emits its lifecycle events on the event-service.
-  it('TC-02: emits the neutral lifecycle events over the event-service', async () => {
+describe('sequential orchestration', () => {
+  // The sequential primitive emits its lifecycle events on the event-service.
+  it('emits the neutral lifecycle events over the event-service', async () => {
     const { manager } = fakeManager(['plan-out', 'do-out']);
     const { events, names } = capturingEvents();
 
@@ -127,7 +127,7 @@ describe('SELFHOST-001 P1 — sequential orchestration', () => {
     ]);
   });
 
-  it('TC-02b: threads each step output into the next step prompt and returns the aggregate', async () => {
+  it('threads each step output into the next step prompt and returns the aggregate', async () => {
     const { manager, spawns } = fakeManager(['PLAN', 'DONE']);
     const result = await runSequential(twoStepSpec, { manager, context: CONTEXT });
 
@@ -190,12 +190,12 @@ describe('SELFHOST-001 P1 — sequential orchestration', () => {
     );
   });
 
-  // TC-03: framework composes a sequential run end-to-end over agent-executor's
+  // Framework composes a sequential run end-to-end over agent-executor's
   // ISubagentRunner (surfaced as ISubagentManager) — here through a real
   // SubagentManager driving a fake ISubagentRunner. The production runner is
   // createInProcessSubagentRunner (referenced below to prove availability + no
-  // agent-subagent-runner dependency); TC-04 mechanically enforces the no-cycle.
-  it('TC-03: composes end-to-end over a SubagentManager backed by an ISubagentRunner', async () => {
+  // agent-subagent-runner dependency); a dependency check mechanically enforces the no-cycle.
+  it('composes end-to-end over a SubagentManager backed by an ISubagentRunner', async () => {
     const started: string[] = [];
     const runner: ISubagentRunner = {
       start(job: ISubagentJobStart): ISubagentJobHandle {
@@ -205,6 +205,7 @@ describe('SELFHOST-001 P1 — sequential orchestration', () => {
           taskId: job.taskId,
           result: Promise.resolve<ISubagentJobResult>({ taskId: job.taskId, output }),
           cancel: async () => {},
+          send: async () => {},
         };
       },
     };

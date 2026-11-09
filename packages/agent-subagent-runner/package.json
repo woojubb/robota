@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-subagent-runner",
-  "version": "3.0.1",
+  "version": "3.2.5",
   "description": "Child-process subagent runner for Robota SDK — optional package for running subagents in isolated child processes",
   "type": "module",
   "main": "dist/node/index.js",
@@ -51,11 +51,11 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-executor": "workspace:*",
-    "@robota-sdk/agent-framework": "workspace:*",
-    "@robota-sdk/agent-interface-execution": "workspace:*",
-    "@robota-sdk/agent-process": "workspace:*"
+    "@robota-sdk/agent-core": "workspace:^",
+    "@robota-sdk/agent-executor": "workspace:^",
+    "@robota-sdk/agent-framework": "workspace:^",
+    "@robota-sdk/agent-interface": "workspace:^",
+    "@robota-sdk/agent-os": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "^22.19.21",

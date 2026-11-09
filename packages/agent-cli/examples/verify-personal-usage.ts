@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../src/__tests__/helpers/product-runtime.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const exampleDirectory = dirname(fileURLToPath(import.meta.url));
 const cliBinary = join(exampleDirectory, '..', 'dist', 'node', 'bin.js');

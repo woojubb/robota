@@ -1,5 +1,5 @@
 /**
- * Streaming ENTRY into the one execution turn (CORE-042).
+ * Streaming ENTRY into the one execution turn.
  *
  * This file used to be a second execution engine: it re-derived store setup, provider resolution,
  * chat options, provider-message derivation, tool execution, validation, commit and error
@@ -35,14 +35,14 @@ export type TRunExecute = (
  * Run one turn, yield its text deltas, and return the turn's result.
  *
  * The RESULT is returned, not the response string, because `execute()` reports failure by resolving
- * with `success: false` and an `error` rather than by rejecting (CORE-020). Throwing that here would
+ * with `success: false` and an `error` rather than by rejecting. Throwing that here would
  * put the failure rule in two layers; the caller applies the same check `agentRun` applies, so one
  * rule lives in one place.
  *
  * The generator OWNS cancellation, not merely draining. A consumer that stops iterating (`break`,
  * `return`, an exception) must not leave the turn running: `execute()` is an in-flight promise here,
  * and an abandoned turn would keep writing to the conversation store after `ConversationAgent.runStream`'s
- * `finally` has already released the CORE-012 run slot and reset ephemeral history — interleaving a
+ * `finally` has already released the run slot and reset ephemeral history — interleaving a
  * dead turn's writes into the next run. So the `finally` aborts the turn and awaits it to settlement
  * before returning.
  */

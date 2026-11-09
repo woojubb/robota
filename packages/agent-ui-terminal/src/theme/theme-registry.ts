@@ -1,8 +1,8 @@
 /**
- * SCREEN-2002 — the theme catalogue, and the port the command layer asks through.
+ * The theme catalogue, and the port the command layer asks through.
  *
- * The registry is the only thing that turns an ID into a theme. Work unit 1 put the built-ins
- * behind `listBuiltInThemes()`; work unit 3 adds user and plugin themes to the same list, and
+ * The registry is the only thing that turns an ID into a theme. The built-ins sit
+ * behind `listBuiltInThemes()`; user and plugin themes are added to the same list, and
  * nothing downstream has to learn where a theme came from — a row carries its `source` so the
  * picker and `/theme list` can SAY where it came from, which is a different question.
  *
@@ -12,9 +12,7 @@
  */
 import { DEFAULT_THEME_ID, listBuiltInThemes, resolveTheme } from './built-in-themes.js';
 
-// The registry's default source, re-exported from the module that USES it. The package's public
-// surface takes this route rather than the theme barrel: the barrel re-exports `theme-context.tsx`,
-// and a public re-export chain that reaches a `.tsx` is what `sdk-public-surface` refuses.
+// Export the registry's default source from its implementation module.
 export { listBuiltInThemes } from './built-in-themes.js';
 
 import type { ITuiTheme } from './theme-contracts.js';
@@ -23,7 +21,7 @@ import type {
   IThemeCatalogueEntry,
   IThemeCataloguePort,
   TReducedMotionOverride,
-} from '@robota-sdk/agent-interface-command';
+} from '@robota-sdk/agent-interface/command';
 
 /**
  * A theme file that was found and refused. It is carried BESIDE the themes rather than among them,

@@ -6,7 +6,7 @@ import { extractDtlsFingerprint } from '../pairing.js';
 import { describe, expect, it } from 'vitest';
 
 /**
- * REMOTE-009 D6 — GATING security test: DTLS-fingerprint extraction PARITY across SDP dialects.
+ * GATING security test: DTLS-fingerprint extraction PARITY across SDP dialects.
  *
  * The pairing channel binding only holds if the host (werift) and the browser (native `RTCPeerConnection`)
  * extract the SAME normalized fingerprint from the SAME `a=fingerprint` line. These fixtures carry media-level
@@ -27,7 +27,7 @@ const NATIVE_ANSWER = join(__dirname, 'fixtures/native-browser-answer.sdp');
 const EXPECTED =
   'E9:A0:10:9D:94:1C:0A:FC:FE:76:D3:0A:B8:FB:2C:7C:82:E0:A3:83:FF:22:78:62:9B:C3:82:1F:2C:CC:25:A3';
 
-describe('DTLS fingerprint extraction parity (REMOTE-009 D6)', () => {
+describe('DTLS fingerprint extraction parity', () => {
   it('extracts the werift host offer fingerprint (media-level, uppercase)', () => {
     expect(extractDtlsFingerprint(readFileSync(WERIFT_OFFER, 'utf8'))).toBe(EXPECTED);
   });

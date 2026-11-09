@@ -1,5 +1,5 @@
 /**
- * The connection-scoped outbound delivery boundary (ARCH-030).
+ * The connection-scoped outbound delivery boundary.
  *
  * Every outbound `TServerMessage` on one connection — session-event fan-out AND every reply to an
  * inbound frame — goes through ONE boundary that owns carrier-failure containment. Before this
@@ -53,7 +53,7 @@ export type TOutboundDeliver = ((message: TServerMessage) => void) & {
    * a frame that has "been sent" may be sitting in a socket buffer the boundary cannot see. Anything
    * this boundary counted itself would be a count of what it HANDED OVER, which is a different
    * quantity from what the peer has not read — and a budget over the wrong quantity reports a
-   * healthy connection for a peer that stopped reading (ARCH-030 / issue #1734).
+   * healthy connection for a peer that stopped reading.
    *
    * `undefined` is deliberately not `0`. A carrier that cannot report backpressure and a carrier with
    * nothing pending are different states, and collapsing them would let "unknown" satisfy any
@@ -111,7 +111,7 @@ export const ATTACHED_SURFACE_MAX_PENDING_BYTES = BYTES_PER_MIB;
  * Is this carrier holding more than the budget allows?
  *
  * Exported because a WebSocket carries TWO kinds of outbound frame over one socket — the text
- * protocol and TRANS-001's payload channels — and only one of them goes through
+ * protocol and the payload channels — and only one of them goes through
  * {@link createOutboundDelivery}. A budget the binary path re-implemented would be a second opinion
  * about one socket's backpressure; a budget it skipped would leave the same non-reading peer
  * unbounded on the other half of the connection.
@@ -126,7 +126,7 @@ export function isOverPendingBudget(
 }
 
 /**
- * Default outbound DRAIN budget (issue #2306): how long a carrier may stay non-empty before the peer
+ * Default outbound DRAIN budget: how long a carrier may stay non-empty before the peer
  * is treated as not reading.
  *
  * 120 seconds. The byte budget bounds HOW MUCH a peer holds; it cannot bound HOW LONG, because
@@ -140,7 +140,7 @@ export function isOverPendingBudget(
 export const DEFAULT_MAX_PENDING_MS = Number('120') * Number('1000');
 
 /**
- * The drain clock the boundary keeps for a carrier (issue #2306). One timestamp, not per-frame
+ * The drain clock the boundary keeps for a carrier. One timestamp, not per-frame
  * bookkeeping: it starts on the first reading that finds the carrier non-empty, RESETS only when a
  * reading finds it empty (a peer that drains to one byte and stalls again has not drained), and is
  * consulted synchronously at each send — the boundary has no timer and gains none here.
@@ -201,7 +201,7 @@ export function createOutboundDelivery(
       );
       return;
     }
-    // Issue #2306: the same reading, judged by duration. A peer under the byte budget that has kept
+    // The same reading, judged by duration. A peer under the byte budget that has kept
     // the carrier non-empty for longer than the drain budget is not reading either.
     const stalledMs = stallClock.observe(pending);
     if (stalledMs !== undefined) {

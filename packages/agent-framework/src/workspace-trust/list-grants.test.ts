@@ -1,4 +1,4 @@
-/** FLOW-2006 TC-07 — `listGrants()`: read-only, complete, and refusing rather than partial. */
+/** `listGrants()`: read-only, complete, and refusing rather than partial. */
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

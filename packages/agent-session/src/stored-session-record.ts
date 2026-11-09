@@ -60,7 +60,7 @@ import type {
   ISessionSaveOptions,
   TSessionAdoptResult,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /**
  * How a session store is built. `sealing` is required: every store states whether it keeps its
@@ -228,12 +228,20 @@ export class StoredSessionRecords {
     const fresh = options.fresh === true;
     this.#authorship?.beforeClaim(id, fresh, options.lease !== undefined);
     const marker = options.copy === true ? undefined : this.#takeMarker(id, options.lease);
-    return this.#claims.open(id, fresh, marker, () => {
-      const { file, unreadable } = this.#files.load(id);
-      return this.#authorship === undefined
-        ? this.#readPlain(id, file, unreadable)
-        : this.#authorship.claimRead(id, fresh, file, unreadable, () => this.#rebuild(id));
-    });
+    const open = (): ISessionClaim =>
+      this.#claims.open(id, fresh, marker, () => {
+        const { file, unreadable } = this.#files.load(id);
+        return this.#authorship === undefined
+          ? this.#readPlain(id, file, unreadable)
+          : this.#authorship.claimRead(id, fresh, file, unreadable, () => this.#rebuild(id));
+      }, () => this.#authorship?.discardHeld(id));
+    if (marker === undefined) return open();
+    try {
+      return this.#guardWrite(id, marker, open);
+    } catch (error) {
+      marker.release();
+      throw error;
+    }
   }
 
   /**
@@ -292,7 +300,7 @@ export class StoredSessionRecords {
     const id = record.id;
     const marker = this.#claims.markerForSave(id, options.claim);
     if (marker !== undefined) {
-      this.#write(record, options);
+      this.#guardWrite(id, marker, () => this.#write(record, options));
       return;
     }
     this.#withTransientMarker(id, () => this.#write(record, options));
@@ -393,10 +401,16 @@ export class StoredSessionRecords {
       throw this.#claims.refusal(id, 'has_writer', { holder: writerHolderOf(published.holder) });
     }
     try {
-      return write();
+      return this.#guardWrite(id, published.handle, write);
     } finally {
       published.handle.release();
     }
+  }
+
+  #guardWrite<T>(id: string, marker: IProcessMarkerHandle, write: () => T): T {
+    const result = marker.withGuard(write);
+    if (result.status === 'ran') return result.value;
+    throw this.#claims.refusal(id, result.status === 'lost' ? 'released' : 'has_writer');
   }
 
   /**
@@ -406,7 +420,8 @@ export class StoredSessionRecords {
    */
   #underWriteMarker<T>(id: string, write: () => T): T | 'has_writer' {
     try {
-      if (this.#claims.markerForWrite(id) !== undefined) return write();
+      const marker = this.#claims.markerForWrite(id);
+      if (marker !== undefined) return this.#guardWrite(id, marker, write);
     } catch (error) {
       if (isSessionClaimedError(error)) return 'has_writer';
       throw error;
@@ -414,7 +429,10 @@ export class StoredSessionRecords {
     const published = this.#markers.acquire(id);
     if (published.status !== 'acquired') return 'has_writer';
     try {
-      return write();
+      return this.#guardWrite(id, published.handle, write);
+    } catch (error) {
+      if (isSessionClaimedError(error)) return 'has_writer';
+      throw error;
     } finally {
       published.handle.release();
     }

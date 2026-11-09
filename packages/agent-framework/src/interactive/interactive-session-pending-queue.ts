@@ -1,17 +1,17 @@
 /**
- * REMOTE-014 E5 — the co-drive input queue: what happens to an input that arrives mid-turn.
+ * The co-drive input queue: what happens to an input that arrives mid-turn.
  *
  * Split out of the execution controller, which had grown past its size ratchet. Deciding whether an
- * arriving input coalesces, appends or is dropped is its own job, and RUNTIME-003 made it one with
+ * arriving input coalesces, appends or is dropped is its own job, and it has
  * consequences: each of those outcomes now has to settle the handle its submitter is holding, or the
  * caller waits forever on a turn that will never run.
  */
 
 import type { IQueuedInput } from './interactive-session-execution-contracts.js';
-import type { TDriverId, TTurnNotRunReason } from '@robota-sdk/agent-interface-session';
+import type { TDriverId, TTurnNotRunReason } from '@robota-sdk/agent-interface/session';
 
 /**
- * REMOTE-014 E5: max co-drive queue depth — beyond this, drop-newest with an attributed notice.
+ * Max co-drive queue depth — beyond this, drop-newest with an attributed notice.
  *
  * Declared HERE, where the queue that enforces it lives, and that placement is a review finding.
  * It sat in `interactive-session-execution-controller.ts`, which imports this file's class as a
@@ -32,7 +32,8 @@ export interface IQueueSettlers {
   // a second vocabulary to keep in step — and this file's own subject is a queue whose members
   // changed once already in review ('shutdown' was removed as unreachable).
   refuse: (turnId: string, reason: TTurnNotRunReason) => void;
-  /** Release a wake gate for an entry that will never run (CORE-024/RUNTIME-19). */
+  fail?: (turnId: string, error: Error) => void;
+  /** Release a wake gate for an entry that will never run. */
   releaseWake: (wakeTaskId: string) => void;
 }
 
@@ -56,19 +57,19 @@ export class PendingInputQueue {
   }
 
   /**
-   * REMOTE-014 E5: enqueue an input while a turn is executing. Same-driver-as-tail COALESCES (tail-replace —
+   * Enqueue an input while a turn is executing. Same-driver-as-tail COALESCES (tail-replace —
    * preserves today's editable-pending, last-wins-per-driver semantics + caps a single flooder); a different
    * driver APPENDS (never clobbers another's input). At capacity, drop-newest and return 'dropped' (the caller
-   * emits an attributed notice). Releases a coalesced-away / dropped entry's `wakeTaskId` (CORE-024).
+   * emits an attributed notice). Releases a coalesced-away / dropped entry's `wakeTaskId`.
    */
   enqueue(entry: IQueuedInput): 'queued' | 'coalesced' | 'dropped' {
-    // Internal TypeScript callers cannot omit this required field. Keep the original runtime
-    // assertion byte-for-byte for untyped/JavaScript misuse, so type tightening does not weaken the
+    // Internal TypeScript callers cannot omit this required field. Keep the runtime assertion
+    // for untyped/JavaScript misuse, so type tightening does not weaken the
     // fail-fast admission boundary or manufacture a runtime behavior change.
     if (entry.turnId === undefined) {
       throw new Error(
         'pending queue: a queued submission needs its turnId — without one no refusal can settle ' +
-          "its caller's handle, and the wait never ends. This is the RUNTIME-003 inert-queue " +
+          "its caller's handle, and the wait never ends. This is the inert-queue " +
           'defect, caught at the enqueue rather than in a hang.',
       );
     }
@@ -84,7 +85,7 @@ export class PendingInputQueue {
       ) {
         this.settlers.releaseWake(tail.options.wakeTaskId);
       }
-      // RUNTIME-003: the replaced entry never gets a turn — tell its holder now.
+      // The replaced entry never gets a turn — tell its holder now.
       this.settlers.refuse(tail.turnId, 'coalesced');
       this.entries[this.entries.length - 1] = entry;
       return 'coalesced';
@@ -100,9 +101,9 @@ export class PendingInputQueue {
   }
 
   /**
-   * Clear the WHOLE queue, releasing EVERY entry's `wakeTaskId` (CORE-024/RUNTIME-19 — a dropped wake must free
+   * Clear the WHOLE queue, releasing EVERY entry's `wakeTaskId` (a dropped wake must free
    * its gate or that task can never wake again). Returns the distinct driver ids whose input was cleared, so
-   * the caller can emit an attributed `cancelled by <id>` notice (E5 co-drive).
+   * the caller can emit an attributed `cancelled by <id>` notice (co-drive).
    */
   clear(): TDriverId[] {
     const drivers: TDriverId[] = [];
@@ -135,6 +136,14 @@ export class PendingInputQueue {
     this.settlers.releaseWake(wakeTaskId);
     this.settlers.refuse(entry!.turnId, 'cancelled');
     return true;
+  }
+
+  failAll(error: Error): void {
+    for (const entry of this.entries.splice(0)) {
+      if (entry.options.wakeTaskId) this.settlers.releaseWake(entry.options.wakeTaskId);
+      if (this.settlers.fail) this.settlers.fail(entry.turnId, error);
+      else this.settlers.refuse(entry.turnId, 'cancelled');
+    }
   }
 
   /** Take the HEAD entry (submission order), or undefined when the queue is empty. */

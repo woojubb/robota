@@ -1,5 +1,5 @@
 /**
- * INFRA-017: typed contract for session-log event names + replay keys (SSOT).
+ * Typed contract for session-log event names + replay keys (SSOT).
  *
  * `FileSessionLogger` owns the `{ schemaVersion, timestamp, sessionId, event }` JSONL envelope.
  * This module owns its version and event vocabulary; `session-log-codec` validates each payload
@@ -35,7 +35,7 @@ export const SESSION_LOG_EVENT = {
   providerResponseRaw: 'provider_response_raw',
   providerResponseNormalized: 'provider_response_normalized',
   /**
-   * CORE-043: which transport actually carried a structured-output schema on this request, and
+   * Which transport actually carried a structured-output schema on this request, and
    * whether the schema had to be stated in the prompt instead. Diagnostic, not replay substrate — a
    * replay answers a `provider_request` from its recorded response, and this line explains why that
    * request looked the way it did.

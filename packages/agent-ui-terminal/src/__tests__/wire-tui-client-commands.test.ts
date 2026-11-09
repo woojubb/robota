@@ -1,10 +1,10 @@
 /**
- * #3189 — the commands a terminal attached to a workspace daemon runs in its own process.
+ * The commands a terminal attached to a workspace daemon runs in its own process.
  *
  * The attached terminal gives them its own handoff and working directory, applies the appearance
  * patch `/theme` asks for itself, and refuses any other host action by name instead of dropping it.
  */
-import { createTerminalClientCommands } from '@robota-sdk/agent-command/node';
+import { createTerminalClientCommands } from '@robota-sdk/agent-product/command/node';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -24,8 +24,8 @@ import type {
   IThemeCataloguePort,
   TAppearanceSettingsPatch,
   TCommandHostAction,
-} from '@robota-sdk/agent-interface-command';
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/command';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface/session';
 
 /** Stands in for `/shell`: hands the terminal to a "child" that runs in the host's directory. */
 const shellLike: ITuiClientCommand = {
@@ -66,7 +66,7 @@ const themeCatalogue: IThemeCataloguePort = {
   }),
 };
 
-describe('createTuiClientCommandHost (#3189)', () => {
+describe('createTuiClientCommandHost', () => {
   it('hands this terminal to the command and runs it in this terminal’s directory', async () => {
     const handedOff = vi.fn();
     const handoff: ITerminalHandoff = {
@@ -99,7 +99,7 @@ describe('createTuiClientCommandHost (#3189)', () => {
   });
 });
 
-describe('runTuiClientCommand (#3189)', () => {
+describe('runTuiClientCommand', () => {
   it('/theme with no arguments opens this terminal’s theme picker and writes nothing', async () => {
     const theme = commandReturning('theme', {
       success: true,
@@ -229,7 +229,7 @@ describe('runTuiClientCommand (#3189)', () => {
   });
 });
 
-describe('findTuiClientCommand (#3189)', () => {
+describe('findTuiClientCommand', () => {
   it('finds a client command by name, and nothing without a set', () => {
     const commands: ITuiClientCommands = {
       commands: [shellLike],

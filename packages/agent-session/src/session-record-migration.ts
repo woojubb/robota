@@ -1,6 +1,6 @@
 /**
  * Sealing in place the records a host-filesystem session store (`NodeSessionStore`) kept in
- * plaintext, for a host migrating its state once it seals (#3679).
+ * plaintext, for a host migrating its state once it seals.
  *
  * Every plain record is sealed as the raw bytes it holds — valid, corrupt, unsupported or bare alike —
  * under its own file stem, so the store reports the same status after opening it, and the plaintext is
@@ -13,8 +13,10 @@
  * place; each replace is then atomic, and is made only if the file still holds the bytes that were
  * read, so a record a running process saved meanwhile is left for the next run.
  */
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
+
 import { lstatSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import { createProcessMarkers } from '@robota-sdk/agent-core/node';
 
@@ -135,44 +137,67 @@ export function migrateNodeSessionStore(
     staleTemporaries: 0,
     sealedRecords: [] as ISealedSessionRecord[],
   };
-  const markers = createProcessMarkers(join(baseDir, SESSION_CLAIMS_DIRECTORY));
+  const markers = createProcessMarkers(join(baseDir, SESSION_CLAIMS_DIRECTORY), {
+    operationLock: createProcessOperationLock(join(baseDir, SESSION_CLAIMS_DIRECTORY)),
+  });
   const staged: (ISealedSessionRecord & { readonly path: string })[] = [];
-  const replacements = replaceStagedFiles((stage) => {
-    for (const name of files) {
-      const path = join(baseDir, name);
-      const id = name.slice(0, -RECORD_EXTENSION.length);
-      if (!isSafeSessionId(id)) {
-        result.unsafeNames.push(path);
-        continue;
+  const replacements = replaceStagedFiles(
+    (stage) => {
+      for (const name of files) {
+        const path = join(baseDir, name);
+        const id = name.slice(0, -RECORD_EXTENSION.length);
+        if (!isSafeSessionId(id)) {
+          result.unsafeNames.push(path);
+          continue;
+        }
+        const writer = markers.inspect(id);
+        if (writer.status === 'held' && writer.holder.liveness !== 'gone') {
+          result.held.push(id);
+          continue;
+        }
+        const read = readRegularFile(path);
+        if (read === undefined) continue;
+        const state = storedSessionMigrationState(id, read.bytes, options.sealer);
+        if (state === 'sealed') result.alreadySealed += 1;
+        else if (state !== 'plain') result.unopenable.push(path);
+        if (state !== 'plain') continue;
+        if (read.links > 1) {
+          result.refused.push(path);
+          continue;
+        }
+        if (!options.apply) {
+          result.sealed += 1;
+          continue;
+        }
+        const sealed = sealStoredSessionBytes(id, read.bytes, options.sealer);
+        // Only a record that reads as this session's is a session the owner could mark as theirs; a
+        // corrupt or unsupported one is sealed as it is and stays what it was.
+        if (isPlainSessionRecordOf(id, read.bytes)) {
+          staged.push({ path, id, digest: digestOf(sealed) });
+        }
+        stage(path, read.bytes, sealed);
       }
-      const writer = markers.inspect(id);
-      if (writer.status === 'held' && writer.holder.liveness !== 'gone') {
+    },
+    options.beforeCommit,
+    (path, commit) => {
+      const id = basename(path).slice(0, -RECORD_EXTENSION.length);
+      const acquired = markers.acquire(id);
+      if (acquired.status !== 'acquired') {
         result.held.push(id);
-        continue;
+        return false;
       }
-      const read = readRegularFile(path);
-      if (read === undefined) continue;
-      const state = storedSessionMigrationState(id, read.bytes, options.sealer);
-      if (state === 'sealed') result.alreadySealed += 1;
-      else if (state !== 'plain') result.unopenable.push(path);
-      if (state !== 'plain') continue;
-      if (read.links > 1) {
-        result.refused.push(path);
-        continue;
+      try {
+        const guarded = acquired.handle.withGuard(commit);
+        if (guarded.status !== 'ran') {
+          result.held.push(id);
+          return false;
+        }
+        return true;
+      } finally {
+        acquired.handle.release();
       }
-      if (!options.apply) {
-        result.sealed += 1;
-        continue;
-      }
-      const sealed = sealStoredSessionBytes(id, read.bytes, options.sealer);
-      // Only a record that reads as this session's is a session the owner could mark as theirs; a
-      // corrupt or unsupported one is sealed as it is and stays what it was.
-      if (isPlainSessionRecordOf(id, read.bytes)) {
-        staged.push({ path, id, digest: digestOf(sealed) });
-      }
-      stage(path, read.bytes, sealed);
-    }
-  }, options.beforeCommit);
+    },
+  );
   result.sealed += replacements.replaced;
   result.changed.push(...replacements.changed);
   // Every staged record was put in place but those that changed meanwhile, since anything else

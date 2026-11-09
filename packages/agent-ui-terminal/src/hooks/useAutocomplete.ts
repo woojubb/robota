@@ -6,7 +6,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 
 import type { ITuiCommandQueryPort } from '../tui-app-channel-port.js';
-import type { ICommand } from '@robota-sdk/agent-interface-command';
+import type { ICommand } from '@robota-sdk/agent-interface/command';
 
 /** Parse input to determine autocomplete state */
 function parseSlashInput(value: string): {

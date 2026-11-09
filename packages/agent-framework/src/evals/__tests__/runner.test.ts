@@ -6,8 +6,8 @@ import type { IMetric, TEvalRunFn } from '../eval-types.js';
 import type { IExecutionResult, IToolSummary, IUsageSnapshot } from '../../interactive/types.js';
 
 /**
- * SELFHOST-011 P1 — the neutral eval runner. Tests inject a fake `runFn` returning a synthetic
- * `IExecutionResult`; no live provider (TC-01/02/06).
+ * The neutral eval runner. Tests inject a fake `runFn` returning a synthetic
+ * `IExecutionResult`; no live provider.
  */
 
 /** Build a synthetic run-result (mirrors the goal-controller test fixture). */
@@ -51,7 +51,7 @@ describe('defineEval', () => {
   });
 });
 
-describe('runEval — TC-01: scores cases + threshold pass/fail', () => {
+describe('runEval — scores cases + threshold pass/fail', () => {
   it('runs every case, applies each metric, and reports per-case scores + overall verdict', async () => {
     const mentionsFile: IMetric = {
       name: 'mentions-file',
@@ -106,7 +106,7 @@ describe('runEval — TC-01: scores cases + threshold pass/fail', () => {
   });
 });
 
-describe('runEval — TC-02: metric is a pure fn over the full IExecutionResult; runner is IO-free', () => {
+describe('runEval — metric is a pure fn over the full IExecutionResult; runner is IO-free', () => {
   it('a metric scores tool trajectory + usage, not just the response string', async () => {
     const usage: IUsageSnapshot = {
       kind: 'exact',
@@ -143,7 +143,7 @@ describe('runEval — TC-02: metric is a pure fn over the full IExecutionResult;
   });
 });
 
-describe('runEval — TC-06: reaches the agent only through the injected runFn seam', () => {
+describe('runEval — reaches the agent only through the injected runFn seam', () => {
   it('never constructs a provider/session itself — the runFn is the sole run source', async () => {
     const seam = vi.fn<TEvalRunFn>(() => Promise.resolve(makeResult({ response: 'ok' })));
     await runEval(

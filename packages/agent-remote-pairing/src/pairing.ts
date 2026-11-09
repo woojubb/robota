@@ -1,9 +1,10 @@
 import type { IIdentityContext } from './identity/crypto-context.js';
 /**
- * Pairing + DTLS-fingerprint channel binding (REMOTE-005 Stage B3).
+ * Pairing + DTLS-fingerprint channel binding.
  *
  * **Isomorphic**: uses ONLY WebCrypto (`globalThis.crypto` / `crypto.subtle`) + standard web APIs, so the same
- * module runs on the Node host (agent-cli, Node 22) and the Stage-D browser remote client — no `node:` imports,
+ * module runs on the Node host (agent-cli, Node 22) and the browser remote client — no `node:`
+ * imports,
  * no WebRTC implementation, no workspace deps.
  *
  * Security model: a high-entropy (256-bit) single-use pairing secret is transferred machine-to-machine (QR /
@@ -169,8 +170,9 @@ async function confirmationKey(
 }
 
 /**
- * Derive the Stage-E application session key from the pairing secret (distinct `info` from the confirmation key
- * → domain-separated). B3 exposes it; its USE (TOFU bootstrap / app-layer key) is Stage E.
+ * Derive the application session key from the pairing secret (distinct `info` from the confirmation
+ * key
+ * → domain-separated).
  */
 export async function deriveSessionKey(
   cryptoContext: IIdentityContext,

@@ -1,13 +1,13 @@
 /**
- * CORE-040 — a discovered MCP tool's declared parameters must be enforced, not merely advertised.
+ * A discovered MCP tool's declared parameters must be enforced, not merely advertised.
  *
  * `MCPTool` and `RelayMcpTool` are gone; the catalog vertical slice (`../catalog/build.ts` +
  * `../catalog/discovered-tool.ts`) is their successor. `buildCatalog` narrows an `inputSchema`
- * ONCE, at registration (TC-30), and `createDiscoveredTool` wraps the resulting entry as a runtime
- * tool whose `validateParameters` enforces that same narrowed schema (TC-08). This file exercises
- * the CORE-040 behaviour through THAT path instead of the deleted classes.
+ * ONCE, at registration, and `createDiscoveredTool` wraps the resulting entry as a runtime
+ * tool whose `validateParameters` enforces that same narrowed schema. This file exercises
+ * the schema-narrowing behaviour through THAT path instead of the deleted classes.
  *
- * Both now route through `validateAgainstJsonSchema`, the single complete walk CORE-039 established.
+ * Both now route through `validateAgainstJsonSchema`, the single complete walk.
  *
  * The trust boundary this crosses is the reason the item reserved a decision rather than assuming
  * one: an MCP `inputSchema` is authored by a THIRD-PARTY server, so it is far likelier than a
@@ -90,7 +90,7 @@ const TYPED_SCHEMA: IParameterSchema = {
   required: ['count', 'mode'],
 };
 
-describe('CORE-040 — a declared type is enforced, not just advertised', () => {
+describe('a declared type is enforced, not just advertised', () => {
   const tool = createDiscoveredTool(buildEntryFor('typed', TYPED_SCHEMA), invokerReturning());
 
   it('rejects a required key present with the wrong type', () => {
@@ -174,7 +174,7 @@ describe('a discovered tool enforces the size bounds its server declares', () =>
   });
 });
 
-describe('CORE-040 — a schema the subset cannot express is narrowed, not refused', () => {
+describe('a schema the subset cannot express is narrowed, not refused', () => {
   // `oneOf` is real JSON Schema and outside the universal subset. A third-party server is entitled
   // to use it; this repo's inability to check it is not the server's error.
   const PARTLY_INEXPRESSIBLE: IParameterSchema = {

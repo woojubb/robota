@@ -3,7 +3,7 @@ import type { IActionRequest, TActionResponse, TToolArgs } from '@robota-sdk/age
 import type {
   TPermissionRequester,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 interface IUserActionQueueEntry {
   presentedRequest: IActionRequest;
@@ -16,7 +16,7 @@ interface IPermissionQueueEntry {
   toolArgs: TToolArgs;
   canPersistProjectPermission?: boolean;
   requestedByPeer?: string;
-  /** Issue #3288 §1: a background agent's own request, forwarded to the person. */
+  /** A background agent's own request, forwarded to the person. */
   requester?: TPermissionRequester;
   resolve: (result: TPermissionResultValue) => void;
   id?: string;

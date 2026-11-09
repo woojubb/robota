@@ -1,11 +1,11 @@
 /**
- * #3282 §4 part b-3 — the goal row's status in plain words, never the raw `status`/`stopReason`.
+ * The goal row's status in plain words, never the raw `status`/`stopReason`.
  */
 import { describe, expect, it } from 'vitest';
 
 import { describeGoalStatus } from '../goal-view.js';
 
-import type { IGoalState } from '@robota-sdk/agent-interface-session';
+import type { IGoalState } from '@robota-sdk/agent-interface/session';
 
 function goal(overrides: Partial<IGoalState> = {}): IGoalState {
   return {

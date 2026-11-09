@@ -1,0 +1,153 @@
+# @robota-sdk/agent-provider/gemini
+
+Google Gemini provider for the Robota SDK, built on the official `@google/genai` SDK.
+`GeminiProvider` implements the `@robota-sdk/agent-core` provider contract, so a `ConversationAgent` agent can
+run on Gemini models with streaming and tool calling. It also implements agent-core's
+`IImageGenerationProvider` (`generateImage`, `editImage`, `composeImage`).
+
+## Installation
+
+```bash
+npm install @robota-sdk/agent-provider @robota-sdk/agent-core @google/genai
+```
+
+## Usage
+
+```typescript
+import { ConversationAgent } from '@robota-sdk/agent-core';
+import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
+
+const provider = new GeminiProvider({ apiKey: process.env.GEMINI_API_KEY ?? '' });
+
+const agent = new ConversationAgent({
+  name: 'MyAgent',
+  aiProviders: [provider],
+  defaultModel: { provider: 'gemini', model: 'gemini-3-flash-preview' },
+});
+
+const response = await agent.run('Hello!');
+console.log(response);
+```
+
+The provider registers under the name `gemini`, which is the value `defaultModel.provider` must use.
+
+### Image generation
+
+```typescript
+import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
+
+const provider = new GeminiProvider({ apiKey: process.env.GEMINI_API_KEY ?? '' });
+
+const result = await provider.generateImage({
+  prompt: 'A watercolor lighthouse at dusk',
+  model: 'gemini-2.5-flash-image',
+});
+if (result.ok) {
+  // Each output is a `data:` URI reference with its MIME type.
+  console.log(result.value.outputs);
+} else {
+  console.error(result.error.code, result.error.message);
+}
+```
+
+`editImage` takes one input image and `composeImage` two or more, each with a prompt and a model.
+Image methods return a result object instead of throwing (see Errors).
+
+### Reasoning effort and web tools
+
+A reasoning-effort selection (`defaultModel.effort` on a `ConversationAgent` agent, or `effort` on a chat call)
+is sent as Gemini's `thinkingConfig.thinkingLevel` for models in the provider's verified effort
+table; other models report the effort as not applied. Other `thinkingConfig` fields are kept. When a
+call selects an effort, a static `thinkingConfig.thinkingLevel` must equal the level sent and a static
+`thinkingBudget` is rejected; if the selection sends no native effort (`auto`, or a model outside
+the table), either static field is rejected.
+
+`enableWebTools: true` adds Google Search grounding to requests; Google runs the searches and no local
+tool is registered. A profile built through `createGeminiProviderDefinition()` sets it with
+`"options": { "nativeWebTools": { "webSearch": true } }`, read strictly: another key or a non-boolean is
+an error. The definition declares no web search for a host to turn on by default: the conditions in
+Google's terms below are for the host to meet, so a profile has to ask.
+This provider has no hosted web fetch, and a request that requires one fails.
+
+- **Models.** Search can join function tools on Gemini 3 and later, which Google documents as a
+  preview; there the request also sets `includeServerSideToolInvocations` and `VALIDATED` function
+  calling. Gemini 2 searches only on a request without function tools, and so does Vertex mode, where
+  the SDK refuses that flag. A model name without a number (`gemini-flash-latest`) is not assumed to
+  search. `getCapabilities()` says which applies to the provider's default model.
+- **Requests.** Search is left out when `toolChoice` is anything but `auto`, when the call sets
+  `nativeWebTools.webSearch: false`, and for an image or JSON reply.
+- **Results.** The result's `metadata` has `providerBuiltInToolsEnabled`, `geminiWebSearchCalls`,
+  `providerBuiltInToolsUsed`, `geminiWebSearchQueries`, `geminiWebSearchCitations` and
+  `geminiSearchSuggestionsHtml` (the suggestions HTML, for a UI that can show it). The reply text holds
+  no citations of its own. Google's [Gemini API terms](https://ai.google.dev/gemini-api/terms) set
+  conditions on showing and storing grounded results and search suggestions, so read them before you
+  ship this to end users.
+
+The model's signed function calls return on the next request as they came, through
+`metadata.providerContinuation` on the assistant message, and its search steps with them on a model
+that can combine search with function tools. If you keep your own history, keep that key.
+
+### Endpoint
+
+There is no `baseURL` option: the `@google/genai` client is created from `apiKey` alone. On Node the
+SDK reads its own environment variables to choose where it connects, such as `GOOGLE_GENAI_USE_VERTEXAI`,
+`GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_GEMINI_BASE_URL` and `GOOGLE_VERTEX_BASE_URL`,
+so set those to reach Vertex AI or another endpoint.
+
+## Options
+
+`new GeminiProvider(options: IGeminiProviderOptions)`.
+
+| Option                      | Type                                         | Description                                                                                      |
+| --------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `apiKey`                    | `string`                                     | Google AI API key (required).                                                                    |
+| `defaultModel`              | `string`                                     | Model used when a call does not name one.                                                        |
+| `enableWebTools`            | `boolean`                                    | Attach Google Search grounding to requests that can carry it (default: off). See above.          |
+| `responseMimeType`          | `'text/plain' \| 'application/json'`         | Response MIME type.                                                                              |
+| `responseSchema`            | `Record<string, TGeminiProviderOptionValue>` | Response schema for JSON output. Mutually exclusive with `responseJsonSchema`.                   |
+| `responseJsonSchema`        | `Record<string, TGeminiProviderOptionValue>` | JSON Schema for structured output. Mutually exclusive with `responseSchema`.                     |
+| `safetySettings`            | `IGeminiSafetySetting[]`                     | Default safety settings for every request; a per-request `google.safetySettings` overrides them. |
+| `thinkingConfig`            | `IGeminiThinkingConfig`                      | Default thinking configuration (`includeThoughts`, `thinkingBudget`, `thinkingLevel`).           |
+| `toolConfig`                | `Record<string, TGeminiProviderOptionValue>` | Function-calling config passed through to Gemini.                                                |
+| `defaultResponseModalities` | `Array<'TEXT' \| 'IMAGE'>`                   | Default response modalities.                                                                     |
+| `imageCapableModels`        | `string[]`                                   | When set, a request for image output is rejected unless its model is in this list.               |
+| `executor`                  | `IExecutor`                                  | Delegates chat calls to an executor instead of calling the API directly.                         |
+
+## Errors
+
+A failed chat or stream call throws a typed error from `@robota-sdk/agent-core`: `RateLimitError`,
+`AuthenticationError`, `ModelNotAvailableError` or `NetworkError` when the failure is one of those,
+otherwise a `ProviderError` that carries the HTTP `status` and keeps the SDK error as
+`originalError`. The Google SDK exposes no response headers, so `RateLimitError.retryAfter` is always
+undefined. An aborted call rethrows the abort unchanged. See [Provider failures](../../../content/guide/error-handling.md#provider-failures).
+
+Image methods never throw. A request with missing input (empty prompt or model, too few images for
+`composeImage`, an unusable image source) returns `PROVIDER_INVALID_REQUEST`; a failed call, or a
+response without an image, returns `PROVIDER_UPSTREAM_ERROR`.
+
+## Exports
+
+- `GeminiProvider` and its option types (`IGeminiProviderOptions`, `IGeminiThinkingConfig`,
+  `IGeminiSafetySetting`).
+- `createGeminiProviderDefinition()`: the provider definition used by Robota's built-in provider
+  registry (type `gemini`, alias `google`), with its default constants (for example
+  `DEFAULT_GEMINI_PROVIDER_MODEL`).
+- `@robota-sdk/agent-provider/google`: the deprecated `GoogleProvider` compatibility alias
+  (registers as `google`). New code should use `GeminiProvider`.
+
+## Related packages
+
+- [`@robota-sdk/agent-core`](../../agent-core/README.md): the `ConversationAgent` agent, the provider contract and
+  the media provider interfaces.
+- [`@robota-sdk/agent-provider/openai`](./openai.md),
+  [`@robota-sdk/agent-provider/anthropic`](./anthropic.md) and
+  [`@robota-sdk/agent-provider/openai-compatible`](./openai-compatible.md):
+  other chat providers.
+- [`@robota-sdk/agent-provider/builtin`](./builtin.md): the default provider
+  definitions, including this one.
+
+See [docs/SPEC.md](docs/SPEC.md) for the package contract.
+
+## License
+
+This package is dual-licensed under the [GNU AGPL-3.0](../../../LICENSE) or a [commercial license](../../../COMMERCIAL.md). See [LICENSING.md](../../../LICENSING.md).

@@ -8,12 +8,12 @@ import { Dialog } from './Dialog.js';
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
 
 /**
- * #3282 §4 part b-3 — the agent switcher: `show-agent-switcher` (`/agent` with no args) opens this
+ * The agent switcher: `show-agent-switcher` (`/agent` with no args) opens this
  * sheet instead of the surface's old "not available" line. It lists every agent this session can
  * run — name, one-line description, and where each is defined in plain words — with the current one
  * checked. Choosing a row runs the SAME path as typing `/agent <name>` (a plain `command`, wired in
  * `useAgentSwitcherState`); the reply is this sheet's own confirmation line, never a conversation
- * card (issue #3282 §4's decided design).
+ * card.
  */
 export function AgentSwitcherSheet({ state }: { state: IWsSessionState }): React.ReactElement | null {
   if (!state.agentSwitcherOpen) return null;

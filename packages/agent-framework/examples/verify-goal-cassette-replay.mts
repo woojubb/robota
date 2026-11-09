@@ -1,4 +1,9 @@
-/** Run from agent-framework: pnpm exec tsx examples/verify-goal-cassette-replay.mts */
+/**
+ * Run from agent-framework: pnpm exec tsx examples/verify-goal-cassette-replay.mts
+ *
+ * Replays the committed cassette for the host shell: the recording of a real model on POSIX, and on
+ * Windows the PowerShell cassette translated from it, which is not a recording (see its `provenance`).
+ */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 

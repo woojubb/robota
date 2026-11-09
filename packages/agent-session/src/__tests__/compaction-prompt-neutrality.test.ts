@@ -1,5 +1,5 @@
 /**
- * NEUT-005 — compaction prompt neutrality tests.
+ * Compaction prompt neutrality tests.
  *
  * The compaction summarization prompt is the one model-facing prompt surface this package
  * owns. Its default base template must be domain-neutral (no software-development bias such
@@ -62,7 +62,7 @@ async function capturePrompt(overrides: Partial<ICompactionOptions> = {}): Promi
   return captured[0] ?? '';
 }
 
-describe('compaction prompt neutrality (NEUT-005)', () => {
+describe('compaction prompt neutrality', () => {
   it('default base template carries no software-development domain bias', async () => {
     const prompt = await capturePrompt();
     expect(prompt).not.toContain('code changes');

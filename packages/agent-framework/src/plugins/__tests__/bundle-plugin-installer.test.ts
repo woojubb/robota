@@ -162,7 +162,7 @@ describe('BundlePluginInstaller', () => {
 
       await installer.install('gh-plugin', 'gh-market');
 
-      // SEC-017 (issue #2019): the executable and its ARGUMENT VECTOR are asserted separately. A
+      // The executable and its ARGUMENT VECTOR are asserted separately. A
       // `stringContaining('git clone …')` assertion passes just as well when the URL has been folded
       // back into one shell string, which is the defect this port removes.
       expect(mockExec).toHaveBeenCalledWith(
@@ -402,11 +402,9 @@ describe('BundlePluginInstaller', () => {
     });
   });
 
-  describe('SEC-018 - every sink USES the guard, not just the module that defines it', () => {
-    // The first pass of SEC-018 tested `plugin-paths.ts` thoroughly and guarded two of the four
-    // value/sink pairs. A review found the other two. Testing the predicate proves the predicate;
-    // it does not prove that each sink calls it — the same shape as ARCH-101's guard that was
-    // reachable only through `main()`. These drive the real installer methods instead.
+  describe('every sink USES the guard, not just the module that defines it', () => {
+    // Testing the predicate (`plugin-paths.ts`) proves the predicate; it does not prove that each
+    // sink calls it. These drive the real installer methods instead.
 
     it('uninstall does not delete a registry installPath outside the plugin cache', async () => {
       const victim = join(TMP_BASE, 'victim-' + Math.random().toString(36).slice(2));

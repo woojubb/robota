@@ -1,5 +1,5 @@
 /**
- * #3186 — one web frontend, several hosts. The desktop app hands the page its sidecar through the
+ * One web frontend, several hosts. The desktop app hands the page its sidecar through the
  * Electron preload bridge; in a browser the address comes from the page itself. The frontend never
  * needs to know which one it runs in beyond this seam.
  */
@@ -49,7 +49,7 @@ describe('resolveGuiHost', () => {
     await expect(host.trustQuestion?.()).resolves.toBeNull();
     await host.answerTrust?.('restricted');
     expect(bridge.answerTrust).toHaveBeenCalledWith('restricted');
-    // #3282 §4d: the composer's attach button and drop handler reach the bridge through these two.
+    // The composer's attach button and drop handler reach the bridge through these two.
     await expect(host.pickFiles?.()).resolves.toEqual([
       { path: '/repo/a.ts', name: 'a.ts', size: 10 },
     ]);
@@ -59,7 +59,7 @@ describe('resolveGuiHost', () => {
     const listener = vi.fn();
     host.onOpenSettings(listener);
     expect(bridge.onOpenSettings).toHaveBeenCalledWith(listener);
-    // #3282 §4c: the Project panel's Memory "Open in editor" reaches the bridge's openPath.
+    // The Project panel's Memory "Open in editor" reaches the bridge's openPath.
     host.openMemoryInEditor?.('.fixture-state/memory/MEMORY.md');
     expect(bridge.openPath).toHaveBeenCalledWith('.fixture-state/memory/MEMORY.md');
   });
@@ -86,6 +86,36 @@ describe('resolveGuiHost', () => {
     expect(host.restartRuntime).toBeDefined();
   });
 
+  it('routes secure desktop sessions only through the admitted port', async () => {
+    const endpoint = vi.fn(async () => 'ws://127.0.0.1:1?token=forbidden');
+    const openPath = vi.fn(async () => ({}));
+    const bridge = {
+      runtimeMode: 'secure', getEndpoint: endpoint, openPath,
+      signalReady: () => {}, onState: () => () => {}, restartRuntime: async () => {},
+      trustQuestion: async () => null, answerTrust: async () => ({}),
+      pickFiles: async () => [], getPathForFile: () => '', onOpenSettings: () => () => {},
+    } satisfies IDesktopBridge;
+    const session = {
+      subscribe: vi.fn(() => () => {}), send: vi.fn(() => true), close: vi.fn(),
+    };
+    const host = resolveGuiHost({ ...page(), bridge, desktopSession: session });
+    expect(host.secureMode).toBe(true);
+    expect(host.makeSessionClient).toBeDefined();
+    await expect(host.getEndpoint()).resolves.toBeNull();
+    expect(endpoint).not.toHaveBeenCalled();
+    expect(host.openMemoryInEditor).toBeUndefined();
+    expect(openPath).not.toHaveBeenCalled();
+    const client = host.makeSessionClient!({ onMessage: () => {}, onStatusChange: () => {} });
+    client.connect();
+    expect(session.subscribe).toHaveBeenCalledOnce();
+    client.disconnect();
+  });
+
+  it('refuses a secure desktop window without its admitted session bridge', () => {
+    const bridge = { runtimeMode: 'secure' } as IDesktopBridge;
+    expect(() => resolveGuiHost({ ...page(), bridge })).toThrow('Secure desktop session bridge is missing.');
+  });
+
   it('in a browser, prefers the address the CLI injected into the page', async () => {
     const host = resolveGuiHost(
       page({ meta: 'ws://127.0.0.1:4321?token=a', search: '?ws=ws%3A%2F%2Fother' }),
@@ -95,11 +125,11 @@ describe('resolveGuiHost', () => {
     // A browser page is served by a runtime that already started; there is nothing to ask first.
     expect(host.trustQuestion).toBeUndefined();
     await expect(host.getEndpoint()).resolves.toBe('ws://127.0.0.1:4321?token=a');
-    // #3282 §4d: a plain browser has no native picker and no way to resolve a File's real path — the
+    // A plain browser has no native picker and no way to resolve a File's real path — the
     // composer reads the absence of these two as "attach only shows the plain sentence".
     expect(host.pickFiles).toBeUndefined();
     expect(host.getPathForFile).toBeUndefined();
-    // #3282 §4c: a plain browser cannot open a file in an external editor — the Project panel's
+    // A plain browser cannot open a file in an external editor — the Project panel's
     // Memory section reads this absence as "hide 'Open in editor' entirely".
     expect(host.openMemoryInEditor).toBeUndefined();
   });

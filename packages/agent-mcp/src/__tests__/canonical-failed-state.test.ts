@@ -1,5 +1,5 @@
 /**
- * TC-10 (MCP-003 condition 8, runtime half): a failed connection exposes one failed value carrying
+ * Runtime half: a failed connection exposes one failed value carrying
  * its classification, and the same classification is readable from it rather than re-derived by the
  * caller.
  */
@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { FakeMcpSession, fixtureIdentity, fixtureTimeouts } from './supervisor-test-helpers.js';
 import { MCPConnectionSupervisor, MCPSupervisorError } from '../supervisor/connection.js';
 
-describe('MCPConnectionSupervisor — canonical failed state (TC-10)', () => {
+describe('MCPConnectionSupervisor — canonical failed state', () => {
   it('exposes classification directly on getState() without the caller re-deriving it', async () => {
     const supervisor = new MCPConnectionSupervisor({
       serverId: 'server-1',

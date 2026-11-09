@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { SUBAGENT_WORKER_MODE_FLAG } from '../index.js';
 
 /**
- * Issue #3248 — a child-process subagent's session consults the sandbox its tools run under.
+ * A child-process subagent's session consults the sandbox its tools run under.
  *
  * In `auto` mode a broad execution allow rule (`Bash(npm *)`) leaves the allow list but stays in the
  * `inherit-allowlist` ceiling, so a command inside the ceiling reaches the sandbox step. Spawns the
@@ -33,7 +33,7 @@ interface IRecord {
 function runWorker(
   composesSandbox: boolean,
   parentSandboxSettings?: Record<string, unknown>,
-  /** Sent once the running child asks for it, after its sandbox is composed (issue #3256). */
+  /** Sent once the running child asks for it, after its sandbox is composed. */
   changeWhileRunning?: Record<string, unknown>,
   /** Ask for the change from inside the running command rather than before the first model call. */
   duringCommand = false,
@@ -138,7 +138,7 @@ describe.skipIf(!existsSync(DIST))('a child-process subagent and its composed sa
   );
 
   it(
-    'builds the sandbox from the parent’s settings, so a /sandbox change reaches the child (#3254)',
+    'builds the sandbox from the parent’s settings, so a /sandbox change reaches the child',
     async () => {
       const records = await runWorker(true, { autoAllowBashIfSandboxed: false });
 
@@ -149,7 +149,7 @@ describe.skipIf(!existsSync(DIST))('a child-process subagent and its composed sa
   );
 
   it(
-    'follows a /sandbox change made while it runs, on the next command (#3256)',
+    'follows a /sandbox change made while it runs, on the next command',
     async () => {
       const records = await runWorker(
         true,
@@ -164,7 +164,7 @@ describe.skipIf(!existsSync(DIST))('a child-process subagent and its composed sa
   );
 
   it(
-    'lets a running command finish, then ends the run with one error, when a change cannot be taken (#3256)',
+    'lets a running command finish, then ends the run with one error, when a change cannot be taken',
     async () => {
       const records = await runWorker(
         true,

@@ -1,5 +1,5 @@
 /**
- * CLI-083 (issue #2287) — the org policy survives the TUI projection.
+ * The org policy survives the TUI projection.
  *
  * `toChannelOptions` builds the channel's options field by field. `orgPolicy` was not among them, so
  * a policy forwarded from the shell arrived here and was dropped, and `blockedCommands` enforcement
@@ -34,7 +34,7 @@ function renderOptions(extra: Partial<IRenderOptions> = {}): IRenderOptions {
   return { host: testHost, cwd: '/work', provider: {} as never, ...extra } as IRenderOptions;
 }
 
-describe('CLI-083: the TUI projection carries the org policy', () => {
+describe('the TUI projection carries the org policy', () => {
   it('copies a supplied policy into the channel options', () => {
     const channel = toChannelOptions(renderOptions({ orgPolicy: POLICY as never }));
 

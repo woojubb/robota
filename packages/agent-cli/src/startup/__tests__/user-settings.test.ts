@@ -1,8 +1,8 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * Issue #2342 — an invalid settings file reaches the user as its message, not as a stack trace.
+ * An invalid settings file reaches the user as its message, not as a stack trace.
  *
- * `readSettings` has thrown `SettingsParseError` since CLI-069, and the throw escaped to the
+ * `readSettings` has thrown `SettingsParseError`, and the throw escaped to the
  * top-level handler, which re-throws. So the message the typed error was written to carry — the file
  * path and the remedy — arrived wrapped in a trace, if it arrived legibly at all.
  *
@@ -34,7 +34,7 @@ afterEach(() => {
   for (const home of homes.splice(0)) rmSync(home, { recursive: true, force: true });
 });
 
-describe('readUserSettingsOrExit (issue #2342)', () => {
+describe('readUserSettingsOrExit', () => {
   it('writes the message naming the file and the remedy, then exits 1', () => {
     vi.stubEnv('HOME', homeWithSettings('{ "preset": "x"'));
     const written: string[] = [];
@@ -64,7 +64,7 @@ describe('readUserSettingsOrExit (issue #2342)', () => {
   });
 
   it('returns empty settings when there is no file, rather than treating absence as an error', () => {
-    // CLI-069's distinction, asserted here because this guard sits on top of it: a MISSING file is
+    // The distinction, asserted here because this guard sits on top of it: a MISSING file is
     // not an error condition, and only an existing one that cannot be parsed is.
     vi.stubEnv('HOME', homeWithSettings());
 

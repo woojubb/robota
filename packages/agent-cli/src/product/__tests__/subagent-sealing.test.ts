@@ -1,5 +1,5 @@
 /**
- * #3679 step 3b — the product's subagent path with sealing, on the real cryptography.
+ * The product's subagent path with sealing, on the real cryptography.
  *
  * A subagent worker decides how it seals in the product's one sealing decision, from the grant its
  * parent sends: every store and the subagent log then seal to the parent's key, a newer grant (the
@@ -43,11 +43,11 @@ import {
 } from '../session-sealing.js';
 
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const keyringFiles = vi.hoisted(() => ({ opened: 0 }));
-vi.mock('../../secure/keyring-store.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../secure/keyring-store.js')>();
+vi.mock('@robota-sdk/agent-local-host', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@robota-sdk/agent-local-host')>();
   return {
     ...actual,
     createKeyringFileStore: (...args: Parameters<typeof actual.createKeyringFileStore>) => {
@@ -124,7 +124,7 @@ describe('a product subagent worker binds its parent’s grant', () => {
     const before = keyringFiles.opened;
 
     const sealing = composition.bindWriteGrant?.(sealer.writeGrant());
-    const store = composition.openSessionStore?.({ cwd: directory('worker-cwd-') });
+    const store = await composition.openSessionStore?.({ cwd: directory('worker-cwd-') });
     store?.save(record('sess_child'));
 
     expect(sealing).not.toBe('plain');
@@ -255,7 +255,7 @@ describe('a product subagent worker’s fork record', () => {
     const token = parentStore.exportHeld?.('sess_fork') as string;
     const composition = createProductSubagentComposition(runtime);
     composition.bindWriteGrant?.(sealer.writeGrant());
-    const child = composition.openSessionStore?.({ cwd: directory('worker-cwd-') });
+    const child = await composition.openSessionStore?.({ cwd: directory('worker-cwd-') });
     child?.importHeld?.('sess_fork', token);
     const claim = child?.claim('sess_fork', { lease: lease.nonce });
 

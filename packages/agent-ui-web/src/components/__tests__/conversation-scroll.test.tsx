@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ConversationView } from '../ConversationView.js';
 
 /**
- * #3289 §2 — auto-scroll follows new content only while the person is at the bottom (within ~80px of
+ * Auto-scroll follows new content only while the person is at the bottom (within ~80px of
  * it); scrolling up stops it, and a "Jump to latest" button appears whenever the view is not at the
  * bottom and a reply is streaming, or new content has arrived below the viewport. `scrollTop` /
  * `scrollHeight` / `clientHeight` are mocked here — jsdom has no real layout, so nothing computes them.
@@ -25,7 +25,7 @@ function scroller(): HTMLElement {
 
 afterEach(cleanup);
 
-describe('ConversationView — scroll pinning while streaming (#3289 §2)', () => {
+describe('ConversationView — scroll pinning while streaming', () => {
   it('stays pinned to the bottom while streaming, as long as the person has not scrolled up', () => {
     const { rerender } = render(
       <ConversationView messages={[]} activeTools={[]} streamingText="" isThinking={false} ownDriverId={null} />,

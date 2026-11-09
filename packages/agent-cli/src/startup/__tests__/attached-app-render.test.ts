@@ -1,4 +1,5 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { createCliRuntimeContext } from '../../product/runtime-context.js';
 /**
  * `the product --attach` end to end in process: the real renderer, with the presentation the CLI
  * resolves, on an attach connection the daemon then closes. The command reports the close, detaches
@@ -42,7 +43,11 @@ beforeEach(() => {
   const tty = Object.getOwnPropertyDescriptor(stdin, 'isTTY');
   const rawMode = Object.getOwnPropertyDescriptor(stdin, 'setRawMode');
   Object.defineProperty(stdin, 'isTTY', { value: true, configurable: true });
-  Object.defineProperty(stdin, 'setRawMode', { value: () => stdin, configurable: true, writable: true });
+  Object.defineProperty(stdin, 'setRawMode', {
+    value: () => stdin,
+    configurable: true,
+    writable: true,
+  });
   restoreStdin = () => {
     if (tty === undefined) delete (stdin as { isTTY?: boolean }).isTTY;
     else Object.defineProperty(stdin, 'isTTY', tty);
@@ -86,11 +91,15 @@ function closingConnection(): {
     },
     connection: {
       driverId: 'attach:1',
-      send: (message) => { sent.push(message); },
+      send: (message) => {
+        sent.push(message);
+      },
       subscribe: () => () => undefined,
       onClose: (listener) => {
         closeListeners.add(listener);
-        return () => { closeListeners.delete(listener); };
+        return () => {
+          closeListeners.delete(listener);
+        };
       },
       detach: vi.fn(),
     },
@@ -103,10 +112,17 @@ describe('test-product --attach with the real renderer', () => {
     captureWrites(process.stderr);
     const daemon = closingConnection();
     const row: ISupervisedSessionRow = {
-      id: ID, liveness: 'alive', control: 'available', activity: 'idle', cwd: scratch,
-      generation: GENERATION, daemon: true, name: 'Main daemon',
+      id: ID,
+      liveness: 'alive',
+      control: 'available',
+      activity: 'idle',
+      cwd: scratch,
+      generation: GENERATION,
+      daemon: true,
+      name: 'Main daemon',
     };
-    const run = runDaemonAttachCommand(['--attach'], {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+    const run = runDaemonAttachCommand(['--attach'], {
+      productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
       cwd: scratch,
       root: join(scratch, 'supervised'),
       isTTY: true,
@@ -121,7 +137,8 @@ describe('test-product --attach with the real renderer', () => {
           createDefaultTuiCliAdapter,
           installTuiProcessGuards: vi.fn(),
         },
-        {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+        {
+          productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
           cwd: scratch,
           projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch),
           providerDefinitions: [],
@@ -129,7 +146,9 @@ describe('test-product --attach with the real renderer', () => {
       ),
     });
     // The app is up once it asks the daemon for the conversation it attached to.
-    await vi.waitFor(() => expect(daemon.sent).toContainEqual({ type: 'get-history' }), { timeout: 10_000 });
+    await vi.waitFor(() => expect(daemon.sent).toContainEqual({ type: 'get-history' }), {
+      timeout: 10_000,
+    });
     daemon.close();
     expect(await run).toBe(0);
     expect(daemon.connection.detach).toHaveBeenCalledOnce();
@@ -157,14 +176,20 @@ describe('test-product --attach with the real renderer', () => {
           order.push('guards');
         }),
       },
-      {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+      {
+        productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
         cwd: scratch,
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch),
         providerDefinitions: [],
       },
     );
     const { connection } = closingConnection();
-    const options = { connection, driverId: connection.driverId, sessionLabel: 'Main daemon', mode: 'drive' as const };
+    const options = {
+      connection,
+      driverId: connection.driverId,
+      sessionLabel: 'Main daemon',
+      mode: 'drive' as const,
+    };
     expect(await render({ ...options, screenReaderFlag: undefined })).toBe('user');
     expect(order).toEqual(['guards', 'render']);
   });
@@ -185,14 +210,20 @@ describe('test-product --attach with the real renderer', () => {
         createDefaultTuiCliAdapter,
         installTuiProcessGuards: vi.fn(),
       },
-      {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+      {
+        productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
         cwd: scratch,
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch),
         providerDefinitions: [],
       },
     );
     const { connection } = closingConnection();
-    const options = { connection, driverId: connection.driverId, sessionLabel: 'Main daemon', mode: 'drive' as const };
+    const options = {
+      connection,
+      driverId: connection.driverId,
+      sessionLabel: 'Main daemon',
+      mode: 'drive' as const,
+    };
     await render({ ...options, screenReaderFlag: undefined });
 
     const clientCommands = renderStub.mock.calls[0]?.[0].clientCommands;
@@ -213,6 +244,52 @@ describe('test-product --attach with the real renderer', () => {
 });
 
 describe("test-product --attach's own commands follow the plain TUI's module selection", () => {
+  it('refuses /editor before creating a plaintext draft in secure mode', async () => {
+    const plain = createTestProductRuntime('test-product', {
+      HOME: process.env['HOME'],
+      PRODUCT_PROMPT_HISTORY: '0',
+    });
+    const productRuntime = createCliRuntimeContext(
+      plain.config,
+      plain.environment,
+      undefined,
+      'secure',
+    );
+    const renderStub = vi.fn<typeof renderAttachedApp>(async () => 'user');
+    const render = createAttachedAppRender(
+      {
+        renderAttachedApp: renderStub,
+        createThemeSurface,
+        createNodeKeybindingsSource,
+        createDefaultTuiCliAdapter,
+        installTuiProcessGuards: vi.fn(),
+      },
+      {
+        productRuntime,
+        cwd: scratch,
+        projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch),
+        providerDefinitions: [],
+      },
+    );
+    const { connection } = closingConnection();
+    await render({
+      connection,
+      driverId: connection.driverId,
+      sessionLabel: 'Secure daemon',
+      mode: 'drive',
+      screenReaderFlag: undefined,
+    });
+    const editor = renderStub.mock.calls[0]?.[0].clientCommands?.commands.find(
+      ({ name }) => name === 'editor',
+    );
+    expect(editor).toBeDefined();
+    const result = await editor!.execute({ canHandoffTerminal: () => true } as never, 'draft');
+    expect(result).toMatchObject({
+      success: false,
+      message: expect.stringContaining('unavailable in secure conversations'),
+    });
+  });
+
   it('leaves out a client command whose module the selected preset disables', async () => {
     // The attached terminal routes by this set: a module the preset turns off must not come back
     // as a command this terminal runs, because a plain TUI with the same settings would not offer it.
@@ -238,14 +315,20 @@ describe("test-product --attach's own commands follow the plain TUI's module sel
         createDefaultTuiCliAdapter,
         installTuiProcessGuards: vi.fn(),
       },
-      {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+      {
+        productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
         cwd: scratch,
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch),
         providerDefinitions: [],
       },
     );
     const { connection } = closingConnection();
-    const options = { connection, driverId: connection.driverId, sessionLabel: 'Main daemon', mode: 'drive' as const };
+    const options = {
+      connection,
+      driverId: connection.driverId,
+      sessionLabel: 'Main daemon',
+      mode: 'drive' as const,
+    };
     await render({ ...options, screenReaderFlag: undefined });
 
     const names = renderStub.mock.calls[0]?.[0].clientCommands?.commands.map(({ name }) => name);

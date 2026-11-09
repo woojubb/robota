@@ -68,7 +68,7 @@ const stunUrl = `stun:127.0.0.1:${stunCanary.address().port}`;
 const port = await freePort();
 const token = randomBytes(32).toString('hex');
 const sidecar = spawn(process.execPath, [join(packageRoot, 'e2e', 'scripted-sidecar.mjs')], {
-  // #3282 §3: starts as a served runtime with no provider configured would — the first scenario below
+  // Starts as a served runtime with no provider configured would — the first scenario below
   // exercises the setup panel and clears it via /provider add, then every later scenario runs exactly
   // as it did before setup mode existed.
   env: {
@@ -96,7 +96,7 @@ const browser = await chromium.launch(
 );
 process.stdout.write(line(`Browser: Chromium ${browser.version()}`));
 const page = await browser.newPage({ viewport: { width: 1100, height: 780 } });
-// #3289 §2: the copy-code-block scenario reads the clipboard back to check what was copied.
+// The copy-code-block scenario reads the clipboard back to check what was copied.
 await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: pageUrl.origin });
 // The server frames the page receives, by type: a refusal must arrive as its own frame.
 const receivedFrameTypes = [];
@@ -138,7 +138,7 @@ const waitForSwitchChecked = async (locator, checked, timeoutMs = 5000) => {
 };
 
 /**
- * #3289 §2 — the composer's own center point must resolve to the composer itself, not the narrow
+ * The composer's own center point must resolve to the composer itself, not the narrow
  * session sheet (or its backdrop) sitting over it. `CAPTURE_OUT`, when set, gets a screenshot per
  * label for the PR to point at.
  */
@@ -162,7 +162,7 @@ try {
   await page.goto(pageUrl.href);
 
   await scenario(
-    'first run: the setup panel replaces the composer until /provider add configures one (#3282 §3)',
+    'first run: the setup panel replaces the composer until /provider add configures one',
     async () => {
       await page.locator('.agent-gui-status[data-status="connected"]').waitFor({ timeout: 20_000 });
       await page.getByRole('heading', { name: 'Connect a model provider to start.' }).waitFor();
@@ -192,7 +192,7 @@ try {
   });
 
   await scenario(
-    '#3282 §4e: / opens the command menu with a Commands group and a Skills group, and Enter completes/runs',
+    '/ opens the command menu with a Commands group and a Skills group, and Enter completes/runs',
     async () => {
       await page.getByLabel('message').fill('/');
       const menu = page.getByRole('listbox', { name: 'commands' });
@@ -210,7 +210,7 @@ try {
   );
 
   await scenario(
-    '#3282 §4e: a command the GUI cannot run at all is left out of the menu entirely',
+    'a command the GUI cannot run at all is left out of the menu entirely',
     async () => {
       await page.getByLabel('message').fill('/sh');
       if ((await page.getByRole('option', { name: /\/shell/ }).count()) !== 0) {
@@ -220,7 +220,7 @@ try {
     },
   );
 
-  await scenario('#3282 §4e: typing /theme by hand shows its plain sentence, never "not available"', async () => {
+  await scenario('typing /theme by hand shows its plain sentence, never "not available"', async () => {
     await send('/theme');
     await page.getByText('This app follows your system appearance.').waitFor();
     if ((await page.getByText(/not available on this surface/).count()) !== 0) {
@@ -228,9 +228,9 @@ try {
     }
   });
 
-  await scenario('#3282 §4e: /help opens the Help sheet instead of a terminal-style text list', async () => {
+  await scenario('/help opens the Help sheet instead of a terminal-style text list', async () => {
     // An earlier scenario (/theme) already left its own info card in the conversation — the count
-    // must not GROW, not "must be zero" (#3282 §4e: excluded commands render the same card kind).
+    // must not GROW, not "must be zero" (excluded commands render the same card kind).
     const cardsBefore = await page.getByTestId('command-output').count();
     await send('/help');
     const sheet = page.getByRole('dialog', { name: 'Help' });
@@ -253,12 +253,12 @@ try {
     await page.getByLabel('context 12% used').waitFor();
   });
 
-  await scenario('#3282 §4d: the attach button (paperclip) is present, with an accessible name', async () => {
+  await scenario('the attach button (paperclip) is present, with an accessible name', async () => {
     await page.getByRole('button', { name: 'Attach files' }).waitFor();
   });
 
   await scenario(
-    '#3282 §4d: a plain-browser attach attempt shows the plain sentence, and adds no chip',
+    'a plain-browser attach attempt shows the plain sentence, and adds no chip',
     async () => {
       // A plain browser page has no real filesystem path for a `File` (no Electron bridge) — every
       // pick, even the hidden HTML file input the attach button falls back to, is refused the same way.
@@ -276,7 +276,7 @@ try {
   );
 
   await scenario(
-    'switching model from the model control (#3282 §2) changes the next reply\'s model',
+    'switching model from the model control changes the next reply\'s model',
     async () => {
       await page.getByRole('button', { name: 'model: scripted-model' }).click();
       const menu = page.getByRole('menu', { name: 'Model' });
@@ -300,7 +300,7 @@ try {
   );
 
   await scenario('a long command result is a folded card and the composer stays usable', async () => {
-    // Not `/help` — #3282 §4e made that one the GUI's own Help sheet, never sent to the session.
+    // Not `/help` — the GUI answers that one with its own Help sheet, never sent to the session.
     await send('/context');
     const card = page.getByTestId('command-output').last();
     await card.getByText('Command 1 (/c1)').waitFor();
@@ -345,7 +345,7 @@ try {
   );
 
   await scenario(
-    'Settings → Providers & Models: switching the active profile\'s model changes the next reply (#3282 §4b)',
+    'Settings → Providers & Models: switching the active profile\'s model changes the next reply',
     async () => {
       // Scoped to the dialog throughout: the status row's own "model: …" chip sits underneath the
       // modal, still in the DOM, and its accessible name also contains "Model" — an unscoped
@@ -398,7 +398,7 @@ try {
   );
 
   await scenario(
-    'Settings → MCP Servers: lists the scripted server and its switch sends a typed update (#3282 §4 part b-2)',
+    'Settings → MCP Servers: lists the scripted server and its switch sends a typed update',
     async () => {
       await page.getByRole('button', { name: 'Settings' }).click();
       await page.getByRole('dialog', { name: 'Settings' }).waitFor();
@@ -417,7 +417,7 @@ try {
     },
   );
 
-  await scenario('Settings → Plugins: shows the one installed plugin (#3282 §4 part b-2)', async () => {
+  await scenario('Settings → Plugins: shows the one installed plugin', async () => {
     await page.getByRole('button', { name: 'Settings' }).click();
     await page.getByRole('dialog', { name: 'Settings' }).waitFor();
     await page.getByRole('button', { name: 'Plugins' }).click();
@@ -441,7 +441,7 @@ try {
   });
 
   await scenario(
-    '#3282 §4 part b-3: /agent opens the switcher; choosing an agent shows a plain confirmation, not a card',
+    '/agent opens the switcher; choosing an agent shows a plain confirmation, not a card',
     async () => {
       await send('/agent');
       await page.getByRole('dialog', { name: 'Switch agent' }).waitFor();
@@ -469,12 +469,12 @@ try {
   );
 
   await scenario(
-    '#3282 §4 part b-3: the Agents panel shows one schedule, and Delete (confirmed) removes it',
+    'the Agents panel shows one schedule, and Delete (confirmed) removes it',
     async () => {
       await page.getByText('Scheduled').waitFor();
       await page.getByText('check the nightly build').waitFor();
       await page.getByRole('button', { name: 'Delete…' }).click();
-      // #3282 §4e: a destructive ConfirmDialog is an alertdialog, not a plain dialog.
+      // A destructive ConfirmDialog is an alertdialog, not a plain dialog.
       await page.getByRole('alertdialog', { name: 'Delete this schedule?' }).waitFor();
       await page.getByRole('button', { name: 'Delete', exact: true }).click();
       await page.getByText('check the nightly build').waitFor({ state: 'detached' });
@@ -482,10 +482,10 @@ try {
   );
 
   await scenario(
-    '#3282 §4 part b-3: the Agents panel shows the current goal, and Cancel goal stops it',
+    'the Agents panel shows the current goal, and Cancel goal stops it',
     async () => {
       await send('set a goal');
-      // Scoped to the Agents panel: the pre-existing GoalBar (#3307, docked above the composer,
+      // Scoped to the Agents panel: the pre-existing GoalBar (docked above the composer,
       // `aria-label="goal"`) shows the same objective text while the goal is active, so a bare
       // page-wide text match is ambiguous between the two.
       const agentsPanel = page.getByRole('complementary', { name: 'Agents' });
@@ -504,7 +504,7 @@ try {
     await page.getByText('src/a.ts').waitFor();
   });
 
-  await scenario('#3288: an Edit row expands to show its diff', async () => {
+  await scenario('an Edit row expands to show its diff', async () => {
     await send('edit it');
     await page.getByText('Edited the title.').waitFor();
     await page.getByRole('button', { name: /1 tool call/ }).last().click();
@@ -517,7 +517,7 @@ try {
     await page.getByText(/const title = 'old';/).waitFor();
   });
 
-  await scenario('#3288: a Shell row expands to show its output and exit status', async () => {
+  await scenario('a Shell row expands to show its output and exit status', async () => {
     await send('run tests');
     await page.getByText('Tests passed.').waitFor();
     await page.getByRole('button', { name: /1 tool call/ }).last().click();
@@ -534,7 +534,7 @@ try {
   const permissionPrompt = page.locator('[role="dialog"][aria-label="pending question"]');
 
   await scenario(
-    '#3558: the built page admits its own origin as a frame, and the sandbox page ships with a policy of its own',
+    'the built page admits its own origin as a frame, and the sandbox page ships with a policy of its own',
     async () => {
       const policyOf = (documentText) =>
         [...documentText.matchAll(/<meta\b[^>]*http-equiv="Content-Security-Policy"[^>]*>/gu)].map(
@@ -571,7 +571,7 @@ try {
 
   for (const version of ['156.0.0.0', '157.0.8093.0', '157.0.8103.6', '157.0.0.0']) {
     await scenario(
-      `#3558: Chromium ${version} refuses app HTML and never announces readiness`,
+      `Chromium ${version} refuses app HTML and never announces readiness`,
       async () => {
         const context = await browser.newContext({
           userAgent: `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${version} Safari/537.36`,
@@ -614,7 +614,7 @@ try {
   }
 
   await scenario(
-    '#3558: the sandbox page refuses to run on its own, and when its host forgot the sandbox attribute',
+    'the sandbox page refuses to run on its own, and when its host forgot the sandbox attribute',
     async () => {
       const lone = await browser.newPage();
       try {
@@ -634,13 +634,13 @@ try {
     },
   );
 
-  await scenario('#3558: the canary sees a direct request (the control for the sandbox checks)', async () => {
+  await scenario('the canary sees a direct request (the control for the sandbox checks)', async () => {
     await (await fetch(`${canaryUrl}/control`)).text();
     if (!canaryHits.includes('/control')) throw new Error('the canary did not record a request');
     canaryHits.length = 0;
   });
 
-  await scenario('#3558: a browser without the sandbox policy reaches the UDP STUN canary', async () => {
+  await scenario('a browser without the sandbox policy reaches the UDP STUN canary', async () => {
     const control = await browser.newPage();
     try {
       await control.goto(`${canaryUrl}/rtc-control`);
@@ -668,7 +668,7 @@ try {
     }
   });
 
-  await scenario('#3558: a tool call without an app view shows no frame', async () => {
+  await scenario('a tool call without an app view shows no frame', async () => {
     if ((await appFrame.count()) !== 0) throw new Error('a frame showed for a call with no app view');
     if ((await page.getByText(/returned an app view/u).count()) !== 0) {
       throw new Error('a plain line about an app view showed for a call with none');
@@ -676,7 +676,7 @@ try {
   });
 
   await scenario(
-    '#3558: a finished call’s app view shows below the collapsed group and blocks fetch, images and nested frames',
+    'a finished call’s app view shows below the collapsed group and blocks fetch, images and nested frames',
     async () => {
       await send('show app view');
       await page.getByText('Opened the app view.').waitFor();
@@ -741,7 +741,7 @@ try {
     },
   );
 
-  await scenario('#3558: the app frame cannot send STUN through WebRTC', async () => {
+  await scenario('the app frame cannot send STUN through WebRTC', async () => {
     const configurations = await appView.locator('body').evaluate(async (_body, url) => {
       const peer = new RTCPeerConnection({ iceServers: [{ urls: url }], iceCandidatePoolSize: 1 });
       try {
@@ -766,7 +766,7 @@ try {
   });
 
   await scenario(
-    '#3558: messages from the parent and a sibling cannot impersonate an app or replace its resource',
+    'messages from the parent and a sibling cannot impersonate an app or replace its resource',
     async () => {
       const before = sentFrames.length;
       const originalResult = await appView.locator('#result').textContent();
@@ -827,7 +827,7 @@ try {
   );
 
   await scenario(
-    '#3558: a tool call from the view raises the GUI permission prompt; Deny shows the denial, Allow the result',
+    'a tool call from the view raises the GUI permission prompt; Deny shows the denial, Allow the result',
     async () => {
       const before = sentFrames.length;
       await appView.getByRole('button', { name: 'Call echo' }).click();
@@ -859,7 +859,7 @@ try {
   );
 
   await scenario(
-    '#3558: after a reload the turn is replayed as text, with no frame',
+    'after a reload the turn is replayed as text, with no frame',
     async () => {
       await page.reload();
       await page.locator('.agent-gui-status[data-status="connected"]').waitFor({ timeout: 20_000 });
@@ -869,7 +869,7 @@ try {
   );
 
   await scenario(
-    '#3289 §2: wheel-scrolling up mid-stream stops auto-scroll, and "Jump to latest" returns to it',
+    'wheel-scrolling up mid-stream stops auto-scroll, and "Jump to latest" returns to it',
     async () => {
       await send('give me a long reply');
       await page.getByText('Paragraph 3 of the long reply').waitFor();
@@ -899,7 +899,7 @@ try {
     },
   );
 
-  await scenario('#3289 §2: copying a code block puts its text on the clipboard', async () => {
+  await scenario('copying a code block puts its text on the clipboard', async () => {
     await send('show code please');
     await page.getByText('Here you go:').waitFor();
     const copyButton = page.getByRole('button', { name: 'Copy code' });
@@ -915,12 +915,14 @@ try {
   });
 
   await scenario(
-    '#3288 §2: after a reload, an earlier turn\'s Edit diff and Shell output are still expandable',
+    'after a reload, an earlier turn\'s Edit diff and Shell output are still expandable',
     async () => {
       // A fresh page load re-requests the transcript from scratch — no live stream to rebuild these
-      // rows from, only the server's history-display projection (`getMessagesDisplay`). Proves the
-      // #3288 §2 gap this closes: before it, a reload showed the same replies as plain text bubbles,
-      // with every tool row, diff and "Changed files" line gone.
+      // rows from, only the server's history-display projection (`getMessagesDisplay`). Proves a
+      // reload
+      // does not show the replies as plain text bubbles with every tool row, diff and "Changed
+      // files"
+      // line gone.
       await page.reload();
       await page.locator('.agent-gui-status[data-status="connected"]').waitFor({ timeout: 20_000 });
       await page.getByText('Edited the title.').waitFor();
@@ -994,7 +996,7 @@ try {
   );
 
   await scenario(
-    'a provider failure keeps the partial reply and raises a toast in plain words (#3289 §3)',
+    'a provider failure keeps the partial reply and raises a toast in plain words',
     async () => {
       await send('please fail');
       const toast = page.getByRole('alert');
@@ -1033,7 +1035,7 @@ try {
     }
   });
 
-  await scenario('#3282 §4c: the Project panel lists the changed file, and a click shows its diff', async () => {
+  await scenario('the Project panel lists the changed file, and a click shows its diff', async () => {
     await page.getByRole('button', { name: 'Project', exact: true }).click();
     await page.getByText('Changes — main').waitFor();
     await page.getByText('src/task-title.ts').waitFor();
@@ -1068,7 +1070,7 @@ try {
   });
 
   await scenario('the title bar and the page title show the workspace folder', async () => {
-    // The scripted sidecar's workspace cwd defaults to '/scripted/workspace' (#3282 §4d); the folder
+    // The scripted sidecar's workspace cwd defaults to '/scripted/workspace'; the folder
     // name shown here is its basename, 'workspace'.
     await page.getByText('workspace', { exact: true }).waitFor();
     if ((await page.title()) !== `workspace — ${product.identity.displayName}`) {
@@ -1116,7 +1118,7 @@ try {
   // every switch passes through a transient no-session-id moment, not only the very first one. A
   // composer that mistook that moment for "no session has ever been known" would leak keystrokes
   // typed mid-switch into whichever session answered next (or the pre-session fallback key).
-  await scenario('#3280: switching between two sidebar sessions keeps each one\'s own draft', async () => {
+  await scenario('switching between two sidebar sessions keeps each one\'s own draft', async () => {
     // Currently on "What did we decide about the parser?" (the previous scenario switched to it).
     await page.getByLabel('message').fill('draft for the parser session');
     await row(/Set up the release checklist/).click();
@@ -1152,8 +1154,8 @@ try {
   await scenario('the row menu deletes a session after a confirmation', async () => {
     await sidebar.getByRole('button', { name: 'More for Scripted e2e session' }).click();
     await page.getByRole('menuitem', { name: 'Delete…' }).click();
-    // The shared Dialog primitive (#3282 §4a) names the panel via aria-labelledby, not visible text.
-    // #3282 §4e: a destructive ConfirmDialog is an alertdialog, not a plain dialog.
+    // The shared Dialog primitive names the panel via aria-labelledby, not visible text.
+    // A destructive ConfirmDialog is an alertdialog, not a plain dialog.
     const dialog = page.getByRole('alertdialog', { name: /Delete/ });
     await dialog.getByText('This removes its conversation from this computer.').waitFor();
     await dialog.getByRole('button', { name: 'Delete' }).click();
@@ -1178,7 +1180,7 @@ try {
 
   // Last: these leave "Working on it..." in the transcript, which an earlier scenario's strict
   // `getByText('Working on it...')` would otherwise match twice (this fresh session is not read again).
-  await scenario('#3280: Send becomes Stop while a turn runs; Stop ends it and keeps the partial reply', async () => {
+  await scenario('Send becomes Stop while a turn runs; Stop ends it and keeps the partial reply', async () => {
     await send('stay busy');
     await page.getByText('Working on it...').waitFor();
     if ((await page.getByRole('button', { name: 'Send' }).count()) !== 0) {
@@ -1189,7 +1191,7 @@ try {
     await page.getByText('Working on it...').last().waitFor();
   });
 
-  await scenario('#3280: Esc in the composer stops a running turn', async () => {
+  await scenario('Esc in the composer stops a running turn', async () => {
     await send('stay busy');
     await page.getByRole('button', { name: 'Stop' }).waitFor();
     await page.getByLabel('message').press('Escape');
@@ -1197,12 +1199,12 @@ try {
   });
 
   await scenario(
-    '#3289 §2: at 390×800 the status chips collapse without overflow, and the composer stays uncovered',
+    'at 390×800 the status chips collapse without overflow, and the composer stays uncovered',
     async () => {
       await page.setViewportSize({ width: 390, height: 800 });
       try {
-        // The session-list-covers-the-composer overlay at a narrow width is #3289 §2's OTHER,
-        // separate bug (the sheet-with-backdrop fix is out of scope here — this PR only owns the
+        // The session-list-covers-the-composer overlay at a narrow width is a separate bug
+        // (the sheet-with-backdrop fix is out of scope here — this PR only owns the
         // status controls' own collapse). Close it first, the same way a person would, so this
         // scenario checks what it owns: the status chips and composer, not that unrelated overlay.
         const hideSessions = page.getByRole('button', { name: 'Hide sessions' });
@@ -1218,7 +1220,7 @@ try {
         await modelChip.waitFor();
         await composer.waitFor();
 
-        // Nothing truncated to "d…"/"claude-…" (#3289 §2's exact bug): the icon-only chip is narrow
+        // Nothing truncated to "d…"/"claude-…": the icon-only chip is narrow
         // and its box stays fully inside the viewport width, on both sides.
         for (const chip of [modelChip, modeChip]) {
           const box = await chip.boundingBox();
@@ -1248,7 +1250,7 @@ try {
   );
 
   // Truly last: a reload drops every other scenario's assumed UI state (view, sidebar, transcript).
-  await scenario('#3280: a draft survives a Chat -> Usage -> Chat switch and a reload', async () => {
+  await scenario('a draft survives a Chat -> Usage -> Chat switch and a reload', async () => {
     await page.getByLabel('message').fill('an unsent draft');
 
     // Exact: a stored session named "Usage e2e session" otherwise substring-matches this nav button.
@@ -1269,7 +1271,7 @@ try {
     }
   });
 
-  // #3288 §1: the Agents panel — open a task's detail sheet and its transcript, then close it.
+  // The Agents panel — open a task's detail sheet and its transcript, then close it.
   await scenario('the Agents panel opens a task, showing its transcript', async () => {
     await send('show background work');
     await page.getByText('Started background work.').waitFor();
@@ -1288,7 +1290,49 @@ try {
     await sheet.waitFor({ state: 'detached' });
   });
 
-  // #3288 §1: Stop on an ordinary task sends cancel-background-task and its true status replaces
+  await scenario('follows a running fork and reads earlier output on request', async () => {
+    const panel = page.getByRole('complementary', { name: 'Agents' });
+    await panel.getByText('Followed fork').click();
+    const sheet = page.getByRole('dialog', { name: 'Followed fork' });
+    await sheet.getByText('Fork live output').waitFor();
+    const log = sheet.getByRole('log', { name: 'Live fork output' });
+    await page.waitForFunction(() => {
+      const output = document.querySelector('[aria-label="Live fork output"]');
+      return output && output.scrollHeight > output.clientHeight && output.scrollHeight - output.scrollTop - output.clientHeight <= 1;
+    });
+    await log.evaluate((output) => new Promise((resolve) => {
+      output.addEventListener('scroll', resolve, { once: true });
+      output.scrollTop = 0;
+    }));
+    const start = sentFrames.length;
+    await sheet.getByRole('textbox', { name: 'Message the fork' }).fill('Check this');
+    await sheet.getByRole('button', { name: 'Send to fork' }).click();
+    await sheet.getByText('Fork received: Check this').waitFor();
+    if (await log.evaluate((output) => output.scrollTop) !== 0) {
+      throw new Error('new output moved a reader away from earlier content');
+    }
+    await log.evaluate((output) => new Promise((resolve) => {
+      output.addEventListener('scroll', resolve, { once: true });
+      output.scrollTop = output.scrollHeight;
+    }));
+    await sheet.getByRole('textbox', { name: 'Message the fork' }).fill('Next message');
+    await sheet.getByRole('button', { name: 'Send to fork' }).click();
+    await sheet.getByText('Fork received: Next message').waitFor();
+    if (await log.evaluate((output) => output.scrollHeight - output.scrollTop - output.clientHeight) > 1) {
+      throw new Error('new output did not follow a reader at the bottom');
+    }
+    if (sentFrames.slice(start).some((frame) => frame.type === 'switch-session')) {
+      throw new Error('following a running fork switched the parent session');
+    }
+    await sheet.getByRole('button', { name: 'Earlier output' }).click();
+    await sheet.getByText('Earlier fork output').waitFor();
+    if (!sentFrames.slice(start).some((frame) => frame.type === 'read-execution-detail' && frame.cursor?.offset === 0)) {
+      throw new Error('earlier output was not requested with an explicit zero cursor');
+    }
+    await sheet.getByRole('button', { name: 'Close' }).click();
+  });
+
+  // Stop on an ordinary task sends cancel-background-task and its true status replaces
   // "Done"/silence — it shows "Stopped", never lingering unlabeled.
   await scenario('Stop on a task sends cancel-background-task and shows "Stopped"', async () => {
     const panel = page.getByRole('complementary', { name: 'Agents' });
@@ -1301,7 +1345,7 @@ try {
     }
   });
 
-  // #3288 §1: Stop on a loop sends `/loop stop <id>` — never cancel-background-task, which would
+  // Stop on a loop sends `/loop stop <id>` — never cancel-background-task, which would
   // only cancel its disposable wake timer, not the loop — and the loop leaves the list, not
   // lingering the way a stopped ordinary task's row does.
   await scenario('Stop on a loop sends /loop stop <id>, and the loop leaves the list', async () => {
@@ -1311,7 +1355,7 @@ try {
     await panel.getByText('Loop: check the deploy').waitFor({ state: 'detached' });
   });
 
-  // #3289 §2 — a fresh reload at each size, so `initialSidebarOpen()` sees the real viewport: below
+  // A fresh reload at each size, so `initialSidebarOpen()` sees the real viewport: below
   // `md` the sheet starts closed (as a person opening the app at that size would see it), which is
   // exactly the "composer never covered while the sheet is closed" case the issue calls out.
   await scenario('1280×800: the composer is visible and uncovered', async () => {

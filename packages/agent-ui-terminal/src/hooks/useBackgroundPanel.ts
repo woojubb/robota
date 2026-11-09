@@ -3,9 +3,8 @@
  * and what happens when the operator attaches to a forked one.
  *
  * Both belong to the same surface and both are read by the same component, so `App` asks for them
- * once rather than wiring two hooks whose inputs it has to keep in step. Split out because CLI-2004
- * had already brought `App.tsx` to its size budget by extracting the detail read, and CLI-1994 adds
- * the attach handler beside it — growing the file was the alternative the size rule forbids.
+ * once rather than wiring two hooks whose inputs it has to keep in step. Split out because
+ * `App.tsx` is at its size budget; growing it was the alternative the size rule forbids.
  */
 
 import { useMemo } from 'react';
@@ -14,13 +13,14 @@ import { useExecutionDetailPage } from './useExecutionDetailPage.js';
 import { useForkAttach } from './useForkAttach.js';
 
 import type { IExecutionDetailState } from './useExecutionDetailPage.js';
+import type { IContinueForkQuestion } from './useForkAttach.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IExecutionDetailPage,
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/execution';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 export interface IUseBackgroundPanelOptions {
   /** Which entry the switcher has selected; resolved against the snapshot below. */
@@ -28,9 +28,11 @@ export interface IUseBackgroundPanelOptions {
   /** The panel's data, and the re-read trigger — the detail follows a running task's output. */
   readonly snapshot: IExecutionWorkspaceSnapshot | null;
   readonly read: (entryId: string) => Promise<IExecutionDetailPage>;
-  /** Absent ⇒ this surface cannot open another session's record, and attach says so. */
+  /** Absent ⇒ this surface has no store of its own: continuing a fork is asked of its host. */
   readonly sessionStore: IInteractiveSessionStore | undefined;
   readonly onSessionSwitch: (sessionId: string) => void;
+  /** Selects a workspace entry: how attaching follows a running job. */
+  readonly select: (entryId: string) => void;
   readonly addEntry: (entry: IHistoryEntry) => void;
 }
 
@@ -39,6 +41,7 @@ export interface IBackgroundPanel {
   readonly entry: IExecutionWorkspaceEntry | undefined;
   readonly detail: IExecutionDetailState;
   readonly attachToFork: (entry: IExecutionWorkspaceEntry) => void;
+  readonly continueQuestion: IContinueForkQuestion | undefined;
 }
 
 /** Wire the background panel's detail read and its attach handler together. */
@@ -49,10 +52,12 @@ export function useBackgroundPanel(inputs: IUseBackgroundPanelOptions): IBackgro
     [snapshot, selectedEntryId],
   );
   const detail = useExecutionDetailPage({ entry, snapshot, read: inputs.read });
-  const attachToFork = useForkAttach({
+  const fork = useForkAttach({
     sessionStore: inputs.sessionStore,
     onSessionSwitch: inputs.onSessionSwitch,
+    select: inputs.select,
     addEntry: inputs.addEntry,
+    snapshot,
   });
-  return { entry, detail, attachToFork };
+  return { entry, detail, attachToFork: fork.attach, continueQuestion: fork.continueQuestion };
 }

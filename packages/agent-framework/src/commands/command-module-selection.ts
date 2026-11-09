@@ -7,7 +7,7 @@ import type { ICommandModule, IUnknownCommandModuleName } from '../command-api/i
  * whose `name` is in `disabled` (deny > allow). Neither given → the input set is returned unchanged.
  *
  * This is the framework-owned counterpart of agent-command's `applyModuleSelection` — duplicated
- * here deliberately so agent-framework does not depend on agent-command (PRESET-015).
+ * here deliberately so agent-framework does not depend on agent-command.
  */
 export function selectCommandModules(
   modules: readonly ICommandModule[],
@@ -31,7 +31,7 @@ export function selectCommandModules(
  *
  * Returns one `{ name, kind }` entry per `enabled`/`disabled` name that is NOT in `availableNames`
  * (`kind` records which list the name came from); `[]` when every name matches. This is the single
- * source of the detection reused by both preset entry points (INFRA-032): the startup `--preset`
+ * source of the detection reused by both preset entry points: the startup `--preset`
  * path (via `createDefaultCommandModules`) and the in-session `/preset` path (via
  * `SessionSkillRouter.reapplyCommandModuleSelection`). An unmatched name — a short form like
  * `"editor"` instead of `agent-command-editor`, or a typo — is surfaced as a non-fatal notice rather

@@ -26,7 +26,7 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
-/** Issue #3429 — the runtime's own provider credentials leave the environment commands inherit. */
+/** The runtime's own provider credentials leave the environment commands inherit. */
 const definitions = [
   { type: 'openai', defaults: { apiKey: '$ENV:OPENAI_API_KEY' } },
   { type: 'local', defaults: {} },

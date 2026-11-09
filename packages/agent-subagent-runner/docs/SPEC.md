@@ -10,14 +10,14 @@ extra dependency.
 
 ## Non-goals / Boundaries
 
-- Must not import from `agent-command`, `agent-cli`, or (directly) `agent-session` — session
+- Must not import from `agent-product/command`, `agent-cli`, or (directly) `agent-session` — session
   lifecycle is accessed through `agent-framework` facades.
 - A neutral runner must not compose the product's surface: the tool factory and provider registry
   are supplied by the composition root through a required port, never imported as defaults.
 - Does not own where a worker file lives on disk — that is a packaging-step concern the
   composition root states (it supplies how to start a copy of itself, not a path).
 - Does not own subagent lifecycle state machines (those live in `agent-executor`) or provider
-  creation contracts (owned by `agent-interface-execution`); provider config crosses the process
+  creation contracts (owned by `agent-interface/execution`); provider config crosses the process
   boundary as a serialized profile and is reconstructed in the worker.
 - No hard-defaulted concrete git/filesystem adapter: worktree isolation is optional wrapping, and
   when enabled the adapter is a required injected port, not a built-in default.
@@ -31,7 +31,9 @@ extra dependency.
 - **Result flush before exit.** The worker must not exit until its terminal IPC message has
   actually flushed, because `process.send` is asynchronous — exiting first would let the parent's
   process-exit handler race the result and misreport a successful run as a crash, losing its usage
-  payload.
+  payload. The parent does not rest on that alone: the exit event is not ordered against the IPC
+  channel, so it judges that no result came only once the channel has closed, which happens after
+  every message the channel holds has been delivered.
 - **`usage` is validated at the IPC boundary**, not merely `output` — a malformed usage object is
   rejected as a malformed message rather than spread verbatim into the parent's accounting.
 - **A crash surfaces its cause.** When the child exits before producing a result, the rejection
@@ -62,7 +64,8 @@ extra dependency.
   neither this process nor another opens the record while the child may still write it. Queued
   fork jobs live only in the parent's memory (tasks are not persisted), so a parent that crashes
   loses them and a fresh fork is the way back. A composition with no registered session store fails
-  such a job outright rather than starting it with an empty history.
+  such a job outright rather than starting it with an empty history. A follow-up accepted by a child
+  runs before the job ends; input that cannot be accepted is refused instead of silently lost.
 - **A child seals as its parent decided.** A sealing parent's start payload carries the write grant
   its sealer issues when the payload is sent, which seals and opens nothing; the composition binds it
   before anything is built, so every store and the subagent log seal to the parent's key and the

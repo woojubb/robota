@@ -13,7 +13,7 @@ import type { ISubagentWorkerStartPayload } from '../index.js';
 function validStartPayload(): ISubagentWorkerStartPayload {
   return {
     taskId: 'agent_1',
-    // ARCH-031: `permissionPolicy` is required at the spawn boundary, so a "fully-formed" payload
+    // `permissionPolicy` is required at the spawn boundary, so a "fully-formed" payload
     // carries it. The `as unknown as` cast below is why this fixture could go stale silently.
     request: {
       agentType: 'tester',
@@ -34,7 +34,9 @@ describe('isSubagentWorkerParentMessage', () => {
     expect(isSubagentWorkerParentMessage({ type: 'start', payload: validStartPayload() })).toBe(
       true,
     );
-    expect(isSubagentWorkerParentMessage({ type: 'send', prompt: 'continue' })).toBe(true);
+    expect(isSubagentWorkerParentMessage({ type: 'send', prompt: 'continue', sendId: 1 })).toBe(
+      true,
+    );
     expect(isSubagentWorkerParentMessage({ type: 'cancel' })).toBe(true);
     expect(isSubagentWorkerParentMessage({ type: 'cancel', reason: 'stop' })).toBe(true);
   });
@@ -45,6 +47,13 @@ describe('isSubagentWorkerParentMessage', () => {
     expect(isSubagentWorkerParentMessage('start')).toBe(false);
     expect(isSubagentWorkerParentMessage({ type: 'bogus' })).toBe(false);
     expect(isSubagentWorkerParentMessage({ type: 'send' })).toBe(false);
+    // A send is answered by its number, so it must carry one: a positive integer.
+    expect(isSubagentWorkerParentMessage({ type: 'send', prompt: 'continue' })).toBe(false);
+    for (const sendId of [0, -1, 1.5, '1', null]) {
+      expect(isSubagentWorkerParentMessage({ type: 'send', prompt: 'continue', sendId })).toBe(
+        false,
+      );
+    }
     expect(isSubagentWorkerParentMessage({ type: 'cancel', reason: 42 })).toBe(false);
   });
 
@@ -57,14 +66,14 @@ describe('isSubagentWorkerParentMessage', () => {
     delete noModel.providerProfile.model;
     expect(isSubagentWorkerParentMessage({ type: 'start', payload: noModel })).toBe(false);
 
-    // ARCH-031: the policy is required at the boundary, so the guard must reject a payload without
-    // it. Without this the worker's conditional spread silently omits the policy — CORE-025 lost
-    // this exact field once already, and nothing caught it.
+    // The policy is required at the boundary, so the guard must reject a payload without
+    // it. Without this the worker's conditional spread silently omits the policy — losing
+    // this exact field would go unnoticed.
     const noPolicy = validStartPayload() as unknown as { request: Record<string, unknown> };
     delete noPolicy.request.permissionPolicy;
     expect(isSubagentWorkerParentMessage({ type: 'start', payload: noPolicy })).toBe(false);
 
-    // ARCH-010/ARCH-031: without `cwd` and without a `worktree`, `subagentExecutionRoot` has nothing
+    // Without `cwd` and without a `worktree`, `subagentExecutionRoot` has nothing
     // to return and the child's tools get no containment root — reachable over the wire.
     const noCwd = validStartPayload() as unknown as { request: Record<string, unknown> };
     delete noCwd.request.cwd;
@@ -108,7 +117,7 @@ describe('isSubagentWorkerChildMessage', () => {
       isSubagentWorkerChildMessage({ type: 'tool_end', toolName: 'Read', success: true }),
     ).toBe(true);
     expect(isSubagentWorkerChildMessage({ type: 'result', output: 'done' })).toBe(true);
-    // CORE-024 (RUNTIME-47): a well-formed usage payload is accepted.
+    // A well-formed usage payload is accepted.
     expect(
       isSubagentWorkerChildMessage({
         type: 'result',
@@ -119,6 +128,8 @@ describe('isSubagentWorkerChildMessage', () => {
     expect(isSubagentWorkerChildMessage({ type: 'error', message: 'boom' })).toBe(true);
     expect(isSubagentWorkerChildMessage({ type: 'cancelled' })).toBe(true);
     expect(isSubagentWorkerChildMessage({ type: 'cancelled', reason: 'stop' })).toBe(true);
+    expect(isSubagentWorkerChildMessage({ type: 'send_accepted', sendId: 3 })).toBe(true);
+    expect(isSubagentWorkerChildMessage({ type: 'send_refused', sendId: 3 })).toBe(true);
   });
 
   it('rejects malformed or unknown child messages', () => {
@@ -129,9 +140,14 @@ describe('isSubagentWorkerChildMessage', () => {
     expect(isSubagentWorkerChildMessage({ type: 'error' })).toBe(false);
     expect(isSubagentWorkerChildMessage({ type: 'cancelled', reason: 7 })).toBe(false);
     expect(isSubagentWorkerChildMessage({ type: 'unknown' })).toBe(false);
+    for (const type of ['send_accepted', 'send_refused']) {
+      expect(isSubagentWorkerChildMessage({ type })).toBe(false);
+      expect(isSubagentWorkerChildMessage({ type, sendId: 0 })).toBe(false);
+      expect(isSubagentWorkerChildMessage({ type, sendId: '3' })).toBe(false);
+    }
   });
 
-  it('validates the optional composed-tool-name declaration (ARCH-021)', () => {
+  it('validates the optional composed-tool-name declaration', () => {
     // Absent is valid — an old-shaped `ready` still passes.
     expect(isSubagentWorkerChildMessage({ type: 'ready' })).toBe(true);
     expect(
@@ -148,7 +164,7 @@ describe('isSubagentWorkerChildMessage', () => {
     expect(isSubagentWorkerChildMessage({ type: 'ready', composedToolNames: 42 })).toBe(false);
   });
 
-  it('rejects a result message with a malformed usage payload (CORE-024 RUNTIME-47)', () => {
+  it('rejects a result message with a malformed usage payload', () => {
     // Missing fields, wrong types, and non-object usage must all be rejected so a bad payload
     // cannot be spread verbatim into the parent's token/cost accounting.
     expect(
@@ -169,8 +185,8 @@ describe('isSubagentWorkerChildMessage', () => {
 });
 
 /**
- * DIST-006. The test that stood here asserted `getDefaultSubagentWorkerPath()` returned "an
- * absolute path ending in child-process-subagent-worker.js" — and it PASSED for the whole time the
+ * A test that asserted `getDefaultSubagentWorkerPath()` returned "an
+ * absolute path ending in child-process-subagent-worker.js" would PASS while the
  * built binary could not spawn a subagent at all, because a string's shape says nothing about
  * whether the file is there. The resolver is gone; what is left to check is the argv contract.
  */
@@ -192,7 +208,7 @@ describe('subagent worker mode', () => {
 });
 
 /**
- * #3679 step 3b: a sealing parent hands its child a write grant (non-secret: it seals and opens
+ * A sealing parent hands its child a write grant (non-secret: it seals and opens
  * nothing) and, for a fork job while its keys are locked, the record it holds. The guard takes both
  * only in the shape the parent produces them: non-empty strings, a held record only beside the id it
  * resumes and within its bound, and a later grant only as a `sealing_key` message.
@@ -247,6 +263,25 @@ describe('the sealing fields of a start payload', () => {
     ).toBe(false);
   });
 
+  it('accepts only a well-formed store reference attached to a fork', () => {
+    for (const resumeStore of [
+      { scope: 'user' },
+      { scope: 'project', repositoryKey: 'repo', worktreeRoot: '/workspace' },
+    ]) {
+      expect(isSubagentWorkerParentMessage({ type: 'start', payload: forkPayload({ resumeStore }) })).toBe(true);
+    }
+    for (const resumeStore of [
+      null, [], { scope: 'other' }, { scope: 'project' }, { scope: 'user', extra: true },
+      { scope: 'project', repositoryKey: '', worktreeRoot: '/workspace' },
+      { scope: 'project', repositoryKey: 'repo', worktreeRoot: '' },
+    ]) {
+      expect(isSubagentWorkerParentMessage({ type: 'start', payload: forkPayload({ resumeStore }) })).toBe(false);
+    }
+    expect(isSubagentWorkerParentMessage({
+      type: 'start', payload: { ...validStartPayload(), resumeStore: { scope: 'user' } },
+    })).toBe(false);
+  });
+
   it('rejects a held record with no session to resume', () => {
     expect(
       isSubagentWorkerParentMessage({
@@ -272,7 +307,7 @@ describe('the sealing fields of a start payload', () => {
 });
 
 /**
- * #3679 step 3e: a child handed a record reports each save of it as a `record_saved` child message,
+ * A child handed a record reports each save of it as a `record_saved` child message,
  * and a refused save is said on the terminal message only as `recordSaveRefused: true`.
  */
 describe('record saves on the wire', () => {

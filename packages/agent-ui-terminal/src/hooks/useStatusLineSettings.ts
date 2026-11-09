@@ -5,7 +5,7 @@ import { useTuiCliAdapter } from '../tui-cli-adapter-context.js';
 
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-import type { IStatusLineCommandSettings } from '@robota-sdk/agent-interface-command';
+import type { IStatusLineCommandSettings } from '@robota-sdk/agent-interface/command';
 
 function readStatusLineSettings(
   settings: Record<string, TUniversalValue>,
@@ -34,7 +34,7 @@ function readFromAdapter(cliAdapter: ITuiCliAdapter): IStatusLineCommandSettings
 /**
  * Statusline settings as persisted on disk, plus a from-disk `refresh()`.
  *
- * CMD-004 Phase 2 Stage C: the HOST applies `statusline-settings-patch` via the settings adapter
+ * The HOST applies `statusline-settings-patch` via the settings adapter
  * (the TUI no longer writes settings), so the renderer refreshes by RE-READING the persisted
  * document when a command result arrives (refresh-on-result).
  */

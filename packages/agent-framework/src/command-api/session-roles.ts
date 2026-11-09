@@ -1,5 +1,5 @@
 /**
- * ARCH-029: the `ICommandSessionRuntime` role ports.
+ * The `ICommandSessionRuntime` role ports.
  *
  * Split out of `host-context.ts` because the decomposition made that file 448 lines — over the
  * anti-monolith limit. The split follows the same seam the ports do: one file per contract axis,
@@ -50,7 +50,7 @@ export interface ICommandSessionPermissions {
   /** Let the call behind a classifier denial (0-based) run once; `undefined` when there is none. */
   retryPermissionDenial(index: number): IPermissionDenial | undefined;
   /**
-   * ARCH-040 Group C (issue #1934): re-apply a preset's tool lists to the LIVE enforcer.
+   * Re-apply a preset's tool lists to the LIVE enforcer.
    *
    * REQUIRED, not optional. An optional member would let every consumer invent its own answer for an
    * absent one, and the answer here governs permissions — a runtime that quietly did nothing would
@@ -66,7 +66,7 @@ export interface ICommandSessionPermissions {
 }
 
 /**
- * The tool schemas this session puts in front of the model (CLI-1990).
+ * The tool schemas this session puts in front of the model.
  *
  * The OFFERED set, not the registered one: with deferral engaged, a withheld tool's schema never
  * reaches the request, and `/context` reports what the request actually costs. Reading it is how the
@@ -94,7 +94,7 @@ export interface ICommandSessionIdentity {
 /** Live model reconfiguration. */
 export interface ICommandSessionModel {
   /**
-   * Re-apply model/effort/temperature/maxOutputTokens to the live session (PRESET-013).
+   * Re-apply model/effort/temperature/maxOutputTokens to the live session.
    * May be async: the runtime ensures the agent is fully initialized before mutating its model
    * configuration, so callers must await the result.
    */
@@ -102,7 +102,7 @@ export interface ICommandSessionModel {
   /** Read the model-effort selection for the next model call. */
   getModelEffort(): TModelEffortSelection;
   /**
-   * ARCH-040 — re-apply the preset's `agentName` to the live agent.
+   * Re-apply the preset's `agentName` to the live agent.
    *
    * REQUIRED, like every other member of this role port: an optional one would make each consumer
    * decide what "no rename seam" means, and `/preset` would decide it alone.
@@ -112,11 +112,11 @@ export interface ICommandSessionModel {
 
 /** Live preset state carried by the session. */
 export interface ICommandSessionPreset {
-  /** Read the active preset id (PRESET-011 runtime state). */
+  /** Read the active preset id (runtime state). */
   getActivePresetId(): string;
-  /** Set the active preset id (PRESET-011 runtime state — pure state, no option re-application). */
+  /** Set the active preset id (runtime state — pure state, no option re-application). */
   setActivePresetId(id: string): void;
-  /** Toggle subagent dispatch live for the running session (PRESET-016 runtime gate). */
+  /** Toggle subagent dispatch live for the running session (runtime gate). */
   setParallelSubagentsEnabled(enabled: boolean): void;
 }
 

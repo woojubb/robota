@@ -5,12 +5,12 @@ import { describe, it, expect } from 'vitest';
 import { CheckpointTree } from '../checkpoint-tree.js';
 
 /**
- * SELFHOST-007 TC-01 / TC-02 — the neutral checkpoint tree.
+ * The neutral checkpoint tree.
  *
- * TC-01: fork / switch / listBranches / ancestors over {id,parentId} nodes; NO file/system I/O.
- * TC-02: forking from a past checkpoint preserves the parent line AND diverges (shared ancestor).
+ * Fork / switch / listBranches / ancestors over {id,parentId} nodes; NO file/system I/O.
+ * Forking from a past checkpoint preserves the parent line AND diverges (shared ancestor).
  */
-describe('SELFHOST-007 TC-01 — checkpoint tree operations', () => {
+describe('checkpoint tree operations', () => {
   it('builds a linear chain and reports ancestors nearest-first to the root', () => {
     const tree = new CheckpointTree();
     tree.addCheckpoint('a');
@@ -45,7 +45,7 @@ describe('SELFHOST-007 TC-01 — checkpoint tree operations', () => {
   });
 });
 
-describe('SELFHOST-007 TC-02 — fork preserves the parent line and diverges', () => {
+describe('fork preserves the parent line and diverges', () => {
   it('keeps the original branch reachable after forking from a past checkpoint', () => {
     const tree = new CheckpointTree();
     tree.addCheckpoint('a');

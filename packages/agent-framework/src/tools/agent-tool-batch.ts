@@ -5,7 +5,7 @@ import type { ISubagentManager } from '@robota-sdk/agent-executor';
 import type {
   ISubagentJobResult,
   ISubagentSpawnRequest,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 export interface IAgentToolBatchJobArgs {
   label?: string;

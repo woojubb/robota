@@ -1,5 +1,5 @@
 /**
- * FLOW-2006: the `the product open <url>` pre-parse step.
+ * The `the product open <url>` pre-parse step.
  *
  * It is not a subcommand route. Every route in `preparsed-command-routing.ts` TERMINATES the
  * process — `runPreparsedCliCommand` returning true means "handled, exit" — while `open` must
@@ -46,7 +46,7 @@ function refused(message: string): TLaunchInvocation {
  *
  * A trailing token that is NEITHER a link nor a flag (`the product open <url> junk`) is not refused here:
  * telling it apart from a flag's value needs the parser's own flag-arity table, and unknown
- * positionals are discarded silently across the whole CLI — the defect filed as CLI-2670. This
+ * positionals are discarded silently across the whole CLI. This
  * grammar does not paper over half of it.
  */
 export async function resolveLaunchInvocation(

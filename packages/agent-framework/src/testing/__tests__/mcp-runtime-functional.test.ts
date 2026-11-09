@@ -3,11 +3,12 @@ import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
 import { FunctionTool } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { Session } from '@robota-sdk/agent-session';
-import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
+import { createAgentMcpServer } from '@robota-sdk/agent-transport/mcp';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { scriptedSession } from '../index.js';
 import type { IHookTypeExecutor, IToolExecutionContext } from '@robota-sdk/agent-core';
-import type { IMcpTransportSession } from '@robota-sdk/agent-transport-mcp';
+import type { IMcpTransportSession } from '@robota-sdk/agent-transport/mcp';
+import { writeTextCommand } from '../shell-command-fixture.js';
 
 // A private home made by mkdtemp before any module that reads `homedir()` loads.
 const isolatedHome = await vi.hoisted(async () => {
@@ -154,7 +155,10 @@ describe('in-memory MCP with real session execution', () => {
     expect(echoed.isError).toBe(false);
     expect(JSON.stringify(echoed)).toContain('echoed');
     expect(
-      await client.callTool({ name: 'Bash', arguments: { command: 'printf mcp > result.txt' } }),
+      await client.callTool({
+        name: 'Bash',
+        arguments: { command: writeTextCommand('result.txt', 'mcp') },
+      }),
     ).toMatchObject({ isError: false });
     expect(harness.readFile('result.txt')).toBe('mcp');
     expect(harness.requests).toHaveLength(0);

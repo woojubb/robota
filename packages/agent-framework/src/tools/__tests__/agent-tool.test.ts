@@ -20,7 +20,7 @@ const mockProvider = {
 
 // Mock createSubagentSession
 const mockRun = vi.fn().mockResolvedValue('task completed successfully');
-const mockSessionInstance = { run: mockRun };
+const mockSessionInstance = { run: mockRun, getHistory: () => [] };
 vi.mock('../../assembly/create-subagent-session.js', () => ({
   createSubagentSession: vi.fn(() => mockSessionInstance),
 }));
@@ -194,7 +194,7 @@ describe('Agent tool', () => {
         parentContext: context,
         parentTools: tools,
         terminal,
-        // #3288 §1: no longer the exact `permissionHandler` reference — the in-process runner wraps
+        // No longer the exact `permissionHandler` reference — the in-process runner wraps
         // it to bind this job's requester identity (`bindRequester`), the same way the child-process
         // runner's own approver is bound. Asserted below: the wrapped handler still forwards to the
         // original, with the requester attached.
@@ -1225,7 +1225,7 @@ describe('Agent tool', () => {
     );
   });
 
-  // PRESET-016: runtime gate consulted at dispatch time. A spy SubagentManager lets us assert
+  // Runtime gate consulted at dispatch time. A spy SubagentManager lets us assert
   // dispatch is refused (no spawn) when the gate predicate returns false.
   function makeManagerSpy(): ISubagentManager {
     return {
@@ -1251,7 +1251,7 @@ describe('Agent tool', () => {
     };
   }
 
-  it('TC-03: gate disabled → returns disabled result without dispatching', async () => {
+  it('gate disabled → returns disabled result without dispatching', async () => {
     const subagentManager = makeManagerSpy();
     const tool = createAgentTool(
       makeDeps({
@@ -1273,7 +1273,7 @@ describe('Agent tool', () => {
     expect(result['error']).toContain('Parallel subagents are disabled');
   });
 
-  it('issue #3081: refuses to fall back to the process directory without a root', async () => {
+  it('refuses to fall back to the process directory without a root', async () => {
     const subagentManager = makeManagerSpy();
     const tool = createAgentTool(
       makeDeps({ cwd: undefined, parentSessionId: 'session_parent', subagentManager }),
@@ -1291,7 +1291,7 @@ describe('Agent tool', () => {
     expect(JSON.stringify(batch)).toContain('no execution root');
   });
 
-  it('TC-03b: gate disabled also refuses batch jobs without dispatching', async () => {
+  it('gate disabled also refuses batch jobs without dispatching', async () => {
     const subagentManager = makeManagerSpy();
     const tool = createAgentTool(
       makeDeps({
@@ -1311,7 +1311,7 @@ describe('Agent tool', () => {
     expect(result['error']).toContain('Parallel subagents are disabled');
   });
 
-  it('TC-04: gate enabled → dispatch proceeds normally', async () => {
+  it('gate enabled → dispatch proceeds normally', async () => {
     const subagentManager = makeManagerSpy();
     const tool = createAgentTool(
       makeDeps({
@@ -1331,7 +1331,7 @@ describe('Agent tool', () => {
     expect(result['output']).toBe('gate output');
   });
 
-  it('TC-04b: no gate predicate → dispatch proceeds (default behavior unchanged)', async () => {
+  it('no gate predicate → dispatch proceeds (default behavior unchanged)', async () => {
     const subagentManager = makeManagerSpy();
     const tool = createAgentTool(
       makeDeps({
@@ -1350,7 +1350,7 @@ describe('Agent tool', () => {
   });
 });
 
-describe('NEUT-003: built-in agent set injection + derived schema description', () => {
+describe('built-in agent set injection + derived schema description', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRun.mockResolvedValue('task completed successfully');

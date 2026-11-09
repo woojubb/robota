@@ -1,5 +1,5 @@
 /**
- * SCREEN-1992 — focus-reporting override resolver (agent-cli owned).
+ * Focus-reporting override resolver (agent-cli owned).
  *
  * The TUI asks the terminal to report focus changes (DECSET 1004) so it knows when the user is away
  * and can recap what happened on return. The mode is harmless where unimplemented, so there is no

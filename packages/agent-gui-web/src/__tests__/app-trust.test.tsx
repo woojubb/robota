@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #3268 — in a folder not trusted yet the desktop app starts nothing and asks the person first: trust
+ * In a folder not trusted yet the desktop app starts nothing and asks the person first: trust
  * the folder, start Restricted, or quit. A grant the CLI refuses keeps the question up with its reason.
  */
 
@@ -86,7 +86,7 @@ describe('the trust question', () => {
     expect(screen.getByText('Starting the agent…')).toBeTruthy();
   });
 
-  it('#3282 §3: the load list is a collapsed Details, closed to a plain sentence', async () => {
+  it('the load list is a collapsed Details, closed to a plain sentence', async () => {
     const host = desktopHost();
     render(<App product={testProduct} host={host} />);
     const dialog = await screen.findByRole('dialog', { name: 'Do you trust this folder?' });
@@ -96,7 +96,7 @@ describe('the trust question', () => {
     expect(screen.getByText('Details').closest('details')).toBeTruthy();
   });
 
-  it('#3282 §3: no per-path noise — nothing known (e.g. non-Linux) shows no Details at all', async () => {
+  it('no per-path noise — nothing known (e.g. non-Linux) shows no Details at all', async () => {
     const host = desktopHost({ trustQuestion: vi.fn(async () => ({ folder: '/work/repo', loads: [] })) });
     render(<App product={testProduct} host={host} />);
     await screen.findByRole('dialog', { name: 'Do you trust this folder?' });

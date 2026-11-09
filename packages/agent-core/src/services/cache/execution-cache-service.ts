@@ -4,7 +4,7 @@ import type { TModelEffortSelection } from '../../interfaces/model-effort-capabi
 import type { TUniversalMessage } from '../../interfaces/messages';
 
 /**
- * DATA-007/API-001: `effortCacheIdentity` is the session's raw effort SELECTION (see
+ * `effortCacheIdentity` is the session's raw effort SELECTION (see
  * `CacheKeyBuilder`'s own doc for why it is the selection and not a resolved value). `lookup` and
  * `store` both funnel through the SAME `keyBuilder.build` call below, so they can never drift into
  * separate identity rules for the same request.

@@ -5,10 +5,10 @@
 import { createKeyring, serializeKeyring, type IKeyring } from '@robota-sdk/agent-keyring';
 
 import { SecretInputCancelled } from '../../devices/secret-terminal.js';
-import { KeyringStoreError } from '../keyring-store.js';
+import { KeyringStoreError } from '@robota-sdk/agent-local-host';
 
 import type { ISecretTerminal, ISecretTerminalSession } from '../../devices/secret-terminal.js';
-import type { IKeyringFileState, IKeyringStore, TKeyringLoadResult } from '../keyring-store.js';
+import type { IKeyringFileState, IKeyringStore, TKeyringLoadResult } from '@robota-sdk/agent-local-host';
 
 export const FIXTURE_PASSPHRASE = 'correct horse battery staple';
 export const OTHER_PASSPHRASE = 'a different long passphrase';

@@ -1,4 +1,4 @@
-import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface/session';
 import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 /**
  * Session initialization helpers for InteractiveSession.
@@ -52,7 +52,7 @@ import type {
   TToolArgs,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
+import type { ICompactEvent } from '@robota-sdk/agent-interface/session';
 import type { Session } from '@robota-sdk/agent-session';
 
 const logger = createLogger('InteractiveSessionInit');
@@ -73,8 +73,8 @@ export interface ICreatedInteractiveSession {
   /** Per-file entries for CLAUDE.md files loaded at startup. Used for staleness detection. */
   projectNotesFileEntries: IContextFileEntry[];
   /**
-   * Rebuilds the system message given updated agentsMd and projectNotesMd strings. PRESET-014: an
-   * optional `overrides.persona` re-applies a preset persona to the live prompt; PRESET-017: an
+   * Rebuilds the system message given updated agentsMd and projectNotesMd strings. An
+   * optional `overrides.persona` re-applies a preset persona to the live prompt; an
    * optional `overrides.selfVerification` toggles the verify-before-done section. Either override
    * is retained for subsequent (override-less) rebuilds.
    */
@@ -97,6 +97,7 @@ export async function createInteractiveSession(
   const cwd = options.cwd;
   const { config, context, projectInfo, contributionSources, hookSources } =
     await loadInteractiveProjectContext(options);
+  options.resumeAdmissionSignal?.throwIfAborted();
 
   let mergedConfig: IResolvedConfig = options.language
     ? { ...config, language: options.language }
@@ -107,7 +108,7 @@ export async function createInteractiveSession(
   // A restricted session still sees user-installed plugins; see `sessionPluginDirectories`.
   const pluginFiles = options.host.files?.sync;
   const pluginsDirs = sessionPluginDirectories({ ...options, fs: pluginFiles });
-  // PLG-021 / issue #2025: built through the composition root so a disabled plugin's hooks do not
+  // Built through the composition root so a disabled plugin's hooks do not
   // load. The bare constructor defaults the enablement map to `{}`, which reads as "nothing
   // disabled" — indistinguishable from a user who disabled nothing. `pluginsDirs` stays a local
   // because the failure log below names it.
@@ -131,7 +132,7 @@ export async function createInteractiveSession(
         effectiveHookSources.push(...pluginHooks.hookSources);
       }
     } catch (error) {
-      // allow-fallback: a plugin problem must not stop the session from starting. CORE-029: what it
+      // allow-fallback: a plugin problem must not stop the session from starting; what it
       // must not do is stay invisible — the previous comment ("No plugins dir or load failed")
       // conflated a normal case with an error, and both produced identical silence, so a user whose
       // hooks stopped running had nothing to look at. The loader now reports and skips per plugin,
@@ -144,14 +145,16 @@ export async function createInteractiveSession(
   }
 
   const sandboxRestored = await restoreInteractiveSandboxSnapshot(options);
+  options.resumeAdmissionSignal?.throwIfAborted();
   if (!sandboxRestored) {
     await applyInteractiveWorkspaceManifest(options, cwd);
   }
+  options.resumeAdmissionSignal?.throwIfAborted();
 
   const sessionId =
     options.resumeSessionId && !options.forkSession ? options.resumeSessionId : undefined;
 
-  // NEUT-005: the core hard-capacity notice is product-neutral; derive an actionable remediation
+  // The core hard-capacity notice is product-neutral; derive an actionable remediation
   // hint from THIS surface's registered command set (e.g. a `/compact` command) so the notice
   // regains a concrete next step without baking product vocabulary into the neutral core.
   const contextCapacityHint = deriveContextCapacityHint(
@@ -189,7 +192,7 @@ export interface IAsyncInitDeps {
   /** Messages deferred until the session is created (set during restore). */
   pendingRestoreMessages: TUniversalMessage[] | null;
   pendingRestoreConversation?: ISessionConversationSnapshot | null;
-  /** CLI-1994: the resumed record's assembled prompt — see {@link applyForkedSystemPrompt}. */
+  /** The resumed record's assembled prompt — see {@link applyForkedSystemPrompt}. */
   restoredSystemPrompt: string | undefined;
   /** Registry-backed internal prompt handlers; never public InteractiveSession options. */
   permissionHandler: IInitOptions['permissionHandler'];
@@ -252,6 +255,7 @@ export async function initializeInteractiveSessionAsync(
     options.userSettingsSources,
     options.environment,
   );
+  options.resumeAdmissionSignal?.throwIfAborted();
   const { config, hookSources } = loadedConfig;
   const autoCompactThresholdSource =
     config.autoCompactThreshold === undefined ? 'default' : 'settings';
@@ -262,6 +266,9 @@ export async function initializeInteractiveSessionAsync(
     host: options.host,
     cwd: options.cwd,
     provider: options.provider,
+    ...(options.resumeAdmissionSignal !== undefined
+      ? { resumeAdmissionSignal: options.resumeAdmissionSignal }
+      : {}),
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     ...(options.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: options.projectSettingsPaths }
@@ -289,7 +296,7 @@ export async function initializeInteractiveSessionAsync(
     ...(deps.askHandler ? { askHandler: deps.askHandler } : {}),
     resumeSessionId: deps.resumeSessionId,
     forkSession: options.forkSession,
-    // CLI-1994: the store this session persists to is where `/fork` writes the copy a job resumes.
+    // The store this session persists to is where `/fork` writes the copy a job resumes.
     ...(options.sessionStore !== undefined ? { resumeSessionStore: options.sessionStore } : {}),
     ...(options.sessionStore !== undefined ? { checkpointHistory: deps.checkpointHistory } : {}),
     ...(options.sessionLogSink !== undefined ? { sessionLogSink: options.sessionLogSink } : {}),
@@ -319,7 +326,7 @@ export async function initializeInteractiveSessionAsync(
     observerFailureWarningCode: options.observerFailureWarningCode,
     ...(options.toolCallHandoff !== undefined ? { toolCallHandoff: options.toolCallHandoff } : {}),
     subagentRunnerFactory: options.subagentRunnerFactory,
-    // ARCH-005: composition-root-contributed subagent definitions (capability packs).
+    // Composition-root-contributed subagent definitions (capability packs).
     ...(options.agentDefinitions ? { agentDefinitions: options.agentDefinitions } : {}),
     ...(options.agentDefinitionRoots !== undefined
       ? { agentDefinitionRoots: options.agentDefinitionRoots }
@@ -342,9 +349,9 @@ export async function initializeInteractiveSessionAsync(
       ? { selfVerification: options.selfVerification }
       : {}),
     ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
-    ...(options.defaultTools ? { defaultTools: options.defaultTools } : {}), // ARCH-006
+    ...(options.defaultTools ? { defaultTools: options.defaultTools } : {}),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
-    // ARCH-013 S3: the extension port; dropping it here is the defect this stage fixed.
+    // The extension port; dropping it here is the defect this stage fixed.
     ...(options.guardrails ? { guardrails: options.guardrails } : {}),
     ...(deps.peerReply !== undefined ? { peerReply: deps.peerReply } : {}),
     ...(deps.peerSendFile !== undefined ? { peerSendFile: deps.peerSendFile } : {}),
@@ -359,8 +366,13 @@ export async function initializeInteractiveSessionAsync(
       : {}),
   });
 
+  if (options.resumeAdmissionSignal?.aborted === true) {
+    void created.session.shutdown({ reason: 'other' }).catch(() => undefined);
+    options.resumeAdmissionSignal.throwIfAborted();
+  }
+
   applyForkedSystemPrompt(created.session, {
-    // A `/cd` target keeps the recorded prompt like a fork does (issue #3081).
+    // A `/cd` target keeps the recorded prompt like a fork does.
     isFork: options.forkSession === true || options.workspaceMovedFrom !== undefined,
     restoredSystemPrompt: deps.restoredSystemPrompt,
     explicitSystemPrompt: options.systemPrompt,

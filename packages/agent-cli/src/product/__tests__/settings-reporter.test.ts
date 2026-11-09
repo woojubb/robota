@@ -1,5 +1,5 @@
 /**
- * #3282 §4a/§4b: the Settings screen's server-side read/write. Every field but `language` applies
+ * The Settings screen's server-side read/write. Every field but `language` applies
  * through `session.executeCommand` — the exact call a `/mode`, `/output-style`, `/preset`,
  * `/sandbox`, `/provider` or `/model` command would make — so a refusal a command gives is the
  * refusal the Settings screen gives. `language` writes the same settings document `/language` writes,
@@ -8,8 +8,8 @@
  * Every adapter but one is an in-memory fake, so nothing here touches `the configured user root` — there is nothing
  * to point HOME at. The one exception: the `providers` section is read through
  * `readMergedProviderSettings(settingsSources)`, the same merged, multi-layer read `/provider` itself
- * uses, and `TSettingsSource`'s "host" kind can only be backed by a real file (ARCH-042 gives its
- * "project" kind no fakeable constructor from outside `agent-framework`) — those tests alone use an
+ * uses, and `TSettingsSource`'s "host" kind can only be backed by a real file (`agent-framework` gives its
+ * "project" kind no fakeable constructor from outside) — those tests alone use an
  * isolated temp file, cleaned up with `onTestFinished`, never `the configured user root`.
  */
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { createSettingsReporter } from '../settings-reporter.js';
@@ -31,7 +31,7 @@ import type {
   TSettingsData,
 } from '@robota-sdk/agent-framework';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 /** An isolated temp-file-backed provider settings source, cleaned up when the test ends. */
@@ -125,7 +125,7 @@ function listResult(data: Record<string, unknown>): ICommandResult {
   return { success: true, message: '', data };
 }
 
-describe('createSettingsReporter (#3282 §4a)', () => {
+describe('createSettingsReporter', () => {
   it('builds a snapshot from the output-style/preset list commands and the status snapshot', async () => {
     const executeCommand = vi.fn(async (name: string, args: string) => {
       if (name === 'output-style' && args === 'list') {
@@ -159,7 +159,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     expect(settings.language.current).toBe('en');
     expect(settings.permissionMode.current).toBe('acceptEdits');
     expect(settings.permissionMode.skipsAllChecksMode).toBe('bypassPermissions');
-    // Plain labels, never the raw ids, per #3282's design.
+    // Plain labels, never the raw ids.
     expect(settings.permissionMode.choices).toContainEqual(
       expect.objectContaining({ id: 'default', label: 'Ask first' }),
     );
@@ -171,7 +171,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
   it('flags no built-in preset today — none of them resolve to bypassPermissions', async () => {
     // Documents the current catalog rather than asserting a specific id: `autonomous-builder`'s
     // `autonomy: 'act-first'` maps to `acceptEdits`, not `bypassPermissions` (see
-    // `AUTONOMY_TO_PERMISSION_MODE` in `agent-preset`). The GUI shows no preset-confirmation dialog
+    // `AUTONOMY_TO_PERMISSION_MODE` in `agent-product/preset`). The GUI shows no preset-confirmation dialog
     // today; a host-supplied preset that DOES set `permissionMode: 'bypassPermissions'` would be
     // flagged the same way, since the check reads the resolved option directly.
     const executeCommand = vi.fn(async (name: string, args: string) => {
@@ -454,7 +454,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     expect(executeCommand).toHaveBeenCalledWith('sandbox', 'off', 'remote');
   });
 
-  it('builds the MCP and plugins sections from /mcp status and /plugin list (#3282 §4 part b-2)', async () => {
+  it('builds the MCP and plugins sections from /mcp status and /plugin list', async () => {
     const executeCommand = vi.fn(async (name: string, args: string) => {
       if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
       if (name === 'preset' && args === 'list') return listResult({ presets: [] });
@@ -524,7 +524,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     ]);
   });
 
-  it('never calls an unattempted server "Not yet connected." (#3282 §4 part b-2 PR review)', async () => {
+  it('never calls an unattempted server "Not yet connected."', async () => {
     // A server whose transport `connect()`/`reload()` never even tries (sse/ws) reports no
     // `connection` and no `connectionFailureReason` at all — never "in progress".
     const executeCommand = vi.fn(async (name: string, args: string) => {
@@ -642,7 +642,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     expect(executeCommand).toHaveBeenCalledWith('plugin', 'disable demo@test-product', 'remote');
   });
 
-  describe("installPlugin/uninstallPlugin forward this connection's locality to /plugin, the same rule the command uses (#3282 §4 part b-2)", () => {
+  describe("installPlugin/uninstallPlugin forward this connection's locality to /plugin, the same rule the command uses", () => {
     it('a local install reaches the plugin command and succeeds', async () => {
       const executeCommand = vi.fn(async (name: string, args: string) => {
         if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
@@ -761,7 +761,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     expect(settings.sandbox.description).toMatch(/prompts still appear/);
   });
 
-  describe('Providers & Models section (#3282 §4b)', () => {
+  describe('Providers & Models section', () => {
     it('lists configured profiles, built from the same merged read /provider itself uses', async () => {
       const executeCommand = vi.fn(async (name: string, args: string) => {
         if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
@@ -993,7 +993,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
 
       // `--confirmed`: this write already went through the GUI's own ConfirmDialog before reaching
       // here — a modal write has nowhere to render a follow-up ask, unlike a plainly-typed
-      // `/provider delete <profile>`, which confirms interactively first (agent-command's own tests).
+      // `/provider delete <profile>`, which confirms interactively first (agent-product/command's own tests).
       expect(executeCommand).toHaveBeenCalledWith(
         'provider',
         'delete anthropic --confirmed',

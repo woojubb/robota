@@ -2,7 +2,7 @@
  * How every surface words a sealed session that does not open in this process, by why: only locked
  * keys are something an unlock fixes, so only they are ever worded with one.
  */
-import type { TSessionLockedReason } from '@robota-sdk/agent-interface-session';
+import type { TSessionLockedReason } from '@robota-sdk/agent-interface/session';
 
 /** Why a sealed session does not open here: `locked` when the keys being locked is all that stands in the way. */
 export type TLockedSessionReason = 'locked' | TSessionLockedReason;

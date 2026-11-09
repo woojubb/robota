@@ -1,5 +1,5 @@
 /**
- * Canonical MCP catalog vocabulary (MCP-002).
+ * Canonical MCP catalog vocabulary.
  *
  * These types are the shared contract between the client seam (`../client/`), the supervisor
  * (`../supervisor/`) and the catalog builder (`./build.ts`). They describe what a server SAID it
@@ -135,7 +135,7 @@ export interface IMCPCatalogToolEntry {
   readonly canonicalName: TMCPCanonicalName;
   readonly sourceName: string;
   readonly description?: string;
-  /** The enforceable copy (CORE-040 narrowing applied at registration). */
+  /** The enforceable copy (schema narrowing applied at registration). */
   readonly schema: IParameterSchema;
   /** Validated upward request; admission still enforces its configured repository cap. */
   readonly maxResultChars?: number;

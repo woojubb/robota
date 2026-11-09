@@ -1,5 +1,8 @@
 # @robota-sdk/agent-remote-pairing
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Pairing and DTLS-fingerprint channel binding for Robota's peer-to-peer remote control, plus the identity
 primitives that let one user's devices recognise each other. A host uses it to prove that a connecting
 peer holds a single-use pairing secret, and binds that proof to the actual DTLS channel each side
@@ -71,8 +74,8 @@ const { sessionKey } = await handshake.result;
 ```
 
 In practice you rarely call this directly: `WebRtcTransport` in
-[`@robota-sdk/agent-transport-webrtc`](../agent-transport-webrtc/README.md) runs the host side when you
-give it a `secret`, and the browser client in `@robota-sdk/agent-transport-webrtc-web` runs the
+[`@robota-sdk/agent-transport/webrtc`](../agent-transport/docs/webrtc.md) runs the host side when you
+give it a `secret`, and the browser client in `apps/agent-web` (`src/remote-client`) runs the
 responder side.
 
 ### Why a keyed confirmation and not a PAKE
@@ -111,7 +114,8 @@ one.
 
 `admitLocalPeerDirectory` and `admitLocalPeerSocket` admit a peer that reached a socket inside an
 owner-only (mode `0700`) directory created with `ensureGuardedDirectory`: the operating system already
-proved it is this user on this machine. `RendezvousGrantLedger` issues single-use, short-lived nonces at
+proved it is this user on this machine. Windows reports no owner uid and only an emulated mode, so
+both refuse there. `RendezvousGrantLedger` issues single-use, short-lived nonces at
 that rendezvous, which the channel's pairing must present back, so the admission cannot be handed to
 another connection.
 

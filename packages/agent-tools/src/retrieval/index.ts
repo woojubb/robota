@@ -1,4 +1,4 @@
-// SELFHOST-003: codebase retrieval — port + types + neutral repo-map ranking adapter + tool.
+// Codebase retrieval — port + types + neutral repo-map ranking adapter + tool.
 
 export type {
   IRetrievalSymbol,

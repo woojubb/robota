@@ -1,5 +1,8 @@
 # @robota-sdk/agent-subagent-runner
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Child-process subagent runner for the Robota SDK. It runs each subagent in its own Node.js child
 process, talks to it over a typed IPC protocol, and can wrap each job in worktree isolation and stream
 its logs to disk.
@@ -132,8 +135,8 @@ not. Jobs without `resumeSessionId` remain transient.
 - `@robota-sdk/agent-executor` — `ISubagentRunner`, worktree isolation, and background task primitives
 - `@robota-sdk/agent-framework` — `TSubagentRunnerFactory` and session assembly for the worker
 - `@robota-sdk/agent-core` — provider and tool types
-- `@robota-sdk/agent-interface-execution` — subagent job contracts
-- `@robota-sdk/agent-process` — process-tree termination
+- `@robota-sdk/agent-interface/execution` — subagent job contracts
+- `@robota-sdk/agent-os/process` — process-tree termination
 
 See [docs/SPEC.md](./docs/SPEC.md) for the package contract: required composition, IPC validation, and
 how the provider connection is checked across the process boundary.

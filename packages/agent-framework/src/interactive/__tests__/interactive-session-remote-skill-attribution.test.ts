@@ -2,20 +2,20 @@
  * A skill a remote co-driver runs is that driver's turn, attributed exactly as its direct prompts
  * are: never recorded as the owner's prompt history, never exported as the owner's content.
  */
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandHostContext, ICommandModule } from '../../commands/index.js';
-import type { ILivePromptContentBatch } from '@robota-sdk/agent-interface-analytics';
-import type { IPromptHistoryEntry } from '@robota-sdk/agent-interface-session';
+import type { ILivePromptContentBatch } from '@robota-sdk/agent-interface/analytics';
+import type { IPromptHistoryEntry } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 
@@ -81,7 +81,7 @@ describe('remote skill attribution', () => {
   });
 
   async function build() {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-remote-skill-')));
+    const cwd = makeCanonicalTempDir('agent-remote-skill-');
     dirs.push(cwd);
     const skillDir = join(cwd, '.agents', 'skills', 'audit');
     mkdirSync(skillDir, { recursive: true });

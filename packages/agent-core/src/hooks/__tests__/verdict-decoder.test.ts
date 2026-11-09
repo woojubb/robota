@@ -1,5 +1,5 @@
 /**
- * SEC-015 TC-02 — the shared `{ ok, reason }` decoder.
+ * The shared `{ ok, reason }` decoder.
  *
  * Three executors used to carry three copies of `(body as { ok: boolean }).ok` plus a truthiness
  * test, so a malformed body produced a verdict rather than a failure — and WHICH verdict depended
@@ -173,12 +173,12 @@ describe('decodeHookVerdict', () => {
     });
   });
 
-  // ── Issue #2196: the decoder scopes directives by event exactly as `runHooks` does ──────────
+  // ── The decoder scopes directives by event exactly as `runHooks` does ──────────
   //
   // `{"ok": "maybe", "decision": "block"}` on PreToolUse used to DENY here while the runner reads
   // `decision` only on UserPromptSubmit — one vocabulary, two sets of rules, and the decoder's
   // broader reading escaped the runner's narrower one because a `deny` outcome is never re-scoped.
-  describe('block directives are scoped by event, as the runner scopes them (issue #2196)', () => {
+  describe('block directives are scoped by event, as the runner scopes them', () => {
     it('decision: "block" is not a PreToolUse directive — the body stays undecodable', () => {
       const body = { ok: 'maybe', decision: 'block' };
       const outcome = decodeHookVerdict(JSON.stringify(body), 'http', 'PreToolUse');

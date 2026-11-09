@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
+import { createTransportFailedOutcome } from '@robota-sdk/agent-interface/transport';
 
 import { TransportRegistry } from '../transport-registry.js';
 import { createFileTransportSettingsRepository } from '../transport-settings-repository.js';
@@ -19,8 +19,8 @@ import type {
   TBoundTransportAdapter,
   TTransportAdapter,
   TTransportRunOutcome,
-} from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 const tempDirs: string[] = [];
 
@@ -92,7 +92,7 @@ function createControlledRunner(name: string): ITransportRunnerAdapter<IInteract
   };
 }
 
-describe('TransportRegistry lifecycle/settings segregation (ARCH-011)', () => {
+describe('TransportRegistry lifecycle/settings segregation', () => {
   it('registers a base adapter without casts and rejects duplicate runtime names', () => {
     const registry = createRegistry();
     const service = createService('custom');
@@ -192,7 +192,7 @@ describe('TransportRegistry lifecycle/settings segregation (ARCH-011)', () => {
   });
 });
 
-describe('TransportRegistry runner outcomes (ARCH-011)', () => {
+describe('TransportRegistry runner outcomes', () => {
   it('launches a runner without blocking a service and returns ordered completion records', async () => {
     const registry = createRegistry();
     const first = createControlledRunner('first');

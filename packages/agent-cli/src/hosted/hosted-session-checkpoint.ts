@@ -5,7 +5,7 @@ import {
   SESSION_RECORD_ENVELOPE_VERSION,
 } from '@robota-sdk/agent-session';
 import { hostedAdmissionError } from './hosted-runtime-config.js';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 /** Conversation data survives; current composition rebuilds prompts, policy and execution state. */
 export function projectHostedSessionCheckpoint(

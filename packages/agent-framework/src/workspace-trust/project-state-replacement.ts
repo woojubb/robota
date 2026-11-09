@@ -1,5 +1,5 @@
 /**
- * Reading and replacing a trusted project's state files for a store's migration (#3679), over the
+ * Reading and replacing a trusted project's state files for a store's migration, over the
  * anchored writer every project write goes through. A file is read back only up to the project read
  * limit. A replace is made only while the file still holds what was read, under no other name; many
  * files are replaced at once by staging each beside its file, flushed, before any is put in place. The
@@ -92,6 +92,10 @@ export function replaceStagedProjectStateFiles(
   purpose: string,
   collect: (stage: TStageProjectStateReplacement) => void,
   beforeCommit?: () => void,
+  aroundCommit: (name: string, commit: () => void) => boolean = (_name, commit) => {
+    commit();
+    return true;
+  },
 ): { readonly replaced: number; readonly changed: readonly string[] } {
   const staged: {
     name: string;
@@ -107,11 +111,16 @@ export function replaceStagedProjectStateFiles(
       staged.push({ name, path, file, digest: digestOf(read) });
     });
     for (const { name, path, file, digest } of staged) {
-      beforeCommit?.();
-      if (unchanged(storage, name, purpose, digest)) {
-        file.commit();
-        replaced += 1;
-      } else {
+      let didReplace = false;
+      const ran = aroundCommit(name, () => {
+        beforeCommit?.();
+        if (unchanged(storage, name, purpose, digest)) {
+          file.commit();
+          didReplace = true;
+        }
+      });
+      if (ran && didReplace) replaced += 1;
+      else {
         file.discard();
         changed.push(path);
       }

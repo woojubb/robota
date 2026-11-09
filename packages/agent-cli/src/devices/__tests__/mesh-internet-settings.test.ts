@@ -1,4 +1,4 @@
-import { DEFAULT_NOSTR_RELAYS, DEFAULT_PKARR_RELAYS } from '@robota-sdk/agent-transport-webrtc';
+import { DEFAULT_NOSTR_RELAYS, DEFAULT_PKARR_RELAYS } from '@robota-sdk/agent-transport/webrtc';
 import { describe, expect, it } from 'vitest';
 
 import { parseMeshInternetSettings } from '../mesh-internet-settings.js';

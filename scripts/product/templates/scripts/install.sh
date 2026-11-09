@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
-# DIST-003 — Node-less installer for the selected CLI (macOS / Linux).
+# Node-less installer for the selected CLI (macOS / Linux).
 #
 # Select the installation script URL from PROJECT_INSTALL_SCRIPT_URL.
 #
-# Detects OS+CPU, downloads the matching DIST-002 release binary, integrity-verifies its SHA-256, and installs it
+# Detects OS+CPU, downloads the matching release binary, integrity-verifies its SHA-256, and installs it
 # to the configured user state root/bin. Requires NO Node.js — just uname/curl (or wget)/shasum (or sha256sum). POSIX sh.
 set -eu
 
@@ -30,7 +30,7 @@ case "$PRODUCT_USER_STATE_DIR" in /*) : ;; *) die "PRODUCT_USER_STATE_DIR must b
 case "$PROJECT_RELEASE_BASE_URL" in https://*) : ;; *) die "PROJECT_RELEASE_BASE_URL must use HTTPS" ;; esac
 BIN_DIR="$PRODUCT_USER_STATE_DIR/bin"
 
-# ── Detect OS + CPU → the frozen DIST-002 asset name ────────────────────────────────────────────────────────
+# ── Detect OS + CPU → the frozen asset name ────────────────────────────────────────
 case "$(uname -s)" in
   Darwin) os=darwin ;;
   Linux) os=linux ;;

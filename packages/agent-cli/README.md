@@ -220,11 +220,13 @@ withheld from the next start.
 When something misbehaves, `robota --safe-mode` starts with instruction files, skills, plugins, hooks
 and MCP servers all off.
 
-Workspace trust is granted per Git worktree and kept in `<configured-user-state-dir>/workspace-trust.json`:
+The trust manager holds approval for the exact folder while it runs. Reopening the CLI does not
+require another approval, but restarting the manager or computer does. The
+`<configured-user-state-dir>/workspace-trust.json` file records history and does not restore approval:
 
 ```bash
 robota trust status    # is this workspace trusted, and what would trust load? (--json: one line)
-robota trust --yes     # trust the Git workspace you are in
+robota trust --yes     # request trust for this folder; confirm at the terminal
 robota trust revoke --yes
 ```
 
@@ -443,6 +445,8 @@ robota secure setup              # create the keyring; the recovery key is shown
 robota secure status             # the keyring file, its slots and its key fingerprint (no passphrase)
 robota secure verify             # unlock and check the stored key (--recovery: use the recovery key)
 robota secure change-passphrase  # set a new passphrase (--recovery: reset a forgotten one)
+robota secure enable             # migrate existing conversations, then turn secure mode on
+robota secure disable            # turn secure mode off for new conversations
 ```
 
 The passphrase and the recovery key are typed at the terminal when asked, never given as an argument
@@ -451,6 +455,20 @@ agent's shell tool, cannot run these for you. Every program running as you can r
 so the passphrase (at least 12 characters, not one short pattern repeated) is what protects it. The
 keyring file is the only copy of your keys, and changing the passphrase does not lock out a copy
 someone already took. Creating a keyring does not by itself change how sessions are saved.
+
+Secure conversations are optional. After `secure setup`, run `secure enable` at an interactive
+terminal with all Robota sessions closed. It verifies the keyring, migrates supported existing
+conversation data, and refuses activation if plaintext conversation data remains. Resolve anything
+it reports before trying again; it never silently discards a conversation or a forked worktree.
+Secure CLI conversations are available on macOS and Linux in this release. Windows keeps plaintext
+CLI conversations; `secure enable` and secure session startup refuse there. Secure desktop
+conversations are available on macOS.
+While secure mode is on, new conversations use the dedicated `secure-v1` storage area. The desktop
+app requires **File → Unlock Secure Conversation…** after opening; closing or reloading its window
+locks the session and discards unsent drafts and attachment paths. `secure disable` requires terminal
+confirmation and all current-version sessions to exit. New conversations then use plaintext storage;
+the sealed archive and keyring stay in place. Do not run an older Robota version against this state
+while secure mode is on: older versions cannot honor the secure mode choice.
 
 ### Check your setup and usage
 
@@ -479,7 +497,7 @@ Other files the CLI keeps under `<configured-user-state-dir>/`:
 
 | Path                   | Contents                                                                                       |
 | ---------------------- | ---------------------------------------------------------------------------------------------- |
-| `workspace-trust.json` | workspaces you have trusted                                                                    |
+| `workspace-trust.json` | approval history; live grants stay with the trust manager                                      |
 | `sessions/`            | saved sessions (a trusted project may keep them in `<configured-project-state-dir>/sessions/`) |
 | `history.jsonl`        | prompts you typed, for `Ctrl+R` (`"promptHistory": false` turns it off)                        |
 | `keybindings.json`     | key bindings                                                                                   |

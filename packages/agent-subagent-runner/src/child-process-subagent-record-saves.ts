@@ -1,5 +1,5 @@
 /**
- * #3679: how a parent follows the fork record it lent to a child process, and how a sealing parent
+ * How a parent follows the fork record it lent to a child process, and how a sealing parent
  * comes to vouch for what that child saved.
  *
  * The record is lent to the child for as long as it runs (`IInteractiveSessionStore.lend`), so it has

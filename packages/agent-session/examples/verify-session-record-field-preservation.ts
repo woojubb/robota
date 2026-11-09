@@ -14,7 +14,7 @@ import { NodeSessionStore } from '../src/node.js';
 
 import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
 
-const SESSION_ID = 'arch-015-public-sdk';
+const SESSION_ID = 'public-sdk';
 const CREATED_AT = '2026-08-01T00:00:00.000Z';
 const STALE_UPDATED_AT = '2026-08-01T01:00:00.000Z';
 const PRESERVED_FIELDS = [
@@ -34,7 +34,7 @@ const PRESERVED_FIELDS = [
 ] as const satisfies readonly (keyof IInteractiveSessionRecord)[];
 
 class OfflineProvider extends AbstractAIProvider {
-  override readonly name = 'arch-015-offline';
+  override readonly name = 'offline-record-preservation';
   override readonly version = '1.0.0';
 
   override async chat(
@@ -45,7 +45,7 @@ class OfflineProvider extends AbstractAIProvider {
     return {
       id: `example-${Date.now()}-4`,
       role: 'assistant',
-      content: `arch-015:${typeof content === 'string' ? content : ''}`,
+      content: `echo:${typeof content === 'string' ? content : ''}`,
       timestamp: new Date(),
       state: 'complete',
     };
@@ -195,7 +195,7 @@ function assertCondition(condition: boolean, message: string): void {
 }
 
 async function main(): Promise<void> {
-  const scratchDir = mkdtempSync(join(tmpdir(), 'arch-015-example-'));
+  const scratchDir = mkdtempSync(join(tmpdir(), 'record-preservation-example-'));
   let cleanupRemoved = false;
   let output: Omit<Record<string, unknown>, 'cleanupRemoved'> | undefined;
 
@@ -221,13 +221,13 @@ async function main(): Promise<void> {
     const outcome = store.load(SESSION_ID);
     assertCondition(
       outcome.status === 'valid',
-      `ARCH-015: persisted record was not reloadable (${outcome.status})`,
+      `persisted record was not reloadable (${outcome.status})`,
     );
     const reloaded = outcome.status === 'valid' ? outcome.record : undefined;
     for (const key of PRESERVED_FIELDS) {
       assertCondition(
         isDeepStrictEqual(reloaded?.[key], existing[key]),
-        `ARCH-015: ${key} was not preserved`,
+        `${key} was not preserved`,
       );
     }
 
@@ -241,17 +241,17 @@ async function main(): Promise<void> {
     };
     assertCondition(
       Object.values(sessionOwnedOverwrites).every(Boolean),
-      'ARCH-015: a Session-owned field retained stale state',
+      'a Session-owned field retained stale state',
     );
-    assertCondition(reloaded?.createdAt === CREATED_AT, 'ARCH-015: createdAt changed');
+    assertCondition(reloaded?.createdAt === CREATED_AT, 'createdAt changed');
     assertCondition(
-      assistantResponse === 'arch-015:preserve-record-fields',
-      'ARCH-015: unexpected provider response',
+      assistantResponse === 'echo:preserve-record-fields',
+      'unexpected provider response',
     );
 
     output = {
-      scenario: 'ARCH-015',
-      provider: 'arch-015-offline',
+      scenario: 'session-record-field-preservation',
+      provider: 'offline-record-preservation',
       assistantResponse,
       preservedFields: PRESERVED_FIELDS,
       preservedCount: PRESERVED_FIELDS.length,
@@ -263,7 +263,7 @@ async function main(): Promise<void> {
     cleanupRemoved = !existsSync(scratchDir);
   }
 
-  assertCondition(cleanupRemoved, 'ARCH-015: scratch cleanup failed');
+  assertCondition(cleanupRemoved, 'scratch cleanup failed');
   process.stdout.write(`${JSON.stringify({ ...output, cleanupRemoved })}\n`);
 }
 

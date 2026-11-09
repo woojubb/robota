@@ -9,16 +9,17 @@ import type {
   TSessionEndReason,
   TPermissionMode,
 } from '@robota-sdk/agent-core';
-import type { ICommand } from '@robota-sdk/agent-interface-command';
+import type { ICommand } from '@robota-sdk/agent-interface/command';
 import type {
   IExecutionDetailPage,
+  IExecutionDetailCursor,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 import type {
   IInteractiveSessionEvents,
   ISessionListingEntry,
   IToolState,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export interface ITuiCommandQueryPort {
   getCommands(filter?: string): ICommand[];
@@ -107,7 +108,10 @@ export interface ITuiAppChannelPort {
   stopWaitingSelfPacedLoop(): Promise<void>;
   shutdown(options?: { reason?: TSessionEndReason; timeoutMs?: number }): Promise<void>;
   selectExecutionWorkspaceEntry(entryId: string): void;
-  readExecutionWorkspaceDetail(entryId: string): Promise<IExecutionDetailPage>;
+  readExecutionWorkspaceDetail(
+    entryId: string,
+    cursor?: IExecutionDetailCursor,
+  ): Promise<IExecutionDetailPage>;
   sendAgentJob(taskId: string, input: string): Promise<void>;
   resolveUserAction(request: IActionRequest, response: TActionResponse): void;
 }

@@ -1,5 +1,5 @@
 /**
- * ARCH-005 S2 — the concrete plumbing `the product`'s shell injects into its product profile.
+ * The concrete plumbing `the product`'s shell injects into its product profile.
  *
  * These are the product-owned I/O adapters `assembleProduct` must never construct itself: the transport
  * registry with a WS adapter bound after session construction, and the dev-only session-log replay provider. They live
@@ -16,7 +16,7 @@ import {
 } from '@robota-sdk/agent-framework';
 import { TransportRegistry, bindTransportAdapter } from '@robota-sdk/agent-framework';
 import { createFileTransportSettingsRepository } from '@robota-sdk/agent-framework/node';
-import { WsTransport } from '@robota-sdk/agent-transport-ws';
+import { WsTransport } from '@robota-sdk/agent-transport/ws';
 
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
@@ -36,8 +36,8 @@ import { withholdEnvironmentVariables } from './command-environment.js';
 import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 
 import type { IAssembledProduct } from '@robota-sdk/agent-product';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
+import type { IResolvedPresetOptions } from '@robota-sdk/agent-product/preset';
 import type {
   IPersonalUsageReport,
   IPersonalUsageRequest,
@@ -47,7 +47,7 @@ import type { IProtocolSession, ISessionMessageHandlerOptions } from '@robota-sd
 import { reportCurrentSessionUsage } from '../usage/session-usage-reporter.js';
 
 /**
- * Load the optional session-log replay provider (INFRA-017). `@robota-sdk/agent-provider-replay` is a
+ * Load the optional session-log replay provider. `@robota-sdk/agent-provider-replay` is a
  * dev/test-only package deliberately kept out of the published dependency graph, so `--session-log`
  * replay is a development capability: resolvable in the monorepo (and for anyone who installs the
  * package), and reported as unavailable — never a hard crash — in the default published CLI.
@@ -76,11 +76,11 @@ export function createDefaultTransportRegistry(
   productRuntime: ICliRuntimeContext,
   personalUsageReporter?: (request: IPersonalUsageRequest) => IPersonalUsageReport,
   storedSessionUsageReporter?: (sessionId: string) => IUsageBySourceReport,
-  driverId?: import('@robota-sdk/agent-interface-session').TDriverId,
-  surface?: import('@robota-sdk/agent-interface-analytics').TUsageSurface,
-  /** #3189: binds each connection to the runtime's sessions, so a switch moves that connection alone. */
-  sessionBinder?: import('@robota-sdk/agent-interface-session').ISessionBinder<IProtocolSession>,
-  /** #3282 §4a: host-owned read/write for the GUI Settings screen. */
+  driverId?: import('@robota-sdk/agent-interface/session').TDriverId,
+  surface?: import('@robota-sdk/agent-interface/analytics').TUsageSurface,
+  /** Binds each connection to the runtime's sessions, so a switch moves that connection alone. */
+  sessionBinder?: import('@robota-sdk/agent-interface/session').ISessionBinder<IProtocolSession>,
+  /** Host-owned read/write for the GUI Settings screen. */
   settingsReporter?: ISessionMessageHandlerOptions['settingsReporter'],
   /** A token the host handed over outside the environment (a supervised daemon's pipe); it wins over `PRODUCT_WS_TOKEN`. */
   transportToken?: string,
@@ -96,7 +96,7 @@ export function createDefaultTransportRegistry(
   const registry = new TransportRegistry(
     createFileTransportSettingsRepository(productUserSettingsPath(productRuntime)),
   );
-  // GUI-002: when a host (e.g. the agent-gui Electron shell) spawns this CLI as a loopback sidecar, it
+  // When a host (e.g. the agent-gui Electron shell) spawns this CLI as a loopback sidecar, it
   // passes PRODUCT_WS_TOKEN (a per-launch nonce) + optional PRODUCT_WS_PORT via env. The token makes the WS
   // transport reject any unauthenticated connection before emitting session data. If absent,
   // WsTransport auto-mints a distinct authenticated launch token; neither token is persisted here.
@@ -139,7 +139,7 @@ export function createDefaultTransportRegistry(
       registered = true;
     }
   };
-  // GUI-007: return the WS transport so `--serve --open` can read its `boundPort` to point the served
+  // Return the WS transport so `--serve --open` can read its `boundPort` to point the served
   // monitor's `ws-url` at the actual port.
   return {
     registry,
@@ -155,7 +155,7 @@ export function createDefaultTransportRegistry(
 
 /**
  * The command-module NAMES the assembled product will carry: `baseCommandModules` ⊕ the pack-supplied
- * names, in merge order. Deriving the names without assembling lets the shell surface the INFRA-032
+ * names, in merge order. Deriving the names without assembling lets the shell surface the
  * unknown-preset-module notice at its original point in the startup sequence — before the
  * `init`/`--configure`/provider-config early-returns — since `findUnknownModuleNames` needs only names.
  *
@@ -171,7 +171,7 @@ export function mergedCommandModuleNames(
 }
 
 /**
- * Report the preset selection names that matched no command module (INFRA-032) — a short form like
+ * Report the preset selection names that matched no command module — a short form like
  * `"editor"` instead of `agent-command-editor`, or a typo. Non-fatal: surfaced, never silently dropped.
  */
 export function findUnknownPresetModuleNames(
@@ -189,7 +189,7 @@ export function findUnknownPresetModuleNames(
  * Apply the preset's module-selection delta to the assembled base ⊕ pack SUPERSET, then append the fixed
  * modules the delta never filters (`/workflows`, caller-injected).
  *
- * ARCH-005: "this merger only produces the base ⊕ pack superset that the preset delta then filters" — the
+ * "this merger only produces the base ⊕ pack superset that the preset delta then filters" — the
  * capability merge widens, the preset delta narrows, and they compose in that order.
  */
 export function selectProductCommandModules(
@@ -208,12 +208,12 @@ export function selectProductCommandModules(
 }
 
 /**
- * INFRA-032: report every preset command-module name that matched no module — a short form like `"editor"`
+ * Report every preset command-module name that matched no module — a short form like `"editor"`
  * instead of `agent-command-editor`, or a typo. Non-fatal: surfaced, never silently dropped, never an
  * abort, mirroring the external-preset skip reporting.
  *
  * Computed from the base ⊕ pack NAME superset, so no assembly is needed and the notice still fires BEFORE
- * the `init`/`--configure`/provider-config early-returns, exactly where it did before ARCH-005 S2.
+ * the `init`/`--configure`/provider-config early-returns
  */
 export function reportUnknownPresetModules(
   writeError: (message: string) => void,
@@ -255,8 +255,7 @@ export interface IProductRuntimeSeamInput {
  * KERNEL, not re-threaded by the shell.
  *
  * `buildRuntimeOptions` returns the `TInteractiveSessionOptions` UNION, so reading back the very fields the
- * overlay just added requires narrowing to the standard branch (recorded as finding F1 of the ARCH-005 S3
- * external proof). The shell supplies a standard-branch input, so the narrowing is sound; it is asserted
+ * overlay just added requires narrowing to the standard branch. The shell supplies a standard-branch input, so the narrowing is sound; it is asserted
  * rather than assumed.
  */
 export interface IProductRuntimeOptions {
@@ -281,7 +280,7 @@ export interface IProductRuntimeOptions {
 }
 
 /**
- * ARCH-007 (B1) — route `the product` through the composition kernel's RUNTIME SEAM.
+ * Route `the product` through the composition kernel's RUNTIME SEAM.
  *
  * Before this, `cli.ts` consumed the kernel's MATERIALS but hand-threaded them into
  * `runPrintMode` / `runServeMode` / `renderApp`, so the overlay — pack tools → `additionalTools`, pack
@@ -301,7 +300,7 @@ export function buildProductRuntimeOptions(
       cwd: input.cwd,
       provider: input.provider,
       commandModules: input.selectedCommandModules,
-      // ARCH-006: hand the tool axis to the packs. The kernel's overlay appends their tools to
+      // Hand the tool axis to the packs. The kernel's overlay appends their tools to
       // `additionalTools`; suppressing the framework tier here is what makes the packs the SOLE source.
       defaultTools: PACKS_OWN_TOOL_SURFACE,
       projectAccess,
@@ -318,7 +317,7 @@ export function buildProductRuntimeOptions(
     projectAccess,
     commandModules: options.commandModules ?? [],
     agentDefinitions: options.agentDefinitions ?? [],
-    // ARCH-006: `defaultTools` is deliberately NOT defaulted to `[]` here. An ABSENT tier (the framework
+    // `defaultTools` is deliberately NOT defaulted to `[]` here. An ABSENT tier (the framework
     // builds its own) and a SUPPRESSED tier (the packs own it) are different products, and collapsing them
     // would let the acceptance gate pass while the suppression was silently gone.
     toolOptions: {
@@ -341,7 +340,7 @@ export function buildProductRuntimeOptions(
 export function createChannelReadyHandler<TChannel extends TLive & TRemote, TLive, TRemote>(
   setLive: (channel: TLive) => void,
   setRemoteControl: (channel: TRemote) => void,
-  // PEER-006: optional, because the two existing setters are what a channel MUST reach and peer
+  // Optional, because the two existing setters are what a channel MUST reach and peer
   // messaging is a capability a host may not have. A required parameter here would make every
   // caller — including tests that care about neither peer — declare an opinion about it.
   startPeers?: (channel: TChannel) => void,

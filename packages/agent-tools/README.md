@@ -1,5 +1,8 @@
 # @robota-sdk/agent-tools
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Tool implementations for the Robota SDK: factories for building your own tools from Zod schemas,
 the built-in tools (Shell, Read, Write, Edit, Glob, Grep, WebFetch, AskUserQuestion,
 ToolSearch), codebase retrieval and computer-use tools, and the sandbox clients that run tools
@@ -7,22 +10,20 @@ somewhere other than the host (E2B, an OS-level sandbox, or in memory for tests)
 
 The tool contract itself (`FunctionTool`, `ToolRegistry`, `AbstractTool`, `IToolSchema`) lives in
 `@robota-sdk/agent-core`. The ready-made default tool set that sessions use is
-`createDefaultTools()` in `@robota-sdk/agent-tool-defaults`.
+`createDefaultTools()` on the Node-only `@robota-sdk/agent-tools/defaults` entry.
 
 ## Entries
 
-| Entry                          | Holds                                                                                                                                                                                                                    |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `@robota-sdk/agent-tools`      | `createFunctionTool`, `createZodFunctionTool`, `createAskUserQuestionTool`, `createToolSearchTool`, the sandbox ports, `E2BSandboxClient`, `InMemorySandboxClient`, `applyWorkspaceManifest`, retrieval and computer use |
-| `@robota-sdk/agent-tools/node` | The shell, file, search and web-fetch tools, the OS sandbox (`OsSandboxClient`, `detectOsSandbox`) and `createNodeWorkspaceHostFiles`                                                                                    |
+| Entry                              | Holds                                                                                                                                                                                                                    |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@robota-sdk/agent-tools`          | `createFunctionTool`, `createZodFunctionTool`, `createAskUserQuestionTool`, `createToolSearchTool`, the sandbox ports, `E2BSandboxClient`, `InMemorySandboxClient`, `applyWorkspaceManifest`, retrieval and computer use |
+| `@robota-sdk/agent-tools/node`     | The shell, file, search and web-fetch tools, the OS sandbox (`OsSandboxClient`, `detectOsSandbox`) and `createNodeWorkspaceHostFiles`                                                                                    |
+| `@robota-sdk/agent-tools/defaults` | `createDefaultTools`, the SDK's default tool set, assembled from the factories above (Node only; see [docs/defaults.md](docs/defaults.md))                                                                               |
 
-The main entry takes a host's pieces by injection and has no host default: absent a port, the
-capability is absent. Until the next `@robota-sdk/workflows` release is pinned, the main entry also
-re-exports the eleven Node tool names that the published `@robota-sdk/workflows` 0.0.3 imports from
-it (`createShellTool`, `createBashTool`, `createReadTool`, `ReadByteLimitError`,
-`ReadCancelledError`, `createWriteTool`, `createEditTool`, `createGlobTool`, `createGrepTool`,
-`GrepIsolationError`, `webFetchTool`), so the main entry needs Node today. Import them from
-`@robota-sdk/agent-tools/node`.
+The main entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun and never
+reaches the file system, a process or the network egress policy. It takes a host's pieces by injection
+and has no host default: absent a port, the capability is absent. What needs a Node host is on
+`@robota-sdk/agent-tools/node`; `@robota-sdk/agent-tools/defaults` needs it too, and both map `browser: null`.
 
 ## Installation
 
@@ -30,8 +31,8 @@ it (`createShellTool`, `createBashTool`, `createReadTool`, `ReadByteLimitError`,
 npm install @robota-sdk/agent-tools @robota-sdk/agent-core
 ```
 
-`@robota-sdk/agent-core` is a peer dependency. The `@robota-sdk/agent-tools/node` entry requires
-Node.js 22.12 or later.
+`@robota-sdk/agent-core` is a peer dependency. Requires Node.js 22.12 or later for the
+`@robota-sdk/agent-tools/node` and `@robota-sdk/agent-tools/defaults` entries.
 
 ## Quick Start
 
@@ -230,19 +231,18 @@ its screenshot bytes without a Node global. There is no host fallback without a 
 
 ## Dependencies
 
-| Dependency                         | Kind | Purpose                                                        |
-| ---------------------------------- | ---- | -------------------------------------------------------------- |
-| `@robota-sdk/agent-core`           | Peer | Tool contract, `FunctionTool`, schemas, event types            |
-| `@robota-sdk/agent-process`        | Prod | Terminating shell process trees on cancel or timeout (`/node`) |
-| `@robota-sdk/agent-file-authority` | Prod | Atomic rooted writes for Write and Edit (`/node`)              |
-| `fast-glob`                        | Prod | Glob matching (`/node`)                                        |
-| `p-limit`                          | Prod | Concurrency limit in the Glob tool (`/node`)                   |
-| `zod`                              | Prod | Tool parameter schemas and validation                          |
+| Dependency               | Kind | Purpose                                                                                                                                                |
+| ------------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@robota-sdk/agent-core` | Peer | Tool contract, `FunctionTool`, schemas, event types                                                                                                    |
+| `@robota-sdk/agent-os`   | Prod | Terminating shell process trees on cancel or timeout (`./process`) and atomic rooted writes for Write and Edit (`./file-authority`), both from `/node` |
+| `fast-glob`              | Prod | Glob matching (`/node`)                                                                                                                                |
+| `p-limit`                | Prod | Concurrency limit in the Glob tool (`/node`)                                                                                                           |
+| `zod`                    | Prod | Tool parameter schemas and validation                                                                                                                  |
 
 ## Documentation
 
 - [docs/SPEC.md](./docs/SPEC.md) — package contract and design decisions
-- [`@robota-sdk/agent-tool-defaults`](../agent-tool-defaults/README.md) — the default tool set
+- [docs/defaults.md](./docs/defaults.md) — the default tool set (`createDefaultTools`)
 
 ## License
 

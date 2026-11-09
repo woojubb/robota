@@ -1,5 +1,5 @@
 /**
- * FLOW-006 (Layer 6): the execution-workspace projection labels an agent-wake schedule
+ * The execution-workspace projection labels an agent-wake schedule
  * distinctly from a shell-only schedule — a `↻ wake` marker + truncated instruction preview
  * beside the existing `next: Xm` — so the TUI row visibly distinguishes them.
  */
@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { createExecutionWorkspaceSnapshot } from '../index.js';
 
 import type { IExecutionWorkspaceEntry } from '../index.js';
-import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface/execution';
 
 function scheduledTask(overrides: Partial<IBackgroundTaskState<'scheduled'>>): IBackgroundTaskState {
   return {
@@ -30,7 +30,6 @@ function scheduledTask(overrides: Partial<IBackgroundTaskState<'scheduled'>>): I
 
 function backgroundEntry(task: IBackgroundTaskState): IExecutionWorkspaceEntry | undefined {
   const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
     sessionId: 'session_parent',
     mainThread: {
       sessionId: 'session_parent',
@@ -45,8 +44,8 @@ function backgroundEntry(task: IBackgroundTaskState): IExecutionWorkspaceEntry |
   return snapshot.entries.find((e) => e.kind === 'background_task');
 }
 
-describe('FLOW-006 agent-wake task labeling', () => {
-  it('TC-01: an agent-wake schedule shows a wake marker + instruction preview', () => {
+describe('agent-wake task labeling', () => {
+  it('an agent-wake schedule shows a wake marker + instruction preview', () => {
     const entry = backgroundEntry(
       scheduledTask({
         schedule: { cronExpression: '0 0 * * *', agentInstruction: 'summarize logs' },
@@ -54,12 +53,12 @@ describe('FLOW-006 agent-wake task labeling', () => {
     );
     expect(entry?.subtitle).toContain('↻ wake');
     expect(entry?.subtitle).toContain('summarize logs');
-    // SCREEN-1992: the next fire is carried as a timestamp for a surface-side countdown, not baked text.
+    // The next fire is carried as a timestamp for a surface-side countdown, not baked text.
     expect(entry?.subtitle).not.toContain('next:');
     expect(entry?.nextFireAt).toBe('2999-01-01T00:00:00.000Z');
   });
 
-  it('TC-02: a shell-only schedule carries its next fire without the wake marker', () => {
+  it('a shell-only schedule carries its next fire without the wake marker', () => {
     const entry = backgroundEntry(
       scheduledTask({ schedule: { cronExpression: '0 0 * * *', command: 'backup.sh' } }),
     );
@@ -67,7 +66,7 @@ describe('FLOW-006 agent-wake task labeling', () => {
     expect(entry?.subtitle ?? '').not.toContain('↻ wake');
   });
 
-  it('TC-03: a long instruction preview is truncated', () => {
+  it('a long instruction preview is truncated', () => {
     const long =
       'do a very long thing that exceeds the inline preview budget by quite a lot indeed';
     const entry = backgroundEntry(

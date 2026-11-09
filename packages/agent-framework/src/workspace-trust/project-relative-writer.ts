@@ -89,7 +89,7 @@ function withAnchoredParent<T>(
   operation: (parentDescriptor: number, filename: string) => T,
 ): T {
   if (!supportsWorkspaceProjectMutation()) {
-    // Contained — ARCH-047. Portable project mutation fails closed until a stable root-anchored
+    // Contained. Portable project mutation fails closed until a stable root-anchored
     // primitive owns equivalent semantics on every supported platform.
     refuseProjectRead('Project mutation requires stable root-anchored host support.');
   }
@@ -101,6 +101,7 @@ function withAnchoredParent<T>(
   let parentDescriptor: number | undefined;
   try {
     rootDescriptor = openSync(identity.worktreeRoot, directoryOpenFlags());
+    identityResolver.assertOpenedRootDescriptor?.(rootDescriptor);
     if (realpathSync(descriptorPath(rootDescriptor)) !== identity.worktreeRoot) {
       refuseProjectRead('The opened project root no longer matches the trusted workspace root.');
     }
@@ -473,6 +474,7 @@ function withExistingAnchoredDirectory<T>(
   try {
     const rootDescriptor = openSync(identity.worktreeRoot, directoryOpenFlags());
     opened.push(rootDescriptor);
+    identityResolver.assertOpenedRootDescriptor?.(rootDescriptor);
     if (realpathSync(descriptorPath(rootDescriptor)) !== identity.worktreeRoot) {
       refuseProjectRead('The opened project root no longer matches the trusted workspace root.');
     }

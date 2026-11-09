@@ -2,7 +2,7 @@
  * The switcher's selection state: where the cursor is, which slice of entries is on screen, and what
  * a keypress does to both.
  *
- * Split out of `ExecutionWorkspaceSwitcher.tsx` (CLI-1994 + CLI-2004 both grew that file past its
+ * Split out of `ExecutionWorkspaceSwitcher.tsx` (that file outgrew its
  * size budget) along the seam that was already there: this half owns "what is selected", the
  * component owns "what is drawn".
  */
@@ -17,7 +17,7 @@ import {
   type TSelectionInputAction,
 } from './flows/selection-flow.js';
 
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface/execution';
 import type React from 'react';
 
 /** How many entries the list shows at once; the rest scroll. Read only by this module. */

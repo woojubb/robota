@@ -10,7 +10,7 @@ import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 /**
  * A trusted project covers the directory a runtime or a query is built on.
  *
- * Contained — ARCH-048. These boundaries reject cross-root pairs until one canonical project-root
+ * Contained. These boundaries reject cross-root pairs until one canonical project-root
  * binding contract replaces the independent cwd and projectAccess carriers. Restricted access has no
  * root to cover, so it passes.
  *

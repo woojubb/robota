@@ -11,8 +11,8 @@ import type { ITuiChannelState } from './useTuiChannel.js';
 import type {
   IAppearanceSettings,
   IStatusLineCommandSettings,
-} from '@robota-sdk/agent-interface-command';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/command';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 interface IOptions {
   readonly state: ITuiChannelState;
@@ -27,9 +27,9 @@ export interface IAppScreenState {
   readonly screens: IUseSideEffectsResult;
   readonly workspace: IAppWorkspaceState;
   readonly statusSettings: IStatusLineCommandSettings;
-  /** SCREEN-2002: the persisted appearance, re-read after every slash-command result. */
+  /** The persisted appearance, re-read after every slash-command result. */
   readonly appearance: IAppearanceSettings;
-  /** SCREEN-1993: the input area's history-search overlay is open and owns the keys. */
+  /** The input area's history-search overlay is open and owns the keys. */
   readonly historySearchOpen: boolean;
   readonly setHistorySearchOpen: (open: boolean) => void;
 }

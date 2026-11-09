@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
-import { satisfies, valid } from 'semver';
+import { satisfies, valid, validRange } from 'semver';
 import { parseDocument, stringify, visit as visitYaml } from 'yaml';
 import { embeddedProductIdentity, embeddedProductRuntimeDefaults, productConfigEntries, publicProductConfig } from '../../packages/product-config/src/index.ts';
 
@@ -731,61 +731,82 @@ async function connectExternalWorkflowPeers(sourceRoot, outputDirectory, package
   if (scope === PRODUCT_SCOPE) return;
   const manifestPath = path.join(outputDirectory, 'packages/agent-cli/package.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-  if (!manifest.devDependencies?.['@robota-sdk/workflows']) return;
-
-  const original = parseDocument(await readFile(path.join(sourceRoot, 'pnpm-lock.yaml'), 'utf8')).toJSON();
+  let sourceLock;
+  try { sourceLock = await readFile(path.join(sourceRoot, 'pnpm-lock.yaml'), 'utf8'); }
+  catch (error) { if (error.code === 'ENOENT' && !manifest.devDependencies?.['@robota-sdk/workflows']) return; throw error; }
+  const original = parseDocument(sourceLock).toJSON();
   const lockPath = path.join(outputDirectory, 'pnpm-lock.yaml');
   const lock = parseDocument(await readFile(lockPath, 'utf8')).toJSON();
+  // A pinned registry package may no longer exist in the workspace; it maps by the same scope rule.
+  const productNameOf = (name) => packageMap.get(name) ??
+    (name.startsWith(`${PRODUCT_SCOPE}/`) ? `${scope}${name.slice(PRODUCT_SCOPE.length)}` : undefined);
+  // Product names change, but registry aliases and their immutable package snapshots do not.
+  for (const [dir, importer] of Object.entries(original.importers ?? {})) {
+    let product;
+    for (const section of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+      for (const [name, entry] of Object.entries(importer[section] ?? {})) {
+        const mapped = productNameOf(name);
+        const alias = entry.specifier?.startsWith(`npm:${PRODUCT_SCOPE}/`);
+        const example = dir.startsWith('examples/') && mapped && validRange(entry.specifier) &&
+          !entry.version?.startsWith('link:');
+        if (!alias && !example) continue;
+        if (!mapped) throw new Error(`Registry alias ${name} has no product mapping.`);
+        const specifier = alias ? entry.specifier : `npm:${name}@${entry.specifier}`;
+        product ??= JSON.parse(await readFile(path.join(outputDirectory, dir, 'package.json'), 'utf8'));
+        product[section][mapped] = specifier;
+        lock.importers[dir][section][mapped] = { ...entry, specifier, version: `/${name}@${entry.version}` };
+      }
+    }
+    if (product) await writeFile(path.join(outputDirectory, dir, 'package.json'), `${JSON.stringify(product, null, 2)}\n`);
+  }
+  for (const [key, snapshot] of Object.entries(original.packages ?? {})) {
+    if (!key.includes(PRODUCT_SCOPE) && !JSON.stringify(snapshot).includes(PRODUCT_SCOPE)) continue;
+    delete lock.packages[replaceRegexScope(key, scope)];
+    lock.packages[key] = snapshot;
+  }
+  if (!manifest.devDependencies?.['@robota-sdk/workflows']) {
+    await writeFile(lockPath, stringify(lock));
+    return;
+  }
   const artifactSpec = manifest.devDependencies['@robota-sdk/workflows'];
   const sourceImporter = original.importers['packages/agent-cli'].devDependencies['@robota-sdk/workflows'];
   const registryArtifact = !artifactSpec.startsWith('file:');
   if (sourceImporter.specifier !== artifactSpec) throw new Error('Workflow dependency does not match the source lockfile.');
-  let snapshot;
-  if (registryArtifact) {
-    if (valid(artifactSpec) !== artifactSpec || (sourceImporter.version !== artifactSpec && !sourceImporter.version.startsWith(`${artifactSpec}(`))) {
-      throw new Error('Workflow registry dependency must use an exact locked version.');
-    }
-    const key = `/@robota-sdk/workflows@${sourceImporter.version}`;
-    if (original.packages[key]) snapshot = [key, original.packages[key]];
-  } else {
-    snapshot = Object.entries(original.packages).find(([, value]) => value.name === '@robota-sdk/workflows');
+  if (registryArtifact && (valid(artifactSpec) !== artifactSpec || (sourceImporter.version !== artifactSpec && !sourceImporter.version.startsWith(`${artifactSpec}(`)))) {
+    throw new Error('Workflow registry dependency must use an exact locked version.');
   }
-  if (!snapshot) throw new Error('Workflow artifact is missing from the source lockfile.');
-  const [snapshotKey, workflow] = snapshot;
+  const workflow = registryArtifact
+    ? original.packages[`/@robota-sdk/workflows@${sourceImporter.version}`]
+    : original.packages[sourceImporter.version];
+  if (!workflow) throw new Error('Workflow artifact is missing from the source lockfile.');
   const importer = lock.importers['packages/agent-cli'];
   importer.devDependencies['@robota-sdk/workflows'] = original.importers['packages/agent-cli'].devDependencies['@robota-sdk/workflows'];
   const peerAliases = {};
   for (const peer of Object.keys(workflow.peerDependencies)) {
-    const productName = packageMap.get(peer);
-    const link = workflow.dependencies[peer];
-    if (!productName || typeof link !== 'string' || !link.startsWith('link:packages/')) {
-      throw new Error(`Workflow peer ${peer} is not linked to a generated SDK workspace.`);
-    }
-    const targetManifest = JSON.parse(await readFile(path.join(outputDirectory, link.slice(5), 'package.json'), 'utf8'));
-    if (targetManifest.name !== productName || !satisfies(targetManifest.version, workflow.peerDependencies[peer])) {
-      throw new Error(`Workflow peer ${peer} does not match the generated SDK name and supported version.`);
-    }
-    const specifier = `workspace:${productName}@*`;
+    const productName = productNameOf(peer);
+    const entry = original.importers['packages/agent-cli'].devDependencies[peer];
+    const version = entry?.specifier?.replace(`npm:${peer}@`, '');
+    if (!productName || entry?.specifier !== `npm:${peer}@${version}` || valid(version) !== version ||
+        !satisfies(version, workflow.peerDependencies[peer]) ||
+        !(workflow.dependencies[peer] === version || workflow.dependencies[peer]?.startsWith(`${version}(`)))
+      throw new Error(`Workflow peer ${peer} must use a supported, pinned registry SDK.`);
     peerAliases[peer] = productName;
-    manifest.devDependencies[peer] = specifier;
-    importer.devDependencies[peer] = { specifier, version: `link:../${link.slice('link:packages/'.length)}` };
+    manifest.devDependencies[peer] = entry.specifier;
+    importer.devDependencies[peer] = entry;
   }
-  const registryPrefixes = [`/@robota-sdk/workflows@${artifactSpec}`, `/${scope}/workflows@${artifactSpec}`];
-  for (const [key, value] of Object.entries(lock.packages)) {
-    if ((workflow.id && value.id === workflow.id) || (registryArtifact && registryPrefixes.some((prefix) => key === prefix || key.startsWith(`${prefix}(`)))) delete lock.packages[key];
-  }
-  lock.packages[snapshotKey] = workflow;
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  // Reload after restoring the renamed product aliases above.
+  const rewrittenCli = JSON.parse(await readFile(manifestPath, 'utf8'));
+  Object.assign(rewrittenCli.devDependencies, Object.fromEntries(Object.entries(manifest.devDependencies).filter(([name]) => name.startsWith(`${PRODUCT_SCOPE}/`))));
+  await writeFile(manifestPath, `${JSON.stringify(rewrittenCli, null, 2)}\n`);
   await writeFile(lockPath, stringify(lock));
-  if (registryArtifact) {
-    const integrity = workflow.resolution?.integrity;
-    if (typeof integrity !== 'string' || !/^sha512-[A-Za-z0-9+/]{86}==$/.test(integrity)) throw new Error('Workflow registry artifact is missing valid SHA-512 integrity.');
-    return { package: '@robota-sdk/workflows', version: artifactSpec, integrity, peerAliases };
+  const integrity = workflow.resolution?.integrity;
+  if (typeof integrity !== 'string' || !/^sha512-[A-Za-z0-9+/]{86}==$/.test(integrity)) throw new Error('Workflow registry artifact is missing valid SHA-512 integrity.');
+  if (!registryArtifact) {
+    const artifact = await readFile(path.resolve(path.dirname(manifestPath), artifactSpec.slice(5)));
+    if (integrity !== `sha512-${createHash('sha512').update(artifact).digest('base64')}`) throw new Error('Workflow artifact integrity does not match the lockfile.');
+    return { package: '@robota-sdk/workflows', sha256: createHash('sha256').update(artifact).digest('hex'), peerAliases };
   }
-  const artifact = await readFile(path.resolve(path.dirname(manifestPath), artifactSpec.slice(5)));
-  const integrity = `sha512-${createHash('sha512').update(artifact).digest('base64')}`;
-  if (workflow.resolution?.integrity !== integrity) throw new Error('Workflow artifact integrity does not match the lockfile.');
-  return { package: '@robota-sdk/workflows', sha256: createHash('sha256').update(artifact).digest('hex'), peerAliases };
+  return { package: '@robota-sdk/workflows', version: artifactSpec, integrity, peerAliases };
 }
 
 function assertPublicConfig(config, publicConfig, embeddedIdentity) {
@@ -905,7 +926,7 @@ export async function generateWorkspaceFromConfig({
     const appManifestPath = path.join(temporaryOutput, 'apps/agent-app/package.json');
     try {
       const appManifest = JSON.parse(await readFile(appManifestPath, 'utf8'));
-      appManifest.version = productVersion;
+      appManifest.version = config.release.productVersion ?? appManifest.version;
       appManifest.description = `${config.identity.displayName} desktop app`;
       appManifest.author = config.identity.displayName;
       await writeFile(appManifestPath, `${JSON.stringify(appManifest, null, 2)}\n`, { mode: 0o644 });

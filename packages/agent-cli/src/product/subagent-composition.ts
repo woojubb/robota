@@ -8,15 +8,16 @@ import { productProviderDefinitions } from './provider-definitions.js';
 import { findProviderDefinition } from '@robota-sdk/agent-core';
 import { TRANSPORT_ENVIRONMENT } from '@robota-sdk/agent-executor';
 import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
-import { createGoalStatusTool, sandboxApprovalFor } from '@robota-sdk/agent-framework';
+import { createGoalStatusTool, getWorkspaceProjectIdentity, sandboxApprovalFor } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { OsSandboxClient } from '@robota-sdk/agent-tools/node';
 import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import { commandEnvironment, isWithheldFromCommands } from './command-environment.js';
 import { createProductCapabilityPacks, packCommandModuleNames } from './product-profile.js';
-import { createCliWorkspaceComposition } from '../startup/workspace-project-composition.js';
+import { createCliWorkspaceComposition, resolveInitialCliWorkspaceProjectAccess } from '../startup/workspace-project-composition.js';
+import type { ICliWorkspaceComposition } from '../startup/workspace-project-composition.js';
 import { selectProductSubagentRunner } from './subagent-provider-reproduction.js';
 import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
 import { createGitWorktreeIsolationAdapter } from '../subagents/git-worktree-isolation-adapter.js';
@@ -32,7 +33,7 @@ import type { IProviderReproduction } from './subagent-provider-reproduction.js'
 import type { ISubagentWorkerComposition } from '@robota-sdk/agent-subagent-runner';
 import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
 import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
-import type { ICodingPackOptions } from '@robota-sdk/pack-coding';
+import type { ICodingPackOptions } from '@robota-sdk/agent-product/coding';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IOsSandboxSettings } from '@robota-sdk/agent-tools/node';
 import type { IProviderDefinition, IToolWithEventService } from '@robota-sdk/agent-core';
@@ -40,14 +41,14 @@ import type { IProviderDefinition, IToolWithEventService } from '@robota-sdk/age
 type TProductPack = ReturnType<typeof createProductCapabilityPacks>[number];
 
 /**
- * ARCH-021: the product's answer to "what does this product compose", for a child-process subagent.
+ * The product's answer to "what does this product compose", for a child-process subagent.
  *
  * **The single source.** `bin.ts`'s worker branch and `cli.ts`'s parent composition both resolve
  * through here, so there is one expression of the product's tool surface rather than two. Two hand-written
- * expressions would be the same SSOT defect this item exists to remove, one layer over — and TC-05
+ * expressions would be an SSOT defect one layer over — and a test
  * turns any drift between them into a failing test rather than a third finding at this line.
  *
- * The child is the product's own binary (DIST-006), so it can build the product's surface locally from the
+ * The child is the product's own binary, so it can build the product's surface locally from the
  * same packs the parent used; nothing live crosses the process boundary.
  */
 
@@ -60,7 +61,7 @@ type TProductPack = ReturnType<typeof createProductCapabilityPacks>[number];
 export interface IProductPackContext extends ICodingPackOptions {
   readonly cwd: string;
   /**
-   * ARCH-033: which sandbox type `sandboxClient` is, so a child can rebuild one of the same kind.
+   * Which sandbox type `sandboxClient` is, so a child can rebuild one of the same kind.
    *
    * Names a key in the worker composition's `sandboxFactories`. Required alongside a sandbox client
    * for child-process subagents to be composable — without it the parent has a sandbox nothing on the
@@ -77,12 +78,12 @@ export const OS_SANDBOX_TYPE = 'os';
  * Capability a recipe cannot reproduce in the child, because it is a live, unrepeatable handle
  * rather than a pure function of (execution root, serialized payload, ambient durable state).
  *
- * Today that is exactly `sandboxClient`: it is consumed by `pack-coding`, and `E2BSandboxClient` /
+ * Today that is exactly `sandboxClient`: it is consumed by `agent-product/coding`, and `E2BSandboxClient` /
  * `InMemorySandboxClient` are both exported from `agent-tools`'s barrel, so a consumer can compose a
- * sandboxed parent. Projecting it is #1784 (ARCH-033).
+ * sandboxed parent.
  */
 export function nonReproducibleCapabilities(context: IProductPackContext): readonly string[] {
-  // ARCH-033: a sandbox is non-reproducible only while nothing can REBUILD it in the child.
+  // A sandbox is non-reproducible only while nothing can REBUILD it in the child.
   //
   // The projection seam changed what this question means. A live client still cannot cross a process
   // boundary, but `(type, snapshotId)` can, and `ISubagentWorkerComposition.sandboxFactories` is
@@ -103,8 +104,8 @@ export function nonReproducibleCapabilities(context: IProductPackContext): reado
 }
 
 /**
- * Fail closed rather than open. A sandboxed parent with a host-tool child is ARCH-010's shape — the
- * measured breach there was a subagent reading outside its root — so a capability the child cannot
+ * Fail closed rather than open. A sandboxed parent with a host-tool child lets a subagent read outside its
+ * root, so a capability the child cannot
  * reproduce must stop the process, not be silently dropped.
  *
  * Stated precisely: this runs inside `createProductPackSet`, which `startCli` calls at composition
@@ -125,7 +126,7 @@ export function assertChildProcessSubagentsCanReproduce(context: IProductPackCon
     `The CLI cannot start: this session composed ${missing.join(', ')}, which a child process cannot ` +
       'reproduce, so its subagents would run without it — a sandboxed parent with a host-tool child. ' +
       'This is refused at composition time rather than per spawn, so the failure is loud and early. ' +
-      'Projecting live capability across the boundary is tracked as ARCH-033 (#1784).',
+      'Projecting live capability across the boundary is not supported.',
   );
 }
 
@@ -133,7 +134,7 @@ export function assertChildProcessSubagentsCanReproduce(context: IProductPackCon
  * The pack factory this composition derives from.
  *
  * Injectable for ONE reason, stated because it is not obvious: the product's own packs mirror
- * `createDefaultTools()` by name today — `pack-coding` is pinned to that set by its own test — so a
+ * `createDefaultTools()` by name today — `agent-product/coding` is pinned to that set by its own test — so a
  * test comparing the two name sets passes whether the child composes from packs or from imported
  * defaults. That check cannot fail on the defect it names. Injecting a pack proves the derivation
  * instead of the coincidence.
@@ -142,9 +143,9 @@ export type TProductPackFactory = (context: IProductPackContext) => readonly TPr
 
 /**
  * The recipe handed to a child-process subagent worker. `createTools` takes the root per call so the
- * child binds its own execution root (ARCH-010) rather than inheriting the parent's.
+ * child binds its own execution root rather than inheriting the parent's.
  *
- * ARCH-109: `providerDefinitions` is a PARAMETER for the same reason `createPacks` is. The seam it
+ * `providerDefinitions` is a PARAMETER for the same reason `createPacks` is. The seam it
  * fills already existed — `ISubagentWorkerComposition.providerDefinitions` is documented as carrying
  * definitions rather than a constructed provider precisely so "a custom provider type resolves
  * instead of throwing `Unknown provider`" — but the product's own worker entry pinned it to the default
@@ -159,7 +160,7 @@ export function createProductSubagentComposition(
   providerDefinitions: readonly IProviderDefinition[] = productProviderDefinitions(),
 ): ISubagentWorkerComposition {
   const shellExecutable = resolveProductShellExecutable(productRuntime.environment);
-  // #3679: the worker seals as its parent decided — the grant binds into this runtime's one sealing
+  // The worker seals as its parent decided — the grant binds into this runtime's one sealing
   // decision before anything is built, so `openSessionStore` below seals the same way. Binding it is
   // also where the worker marks its presence, since its transcript is written whether or not it ever
   // opens a store: a migration then sees it, and a worker started during one refuses to run.
@@ -205,7 +206,7 @@ export function createProductSubagentComposition(
         },
         createPacks,
       );
-      // ARCH-034: the goal tool is added by session assembly, not by any pack, so rebuilding the
+      // The goal tool is added by session assembly, not by any pack, so rebuilding the
       // pack set alone gave a child-process subagent a strictly smaller surface than an in-process
       // one. Choosing a runner is a packaging decision; this is what stops it being a capability one.
       return context.sessionTiers?.includeGoalTool === true
@@ -213,13 +214,29 @@ export function createProductSubagentComposition(
         : tools;
     },
     providerDefinitions,
-    // CLI-1994: a `/fork` job names a record to resume, and only the product knows where its records
+    // A `/fork` job names a record to resume, and only the product knows where its records
     // live. This rebuilds the SAME composition the parent's `buildCommandSetup` builds for the
     // parent's cwd — not the execution root, which for a worktree-isolated child holds no records of
     // its own — so the child reads the store the parent just wrote the forked record into. Without
     // it every fork job dies in the worker with "this composition opens no session store".
-    openSessionStore: (context: { readonly cwd: string }) =>
-      createCliWorkspaceComposition({ cwd: context.cwd, productRuntime }).sessionStore,
+    openSessionStore: async ({ cwd, resumeStore }) => {
+      if (resumeStore?.scope !== 'project') {
+        return createCliWorkspaceComposition({ cwd, productRuntime }).sessionStore;
+      }
+      const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, { productRuntime });
+      if (projectAccess.status !== 'trusted') {
+        throw new Error('The parent project session store is no longer trusted; the subagent was not started.');
+      }
+      const identity = getWorkspaceProjectIdentity(projectAccess.authority);
+      if (identity.repositoryKey !== resumeStore.repositoryKey || identity.worktreeRoot !== resumeStore.worktreeRoot) {
+        throw new Error('The parent project session store identity changed; the subagent was not started.');
+      }
+      const workspace = createCliWorkspaceComposition({ cwd, productRuntime, projectAccess });
+      if (workspace.sessionStoreScope !== 'project') {
+        throw new Error('The parent project session store is unavailable; the subagent was not started.');
+      }
+      return workspace.sessionStore;
+    },
     // The child confines its commands exactly as the parent does NOW: from the parent's live settings,
     // which `/sandbox` may have changed, and from its root's settings files only when none came. Its
     // session lets a confined command skip the prompt exactly as the parent's does.
@@ -262,7 +279,7 @@ function productSandboxAt(
 }
 
 /**
- * ARCH-006: the product's packs OWN its tool surface. Both processes read this, which is what makes
+ * The product's packs OWN its tool surface. Both processes read this, which is what makes
  * "dropping a pack drops its tools" true in the child as well as the parent.
  */
 export function packTools(
@@ -282,6 +299,7 @@ function createProductChildProcessSubagentRunner(options: {
   readonly packContext: IProductPackContext;
   readonly providerConfig: IProviderDefinitionConfig;
   readonly providerDefinitions: readonly IProviderDefinition[];
+  readonly workspace?: ICliWorkspaceComposition;
   /** Absent, the child writes no transcript, so the run leaves no conversation behind. */
   readonly logsDir?: string;
   readonly workerEntry: Parameters<
@@ -291,8 +309,8 @@ function createProductChildProcessSubagentRunner(options: {
     typeof createChildProcessSubagentRunnerFactory
   >[0]['worktreeAdapter'];
 }): TSubagentRunnerFactory {
-  // ARCH-021: fail closed. A capability the child cannot reproduce must stop the spawn rather than
-  // be silently dropped — a sandboxed parent with a host-tool child is ARCH-010's measured shape.
+  // Fail closed. A capability the child cannot reproduce must stop the spawn rather than
+  // be silently dropped — a sandboxed parent with a host-tool child lets a subagent read outside its root.
   assertChildProcessSubagentsCanReproduce(options.packContext);
   return createChildProcessSubagentRunnerFactory({
     parentSandboxSettings: parentSandboxSettingsOf(options.packContext),
@@ -300,8 +318,9 @@ function createProductChildProcessSubagentRunner(options: {
     workerEntry: options.workerEntry,
     providerConfig: options.providerConfig,
     providerDefinitions: options.providerDefinitions,
+    ...(options.workspace === undefined ? {} : { resumeStore: resumeStoreReference(options.workspace) }),
     ...(options.logsDir === undefined ? {} : { logsDir: options.logsDir }),
-    // #3679: the children keep their logs as every store of this process keeps its records, and
+    // The children keep their logs as every store of this process keeps its records, and
     // follow the key this process seals to when an unlock verifies or changes it — one decision.
     ...resolveProductRunnerSealing(options.productRuntime),
     // The worker drops its credential after building its provider unless the owner let commands see it.
@@ -370,7 +389,7 @@ export function watchParentSandboxSettingsOf(
 /**
  * the product's pack context and the packs built from it, as ONE value.
  *
- * ARCH-021: the context must be a single named value that both the pack construction and the
+ * The context must be a single named value that both the pack construction and the
  * child-process runner selection read. Built here rather than at the call site so the two do not
  * drift into reading different values.
  *
@@ -388,7 +407,7 @@ export function createProductPackSet(
   readonly packs: readonly TProductPack[];
   readonly packCommandModules: readonly string[];
 } {
-  // ARCH-033: the capabilities are a PARAMETER, not a hard-coded `{ cwd }`.
+  // The capabilities are a PARAMETER, not a hard-coded `{ cwd }`.
   //
   // This is why the guard below was inert. The signature took only `cwd`, so `packContext` could
   // never carry a `sandboxClient` and `nonReproducibleCapabilities()` returned `[]` by construction —
@@ -400,7 +419,7 @@ export function createProductPackSet(
   // guard is now reachable: a composition root that DOES supply a sandbox gets the refusal instead of
   // silently spawning children that cannot reproduce it.
   const packContext: IProductPackContext = { cwd, ...capabilities };
-  // ARCH-033: the fail-closed guard runs HERE, on the same context the packs are built from.
+  // The fail-closed guard runs HERE, on the same context the packs are built from.
   //
   // It was previously exported, unit-tested, and called by nothing — a fail-closed guard that never
   // runs is not fail-closed, it is decoration. Its own docblock claimed "this runs at composition
@@ -409,13 +428,13 @@ export function createProductPackSet(
   // one function the real path already calls is what makes the claim true, and puts the check on the
   // exact value the packs were composed with rather than on a re-derived one.
   assertChildProcessSubagentsCanReproduce(packContext);
-  // ARCH-006: scoped to the cwd they are built with.
+  // Scoped to the cwd they are built with.
   const packs = createProductCapabilityPacks(packContext, productRuntime);
   return { packContext, packs, packCommandModules: packCommandModuleNames(packs) };
 }
 
 /**
- * ARCH-109: the product's subagent runner, wired.
+ * The product's subagent runner, wired.
  *
  * The three fixed inputs below — the log directory, the self-fork entry, and the worktree adapter —
  * are the product's own answers and have no reason to be spelled at the call site. Bringing them here is
@@ -423,12 +442,20 @@ export function createProductPackSet(
  * as debt, where the rule is "split instead of extending", so the change had to take more out of it
  * than it put in.
  */
+function resumeStoreReference(workspace: ICliWorkspaceComposition) {
+  if (workspace.sessionStoreScope === 'user') return { scope: 'user' as const };
+  if (workspace.projectAccess.status !== 'trusted') throw new Error('A project session store requires trusted workspace access.');
+  const identity = getWorkspaceProjectIdentity(workspace.projectAccess.authority);
+  return { scope: 'project' as const, repositoryKey: identity.repositoryKey, worktreeRoot: identity.worktreeRoot };
+}
+
 export function createProductSubagentRunnerFactory(options: {
   readonly productRuntime: ICliRuntimeContext;
   readonly packContext: IProductPackContext;
   readonly providerConfig: IProviderDefinitionConfig;
   /** The registry the parent's provider came from: the child is checked against what it declares. */
   readonly providerDefinitions: readonly IProviderDefinition[];
+  readonly workspace?: ICliWorkspaceComposition;
   readonly reproduction: IProviderReproduction;
   readonly notice: (message: string) => void;
   /**
@@ -465,8 +492,9 @@ export function createProductSubagentRunnerFactory(options: {
         packContext: options.packContext,
         providerConfig: options.providerConfig,
         providerDefinitions: options.providerDefinitions,
+        ...(options.workspace === undefined ? {} : { workspace: options.workspace }),
         ...(options.persistTranscripts
-          ? { logsDir: options.productRuntime.config.storage.logRoot }
+          ? { logsDir: options.productRuntime.layout.subagentLogsRoot }
           : {}),
         workerEntry: resolveSelfForkWorkerEntry(),
         worktreeAdapter: createProductWorktreeAdapter(options.productRuntime),

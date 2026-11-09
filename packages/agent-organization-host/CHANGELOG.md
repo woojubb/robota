@@ -1,5 +1,61 @@
 # @robota-sdk/agent-organization-host
 
+## 3.0.12
+### Patch Changes
+
+  - @robota-sdk/agent-organization@3.2.1
+
+## 3.0.11
+### Patch Changes
+
+  - @robota-sdk/agent-organization@3.2.0
+
+## 3.0.10
+### Patch Changes
+
+  - @robota-sdk/agent-organization@3.1.2
+
+## 3.0.9
+### Patch Changes
+
+  - @robota-sdk/agent-organization@3.1.1
+
+## 3.0.8
+### Patch Changes
+
+- Updated dependencies [b56b5a9]
+  - @robota-sdk/agent-organization@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/agent-organization@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/agent-organization@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-organization@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-organization@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-organization@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-organization@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

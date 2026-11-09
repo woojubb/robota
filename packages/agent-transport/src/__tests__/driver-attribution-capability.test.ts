@@ -3,12 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { createOutboundDelivery } from '../outbound-delivery.js';
 import { subscribeSessionEvents } from '../session-events.js';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
-import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface/session';
 
 /**
- * ARCH-012 — the sharp edge of an optional contract member.
+ * The sharp edge of an optional contract member.
  *
  * `IInteractiveSession` declared `getActiveDriverId?()`, and the one consumer read it as
  * `session.getActiveDriverId?.() ?? undefined`. Two entirely different situations arrived as the same
@@ -36,7 +36,7 @@ function hostWithAttribution(driverId: TDriverId | null): IInteractiveSession {
   });
 }
 
-describe('driver attribution is a declared capability, not an optional call (ARCH-012)', () => {
+describe('driver attribution is a declared capability, not an optional call', () => {
   it('TYPE-LEVEL: a host that omits the attribution members does not satisfy the contract', () => {
     // Judged by `pnpm typecheck`, not by this assertion — `@ts-expect-error` fails the BUILD when the
     // error it expects does not occur.
@@ -51,7 +51,7 @@ describe('driver attribution is a declared capability, not an optional call (ARC
       'getActiveDriverId' | 'getPendingCount' | 'isInitialized'
     >;
     const host = {} as OmitsAttribution;
-    // @ts-expect-error ARCH-012: the three are REQUIRED. If this ever compiles again the optionality
+    // @ts-expect-error: the three are REQUIRED. If this ever compiles again the optionality
     // is back, and `undefined` means both "no active driver" and "cannot answer" once more.
     const asSession: IInteractiveSession = host;
     expect(asSession).toBeDefined();

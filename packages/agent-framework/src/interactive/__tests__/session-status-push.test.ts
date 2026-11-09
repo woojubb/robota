@@ -1,5 +1,5 @@
 /**
- * #3189 — one client's `/mode` shows on every client: the session pushes its status when it
+ * One client's `/mode` shows on every client: the session pushes its status when it
  * changes, and only then.
  */
 
@@ -9,7 +9,7 @@ import { InteractiveSession } from '../interactive-session.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandModule } from '../../commands/index.js';
-import type { ISessionStatusSnapshot } from '@robota-sdk/agent-interface-session';
+import type { ISessionStatusSnapshot } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 
@@ -84,7 +84,7 @@ function setup(): {
   return { session, state, pushed };
 }
 
-describe('InteractiveSession status push (#3189)', () => {
+describe('InteractiveSession status push', () => {
   it('pushes the status once when a command changes it', async () => {
     const { session, pushed } = setup();
 

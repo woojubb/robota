@@ -6,7 +6,7 @@ import type { IHeadlessInteractionChannelOptions } from '../headless/HeadlessInt
 const testHost = createTestFrameworkHost();
 
 /**
- * ARCH-013 — the same field, at the surface that also had to remember it.
+ * The same field, at the surface that also had to remember it.
  *
  * A preset's resolved `effort` reached nothing at startup. Wiring it through the TUI alone would have
  * left print and serve mode dropping it, which is exactly the defect this item names: the projection
@@ -40,7 +40,7 @@ function projectedOptions(
   return buildRuntimeSession.mock.calls[0]?.[0] as Record<string, unknown>;
 }
 
-describe('the headless projection carries effort (ARCH-013)', () => {
+describe('the headless projection carries effort', () => {
   it('forwards a resolved effort onto the session options', () => {
     expect(projectedOptions('medium')['effort']).toBe('medium');
   });

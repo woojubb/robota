@@ -5,4 +5,4 @@ export type {
   ITuiPickerInteraction,
   ITuiConfirmInteraction,
   TAnyTuiCommandInteraction,
-} from '@robota-sdk/agent-interface-tui';
+} from '@robota-sdk/agent-interface/tui';

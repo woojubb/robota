@@ -15,7 +15,7 @@ import {
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
-// Issue #2052: the output-format vocabulary is owned by the headless transport; re-exported here so
+// The output-format vocabulary is owned by the headless transport; re-exported here so
 // existing CLI imports keep working without a second declaration of the same union.
 export type { TOutputFormat };
 
@@ -38,7 +38,7 @@ export interface IParsedCliArgs {
   literalPositionals?: true;
   help: boolean;
   printMode: boolean;
-  /** RUNTIME-001: run the headless runtime host (serve the WS, no ink) — the backend apps/agent-app spawns. */
+  /** Run the headless runtime host (serve the WS, no ink) — the backend apps/agent-app spawns. */
   serve: boolean;
   /** Internal opt-in identity for one detached, supervisor-owned runtime. */
   supervisedSessionId?: string;
@@ -46,6 +46,8 @@ export interface IParsedCliArgs {
   supervisedExternalEventGrants?: boolean;
   /** Supervised child only: read the WebSocket transport token from the pipe its launcher inherited it on. */
   supervisedTransportTokenFd?: boolean;
+  /** Supervised child only: this secure runtime answers the pair its spawner inherited it on (descriptor 4). */
+  supervisedSpawnerPair?: boolean;
   /** Supervised child only: this runtime is its workspace's daemon and hands its WS URL to its owner. */
   daemon?: boolean;
   /** TUI only: files, each one external-event grant verified by access token. */
@@ -54,7 +56,7 @@ export interface IParsedCliArgs {
   externalEventPort?: number;
   /** Proxy addresses whose `X-Forwarded-For` the external-event endpoint believes. */
   externalEventTrustedProxies?: string[];
-  /** MCP-2533: selecting HTTP also requires an exclusive owner-only token file. */
+  /** Selecting HTTP also requires an exclusive owner-only token file. */
   mcpHttpTokenFile?: string;
   /** The loopback HTTP port: `mcp serve` HTTP mode, or the agent HTTP API of `--serve`. */
   httpPort?: number;
@@ -67,19 +69,19 @@ export interface IParsedCliArgs {
   mcpTrustedProxies?: string[];
   /** With `mcp serve`, put permission and ask prompts to the calling client through MCP elicitation. */
   mcpAskClient?: boolean;
-  /** GUI-007: with `--serve --open`, also serve the CLI's web monitor SPA over localhost and open it. */
+  /** With `--serve --open`, also serve the CLI's web monitor SPA over localhost and open it. */
   open: boolean;
   continueMode: boolean;
   resumeId: string | undefined;
   language: string | undefined;
   permissionMode: TPermissionMode | undefined;
   maxTurns: number | undefined;
-  /** GOAL-001: autonomous objective to pursue headlessly (--goal). */
+  /** Autonomous objective to pursue headlessly (--goal). */
   goal: string | undefined;
-  /** GOAL-001: per-goal turn budget (--goal-max-iterations). */
+  /** Per-goal turn budget (--goal-max-iterations). */
   goalMaxIterations: number | undefined;
   forkSession: boolean;
-  /** Issue #3081: this run is the target of a `/cd` from this directory (internal flag). */
+  /** This run is the target of a `/cd` from this directory (internal flag). */
   movedFrom?: string;
   sessionName: string | undefined;
   outputFormat: TOutputFormat | undefined;
@@ -104,14 +106,14 @@ export interface IParsedCliArgs {
   /** The advisor for this run (`<profile>`, `<profile>:<model>` or `off`); wins over the saved one. */
   advisor?: string;
   preset: string | undefined;
-  /** CLI-1988: provider-neutral output-style id; resolved against the startup style registry. */
+  /** Provider-neutral output-style id; resolved against the startup style registry. */
   outputStyle?: string;
   noSessionPersistence: boolean;
   jsonSchema: string | undefined;
   configure: boolean;
   configureProvider: string | undefined;
   provider: string | undefined;
-  /** INFRA-018: replay a recorded session log instead of calling a model (offline/deterministic). */
+  /** Replay a recorded session log instead of calling a model (offline/deterministic). */
   sessionLog: string | undefined;
   providerType: string | undefined;
   baseURL: string | undefined;
@@ -124,27 +126,27 @@ export interface IParsedCliArgs {
   dryRun: boolean;
   yes: boolean;
   /**
-   * SELFHOST-008 P6: tri-state memory enablement override — `true` (`--memory`), `false`
+   * Tri-state memory enablement override — `true` (`--memory`), `false`
    * (`--no-memory`), or `undefined` (neither given, defer to settings/env). `--no-memory` wins if both.
    */
   memory: boolean | undefined;
-  /** SELFHOST-008 P6: `--memory-autosave` flips the capture policy to `auto_save`. */
+  /** `--memory-autosave` flips the capture policy to `auto_save`. */
   memoryAutoSave: boolean;
   /**
-   * CLI-2004: tri-state screen-reader override — `true` (`--screen-reader`), `false`
+   * Tri-state screen-reader override — `true` (`--screen-reader`), `false`
    * (`--no-screen-reader`), or `undefined` (neither given, defer to env/settings). `--no-screen-reader`
    * wins if both. Unlike memory, the FLAG is the top tier: see `startup/screen-reader-enablement.ts`.
    */
   screenReader: boolean | undefined;
   /**
-   * SCREEN-2002: tri-state reduced-motion override — `true` (`--reduced-motion`), `false`
+   * Tri-state reduced-motion override — `true` (`--reduced-motion`), `false`
    * (`--no-reduced-motion`), or `undefined` (neither given, defer to env/settings).
    * `--no-reduced-motion` wins if both. The FLAG is the top tier, like the screen-reader pair.
    */
   reducedMotion: boolean | undefined;
 }
 
-// CLI-2004: the help catalogue is its own module; re-exported so every import site is unchanged.
+// The help catalogue is its own module; re-exported so every import site is unchanged.
 export { printHelp } from './cli-help.js';
 
 /** Split a comma-separated tool list into trimmed, non-empty names. */
@@ -198,7 +200,7 @@ const PARSE_ARGS_CONFIG = {
     goal: { type: 'string' },
     'goal-max-iterations': { type: 'string' },
     'fork-session': { type: 'boolean', default: false },
-    // Issue #3081: set only by `/cd` when it starts the session in the target directory; not in help.
+    // Set only by `/cd` when it starts the session in the target directory; not in help.
     'moved-from': { type: 'string' },
     'restricted-workspace': { type: 'boolean', default: false },
     'safe-mode': { type: 'boolean', default: false },
@@ -206,6 +208,8 @@ const PARSE_ARGS_CONFIG = {
     'supervised-session-id': { type: 'string' },
     'supervised-external-event-grants': { type: 'boolean' },
     'supervised-transport-token-fd': { type: 'boolean' },
+    'supervised-spawner-pair': { type: 'boolean' },
+    'supervised-forwarded-environment': { type: 'boolean' },
     daemon: { type: 'boolean' },
     'external-event-grant': { type: 'string', multiple: true },
     'external-event-port': { type: 'string' },
@@ -257,14 +261,14 @@ const PARSE_ARGS_CONFIG = {
     'disable-update-check': { type: 'boolean', default: false },
     'dry-run': { type: 'boolean', default: false },
     yes: { type: 'boolean', short: 'y', default: false },
-    // SELFHOST-008 P6: no `default` so absence is distinguishable (tri-state override).
+    // No `default` so absence is distinguishable (tri-state override).
     memory: { type: 'boolean' },
     'no-memory': { type: 'boolean' },
     'memory-autosave': { type: 'boolean' },
-    // CLI-2004: same tri-state shape — absence must stay distinguishable from an explicit `false`.
+    // Same tri-state shape — absence must stay distinguishable from an explicit `false`.
     'screen-reader': { type: 'boolean' },
     'no-screen-reader': { type: 'boolean' },
-    // SCREEN-2002: the same tri-state shape again. `--no-reduced-motion` exists so a run can
+    // The same tri-state shape again. `--no-reduced-motion` exists so a run can
     // override a PERSISTED `reducedMotion: true` for once, which a bare `--reduced-motion` cannot.
     'reduced-motion': { type: 'boolean' },
     'no-reduced-motion': { type: 'boolean' },
@@ -277,7 +281,7 @@ export const CLI_OPTION_NAMES: readonly string[] = Object.keys(PARSE_ARGS_CONFIG
 type TParsedArgValues = ReturnType<typeof parseArgs<typeof PARSE_ARGS_CONFIG>>['values'];
 
 /**
- * SELFHOST-008 P6: resolve the memory flags separately so mapParsedValues stays within its size budget.
+ * Resolve the memory flags separately so mapParsedValues stays within its size budget.
  * `--memory`/`--no-memory` is tri-state (`--no-memory` wins if both); `--memory-autosave` is a plain flag.
  */
 function resolveMemoryArgs(
@@ -289,7 +293,7 @@ function resolveMemoryArgs(
 }
 
 /**
- * CLI-2004: `--screen-reader` / `--no-screen-reader` is the same tri-state shape as the memory pair —
+ * `--screen-reader` / `--no-screen-reader` is the same tri-state shape as the memory pair —
  * `--no-screen-reader` wins if both are given, and absence stays `undefined` so the enablement
  * resolver can tell "no opinion" from "explicitly off".
  */
@@ -304,7 +308,7 @@ function resolveScreenReaderArgs(values: TParsedArgValues): Pick<IParsedCliArgs,
 }
 
 /**
- * SCREEN-2002: `--reduced-motion` / `--no-reduced-motion`, tri-state like the pair above —
+ * `--reduced-motion` / `--no-reduced-motion`, tri-state like the pair above —
  * `--no-reduced-motion` wins if both are given, and absence stays `undefined` so the resolver can
  * tell "no opinion" from "explicitly animate".
  */
@@ -363,6 +367,7 @@ function mapParsedValues(
     ...(values['supervised-transport-token-fd'] === true
       ? { supervisedTransportTokenFd: true }
       : {}),
+    ...(values['supervised-spawner-pair'] === true ? { supervisedSpawnerPair: true } : {}),
     ...(values['daemon'] === true ? { daemon: true } : {}),
     externalEventGrantFiles: values['external-event-grant'] ?? [],
     ...(values['external-event-port'] !== undefined
@@ -452,6 +457,9 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
   ) {
     throw new Error('--http-port must be an integer in 1..65535');
   }
+  if (values['supervised-forwarded-environment'] === true && values['supervised-spawner-pair'] !== true) {
+    throw new Error('--supervised-forwarded-environment requires a spawner pair');
+  }
   if (args.supervisedSessionId !== undefined) {
     if (
       !args.serve ||
@@ -467,6 +475,14 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
   }
   if (args.supervisedTransportTokenFd === true && args.supervisedSessionId === undefined) {
     throw new Error('--supervised-transport-token-fd is set only by a supervised launch');
+  }
+  if (args.supervisedSpawnerPair === true && args.supervisedSessionId === undefined) {
+    throw new Error('--supervised-spawner-pair is set only by a supervised launch');
+  }
+  if (args.supervisedSpawnerPair === true && args.supervisedTransportTokenFd === true) {
+    throw new Error(
+      '--supervised-spawner-pair and --supervised-transport-token-fd are exclusive: a secure runtime takes no WebSocket token.',
+    );
   }
   if (args.daemon === true && args.supervisedSessionId === undefined) {
     throw new Error(
@@ -551,7 +567,7 @@ const WORKSPACE_MOVE_DROPPED_OPTIONS = new Set([
 ]);
 
 /**
- * The argv for the session a `/cd` starts (issue #3081): this run's own flags — provider, model,
+ * The argv for the session a `/cd` starts: this run's own flags — provider, model,
  * permission mode, preset… — minus resume/prompt selection and positional input, plus the resume of
  * the copied conversation. Tokenised with the same parser config, so a flag's value is never
  * mistaken for a positional or dropped with it.

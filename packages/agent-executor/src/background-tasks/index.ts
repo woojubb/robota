@@ -1,4 +1,4 @@
-export { BackgroundTaskManager } from './background-task-manager.js';
+export { BackgroundTaskManager, isBuiltInRestoreManager } from './background-task-manager.js';
 export {
   nextScheduledFireOnOrAfter,
   createToolInvocationBackgroundTaskRunner,
@@ -34,6 +34,8 @@ export {
   type IBackgroundTaskLogCursor,
   type IBackgroundTaskLogPage,
   type IBackgroundTaskManager,
+  type IBackgroundTaskIdReservation,
+  type IPreparedRestoredSchedules,
   type IBackgroundTaskManagerOptions,
   type TBackgroundTaskRequest,
   type IBackgroundTaskResult,

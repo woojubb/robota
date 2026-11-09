@@ -9,8 +9,8 @@ import {
   WindowsControlPipeServer,
   windowsControlPipePath,
   type IControlChannel,
-} from '../windows-control-pipe.js';
-import { readWindowsProcessStartTime } from '../windows-security.js';
+} from '@robota-sdk/agent-local-host';
+import { readWindowsProcessStartTime } from '@robota-sdk/agent-local-host';
 
 describe('Windows supervised pipe endpoint', () => {
   it('uses the local Windows pipe namespace with a bounded unique name', () => {

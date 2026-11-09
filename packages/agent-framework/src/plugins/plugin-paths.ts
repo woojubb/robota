@@ -3,7 +3,7 @@ import { isAbsolutePath, isRootedPath, resolvePath, separatorOf } from '@robota-
 import type { IFileSystem } from '@robota-sdk/agent-core';
 
 /**
- * SEC-018 (issue #2019's sibling, issue #2020) — plugin identifiers are PATH SEGMENTS, and they arrive
+ * Plugin identifiers are PATH SEGMENTS, and they arrive
  * from a remote marketplace manifest or a registry file on disk.
  *
  * `marketplace.json`'s `name` selected the rename destination (`join(marketplacesDir, name)`), plugin
@@ -12,7 +12,7 @@ import type { IFileSystem } from '@robota-sdk/agent-core';
  * 'string'`. A manifest named `../../escaped-market` therefore placed a marketplace outside its root,
  * and a tampered `installPath` deleted whatever it pointed at.
  *
- * This module is the boundary. It follows the shape SEC-006 established in
+ * This module is the boundary. It follows the shape of
  * `packages/agent-session/src/session-id.ts`, for the reasons that file gives:
  *
  *   - **The guard lives at the boundary, not at each `join()`.** One value reaches several sinks — the
@@ -21,7 +21,7 @@ import type { IFileSystem } from '@robota-sdk/agent-core';
  *     onto one directory, quietly cross-linking plugins. A malformed identifier is a bug or an attack;
  *     both should be loud.
  *
- * What this file adds beyond SEC-006: session ids are single components by construction, so a segment
+ * What this file adds beyond `session-id.ts`: session ids are single components by construction, so a segment
  * check was sufficient there. Here a value can also be a relative PATH (a local marketplace source, a
  * persisted install location), and a symlink inside an otherwise-valid root can redirect a mutation
  * outside it. So containment is checked against the CANONICAL form of both sides, not the lexical one.

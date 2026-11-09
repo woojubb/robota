@@ -3,13 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
-import type { ICommand } from '@robota-sdk/agent-interface-command';
+import type { ICommand } from '@robota-sdk/agent-interface/command';
 
 import { createSkillExecutionPort } from '../skill-execution-port.js';
 import { createDefaultUserContributionSources, createNodeHostContributionSource } from '../../contributions/node-host-contribution-source.js';
 
 /**
- * ARCH-PROVIDER-005 TC-02: the concrete skill-execution port must reproduce the REAL inject-prompt shape
+ * The concrete skill-execution port must reproduce the REAL inject-prompt shape
  * (XML wrap + `$ARGUMENTS` substitution + empty-shell strip). This test HOLDS the coverage that the
  * dag-node-skill tests previously carried by exercising the real `executeSkill` (they now use a stub port).
  */
@@ -23,7 +23,7 @@ function injectSkill(skillContent: string): ICommand {
   } as unknown as ICommand;
 }
 
-describe('createSkillExecutionPort (ARCH-PROVIDER-005 TC-02)', () => {
+describe('createSkillExecutionPort', () => {
   it('requires host-selected contribution sources instead of discovering from ambient home', () => {
     expect(() => createDefaultUserContributionSources(undefined as never)).toThrow(
       'User contribution root must be provided by the host.',

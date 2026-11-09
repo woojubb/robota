@@ -1,5 +1,5 @@
 /**
- * ARCH-056 (#2161): the bounded output-retention contract for child-process execution.
+ * The bounded output-retention contract for child-process execution.
  *
  * Every path that reads a child's stdout/stderr must bound memory WHILE the output is being read —
  * not cap a summary afterwards while retaining the whole log. Before this existed, `shell-tool`
@@ -15,7 +15,7 @@
  * - **No spill.** This contract never writes to disk; a caller that needs the whole stream owns a
  *   log file (background tasks do), and this buffer is what stays in memory beside it.
  * - **Termination is not here.** Exceeding the budget drops bytes; whether the child is killed is
- *   the caller's policy (CORE-023 owns process-tree termination).
+ *   the caller's policy (process-tree termination is not owned here).
  *
  * Chunks are `Uint8Array` (a Node `Buffer` is one), and decoding happens once at `toString()`, so a
  * multi-byte character split across a chunk boundary is never decoded twice.

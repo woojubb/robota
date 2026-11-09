@@ -34,7 +34,7 @@ vi.mock('node:child_process', async (importOriginal) => {
   };
 });
 
-// DIST-006: the fixture stands in for the composition root's own entry — the runner now spawns
+// The fixture stands in for the composition root's own entry — the runner now spawns
 // `execPath args… --flag`, so a test worker is named the same way the real one is.
 const FIXTURE_WORKER_ENTRY = {
   execPath: process.execPath,
@@ -150,8 +150,8 @@ describe('ChildProcessSubagentRunner', () => {
   it(
     'persists a resumed fork turn into the copied record',
     async () => {
-      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-cli-1994-child-')));
-      const resumeSessionId = 'session_cli-1994-child-fork';
+      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-child-fork-')));
+      const resumeSessionId = 'session_child-fork';
       const record = {
         id: resumeSessionId,
         name: 'parent (fork)',
@@ -211,11 +211,11 @@ describe('ChildProcessSubagentRunner', () => {
   );
 
   it(
-    'reports why a worker died instead of only its exit code (DIST-006)',
+    'reports why a worker died instead of only its exit code',
     async () => {
-      // This is the defect's own diagnosability. DIST-006 presented as
+      // This is the defect's own diagnosability. A dead worker presents as
       // `Subagent worker exited before result: exit code 1` because stderr was `'ignore'`, so the
-      // real cause — `Cannot find module …` — went to a stream nothing read, and occurrence #2 had
+      // real cause — `Cannot find module …` — went to a stream nothing read, and the failure had
       // to be bisected by hand. Pointing the entry at a module that does not exist reproduces
       // exactly that shape.
       const runner = new ChildProcessSubagentRunner(createDeps(), {
@@ -237,7 +237,7 @@ describe('ChildProcessSubagentRunner', () => {
   );
 
   it(
-    "keeps the END of a noisy child's stderr, not its beginning (DIST-006)",
+    "keeps the END of a noisy child's stderr, not its beginning",
     async () => {
       // The tail is bounded, so which END it keeps is the whole question: a subagent worker is
       // routinely noisy (the CLI installs a `[agent]` stderr sink in it), and the cause of a death
@@ -279,7 +279,7 @@ describe('ChildProcessSubagentRunner', () => {
   );
 
   it(
-    'refuses an entry that never enters worker mode instead of waiting forever (DIST-006)',
+    'refuses an entry that never enters worker mode instead of waiting forever',
     async () => {
       // `startCli` is a public export and the SPEC advertises alternate embeddings, so an embedder
       // can wire `workerEntry` to an entry that does NOT dispatch worker mode. Self-fork then starts
@@ -312,13 +312,12 @@ describe('ChildProcessSubagentRunner', () => {
   );
 
   it(
-    'forks the child into the job worktree, not the request cwd (ARCH-010/ARCH-031)',
+    'forks the child into the job worktree, not the request cwd',
     async () => {
-      // Before ARCH-031 the worktree runner rewrote `request.cwd` to the worktree path, so forking on
-      // `request.cwd` happened to be correct. The rewrite is gone — the worktree now rides on the
-      // job envelope — and this asserts the fork followed it. `request.cwd` stays at the parent
+      // The worktree runner does not rewrite `request.cwd` to the worktree path; the worktree rides
+      // on the job envelope — and this asserts the fork followed it. `request.cwd` stays at the parent
       // checkout on purpose: it is the value the child must NOT land in.
-      const worktreePath = realpathSync(mkdtempSync(join(tmpdir(), 'arch-031-worktree-')));
+      const worktreePath = realpathSync(mkdtempSync(join(tmpdir(), 'subagent-worktree-')));
       const runner = new ChildProcessSubagentRunner(createDeps(), {
         logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
@@ -329,7 +328,7 @@ describe('ChildProcessSubagentRunner', () => {
 
       const handle = runner.start({
         ...createJob(),
-        worktree: { path: worktreePath, branch: 'subagent/arch-031' },
+        worktree: { path: worktreePath, branch: 'subagent/worktree-branch' },
       });
       const result = await handle.result;
 
@@ -340,7 +339,7 @@ describe('ChildProcessSubagentRunner', () => {
   );
 
   it(
-    'propagates the child worker token usage into the subagent result (ANALYTICS-001 P2)',
+    'propagates the child worker token usage into the subagent result',
     async () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
         logSealing: 'plain',
@@ -457,7 +456,7 @@ describe('ChildProcessSubagentRunner', () => {
   );
 });
 
-// Issue #3288 §1: a background agent's permission requests reach the person. Before this change
+// A background agent's permission requests reach the person. Before this change
 // `deps.permissionHandler` was never read here at all, so every one of the child's asks failed
 // closed silently — these pin the forwarding, the fail-closed regression, and the cancellation path.
 describe('ChildProcessSubagentRunner forwards a child permission request to the parent approver', () => {
@@ -702,8 +701,8 @@ describe('subagent worker IPC guards', () => {
   });
 });
 
-describe('ChildProcessSubagentRunner — injected built-in agents (ARCH-036)', () => {
-  // NEUT-003 made an injected `builtInAgents` set REPLACE the module built-ins, and an empty array
+describe('ChildProcessSubagentRunner — injected built-in agents', () => {
+  // An injected `builtInAgents` set REPLACES the module built-ins, and an empty array
   // remove them entirely. The in-process sibling honoured it; this runner read only
   // `customAgentRegistry`, so the composition root's choice reached one runner and not the other.
   // Every case here drives the real runner, because the defect was that a field on the shared deps
@@ -752,10 +751,10 @@ describe('ChildProcessSubagentRunner — injected built-in agents (ARCH-036)', (
     expect(() => startWith(depsWithBuiltIns(injected), 'only-this-one')).not.toThrow();
   });
 
-  it('resolves from the PARENT’s roster when nothing is injected (issue #1854)', () => {
+  it('resolves from the PARENT’s roster when nothing is injected', () => {
     // This used to fall back to `getBuiltInAgent` imported from `agent-framework`'s barrel — the
-    // "compose from imported defaults instead of from the product" shape ARCH-021 closed on the
-    // provider axis and ARCH-035 on the tool axis. The parent already computes its roster
+    // "compose from imported defaults instead of from the product" shape already closed on the
+    // provider axis and on the tool axis. The parent already computes its roster
     // (`buildAgentRuntime` sets `agentDefinitions`), so the child reads THAT.
     const roster = [
       { name: 'general-purpose', description: 'the parent’s own', systemPrompt: 'do the thing' },
@@ -776,13 +775,13 @@ describe('ChildProcessSubagentRunner — injected built-in agents (ARCH-036)', (
   });
 });
 
-describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire (ARCH-033/ARCH-034)', () => {
+describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire', () => {
   // Review of the change that added these two fields found them declared on the payload type and
   // read by the worker while NOTHING ever set them: every spawned child got `sessionTiers:
   // undefined` and no sandbox. The tests missed it because they exercised the worker's half —
   // `composition.createTools()` — and `createStartPayload` is the only production producer.
   //
-  // Asserted on what the CHILD received, for the reason SEC-009 gives one describe below: a
+  // Asserted on what the CHILD received, for the reason given one describe below: a
   // parent-side assertion on the builder would still pass if the value never reached `send`.
   const projectionSeenByChild = async (
     extra: Partial<IInProcessSubagentRunnerDeps>,
@@ -812,7 +811,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
     }) as unknown as IInProcessSubagentRunnerDeps['sandboxClient'];
 
   it(
-    'carries the parent’s session tiers, so the child assembles the same surface (ARCH-034)',
+    'carries the parent’s session tiers, so the child assembles the same surface',
     async () => {
       const seen = await projectionSeenByChild({ sessionTiers: { includeGoalTool: true } });
       expect(seen.sessionTiers).toEqual({ includeGoalTool: true });
@@ -833,7 +832,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
   );
 
   it(
-    'projects the sandbox as (type, snapshotId) once BOTH halves are present (ARCH-033)',
+    'projects the sandbox as (type, snapshotId) once BOTH halves are present',
     async () => {
       const seen = await projectionSeenByChild({
         sandboxClient: snapshottingSandbox('snap-42'),
@@ -861,7 +860,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
   );
 
   it(
-    'carries the parent’s sandbox settings as they stand at each spawn (issue #3254)',
+    'carries the parent’s sandbox settings as they stand at each spawn',
     async () => {
       // `/sandbox` changes the parent's live client between spawns; a value read once, or never
       // sent, leaves the child on the settings files the user just overrode.
@@ -886,7 +885,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
   );
 
   it(
-    'forwards each later change to the running child, one made during startup included (#3256)',
+    'forwards each later change to the running child, one made during startup included',
     async () => {
       let live: Record<string, unknown> = { autoAllowBashIfSandboxed: true };
       const listeners = new Set<(settings: Record<string, unknown>) => void>();
@@ -927,7 +926,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
   );
 
   it(
-    'stops watching the parent’s sandbox when the child never starts (#3256)',
+    'stops watching the parent’s sandbox when the child never starts',
     async () => {
       const listeners = new Set<() => void>();
       const runner = new ChildProcessSubagentRunner(createDeps(), {
@@ -1043,7 +1042,7 @@ describe('ChildProcessSubagentRunner — a payload that cannot be built after th
   );
 });
 
-describe('ChildProcessSubagentRunner — credential on the wire (SEC-009)', () => {
+describe('ChildProcessSubagentRunner — credential on the wire', () => {
   // Config loading resolves a `$ENV:` reference into the secret itself, which is right for an
   // in-process provider and wrong for anything that SERIALIZES the config. Copying the resolved
   // `apiKey` here put plaintext into a structured-clone IPC message on EVERY configuration —
@@ -1051,7 +1050,7 @@ describe('ChildProcessSubagentRunner — credential on the wire (SEC-009)', () =
   // actually received, because a parent-side assertion would still pass if the value were
   // re-resolved just before `send`.
   const SECRET = 'sk-secret-that-must-not-cross';
-  const VAR = 'SEC_009_TEST_KEY';
+  const VAR = 'TEST_PROVIDER_KEY';
 
   const runWith = async (
     provider: Partial<IInProcessSubagentRunnerDeps['config']['provider']>,

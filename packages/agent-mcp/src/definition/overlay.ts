@@ -1,5 +1,5 @@
 /**
- * Reversible disable overlays (MCP-001).
+ * Reversible disable overlays.
  *
  * Disabling a server is not deleting its definition. The entry stays in the listing with its
  * provenance and a stated reason, because the operator's next question after "why is this server
@@ -19,21 +19,21 @@ export interface IMCPDisableOverlay {
    * Server names to disable, each with the reason shown beside the entry.
    *
    * Optional, because "no server is disabled" is a real state a caller expresses as `{}` — and an
-   * overlay that threw on it would make the empty case the one that crashes. Found by running the
-   * MCP-001 scenario, which passed `{}` and got a TypeError out of `Object.keys(undefined)`.
+   * overlay that threw on it would make the empty case the one that crashes. Passing `{}` once
+   * threw a TypeError out of `Object.keys(undefined)`.
    */
   readonly disabled?: Readonly<Record<string, string>>;
 }
 
 /**
- * Contained — RULE-2795 (issue #2795).
+ * Contained.
  *
  * This THROWS on operator input (a mistyped server name) while `getServer` in
  * `../management/results.ts` returns a typed not-found for the same class of error, and
  * `MCPActivationController` throws a third kind. `operational.md` mandates `Result<T, E>` for
  * fallible public functions; `common-mistakes.md` (entry 57) permits either and records "Mechanism:
  * none". Converting this one function would leave a caller handling failure two ways in one call
- * chain, so the convention is decided once, repository-wide, under RULE-2795.
+ * chain, so the convention is decided once, repository-wide.
  */
 export class MCPOverlayError extends Error {
   constructor(message: string) {

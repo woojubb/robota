@@ -1,5 +1,5 @@
 /**
- * Isolated HOME for PTY children (HARNESS-025).
+ * Isolated HOME for PTY children.
  *
  * A PTY test that forwards the developer's real `HOME` runs its child against whatever happens to
  * be in that home directory — a `~/state` settings file, a shell rc, an `$EDITOR` preference.
@@ -47,6 +47,20 @@ export function disposeIsolatedHomes(): void {
 }
 
 /**
+ * The variables Windows itself needs to start a program: without `SystemRoot` and `windir`,
+ * PowerShell, which `/shell` runs there, stops at startup ("Loading managed Windows PowerShell
+ * failed"). A PTY child does not get them from the pseudo-console the way a piped child does. They
+ * name system directories and carry no credential, so forwarding them keeps the env minimal.
+ */
+function windowsSystemEnvironment(): Record<string, string> {
+  if (process.platform !== 'win32') return {};
+  const names = ['SystemRoot', 'windir', 'SystemDrive', 'ComSpec', 'PATHEXT', 'TEMP', 'TMP'];
+  return Object.fromEntries(
+    names.flatMap((name) => (process.env[name] === undefined ? [] : [[name, process.env[name]]])),
+  );
+}
+
+/**
  * Build the environment for a PTY child: an isolated HOME, the real PATH (the child still needs to
  * find `sh`, `node`, …), and a known TERM.
  *
@@ -60,6 +74,7 @@ export function createPtyEnv(overrides: Readonly<NodeJS.ProcessEnv> = {}): NodeJ
     PATH: process.env['PATH'] ?? '',
     HOME: home,
     TERM: 'xterm-256color',
+    ...windowsSystemEnvironment(),
     ...fixtureProductEnvironment(home),
     ...overrides,
   };

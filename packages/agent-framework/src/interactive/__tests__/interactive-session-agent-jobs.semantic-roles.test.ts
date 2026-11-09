@@ -47,7 +47,7 @@ describe('agent job semantic-role provenance', () => {
     );
   });
 
-  it('CLI-1994 TC-05: forwards resumeSessionId to the manager request, and omits the key when absent', async () => {
+  it('forwards resumeSessionId to the manager request, and omits the key when absent', async () => {
     const spawn = vi.fn().mockResolvedValue({ id: 'job-1' });
     const session = {
       getSessionId: () => 'session-1',

@@ -1,5 +1,5 @@
 /**
- * SCREEN-006 × #2222: the markdown renderer's own SGR must SURVIVE to the frame.
+ * The markdown renderer's own SGR must SURVIVE to the frame.
  *
  * `renderMarkdown` sanitizes untrusted markdown BEFORE `marked-terminal` styles it, so the escape
  * codes in its OUTPUT are this package's own — the theme's diff pairs, heading emphasis.
@@ -20,7 +20,7 @@ import ToolDiffBlock from '../ToolDiffBlock.js';
 import { DARK_THEME } from '../theme/built-in-themes.js';
 import { foreground } from '../theme/index.js';
 
-import type { IDiffLine } from '@robota-sdk/agent-interface-session';
+import type { IDiffLine } from '@robota-sdk/agent-interface/session';
 
 /** The opening SGR a theme colour produces, for an assertion about the rendered bytes. */
 function openCode(color: string): string {
@@ -42,7 +42,7 @@ const DIFF_MARKDOWN = [
   '```',
 ].join('\n');
 
-describe('markdown styling survives the render site (SCREEN-006)', () => {
+describe('markdown styling survives the render site', () => {
   let originalForceColor: string | undefined;
   let originalNoColor: string | undefined;
 
@@ -66,7 +66,7 @@ describe('markdown styling survives the render site (SCREEN-006)', () => {
     const frame = lastFrame() ?? '';
 
     expect(frame).toContain('const a = 2;');
-    // SCREEN-2002: the diff colours come from the resolved theme; the default theme's values are the
+    // The diff colours come from the resolved theme; the default theme's values are the
     // ones this suite pinned before the theme existed.
     expect(frame).toContain(openCode(DARK_THEME.markdown.diffAdded));
     expect(frame).toContain(openCode(DARK_THEME.markdown.diffRemoved));

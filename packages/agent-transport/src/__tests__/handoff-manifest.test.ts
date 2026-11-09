@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { sealHandoffRecord, verifyHandoffPayload } from '../node/handoff-manifest.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 function aRecord(over: Partial<IInteractiveSessionRecord> = {}): IInteractiveSessionRecord {
   return {
@@ -15,7 +15,7 @@ function aRecord(over: Partial<IInteractiveSessionRecord> = {}): IInteractiveSes
   };
 }
 
-describe('HANDOFF-001 TC-06 — a payload that did not arrive whole is refused', () => {
+describe('a payload that did not arrive whole is refused', () => {
   it('accepts the exact bytes that were sealed', () => {
     const { serialized, integrity } = sealHandoffRecord(aRecord());
 

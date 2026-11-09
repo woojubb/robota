@@ -38,9 +38,9 @@ afterEach(() => {
 });
 
 /**
- * NEUT-004 — project task context is admitted only from an explicit host-selected root.
+ * Project task context is admitted only from an explicit host-selected root.
  */
-describe('NEUT-004 task-context injection discipline', () => {
+describe('task-context injection discipline', () => {
   it('does not scan an ambient task directory without a host-selected root', async () => {
     const cwd = makeWorkspace();
     writeTaskFile(cwd);

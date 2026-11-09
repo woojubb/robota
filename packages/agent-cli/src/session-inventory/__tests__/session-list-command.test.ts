@@ -1,4 +1,4 @@
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import {
   chmodSync,
@@ -41,7 +41,7 @@ import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   ISessionListEntry,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 function store(entries: readonly ISessionListEntry[]): IInteractiveSessionStore {
   const double: Omit<IInteractiveSessionStore, 'claim' | 'lend' | 'hasWriter'> = {
@@ -85,22 +85,21 @@ describe('read-only local session inventory', () => {
     try {
       process.env['HOME'] = home;
       process.env['XDG_RUNTIME_DIR'] = home;
-      control = await startSupervisedControl(
+      control = await startSupervisedControl({
         id,
-        () => undefined,
-        resolveSupervisedDirectory(createTestProductRuntime()),
-        () => 'needs-input',
-        undefined,
-        undefined,
-        () => 'Private session name',
-        undefined,
-        {
+        onStop: () => undefined,
+        root: resolveSupervisedDirectory(createTestProductRuntime()),
+        observe: {
+          activity: () => 'needs-input',
+          name: () => 'Private session name',
+        },
+        pr: {
           get: () => pr,
           set: (value) => {
             pr = value;
           },
         },
-      );
+      });
       await linkSupervisedPr(
         id,
         'https://github.com/team/repo/pull/456',

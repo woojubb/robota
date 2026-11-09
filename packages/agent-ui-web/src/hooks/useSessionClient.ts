@@ -1,11 +1,12 @@
 /**
- * GUI-005 — the transport-neutral session reducer for the GUI presentation layer. Reconstructs conversation
+ * The transport-neutral session reducer for the GUI presentation layer. Reconstructs conversation
  * state from the wire `TServerMessage` stream, independent of HOW the bytes arrive (a `TMakeSessionClient`
  * factory over `{onMessage, onStatusChange}`). The core is **generic over its status type** (default
  * `TConnectionStatus`) so a surface with extra connection states (e.g. the browser WebRTC surface) can widen it
  * WITHOUT this core depending on that surface's types — keeping the dependency direction acyclic.
  */
 
+import { isObserverMessageType } from '@robota-sdk/agent-transport';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 import { excludedCommandMessage, isExcludedCommand } from './excluded-commands.js';
@@ -45,15 +46,15 @@ import type {
   TSessionStatus,
 } from './session-client-types.js';
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
-import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
+import type { TActionResponse } from '@robota-sdk/agent-interface/transport';
 import type {
   IHistoryDisplaySegment,
   IToolState,
   TDriverId,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-session';
-import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
-import type { TServerMessage } from '@robota-sdk/agent-transport';
+} from '@robota-sdk/agent-interface/session';
+import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface/execution';
+import type { TServerMessage, TSessionSurfaceRole } from '@robota-sdk/agent-transport';
 
 export type {
   IActiveTool,
@@ -82,7 +83,7 @@ function nextSilentCommandRequestId(): string {
 }
 
 /**
- * #3288: a finished turn's text and tool calls, in the order they actually happened — a running
+ * A finished turn's text and tool calls, in the order they actually happened — a running
  * turn accumulates these alongside (not instead of) the legacy `streamingText`/`activeTools` live
  * view, and `finishTurn` flushes them as SEPARATE conversation entries in order, instead of one
  * tools-block followed by one merged text block. Consecutive tool calls with no text between them
@@ -117,7 +118,7 @@ function pushToolStartSegment(segments: TTurnSegment[], tool: IActiveTool): TTur
 }
 
 /**
- * #3288: attribute a `tool_end` to its call by executionId first — two same-named parallel calls
+ * Attribute a `tool_end` to its call by executionId first — two same-named parallel calls
  * can finish out of start order, and matching by name+running alone would close whichever running
  * call of that name is found first, not the one that actually finished. Falls back to name+running
  * only when the event carries no executionId (legacy fixtures / hosts that predate it).
@@ -188,7 +189,7 @@ function applyToolEndToSegments(segments: TTurnSegment[], state: IToolState): TT
 }
 
 /**
- * #3288: the files an Edit/Write call touched during the turn, aggregated by path — the "Changed
+ * The files an Edit/Write call touched during the turn, aggregated by path — the "Changed
  * files" row's data. `diffLines` keeps the LATEST edit's diff (what a click on the file opens); the
  * +/- counts sum every edit to that path within the turn.
  */
@@ -220,7 +221,7 @@ function activeToolFromHistoricalState(state: IToolState): IActiveTool {
 }
 
 /**
- * #3288 §2: turns the server's chronological `IHistoryDisplaySegment[]` (a reload/reconnect/resume
+ * Turns the server's chronological `IHistoryDisplaySegment[]` (a reload/reconnect/resume
  * replay) into the SAME `TConversationEntry[]` shape a live turn's `finishTurn` produces — reusing its
  * exact segment-accumulation and "Changed files" logic, so the two paths cannot draw the turn/grouping
  * boundary differently. A `'text', role: 'user'` segment is both its own entry AND the turn boundary:
@@ -272,6 +273,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const [status, setStatus] = useState<TStatus>('disconnected' as TStatus);
   // The app-view requests read this to refuse at once when no connection exists to answer them.
   const statusRef = useRef<TStatus>('disconnected' as TStatus);
+  // The role the host gave this connection; null until it answers and again once the connection drops.
+  const [role, setRole] = useState<TSessionSurfaceRole | null>(null);
+  const roleRef = useRef<TSessionSurfaceRole | null>(null);
+  const isObserving = useCallback((): boolean => roleRef.current === 'observe', []);
   const [messages, setMessages] = useState<TConversationEntry[]>([]);
   const [activeTools, setActiveTools] = useState<IActiveTool[]>([]);
   const [streamingText, setStreamingText] = useState('');
@@ -284,15 +289,15 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const [sessionName, setSessionName] = useState<string | null>(null);
   const [sessionNotices, setSessionNotices] = useState<readonly ISessionNotice[]>([]);
   const [commandCatalog, setCommandCatalog] = useState<TCommandCatalog | null>(null);
-  // #3282 §4e: `send` (below) reads this on every `command` message to catch an excluded command —
+  // `send` (below) reads this on every `command` message to catch an excluded command —
   // a ref (not the state above) so `send`'s identity never changes as the catalog arrives or is
   // refreshed, matching every other value a stable callback in this file reads this way.
   const commandCatalogRef = useRef<TCommandCatalog | null>(null);
   const [sessionStatus, setSessionStatus] = useState<TSessionStatus | null>(null);
-  // #3289 §3: learned from the first frame the server sends this connection, so its own messages and
+  // Learned from the first frame the server sends this connection, so its own messages and
   // prompts never carry a "from" label — only ANOTHER driver's do.
   const [ownDriverId, setOwnDriverId] = useState<TDriverId | null>(null);
-  // #3282 §4e: `/help` opens the GUI's own Help sheet — it never reaches the session (`send` below
+  // `/help` opens the GUI's own Help sheet — it never reaches the session (`send` below
   // catches it), so there is no round trip and no stale terminal-style text dump to replace.
   const [helpOpen, setHelpOpen] = useState(false);
   const openHelp = useCallback((): void => setHelpOpen(true), []);
@@ -302,7 +307,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const streamingTextRef = useRef('');
   // The tools of the running turn, mirrored so the turn's end can keep them in the conversation.
   const activeToolsRef = useRef<IActiveTool[]>([]);
-  // #3288: the running turn's text/tools in the order they happened — see `TTurnSegment` above.
+  // The running turn's text/tools in the order they happened — see `TTurnSegment` above.
   const turnSegmentsRef = useRef<TTurnSegment[]>([]);
   // A screen this surface's command asked for: it answers the command in place of the command's own
   // reply — with the "not available" line (`text`), or with nothing when the screen opened (null).
@@ -323,7 +328,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   }, []);
   /**
    * End the running turn: its text and tool calls stay in the conversation as SEPARATE entries, in
-   * the order they happened (#3288) — not one tools-block grouped ahead of a single merged reply.
+   * the order they happened — not one tools-block grouped ahead of a single merged reply.
    */
   const finishTurn = useCallback(
     (toolStatus: (tool: IActiveTool) => IActiveTool['status']): void => {
@@ -344,7 +349,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           appendEntry({ id: segment.id, role: 'assistant', content: segment.text });
         }
       }
-      // #3288: a turn that changed files ends with one compact summary row, after everything else.
+      // A turn that changed files ends with one compact summary row, after everything else.
       const changedFiles = collectChangedFiles(segments);
       if (changedFiles.length > 0) {
         appendEntry({ id: nextId(), role: 'changed-files', files: changedFiles });
@@ -354,7 +359,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   );
   // Commands this surface sent whose result has not come back — a screen request pairs with one.
   const commandsInFlightRef = useRef(0);
-  // #3282 §2 (part 2): the `requestId`s of commands sent via `sendCommandSilently`, still awaiting
+  // The `requestId`s of commands sent via `sendCommandSilently`, still awaiting
   // their `command_result`. The wire already correlates a command with its reply by `requestId` (see
   // `TClientMessage`'s `command` / `TServerMessage`'s `command_result` in `@robota-sdk/agent-transport`)
   // — a plain `send` command and a `sendCommandSilently` command can be outstanding at once, and only
@@ -368,15 +373,28 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   // Their request ids, for this connection: a refusal names the request it answers. A switch
   // answers with no id, so an id that succeeded stays here until the connection is replaced.
   const sessionChangeRequestIdsRef = useRef(new Set<string>());
+  const [executionDetailInput, setExecutionDetailInput] = useState<{
+    taskId: string;
+    status: 'pending' | 'sent' | 'failed';
+  }>();
+  const executionDetailInputRef = useRef<string | null>(null);
   const send = useCallback(
     (msg: TClientMessage): void => {
+      // A frame an observer may not send never leaves, so nothing may start waiting for its reply.
+      // The surface's own answers (`/help`, an excluded command) still run below.
+      const refused = isObserving() && !isObserverMessageType(msg.type);
+      if (msg.type === 'send-background-task') {
+        if (refused || executionDetailInputRef.current !== null) return;
+        executionDetailInputRef.current = msg.taskId;
+        setExecutionDetailInput({ taskId: msg.taskId, status: 'pending' });
+      }
       if (msg.type === 'command') {
-        // #3282 §4e: `/help` is the GUI's own Help sheet — never sent to the session.
+        // `/help` is the GUI's own Help sheet — never sent to the session.
         if (msg.name === 'help') {
           setHelpOpen(true);
           return;
         }
-        // #3282 §4e: a command the GUI leaves out on purpose is caught here, before the session ever
+        // A command the GUI leaves out on purpose is caught here, before the session ever
         // sees it — its own plain sentence answers in place of the session's refusal, exactly like a
         // typed command's own result would (same entry shape, same place in the conversation). The
         // catalog entry (when known) carries `runner`/`surfaces`, so a client-only command excluded
@@ -393,15 +411,17 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           });
           return;
         }
+        if (refused) return;
         commandsInFlightRef.current += 1;
       }
+      if (refused) return;
       if (msg.type === 'switch-session' || msg.type === 'new-session') {
         sessionChangesInFlightRef.current += 1;
         if (msg.requestId !== undefined) sessionChangeRequestIdsRef.current.add(msg.requestId);
       }
       clientRef.current?.send(msg);
     },
-    [appendEntry],
+    [appendEntry, isObserving],
   );
   /** One session change this surface asked for has been answered. */
   const settleSessionChange = useCallback((requestId?: string): void => {
@@ -409,7 +429,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     if (requestId !== undefined) sessionChangeRequestIdsRef.current.delete(requestId);
   }, []);
   /**
-   * #3282 §2 (part 2): run a command the same way `send` does, but flag it as controls-triggered —
+   * Run a command the same way `send` does, but flag it as controls-triggered —
    * the model/mode/effort pop-up menus use this instead of `send` directly, so their change is
    * confirmed by the control's own label (via the `get-status` refresh `command_result` already
    * triggers) rather than a conversation card. A typed `/command` still goes through plain `send`
@@ -418,7 +438,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
    * `TClientMessage` — giving `command` a `requestId` there would let ANY caller of `send` opt a typed
    * command into silence, which is exactly what this must not allow.
    *
-   * #3282 §4e: `send` also intercepts `help` and an excluded command before either reaches the wire —
+   * `send` also intercepts `help` and an excluded command before either reaches the wire —
    * for `help` that opens the sheet regardless of how it was asked for, but an excluded command's
    * interception adds a VISIBLE info card, defeating the silence this function promises. Every current
    * caller (model/mode/effort) names neither, so this is dormant, not exercised — a future caller must
@@ -433,24 +453,28 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     [send],
   );
   const { handleUsageMessage, ...personalUsageState } = usePersonalUsageState(send);
-  const { handleExecutionDetailMessage, closeExecutionDetail, ...executionDetailState } =
-    useExecutionDetailState(send);
+  const {
+    handleExecutionDetailMessage,
+    handleExecutionWorkspace,
+    closeExecutionDetail,
+    ...executionDetailState
+  } = useExecutionDetailState(send);
   const { handleModelListMessage, ...modelListState } = useModelListState(send);
   const { handleProjectMessage, ...projectPanelState } = useProjectPanelState(send);
   const isConnected = useCallback((): boolean => statusRef.current === 'connected', []);
   const { handleAppViewMessage, rejectPendingAppRequests, readAppView, callAppTool } =
-    useAppViewRequests(send, isConnected);
+    useAppViewRequests(send, isConnected, isObserving);
   const {
     handleSessionsMessage,
     canListSessions,
     markCurrent,
     armRestore,
     ...sessionDirectoryState
-  } = useSessionDirectoryState(send);
+  } = useSessionDirectoryState(send, isObserving);
   const { requestSessions, setSessionSidebarOpen } = sessionDirectoryState;
   const { handleSettingsMessage, openSettings, refreshSettings, ...settingsState } =
     useSettingsState(send);
-  // #3282 §4b: read inside `handleMessage` via a ref, never `settingsState.settingsOpen` directly —
+  // Read inside `handleMessage` via a ref, never `settingsState.settingsOpen` directly —
   // that reactive value would have to sit in `handleMessage`'s own dependency array, which sits in
   // the connection effect's dependency array below: opening/closing Settings would give
   // `handleMessage` a new identity each time, tearing down and reopening the WebSocket underneath it.
@@ -465,12 +489,14 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const { handleSchedulesMessage, requestSchedules, ...schedulesState } = useSchedulesState(send);
 
   const clearCompactionNotices = useCallback((): void => {
-    setSessionNotices((previous) => previous.filter((notice) => notice.kind !== 'context-compacted'));
+    setSessionNotices((previous) =>
+      previous.filter((notice) => notice.kind !== 'context-compacted'),
+    );
   }, []);
 
   const handleMessage = useCallback(
     (msg: TServerMessage): void => {
-      // ARCH-2164: touching the exhaustive registry here keeps every decoded variant tied to an
+      // Touching the exhaustive registry here keeps every decoded variant tied to an
       // explicit GUI ownership decision, including variants intentionally handled by focused views.
       void SERVER_MESSAGE_HANDLING[msg.type];
       if (handleUsageMessage(msg)) return;
@@ -482,14 +508,19 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       if (handleSessionsMessage(msg)) return;
       if (handleSettingsMessage(msg)) return;
       if (handleAgentDefinitionsMessage(msg)) return;
-      // #3282 §4 part b-3: exclusively owns `background_tasks` (the Scheduled group's roster); a
+      // Exclusively owns `background_tasks` (the Scheduled group's roster); a
       // schedule write instead rides the generic `command`/`cancel-background-task` messages, so
       // for THOSE types this always returns false — it only refreshes on top of whatever else those
       // types already do below, never in place of it.
       if (handleSchedulesMessage(msg)) return;
       switch (msg.type) {
+        case 'surface_role': {
+          roleRef.current = msg.role;
+          setRole(msg.role);
+          break;
+        }
         case 'messages': {
-          // #3288 §2: `display` is the server's projection of this same history into tool rows,
+          // `display` is the server's projection of this same history into tool rows,
           // diffs and "Changed files" — a reload/reconnect/resume replay renders THAT. `display` is
           // absent only for a host that predates it; that host still gets a working (text-only)
           // transcript, exactly what this branch always did.
@@ -522,7 +553,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           const next = streamingTextRef.current + msg.delta;
           streamingTextRef.current = next;
           setStreamingText(next);
-          // #3288: also track WHERE this text sits relative to the turn's tool calls, for finishTurn.
+          // Also track WHERE this text sits relative to the turn's tool calls, for finishTurn.
           turnSegmentsRef.current = appendTextDeltaToSegments(turnSegmentsRef.current, msg.delta);
           break;
         }
@@ -539,7 +570,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         }
         case 'tool_end': {
           const { state } = msg;
-          // #3288: attribute to the ONE matching running call (executionId-first) — never map over
+          // Attribute to the ONE matching running call (executionId-first) — never map over
           // every running same-named entry, which would close all of them at once.
           updateActiveTools((prev) => {
             const idx = findRunningToolIndex(prev, state);
@@ -552,25 +583,35 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'execution_workspace_event': {
+          handleExecutionWorkspace(msg.snapshot);
           setExecutionWorkspace(msg.snapshot);
           break;
         }
-        // #3288 §1: a Stop that did not take effect (e.g. the task/loop had already finished) is
+        // A Stop that did not take effect (e.g. the task/loop had already finished) is
         // worth telling the operator; a success shows itself through the snapshot update above.
         case 'background_task_control_result': {
+          if (msg.action === 'send' && executionDetailInputRef.current === msg.taskId) {
+            executionDetailInputRef.current = null;
+            setExecutionDetailInput({
+              taskId: msg.taskId,
+              status: msg.success ? 'sent' : 'failed',
+            });
+          }
           if (!msg.success) {
             setSessionNotices((previous) => [
               ...previous,
               {
                 id: nextId(),
                 kind: 'background-task-control-failed',
-                message: msg.message ?? `Could not stop ${msg.taskId}.`,
+                message:
+                  msg.message ??
+                  `Could not ${msg.action === 'send' ? 'send to' : 'stop'} ${msg.taskId}.`,
               },
             ]);
           }
           break;
         }
-        // #3280 §2: the prompt queued behind a running turn — shown above the composer, editable
+        // The prompt queued behind a running turn — shown above the composer, editable
         // and removable (`cancel-queue`). `pending: null` means nothing waits; the row disappears.
         case 'pending': {
           setQueuedPrompt(
@@ -581,12 +622,12 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         case 'permission_request':
         case 'ask_request':
         case 'prompt_resolved': {
-          // REMOTE-007/009: the paired owner renders + answers its own prompts (local == remote).
+          // The paired owner renders + answers its own prompts (local == remote).
           setPendingPrompts((prev) => applyPromptEvent(prev, msg));
           break;
         }
         case 'ui_intent': {
-          // #3189: `/resume` asks for the session picker — the sidebar, when the host lists sessions.
+          // `/resume` asks for the session picker — the sidebar, when the host lists sessions.
           if (guiScreenForUiIntent(msg.event.intent) === 'session-sidebar' && canListSessions()) {
             setSessionSidebarOpen(true);
             requestSessions();
@@ -598,7 +639,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
             }
             break;
           }
-          // #3282 §4a: `/settings` asks for the Settings screen — always available on this surface.
+          // `/settings` asks for the Settings screen — always available on this surface.
           if (guiScreenForUiIntent(msg.event.intent) === 'settings') {
             openSettings();
             if (commandsInFlightRef.current > 0) {
@@ -609,7 +650,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
             }
             break;
           }
-          // #3282 §4 part b-2: `/plugin` asks for the plugin manager — the Settings screen's
+          // `/plugin` asks for the plugin manager — the Settings screen's
           // Plugins section, the way `show-settings` opens the screen itself above.
           if (guiScreenForUiIntent(msg.event.intent) === 'settings-plugins') {
             openSettings('plugins');
@@ -621,7 +662,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
             }
             break;
           }
-          // #3282 §4 part b-3: `/agent` (bare) asks for the switcher — always available on this
+          // `/agent` (bare) asks for the switcher — always available on this
           // surface, unlike the session picker, which needs a host that lists sessions.
           if (guiScreenForUiIntent(msg.event.intent) === 'agent-switcher') {
             openAgentSwitcher();
@@ -633,8 +674,8 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
             }
             break;
           }
-          // CMD-004 Stage D: a command this surface issued requested a screen the GUI does not have.
-          // The command's result follows; the unavailable line answers it (TC-05, never silent).
+          // A command this surface issued requested a screen the GUI does not have.
+          // The command's result follows; the unavailable line answers it (never silent).
           const unavailable = {
             name: uiIntentCommandName(msg.event.intent),
             text: describeUiIntentForGui(msg.event.intent),
@@ -653,14 +694,14 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           }
           break;
         }
-        // CMD-004 Stage E: broadcast session events — a rename/clear executed by the HOST (from any
+        // Broadcast session events — a rename/clear executed by the HOST (from any
         // surface, co-driving included) is reflected here; never a silent drop.
         case 'session_renamed': {
           setSessionName(msg.event.name);
           requestSessions();
           break;
         }
-        // #3189: the host made another session current — drop what this one showed, re-read it all.
+        // The host made another session current — drop what this one showed, re-read it all.
         case 'session_switched': {
           rejectPendingAppRequests('The active session changed.');
           settleSessionChange();
@@ -721,7 +762,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           ]);
           break;
         }
-        // #3189: a new or switch this surface asked for was refused; the reason is the toast, and
+        // A new or switch this surface asked for was refused; the reason is the toast, and
         // commands in flight are untouched. Only the client that asked is told.
         case 'session_change_failed': {
           if (
@@ -737,7 +778,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           ]);
           break;
         }
-        // #3289 §1: a row's rename landed — refresh the listing so its title (or the live one, if it
+        // A row's rename landed — refresh the listing so its title (or the live one, if it
         // was current) is current everywhere it shows.
         case 'session_renamed_in_list': {
           requestSessions();
@@ -750,7 +791,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           ]);
           break;
         }
-        // #3289 §1: a row was deleted. If it was this surface's own session, `session_switched`
+        // A row was deleted. If it was this surface's own session, `session_switched`
         // already arrived (the host switches away before answering) and reset the conversation; this
         // only needs the listing refreshed so the row is gone everywhere it shows.
         case 'session_deleted': {
@@ -765,6 +806,13 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'protocol_error': {
+          if (
+            executionDetailInputRef.current !== null &&
+            msg.message === 'Not permitted for an observer: send-background-task'
+          ) {
+            setExecutionDetailInput({ taskId: executionDetailInputRef.current, status: 'failed' });
+            executionDetailInputRef.current = null;
+          }
           if (sessionChangesInFlightRef.current > 0) {
             // A host older than `session_change_failed` refuses a session change with this.
             settleSessionChange();
@@ -832,7 +880,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           send({ type: 'get-status' });
           send({ type: 'get-commands' });
           commandsInFlightRef.current = Math.max(0, commandsInFlightRef.current - 1);
-          // #3282 §4b: a successful `/provider` command run through the raw command path (Add, Edit,
+          // A successful `/provider` command run through the raw command path (Add, Edit,
           // Duplicate — Use/Model/Delete already return a fresh snapshot from their own
           // `update-settings` reply) changes the "Providers & Models" list; refresh it if the screen
           // is open, the same way `get-status` above refreshes the model/mode chips. Never touches
@@ -840,13 +888,13 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           if (msg.name === 'provider' && msg.success && settingsOpenRef.current) {
             refreshSettings();
           }
-          // #3282 §2 (part 2): identify silence by THIS reply's own `requestId`, not by position or
+          // Identify silence by THIS reply's own `requestId`, not by position or
           // count — see `silentCommandRequestIdsRef` above. No `requestId` (an older host, or a typed
           // command) always falls through to `silent = false`, never the reverse.
           const silent =
             msg.requestId !== undefined && silentCommandRequestIdsRef.current.delete(msg.requestId);
-          // #3282 §4 part b-3: a selection made in the agent switcher sheet — its own plain
-          // confirmation line answers it, never a conversation card (issue #3282 §4's decided design).
+          // A selection made in the agent switcher sheet — its own plain
+          // confirmation line answers it, never a conversation card.
           if (resolveSwitchResult(msg.requestId, msg)) break;
           const unavailable = pendingIntentRef.current;
           pendingIntentRef.current = null;
@@ -865,7 +913,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           }
           // A command that starts a turn (a skill) says nothing itself; the turn is its answer.
           if (msg.message.trim().length === 0) break;
-          // #3282 §2 (part 2): a change made through a status control confirms itself through the
+          // A change made through a status control confirms itself through the
           // control's own label (the `get-status` refresh above lands it) — no conversation card. A
           // failure still needs saying, as a plain notice rather than a card, and the label is left
           // unchanged since nothing actually applied. A typed command (plain `send`) keeps its card
@@ -891,7 +939,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         case 'complete':
         case 'interrupted': {
           send({ type: 'get-status' });
-          // #3280 §2: the turn ending can advance the queue (its next entry now runs) or, if this
+          // The turn ending can advance the queue (its next entry now runs) or, if this
           // was an abort, drop it entirely (`abort()` clears the whole queue) — either way the
           // composer's queued-message row is stale until this reply refreshes it.
           send({ type: 'get-pending' });
@@ -911,6 +959,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       handleAgentDefinitionsMessage,
       handleAppViewMessage,
       handleExecutionDetailMessage,
+      handleExecutionWorkspace,
       handleModelListMessage,
       handleProjectMessage,
       handleSchedulesMessage,
@@ -950,10 +999,19 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     const onStatusChange = (next: TStatus): void => {
       statusRef.current = next;
       setStatus(next);
+      if (next !== 'connected') {
+        roleRef.current = null;
+        setRole(null);
+      }
       // A reply lost with the connection never arrives; the views waiting on one learn that now.
       if (next !== 'connected') {
         rejectPendingAppRequests();
         clearCompactionNotices();
+        closeExecutionDetail();
+        if (executionDetailInputRef.current !== null) {
+          setExecutionDetailInput({ taskId: executionDetailInputRef.current, status: 'failed' });
+          executionDetailInputRef.current = null;
+        }
       }
       // Every client learns what it can offer and what is in effect as soon as it is attached.
       if (next === 'connected') {
@@ -963,9 +1021,11 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         sessionChangesInFlightRef.current = 0;
         sessionChangeRequestIdsRef.current.clear();
         pendingIntentRef.current = null;
+        // First, so its reply precedes the session listing the reconnect restore reads.
+        client.send({ type: 'get-surface-role' });
         client.send({ type: 'get-commands' });
         client.send({ type: 'get-status' });
-        // #3280 §2: a reconnect that lands back on the SAME session (the common case) fires no
+        // A reconnect that lands back on the SAME session (the common case) fires no
         // `session_switched` — its own `get-pending` would be missed — so ask here too, or a stale
         // `queuedPrompt` from before the drop keeps showing (with working Edit/Remove) until the
         // turn it was queued behind happens to end.
@@ -976,7 +1036,16 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         requestSchedules();
       }
     };
-    const client = makeClient({ onMessage: handleMessage, onStatusChange });
+    const inner = makeClient({ onMessage: handleMessage, onStatusChange });
+    // The host is the authority; this only keeps an observer from sending what the host would refuse.
+    const client: ISessionClientHandle = {
+      connect: () => inner.connect(),
+      disconnect: () => inner.disconnect(),
+      send: (msg) => {
+        if (roleRef.current === 'observe' && !isObserverMessageType(msg.type)) return;
+        inner.send(msg);
+      },
+    };
     clientRef.current = client;
     client.connect();
     return () => {
@@ -988,6 +1057,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     makeClient,
     handleMessage,
     clearCompactionNotices,
+    closeExecutionDetail,
     requestSessions,
     requestSchedules,
     armRestore,
@@ -1005,6 +1075,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     commandCatalog,
     sessionStatus,
     ownDriverId,
+    role,
     send,
     sendCommandSilently,
     pendingPrompts,
@@ -1013,6 +1084,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     answerAsk,
     ...personalUsageState,
     ...executionDetailState,
+    executionDetailInput,
     closeExecutionDetail,
     ...modelListState,
     ...projectPanelState,
@@ -1036,7 +1108,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
 export function useWsSession(
   url: string,
 ): IWsSessionState<TConnectionStatus> & { connectionLost: boolean } {
-  // Issue #3280 §5: retries gave up — the runtime is not coming back by itself. A presentation layer
+  // Retries gave up — the runtime is not coming back by itself. A presentation layer
   // (e.g. `SessionSurface`) reads this to show a banner instead of a callback-driven screen swap.
   const [connectionLost, setConnectionLost] = useState(false);
   const makeClient = useCallback<TMakeSessionClient<TConnectionStatus>>(

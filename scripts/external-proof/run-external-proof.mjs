@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ARCH-005 S3 — the external-consumer proof runner.
+ * The external-consumer proof runner.
  *
  * Proves, from genuinely OUTSIDE the monorepo, that a third party can build a product on Robota's
  * PUBLISHED package surface. It is deliberately not a workspace link and not a relative import: the
@@ -37,10 +37,7 @@ const FIXTURE_DIR = path.join(SCRIPT_DIR, 'fixture');
 const ENTRY_PACKAGES = [
   '@robota-sdk/agent-cli',
   '@robota-sdk/agent-product',
-  '@robota-sdk/agent-capability-pack',
-  '@robota-sdk/pack-coding',
-  '@robota-sdk/agent-preset',
-  '@robota-sdk/agent-builtin-providers',
+  '@robota-sdk/agent-provider',
   '@robota-sdk/agent-core',
   '@robota-sdk/agent-framework',
   '@robota-sdk/agent-roundtable',
@@ -129,8 +126,7 @@ export function writeConsumerManifest(consumerDir, tarballs) {
     version: '0.0.0',
     private: true,
     type: 'module',
-    description:
-      'ARCH-005 S3 — a third-party product built on the published agent runtime packages.',
+    description: 'a third-party product built on the published agent runtime packages.',
     scripts: { build: 'tsc -p tsconfig.json', proof: 'node dist/proof.js' },
     dependencies: specs,
     devDependencies: { '@types/node': '^20.19.43', typescript: '^5.9.3' },
@@ -168,9 +164,7 @@ async function main() {
   const tarballDir = path.join(workdir, 'tarballs');
   fs.mkdirSync(consumerDir, { recursive: true });
 
-  log(
-    `ARCH-005 S3 — external-consumer proof\n  repo:     ${REPO_ROOT}\n  consumer: ${consumerDir}\n`,
-  );
+  log(`external-consumer proof\n  repo:     ${REPO_ROOT}\n  consumer: ${consumerDir}\n`);
 
   const manifests = readWorkspaceManifests();
   const closure = resolveClosure(manifests);

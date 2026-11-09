@@ -1,4 +1,4 @@
-import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface/execution';
 
 const LOOP_LIFETIME_MS = 7 * 24 * 60 * 60_000;
 

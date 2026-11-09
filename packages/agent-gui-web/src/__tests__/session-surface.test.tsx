@@ -8,7 +8,7 @@ import { SessionSurface } from '@robota-sdk/agent-ui-web/client';
 import type { IWsSessionState } from '@robota-sdk/agent-ui-web/client';
 
 /**
- * GUI-005 TC-01/TC-02 — the GUI web app renders a session over the GUI core's reducer state and answers
+ * The GUI web app renders a session over the GUI core's reducer state and answers
  * prompts, WITHOUT any session logic of its own (it only calls `send`/`answerPermission`/`answerAsk`). This
  * exercises the shared `SessionSurface` (agent-ui-web) as the app mounts it.
  */
@@ -63,7 +63,7 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
     openSettings: vi.fn(),
     closeSettings: vi.fn(),
     updateSettings: vi.fn(),
-    // #3282 §2 (part 2): the model control's pop-up menu.
+    // The model control's pop-up menu.
     modelList: null,
     requestModelList: vi.fn(),
     sendCommandSilently: vi.fn(),
@@ -79,7 +79,7 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
     pauseSchedule: vi.fn(),
     resumeSchedule: vi.fn(),
     deleteSchedule: vi.fn(),
-    // #3282 §4e: the Help sheet.
+    // The Help sheet.
     helpOpen: false,
     openHelp: vi.fn(),
     closeHelp: vi.fn(),
@@ -87,20 +87,20 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
   } as unknown as IWsSessionState;
 }
 
-describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
+describe('SessionSurface', () => {
   it('names the current session in the title bar', () => {
     render(<SessionSurface state={stubState({ sessionName: 'Fix the flaky parser test' })} />);
     expect(screen.getByRole('heading', { name: 'Fix the flaky parser test' })).toBeTruthy();
   });
 
-  it('TC-01: renders the conversation + status from the reducer state', () => {
+  it('renders the conversation + status from the reducer state', () => {
     render(<SessionSurface state={stubState()} />);
     expect(screen.getByText('hello')).toBeTruthy();
     expect(screen.getByText('connected')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Usage' })).toBeNull();
   });
 
-  it('TC-01: submitting the composer calls send({type:submit}) and clears the draft', () => {
+  it('submitting the composer calls send({type:submit}) and clears the draft', () => {
     const state = stubState();
     render(<SessionSurface state={state} />);
     const input = screen.getByLabelText('message') as HTMLInputElement;
@@ -110,7 +110,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(input.value).toBe('');
   });
 
-  it('TC-01: an empty/whitespace draft does not submit', () => {
+  it('an empty/whitespace draft does not submit', () => {
     const state = stubState();
     render(<SessionSurface state={state} />);
     fireEvent.change(screen.getByLabelText('message'), { target: { value: '   ' } });
@@ -118,7 +118,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.send).not.toHaveBeenCalled();
   });
 
-  it('ARCH-2164: routes slash input to the command wire path', () => {
+  it('routes slash input to the command wire path', () => {
     const state = stubState();
     render(<SessionSurface state={state} />);
     fireEvent.change(screen.getByLabelText('message'), { target: { value: '/memory providers' } });
@@ -130,7 +130,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     });
   });
 
-  it('#3186: a command result is a card in the conversation, line breaks kept, long output folded', () => {
+  it('a command result is a card in the conversation, line breaks kept, long output folded', () => {
     const content = Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join('\n');
     render(
       <SessionSurface
@@ -148,7 +148,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(card.querySelector('pre')?.className).toContain('whitespace-pre-wrap');
   });
 
-  it('#3186: a session error is a dismissible toast', () => {
+  it('a session error is a dismissible toast', () => {
     const state = stubState({
       sessionNotices: [{ id: 'error', kind: 'session-error', message: 'Provider failed' }],
     });
@@ -158,7 +158,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.dismissSessionNotice).toHaveBeenCalledWith('error');
   });
 
-  it('#3186: a finished turn shows its tool calls as one line that opens on click', () => {
+  it('a finished turn shows its tool calls as one line that opens on click', () => {
     render(
       <SessionSurface
         state={stubState({
@@ -182,7 +182,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(screen.getByText('a.ts')).toBeTruthy();
   });
 
-  it('#3186: the activity rail stays closed while only the main thread exists', () => {
+  it('the activity rail stays closed while only the main thread exists', () => {
     const mainOnly = {
       entries: [{ id: 'main', kind: 'main_thread', title: 'Main thread', controls: ['select'] }],
     } as unknown as IWsSessionState['executionWorkspace'];
@@ -200,7 +200,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(screen.getByText('Build')).toBeTruthy();
   });
 
-  it('#3186: typing / opens the command menu; Enter completes, Enter again runs it', () => {
+  it('typing / opens the command menu; Enter completes, Enter again runs it', () => {
     const state = stubState({
       commandCatalog: {
         commands: [
@@ -236,7 +236,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'mode' });
   });
 
-  it('#3282 §4e: a command the GUI cannot run at all is left out of the menu entirely', () => {
+  it('a command the GUI cannot run at all is left out of the menu entirely', () => {
     const state = stubState({
       commandCatalog: {
         commands: [
@@ -266,7 +266,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(screen.getByRole('option', { name: /\/share/ })).toBeTruthy();
   });
 
-  it('#3186 / #3282 §2: the status row shows the session status and its pop-up menus apply through the wire', () => {
+  it('the status row shows the session status and its pop-up menus apply through the wire', () => {
     const state = stubState({
       sessionStatus: {
         sessionId: 's',
@@ -319,14 +319,14 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.sendCommandSilently).toHaveBeenCalledWith('mode', 'plan');
 
     // The model chip's menu, fed by `modelList`, requests a fresh list on open and its last item
-    // ("Manage providers…") opens Settings at the Providers & Models section (#3282 §4b).
+    // ("Manage providers…") opens Settings at the Providers & Models section.
     fireEvent.click(screen.getByRole('button', { name: 'model: claude-sonnet-5' }));
     expect(state.requestModelList).toHaveBeenCalled();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Manage providers…' }));
     expect(state.openSettings).toHaveBeenCalledWith('providers');
   });
 
-  it('#3186: a goal in progress shows above the composer and can be stopped', () => {
+  it('a goal in progress shows above the composer and can be stopped', () => {
     const goal = {
       id: 'g',
       objective: 'Make the tests pass',
@@ -358,7 +358,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(screen.queryByRole('status', { name: 'goal' })).toBeNull();
   });
 
-  it('#3280 §2: Send becomes Stop while a turn runs, and Stop sends abort', () => {
+  it('Send becomes Stop while a turn runs, and Stop sends abort', () => {
     const state = stubState({ isThinking: true });
     render(<SessionSurface state={state} />);
     expect(screen.queryByRole('button', { name: 'Send' })).toBeNull();
@@ -366,14 +366,14 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.send).toHaveBeenCalledWith({ type: 'abort' });
   });
 
-  it('#3280 §2: Esc in the composer stops a running turn', () => {
+  it('Esc in the composer stops a running turn', () => {
     const state = stubState({ isThinking: true });
     render(<SessionSurface state={state} />);
     fireEvent.keyDown(screen.getByLabelText('message'), { key: 'Escape' });
     expect(state.send).toHaveBeenCalledWith({ type: 'abort' });
   });
 
-  it('#3280 §2: more than one message queued behind the turn shows above the composer, with Remove all only', () => {
+  it('more than one message queued behind the turn shows above the composer, with Remove all only', () => {
     const state = stubState({
       isThinking: true,
       queuedPrompt: { text: 'ping the team when done', count: 2 },
@@ -390,7 +390,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.send).toHaveBeenCalledWith({ type: 'get-pending' });
   });
 
-  it('#3280 §2: Edit cancels the queue and puts the queued text back in the draft', () => {
+  it('Edit cancels the queue and puts the queued text back in the draft', () => {
     const state = stubState({
       isThinking: true,
       queuedPrompt: { text: 'ping the team when done', count: 1 },
@@ -403,7 +403,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     );
   });
 
-  it('#3186 review: a pending question stays visible while the Usage view is open', () => {
+  it('a pending question stays visible while the Usage view is open', () => {
     const state = stubState({
       pendingPrompts: [
         { kind: 'permission', id: 'p1', toolName: 'write_file', toolArgs: { path: 'x' } },
@@ -416,7 +416,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.answerPermission).toHaveBeenCalledWith('p1', true);
   });
 
-  it('TC-02: a pending permission prompt renders and Allow answers it via answerPermission', () => {
+  it('a pending permission prompt renders and Allow answers it via answerPermission', () => {
     const state = stubState({
       pendingPrompts: [
         { kind: 'permission', id: 'p1', toolName: 'write_file', toolArgs: { path: 'x' } },
@@ -428,7 +428,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.answerPermission).toHaveBeenCalledWith('p1', true);
   });
 
-  it('#3186: a docked question takes focus once armed, answers by number key, and Esc cancels it', () => {
+  it('a docked question takes focus once armed, answers by number key, and Esc cancels it', () => {
     vi.useFakeTimers();
     const state = stubState({
       pendingPrompts: [
@@ -447,7 +447,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     });
     const { unmount } = render(<SessionSurface state={state} />);
     const dialog = screen.getByRole('dialog', { name: 'pending question' });
-    // #3189: its keys are not live as it appears, so a key typed for the composer cannot answer it.
+    // Its keys are not live as it appears, so a key typed for the composer cannot answer it.
     expect(document.activeElement).not.toBe(dialog);
     act(() => {
       vi.runOnlyPendingTimers();
@@ -460,7 +460,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     unmount();
   });
 
-  it('SCREEN-2577: opens Usage, requests 7d, and renders totals plus model breakdown', () => {
+  it('opens Usage, requests 7d, and renders totals plus model breakdown', () => {
     const report: NonNullable<IWsSessionState['personalUsageReport']> = {
       schemaVersion: 1,
       generatedAt: '2026-09-06T03:00:00.000Z',
@@ -524,7 +524,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
       },
     };
     // The report itself is content-free; a session's readable name comes from this workspace's own
-    // local session-directory listing (#3289 §4), not from the report.
+    // local session-directory listing, not from the report.
     const listing: NonNullable<IWsSessionState['sessionListing']> = {
       currentSessionId: 'a',
       sessions: [
@@ -548,12 +548,12 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(screen.getByText('1,200')).toBeTruthy();
     expect(screen.getByText('gpt-test')).toBeTruthy();
     expect(screen.getByText(/partial day/i)).toBeTruthy();
-    // The button shows the session's readable name, never the raw id (#3289 §4).
+    // The button shows the session's readable name, never the raw id.
     fireEvent.click(screen.getByRole('button', { name: 'Open session Session A' }));
     expect(state.requestStoredSessionUsage).toHaveBeenCalledWith('a');
   });
 
-  it('SCREEN-2577: renders explicit report errors', () => {
+  it('renders explicit report errors', () => {
     render(
       <SessionSurface
         state={stubState({
@@ -567,7 +567,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(screen.getByText('Local session store is unavailable.')).toBeTruthy();
   });
 
-  it('SCREEN-2577: renders a deliberate empty state', () => {
+  it('renders a deliberate empty state', () => {
     const emptyReport = {
       schemaVersion: 1,
       generatedAt: '2026-09-06T03:00:00.000Z',
@@ -614,7 +614,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
   });
 });
 
-describe('#3189 — the session sidebar', () => {
+describe('the session sidebar', () => {
   const listing: NonNullable<IWsSessionState['sessionListing']> = {
     currentSessionId: 'cur',
     sessions: [
@@ -632,7 +632,7 @@ describe('#3189 — the session sidebar', () => {
         updatedAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
         messageCount: 1,
         preview: '## Fix the flaky test (raw reply, not the title)',
-        // #3289 §1: a stable title (the first request), distinct from the raw `preview` above.
+        // A stable title (the first request), distinct from the raw `preview` above.
         title: 'Fix the flaky test',
       },
     ],
@@ -726,14 +726,14 @@ describe('#3189 — the session sidebar', () => {
     expect(screen.queryByRole('button', { name: 'Show sessions' })).toBeNull();
   });
 
-  it('#3282 §4a: the footer gear opens the Settings screen', () => {
+  it('the footer gear opens the Settings screen', () => {
     const state = stubState({ sessionListing: listing });
     render(<SessionSurface state={state} />);
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(state.openSettings).toHaveBeenCalledTimes(1);
   });
 
-  it('#3282 §4e: the Help sheet renders when helpOpen is true, and Close calls closeHelp', () => {
+  it('the Help sheet renders when helpOpen is true, and Close calls closeHelp', () => {
     const state = stubState({
       helpOpen: true,
       commandCatalog: {
@@ -748,7 +748,7 @@ describe('#3189 — the session sidebar', () => {
     expect(state.closeHelp).toHaveBeenCalledTimes(1);
   });
 
-  it('#3282 §4e: the Help sheet is absent while helpOpen is false', () => {
+  it('the Help sheet is absent while helpOpen is false', () => {
     render(<SessionSurface state={stubState({ helpOpen: false })} />);
     expect(screen.queryByRole('dialog', { name: 'Help' })).toBeNull();
   });
@@ -766,7 +766,7 @@ describe('#3189 — the session sidebar', () => {
   });
 });
 
-describe('#3280 §5 — a lost connection keeps the conversation and the draft', () => {
+describe('a lost connection keeps the conversation and the draft', () => {
   it('the composer refuses to send while not connected, and keeps the draft', () => {
     const state = stubState({ status: 'disconnected' });
     render(<SessionSurface state={state} />);
@@ -815,7 +815,7 @@ describe('#3280 §5 — a lost connection keeps the conversation and the draft',
   });
 });
 
-describe('#3282 §3 — first run: setup mode', () => {
+describe('first run: setup mode', () => {
   const setupStatus: NonNullable<IWsSessionState['sessionStatus']> = {
     sessionId: 's',
     model: 'setup-required',
@@ -836,7 +836,7 @@ describe('#3282 §3 — first run: setup mode', () => {
     expect(screen.queryByLabelText('message')).toBeNull();
   });
 
-  it('renders exactly one main landmark, never zero, never nested (#3289 §3)', () => {
+  it('renders exactly one main landmark, never zero, never nested', () => {
     const state = stubState({ sessionStatus: setupStatus });
     render(<SessionSurface state={state} />);
 
@@ -896,7 +896,7 @@ describe('#3282 §3 — first run: setup mode', () => {
   });
 });
 
-describe('#3289 §2 — below md, the open sidebar is a sheet over the conversation', () => {
+describe('below md, the open sidebar is a sheet over the conversation', () => {
   const listing: NonNullable<IWsSessionState['sessionListing']> = {
     currentSessionId: 'cur',
     sessions: [
@@ -1019,5 +1019,48 @@ describe('#3289 §2 — below md, the open sidebar is a sheet over the conversat
 
     // A fresh "Show sessions" button remounted under the same name — that is the return address.
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show sessions' }));
+  });
+});
+
+describe('fork follow in the GUI surface', () => {
+  it('sends to a running fork without switching the parent session', () => {
+    const send = vi.fn();
+    const switchSession = vi.fn();
+    const entry = {
+      id: 'task:fork',
+      sourceId: 'fork',
+      kind: 'background_task' as const,
+      origin: { kind: 'tool_call' as const, sessionId: 'parent' },
+      status: 'running' as const,
+      state: 'working' as const,
+      title: 'Fork',
+      resumeSessionId: 'fork-session',
+      unread: false,
+      attention: 'none' as const,
+      visibility: 'default' as const,
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      controls: ['select', 'attach', 'send'] as const,
+    };
+    const state = stubState({
+      send,
+      switchSession,
+      openEntryId: entry.id,
+      executionDetailStatus: 'ready',
+      executionDetailRecords: [],
+      executionDetailError: null,
+      executionDetailComplete: true,
+      executionWorkspace: { sessionId: 'parent', updatedAt: entry.updatedAt, entries: [entry] },
+    });
+    render(<SessionSurface state={state} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Message the fork' }), {
+      target: { value: 'Check this' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send to fork' }));
+    expect(send).toHaveBeenCalledWith({
+      type: 'send-background-task',
+      taskId: 'fork',
+      input: { prompt: 'Check this' },
+    });
+    expect(switchSession).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,8 @@
 /**
- * `@robota-sdk/agent-remote-pairing` — isomorphic pairing + DTLS-fingerprint channel binding for REMOTE-001
- * P2P remote-control (REMOTE-005 Stage B3). WebCrypto only; reused by the Node host and the Stage-D browser
- * remote client. No user-facing enable path here (that is Stage B4).
+ * `@robota-sdk/agent-remote-pairing` — isomorphic pairing + DTLS-fingerprint channel binding for
+ * P2P
+ * remote-control. WebCrypto only; reused by the Node host and the browser remote client. No
+ * user-facing enable path here.
  */
 export {
   generatePairingSecret,
@@ -22,7 +23,7 @@ export type {
 } from './pairing.js';
 export { startPairingHandshake } from './handshake.js';
 export type { IPairingHandshakeOptions, IPairingResult, TPairingFrame } from './handshake.js';
-// Issue #2046: the pre-auth frame vocabulary is decoded HERE, totally, and both carriers import it.
+// The pre-auth frame vocabulary is decoded HERE, totally, and both carriers import it.
 export {
   PRE_AUTH_FRAME_LIMITS,
   decodeEnrollFrame,
@@ -51,7 +52,7 @@ export type {
   TReconnectFrame,
 } from './reconnect.js';
 
-// SEC-011 (#1812): same-USER proof across two computers. Distinct from device identity above —
+// Same-USER proof across two computers. Distinct from device identity above —
 // a key identifies a machine, and a machine is not a person. The user holds one root that signs
 // each device key, so the proof travels WITH the destination rather than being asserted by the
 // source (which would be an authorization list wearing an authentication's clothes).
@@ -77,7 +78,7 @@ export type {
   IVerifyGrantOptions,
   TGrantRejection,
 } from './handoff-authorization.js';
-// SEC-011 (issue #1865): how a revocation reaches the machine doing the checking. Signed by the same
+// How a revocation reaches the machine doing the checking. Signed by the same
 // user root as a certificate, so distribution needs no trusted channel — and bounded by an expiry,
 // because a stale list is indistinguishable from one an attacker withheld.
 export {
@@ -92,7 +93,7 @@ export type {
   IVerifyRevocationListOptions,
   TRevocationRejection,
 } from './revocation-list.js';
-// SEC-011 (issue #1865): rotating the user root. Hygiene only — a COMPROMISED root is abandoned, not
+// Rotating the user root. Hygiene only — a COMPROMISED root is abandoned, not
 // rotated, because an attacker holding it can sign the same statement. See the module header.
 export {
   issueRootRotation,

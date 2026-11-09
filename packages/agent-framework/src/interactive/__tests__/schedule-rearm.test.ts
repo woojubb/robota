@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { restoredScheduleDisposition } from '../schedule-rearm.js';
 
-import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface/execution';
 
 const NOW = Date.parse('2026-10-19T00:00:00.000Z');
 const FUTURE = '2999-01-01T00:00:00.000Z';

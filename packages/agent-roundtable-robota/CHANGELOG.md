@@ -1,5 +1,107 @@
 # @robota-sdk/agent-roundtable-robota
 
+## 3.2.5
+### Patch Changes
+
+- The previous version of this package was tagged but never published to npm, because `main` moved past its release commit first. This version carries the same consolidated package set from the current `main`, with comment and test-name cleanups and no behavior change.
+
+## 3.2.4
+### Patch Changes
+
+- 87449a3: The default tool set is now the Node-only `defaults` subpath of `@robota-sdk/agent-tools`: import `createDefaultTools` from `@robota-sdk/agent-tools/defaults`. It maps `browser: null` like `./node`, and the root and `./node` entries are unchanged. The exported names and signatures are unchanged, and a consumer's install does not grow: the subpath adds no dependency to the package. `@robota-sdk/agent-tool-defaults` no longer receives releases.
+
+## 3.2.3
+### Patch Changes
+
+- Drop dangling tracker references (deleted backlog IDs, stage labels and closed issue numbers) from shipped comments, type declarations and runtime messages, so agents reading this package are not sent after tickets that no longer exist. No behavior change.
+
+## 3.2.2
+### Patch Changes
+
+- 8d05c9b: Allow compatible SDK dependencies to update independently.
+
+## 3.2.1
+### Patch Changes
+
+  - @robota-sdk/agent-roundtable@3.2.1
+
+## 3.2.0
+### Patch Changes
+
+  - @robota-sdk/agent-roundtable@3.2.0
+
+## 3.1.2
+### Patch Changes
+
+  - @robota-sdk/agent-roundtable@3.1.2
+
+## 3.1.1
+### Patch Changes
+
+  - @robota-sdk/agent-roundtable@3.1.1
+
+## 3.1.0
+### Minor Changes
+
+- d8cb04f: Make the session package platform-neutral.
+
+  - `@robota-sdk/agent-core` exports `isAbsolutePath`, `resolvePath` and `joinPath` — lexical path helpers that read the platform from the path text (a drive letter or `\\` is a Windows path, anything else POSIX) and never touch the process directory — and `utf8ByteLength`.
+  - `@robota-sdk/agent-session`: `NodeSessionStore`, `NodeSessionLogSink`, `NodeSessionLogSource`, `NodeExternalPayloadSource`, `NodeToolResultSpillStore` (with `ToolResultSpillError`, `sweepStaleToolResultSpillDirectories` and its option and code types) and `NodePromptHistoryFile` (with `DEFAULT_PROMPT_HISTORY_BLOCK_BYTES` and `parsePromptHistoryLine`) moved to the new `@robota-sdk/agent-session/node`, which also exports `createNodeWorkspacePathResolver` and `registerProcessExitFlush`. The main entry no longer reaches a Node built-in, a Node global or `@robota-sdk/agent-file-authority`; the sealed-store and migration exports (`StoredSessionRecords`, `StoredLines`, `StoredPayloads`, `sessionSealingOf`, `assertSessionSealing`, the `seal*` converters, `migrateNodeSessionStore`, `migrateSessionLogDirectory`, `compactPromptHistoryFile` and their companions) are on `./node` too. `ISessionLogSink`, `ISessionLogSource`, the external-payload ports, `createSessionLogExternalPayloadReference`, `loadSessionForUpdate` and the sealed-session and claim refusals stay on the main entry.
+  - `@robota-sdk/agent-session`: `hookTypeExecutors` is a required option of `Session`, `PermissionEnforcer` and `CompactionOrchestrator`; a missing list throws at construction instead of defaulting to the command and HTTP executors (pass `[new CommandExecutor(), new HttpExecutor()]` from `@robota-sdk/agent-core/node`, or `[]` to run no hook handler).
+  - `@robota-sdk/agent-session`: three host pieces became options with no Node default. `homeDirectory` is no longer read from the operating system — absent, the home directory is unknown, so `~` and any home-relative target not provably inside it (`~/..`) are refused, and a path inside it is not expanded. `resolveInWorkspace` replaces the built-in symlink-following resolver — absent, a shell command with a path operand is not judged read-only. `canonicalizePath` replaces `realpathSync` in snapshot, journal and approval checks — absent, directories are compared as written. `FileSessionLogger` takes `registerExitFlush` instead of listening on `process`; it registers once per distinct function.
+  - `@robota-sdk/agent-session`: the execution root accepts a Windows drive or UNC root on any host and rejects a drive-less rooted path (`\work`) on a Windows host, where it was accepted before; a payload reference's `relativePath` is always written with `/` (readers accept either separator).
+  - `@robota-sdk/agent-roundtable-robota`: `SessionHostOptions` requires `hookTypeExecutors`, as it extends the session options.
+  - `@robota-sdk/agent-framework` passes the Node home directory, workspace resolver, `realpathSync` and exit registrar, and the command and HTTP executors, wherever it builds a session, so the CLI behaves as before.
+
+### Patch Changes
+
+- 45c11a2: The peer dependencies on `@robota-sdk/agent-core` and `@robota-sdk/agent-session` accept the release line (`^`) instead of one exact version, so a minor release of the SDK stays a minor instead of becoming a major.
+  - @robota-sdk/agent-roundtable@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.7
+  - @robota-sdk/agent-roundtable@3.0.7
+  - @robota-sdk/agent-session@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @robota-sdk/agent-session@3.0.6
+  - @robota-sdk/agent-core@3.0.6
+  - @robota-sdk/agent-roundtable@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-roundtable@3.0.5
+  - @robota-sdk/agent-session@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+  - @robota-sdk/agent-roundtable@3.0.4
+  - @robota-sdk/agent-session@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.3
+  - @robota-sdk/agent-roundtable@3.0.3
+  - @robota-sdk/agent-session@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+  - @robota-sdk/agent-roundtable@3.0.2
+  - @robota-sdk/agent-session@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

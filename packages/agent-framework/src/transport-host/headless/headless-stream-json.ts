@@ -2,10 +2,10 @@ import { randomId } from '@robota-sdk/agent-core';
 
 import type { IHeadlessOutput } from './headless-output.js';
 import type { IHeadlessSession } from './headless-session.js';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
-import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-interface-execution';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
-import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
+import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-interface/execution';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface/execution';
+import type { IExecutionResult } from '@robota-sdk/agent-interface/session';
 
 type TSlashCommandExecution =
   | { readonly kind: 'not-slash' }
@@ -30,7 +30,7 @@ export async function executeSlashCommandIfPresent(
 
   const result = await session.executeCommand(command.name, command.args);
   if (result) {
-    // CMD-004 Stage E: `data.sessionExecution` is the requester-local "a session turn is now
+    // `data.sessionExecution` is the requester-local "a session turn is now
     // running" hint (formerly the `session-execution-started` effect).
     if (result.data?.['sessionExecution'] === true) {
       return { kind: 'session-execution' };

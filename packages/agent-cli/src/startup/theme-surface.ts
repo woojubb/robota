@@ -1,6 +1,6 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * SCREEN-2002 — the run's theme surface, assembled once.
+ * The run's theme surface, assembled once.
  *
  * One registry reaches two consumers: the `/theme` command, through its catalogue port, and
  * `renderApp`. They must be the same instance or a listing and a switch can disagree about which
@@ -22,7 +22,10 @@ import { loadThemeSources } from './theme-sources.js';
 
 import type { IThemeRegistry, IThemeSkip } from '@robota-sdk/agent-ui-terminal';
 import type { TSettingsData, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
-import type { IThemeCataloguePort, TReducedMotionOverride } from '@robota-sdk/agent-command';
+import type {
+  IThemeCataloguePort,
+  TReducedMotionOverride,
+} from '@robota-sdk/agent-product/command';
 
 export interface IThemeSurfaceOptions {
   readonly productRuntime: ICliRuntimeContext;

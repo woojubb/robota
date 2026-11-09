@@ -1,5 +1,127 @@
 # __PRODUCT_DISPLAY_NAME__-web
 
+## 0.1.13
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.2.1
+  - @robota-sdk/agent-remote-pairing@3.2.1
+  - @robota-sdk/product-config@3.2.1
+  - @robota-sdk/agent-ui-web@3.2.1
+  - @robota-sdk/agent-transport-webrtc-web@3.1.4
+
+## 0.1.12
+### Patch Changes
+
+- Updated dependencies [0ea29ac]
+- Updated dependencies [ffaf7d5]
+  - @robota-sdk/agent-ui-web@3.2.0
+  - @robota-sdk/agent-core@3.2.0
+  - @robota-sdk/agent-transport-webrtc-web@3.1.3
+  - @robota-sdk/agent-remote-pairing@3.2.0
+  - @robota-sdk/product-config@3.2.0
+
+## 0.1.11
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.1.2
+  - @robota-sdk/agent-remote-pairing@3.1.2
+  - @robota-sdk/product-config@3.1.2
+  - @robota-sdk/agent-ui-web@3.1.2
+  - @robota-sdk/agent-transport-webrtc-web@3.1.2
+
+## 0.1.10
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.1.1
+  - @robota-sdk/agent-remote-pairing@3.1.1
+  - @robota-sdk/product-config@3.1.1
+  - @robota-sdk/agent-ui-web@3.1.1
+  - @robota-sdk/agent-transport-webrtc-web@3.1.1
+
+## 0.1.9
+### Patch Changes
+
+- Updated dependencies [bc8de21]
+- Updated dependencies [51ad6a4]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [82663df]
+- Updated dependencies [bc8de21]
+- Updated dependencies [04c3233]
+- Updated dependencies [9bc13f9]
+- Updated dependencies [0a677e9]
+- Updated dependencies [5b46d43]
+- Updated dependencies [fab48ad]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [ea0e424]
+- Updated dependencies [0fec62f]
+- Updated dependencies [b7b6cd0]
+- Updated dependencies [8069d0e]
+- Updated dependencies [f5e3057]
+- Updated dependencies [d8cb04f]
+- Updated dependencies [44e9640]
+- Updated dependencies [b56b5a9]
+- Updated dependencies [1c19435]
+  - @robota-sdk/agent-core@3.1.0
+  - @robota-sdk/agent-ui-web@3.1.0
+  - @robota-sdk/agent-remote-pairing@3.1.0
+  - @robota-sdk/agent-transport-webrtc-web@3.1.0
+  - @robota-sdk/product-config@3.1.0
+
+## 0.1.8
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.7
+  - @robota-sdk/agent-remote-pairing@3.0.7
+  - @robota-sdk/product-config@3.0.7
+  - @robota-sdk/agent-ui-web@3.0.7
+  - @robota-sdk/agent-transport-webrtc-web@3.0.7
+
+## 0.1.7
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.6
+  - @robota-sdk/agent-remote-pairing@3.0.6
+  - @robota-sdk/product-config@3.0.6
+  - @robota-sdk/agent-ui-web@3.0.6
+  - @robota-sdk/agent-transport-webrtc-web@3.0.6
+
+## 0.1.6
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-remote-pairing@3.0.5
+  - @robota-sdk/product-config@3.0.5
+  - @robota-sdk/agent-ui-web@3.0.5
+  - @robota-sdk/agent-transport-webrtc-web@3.0.5
+
+## 0.1.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+  - @robota-sdk/agent-remote-pairing@3.0.4
+  - @robota-sdk/product-config@3.0.4
+  - @robota-sdk/agent-ui-web@3.0.4
+  - @robota-sdk/agent-transport-webrtc-web@3.0.4
+
+## 0.1.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.3
+  - @robota-sdk/agent-remote-pairing@3.0.3
+  - @robota-sdk/product-config@3.0.3
+  - @robota-sdk/agent-ui-web@3.0.3
+  - @robota-sdk/agent-transport-webrtc-web@3.0.3
+
+## 0.1.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+  - @robota-sdk/agent-remote-pairing@3.0.2
+  - @robota-sdk/product-config@3.0.2
+  - @robota-sdk/agent-ui-web@3.0.2
+  - @robota-sdk/agent-transport-webrtc-web@3.0.2
+
 ## 0.1.2
 ### Patch Changes
 

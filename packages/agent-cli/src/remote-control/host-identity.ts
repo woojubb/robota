@@ -1,5 +1,5 @@
 /**
- * Host identity keypair for TOFU trusted-device reconnect (REMOTE-012 Stage E3).
+ * Host identity keypair for TOFU trusted-device reconnect.
  *
  * The host is the stationary trust anchor: it must reload and sign reconnect challenges across process
  * restarts, so — unlike the browser device key (non-extractable in IndexedDB) — its ECDSA identity keypair is

@@ -5,7 +5,7 @@ import {
   importPublicKey,
   toPairingUrl,
 } from '@robota-sdk/agent-remote-pairing';
-import { WsSignalingClient } from '@robota-sdk/agent-transport-webrtc';
+import { WsSignalingClient } from '@robota-sdk/agent-transport/webrtc';
 
 import { defaultCreateResumeBridge, defaultCreateTransport } from './default-transport-factory.js';
 import type { TUsageReporters } from './default-transport-factory.js';
@@ -21,13 +21,13 @@ import type {
   IHostReconnectConfig,
   IIceServer,
   ISignalingClient,
-} from '@robota-sdk/agent-transport-webrtc';
-import { ConnectionAuthority } from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-transport/webrtc';
+import { ConnectionAuthority } from '@robota-sdk/agent-interface/session-mobility';
 
 import type { TRemoteControlStatus } from '@robota-sdk/agent-framework';
-import type { IOperatorApprover } from '@robota-sdk/agent-interface-session-mobility';
-import type { IConnectionApproval } from '@robota-sdk/agent-transport-webrtc';
-import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IOperatorApprover } from '@robota-sdk/agent-interface/session-mobility';
+import type { IConnectionApproval } from '@robota-sdk/agent-transport/webrtc';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transport';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 
@@ -47,12 +47,12 @@ export interface IRemoteControlControllerDeps {
   host: IRemoteControlTransportHost;
   /** Signaling relay URL (`transports.webrtc.options.relayUrl`), or undefined when unconfigured. */
   readRelayUrl: () => string | undefined;
-  /** Client base URL for the pairing link (`transports.webrtc.options.clientUrl`); unset ⇒ enable fails closed (REMOTE-009 D5). */
+  /** Client base URL for the pairing link (`transports.webrtc.options.clientUrl`); unset ⇒ enable fails closed. */
   readClientUrl: () => string | undefined;
-  /** REMOTE-010: validated user-supplied ICE (STUN/TURN) servers (`transports.webrtc.options.iceServers`), or
+  /** Validated user-supplied ICE (STUN/TURN) servers (`transports.webrtc.options.iceServers`), or
    *  undefined when absent. THROWS on a malformed config (fail-closed) — surfaced as an enable error. */
   readIceServers?: () => readonly IIceServer[] | undefined;
-  /** REMOTE-010: `transports.webrtc.options.forceTurn` — restrict ICE to relay candidates (requires a TURN server). */
+  /** `transports.webrtc.options.forceTurn` — restrict ICE to relay candidates (requires a TURN server). */
   readForceTurn?: () => boolean;
   /** The live protocol session to expose on pairing accept, or undefined before one is ready. */
   getSession: () => IProtocolSession | undefined;
@@ -60,9 +60,9 @@ export interface IRemoteControlControllerDeps {
   renderQr: (text: string) => Promise<string>;
   /** Surface an async failure (e.g. a `start()` failure because the WebRTC implementation is unavailable) to the operator. */
   reportError?: (message: string) => void;
-  /** REMOTE-012 E3: the host trusted-device store (device public keys). Absent → first-pair only, no TOFU reconnect. */
+  /** The host trusted-device store (device public keys). Absent → first-pair only, no TOFU reconnect. */
   trustedDeviceStore?: ITrustedDeviceStore;
-  /** REMOTE-012 E3: load-or-create the host identity keypair (async). Absent → first-pair only, no TOFU reconnect. */
+  /** Load-or-create the host identity keypair (async). Absent → first-pair only, no TOFU reconnect. */
   loadHostIdentity?: () => Promise<IHostIdentity>;
   /** Where the host identity key is kept, for `/remote-control status`; `undefined` until first chosen. */
   describeKeyStorage?: () => string | undefined;
@@ -88,21 +88,21 @@ export interface IRemoteControlControllerDeps {
     ice: { iceServers?: readonly IIceServer[]; forceTurn?: boolean },
     reconnect?: IHostReconnectConfig,
     resumeBridge?: SessionResumeBridge,
-    localPeer?: import('@robota-sdk/agent-transport-webrtc').ILocalPeerProof,
+    localPeer?: import('@robota-sdk/agent-transport/webrtc').ILocalPeerProof,
     usageReporters?: TUsageReporters,
   ) => TRemoteControlPeer;
-  /** REMOTE-013 E4: build the session-scoped resume bridge (default: real `SessionResumeBridge`). */
+  /** Build the session-scoped resume bridge (default: real `SessionResumeBridge`). */
   createResumeBridge?: (session: IProtocolSession) => SessionResumeBridge;
   /** Host-owned usage reporters shared by every admitted transport surface. */
   usageReporters?: TUsageReporters;
-  /** REMOTE-013 E4: relay URL for reconnect signaling (defaults to `readRelayUrl`). */
+  /** Relay URL for reconnect signaling (defaults to `readRelayUrl`). */
   now?: () => number;
-  /** REMOTE-013 E4: schedule a deferred callback (default `setTimeout`); tests inject a controllable fake. */
+  /** Schedule a deferred callback (default `setTimeout`); tests inject a controllable fake. */
   schedule?: (callback: () => void, delayMs: number) => () => void;
 }
 
 /**
- * REMOTE-013 E4 host reconnect-window ceiling. Kept UNDER the relay's half-open TTL (60s,
+ * Host reconnect-window ceiling. Kept UNDER the relay's half-open TTL (60s,
  * `DEFAULT_RENDEZVOUS_TTL_MS`) so the host's lone presence at a reconnect room is not evicted mid-window; a
  * returning device must reconnect within this window or the session is freed (the operator re-pairs via QR).
  */
@@ -113,7 +113,7 @@ export class RemoteControlController {
   private status: TRemoteControlStatus = { state: 'off' };
   private transport?: TRemoteControlPeer;
   private signaling?: ISignalingClient;
-  // REMOTE-013 E4 reconnect state (session-scoped, spans channel drops).
+  // Reconnect state (session-scoped, spans channel drops).
   private bridge?: SessionResumeBridge;
   private pairedDeviceId?: string;
   private relayUrl?: string;
@@ -222,7 +222,7 @@ export class RemoteControlController {
     const session = this.deps.getSession();
     if (!session) return 'Remote control: no active session yet — try again in a moment.';
 
-    // REMOTE-009 D5: a pairing link needs a hosted browser client. Fail closed BEFORE constructing/starting
+    // A pairing link needs a hosted browser client. Fail closed BEFORE constructing/starting
     // the transport when `clientUrl` is unset — never mint a link that goes nowhere (no fabricated default).
     const clientUrl = this.deps.readClientUrl();
     if (!clientUrl) {
@@ -232,7 +232,7 @@ export class RemoteControlController {
       );
     }
 
-    // REMOTE-010: user-supplied TURN/STUN. `readIceServers` throws on a malformed config → fail closed with the
+    // User-supplied TURN/STUN. `readIceServers` throws on a malformed config → fail closed with the
     // error (don't construct/start). `forceTurn` requires a TURN server, else ICE yields zero candidates (silent
     // never-connect) — surface that as a config error too.
     let iceServers: readonly IIceServer[] | undefined;
@@ -249,7 +249,7 @@ export class RemoteControlController {
       );
     }
 
-    // REMOTE-012 E3: when a trusted-device store + host identity are configured, build the reconnect config so
+    // When a trusted-device store + host identity are configured, build the reconnect config so
     // the gate admits a pinned device without re-pairing (and enrolls new devices on first pair). A malformed
     // host-identity file throws → fail closed with the error (don't start with a broken trust anchor).
     let reconnect: IHostReconnectConfig | undefined;
@@ -267,7 +267,7 @@ export class RemoteControlController {
     }
     if (signal.aborted) return ACTIVATION_CANCELLED;
 
-    // REMOTE-013 E4: retain the session bridge and inputs needed to re-arm reconnect signaling.
+    // Retain the session bridge and inputs needed to re-arm reconnect signaling.
     this.relayUrl = relayUrl;
     this.iceConfig = { ...(iceServers ? { iceServers } : {}), forceTurn };
     this.reconnectConfig = reconnect;
@@ -291,7 +291,7 @@ export class RemoteControlController {
       pairing.secret,
       {
         // Pairing accepted → the paired device drives the session. On FIRST pair, persist the reconnect
-        // seed+counter (from the pairing sessionKey) so a future drop can rediscover + resume (E4).
+        // seed+counter (from the pairing sessionKey) so a future drop can rediscover + resume.
         onPaired: (result) => {
           if (signal.aborted || this.transport !== transport) return;
           this.status = { state: 'paired' };
@@ -335,7 +335,7 @@ export class RemoteControlController {
   }
 
   /**
-   * REMOTE-012 E3: build the gate's reconnect/enrollment config from the host identity + trusted-device store.
+   * Build the gate's reconnect/enrollment config from the host identity + trusted-device store.
    * `resolveDevicePublicKey` imports a pinned SPKI (unknown/revoked → undefined → fail closed); `onEnroll`
    * pins a device's public key on first pair (preserving `createdAt`/`label` on a re-enroll, bumping `lastSeenAt`).
    */
@@ -380,14 +380,14 @@ export class RemoteControlController {
         });
         // E4: remember which device is driving, so a drop knows whose reconnect rooms to re-arm.
         this.pairedDeviceId = deviceId;
-        // REMOTE-014 E5: bind the paired device's id as the co-drive driver id for this remote surface, so its
+        // Bind the paired device's id as the co-drive driver id for this remote surface, so its
         // submits/prompt-answers are server-attributed (never a client-forged id).
         this.bridge?.setDriverId(deviceId);
       },
     };
   }
 
-  /** REMOTE-013 E4: persist the per-device reconnect seed (from the pairing sessionKey) + counter 0 on first pair. */
+  /** Persist the per-device reconnect seed (from the pairing sessionKey) + counter 0 on first pair. */
   private async persistReconnectSeed(
     deviceId: string,
     sessionKey: string,
@@ -408,9 +408,9 @@ export class RemoteControlController {
   }
 
   /**
-   * REMOTE-013 E4: a PAIRED channel dropped. Keep the session + bridge; register the returning device's
+   * A PAIRED channel dropped. Keep the session + bridge; register the returning device's
    * reconnect rooms (the `{counter, counter+1}` window) and arm the reconnect-window ceiling. The client runs
-   * its own backoff loop toward these rooms; a confirmed E3 reconnect resumes the same session.
+   * its own backoff loop toward these rooms; a confirmed reconnect resumes the same session.
    */
   private onDropped(): void {
     const store = this.deps.trustedDeviceStore;
@@ -460,7 +460,8 @@ export class RemoteControlController {
       this.relayUrl,
       rendezvous,
     );
-    // The reconnect room carries only rc-hello (E3 reconnect); the QR secret is unused but the gate requires one.
+    // The reconnect room carries only rc-hello (reconnect); the QR secret is unused but the gate
+    // requires one.
     const dummySecret = generatePairingSecret().secret;
     const peer = (this.deps.createTransport ?? defaultCreateTransport)(
       this.deps.productRuntime.cryptoContext,
@@ -489,7 +490,10 @@ export class RemoteControlController {
     ).catch(() => undefined);
   }
 
-  /** A returning device confirmed the E3 reconnect at `usedCounter`. Advance (resync), promote the winner, drop the rest. */
+  /**
+   * A returning device confirmed the reconnect at `usedCounter`. Advance (resync), promote the
+   * winner, drop the rest.
+   */
   private onReconnected(
     usedCounter: number,
     winner: TRemoteControlPeer,
@@ -514,7 +518,7 @@ export class RemoteControlController {
     }
     this.reconnectPeers = [];
     this.reconnectSignalings = [];
-    this.deps.host.promoteWinner(winner, session); // #2043: the entry must name the live instance
+    this.deps.host.promoteWinner(winner, session); // The entry must name the live instance
     this.transport = winner;
     this.signaling = winnerSignaling;
     this.status = { state: 'paired' };
@@ -526,12 +530,12 @@ export class RemoteControlController {
     void this.teardown('off');
   }
 
-  /** REMOTE-012 E3: list enrolled trusted devices (public data only). Empty when no store is configured. */
+  /** List enrolled trusted devices (public data only). Empty when no store is configured. */
   listDevices(): ITrustedDeviceRecord[] {
     return this.deps.trustedDeviceStore?.list() ?? [];
   }
 
-  /** REMOTE-012 E3: revoke a trusted device by id; it must re-pair. Returns false when unknown / no store. */
+  /** Revoke a trusted device by id; it must re-pair. Returns false when unknown / no store. */
   revokeDevice(deviceId: string): boolean {
     const store = this.deps.trustedDeviceStore;
     if (!store) return false;
@@ -582,7 +586,7 @@ export class RemoteControlController {
     this.transport = undefined;
     this.signaling = undefined;
     this.status = { state: next };
-    // REMOTE-013 E4: cancel any in-flight reconnect + free the session-scoped bridge and its buffer.
+    // Cancel any in-flight reconnect + free the session-scoped bridge and its buffer.
     this.cancelReconnectCeiling?.();
     this.cancelReconnectCeiling = undefined;
     this.cancelReconnectRound?.();

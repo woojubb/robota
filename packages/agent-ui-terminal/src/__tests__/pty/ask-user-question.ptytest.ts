@@ -1,9 +1,9 @@
 /**
- * CMD-005 TC-03: a model-issued AskUserQuestion renders as the Ink dialog mid-turn and the picked
+ * A model-issued AskUserQuestion renders as the Ink dialog mid-turn and the picked
  * answer returns to the model — end to end against the BUILT CLI binary.
  *
- * Boots with `--session-log` (INFRA-018 replay, no model key): the replayed assistant turn calls the
- * AskUserQuestion tool; the real TUI renders the CMD-004 PendingActionPrompt while the turn is
+ * Boots with `--session-log` (replay, no model key): the replayed assistant turn calls the
+ * AskUserQuestion tool; the real TUI renders the PendingActionPrompt while the turn is
  * executing; pressing Enter picks the highlighted option; the tool result resolves and the replayed
  * follow-up assistant text renders — proving ask → dialog → answer → turn-continue on the real binary.
  */
@@ -25,7 +25,7 @@ const FIXTURE = join(
   'ask-user-question.jsonl',
 );
 
-describe('AskUserQuestion dialog through the real binary (CMD-005)', () => {
+describe('AskUserQuestion dialog through the real binary', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 
@@ -55,7 +55,7 @@ describe('AskUserQuestion dialog through the real binary (CMD-005)', () => {
     await session.sendKeys('go');
     await session.pressEnter();
 
-    // The CMD-004 dialog renders the model's question with its options while the turn is running.
+    // The dialog renders the model's question with its options while the turn is running.
     await session.waitFor(/PICK_A_COLOR/, 20_000);
     const dialog = session.snapshot();
     expect(dialog).toContain('Red');

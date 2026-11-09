@@ -34,8 +34,8 @@ async function exchange(
   };
 }
 
-describe('pairing crypto (REMOTE-005 B3)', () => {
-  it('TC-01: generatePairingSecret yields distinct high-entropy secret + rendezvous', () => {
+describe('pairing crypto', () => {
+  it('generatePairingSecret yields distinct high-entropy secret + rendezvous', () => {
     const p1 = generatePairingSecret();
     const p2 = generatePairingSecret();
     expect(p1.secret).not.toBe(p2.secret);
@@ -44,7 +44,7 @@ describe('pairing crypto (REMOTE-005 B3)', () => {
     expect(p1.secret.length).toBeGreaterThanOrEqual(40);
   });
 
-  it('TC-02: pairing URL round-trips with the secret in the fragment (never in path/query)', () => {
+  it('pairing URL round-trips with the secret in the fragment (never in path/query)', () => {
     const pairing = generatePairingSecret();
     const url = toPairingUrl('https://remote.example/app', pairing);
     const parsed = new URL(url);
@@ -53,14 +53,14 @@ describe('pairing crypto (REMOTE-005 B3)', () => {
     expect(parsePairingUrl(url)).toEqual(pairing);
   });
 
-  it('TC-03: extractDtlsFingerprint reads a=fingerprint from a real werift SDP fixture', () => {
+  it('extractDtlsFingerprint reads a=fingerprint from a real werift SDP fixture', () => {
     const sdp = readFileSync(join(__dirname, 'fixtures', 'werift-offer.sdp'), 'utf8');
     const fp = extractDtlsFingerprint(sdp);
     expect(fp).toMatch(/^[0-9A-F:]+$/);
     expect(fp.length).toBeGreaterThan(40);
   });
 
-  it('TC-04: no-MITM — matching fingerprints → both peers accept the counter-direction confirmation', async () => {
+  it('no-MITM — matching fingerprints → both peers accept the counter-direction confirmation', async () => {
     const secret = generatePairingSecret().secret;
     const nI = generateNonce();
     const nR = generateNonce();
@@ -86,7 +86,7 @@ describe('pairing crypto (REMOTE-005 B3)', () => {
     expect(bAccepts).toBe(true);
   });
 
-  it('TC-05: fingerprint-substitution MITM — each side sees the relay fingerprint → reject', async () => {
+  it('fingerprint-substitution MITM — each side sees the relay fingerprint → reject', async () => {
     const secret = generatePairingSecret().secret;
     const nI = generateNonce();
     const nR = generateNonce();
@@ -112,7 +112,7 @@ describe('pairing crypto (REMOTE-005 B3)', () => {
     expect(bAccepts).toBe(false);
   });
 
-  it('TC-06: reflection adversary — echoing a peer its OWN confirmation is rejected (directional labels)', async () => {
+  it('reflection adversary — echoing a peer its OWN confirmation is rejected (directional labels)', async () => {
     const secret = generatePairingSecret().secret;
     const nI = generateNonce();
     const nR = generateNonce();
@@ -128,7 +128,7 @@ describe('pairing crypto (REMOTE-005 B3)', () => {
     expect(await verifyPeerConfirmation(a.expectPeer, a.send)).toBe(false);
   });
 
-  it('TC-07: wrong secret → different key → reject', async () => {
+  it('wrong secret → different key → reject', async () => {
     const nI = generateNonce();
     const nR = generateNonce();
     const { aAccepts } = await exchange(
@@ -152,7 +152,7 @@ describe('pairing crypto (REMOTE-005 B3)', () => {
     expect(aAccepts).toBe(false);
   });
 
-  it('TC-08: replay — a confirmation from one handshake fails under a fresh nonce set', async () => {
+  it('replay — a confirmation from one handshake fails under a fresh nonce set', async () => {
     const secret = generatePairingSecret().secret;
     const b1 = await computeConfirmations(testIdentity, {
       secret,
@@ -174,7 +174,7 @@ describe('pairing crypto (REMOTE-005 B3)', () => {
     expect(await verifyPeerConfirmation(a2.expectPeer, b1.send)).toBe(false);
   });
 
-  it('TC-13: session key is domain-separated (byte-distinct from the confirmation key material)', async () => {
+  it('session key is domain-separated (byte-distinct from the confirmation key material)', async () => {
     const secret = generatePairingSecret().secret;
     const sessionKey = await deriveSessionKey(testIdentity, secret);
     // Reproduce the confirmation-key bits with the SAME salt but the "confirm" info; must differ from "session".

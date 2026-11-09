@@ -10,6 +10,8 @@
  * store elsewhere (project writes are Linux-only); the CLI composes whichever applies.
  */
 
+import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
+
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -203,7 +205,9 @@ describe('resuming a session another process has open', () => {
     expect(refused.exitCode).toBe(1);
     expect(refused.stderr).toContain(`Session ${HELD_ID} is open in another process`);
 
-    createProcessMarkers(join(sessionsDirectory, 'claims')).remove(HELD_ID, { force: true });
+    createProcessMarkers(join(sessionsDirectory, 'claims'), {
+      operationLock: createProcessOperationLock(join(sessionsDirectory, 'claims')),
+    }).remove(HELD_ID, { force: true });
     const resumed = await run(project, ['-p', 'hi', '-r', HELD_ID]);
 
     expect(resumed.exitCode).toBe(0);

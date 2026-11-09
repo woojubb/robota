@@ -1,6 +1,6 @@
 /**
  * The built-binary driver reads the tool calls a run persisted through the product's own session
- * store (#3679), never by parsing the file: a record the product seals reads back exactly as the
+ * store, never by parsing the file: a record the product seals reads back exactly as the
  * product reads it, and a record that is there and unreadable is an error, not a crash or nothing.
  * The "binary" here is a stand-in that only reports a session id on its stream.
  */
@@ -16,7 +16,7 @@ import { createProductUserSessionStore } from '../../product/session-stores.js';
 import { createBinaryAgentDriver } from '../binary-agent-driver.js';
 
 import type { TArtifactSealing } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const sealing = vi.hoisted(() => ({ current: 'plain' as unknown }));
 

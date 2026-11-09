@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
-import { resolveProductConfig, publicProductConfig } from '../../../../packages/product-config/src/index.ts';
+import { resolveProductConfig, publicProductConfig } from '@robota-sdk/product-config';
 import { productEnvironment } from '../../../../packages/product-config/src/__tests__/product-environment.ts';
 import { fillProductContent } from '../../../../scripts/product/generate-workspace.mjs';
 

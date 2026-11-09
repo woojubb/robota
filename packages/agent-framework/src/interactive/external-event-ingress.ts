@@ -1,5 +1,5 @@
 import { base64UrlDecode, utf8ByteLength, utf8Decode } from '@robota-sdk/agent-core';
-import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
+import { isTurnNotRunError } from '@robota-sdk/agent-interface/session';
 
 import { DEFAULT_PEER_TURN_RATE_WINDOWS, PeerTurnRateLimiter } from './peer-turn-rate-limit.js';
 
@@ -7,7 +7,7 @@ import type {
   ISubmitOptions,
   ITurnHandle,
   TTurnNotRunReason,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import type {
   IAccessTokenVerifier,
   IAccessTokenVerifierConfig,
@@ -15,7 +15,7 @@ import type {
   TExternalEventAuditRecord,
   TExternalEventRefusal,
   TExternalEventSettlementOutcome,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 /**
@@ -70,7 +70,7 @@ export interface IExternalEventHost {
   /** Whether the session has begun shutting down; a refused submission is then named so. */
   isShuttingDown?: () => boolean;
   /**
-   * The run's grant history (#3189). A run that switches sessions lends every session the same one,
+   * The run's grant history. A run that switches sessions lends every session the same one,
    * so spent tokens, rate windows and revocations belong to the run: a switch replays nothing and
    * resets no rate. Without it, the history lives and ends with this session.
    */

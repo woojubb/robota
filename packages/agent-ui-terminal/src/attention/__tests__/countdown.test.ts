@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { formatCountdown } from '../countdown.js';
 
-describe('formatCountdown (SCREEN-1992 TC-04)', () => {
+describe('formatCountdown', () => {
   it('renders seconds, minutes and hours against the given now, and "now" once due', () => {
     const now = new Date('2026-01-01T00:00:00.000Z');
     expect(formatCountdown('2026-01-01T00:00:59.000Z', now)).toBe('in 59s');

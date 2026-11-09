@@ -1,9 +1,9 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * FLOW-2006: the node wiring for `the product open <url>` — the only place this feature touches the host.
+ * The node wiring for `the product open <url>` — the only place this feature touches the host.
  *
  * It composes the deps from what the repository already owns: the node workspace-trust store and
- * identity resolver and the argv-only git port (all `agent-framework/node`, BEHAVIOR-2437).
+ * identity resolver and the argv-only git port (all `agent-framework/node`).
  * No new runner, no second parser over `workspace-trust.json`.
  */
 import {
@@ -17,6 +17,8 @@ import { join } from 'node:path';
 
 import { createRemoteUrlReader, resolveLaunchInvocation, stripOpenInvocation } from './index.js';
 import { userPaths } from '../product/user-paths.js';
+import { workspaceRootBrokerEndpoint } from '../startup/workspace-root-broker-process.js';
+import { requestWorkspaceRootBroker } from '../startup/workspace-root-broker.js';
 
 import type { IResolveLaunchInvocationDeps, TLaunchTargetTrust } from './index.js';
 
@@ -59,7 +61,17 @@ function createLaunchInvocationDeps(runtime: ICliRuntimeContext): IResolveLaunch
         // No git workspace identity ⇒ no trust state to be `trusted`. A refusal, not a pass.
         return 'unknown';
       }
-      return (await store.inspect(identity)).state;
+      try {
+        const endpoint = workspaceRootBrokerEndpoint(runtime);
+        const response = await requestWorkspaceRootBroker(endpoint, {
+          op: 'inspect', root: identity.worktreeRoot,
+        });
+        return response.status === 'trusted' || response.status === 'untrusted' ||
+          response.status === 'revoked' || response.status === 'stale/replaced'
+          ? response.status : 'unknown';
+      } catch {
+        return 'unknown';
+      }
     },
     realDirectory,
     readRemoteUrl: remoteUrl,

@@ -1,5 +1,5 @@
 import { FunctionTool } from '@robota-sdk/agent-core';
-import { mergeCapabilityPacks, type ICapabilityPack } from '@robota-sdk/agent-capability-pack';
+import { mergeCapabilityPacks, type ICapabilityPack } from '../src/capability-pack/index.js';
 import { assembleProduct } from '../src/index.js';
 
 import type { IAgentDefinition, ICommandModule } from '@robota-sdk/agent-framework';

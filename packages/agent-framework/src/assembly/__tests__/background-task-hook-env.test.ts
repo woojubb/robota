@@ -6,7 +6,7 @@ import { buildAgentRuntime } from '../build-runtime.js';
 
 import type { IHookInput, IHookTypeExecutor, THooksConfig } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface/execution';
 import type { ICreateSessionOptions } from '../create-session-types.js';
 
 const event: TBackgroundTaskEvent = {

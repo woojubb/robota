@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# publish-packages.sh — publish every public package in the selected scope at the release version.
+# publish-packages.sh — publish one selected SDK package or the CLI.
 #
 # Usage:
-#   pnpm publish:beta                     # build, check, publish; asks for the npm one-time password right
+#   RELEASE_PACKAGE=agent-core pnpm publish:beta # build, check, publish; asks for the npm one-time password right
 #                                         # before publishing and again when npm rejects an expired code
 #   pnpm publish:beta --otp=123456        # non-interactive: the code is used once, nothing is asked
 #   pnpm publish:beta --skip-build        # dist is already current (e.g. from CI)
@@ -72,32 +72,55 @@ if [ "$TRUSTED" = "true" ] && [ -n "$OTP" ]; then
   exit 1
 fi
 
-VERSION=$(node -p "require('./packages/agent-core/package.json').version")
-echo "📦 Version: $VERSION"
+COMPONENT="${RELEASE_COMPONENT:-sdk}"
+case "$COMPONENT" in
+  sdk) SELECTED="${RELEASE_PACKAGE:-}" ;;
+  cli) SELECTED="${RELEASE_PACKAGE:-agent-cli}" ;;
+  *) echo "❌ RELEASE_COMPONENT must be sdk or cli." >&2; exit 1 ;;
+esac
+if [[ ! "$SELECTED" =~ ^[a-z0-9][a-z0-9._-]*$ ]] ||
+   { [ "$COMPONENT" = sdk ] && [ "$SELECTED" = agent-cli ]; } ||
+   { [ "$COMPONENT" = cli ] && [ "$SELECTED" != agent-cli ]; }; then
+  echo "❌ Select one public SDK package using RELEASE_PACKAGE, or select the CLI." >&2
+  exit 1
+fi
+export RELEASE_COMPONENT="$COMPONENT" RELEASE_PACKAGE="$SELECTED"
 
 # A restored artifact is already built, packed and inspected. Never recreate it on retry.
 if [ -z "$PACK_DIR" ] || [ "$PREPARE_ONLY" = "true" ]; then
-  if [ "$SKIP_BUILD" != "true" ]; then pnpm build; fi
+  VERSION=$(node - "$SELECTED" "$PACKAGE_SCOPE" <<'NODE'
+const [name, scope] = process.argv.slice(2);
+const pkg = require(`./packages/${name}/package.json`);
+if (pkg.name !== `${scope}/${name}` || pkg.private === true ||
+    (process.env.RELEASE_VERSION && pkg.version !== process.env.RELEASE_VERSION))
+  throw new Error('Selected package does not match the configured release.');
+process.stdout.write(pkg.version);
+NODE
+  )
+  if [ "$SKIP_BUILD" != "true" ]; then
+    pnpm -r --filter "{packages/$SELECTED}..." run build
+  fi
   node scripts/harness/check-publish-safety.mjs
-  node scripts/harness/check-sdk-public-surface.mjs
   PACK_DIR="${PACK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/package-pack.XXXXXX")}"
   mkdir -p "$PACK_DIR"
-  while IFS= read -r DIR; do
-    (cd "$DIR" && pnpm pack --pack-destination "$PACK_DIR" >/dev/null)
-  done < <(
-    pnpm -r --depth -1 --json list | RELEASE_VERSION="$VERSION" node -e '
-      let input = "";
-      process.stdin.on("data", chunk => input += chunk);
-      process.stdin.on("end", () => {
-        for (const pkg of JSON.parse(input)) {
-          if (pkg.name?.startsWith(process.env.PRODUCT_PACKAGE_SCOPE + "/") &&
-              pkg.private === false && pkg.version === process.env.RELEASE_VERSION)
-            console.log(pkg.path);
-        }
-      });
-    '
-  )
+  (cd "packages/$SELECTED" && pnpm pack --pack-destination "$PACK_DIR" >/dev/null)
   node scripts/publish/verify-tarballs.mjs "$PACK_DIR"
+else
+  VERSION="${RELEASE_VERSION:?A retained artifact requires its exact release version.}"
+fi
+export RELEASE_VERSION="$VERSION"
+echo "📦 $PACKAGE_SCOPE/$SELECTED version: $VERSION"
+TARBALLS=("$PACK_DIR"/*.tgz)
+if [ "${#TARBALLS[@]}" -ne 1 ] || [ ! -f "${TARBALLS[0]}" ]; then
+  echo "❌ A package release must contain exactly one tarball." >&2
+  exit 1
+fi
+MANIFEST=$(tar -xzOf "${TARBALLS[0]}" package/package.json)
+NAME=$(printf '%s' "$MANIFEST" | node -pe 'JSON.parse(require("fs").readFileSync(0, "utf8")).name')
+TARBALL_VERSION=$(printf '%s' "$MANIFEST" | node -pe 'JSON.parse(require("fs").readFileSync(0, "utf8")).version')
+if [ "$NAME" != "$PACKAGE_SCOPE/$SELECTED" ] || [ "$TARBALL_VERSION" != "$VERSION" ]; then
+  echo "❌ The retained tarball does not match the selected package and version." >&2
+  exit 1
 fi
 if [ "$PREPARE_ONLY" = "true" ]; then
   echo "Prepared exact release tarballs in $PACK_DIR."

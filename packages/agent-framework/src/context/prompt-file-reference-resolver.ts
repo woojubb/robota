@@ -20,7 +20,7 @@ const DEFAULT_MAX_REFERENCES = Number('8');
 const BYTES_PER_KIB = Number('1024');
 const DEFAULT_MAX_FILE_BYTES = Number('64') * BYTES_PER_KIB;
 const DEFAULT_MAX_TOTAL_BYTES = Number('256') * BYTES_PER_KIB;
-// Correction to #3282 §4: the reader decodes every file as UTF-8 unconditionally (`readText` in
+// The reader decodes every file as UTF-8 unconditionally (`readText` in
 // workspace-trust/project-reader-path.ts) — a binary file was previously sent to the model as
 // mangled text instead of being refused. A NUL byte survives that decode unchanged (0x00 is valid
 // single-byte UTF-8), so sniffing for one in the first 8 KiB reliably flags binary content without
@@ -161,7 +161,7 @@ function hasUnsafePathShape(value: string): boolean {
 }
 
 /**
- * Follow-up to #3282 §4d: `isPathLikeReference` in the parser recognizes a `./`-prefixed token as
+ * `isPathLikeReference` in the parser recognizes a `./`-prefixed token as
  * path-like even when it has no `.` elsewhere (e.g. `./Makefile`) — the GUI composer relies on this
  * to attach a dotless filename, which `@Makefile` alone cannot do. A literal `.` segment (leading or
  * internal) is always a no-op in ordinary path semantics, so it is stripped here before the safety

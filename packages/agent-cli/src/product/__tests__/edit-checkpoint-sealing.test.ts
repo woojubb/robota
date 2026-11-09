@@ -1,5 +1,5 @@
 /**
- * #3679 step 3c — how the product's edit checkpoints seal, from the same decision as every store:
+ * How the product's edit checkpoints seal, from the same decision as every store:
  * plain exactly while the session stores are plain. Once a process seals, a session's persistent
  * checkpoints (which a later process resumes) are sealed with the keyring, so they open through any
  * runtime that holds those keys; a run that persists no session seals its ephemeral checkpoints with
@@ -231,7 +231,7 @@ describe('ephemeral edit checkpoints of a sealing process', () => {
   });
 });
 
-// ARCH-047: the project's checkpoint directory is written through project mutation, Linux-only.
+// The project's checkpoint directory is written through project mutation, Linux-only.
 describe.runIf(process.platform === 'linux')('persistent edit checkpoints', () => {
   it('written through one runtime open through another holding the same keys, not its process key', async () => {
     const project = tempRoot('test-product-checkpoint-sealing-project-');

@@ -1,5 +1,5 @@
 /**
- * SELFHOST-008 P1 — the authority-backed workspace adapter for the memory port.
+ * The authority-backed workspace adapter for the memory port.
  *
  * `WorkspaceMemoryStore` implements `IMemoryStore` by composing the authority-backed
  * mechanisms — `ProjectMemoryStore` (durable read/write through the named `memory` state facet),
@@ -40,7 +40,8 @@ export class WorkspaceMemoryStore implements IMemoryStore {
   }
 
   // The methods are async to satisfy the async `IMemoryStore` port; the underlying fs work is
-  // synchronous, so each returns an already-resolved value — zero behavior change vs the sync P1 adapter.
+  // synchronous, so each returns an already-resolved value — zero behavior change vs a sync
+  // adapter.
 
   // ── durable project memory ─────────────────────────────────────────────
   async loadStartupMemory(): Promise<IStartupMemory> {

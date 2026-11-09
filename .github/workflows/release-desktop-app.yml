@@ -2,7 +2,7 @@ name: Release — Desktop app
 
 on:
   push:
-    tags: ['**']
+    tags: ['**', '!sdk-*']
   workflow_dispatch:
     inputs:
       product_env:
@@ -10,7 +10,7 @@ on:
         required: false
         type: string
       tag:
-        description: 'Existing configured-prefix release tag to build and attach installers to. Must already exist.'
+        description: 'Existing CLI release tag. App tags run on push; retry failed jobs in that run.'
         required: true
         type: string
       verify_only:
@@ -53,7 +53,13 @@ jobs:
         env:
           INPUT_TAG: ${{ github.event.inputs.tag }}
           REF_NAME: ${{ github.ref_name }}
-        run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
+        run: |
+          tag="${INPUT_TAG:-$REF_NAME}"
+          if [[ "$tag" == app-* && "$GITHUB_EVENT_NAME" != push ]]; then
+            echo "::error::App releases run from their tag push; retry failed jobs in the original run."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v7
         with:
@@ -105,7 +111,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
 
       - name: Apply release packaging and verification tooling
         shell: bash
@@ -135,19 +141,33 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -euo pipefail
-          if [ -z "$PROJECT_RELEASE_TAG_PREFIX" ] || [[ "$TAG" != "$PROJECT_RELEASE_TAG_PREFIX"* ]]; then
+          if [[ "$PROJECT_RELEASE_TAG_PREFIX" == sdk-* || "$PROJECT_RELEASE_TAG_PREFIX" == app-* ]]; then
+            echo "::error::The sdk- and app- prefixes are reserved for independent releases."
+            exit 1
+          fi
+          prefix="$PROJECT_RELEASE_TAG_PREFIX"
+          if [[ "$TAG" == app-* ]]; then
+            prefix="app-$prefix"
+            version=$(node -p "require(process.env.PRODUCT_WORKSPACE + '/apps/agent-app/package.json').version")
+            if [ "$TAG" != "$prefix$version" ]; then
+              echo "::error::The app tag must match the desktop version."
+              exit 1
+            fi
+          fi
+          if [ -z "$PROJECT_RELEASE_TAG_PREFIX" ] || [[ "$TAG" != "$prefix"* ]]; then
             echo "::error::The selected tag must use the configured PROJECT_RELEASE_TAG_PREFIX."
             exit 1
           fi
+          echo "DESKTOP_RELEASE_TAG_PREFIX=$prefix" >> "$GITHUB_ENV"
+
+      - name: Build workspace
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        run: pnpm install --frozen-lockfile && pnpm -r --filter "{apps/agent-app}^..." run build
 
       - name: Verify Windows native control transport
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
         if: runner.os == 'Windows'
-        run: pnpm install --frozen-lockfile && pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts
-
-      - name: Build workspace
-        working-directory: ${{ env.PRODUCT_WORKSPACE }}
-        run: pnpm install --frozen-lockfile && pnpm build
+        run: pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -276,7 +296,7 @@ jobs:
         shell: bash
         env:
           TAG: ${{ steps.tag.outputs.tag }}
-        run: node scripts/release/generate-release-notes.mjs --tag "$TAG" --tag-prefix "$PROJECT_RELEASE_TAG_PREFIX" --notes-file "${{ runner.temp }}/release-notes.md"
+        run: node scripts/release/generate-release-notes.mjs --tag "$TAG" --tag-prefix "$DESKTOP_RELEASE_TAG_PREFIX" --notes-file "${{ runner.temp }}/release-notes.md"
 
       - name: Publish installers to the GitHub Release
         shell: bash
@@ -310,7 +330,7 @@ jobs:
           # The existing asset patterns are selected by the trusted matrix.
           node "$GITHUB_WORKSPACE/.release-tools/scripts/release/desktop-release-evidence.mjs" "$RUNNER_TEMP/desktop-release-evidence.json" desktop \
             "$TAG" "$(git -C "$GITHUB_WORKSPACE" rev-parse 'HEAD^{commit}')" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" \
-            "${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}" "$PROJECT_RELEASE_TAG_PREFIX" "$PROJECT_REPOSITORY_URL" "$config_hash" $ASSETS "release/SHA256SUMS-desktop-${{ matrix.os }}.txt"
+            "${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}" "$DESKTOP_RELEASE_TAG_PREFIX" "$PROJECT_REPOSITORY_URL" "$config_hash" $ASSETS "release/SHA256SUMS-desktop-${{ matrix.os }}.txt"
       - uses: actions/upload-artifact@v7
         if: ${{ runner.os == 'macOS' }}
         with:
@@ -328,7 +348,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [desktop]
-    if: ${{ !cancelled() && github.event.inputs.verify_only == 'true' }}
+    if: ${{ !cancelled() && (github.event.inputs.verify_only == 'true' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/app-') && needs.desktop.result == 'success')) }}
     env:
       PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
     steps:
@@ -337,7 +357,13 @@ jobs:
         env:
           INPUT_TAG: ${{ github.event.inputs.tag }}
           REF_NAME: ${{ github.ref_name }}
-        run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
+        run: |
+          tag="${INPUT_TAG:-$REF_NAME}"
+          if [[ "$tag" == app-* && "$GITHUB_EVENT_NAME" != push ]]; then
+            echo "::error::App releases run from their tag push; retry failed jobs in the original run."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -346,7 +372,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
       - name: Generate selected product workspace
         id: product
         shell: bash
@@ -367,7 +393,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          required="${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64 ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64 SHA256SUMS.txt"
+          if [[ "$TAG" == app-* ]]; then
+            required="SHA256SUMS-desktop-macos-latest.txt"
+          else
+            required="${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64 ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64 SHA256SUMS.txt"
+          fi
           names=$(gh release view "$TAG" --json assets --jq '.assets[].name')
           missing=""
           for r in $required; do
@@ -403,7 +433,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
       - name: Generate selected product workspace
         id: product
         shell: bash
@@ -417,6 +447,27 @@ jobs:
           printf '%s' "$PRODUCT_BUILD_ENV" > "$RUNNER_TEMP/selected-product.env"
           pnpm exec tsx scripts/product/generate-workspace.mjs --env "$RUNNER_TEMP/selected-product.env" --out "$RUNNER_TEMP/product-workspace" --github-env "$GITHUB_ENV" --github-output "$GITHUB_OUTPUT"
 
+      - name: Restore app release producer evidence
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/app-')
+        uses: actions/download-artifact@v7
+        with:
+          pattern: desktop-release-evidence-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/desktop-evidence
+
+      - name: Select the latest retained producer evidence
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/app-')
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const root = path.join(process.env.RUNNER_TEMP, 'desktop-evidence');
+          const prefix = `desktop-release-evidence-${process.env.GITHUB_RUN_ID}-`;
+          const attempts = fs.readdirSync(root).filter(x => x.startsWith(prefix)).map(x => Number(x.slice(prefix.length)))
+            .filter(x => Number.isSafeInteger(x) && x > 0 && x <= Number(process.env.GITHUB_RUN_ATTEMPT)).sort((a, b) => b - a);
+          if (!attempts.length) throw new Error('No retained desktop producer evidence');
+          fs.appendFileSync(process.env.GITHUB_ENV, `DESKTOP_ATTEMPT=${attempts[0]}\nDESKTOP_EVIDENCE=${path.join(root, prefix + attempts[0], 'desktop-release-evidence.json')}\n`);
+          NODE
+
       - name: Download the PUBLISHED macOS assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -426,16 +477,50 @@ jobs:
           set -euo pipefail
           mkdir -p "${{ runner.temp }}/published"
           cd "${{ runner.temp }}/published"
-          gh release download "$TAG" \
-            -p "${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64" \
-            -p "${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64" \
-            -p 'SHA256SUMS*.txt' \
-            -p '*.dmg' \
-            --clobber
+          if [[ "$TAG" == app-* ]]; then
+            gh release download "$TAG" -p 'SHA256SUMS-desktop-macos-latest.txt' -p '*.dmg' -p '*.zip' --clobber
+          else
+            gh release download "$TAG" \
+              -p "${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64" \
+              -p "${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64" \
+              -p 'SHA256SUMS*.txt' -p '*.dmg' --clobber
+          fi
           ls -la
+
+      - name: Match app assets to their producer and protected main
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/app-')
+        env:
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          RELEASE_SHA: ${{ github.sha }}
+          DESKTOP_RUN: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          git fetch origin "+refs/heads/main:refs/remotes/origin/main" "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$RELEASE_SHA"
+          git merge-base --is-ancestor "$RELEASE_SHA" refs/remotes/origin/main
+          node scripts/release/verify-desktop-evidence.mjs --desktop-only "$DESKTOP_EVIDENCE" "$RUNNER_TEMP/published"
 
       - name: Verify the artifacts a user actually downloads
         env:
           TAG: ${{ steps.tag.outputs.tag }}
           PRODUCT_ARTIFACT_PREFIX: ${{ steps.product.outputs.artifact_prefix }}
-        run: bash scripts/harness/verify-macos-release-artifacts.sh "$TAG" "${{ runner.temp }}/published"
+        run: |
+          mode=all
+          if [[ "$TAG" == app-* ]]; then mode=desktop; fi
+          bash scripts/harness/verify-macos-release-artifacts.sh "$TAG" "${{ runner.temp }}/published" "$mode"
+
+      - name: Confirm app assets did not change during verification
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/app-')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          RELEASE_SHA: ${{ github.sha }}
+          DESKTOP_RUN: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/recheck"
+          node scripts/release/download-desktop-evidence.mjs --desktop-only "$DESKTOP_EVIDENCE" "$RUNNER_TEMP/recheck"
+          node scripts/release/verify-desktop-evidence.mjs --desktop-only "$DESKTOP_EVIDENCE" "$RUNNER_TEMP/recheck"
+          test "$(git ls-remote origin "refs/tags/$RELEASE_TAG^{}" | cut -f1)" = "$RELEASE_SHA" || test "$(git ls-remote origin "refs/tags/$RELEASE_TAG" | cut -f1)" = "$RELEASE_SHA"

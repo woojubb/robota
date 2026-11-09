@@ -1,5 +1,5 @@
 /**
- * CMD-005 TC-01/TC-04(unit): AskUserQuestion tool — schema → IActionRequest mapping, 1–4 batching,
+ * AskUserQuestion tool — schema → IActionRequest mapping, 1–4 batching,
  * cancellation semantics, and the headless `unavailable` result, over a stubbed `context.ask`.
  */
 import { describe, expect, it } from 'vitest';
@@ -40,7 +40,7 @@ async function run(
   return JSON.parse(result.output) as TAskUserQuestionOutput;
 }
 
-describe('AskUserQuestion tool (CMD-005)', () => {
+describe('AskUserQuestion tool', () => {
   it('registers under the AskUserQuestion name', () => {
     expect(createAskUserQuestionTool().getName()).toBe('AskUserQuestion');
   });

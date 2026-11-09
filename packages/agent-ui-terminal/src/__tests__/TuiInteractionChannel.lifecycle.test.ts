@@ -14,7 +14,7 @@ vi.mock('@robota-sdk/agent-framework', async () => {
   const actual = await vi.importActual<typeof import('@robota-sdk/agent-framework')>(
     '@robota-sdk/agent-framework',
   );
-  // RUNTIME-001: construction now flows through `buildRuntimeSession` (which wraps InteractiveSession inside
+  // Construction now flows through `buildRuntimeSession` (which wraps InteractiveSession inside
   // agent-framework), so mocking `InteractiveSession` alone no longer intercepts it — mock both with one factory.
   const makeMockSession = (): unknown => {
     {
@@ -75,12 +75,12 @@ import { TUI_SESSION_EVENT_CLASSIFICATION } from '../tui-session-events.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface/transport';
 import type {
   IExecutionResult,
   IInteractiveSession,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 
@@ -442,9 +442,9 @@ describe('Group C — onChange propagation invariant', () => {
   });
 });
 
-// ── Group D: teardown hygiene (CLI-075) ───────────────────────────────────────
+// ── Group D: teardown hygiene ───────────────────────────────────────
 
-describe('Group D — teardown hygiene (CLI-075)', () => {
+describe('Group D — teardown hygiene', () => {
   it('D1: stop() unwires every session listener', async () => {
     const channel = makeChannel();
     await channel.start();
@@ -548,7 +548,7 @@ describe('Group D — teardown hygiene (CLI-075)', () => {
   });
 });
 
-describe('Group E — canonical prompt request settlement (ARCH-017)', () => {
+describe('Group E — canonical prompt request settlement', () => {
   it('E1: permission_request renders locally and settles through resolvePermission', async () => {
     const channel = makeChannel();
     await channel.start();
@@ -586,7 +586,7 @@ describe('Group E — canonical prompt request settlement (ARCH-017)', () => {
   });
 });
 
-describe('Group F — total session-event surface delivery (ARCH-020/ARCH-028)', () => {
+describe('Group F — total session-event surface delivery', () => {
   it('F1: actual channel subscriptions exactly match the exhaustive channel classification', async () => {
     const channel = makeChannel();
     await channel.start();

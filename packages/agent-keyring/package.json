@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-keyring",
-  "version": "3.0.1",
+  "version": "3.2.1",
   "description": "Passphrase and recovery-key custody of a master key, derived sealing and attach keypairs, and public-key sealing of artifact keys, on node:crypto only",
   "type": "module",
   "main": "dist/node/index.js",

@@ -12,7 +12,7 @@ import {
 import { createNodeHttpEgress } from '@robota-sdk/agent-mcp/node';
 import { createMemoryMcpSkillApprovalStore, McpSkillRegistry } from '../mcp-skill-registry.js';
 import { createMcpClientComposition } from '../mcp-client-composition.js';
-import { executeMCPActivationCommand } from '@robota-sdk/agent-command';
+import { executeMCPActivationCommand } from '@robota-sdk/agent-product/command';
 import { createTestCommandHost, createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -1,6 +1,6 @@
 name: Release — tag on version bump
 
-# RELEASE-001 — when the CLI version changes on main, push the tag using the configured release prefix.
+# When the CLI version changes on main, push the tag using the configured release prefix.
 # That tag starts native and desktop builds independently.
 # A tag pushed with GITHUB_TOKEN cannot fire another workflow (anti-recursion), so tagging uses the deploy key below.
 # npm publish is OUT OF SCOPE — it is the separate Publish to npm workflow (publish.yml, trusted publishing).
@@ -80,7 +80,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - if: steps.resolve.outputs.bumped == 'true' || github.event.inputs.dry_run == 'true'
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
       - name: Generate selected product workspace
         if: steps.resolve.outputs.bumped == 'true' || github.event.inputs.dry_run == 'true'
         id: product
@@ -105,6 +105,10 @@ jobs:
           set -euo pipefail
           if [ -z "$TAG_PREFIX" ]; then
             echo "::error::PROJECT_RELEASE_TAG_PREFIX must be configured for release tagging."
+            exit 1
+          fi
+          if [[ "$TAG_PREFIX" == sdk-* || "$TAG_PREFIX" == app-* ]]; then
+            echo "::error::The sdk- and app- prefixes are reserved for independent releases."
             exit 1
           fi
           echo "tag=$TAG_PREFIX$CUR" >> "$GITHUB_OUTPUT"

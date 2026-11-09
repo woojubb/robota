@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Copies `text` to the clipboard for the "Copy code" / "Copy message" buttons (#3289 §2): the async
+ * Copies `text` to the clipboard for the "Copy code" / "Copy message" buttons: the async
  * Clipboard API first, and — for a page that denies it (no permission granted yet, a browser that
  * never implements it, or a context that disallows it outright) — a same-tick `execCommand('copy')`
  * fallback through a throwaway, invisible textarea. Rejects only once both have failed, so a caller
@@ -59,7 +59,7 @@ const FEEDBACK_MS = 2000;
 /**
  * The "Copy code" / "Copy message" buttons' shared feedback state: `copied` or `error` for a couple of
  * seconds, then back to `idle` — drives both the button's own label swap and an `aria-live` region a
- * screen reader announces without moving focus (#3289 §2).
+ * screen reader announces without moving focus.
  */
 export function useCopyFeedback(): { status: TCopyStatus; copy: (text: string) => void } {
   const [status, setStatus] = useState<TCopyStatus>('idle');

@@ -1,0 +1,66 @@
+import {
+  BACKGROUND_COMMAND_USAGE,
+  cancelCommandBackgroundTask,
+  closeCommandBackgroundTask,
+  formatCommandBackgroundTaskList,
+  listCommandBackgroundTasks,
+  parseCommandBackgroundLogCursor,
+  readCommandBackgroundTaskLog,
+} from '@robota-sdk/agent-framework';
+
+import { formatBackgroundLogPage } from './log-page-text.js';
+import { registeredUnlockCommand } from '../key-custody/registered-unlock-command.js';
+
+import type { ICommandHostBackgroundTasks, ICommandHostCatalog } from '@robota-sdk/agent-framework';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
+
+function parseCommandParts(args: string): string[] {
+  return args.trim().split(/\s+/).filter(Boolean);
+}
+
+export async function executeBackgroundCommand(
+  context: ICommandHostBackgroundTasks & Partial<Pick<ICommandHostCatalog, 'listCommands'>>,
+  args: string,
+): Promise<ICommandResult> {
+  const [action = 'list', taskId, ...reasonParts] = parseCommandParts(args);
+  if (action === 'list') {
+    const tasks = listCommandBackgroundTasks(context);
+    return {
+      message: formatCommandBackgroundTaskList(tasks),
+      success: true,
+      data: { count: tasks.length },
+    };
+  }
+
+  if (!taskId) {
+    return {
+      message: BACKGROUND_COMMAND_USAGE,
+      success: false,
+    };
+  }
+
+  if (action === 'read' || action === 'log' || action === 'open') {
+    const page = await readCommandBackgroundTaskLog(
+      context,
+      taskId,
+      parseCommandBackgroundLogCursor(reasonParts[0]),
+    );
+    return {
+      message: formatBackgroundLogPage(taskId, page, registeredUnlockCommand(context)),
+      success: true,
+      data: { taskId, nextOffset: page.nextCursor?.offset },
+    };
+  }
+
+  if (action === 'cancel' || action === 'stop') {
+    await cancelCommandBackgroundTask(context, taskId, reasonParts.join(' ') || undefined);
+    return { message: `Background task cancelled: ${taskId}`, success: true, data: { taskId } };
+  }
+
+  if (action === 'close' || action === 'dismiss') {
+    await closeCommandBackgroundTask(context, taskId);
+    return { message: `Background task closed: ${taskId}`, success: true, data: { taskId } };
+  }
+
+  return { message: `Unknown background action: ${action}`, success: false };
+}

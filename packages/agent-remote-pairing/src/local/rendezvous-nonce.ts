@@ -1,5 +1,5 @@
 /**
- * SEC-010, second half: carrying the kernel's answer from the rendezvous to the channel.
+ * Carrying the kernel's answer from the rendezvous to the channel.
  *
  * `peer-credential.ts` establishes the environment — a peer that reached a 0700 directory owned by
  * this user could only have come from this machine, as this user. But that fact is about the
@@ -14,12 +14,12 @@
  *
  * ## Why this is a grant ledger and not a random string
  *
- * The SEC-010 failure semantics are specific, and each one is a rule about the nonce's lifetime
+ * The failure semantics are specific, and each one is a rule about the nonce's lifetime
  * rather than about its bytes:
  *
  * - **Single use.** A second presentation is a rejection, never a re-admission. A nonce that admits
  *   twice binds nothing on the second attempt — it has become a copyable credential, which is the
- *   exact failure the whole item exists to avoid.
+ *   exact failure this ledger exists to avoid.
  * - **Bounded window.** Admission expires. An indefinitely valid nonce left in a log or a crashed
  *   process's memory is a standing invitation.
  * - **Revocation is the entry's existence.** The rendezvous grant IS the entry; removing it (session
@@ -36,7 +36,8 @@
  * would make the two failure modes hard to tell apart in a test.
  *
  * Time is injected. A ledger whose expiry is read from the ambient clock cannot be tested for the
- * window it claims to enforce, and "it expires eventually" is not the property SEC-010 asks for.
+ * window it claims to enforce, and "it expires eventually" is not the property a bounded window
+ * requires.
  */
 
 /** Why a presented nonce was not honoured. A closed vocabulary — the caller acts on which one. */
@@ -172,7 +173,7 @@ export class RendezvousGrantLedger {
   /**
    * Revoke every grant for a rendezvous — the owning session exited, or revoked explicitly.
    *
-   * Returns how many were live, so a caller can report rather than assume. SEC-010 says the entry IS
+   * Returns how many were live, so a caller can report rather than assume. The entry IS
    * the grant: once this runs, no new attempt at that rendezvous can be admitted.
    */
   revokeRendezvous(rendezvous: string): number {

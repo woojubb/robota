@@ -58,7 +58,7 @@ afterEach(() => {
 });
 
 describe('InteractiveSession memory command integration', () => {
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given a memory cue When a turn completes Then no hidden pending memory is created',
     async () => {
@@ -81,7 +81,7 @@ describe('InteractiveSession memory command integration', () => {
     },
   );
 
-  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given relevant project memory When submitting a prompt Then topic memory is not injected automatically',
     async () => {

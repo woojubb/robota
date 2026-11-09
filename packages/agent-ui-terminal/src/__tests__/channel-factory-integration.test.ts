@@ -1,5 +1,5 @@
 /**
- * CLI-B11 TC-02: real-store channel factory integration.
+ * Real-store channel factory integration.
  *
  * The official CI equivalent of real-resume-verify-v3.mjs: build the channel
  * exactly the way render.tsx does (toChannelOptions + TuiInteractionChannel)
@@ -21,7 +21,7 @@ import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 
@@ -40,7 +40,7 @@ function fakeCliAdapter(settingsPath: string): ITuiCliAdapter {
 }
 
 function persistConversation(store: IInteractiveSessionStore, id: string, cwd: string): void {
-  // TRANS-007: the store decodes on load, so a message must satisfy the contract. These were cast
+  // The store decodes on load, so a message must satisfy the contract. These were cast
   // stubs with only `role` and `content`; the store accepted them because it never looked.
   const at = new Date('2026-06-13T00:00:00.000Z');
   const messages: TUniversalMessage[] = [
@@ -70,7 +70,7 @@ function persistConversation(store: IInteractiveSessionStore, id: string, cwd: s
   });
 }
 
-describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
+describe('channel factory restores persisted context', () => {
   let cwd: string;
   let channel: TuiInteractionChannel | undefined;
 

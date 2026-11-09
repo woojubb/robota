@@ -1,19 +1,31 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { chmodSync } from 'node:fs';
-import { join } from 'node:path';
+import { chmodSync, existsSync } from 'node:fs';
+import { delimiter, join } from 'node:path';
 import { OrganizationGitAsset, createOrganizationGitActions } from '../index.js';
 import type { IOrganizationRequest, TOrganizationJson } from '../index.js';
 import { fixture, keys, signed } from './fixtures.js';
+
+/** The owner-pinned Git executable: a fixed path on POSIX, the first `git.exe` on PATH on Windows. */
+export function gitExecutable(): string {
+  if (process.platform !== 'win32') return '/usr/bin/git';
+  const found = (process.env.PATH ?? '')
+    .split(delimiter)
+    .map((directory) => join(directory, 'git.exe'))
+    .find((candidate) => existsSync(candidate));
+  if (found === undefined) throw new Error('git.exe is not on PATH');
+  return found;
+}
 
 export function gitFixture() {
   let now = Date.now();
   const f = fixture({ now: () => now });
   const path = join(f.directory, 'asset.git');
-  execFileSync('/usr/bin/git', ['init', '--bare', path], { env: {}, stdio: 'ignore' });
+  const gitPath = gitExecutable();
+  execFileSync(gitPath, ['init', '--bare', path], { env: {}, stdio: 'ignore' });
   chmodSync(path, 0o700);
   function git(args: string[], input?: string) {
-    return execFileSync('/usr/bin/git', ['--git-dir', path, ...args], {
+    return execFileSync(gitPath, ['--git-dir', path, ...args], {
       input,
       encoding: 'utf8',
       env: {
@@ -32,7 +44,7 @@ export function gitFixture() {
   const first = git(['commit-tree', tree, '-p', initial], 'candidate one\n');
   const second = git(['commit-tree', tree, '-p', initial], 'candidate two\n');
   const unrelated = git(['commit-tree', tree], 'unrelated history\n');
-  const asset = new OrganizationGitAsset({ path, ref: 'refs/heads/work', gitPath: '/usr/bin/git' });
+  const asset = new OrganizationGitAsset({ path, ref: 'refs/heads/work', gitPath });
   f.ledger.createStateResource('company', 'task', 'source', { oid: initial });
   const actors = [keys(), keys()];
   const grants = actors.map((key, index) => ({
@@ -98,6 +110,7 @@ export function gitFixture() {
   return {
     ...f,
     path,
+    gitPath,
     git,
     tree,
     initial,

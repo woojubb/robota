@@ -6,7 +6,7 @@ import { ToolRegistry } from './tool-registry';
 import type { IObjectParameterSchema } from '../interfaces/provider';
 
 /**
- * CORE-039 — registration-time schema validation is one of the walks over the subset, so it has to
+ * Registration-time schema validation is one of the walks over the subset, so it has to
  * accept every shape the subset can now express.
  *
  * `register()` runs `validateToolSchema` on every tool. It demanded a `type` on each top-level

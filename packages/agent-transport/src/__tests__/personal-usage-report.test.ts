@@ -1,4 +1,4 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createOutboundDelivery } from '../outbound-delivery.js';
@@ -7,7 +7,7 @@ import { createSessionMessageHandler } from '../session-message-handler.js';
 import type {
   IPersonalUsageReport,
   IUsageBySourceReport,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 import type { TServerMessage } from '../wire-messages.js';
 
 const report: IPersonalUsageReport = {

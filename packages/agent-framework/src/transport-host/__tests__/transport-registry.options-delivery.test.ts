@@ -1,17 +1,16 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TransportRegistry } from '../transport-registry.js';
 import { bindTransportAdapter } from '../bind-transport-adapter.js';
 import { createMemoryTransportSettingsRepository } from '../memory-transport-settings-repository.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transport';
 
 /**
- * Issue #2480 — TRANS-002 (persisted options reach a transport, or startup says why they cannot) and
- * TRANS-010 (the registry reads/writes settings through an injected repository, so no test here
- * touches a filesystem).
+ * Persisted options reach a transport, or startup says why they cannot; and the registry
+ * reads/writes settings through an injected repository, so no test here touches a filesystem.
  */
 function configurableTransport(
   name: string,
@@ -44,7 +43,7 @@ function register(
   registry.register(bindTransportAdapter(transport, session));
 }
 
-describe('TransportRegistry option delivery (TRANS-002) over an injected repository (TRANS-010)', () => {
+describe('TransportRegistry option delivery over an injected repository', () => {
   it('delivers persisted options through configure() before bound attach/start', async () => {
     const repository = createMemoryTransportSettingsRepository({ ws: { options: { port: 4321 } } });
     const registry = new TransportRegistry(repository);

@@ -19,7 +19,7 @@ import type { TToolSearchMode } from '../interfaces/tool-search';
 import type { TUniversalValue } from '../interfaces/types';
 
 /**
- * What a tool manager is constructed with (CLI-1990).
+ * What a tool manager is constructed with.
  *
  * The manager owns the residency STATE — which deferred tools have been loaded — but not the policy
  * that decides whether deferral is engaged: that is a function of the agent's config, its model and
@@ -47,7 +47,7 @@ export class Tools extends AbstractManager implements IToolManager {
   private readonly loadedDeferredTools = new Set<string>();
 
   constructor(options: IToolManagerOptions) {
-    // CORE-045: `doInitialize` below only logs, so this registry is usable the moment it exists.
+    // `doInitialize` below only logs, so this registry is usable the moment it exists.
     // Without this declaration `ConversationAgent.registerTool()` threw on every freshly constructed agent,
     // because the only thing that awaited `initialize()` was the first run.
     super({ readyOnConstruction: true });
@@ -142,7 +142,7 @@ export class Tools extends AbstractManager implements IToolManager {
   }
 
   /**
-   * The schemas the model is offered at the next request (CLI-1990): every registered tool while
+   * The schemas the model is offered at the next request: every registered tool while
    * deferral is not engaged; the resident ones plus the loaded deferred ones once it is. Read per
    * round by the execution loop — never a snapshot — and refused, not sent, when it would be empty
    * over a non-empty registry (`projectOfferedTools`).
@@ -180,7 +180,7 @@ export class Tools extends AbstractManager implements IToolManager {
   loadDeferredTools(names: readonly string[]): IToolSchema[] {
     this.ensureInitialized();
     const schemas = names.map((name) => {
-      // A tool hidden from the model is not loadable by name either (issue #3081).
+      // A tool hidden from the model is not loadable by name either.
       const schema = this.isToolVisible(name) ? this.registry.get(name)?.schema : undefined;
       if (!schema) {
         throw new ToolExecutionError(

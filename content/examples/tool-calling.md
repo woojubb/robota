@@ -1,5 +1,9 @@
 # Tool Calling
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Give an agent functions it can call. `createZodFunctionTool()` turns a Zod schema and a handler into a
 tool: the schema is sent to the model, and the arguments the model sends back are validated against it
 before your handler runs.
@@ -9,7 +13,7 @@ before your handler runs.
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { z } from 'zod';
 
 const provider = new AnthropicProvider({

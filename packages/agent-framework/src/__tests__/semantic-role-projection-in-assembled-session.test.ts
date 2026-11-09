@@ -1,5 +1,5 @@
 /**
- * Semantic-role projection as the ASSEMBLED SESSION sees it (ARCH-024, issue #2270).
+ * Semantic-role projection as the ASSEMBLED SESSION sees it.
  *
  * WHY THIS LIVES HERE. These assertions are about what `createSession` composes into a session's
  * system message for a given `commandSemanticRoles` projection. That is agent-framework behaviour
@@ -120,9 +120,9 @@ const openSessions: Array<Awaited<ReturnType<typeof createSession>>['session']> 
 /**
  * The assembled system message for one role projection.
  *
- * `createSession` is async (ARCH-035) and awaiting it is not a style choice: `.session` off an
+ * `createSession` is async and awaiting it is not a style choice: `.session` off an
  * unawaited promise is `undefined`, and the failure then surfaces two frames away as a missing
- * method. INFRA-119 is that bug.
+ * method.
  */
 async function assembledSystemMessage(
   commandName: string,

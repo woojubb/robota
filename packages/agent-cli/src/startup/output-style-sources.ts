@@ -9,7 +9,7 @@ import {
 import { createNodeHostContributionSource } from '@robota-sdk/agent-framework/node';
 
 import type { IContributionSource, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
-import type { IOutputStyleFile, IOutputStyleSource } from '@robota-sdk/agent-preset';
+import type { IOutputStyleFile, IOutputStyleSource } from '@robota-sdk/agent-product/preset';
 
 const USER_OUTPUT_STYLE_PRECEDENCE = 10;
 const PROJECT_OUTPUT_STYLE_PRECEDENCE = 20;

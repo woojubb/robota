@@ -297,7 +297,7 @@ function createErrorResult(request: IToolExecutionRequest, error: Error): IToolE
 }
 
 /**
- * Issue #2875 (follow-up to #2078): a request whose arguments failed to decode is refused HERE,
+ * A request whose arguments failed to decode is refused HERE,
  * the same way an unknown tool name is refused inside `ToolExecutionService.executeTool` — as a
  * normal failed result for this one request, never as a thrown error that would abort the batch.
  * `executor.executeTool` is never called, so the tool never sees the placeholder `parameters`.

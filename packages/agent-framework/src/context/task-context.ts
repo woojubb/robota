@@ -28,7 +28,7 @@ export interface ITaskSelectionOptions {
   currentBranch?: string;
   maxTasks?: number;
   /**
-   * NEUT-004: host-selected task-file scan directory relative to cwd; absence disables the scan.
+   * Host-selected task-file scan directory relative to cwd; absence disables the scan.
    */
   dir?: string;
 }
@@ -130,7 +130,7 @@ function resolveGitDirectory(cwd: string, fs: IFileSystem): string | undefined {
       if (stats.isDirectory()) return gitPath;
       const content = fs.readFileSync(gitPath, 'utf8').trim();
       // `(\S.*)` rather than `(.+)`: `\s*` and `.` both match a space, so the split between them was ambiguous
-      // and a `.git` file with a long space run cost O(n²) (SEC-003). Greedy `\s*` already consumed every
+      // and a `.git` file with a long space run cost O(n²). Greedy `\s*` already consumed every
       // leading space, so pinning the capture to start non-space accepts exactly the same (trimmed) content.
       const gitdir = content.match(/^gitdir:\s*(\S.*)$/)?.[1];
       if (gitdir) return isAbsolutePath(gitdir) ? gitdir : resolvePath(current, gitdir);

@@ -5,36 +5,38 @@ import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-// The release planner `pnpm run version` runs, resolved through the changesets CLI that ships it.
 const fromChangesets = createRequire(
   createRequire(path.join(root, 'package.json')).resolve('@changesets/cli/package.json'),
 );
 
-it('a minor changeset releases the fixed group as a minor', async () => {
-  const assembleReleasePlan = fromChangesets('@changesets/assemble-release-plan').default;
-  const { getPackages } = fromChangesets('@manypkg/get-packages');
-  const { read } = fromChangesets('@changesets/config');
-  const packages = await getPackages(root);
-  const config = await read(root, packages);
+async function plan(name, type) {
+  const assemble = fromChangesets('@changesets/assemble-release-plan').default;
+  const packages = await fromChangesets('@manypkg/get-packages').getPackages(root);
+  const config = await fromChangesets('@changesets/config').read(root, packages);
+  return assemble(
+    [{ id: 'probe', summary: 'A package change.', releases: [{ name, type }] }],
+    packages, config, undefined,
+  ).releases.filter((release) => release.type !== 'none');
+}
 
-  const plan = assembleReleasePlan(
-    [
-      {
-        id: 'minor-probe',
-        summary: 'A minor change to the core package.',
-        releases: [{ name: '@robota-sdk/agent-core', type: 'minor' }],
-      },
-    ],
-    packages,
-    config,
-    undefined,
-  );
+it('versions a compatible SDK change without bumping unrelated packages or products', async () => {
+  expect(await plan('@robota-sdk/agent-core', 'patch')).toMatchObject([
+    { name: '@robota-sdk/agent-core', type: 'patch' },
+  ]);
+  expect(await plan('@robota-sdk/agent-keyring', 'patch')).toMatchObject([
+    { name: '@robota-sdk/agent-keyring', type: 'patch' },
+  ]);
+});
 
-  // An exact peer range (`workspace:*`) makes changesets release every dependent of a peer bumped
-  // past a patch as a major, and the fixed group carries that major to every package.
-  const fixed = new Set(config.fixed.flat());
-  const types = new Set(
-    plan.releases.filter((release) => fixed.has(release.name)).map((release) => release.type),
-  );
-  expect([...types]).toEqual(['minor']);
+it('versions a CLI change without bumping the app or SDK', async () => {
+  expect(await plan('@robota-sdk/agent-cli', 'patch')).toMatchObject([
+    { name: '@robota-sdk/agent-cli', type: 'patch' },
+  ]);
+});
+
+it('still updates SDK dependents when a dependency leaves their compatible range', async () => {
+  const releases = await plan('@robota-sdk/agent-core', 'major');
+  expect(releases).toContainEqual(expect.objectContaining({ name: '@robota-sdk/agent-core', type: 'major' }));
+  expect(releases.some((release) => release.name === '@robota-sdk/agent-framework')).toBe(true);
+  expect(releases.some((release) => ['@robota-sdk/agent-cli', '@robota-sdk/agent-app'].includes(release.name))).toBe(false);
 });

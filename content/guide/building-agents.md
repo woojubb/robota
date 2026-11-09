@@ -1,5 +1,9 @@
 # Building Agents
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 This guide covers building agents directly with `@robota-sdk/agent-core`, the foundation package.
 `agent-core` gives you the `Robota` agent class: a conversation with one or more AI providers, tool
 calling, plugins, and structured output. It reads no files and loads no project configuration.
@@ -13,7 +17,7 @@ prompts, project instructions and session persistence, use `@robota-sdk/agent-fr
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const agent = new ConversationAgent({
   name: 'MyAgent',
@@ -67,14 +71,12 @@ message format and the vendor API. Options for every provider are in the
 [Providers Reference](./providers.md).
 
 ```typescript
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
-import {
-  DeepSeekProvider,
-  GemmaProvider,
-  QwenProvider,
-} from '@robota-sdk/agent-provider-openai-compatible';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
+import { GemmaProvider } from '@robota-sdk/agent-provider/gemma';
+import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
 
 const anthropic = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 const openai = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
@@ -244,7 +246,7 @@ File and shell tools are factories that take the directory they may work in —
 | `webFetchTool`        | `WebFetch`        | Fetches a URL and returns its text                                |
 | `askUserQuestionTool` | `AskUserQuestion` | Asks the user a question and waits for the answer (main entry)    |
 
-`createDefaultTools({ cwd })` from `@robota-sdk/agent-tool-defaults` returns this whole set at once.
+`createDefaultTools({ cwd })` from `@robota-sdk/agent-tools/defaults` returns this whole set at once.
 When you give these tools to a bare `Robota`, no permission prompts run — the agent can use them
 freely. `agent-framework` wraps them with permission checks; see
 [Permissions and Hooks](./permissions-and-hooks.md).

@@ -3,11 +3,11 @@ import { z } from 'zod';
 
 import { requireToolExecutionRoot } from './execution-root.js';
 
-// CORE-030: defining a tool and telling the permission system what it does arrive together.
+// Defining a tool and telling the permission system what it does arrive together.
 import './tool-permission-profiles.js';
 
 import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
-import type { TBackgroundPrimitive } from '@robota-sdk/agent-interface-execution';
+import type { TBackgroundPrimitive } from '@robota-sdk/agent-interface/execution';
 
 const DEFAULT_PROCESS_TIMEOUT_MS = 120_000;
 

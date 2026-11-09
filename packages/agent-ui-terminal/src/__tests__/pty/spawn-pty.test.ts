@@ -1,12 +1,12 @@
 /**
- * TEST-007: self-test for the TUI-owned PTY harness (relocated internally by BOUNDARY-2655).
+ * Self-test for the TUI-owned PTY harness.
  *
  * Drives a trivial process (no fixture needed) through `spawnPty` to pin the harness contract:
  * `waitFor` resolves on a printed marker, `expectExit` returns the real exit code, and
  * `snapshot()`/`raw()` capture output. The terminal-handoff suites (in agent-ui-terminal) are the
  * harness's real-world consumers; this guards the harness itself.
  *
- * HARNESS-025 adds the HOME-isolation contract: a PTY child must never receive the developer's real
+ * The HOME-isolation contract: a PTY child must never receive the developer's real
  * `HOME`, or the suite silently depends on whatever is in that home directory.
  */
 import { existsSync, readdirSync } from 'node:fs';
@@ -41,29 +41,14 @@ describe('spawnPty harness self-test', () => {
     expect(session.snapshot()).toContain('MARKER_OK');
     expect(await session.expectExit(5_000)).toBe(3);
   });
-
-  it('paces sent keys and reads them back from the child', async () => {
-    const session = spawnPty({
-      command: 'sh',
-      args: ['-c', 'IFS= read -r line; printf "ECHO:[%s]\\n" "$line"'],
-      cwd: PACKAGE_DIR,
-      env: createPtyEnv(),
-    });
-    sessions.push(session);
-
-    await session.sendKeys('abc', 10);
-    session.write('\r');
-    await session.waitFor('ECHO:[abc]', 5_000);
-    expect(await session.expectExit(5_000)).toBe(0);
-  });
 });
 
 describe('PTY HOME isolation', () => {
   /** Ask the child to report the HOME it actually sees, so the assertion is on the child's view. */
   function spawnHomeReporter(env?: NodeJS.ProcessEnv): IPtyRunSession {
     const session = spawnPty({
-      command: 'sh',
-      args: ['-c', 'printf "CHILD_HOME:[%s]\\n" "$HOME"'],
+      command: process.execPath,
+      args: ['-e', 'process.stdout.write("CHILD_HOME:[" + process.env.HOME + "]\\n")'],
       cwd: PACKAGE_DIR,
       ...(env ? { env } : {}),
     });

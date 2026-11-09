@@ -83,8 +83,7 @@ questions and ideas, use [GitHub Discussions](__PROJECT_REPOSITORY_URL__/discuss
 
 ## Commit messages
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org/), checked by commitlint
-with `@commitlint/config-conventional`:
+Commits should follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 <type>(<optional scope>): <subject>
@@ -105,10 +104,9 @@ docs(getting-started): add LM Studio local model path (#125)
 
 ## Changesets
 
-Published packages are versioned with [Changesets](https://github.com/changesets/changesets). All
-published `@robota-sdk/*` packages share one version, so a changeset only needs to name the packages
-you changed. When your pull request changes a published package, add a changeset in the same pull
-request:
+Published packages are versioned independently with [Changesets](https://github.com/changesets/changesets).
+Name the packages you changed; a dependent may also need a release when its compatible dependency range
+changes. When your pull request changes a published package, add a changeset in the same pull request:
 
 ```bash
 pnpm changeset
@@ -116,7 +114,8 @@ pnpm changeset
 
 It asks which packages changed and the bump type, and writes a file under `.changeset/`. Describe the
 change for the people who use the package: what it does now and what they need to do, if anything.
-A pull request that touches only tests, docs, internal tooling, or private packages needs none.
+A pull request that touches only tests, docs, internal tooling, or private packages needs none, unless
+it changes the desktop app and needs a new app version.
 Maintainers apply the version bumps and publish; do not bump versions in your pull request.
 
 ## Code standards

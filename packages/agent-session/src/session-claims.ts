@@ -19,7 +19,7 @@ import type {
   IProcessMarkerHolder,
   TProcessOwnerLiveness,
 } from '@robota-sdk/agent-core';
-import type { ISessionClaim, TSessionLoadOutcome } from '@robota-sdk/agent-interface-session';
+import type { ISessionClaim, TSessionLoadOutcome } from '@robota-sdk/agent-interface/session';
 
 /** Why a claim, a lend or a write was refused. */
 export type TSessionClaimRefusal =
@@ -276,6 +276,7 @@ export class SessionClaims {
     fresh: boolean,
     marker: IProcessMarkerHandle | undefined,
     read: () => TSessionLoadOutcome,
+    discardRead?: () => void,
   ): ISessionClaim {
     const state: IClaimState = { marker };
     const end = (): void => {
@@ -294,10 +295,21 @@ export class SessionClaims {
     let released = false;
     const handle: ISessionClaim = Object.freeze({
       outcome,
+      holdsWriter: (): boolean =>
+        !released && this.#live.get(id) === state && marker !== undefined && marker.holds(),
       release: (): void => {
         if (released) return;
         released = true;
         end();
+      },
+      discard: (): void => {
+        if (released) return;
+        released = true;
+        try {
+          if (this.#live.get(id) === state) discardRead?.();
+        } finally {
+          end();
+        }
       },
     });
     state.handle = handle;

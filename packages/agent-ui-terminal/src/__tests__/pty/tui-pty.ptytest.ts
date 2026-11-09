@@ -1,5 +1,5 @@
 /**
- * Real-PTY TUI suites (CLI-074 TC-07/08).
+ * Real-PTY TUI suites.
  *
  * Runs in the dedicated PTY vitest project (vitest.pty.config.ts) against the
  * BUILT CLI binary — `pnpm --filter @robota-sdk/agent-cli build` first.
@@ -15,7 +15,7 @@ import { spawnTui, writeTuiProviderSettings } from './pty-driver.js';
 
 import type { IPtySession } from './pty-driver.js';
 
-describe('TUI through a real PTY (CLI-074)', () => {
+describe('TUI through a real PTY', () => {
   let projectDir: string;
   let session: IPtySession | undefined;
 
@@ -30,7 +30,7 @@ describe('TUI through a real PTY (CLI-074)', () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it('TC-07: boots, opens slash autocomplete, and executes /help as a command', async () => {
+  it('boots, opens slash autocomplete, and executes /help as a command', async () => {
     session = spawnTui({ projectDir, homeDir: join(projectDir, 'home') });
 
     // Boot: prompt + status bar render.
@@ -48,14 +48,14 @@ describe('TUI through a real PTY (CLI-074)', () => {
     expect(session.snapshot()).not.toContain('[Pasted text');
   }, 60_000);
 
-  it('TC-08: /exit confirms then reaches process exit within 10s', async () => {
+  it('/exit confirms then reaches process exit within 10s', async () => {
     session = spawnTui({ projectDir, homeDir: join(projectDir, 'home') });
     await session.waitFor(/Type a message or \/help/);
 
     await session.sendKeys('/exit');
     await session.pressEnter();
 
-    // CMD-004: /exit now asks for confirmation; answer Yes (the default-highlighted option).
+    // /exit now asks for confirmation; answer Yes (the default-highlighted option).
     await session.waitFor(/Exit the session\?/);
     await session.pressEnter();
 

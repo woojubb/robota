@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TransportRegistry } from '@robota-sdk/agent-framework';
 import { createFileTransportSettingsRepository } from '@robota-sdk/agent-framework/node';
-import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transport';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import { RemoteControlController } from '../remote-control-controller.js';
 import { createRemoteControlTransportHost } from '../transport-host-adapter.js';

@@ -1,5 +1,5 @@
 /**
- * Issue #2351 — "don't ask again" is remembered per ARGUMENT SCOPE, not per tool.
+ * "don't ask again" is remembered per ARGUMENT SCOPE, not per tool.
  *
  * Before: approving `Bash` for `git status` allowed `rm -rf /` for the rest of the session, and the
  * project record was `Bash(*)`. Now the record is a pattern projected from the argument by kind, and
@@ -73,7 +73,7 @@ describe('consentScopeFor', () => {
   });
 });
 
-describe('session consent is scoped to the argument (issue #2351)', () => {
+describe('session consent is scoped to the argument', () => {
   it('approving one command does not allow a different program', async () => {
     const handler = vi.fn<TPermissionHandler>().mockResolvedValue('allow-session');
     const enforcer = makeEnforcer({ permissionHandler: handler });

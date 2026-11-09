@@ -1,5 +1,5 @@
 /**
- * RUNTIME-001 (Design C) — the shared, presentation-free runtime host.
+ * The shared, presentation-free runtime host.
  *
  * `buildRuntimeSession` is the single session-construction seam: every presentation — the TUI channel, the
  * print channel, and the headless `agent --serve` entry — builds its `InteractiveSession` here from a normalized
@@ -24,7 +24,7 @@ import type {
   ITransportCompletionRecord,
   ITransportFailureRecord,
   ITransportLifecycleRegistryView,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 /** Normalized, explicitly discriminated input for every `InteractiveSession` construction path. */
 export type SessionRecipe = TInteractiveSessionOptions;
@@ -48,7 +48,7 @@ export interface IRuntimeHostOptions {
   /** Bind each raw adapter to the host's session slot before registration/start. */
   bindTransports?: (session: SessionSlot) => void;
   /**
-   * Keep several sessions live, one per client that switched (#3189). The host's session becomes
+   * Keep several sessions live, one per client that switched. The host's session becomes
    * the pool's primary, and further sessions are built from this recipe. Absent, the host holds one
    * session.
    */
@@ -65,7 +65,7 @@ export interface IRuntimeHostPoolOptions {
 export interface IRuntimeHostHandle {
   /**
    * The live runtime session every presentation drives, behind a slot: whoever holds it reaches the
-   * current session, including after the host switches to another one (#3189).
+   * current session, including after the host switches to another one.
    */
   readonly session: SessionSlot;
   /** The live sessions when started with `pool`; its primary is the one `session` starts on. */

@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 /**
- * CLI-070: `--reset` is documented in help and guarded by a confirmation
+ * `--reset` is documented in help and guarded by a confirmation
  * matrix (TTY × --yes). Refusal paths leave the settings file untouched.
  */
 
@@ -14,7 +14,7 @@ import { printHelp } from '../../utils/cli-args.js';
 import { runResetConfig } from '../reset-config.js';
 import { createCapturingTerminal } from './test-terminal.js';
 
-describe('--reset confirmation matrix (CLI-070)', () => {
+describe('--reset confirmation matrix', () => {
   let home: string;
   let settingsPath: string;
 
@@ -31,14 +31,14 @@ describe('--reset confirmation matrix (CLI-070)', () => {
     rmSync(home, { recursive: true, force: true });
   });
 
-  it('TC-01: --help documents --reset with what it deletes and the --yes skip', () => {
+  it('--help documents --reset with what it deletes and the --yes skip', () => {
     const help = printHelp(createTestProductRuntime('test-product', { HOME: process.env['HOME'] }));
     expect(help).toContain('--reset');
     expect(help).toContain(settingsPath);
     expect(help).toMatch(/--reset[\s\S]*--yes/);
   });
 
-  it('TC-02: non-TTY without --yes refuses, exits 1, file untouched', async () => {
+  it('non-TTY without --yes refuses, exits 1, file untouched', async () => {
     const { terminal, errors } = createCapturingTerminal();
     const code = await runResetConfig(terminal, {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),  yes: false, isTTY: false });
 
@@ -47,7 +47,7 @@ describe('--reset confirmation matrix (CLI-070)', () => {
     expect(existsSync(settingsPath)).toBe(true);
   });
 
-  it('TC-03: --yes deletes without any prompt and exits 0', async () => {
+  it('--yes deletes without any prompt and exits 0', async () => {
     const confirm = vi.fn(async () => true);
     const { terminal, lines } = createCapturingTerminal();
     const code = await runResetConfig(terminal, {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),  yes: true, isTTY: false, confirm });
@@ -58,7 +58,7 @@ describe('--reset confirmation matrix (CLI-070)', () => {
     expect(lines.join('\n')).toContain(`Deleted ${settingsPath}`);
   });
 
-  it('TC-04: TTY prompt — n aborts with exit 1 and keeps the file; y deletes with exit 0', async () => {
+  it('TTY prompt — n aborts with exit 1 and keeps the file; y deletes with exit 0', async () => {
     const { terminal } = createCapturingTerminal();
 
     const declined = await runResetConfig(terminal, {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
@@ -83,7 +83,7 @@ describe('--reset confirmation matrix (CLI-070)', () => {
     expect(existsSync(settingsPath)).toBe(false);
   });
 
-  it('TC-05: no settings file present reports nothing to delete and exits 0', async () => {
+  it('no settings file present reports nothing to delete and exits 0', async () => {
     rmSync(settingsPath);
     const { terminal, lines } = createCapturingTerminal();
     const code = await runResetConfig(terminal, {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),  yes: false, isTTY: false });

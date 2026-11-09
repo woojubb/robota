@@ -13,6 +13,7 @@ import { promisify } from 'node:util';
 import { buildBundledRuntimeChildEnv } from './child-env.mjs';
 import { buildProductTestEnvironment, readDesktopTestIdentity } from './product-fixture.mjs';
 import { buildDaemonStartSpawn, parseDaemonStartOutput } from '../dist/electron/sidecar.js';
+import { stopFixtureBroker } from '../../../packages/agent-cli/scripts/e2e-native-file-authority.mjs';
 
 const appDirectory = pjoin(dirname(fileURLToPath(import.meta.url)), '..');
 const identity = readDesktopTestIdentity(pjoin(appDirectory, 'dist', 'electron'));
@@ -185,7 +186,7 @@ try {
     throw new Error(`${error.message}; packaged runtime stderr: ${stderr}`);
   }
 
-  // TC-02a: authed nonce connection → the session `messages` snapshot arrives (handshake complete).
+  // Authed nonce connection → the session `messages` snapshot arrives (handshake complete).
   const authed = await drive(
     url(),
     () => {},
@@ -193,11 +194,11 @@ try {
     8000,
   );
   check(
-    'TC-02a: bundled runtime accepts the launch nonce (handshake → messages snapshot)',
+    'bundled runtime accepts the launch nonce (handshake → messages snapshot)',
     authed.frames.some((m) => m.type === 'messages'),
   );
 
-  // TC-04: wrong token → closed before any session data.
+  // Wrong token → closed before any session data.
   const bad = await drive(
     url('wrong'),
     () => {},
@@ -205,11 +206,11 @@ try {
     3000,
   );
   check(
-    'TC-04: wrong nonce is rejected before any session data',
+    'wrong nonce is rejected before any session data',
     bad.closed && !bad.frames.some((m) => m.type === 'messages'),
   );
 
-  // TC-02a: clean SIGTERM shutdown.
+  // Clean SIGTERM shutdown.
   const exited = await new Promise((res) => {
     const timer = setTimeout(() => res({ timeout: true }), 8000);
     child.once('exit', (code, signal) => {
@@ -223,18 +224,33 @@ try {
       ? exited.code === 0 || (exited.code === null && exited.signal === 'SIGTERM')
       : exited.code === 0 && exited.signal === null;
   check(
-    'TC-02a: SIGTERM shuts the bundled runtime down cleanly',
+    'SIGTERM shuts the bundled runtime down cleanly',
     !exited.timeout && successfulShutdown,
   );
 } catch (error) {
   console.error('Packaged runtime check failed:', error);
   throw error;
 } finally {
-  if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  if (child && child.exitCode === null && child.signalCode === null) {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Bundled runtime did not exit after SIGKILL.')), 5_000);
+      child.once('exit', () => { clearTimeout(timer); resolve(); });
+      if (!child.kill('SIGKILL')) {
+        clearTimeout(timer);
+        reject(new Error('Bundled runtime could not be killed.'));
+      }
+    });
+  }
+  await stopFixtureBroker(productFixture.environment);
   for (const fixture of [binCwd, home, runtime]) {
-    await rm(fixture, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    const timer = setTimeout(() => {
+      console.error(`Fixture cleanup timed out: ${fixture}`);
+      process.exit(1);
+    }, 15_000);
+    try { await rm(fixture, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+    finally { clearTimeout(timer); }
   }
 }
 
-console.log(ok ? '\nGUI-003 bundled-runtime e2e PASSED' : '\nGUI-003 bundled-runtime e2e FAILED');
+console.log(ok ? '\nbundled-runtime e2e PASSED' : '\nbundled-runtime e2e FAILED');
 process.exit(ok ? 0 : 1);

@@ -1,4 +1,4 @@
-import { createTestProductRuntime } from '../__tests__/helpers/product-runtime.js';
+import { cleanupTestProductRuntimes, createTestProductRuntime } from '../__tests__/helpers/product-runtime.js';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -35,6 +35,7 @@ function gitInit(root: string): void {
 
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  cleanupTestProductRuntimes();
   vi.restoreAllMocks();
 });
 
@@ -74,7 +75,7 @@ describe('CLI workspace trust admission', () => {
     }
   });
 
-  it('#3282 §3: refuses `--serve --open` with no TTY to ask on, naming --restricted-workspace too', async () => {
+  it('refuses `--serve --open` with no TTY to ask on, naming --restricted-workspace too', async () => {
     const cwd = tempRoot('test-product-cli-serve-open-untrusted-');
     const userHome = tempRoot('test-product-cli-serve-open-home-');
     gitInit(cwd);
@@ -105,7 +106,7 @@ describe('CLI workspace trust admission', () => {
     }
   });
 
-  it('#3282 §3: plain --serve (no --open) still refuses outright, even with a TTY', async () => {
+  it('plain --serve (no --open) still refuses outright, even with a TTY', async () => {
     const cwd = tempRoot('test-product-cli-serve-only-untrusted-');
     const userHome = tempRoot('test-product-cli-serve-only-home-');
     gitInit(cwd);

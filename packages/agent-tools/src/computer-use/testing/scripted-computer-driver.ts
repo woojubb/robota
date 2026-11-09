@@ -1,5 +1,5 @@
 /**
- * SELFHOST-010: deterministic scripted computer-use driver for functional tests.
+ * Deterministic scripted computer-use driver for functional tests.
  *
  * Test-support ONLY — placed under the `./testing` subpath (mirroring agent-core's `scripted-provider`) so
  * it is never shipped in the package main entry and is not a "fake" in production code. It records every

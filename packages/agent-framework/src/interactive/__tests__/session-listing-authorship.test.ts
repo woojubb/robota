@@ -1,5 +1,5 @@
 /**
- * How the resume listings treat records a store that seals does not verify as the owner's (#3679):
+ * How the resume listings treat records a store that seals does not verify as the owner's:
  * whose each record is rides on its summary, unverified records come after every verified one — a
  * time a record gives itself never ranks it among the owner's — a name such a record gives itself
  * answers for nothing, and an empty one is never reused. A plain store lists with no authorship. A
@@ -29,7 +29,7 @@ import {
   writeOwnerRecord,
 } from './helpers/sealed-session-fixtures.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 afterEach(cleanUpSealedSessionFixtures);
 

@@ -1,7 +1,7 @@
 /**
  * HTTP hook executor — POSTs hook input as JSON to a URL.
  *
- * Response format: `{ ok: boolean, reason?: string }`, decoded by `decodeHookVerdict` (SEC-015):
+ * Response format: `{ ok: boolean, reason?: string }`, decoded by `decodeHookVerdict`:
  * - `ok: true`  → `allow`
  * - `ok: false` → `deny`, carrying `reason`
  * - anything else, including a non-boolean `ok` → `error` / `malformed-response`

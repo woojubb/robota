@@ -1,4 +1,4 @@
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { describe, expect, it } from 'vitest';
 
@@ -8,7 +8,7 @@ import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   ISessionListEntry,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 function record(id: string, totalTokens: number): IInteractiveSessionRecord {
   return {
@@ -213,7 +213,7 @@ describe('test-product usage', () => {
     expect(reporter('shared')).toMatchObject({ sessionId: 'shared', totalTokens: 25 });
   });
 
-  it("never leaks a session's cwd or message content into the JSON report (#3289 §4)", () => {
+  it("never leaks a session's cwd or message content into the JSON report", () => {
     const sentinel = 'PROMPT_CONTENT_MUST_NOT_APPEAR';
     const leaky: IInteractiveSessionRecord = {
       id: 'leaky-session',

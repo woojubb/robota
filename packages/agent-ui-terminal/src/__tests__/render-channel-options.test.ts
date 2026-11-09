@@ -128,7 +128,7 @@ describe('toChannelOptions', () => {
     expect(buildTuiSessionOptions(options).disableSessionLoops).toBe(true);
   });
 
-  it('TC-02: threads allowedTools and deniedTools into the channel options', () => {
+  it('threads allowedTools and deniedTools into the channel options', () => {
     const renderOptions: IRenderOptions = {
       host: testHost,
       cwd: '/tmp/project',
@@ -155,7 +155,7 @@ describe('toChannelOptions', () => {
     expect(channelOptions.deniedTools).toBeUndefined();
   });
 
-  it('CLI-076: threads the display modelId into the channel model override', () => {
+  it('threads the display modelId into the channel model override', () => {
     const channelOptions = toChannelOptions({
       host: testHost,
       cwd: '/tmp/project',
@@ -167,7 +167,7 @@ describe('toChannelOptions', () => {
     expect(channelOptions.model).toBe('claude-haiku-4-5-20251001');
   });
 
-  it('CLI-076: leaves model undefined when no modelId is resolved', () => {
+  it('leaves model undefined when no modelId is resolved', () => {
     const channelOptions = toChannelOptions({
       host: testHost,
       cwd: '/tmp/project',
@@ -190,7 +190,7 @@ describe('toChannelOptions', () => {
     expect(buildTuiSessionOptions(channelOptions).externalEventVerifierFactory).toBe(factory);
   });
 
-  it('SCREEN-1993: projects the prompt-history writer to the channel and on to the session options', () => {
+  it('projects the prompt-history writer to the channel and on to the session options', () => {
     const promptHistory = { writer: { append: () => undefined }, project: '/p' };
     const channelOptions = toChannelOptions({
       host: testHost,

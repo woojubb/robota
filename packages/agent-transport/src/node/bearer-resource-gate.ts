@@ -19,7 +19,7 @@
 
 import { BlockList, isIP } from 'node:net';
 
-import type { TAccessTokenRefusal } from '@robota-sdk/agent-interface-transport';
+import type { TAccessTokenRefusal } from '@robota-sdk/agent-interface/transport';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 const WELL_KNOWN_PREFIX = '/.well-known/oauth-protected-resource';

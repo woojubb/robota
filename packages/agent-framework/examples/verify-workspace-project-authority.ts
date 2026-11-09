@@ -21,7 +21,10 @@ import {
   getWorkspaceProjectReader,
   readSettingsSourceText,
 } from '../src/index.js';
-import { createDefaultUserContributionSources, createNodeWorkspaceProjectFiles } from '../src/node.js';
+import {
+  createDefaultUserContributionSources,
+  createNodeWorkspaceProjectFiles,
+} from '../src/node.js';
 import { createTestFrameworkHost } from '../src/testing/framework-host.js';
 
 import type {
@@ -34,8 +37,8 @@ import type {
 
 const testHost = createTestFrameworkHost();
 
-const CONTEXT_CANARY = 'ARCH_042_CONTEXT_CANARY';
-const SETTINGS_CANARY = 'ARCH_042_SETTINGS_CANARY';
+const CONTEXT_CANARY = 'WORKSPACE_CONTEXT_CANARY';
+const SETTINGS_CANARY = 'WORKSPACE_SETTINGS_CANARY';
 
 function assertCondition(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -133,7 +136,7 @@ function observeCanaries(projectAccess: TWorkspaceProjectAccess, userHome: strin
     projectAccess,
     createDefaultUserContributionSources(userHome),
   )) {
-    const text = source.readText('AGENTS.md', 'run ARCH-042 public authority scenario');
+    const text = source.readText('AGENTS.md', 'run public authority scenario');
     if (text?.includes(CONTEXT_CANARY) === true) observed.push(CONTEXT_CANARY);
   }
   if (projectAccess.status === 'trusted') {
@@ -141,7 +144,7 @@ function observeCanaries(projectAccess: TWorkspaceProjectAccess, userHome: strin
     for (const source of createWorkspaceProjectSettingsSources(reader, [
       { scope: 'project', relativePath: '.fixture-state/settings.json' },
     ])) {
-      const text = readSettingsSourceText(source, 'run ARCH-042 public authority scenario');
+      const text = readSettingsSourceText(source, 'run public authority scenario');
       if (text?.includes(SETTINGS_CANARY) === true) observed.push(SETTINGS_CANARY);
     }
   }
@@ -149,7 +152,9 @@ function observeCanaries(projectAccess: TWorkspaceProjectAccess, userHome: strin
 }
 
 async function main(): Promise<void> {
-  const temporaryRoot = mkdtempSync(join(tmpdir(), 'arch-042-authority-'));
+  // The native form: `git rev-parse --show-toplevel` prints it, so the trusted root and the
+  // directory the runtime is built on spell a Windows temp directory the same way.
+  const temporaryRoot = realpathSync.native(mkdtempSync(join(tmpdir(), 'workspace-authority-')));
   const projectRoot = join(temporaryRoot, 'project');
   const otherProjectRoot = join(temporaryRoot, 'other-project');
   const hostStateRoot = join(temporaryRoot, 'host-state');
@@ -164,7 +169,7 @@ async function main(): Promise<void> {
   let granted = false;
   let result:
     | {
-        scenario: 'ARCH-042';
+        scenario: 'workspace-project-authority';
         restricted: {
           status: 'restricted';
           reason: 'WorkspaceAuthorityRequired';
@@ -224,7 +229,7 @@ async function main(): Promise<void> {
     assertCondition(scripted.requests.length === 0, 'the offline scenario made a provider request');
 
     result = {
-      scenario: 'ARCH-042',
+      scenario: 'workspace-project-authority',
       restricted: {
         status: 'restricted',
         reason: restrictedRuntime.projectAccess.reason,

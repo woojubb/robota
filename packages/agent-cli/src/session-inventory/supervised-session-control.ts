@@ -1,15 +1,16 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { createHash, randomBytes } from 'node:crypto';
 import {
-  closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync,
+  lstatSync, mkdirSync, readFileSync,
   renameSync, rmSync, writeFileSync,
 } from 'node:fs';
-import { createConnection, createServer } from 'node:net';
+import { createServer } from 'node:net';
 import { dirname, isAbsolute, join } from 'node:path';
 
-import { admitLocalPeerDirectory, ensureGuardedDirectory } from '@robota-sdk/agent-remote-pairing/local';
+import { isLinkRequest } from '@robota-sdk/agent-transport/link';
 
-import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface/transport';
+import type { IRuntimeAdmission, TRuntimeAdmissionFactory } from './runtime-admission.js';
 import type {
   IExternalEventGrantCounters,
   IExternalEventGrantRow,
@@ -19,34 +20,30 @@ import {
   parseExternalEventGrant,
   toExternalEventGrantDocument,
 } from '../external-events/external-event-grant-file.js';
-import { readProcessStartTime } from '../remote-control/local-peer-registry.js';
+
 import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezvous.js';
+import {
+  CONTROL_ACCESS,
+  isControlCommandName,
+  type TControlCommandName,
+} from './control-access.js';
 import { createSupervisedAttachCarrier, type TSupervisedAttachTarget } from './supervised-attach.js';
-import { connectWindowsControlPipe, WindowsControlPipeServer, windowsControlPipePath, type IControlChannel } from './windows-control-pipe.js';
-import { assertWindowsPrivatePath, createWindowsPrivateDirectory } from './windows-security.js';
+import { MAX_CONTROL_FRAME_BYTES, SUPERVISED_ID_PATTERN, WindowsControlPipeServer, connectControlSocket, controlSocketPath, createWindowsPrivateDirectory, ensurePrivateDirectory, listRegisteredCandidates, probeRegisteredPid as probePid, readRegisteredProcessStartTime as readProcessStartTime, readOwnedFile, sessionDirectory, verifyExistingDirectory, verifyLiveOwner, type IControlChannel, type IRegistration } from '@robota-sdk/agent-local-host';
 
 
-const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
-const MAX_FRAME_BYTES = 4_096;
+const MAX_FRAME_BYTES = MAX_CONTROL_FRAME_BYTES;
 const MAX_STATUS_RESPONSE_BYTES = 32_768;
 const REQUEST_TIMEOUT_MS = 2_000;
-const MAX_ENTRIES = 256;
 const MAX_NAME_BYTES = 240;
 const MAX_PR_URL_BYTES = 2_048;
 const NAME_CONTROLS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
-const GENERATION_PATTERN = /^[A-Za-z0-9_-]{22}$/u;
 
-interface IRegistration {
-  readonly id: string;
-  readonly pid: number;
-  readonly startedAt: string;
-  /** Minted per process start; absent only in a registration written before generations existed. */
-  readonly generation?: string;
-}
 
-type TControlCommand =
-  | 'status' | 'stop' | 'rename' | 'link-pr' | 'unlink-pr' | 'events-list' | 'events-revoke'
-  | 'connect';
+/** The commands a client of the plain socket sends one request line for. */
+type TControlCommand = Extract<
+  TControlCommandName,
+  'status' | 'stop' | 'lock' | 'rename' | 'link-pr' | 'unlink-pr' | 'events-list' | 'events-revoke' | 'connect'
+>;
 
 const GRANT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/u;
 const MAX_GRANT_HANDOFF_BYTES = 256 * 1024;
@@ -102,9 +99,6 @@ function readList<T>(value: unknown, read: (item: unknown) => T | undefined): T[
   return items.every((item) => item !== undefined) ? (items as T[]) : undefined;
 }
 
-function isGeneration(value: unknown): value is string {
-  return typeof value === 'string' && GENERATION_PATTERN.test(value);
-}
 
 type TSupervisedActivity = 'working' | 'needs-input' | 'idle' | 'unknown';
 
@@ -181,142 +175,32 @@ export interface ISupervisedSessionRow {
   readonly restricted?: true;
   /** Present only when requested and verified: the registration this row's actions must still address. */
   readonly generation?: string;
+  /** Present when requested and the endpoint reports secure custody. */
+  readonly secure?: { readonly certified: boolean };
   /** Present only when requested: each external-event grant's label, state and counts. */
   readonly externalEvents?: readonly TSupervisedGrantSummary[];
   readonly problem?: 'invalid-registration';
 }
 
-function probePid(pid: number): 'present' | 'absent' | 'unknown' {
+
+/** A Linux zombie has exited even when its parent has not yet reaped its PID. */
+function isRegisteredLinuxZombie(pid: number, startedAt: string): boolean {
+  if (process.platform !== 'linux') return false;
   try {
-    process.kill(pid, 0);
-    return 'present';
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === 'ESRCH' ? 'absent' : 'unknown';
+    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+    const close = stat.lastIndexOf(')');
+    if (!stat.startsWith(`${pid} (`) || close < 0) return false;
+    // The command name may contain spaces and parentheses; field 3 starts after its last ')'.
+    const fields = stat.slice(close + 1).trim().split(/\s+/u);
+    return fields[0] === 'Z' && fields[19] === startedAt;
+  } catch {
+    // An unreadable process is not evidence that it exited.
+    return false;
   }
 }
 
 export function resolveSupervisedDirectory(productRuntime: ICliRuntimeContext): string {
   return join(dirname(resolveRendezvousDirectory(productRuntime)), 'supervised');
-}
-
-function verifyExistingDirectory(directory: string): void {
-  const stat = lstatSync(directory);
-  if (process.platform === 'win32') {
-    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Supervised session directory was refused.');
-    assertWindowsPrivatePath(directory, true);
-    return;
-  }
-  if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== (process.getuid?.() ?? 0) || (stat.mode & 0o077) !== 0) {
-    throw new Error('Supervised session directory is not private to this user.');
-  }
-  const admission = admitLocalPeerDirectory(directory, { expectedUid: process.getuid?.() ?? 0 });
-  if (!admission.admitted) throw new Error('Supervised session directory was refused.');
-}
-
-function ensurePrivateDirectory(directory: string): void {
-  try {
-    verifyExistingDirectory(directory);
-    return;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-  }
-  if (process.platform === 'win32') {
-    createWindowsPrivateDirectory(directory);
-    verifyExistingDirectory(directory);
-    return;
-  }
-  const admission = ensureGuardedDirectory(directory, { expectedUid: process.getuid?.() ?? 0 });
-  if (!admission.admitted) throw new Error('Unable to create a private supervised session directory.');
-  verifyExistingDirectory(directory);
-}
-
-function sessionDirectory(root: string, id: string): string {
-  if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
-  return join(root, id);
-}
-
-// macOS truncates overlong Unix-domain paths on some Node/runtime combinations.
-const MAX_SOCKET_PATH_BYTES = 100;
-
-/** The supervised directory is too deep for a Unix-domain socket; the message says how to move it. */
-export class SupervisedControlPathTooLongError extends Error {
-  constructor(readonly directory: string) {
-    super(`Supervised session control socket path is too long under ${directory}: a local socket path ` +
-      `allows ${MAX_SOCKET_PATH_BYTES} bytes. Set PRODUCT_USER_STATE_DIR to a shorter absolute path, or set XDG_RUNTIME_DIR to a short ` +
-      'private directory for every CLI command.');
-    this.name = 'SupervisedControlPathTooLongError';
-  }
-}
-
-function controlSocketPath(root: string, id: string): string {
-  if (process.platform === 'win32') return windowsControlPipePath(root, id);
-  const name = createHash('sha256').update(id).digest('hex').slice(0, 16);
-  const socketPath = join(root, `${name}.sock`);
-  if (Buffer.byteLength(socketPath, 'utf8') > MAX_SOCKET_PATH_BYTES) {
-    throw new SupervisedControlPathTooLongError(root);
-  }
-  return socketPath;
-}
-
-/**
- * Read a regular file this user owns, never through a link. The checks run on the descriptor that
- * is then read, so a file swapped in at the path after they pass is never the one read; a FIFO is
- * refused without blocking. Anything that fails a check throws `refusal`; a missing file throws the
- * system error, so callers can still tell ENOENT apart.
- */
-function readOwnedFile(
-  file: string,
-  rules: { readonly ownerOnly: boolean; readonly maxBytes?: number; readonly refusal: string },
-): string {
-  if (process.platform === 'win32') {
-    verifyExistingDirectory(dirname(file));
-    assertWindowsPrivatePath(file, false);
-  }
-  let fd: number;
-  try {
-    // The mode is a no-op without O_CREAT; it is passed so the open states an owner-only mode,
-    // which is what static analysis looks for on an open.
-    fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK, 0o600);
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    // Not a regular file: a link under O_NOFOLLOW (ELOOP; EMLINK on some BSDs) or a socket.
-    if (code === 'ELOOP' || code === 'EMLINK' || code === 'ENXIO' || code === 'EOPNOTSUPP') {
-      throw new Error(rules.refusal);
-    }
-    throw error;
-  }
-  try {
-    const stat = fstatSync(fd);
-    if (!stat.isFile() || (process.platform !== 'win32' && (stat.uid !== (process.getuid?.() ?? 0) ||
-      (rules.ownerOnly && (stat.mode & 0o077) !== 0))) ||
-      (rules.maxBytes !== undefined && stat.size > rules.maxBytes)) {
-      throw new Error(rules.refusal);
-    }
-    // The size is checked again on what was read: the file may have grown since `fstat`.
-    const bytes = readFileSync(fd);
-    if (rules.maxBytes !== undefined && bytes.length > rules.maxBytes) throw new Error(rules.refusal);
-    return bytes.toString('utf8');
-  } finally {
-    closeSync(fd);
-  }
-}
-
-function readRegistration(directory: string, id: string): IRegistration {
-  verifyExistingDirectory(directory);
-  const record = JSON.parse(readOwnedFile(join(directory, 'state.json'), {
-    ownerOnly: true, maxBytes: MAX_FRAME_BYTES, refusal: 'Supervised session record was refused.',
-  })) as unknown;
-  if (typeof record !== 'object' || record === null ||
-    !('id' in record) || record.id !== id ||
-    !('pid' in record) || !Number.isSafeInteger(record.pid) || Number(record.pid) <= 0 ||
-    !('startedAt' in record) || typeof record.startedAt !== 'string' ||
-    ('generation' in record && !isGeneration(record.generation))) {
-    throw new Error('Supervised session record is invalid.');
-  }
-  return {
-    id, pid: Number(record.pid), startedAt: record.startedAt,
-    ...('generation' in record && isGeneration(record.generation) ? { generation: record.generation } : {}),
-  };
 }
 
 /** `onRest` receives whatever arrived after the line, for a connection that stays open. */
@@ -364,18 +248,59 @@ function readLine(
 }
 
 /**
+ * The first line a connection sends, as bytes, and whatever arrived with it, with the socket paused
+ * again. It is bytes because the owner link's handshake follows its request line in the same chunk,
+ * and a text decoder would rewrite what is not valid text, which a handshake mostly is. The bound
+ * and the deadline are the ones every request has.
+ */
+function readRequestLine(socket: IControlChannel): Promise<{ readonly line: string; readonly rest: Buffer }> {
+  return new Promise((resolve, reject) => {
+    let received = Buffer.alloc(0);
+    let done = false;
+    const timer = setTimeout(
+      () => finish(() => reject(new Error('Supervised session control timed out.'))),
+      REQUEST_TIMEOUT_MS,
+    );
+    const finish = (action: () => void): void => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      socket.off('data', onData);
+      socket.off('error', onError);
+      socket.off('end', onEnd);
+      socket.pause();
+      action();
+    };
+    const onData = (chunk: Buffer | string): void => {
+      received = Buffer.concat([received, typeof chunk === 'string' ? Buffer.from(chunk, 'utf8') : chunk]);
+      const end = received.indexOf(0x0a);
+      // The bound is on the line itself: what follows it belongs to the protocol that line opens.
+      if ((end === -1 ? received.length : end) > MAX_FRAME_BYTES) {
+        finish(() => reject(new Error('Supervised session control frame is too large.')));
+        return;
+      }
+      if (end !== -1) {
+        finish(() =>
+          resolve({
+            line: received.subarray(0, end).toString('utf8'),
+            rest: Buffer.from(received.subarray(end + 1)),
+          }),
+        );
+      }
+    };
+    const onError = (): void => finish(() => reject(new Error('Supervised session control is unavailable.')));
+    const onEnd = (): void => finish(() => reject(new Error('Supervised session control closed before replying.')));
+    socket.on('data', onData);
+    socket.once('error', onError);
+    socket.once('end', onEnd);
+  });
+}
+
+/**
  * Send one command bound to `generation`. A reply is returned only when its owner echoes that same
  * generation, so a reply from a different process start is never taken as this registration's.
  */
 /** Open the owner's control socket, refusing one this user does not own. */
-async function connectControlSocket(directory: string, id: string, signal?: AbortSignal): Promise<IControlChannel> {
-  verifyExistingDirectory(directory);
-  const socketPath = controlSocketPath(dirname(directory), id);
-  if (process.platform === 'win32') return connectWindowsControlPipe(socketPath, readRegistration(directory, id), signal);
-  const info = lstatSync(socketPath);
-  if (!info.isSocket() || info.uid !== (process.getuid?.() ?? 0)) throw new Error('Supervised session control socket was refused.');
-  return createConnection(socketPath);
-}
 
 async function request(
   directory: string,
@@ -429,44 +354,21 @@ export async function listSupervisedSessions(
   options: { readonly cwd?: string; readonly name?: string; readonly pr?: number;
     readonly includeName?: boolean; readonly includeCwd?: boolean; readonly includePr?: boolean;
     readonly includeGeneration?: boolean; readonly includeExternalEvents?: boolean;
-    readonly includeDaemon?: boolean } = {},
+    readonly includeDaemon?: boolean; readonly includeSecure?: boolean } = {},
 ): Promise<readonly ISupervisedSessionRow[]> {
   signal?.throwIfAborted();
-  try {
-    verifyExistingDirectory(root);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
-    throw error;
-  }
-  const names = readdirSync(root).filter((name) => ID_PATTERN.test(name));
-  if (names.length > MAX_ENTRIES) throw new Error('Too many supervised session records to list safely.');
+  const candidates = await listRegisteredCandidates(root, signal);
   const unfiltered = options.cwd === undefined && options.name === undefined && options.pr === undefined;
-  const rows = await Promise.all(names.map(async (id): Promise<ISupervisedSessionRow | null> => {
+  const rows = await Promise.all(candidates.map(async (candidate): Promise<ISupervisedSessionRow | null> => {
     signal?.throwIfAborted();
-    const directory = sessionDirectory(root, id);
-    let record: IRegistration;
-    try {
-      record = readRegistration(directory, id);
-    } catch {
-      try {
-        lstatSync(directory);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
-      }
-      return unfiltered
-        ? { id, liveness: 'unknown', control: 'unavailable', activity: 'unknown', problem: 'invalid-registration' }
-        : null;
-    }
-    const currentStart = readProcessStartTime(record.pid);
-    const liveness = currentStart === undefined
-      ? probePid(record.pid) === 'absent' ? 'dead' : 'unknown'
-      : currentStart === record.startedAt ? 'alive' : 'dead';
-    // A registration without a generation cannot bind an action to its process start.
-    if (liveness !== 'alive' || record.generation === undefined) return unfiltered
-      ? { id, liveness, control: 'unavailable', activity: 'unknown' }
+    const { id, liveness, generation } = candidate;
+    if (liveness !== 'alive' || generation === undefined) return unfiltered
+      ? { id, liveness, control: 'unavailable', activity: 'unknown',
+          ...(candidate.problem ? { problem: candidate.problem } : {}) }
       : null;
     try {
-      const response = await request(directory, id, record.generation, 'status', signal);
+      const { directory } = verifyLiveOwner(root, id, generation);
+      const response = await request(directory, id, generation, 'status', signal);
       if ('status' in response && response.status === 'running') {
         if (options.cwd !== undefined && (!('cwd' in response) || response.cwd !== options.cwd)) return null;
         const name = 'name' in response && isSupervisedSessionName(response.name) ? response.name : undefined;
@@ -481,7 +383,9 @@ export async function listSupervisedSessions(
           ...(options.includeName && name !== undefined ? { name } : {}),
           ...(options.includeCwd && cwd !== undefined ? { cwd } : {}),
           ...(options.includePr && pr !== undefined ? { pr } : {}),
-          ...(options.includeGeneration ? { generation: record.generation } : {}),
+          ...(options.includeGeneration ? { generation } : {}),
+          ...(options.includeSecure && 'certified' in response && typeof response.certified === 'boolean'
+            ? { secure: { certified: response.certified } } : {}),
           ...(options.includeDaemon && 'daemon' in response && response.daemon === true
             ? { daemon: true as const,
                 ...('restricted' in response && response.restricted === true ? { restricted: true as const } : {}) }
@@ -503,6 +407,15 @@ export async function listSupervisedSessions(
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
+/** Lock one registered secure runtime without opening an owner link. */
+export async function lockSupervisedSession(id: string, root: string, expectedGeneration: string): Promise<void> {
+  const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
+  const response = await request(directory, id, generation, 'lock');
+  if (!('status' in response) || response.status !== 'locked') {
+    throw new Error('Supervised session did not confirm locking.');
+  }
+}
+
 /**
  * Stop the live owner. With `expectedGeneration` (the one a view displayed), a registration that has
  * changed since is refused instead of stopping whichever process now holds the id.
@@ -517,6 +430,32 @@ export async function stopSupervisedSession(
   if (!('status' in response) || response.status !== 'stopping') {
     throw new Error('Supervised session did not confirm shutdown.');
   }
+  await awaitRuntimeExit(directory, record);
+}
+
+/**
+ * End a runtime this process started and return only once it is gone. A runtime whose spawner
+ * left without certifying it ends itself, and its control closes before it answers a stop request:
+ * that is a runtime on its way out, not one that has left, and a caller that goes on while it is
+ * still registered sees it as a live session with no control. So an unanswered or refused stop is
+ * not an error here, and the wait for the exit does not depend on the answer.
+ */
+export async function stopStartedSupervisedSession(
+  id: string,
+  root: string,
+  expectedGeneration: string,
+): Promise<void> {
+  const { directory, record, generation } = verifyLiveOwner(root, id, expectedGeneration);
+  try {
+    await request(directory, id, generation, 'stop');
+  } catch {
+    // allow-fallback: the runtime may already be stopping itself; the wait below decides.
+  }
+  await awaitRuntimeExit(directory, record);
+}
+
+/** Resolves once the registration is removed and the registered process has exited. */
+export async function awaitRuntimeExit(directory: string, record: Pick<IRegistration, 'pid' | 'startedAt'>): Promise<void> {
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     let registrationRemoved = false;
@@ -529,7 +468,8 @@ export async function stopSupervisedSession(
     const startedAt = readProcessStartTime(record.pid);
     const originalProcessExited = startedAt === undefined
       ? probePid(record.pid) === 'absent'
-      : startedAt !== record.startedAt;
+      : startedAt !== record.startedAt ||
+        (registrationRemoved && isRegisteredLinuxZombie(record.pid, record.startedAt));
     if (registrationRemoved && originalProcessExited) return;
     await new Promise<void>((resolve) => setTimeout(resolve, 25));
   }
@@ -555,23 +495,6 @@ export async function renameSupervisedSession(
  * Re-read the registration at action time instead of trusting a displayed row: its generation must
  * still be the expected one, and the registered process must still be the one that wrote it.
  */
-function verifyLiveOwner(
-  root: string,
-  id: string,
-  expectedGeneration?: string,
-): { readonly directory: string; readonly record: IRegistration; readonly generation: string } {
-  const directory = sessionDirectory(root, id);
-  const record = readRegistration(directory, id);
-  if (record.generation === undefined) throw new Error('Supervised session registration cannot be controlled.');
-  if (expectedGeneration !== undefined && record.generation !== expectedGeneration) {
-    throw new Error('Supervised session changed since it was listed.');
-  }
-  const currentStart = readProcessStartTime(record.pid);
-  if (currentStart === undefined || currentStart !== record.startedAt) {
-    throw new Error('Supervised session is not proven alive.');
-  }
-  return { directory, record, generation: record.generation };
-}
 
 export async function linkSupervisedPr(
   id: string,
@@ -765,13 +688,13 @@ function readDaemonStartLockOwner(
   return { pid, state: readProcessStartTime(pid) === match[2] ? 'live' : 'gone' };
 }
 
-const unlockHint = (cliName: string): string => `If no daemon start is running, remove it with: ${cliName} daemon unlock`;
+const unlockHint = (cliName: string): string => `If no daemon start is running, remove it with: ${cliName} daemon clear-start-lock`;
 
 /**
  * Serialize `the CLI daemon start` in one workspace, so two starts never launch two daemons. The lock
  * is a file created exclusively in the private supervised directory, holding its owner's pid. A live
  * owner is waited for. A lock this start did not take is never removed here: one left by a start
- * that is gone refuses the start and names `the CLI daemon unlock`, so removing it is the user's call.
+ * that is gone refuses the start and names `the CLI daemon clear-start-lock`, so removing it is the user's call.
  * Resolves to the release of this start's own lock.
  */
 export async function acquireSupervisedDaemonStartLock(
@@ -814,7 +737,7 @@ export async function acquireSupervisedDaemonStartLock(
 }
 
 /**
- * `the CLI daemon unlock`: remove this workspace's daemon start lock at the user's request. A lock whose
+ * `the CLI daemon clear-start-lock`: remove this workspace's daemon start lock at the user's request. A lock whose
  * owner is still running is kept, since that start is still in progress.
  */
 export function removeSupervisedDaemonStartLock(
@@ -896,21 +819,224 @@ export interface ISupervisedControl {
   close(): Promise<void>;
 }
 
-export async function startSupervisedControl(
-  id: string,
-  onStop: () => void,
-  root: string,
-  getActivity?: () => Exclude<TSupervisedActivity, 'unknown'> | undefined,
-  getCwd?: () => string | undefined,
-  getNextLoopAt?: () => string | undefined,
-  getName?: () => string | undefined,
-  onRename?: (name: string) => void,
-  pr?: { readonly get: () => ISupervisedPr | undefined; readonly set: (value: ISupervisedPr | undefined) => void },
-  externalEvents?: ISupervisedExternalEvents,
-  attachTarget?: TSupervisedAttachTarget,
-  daemon?: ISupervisedDaemon,
-): Promise<ISupervisedControl> {
-  if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
+/** What a control endpoint observes of its runtime; whatever is left out is not reported. */
+export interface IControlObservation {
+  readonly activity?: (() => Exclude<TSupervisedActivity, 'unknown'> | undefined) | undefined;
+  readonly cwd?: (() => string | undefined) | undefined;
+  readonly nextLoopAt?: (() => string | undefined) | undefined;
+  readonly name?: (() => string | undefined) | undefined;
+}
+
+export interface ISupervisedControlOptions {
+  /** The runtime's supervised id, the name of its registration and socket. */
+  readonly id: string;
+  /** The private directory the registration and socket live in. */
+  readonly root: string;
+  /** Called after a stop request has been answered. */
+  readonly onStop: () => void;
+  readonly observe?: IControlObservation | undefined;
+  readonly rename?: ((name: string) => void) | undefined;
+  readonly pr?:
+    | {
+        readonly get: () => ISupervisedPr | undefined;
+        readonly set: (value: ISupervisedPr | undefined) => void;
+      }
+    | undefined;
+  readonly externalEvents?: ISupervisedExternalEvents | undefined;
+  readonly attachTarget?: TSupervisedAttachTarget | undefined;
+  readonly daemon?: ISupervisedDaemon | undefined;
+  /**
+   * Makes this a secure runtime's endpoint: the commands a same-user program may send shrink to
+   * what `CONTROL_ACCESS` leaves open in secure mode, the rest is the owner's through an owner link
+   * the custody serves, and `status` reports what the custody says. Absent, every command is open
+   * as it always was.
+   */
+  readonly admission?: TRuntimeAdmissionFactory | undefined;
+}
+
+/**
+ * Who a command's answer is for: `plain` is a plain runtime's socket (everything, as always), `open`
+ * is a secure runtime's socket (what a program of this user may learn), `owner` is an admitted
+ * owner's `control` request (what the owner may learn).
+ */
+type TControlView = 'plain' | 'open' | 'owner';
+
+/** What one command answers, and what must happen once the answer has been written. */
+interface IControlOutcome {
+  readonly body: Record<string, unknown>;
+  readonly afterReply?: () => void;
+}
+
+/**
+ * One request's fields as a command reads them: the plain socket's request line, or the fields of an
+ * owner link's `control` request.
+ */
+type TControlRequest = Readonly<Record<string, unknown>>;
+
+/**
+ * Every command that answers from the runtime's own state, in one place, so the plain socket and an
+ * owner link's `control` request give the same answers. A command whose handler the runtime did not
+ * supply answers `refused`, as does one that is not an answer from state (attach, lock, link).
+ */
+function createControlHandler(
+  options: ISupervisedControlOptions,
+  admissionOf: () => IRuntimeAdmission | undefined,
+): (command: TControlCommandName, request: TControlRequest, view: TControlView) => IControlOutcome {
+  const { observe, rename, pr, externalEvents, daemon } = options;
+  const refused: IControlOutcome = { body: { status: 'refused' } };
+  const status = (view: TControlView): IControlOutcome => {
+    const custody = admissionOf()?.status();
+    // What names the work stays out of a secure runtime's open answer, and is not even read for it.
+    const named = view !== 'open';
+    let observed: unknown;
+    let cwd: string | undefined;
+    let nextLoopAt: unknown;
+    let name: unknown;
+    let linkedPr: unknown;
+    try {
+      observed = observe?.activity?.();
+    } catch {
+      // A failed observation cannot turn a verified control endpoint into a false activity claim.
+    }
+    try {
+      cwd = observe?.cwd?.();
+    } catch {
+      // A directory that cannot be verified is omitted, never guessed from registration data.
+    }
+    if (observed === 'idle') {
+      try {
+        nextLoopAt = observe?.nextLoopAt?.();
+      } catch {
+        // A failed loop observation cannot turn an idle session into a false wake claim.
+      }
+    }
+    try {
+      if (named) name = observe?.name?.();
+    } catch {
+      // A failed name observation does not change the session's verified activity.
+    }
+    try {
+      if (named) linkedPr = pr?.get();
+    } catch {
+      // A failed association observation cannot create a link.
+    }
+    let grants: TSupervisedGrantSummary[] | undefined;
+    try {
+      if (named) {
+        grants = externalEvents?.list().map(({ grantId, state, counters }) => ({ grantId, state, counters }));
+      }
+    } catch {
+      // Counts that cannot be read are omitted, never guessed.
+    }
+    return {
+      body: {
+        status: 'running',
+        activity: isCurrentActivity(observed) ? observed : 'unknown',
+        ...(typeof cwd === 'string' && isAbsolute(cwd) && cwd.length <= 4_096 ? { cwd } : {}),
+        ...(isLoopTime(nextLoopAt) ? { nextLoopAt } : {}),
+        ...(isSupervisedSessionName(name) ? { name } : {}),
+        ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}),
+        ...(grants !== undefined && grants.length > 0 ? { externalEvents: grants } : {}),
+        ...(custody === undefined
+          ? daemon !== undefined
+            ? { daemon: true, ...(daemon.restricted === true ? { restricted: true } : {}) }
+            : {}
+          : {
+              ...(custody.daemon
+                ? { daemon: true, ...(custody.restricted ? { restricted: true } : {}) }
+                : {}),
+              certified: custody.certified,
+            }),
+      },
+    };
+  };
+  return (command, request, view) => {
+    switch (command) {
+      case 'status':
+        return status(view);
+      case 'lock': {
+        const admission = admissionOf();
+        if (admission === undefined) return refused;
+        admission.lock();
+        return { body: { status: 'locked' } };
+      }
+      case 'take-daemon-role':
+        return admissionOf()?.takeDaemonRole() === true ? { body: { status: 'daemon' } } : refused;
+      case 'connect': {
+        if (daemon === undefined || admissionOf() !== undefined) return refused;
+        let url: unknown;
+        try {
+          url = daemon.url();
+        } catch {
+          // A URL that cannot be read is never guessed.
+        }
+        return isDaemonUrl(url) ? { body: { status: 'connected', url } } : refused;
+      }
+      case 'stop':
+        return { body: { status: 'stopping' }, afterReply: options.onStop };
+      case 'rename': {
+        const name = request['name'];
+        if (!isSupervisedSessionName(name) || rename === undefined) return refused;
+        try {
+          rename(name);
+          return { body: { status: 'renamed' } };
+        } catch {
+          return refused;
+        }
+      }
+      case 'link-pr': {
+        if (!('url' in request) || pr?.set === undefined) return refused;
+        const linked = parseSupervisedPr(request['url']);
+        if (!linked) return refused;
+        try {
+          pr.set(linked);
+          return { body: { status: 'linked' } };
+        } catch {
+          return refused;
+        }
+      }
+      case 'events-list': {
+        if (externalEvents === undefined) return refused;
+        try {
+          return { body: { status: 'events', grants: externalEvents.list() } };
+        } catch {
+          return refused;
+        }
+      }
+      case 'events-revoke': {
+        const grantId = request['grantId'];
+        if (externalEvents === undefined || typeof grantId !== 'string' || !GRANT_ID_PATTERN.test(grantId)) {
+          return refused;
+        }
+        try {
+          return {
+            body: externalEvents.revoke(grantId) === 'revoked'
+              ? { status: 'revoked' }
+              : { status: 'refused', reason: 'unknown-grant' },
+          };
+        } catch {
+          return refused;
+        }
+      }
+      case 'unlink-pr': {
+        if (pr?.set === undefined) return refused;
+        try {
+          pr.set(undefined);
+          return { body: { status: 'unlinked' } };
+        } catch {
+          return refused;
+        }
+      }
+      default:
+        // `attach` needs its socket, and `link` is not an answer from state at all.
+        return refused;
+    }
+  };
+}
+
+export async function startSupervisedControl(options: ISupervisedControlOptions): Promise<ISupervisedControl> {
+  const { id, root, attachTarget } = options;
+  if (!SUPERVISED_ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
   ensurePrivateDirectory(root);
   const directory = sessionDirectory(root, id);
   // A UUID directory is visible to list only after its registration is complete.
@@ -918,30 +1044,53 @@ export async function startSupervisedControl(
   const socketPath = controlSocketPath(root, id);
   // One value per process start: a request bound to any other start is refused, never acted on.
   const generation = randomBytes(16).toString('base64url');
+  // The request reader leaves a socket paused, so that an owner link or an attach can take it over
+  // with nothing lost. Every answer that ends the connection reads again first: a paused socket with
+  // bytes behind its request line never sees its peer close, and would hold its descriptors for good.
   const reply = (socket: IControlChannel, body: Record<string, unknown>): void => {
+    socket.resume();
     socket.end(`${JSON.stringify({ id, ...body, generation })}\n`);
   };
   // A caller that has not named this start learns nothing from the refusal: the generation is part
   // of the proof a later request presents, so it is echoed only to a caller that already holds it.
   const refuse = (socket: IControlChannel, reason?: 'stale-generation'): void => {
+    socket.resume();
     socket.end(`${JSON.stringify({ id, status: 'refused', ...(reason ? { reason } : {}) })}\n`);
   };
   const attach = attachTarget === undefined
     ? undefined
     : createSupervisedAttachCarrier(attachTarget);
+  let admission: IRuntimeAdmission | undefined;
+  const handle = createControlHandler(options, () => admission);
+  admission = options.admission?.({
+    binding: { runtimeId: id, generation },
+    control: (command, fields) => {
+      // Only what an owner may send, plus the whole status that the open one trims.
+      if (!isControlCommandName(command)) return { status: 'refused' };
+      if (CONTROL_ACCESS[command].secure !== 'owner-control' && command !== 'status') {
+        return { status: 'refused' };
+      }
+      return handle(command, fields, 'owner').body;
+    },
+  });
   const clients = new Set<IControlChannel>();
   const onConnection = (socket: IControlChannel): void => {
     clients.add(socket);
     // readLine owns request errors only; write-side EPIPE can arrive after its listener is removed.
     socket.on('error', () => socket.destroy());
     socket.once('close', () => clients.delete(socket));
-    let rest = '';
-    void readLine(socket, MAX_FRAME_BYTES, (remaining) => { rest = remaining; }).then((line) => {
+    void readRequestLine(socket).then(({ line, rest }) => {
       let value: unknown;
       try {
         value = JSON.parse(line);
       } catch {
         refuse(socket);
+        return;
+      }
+      // An owner link names no runtime and no start; the handshake that follows proves both.
+      if (isLinkRequest(value)) {
+        if (admission === undefined) refuse(socket);
+        else admission.serveLink(socket, rest);
         return;
       }
       if (typeof value !== 'object' || value === null || !('id' in value) || value.id !== id || !('command' in value)) {
@@ -952,9 +1101,24 @@ export async function startSupervisedControl(
         refuse(socket, 'stale-generation');
         return;
       }
-      if (value.command === 'attach') {
-        // Hold the next frames until the protocol takes over. This runs before any further data
-        // event, so nothing sent after the handshake is dropped.
+      const command = value.command;
+      const access =
+        isControlCommandName(command)
+          ? admission === undefined
+            ? CONTROL_ACCESS[command].plain
+            : CONTROL_ACCESS[command].secure
+          : 'absent';
+      // `owner-control` commands are the owner's, and reach the runtime only inside an owner link.
+      if (!isControlCommandName(command) || access === 'absent' || access === 'owner-control') {
+        reply(socket, { status: 'refused' });
+        return;
+      }
+      if (command === 'attach') {
+        // The protocol that follows is text: what arrived with the request line goes back in front of
+        // the stream, which decodes it from here on, and the socket stays paused until the carrier
+        // takes over, so nothing sent after the handshake is dropped.
+        if (rest.length > 0) socket.unshift(rest);
+        socket.setEncoding('utf8');
         socket.pause();
         // A refused handshake reads again, so the peer's close is seen and the socket is released.
         const refuse = (reason: string): void => {
@@ -965,7 +1129,7 @@ export async function startSupervisedControl(
           refuse('attach-unavailable');
           return;
         }
-        void attach.admit(socket, value, rest, {
+        void attach.admit(socket, value, '', {
           refuse,
           accept: (driverId) => {
             socket.write(`${JSON.stringify({ id, status: 'attached', driverId, generation })}\n`);
@@ -973,107 +1137,9 @@ export async function startSupervisedControl(
         }).catch(() => socket.destroy());
         return;
       }
-      if (value.command === 'status') {
-        let observed: unknown;
-        let cwd: string | undefined;
-        let nextLoopAt: unknown;
-        let name: unknown;
-        let linkedPr: unknown;
-        try {
-          observed = getActivity?.();
-        } catch {
-          // A failed observation cannot turn a verified control endpoint into a false activity claim.
-        }
-        try {
-          cwd = getCwd?.();
-        } catch {
-          // A directory that cannot be verified is omitted, never guessed from registration data.
-        }
-        if (observed === 'idle') {
-          try {
-            nextLoopAt = getNextLoopAt?.();
-          } catch {
-            // A failed loop observation cannot turn an idle session into a false wake claim.
-          }
-        }
-        try {
-          name = getName?.();
-        } catch {
-          // A failed name observation does not change the session's verified activity.
-        }
-        try {
-          linkedPr = pr?.get();
-        } catch {
-          // A failed association observation cannot create a link.
-        }
-        let grants: TSupervisedGrantSummary[] | undefined;
-        try {
-          grants = externalEvents?.list().map(({ grantId, state, counters }) => ({ grantId, state, counters }));
-        } catch {
-          // Counts that cannot be read are omitted, never guessed.
-        }
-        reply(socket, { status: 'running', activity: isCurrentActivity(observed) ? observed : 'unknown',
-          ...(typeof cwd === 'string' && isAbsolute(cwd) && cwd.length <= 4_096 ? { cwd } : {}),
-          ...(isLoopTime(nextLoopAt) ? { nextLoopAt } : {}),
-          ...(isSupervisedSessionName(name) ? { name } : {}),
-          ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}),
-          ...(grants !== undefined && grants.length > 0 ? { externalEvents: grants } : {}),
-          ...(daemon !== undefined ? { daemon: true, ...(daemon.restricted === true ? { restricted: true } : {}) } : {}) });
-      } else if (value.command === 'connect' && daemon !== undefined) {
-        let url: unknown;
-        try {
-          url = daemon.url();
-        } catch {
-          // A URL that cannot be read is never guessed.
-        }
-        reply(socket, isDaemonUrl(url) ? { status: 'connected', url } : { status: 'refused' });
-      } else if (value.command === 'stop') {
-        socket.once('finish', onStop);
-        reply(socket, { status: 'stopping' });
-      } else if (value.command === 'rename' && 'name' in value &&
-        isSupervisedSessionName(value.name) && onRename !== undefined) {
-        try {
-          onRename(value.name);
-          reply(socket, { status: 'renamed' });
-        } catch {
-          reply(socket, { status: 'refused' });
-        }
-      } else if (value.command === 'link-pr' && 'url' in value && pr?.set !== undefined) {
-        const linked = parseSupervisedPr(value.url);
-        if (!linked) {
-          reply(socket, { status: 'refused' });
-          return;
-        }
-        try {
-          pr.set(linked);
-          reply(socket, { status: 'linked' });
-        } catch {
-          reply(socket, { status: 'refused' });
-        }
-      } else if (value.command === 'events-list' && externalEvents !== undefined) {
-        try {
-          reply(socket, { status: 'events', grants: externalEvents.list() });
-        } catch {
-          reply(socket, { status: 'refused' });
-        }
-      } else if (value.command === 'events-revoke' && externalEvents !== undefined &&
-        'grantId' in value && typeof value.grantId === 'string' && GRANT_ID_PATTERN.test(value.grantId)) {
-        try {
-          reply(socket, externalEvents.revoke(value.grantId) === 'revoked'
-            ? { status: 'revoked' } : { status: 'refused', reason: 'unknown-grant' });
-        } catch {
-          reply(socket, { status: 'refused' });
-        }
-      } else if (value.command === 'unlink-pr' && pr?.set !== undefined) {
-        try {
-          pr.set(undefined);
-          reply(socket, { status: 'unlinked' });
-        } catch {
-          reply(socket, { status: 'refused' });
-        }
-      } else {
-        reply(socket, { status: 'refused' });
-      }
+      const outcome = handle(command, value as TControlRequest, admission === undefined ? 'plain' : 'open');
+      if (outcome.afterReply !== undefined) socket.once('finish', outcome.afterReply);
+      reply(socket, outcome.body);
     }).catch(() => socket.destroy());
   };
   const server = process.platform === 'win32' ? new WindowsControlPipeServer(onConnection) : createServer(onConnection);

@@ -7,8 +7,8 @@
 import { PeerMessageIngress } from '@robota-sdk/agent-framework';
 
 import type { IPeerIngressPort } from './local-peer-messaging.js';
-import type { IPeerTurnContext, ITurnHandle } from '@robota-sdk/agent-interface-session';
-import type { IPeerMessageIngress } from '@robota-sdk/agent-interface-session-mobility';
+import type { IPeerTurnContext, ITurnHandle } from '@robota-sdk/agent-interface/session';
+import type { IPeerMessageIngress } from '@robota-sdk/agent-interface/session-mobility';
 
 /** The one session operation peer messaging needs — narrow, so no caller can grow a second one. */
 export interface IPeerIngressSession {

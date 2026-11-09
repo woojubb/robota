@@ -1,5 +1,6 @@
 import { isTerminalBackgroundTaskStatus } from '@robota-sdk/agent-executor';
 
+import { attachKind } from './execution-workspace-attach.js';
 import {
   groupHeadline,
   groupState,
@@ -33,12 +34,12 @@ import type {
   IBackgroundTaskResult,
   IBackgroundTaskState,
   TBackgroundPrimitive,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 const SUCCESS_EXIT_CODE = 0;
 
 /**
- * #2079: `IBackgroundTaskResult` is discriminated by kind now, and `exitCode`/`signalCode` exist
+ * `IBackgroundTaskResult` is discriminated by kind now, and `exitCode`/`signalCode` exist
  * only on the process-kind member. `state.result` is still the full union (`IBackgroundTaskState` is
  * not itself discriminated), so this narrows on the RESULT's own `kind` before reading them — a
  * non-process result (or none) is never an unclean exit.
@@ -56,13 +57,13 @@ export function createExecutionWorkspaceSnapshot(
     createMainThreadEntry(input.mainThread),
     ...sortGroups(input.groups).map((group) => createBackgroundGroupEntry(group)),
     ...sortTasks(input.tasks)
-      // #3288 §1: a stopped loop's task does not linger (cancel() only flips status, never removes
+      // A stopped loop's task does not linger (cancel() only flips status, never removes
       // the record), and neither does a self-paced loop's fired one-shot wake timer, which the
       // manager moves to `completed` on its own — see `isLingeringTerminalLoopTask`. An ordinary
       // (non-loop) cancelled or completed task is unaffected: it stays listed and queryable.
       .filter((task) => !isLingeringTerminalLoopTask(task))
       .map((task) =>
-        createBackgroundTaskEntry(task, taskGroupIds.get(task.id), input.sessionHasWriter),
+        createBackgroundTaskEntry(task, taskGroupIds.get(task.id)),
       ),
     ...sortSelfPacedLoops(input.selfPacedLoops ?? [])
       // Only `pending`/`running` need a projection of their own: `waiting` already has one (the
@@ -106,7 +107,6 @@ function createMainThreadEntry(input: ICreateMainThreadEntryInput): IExecutionWo
 function createBackgroundTaskEntry(
   state: IBackgroundTaskState,
   groupId: string | undefined,
-  sessionHasWriter: (sessionId: string) => boolean,
 ): IExecutionWorkspaceEntry {
   return {
     id: createBackgroundTaskExecutionEntryId(state.id),
@@ -130,18 +130,18 @@ function createBackgroundTaskEntry(
     attention: createTaskAttention(state),
     visibility: createTaskVisibility(state),
     updatedAt: state.lastActivityAt ?? state.updatedAt,
-    controls: createTaskControls(state, sessionHasWriter),
-    // CLI-1994: the forked session record an `attach` control switches the view onto.
+    controls: createTaskControls(state),
+    // The forked session record an `attach` control switches the view onto.
     ...(state.kind === 'agent' && state.resumeSessionId !== undefined
       ? { resumeSessionId: state.resumeSessionId }
       : {}),
     state: taskState(state),
     ...withHeadline(taskHeadline(state)),
-    // SCREEN-1992: the timestamp, so a surface can tick its own countdown (never baked text).
+    // The timestamp, so a surface can tick its own countdown (never baked text).
     ...(state.kind === 'scheduled' && state.status === 'sleeping' && state.nextFireAt !== undefined
       ? { nextFireAt: state.nextFireAt }
       : {}),
-    // #3288 §1: the stable /loop stop <id> handle, present on any /loop-managed task — a fixed
+    // The stable /loop stop <id> handle, present on any /loop-managed task — a fixed
     // cadence loop, or a self-paced loop's own disposable wake timer (metadata.sessionLoop is set
     // on both; see loopIdFromTaskMetadata).
     ...(() => {
@@ -156,7 +156,7 @@ function createBackgroundTaskEntry(
 }
 
 /**
- * #3288 §1: an agent task's own denied-tool-call count (#3312's `IBackgroundTaskDeniedToolCalls`,
+ * An agent task's own denied-tool-call count (`IBackgroundTaskDeniedToolCalls`,
  * additive — absent on a task with nothing refused). Flattened to the total here; the entry carries
  * a count for the panel's label, not the by-reason breakdown.
  */
@@ -167,7 +167,7 @@ function deniedToolCallsFromResult(state: IBackgroundTaskState): number | undefi
 }
 
 /**
- * #3288 §1: a `/loop`-managed task's stable loop id (`loopIdOf` in agent-command's loop-command.ts
+ * A `/loop`-managed task's stable loop id (`loopIdOf` in agent-command's loop-command.ts
  * computes the identical answer server-side, for `/loop stop` itself — the two must never drift, so
  * this mirrors it exactly). Absent on any task `/loop` did not create.
  */
@@ -178,7 +178,7 @@ function loopIdFromTaskMetadata(state: IBackgroundTaskState): string | undefined
 }
 
 /**
- * #3288 §1: whether a loop task's own record should stop appearing — the record itself is never
+ * Whether a loop task's own record should stop appearing — the record itself is never
  * deleted by `cancel()` (only `close()` does that), so this is a snapshot-time filter, not a mutation.
  *
  * Two terminal statuses reach this, for different reasons: an operator-stopped loop's task is
@@ -200,7 +200,7 @@ function isLingeringTerminalLoopTask(task: IBackgroundTaskState): boolean {
 const SELF_PACED_LOOP_LABEL = 'Loop: ';
 const SELF_PACED_LOOP_TITLE_LENGTH = 48;
 
-/** #3288 §1: a `pending`/`running` self-paced loop, projected with no `IBackgroundTaskState` of its
+/** A `pending`/`running` self-paced loop, projected with no `IBackgroundTaskState` of its
  * own to draw from — see the module-level note on `createExecutionWorkspaceSnapshot`. */
 function createSelfPacedLoopEntry(
   loop: IExecutionSelfPacedLoopSummary,
@@ -231,7 +231,7 @@ function createSelfPacedLoopEntry(
 function sortSelfPacedLoops(
   loops: readonly IExecutionSelfPacedLoopSummary[],
 ): readonly IExecutionSelfPacedLoopSummary[] {
-  // SCREEN-010: the same stable-order rule as sortTasks — no per-loop start time is available here,
+  // The same stable-order rule as sortTasks — no per-loop start time is available here,
   // so order by id (deterministic, and matches the "loops in `/loop list`" ordering closely enough
   // for the small, occasional set of concurrently-active loops).
   return [...loops].sort((left, right) => left.loopId.localeCompare(right.loopId));
@@ -284,37 +284,34 @@ function createTaskGroupIdMap(groups: readonly IBackgroundJobGroupState[]): Map<
   return new Map(groups.flatMap((group) => group.taskIds.map((taskId) => [taskId, group.id])));
 }
 
-function createTaskControls(
-  state: IBackgroundTaskState,
-  sessionHasWriter: (sessionId: string) => boolean,
-): readonly TExecutionControl[] {
+function createTaskControls(state: IBackgroundTaskState): readonly TExecutionControl[] {
   const controls: TExecutionControl[] = ['select'];
   if (isTerminalBackgroundTaskStatus(state.status)) controls.push('close');
   else controls.push('cancel');
   if (state.kind === 'agent' && state.status === 'running') controls.push('send');
   if (state.logPath || state.transcriptPath) controls.push('read_log');
-  // CLI-1994: a task that resumed a forked record can be ATTACHED to — offered whenever the request
-  // carried the id, unless the record has a writer in this process (the job running it here, or a
-  // child it was handed to), which `resolveExecutionAttach` refuses on the same fact; a terminal task
-  // or a missing record is refused at attach time, with the reason.
+  // A fork's task can be ATTACHED to — followed while it runs, continued once it ended. The
+  // offer reads the same table the attach decision does (`attachKind`) and nothing about the record's
+  // writer: a lease ends without an event, so an offer that depended on it would go stale exactly when
+  // the job ends. A missing record or a writer that has not let go is refused at attach time, with the
+  // reason.
   if (
     state.kind === 'agent' &&
-    state.resumeSessionId !== undefined &&
-    !sessionHasWriter(state.resumeSessionId)
+    attachKind({ resumeSessionId: state.resumeSessionId, status: state.status }) !== 'none'
   ) {
     controls.push('attach');
   }
   return controls;
 }
 
-/** FLOW-006: max characters of the wake instruction shown inline in the workspace row. */
+/** Max characters of the wake instruction shown inline in the workspace row. */
 const WAKE_PREVIEW_LENGTH = 32;
 
 function createTaskSubtitle(state: IBackgroundTaskState): string | undefined {
   if (state.kind === 'agent') return state.agentType ?? state.cwd;
-  // FLOW-006: distinguish an agent-wake schedule (carries an instruction) from a shell-only
-  // schedule with a `↻ wake` marker + a truncated instruction preview. SCREEN-1992: the next fire
-  // is no longer baked here as text — the entry carries `nextFireAt` for a live countdown.
+  // Distinguish an agent-wake schedule (carries an instruction) from a shell-only
+  // schedule with a `↻ wake` marker + a truncated instruction preview. The next fire
+  // is not baked here as text — the entry carries `nextFireAt` for a live countdown.
   const wakeInstruction = state.kind === 'scheduled' ? state.schedule?.agentInstruction : undefined;
   if (state.status === 'sleeping' && wakeInstruction !== undefined) {
     return `↻ wake "${truncateWakePreview(wakeInstruction)}"`;
@@ -378,7 +375,7 @@ function matchesExecutionWorkspaceFilter(
   return true;
 }
 
-// SCREEN-010: order by a STABLE key (creation/start order), not by `lastActivityAt`. Sorting by
+// Order by a STABLE key (creation/start order), not by `lastActivityAt`. Sorting by
 // last activity made every running task jump to the top on each activity tick, so the list churned
 // constantly. `startedAt` is fixed once a task starts, so ascending order keeps each row in its slot
 // once it appears; new tasks append. `id` is the deterministic tiebreaker for not-yet-started tasks.
@@ -392,7 +389,7 @@ function sortTasks(tasks: readonly IBackgroundTaskState[]): IBackgroundTaskState
 }
 
 function sortGroups(groups: readonly IBackgroundJobGroupState[]): IBackgroundJobGroupState[] {
-  // Stable order too (SCREEN-010): groups carry no start time, so order by their creation id.
+  // Stable order too: groups carry no start time, so order by their creation id.
   return [...groups].sort((left, right) => left.id.localeCompare(right.id));
 }
 

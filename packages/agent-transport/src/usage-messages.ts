@@ -7,7 +7,7 @@ import type {
   IPersonalUsageReport,
   IPersonalUsageRequest,
   IUsageBySourceReport,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 
 type TJsonValue =
   string | number | boolean | null | readonly TJsonValue[] | { readonly [key: string]: TJsonValue };

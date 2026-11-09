@@ -1,5 +1,5 @@
 /**
- * CLI-2004 — the non-visual half of a turn: the bell and the OSC 133 boundary marks.
+ * The non-visual half of a turn: the bell and the OSC 133 boundary marks.
  *
  * Both are byte-stream events, not rendering, so they live in a hook rather than a component: the
  * App says WHEN a turn starts, ends, or wants an answer, and this decides what reaches the terminal.
@@ -19,7 +19,7 @@ import { useTerminalCapabilityOverrides } from '../terminal-capabilities-context
 import { createTurnMarkWriter } from '../terminal-marks.js';
 
 import type { IAttentionBell } from '../attention-bell.js';
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+import type { IToolState } from '@robota-sdk/agent-interface/session';
 
 export interface IUseScreenReaderTurnSignalsInputs {
   enabled: boolean;
@@ -54,7 +54,7 @@ function runningKeys(activeTools: readonly IToolState[]): Set<string> {
 export function useScreenReaderTurnSignals(inputs: IUseScreenReaderTurnSignalsInputs): void {
   const { enabled, isThinking, activeTools, awaitingAnswer } = inputs;
   const bell = useMemo<IAttentionBell>(() => createAttentionBell({ enabled }), [enabled]);
-  // SCREEN-2670: the marks are POSITIONAL — the terminal records the line they arrive on — so they
+  // The marks are POSITIONAL — the terminal records the line they arrive on — so they
   // travel through the owned write path, ordered with the commit they belong to. Outside a provider
   // the port writes to the process's own stdout, which is exactly today's path.
   const pacing = useScreenReaderPacing();

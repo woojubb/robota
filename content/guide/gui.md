@@ -15,10 +15,10 @@ terminal UI.
 
 ## Two ways in
 
-| Way in                  | What runs                                                                     | What you need                                                          |
-| ----------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `__PRODUCT_CLI_NAME__ --serve --open` | A runtime of its own, for as long as the command runs                         | The `__PRODUCT_CLI_NAME__` CLI ([Getting Started](../getting-started/README.md))     |
-| The desktop app         | The folder's workspace daemon, which keeps running after you close the window | The app; it bundles its own `__PRODUCT_CLI_NAME__`                                     |
+| Way in                                | What runs                                                                     | What you need                                                                    |
+| ------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `__PRODUCT_CLI_NAME__ --serve --open` | A runtime of its own, for as long as the command runs                         | The `__PRODUCT_CLI_NAME__` CLI ([Getting Started](../getting-started/README.md)) |
+| The desktop app                       | The folder's workspace daemon, which keeps running after you close the window | The app; it bundles its own `__PRODUCT_CLI_NAME__`                               |
 
 Both show the same page.
 
@@ -48,14 +48,7 @@ The desktop app is released as installers on
 `__PRODUCT_ARTIFACT_PREFIX__-desktop-<version>-<arch>`: a `.dmg` or `.zip` for macOS, an `.exe` for Windows, and an
 `.AppImage` or `.deb` for Linux. It is not published to npm.
 
-> **The published installers are out of date.** The release workflow has not produced installers
-> since 3.0.0-beta.79 ([#3356](__PROJECT_REPOSITORY_URL__/issues/3356)), and that app predates
-> most of this guide, including the trust question, provider setup and Settings. Until new installers
-> are published, use `__PRODUCT_CLI_NAME__ --serve --open`, which serves the same page from the CLI, or build the
-> app from source as described in [its README](../../apps/agent-app/docs/README.md).
-
-The installers are **not code-signed** yet (tracked in
-[#3349](__PROJECT_REPOSITORY_URL__/issues/3349)), so the operating system stops or warns on the
+The installers are **not code-signed** yet, so the operating system stops or warns on the
 first launch:
 
 - **macOS** refuses to open it. After the first attempt, open **System Settings → Privacy & Security**
@@ -74,6 +67,15 @@ leaves the daemon running and the next launch reconnects to it; on macOS the app
 clicking its icon opens a new window on the same folder. If the daemon stops while the window is open,
 the window offers **Reconnect**. With the CLI installed, `__PRODUCT_CLI_NAME__ daemon stop` in the folder stops it.
 See [the workspace daemon](./sessions-and-daemon.md#walkthrough-the-workspace-daemon).
+
+Secure conversations are optional. Enable them from an interactive terminal with
+`__PRODUCT_CLI_NAME__ secure setup` and `__PRODUCT_CLI_NAME__ secure enable` after closing Robota sessions.
+The secure desktop window is available on macOS in this release.
+The app then opens on a locked screen. Choose **File → Unlock Secure Conversation…** and enter the
+passphrase in the native window. Reloading or closing the window locks the conversation; an unsent
+draft and attachment paths are discarded. To return to plaintext for **new** conversations, close
+the current-version sessions and run `__PRODUCT_CLI_NAME__ secure disable` at a terminal. The sealed
+archive remains. See [secure conversations](../../packages/agent-cli/README.md#create-a-keyring-for-secure-conversations).
 
 ## The first run
 
@@ -231,17 +233,15 @@ A `__PRODUCT_CLI_NAME__ --serve --open` runtime is separate from the daemon, so 
   device stays in the terminal. Typing one of them in the GUI says what to use instead.
 - **Show Advisor settings, or sandbox options beyond on and off, on a screen.** Use `/advisor` and
   `/sandbox`.
-- **Install a current desktop app.** The published installers are out of date
-  ([#3356](__PROJECT_REPOSITORY_URL__/issues/3356)) and unsigned
-  ([#3349](__PROJECT_REPOSITORY_URL__/issues/3349)).
+- **Install a signed desktop app.** The installers remain unsigned.
 
 ## Troubleshooting
 
-| Message or symptom                                                                                  | What to do                                                                                                                                           |
-| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Workspace trust is required before headless startup (state: …)`                                    | Plain `--serve`, or `--serve --open` with no terminal to ask on, in an untrusted folder. Run `__PRODUCT_CLI_NAME__ trust --yes`, or add `--restricted-workspace`.  |
-| `Robota web assets not found (dist/web) — run a full CLI build.`                                    | A source checkout without the GUI build. Run `pnpm build` at the repository root.                                                                    |
-| **The agent process stopped:** …                                                                    | Follow the message, then choose **Try again**.                                                                                                       |
+| Message or symptom                                               | What to do                                                                                                                                                        |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Workspace trust is required before headless startup (state: …)` | Plain `--serve`, or `--serve --open` with no terminal to ask on, in an untrusted folder. Run `__PRODUCT_CLI_NAME__ trust --yes`, or add `--restricted-workspace`. |
+| `Robota web assets not found (dist/web) — run a full CLI build.` | A source checkout without the GUI build. Run `pnpm build` at the repository root.                                                                                 |
+| **The agent process stopped:** …                                 | Follow the message, then choose **Try again**.                                                                                                                    |
 
 ## Related
 

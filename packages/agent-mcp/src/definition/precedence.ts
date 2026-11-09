@@ -1,5 +1,5 @@
 /**
- * Whole-entry precedence resolution (MCP-001).
+ * Whole-entry precedence resolution.
  *
  * Three properties carry the weight here, and all three are stated in this package's SPEC:
  *
@@ -11,7 +11,7 @@
  *    through would mean a broken managed policy silently hands the name to a plugin — failing open
  *    in exactly the case where the operator most needs it to fail closed.
  * 3. **A source-level failure in the managed tier blocks every LOWER tier, not just names managed
- *    also declares.** When the managed source could not be read AT ALL (issue #2794's
+ *    also declares.** When the managed source could not be read AT ALL (see
  *    `sourceProblems`), there is no way to tell "managed defines nothing" from "managed defines this
  *    exact name and we cannot see it" — so a name that would otherwise resolve from local, project,
  *    user or plugin is blocked instead. A name that already resolved from a DIFFERENT, readable
@@ -74,7 +74,7 @@ function rankOf(source: TMCPDefinitionSource): number {
  * an `IMCPResolvedEntry` because that shape is keyed by server name. `sourceProblems` is that
  * problem's carrier: without it, an entirely unreadable managed policy (config root not an object,
  * no `mcpServers`, `mcpServers` not an object) vanished with a `continue` and reached
- * `statusOf`/`listServers` as if nothing had gone wrong (issue #2794).
+ * `statusOf`/`listServers` as if nothing had gone wrong.
  *
  * A source problem in the HIGHEST-precedence tier (`MCP_SOURCE_PRECEDENCE[0]`, `managed`) also
  * changes `entries`, not just `sourceProblems`: every name that would otherwise resolve from a
@@ -114,7 +114,7 @@ export function resolveByPrecedence(
     }
     for (const problem of source.problems) {
       // A container-level problem has no name — it cannot shadow or be shadowed by a named entry,
-      // so it is not a candidate for any name. It still needs a carrier, though (issue #2794): it
+      // so it is not a candidate for any name. It still needs a carrier, though: it
       // is collected into `sourceProblems` rather than dropped, so a caller building `statusOf`/
       // `listServers` from this result can say which source could not be read at all.
       if (problem.name === '') {

@@ -1,5 +1,5 @@
 /**
- * Host trusted-device store for TOFU reconnect (REMOTE-012 Stage E3).
+ * Host trusted-device store for TOFU reconnect.
  *
  * A JSON file under the configured user storage root keyed by `deviceId`, holding each enrolled device's **public** key only — no
  * private material, so a leak of this file cannot impersonate a device. Enrollment happens at first pair
@@ -20,9 +20,9 @@ export interface ITrustedDeviceRecord {
   readonly label: string;
   readonly createdAt: string;
   readonly lastSeenAt: string;
-  /** REMOTE-013 E4: per-device reconnect seed (HKDF of the pairing sessionKey) for rotating-rendezvous rediscovery. */
+  /** Per-device reconnect seed (HKDF of the pairing sessionKey) for rotating-rendezvous rediscovery. */
   readonly reconnectSeed?: string;
-  /** REMOTE-013 E4: monotonic reconnect counter (resync-on-success). Absent → 0. */
+  /** Monotonic reconnect counter (resync-on-success). Absent → 0. */
   readonly reconnectCounter?: number;
 }
 
@@ -57,7 +57,7 @@ function readFile(filePath: string): ITrustedDeviceFile {
 }
 
 function writeFile(filePath: string, file: ITrustedDeviceFile): void {
-  // SEC-020: the directory was created with no mode, and this file IS rewritten — `mode` applies
+  // The directory was created with no mode, and this file IS rewritten — `mode` applies
   // only at creation, so a trusted-device list an older version left at 0644 stayed readable by
   // every local account through every later pairing.
   ensureOwnerOnlyDirectory(dirname(filePath));

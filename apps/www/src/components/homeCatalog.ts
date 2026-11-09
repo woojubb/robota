@@ -10,7 +10,7 @@ export const featureCatalog = [
       { id: 'providers', guide: 'guide/providers', tags: ['Anthropic', 'OpenAI', 'Gemini', 'DeepSeek', 'Qwen', 'Gemma', 'baseURL'] },
       { id: 'fallback', guide: 'guide/cli', tags: ['FallbackProvider', '--fallback-model', '--advisor', '--effort'] },
       { id: 'local', guide: 'guide/local-llm', tags: ['Ollama', 'LM Studio', 'vLLM'] },
-      { id: 'media', guide: 'guide/providers', tags: ['agent-provider-gemini', 'agent-provider-bytedance'] },
+      { id: 'media', guide: 'guide/providers', tags: ['agent-provider/gemini', 'agent-provider/bytedance'] },
     ],
   },
   {
@@ -38,7 +38,7 @@ export const featureCatalog = [
   {
     group: 'extend',
     items: [
-      { id: 'mcp', guide: 'guide/mcp', tags: ['agent-mcp', 'OAuth', '/mcp approve', 'mcp serve', 'agent-transport-mcp'] },
+      { id: 'mcp', guide: 'guide/mcp', tags: ['agent-mcp', 'OAuth', '/mcp approve', 'mcp serve', 'agent-transport/mcp'] },
       { id: 'skills', guide: 'guide/cli', tags: ['.agents/skills', '.claude/skills', '.claude/commands', '/skills'] },
       { id: 'plugins', guide: 'guide/plugins', tags: ['/plugin marketplace add', '/plugin install', 'agent-plugin', 'webhooks'] },
       { id: 'events', guide: 'guide/cli', tags: ['--external-event-grant', '/events'] },
@@ -77,12 +77,12 @@ export type PermissionMode = (typeof permissionModes)[number];
 
 export const architectureLayers = [
   { id: 'interface', packages: ['agent-cli'] },
-  { id: 'composition', packages: ['agent-product', 'pack-coding', 'agent-command', 'agent-preset'] },
-  { id: 'surfaces', packages: ['agent-ui-terminal', 'agent-transport-ws', 'agent-transport-http', 'agent-transport-mcp', 'agent-transport-acp', 'agent-transport-webrtc'] },
+  { id: 'composition', packages: ['agent-product'] },
+  { id: 'surfaces', packages: ['agent-ui-terminal', 'agent-transport'] },
   { id: 'assembly', packages: ['agent-framework'] },
-  { id: 'runtime', packages: ['agent-session', 'agent-executor', 'agent-tools', 'agent-tool-defaults', 'agent-mcp', 'agent-plugin'] },
-  { id: 'providers', packages: ['agent-provider-*'] },
-  { id: 'contracts', packages: ['agent-interface-*'] },
+  { id: 'runtime', packages: ['agent-session', 'agent-executor', 'agent-tools', 'agent-mcp', 'agent-plugin'] },
+  { id: 'providers', packages: ['agent-provider'] },
+  { id: 'contracts', packages: ['agent-interface'] },
   { id: 'foundation', packages: ['agent-core'] },
 ] as const;
 export type ArchitectureLayerId = (typeof architectureLayers)[number]['id'];
@@ -90,21 +90,21 @@ export type ArchitectureLayerId = (typeof architectureLayers)[number]['id'];
 export const packageGroups = [
   {
     id: 'start',
-    packages: ['agent-core', 'agent-provider-anthropic', 'agent-provider-openai', 'agent-provider-openai-compatible', 'agent-provider-gemini', 'agent-provider-bytedance', 'agent-tools'],
+    packages: ['agent-core', 'agent-provider', 'agent-tools'],
   },
   {
     id: 'assembly',
-    packages: ['agent-framework', 'agent-session', 'agent-executor', 'agent-subagent-runner', 'agent-tool-defaults', 'agent-builtin-providers', 'agent-mcp', 'agent-plugin', 'agent-session-analytics', 'agent-telemetry-otel', 'agent-process', 'agent-file-authority', 'agent-keyring'],
+    packages: ['agent-framework', 'agent-session', 'agent-executor', 'agent-subagent-runner', 'agent-mcp', 'agent-plugin', 'agent-session-analytics', 'agent-telemetry-otel', 'agent-os', 'agent-keyring'],
   },
   { id: 'multiAgent', packages: ['agent-roundtable', 'agent-roundtable-robota'] },
-  { id: 'composition', packages: ['agent-product', 'agent-capability-pack', 'pack-coding', 'agent-command', 'agent-preset'] },
+  { id: 'composition', packages: ['agent-product'] },
   {
     id: 'transports',
-    packages: ['agent-transport', 'agent-transport-ws', 'agent-transport-http', 'agent-transport-mcp', 'agent-transport-acp', 'agent-transport-webrtc', 'agent-transport-link', 'agent-remote-pairing', 'agent-ui-terminal'],
+    packages: ['agent-transport', 'agent-remote-pairing', 'agent-ui-terminal'],
   },
   {
     id: 'contracts',
-    packages: ['agent-interface-session', 'agent-interface-session-mobility', 'agent-interface-command', 'agent-interface-execution', 'agent-interface-analytics', 'agent-interface-transport', 'agent-interface-tui'],
+    packages: ['agent-interface'],
   },
   { id: 'cli', packages: ['agent-cli'] },
 ] as const;

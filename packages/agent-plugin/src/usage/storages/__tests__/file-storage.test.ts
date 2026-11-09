@@ -20,7 +20,7 @@ function makeStat(overrides: Partial<IUsageStats> = {}): IUsageStats {
   };
 }
 
-describe('FileUsageStorage (PLUGIN-001: real persistence)', () => {
+describe('FileUsageStorage (real persistence)', () => {
   let dir: string;
 
   function freshStorage(): FileUsageStorage {

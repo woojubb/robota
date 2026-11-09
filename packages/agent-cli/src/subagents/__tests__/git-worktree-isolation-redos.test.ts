@@ -1,5 +1,5 @@
 /**
- * SEC-003 alert 34 — `GitWorktreeIsolationAdapter`'s path-segment sanitiser must be linear.
+ * `GitWorktreeIsolationAdapter`'s path-segment sanitiser must be linear.
  *
  * The pump is delivered through the public `idFactory` option, which feeds `normalizeShortId` →
  * `sanitizePathSegment`. `-` is inside the class that sanitiser KEEPS, so a long dash run survives the collapse
@@ -49,7 +49,7 @@ function createGitRepo(): string {
   return repo;
 }
 
-describe('SEC-003 alert 34 — git worktree path segment sanitiser', () => {
+describe('git worktree path segment sanitiser', () => {
   /** `prepare()` on a real repo, timed. */
   function timedPrepare(repo: string, shortId: string): { ms: number; branchName: string } {
     const adapter = new GitWorktreeIsolationAdapter({worktreeDir: '.test-product/worktrees', branchPrefix: 'test-product', environment: gitEnvironment(),  idFactory: () => shortId });

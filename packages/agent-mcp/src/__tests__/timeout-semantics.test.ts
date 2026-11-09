@@ -1,8 +1,8 @@
 /**
- * TC-16: startup, per-call, global-default and idle timeouts are four distinct typed settings, each
- * independently configurable, and a value set for one does not change another (MCP-003).
+ * Startup, per-call, global-default and idle timeouts are four distinct typed settings, each
+ * independently configurable, and a value set for one does not change another.
  *
- * TC-18 (first half, MCP-004 S2): `toolCallMs` is a fifth distinct typed setting — the budget of one
+ * `toolCallMs` is a fifth distinct typed setting — the budget of one
  * `callTool` request. Setting it changes only the `callTool` request budget; setting any of the other
  * four never changes it. `callTool` passes `toolCallMs` to the SDK request where `discover`/`refresh`
  * keep passing `perCallMs`.
@@ -24,7 +24,7 @@ import {
 } from './supervisor-test-helpers.js';
 import { MCPConnectionSupervisor } from '../supervisor/connection.js';
 
-describe('MCPConnectionSupervisor — five distinct timeouts (TC-16, TC-18)', () => {
+describe('MCPConnectionSupervisor — five distinct timeouts', () => {
   it('setting one timeout field leaves the others at their configured values', () => {
     const base = fixtureTimeouts();
     const onlyIdleChanged = { ...base, idleMs: 1 };
@@ -85,7 +85,7 @@ describe('MCPConnectionSupervisor — five distinct timeouts (TC-16, TC-18)', ()
     expect(session.callToolCalls[0]?.timeoutMs).toBe(42);
   });
 
-  it('toolCallMs bounds only the callTool request budget, independent of the other four (TC-18)', async () => {
+  it('toolCallMs bounds only the callTool request budget, independent of the other four', async () => {
     const identity = fixtureIdentity();
     const session = new FakeMcpSession({ identity });
     const supervisor = new MCPConnectionSupervisor({
@@ -127,7 +127,7 @@ describe('MCPConnectionSupervisor — five distinct timeouts (TC-16, TC-18)', ()
     expect(session.callToolCalls[1]?.timeoutMs).toBe(77);
   });
 
-  it('callTool uses toolCallMs, not perCallMs, when they differ (TC-18)', async () => {
+  it('callTool uses toolCallMs, not perCallMs, when they differ', async () => {
     const identity = fixtureIdentity();
     const session = new FakeMcpSession({ identity });
     const supervisor = new MCPConnectionSupervisor({

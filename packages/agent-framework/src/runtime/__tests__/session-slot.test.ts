@@ -1,10 +1,10 @@
 /**
- * #3189 — the session slot: one stable session object whose calls, listeners and switch notice
+ * The session slot: one stable session object whose calls, listeners and switch notice
  * follow whichever session is current.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
-import { SESSION_CAPABILITY_MEMBER_KEYS } from '@robota-sdk/agent-interface-session';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
+import { SESSION_CAPABILITY_MEMBER_KEYS } from '@robota-sdk/agent-interface/session';
 import { describe, expect, it, vi } from 'vitest';
 
 import { SessionSlot } from '../session-slot.js';
@@ -13,7 +13,7 @@ import type {
   IInteractiveSession,
   IInteractiveSessionEvents,
   TInteractiveEventName,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 type THandler = (...args: unknown[]) => void;
 
@@ -47,7 +47,7 @@ function emittingSession(
   });
 }
 
-describe('SessionSlot (#3189)', () => {
+describe('SessionSlot', () => {
   it('moves registered listeners onto the replacing session', async () => {
     const first = emittingSession('s-1');
     const second = emittingSession('s-2');

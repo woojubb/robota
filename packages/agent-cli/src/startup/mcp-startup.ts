@@ -1,19 +1,18 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
- * MCP-002: the ONE place that turns product startup inputs into a live `IMcpClientComposition`,
+ * The ONE place that turns product startup inputs into a live `IMcpClientComposition`,
  * completing the reachability step — sourcing (`mcp-definition-sources.ts`)
- * → workspace projection (`mcp-workspace.ts`) → composition (`mcp-client-composition.ts`, MCP-002's
+ * → workspace projection (`mcp-workspace.ts`) → composition (`mcp-client-composition.ts`, the
  * existing manager wiring) → the `/mcp` adapter and connected tools `cli.ts` consumes.
  *
- * MCP-004 S3 adds: reading `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` beside `mcpServers`
+ * It also reads `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` beside `mcpServers`
  * (`mcp-settings.ts`), setting the supervisor's `toolCallMs` from the resolved `callTimeoutMs`, and
  * — via {@link IMcpStartupComposition.buildToolCallHandoff} — producing the per-mode
  * `toolCallHandoff` session-option contribution once `connect()` has resolved. `print` never
  * receives a policy; a positive `autoBackgroundMs` in `print` mode is reported once as ignored.
  */
 
-import { createNodeWorkspaceTrustStore } from '@robota-sdk/agent-framework/node';
-import { mcpUnavailableServersNotice } from '@robota-sdk/agent-command';
+import { mcpUnavailableServersNotice } from '@robota-sdk/agent-product/command';
 import { mkdirSync } from 'node:fs';
 
 import {
@@ -24,7 +23,9 @@ import {
   isWorkspaceHelperSource,
   withoutExpansions,
 } from '@robota-sdk/agent-mcp';
-import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
+import { userLocalStorageRoot } from '../product/user-paths.js';
+import { workspaceRootBrokerEndpoint } from './workspace-root-broker-process.js';
+import { requestWorkspaceRootBroker } from './workspace-root-broker.js';
 import { commandEnvironment } from '../product/command-environment.js';
 import { createProductToolResultSpillStore } from '../product/session-stores.js';
 
@@ -57,7 +58,7 @@ import type {
 } from '@robota-sdk/agent-mcp';
 import type { IMCPStdioAuthority, INodeHttpEgressOptions } from '@robota-sdk/agent-mcp/node';
 import type { IMcpClientComposition, IMcpHeadersHelperHost } from './mcp-client-composition.js';
-import type { TMCPUserAction, TMCPUserActionSurface } from '@robota-sdk/agent-command';
+import type { TMCPUserAction, TMCPUserActionSurface } from '@robota-sdk/agent-product/command';
 
 /**
  * The three session runtimes that ever compose MCP tools (spec § Modes). `interactive` is the ink
@@ -90,7 +91,7 @@ export interface IComposeMcpClientForStartupInput {
   readonly reportDiagnostic: (message: string) => void;
   /** Overridable for tests; defaults to the real node host workspace-trust store. */
   readonly inspectTrust?: (cwd: string) => Promise<IMcpWorkspaceTrustSnapshot>;
-  /** MCP-004 S3: which runtime this composition serves — gates `toolCallHandoff` (§ Modes). */
+  /** Which runtime this composition serves — gates `toolCallHandoff` (§ Modes). */
   readonly mode: TMcpStartupMode;
   /**
    * Whether a surface that answers `ask_request` attaches to this host's sessions: the TUI, or
@@ -108,7 +109,7 @@ export interface IComposeMcpClientForStartupInput {
 }
 
 /**
- * MCP-002's composition plus MCP-004 S3's per-mode `toolCallHandoff` builder. `buildToolCallHandoff`
+ * The composition plus the per-mode `toolCallHandoff` builder. `buildToolCallHandoff`
  * reads `connect()`'s already-resolved tool provenance (`IMcpClientComposition.connectedToolProvenance`)
  * — call it AFTER `await connect()`, exactly where `cli.ts` builds each mode's session options.
  */
@@ -139,7 +140,24 @@ async function inspectRealWorkspaceTrust(
   identity: IWorkspaceIdentity,
   runtime: ICliRuntimeContext,
 ): Promise<IMcpWorkspaceTrustSnapshot> {
-  return createNodeWorkspaceTrustStore(userPaths(runtime).workspaceTrust).inspect(identity);
+  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  let response;
+  try {
+    response = await requestWorkspaceRootBroker(endpoint, {
+      op: 'inspect', root: identity.worktreeRoot,
+    });
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ECONNREFUSED') {
+      return { state: 'untrusted', generation: 0 };
+    }
+    throw error;
+  }
+  if (response.status === 'trusted' || response.status === 'untrusted' ||
+      response.status === 'revoked' || response.status === 'stale/replaced') {
+    return { state: response.status, generation: response.generation };
+  }
+  throw new Error('Live workspace trust could not be confirmed.');
 }
 
 /**
@@ -156,7 +174,7 @@ export function mcpHeadersHelperEnvironment(
 
 /**
  * Compose the product's live MCP client for one startup: source every layer's `mcpServers`,
- * resolve `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` (MCP-004 S3) from the SAME layers, report
+ * resolve `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` from the SAME layers, report
  * every problem, resolve the workspace-trust snapshot, and hand it all to
  * `createMcpClientComposition`.
  *
@@ -172,7 +190,7 @@ export async function composeMcpClientForStartup(
     pluginMcpCandidates(input.productRuntime, input.cwd, input.projectAccess),
   );
   for (const problem of problems) {
-    // A source-level problem (`name === ''`, issue #2794) names no server, so "MCP definition """
+    // A source-level problem (`name === ''`) names no server, so "MCP definition """
     // reads as a nameless server rather than the source itself; it gets its own wording.
     input.reportDiagnostic(
       problem.name === ''
@@ -180,9 +198,9 @@ export async function composeMcpClientForStartup(
         : `MCP definition "${problem.name}" from ${problem.source} (${problem.origin}) was refused: ${problem.reason}`,
     );
   }
-  // A blocked entry (PR #3076 review) never appears in `problems` above — its reason is synthesized
+  // A blocked entry never appears in `problems` above — its reason is synthesized
   // by `resolveByPrecedence` itself, not by a source's own decode — so it would otherwise vanish with
-  // no diagnostic at all, exactly the same silent disappearance issue #2794 was about. Value-free:
+  // no diagnostic at all, a silent disappearance. Value-free:
   // names the server and that the managed source is why it did not activate, never the managed
   // source's file content.
   for (const entry of entries) {

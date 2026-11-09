@@ -41,19 +41,22 @@ import type {
   TSessionEndReason,
   TToolArgs,
 } from '@robota-sdk/agent-core';
-// CMD-004 unified action contract (SSOT in agent-core).
+// Unified action contract (SSOT in agent-core).
 import type {
   IActionRequest,
   TActionResponse as TUserActionResponse,
 } from '@robota-sdk/agent-core';
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
-import type { IExecutionDetailPage } from '@robota-sdk/agent-interface-execution';
-import type { ICommandInfo, TPermissionResultValue } from '@robota-sdk/agent-interface-session';
+import type {
+  IExecutionDetailCursor,
+  IExecutionDetailPage,
+} from '@robota-sdk/agent-interface/execution';
+import type { ICommandInfo, TPermissionResultValue } from '@robota-sdk/agent-interface/session';
 
 const SESSION_INIT_POLL_MS = 200;
 const SESSION_INIT_TIMEOUT_MS = 15000;
 /** Upper bound on the graceful session shutdown so a wedged subsystem cannot block process exit
- * (CLI-075 / RUNTIME-33; api-boundary "safely cancelled within a configurable timeout"). */
+ * (api-boundary "safely cancelled within a configurable timeout"). */
 const SHUTDOWN_TIMEOUT_MS = 5000;
 
 export type { ITuiInteractionChannelOptions } from './tui-channel-options.js';
@@ -70,7 +73,7 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
   private readonly userActions: TuiUserActionQueue;
   private readonly permissions: TuiPermissionQueue;
   private readonly eventProjector: TuiSessionEventProjector;
-  /** SCREEN-1992: joins the terminal's attention to this channel's recap; absent without a source. */
+  /** Joins the terminal's attention to this channel's recap; absent without a source. */
   private readonly attention: AttentionCoordinator | undefined;
   private readonly lifecycle: TuiChannelLifecycleCoordinator;
   availableCommands: ICommandInfo[] = [];
@@ -78,7 +81,7 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
 
   private initPoller: ISessionInitPoller | null = null;
 
-  /** TERM-002: the App registers its Ink suspend/resume hooks into this controller. */
+  /** The App registers its Ink suspend/resume hooks into this controller. */
   get terminalHandoffController(): TerminalHandoffController | undefined {
     return this.opts.terminalHandoff;
   }
@@ -193,7 +196,7 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
     return this.permissions.current;
   }
 
-  /** CMD-004: the action currently awaiting a user answer, or null. */
+  /** The action currently awaiting a user answer, or null. */
   get pendingUserAction(): IActionRequest | null {
     return this.userActions.current;
   }
@@ -237,7 +240,7 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
   }
 
   /**
-   * Full, idempotent channel teardown (CLI-075). Unwires every session listener, drains both
+   * Full, idempotent channel teardown. Unwires every session listener, drains both
    * request queues, stops the init poller, disposes the render-state manager, stops transports, and
    * — unless a graceful `shutdown()` already ran — shuts the underlying session down so a discarded
    * or switched-away channel releases its background tasks, subagent processes, and timers.
@@ -331,7 +334,8 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
 
   /** Esc on an idle prompt: the session decides which waiting loop, if any, stops. */
   async stopWaitingSelfPacedLoop(): Promise<void> {
-    const outcome = await this.interactiveSession.stopWaitingSelfPacedLoop(WAITING_LOOP_STOP_REASON);
+    const outcome =
+      await this.interactiveSession.stopWaitingSelfPacedLoop(WAITING_LOOP_STOP_REASON);
     const notice = waitingLoopStopNotice(outcome);
     if (notice !== undefined) this.addEntry(messageToHistoryEntry(createSystemMessage(notice)));
   }
@@ -344,8 +348,11 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
     this.stateManager.selectExecutionWorkspaceEntry(entryId);
   }
 
-  async readExecutionWorkspaceDetail(entryId: string): Promise<IExecutionDetailPage> {
-    return this.interactiveSession.readExecutionWorkspaceDetail(entryId);
+  async readExecutionWorkspaceDetail(
+    entryId: string,
+    cursor?: IExecutionDetailCursor,
+  ): Promise<IExecutionDetailPage> {
+    return this.interactiveSession.readExecutionWorkspaceDetail(entryId, cursor);
   }
 
   async sendAgentJob(taskId: string, input: string): Promise<void> {
@@ -358,7 +365,7 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
     this.onChange?.();
   }
 
-  // ── CMD-004 unified ask path ─────────────────────────────────
+  // ── Unified ask path ─────────────────────────────────
 
   /**
    * Queue an ask and resolve when the user answers. Reached via the `ask_request` event handler
@@ -393,7 +400,7 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
 
     const result = await this.interactiveSession.executeCommand(cmd, args);
     if (result) {
-      // CMD-004 Stage E: `data.sessionExecution` is the requester-local "a session turn is now
+      // `data.sessionExecution` is the requester-local "a session turn is now
       // running" hint (formerly the `session-execution-started` effect).
       if (result.data?.['sessionExecution'] === true) {
         this.stateManager.setPendingPrompt(this.interactiveSession.getPendingPrompt());
@@ -425,7 +432,7 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
   }
 
   /**
-   * REMOTE-007 co-drive: another surface answered the prompt with this framework `id`, so dismiss the
+   * Co-drive: another surface answered the prompt with this framework `id`, so dismiss the
    * still-showing local dialog. Resolving the local entry (cancelled) is a no-op on the framework side
    * — that id is already settled — but it clears the TUI's queue + render state.
    */
@@ -437,7 +444,7 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
   /**
    * Resolve every queued/in-flight permission request as `false` (deny) — abort, cancelQueue,
    * shutdown, stop. Symmetric to `cancelAllUserActions()`: tearing down must neither leave a tool's
-   * permission promise dangling (the tool would hang) nor silently grant it (CLI-075 RUNTIME-32).
+   * permission promise dangling (the tool would hang) nor silently grant it.
    */
   private cancelAllPermissions(): void {
     this.permissions.cancelAll();
@@ -484,7 +491,7 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
     this.syncExecutionWorkspace();
   }
 
-  /** SCREEN-1992: the recap lands in this channel's notice store; no source ⇒ no coordinator. */
+  /** The recap lands in this channel's notice store; no source ⇒ no coordinator. */
   private createAttention(source: IAttentionSource | undefined): AttentionCoordinator | undefined {
     if (!source) return undefined;
     return new AttentionCoordinator({

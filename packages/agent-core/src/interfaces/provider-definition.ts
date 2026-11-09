@@ -14,7 +14,7 @@ export interface IProviderDefinitionConfig {
   apiKey?: string;
   /**
    * Name of the environment variable `apiKey` was resolved FROM, when the stored settings value
-   * was a `$ENV:` reference (SEC-009). Config loading resolves such a reference into the secret
+   * was a `$ENV:` reference. Config loading resolves such a reference into the secret
    * itself, which is correct for an in-process provider and wrong for anything that has to
    * SERIALIZE the config — the resolved value then crosses a boundary the credential's owner
    * never opted into. Keeping the variable name lets a serializing caller carry the reference and
@@ -99,7 +99,7 @@ export interface IProviderModelCatalogEntry {
   lastVerifiedAt?: string;
   sourceUrl?: string;
   /**
-   * Per-model USD cost per input/output token (ARCH-PROVIDER-003). This is the correct SSOT home for
+   * Per-model USD cost per input/output token. This is the correct SSOT home for
    * cost — it is a per-**model** attribute, not per-provider — consumed by cost-estimating nodes/commands
    * so pricing is not hardcoded in the execution layer. Both optional; absent means cost is unknown for
    * this model and estimators must degrade explicitly rather than assume a default price.
@@ -129,7 +129,7 @@ export interface IProviderSetupStepDefinition {
 export type TProviderCategory = 'cloud-paid' | 'cloud-free' | 'local-free';
 
 /**
- * Passive reachability declaration for diagnostics (OBSERVABILITY-1991).
+ * Passive reachability declaration for diagnostics.
  *
  * The host and port a pre-session doctor may TCP-probe when a profile declares no `baseURL` and the
  * definition declares no `defaults.baseURL` — the case for vendors whose SDK embeds its endpoint. It
@@ -166,7 +166,7 @@ export interface IProviderDefinition {
   ) => readonly (keyof IProviderNativeWebToolRequest)[];
   defaults?: IProviderProfileDefaults;
   /**
-   * Optional enforced model allowlist (ARCH-PROVIDER-003). Distinct from {@link modelCatalog}: the catalog
+   * Optional enforced model allowlist. Distinct from {@link modelCatalog}: the catalog
    * is the *descriptive* model inventory (often `status:'unavailable'` with no entries), whereas
    * `allowedModels` is the *enforced* execution allowlist — a node rejects a requested model outside it.
    * When present it should be a subset/override consistent with `modelCatalog.entries[].id`, not a second
@@ -174,7 +174,7 @@ export interface IProviderDefinition {
    */
   allowedModels?: readonly string[];
   /**
-   * INTERIM provider-level cost per token in USD (ARCH-PROVIDER-003), migrated verbatim from the per-vendor
+   * INTERIM provider-level cost per token in USD, migrated verbatim from the per-vendor
    * LLM nodes' single `COST_PER_TOKEN_USD` scalar. The correct long-term home is the per-model
    * {@link IProviderModelCatalogEntry.costPerInputToken}/`costPerOutputToken`; this flat scalar is a
    * fidelity-preserving interim used only while model catalogs are `status:'unavailable'` (no per-model

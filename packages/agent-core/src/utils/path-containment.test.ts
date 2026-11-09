@@ -10,7 +10,7 @@ let fixtureRoot: string;
 let executionRoot: string;
 
 beforeAll(() => {
-  fixtureRoot = realpathSync(mkdtempSync(join(tmpdir(), 'arch010-trusted-root-')));
+  fixtureRoot = realpathSync(mkdtempSync(join(tmpdir(), 'trusted-root-')));
   executionRoot = join(fixtureRoot, 'project');
   mkdirSync(executionRoot);
   writeFileSync(join(fixtureRoot, 'not-a-directory'), 'x');

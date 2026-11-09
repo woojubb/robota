@@ -1,11 +1,11 @@
 /**
- * Sealed session logs in the PROJECT store (#3679, secure conversation): the Workspace log pair
+ * Sealed session logs in the PROJECT store (secure conversation): the Workspace log pair
  * routes every line and sidecar through agent-session's one stored-append module, and the project
  * store reads its replay logs with the sealing it seals its records with — so a sealed log rebuilds a
  * session when it can be opened, and is counted as locked, corrupt or unsupported, never crashes a
  * listing, when it cannot. `/validate-session` reads the same log through the same pair.
  *
- * ARCH-047: a project WRITE needs the Linux stable-root host, so the cases where the Workspace sink
+ * A project WRITE needs the Linux stable-root host, so the cases where the Workspace sink
  * writes are Linux-only; the logs the read cases need are written beside the project with the Node
  * sink, and every read runs everywhere.
  */

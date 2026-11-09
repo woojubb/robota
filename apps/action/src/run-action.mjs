@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { buildCliArgs, buildTrustArgs, cliPackageSpec } from './build-invocation.mjs';
+import { buildCliArgs, cliPackageSpec } from './build-invocation.mjs';
 
 /**
  * @typedef {object} IActionIo
@@ -91,7 +91,7 @@ function runStep(step, action, options) {
 }
 
 /**
- * Run the action: install the CLI, optionally trust the checkout, run the CLI on the task, and set
+ * Run the action: reject unattended trust, install the CLI, run the task in safe mode, and set
  * the `result` output. Returns the process exit code; a failure is reported as an Actions `::error::`
  * line.
  *
@@ -105,6 +105,10 @@ export function runAction(io) {
     return 1;
   }
   const loadProject = io.env.ACTION_LOAD_PROJECT === 'true';
+  if (loadProject) {
+    io.log('::error::Agent Action: load-project cannot run in CI because workspace trust requires a person at a terminal. Use load-project: false for Restricted mode.');
+    return 1;
+  }
   /** @type {NodeJS.ProcessEnv} */
   const env = { ...io.env };
   // The inputs reach the CLI as stdin (the task), argv and ANTHROPIC_API_KEY, never as these names.
@@ -117,17 +121,10 @@ export function runAction(io) {
     const entry = runStep('Installing the selected CLI', () => io.install(spec, installEnv), {
       withOutput: false,
     });
-    if (loadProject) {
-      // Its output says why trust was refused (for example, a checkout with no Git identity).
-      runStep('Trusting the checkout', () => io.run(entry, buildTrustArgs(), env), {
-        withOutput: true,
-      });
-    }
     const args = buildCliArgs({
       model: io.env.ACTION_MODEL ?? '',
       output: io.env.ACTION_OUTPUT || 'text',
       maxTurns: io.env.ACTION_MAX_TURNS ?? '',
-      loadProject,
     });
     // The runner reads no workflow commands out of what the CLI prints while it runs (its stderr
     // streams to the log).

@@ -1,5 +1,5 @@
 /**
- * SELFHOST-008 P2 — post-turn automatic memory capture.
+ * Post-turn automatic memory capture.
  *
  * Split out of the execution controller, which had grown past its size ratchet. Deciding whether a
  * finished turn produced anything worth remembering is its own job; running the turn is another.
@@ -13,7 +13,7 @@
  */
 
 import type { IExecutionResult } from './types.js';
-import type { IMemoryEvent, TTurnSource } from '@robota-sdk/agent-interface-session';
+import type { IMemoryEvent, TTurnSource } from '@robota-sdk/agent-interface/session';
 
 export interface IPostTurnMemoryInput {
   readonly capture?: (input: {

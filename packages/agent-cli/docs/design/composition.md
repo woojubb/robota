@@ -90,10 +90,10 @@ metadata and returns structured results; the session executes any host actions a
 through `ICommandHostAdapters`.
 
 1. `buildCommandSetup()` (`src/startup/command-setup.ts`) calls `createDefaultCommandModules()` from
-   `@robota-sdk/agent-command`, with the names the packs supply disabled.
+   `@robota-sdk/agent-product/command`, with the names the packs supply disabled.
 2. `createProductPackSet()` (`src/product/subagent-composition.ts`) builds the packs from
    `createProductCapabilityPacks()`. __PRODUCT_DISPLAY_NAME__ composes one pack, `createCodingPack()` from
-   `@robota-sdk/pack-coding`, which supplies the `/shell`, `/editor` and `/git` modules, the coding tools and the coding subagents.
+   `@robota-sdk/agent-product/coding`, which supplies the `/shell`, `/editor` and `/git` modules, the coding tools and the coding subagents.
    Dropping the pack from the profile drops all of them.
 3. `assembleProduct()` merges base and pack modules additively. A colliding id is rejected, not
    overridden, and the shell reports it (`Capability … was not composed`).
@@ -127,7 +127,7 @@ passes them into the profile, and reads them back from the assembled product wit
 
 - a `TransportRegistry` — the class belongs to `@robota-sdk/agent-framework` — whose saved
   enable/option state lives in the `transports` section of the user settings file;
-- a `WsTransport` from `@robota-sdk/agent-transport-ws`, which takes an optional launch token and
+- a `WsTransport` from `@robota-sdk/agent-transport/ws`, which takes an optional launch token and
   port from `PRODUCT_WS_TOKEN` / `PRODUCT_WS_PORT` (a supervised daemon's token instead arrives on a pipe
   its launcher inherited) and removes the token from the environment;
 - `bindTransports(session)`, which binds the WebSocket transport to a session with
@@ -152,12 +152,12 @@ points it at the WebSocket port; the transport itself serves no UI.
 
 ### Exit and other host actions
 
-`/exit` comes from `@robota-sdk/agent-command`. Its result carries a `session-exit` host action; the
+`/exit` comes from `@robota-sdk/agent-product/command`. Its result carries a `session-exit` host action; the
 session runs it through `commandHostAdapters.process.requestExit()`. In TUI mode the shell installs
 `createTuiProcessAdapter()` (`src/startup/host-action-adapters.ts`), which sends the process a
 `SIGTERM` shortly afterwards so the TUI shuts down through its normal signal path.
 
-`/plugin` and `/reload-plugins` also come from agent-command. The CLI supplies only the
+`/plugin` and `/reload-plugins` also come from agent-product/command. The CLI supplies only the
 `ICommandPluginAdapter` implementation (`src/plugins/default-plugin-command-adapter.ts`) and the
 plugin command-source loader; the terminal UI opens the plugin screen and reloads the registry.
 

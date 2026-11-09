@@ -122,13 +122,13 @@ apps/api-server/.local-assets/
 apps/api-server/.dag-storage/
 
 # Local product state the CLI writes into a project (sessions, logs, checkpoints, settings) — never
-# commit. Carries prompts, model output, tool results and provider credentials; #3679. A bare
+# commit. Carries prompts, model output, tool results and provider credentials. A bare
 # pattern, so it matches `.robota/` in the repo root and in every package/app that one is run from.
 .robota/
 
 # Legacy DAG runtime working directory — never commit local run state
 .dag/
-# FLOW-007 workspace layout: local workflow catalog + code nodes (test/dev working dir) — never commit
+# Workspace layout: local workflow catalog + code nodes (test/dev working dir) — never commit
 .workflows/
 
 # Lock files from other package managers
@@ -148,7 +148,7 @@ scripts/audit/output/
 # One-off analysis reports (local-only, regenerated on demand)
 .agents/reports/
 
-# INFRA-042 mutation testing (Stryker): sandbox + generated reports (regenerated per run, uploaded
+# Mutation testing (Stryker): sandbox + generated reports (regenerated per run, uploaded
 # as a CI artifact — never committed).
 .stryker-tmp/
 reports/mutation/
@@ -158,18 +158,18 @@ stryker.log
 .claude/worktrees/
 .gstack/
 
-# Fixture roots for tests that must live inside the invocation directory (SEC-007 containment).
+# Fixture roots for tests that must live inside the invocation directory (path containment).
 # `afterAll` removes them; this is the net for a SIGKILL/timeout that skips the hook.
 .tmp-dag-tool-run-*/
 # Its CONTENTS, not the directory: git cannot re-include a file whose parent directory is excluded,
 # so `.agents/local-reviews/` followed by a negation silently keeps ignoring the README.
 .agents/local-reviews/*
-# …except that README. HARNESS-066: this directory is a LOCAL note cache and not gate evidence, and
+# …except that README: this directory is a LOCAL note cache and not gate evidence, and
 # the only place that can say so is a file the next reader will actually see. Ignoring the
 # explanation along with the data is how a demoted artefact keeps looking authoritative.
 !.agents/local-reviews/README.md
 
-# HARNESS-109: per-clone agent-harness configuration, written by the tool and never committed.
+# Per-clone agent-harness configuration, written by the tool and never committed.
 # Not merely noise: scan-receipt reuse calls `isCleanTree()` from
 # `verification-receipt-storage.mjs`, so an untracked file present in every clone invalidates reuse.
 #

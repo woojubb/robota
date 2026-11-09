@@ -1,5 +1,5 @@
 /**
- * TEST-007 / TERM-003 + TERM-004: `/shell` and `/editor` through a real terminal handoff, end-to-end
+ * `/shell` and `/editor` through a real terminal handoff, end-to-end
  * in a PTY. Drives `fixtures/command-handoff-driver.tsx` (real executors + real
  * `TerminalHandoffController`). Proves on a real TTY that the child (subshell / `$EDITOR`) receives
  * the driver's keystrokes and the command returns cleanly — the behavior only a PTY can validate
@@ -13,15 +13,19 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { waitForFixtureEvent } from './pty/fixture-events.js';
 import { createPtyEnv } from './pty/isolated-home.js';
-import { spawnPtyFixture } from './pty/spawn-pty.js';
+import { PTY_TIME_FACTOR, spawnPtyFixture } from './pty/spawn-pty.js';
 
 import type { IPtyRunSession } from './pty/spawn-pty.js';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/command-handoff-driver.tsx', import.meta.url));
-const FAKE_EDITOR = fileURLToPath(new URL('./fixtures/fake-editor.sh', import.meta.url));
+const FAKE_EDITOR = fileURLToPath(new URL('./fixtures/fake-editor.cjs', import.meta.url));
 const PACKAGE_DIR = fileURLToPath(new URL('../..', import.meta.url));
-const TEST_TIMEOUT_MS = 30_000;
+/** One wait per phase, as it would be on a developer machine; the harness scales it for the host. */
+const PHASE_TIMEOUT_MS = 10_000;
+/** Six waits in sequence: a stuck phase must report its own timeout, with the events, before this fires. */
+const TEST_TIMEOUT_MS = PHASE_TIMEOUT_MS * 6 * PTY_TIME_FACTOR;
 
 const tempDirs: string[] = [];
 const sessions: IPtyRunSession[] = [];
@@ -41,6 +45,29 @@ function readResult(outputPath: string): IResult {
   return JSON.parse(readFileSync(outputPath, 'utf8')) as IResult;
 }
 
+/**
+ * Types `text` into the handed-off child and gives the terminal back, waiting for each side to say
+ * it owns the terminal before sending keys to it. Neither wait can be a sleep: keys sent before the
+ * child holds the terminal reach the TUI's own input hook and are consumed there, and a key sent
+ * before that hook has mounted again is dropped, so the command would wait for input forever.
+ */
+async function typeIntoChildAndResume(
+  session: IPtyRunSession,
+  resultPath: string,
+  childReady: string,
+  text: string,
+): Promise<void> {
+  await waitForFixtureEvent(session, resultPath, 'READY canHandoff=true');
+  // The child says so on the terminal it now owns, where nothing redraws over it.
+  await session.waitFor(childReady, PHASE_TIMEOUT_MS);
+  await session.sendKeys(text, 10);
+  session.write('\r');
+  await waitForFixtureEvent(session, resultPath, 'CMD_DONE');
+  await waitForFixtureEvent(session, resultPath, 'INPUT_READY 2');
+  session.write('r');
+  await waitForFixtureEvent(session, resultPath, 'INPUT_AFTER_HANDOFF r');
+}
+
 describe('command handoff PTY E2E', () => {
   it(
     '/shell runs a one-shot command on the real terminal and returns its exit code',
@@ -51,20 +78,14 @@ describe('command handoff PTY E2E', () => {
       const session = spawnPtyFixture(FIXTURE, {
         argv: ['shell', outputPath],
         cwd: PACKAGE_DIR,
-        // HARNESS-025: isolated HOME — the subshell must not read the developer's `~` (a real
+        // Isolated HOME — the subshell must not read the developer's `~` (a real
         // shell rc there would otherwise change what the handoff child does).
         env: createPtyEnv(),
       });
       sessions.push(session);
 
-      await session.waitFor('READY canHandoff=true', 10_000);
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      await session.sendKeys('shell-input', 10);
-      session.write('\r');
-      await session.waitFor('CMD_DONE', 10_000);
-      session.write('r');
-      await session.waitFor('INPUT_AFTER_HANDOFF r', 10_000);
-      expect(await session.expectExit(5_000)).toBe(0);
+      await typeIntoChildAndResume(session, outputPath, 'SHELL_GOT_READY', 'shell-input');
+      expect(await session.expectExit(PHASE_TIMEOUT_MS)).toBe(0);
 
       expect(session.snapshot()).toContain('SHELL_GOT:[shell-input]');
       const result = readResult(outputPath);
@@ -83,20 +104,14 @@ describe('command handoff PTY E2E', () => {
       const session = spawnPtyFixture(FIXTURE, {
         argv: ['editor', outputPath],
         cwd: PACKAGE_DIR,
-        // HARNESS-025: isolated HOME — only the EDITOR override comes from the test, so a real
+        // Isolated HOME — only the EDITOR override comes from the test, so a real
         // `~/.selected_editor` (or similar) on the host cannot influence the assertion.
-        env: createPtyEnv({ EDITOR: `sh ${FAKE_EDITOR}` }),
+        env: createPtyEnv({ EDITOR: `node ${FAKE_EDITOR}` }),
       });
       sessions.push(session);
 
-      await session.waitFor('READY canHandoff=true', 10_000);
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      await session.sendKeys('composed-in-editor', 10);
-      session.write('\r');
-      await session.waitFor('CMD_DONE', 10_000);
-      session.write('r');
-      await session.waitFor('INPUT_AFTER_HANDOFF r', 10_000);
-      expect(await session.expectExit(5_000)).toBe(0);
+      await typeIntoChildAndResume(session, outputPath, 'EDITOR_READY', 'composed-in-editor');
+      expect(await session.expectExit(PHASE_TIMEOUT_MS)).toBe(0);
 
       const result = readResult(outputPath);
       expect(result.success).toBe(true);

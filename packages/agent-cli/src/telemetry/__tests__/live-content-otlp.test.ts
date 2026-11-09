@@ -5,7 +5,7 @@ import type {
   ILivePromptContentItem,
   ILivePromptContentPolicy,
   ILivePromptTraceBatch,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 import { describe, expect, it, vi } from 'vitest';
 import {
   LIVE_CONTENT_BATCH_BODY_BUDGET,

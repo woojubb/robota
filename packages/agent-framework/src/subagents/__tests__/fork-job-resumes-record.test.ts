@@ -1,8 +1,8 @@
 /**
- * CLI-1994 TC-03 — a fork job's conversation reaches the child through the SESSION STORE, never the
+ * A fork job's conversation reaches the child through the SESSION STORE, never the
  * request.
  *
- * The runner receives `resumeSessionId` and nothing else about the conversation (ARCH-044). This
+ * The runner receives `resumeSessionId` and nothing else about the conversation. This
  * drives the real in-process runner over a real `NodeSessionStore` and a scripted provider and reads
  * what the provider was actually sent: with the id, the first request carries the copied
  * conversation under the parent's assembled system message; without it, only the job's own prompt
@@ -27,8 +27,8 @@ import type { ISubagentJobStart } from '@robota-sdk/agent-executor';
 
 const testHost = createTestFrameworkHost();
 
-const FORK_ID = 'session_cli-1994-fork';
-const PARENT_PROMPT = 'PARENT ASSEMBLED PROMPT — CLI-1994 sentinel';
+const FORK_ID = 'session_fork';
+const PARENT_PROMPT = 'PARENT ASSEMBLED PROMPT — fork sentinel';
 const COPIED_USER = 'Remember the number 42.';
 const COPIED_ASSISTANT = 'Noted: 42.';
 const JOB_PROMPT = 'Continue from where the parent left off.';
@@ -92,7 +92,7 @@ function contentsOf(request: readonly TUniversalMessage[] | undefined): string[]
   return (request ?? []).map((message) => String(message.content));
 }
 
-describe('a fork job resumes its record through the store (CLI-1994 TC-03)', () => {
+describe('a fork job resumes its record through the store', () => {
   let cwd: string;
   let store: NodeSessionStore;
   let scripted: ReturnType<typeof createScriptedProvider>;

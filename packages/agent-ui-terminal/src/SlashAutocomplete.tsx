@@ -13,7 +13,7 @@ import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { usePalette } from './theme/index.js';
 
-import type { ICommand } from '@robota-sdk/agent-interface-command';
+import type { ICommand } from '@robota-sdk/agent-interface/command';
 
 /** Footer for the autocomplete popup. */
 export const SLASH_AUTOCOMPLETE_FOOTER_HINTS: readonly IKeyHint[] = [
@@ -67,7 +67,7 @@ function CommandRow(props: {
   showSlash: boolean;
   rowWidth: number;
   nameColWidth: number;
-  /** CLI-2004: row number in the mode, replacing the `> ` cursor. */
+  /** Row number in the mode, replacing the `> ` cursor. */
   rowNumber?: number;
 }): React.ReactElement {
   const palette = usePalette();

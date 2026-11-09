@@ -1,6 +1,6 @@
 import { createTestProductRuntime } from './helpers/product-runtime.js';
 /**
- * Exit-code contract tests (CLI-064).
+ * Exit-code contract tests.
  *
  * Print mode must exit 3 on provider configuration errors (typed
  * ProviderConfigError) so automation can distinguish "reconfigure, do not
@@ -27,7 +27,7 @@ const ORIGINAL_ARGV = process.argv;
 const ORIGINAL_HOME = process.env.HOME;
 
 /**
- * Provider env keys that would trigger env-default synthesis (CLI-066) and mask the
+ * Provider env keys that would trigger env-default synthesis and mask the
  * no-configuration error these tests assert. Neutralized per test, restored after.
  */
 const PROVIDER_ENV_KEYS = [
@@ -39,7 +39,7 @@ const PROVIDER_ENV_KEYS = [
   'DEEPSEEK_API_KEY',
 ] as const;
 
-describe('provider config error exit codes (CLI-064)', () => {
+describe('provider config error exit codes', () => {
   let project: string;
   let savedEnvKeys: Record<string, string | undefined>;
 
@@ -69,7 +69,7 @@ describe('provider config error exit codes (CLI-064)', () => {
     rmSync(TMP_BASE, { recursive: true, force: true });
   });
 
-  it('TC-03: print mode with no provider configuration exits 3 with guidance on stderr', async () => {
+  it('print mode with no provider configuration exits 3 with guidance on stderr', async () => {
     process.argv = ['node', 'test-product', '-p', 'say hi'];
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
@@ -78,7 +78,7 @@ describe('provider config error exit codes (CLI-064)', () => {
     expect(stderr.mock.calls.join('')).toContain('No provider configuration found');
   });
 
-  it('TC-03: non-print startup with no provider configuration keeps exit 1', async () => {
+  it('non-print startup with no provider configuration keeps exit 1', async () => {
     process.argv = ['node', 'test-product'];
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
@@ -87,7 +87,7 @@ describe('provider config error exit codes (CLI-064)', () => {
     expect(stderr.mock.calls.join('')).toContain('No provider configuration found');
   });
 
-  it('TC-06 (CLI-066): env-default startup runs print mode and prints the notice exactly once', async () => {
+  it('env-default startup runs print mode and prints the notice exactly once', async () => {
     process.env['FAKE_ZERO_CONF_KEY'] = 'fake-secret-value';
     try {
       process.argv = ['node', 'test-product', '-p', 'say hi', '--no-session-persistence'];

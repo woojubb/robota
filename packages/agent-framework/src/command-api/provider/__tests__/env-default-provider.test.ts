@@ -1,5 +1,5 @@
 /**
- * Env-var-only zero-config startup tests (CLI-066).
+ * Env-var-only zero-config startup tests.
  *
  * When no settings profile resolves, provider resolution falls back to the first
  * provider definition whose `$ENV:` apiKey default resolves against the environment
@@ -63,7 +63,7 @@ const DEFINITIONS = [ANTHROPIC, OPENAI_NO_MODEL, GEMINI, GEMMA_LITERAL_KEY, DEEP
 /**
  * The settings files a TEST means when it says "this project's".
  *
- * Issue #1929: the production default also reads `~/.agent/settings.json` and `~/.claude/settings.json`,
+ * The production default also reads `~/.agent/settings.json` and `~/.claude/settings.json`,
  * which no `cwd` isolates. A case whose premise is "no settings anywhere" was therefore true only on a
  * machine whose developer had never configured the CLI — and read that developer's real profile
  * otherwise. Stating the list makes the premise true by construction.
@@ -77,8 +77,8 @@ async function projectSettingsSources(root: string) {
   );
 }
 
-describe('resolveEnvDefaultProvider (CLI-066)', () => {
-  it('TC-01: synthesizes the anthropic config from definition defaults when its env key is set', () => {
+describe('resolveEnvDefaultProvider', () => {
+  it('synthesizes the anthropic config from definition defaults when its env key is set', () => {
     const config = resolveEnvDefaultProvider(DEFINITIONS, { ANTHROPIC_API_KEY: 'sk-test' });
 
     expect(config).toMatchObject({
@@ -92,7 +92,7 @@ describe('resolveEnvDefaultProvider (CLI-066)', () => {
     });
   });
 
-  it('TC-02: definition order decides when multiple synthesizable keys are set', () => {
+  it('definition order decides when multiple synthesizable keys are set', () => {
     const config = resolveEnvDefaultProvider(DEFINITIONS, {
       GEMINI_API_KEY: 'g-key',
       ANTHROPIC_API_KEY: 'a-key',
@@ -101,26 +101,26 @@ describe('resolveEnvDefaultProvider (CLI-066)', () => {
     expect(config?.name).toBe('anthropic');
   });
 
-  it('TC-02: falls through to the next synthesizable definition when the first key is unset', () => {
+  it('falls through to the next synthesizable definition when the first key is unset', () => {
     const config = resolveEnvDefaultProvider(DEFINITIONS, { GEMINI_API_KEY: 'g-key' });
 
     expect(config?.name).toBe('gemini');
   });
 
-  it('TC-05: openai (no default model) never synthesizes even with its env var set', () => {
+  it('openai (no default model) never synthesizes even with its env var set', () => {
     const config = resolveEnvDefaultProvider(DEFINITIONS, { OPENAI_API_KEY: 'sk-openai' });
 
     expect(config).toBeUndefined();
   });
 
-  it('TC-05: gemma (literal non-$ENV apiKey) never synthesizes', () => {
+  it('gemma (literal non-$ENV apiKey) never synthesizes', () => {
     // gemma's literal key default is always "present" but is not an env reference.
     const config = resolveEnvDefaultProvider([GEMMA_LITERAL_KEY], {});
 
     expect(config).toBeUndefined();
   });
 
-  it('TC-05: deepseek synthesizes from its complete defaults including baseURL', () => {
+  it('deepseek synthesizes from its complete defaults including baseURL', () => {
     const config = resolveEnvDefaultProvider(DEFINITIONS, { DEEPSEEK_API_KEY: 'dk' });
 
     expect(config).toMatchObject({
@@ -138,7 +138,7 @@ describe('resolveEnvDefaultProvider (CLI-066)', () => {
   });
 });
 
-describe('readProviderSettings env-default integration (CLI-066)', () => {
+describe('readProviderSettings env-default integration', () => {
   let cwd: string | undefined;
 
   afterEach(() => {
@@ -146,13 +146,13 @@ describe('readProviderSettings env-default integration (CLI-066)', () => {
     cwd = undefined;
   });
 
-  it('TC-01: no settings anywhere + env key set → env-default config', () => {
+  it('no settings anywhere + env key set → env-default config', () => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-env-default-')));
 
     const config = readProviderSettings([], {
       providerDefinitions: DEFINITIONS,
       env: { ANTHROPIC_API_KEY: 'sk-test' },
-      // Issue #1929: the default list reaches the developer's real `~/.agent/settings.json`, which
+      // The default list reaches the developer's real `~/.agent/settings.json`, which
       // no `cwd` isolates — "no settings anywhere" has to be stated, not hoped for.
     });
 
@@ -160,7 +160,7 @@ describe('readProviderSettings env-default integration (CLI-066)', () => {
     expect(config.source).toBe('env-default');
   });
 
-  it('TC-03: settings profile wins over the env key', async () => {
+  it('settings profile wins over the env key', async () => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-env-default-')));
     const agentDir = join(cwd, '.agent');
     mkdirSync(agentDir, { recursive: true });
@@ -185,7 +185,7 @@ describe('readProviderSettings env-default integration (CLI-066)', () => {
     expect(config.source).toBeUndefined();
   });
 
-  it('TC-04: no profile + no recognized env key → ProviderConfigError unchanged', () => {
+  it('no profile + no recognized env key → ProviderConfigError unchanged', () => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-env-default-')));
 
     expect(() =>

@@ -1,5 +1,5 @@
 /**
- * ARCH-040 Group D — a preset's `systemPrompt` SEEDS the composed prompt, it does not replace it.
+ * A preset's `systemPrompt` SEEDS the composed prompt, it does not replace it.
  *
  * The session already offers a REPLACE seam (`ICreateSessionOptions.systemPrompt`). Pointing a preset
  * at it would silently drop the AGENTS.md, project-notes, skill and capability sections the framework
@@ -29,7 +29,7 @@ function build(extra: Record<string, unknown>): string {
   } as never);
 }
 
-describe('a preset system prompt seeds the composed prompt (ARCH-040)', () => {
+describe('a preset system prompt seeds the composed prompt', () => {
   it('includes the seed text', () => {
     expect(build({ presetSystemPrompt: SEED })).toContain(SEED);
   });

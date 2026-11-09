@@ -1,0 +1,109 @@
+import {
+  type IProviderDefinition,
+  type IProviderModelCatalogEntry,
+  readNativeWebSearchOption,
+} from '@robota-sdk/agent-core';
+
+import { CLAUDE_MODELS } from './claude-models.js';
+import {
+  ANTHROPIC_MODEL_LAST_VERIFIED_AT,
+  ANTHROPIC_MODEL_SOURCE_URL,
+} from './model-catalog-metadata.js';
+import { AnthropicProvider } from './provider';
+
+export {
+  ANTHROPIC_MODEL_LAST_VERIFIED_AT,
+  ANTHROPIC_MODEL_SOURCE_URL,
+} from './model-catalog-metadata.js';
+
+export const DEFAULT_ANTHROPIC_PROVIDER_MODEL = 'claude-sonnet-4-6';
+export const DEFAULT_ANTHROPIC_PROVIDER_API_KEY_ENV = 'ANTHROPIC_API_KEY';
+export const DEFAULT_ANTHROPIC_PROVIDER_API_KEY_REFERENCE = `$ENV:${DEFAULT_ANTHROPIC_PROVIDER_API_KEY_ENV}`;
+const ANTHROPIC_API_KEY_URL = 'https://platform.claude.com/settings/keys';
+const ANTHROPIC_SETUP_SOURCE_URL = 'https://platform.claude.com/docs/en/api/overview';
+const ANTHROPIC_SETUP_LAST_VERIFIED_AT = '2026-05-08';
+const ANTHROPIC_SETUP_HELP_LINKS: NonNullable<IProviderDefinition['setupHelpLinks']> = [
+  {
+    kind: 'api-key',
+    label: 'Anthropic API keys',
+    url: ANTHROPIC_API_KEY_URL,
+    sourceUrl: ANTHROPIC_SETUP_SOURCE_URL,
+    lastVerifiedAt: ANTHROPIC_SETUP_LAST_VERIFIED_AT,
+  },
+];
+
+export function createAnthropicProviderDefinition(): IProviderDefinition {
+  return {
+    type: 'anthropic',
+    displayName: 'Anthropic',
+    description: 'Claude series — strong at coding tasks. API key required.',
+    category: 'cloud-paid',
+    nativeWebTools: () => ['webSearch'],
+    // Interim provider-level cost, migrated from the former llm-text-anthropic node.
+    costPerTokenUsd: 0.003,
+    defaults: {
+      model: DEFAULT_ANTHROPIC_PROVIDER_MODEL,
+      apiKey: DEFAULT_ANTHROPIC_PROVIDER_API_KEY_REFERENCE,
+    },
+    // the SDK embeds this endpoint; declared here for the pre-session doctor only.
+    endpoint: { host: 'api.anthropic.com', port: 443 },
+    modelCatalog: {
+      status: 'fallback',
+      sourceUrl: ANTHROPIC_MODEL_SOURCE_URL,
+      lastVerifiedAt: ANTHROPIC_MODEL_LAST_VERIFIED_AT,
+      entries: buildAnthropicModelCatalogEntries(),
+    },
+    setupHelpLinks: ANTHROPIC_SETUP_HELP_LINKS,
+    setupSteps: [
+      {
+        key: 'apiKey',
+        title: 'Anthropic API key',
+        defaultValue: DEFAULT_ANTHROPIC_PROVIDER_API_KEY_REFERENCE,
+        masked: true,
+      },
+      {
+        key: 'model',
+        title: 'Anthropic model',
+        defaultValue: DEFAULT_ANTHROPIC_PROVIDER_MODEL,
+      },
+    ],
+    requiresApiKey: true,
+    // The Anthropic SDK falls back to these when no base URL is configured, and adds a bearer
+    // token from the second.
+    destinationEnvironment: ['ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN'],
+    createProvider: (config) =>
+      new AnthropicProvider({
+        apiKey: requireAnthropicApiKey(config.apiKey),
+        ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
+        ...(config.timeout !== undefined && { timeout: config.timeout }),
+        ...(readNativeWebSearchOption('anthropic', config.options) && { enableWebTools: true }),
+        defaultModel: config.model,
+      }),
+  };
+}
+
+function buildAnthropicModelCatalogEntries(): IProviderModelCatalogEntry[] {
+  const seen = new Set<string>();
+  const entries: IProviderModelCatalogEntry[] = [];
+  for (const model of Object.values(CLAUDE_MODELS)) {
+    if (seen.has(model.name)) continue;
+    seen.add(model.name);
+    entries.push({
+      id: model.id,
+      displayName: model.name,
+      contextWindow: model.contextWindow,
+      capabilities: ['tools', 'vision', 'json_schema', 'reasoning', 'streaming'],
+      lifecycle: 'active',
+      sourceUrl: ANTHROPIC_MODEL_SOURCE_URL,
+      lastVerifiedAt: ANTHROPIC_MODEL_LAST_VERIFIED_AT,
+    });
+  }
+  return entries;
+}
+
+function requireAnthropicApiKey(apiKey: string | undefined): string {
+  if (!apiKey) {
+    throw new Error('Provider anthropic requires apiKey');
+  }
+  return apiKey;
+}

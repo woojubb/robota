@@ -4,6 +4,8 @@
  * is refused with `has_writer`, naming the process that holds it.
  */
 
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
+
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
@@ -33,7 +35,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { NodeSessionStore } from '../session-store.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 function newStoreDir(): string {
   return realpathSync(mkdtempSync(path.join(tmpdir(), 'writer-marker-')));
@@ -108,11 +110,11 @@ describe('a session claimed by one store instance', () => {
     const claim = store.claim('sess_a', { fresh: true });
     store.save(record('sess_a'), { claim });
 
-    expect(readdirSync(claimsOf(dir))).toEqual(['sess_a.owner']);
+    expect(readdirSync(claimsOf(dir)).sort()).toEqual(['sess_a.guard', 'sess_a.owner']);
     if (process.platform !== 'win32') expect(statSync(claimsOf(dir)).mode & 0o777).toBe(0o700);
     expect(store.list().map((entry) => entry.id)).toEqual(['sess_a']);
     claim.release();
-    expect(readdirSync(claimsOf(dir))).toEqual([]);
+    expect(readdirSync(claimsOf(dir))).toEqual(['sess_a.guard']);
   });
 
   it('refuses every other write of the id while it runs: a save, a delete and an adopt', () => {
@@ -138,7 +140,11 @@ describe('a session claimed by one store instance', () => {
     const store = plain(dir);
     const claim = store.claim('sess_a', { fresh: true });
     store.save(record('sess_a', 'first'), { claim });
-    expect(createProcessMarkers(claimsOf(dir)).remove('sess_a', { force: true })).toMatchObject({
+    expect(
+      createProcessMarkers(claimsOf(dir), {
+        operationLock: createProcessOperationLock(claimsOf(dir)),
+      }).remove('sess_a', { force: true }),
+    ).toMatchObject({
       status: 'removed',
     });
     const before = readFileSync(fileOf(dir, 'sess_a'), 'utf8');
@@ -304,7 +310,9 @@ describe('the unlock-time tag of a pending raise', () => {
     sealer.unlock();
 
     expect(readFileSync(fileOf(dir, 'sess_closed')).equals(before)).toBe(true);
-    createProcessMarkers(claimsOf(dir)).remove('sess_closed', { force: true });
+    createProcessMarkers(claimsOf(dir), {
+      operationLock: createProcessOperationLock(claimsOf(dir)),
+    }).remove('sess_closed', { force: true });
     expect(existsSync(planted)).toBe(false);
     const fresh = new NodeSessionStore(dir, { sealing: { sealer } }).load('sess_closed');
     expect(fresh).toMatchObject({ status: 'valid', authorship: 'unverified' });

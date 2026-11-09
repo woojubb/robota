@@ -1,5 +1,5 @@
 /**
- * PEER-005 (issue #1863, stage 3) — bytes between two local sessions, and nothing more.
+ * Bytes between two local sessions, and nothing more.
  *
  * These cases run REAL sockets in a scratch directory. A stubbed transport would prove the code
  * calls the functions it calls; what has to be established here is that a message written by one
@@ -26,7 +26,7 @@ import {
   type IPeerSender,
 } from '../local-peer-channel.js';
 
-import type { IPeerMessage, IPeerMessageAck } from '@robota-sdk/agent-interface-session-mobility';
+import type { IPeerMessage, IPeerMessageAck } from '@robota-sdk/agent-interface/session-mobility';
 
 const scratch: string[] = [];
 const listeners: IPeerListener[] = [];
@@ -117,7 +117,7 @@ describe('a message reaches the other session', () => {
   });
 
   it('both directions on one directory', async () => {
-    // Two sessions each listening and each sending — issue #1863's definition of done in miniature,
+    // Two sessions each listening and each sending — the end-to-end case in miniature,
     // minus the shell. One listener answering while the other sends is the case a single-socket test
     // cannot reach.
     const dir = guardedDirectory();

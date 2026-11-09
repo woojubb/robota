@@ -1,7 +1,11 @@
 # MCP Transport
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Expose an `InteractiveSession` as a Model Context Protocol server with
-`@robota-sdk/agent-transport-mcp`, so an MCP client (a desktop assistant, an IDE, another agent) can
+`@robota-sdk/agent-transport/mcp`, so an MCP client (a desktop assistant, an IDE, another agent) can
 call the session's tools or hand it a prompt.
 
 ## Basic setup (stdio)
@@ -11,11 +15,13 @@ you call `start()`. Do not connect it to another carrier yourself.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createMcpTransport } from '@robota-sdk/agent-transport/mcp';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
-const session = new InteractiveSession({ cwd: process.cwd(), provider });
+const session = new InteractiveSession({ cwd: process.cwd(), host: createNodeFrameworkHost({ createDefaultTools }), provider });
 
 const transport = createMcpTransport({
   name: 'my-agent',
@@ -57,9 +63,9 @@ prompt to a client that declared form-mode elicitation instead, as allow once or
 carrier yourself:
 
 ```typescript
-import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
+import { createAgentMcpServer } from '@robota-sdk/agent-transport/mcp';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
-import type { IMcpTransportSession } from '@robota-sdk/agent-transport-mcp';
+import type { IMcpTransportSession } from '@robota-sdk/agent-transport/mcp';
 
 declare const session: IMcpTransportSession; // for example an InteractiveSession
 
@@ -74,7 +80,7 @@ await server.connect(new StdioServerTransport());
 
 For a loopback HTTP endpoint with a bearer token, or a remote endpoint behind OAuth, the package also
 exports `createMcpHttpHost()` and `createMcpRemoteHttpHost()`; see the
-[package README](../../packages/agent-transport-mcp/README.md).
+[package README](../../packages/agent-transport/docs/mcp.md).
 
 ## From the CLI
 

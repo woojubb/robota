@@ -12,7 +12,7 @@ import type {
   ISubagentManager,
   ISubagentRunner,
 } from '@robota-sdk/agent-executor';
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
+import type { ISubagentJobResult } from '@robota-sdk/agent-interface/execution';
 import { runParallel } from '../parallel';
 import { createInProcessSubagentRunner } from '../../subagents/index';
 import {
@@ -37,7 +37,7 @@ function fourStepSpec(maxConcurrency?: number): IParallelOrchestrationSpec {
   };
 }
 
-describe('SELFHOST-001 P2 — parallel orchestration', () => {
+describe('parallel orchestration', () => {
   it('runs every step and returns results in original order with a joined aggregate', async () => {
     const { manager, spawns } = fakeManager((s: IRecordedSpawn) => `out:${s.prompt}`);
     const result = await runParallel(fourStepSpec(), { manager, context: TEST_CONTEXT });
@@ -181,6 +181,7 @@ describe('SELFHOST-001 P2 — parallel orchestration', () => {
             output: `out:${job.request.prompt}`,
           }),
           cancel: async () => {},
+          send: async () => {},
         };
       },
     };

@@ -41,7 +41,7 @@ export const VALID_PERMISSION_MODES: readonly TPermissionMode[] = [
 ];
 
 /**
- * #3282 §2 — the plain label every surface shows for a permission mode, so the TUI's inline picker
+ * The plain label every surface shows for a permission mode, so the TUI's inline picker
  * and the GUI's mode menu agree instead of each inventing (or skipping) one. `description` stays the
  * secondary line under it; neither name is an internal id a person has to already know.
  */

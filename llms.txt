@@ -15,23 +15,26 @@ documents — follow the links; do not infer capabilities from package counts or
 ## Minimal embedding set
 
 `agent-core` plus one provider package; add `agent-tools` for tools. The other `@robota-sdk/*`
-packages are optional assembly on top of them. Published packages need Node.js >= 22.12.
+packages are optional assembly on top of them. Packages declare Node.js >= 22.12 for Node
+installations; the npm CLI and Node adapters need a Node host. Neutral entries and Node adapters are separate in the current source; check your installed
+version for its available exports. Provider
+clients and host capabilities have their own requirements.
 
 - [packages/agent-core/README.md](packages/agent-core/README.md): `ConversationAgent` class — `run`/`runStream`, conversation history, plugins, structured output
-- [content/guide/providers.md](content/guide/providers.md): one provider package per vendor — `agent-provider-anthropic`, `-openai`, `-gemini`, `-openai-compatible` (DeepSeek / Qwen / Gemma), `-bytedance` (video)
+- [content/guide/providers.md](content/guide/providers.md): one `@robota-sdk/agent-provider` subpath per vendor — `anthropic`, `openai`, `gemini`, `deepseek`, `qwen`, `gemma`, `bytedance` (video)
 - [packages/agent-tools/README.md](packages/agent-tools/README.md): zod-validated function tools + built-in tool factories
 
 ## Capabilities
 
-- **OpenAI-compatible gateway via `baseURL`** — any gateway (Vercel AI Gateway, LiteLLM, OpenRouter), Azure, vLLM, Ollama, LM Studio; non-OpenAI model slugs pass through verbatim; streaming + tool calling included. Owner JSDoc: [packages/agent-provider-openai/src/openai/types.ts](packages/agent-provider-openai/src/openai/types.ts); guide: [content/guide/providers.md](content/guide/providers.md)
+- **OpenAI-compatible gateway via `baseURL`** — any gateway (Vercel AI Gateway, LiteLLM, OpenRouter), Azure, vLLM, Ollama, LM Studio; non-OpenAI model slugs pass through verbatim; streaming + tool calling included. Owner JSDoc: [packages/agent-provider/src/openai/types.ts](packages/agent-provider/src/openai/types.ts); guide: [content/guide/providers.md](content/guide/providers.md)
 - **Streaming** — `runStream()` or per-run `onTextDelta`: [content/guide/building-agents.md](content/guide/building-agents.md)
 - **Schema-enforced structured output** — `run(prompt, { output: zodSchema })` returns a validated typed object with provider-native mapping + bounded retry: [packages/agent-core/docs/SPEC.md](packages/agent-core/docs/SPEC.md) § Structured Output Contract
 - **Runtime tool validation** — zod schemas validate tool args before executors run: [packages/agent-tools/README.md](packages/agent-tools/README.md)
 - **Step control** — `maxExecutionRounds` (a round = one model call + its requested tool executions): [content/guide/building-agents.md](content/guide/building-agents.md) § Execution contracts
 - **Model fallback** — `FallbackProvider` (`@robota-sdk/agent-framework`) moves a request to the next model of a chain when the primary fails in a way another model could serve, never after text has streamed. Owner JSDoc: [packages/agent-framework/src/routing/fallback-provider.ts](packages/agent-framework/src/routing/fallback-provider.ts); contract: [packages/agent-framework/docs/SPEC.md](packages/agent-framework/docs/SPEC.md) § Guarantees and invariants
 - **Sessions, permissions, `createQuery()`** — `InteractiveSession`, permission modes and rules, hooks, config/context loading: [packages/agent-framework/README.md](packages/agent-framework/README.md); [content/guide/permissions-and-hooks.md](content/guide/permissions-and-hooks.md)
-- **MCP** — client (`@robota-sdk/agent-mcp`): [packages/agent-mcp/README.md](packages/agent-mcp/README.md); serve a session as an MCP server (`@robota-sdk/agent-transport-mcp`): [packages/agent-transport-mcp/README.md](packages/agent-transport-mcp/README.md)
-- **Editors (ACP)** — run a session as an Agent Client Protocol agent for Zed, JetBrains and other ACP clients (`robota acp`, `@robota-sdk/agent-transport-acp`): [packages/agent-transport-acp/README.md](packages/agent-transport-acp/README.md); guide: [content/guide/cli.md](content/guide/cli.md)
+- **MCP** — client (`@robota-sdk/agent-mcp`): [packages/agent-mcp/README.md](packages/agent-mcp/README.md); serve a session as an MCP server (`@robota-sdk/agent-transport/mcp`): [packages/agent-transport/docs/mcp.md](packages/agent-transport/docs/mcp.md)
+- **Editors (ACP)** — run a session as an Agent Client Protocol agent for Zed, JetBrains and other ACP clients (`robota acp`, `@robota-sdk/agent-transport/acp`): [packages/agent-transport/docs/acp.md](packages/agent-transport/docs/acp.md); guide: [content/guide/cli.md](content/guide/cli.md)
 - **Real-terminal testing** — the TUI package tests itself in a real PTY; that support is internal, not a published test API: [packages/agent-ui-terminal/docs/SPEC.md](packages/agent-ui-terminal/docs/SPEC.md) § Boundaries
 
 ## Behavior contracts
@@ -44,7 +47,7 @@ packages are optional assembly on top of them. Published packages need Node.js >
 
 ## Types & examples
 
-- Type declarations ship inside each npm package (`dist/**/*.d.ts`) — the hover docs above are in them. Repo sources: [packages/agent-core/src/index.ts](packages/agent-core/src/index.ts), [packages/agent-provider-openai/src/index.ts](packages/agent-provider-openai/src/index.ts), [packages/agent-tools/src/index.ts](packages/agent-tools/src/index.ts)
+- Type declarations ship inside each npm package (`dist/**/*.d.ts`) — the hover docs above are in them. Repo sources: [packages/agent-core/src/index.ts](packages/agent-core/src/index.ts), [packages/agent-provider/src/openai/index.ts](packages/agent-provider/src/openai/index.ts), [packages/agent-tools/src/index.ts](packages/agent-tools/src/index.ts)
 - Quickstart: [content/quickstart.md](content/quickstart.md) (includes the AI-gateway path)
 - Runnable examples — capabilities ("what can it do"): [examples/capabilities/openai-compatible-gateway](examples/capabilities/openai-compatible-gateway), [examples/capabilities/decision-agent](examples/capabilities/decision-agent), [examples/capabilities/streaming](examples/capabilities/streaming), [examples/capabilities/stateless-turns](examples/capabilities/stateless-turns); integrations ("where does it go"): [examples/express](examples/express), [examples/discord-bot](examples/discord-bot), [examples/batch-processor](examples/batch-processor)
 - All packages: [README.md](README.md) § Packages

@@ -1,10 +1,10 @@
 /**
- * #3189: what a client that renders the whole session (the TUI) needs over the wire, beside the
+ * What a client that renders the whole session (the TUI) needs over the wire, beside the
  * streamed turn — the full history, the context window as it changes, a signal that the history
  * changed, and where each turn came from.
  */
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createOutboundDelivery } from '../outbound-delivery.js';
@@ -13,7 +13,7 @@ import { HISTORY_PAGE_MAX_BYTES } from '../session-query-messages.js';
 
 import type { IWireHistoryEntry, TClientMessage, TServerMessage } from '../wire-messages.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 type TListener = (...args: unknown[]) => void;
 type TEmittingSession = IInteractiveSession & { emit: (event: string, payload?: unknown) => void };
@@ -89,7 +89,7 @@ function readAll(client: ReturnType<typeof attach>): {
   }
 }
 
-describe('get-history (#3189)', () => {
+describe('get-history', () => {
   it('answers with the full history, each timestamp an ISO 8601 string', () => {
     const session = createSession({
       getFullHistory: () => [
@@ -216,7 +216,7 @@ describe('get-history (#3189)', () => {
   });
 });
 
-describe('turn results on the wire (#3189)', () => {
+describe('turn results on the wire', () => {
   it.each(['complete', 'interrupted'] as const)(
     'sends %s without the session history, which only grows',
     (event) => {
@@ -238,7 +238,7 @@ describe('turn results on the wire (#3189)', () => {
   );
 });
 
-describe('get-prompts (#3189)', () => {
+describe('get-prompts', () => {
   const permission = { id: 'p1', toolName: 'Bash', toolArgs: { command: 'ls' } };
   const ask = { id: 'a1', request: { kind: 'text', title: 'Name?' } };
 
@@ -292,7 +292,7 @@ describe('get-prompts (#3189)', () => {
   });
 });
 
-describe('pushed session state (#3189)', () => {
+describe('pushed session state', () => {
   it('delivers a context_update as the context frame get-context answers with', () => {
     const session = createSession();
     const client = attach(session);

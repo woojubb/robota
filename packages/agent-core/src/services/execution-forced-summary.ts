@@ -39,7 +39,7 @@ const UNLIMITED_EXECUTION_ROUNDS = 0;
  * When max rounds are exhausted without a text response, force one final provider call
  * to generate a summary.
  *
- * Its own file (CORE-033): the loop that decides WHETHER to force a summary and the call that
+ * Its own file: the loop that decides WHETHER to force a summary and the call that
  * PERFORMS one are separate responsibilities, and this one grew a request assembly, a transport
  * option set and three replay-event emissions of its own — enough that keeping it beside the loop
  * pushed `execution-pipeline.ts` past the file ceiling.
@@ -67,12 +67,12 @@ export async function forceSummaryCall(
     const syntheticMsg =
       roundState.forcedSummaryInstruction ??
       'Tool round limit reached. Provide your response based on the information gathered so far. If results are incomplete, let the user know what was covered and what remains — the user can request additional analysis in a follow-up message.';
-    // CORE-033: the instruction is a per-call prompt artifact, not conversation. It used to be
+    // The instruction is a per-call prompt artifact, not conversation. It used to be
     // APPENDED to the store, sent, then taken back out with `clear()` + re-add — a non-append
     // rewrite of an append-only history that no event described, so a replay driven from the
     // session log could not reconstruct the store even in principle. It now only ever exists in the
     // OUTGOING array, the same shape `applyStructuredOutputTransport` uses for the schema
-    // instruction (CORE-043). Nothing is added, so nothing has to be removed.
+    // instruction. Nothing is added, so nothing has to be removed.
     const summaryMessages = [
       ...presentMessageOrigins(conversationStore.getMessages()),
       {
@@ -102,7 +102,7 @@ export async function forceSummaryCall(
           ]
         : summaryMessages;
 
-    // CORE-042: this was the one provider call in the turn built by hand -- `{ model, onTextDelta }`,
+    // This was the one provider call in the turn built by hand -- `{ model, onTextDelta }`,
     // carrying no `signal`, no `effort` and no idle timeout. That was survivable while the streaming
     // path had its own engine; now that the streaming entry awaits the turn when its consumer walks
     // away, an unabortable call here is a hang on the public streaming API. It goes through the same
@@ -141,7 +141,7 @@ export async function forceSummaryCall(
       },
     };
 
-    // CORE-033: this is a provider call like any other, so it announces itself like one. The SPEC
+    // This is a provider call like any other, so it announces itself like one. The SPEC
     // declares `provider_request` REQUIRED, and a replay that cannot see the call the summary came
     // from cannot explain the summary. Emitted with the ASSEMBLED array, for the reason
     // `execution-round-streaming` gives: the request the model received, not the caller's history.
@@ -269,7 +269,7 @@ export async function forceSummaryCall(
     };
     conversationStore.addAssistantMessage(committedText, [], summaryMetadata);
     committed = true;
-    // CORE-033: the summary is the turn's answer; committing it silently left the last thing the
+    // The summary is the turn's answer; committing it silently left the last thing the
     // user reads absent from every replay of the conversation.
     fullContext.onExecutionEvent?.('assistant_message_committed', {
       executionId,
@@ -293,7 +293,7 @@ export async function forceSummaryCall(
     // `execute` resolves it as interrupted. Returning here instead reached finalization with no text
     // and no error, which is the `[STRICT-POLICY]` failure again.
     if (isAbortFailure(forceErr, fullContext.signal)) throw forceErr;
-    // CORE-027: a failed summary call fails the turn the way a failed round does. It was logged and
+    // A failed summary call fails the turn the way a failed round does. It was logged and
     // dropped, which left a result with `success: false` and no error, so the caller received the
     // generic `[STRICT-POLICY]` error instead of the provider's own (status, code, category).
     roundState.providerFailure = forceErr;

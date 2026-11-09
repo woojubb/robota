@@ -8,8 +8,7 @@ import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
 /**
  * Admits the startup trust decision. A trust granted just now admits project settings whose `$ENV:`
- * credentials the first withholding could not see, so it withholds again over the final settings
- * (issue #3429).
+ * credentials the first withholding could not see, so it withholds again over the final settings.
  */
 export function admitStartupTrustDecision(
   startupOptions: IStartCliOptions,

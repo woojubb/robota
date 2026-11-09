@@ -1,7 +1,7 @@
 /**
  * Sealing in place what a trusted project's session store kept in plaintext — its records, its replay
  * logs with their sidecars, and the subagent logs older builds wrote beside them — for a host
- * migrating its state once it seals (#3679). Every read and write goes through the project's
+ * migrating its state once it seals. Every read and write goes through the project's
  * runtime-minted state storage, so a migration writes a project only as the store itself would: on a
  * host that can write project state, under the trusted root, never through a link.
  *
@@ -17,6 +17,8 @@
  * place; each replace is then atomic, and is made only if the file still holds what was read
  * (`project-state-replacement.ts`).
  */
+import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
+
 import { createHash } from 'node:crypto';
 
 import { createProcessMarkers } from '@robota-sdk/agent-core/node';
@@ -142,7 +144,9 @@ export function migrateWorkspaceProjectSessionRecords(
     staleTemporaries: 0,
     sealedRecords: [] as { readonly id: string; readonly digest: string }[],
   };
-  const markers = createProcessMarkers(projectSessionClaimsDirectory(sessions));
+  const markers = createProcessMarkers(projectSessionClaimsDirectory(sessions), {
+    operationLock: createProcessOperationLock(projectSessionClaimsDirectory(sessions)),
+  });
   const staged: { readonly path: string; readonly id: string; readonly digest: string }[] = [];
   const replacements = replaceStagedProjectStateFiles(
     sessions,
@@ -192,6 +196,24 @@ export function migrateWorkspaceProjectSessionRecords(
       }
     },
     options.beforeCommit,
+    (name, commit) => {
+      const id = name.slice(0, -RECORD_EXTENSION.length);
+      const acquired = markers.acquire(id);
+      if (acquired.status !== 'acquired') {
+        result.held.push(id);
+        return false;
+      }
+      try {
+        const guarded = acquired.handle.withGuard(commit);
+        if (guarded.status !== 'ran') {
+          result.held.push(id);
+          return false;
+        }
+        return true;
+      } finally {
+        acquired.handle.release();
+      }
+    },
   );
   result.sealed += replacements.replaced;
   result.changed.push(...replacements.changed);

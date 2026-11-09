@@ -6,7 +6,7 @@ import type {
 /**
  * The INTERNAL async-init option shape.
  *
- * Split out of `interactive-session-options.ts` by ARCH-040. That file held three interfaces
+ * Split out of `interactive-session-options.ts`. That file held three interfaces
  * restating one option list — the public standard arm, the injected arm, and this — so every preset
  * field had to be added three times, and the anti-monolith floor refused the fourth addition. The
  * split is by responsibility: what a CALLER may pass lives there, what the async init hands onward
@@ -50,13 +50,15 @@ import type {
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
+import type { ICompactEvent } from '@robota-sdk/agent-interface/session';
 import type { ISessionLogSink } from '@robota-sdk/agent-session';
 import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
 
 export interface IInitOptions {
+  /** Revokes an owner-approved restore before initialization effects continue. */
+  resumeAdmissionSignal?: AbortSignal;
   /** The platform the session runs on, carried from the construction options. */
   host: IFrameworkHost;
   /** Additive response style applied to the composed system prompt. */
@@ -76,13 +78,13 @@ export interface IInitOptions {
   /** The plugin skills the session loaded when it was built. */
   pluginSkills?: readonly ICommand[];
   permissionMode?: ICreateSessionOptions['permissionMode'];
-  /** CMD-005: unified ask renderer, forwarded into the session as the model-question tool seam. */
+  /** Unified ask renderer, forwarded into the session as the model-question tool seam. */
   askHandler?: IUserInteraction['ask'];
   maxTurns?: number;
   permissionHandler?: TInteractivePermissionHandler;
   resumeSessionId?: string;
   forkSession?: boolean;
-  /** CLI-1994: the record store a spawned fork job restores its `resumeSessionId` from. */
+  /** The record store a spawned fork job restores its `resumeSessionId` from. */
   resumeSessionStore?: IInteractiveSessionStore;
   /** The interactive record owner's strict save before provider or tool effects. */
   checkpointHistory?: () => void;
@@ -123,8 +125,8 @@ export interface IInitOptions {
   /** Override the model from config. When set, takes precedence over config.provider.model. */
   model?: string;
   /**
-   * Reasoning-effort dial resolved from the active preset (PRESET-008). ARCH-013: this key did not
-   * exist, so a preset's `effort` reached nothing at startup while `/preset` applied it mid-session.
+   * Reasoning-effort dial resolved from the active preset. Without this key a preset's
+   * `effort` reaches nothing at startup while `/preset` applies it mid-session.
    * Typed FROM the seam, not re-declared beside it — that is how the two drift apart again.
    */
   effort?: ICreateSessionOptions['effort'];
@@ -141,11 +143,11 @@ export interface IInitOptions {
   language?: string;
   /** Runtime-composed background task runners. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
-  /** MCP-004 §S3: hand a main-turn tool call exceeding its threshold to a background task. */
+  /** Hand a main-turn tool call exceeding its threshold to a background task. */
   toolCallHandoff?: ICreateSessionOptions['toolCallHandoff'];
   /** Runtime shell override for subagent execution. */
   subagentRunnerFactory?: TSubagentRunnerFactory;
-  /** ARCH-005: composition-root-contributed subagent definitions (see the standard options). */
+  /** Composition-root-contributed subagent definitions (see the standard options). */
   agentDefinitions?: readonly IAgentDefinition[];
   agentDefinitionRoots?: readonly string[];
   pluginDirectories?: { readonly user?: string; readonly project?: string };
@@ -174,10 +176,10 @@ export interface IInitOptions {
   disableAutoMode?: boolean;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
-  /** ARCH-033: the name a child process uses to rebuild a sandbox like this one. */
+  /** The name a child process uses to rebuild a sandbox like this one. */
   sandboxType?: string;
   /**
-   * SELFHOST-008: optional durable-memory store. When present, startup-memory injection reads through
+   * Optional durable-memory store. When present, startup-memory injection reads through
    * it; absence leaves project memory inaccessible.
    */
   memoryStore?: IMemoryStore;
@@ -189,7 +191,7 @@ export interface IInitOptions {
   sandboxSnapshotId?: string;
   /** Name reported to the underlying ConversationAgent agent config. Defaults to 'agent'. */
   agentName?: string;
-  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  /** Active preset id selected at startup (runtime state). Defaults to 'default'. */
   activePresetId?: string;
   /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
   enableParallelSubagents?: boolean;
@@ -204,13 +206,13 @@ export interface IInitOptions {
   /** How the model sends a file to another session; every file asks the operator. */
   peerSendFile?: IPeerSendFilePort;
   /**
-   * ARCH-006: REPLACES the framework's `createDefaultTools()` tier; `[]` suppresses every framework
-   * default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's
+   * REPLACES the framework's `createDefaultTools()` tier; `[]` suppresses every framework
+   * default so a product's capability packs can own the whole tool surface. Mirrors the
    * `builtInAgents` seam for subagents. Absent ⇒ unchanged behavior.
    */
   defaultTools?: readonly IToolWithEventService[];
-  /** SELFHOST-005 guardrail REGISTRY (name → function). ARCH-013 S3; see create-session-projection. */
+  /** Guardrail REGISTRY (name → function); see create-session-projection. */
   guardrails?: Record<string, TGuardrail>;
-  /** Request structured output from the provider for this session (issue #2056: incl. `json_schema`). */
+  /** Request structured output from the provider for this session (incl. `json_schema`). */
   responseFormat?: TSessionResponseFormat;
 }

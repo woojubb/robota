@@ -5,7 +5,7 @@ import {
   createOtlpUsageSnapshot,
 } from '@robota-sdk/agent-session-analytics';
 
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 import { createProductUserSessionStore } from '../product/session-stores.js';
 import { readVersion, runtimeVersion } from '../startup/version.js';
 import { enumerateUsageSnapshot } from './usage-command.js';

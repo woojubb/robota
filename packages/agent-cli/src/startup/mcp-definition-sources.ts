@@ -1,10 +1,10 @@
 /**
- * MCP-002 sourcing: turn the product's already-layered settings sources into the
+ * Sourcing: turn the product's already-layered settings sources into the
  * `IMCPResolvedEntry[]` `@robota-sdk/agent-mcp`'s `MCPDefinitionRegistry` (and this product's
  * `createMcpClientComposition`) need.
  *
  * `agent-mcp` owns decoding one `mcpServers` object and resolving precedence across sources
- * (MCP-001, the agent-mcp SPEC); this module owns exactly one thing neither of those does: reading the
+ * (the agent-mcp SPEC); this module owns exactly one thing neither of those does: reading the
  * product's OWN settings sources (`@robota-sdk/agent-framework`'s `readSettingsSourceText`) and
  * mapping each one to the source/origin pair `agent-mcp`'s decoder expects.
  *
@@ -32,7 +32,7 @@ import type {
  *
  * `problems` is every refused entry AND every source-level problem, for the one-line-per-problem
  * startup diagnostic (`mcp-startup.ts`). `sourceProblems` is the source-scoped subset alone
- * (`resolveByPrecedence`'s carrier for issue #2794: a config root that is not an object, no
+ * (`resolveByPrecedence`'s carrier for source-level problems: a config root that is not an object, no
  * `mcpServers`, `mcpServers` not an object, or invalid JSON) — kept separate so a LIVE view (the
  * `/mcp` command) can say which source could not be read without re-deriving it from `problems` by
  * an empty-name convention. When `sourceProblems` names the MANAGED tier, `entries` already reflects
@@ -81,7 +81,7 @@ export function describeJsonParseFailure(error: unknown): string {
  * A host source's scope (`'managed' | 'user'`) already spells the same two `TMCPDefinitionSource`
  * members; a workspace project source's two scopes each name a different member.
  *
- * Exported for `mcp-settings.ts` (MCP-004 S3), which layers the `mcp` settings object across the
+ * Exported for `mcp-settings.ts`, which layers the `mcp` settings object across the
  * SAME sources by the SAME precedence — one mapping, not a second copy that could drift from this one.
  */
 export function definitionSourceOf(source: TSettingsSource): TMCPDefinitionSource {
@@ -103,11 +103,11 @@ export function definitionSourceOf(source: TSettingsSource): TMCPDefinitionSourc
  * A parse failure, and a NON-OBJECT root (`null`, an array, a string, a number, a boolean — anything
  * `decodeSource`'s own `isPlainObject` guard would refuse), both become an `IMCPSourceCandidates`
  * with zero definitions and one source-scoped problem (`name: ''`, the same convention `decodeSource`
- * uses for a container-level problem — issue #2794) rather than being treated as "absent" and
+ * uses for a container-level problem) rather than being treated as "absent" and
  * skipped. Skipping was FAIL-OPEN: a managed policy file that happens to parse to `null` or `[]`
  * (truncated write, wrong file swapped in, `echo null > policy.json`) read as "no managed policy
  * configured" instead of "managed could not be read", so a lower-trust definition activated exactly
- * where the highest-trust source most needed to fail closed (PR #3076 review). Only a source that
+ * where the highest-trust source most needed to fail closed. Only a source that
  * parses to a genuine plain object with no `mcpServers` key at all is "nothing to report" — every
  * other non-empty, parseable text reaches `decodeSource`, which is the ONE place that already knows
  * how to turn a bad root into that problem.

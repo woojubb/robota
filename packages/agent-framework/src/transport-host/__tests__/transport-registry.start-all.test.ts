@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
+import { createTransportFailedOutcome } from '@robota-sdk/agent-interface/transport';
 
 import { TransportRegistry } from '../transport-registry.js';
 import { createFileTransportSettingsRepository } from '../transport-settings-repository.js';
@@ -14,8 +14,8 @@ import type {
   ITransportRunnerAdapter,
   TTransportAdapter,
   TTransportRunOutcome,
-} from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 
 const tempDirs: string[] = [];
 
@@ -69,7 +69,7 @@ function restartableRunner(): ITransportRunnerAdapter<IInteractiveSession> & {
   };
 }
 
-describe('TransportRegistry generation ownership (ARCH-011)', () => {
+describe('TransportRegistry generation ownership', () => {
   it('holds a runner rejection across a macrotask without an unhandled rejection', async () => {
     const registry = registryOverTempSettings();
     const runner = restartableRunner();

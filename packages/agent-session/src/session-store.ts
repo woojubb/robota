@@ -11,6 +11,8 @@
  * lends are kept in `claims/` beside the records, so every process over these files sees them.
  */
 
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
+
 import {
   closeSync,
   existsSync,
@@ -50,7 +52,8 @@ import type {
   ISessionSaveOptions,
   ISessionStoreScan,
   TSessionLoadOutcome,
-} from '@robota-sdk/agent-interface-session';
+  TSessionRestoreCommitOutcome,
+} from '@robota-sdk/agent-interface/session';
 
 function errnoCode(error: unknown): unknown {
   return typeof error === 'object' && error !== null
@@ -118,7 +121,7 @@ function compareListEntriesByRecency(left: ISessionListEntry, right: ISessionLis
 /** How a {@link NodeSessionStore} is built. */
 export interface INodeSessionStoreOptions extends ISessionStoreOptions {
   /**
-   * An ancestor of the store's directory the HOST also owns, tightened along with it (SEC-020).
+   * An ancestor of the store's directory the HOST also owns, tightened along with it.
    * Optional because this adapter does not interpret its base directory as a trusted root and must
    * not guess that a parent belongs to the product — which of them do is composition's knowledge.
    * Left out, a store root that already exists keeps whatever mode it was given: the leaf is made
@@ -134,6 +137,7 @@ export interface INodeSessionStoreOptions extends ISessionStoreOptions {
  * authority-backed adapter over the same neutral port.
  */
 export class NodeSessionStore implements IInteractiveSessionStore {
+  readonly supportsClaimDiscard = true as const;
   private readonly baseDir: string;
   private readonly ownedRoot: string | undefined;
   /** How records are stored, and what this instance claims, wrote or holds. */
@@ -159,7 +163,9 @@ export class NodeSessionStore implements IInteractiveSessionStore {
           writeOwnerOnlyFile(this.filePath(id), stored);
         },
       },
-      createProcessMarkers(join(resolve(baseDir), SESSION_CLAIMS_DIRECTORY)),
+      createProcessMarkers(join(resolve(baseDir), SESSION_CLAIMS_DIRECTORY), {
+        operationLock: createProcessOperationLock(join(resolve(baseDir), SESSION_CLAIMS_DIRECTORY)),
+      }),
       options.releaseCommand === undefined ? {} : { releaseCommand: options.releaseCommand },
     );
     this.baseDir = baseDir;
@@ -192,7 +198,7 @@ export class NodeSessionStore implements IInteractiveSessionStore {
   }
 
   /**
-   * Ensure the storage directory exists AND that only its owner can enter it (SEC-020).
+   * Ensure the storage directory exists AND that only its owner can enter it.
    *
    * The `existsSync` guard this replaces is the whole defect. It skipped the case that matters: a
    * directory some earlier version, a shared CI checkout, or another local user left at a wider
@@ -210,10 +216,10 @@ export class NodeSessionStore implements IInteractiveSessionStore {
   /**
    * Absolute path to a session's JSON file.
    *
-   * SEC-006: every public method routes through here, so validating the id at this one point covers
+   * Every public method routes through here, so validating the id at this one point covers
    * `save` (write), `load` (read), and `delete` (unlink) at once.
    *
-   * Issue #2240: `assertSafeSessionId` is the guard, and it is sound — no separator, no `.`/`..`
+   * `assertSafeSessionId` is the guard, and it is sound — no separator, no `.`/`..`
    * can pass it. But it is a regex reject behind a helper, which static analysis does not model as
    * a path sanitizer, so `js/path-injection` re-opened on `load` every time this function changed
    * length. The containment check below is the shape such tools DO recognise: the resolved path
@@ -233,14 +239,14 @@ export class NodeSessionStore implements IInteractiveSessionStore {
   }
 
   /**
-   * Persist a session record to disk atomically (CORE-019).
+   * Persist a session record to disk atomically.
    * Creates the storage directory if needed.
    *
    * Bytes go to a same-directory temp file first, then move into place with rename —
    * a crash mid-write can therefore never leave a truncated JSON where the previous
    * record used to be. Same-directory is load-bearing: cross-device rename is a copy.
    *
-   * SEC-020: the atomic write now comes from `writeOwnerOnlyFile`, which carries the mode from the
+   * The atomic write now comes from `writeOwnerOnlyFile`, which carries the mode from the
    * moment the temp file is created. The hand-rolled version here wrote it at the umask's default
    * and let `rename` carry that mode to the final path, so every record was 0644 — and even setting
    * the mode after the write would leave a window in which the full transcript was world-readable
@@ -254,13 +260,27 @@ export class NodeSessionStore implements IInteractiveSessionStore {
     // which is how a locked process goes on saving the sessions it is running. A file it could not
     // read at all may be one of those, so it is protected the same way. A plain or absent file is
     // replaced.
-    // TRANS-007: the versioned envelope, not the bare record. Without a version on disk there is
+    // The versioned envelope, not the bare record. Without a version on disk there is
     // nothing to compare, so "written by a build this one does not read" cannot be told from
     // "damaged" even in principle — and those two need different things from the user.
-    // SEC-020's owner-only atomic write carries it: the envelope is WHAT is written, the mode is HOW.
+    // The owner-only atomic write carries it: the envelope is WHAT is written, the mode is HOW.
     // A store that seals writes the same envelope sealed to this session's id, tagged when it can
     // vouch that the content is the owner's and the keys are unlocked.
     this.records.save(session, options);
+  }
+
+  saveRestoreTransaction(
+    session: IInteractiveSessionRecord,
+    options?: ISessionSaveOptions,
+  ): TSessionRestoreCommitOutcome {
+    if (!options?.claim)
+      throw new TypeError('A live session claim is required for restore commit.');
+    try {
+      this.save(session, options);
+      return { status: 'committed' };
+    } catch (error) {
+      return { status: 'unknown', error };
+    }
   }
 
   /**
@@ -334,8 +354,8 @@ export class NodeSessionStore implements IInteractiveSessionStore {
         },
       };
     }
-    // SEC-020 / #3679: `save` tightens a record it REWRITES, but a session that is only resumed or
-    // listed keeps whatever mode its writer left — so a record from a pre-SEC-020 build stays 0644.
+    // `save` tightens a record it REWRITES, but a session that is only resumed or
+    // listed keeps whatever mode its writer left — so a record from an older build stays 0644.
     // Repair it on read: `list` routes through here, so browsing or resuming a legacy session makes
     // it owner-only. A no-op once the mode is already tight, and on non-POSIX hosts.
     //
@@ -420,7 +440,7 @@ export class NodeSessionStore implements IInteractiveSessionStore {
    * The outcome for one directory entry, without letting a bad NAME throw out of `list`.
    *
    * `load` validates the id, because an id reaching it is a caller's value and a malformed one is a
-   * bug or an attack (SEC-006). A name read out of the directory is neither: the store did not
+   * bug or an attack. A name read out of the directory is neither: the store did not
    * choose it, and one file it cannot use as an id must not take the whole listing down with it.
    * Routing `list` through `load` made exactly that happen — a single `my session.json` in the
    * sessions directory threw, and the resume picker went with it.

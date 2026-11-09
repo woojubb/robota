@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * REL-022 — managed release notes generator.
+ * Managed release notes generator.
  *
  * Turns the conventional-commit history of a git range into curated release
  * notes: grouped Features / Fixes / Performance / Security sections plus a

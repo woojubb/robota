@@ -9,7 +9,7 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createRewindCommandModule } from '@robota-sdk/agent-command';
+import { createRewindCommandModule } from '@robota-sdk/agent-product/command';
 import {
   IEditCheckpointStore,
   WorkspaceTrustService,
@@ -343,7 +343,7 @@ describe('a session built with the CLI options for a trusted workspace', () => {
     expect(readFileSync(filePath, 'utf8')).toBe('second');
   });
 
-  // ARCH-047: project mutation is Linux-only, so a checkpoint is only really written and restored there.
+  // Project mutation is Linux-only, so a checkpoint is only really written and restored there.
   it.runIf(process.platform === 'linux')(
     '/rewind restores the file a later turn changed',
     async () => {

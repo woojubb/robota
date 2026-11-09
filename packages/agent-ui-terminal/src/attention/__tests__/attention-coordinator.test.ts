@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { AttentionCoordinator } from '../attention-coordinator.js';
 
 import type { IAttentionSource, TAttentionListener } from '../attention-tracker.js';
-import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
+import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface/execution';
 
 class FakeSource implements IAttentionSource {
   attended = true;
@@ -53,7 +53,7 @@ function snapshot(
   } satisfies IExecutionWorkspaceSnapshot;
 }
 
-describe('AttentionCoordinator (SCREEN-1992 TC-02 wiring)', () => {
+describe('AttentionCoordinator (wiring)', () => {
   it('pushes one recap per unattended interval from the channel events it is fed', () => {
     const source = new FakeSource();
     const recaps: string[] = [];

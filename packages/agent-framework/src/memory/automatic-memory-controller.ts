@@ -141,18 +141,18 @@ export class AutomaticMemoryController {
 
 export function renderRetrievedMemory(retrieval: IMemoryRetrievalResult): string {
   if (retrieval.content.trim().length === 0) return '';
-  // SEC-007: the tags alone are delimiters, not framing — see `memory-trust-framing.ts`.
+  // The tags alone are delimiters, not framing — see `memory-trust-framing.ts`.
   return `<project-memory>\n${PROJECT_MEMORY_TRUST_NOTE}\n\n${retrieval.content}\n</project-memory>`;
 }
 
 /**
- * SELFHOST-008 P3: render PER-TURN recalled memory with a DISTINCT `<recalled-memory>` label, so the model
+ * Render PER-TURN recalled memory with a DISTINCT `<recalled-memory>` label, so the model
  * can tell the query-relevant bodies (injected ephemerally per turn) from the always-loaded startup
  * `<project-memory>` index. Empty when there is nothing to recall.
  */
 export function renderPerTurnRecall(retrieval: IMemoryRetrievalResult): string {
   if (retrieval.content.trim().length === 0) return '';
-  // SEC-007: this block is delivered as a `role: 'system'` message, which the Anthropic adapter
+  // This block is delivered as a `role: 'system'` message, which the Anthropic adapter
   // hoists into the top-level `system` field — concatenated onto the operator's own prompt, with its
   // position (and so its provenance) gone. The framing has to travel INSIDE the text to survive that.
   return `<recalled-memory>\n${RECALLED_MEMORY_TRUST_NOTE}\n\n${retrieval.content}\n</recalled-memory>`;

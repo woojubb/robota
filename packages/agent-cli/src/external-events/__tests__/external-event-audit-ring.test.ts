@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createExternalEventAuditRing } from '../external-event-audit-ring.js';
 
-import type { TExternalEventAuditRecord } from '@robota-sdk/agent-interface-transport';
+import type { TExternalEventAuditRecord } from '@robota-sdk/agent-interface/transport';
 
 const ID = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
 

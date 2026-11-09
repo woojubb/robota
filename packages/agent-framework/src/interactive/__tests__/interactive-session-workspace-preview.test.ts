@@ -1,5 +1,5 @@
 /**
- * #3186 — the main thread's row previews the conversation, not the name of the last record. The
+ * The main thread's row previews the conversation, not the name of the last record. The
  * last record is often bookkeeping (a usage observation), whose type name leaked into every
  * surface's activity list as "usage-observation".
  */
@@ -16,7 +16,6 @@ function snapshotPreview(history: IHistoryEntry[], streamingText = ''): string |
     execCtrl: { executing: false, pendingPrompt: null, streamingText },
     histTracker: { getHistory: () => history },
     bgTracker: { getTaskSnapshots: () => [], getGroupSnapshots: () => [] },
-    sessionHasWriter: () => false,
   });
   return snapshot.entries.find((entry) => entry.kind === 'main_thread')?.preview;
 }

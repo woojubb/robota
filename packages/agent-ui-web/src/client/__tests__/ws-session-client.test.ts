@@ -1,5 +1,5 @@
 /**
- * Regression tests for WEBUI-002: a malformed server frame must not throw inside
+ * Regression tests: a malformed server frame must not throw inside
  * the WebSocket onmessage handler (which would freeze the UI) — it is surfaced as
  * a protocol_error via the normal callback path.
  */
@@ -30,7 +30,7 @@ class FakeWebSocket {
   }
 }
 
-describe('createWsSessionClient (WEBUI-002)', () => {
+describe('createWsSessionClient', () => {
   beforeEach(() => {
     lastSocket = null;
     (globalThis as unknown as { WebSocket: unknown }).WebSocket = FakeWebSocket;
@@ -98,7 +98,7 @@ describe('createWsSessionClient (WEBUI-002)', () => {
     expect(messages).toEqual([frame]);
   });
 
-  it('schedules a reconnect after an unintentional close (WEBUI-001)', () => {
+  it('schedules a reconnect after an unintentional close', () => {
     vi.useFakeTimers();
     try {
       const client = createWsSessionClient('ws://localhost:7070', {
@@ -118,7 +118,7 @@ describe('createWsSessionClient (WEBUI-002)', () => {
     }
   });
 
-  it('does not reconnect after an intentional disconnect (WEBUI-001)', () => {
+  it('does not reconnect after an intentional disconnect', () => {
     vi.useFakeTimers();
     try {
       const client = createWsSessionClient('ws://localhost:7070', {

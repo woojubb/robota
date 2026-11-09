@@ -25,7 +25,7 @@ import {
 } from '../supervised-session-control.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
 
-import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface/transport';
 
 const fixture = fileURLToPath(new URL('./fixtures/supervised-serve-fixture.ts', import.meta.url));
 const lossyFixture = fileURLToPath(
@@ -108,7 +108,7 @@ describe('external event grants on a supervised session', () => {
     try {
       id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
-        execArgs: ['--import', 'tsx', '--conditions=source'],
+        execArgs: ['--import', 'tsx', '--conditions=product-source'],
         env: { PRODUCT_TEST_SUPERVISED_ROOT: root },
         root,
         grants: [grant('ci'), grant('chat')],
@@ -209,7 +209,7 @@ describe('external event grants on a supervised session', () => {
       try {
         await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
           entrypoint: fixture,
-          execArgs: ['--import', 'tsx', '--conditions=source'],
+          execArgs: ['--import', 'tsx', '--conditions=product-source'],
           env: {
             PRODUCT_TEST_SUPERVISED_ROOT: root,
             PRODUCT_TEST_PERMISSION_MODE: 'bypassPermissions',

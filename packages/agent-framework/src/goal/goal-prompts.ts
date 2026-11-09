@@ -1,5 +1,5 @@
 /**
- * GOAL-001: prompt composition for autonomous objective pursuit.
+ * Prompt composition for autonomous objective pursuit.
  *
  * These prompts inject the objective into each goal-driven turn and instruct the agent to use the
  * {@link GOAL_SIGNAL_TOOL_NAME} completion-signal tool. They are deliberately vendor-neutral.
@@ -7,7 +7,7 @@
 
 import { GOAL_SIGNAL_TOOL_NAME } from './goal-status-tool.js';
 
-import type { IGoalState } from '@robota-sdk/agent-interface-session';
+import type { IGoalState } from '@robota-sdk/agent-interface/session';
 
 const SIGNAL_INSTRUCTION =
   `When you have made as much progress as you can this turn, call \`${GOAL_SIGNAL_TOOL_NAME}\`: ` +

@@ -29,25 +29,33 @@ interface IWorkerSealing {
   readonly listeners: Set<() => void>;
 }
 
-/** Runtimes a test turned secure mode on for, before the persistent switch exists. */
+/** Explicit per-runtime overrides used by isolated tests. */
 const secureModeOverrides = new WeakMap<ICliRuntimeContext, boolean>();
 
-/**
- * Whether secure mode is on for `runtime`'s state root: the one predicate every decision that depends
- * on it reads — `secure migrate` and `secure compact` refuse while it is off, and the store wiring
- * that gives a process its key holder ({@link useProductKeyHolder}) follows it. It is read from the
- * persistent opt-in switch, which does not exist yet, so it is off for every product process.
- */
+/** The one secure-mode decision used by store, worker, and command admission. */
 export function productSecureMode(runtime: ICliRuntimeContext): boolean {
-  return secureModeOverrides.get(runtime) ?? false;
+  return secureModeOverrides.get(runtime) ?? runtime.conversationMode === 'secure';
 }
 
-/**
- * Test seam until the persistent switch exists: turns secure mode on (or off) for `runtime` alone, as
- * the switch will for a state root. Nothing in the product calls it.
- */
+/** An interrupted mode change admits only the owner's `secure` recovery commands. */
+export function assertProductConversationLaunch(runtime: ICliRuntimeContext, argv: readonly string[]): void {
+  if (process.platform === 'win32' && productSecureMode(runtime) && argv[2] !== 'secure') {
+    throw new Error('Secure conversations are unavailable on Windows in this release. Run `secure disable` to use plaintext conversations.');
+  }
+  if (runtime.conversationMode !== 'preparing') return;
+  if (argv[2] === 'secure') return;
+  throw new Error(`Secure conversation preparation is incomplete; run \`${runtime.vocabulary.cliName} secure enable\` to finish it before starting a session.`);
+}
+
+/** Test seam; product code never calls it. */
 export function overrideProductSecureMode(runtime: ICliRuntimeContext, on: boolean): void {
   secureModeOverrides.set(runtime, on);
+}
+
+/** Preserve an invocation's secure-mode decision when its admitted environment is rebound. */
+export function copyProductSecureMode(from: ICliRuntimeContext, to: ICliRuntimeContext): void {
+  const mode = secureModeOverrides.get(from);
+  if (mode !== undefined) secureModeOverrides.set(to, mode);
 }
 
 /** The runtimes of subagent workers in this process, each with what its parent handed it. */
@@ -83,11 +91,17 @@ function productSealingOf(runtime: ICliRuntimeContext): IProductSealing | undefi
  *
  * A subagent worker's answer is its parent's: the sealing its write grant binds, plain while none is
  * bound, and never a keyring file read here. A process given a key holder seals with its keys; a
- * process is given one only where {@link productSecureMode} is on, which it is nowhere yet, so every
- * other process answers plain.
+ * process is given one only where {@link productSecureMode} is on. A missing holder in secure mode
+ * is an error, never a plaintext fallback.
  */
 export function resolveProductSessionSealing(runtime: ICliRuntimeContext): TArtifactSealing {
+  if (runtime.conversationMode === 'preparing') {
+    throw new Error('Secure conversation preparation is incomplete; no conversation store may open.');
+  }
   const sealing = productSealingOf(runtime);
+  if (sealing === undefined && productSecureMode(runtime)) {
+    throw new Error('Secure conversation sealing key holder is unavailable; no conversation store may open.');
+  }
   return sealing === undefined ? 'plain' : { sealer: sealing.sealer };
 }
 
@@ -139,7 +153,13 @@ export type TProductRunnerSealing =
 
 /** The runner options for `runtime`'s sealing; see {@link TProductRunnerSealing}. */
 export function resolveProductRunnerSealing(runtime: ICliRuntimeContext): TProductRunnerSealing {
+  if (runtime.conversationMode === 'preparing') {
+    throw new Error('Secure conversation preparation is incomplete; no subagent log may open.');
+  }
   const sealing = productSealingOf(runtime);
+  if (sealing === undefined && productSecureMode(runtime)) {
+    throw new Error('Secure conversation sealing key holder is unavailable; no subagent log may open.');
+  }
   return sealing === undefined
     ? { logSealing: 'plain' }
     : { logSealing: { sealer: sealing.sealer }, watchSealingKey: sealing.watchSealingKey };
@@ -148,8 +168,7 @@ export function resolveProductRunnerSealing(runtime: ICliRuntimeContext): TProdu
 /**
  * Makes `holder` the one whose keys every store and subagent log of `runtime` seals with: one sealer
  * over it, and its sealing-key changes as the watch the runner follows. Refused for a runtime
- * {@link productSecureMode} is off for — every product process, until the switch exists — so the
- * stores of a state root never seal before secure mode is on for it.
+ * {@link productSecureMode} is off for, so stores never seal before secure mode is on.
  */
 export function useProductKeyHolder(runtime: ICliRuntimeContext, holder: KeyHolder): void {
   if (!productSecureMode(runtime)) {

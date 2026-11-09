@@ -143,16 +143,15 @@ async function evaluatePreToolHooks(
     hookTraceEnv,
   );
   if (hookResult.blocked) {
-    // CORE-027, the third of the three outcomes the failure type names. This path was left behind by
-    // the first pass: `permission-types.ts` declared `hook-blocked` while this still returned
-    // `success: true`, so the type promised a distinction the code did not make — in the file that
-    // exists to end exactly that.
+    // The third of the three outcomes the failure type names. `permission-types.ts` declares
+    // `hook-blocked`, so this path must not return `success: true`: that would promise a
+    // distinction the code does not make — in the file that exists to end exactly that.
     const reason = hookResult.reason ?? 'Blocked by hook';
     return { result: toolFailure('hook-blocked', reason, { blocked: true, reason }), hookResult };
   }
 
-  // SEC-016. A hook that reached NO verdict is not a hook that approved. Issue #2083 made that
-  // distinction representable; this is where it starts costing something.
+  // A hook that reached NO verdict is not a hook that approved. That distinction is
+  // representable; this is where it starts costing something.
   //
   // Guarded by the policy rather than by a literal `true`, so the posture is stated in ONE place and
   // this boundary cannot drift from it. Note what this does NOT buy: the event is hardcoded here
@@ -165,7 +164,7 @@ async function evaluatePreToolHooks(
   // `__tests__/tool-hook-helpers.test.ts`, which fails if this handling is removed.
   //
   // The check stays HERE rather than inside `runHooks`, because the runner reports outcomes and must
-  // not decide policy — the same split issue #2083 established between the decoder and the runner.
+  // not decide policy — the same split as between the decoder and the runner.
   if (isEnforcing('PreToolUse')) {
     // Bind the array, not `errors?.[0]`: narrowing the element does not narrow the collection, and
     // the count below needs the collection. The earlier shape needed a `?? 1` fallback that could
@@ -176,17 +175,16 @@ async function evaluatePreToolHooks(
     // drift surface: the two branches below disagreed about whether the field could be absent.
     const unregistered = hookResult.unknownHookTypes ?? [];
 
-    // A configured hook type with no registered executor ran NOTHING. Before SEC-016 the runner
-    // reported it and the gate proceeded, so a config declaring a guardrail with no registry
-    // silently disabled itself. Startup rejection of such a config is issue #2099; this is the
-    // runtime half.
+    // A configured hook type with no registered executor ran NOTHING. If the gate proceeded after
+    // the runner reported it, a config declaring a guardrail with no registry would silently
+    // disable itself. Startup rejection of such a config is separate; this is the runtime half.
     //
-    // Denying is deliberate and is the approved SEC-016 semantics: a PreToolUse hook the user wrote
+    // Denying is deliberate and is the approved semantics: a PreToolUse hook the user wrote
     // as a gate must not be silently skipped. But note WHICH configs land here, because it is wider
     // than a mistake — `prompt`, `agent` and `guardrail` are accepted by the config schema while no
     // product surface supplies the `providerFactory` / `sessionFactory` / `guardrails` those
-    // executors need, so such a config validates and can never run. That gap is issue #2245; it is
-    // the reason this text says what to DO rather than only what happened.
+    // executors need, so such a config validates and can never run. That gap is the
+    // reason this text says what to DO rather than only what happened.
     //
     // Built once and used by both branches. The earlier shape wrote the cause twice — a full
     // sentence in the standalone branch and a shorter one appended to the error branch — so the

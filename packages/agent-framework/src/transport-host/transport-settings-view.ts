@@ -4,7 +4,7 @@
  * `TransportRegistry` does two jobs that only share a constructor argument: it holds WHICH adapters
  * exist and orchestrates their start/stop, and it reads and writes what the user saved ABOUT them.
  *
- * TRANS-010 (issue #2480): this view performs no I/O of its own. It resolves and mutates through an
+ * This view performs no I/O of its own. It resolves and mutates through an
  * injected `ITransportSettingsRepository`, so the package's tests need no filesystem and a host may
  * store transport settings wherever it keeps the rest.
  */
@@ -15,7 +15,7 @@ import type {
   ITransportSavedConfig,
   ITransportSettingsRepository,
   TBoundConfigurableTransport,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-interface/transport';
 
 export class TransportSettingsView {
   constructor(private readonly repository: ITransportSettingsRepository) {}

@@ -11,10 +11,10 @@ import { createOutboundDelivery } from '../outbound-delivery.js';
 import { classifySessionErrorForWire } from '../session-error-classification.js';
 import { subscribeSessionEvents } from '../session-events.js';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 /**
- * #3289 §3: the `error` wire frame gains a typed `code`/`provider`/`retryAfterSeconds` alongside the
+ * The `error` wire frame gains a typed `code`/`provider`/`retryAfterSeconds` alongside the
  * raw `message`, so a renderer can say what happened in plain words instead of showing the vendor's
  * raw text. Additive — an error this classification does not recognize carries no `code` at all,
  * which is exactly today's behavior (unchanged).
@@ -76,7 +76,7 @@ describe('classifySessionErrorForWire', () => {
   });
 });
 
-describe('the error wire frame carries the classification (#3289 §3)', () => {
+describe('the error wire frame carries the classification', () => {
   it('adds code/provider/retryAfterSeconds onto the delivered error frame', () => {
     const send = vi.fn();
     const session = createTestInteractiveSession({ on: vi.fn(), off: vi.fn() });

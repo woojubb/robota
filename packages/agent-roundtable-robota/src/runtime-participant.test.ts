@@ -191,7 +191,7 @@ describe('runtimeParticipant: speak path', () => {
     expect(participant.factory.modelCalls).toBe('metered');
   });
 
-  // `agent.run()` RESOLVES on abort (agent-core CORE-027) with the text it had committed so far,
+  // `agent.run()` RESOLVES on abort (agent-core) with the text it had committed so far,
   // marked `interrupted` — never rejects on its own. A tool call combined with real text in the
   // SAME assistant message, where the tool's own effect aborts mid round, reproduces exactly
   // that: the round loop stops after the tool (no further round runs the forced summary), so the

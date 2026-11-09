@@ -1,9 +1,9 @@
 import { MINUTES_PER_HOUR, MS_PER_MINUTE } from './time-units.js';
 
-import type { TExecutionNormalizedState } from '@robota-sdk/agent-interface-execution';
+import type { TExecutionNormalizedState } from '@robota-sdk/agent-interface/execution';
 
 /**
- * SCREEN-1992: one line for what happened while the user was away.
+ * One line for what happened while the user was away.
  *
  * Counts only while unattended; `onReturned` renders the interval and resets it. Nothing here
  * inspects the session — the coordinator feeds it the channel events it already receives.

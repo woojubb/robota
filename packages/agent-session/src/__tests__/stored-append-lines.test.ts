@@ -1,5 +1,5 @@
 /**
- * What a stored append line or a log sidecar means (#3679, secure conversation): the one module the
+ * What a stored append line or a log sidecar means (secure conversation): the one module the
  * prompt-history file, both log sinks and both log sources route through, so no two of them can
  * disagree about a sealed line, a torn one, or one a newer build wrote.
  */

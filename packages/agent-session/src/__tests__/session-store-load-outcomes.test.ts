@@ -1,5 +1,5 @@
 /**
- * TRANS-007 (issue #2096) — the store says WHICH of the four things happened, and does not destroy.
+ * The store says WHICH of the four things happened, and does not destroy.
  *
  * The decoder is tested exhaustively elsewhere. **That proves the decoder and says nothing about
  * whether the store routes through it.** A guard is not covered because the module that defines it is
@@ -7,9 +7,9 @@
  * before it writes — rather than calling the decoder directly.
  *
  * Two cases are deliberately written the hard way:
- *   - TC-05 compares the file BYTES before and after an attempted save, because "the call did not
+ *   - one case compares the file BYTES before and after an attempted save, because "the call did not
  *     throw" is not "the call did not write", and the defect being fixed is a write.
- *   - TC-10 reads the file and parses it, because asserting that a saved record loads back proves
+ *   - another reads the file and parses it, because asserting that a saved record loads back proves
  *     only that the codec agrees with itself; the format change is what is on disk.
  */
 
@@ -23,7 +23,7 @@ import { persistSession } from '../session-history-ops.js';
 import { SESSION_RECORD_ENVELOPE_VERSION } from '../session-record-codec/index.js';
 import { NodeSessionStore } from '../session-store.js';
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 
 const SESSION_ID = 'sess_outcomes';
 
@@ -49,7 +49,7 @@ function record(id = SESSION_ID): IInteractiveSessionRecord {
   };
 }
 
-describe('TC-01 / TC-04: missing and valid are different answers', () => {
+describe('missing and valid are different answers', () => {
   it('reports missing for an id that was never saved', () => {
     const store = new NodeSessionStore(newStoreDir(), { sealing: 'plain' });
     expect(store.load('never-saved')).toEqual({ status: 'missing' });
@@ -65,7 +65,7 @@ describe('TC-01 / TC-04: missing and valid are different answers', () => {
   });
 });
 
-describe('TC-02: a damaged file is corrupt, not missing', () => {
+describe('a damaged file is corrupt, not missing', () => {
   it('reports corrupt with a located issue when the file is truncated', () => {
     const dir = newStoreDir();
     const store = new NodeSessionStore(dir, { sealing: 'plain' });
@@ -97,7 +97,7 @@ describe('TC-02: a damaged file is corrupt, not missing', () => {
   });
 });
 
-describe('TC-03: a file from an earlier build is unsupported', () => {
+describe('a file from an earlier build is unsupported', () => {
   it('reports unsupported for a bare record with no envelope', () => {
     const dir = newStoreDir();
     const store = new NodeSessionStore(dir, { sealing: 'plain' });
@@ -105,7 +105,7 @@ describe('TC-03: a file from an earlier build is unsupported', () => {
     // case every existing session file is in — which is the case every beta user meets on their
     // first resume after this lands.
     writeFileSync(path.join(dir, `${SESSION_ID}.json`), JSON.stringify(record(), null, 2), 'utf-8');
-    // #3289 §1: the bytes still carry a plain `cwd`, read despite the missing envelope, so a caller
+    // The bytes still carry a plain `cwd`, read despite the missing envelope, so a caller
     // that only wants to know which workspace this legacy record belongs to gets an answer.
     expect(store.load(SESSION_ID)).toEqual({
       status: 'unsupported',
@@ -130,7 +130,7 @@ describe('TC-03: a file from an earlier build is unsupported', () => {
   });
 });
 
-describe('TC-05: the write path refuses rather than overwriting what it cannot read', () => {
+describe('the write path refuses rather than overwriting what it cannot read', () => {
   function persistContext(store: NodeSessionStore, history: unknown[] = []) {
     return {
       sessionStore: store,
@@ -167,7 +167,7 @@ describe('TC-05: the write path refuses rather than overwriting what it cannot r
     const before = readFileSync(file, 'utf-8');
     const outcome = persistSession(persistContext(store));
 
-    // The bytes, not the absence of a throw. Before TRANS-007 this call replaced a recoverable file
+    // The bytes, not the absence of a throw. A write here would replace a recoverable file
     // with a fresh, nearly empty record on the next autosave.
     expect(readFileSync(file, 'utf-8')).toBe(before);
     expect(outcome.status).not.toBe('valid');
@@ -182,7 +182,7 @@ describe('TC-05: the write path refuses rather than overwriting what it cannot r
   });
 });
 
-describe('TC-08: list reports what it cannot read instead of hiding it', () => {
+describe('list reports what it cannot read instead of hiding it', () => {
   it('includes an unreadable session in the listing, with its outcome', () => {
     const dir = newStoreDir();
     const store = new NodeSessionStore(dir, { sealing: 'plain' });
@@ -196,7 +196,7 @@ describe('TC-08: list reports what it cannot read instead of hiding it', () => {
   });
 
   it('reports a file whose NAME is not a usable session id instead of throwing', () => {
-    // `load` REJECTS a malformed id, because a caller's id is a value SEC-006 must not trust. A name
+    // `load` REJECTS a malformed id, because a caller's id is a value the store must not trust. A name
     // read out of the directory is not that value, and routing `list` through `load` made one
     // `my session.json` throw out of the whole listing — the resume picker with it. Reporting it is
     // the same answer `list` gives for every other file it cannot read.
@@ -225,7 +225,7 @@ describe('TC-08: list reports what it cannot read instead of hiding it', () => {
   });
 });
 
-describe('TC-10: the envelope is on disk, not merely in the round trip', () => {
+describe('the envelope is on disk, not merely in the round trip', () => {
   it('writes { schemaVersion, record } as the persisted shape', () => {
     const dir = newStoreDir();
     const store = new NodeSessionStore(dir, { sealing: 'plain' });

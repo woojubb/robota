@@ -1,5 +1,5 @@
 /**
- * CLI-2004 TC-06 / TC-07 — arrow-key menus become numbered lists with a typed answer.
+ * Arrow-key menus become numbered lists with a typed answer.
  *
  * Position is the thing a reader cannot get: the `> ` cursor and the accent colour say which row is
  * selected, and neither survives being read aloud. A spoken number does.
@@ -32,7 +32,7 @@ const ITEMS = [
   { label: 'Third option', value: 'c' },
 ];
 
-describe('TC-06: MenuSelect as a numbered list', () => {
+describe('MenuSelect as a numbered list', () => {
   it('renders `1. `, `2. `, `3. ` rows and the authored prompt literal', async () => {
     const { lastFrame, unmount } = renderInMode(
       <MenuSelect title="Pick one" items={ITEMS} onSelect={vi.fn()} onBack={vi.fn()} />,
@@ -108,7 +108,7 @@ describe('TC-06: MenuSelect as a numbered list', () => {
   });
 });
 
-describe('TC-07: PermissionPrompt and ConfirmPrompt', () => {
+describe('PermissionPrompt and ConfirmPrompt', () => {
   function permissionRequest(resolve: (value: unknown) => void): IPendingPermissionRequest {
     return {
       toolName: 'Bash',

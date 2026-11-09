@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-roundtable-robota",
-  "version": "3.0.1",
+  "version": "3.2.5",
   "description": "Run Robota Session and Robota agents as agent-roundtable participants and selectors",
   "type": "module",
   "main": "dist/index.js",
@@ -44,7 +44,7 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-roundtable": "workspace:*"
+    "@robota-sdk/agent-roundtable": "workspace:^"
   },
   "peerDependencies": {
     "@robota-sdk/agent-core": "workspace:^",
@@ -56,9 +56,9 @@
     }
   },
   "devDependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-session": "workspace:*",
-    "@robota-sdk/agent-tool-defaults": "workspace:*",
+    "@robota-sdk/agent-core": "workspace:^",
+    "@robota-sdk/agent-session": "workspace:^",
+    "@robota-sdk/agent-tools": "workspace:^",
     "tsdown": "^0.22.14",
     "vitest": "^3.2.6"
   },

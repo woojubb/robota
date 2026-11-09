@@ -3,7 +3,7 @@ import { createInProcessSubagentRunner } from '@robota-sdk/agent-framework';
 import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
 
 /**
- * ARCH-109: whether a child process can arrive at the parent's PROVIDER composition, and which
+ * Whether a child process can arrive at the parent's PROVIDER composition, and which
  * subagent runner follows from the answer.
  *
  * Separate from the recipe next door because it answers a different question. That file says what
@@ -15,7 +15,7 @@ import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
 /**
  * How the parent's PROVIDER composition was arrived at, in the two facts a child cannot re-derive.
  *
- * ARCH-109. The capability question above asks what the child cannot rebuild; this asks the same
+ * The capability question above asks what the child cannot rebuild; this asks the same
  * thing one dimension over, and it is a separate input because the answer is not readable from the
  * definitions themselves. `IProviderDefinition` carries `createProvider` and `probeProfile` — both
  * functions — so the set cannot cross the boundary as data, and comparing the parent's set with the
@@ -44,7 +44,7 @@ export interface IProviderReproduction {
 /**
  * Provider composition a child process cannot arrive at on its own.
  *
- * ARCH-109. Stated as the two facts rather than as a single "is it custom" flag, because the
+ * Stated as the two facts rather than as a single "is it custom" flag, because the
  * remedies differ: a replay provider is preserved by choosing the in-process runner, while a
  * caller-supplied set needs a paired worker entry that builds it, and only the caller can supply
  * that.
@@ -61,9 +61,9 @@ export function nonReproducibleProviderComposition(
 }
 
 /**
- * ARCH-109: which subagent runner a session gets, and the one case where that is not free.
+ * Which subagent runner a session gets, and the one case where that is not free.
  *
- * Choosing a runner is a packaging decision — that is ARCH-034's whole point, and why the child
+ * Choosing a runner is a packaging decision — which is why the child
  * recipe goes to lengths to give a child-process subagent the same surface as an in-process one.
  * A replay provider is where the packaging choice stops being free: it is bound to a log file and a
  * read cursor, so it is not something two processes can share, and the child-process runner is built

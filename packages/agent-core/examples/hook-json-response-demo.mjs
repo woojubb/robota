@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * HOOK-006 User Execution Test Scenario
+ * User Execution Test Scenario
  *
  * Demonstrates that hook scripts can now return JSON via stdout to control
  * behavior — previously stdout was collected as raw text only.
@@ -138,7 +138,7 @@ check(
 // ── Summary ───────────────────────────────────────────────────────────────────
 console.log();
 if (allPassed) {
-  console.log('PASS — HOOK-006 JSON response parsing is correctly implemented.');
+  console.log('PASS — JSON response parsing is correctly implemented.');
   process.exit(0);
 } else {
   console.log('FAIL — one or more scenarios did not pass.');

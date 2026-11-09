@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { restoreProjectedSandbox } from '../worker-composition.js';
 
 /**
- * ARCH-033 — projecting a live owner-bound capability across the subagent process boundary.
+ * Projecting a live owner-bound capability across the subagent process boundary.
  *
  * The parent may hold a sandbox client: an open session against a remote machine. A child-process
  * subagent is rebuilt from a RECIPE, and a recipe carries only what is a pure function of (execution
@@ -18,7 +18,7 @@ import { restoreProjectedSandbox } from '../worker-composition.js';
  * an unregistered type must STOP the job rather than silently produce an unsandboxed child, and a
  * factory must receive the snapshot reference rather than being able to hand back an empty sandbox.
  */
-describe('ARCH-033 — a sandbox projects by (type, snapshot), not by handle', () => {
+describe('a sandbox projects by (type, snapshot), not by handle', () => {
   it('restores through the factory the composition root registered', async () => {
     const restored: string[] = [];
     const client = await restoreProjectedSandbox(
@@ -36,8 +36,8 @@ describe('ARCH-033 — a sandbox projects by (type, snapshot), not by handle', (
   });
 
   it('THROWS on a type the composition did not register, rather than running unsandboxed', async () => {
-    // The load-bearing case. A child told it is sandboxed, that quietly is not, is ARCH-010's shape —
-    // the measured breach there was a subagent reading outside its root. Degrading to host tools here
+    // The load-bearing case. A child told it is sandboxed, that quietly is not, breaches containment —
+    // a subagent could read outside its root. Degrading to host tools here
     // would be the silent-success failure `enforcement-architecture.md` refuses.
     await expect(
       restoreProjectedSandbox(

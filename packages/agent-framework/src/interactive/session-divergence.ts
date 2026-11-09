@@ -1,5 +1,5 @@
 /**
- * What a running session does when it can no longer save its own record (#3679 step 3e).
+ * What a running session does when it can no longer save its own record.
  *
  * The store refuses to save a claimed id over a file something it cannot verify changed, and must:
  * merging it would hand the session content nobody vouched for, and overwriting it would destroy what
@@ -15,7 +15,7 @@ import { uniqueSessionName } from './interactive-session-fork-record.js';
 import { saveSessionCopy } from './interactive-session-persistence.js';
 
 import type { ISessionStateForSave } from './interactive-session-persistence.js';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 import type { Session } from '@robota-sdk/agent-session';
 
 /**

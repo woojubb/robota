@@ -1,5 +1,5 @@
 /**
- * #3189 — the sessions a served runtime keeps, one view of them per client.
+ * The sessions a served runtime keeps, one view of them per client.
  *
  * `the product --serve` keeps several sessions live in a pool. Each client connection binds to it and
  * gets a view of its own: its directory lists the workspace's stored sessions, says which one THIS
@@ -9,10 +9,14 @@
  * this client could answer — and a refusal says why with a code the client can branch on.
  */
 
+import { randomUUID } from 'node:crypto';
+
 import {
   SessionAuthorshipRefusedError,
   SessionChangeRefusal,
   SessionDeleteRefusal,
+  OWNER_SANDBOX_REVIEW_UNAVAILABLE,
+  UNVERIFIED_SESSION_QUESTION,
   claimChangeRefusal,
   claimDeleteRefusal,
   isSessionBusy,
@@ -23,6 +27,9 @@ import {
   lockedSessionReason,
   persistSessionRename,
   resolveReusableEmptySessionId,
+  resumeRefusal,
+  unacceptableSessionMessage,
+  unverifiedSessionNotice,
 } from '@robota-sdk/agent-framework';
 
 import type {
@@ -35,11 +42,12 @@ import type {
   ISessionListingEntry,
   ISessionLoopState,
   TSessionBindingRole,
-} from '@robota-sdk/agent-interface-session';
+  TOwnerSessionQuestion,
+} from '@robota-sdk/agent-interface/session';
 
 /**
- * The members of a session the directory reads: its id, whether a prompt waits on it, and — #3289
- * §1 — everything {@link isSessionBusy} needs to tell a session with work in progress (a running
+ * The members of a session the directory reads: its id, whether a prompt waits on it, and
+ * everything {@link isSessionBusy} needs to tell a session with work in progress (a running
  * turn, a pending prompt, a live background task, an unexpired self-paced loop) from one it may
  * delete. `listSelfPacedLoops` stays optional, exactly as `isSessionBusy` itself takes it, because it
  * is not part of the base session capability set.
@@ -73,6 +81,7 @@ export interface IServeSessionPoolBinding<TSession, TSlot extends { readonly cur
 export interface IServeSessionPool<TSession, TSlot extends { readonly current: TSession }> {
   bind(role: TSessionBindingRole): IServeSessionPoolBinding<TSession, TSlot>;
   acquire(sessionId?: string): Promise<IServeSessionLease<TSession>>;
+  acquireAccepted(sessionId: string, digest: string, signal: AbortSignal): Promise<IServeSessionLease<TSession>>;
   /** `session` is the live instance itself — the directory reads it to tell "busy" from "idle". */
   listLive(): readonly {
     readonly sessionId: string;
@@ -106,6 +115,8 @@ export interface IServeSessionDirectoryHost<
   readonly cwd: string;
   /** The runtime is shutting down, so no client changes its session any more. */
   isStopping?(): boolean;
+  /** The host has sandbox setup that cannot be stopped if an owner decision is withdrawn. */
+  ownerReviewHasUncancellableSandbox?: boolean;
 }
 
 /**
@@ -118,6 +129,18 @@ export interface IServeSessionDirectory<
 > extends ISessionBinder<TSlot> {
   attach(host: IServeSessionDirectoryHost<TSession, TSlot>): void;
   listSessions(): ISessionListing;
+  bindOwner(role: TSessionBindingRole): IServeOwnerBinding<TSlot>;
+}
+
+/** Internal privileged side of a binding. It is never sent to the ordinary session handler. */
+export interface IServeOwnerDirectory {
+  question(sessionId: string): TOwnerSessionQuestion;
+  openAccepted(sessionId: string, digest: string, questionId: string, signal: AbortSignal): Promise<void>;
+  invalidate(): void;
+}
+
+export interface IServeOwnerBinding<TSlot> extends ISessionBinding<TSlot> {
+  readonly ownerDirectory: IServeOwnerDirectory;
 }
 
 const STOPPING_MESSAGE = 'This runtime is stopping.';
@@ -147,7 +170,7 @@ export function createServeSessionDirectory<
     return {
       currentSessionId: current.getSession().getSessionId(),
       sessions,
-      // #3289 §1: only unreadable records this workspace can claim as its own — a store shared
+      // Only unreadable records this workspace can claim as its own — a store shared
       // across workspaces (the user-level store) holds legacy records from every folder ever worked
       // in there, and a brand-new folder must not be told about all of them.
       unreadableSessionIds: listUnreadableSessionsForWorkspace(target.store, target.cwd).map(
@@ -204,9 +227,17 @@ export function createServeSessionDirectory<
   const bindTo = (
     target: IServeSessionDirectoryHost<TSession, TSlot>,
     role: TSessionBindingRole,
-  ): ISessionBinding<TSlot> => {
+  ): IServeOwnerBinding<TSlot> => {
     const binding = target.pool.bind(role);
     let changing = false;
+    let released = false;
+    let pending: { readonly sessionId: string; readonly digest: string; readonly questionId: string } | undefined;
+    let accepting: AbortController | undefined;
+    const invalidate = (): void => {
+      pending = undefined;
+      accepting?.abort();
+      accepting = undefined;
+    };
 
     /** Why this client cannot leave its session now, if it cannot. */
     const refusalToLeave = (): SessionChangeRefusal | undefined => {
@@ -227,7 +258,12 @@ export function createServeSessionDirectory<
       return undefined;
     };
 
-    const changeTo = async (resumeSessionId: string | undefined): Promise<void> => {
+    const changeTo = async (
+      resumeSessionId: string | undefined,
+      accepted?: { readonly digest: string; readonly signal: AbortSignal },
+    ): Promise<void> => {
+      const interrupted = (): boolean => released || accepted?.signal.aborted === true;
+      if (interrupted()) throw new Error('This session decision is no longer active.');
       if (target.isStopping?.() === true) {
         throw new SessionChangeRefusal('stopping', STOPPING_MESSAGE);
       }
@@ -242,13 +278,15 @@ export function createServeSessionDirectory<
       changing = true;
       try {
         // Initialized means saved: a new session is listed from here on.
-        const lease = await target.pool.acquire(resumeSessionId);
+        const lease = accepted === undefined
+          ? await target.pool.acquire(resumeSessionId)
+          : await target.pool.acquireAccepted(resumeSessionId!, accepted.digest, accepted.signal);
         // Starting the next session takes time, and this client still reaches its session meanwhile:
         // a prompt that opened since the first check is one only it may be left to answer.
         const lateRefusal = refusalToLeave();
-        if (lateRefusal !== undefined) {
+        if (lateRefusal !== undefined || interrupted()) {
           lease.cancel();
-          throw lateRefusal;
+          throw lateRefusal ?? new Error('This session decision is no longer active.');
         }
         binding.moveTo(lease);
       } finally {
@@ -259,6 +297,7 @@ export function createServeSessionDirectory<
     const directory: ISessionDirectory = {
       listSessions: () => listFor(target, binding.slot.current),
       async switchSession(sessionId) {
+        invalidate();
         if (sessionId === binding.slot.current.getSession().getSessionId()) return;
         if (
           listUnreadableSessionsForWorkspace(target.store, target.cwd).some(
@@ -299,7 +338,8 @@ export function createServeSessionDirectory<
         await changeTo(sessionId);
       },
       async newSession() {
-        // #3289 §1: reuse an existing empty session of this workspace that no other client is on and
+        invalidate();
+        // Reuse an existing empty session of this workspace that no other client is on and
         // has no work of its own in progress, rather than adding another one to the list every time
         // this is pressed, or joining someone into a background task/loop still running on it.
         const reusable = resolveReusableEmptySessionId(target.store, target.cwd, {
@@ -410,7 +450,57 @@ export function createServeSessionDirectory<
       },
     };
 
-    return { session: binding.slot, directory, release: () => binding.release() };
+    const ownerDirectory: IServeOwnerDirectory = {
+      question(sessionId) {
+        invalidate();
+        if (released || role !== 'drive' || target.isStopping?.() === true) {
+          return { kind: 'refused', message: 'This session decision is no longer active.' };
+        }
+        if (target.pool.listLive().some((row) => row.sessionId === sessionId)) return { kind: 'open' };
+        const summary = listResumableSessionSummaries(target.store, target.cwd)
+          .find((candidate) => candidate.id === sessionId);
+        if (summary === undefined) return { kind: 'refused', message: `No session ${sessionId} in this workspace.` };
+        const outcome = target.store.load(sessionId);
+        const refusal = resumeRefusal(sessionId, outcome, false);
+        if (refusal !== undefined) return { kind: 'refused', message: refusal.message };
+        if (outcome.status === 'valid' && outcome.record.cwd !== target.cwd) {
+          return { kind: 'refused', message: `No session ${sessionId} in this workspace.` };
+        }
+        if (outcome.status !== 'valid' || outcome.authorship !== 'unverified') return { kind: 'open' };
+        if (target.ownerReviewHasUncancellableSandbox === true || outcome.record.sandboxSnapshotId) {
+          return { kind: 'refused', message: OWNER_SANDBOX_REVIEW_UNAVAILABLE };
+        }
+        if (outcome.digest === undefined || !/^[a-f0-9]{64}$/.test(outcome.digest)) {
+          return { kind: 'refused', message: unacceptableSessionMessage(sessionId) };
+        }
+        pending = { sessionId, digest: outcome.digest, questionId: randomUUID() };
+        return { kind: 'accept', digest: outcome.digest, questionId: pending.questionId, notice: unverifiedSessionNotice(sessionId), question: UNVERIFIED_SESSION_QUESTION };
+      },
+      async openAccepted(sessionId, digest, questionId, signal) {
+        if (released || role !== 'drive' || signal.aborted || pending?.sessionId !== sessionId || pending.digest !== digest || pending.questionId !== questionId) {
+          throw new Error('This session decision is no longer active.');
+        }
+        pending = undefined;
+        const controller = new AbortController();
+        accepting = controller;
+        const cancel = (): void => controller.abort();
+        signal.addEventListener('abort', cancel, { once: true });
+        if (signal.aborted) controller.abort();
+        try {
+          await changeTo(sessionId, { digest, signal: controller.signal });
+        } finally {
+          signal.removeEventListener('abort', cancel);
+          if (accepting === controller) accepting = undefined;
+        }
+      },
+      invalidate,
+    };
+    return {
+      session: binding.slot,
+      directory,
+      ownerDirectory,
+      release: () => { released = true; invalidate(); binding.release(); },
+    };
   };
 
   return {
@@ -418,6 +508,9 @@ export function createServeSessionDirectory<
       host = next;
     },
     bind(role) {
+      return bindTo(attached(), role);
+    },
+    bindOwner(role) {
       return bindTo(attached(), role);
     },
     listSessions(): ISessionListing {

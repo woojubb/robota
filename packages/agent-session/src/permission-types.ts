@@ -17,7 +17,7 @@ import type {
 import type {
   TPermissionRequester,
   TPermissionResultValue,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 export type { ISpinner, ITerminalOutput };
 export type { TPermissionRequester };
@@ -32,12 +32,12 @@ export interface ICommandSandboxApproval {
 }
 
 /**
- * Permission handler result (issue #2052: the union is OWNED by `agent-interface-session` as
+ * Permission handler result (the union is OWNED by `agent-interface/session` as
  * `TPermissionResultValue`; this name is the session-layer alias, not a second declaration):
  * - true: allow this invocation
  * - false: deny this invocation
  * - 'allow-session': allow this invocation and auto-approve the CONSENT SCOPE — the pattern
- *   `consentScopeFor` projects from this invocation's argument (issue #2351), e.g. `Bash(git *)` —
+ *   `consentScopeFor` projects from this invocation's argument, e.g. `Bash(git *)` —
  *   for the rest of the session
  * - 'allow-project': allow this invocation and persist that same scope pattern to the project's
  *   local settings; the storage location is owned by the consuming layer (via `onProjectAllowTool`)
@@ -45,7 +45,7 @@ export interface ICommandSandboxApproval {
 export type TPermissionResult = TPermissionResultValue;
 
 /**
- * Issue #3288 §1: context a caller MAY attach to a permission ask beyond the call itself.
+ * Context a caller MAY attach to a permission ask beyond the call itself.
  *
  * `requester` says WHO is asking, when it is not the person's own turn — a background agent's tool
  * call forwarded to the person, say — so a surface can show "Background agent X wants to …" instead
@@ -79,7 +79,7 @@ export interface IPermissionEnforcerOptions {
   cwd: string;
   getPermissionMode: () => TPermissionMode;
   config: {
-    /** `ask` patterns always ask, in every mode including bypassPermissions (issue #3081). */
+    /** `ask` patterns always ask, in every mode including bypassPermissions. */
     permissions: { allow: string[]; deny: string[]; ask?: string[] };
     hooks?: Record<string, unknown>;
   };
@@ -102,7 +102,7 @@ export interface IPermissionEnforcerOptions {
   /** The host's canonical spelling of a directory; absent, a path is compared as written. */
   canonicalizePath?: (path: string) => string;
   /**
-   * ARCH-040 Group C (issue #1934): the rules BEFORE any preset contributed.
+   * The rules BEFORE any preset contributed.
    *
    * Supplied by the composition root, never derived here. `config.permissions` already carries the
    * STARTUP preset's patterns, so capturing a base from it on the first live `/preset` would keep
@@ -138,13 +138,13 @@ export interface IPermissionEnforcerOptions {
   /** Called when the user selects "allow for project" — persists the tool pattern to project settings. */
   onProjectAllowTool?: (toolName: string) => void;
   /**
-   * CORE-025: a background/subagent task permission policy. It adds a ceiling (checked before bypass),
+   * A background/subagent task permission policy. It adds a ceiling (checked before bypass),
    * an ask-everything flag and the task's own lists to the one evaluator, so `deny`/`preapproved`/
    * `inherit-allowlist` still bind under a permissive mode. Absent → no policy constraints.
    */
   permissionPolicy?: TBackgroundPermissionPolicy;
   /**
-   * CORE-025: the task's OWN declared allow/deny rules (distinct from the parent session's `config.permissions`
+   * The task's OWN declared allow/deny rules (distinct from the parent session's `config.permissions`
    * which `inherit-allowlist` inherits). `preapproved` consults these.
    */
   taskPermissions?: { allow?: readonly string[]; deny?: readonly string[] };
@@ -156,7 +156,7 @@ export interface IPermissionEnforcerOptions {
 }
 
 /**
- * How a tool call ended, when it did not simply succeed (CORE-027).
+ * How a tool call ended, when it did not simply succeed.
  *
  * Three outcomes used to be indistinguishable from success at this type — a tool that THREW, a user
  * DENIAL, and a hook BLOCK — because each was returned as `{ success: true, data: '{"success":
@@ -233,8 +233,8 @@ export interface IToolCrashAnnouncement {
  *
  * It lives beside the envelope rather than in the enforcer because the enforcer is at its size
  * ceiling and this is the same subject — what a failed tool call looks like. Two things happen here
- * and both are the point: before CORE-027 the catch returned `success: true` AND emitted no end
- * event at all, so a crash was invisible to the caller and to anything watching.
+ * and both are the point: a catch that returned `success: true` AND emitted no end
+ * event would leave a crash invisible to the caller and to anything watching.
  */
 export function reportToolCrash(
   error: unknown,

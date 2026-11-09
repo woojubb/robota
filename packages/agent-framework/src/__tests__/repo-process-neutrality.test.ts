@@ -1,5 +1,5 @@
 /**
- * NEUT-001 — the published library must not serialize THIS repository's process.
+ * The published library must not serialize THIS repository's process.
  *
  * Red-first floor: no framework source file may embed ConversationAgent repo-process literals
  * (`pnpm harness:verify`, `origin/develop`, `pnpm --filter`). The repo-specific
@@ -32,7 +32,7 @@ function collectSourceFiles(dir: string): string[] {
   return files;
 }
 
-describe('repo-process neutrality (NEUT-001)', () => {
+describe('repo-process neutrality', () => {
   it('framework source carries no ConversationAgent repo-process literals', () => {
     const offenders: string[] = [];
     for (const file of collectSourceFiles(SRC_ROOT)) {

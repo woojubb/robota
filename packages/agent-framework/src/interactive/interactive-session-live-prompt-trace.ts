@@ -6,7 +6,7 @@ import type {
   IToolBodyTraceEntry,
   IToolPermissionDecisionEntry,
   ILivePromptQueueSummary,
-} from '@robota-sdk/agent-interface-analytics';
+} from '@robota-sdk/agent-interface/analytics';
 import { utf8ByteLength } from '@robota-sdk/agent-core';
 import { isSafeSessionId } from '@robota-sdk/agent-session';
 

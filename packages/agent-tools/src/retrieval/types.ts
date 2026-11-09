@@ -1,5 +1,5 @@
 /**
- * SELFHOST-003: codebase-retrieval adapter contract (v1).
+ * Codebase-retrieval adapter contract (v1).
  *
  * Mirrors the sandbox port precedent (`ISandboxClient` in `../sandbox/types.ts`): the port + types live
  * in `agent-tools` and `createRetrievalTool({ adapter })` composes over the port. The neutral repo-map
@@ -8,7 +8,7 @@
  * surface — so NO heavy parser SDK and NO repo paths live in this package.
  *
  * v1 backend = repo-map graph-centrality ranking (no natural-language query). The embedding-vector
- * backend (`query(nl_text) → top-k`) is a consciously deferred follow-up (P4) that may revise this port.
+ * backend (`query(nl_text) → top-k`) is a consciously deferred follow-up that may revise this port.
  */
 
 /** A symbol (definition) extracted from a source file by the injected parser. */
@@ -92,7 +92,7 @@ export interface IRetrievalToolOptions {
 }
 
 /**
- * One indexed corpus file (SELFHOST-003 P2): its parsed definitions + references. This is the parsed
+ * One indexed corpus file: its parsed definitions + references. This is the parsed
  * form the ranker consumes, so a built index lets the adapter rank WITHOUT re-parsing the corpus on
  * every `retrieve()`.
  */
@@ -106,7 +106,7 @@ export interface IRepoMapIndexEntry {
 }
 
 /**
- * A built, serializable repo-map index (SELFHOST-003 P2): the whole corpus parsed once. Persist it
+ * A built, serializable repo-map index: the whole corpus parsed once. Persist it
  * (see `serializeRepoMapIndex`/`deserializeRepoMapIndex`) so retrieval is build-once, rank-many. The
  * `version` guards forward-compatibility of the persisted form.
  */
@@ -118,7 +118,7 @@ export interface IRepoMapIndex {
 }
 
 /**
- * A set of corpus changes to apply incrementally to a built index (SELFHOST-003 P3): only the changed
+ * A set of corpus changes to apply incrementally to a built index: only the changed
  * files are re-parsed; the rest of the index is reused unchanged.
  */
 export interface IRepoMapIndexChanges {

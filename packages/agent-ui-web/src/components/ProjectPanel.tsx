@@ -13,8 +13,8 @@ import type {
 } from '../hooks/session-client-types.js';
 
 /**
- * #3282 §4c — the Project panel: git status (Changes), one file's diff on click, and project memory as
- * readable text. The owner's design principle 4 (#3277): everything the host implements is usable from
+ * The Project panel: git status (Changes), one file's diff on click, and project memory as
+ * readable text. The owner's design principle 4: everything the host implements is usable from
  * the GUI through organized screens — this is git status/diff and project memory's screen. Checkpoints
  * (rewind) are deliberately absent (see `agent-gui-web/docs/SPEC.md`'s design decisions): edit
  * checkpoints only work on a host that can prove a write stays inside the project

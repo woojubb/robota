@@ -1,5 +1,5 @@
 /**
- * What one step of `secure migrate` is (#3679): one kind of stored artifact, planned read-only and
+ * What one step of `secure migrate` is: one kind of stored artifact, planned read-only and
  * then run, given the run's unlocked keys and the way to learn that another product process appeared.
  * The orchestration is `secure-migrate.ts`; the steps that convert the stores are
  * `migration-steps.ts`.
@@ -34,6 +34,8 @@ export interface IMigrationContext {
 /** Lines for the plan or the summary, unindented. */
 export interface IMigrationStepReport {
   readonly lines: readonly string[];
+  /** Whether the planned run could finish without manual cleanup; omitted by injected test steps. */
+  readonly complete?: boolean;
 }
 
 export interface IMigrationStepOutcome extends IMigrationStepReport {

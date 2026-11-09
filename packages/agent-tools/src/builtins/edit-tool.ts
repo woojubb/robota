@@ -18,7 +18,7 @@ import type { IFileBuiltinToolOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
-// CORE-030: defining a tool and telling the permission system what it does arrive together.
+// Defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
 
 const DEFAULT_EDIT_DESCRIPTION =
@@ -100,7 +100,7 @@ async function editFileTool(
   const signal = editorSignal(options.signal, callSignal);
   signal?.throwIfAborted();
   const { oldString, newString, replaceAll = false } = args;
-  // A relative path anchors to the containment root before it is confined or edited (issue #2429).
+  // A relative path anchors to the containment root before it is confined or edited.
   const filePath = options.sandboxClient
     ? args.filePath
     : resolveHostPath(args.filePath, options.cwd);

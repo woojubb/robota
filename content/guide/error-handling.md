@@ -5,6 +5,10 @@ description: How Robota SDK surfaces errors and how to handle them reliably in y
 
 # Error Handling
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Robota uses a typed error hierarchy. Errors thrown by the SDK extend `AgentRuntimeError`, which carries a
 `code`, a `category` and a `recoverable` flag, so you can handle kinds of errors instead of matching
 message text. All the classes below are exported from `@robota-sdk/agent-core`.
@@ -101,8 +105,8 @@ A query function returns a promise; a failed turn rejects it.
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { AgentRuntimeError, classifyProviderFailure } from '@robota-sdk/agent-core';
 
 const query = createQuery({
@@ -138,8 +142,8 @@ prompt is not accepted or its turn fails before it starts running — for exampl
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { classifyProviderFailure } from '@robota-sdk/agent-core';
 
 const session = new InteractiveSession({
@@ -191,8 +195,8 @@ errors — with exponential back-off and jitter, and wait at least as long as a 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { RateLimitError, classifyProviderFailure } from '@robota-sdk/agent-core';
 import type { TProviderFailureReason } from '@robota-sdk/agent-core';
 
@@ -240,8 +244,8 @@ Check that a key is present when your application starts, rather than at the fir
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey) {

@@ -8,10 +8,10 @@ import {
 } from '../channel-frames.js';
 import koreanText from './__fixtures__/korean-text.json';
 
-import type { IBinaryFrame, IChannelEventFrame } from '@robota-sdk/agent-interface-transport';
+import type { IBinaryFrame, IChannelEventFrame } from '@robota-sdk/agent-interface/transport';
 
 /**
- * TRANS-001 — payload-agnostic frame codec.
+ * Payload-agnostic frame codec.
  *
  * The codec is the ONLY thing that knows the carrier envelope; it never interprets the opaque body.
  * These tests pin round-trip integrity, ordering metadata (`seq`), and explicit malformed-input
@@ -22,7 +22,7 @@ function bytes(...values: number[]): Uint8Array {
   return Uint8Array.from(values);
 }
 
-describe('channel frame codec (TRANS-001)', () => {
+describe('channel frame codec', () => {
   it('round-trips an opaque binary payload byte-identically', () => {
     // Deliberately includes bytes that are invalid UTF-8 and JSON-hostile — the carrier must not care.
     const payload = bytes(0x00, 0xff, 0xfe, 0x7b, 0x22, 0x80, 0x0a, 0xc3, 0x28);

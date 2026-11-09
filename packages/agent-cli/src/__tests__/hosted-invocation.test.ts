@@ -79,7 +79,7 @@ run.catch(error => { process.stderr.write(error.message + '\\n'); process.exitCo
       [
         '--import',
         join(root, 'node_modules/tsx/dist/loader.mjs'),
-        '--conditions=source',
+        '--conditions=product-source',
         entry,
         ...argv,
       ],

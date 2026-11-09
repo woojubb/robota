@@ -1,4 +1,4 @@
-/** BEHAVIOR-2437 TC-01 — `/git status`: one porcelain-v2 call, parsed into the four groups. */
+/** `/git status`: one porcelain-v2 call, parsed into the four groups. */
 import { describe, expect, it } from 'vitest';
 
 import { executeGitStatus, formatGitStatus, parseStatusPorcelainV2 } from '../git-status.js';

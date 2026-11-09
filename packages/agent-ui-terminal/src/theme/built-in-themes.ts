@@ -1,5 +1,5 @@
 /**
- * SCREEN-2002 — the four built-in themes, as data.
+ * The four built-in themes, as data.
  *
  * `dark` is today's colour, gathered from the four places that used to decide it: `PALETTE`/`MOTION`
  * (Ink), `ANSI` (the markdown diff rows), `marked-terminal`'s own chalk defaults and `cli-highlight`'s

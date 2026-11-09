@@ -24,7 +24,7 @@ const SCRIPT = `
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CommandExecutor, enableOwnChildSessions } from '@robota-sdk/agent-core/node';
-import { spawnInherited } from '@robota-sdk/agent-command/node';
+import { spawnInherited } from '@robota-sdk/agent-product/command/node';
 import { MCPActivationAdmissionService, MCPDefinitionRegistry } from '@robota-sdk/agent-mcp';
 import { createStdioAdapter } from '@robota-sdk/agent-mcp/node';
 

@@ -38,7 +38,7 @@ export class NodeSessionLogSink implements ISessionLogSink, IExternalPayloadSink
     this.lines = new StoredLines(sealing, 'session-log-line');
     this.payloads = new StoredPayloads(sealing);
     try {
-      // SEC-020: `mkdirSync(dir, { recursive: true, mode })` does NOT set the mode of a directory
+      // `mkdirSync(dir, { recursive: true, mode })` does NOT set the mode of a directory
       // that already exists — it returns successfully and adopts whatever is there. Measured: a log
       // directory pre-created at 0777 stayed 0777 while its records were written 0600, which means
       // another local account could not read a record but could unlink and replace one, and could
@@ -63,7 +63,7 @@ export class NodeSessionLogSink implements ISessionLogSink, IExternalPayloadSink
     const path = join(this.logDirectory, `${sessionId}.jsonl`);
     // Sealed before the file is touched, so a sealing failure writes nothing at all.
     const stored = this.lines.encode(text, sessionId);
-    // SEC-020: `mode` on a write applies only when the file is CREATED, so a log an older version
+    // `mode` on a write applies only when the file is CREATED, so a log an older version
     // left at 0644 keeps 0644 for its whole life however many times it is appended to. Tightening
     // first is the repair path for a store written before this change.
     tightenExistingFile(path);
@@ -92,7 +92,7 @@ export class NodeSessionLogSink implements ISessionLogSink, IExternalPayloadSink
       if (!target.contentAddressed || (error as NodeJS.ErrnoException).code !== 'EEXIST') {
         throw error;
       }
-      // SEC-020: the payload is content-addressed, so an existing file already holds these exact
+      // The payload is content-addressed, so an existing file already holds these exact
       // bytes and `wx` correctly declines to rewrite it. Its MODE is a different question — one
       // written by an older version is 0644 and nothing else would ever repair it.
       tightenExistingFile(payloadPath);

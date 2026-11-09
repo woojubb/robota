@@ -13,7 +13,7 @@ function nextRequestId(): string {
 }
 
 /**
- * #3282 §2 (part 2) — the model list the model control's pop-up menu is built from, requested on
+ * The model list the model control's pop-up menu is built from, requested on
  * demand (`list-models`) and correlated by `requestId` (mirrors `usePersonalUsageState`'s pattern) so
  * a reply to an older request — one already superseded by a newer one, e.g. across a reconnect — is
  * never applied over the list a still-open menu is currently showing.

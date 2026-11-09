@@ -10,7 +10,7 @@ import {
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 /**
- * REMOTE-009 Step 4 / REMOTE-007 render+answer — the pure prompt-state list transitions + answer builders.
+ * The pure prompt-state list transitions + answer builders.
  * Shared by the WS and RTC clients (same TServerMessages), so testing the pure logic covers both.
  */
 
@@ -23,7 +23,7 @@ const askReq: TServerMessage = {
   event: { id: 'a1', request: { id: 'r', title: 'Pick' } },
 };
 
-describe('applyPromptEvent (REMOTE-007 web render)', () => {
+describe('applyPromptEvent', () => {
   it('appends a permission prompt on permission_request', () => {
     const next = applyPromptEvent([], permReq);
     expect(next).toEqual([
@@ -31,7 +31,7 @@ describe('applyPromptEvent (REMOTE-007 web render)', () => {
     ]);
   });
 
-  it('issue #3288 §1: keeps `requester` so the surface can name the background agent asking', () => {
+  it('keeps `requester` so the surface can name the background agent asking', () => {
     const req: TServerMessage = {
       type: 'permission_request',
       event: {
@@ -53,7 +53,7 @@ describe('applyPromptEvent (REMOTE-007 web render)', () => {
     ]);
   });
 
-  it('#3288 §2: carries a diff preview and cwd through to the pending prompt', () => {
+  it('carries a diff preview and cwd through to the pending prompt', () => {
     const withDiff: TServerMessage = {
       type: 'permission_request',
       event: {

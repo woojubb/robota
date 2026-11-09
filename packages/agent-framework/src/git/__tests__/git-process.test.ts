@@ -1,20 +1,39 @@
 /**
- * BEHAVIOR-2437 TC-04 — the seam against a REAL temporary repository: argv-only (metacharacters are
+ * The seam against a REAL temporary repository: argv-only (metacharacters are
  * data), exit codes as data, stdin closed (a hook that reads it gets EOF), timeout / abort / missing
  * executable / oversized output as typed failures, and the hook-nesting environment policy.
  */
 import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createGitProcess, gitEnvironment, GIT_ENV_DENYLIST } from '../node-git-process.js';
 
+const RELEASE_WAIT_MS = 20_000;
+const RELEASE_POLL_MS = 250;
+
+/** Removes `dir`, waiting while a process still holds it (Windows refuses with EBUSY). */
+function removeWhenReleased(dir: string): void {
+  const deadline = Date.now() + RELEASE_WAIT_MS;
+  for (;;) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EBUSY' || Date.now() > deadline) throw error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, RELEASE_POLL_MS);
+    }
+  }
+}
+
 const dirs: string[] = [];
 afterEach(() => {
-  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+  // A hook the run abandoned (the `sleep 5` of the abort and timeout cases) outlives the git it was
+  // started by and, on Windows, holds its working directory until it exits.
+  for (const dir of dirs.splice(0)) removeWhenReleased(dir);
 });
 
 function tempDir(prefix: string): string {
@@ -97,10 +116,14 @@ describe('gitEnvironment', () => {
     }
   });
 
-  it('forces the C locale regardless of the source environment (#3282 §4c review)', () => {
+  it('forces the C locale regardless of the source environment', () => {
     // `isNotAGitRepositoryFailure` pattern-matches git's English stderr text; a host whose own LANG
     // is set to something git has translations for must not change that text.
-    const source: NodeJS.ProcessEnv = { PATH: '/usr/bin', LANG: 'fr_FR.UTF-8', LC_ALL: 'de_DE.UTF-8' };
+    const source: NodeJS.ProcessEnv = {
+      PATH: '/usr/bin',
+      LANG: 'fr_FR.UTF-8',
+      LC_ALL: 'de_DE.UTF-8',
+    };
     const env = gitEnvironment(source);
     expect(env.LC_ALL).toBe('C');
     expect(env.LANG).toBe('C');
@@ -198,11 +221,12 @@ describe('createGitProcess against a real repository', () => {
   it('reports output past 16 MiB as failed: output-too-large', async () => {
     const env = hermeticEnv();
     const dir = tempDir('git-big-');
-    const fake = join(dir, 'big-git');
-    writeFileSync(fake, '#!/bin/sh\nhead -c 17000000 /dev/zero\n');
-    chmodSync(fake, 0o755);
-    const port = createGitProcess({ env, executable: fake });
-    const outcome = await port.run(['status'], { cwd: dir, timeoutMs: 20_000 });
+    // The port runs any executable with argv only, so node stands in for a git that prints too much.
+    const port = createGitProcess({ env, executable: process.execPath });
+    const outcome = await port.run(['-e', 'process.stdout.write(Buffer.alloc(17_000_000))'], {
+      cwd: dir,
+      timeoutMs: 20_000,
+    });
     expect(outcome).toMatchObject({ kind: 'failed', reason: 'output-too-large' });
   });
 
@@ -219,7 +243,9 @@ describe('createGitProcess against a real repository', () => {
       env: { ...env, GIT_DIR: join(other, '.git'), GIT_WORK_TREE: other },
     });
     const top = await port.run(['rev-parse', '--show-toplevel'], { cwd: repo });
-    expect(top).toMatchObject({ kind: 'exited', exitCode: 0, stdout: `${repo}\n` });
+    // The resolved path, printed with `/` on every platform.
+    const printedRepo = realpathSync.native(repo).split(sep).join('/');
+    expect(top).toMatchObject({ kind: 'exited', exitCode: 0, stdout: `${printedRepo}\n` });
     const commit = await port.run(['commit', '-m', 'feat: identity'], { cwd: repo });
     expect(commit).toMatchObject({ kind: 'exited', exitCode: 0 });
     const author = await port.run(['log', '-1', '--format=%an <%ae>'], { cwd: repo });

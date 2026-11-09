@@ -1,5 +1,5 @@
 /**
- * The universal JSON-schema subset (CORE-039 SSOT).
+ * The universal JSON-schema subset (SSOT).
  *
  * Every tool schema and every structured-output schema in the repo is expressed in these types.
  * They live in their own module rather than inside `provider.ts` because they are their own
@@ -86,19 +86,19 @@ export interface IToolSchema {
   description: string;
   parameters: IObjectParameterSchema;
   /**
-   * SELFHOST-005: optional schema the tool's OUTPUT (`result.data`) must match. When present, the
+   * Optional schema the tool's OUTPUT (`result.data`) must match. When present, the
    * tool-registry validates the returned value against it in `FunctionTool.execute` (beside the
    * tool-INPUT `parameter-validator`) and throws on mismatch before the result returns. Absent =
-   * no output validation (backward-compatible). Model-output validation is separate (CORE-015).
+   * no output validation (backward-compatible). Model-output validation is separate.
    *
    * An object output is declared as an {@link IObjectParameterSchema} (so it names its properties);
-   * a non-object output is a bare {@link IParameterSchema}. Both are the same subset — CORE-039
+   * a non-object output is a bare {@link IParameterSchema}. Both are the same subset
    * removed the second, structurally identical root shape that used to be spelled out here purely
    * to regain `required`, which `IParameterSchema` now carries at every level.
    */
   outputSchema?: IParameterSchema;
   /**
-   * CLI-1990: withheld from the model's tool list until loaded; omission means resident.
+   * Withheld from the model's tool list until loaded; omission means resident.
    *
    * A CLIENT-SIDE marker — the schema leaves the request entirely, not merely the context window,
    * which is what the vendor's `defer_loading` does. Deferral engages only when the tool-search

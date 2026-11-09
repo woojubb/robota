@@ -102,7 +102,7 @@ describe('MenuSelect', () => {
     expect(selected).toBe('b');
   });
 
-  // SCREEN-005: footer + error-state hint render through the key-hint SSOT grammar.
+  // Footer + error-state hint render through the key-hint SSOT grammar.
   it('renders the footer in the shared key-hint grammar', () => {
     const { lastFrame } = render(
       <MenuSelect title="Test" items={items} onSelect={() => {}} onBack={() => {}} />,

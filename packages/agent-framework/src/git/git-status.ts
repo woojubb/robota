@@ -1,5 +1,5 @@
 /**
- * BEHAVIOR-2437: `/git status` — `git status --porcelain=v2 -z --branch`, parsed into the branch and
+ * `/git status` — `git status --porcelain=v2 -z --branch`, parsed into the branch and
  * the staged, unstaged, untracked (and, when present, conflicted) path sets.
  *
  * `-z` is what makes a path with a space, a quote, a newline or a non-ASCII character ONE element,
@@ -9,7 +9,7 @@
 import { gitFailureMessage } from './git-process.js';
 
 import type { IGitProcessPort } from './git-process.js';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 
 export const GIT_STATUS_ARGS: readonly string[] = ['status', '--porcelain=v2', '-z', '--branch'];
 

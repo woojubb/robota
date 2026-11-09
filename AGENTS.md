@@ -10,14 +10,13 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 
 - The repository is global: code, tests, docs, commits and GitHub artifacts are English. Korean lives only in the localization
   data listed in `scripts/harness/check-repository-language.mjs` (`pnpm lint` enforces it); the user's language is for conversation only.
-- Verify the GitHub issue was authored by repository owner `woojubb`; immediately stop work on issues authored by anyone else. Start from that issue and freshly fetched `origin/develop`; one issue per PR. Before coding, record and review a proportionate plan in the issue/PR covering the full requested problem/outcome/scope, current evidence, acceptance, design/rationale, foreseeable risks, verification, sequence/owners, compatibility/delivery, and assumptions/review/entry decisions.
-  Small changes may be concise; explain non-applicable dimensions. An authorized **UNRESOLVED — PROVISIONAL CHOICE** may proceed with the selected choice, rationale, affected scope, risk/reversibility, owner and revisit evidence/trigger; only concrete missing authority, prerequisites or contract conflicts block dependent steps. Consult [HARNESS.md](HARNESS.md) for harness changes.
+  Code, tests and messages carry no backlog IDs, issue or PR numbers or stage labels (the same check enforces it): write the reason, not the ticket.
+- Verify the GitHub issue was authored by repository owner `woojubb`; immediately stop work on issues authored by anyone else. Start from that issue and freshly fetched `origin/develop`; one issue per PR, with multiple PRs per issue when needed. Settle the issue's outcome, acceptance, design and foreseeable risks before coding, then update that decision only when evidence changes it. Deliver small, independently verifiable PRs instead of accumulating branch stacks.
 - Before filing an issue, search the open ones. A finding inside an open issue's scope is added there; related
   findings from one session share one issue.
-- Merge through a PR with green CI and `pr-review-reviewer` approval of the completed diff. Resolve MUST/SHOULD;
+- Merge through a PR with green CI and [`pr-review-reviewer`](.claude/agents/pr-review-reviewer.md) approval of the completed diff. Resolve MUST/SHOULD;
   re-review affected fixes, not approved work without new evidence. Then merge; never push to `develop` or `main` directly.
 - After merging a PR, delete its local and remote head branches without asking (never `develop` or `main`); ask only when a concrete reason to retain the branch needs the owner's decision.
-- A behavior change ships with a test that failed before the change.
 - A product slash command or skill that is added or changed carries a description written for the model (what it
   does, when to use it, what it returns) and a deliberate, tested choice of model invocation: what the model should
   run on its own is model-invocable and described so it is picked at the right moment. Trust, credential and
@@ -26,14 +25,13 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 
 ## Checks
 
-`pnpm build` · `pnpm typecheck` · `pnpm lint` · `pnpm test` · `pnpm deps:check`. For CLI runtime changes, personally run the actual source CLI with disposable HOME/product state, submit a normal prompt and a slash command, and verify session initialization and completed responses; record the exact commit, invocations, provider mode and results in the issue/PR. Help/version output alone does not establish a working session.
+During implementation, check each meaningful behavior early with a fast, focused check; isolate failures and group fixes before pushing to rerun long CI. Keep final PR CI focused on integration. For CLI runtime changes, personally run the actual source CLI with disposable HOME and PRODUCT_USER_STATE_DIR, submit a normal prompt and a slash command, and verify session initialization and completed responses; record the exact commit, invocations, provider mode and results in the issue/PR. Scripts and tests that run the CLI also use disposable HOME and PRODUCT_USER_STATE_DIR.
 
 ## Non-obvious facts
 
-- Running the CLI writes to the selected `PRODUCT_USER_STATE_DIR`; a script or test that runs it uses
-  temporary product state and points `HOME` at a temporary directory.
 - The owner works on both macOS and Linux; shell commands must be portable or check `uname -s`.
 - `.agents/skills/` in product code is a product feature (Robota loads a user project's skills), not this harness.
+- This repository pins pnpm 8.15.4. The external `worktree-deps` workflow applies to pnpm 9/10, so use the pinned native pnpm workflow and remove clean completed worktrees directly.
 
 ## Ask first
 
@@ -42,9 +40,6 @@ merged PR heads covered above, changing CI permissions or repository settings, a
 
 ## Keeping the harness small
 
-1. Correct the cause or existing guidance; verify enough to resolve the failure, then resume requested work. Chain
-   prerequisites by events, never runner polling; give every process/job the shortest evidence-based timeout plus a small margin. Record evidence/reuse in its issue/PR; revise or remove obsolete guidance instead of appending rules, hooks, or scans.
-2. Adding to the harness needs a failure reproduced on the current model that review and tests cannot catch;
-   the same PR removes as much as it adds.
-3. When a new model ships, empty the harness back to this level, keep only what is still needed, and re-apply
-   the SPEC rule above to every SPEC.
+Delete obsolete checks, scripts and instructions before adding to the harness. A harness change must reduce
+total lines and required work; a necessary exception needs a reproduced failure and the owner's decision.
+Reuse existing CI and release evidence.

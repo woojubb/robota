@@ -8,14 +8,14 @@ import {
   createMcpHttpHost,
   createMcpRemoteHttpHost,
   createMcpTransport,
-} from '@robota-sdk/agent-transport-mcp';
+} from '@robota-sdk/agent-transport/mcp';
 
 import { shutdownSession } from './session-shutdown.js';
 import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
-import type { TAccessTokenAlgorithm } from '@robota-sdk/agent-interface-transport';
-import type { IMcpRemoteAuditRecord } from '@robota-sdk/agent-transport-mcp';
+import type { TAccessTokenAlgorithm } from '@robota-sdk/agent-interface/transport';
+import type { IMcpRemoteAuditRecord } from '@robota-sdk/agent-transport/mcp';
 import type { Writable } from 'node:stream';
 
 /** Every signature algorithm the verifier supports; each is still bound to its own key shape. */

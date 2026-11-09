@@ -1,5 +1,5 @@
 /**
- * #3189 — the served runtime's session directory: what each client's view lists, when a client may
+ * The served runtime's session directory: what each client's view lists, when a client may
  * not leave its session, and that a switch or a new session moves that client alone.
  */
 
@@ -10,12 +10,12 @@ import { join } from 'node:path';
 
 import { readCurrentProcessIdentity, readProcessStartTime } from '@robota-sdk/agent-core/node';
 import { leaveProcessMarker } from '@robota-sdk/agent-core/testing';
-import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface/session/testing';
 import { SessionAuthorshipRefusedError, SessionPool } from '@robota-sdk/agent-framework';
 import {
   isSessionChangeRefusal,
   isSessionDeleteRefusal,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -30,7 +30,7 @@ import type {
   ISessionListEntry,
   TSessionChangeRefusalCode,
   TSessionDeleteRefusalCode,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 type IBackgroundTaskState = ReturnType<IInteractiveSession['listBackgroundTasks']>[number];
 
@@ -121,12 +121,17 @@ function served(
   store: IInteractiveSessionStore,
   build: (resumeSessionId: string | undefined) => TFakeSession = (resumeSessionId) =>
     fakeSession(resumeSessionId ?? 'fresh'),
-  options: { maxLive?: number; stopping?: () => boolean } = {},
+  options: {
+    maxLive?: number;
+    stopping?: () => boolean;
+    buildAccepted?: (id: string, digest: string, signal: AbortSignal) => TFakeSession;
+  } = {},
 ) {
   const buildSession = vi.fn(build);
   const pool = new SessionPool<TFakeSession>({
     primary,
     build: buildSession,
+    ...(options.buildAccepted !== undefined ? { buildAccepted: options.buildAccepted } : {}),
     ...(options.maxLive !== undefined ? { maxLive: options.maxLive } : {}),
   });
   const directory = createServeSessionDirectory<TFakeSession, SessionSlot<TFakeSession>>();
@@ -159,7 +164,84 @@ async function deleteRefusalOf(change: Promise<void>): Promise<TSessionDeleteRef
   return error.code;
 }
 
-describe('serve session directory (#3189)', () => {
+describe('serve session directory', () => {
+  it('offers a safe local terminal remedy before asking about a sandbox snapshot', async () => {
+    const digest = 'a'.repeat(64);
+    const store = storeOf([{
+      id: 'planted',
+      outcome: { status: 'valid', record: { ...record('planted', '2026-09-02T00:00:00Z'), sandboxSnapshotId: 'snapshot' }, authorship: 'unverified', digest },
+    }]);
+    const { directory } = served(fakeSession('primary'), store);
+    const binding = directory.bindOwner('drive');
+    expect(await binding.ownerDirectory.question('planted')).toEqual({
+      kind: 'refused',
+      message: 'This session requires sandbox setup that cannot be cancelled while attached. Review it in a local interactive terminal with --resume and its session ID.',
+    });
+    binding.release();
+  });
+
+  it('cannot use a cancelled answer for a later question about the same bytes', async () => {
+    const digest = 'a'.repeat(64);
+    const store = storeOf([{
+      id: 'planted',
+      outcome: { status: 'valid', record: record('planted', '2026-09-02T00:00:00Z'), authorship: 'unverified', digest },
+    }]);
+    const buildAccepted = vi.fn((id: string) => fakeSession(id));
+    const { directory } = served(fakeSession('primary'), store, undefined, { buildAccepted });
+    const binding = directory.bindOwner('drive');
+    const first = await binding.ownerDirectory.question('planted');
+    binding.ownerDirectory.invalidate();
+    const second = await binding.ownerDirectory.question('planted');
+    if (first.kind !== 'accept' || second.kind !== 'accept') throw new Error('Expected questions');
+    expect(first.questionId).not.toBe(second.questionId);
+    await expect(binding.ownerDirectory.openAccepted('planted', digest, first.questionId, new AbortController().signal)).rejects.toThrow();
+    expect(buildAccepted).not.toHaveBeenCalled();
+    await binding.ownerDirectory.openAccepted('planted', digest, second.questionId, new AbortController().signal);
+    expect(binding.session.current.getSession().getSessionId()).toBe('planted');
+    binding.release();
+  });
+  it('accepts only the exact question for this owner binding, once', async () => {
+    const digest = 'a'.repeat(64);
+    const store = storeOf([{
+      id: 'planted',
+      outcome: { status: 'valid', record: record('planted', '2026-09-02T00:00:00Z'), authorship: 'unverified', digest },
+    }]);
+    const buildAccepted = vi.fn((id: string) => fakeSession(id));
+    const { directory } = served(fakeSession('primary'), store, undefined, { buildAccepted });
+    const binding = directory.bindOwner('drive');
+    const signal = new AbortController().signal;
+
+    const question = await binding.ownerDirectory.question('planted');
+    expect(question).toMatchObject({ kind: 'accept', digest });
+    if (question.kind !== 'accept') throw new Error('Expected owner question');
+    expect(JSON.stringify(question)).not.toContain('reply in planted');
+    const other = directory.bindOwner('drive');
+    await expect(other.ownerDirectory.openAccepted('planted', digest, question.questionId, signal)).rejects.toThrow();
+    other.release();
+    await expect(binding.ownerDirectory.openAccepted('planted', 'b'.repeat(64), question.questionId, signal)).rejects.toThrow();
+    expect(buildAccepted).not.toHaveBeenCalled();
+    await binding.ownerDirectory.openAccepted('planted', digest, question.questionId, signal);
+    expect(binding.session.current.getSession().getSessionId()).toBe('planted');
+    await expect(binding.ownerDirectory.openAccepted('planted', digest, question.questionId, signal)).rejects.toThrow();
+    binding.release();
+  });
+
+  it('invalidates a question when the owner binding ends', async () => {
+    const digest = 'a'.repeat(64);
+    const store = storeOf([{
+      id: 'planted',
+      outcome: { status: 'valid', record: record('planted', '2026-09-02T00:00:00Z'), authorship: 'unverified', digest },
+    }]);
+    const buildAccepted = vi.fn((id: string) => fakeSession(id));
+    const { directory } = served(fakeSession('primary'), store, undefined, { buildAccepted });
+    const binding = directory.bindOwner('drive');
+    const question = await binding.ownerDirectory.question('planted');
+    if (question.kind !== 'accept') throw new Error('Expected owner question');
+    binding.release();
+
+    await expect(binding.ownerDirectory.openAccepted('planted', digest, question.questionId, new AbortController().signal)).rejects.toThrow();
+    expect(buildAccepted).not.toHaveBeenCalled();
+  });
   it("lists this workspace's sessions newest first, which are live, and the unreadable ids", () => {
     const store = storeOf([
       { id: 'old', outcome: { status: 'valid', record: record('old', '2026-09-01T00:00:00Z') } },
@@ -168,7 +250,7 @@ describe('serve session directory (#3189)', () => {
         id: 'elsewhere',
         outcome: { status: 'valid', record: record('elsewhere', '2026-09-25T00:00:00Z', '/other') },
       },
-      // #3289 §1: this workspace's own unreadable record carries the peeked `cwd` that let it be
+      // This workspace's own unreadable record carries the peeked `cwd` that let it be
       // told apart from a legacy record of another folder in the same store.
       { id: 'broken', outcome: { status: 'corrupt', issues: [], cwd: CWD } },
     ]);
@@ -272,7 +354,7 @@ describe('serve session directory (#3189)', () => {
     expect(buildSession).not.toHaveBeenCalled();
   });
 
-  // #3679 step 3e: no client can say yet that a record nobody vouched for is the owner's.
+  // No client can say yet that a record nobody vouched for is the owner's.
   describe('records a store that seals does not verify as the owner’s', () => {
     const unverified = (id: string, updatedAt: string): ISessionListEntry => ({
       id,
@@ -576,7 +658,7 @@ describe('serve session directory (#3189)', () => {
     expect(binding.session.current.id).toBe('a');
   });
 
-  describe('reusing an empty session (#3289 §1)', () => {
+  describe('reusing an empty session', () => {
     it('reuses an existing empty session instead of building another', async () => {
       const store = storeOf([
         { id: 'a', outcome: { status: 'valid', record: record('a', '2026-09-01T00:00:00Z') } },
@@ -661,7 +743,7 @@ describe('serve session directory (#3189)', () => {
     });
   });
 
-  describe('renaming a session from the list (#3289 §1)', () => {
+  describe('renaming a session from the list', () => {
     it('persists the new name onto a stored session that is not current', async () => {
       const store = STORED();
       const { directory } = served(fakeSession('a'), store);
@@ -717,7 +799,7 @@ describe('serve session directory (#3189)', () => {
     });
   });
 
-  describe('deleting a session from the list (#3289 §1)', () => {
+  describe('deleting a session from the list', () => {
     it('removes a stored session that is not live', async () => {
       const store = STORED();
       const { directory } = served(fakeSession('a'), store);

@@ -21,7 +21,7 @@ export type TSelfHostingLoopEvent =
   | 'cancelled';
 
 /**
- * Repo-process command templates injected by the composition root (NEUT-001).
+ * Repo-process command templates injected by the composition root.
  *
  * The library ships NO default commands: which package manager, verification
  * commands, or CI-like gate a repository uses is the host project's policy.

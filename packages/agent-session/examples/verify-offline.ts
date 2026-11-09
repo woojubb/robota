@@ -57,7 +57,7 @@ const silentTerminal: ITerminalOutput = {
 
 async function main(): Promise<void> {
   const session = new Session({
-    // ARCH-010: the session's execution root is an explicit field, not an ambient process read.
+    // The session's execution root is an explicit field, not an ambient process read.
     cwd: process.cwd(),
     // No hook handlers: this scenario configures none (a Node host would pass the command and HTTP
     // executors from `@robota-sdk/agent-core/node`).

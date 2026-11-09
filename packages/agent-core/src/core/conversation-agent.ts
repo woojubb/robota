@@ -83,7 +83,7 @@ export class ConversationAgent
   private conversationId: string;
   private logger: ILogger;
   private initializationPromise?: Promise<void> | undefined;
-  /** Terminal state (CORE-022): once destroyed, run/runStream reject and re-init is impossible. */
+  /** Terminal state: once destroyed, run/runStream reject and re-init is impossible. */
   private destroyed = false;
   private isFullyInitialized = false;
   private startTime: number;
@@ -95,7 +95,7 @@ export class ConversationAgent
     super();
     this.config = config;
     this.conversationId = createConversationId(config);
-    // CORE-029: `config.logging` is PER-AGENT and used to be applied with `setGlobalLogLevel`,
+    // `config.logging` is PER-AGENT and used to be applied with `setGlobalLogLevel`,
     // which is process-wide — so one agent built with `{ enabled: false }` silenced every other
     // agent, and every other package, from a constructor. The level belongs to this agent's logger.
     const logLevel =
@@ -110,7 +110,7 @@ export class ConversationAgent
       ...(config.providerOwnership ? { providerOwnership: { ...config.providerOwnership } } : {}),
     };
 
-    this.aiProviders = createConfiguredProviders(config); // CORE-047 — see its docblock for why here
+    this.aiProviders = createConfiguredProviders(config); // See its docblock for why here
     this.tools = createConfiguredTools(() => this.config);
     this.agentFactory = new AgentFactory();
     this.conversationHistory = new ConversationHistory();
@@ -155,7 +155,7 @@ export class ConversationAgent
   /**
    * Build the asynchronous half — modules, plugins, the execution service — WITHOUT running a turn.
    * Idempotent. The provider registry and current model are NOT part of it: they are established by
-   * the constructor (CORE-047), so reading or changing the model never needs this first.
+   * the constructor, so reading or changing the model never needs this first.
    */
   async ensureReady(): Promise<void> {
     await this.ensureFullyInitialized();
@@ -221,12 +221,12 @@ export class ConversationAgent
   }
 
   /**
-   * Concurrency contract (CORE-012): a ConversationAgent instance owns ONE conversation history, so
+   * Concurrency contract: a ConversationAgent instance owns ONE conversation history, so
    * concurrent `run`/`runStream` calls on the same instance are serialized on an internal queue —
    * a call issued while another is in flight waits its turn (its `signal` is honored while queued).
    * Interleaved histories are therefore impossible by construction.
    *
-   * Structured output (CORE-015): with `options.output` set the promise resolves to the validated
+   * Structured output: with `options.output` set the promise resolves to the validated
    * object (typed `z.infer<S>` for a Zod schema) instead of a string. Note the structured typing
    * is visible on `ConversationAgent` directly; through the generic `IAgent` interface the return type stays
    * `Promise<string>`.
@@ -271,7 +271,7 @@ export class ConversationAgent
       await this.ensureFullyInitialized();
       if (options.output) {
         const spec = normalizeStructuredOutput(options.output);
-        // The validated object is the generator's return value (CORE-015).
+        // The validated object is the generator's return value.
         return yield* agentRunStreamStructured(this.executionDeps(), input, options, spec);
       }
       return yield* agentRunStream(this.executionDeps(), input, options);
@@ -282,9 +282,9 @@ export class ConversationAgent
   }
 
   /**
-   * Run-isolated mode (CORE-014): with `retainHistory: false` the conversation store is
+   * Run-isolated mode: with `retainHistory: false` the conversation store is
    * ephemeral per run — reset after every run settles (success, abort, or error) so nothing
-   * accumulates across runs. The system prompt re-applies on the next run (CORE-010).
+   * accumulates across runs. The system prompt re-applies on the next run.
    */
   private resetEphemeralHistory(): void {
     if (this.config.retainHistory === false) {
@@ -292,7 +292,7 @@ export class ConversationAgent
     }
   }
 
-  /** One run at a time, per instance (CORE-012). */
+  /** One run at a time, per instance. */
   private readonly runQueue = new RunQueue();
 
   private executionDeps(): IAgentExecutionDeps {
@@ -367,7 +367,7 @@ export class ConversationAgent
   unregisterTool(toolName: string): void {
     this.tools.removeTool(toolName);
   }
-  /** The tool schemas the model is offered at the next request — resident plus loaded (CLI-1990). */
+  /** The tool schemas the model is offered at the next request — resident plus loaded. */
   getOfferedToolSchemas(): IToolSchema[] {
     return this.tools.getOfferedTools();
   }
@@ -414,13 +414,13 @@ export class ConversationAgent
   }
 
   /**
-   * Best-effort disposal (CORE-013): never rejects for cleanup failures, so
+   * Best-effort disposal: never rejects for cleanup failures, so
    * `void agent.destroy()` is safe to fire-and-forget. Every cleanup step runs even if an
    * earlier one fails; failures are logged and returned in `errors` for callers that want a
    * hard signal.
    */
   async destroy(): Promise<IDestroyResult> {
-    // CORE-022: idempotent terminal operation — new runs are rejected from this point,
+    // Idempotent terminal operation — new runs are rejected from this point,
     // and in-flight/queued runs settle before disposal begins (queue tail await).
     if (this.destroyed) return { errors: [] };
     this.destroyed = true;
@@ -431,7 +431,7 @@ export class ConversationAgent
       moduleRegistry: this.moduleRegistry,
       eventEmitter: this.eventEmitter,
       executionService: this.executionService,
-      // CORE-045: the disposal chain never reached these two, so a destroyed agent kept its tool
+      // The disposal chain never reached these two, so a destroyed agent kept its tool
       // registry and provider map and still accepted `registerTool`.
       tools: this.tools,
       aiProviders: this.aiProviders,
@@ -443,7 +443,7 @@ export class ConversationAgent
     });
   }
 
-  /** CORE-022: a destroyed agent never revives — reject before touching the run queue. */
+  /** A destroyed agent never revives — reject before touching the run queue. */
   private assertNotDestroyed(): void {
     if (this.destroyed) {
       throw new Error(
@@ -460,7 +460,7 @@ export class ConversationAgent
     this.assertNotDestroyed();
     if (this.isFullyInitialized) return;
     if (!this.initializationPromise) {
-      // CORE-022: a failed init must not be cached — clear so a later call can retry.
+      // A failed init must not be cached — clear so a later call can retry.
       this.initializationPromise = this.doAsyncInit().catch((error: unknown) => {
         this.initializationPromise = undefined;
         throw error;

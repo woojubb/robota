@@ -1,0 +1,393 @@
+import type { ISubmitOptions, TDriverId } from './driver-contracts.js';
+import type { TWaitingLoopStopOutcome } from './session-loop-contracts.js';
+import type {
+  TProjectDiffRead,
+  TProjectMemoryRead,
+  TProjectStatusRead,
+} from './session-project-contracts.js';
+import type {
+  IGoalState,
+  IHistoryDisplaySegment,
+  IInteractiveSessionEvents,
+  IModelListSnapshot,
+  ISessionStatusSnapshot,
+  TInteractiveEventName,
+  TPermissionResultValue,
+} from './session-event-map.js';
+import type { ITurnHandle } from './turn-contracts.js';
+import type {
+  IContextWindowState,
+  IHistoryEntry,
+  IToolAppView,
+  IToolSchema,
+  IToolExecutionResult,
+  TToolParameters,
+  TActionResponse,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
+import type {
+  ICommandListEntry,
+  ICommandResult,
+  ICommandSkillListEntry,
+  TCommandInvocationSource,
+  TCommandSurfaceLocality,
+} from '../command/index';
+import type { ISubagentJobState } from '../execution/index';
+import type {
+  IExecutionDetailCursor,
+  IExecutionDetailPage,
+  IExecutionWorkspaceSnapshot,
+  IExecutionWorkspaceSnapshotOptions,
+} from '../execution/index';
+import type {
+  IBackgroundTaskInput,
+  IBackgroundTaskListFilter,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  IBackgroundTaskState,
+  TBackgroundTaskIsolation,
+} from '../execution/index';
+import type {
+  IBackgroundJobGroupCreateRequest,
+  IBackgroundJobGroupState,
+} from '../execution/index';
+
+export interface ISessionLifecycle {
+  /** True once the underlying session has been initialized. */
+  readonly isInitialized: boolean;
+  shutdown(options?: { reason?: string; message?: string }): Promise<void>;
+}
+
+export interface ISessionTurnSubmission {
+  submit(
+    input: string,
+    displayInput?: string,
+    rawInput?: string,
+    options?: ISubmitOptions,
+  ): Promise<ITurnHandle>;
+}
+
+export interface ISessionTurnControl {
+  abort(): void;
+  cancelQueue(): void;
+}
+
+export interface ISessionGoal {
+  setGoal(
+    objective: string,
+    options?: { maxIterations?: number; noProgressLimit?: number },
+  ): Promise<IGoalState>;
+  getGoalState(): IGoalState | null;
+  cancelGoal(): IGoalState | null;
+}
+
+export interface ISessionExecutionState {
+  isExecuting(): boolean;
+  getPendingPrompt(): string | null;
+  getPendingCount(): number;
+}
+
+export interface ISessionDriverAttribution {
+  getActiveDriverId(): TDriverId | null;
+}
+
+export interface ISessionConversationRead {
+  getMessages(): TUniversalMessage[];
+  /**
+   * The session's whole recorded timeline: chat entries and the event entries recorded beside them.
+   * `getMessages()` is its chat entries alone; a client that renders the session reads this.
+   */
+  getFullHistory(): IHistoryEntry[];
+  /**
+   * `getMessages()`'s chat entries, projected into the same display shapes a live stream
+   * produces — text runs and finished tool calls (diffs included, built from each call's arguments
+   * only, never a disk read), in chronological order. A reload, reconnect or session resume has no
+   * live stream to rebuild tool rows from; a client renders THIS instead of falling back to bare text.
+   */
+  getMessagesDisplay(): IHistoryDisplaySegment[];
+  getContextState(): IContextWindowState;
+}
+
+export interface ISessionIdentity {
+  getSession(): { getSessionId(): string };
+}
+
+export interface ISessionWorkspaceLocation {
+  getCwd(): string;
+}
+
+/** How one direct runtime-tool call is admitted and attributed. */
+export interface IRuntimeToolInvokeOptions {
+  signal?: AbortSignal;
+  /**
+   * Whether a permission decision this call needs may be put to a person. `deny` (the default) fails
+   * such a decision closed, and a question the call's tools put finds no one to ask, which is right
+   * for a caller nobody is watching; `interactive` asks through the session's prompt events, and
+   * hands the tools the session's ask port, for a surface that can show the prompt and answer it.
+   */
+  permissionInteraction?: 'interactive' | 'deny';
+  /**
+   * The driver the call acts for. A host that attributes prompts names this driver as the requester
+   * of a prompt the call raises; a session that does not attribute (agent-session's `Session`)
+   * ignores it.
+   */
+  driverId?: TDriverId;
+  /**
+   * The id the call's tool events carry, so a host that kept it can tell this call's events from a
+   * model call's. The session mints one when absent.
+   */
+  executionId?: string;
+}
+
+/** Reads the view a finished model call's source declared, for a surface that hosts one. */
+export interface ISessionToolAppViews {
+  /**
+   * The view a `tool_end` reference named by `viewId`, or undefined once the session no longer holds
+   * it (evicted, cleared, or never kept). A `viewId` names one kept view, so it is never confused
+   * with another call that reused the same provider tool-call id.
+   */
+  readToolAppView(viewId: string): IToolAppView | undefined;
+}
+
+/** Direct execution uses the same permission-wrapped runtime as model tool calls. */
+export interface ISessionRuntimeTools {
+  listRuntimeTools(): Promise<IToolSchema[]>;
+  invokeRuntimeTool(
+    name: string,
+    parameters: TToolParameters,
+    options?: IRuntimeToolInvokeOptions,
+  ): Promise<IToolExecutionResult>;
+}
+
+export interface ISessionCommands {
+  executeCommand(
+    name: string,
+    args: string,
+    source?: TCommandInvocationSource,
+    originDriverId?: TDriverId,
+    /** Whether this invocation is provably on this machine. Absent → `'local'`. */
+    locality?: TCommandSurfaceLocality,
+    /**
+     * `signal` cancels what a skill command starts — the turn it submits or the fork it runs — and
+     * the work it does before that; a command cancelled this way rejects with the signal's reason.
+     * A command that starts neither ignores it.
+     */
+    options?: { readonly signal?: AbortSignal },
+  ): Promise<ICommandResult | null>;
+  listCommands(): ICommandListEntry[];
+  /** The skills a client can offer beside the commands (`/<skill>` activates one). */
+  listSkills(): ICommandSkillListEntry[];
+  /**
+   * The models a client may switch to, grouped by configured provider profile — so the
+   * GUI's model menu never scrapes `/model`'s picker text. Choosing one sends `/model <id>` through
+   * `executeCommand`, the same path the command itself uses.
+   */
+  listModels(): IModelListSnapshot;
+}
+
+export type { ISessionStatusSnapshot } from './session-event-map.js';
+
+export interface ISessionStatusRead {
+  getStatusSnapshot(): ISessionStatusSnapshot;
+}
+
+export interface ISessionEvents {
+  on<E extends TInteractiveEventName>(event: E, handler: IInteractiveSessionEvents[E]): void;
+  off<E extends TInteractiveEventName>(event: E, handler: IInteractiveSessionEvents[E]): void;
+}
+
+export interface ISessionPromptResolution {
+  resolvePermission(id: string, result: TPermissionResultValue, answererDriverId?: TDriverId): void;
+  resolveAsk(id: string, response: TActionResponse, answererDriverId?: TDriverId): void;
+}
+
+export interface ISessionBackgroundTasks {
+  listBackgroundTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[];
+  getBackgroundTask(taskId: string): IBackgroundTaskState | undefined;
+  cancelBackgroundTask(taskId: string, reason?: string): Promise<void>;
+  closeBackgroundTask(taskId: string): Promise<void>;
+  sendBackgroundTask(taskId: string, input: IBackgroundTaskInput): Promise<void>;
+  readBackgroundTaskLog(
+    taskId: string,
+    cursor?: IBackgroundTaskLogCursor,
+  ): Promise<IBackgroundTaskLogPage>;
+}
+
+export interface ISessionBackgroundGroups {
+  listBackgroundJobGroups(): IBackgroundJobGroupState[];
+  getBackgroundJobGroup(groupId: string): IBackgroundJobGroupState | undefined;
+  createBackgroundJobGroup(
+    input: Omit<IBackgroundJobGroupCreateRequest, 'parentSessionId'>,
+  ): IBackgroundJobGroupState;
+  waitBackgroundJobGroup(groupId: string): Promise<IBackgroundJobGroupState>;
+}
+
+export interface ISessionExecutionWorkspace {
+  getExecutionWorkspaceSnapshot(
+    options?: IExecutionWorkspaceSnapshotOptions,
+  ): IExecutionWorkspaceSnapshot;
+}
+
+/** One page of what a workspace entry (the main thread, a task, a group) recorded. */
+export interface ISessionExecutionDetail {
+  readExecutionWorkspaceDetail(
+    entryId: string,
+    cursor?: IExecutionDetailCursor,
+  ): Promise<IExecutionDetailPage>;
+}
+
+/**
+ * Stopping the self-paced loop that is waiting for its next wake (Esc on an idle prompt). The session
+ * stops the one waiting loop; when several wait it stops none and says how to choose.
+ */
+export interface ISessionSelfPacedLoopControl {
+  stopWaitingSelfPacedLoop(reason?: string): Promise<TWaitingLoopStopOutcome>;
+}
+
+/**
+ * The Project panel's reads: git status, one file's diff, and project memory as readable
+ * text. Deliberately NOT registered in {@link ISessionCapabilityMap} / `SESSION_CAPABILITY_MEMBER_KEYS`
+ * (the session-pool partial-test-double registry) — nothing in the panel composes a partial
+ * fake session through that host, and every role already there is exercised by it; adding an unused
+ * row would only be more surface for that exact-parity test to carry. `IProtocolSession`
+ * (`agent-transport`) composes this interface directly, the same as it does the roles above.
+ */
+export interface ISessionProjectRead {
+  readProjectStatus(): Promise<TProjectStatusRead>;
+  readProjectDiff(path: string): Promise<TProjectDiffRead>;
+  readProjectMemory(): Promise<TProjectMemoryRead>;
+}
+
+export interface ISessionAgentJobs {
+  /**
+   * The agent switcher's roster — `definedIn` is a plain-words location (a discovered
+   * file's path, or "Built-in") a person picking an agent can read.
+   */
+  listAgentDefinitions(): Array<{ name: string; description: string; definedIn: string }>;
+  /**
+   * The agent type `/agent <name>` (no prompt) currently selects — the agent switcher
+   * shows it checked. Never throws; a host without the agent runtime just has the fallback default.
+   */
+  getDefaultAgentType(): string;
+  /**
+   * `/agent <name>` (bare, no prompt) sets this. Choosing an agent in the switcher sends
+   * `/agent <name>` through `executeCommand`, the same path the command itself uses.
+   */
+  setDefaultAgentType(agentType: string): void;
+  listAgentJobs(): ISubagentJobState[];
+  spawnAgentJob(input: {
+    agentType: string;
+    label: string;
+    mode: 'foreground' | 'background';
+    prompt: string;
+    model?: string;
+    isolation?: TBackgroundTaskIsolation;
+  }): Promise<ISubagentJobState>;
+  sendAgentJob(taskId: string, prompt: string): Promise<void>;
+  cancelAgentJob(taskId: string, reason?: string): Promise<void>;
+  closeAgentJob(taskId: string): Promise<void>;
+}
+
+export interface ISessionCapabilityMap {
+  lifecycle: ISessionLifecycle;
+  turnSubmission: ISessionTurnSubmission;
+  turnControl: ISessionTurnControl;
+  goal: ISessionGoal;
+  executionState: ISessionExecutionState;
+  driverAttribution: ISessionDriverAttribution;
+  conversationRead: ISessionConversationRead;
+  identity: ISessionIdentity;
+  workspaceLocation: ISessionWorkspaceLocation;
+  commands: ISessionCommands;
+  statusRead: ISessionStatusRead;
+  runtimeTools: ISessionRuntimeTools;
+  toolAppViews: ISessionToolAppViews;
+  events: ISessionEvents;
+  promptResolution: ISessionPromptResolution;
+  backgroundTasks: ISessionBackgroundTasks;
+  backgroundGroups: ISessionBackgroundGroups;
+  executionWorkspace: ISessionExecutionWorkspace;
+  executionDetail: ISessionExecutionDetail;
+  selfPacedLoopControl: ISessionSelfPacedLoopControl;
+  agentJobs: ISessionAgentJobs;
+}
+
+export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
+  lifecycle: Object.freeze(['isInitialized', 'shutdown'] as const),
+  turnSubmission: Object.freeze(['submit'] as const),
+  turnControl: Object.freeze(['abort', 'cancelQueue'] as const),
+  goal: Object.freeze(['setGoal', 'getGoalState', 'cancelGoal'] as const),
+  executionState: Object.freeze(['isExecuting', 'getPendingPrompt', 'getPendingCount'] as const),
+  driverAttribution: Object.freeze(['getActiveDriverId'] as const),
+  conversationRead: Object.freeze([
+    'getMessages',
+    'getFullHistory',
+    'getMessagesDisplay',
+    'getContextState',
+  ] as const),
+  identity: Object.freeze(['getSession'] as const),
+  workspaceLocation: Object.freeze(['getCwd'] as const),
+  commands: Object.freeze(['executeCommand', 'listCommands', 'listSkills', 'listModels'] as const),
+  statusRead: Object.freeze(['getStatusSnapshot'] as const),
+  runtimeTools: Object.freeze(['listRuntimeTools', 'invokeRuntimeTool'] as const),
+  toolAppViews: Object.freeze(['readToolAppView'] as const),
+  events: Object.freeze(['on', 'off'] as const),
+  promptResolution: Object.freeze(['resolvePermission', 'resolveAsk'] as const),
+  backgroundTasks: Object.freeze([
+    'listBackgroundTasks',
+    'getBackgroundTask',
+    'cancelBackgroundTask',
+    'closeBackgroundTask',
+    'sendBackgroundTask',
+    'readBackgroundTaskLog',
+  ] as const),
+  backgroundGroups: Object.freeze([
+    'listBackgroundJobGroups',
+    'getBackgroundJobGroup',
+    'createBackgroundJobGroup',
+    'waitBackgroundJobGroup',
+  ] as const),
+  executionWorkspace: Object.freeze(['getExecutionWorkspaceSnapshot'] as const),
+  executionDetail: Object.freeze(['readExecutionWorkspaceDetail'] as const),
+  selfPacedLoopControl: Object.freeze(['stopWaitingSelfPacedLoop'] as const),
+  agentJobs: Object.freeze([
+    'listAgentDefinitions',
+    'getDefaultAgentType',
+    'setDefaultAgentType',
+    'listAgentJobs',
+    'spawnAgentJob',
+    'sendAgentJob',
+    'cancelAgentJob',
+    'closeAgentJob',
+  ] as const),
+} satisfies {
+  readonly [TKey in keyof ISessionCapabilityMap]: readonly (keyof ISessionCapabilityMap[TKey])[];
+});
+
+// ── Capability host contracts ──────────────────────────────────
+// These TYPES stayed here when the host's runtime mechanism moved to `testing/`. An
+// `agent-interface` contract family must not contain runtime logic (project-structure.md), and the
+// repository's own placement rule is `contracts→agent-interface, doubles→owner /testing`. The
+// contract is the part that belongs in a contracts package; the 100-line prototype-walking
+// forwarder that satisfies it is a double factory and now lives where doubles live.
+
+type TUnionToIntersection<T> = (T extends T ? (value: T) => void : never) extends (
+  value: infer TIntersection,
+) => void
+  ? TIntersection
+  : never;
+
+type TSelectedSessionPorts<TCapabilities extends Partial<ISessionCapabilityMap>> =
+  TUnionToIntersection<Exclude<TCapabilities[keyof TCapabilities], undefined>>;
+
+export interface ISessionCapabilityHost<
+  TCapabilities extends Partial<ISessionCapabilityMap> = Partial<ISessionCapabilityMap>,
+> {
+  readonly capabilities: Readonly<TCapabilities>;
+}
+
+export type TSessionCapabilityHost<TCapabilities extends Partial<ISessionCapabilityMap>> =
+  ISessionCapabilityHost<TCapabilities> & TSelectedSessionPorts<TCapabilities>;
+
+export type TSessionCapabilityReadResult<TCapability> =
+  Readonly<{ provided: false }> | Readonly<{ provided: true; value: TCapability }>;

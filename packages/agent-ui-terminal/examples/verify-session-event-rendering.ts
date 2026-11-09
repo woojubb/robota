@@ -12,14 +12,14 @@ import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 const testHost = createTestFrameworkHost();
 
-// Contained — ARCH-047. Project mutation (the Write tool that produces edit checkpoints) is
+// Contained. Project mutation (the Write tool that produces edit checkpoints) is
 // available only on Linux (project-relative-writer.ts refuses other hosts by design), so this
 // scenario cannot run here. It says so explicitly instead of failing on a refusal it cannot influence.
 if (process.platform !== 'linux') {
   console.log(
     JSON.stringify({
       notApplicable: true,
-      reason: 'ARCH-047: project mutation is Linux-only; checkpoint scenario skipped on this host',
+      reason: 'project mutation is Linux-only; checkpoint scenario skipped on this host',
       platform: process.platform,
     }),
   );
@@ -31,7 +31,7 @@ function assertCondition(condition: boolean, message: string): asserts condition
 }
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'arch-028-tui-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'session-event-rendering-'));
   const agentsPath = join(cwd, 'AGENTS.md');
   writeFileSync(agentsPath, '# Initial rules\n', 'utf8');
   const script = createScriptedProvider([{ text: 'context refreshed' }]);
@@ -52,7 +52,7 @@ async function main(): Promise<void> {
     provider: script.provider,
     projectAccess,
     editCheckpointStore,
-    sessionName: 'ARCH-028 scenario',
+    sessionName: 'session event rendering scenario',
     permissionMode: 'acceptEdits',
     onSessionEventDeliveryError: (error, event) =>
       deliveryFailures.push({ message: error.message, event }),
@@ -96,7 +96,7 @@ async function main(): Promise<void> {
     assertCondition(session.getPlanState()?.phase === 'planning', 'plan revert was not committed');
 
     result = {
-      scenario: 'ARCH-028-tui',
+      scenario: 'session-event-rendering',
       notices: notices.map((notice) => notice.replace(cwd, '<cwd>')),
       deliveryFailure: {
         ...deliveryFailures[0],

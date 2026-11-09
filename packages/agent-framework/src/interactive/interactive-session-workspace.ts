@@ -30,19 +30,18 @@ import type {
 import { isChatEntry } from '@robota-sdk/agent-core';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
+import type { ISessionLoopState } from '@robota-sdk/agent-interface/session';
 
 export interface IWorkspaceSnapshotDeps {
   sessionId: string;
   execCtrl: Pick<SessionExecutionController, 'executing' | 'pendingPrompt' | 'streamingText'>;
   histTracker: Pick<SessionHistoryTracker, 'getHistory'>;
-  bgTracker: Pick<SessionBackgroundTaskTracker, 'getTaskSnapshots' | 'getGroupSnapshots'>;
-  /** SCREEN-1992: the parked permission/ask the main thread waits on, when the session has one. */
+  bgTracker: Pick<SessionBackgroundTaskTracker, 'getTaskSnapshots' | 'getGroupSnapshots'> &
+    Partial<Pick<SessionBackgroundTaskTracker, 'isRestoredTerminalTask'>>;
+  /** The parked permission/ask the main thread waits on, when the session has one. */
   pendingRequest?: () => IExecutionPendingRequest | undefined;
-  /** #3288 §1: this session's self-paced loops, for the `pending`/`running` ones' own entries. */
+  /** This session's self-paced loops, for the `pending`/`running` ones' own entries. */
   selfPacedLoops?: () => readonly IExecutionSelfPacedLoopSummary[];
-  /** Whether a session's record may have a writer now, here or in another process (its store's `hasWriter`). */
-  sessionHasWriter: (sessionId: string) => boolean;
 }
 
 export function buildExecutionWorkspaceSnapshot(
@@ -52,7 +51,7 @@ export function buildExecutionWorkspaceSnapshot(
   const { sessionId, execCtrl, histTracker, bgTracker } = deps;
   const history = histTracker.getHistory();
   const pendingRequest = deps.pendingRequest?.();
-  return createExecutionWorkspaceSnapshot({
+  const snapshot = createExecutionWorkspaceSnapshot({
     sessionId,
     mainThread: {
       sessionId,
@@ -71,8 +70,16 @@ export function buildExecutionWorkspaceSnapshot(
     selfPacedLoops: deps.selfPacedLoops?.(),
     selectedEntryId: options.selectedEntryId,
     filter: options.filter,
-    sessionHasWriter: deps.sessionHasWriter,
   });
+  return {
+    ...snapshot,
+    entries: snapshot.entries.map((entry) => {
+      const ref = parseExecutionWorkspaceEntryId(entry.id);
+      return ref?.kind === 'background_task' && bgTracker.isRestoredTerminalTask?.(ref.sourceId)
+        ? { ...entry, controls: ['select'] }
+        : entry;
+    }),
+  };
 }
 
 /**
@@ -97,7 +104,7 @@ export async function readWorkspaceDetail(
   cursor?: IExecutionDetailCursor,
   pendingRequest?: IExecutionPendingRequest,
   /**
-   * #3288 §1: a `pending`/`running` self-paced loop's OWN entry has no `IBackgroundTaskState` of its
+   * A `pending`/`running` self-paced loop's OWN entry has no `IBackgroundTaskState` of its
    * own to read (see `execution-workspace-projection.ts`'s module note) — `bgTracker.readTaskDetail`
    * would throw "Unknown background task" for it. Checked before falling through to that, so a loop
    * entry reads from its own durable state instead.
@@ -123,7 +130,7 @@ export async function readWorkspaceDetail(
 }
 
 /**
- * #3288 §1: a self-paced loop's detail page, built from its own durable state — never from a
+ * A self-paced loop's detail page, built from its own durable state — never from a
  * background-task record, which it may not have one of at all (see `readWorkspaceDetail`). One page,
  * no cursor: the loop's own state is small and fixed-shape, not a growing transcript.
  *

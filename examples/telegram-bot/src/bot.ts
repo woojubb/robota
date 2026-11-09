@@ -3,9 +3,9 @@ import { join } from 'node:path';
 import { Bot } from 'grammy';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
-import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 const host = createNodeFrameworkHost({ createDefaultTools });
 

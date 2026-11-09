@@ -1,9 +1,9 @@
 /**
- * SEC-016 — the per-event enforcement posture table.
+ * The per-event enforcement posture table.
  *
  * ## Why a table, and why it carries a reachability field
  *
- * Issue #2083 made a hook's failure representable: `runHooks` reports every execution that reached no
+ * A hook's failure is representable: `runHooks` reports every execution that reached no
  * verdict on `IRunHooksResult.errors`. Nothing consumed it, so an enforcing hook that timed out or
  * could not spawn was still indistinguishable at the boundary from one that approved. This table is
  * what a consumer reads to decide whether that matters for a given event.
@@ -93,7 +93,7 @@ export const HOOK_ENFORCEMENT_POLICY: Readonly<Record<THookEvent, IHookEventPoli
       posture: 'enforcing',
       enforcementReachable: true,
       rationale:
-        'The tool-execution gate. `runPreToolGate` awaits the result and turns `blocked` into a denial, so a hook that reached no verdict must not read as approval (tracker issue #2075).',
+        'The tool-execution gate. `runPreToolGate` awaits the result and turns `blocked` into a denial, so a hook that reached no verdict must not read as approval.',
     },
 
     // ── Awaited, but the result's `blocked` is never consulted ───────────────────────────────────
@@ -108,7 +108,7 @@ export const HOOK_ENFORCEMENT_POLICY: Readonly<Record<THookEvent, IHookEventPoli
     Stop: firesAndForgets('session-run.ts'),
     StopFailure: firesAndForgets('session-run.ts'),
 
-    // ── Explicitly `void`, by SELFHOST-009 design for the informational events ───────────────────
+    // ── Explicitly `void`, by design for the informational events ───────────────────
     SubagentStart: firesAndForgets('background-task-hooks.ts'),
     SubagentStop: firesAndForgets('background-task-hooks.ts'),
     WorktreeCreate: firesAndForgets('worktree-subagent-runner.ts'),

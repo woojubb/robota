@@ -12,7 +12,7 @@ import { printablePeerDriver } from '@robota-sdk/agent-core';
 
 import { PEER_REPLY_TOOL_NAME } from '../tools/peer-reply-tool.js';
 
-import type { TTurnSource } from '@robota-sdk/agent-interface-session';
+import type { TTurnSource } from '@robota-sdk/agent-interface/session';
 
 /** How an answer reaches the sender, when the turn has a reply route. */
 function replySentence(canReply: boolean): string {

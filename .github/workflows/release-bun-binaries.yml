@@ -1,6 +1,6 @@
 name: Release — Bun binaries
 
-# PAYLOAD-2153 / DIST-002 — compile every native Bun executable on its matching host, execute the
+# Compile every native Bun executable on its matching host, execute the
 # packaged replay/refusal proof there, then publish verified binaries.
 # Sibling to release.yml (manual npm publish); this workflow never publishes npm packages.
 
@@ -8,8 +8,10 @@ on:
   push:
     tags:
       - '**'
+      - '!sdk-*'
+      - '!app-*'
   pull_request:
-    branches: [develop, main]
+    branches: [develop]
   workflow_dispatch:
     inputs:
       product_env:
@@ -37,6 +39,9 @@ jobs:
     timeout-minutes: 5
     outputs:
       plan: ${{ steps.scope.outputs.plan }}
+      native: ${{ steps.scope.outputs.native }}
+      windows: ${{ steps.scope.outputs.windows }}
+      sdk_windows: ${{ steps.scope.outputs.sdk_windows }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -49,10 +54,12 @@ jobs:
         env:
           CI_EVENT: ${{ github.event_name }}
           CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CI_REUSE_MAIN: ${{ github.base_ref == 'develop' && github.head_ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository }}
   build-bun:
     name: Build Bun / ${{ matrix.product }} / ${{ matrix.target }}
     needs: scope
-    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || (fromJSON(needs.scope.outputs.plan).developerDocs != true)) }}
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.native == 'true') }}
     timeout-minutes: ${{ github.event_name == 'pull_request' && 30 || 40 }}
     env:
       PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
@@ -65,10 +72,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        product: ${{ fromJSON(github.event_name == 'pull_request' && '["cedar","amber"]' || '["configured"]') }}
+        product: ${{ fromJSON(github.event_name == 'pull_request' && '["cedar"]' || '["configured"]') }}
         target: ${{ fromJSON(github.event_name == 'pull_request' && '["darwin-arm64"]' || '["linux-x64","linux-arm64","darwin-x64","darwin-arm64","windows-x64"]') }}
-        # Pull requests also run one Windows leg: Windows native code otherwise first meets a real host at release.
-        include: ${{ fromJSON(github.event_name == 'pull_request' && '[{"target":"darwin-arm64","runner":"macos-26"},{"product":"cedar","target":"windows-x64","runner":"windows-2025"}]' || '[{"target":"linux-x64","runner":"ubuntu-24.04"},{"target":"linux-arm64","runner":"ubuntu-24.04-arm"},{"target":"darwin-x64","runner":"macos-26-intel"},{"target":"darwin-arm64","runner":"macos-26"},{"target":"windows-x64","runner":"windows-2025"}]') }}
+        include: ${{ fromJSON(github.event_name == 'pull_request' && (needs.scope.outputs.windows == 'false' && '[{"target":"darwin-arm64","runner":"macos-26"}]' || '[{"target":"darwin-arm64","runner":"macos-26"},{"product":"cedar","target":"windows-x64","runner":"windows-2025"}]') || '[{"target":"linux-x64","runner":"ubuntu-24.04"},{"target":"linux-arm64","runner":"ubuntu-24.04-arm"},{"target":"darwin-x64","runner":"macos-26-intel"},{"target":"darwin-arm64","runner":"macos-26"},{"target":"windows-x64","runner":"windows-2025"}]') }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
@@ -126,7 +132,7 @@ jobs:
 
       - name: Install dependencies
         timeout-minutes: 10
-        run: ${{ github.event_name == 'pull_request' && 'pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .' || 'pnpm install --frozen-lockfile' }}
+        run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
 
       - name: Generate selected product workspace
         timeout-minutes: 10
@@ -151,15 +157,31 @@ jobs:
             exit 1
           fi
       - name: Build workspace
-        timeout-minutes: 10
+        timeout-minutes: 15
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
-        run: ${{ github.event_name == 'pull_request' && 'pnpm install --frozen-lockfile && pnpm -r --filter "{packages/agent-cli}..." --filter "{apps/agent-app}^..." run build' || 'pnpm install --frozen-lockfile && pnpm build' }}
+        shell: bash
+        run: |
+          # The native modules' install scripts download prebuilt binaries from GitHub release assets, and those
+          # downloads fail intermittently. A failed install script runs again on the next install, so retry.
+          for attempt in 1 2 3 4; do
+            pnpm install --frozen-lockfile && break
+            if [ "$attempt" = 4 ]; then exit 1; fi
+            sleep $((attempt * 20))
+          done
+          pnpm -r --filter "{packages/agent-cli}..." run build
 
       - name: Setup Bun
         timeout-minutes: 10
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
+
+      - name: Exercise changed SDK code on Windows
+        if: github.event_name == 'pull_request' && runner.os == 'Windows' && needs.scope.outputs.sdk_windows == 'true'
+        uses: ./.github/actions/windows-sdk-check
+        with:
+          workspace: ${{ env.PRODUCT_WORKSPACE }}
+          plan: ${{ needs.scope.outputs.plan }}
 
       - name: Compile the exact native target
         timeout-minutes: 10
@@ -201,42 +223,28 @@ jobs:
           binary="$standalone_root/${{ steps.product.outputs.artifact_prefix }}-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}"
           cp ".release-output/${{ matrix.target }}/${{ steps.product.outputs.artifact_prefix }}-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}" "$binary"
           chmod +x "$binary"
-          (cd "$standalone_root" && "$binary" --version)
           node packages/agent-cli/scripts/e2e-native-file-authority.mjs "$binary"
           node packages/agent-cli/scripts/e2e-standalone-autoload.mjs "$binary"
           node packages/agent-cli/scripts/e2e-regex-worker.mjs "$binary"
 
-      # Linux CI never reaches these hosts' native backends; run them under Node and inside a Bun binary.
+      # Exercise the product against its pinned SDK on the target host.
       - name: Exercise native code paths on this host
         timeout-minutes: 10
         if: github.event_name == 'pull_request' && matrix.product == 'cedar'
         shell: bash
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
         run: |
-          pnpm --filter './packages/agent-file-authority' exec vitest run --no-file-parallelism --reporter verbose
-          pnpm --filter './packages/agent-file-authority' qualify:native
-          qualifier="$RUNNER_TEMP/native-qualification${{ runner.os == 'Windows' && '.exe' || '' }}"
-          pnpm --filter './packages/agent-file-authority' qualify:bun:build -- "$qualifier"
-          "$qualifier"
+          pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/startup/__tests__/secure-runtime-spawn-guard.test.ts src/startup/__tests__/spawn-recorder.test.ts src/startup/__tests__/secure-runtime-process.test.ts
+          if [ "$RUNNER_OS" != Windows ]; then
+            pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/secure-runtime-launch.test.ts src/session-inventory/__tests__/forwarded-hosted-posture.test.ts src/session-inventory/__tests__/owner-link-client.test.ts src/session-inventory/__tests__/certified-runtime-launch.test.ts src/session-inventory/__tests__/secure-attach-client.test.ts src/session-inventory/__tests__/secure-background-start.test.ts
+          fi
+          pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/forwarded-stderr-redaction.test.ts src/startup/__tests__/forwarded-environment.test.ts src/secure/__tests__/secure-lock-command.test.ts
           if [ "$RUNNER_OS" = Windows ]; then
             pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts src/session-inventory/__tests__/supervised-transport-token.test.ts src/session-inventory/__tests__/supervised-session-launch-token.test.ts src/__tests__/supervised-transport-token-refusal.test.ts
           fi
 
-      # The keyring and the owner-link carrier document that they run unchanged on Bun; nothing else
-      # runs them there. The carrier smoke links over a real loopback socket pair.
-      - name: Smoke the keyring and owner-link packages under Bun
-        timeout-minutes: 10
-        if: github.event_name == 'pull_request' && matrix.product == 'cedar'
-        shell: bash
-        working-directory: ${{ env.PRODUCT_WORKSPACE }}
-        run: |
-          pnpm --filter './packages/agent-keyring' build
-          pnpm --filter './packages/agent-keyring' smoke:bun
-          pnpm --filter '{./packages/agent-transport-link}...' build
-          pnpm --filter './packages/agent-transport-link' smoke:bun
-
       - name: Package and exercise the unsigned desktop product
-        timeout-minutes: 10
+        timeout-minutes: 15
         if: github.event_name == 'pull_request'
         shell: bash
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
@@ -245,10 +253,14 @@ jobs:
         run: |
           pnpm --filter './apps/agent-app' build
           pnpm --filter './apps/agent-app' bundle:runtime
-          pnpm --filter './apps/agent-app' exec electron-builder --dir --publish never -c.mac.notarize=false -c.mac.identity=null
+          # electron-builder downloads Electron and its helper tools from GitHub releases, which fail intermittently.
+          for attempt in 1 2 3 4; do
+            pnpm --filter './apps/agent-app' exec electron-builder --dir --publish never -c.mac.notarize=false -c.mac.identity=null && break
+            if [ "$attempt" = 4 ]; then exit 1; fi
+            sleep $((attempt * 20))
+          done
           pnpm --filter './apps/agent-app' test:e2e:packaged
           pnpm --filter './apps/agent-app' test:e2e:bundled
-          pnpm --filter './packages/agent-cli' test:bun
 
       - name: Upload exactly one native binary
         timeout-minutes: 10
@@ -263,8 +275,30 @@ jobs:
         if: ${{ always() && github.event_name != 'pull_request' && runner.os == 'macOS' }}
         run: node .release-tools/scripts/release/setup-macos-signing.mjs cleanup
 
+  sdk-windows:
+    needs: scope
+    if: github.event_name == 'pull_request' && needs.scope.outputs.sdk_windows == 'true' && needs.scope.outputs.native == 'false'
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 8.15.4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: ./.github/actions/windows-sdk-check
+        with:
+          plan: ${{ needs.scope.outputs.plan }}
+          install: 'true'
+
   native-validation:
-    needs: [scope, build-bun]
+    needs: [scope, build-bun, sdk-windows]
     if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5

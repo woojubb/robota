@@ -14,6 +14,8 @@
  * it. The command is the user's own, never a model-invocable command.
  */
 
+import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
+
 import { join } from 'node:path';
 
 import { createProcessMarkers } from '@robota-sdk/agent-core/node';
@@ -129,7 +131,10 @@ export async function runSessionReleaseCommand(
     writeError(USAGE(cliName));
     return 1;
   }
-  const markersOf = options.markersOf ?? ((directory: string) => createProcessMarkers(directory));
+  const markersOf =
+    options.markersOf ??
+    ((directory: string) =>
+      createProcessMarkers(directory, { operationLock: createProcessOperationLock(directory) }));
   const standing = options.locations.flatMap((location) => {
     const markers = markersOf(location.directory);
     const state = markers.inspect(id);
@@ -173,8 +178,8 @@ export async function runSessionReleaseCommand(
     }
     const question =
       `Session ${id} ${where} is held by ${holderText(holder)}.\r\n` +
-      'If that writer is still running, it loses its fence: another process may then open the ' +
-      'session and both may write it.';
+      'The writer and already running child processes may continue doing work after release. ' +
+      'Stop the writer and its children first; releasing the marker does not stop them.';
     if (!(await (options.confirm ?? confirmOnTerminal)(question))) {
       writeError(`Session ${id} ${where} was not released.\n`);
       exitCode = 1;

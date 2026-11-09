@@ -1,51 +1,51 @@
 #!/usr/bin/env node
 /**
- * GUI-002 e2e fixture — a deterministic "the CLI" sidecar (no LLM / API key).
+ * E2e fixture — a deterministic "the CLI" sidecar (no LLM / API key).
  *
  * The web e2e and `gui:dev --scripted` start it directly; the desktop app's smoke test has Electron
  * spawn it via `PRODUCT_GUI_SIDECAR_CMD`. Either way it gets `PRODUCT_WS_TOKEN` + `PRODUCT_WS_PORT` in the
  * env exactly as the real CLI would. It stands up the **REAL**
- * `WsTransport` (so the GUI-002 T5 loopback-auth — reject-before-emit on a bad/missing token — is
+ * `WsTransport` (so the loopback-auth — reject-before-emit on a bad/missing token — is
  * exercised for real against the token the GUI presents) and attaches a **scripted** EventEmitter session
  * that replies deterministically, so the headless e2e can assert connect → render → submit → permission.
  * A fake session directory lists a few stored sessions and switches between them; a switch while a
  * scripted turn is still running ("stay busy" until "all done") is refused with the host's reason,
  * which the transport answers as `session_change_failed`. Its rows say which sessions are live and
  * how many clients are on each, as a daemon that keeps several sessions live does. It also renames
- * and deletes a stored session (#3289 §1), and its status snapshot carries a workspace folder.
+ * and deletes a stored session, and its status snapshot carries a workspace folder.
  *
  * Run as `daemon start --json` (how the desktop app attaches) it plays the CLI's daemon starter instead: it
  * reuses the daemon recorded in `$PRODUCT_E2E_DAEMON_STATE` while that process lives and serves the folder
  * it was run in (recorded as `workspace`), or starts itself detached as a new one, and prints the `{id,url}`
  * line. `PRODUCT_E2E_DAEMON_FAIL=1` makes it refuse the way
  * an untrusted workspace does, as does the file `$PRODUCT_E2E_DAEMON_FAIL_FILE` once it exists (so a start
- * the app asks for later can fail while the first succeeded). With `$PRODUCT_E2E_TRUST_FILE` set it also
- * plays `trust status --json` (askable until the file says `trusted`) and `trust --yes` (writes it), and a
+ * the app asks for later can fail while the first succeeded). With `$PRODUCT_E2E_TRUST_FILE` set it
+ * delegates trust to the real CLI and broker while its file records expected test transitions, and a
  * `daemon start --json --restricted-workspace` records that choice in the daemon state.
  *
- * A prompt containing "show app view" (#3558) finishes a turn whose tool call carries an MCP app view
+ * A prompt containing "show app view" finishes a turn whose tool call carries an MCP app view
  * reference: the session answers `readToolAppView` with a small handwritten view (raw JSON-RPC over
  * `postMessage`, no SDK) and `invokeRuntimeTool` with a permission request it waits on, exactly as the
  * real session gates a tool the view calls. `PRODUCT_E2E_CANARY_URL` names a server the view tries to
  * reach in the ways its sandbox must forbid, so the e2e can prove none of them arrived.
  *
- * With `PRODUCT_E2E_SETUP_REQUIRED=1` (issue #3282 §3) the session starts as a served runtime with no
+ * With `PRODUCT_E2E_SETUP_REQUIRED=1` the session starts as a served runtime with no
  * provider configured would: `getStatusSnapshot()` reports `setupRequired: true` and `submit()` refuses,
  * until `/provider add` (the GUI setup panel's one button) runs, asks one question the same way the
  * real wizard does, and clears the flag on an answer — proving the setup panel, its docked ask, and the
  * composer's return all work over the real wire, without a real provider or settings file.
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { connect, createServer } from 'node:net';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { AuthenticationError } from '@robota-sdk/agent-core';
-import { WsTransport } from '@robota-sdk/agent-transport-ws';
+import { WsTransport } from '@robota-sdk/agent-transport/ws';
 
 
 /** One line of output (scripts write to the streams directly). */
@@ -150,11 +150,11 @@ async function daemonStart(restricted) {
 }
 
 /**
- * `trust status --json` / `trust --yes`, when the test gives the folder's trust a file to live in:
+ * `trust status --json`, when the test gives the folder's trust a file to live in:
  * `$PRODUCT_E2E_TRUST_FILE` for one shared file, or `$PRODUCT_E2E_TRUST_DIR` for one file per folder (the
  * folder the CLI is run in), as the real CLI's grants are.
  */
-function trust(command) {
+async function trust(command) {
   const trustDir = process.env.PRODUCT_E2E_TRUST_DIR;
   const trustFile = trustDir
     ? join(trustDir, createHash('sha256').update(process.cwd()).digest('hex'))
@@ -163,31 +163,49 @@ function trust(command) {
     process.stderr.write(line('scripted-sidecar: PRODUCT_E2E_TRUST_FILE or PRODUCT_E2E_TRUST_DIR required for trust'));
     process.exit(1);
   }
-  if (command === 'trust --yes') {
-    writeFileSync(trustFile, 'trusted');
-    process.stdout.write(line('Workspace trust: trusted'));
+  const pendingFile = `${trustFile}.pending`;
+  const cli = fileURLToPath(new URL('../../agent-cli/bin/agent.cjs', import.meta.url));
+  const realCli = (args) => {
+    const result = spawnSync(process.execPath, [cli, ...args], {
+      cwd: process.cwd(), env: process.env, encoding: 'utf8', timeout: 20_000,
+    });
+    if (result.status !== 0) throw new Error(`Real trust CLI failed: ${result.stderr || result.stdout}`);
+    return result.stdout.trim();
+  };
+  if (command.startsWith('trust release --candidate ')) {
+    realCli(command.split(' '));
+    rmSync(pendingFile, { force: true });
     process.exit(0);
   }
   // A slow trust read, so a test can act while the app is waiting on it.
   const delayMs = Number(process.env.PRODUCT_E2E_TRUST_STATUS_DELAY_MS ?? 0);
   if (delayMs > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
-  const trusted = existsSync(trustFile) && readFileSync(trustFile, 'utf8') === 'trusted';
-  const workspace = process.cwd();
+  const status = () => JSON.parse(realCli(['trust', 'status', '--json']));
+  let current = status();
+  if (current.state === 'trusted') {
+    if (existsSync(pendingFile)) {
+      writeFileSync(trustFile, 'trusted');
+      rmSync(pendingFile, { force: true });
+    } else if (!existsSync(trustFile)) {
+      realCli(['trust', 'revoke', '--yes']);
+      current = status();
+    }
+  }
+  if (current.askable === true && typeof current.candidate === 'string') {
+    writeFileSync(pendingFile, current.candidate);
+  }
   process.stdout.write(
     line(
       JSON.stringify(
-        trusted
+        current.state === 'trusted'
           ? {
-              state: 'trusted',
-              workspace,
+              ...current,
               askable: false,
               loads: [],
               providerEnvRefs: ['CUSTOM_PROVIDER_KEY', 'PROVIDER_DESTINATION_URL', 'HTTPS_PROXY'],
             }
           : {
-              state: 'untrusted',
-              workspace,
-              askable: true,
+              ...current,
               loads: ['  [file] AGENTS.md — Agent instructions'],
             },
       ),
@@ -200,11 +218,11 @@ const argv = process.argv.slice(2);
 const command = argv.join(' ');
 if (command === 'daemon start --json') await daemonStart(false);
 if (command === 'daemon start --json --restricted-workspace') await daemonStart(true);
-if (command === 'trust status --json' || command === 'trust --yes') trust(command);
+if (command === 'trust status --json' || command.startsWith('trust release --candidate ')) await trust(command);
 
 const token = process.env.PRODUCT_WS_TOKEN;
 const port = Number.parseInt(process.env.PRODUCT_WS_PORT ?? '0', 10);
-// #3282 §4d: the composer resolves a picked/dropped file's path against `getStatusSnapshot().workspace.path`.
+// The composer resolves a picked/dropped file's path against `getStatusSnapshot().workspace.path`.
 // A real absolute directory only when a test needs a real on-disk file to attach; the placeholder
 // otherwise, matching the fake `cwd` the session-directory listing already uses below.
 const workspaceCwd = process.env.PRODUCT_E2E_WORKSPACE_CWD ?? '/scripted/workspace';
@@ -235,13 +253,13 @@ const storedSessions = [
     messages: [{ role: 'user', content: 'Set up the release checklist' }],
   },
   // The personal-usage report itself is content-free; the dashboard names this session from this
-  // workspace's own local directory listing (its `name`), never from the report (#3289 §4).
+  // workspace's own local directory listing (its `name`), never from the report.
   { id: 'usage-e2e-session', name: 'Usage e2e session', updatedAt: minutesAgo(2), messages: [] },
 ];
 const unreadableSessionIds = ['damaged-session'];
 
 /**
- * #3288 §1: the Agents panel's two fixture entries, appearing only once "show background work" is
+ * The Agents panel's two fixture entries, appearing only once "show background work" is
  * sent (so every other scenario's session starts, and stays, with none — never interfering with an
  * unrelated selector elsewhere in this file, e.g. the composer's own "Stop" button). One is an
  * ordinary background task; the other is a `/loop`-managed entry (carries `loopId`), so the e2e can
@@ -267,6 +285,12 @@ function backgroundTaskEntry() {
     state: 'working',
   };
 }
+function forkEntry() {
+  return {
+    ...backgroundTaskEntry(), id: 'task:e2e-fork', sourceId: 'e2e-fork',
+    title: 'Followed fork', resumeSessionId: 'fork-session', controls: ['select', 'cancel', 'attach', 'send'],
+  };
+}
 function loopEntry() {
   return {
     id: 'task:loop-e2e-1',
@@ -287,15 +311,17 @@ function loopEntry() {
     loopId: 'loop-e2e-1',
   };
 }
+const forkLiveRecord = () => ({ id: 'f1', kind: 'message', text: ['Fork live output', ...Array.from({ length: 80 }, (_, index) => `Live line ${index + 1}`)].join('\n') });
 const executionDetailRecords = {
   'task:e2e-task-1': [
     { id: 'r1', kind: 'message', text: 'Reviewing packages/auth/login.ts' },
     { id: 'r2', kind: 'tool_activity', text: 'Read login.ts' },
   ],
+  'task:e2e-fork': [forkLiveRecord()],
   'task:loop-e2e-1': [{ id: 'l1', kind: 'message', text: 'check the deploy' }],
 };
 
-/** #3282 §2 (part 2): the two models the status row's model control switches between. */
+/** The two models the status row's model control switches between. */
 const SCRIPTED_MODELS = [
   { id: 'scripted-model', label: 'Scripted Model' },
   { id: 'scripted-model-2', label: 'Scripted Model 2' },
@@ -318,7 +344,7 @@ function appViewHtml() {
 }
 
 /** A scripted IInteractiveSession: EventEmitter for on/off/emit, deterministic submit + permission. */
-// #3282 §4 part b-3: the agent switcher's roster — name, one-line description, plain-words location.
+// The agent switcher's roster — name, one-line description, plain-words location.
 const scriptedAgentDefinitions = [
   { name: 'general-purpose', description: 'General-purpose task execution agent.', definedIn: 'Built-in' },
   { name: 'Explore', description: 'Read-only codebase exploration agent.', definedIn: 'Built-in' },
@@ -330,7 +356,7 @@ class ScriptedSession extends EventEmitter {
   #appPermissionCount = 0;
   #pendingAsk = null;
   #mode = 'default';
-  // #3282 §2 (part 2): the model the status row's model control switches between.
+  // The model the status row's model control switches between.
   #model = 'scripted-model';
   #current = storedSessions[0];
   #busy = false;
@@ -338,9 +364,9 @@ class ScriptedSession extends EventEmitter {
   #pendingSetupAsk = null;
   #resolveSetupCommand = null;
   #executionWorkspaceEntries = [];
-  // #3282 §4 part b-3: the agent switcher's current selection — `/agent <name>` (bare) sets it.
+  // The agent switcher's current selection — `/agent <name>` (bare) sets it.
   #defaultAgentType = 'general-purpose';
-  // #3282 §4 part b-3: the Agents panel's Scheduled group — one recurring schedule, cancellable.
+  // The Agents panel's Scheduled group — one recurring schedule, cancellable.
   #schedules = [
     {
       id: 'sched_1',
@@ -357,7 +383,7 @@ class ScriptedSession extends EventEmitter {
       schedule: { cronExpression: '0 9 * * 1-5', agentInstruction: 'check the nightly build' },
     },
   ];
-  // #3282 §4 part b-3: the current goal (`/goal`) — null until a scripted turn sets one (a submit
+  // The current goal (`/goal`) — null until a scripted turn sets one (a submit
   // containing "set a goal"), so every OTHER e2e scenario sees exactly what it saw before this
   // feature — no goal bar/row unless the scenario asks for one. Cancel goal runs `/goal cancel`.
   #goal = null;
@@ -376,7 +402,7 @@ class ScriptedSession extends EventEmitter {
   }
   #record(role, content) {
     this.#current.messages.push({ role, content });
-    // #3288 §2: `display` mirrors what the REAL server's `getMessagesDisplay()` projects from stored
+    // `display` mirrors what the REAL server's `getMessagesDisplay()` projects from stored
     // history — a text segment per role-run, plus one 'tool' segment per finished call (recorded by
     // `#recordToolEnd`, below, at the same point a real `tool_end` would be persisted). Kept beside
     // `messages`, never derived from it — `messages` alone cannot tell a Read from an Edit.
@@ -396,7 +422,7 @@ class ScriptedSession extends EventEmitter {
   getMessages() {
     return this.#current.messages.map((message) => ({ ...message }));
   }
-  /** #3288 §2: a reload/reconnect replay renders THIS — the same projection the real server sends. */
+  /** A reload/reconnect replay renders THIS — the same projection the real server sends. */
   getMessagesDisplay() {
     if (this.#current.display) {
       return this.#current.display.map((segment) =>
@@ -423,7 +449,10 @@ class ScriptedSession extends EventEmitter {
       snapshot: this.getExecutionWorkspaceSnapshot(),
     });
   }
-  readExecutionWorkspaceDetail(entryId) {
+  readExecutionWorkspaceDetail(entryId, cursor) {
+    if (entryId === 'task:e2e-fork' && cursor !== undefined) {
+      return Promise.resolve({ entryId, cursor, records: [{ id: 'history', kind: 'message', text: 'Earlier fork output' }] });
+    }
     const records = executionDetailRecords[entryId];
     if (!records) return Promise.reject(new Error(`Unknown execution entry: ${entryId}`));
     return Promise.resolve({ entryId, records });
@@ -472,7 +501,7 @@ class ScriptedSession extends EventEmitter {
       parts: [{ type: 'text', text: `echo: ${parameters.text}` }],
     };
   }
-  // #3280 §2: the QUEUED-MESSAGE the host has taken but not yet run (a submit behind a running turn)
+  // The QUEUED-MESSAGE the host has taken but not yet run (a submit behind a running turn)
   // — unrelated to a pending PERMISSION prompt (`#pendingPermission`, above). This fixture never queues
   // a second submit behind a running one, so there is never a next prompt to report.
   getPendingPrompt() {
@@ -489,7 +518,7 @@ class ScriptedSession extends EventEmitter {
   }
 
   async submit(input) {
-    // #3282 §3: a backstop, unreachable through the GUI itself — the composer is hidden while setup is
+    // A backstop, unreachable through the GUI itself — the composer is hidden while setup is
     // required, exactly like the real InteractiveSession.submit() guard this mirrors.
     if (this.#setupRequired) {
       throw new Error('Connect a model provider to start.');
@@ -501,10 +530,11 @@ class ScriptedSession extends EventEmitter {
     this.emit('user_message', input);
     this.#record('user', String(input));
     const lower = String(input).toLowerCase();
-    // #3288 §1: populate the Agents panel's two fixture entries (a background task and a loop) —
+    // Populate the Agents panel's two fixture entries (a background task and a loop) —
     // only on this explicit trigger, so every other scenario's session keeps none, ever.
     if (lower.includes('show background work')) {
-      this.#executionWorkspaceEntries = [backgroundTaskEntry(), loopEntry()];
+      this.#executionWorkspaceEntries = [backgroundTaskEntry(), loopEntry(), forkEntry()];
+      executionDetailRecords['task:e2e-fork'] = [forkLiveRecord()];
       this.#emitExecutionWorkspaceUpdated();
       await tick();
       this.emit('thinking', true);
@@ -566,7 +596,7 @@ class ScriptedSession extends EventEmitter {
       return;
     }
     if (lower.includes('set a goal')) {
-      // #3282 §4 part b-3: puts an active goal in `getStatusSnapshot()` — the GUI's own `get-status`
+      // Puts an active goal in `getStatusSnapshot()` — the GUI's own `get-status`
       // refresh after this turn completes is what the Agents panel's Goal row picks it up from.
       this.#goal = {
         id: 'goal_1',
@@ -596,7 +626,7 @@ class ScriptedSession extends EventEmitter {
       return;
     }
     if (String(input).toLowerCase().includes('duplicate')) {
-      // A free-text ask (#3280 §3), mirroring `/provider` → a profile → Duplicate.
+      // A free-text ask, mirroring `/provider` → a profile → Duplicate.
       this.#pendingAsk = 'ask-1';
       await tick();
       this.emit('ask_request', {
@@ -611,7 +641,7 @@ class ScriptedSession extends EventEmitter {
       return;
     }
     if (lower.includes('long reply')) {
-      // #3289 §2 — many chunks over real time, long enough to scroll several screens: the e2e wheel-
+      // Many chunks over real time, long enough to scroll several screens: the e2e wheel-
       // scrolls up mid-stream and checks the view stays put, then uses "Jump to latest". Kept short
       // per paragraph and to a bounded count on purpose: `AgentMarkdown` re-parses every settled
       // message on each later render, so a needlessly large one here would slow down every scenario
@@ -632,7 +662,7 @@ class ScriptedSession extends EventEmitter {
       return;
     }
     if (lower.includes('show code')) {
-      // #3289 §2 — a fenced code block, for the copy-code e2e.
+      // A fenced code block, for the copy-code e2e.
       await tick();
       this.emit('thinking', true);
       const code = ['function greet(name) {', "  return `Hello, ${name}!`;", '}'].join('\n');
@@ -655,7 +685,7 @@ class ScriptedSession extends EventEmitter {
       this.#complete('Read the file.');
       return;
     }
-    // #3288: an Edit call carries a server-built diff, and a Shell call carries its output + exit
+    // An Edit call carries a server-built diff, and a Shell call carries its output + exit
     // status — the e2e drives both through to the GUI's expandable tool rows.
     if (String(input).toLowerCase().includes('edit')) {
       await tick();
@@ -683,7 +713,7 @@ class ScriptedSession extends EventEmitter {
         ],
       };
       this.emit('tool_end', editEnd);
-      // #3288 §2: the LIVE `tool_end` never repeats `displayPath` (see the `tool_start` comment
+      // The LIVE `tool_end` never repeats `displayPath` (see the `tool_start` comment
       // above — real servers set it only once, at start), but a REPLAYED row has no earlier
       // `tool_start` frame to have kept it from — the real projector (`interactive-session-history-
       // projection.ts`) recomputes it fresh from the call's own `file_path` argument and the
@@ -724,7 +754,7 @@ class ScriptedSession extends EventEmitter {
       return;
     }
     if (String(input).toLowerCase().includes('fail')) {
-      // #3289 §3: a real provider failure (an AuthenticationError, same as the built-in providers
+      // A real provider failure (an AuthenticationError, same as the built-in providers
       // now throw), not a bare Error — the GUI is expected to say what happened in plain words.
       await tick();
       this.emit('thinking', true);
@@ -735,7 +765,7 @@ class ScriptedSession extends EventEmitter {
     }
     await tick();
     this.emit('thinking', true);
-    // #3282 §2 (part 2): names the model that answered, so an e2e that switches models via the
+    // Names the model that answered, so an e2e that switches models via the
     // status row's model control can confirm the NEXT reply actually used the new one.
     const reply = `Hello from the scripted agent. (model: ${this.#model})`;
     this.emit('text_delta', reply);
@@ -766,7 +796,7 @@ class ScriptedSession extends EventEmitter {
 
   resolveAsk(id, response) {
     if (id === this.#pendingSetupAsk) {
-      // #3282 §3: the setup wizard's one question, answered — a real provider profile now "exists",
+      // The setup wizard's one question, answered — a real provider profile now "exists",
       // so the panel's job is done and the composer is the way in again.
       this.#pendingSetupAsk = null;
       this.#setupRequired = false;
@@ -790,7 +820,7 @@ class ScriptedSession extends EventEmitter {
   }
   executeCommand(name, args = '') {
     if (name === 'provider' && args.trim() === 'add') {
-      // #3282 §3: mirrors the real `/provider add` wizard closely enough for the e2e — it asks (at
+      // Mirrors the real `/provider add` wizard closely enough for the e2e — it asks (at
       // least) one question through the same ask channel any other command uses, and does not
       // resolve until it is answered, exactly like the real setup flow's own blocking prompt.
       return new Promise((resolve) => {
@@ -810,7 +840,7 @@ class ScriptedSession extends EventEmitter {
       });
     }
     if (name === 'context') {
-      // #3282 §4e: `/help` is now the GUI's own Help sheet and never reaches this scripted sidecar —
+      // `/help` is now the GUI's own Help sheet and never reaches this scripted sidecar —
       // `/context` stands in for it here, purely to exercise the folded-long-output card.
       const lines = Array.from({ length: 30 }, (_, i) => `Command ${i + 1} (/c${i + 1}) — does thing ${i + 1}`);
       return Promise.resolve({ message: ['Available commands:', ...lines].join('\n'), success: true });
@@ -819,7 +849,7 @@ class ScriptedSession extends EventEmitter {
       this.#mode = 'acceptEdits';
       return Promise.resolve({ message: 'Permission mode: acceptEdits', success: true });
     }
-    // #3282 §2 (part 2): the model control sends `/model <id>` directly (no picker round trip) —
+    // The model control sends `/model <id>` directly (no picker round trip) —
     // mirrors the real command's shape closely enough for the e2e to switch models and check the
     // next reply used the new one.
     if (name === 'model') {
@@ -842,14 +872,14 @@ class ScriptedSession extends EventEmitter {
       this.emit('ui_intent', { intent: { type: 'show-settings' } });
       return Promise.resolve({ message: 'Opening settings...', success: true });
     }
-    // #3288 §1: `/loop stop <id>` — a loop always stops this way, never cancel-background-task
+    // `/loop stop <id>` — a loop always stops this way, never cancel-background-task
     // (its own disposable wake timer, when it has one, is not the loop itself).
     if (name === 'loop') {
       const stopMatch = /^stop\s+(\S+)$/.exec(args);
       if (stopMatch) {
         const loopId = stopMatch[1];
         const before = this.#executionWorkspaceEntries.length;
-        // A stopped loop does not linger — it leaves the list on the next snapshot (#3288 §1).
+        // A stopped loop does not linger — it leaves the list on the next snapshot.
         this.#executionWorkspaceEntries = this.#executionWorkspaceEntries.filter(
           (entry) => entry.loopId !== loopId,
         );
@@ -864,7 +894,7 @@ class ScriptedSession extends EventEmitter {
       }
     }
     if (name === 'rename') {
-      // #3289 §1: renaming the CURRENT session goes through this command (not the directory's
+      // Renaming the CURRENT session goes through this command (not the directory's
       // `renameSession`) so the live session's own name and the sidebar row update together, exactly
       // as the real `InteractiveSession` does (`setName` + a `session_renamed` broadcast).
       const newName = args.trim();
@@ -873,7 +903,7 @@ class ScriptedSession extends EventEmitter {
       this.emit('session_renamed', { name: newName });
       return Promise.resolve({ message: `Session renamed to "${newName}".`, success: true });
     }
-    // #3282 §4 part b-2: `/plugin` opens the Settings screen's Plugins section.
+    // `/plugin` opens the Settings screen's Plugins section.
     if (name === 'plugin') {
       this.emit('ui_intent', { intent: { type: 'show-plugin-manager' } });
       return Promise.resolve({ message: 'Opening plugin manager...', success: true });
@@ -884,7 +914,7 @@ class ScriptedSession extends EventEmitter {
         this.emit('ui_intent', { intent: { type: 'show-agent-switcher' } });
         return Promise.resolve({ message: '', success: true });
       }
-      // #3282 §4 part b-3: a bare known name selects the default — the same path choosing a row in
+      // A bare known name selects the default — the same path choosing a row in
       // the switcher sheet runs.
       if (scriptedAgentDefinitions.some((agent) => agent.name === trimmed)) {
         this.#defaultAgentType = trimmed;
@@ -924,7 +954,7 @@ class ScriptedSession extends EventEmitter {
     }
     return Promise.resolve({ message: 'ok', success: true });
   }
-  // #3282 §4 part b-3: the agent switcher's roster, with `definedIn` (a discovered file's path, or
+  // The agent switcher's roster, with `definedIn` (a discovered file's path, or
   // "Built-in") — a plain-words location a person picking an agent can read.
   listAgentDefinitions() {
     return scriptedAgentDefinitions.map((agent) => ({ ...agent }));
@@ -932,7 +962,7 @@ class ScriptedSession extends EventEmitter {
   getDefaultAgentType() {
     return this.#defaultAgentType;
   }
-  // #3282 §4 part b-3: the Agents panel's Scheduled group reads through the SAME generic
+  // The Agents panel's Scheduled group reads through the SAME generic
   // `get-background-tasks` path a real host answers, filtered to `kind: 'scheduled'`.
   listBackgroundTasks(filter) {
     if (filter?.kind && filter.kind !== 'scheduled') return [];
@@ -942,10 +972,15 @@ class ScriptedSession extends EventEmitter {
     const found = this.#schedules.find((task) => task.id === taskId);
     return found ? { ...found } : undefined;
   }
-  // #3288 §1: a task's own Stop — never a loop's (that always goes through /loop stop <id> above,
+  // A task's own Stop — never a loop's (that always goes through /loop stop <id> above,
   // even for a loop's own disposable wake timer, which this fixture never separately models).
-  // #3282 §4 part b-3: also the Agents panel's schedule Delete — a schedule IS a background task,
+  // Also the Agents panel's schedule Delete — a schedule IS a background task,
   // and cancelling one is permanent, exactly like the real `BackgroundTaskManager.cancel()`.
+  async sendBackgroundTask(taskId, input) {
+    if (taskId !== 'e2e-fork') throw new Error(`Unknown background task: ${taskId}`);
+    executionDetailRecords['task:e2e-fork'].push({ id: `f${executionDetailRecords['task:e2e-fork'].length + 1}`, kind: 'message', text: `Fork received: ${input.prompt}` });
+    this.#emitExecutionWorkspaceUpdated();
+  }
   async cancelBackgroundTask(taskId) {
     const entry = this.#executionWorkspaceEntries.find((candidate) => candidate.sourceId === taskId);
     if (entry) {
@@ -972,7 +1007,7 @@ class ScriptedSession extends EventEmitter {
       { name: 'resume', description: 'Resume another session', modelInvocable: false, runner: 'runtime' },
       { name: 'context', description: 'Show context window usage', modelInvocable: false, runner: 'runtime' },
       { name: 'theme', description: 'Change the terminal colour theme', modelInvocable: false, runner: 'client', surfaces: ['terminal'] },
-      // #3282 §4e: a command the terminal runs itself — the GUI's `/` menu leaves it out entirely
+      // A command the terminal runs itself — the GUI's `/` menu leaves it out entirely
       // now (it used to show with a "terminal" badge; that badge is gone).
       {
         name: 'shell',
@@ -988,7 +1023,7 @@ class ScriptedSession extends EventEmitter {
       { name: 'parity-demo', description: 'Replies with a fixed phrase', source: 'project', modelInvocable: true, userInvocable: true },
     ];
   }
-  // #3282 §2 (part 2): backs `list-models` -> `model_list`, the model control's pop-up menu.
+  // Backs `list-models` -> `model_list`, the model control's pop-up menu.
   listModels() {
     return {
       groups: [{ profileName: 'scripted', providerLabel: 'Scripted', models: SCRIPTED_MODELS }],
@@ -1006,13 +1041,14 @@ class ScriptedSession extends EventEmitter {
       goal: this.#goal,
       // Absent (never `false`) once set up, exactly like the real ISessionStatusSnapshot field.
       ...(this.#setupRequired ? { setupRequired: true } : {}),
-      // #3289 §1: the folder the title bar and document.title show; #3282 §4d resolves attached
-      // files' paths against it, so it defaults to the same '/scripted/workspace' but can be pointed
+      // The folder the title bar and document.title show; attached files'
+      // paths resolve against it, so it defaults to the same '/scripted/workspace' but can be
+      // pointed
       // at a real temp directory via PRODUCT_E2E_WORKSPACE_CWD.
       workspace: { name: basename(workspaceCwd), path: workspaceCwd },
     };
   }
-  // #3280 §2: Stop (button or Esc) sends `abort` — end a "stay busy" turn the same way a real one
+  // Stop (button or Esc) sends `abort` — end a "stay busy" turn the same way a real one
   // interrupts: the partial reply already streamed (`text_delta`) stays, as `interrupted` keeps it.
   abort() {
     if (!this.#busy) return;
@@ -1023,7 +1059,7 @@ class ScriptedSession extends EventEmitter {
   }
   cancelQueue() {}
 
-  // #3282 §4c: the Project panel — one modified file's status, its diff on request, and project
+  // The Project panel — one modified file's status, its diff on request, and project
   // memory (unavailable in this fixture, the common case: off by default).
   readProjectStatus() {
     return Promise.resolve({
@@ -1060,7 +1096,7 @@ const session = new ScriptedSession();
 
 /**
  * A refusal the transport recognises, so it answers `session_change_failed` with this code (the shape
- * `isSessionChangeRefusal` in agent-interface-session checks).
+ * `isSessionChangeRefusal` in agent-interface/session checks).
  */
 const refusal = (code, message) => Object.assign(new Error(message), { name: 'SessionChangeRefusal', code });
 
@@ -1081,7 +1117,7 @@ const sessionDirectory = {
         .map(({ id, name, updatedAt, messages }) => {
           // The e2e page is the one client on the current session.
           const clients = id === session.currentId ? 1 : (liveElsewhere.get(id) ?? 0);
-          // #3289 §1: a stable title from the first user message — `preview` (the last reply) stays
+          // A stable title from the first user message — `preview` (the last reply) stays
           // beside it unchanged, for a consumer that still wants that.
           const firstUser = messages.find((message) => message.role === 'user');
           return {
@@ -1112,14 +1148,14 @@ const sessionDirectory = {
     storedSessions.push(stored);
     session.becomeSession(stored);
   },
-  // #3289 §1: rename any stored session — current or not — by writing its record directly, as the
+  // Rename any stored session — current or not — by writing its record directly, as the
   // real directory does for a row that is not the one this client is on.
   async renameSession(sessionId, name) {
     const stored = storedSessions.find((candidate) => candidate.id === sessionId);
     if (!stored) throw new Error(`No session ${sessionId} in this workspace.`);
     stored.name = name;
   },
-  // #3289 §1: delete a stored session; deleting the current one switches away first, exactly like
+  // Delete a stored session; deleting the current one switches away first, exactly like
   // the real directory.
   async deleteSession(sessionId) {
     const index = storedSessions.findIndex((candidate) => candidate.id === sessionId);
@@ -1149,7 +1185,7 @@ const sessionDirectory = {
   },
 };
 /**
- * #3282 §4a: an in-memory settings document the Settings screen reads and writes, the same way
+ * An in-memory settings document the Settings screen reads and writes, the same way
  * `storedSessions` gives the session-directory scenarios durable, in-process state a test can
  * observe across a close-then-reopen. `scope: 'user'` matches the one writable store the real CLI
  * wires for the demo settings this fixture models.
@@ -1171,7 +1207,7 @@ const PERMISSION_MODE_CHOICES = [
 let permissionRules = [
   { scope: 'user', source: '~/.test-product/settings.json', kind: 'allow', pattern: 'Bash(git status:*)' },
 ];
-/** #3282 §4 part b-2: the MCP Servers and Plugins sections' in-memory, scripted state. */
+/** The MCP Servers and Plugins sections' in-memory, scripted state. */
 let scriptedMcpServers = [
   {
     id: 'docs',
@@ -1186,7 +1222,7 @@ let scriptedPlugins = [
   { id: 'formatter@example', name: 'formatter@example', description: 'Formats code on save.', enabled: true },
 ];
 
-// #3282 §4b: backs the "Providers & Models" Settings section — one profile ('scripted'), its model
+// Backs the "Providers & Models" Settings section — one profile ('scripted'), its model
 // read from the SAME `listModels()` the model control's pop-up menu uses, so the two never disagree.
 function buildSettingsSnapshot(session) {
   const modelList = session.listModels();
@@ -1306,7 +1342,7 @@ const settingsReporter = {
       case 'uninstallPlugin':
         scriptedPlugins = scriptedPlugins.filter((p) => p.id !== patch.pluginId);
         break;
-      // #3282 §4b: "Use" — this fixture has one profile, so switching to it always succeeds and to
+      // "Use" — this fixture has one profile, so switching to it always succeeds and to
       // anything else fails, matching the real refusal message for an unknown profile.
       case 'providerProfile': {
         if (patch.profileName !== 'scripted') {
@@ -1318,7 +1354,7 @@ const settingsReporter = {
         }
         break;
       }
-      // #3282 §4b: "Model" — switches to `profileName` first (this fixture's one profile, so that
+      // "Model" — switches to `profileName` first (this fixture's one profile, so that
       // always succeeds), then runs the SAME path `/model <id>` runs (`executeCommand('model', …)`),
       // matching the real reporter's two-step and so the Settings screen and the status row's model
       // control can never drift apart in this fixture either.
@@ -1334,7 +1370,7 @@ const settingsReporter = {
         if (!result.success) return { ok: false, code: 'invalid', message: result.message };
         break;
       }
-      // #3282 §4b: "Delete" — this fixture's one profile is always the only one, so it is always
+      // "Delete" — this fixture's one profile is always the only one, so it is always
       // refused, matching the real "only provider profile" refusal.
       case 'deleteProviderProfile':
         return { ok: false, code: 'refused', message: 'Cannot delete the only provider profile.' };
@@ -1443,7 +1479,7 @@ const transport = new WsTransport({
       byActivity: [{ key: 'tool:Read', label: 'Read', kind: 'tool', count: 2 }],
       sessionIds: ['usage-e2e-session'],
       // The report carries no name for this session — the dashboard reads "Usage e2e session" from
-      // this workspace's own local session-directory listing above, never from the report (#3289 §4).
+      // this workspace's own local session-directory listing above, never from the report.
       coverage: {
         validSessions: 1,
         corruptSessions: 0,

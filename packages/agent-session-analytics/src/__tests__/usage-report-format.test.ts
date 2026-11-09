@@ -1,5 +1,5 @@
 /**
- * SELFHOST-004 P5 (TC-05): the trace/cost view — headless CLI path. `formatUsageReport` renders the
+ * The trace/cost view — headless CLI path. `formatUsageReport` renders the
  * assembled read-model (cost-by-source + the per-operation span timeline) as text the TUI/GUI and the
  * `session analyze` command surface. This asserts the view actually shows cost AND the grouped trace.
  */
@@ -10,7 +10,7 @@ import { formatUsageReport } from '../report.js';
 import { summarizeUsageBySource } from '../usage.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { ISpanEntry, IUsageSnapshot } from '@robota-sdk/agent-interface-analytics';
+import type { ISpanEntry, IUsageSnapshot } from '@robota-sdk/agent-interface/analytics';
 
 let seq = 0;
 function usageEntry(total: number, costUsd?: number): IHistoryEntry<IUsageSnapshot> {
@@ -45,7 +45,7 @@ function spanEntry(op: string, durationMs: number): IHistoryEntry<ISpanEntry> {
   };
 }
 
-describe('SELFHOST-004 TC-05 — formatUsageReport renders cost + trace timeline', () => {
+describe('formatUsageReport renders cost + trace timeline', () => {
   it('shows the session cost and per-source cost', () => {
     const report = summarizeUsageBySource({
       id: 'sess-view',

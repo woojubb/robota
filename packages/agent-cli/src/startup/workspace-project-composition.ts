@@ -15,9 +15,9 @@ import {
 import {
   createNodeHostContributionSource,
   createNodeHostSettingsStore,
-  createNodeWorkspaceTrustService,
   supportsWorkspaceProjectMutation,
 } from '@robota-sdk/agent-framework/node';
+import { BrokeredWorkspaceTrustService } from './brokered-workspace-trust.js';
 
 import type {
   IEditCheckpointStore,
@@ -29,7 +29,7 @@ import type {
   TSettingsSource,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import {
@@ -85,12 +85,12 @@ export type TCliWorkspaceCompositionOverrides = Partial<
 >;
 
 /**
- * A run that must start Restricted: set by `/cd` into a Restricted folder (issue #3081), and for a
- * background session a person chose to start Restricted from the session view (issue #3268).
+ * A run that must start Restricted: set by `/cd` into a Restricted folder, and for a
+ * background session a person chose to start Restricted from the session view.
  */
 export const RESTRICTED_WORKSPACE_FLAG = '--restricted-workspace';
 
-/** Starts with every customization off, to rule one out (issue #3082). */
+/** Starts with every customization off, to rule one out. */
 export const SAFE_MODE_FLAG = '--safe-mode';
 
 export const SAFE_MODE_NOTICE =
@@ -100,7 +100,7 @@ export const SAFE_MODE_NOTICE =
 
 /**
  * The startup access decision. A `/cd` from a Restricted session never widens access, whatever the
- * target's own trust decision (issue #3081) — read from argv because access is decided before the
+ * target's own trust decision — read from argv because access is decided before the
  * arguments are parsed.
  */
 export async function resolveStartupWorkspaceProjectAccess(
@@ -113,6 +113,11 @@ export async function resolveStartupWorkspaceProjectAccess(
     readonly safeMode?: boolean;
   } = {},
 ): Promise<TWorkspaceProjectAccess> {
+  // Information-only invocations never need a durable broker or project admission.
+  if (argv.length === 3 &&
+      (argv[2] === '--help' || argv[2] === '-h' || argv[2] === '--version')) {
+    return createRestrictedWorkspaceProjectAccess('untrusted', cwd);
+  }
   // Safe mode loads nothing from the project, so it starts Restricted whatever the trust store says.
   const flags = optionArgv(argv);
   if (
@@ -134,10 +139,13 @@ export async function resolveInitialCliWorkspaceProjectAccess(
   const runtime = options.productRuntime;
   if (runtime === undefined)
     throw new Error('Workspace admission requires an explicit CLI runtime context.');
-  return createNodeWorkspaceTrustService(
-    runtime.layout.userPaths.workspaceTrust,
-    runtime.layout.projectStateDirectories,
-  ).inspect(cwd);
+  try {
+    return await (await BrokeredWorkspaceTrustService.create(runtime)).inspect(cwd);
+  } catch (error) {
+    return createRestrictedWorkspaceProjectAccess(
+      'store-unavailable', cwd, error instanceof Error ? error : new Error(String(error)),
+    );
+  }
 }
 
 function createTrustedCliWorkspaceComposition(
@@ -247,13 +255,39 @@ export function createInitialCliWorkspaceComposition(
   });
 }
 
+/** Read settings for a supervisor before a secure runtime has unlocked its session store. */
+export function createInitialCliWorkspaceSettingsSources(
+  cwd: string,
+  runtime: ICliRuntimeContext,
+  projectAccess: TWorkspaceProjectAccess,
+): readonly TSettingsSource[] {
+  const user = createProductUserSettingsSources(runtime);
+  if (projectAccess.status !== 'trusted') return user;
+  const authority = projectAccess.authority;
+  const trustedRoot = getWorkspaceProjectIdentity(authority).worktreeRoot;
+  const remainder = relative(trustedRoot, realpathSync(cwd));
+  if (remainder === '..' || remainder.startsWith(`..${sep}`) || isAbsolute(remainder)) {
+    throw new WorkspaceAuthorityRequiredError('Trusted project access does not cover the requested working directory.');
+  }
+  for (const namespace of ['sessions', 'session-logs', 'memory', 'checkpoints'] as const) {
+    if (getWorkspaceProjectStateStorage(authority, namespace).rootRelativePath !== runtime.layout.projectStateDirectories[namespace]) {
+      throw new WorkspaceAuthorityRequiredError('Trusted project state directories do not match this CLI product.');
+    }
+  }
+  return [
+    ...user,
+    ...createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(authority), runtime.layout.projectSettingsPaths),
+  ];
+}
+
 export function createCliWorkspaceComposition(
   options: ICreateCliWorkspaceCompositionOptions,
 ): ICliWorkspaceComposition {
   const projectAccess =
     options.projectAccess ??
     createRestrictedWorkspaceProjectAccess('identity-unavailable', options.cwd);
-  // Contained — ARCH-048. Reject cross-root pairs until one canonical project-root contract replaces both carriers.
+  // Contained. Reject cross-root pairs until one canonical project-root contract replaces both
+  // carriers.
   if (projectAccess.status === 'trusted') {
     const trustedRoot = getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot;
     let resolvedCwd: string;

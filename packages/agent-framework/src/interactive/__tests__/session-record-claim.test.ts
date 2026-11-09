@@ -1,6 +1,6 @@
 /**
  * Where a running session claims its record in a store that seals, and what the claim's read lets it
- * restore (#3679 step 3e).
+ * restore.
  *
  * Sealing needs only the public key, so any program of the same user can seal a record that opens.
  * The claim's own read is therefore the read a session restores from, and it is gated there: the
@@ -13,8 +13,12 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
 import { readCurrentProcessIdentity, readProcessStartTime } from '@robota-sdk/agent-core/node';
-import { createTestArtifactSealer, leaveProcessMarker } from '@robota-sdk/agent-core/testing';
-import { isSessionClaimedError } from '@robota-sdk/agent-session';
+import {
+  createScriptedProvider,
+  createTestArtifactSealer,
+  leaveProcessMarker,
+} from '@robota-sdk/agent-core/testing';
+import { isSessionClaimedError, Session } from '@robota-sdk/agent-session';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -49,7 +53,7 @@ import type {
   ISessionClaimOptions,
   ISessionLoadOptions,
   ISessionSaveOptions,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 const testHost = createTestFrameworkHost();
 
@@ -223,9 +227,23 @@ describe('where a session claims its record', () => {
     expect(claimable(store, built.sessionId)).toBe(false);
 
     // A headless host that builds its own Session and injects it.
-    const inner = (
-      await started(sessionOptions(cwd, new NodeSessionStore(directory(), { sealing: 'plain' })))
-    ).getSession();
+    const inner = new Session({
+      cwd,
+      sessionId: 'sess_injected',
+      provider: createScriptedProvider([]).provider,
+      systemMessage: 'Fixture',
+      tools: [],
+      hookTypeExecutors: [],
+      terminal: {
+        write: () => undefined,
+        writeLine: () => undefined,
+        writeMarkdown: () => undefined,
+        writeError: () => undefined,
+        prompt: async () => '',
+        select: async () => 0,
+        spinner: () => ({ stop: () => undefined, update: () => undefined }),
+      },
+    });
     const injected = construct({
       host: testHost,
       session: inner,

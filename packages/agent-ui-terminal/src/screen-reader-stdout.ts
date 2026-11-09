@@ -1,12 +1,12 @@
 /**
- * SCREEN-2670 — the pre-write park: an owned write path between Ink and the terminal.
+ * The pre-write park: an owned write path between Ink and the terminal.
  *
  * A diff-based screen reader computes what to speak from successive terminal snapshots. In
  * screen-reader mode Ink runs UNTHROTTLED (`ink.js:193`), so commits land back to back and a reader
  * that samples between two of them sees a torn or already-overwritten region. The park separates
  * commits IN TIME so a snapshot can fall between them. It does not move the cursor: every frame Ink
  * writes already begins with `eraseLines`, which ends in `cursorLeft`, so column zero is where the
- * frame starts anyway (CLI-062 invariant I3 — no cursor sequence is written here).
+ * frame starts anyway (no cursor sequence is written here).
  *
  * THE UNIT IS A COMMIT, NOT A CHUNK. One commit in the mode is up to four `write()` calls in one
  * synchronous run (`ink.js:371-412`): synchronized-output begin, `erase + staticOutput`, the frame,

@@ -11,7 +11,7 @@ import {
   createSystemMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';
 
 import {
   isAbortError,
@@ -40,16 +40,16 @@ import type {
   IToolPermissionDecisionObservation,
   TRawProviderCallTraceObservation,
 } from './interactive-session-execution.js';
-import type { IPeerTurnContext, TTurnSource } from '@robota-sdk/agent-interface-session';
+import type { IPeerTurnContext, TTurnSource } from '@robota-sdk/agent-interface/session';
 
 /**
- * The per-turn optional inputs to a prompt turn: the ephemeral recall block (SELFHOST-008 P3) and
- * the `driverId` the turn is attributed to for DISPLAY (PEER-007, issue #1915).
+ * The per-turn optional inputs to a prompt turn: the ephemeral recall block and
+ * the `driverId` the turn is attributed to for DISPLAY.
  *
  * The OWNER is elided rather than stamped on every message: every surface already reads an
  * unattributed message as the operator's, so carrying the constant would mark each stored message and
  * change the `run()` call shape for the dominant path to say nothing new. Display only — a driver id
- * is never an authorization input (issue #1809).
+ * is never an authorization input.
  */
 export function promptTurnAttribution(
   ephemeralSystemContext?: string,
@@ -67,12 +67,12 @@ export interface IPromptTurnContext {
   providerErrorGuidance?: IProviderErrorGuidance;
   promptFileReferenceTag?: string;
   /**
-   * SELFHOST-008 P3: an EPHEMERAL per-turn system block (rendered recalled memory) to include in THIS
+   * An EPHEMERAL per-turn system block (rendered recalled memory) to include in THIS
    * turn's model call only — passed through to `session.run` and never persisted. Absent ⇒ no injection.
    */
   ephemeralSystemContext?: string;
   /**
-   * PEER-007 (issue #1915): who drove this turn (`owner`, `agent`, or `peer:<session-id>`), carried to
+   * Who drove this turn (`owner`, `agent`, or `peer:<session-id>`), carried to
    * the stored user message so the transcript attributes it. Display only — never authorization.
    */
   driverId?: string;
@@ -91,7 +91,7 @@ export interface IPromptTurnContext {
   beginEditCheckpointTurn: (prompt: string) => Promise<void>;
   flushStreaming: () => void;
   clearStreaming: () => void;
-  /** Accumulated streamed text of the in-flight turn (ERR-001: preserved on error). */
+  /** Accumulated streamed text of the in-flight turn (preserved on error). */
   getStreamingText: () => string;
   onComplete: (result: IExecutionResult) => void;
   onProviderCallCompleted?: (observation: TRawProviderCallTraceObservation) => void;
@@ -135,7 +135,7 @@ export async function executePromptTurn(
   ctx.onWorkspaceUpdated();
   const historyBefore = ctx.getSession().getHistory().length;
 
-  // SELFHOST-004 (P6): collect the per-operation span events tools emit during this turn's run, so
+  // Collect the per-operation span events tools emit during this turn's run, so
   // they can be projected onto history under the owning turn (drained just before its usage-summary).
   const spanCollector = collectSpanEntries(ctx.getSession().getEventService(), {
     ...(ctx.onToolCallObserved ? { onToolCallObserved: ctx.onToolCallObserved } : {}),
@@ -175,7 +175,7 @@ export async function executePromptTurn(
     ctx.recordPromptContextReferences(preparedPrompt.promptFileReferenceRecords);
 
     await ctx.beginEditCheckpointTurn(displayInput ?? input);
-    // SELFHOST-008 P3 / PEER-007: pass per-turn options only when present, preserving the 2-arg call
+    // Pass per-turn options only when present, preserving the 2-arg call
     // shape for the (dominant) plain path so existing run() call contracts are unchanged.
     const runOptions = {
       ...(ctx.signal ? { signal: ctx.signal } : {}),
@@ -206,7 +206,7 @@ export async function executePromptTurn(
       spanCollector.providerCalls,
     );
     history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
-    // SELFHOST-004: drain the turn's spans immediately BEFORE its usage-summary — the usage-summary is
+    // Drain the turn's spans immediately BEFORE its usage-summary — the usage-summary is
     // the reducer's turn boundary, so spans are recorded ONLY when that boundary exists. Pairing them
     // avoids attributing this turn's spans to a later turn's usage-summary (a usage-less turn drops
     // them rather than misgroup them).
@@ -231,7 +231,7 @@ export async function executePromptTurn(
       ctx.clearStreaming();
       if (result.response)
         history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
-      // SELFHOST-004: spans before the interrupt belong to this (final) turn — pair them with the
+      // Spans before the interrupt belong to this (final) turn — pair them with the
       // usage-summary boundary (drop them if this interrupted turn carries no usage, same as above).
       if (result.usage) {
         for (const spanEntry of spanCollector.entries) history.push(spanEntry);
@@ -241,7 +241,7 @@ export async function executePromptTurn(
       ctx.onInterrupted(result);
     } else {
       pushToolSummaryToHistory({ activeTools: ctx.getActiveTools(), history });
-      // ERR-001: a mid-stream failure must not evaporate the partial answer — commit it
+      // A mid-stream failure must not evaporate the partial answer — commit it
       // to history marked interrupted before clearing the stream buffer.
       const partial = ctx.getStreamingText();
       ctx.clearStreaming();
@@ -268,7 +268,7 @@ export async function executePromptTurn(
     }
     ctx.onCompletionsOmitted?.(spanCollector.omittedCompletions);
     ctx.onQueueSummary?.(spanCollector.queueSummary);
-    // SELFHOST-004: always unsubscribe the span collector so a completed turn leaves no listener.
+    // Always unsubscribe the span collector so a completed turn leaves no listener.
     spanCollector.dispose();
   }
 }

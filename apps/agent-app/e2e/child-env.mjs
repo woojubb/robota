@@ -1,4 +1,4 @@
-import { productConfigEntries } from '../../../packages/product-config/dist/index.js';
+import { productConfigEntries } from '@robota-sdk/product-config';
 
 // `os.homedir()` reads USERPROFILE on win32. The env is a curated test fixture, never the runner's
 // ambient environment; only non-private product settings are forwarded to the packaged process.

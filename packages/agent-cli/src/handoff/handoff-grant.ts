@@ -26,7 +26,7 @@ import { importPublicKey } from '../devices/identity-keys.js';
 import type {
   IHandoffManifest,
   IPeerAdmission,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 
 /** How long a grant is good for once minted; it is presented at once, before anyone is asked. */

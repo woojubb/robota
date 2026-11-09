@@ -1,9 +1,9 @@
 /**
- * Background/subagent permission POLICY (CORE-025), projected onto the one evaluator.
+ * Background/subagent permission POLICY, projected onto the one evaluator.
  *
  * A spawned background task carries a `permissionPolicy` (`inherit-allowlist | preapproved | prompt | deny`).
  * It used to have its own resolver with its own order, so the same call could be decided differently
- * depending on who made it (issue #3081). A policy is now only what it adds to `evaluatePermission`'s
+ * depending on who made it. A policy is now only what it adds to `evaluatePermission`'s
  * inputs — a ceiling, an ask-everything flag, and the task's own lists — so the order is shared and
  * a policy can only narrow:
  *

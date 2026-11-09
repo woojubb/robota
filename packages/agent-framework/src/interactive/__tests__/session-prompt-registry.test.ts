@@ -14,10 +14,10 @@ import type {
   IAskRequestEvent,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /**
- * REMOTE-007 (B4-2a) — the transport-neutral pending-prompt registry. A stub emitter with a
+ * The transport-neutral pending-prompt registry. A stub emitter with a
  * controllable per-event listener count drives every fail-closed path deterministically (no timers
  * except the dedicated backstop test).
  */
@@ -61,8 +61,8 @@ function harness(backstopMs?: number, cwd = '/workspace'): IHarness {
   };
 }
 
-describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', () => {
-  it('TC-01: a permission request emits `permission_request` and resolvePermission settles it (allow)', async () => {
+describe('SessionPromptRegistry (transport-neutral permission/ask)', () => {
+  it('a permission request emits `permission_request` and resolvePermission settles it (allow)', async () => {
     const h = harness();
     const pending = h.registry.requestPermission('shell', { cmd: 'ls' });
     expect(h.permissionEvents).toHaveLength(1);
@@ -75,7 +75,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     expect(h.resolvedEvents).toEqual([{ id }]);
   });
 
-  it('#3288: attaches the same diff preview a finished Edit/Write call would carry', async () => {
+  it('attaches the same diff preview a finished Edit/Write call would carry', async () => {
     const h = harness();
     const pending = h.registry.requestPermission('Write', {
       filePath: '/workspace/src/new-file.ts',
@@ -93,7 +93,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     await pending;
   });
 
-  it('#3288: a permission request for a non-diff tool (Shell) carries no diff fields', async () => {
+  it('a permission request for a non-diff tool (Shell) carries no diff fields', async () => {
     const h = harness();
     const pending = h.registry.requestPermission('Bash', { command: 'ls' });
     expect(h.permissionEvents[0]?.diffLines).toBeUndefined();
@@ -102,7 +102,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     await pending;
   });
 
-  it('#3288: notes a Shell request\'s cwd only when it differs from the workspace', async () => {
+  it("notes a Shell request's cwd only when it differs from the workspace", async () => {
     const h = harness();
     const sameDir = h.registry.requestPermission('Bash', { command: 'ls' });
     expect(h.permissionEvents[0]?.cwd).toBeUndefined();
@@ -143,21 +143,21 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     await expect(ask).resolves.toEqual({ type: 'cancelled' });
   });
 
-  it('TC-01: resolvePermission(id, false) denies', async () => {
+  it('resolvePermission(id, false) denies', async () => {
     const h = harness();
     const pending = h.registry.requestPermission('shell', {});
     h.registry.resolvePermission(h.permissionEvents[0]!.id, false);
     await expect(pending).resolves.toBe(false);
   });
 
-  it('TC-01: an allow-session decision is carried through verbatim', async () => {
+  it('an allow-session decision is carried through verbatim', async () => {
     const h = harness();
     const pending = h.registry.requestPermission('edit', {});
     h.registry.resolvePermission(h.permissionEvents[0]!.id, 'allow-session');
     await expect(pending).resolves.toBe('allow-session');
   });
 
-  it('issue #3288 §1: a `requester` on the ask is carried onto the emitted `permission_request`', async () => {
+  it('a `requester` on the ask is carried onto the emitted `permission_request`', async () => {
     const h = harness();
     const requester = {
       kind: 'background-agent' as const,
@@ -184,7 +184,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     expect(h.permissionEvents[1]).not.toHaveProperty('executionId');
   });
 
-  it('issue #3288 §1: aborting the ask signal denies it and emits `prompt_resolved` (dismissed on every surface)', async () => {
+  it('aborting the ask signal denies it and emits `prompt_resolved` (dismissed on every surface)', async () => {
     const h = harness();
     const controller = new AbortController();
     const pending = h.registry.requestPermission('Glob', {}, false, { signal: controller.signal });
@@ -199,7 +199,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     expect(h.resolvedEvents).toHaveLength(1);
   });
 
-  it('issue #3288 §1: a signal already aborted before the ask is made denies it without parking', async () => {
+  it('a signal already aborted before the ask is made denies it without parking', async () => {
     const h = harness();
     const controller = new AbortController();
     controller.abort();
@@ -210,7 +210,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     expect(h.registry.pendingCount).toBe(0);
   });
 
-  it('issue #3288 §1: answering normally detaches the abort listener (no leaked settle-after-answer)', async () => {
+  it('answering normally detaches the abort listener (no leaked settle-after-answer)', async () => {
     const h = harness();
     const controller = new AbortController();
     const pending = h.registry.requestPermission('Glob', {}, false, { signal: controller.signal });
@@ -223,7 +223,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     expect(h.resolvedEvents).toHaveLength(1);
   });
 
-  it('TC-02: an ask request emits `ask_request` and resolveAsk returns the answer', async () => {
+  it('an ask request emits `ask_request` and resolveAsk returns the answer', async () => {
     const h = harness();
     const request = { id: 'req-1', title: 'Pick one', options: [{ value: 'a', label: 'A' }] };
     const pending = h.registry.requestAsk(request);
@@ -233,14 +233,14 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     await expect(pending).resolves.toEqual({ type: 'answer', values: ['a'] });
   });
 
-  it('TC-02: resolveAsk with cancelled cancels', async () => {
+  it('resolveAsk with cancelled cancels', async () => {
     const h = harness();
     const pending = h.registry.requestAsk({ id: 'r', title: 't' });
     h.registry.resolveAsk(h.askEvents[0]!.id, { type: 'cancelled' });
     await expect(pending).resolves.toEqual({ type: 'cancelled' });
   });
 
-  it('TC-03: fail-closed at emit — a permission with zero listeners is DENIED immediately (never parks)', async () => {
+  it('fail-closed at emit — a permission with zero listeners is DENIED immediately (never parks)', async () => {
     const h = harness();
     h.setListeners('permission_request', 0);
     const pending = h.registry.requestPermission('shell', {});
@@ -249,7 +249,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     expect(h.registry.pendingCount).toBe(0);
   });
 
-  it('TC-03: fail-closed at emit — an ask with zero listeners resolves cancelled immediately', async () => {
+  it('fail-closed at emit — an ask with zero listeners resolves cancelled immediately', async () => {
     const h = harness();
     h.setListeners('ask_request', 0);
     const pending = h.registry.requestAsk({ id: 'r', title: 't' });
@@ -257,7 +257,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     expect(h.askEvents).toHaveLength(0);
   });
 
-  it('TC-03b: reconcile-on-detach — a parked permission resolves deny when the last surface detaches', async () => {
+  it('reconcile-on-detach — a parked permission resolves deny when the last surface detaches', async () => {
     const h = harness();
     const pending = h.registry.requestPermission('shell', {});
     expect(h.registry.pendingCount).toBe(1); // parked, awaiting a human
@@ -268,7 +268,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     expect(h.resolvedEvents).toHaveLength(1);
   });
 
-  it('TC-03b: reconcile is a no-op while another surface still listens', async () => {
+  it('reconcile is a no-op while another surface still listens', async () => {
     const h = harness();
     const pending = h.registry.requestPermission('shell', {});
     h.setListeners('permission_request', 1); // one surface detached, another remains
@@ -278,7 +278,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     await expect(pending).resolves.toBe(true);
   });
 
-  it('TC-03b: reconcile-on-detach for asks only settles parked asks, not parked permissions', async () => {
+  it('reconcile-on-detach for asks only settles parked asks, not parked permissions', async () => {
     const h = harness();
     const perm = h.registry.requestPermission('shell', {});
     const ask = h.registry.requestAsk({ id: 'r', title: 't' });
@@ -290,7 +290,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     await expect(perm).resolves.toBe(true);
   });
 
-  it('TC-03c: teardown drain — every parked prompt settles fail-closed (deny permissions, cancel asks)', async () => {
+  it('teardown drain — every parked prompt settles fail-closed (deny permissions, cancel asks)', async () => {
     const h = harness();
     const perm = h.registry.requestPermission('shell', {});
     const ask = h.registry.requestAsk({ id: 'r', title: 't' });
@@ -301,7 +301,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     expect(h.registry.pendingCount).toBe(0);
   });
 
-  it('TC-04: co-drive — the first resolve wins, emits prompt_resolved, and a late resolve is a no-op', async () => {
+  it('co-drive — the first resolve wins, emits prompt_resolved, and a late resolve is a no-op', async () => {
     const h = harness();
     const pending = h.registry.requestPermission('shell', {});
     const { id } = h.permissionEvents[0]!;
@@ -311,7 +311,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     expect(h.resolvedEvents).toEqual([{ id }]); // exactly one dismissal
   });
 
-  it('TC-04: a resolveAsk for a permission id is ignored (kind-guarded), and vice versa', async () => {
+  it('a resolveAsk for a permission id is ignored (kind-guarded), and vice versa', async () => {
     const h = harness();
     const perm = h.registry.requestPermission('shell', {});
     const permId = h.permissionEvents[0]!.id;
@@ -382,7 +382,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
   });
 });
 
-describe('#3288 review MUST 1: a diff preview never reads a file outside the workspace', () => {
+describe('a diff preview never reads a file outside the workspace', () => {
   let tmpDir: string | undefined;
   let outsideDir: string | undefined;
 
@@ -459,7 +459,7 @@ describe('#3288 review MUST 1: a diff preview never reads a file outside the wor
   });
 
   it('a RELATIVE in-workspace Edit path is anchored to the session cwd, not process.cwd(), and still gets context lines', async () => {
-    // #3288 review follow-up: a relative filePath must be resolved against the session's `cwd`
+    // A relative filePath must be resolved against the session's `cwd`
     // (the containment root) for BOTH the containment check and the actual read — never against
     // the server process's own working directory, which has nothing to do with this session's
     // workspace and is very unlikely to contain a file named `inside.md`.
@@ -481,7 +481,7 @@ describe('#3288 review MUST 1: a diff preview never reads a file outside the wor
   });
 });
 
-describe('SCREEN-1992 pending request (TC-05)', () => {
+describe('pending request', () => {
   it('exposes the oldest parked prompt as a question text and clears it on settle', async () => {
     const h = harness();
     expect(h.registry.pending()).toBeUndefined();

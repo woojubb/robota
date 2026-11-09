@@ -131,7 +131,7 @@ describe('callPluginHook', () => {
   });
 });
 
-describe('PLG-020 (issue #2460): execution-level hooks are dispatched', () => {
+describe('execution-level hooks are dispatched', () => {
   const logger = createMockLogger();
   const executionContext = { executionId: 'exec-1', sessionId: 'sess-1' };
   const executionResult = {

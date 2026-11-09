@@ -11,8 +11,8 @@ import type {
   IExternalEventGrant,
   TAccessTokenRefusal,
   TExternalEventAuditRecord,
-} from '@robota-sdk/agent-interface-transport';
-import type { ISubmitOptions, ITurnHandle } from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/transport';
+import type { ISubmitOptions, ITurnHandle } from '@robota-sdk/agent-interface/session';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 const testHost = createTestFrameworkHost();
@@ -134,7 +134,7 @@ const REFUSALS: readonly TAccessTokenRefusal[] = [
   'keys-unavailable',
 ];
 
-describe('external event grants: one verifier, one pinned principal (#3072)', () => {
+describe('external event grants: one verifier, one pinned principal', () => {
   it('refuses to open in bypass mode and keeps the ordinary mode available', () => {
     const h = harness('bypassPermissions');
     expect(() => h.open()).toThrow(/bypassPermissions/);
@@ -182,7 +182,7 @@ describe('external event grants: one verifier, one pinned principal (#3072)', ()
   });
 });
 
-describe('the host builds each grant verifier from the grant itself (#3072)', () => {
+describe('the host builds each grant verifier from the grant itself', () => {
   it('passes exactly the grant verifier configuration to the factory', () => {
     const h = harness();
     const g = grant();
@@ -227,7 +227,7 @@ describe('the host builds each grant verifier from the grant itself (#3072)', ()
   });
 });
 
-describe('a closed or revoked grant tells its state only to a verified caller (#3072)', () => {
+describe('a closed or revoked grant tells its state only to a verified caller', () => {
   it('answers a missing or refused token exactly as a live grant would', async () => {
     const h = harness();
     let verdict: Awaited<ReturnType<IAccessTokenVerifier['verify']>> = { admitted: true };
@@ -260,7 +260,7 @@ describe('a closed or revoked grant tells its state only to a verified caller (#
   });
 });
 
-describe('revoking a grant (#3072)', () => {
+describe('revoking a grant', () => {
   it('refuses later events as revoked, stops its turns, and cannot be reopened', async () => {
     const h = harness();
     const source = h.open();
@@ -323,7 +323,7 @@ describe('revoking a grant (#3072)', () => {
   });
 });
 
-describe('external event admission is decided by the verified token (#3072)', () => {
+describe('external event admission is decided by the verified token', () => {
   it.each(REFUSALS)(
     'a token the verifier refuses as %s runs nothing and audits that code alone',
     async (refusal) => {
@@ -529,7 +529,7 @@ describe('external event admission is decided by the verified token (#3072)', ()
     expect(h.submit).toHaveBeenCalledTimes(1);
   });
 
-  it("#3189: a run's history outlives a session — a switch neither replays tokens nor resets rates", async () => {
+  it("a run's history outlives a session — a switch neither replays tokens nor resets rates", async () => {
     // Each session has its own ingress; the run lends every one of them the same grant history.
     const history = createExternalEventGrantHistory();
     const rate = [{ windowMs: 60_000, maxTurns: 1 }];
@@ -552,7 +552,7 @@ describe('external event admission is decided by the verified token (#3072)', ()
     expect(after.submit).not.toHaveBeenCalled();
   });
 
-  it("#3189: a grant revoked on one session of the run opens revoked on the next, and the others still admit", async () => {
+  it("a grant revoked on one session of the run opens revoked on the next, and the others still admit", async () => {
     const history = createExternalEventGrantHistory();
     const before = harness('default', history);
     before.open().revoke();
@@ -712,7 +712,7 @@ describe('external event admission is decided by the verified token (#3072)', ()
   });
 });
 
-describe('external turns keep the bypassPermissions lifetime guard (#2726 / #3072)', () => {
+describe('external turns keep the bypassPermissions lifetime guard', () => {
   it('blocks a later bypass transition until the closed source and its admitted work settle', async () => {
     const h = harness();
     const source = h.open();
@@ -760,7 +760,7 @@ function mockProvider(chat: ReturnType<typeof vi.fn>): IAIProvider {
 const okChat = () =>
   vi.fn().mockResolvedValue({ role: 'assistant', content: 'ok', timestamp: new Date() });
 
-describe('external events on a real InteractiveSession (#3072)', () => {
+describe('external events on a real InteractiveSession', () => {
   it('enforces the bypass invariant at the real setter and reserves external attribution', async () => {
     const session = new InteractiveSession({
       host: testHost,

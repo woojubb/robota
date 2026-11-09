@@ -1,7 +1,7 @@
-import type { IIceServer } from '@robota-sdk/agent-transport-webrtc';
+import type { IIceServer } from '@robota-sdk/agent-transport/webrtc';
 
 /**
- * Validating reader for the HOST WebRTC ICE config (REMOTE-010 E1). `transports.webrtc.options.iceServers` is an
+ * Validating reader for the HOST WebRTC ICE config. `transports.webrtc.options.iceServers` is an
  * UNTYPED bag value (`unknown`), so it must be narrowed with real validation — no `any`, no unchecked cast — and a
  * malformed value must **fail closed** (a clear error), never a silent partial config.
  *

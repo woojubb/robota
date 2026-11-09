@@ -67,7 +67,7 @@ export const BUILT_IN_AGENTS: IAgentDefinition[] = [
  * Look up a built-in agent definition by name.
  * Returns `undefined` if no built-in agent matches.
  *
- * NEUT-003: `builtInAgents` REPLACES the default set when supplied (an empty
+ * `builtInAgents` REPLACES the default set when supplied (an empty
  * array removes all built-ins); omitted keeps the documented default three.
  */
 export function getBuiltInAgent(

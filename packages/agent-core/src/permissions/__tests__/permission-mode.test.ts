@@ -11,7 +11,7 @@ import type { TToolRiskClass } from '../permission-mode';
 import type { TPermissionMode } from '../types';
 
 /**
- * CORE-030 — what a permission MODE decides, which is all this package owns.
+ * What a permission MODE decides, which is all this package owns.
  *
  * This file used to assert that the web tools are auto in every mode. That is a fact
  * about those TOOLS, and it was assertable here only because the foundation held a table of product
@@ -23,7 +23,7 @@ import type { TPermissionMode } from '../types';
 const ALL_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
 const ALL_CLASSES: TToolRiskClass[] = ['inspect', 'modify', 'execute'];
 
-describe('permission mode policy (CORE-030)', () => {
+describe('permission mode policy', () => {
   beforeEach(() => {
     clearRegisteredToolProfiles();
   });
@@ -90,7 +90,7 @@ describe('permission mode policy (CORE-030)', () => {
   });
 
   it('names no product tool', () => {
-    // The thesis of CORE-030, asserted mechanically: this package cannot know a product's tool
+    // Asserted mechanically: this package cannot know a product's tool
     // inventory, and every attempt to hold one drifted from the tools actually produced.
     const policyKeys = new Set(Object.values(RISK_CLASS_POLICY).flatMap((row) => Object.keys(row)));
     expect([...policyKeys].sort()).toEqual(['execute', 'inspect', 'modify']);

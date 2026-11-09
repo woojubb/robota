@@ -104,7 +104,7 @@ function signalOnceReady(argv: readonly string[]): Promise<ISignalOutcome> {
   });
 }
 
-const TSX_LOADER = ['--import', join(root, 'node_modules/tsx/dist/loader.mjs'), '--conditions=source'];
+const TSX_LOADER = ['--import', join(root, 'node_modules/tsx/dist/loader.mjs'), '--conditions=product-source'];
 
 (process.platform === 'win32' ? describe.skip : describe)('SIGUSR1 inspector hardening', () => {
   it('keeps the inspector closed in the executable wrapper, before its module graph loads', async () => {

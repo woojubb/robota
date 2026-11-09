@@ -1,5 +1,5 @@
 /**
- * PEER-002 (#1809): how a peer message becomes something the agent can read, without losing where it
+ * How a peer message becomes something the agent can read, without losing where it
  * came from.
  *
  * ## The requirement that shapes this
@@ -19,7 +19,7 @@
  * A peer message arriving while a turn is running is an instance of "an input arrived mid-turn", and
  * this repository already answered that question: `submitNewTurn` checks the execution claim,
  * `PendingInputQueue` holds what cannot run yet under a bounded depth, and every entry that will
- * never run settles its caller's handle with a typed `TTurnNotRunReason` (RUNTIME-003).
+ * never run settles its caller's handle with a typed `TTurnNotRunReason`.
  *
  * The first draft of this file re-implemented all four of those — its own busy check, its own queue,
  * its own bound, its own drain — which is a second answer to a settled question, and the review that
@@ -42,20 +42,20 @@
  * - **Superseded** → the pending queue coalesces a same-driver tail (last-wins per driver), so a
  *   second message from one peer arriving mid-turn replaces the first. The replaced one is NOT lost
  *   silently: it settles `refused` with reason `coalesced`, so the sender learns. Whether peer input
- *   should be exempt from that policy is a question about the REMOTE-014 E5 queue rather than about
+ *   should be exempt from that policy is a question about the co-drive queue rather than about
  *   this module, and it is filed rather than worked around here.
  * - **Queue full** → settles `refused` with reason `dropped`.
  * - **Shutdown/cancel** → settles `refused` with reason `cancelled`.
  */
 
-import { isSameEnvironmentPeer } from '@robota-sdk/agent-interface-session-mobility';
+import { isSameEnvironmentPeer } from '@robota-sdk/agent-interface/session-mobility';
 
-import type { ITurnHandle, ITurnNotRunError } from '@robota-sdk/agent-interface-session';
+import type { ITurnHandle, ITurnNotRunError } from '@robota-sdk/agent-interface/session';
 import type {
   IPeerMessageAck,
   IPeerMessageIngress,
   IPeerOrigin,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 /** What happened to an arriving peer message at the moment it was received. */
 export type TIngressOutcome =
@@ -102,7 +102,7 @@ export interface IPeerIngressOptions {
   /**
    * Require the strongest local proof before a message reaches the runtime.
    *
-   * Default false: #1809 owns message flow and #1810 owns admission, and this module must not
+   * Default false: message flow and admission are separate concerns, and this module must not
    * quietly become a second admission gate. A composition root that wants the stricter posture asks
    * for it explicitly.
    */
@@ -186,7 +186,7 @@ export class PeerMessageIngress {
         (error: unknown): IPeerMessageAck => ({
           ...base,
           state: 'refused',
-          // The typed reason is the point of RUNTIME-003: 'coalesced' (a newer message from this
+          // The typed reason is the point: 'coalesced' (a newer message from this
           // peer superseded it) and 'dropped' (the queue was full) are different facts, and a
           // sender forced to regex a message string to tell them apart has learned nothing.
           reason: isTurnNotRun(error) ? error.reason : 'the turn failed',

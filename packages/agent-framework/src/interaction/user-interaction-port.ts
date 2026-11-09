@@ -1,5 +1,5 @@
 /**
- * Builds the guarded "ask the user" port for a session (CMD-004).
+ * Builds the guarded "ask the user" port for a session.
  *
  * Kept as a pure function (separate from the InteractiveSession god-class) so the model-invocation
  * guard is unit-testable without constructing a session.
@@ -14,7 +14,7 @@ import type { IUserInteraction, TActionResponse } from '@robota-sdk/agent-core';
  *
  * When the active command was invoked by the model, the port resolves `cancelled` instead of asking:
  * a model-invoked command runs inside an executing turn, where blocking on a human prompt would
- * deadlock. (Letting the model issue an interactive ask is CMD-005's separate turn-suspension design.)
+ * deadlock. (Letting the model issue an interactive ask is a separate turn-suspension design.)
  */
 export function createUserInteractionPort(
   handler: IUserInteraction['ask'] | undefined,

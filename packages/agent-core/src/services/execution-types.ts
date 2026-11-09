@@ -54,13 +54,13 @@ export interface IResolvedProviderInfo {
   provider: {
     chat: (messages: TUniversalMessage[], options: IChatOptions) => Promise<TUniversalMessage>;
     /**
-     * PROV-006/PROV-008: what this provider's models can do, so the turn can ask whether THIS model
+     * What this provider's models can do, so the turn can ask whether THIS model
      * can do what the request needs. Structurally typed like `chat` above — this seam names what it
      * uses rather than depending on the whole provider interface.
      */
     capabilityTable?: () => IProviderCapabilityTable | undefined;
     /**
-     * CORE-043: whether this provider is pointed at its vendor's own endpoint. Separate from the
+     * Whether this provider is pointed at its vendor's own endpoint. Separate from the
      * table on purpose — a provider with no verified capability table must still be able to say it
      * is behind a gateway.
      */
@@ -83,12 +83,12 @@ export interface IResolvedProviderInfo {
     parameters: string[];
   }>;
   /**
-   * CLI-1990: the tools the model is offered, read PER ROUND — never a per-run snapshot. A deferred
+   * The tools the model is offered, read PER ROUND — never a per-run snapshot. A deferred
    * tool loaded by a round-N tool call is on the wire in round N+1, which is what a search tool
    * needs and what the snapshot this replaced made impossible.
    */
   readAvailableTools: () => IToolSchema[];
-  /** The catalog a forcing `toolChoice` loads through before the request is asserted (CLI-1990). */
+  /** The catalog a forcing `toolChoice` loads through before the request is asserted. */
   deferredTools: IDeferredToolCatalog;
 }
 
@@ -116,7 +116,7 @@ export interface IExecutionRoundState {
   /**
    * The ORIGINAL value a provider call threw, when a round ended in a provider failure.
    *
-   * CORE-027: the failure used to survive only as `Request failed: ${message}` prose in the
+   * The failure used to survive only as `Request failed: ${message}` prose in the
    * conversation store, and the final result's `error` was rebuilt from that display string —
    * class, `code`, `category`, `recoverable`, stack and `cause` all destroyed by the round trip.
    * Carrying the thrown value itself is the only representation that loses nothing.
@@ -146,8 +146,8 @@ export function isExecutionError(error: Error): error is IExecutionError {
  */
 export interface IExecutionContext {
   /**
-   * PEER-007 (issue #1915): display attribution, stored on the user message so a transcript reader
-   * can tell a peer's turn from the operator's. Never an authorization input (issue #1809).
+   * Display attribution, stored on the user message so a transcript reader
+   * can tell a peer's turn from the operator's. Never an authorization input.
    */
   driverId?: string;
   /** Where the turn came from, stored beside `driverId` on the user message. Display only. */
@@ -175,18 +175,18 @@ export interface IExecutionContext {
   maxExecutionRounds?: number;
   /** Max times the same tool may be called with identical input before aborting. Unset = no limit. */
   maxSameToolInputs?: number;
-  /** Tool-only turn ending counts as completion — skip the forced summary call (CORE-011). */
+  /** Tool-only turn ending counts as completion — skip the forced summary call. */
   allowToolOnlyCompletion?: boolean;
-  /** Run-scoped max output tokens override — wins over `defaultModel.maxTokens` (CORE-016). */
+  /** Run-scoped max output tokens override — wins over `defaultModel.maxTokens`. */
   maxTokens?: number;
-  /** Run-scoped temperature override — wins over `defaultModel.temperature` (CORE-016). */
+  /** Run-scoped temperature override — wins over `defaultModel.temperature`. */
   temperature?: number;
-  /** Run-scoped tool-invocation directive — wins over `defaultModel.toolChoice` (CORE-017). */
+  /** Run-scoped tool-invocation directive — wins over `defaultModel.toolChoice`. */
   toolChoice?: TToolChoice;
   /** Leave provider-hosted tools out of this run's requests. See `IRunOptions`. */
   withholdHostedTools?: boolean;
   /**
-   * Run-scoped EPHEMERAL system context (SELFHOST-008 P3) — a transient system-role block added to the
+   * Run-scoped EPHEMERAL system context — a transient system-role block added to the
    * provider request for this run only, NEVER written to the conversation store. See `IRunOptions`.
    */
   ephemeralSystemContext?: string;

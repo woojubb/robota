@@ -4,7 +4,10 @@ import React from 'react';
 import {
   formatExecutionDetailRecord,
   formatExecutionWorkspaceEntryRow,
+  formatFollowRows,
 } from './execution-workspace-view-model.js';
+import { attachKind } from '@robota-sdk/agent-framework';
+import { useKeybindingHints } from './keybindings/keybindings-context.js';
 import { Text } from './SafeText.js';
 import { STATUS_SYMBOL, statusGlyphColor } from './status-glyph.js';
 import { usePalette } from './theme/index.js';
@@ -14,7 +17,7 @@ import type {
   IExecutionDetailPage,
   IExecutionWorkspaceEntry,
   TExecutionDetailRecordKind,
-} from '@robota-sdk/agent-interface-execution';
+} from '@robota-sdk/agent-interface/execution';
 
 const MAX_VISIBLE_DETAIL_RECORDS = 12;
 
@@ -33,12 +36,23 @@ export default function ExecutionWorkspaceDetailPane({
 }: IProps): React.ReactElement {
   const palette = usePalette();
   const row = formatExecutionWorkspaceEntryRow(entry, { selectedEntryId: entry.id });
-  const records = page?.records.slice(-MAX_VISIBLE_DETAIL_RECORDS) ?? [];
+  const kind = attachKind(entry);
+  const records =
+    kind === 'none'
+      ? (page?.records.slice(-MAX_VISIBLE_DETAIL_RECORDS) ?? [])
+      : formatFollowRows(page?.records ?? []);
+  const backHint = useKeybindingHints('background-detail', [
+    ['return-to-main', 'Back to the main thread'],
+  ]);
+  const earlierHint = useKeybindingHints('background-detail', [
+    ['follow-earlier', 'Earlier output'],
+  ]);
+  const switchHint = useKeybindingHints('app', [['open-workspace-switcher', 'open the workspace']]);
 
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Text color={palette.text.accent} bold>
-        {`Viewing ${row.title}`}
+        {`${kind === 'follow' ? 'Following' : 'Viewing'} ${row.title}`}
       </Text>
       <Text dimColor>
         {row.statusLabel}
@@ -55,18 +69,33 @@ export default function ExecutionWorkspaceDetailPane({
           return (
             <Text key={record.id} color={color}>
               {symbol ? `${symbol} ` : ''}
-              {formatExecutionDetailRecord(record)}
+              {kind === 'none' ? formatExecutionDetailRecord(record) : record.text}
             </Text>
           );
         })}
       {page?.nextCursor ? <Text dimColor>... more detail available</Text> : null}
+      {kind !== 'none' && (
+        <Text dimColor>{earlierHint.map((hint) => `${hint.keys} ${hint.label}`).join(' · ')}</Text>
+      )}
+      {kind === 'follow' && (
+        <Text dimColor>
+          {entry.controls.includes('send') ? 'Type to message this job · ' : ''}
+          {backHint.map((hint) => `${hint.keys} ${hint.label}`).join(' · ')}
+        </Text>
+      )}
+      {kind === 'continue' && (
+        <Text dimColor>
+          This job has ended · {switchHint.map((hint) => hint.keys).join('/')} to continue it as a
+          session
+        </Text>
+      )}
     </Box>
   );
 }
 
 /**
  * Symbol + color per detail-record kind. A symbol always accompanies the color
- * so status is legible without color (SCREEN-005 — no color-only encoding).
+ * so status is legible without color (no color-only encoding).
  */
 function getDetailRecordGlyph(
   kind: TExecutionDetailRecordKind,

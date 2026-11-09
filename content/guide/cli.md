@@ -4,7 +4,7 @@
 Robota's environment for building and using agents. It supports the direction of
 [our agents developing and advancing our agents](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md),
 while this reference describes current behavior. It uses the same libraries you can embed: `@robota-sdk/agent-framework` runs the
-session, `@robota-sdk/agent-command` supplies the slash commands, and `@robota-sdk/agent-ui-terminal`
+session, `@robota-sdk/agent-product/command` supplies the slash commands, and `@robota-sdk/agent-ui-terminal`
 draws the terminal UI. It reads Claude Code conventions where they exist (`CLAUDE.md`, `.claude/`
 settings, skills, commands and plugins), so much of a project's Claude Code setup carries over.
 
@@ -160,10 +160,9 @@ In the terminal UI the same feature is `/goal <objective>`, with `/goal status` 
 ### CI and scripts
 
 For unattended runs, pick a permission mode that does not need a person, send the prompt on stdin,
-and use JSON output. A fresh checkout is untrusted, and `__PRODUCT_CLI_NAME__ -p` exits with an error there until
-you either trust it with `__PRODUCT_CLI_NAME__ trust --yes` (the project's instruction files, skills, plugins, hooks
-and MCP servers then load, so only do this for code you trust) or run with `--safe-mode` (all of those
-stay off and the folder stays Restricted):
+and use JSON output. A fresh checkout is untrusted. Workspace trust requires confirmation at a
+terminal, so an unattended job cannot grant it. Run with `--safe-mode`: project instruction files,
+skills, plugins, hooks and MCP servers stay off and the folder stays Restricted.
 
 ```yaml
 # .github/workflows/ai-review.yml
@@ -182,10 +181,10 @@ jobs:
         with:
           node-version: '22'
       - run: npm install -g @robota-sdk/agent-cli
-      - run: __PRODUCT_CLI_NAME__ trust --yes
       - name: AI diff review
         run: |
           { echo "Review this diff and list any issues:"; git diff HEAD~1; } | __PRODUCT_CLI_NAME__ -p \
+            --safe-mode \
             --permission-mode plan \
             --no-session-persistence \
             --output-format json | jq -r '.result'
@@ -221,6 +220,9 @@ if you turned it on, it still saves what it captures.
 Inside the terminal UI: `/resume` opens the session picker, `/rename <name>` renames the session,
 `/fork [name] [--same-dir]` copies the conversation into a background session and keeps you here, and
 `/cd <directory>` continues the conversation as a new session in another folder.
+In the background panel, attach to follow a running fork or continue it after it ends. The two
+conversations stay separate. In a fork's detail view, `Ctrl+O` reads earlier output; sealed output
+may require unlocking.
 
 Sessions can also run without a terminal. `__PRODUCT_CLI_NAME__ session start --background` starts a supervised
 session that keeps running after you close the terminal; `__PRODUCT_CLI_NAME__ session list`, `view`, `attach`,

@@ -1,5 +1,5 @@
 /**
- * TC-07 — deprecated/unsupported transports are refusals, not silent absences (MCP-002).
+ * Deprecated/unsupported transports are refusals, not silent absences.
  *
  * An SSE-only and a WebSocket server each appear in the `rejected` bucket with a reason. § Decision
  * ("rejected transports are refusals") and the criteria table both scope this to the `rejected`

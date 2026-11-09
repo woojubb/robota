@@ -7,7 +7,7 @@ description: Manually audit this repository's architecture, correctness and ente
 
 This is our developer workflow. Honor explicit user scope and existing authorization. It neither modifies the delivered runtime nor authorizes repairs, installation, publication or new paid environments.
 
-Read `VISION.md`, `AGENTS.md`, `HARNESS.md` and [the audit contract](references/contract.md). Full scope is the default; narrower scope requires an explicit request and cannot establish whole-project readiness.
+Read `VISION.md`, `AGENTS.md` and [the audit contract](references/contract.md). Full scope is the default; narrower scope requires an explicit request and cannot establish whole-project readiness.
 
 1. Freeze the source revision and record dirty/untracked source without discarding it. Establish deployment profiles, required thresholds, available environments and resource bounds; label unspecified targets provisional. Create a run directory outside tracked source containing `result.json`, `report.md` and referenced evidence. Record the skill/contract digest independently of the product revision.
 2. Inventory every tracked unit and public entry point again, including nested workspaces, tests, scripts/configuration, documentation, patches and delivery assets. Assign every first-party executable module for full source review. A filename scan is inventory, not review. Generated/vendor exclusions need provenance and a reason. Record each unit's content hash, owner, inspected behavior, checklist IDs and disposition.

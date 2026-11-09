@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# DIST-002 — verify that PUBLISHED macOS release artifacts actually open on a user's Mac.
+# Verify that PUBLISHED macOS release artifacts actually open on a user's Mac.
 #
 # SCOPE IS DELIBERATELY NARROW. This asserts exactly what a user's machine does to a downloaded
 # artifact and nothing more:
@@ -32,6 +32,11 @@ set -uo pipefail
 
 TAG="${1:?usage: verify-macos-release-artifacts.sh <tag> <download-dir>}"
 DOWNLOAD_DIR="${2:?usage: verify-macos-release-artifacts.sh <tag> <download-dir>}"
+MODE="${3:-all}"
+if [ "$MODE" != all ] && [ "$MODE" != desktop ]; then
+  echo "FATAL: invalid artifact verification mode." >&2
+  exit 2
+fi
 ARTIFACT_PREFIX="${PRODUCT_ARTIFACT_PREFIX:?Set PRODUCT_ARTIFACT_PREFIX from the selected product configuration.}"
 if [[ ! "$ARTIFACT_PREFIX" =~ ^[A-Za-z0-9._-]+$ ]]; then
   echo "FATAL: PRODUCT_ARTIFACT_PREFIX contains unsupported filename characters." >&2
@@ -247,14 +252,16 @@ verify_dmg() {
 
 # ---------------------------------------------------------------------------------------------
 
-echo "DIST-002 — verifying PUBLISHED macOS artifacts of $TAG"
+echo "verifying PUBLISHED macOS artifacts of $TAG"
 echo "download dir: $DOWNLOAD_DIR"
 echo "macOS: $(sw_vers -productVersion 2>/dev/null || echo unknown)"
 ls -la "$DOWNLOAD_DIR"
 
-for asset in "$ARTIFACT_PREFIX-darwin-arm64" "$ARTIFACT_PREFIX-darwin-x64"; do
-  verify_cli_binary "$DOWNLOAD_DIR/$asset"
-done
+if [ "$MODE" = all ]; then
+  for asset in "$ARTIFACT_PREFIX-darwin-arm64" "$ARTIFACT_PREFIX-darwin-x64"; do
+    verify_cli_binary "$DOWNLOAD_DIR/$asset"
+  done
+fi
 
 shopt -s nullglob
 dmgs=("$DOWNLOAD_DIR"/*.dmg)
@@ -287,7 +294,7 @@ fi
 if [ "$BLOCKING_FAILURES" -gt 0 ]; then
   echo
   echo "VERDICT: FAIL — a user downloading these artifacts cannot open them."
-  echo "See the FAIL lines above. Signing and notarization, which the releases still lack, are tracked in #3349."
+  echo "See the FAIL lines above. The releases still lack signing and notarization."
   exit 1
 fi
 

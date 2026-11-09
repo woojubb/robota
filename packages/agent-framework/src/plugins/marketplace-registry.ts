@@ -74,13 +74,13 @@ export function removeInstalledPluginsForMarketplace(
   let changed = false;
   for (const [pluginId, record] of Object.entries(registry)) {
     if (record.marketplace === marketplaceName) {
-      // SEC-018: `installPath` is a HINT read from a file on disk, and it drives a recursive delete.
+      // `installPath` is a HINT read from a file on disk, and it drives a recursive delete.
       // A tampered registry pointing it outside the plugin root deleted whatever it named. Refused
       // rather than sanitised, and refused per-entry: one bad record must not abort the cleanup of
       // the others, so the removal is skipped and the entry is still dropped from the registry.
       if (record.installPath && fs.existsSync(record.installPath)) {
         try {
-          // SEC-018: the SAME root as the installer's uninstall path. Checking this value against
+          // The SAME root as the installer's uninstall path. Checking this value against
           // `pluginsDir` instead let a tampered entry name `pluginsDir/known_marketplaces.json` or
           // another marketplace clone — inside the plugins root, outside the cache — and have it
           // recursively deleted. One value, one root.

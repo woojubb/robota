@@ -6,7 +6,7 @@ import { Text } from './SafeText.js';
 import { usePalette } from './theme/index.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IUsageSnapshot } from '@robota-sdk/agent-interface-analytics';
+import type { IUsageSnapshot } from '@robota-sdk/agent-interface/analytics';
 
 const TOKEN_COMPACT_THRESHOLD = 1000;
 

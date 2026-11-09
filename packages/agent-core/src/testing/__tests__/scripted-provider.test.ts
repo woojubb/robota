@@ -1,5 +1,5 @@
 /**
- * Scripted provider fixture tests (CLI-074 TC-01).
+ * Scripted provider fixture tests.
  *
  * The fixture must replay declared turns in order, record every request's
  * message array for assertions, and fail fast on script exhaustion — never
@@ -10,8 +10,8 @@ import { describe, expect, it } from 'vitest';
 
 import { createScriptedProvider } from '../scripted-provider.js';
 
-describe('createScriptedProvider (CLI-074)', () => {
-  it('TC-01: replays text turns in order and records requests', async () => {
+describe('createScriptedProvider', () => {
+  it('replays text turns in order and records requests', async () => {
     const { provider, requests } = createScriptedProvider([
       { text: 'first answer' },
       { text: 'second answer' },
@@ -32,7 +32,7 @@ describe('createScriptedProvider (CLI-074)', () => {
     expect(requests[1]?.map((message) => message.content)).toContain('again');
   });
 
-  it('TC-01: replays tool_use turns as assistant toolCalls', async () => {
+  it('replays tool_use turns as assistant toolCalls', async () => {
     const { provider } = createScriptedProvider([
       { toolCalls: [{ name: 'Read', args: { file_path: '/tmp/a.txt' } }] },
       { text: 'done reading' },
@@ -52,7 +52,7 @@ describe('createScriptedProvider (CLI-074)', () => {
     });
   });
 
-  it('TC-01: throws on script exhaustion instead of improvising', async () => {
+  it('throws on script exhaustion instead of improvising', async () => {
     const { provider } = createScriptedProvider([{ text: 'only turn' }]);
 
     await provider.chat([

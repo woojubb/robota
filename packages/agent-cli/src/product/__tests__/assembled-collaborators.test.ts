@@ -5,7 +5,7 @@ import { bindAssembledCollaborators } from '../assembled-collaborators.js';
 import type { IAssembledProduct } from '@robota-sdk/agent-product';
 
 /**
- * CLI-078 (issue #2443): the modes bind to the collaborator identity ASSEMBLY returned.
+ * The modes bind to the collaborator identity ASSEMBLY returned.
  */
 type TFactory = NonNullable<IAssembledProduct['subagentRunnerFactory']>;
 const factory = (() => ({}) as never) as TFactory;

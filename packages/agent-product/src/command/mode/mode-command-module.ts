@@ -1,0 +1,55 @@
+import {
+  buildPermissionModeSubcommands,
+  PERMISSION_MODE_ARGUMENT_HINT,
+  PERMISSION_MODE_COMMAND_DESCRIPTION,
+} from '@robota-sdk/agent-framework';
+
+import { executeModeCommand } from './mode-command.js';
+
+import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface/command';
+
+export function createModeCommandEntry(): ICommand {
+  return {
+    name: 'mode',
+    displayName: 'Interaction Mode',
+    description: PERMISSION_MODE_COMMAND_DESCRIPTION,
+    source: 'mode',
+    argumentHint: PERMISSION_MODE_ARGUMENT_HINT,
+    subcommands: buildPermissionModeSubcommands('mode'),
+    // User-only: changes the permission mode; permission widening is the user's.
+    modelInvocable: false,
+  };
+}
+
+function createModeSystemCommand(): ISystemCommand {
+  const entry = createModeCommandEntry();
+  return {
+    name: entry.name,
+    displayName: entry.displayName,
+    description: entry.description,
+    requiresPermission: false,
+    userInvocable: true,
+    modelInvocable: false,
+    argumentHint: entry.argumentHint,
+    subcommands: entry.subcommands,
+    lifecycle: 'inline',
+    execute: executeModeCommand,
+  };
+}
+
+export class ModeCommandSource implements ICommandSource {
+  readonly name = 'mode';
+
+  getCommands(): ICommand[] {
+    return [createModeCommandEntry()];
+  }
+}
+
+export function createModeCommandModule(): ICommandModule {
+  return {
+    name: 'agent-command-mode',
+    commandSources: [new ModeCommandSource()],
+    systemCommands: [createModeSystemCommand()],
+  };
+}

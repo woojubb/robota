@@ -1,5 +1,127 @@
 # @robota-sdk/agent-app
 
+## 3.0.13
+### Patch Changes
+
+- e10f377: Build on the merged SDK packages. The CLI and the desktop app now import providers, host primitives, transport carriers, the default tool set, product assembly and the shared contracts from the subpaths of `@robota-sdk/agent-provider`, `@robota-sdk/agent-os`, `@robota-sdk/agent-transport`, `@robota-sdk/agent-tools`, `@robota-sdk/agent-product` and `@robota-sdk/agent-interface`, instead of the separate packages those replace. The command line, the settings and the behavior are unchanged.
+- 5747738: Use the released SDK session roles. A connected client can ask the CLI or the desktop app for its effective role, and a desktop renderer that asks on the hosted desktop path stays connected.
+- fa36533: Use the SDK patch release whose shipped types and messages no longer point at internal tracker IDs, so an agent reading the installed types or an error message is not sent looking for tickets it cannot open.
+- efb0831: The workspace root broker now exits once the user-state directory it serves is removed or replaced. Before, it ran until the next reboot, so every run with a temporary state directory, such as a test or a disposable smoke, left one more broker process behind. CLI and desktop restarts still reattach to held approvals while that directory remains.
+- Updated dependencies [e10f377]
+- Updated dependencies [5747738]
+- Updated dependencies [fa36533]
+- Updated dependencies [56fbaf9]
+- Updated dependencies [efb0831]
+  - @robota-sdk/agent-cli@3.2.2
+
+## 3.0.12
+### Patch Changes
+
+  - @robota-sdk/agent-local-host@3.0.3
+  - @robota-sdk/agent-cli@3.2.1
+  - @robota-sdk/agent-transport@3.2.1
+  - @robota-sdk/product-config@3.2.1
+
+## 3.0.11
+### Patch Changes
+
+- Updated dependencies [0ea29ac]
+- Updated dependencies [12ab3f5]
+- Updated dependencies [ffaf7d5]
+- Updated dependencies [9da9c6c]
+- Updated dependencies [ad5e9fb]
+- Updated dependencies [2a28af7]
+  - @robota-sdk/agent-cli@3.2.0
+  - @robota-sdk/agent-transport@3.2.0
+  - @robota-sdk/agent-local-host@3.0.2
+  - @robota-sdk/product-config@3.2.0
+
+## 3.0.10
+### Patch Changes
+
+- Updated dependencies [871fbef]
+  - @robota-sdk/agent-cli@3.1.2
+  - @robota-sdk/product-config@3.1.2
+
+## 3.0.9
+### Patch Changes
+
+- Updated dependencies [7e55f21]
+  - @robota-sdk/agent-cli@3.1.1
+  - @robota-sdk/product-config@3.1.1
+
+## 3.0.8
+### Patch Changes
+
+- Updated dependencies [51ad6a4]
+- Updated dependencies [b160a57]
+- Updated dependencies [bc8de21]
+- Updated dependencies [d46727b]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [22ad89c]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [82663df]
+- Updated dependencies [ea6fb89]
+- Updated dependencies [bc8de21]
+- Updated dependencies [0a677e9]
+- Updated dependencies [830d3d2]
+- Updated dependencies [0a677e9]
+- Updated dependencies [a8c9e25]
+- Updated dependencies [5b46d43]
+- Updated dependencies [fab48ad]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [ee7f7ef]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [7ce5e73]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [be32d9b]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [b7b6cd0]
+- Updated dependencies [42d595e]
+- Updated dependencies [437ca9e]
+- Updated dependencies [12cf199]
+- Updated dependencies [44e9640]
+- Updated dependencies [779781c]
+  - @robota-sdk/agent-cli@3.1.0
+  - @robota-sdk/product-config@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/product-config@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/product-config@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/product-config@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/product-config@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/product-config@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/product-config@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

@@ -1,5 +1,5 @@
 /**
- * TRANS-007 — narrowing helpers for tests that only care about a readable record.
+ * Narrowing helpers for tests that only care about a readable record.
  *
  * `IInteractiveSessionStore.load` returns an outcome rather than `record | undefined`, because
  * `undefined` was one answer for four situations and a caller that read it as "no record" then
@@ -13,7 +13,7 @@
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 /** The stored record, or a failure naming the outcome that was not `valid`. */
 export function loadedRecord(

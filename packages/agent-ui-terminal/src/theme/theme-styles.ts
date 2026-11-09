@@ -1,11 +1,10 @@
 /**
- * SCREEN-2002 — one theme, every encoding.
+ * One theme, every encoding.
  *
- * Ink reads `colors` directly. `marked-terminal` wants chalk STYLE FUNCTIONS and `cli-highlight` wants
- * a token→function map, so both are built here from the same values. Ink's own `colorize` is this
- * mapping (`chalk[name]` / `chalk.hex` / `chalk.ansi256` / `chalk.rgb`), which is why deriving them is
- * not the "name→SGR layer" SCREEN-006 refused to invent — chalk is already the layer, and a direct
- * dependency.
+ * Ink reads `colors` directly. `marked-terminal` wants chalk STYLE FUNCTIONS and `cli-highlight`
+ * wants a token→function map, so both are built here from the same values. Ink's own `colorize` is
+ * this mapping (`chalk[name]` / `chalk.hex` / `chalk.ansi256` / `chalk.rgb`), which is why deriving
+ * them is not a new "name→SGR layer" — chalk is already the layer, and a direct dependency.
  *
  * The STRUCTURE of a markdown or syntax token is fixed here, not themed: a heading is bold, a first
  * heading underlined and bold, a blockquote italic, a deletion dim and struck through, an href
@@ -35,7 +34,7 @@ export const THEME_COLOR_GRAMMAR = '<chalk name> | #rgb | #rrggbb | ansi256(n) |
  * A `Map`, not an object literal: an object built by `Object.fromEntries` inherits `Object.prototype`,
  * so a lookup of `constructor`, `toString`, `valueOf` or `__proto__` answers TRUTHY and the
  * `undefined` guard below never fires — a value that is not a colour name would be handed back as
- * though it were a style. That value becomes reachable the moment a parsed user theme (work unit 3)
+ * though it were a style. That value becomes reachable the moment a parsed user theme
  * reaches this builder.
  */
 const CHALK_STYLES = new Map<string, ChalkInstance>(
@@ -61,10 +60,10 @@ export function isThemeColor(value: string): boolean {
 /**
  * A value that reached the builder without being a colour is a DEFECT IN THIS PACKAGE, not in a
  * user's file: `parseThemeDocument` refuses a theme file whole, and every built-in value is checked
- * by TC-01. Before work unit 3 this case had two different silent answers — `foreground` handed
- * back its base, `background`'s helper handed back `chalk.reset` — so the same bad value rendered
- * as unstyled text in one place and as a reset in another, and neither said anything. Throwing is
- * the one behaviour that cannot render a theme nobody can see is wrong.
+ * by the built-in themes test. Answering with a default would give two different silent answers —
+ * `foreground` handing back its base, `background`'s helper handing back `chalk.reset` — so the
+ * same bad value renders as unstyled text in one place and as a reset in another, and neither says
+ * anything. Throwing is the one behaviour that cannot render a theme nobody can see is wrong.
  */
 function refuseThemeColor(value: string): never {
   throw new Error(

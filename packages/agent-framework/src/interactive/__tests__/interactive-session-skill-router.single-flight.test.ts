@@ -8,7 +8,7 @@ import { stubSubmit } from './helpers/session-stub.js';
 import type { ICommand } from '../../command-api/types.js';
 import type { ICommandModule, ISystemCommand } from '../../commands/index.js';
 import type { IFrameworkHost } from '../../host/framework-host.js';
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { TDriverId } from '@robota-sdk/agent-interface/session';
 
 /**
  * A host with no `createAsyncScope` (a browser) cannot give each command a scope that follows its own

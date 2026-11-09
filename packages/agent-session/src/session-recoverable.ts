@@ -20,8 +20,8 @@ export type TSessionRecoverableResumeOptions = TSessionResumeOptions &
 export type TSessionExecutionResult =
   | { status: 'completed'; response: string }
   | { status: 'waiting'; requests: readonly IToolWaitRequest[] };
-import type { ISessionPendingExecution } from '@robota-sdk/agent-interface-session';
-export type { ISessionPendingExecution } from '@robota-sdk/agent-interface-session';
+import type { ISessionPendingExecution } from '@robota-sdk/agent-interface/session';
+export type { ISessionPendingExecution } from '@robota-sdk/agent-interface/session';
 
 export function pendingExecution(
   error: ExecutionSuspendedError,

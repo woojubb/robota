@@ -15,7 +15,7 @@ import type {
   ConnectionAuthority,
   IHandoffManifest,
   IPeerAdmission,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from '@robota-sdk/agent-interface/session-mobility';
 
 /** What the question names: the session and what taking it means here. Untrusted fields are the manifest's. */
 function summary(manifest: IHandoffManifest, deviceLabel: string): string {

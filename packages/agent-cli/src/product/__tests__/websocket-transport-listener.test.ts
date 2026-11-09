@@ -1,5 +1,5 @@
 /**
- * #3679 3f PR 3a — the CLI's WebSocket transport opens through its `SECURE_SURFACES` row. The TUI,
+ * The CLI's WebSocket transport opens through its `SECURE_SURFACES` row. The TUI,
  * `--serve`, a daemon and the desktop sidecar all start it through the transport registry, so the
  * gate wraps the bound adapter the CLI registers. Plain mode binds exactly as before: loopback, the
  * launch token, and the settings `/transport` lists. Secure mode refuses it before anything binds.
@@ -21,7 +21,7 @@ import { overrideProductSecureMode } from '../session-sealing.js';
 import type {
   IInteractiveSession,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+} from '@robota-sdk/agent-interface/session';
 
 afterEach(() => {
   vi.unstubAllEnvs();

@@ -6,11 +6,11 @@ import { createScriptedProvider } from '../../testing/scripted-provider';
 import type { IAgentConfig } from '../../interfaces/agent';
 
 /**
- * PEER-007 (issue #1915) — the DISPLAY-attribution seam in agent-core.
+ * The DISPLAY-attribution seam in agent-core.
  *
  * `IRunOptions.driverId` must land on the stored user message, because the transcript is all a
  * reader has once the turn ends: without it a peer session's message is indistinguishable from the
- * operator's own. It is attribution only — issue #1809 settled that a driver id is never an
+ * operator's own. It is attribution only — a driver id is never an
  * authorization input, and nothing here consults it to decide what the run may do.
  */
 
@@ -26,7 +26,7 @@ function createConfig(
   };
 }
 
-describe('PEER-007 — driverId reaches the stored user message', () => {
+describe('driverId reaches the stored user message', () => {
   it('stores the driver id on the user message it drove', async () => {
     const scripted = createScriptedProvider([{ text: 'done' }]);
     const agent = new ConversationAgent(createConfig('scripted-test-provider', scripted.provider));

@@ -1,4 +1,4 @@
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
 
 import {
   createIdentityContext,
@@ -6,9 +6,9 @@ import {
   deriveReconnectSeed,
   generatePairingSecret,
 } from '@robota-sdk/agent-remote-pairing';
-import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface/transport';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
-import type { IConnectionApproval, ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
+import type { IConnectionApproval, ISignalingClient } from '@robota-sdk/agent-transport/webrtc';
 import { TransportRegistry } from '@robota-sdk/agent-framework';
 import { createFileTransportSettingsRepository } from '@robota-sdk/agent-framework/node';
 import { mkdtempSync, realpathSync } from 'node:fs';
@@ -27,7 +27,7 @@ import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-devic
 /**
  * The REAL registry, not `{ register: () => {} }`.
  *
- * Issue #2043: these suites used to stub `register` with a no-op, which removed the one rule the
+ * These suites used to stub `register` with a no-op, which removed the one rule the
  * reconnect path breaks — `register` refuses a duplicate `transport.name`, and every
  * `WebRtcTransport` is named `webrtc`. A double whose refusal is the defect cannot fail on it, so
  * the reconnect tests passed while every reconnect registration threw in production.
@@ -49,7 +49,7 @@ function realRegistry(): TransportRegistry {
 }
 
 /**
- * REMOTE-013 E4 TC-04/05 (host) — the controller reconnect orchestration with fakes (no real WebRTC): first-pair
+ * The host's controller reconnect orchestration with fakes (no real WebRTC): first-pair
  * persists the reconnect seed+counter; a drop re-arms the `{counter, counter+1}` rooms at the rotating
  * rendezvous; a confirmed reconnect advances the counter (resync-on-success); the ceiling frees the session.
  */
@@ -97,7 +97,7 @@ function memoryStore(): ITrustedDeviceStore {
 function fakeTransport(): IConfigurableTransport<IProtocolSession> {
   return {
     name: 'webrtc',
-    // Issue #2043: `TransportRegistry.register` refuses a transport whose lifecycle shape disagrees
+    // `TransportRegistry.register` refuses a transport whose lifecycle shape disagrees
     // with its `waitForCompletion` presence. This omitted `lifecycle` and nothing noticed, because
     // `register` was stubbed to a no-op — the cast below hid it from the compiler and the no-op hid
     // it from the runtime.
@@ -150,7 +150,7 @@ function setup(
         attach: vi.fn(),
         detach: vi.fn(),
         onClientMessage: vi.fn(),
-        setDriverId: vi.fn(), // REMOTE-014 E5: onEnroll binds the paired device id as the co-drive driver id
+        setDriverId: vi.fn(), // onEnroll binds the paired device id as the co-drive driver id
       }) as never,
     createSignaling: (_url, rendezvous) => {
       rendezvouses.push(rendezvous);
@@ -186,7 +186,7 @@ function setup(
   return { controller, created, rendezvouses, ceilings, session, registry, productRuntime };
 }
 
-describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
+describe('RemoteControlController reconnect', () => {
   it.each(['stop', 'pairing-failure', 'start-failure'] as const)(
     're-admits a fresh transport after %s without a duplicate registry entry',
     async (reason) => {
@@ -307,7 +307,7 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     }
   });
 
-  it('a drop leaves exactly one webrtc entry — candidates are not registered (issue #2043)', async () => {
+  it('a drop leaves exactly one webrtc entry — candidates are not registered', async () => {
     const store = memoryStore();
     const { controller, created, registry } = setup(store, await hostIdentity());
     await controller.enable();
@@ -338,7 +338,7 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     }
   });
 
-  it('promotion swaps the registry entry to the winner, not the abandoned peer (issue #2043)', async () => {
+  it('promotion swaps the registry entry to the winner, not the abandoned peer', async () => {
     const store = memoryStore();
     const { controller, created, registry } = setup(store, await hostIdentity());
     await controller.enable();

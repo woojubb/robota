@@ -1,5 +1,5 @@
 /**
- * Preset application — framework functional test (TEST-004).
+ * Preset application — framework functional test.
  *
  * Verifies REAL provider-request delivery (not just a session seam): applying a preset persona or
  * toggling self-verification on a live session changes the system prompt that the very next turn

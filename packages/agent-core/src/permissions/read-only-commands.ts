@@ -1,6 +1,6 @@
 /**
  * The built-in read-only shell commands: a call that only looks is decided like a read, so it runs
- * without a prompt in every mode (issue #3082).
+ * without a prompt in every mode.
  *
  * The set is fixed, not configurable: a user who wants a prompt for one of these adds an `ask` or
  * `deny` rule, which the gate checks first. Every rule below fails toward "not read-only" — a line
