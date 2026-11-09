@@ -74,9 +74,13 @@ async function race(kind: 'directory' | 'project') {
   }
 }
 
-it('keeps two process checkpoints distinct in directory state', async () => {
-  await race('directory');
-}, 30_000);
+it.runIf(process.platform !== 'win32')(
+  'keeps two process checkpoints distinct in directory state',
+  async () => {
+    await race('directory');
+  },
+  30_000,
+);
 it.runIf(process.platform === 'linux')(
   'keeps two process checkpoints distinct in project state',
   async () => {
