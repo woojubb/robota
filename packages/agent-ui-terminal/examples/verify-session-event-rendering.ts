@@ -31,7 +31,7 @@ function assertCondition(condition: boolean, message: string): asserts condition
 }
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'arch-028-tui-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'session-event-rendering-'));
   const agentsPath = join(cwd, 'AGENTS.md');
   writeFileSync(agentsPath, '# Initial rules\n', 'utf8');
   const script = createScriptedProvider([{ text: 'context refreshed' }]);
@@ -96,7 +96,7 @@ async function main(): Promise<void> {
     assertCondition(session.getPlanState()?.phase === 'planning', 'plan revert was not committed');
 
     result = {
-      scenario: 'ARCH-028-tui',
+      scenario: 'session-event-rendering',
       notices: notices.map((notice) => notice.replace(cwd, '<cwd>')),
       deliveryFailure: {
         ...deliveryFailures[0],

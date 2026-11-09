@@ -22,7 +22,7 @@ import {
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 
 /** Roots sit, unmade, in one private per-run directory rather than at a fixed name under /tmp. */
-const PRIVATE_BASE = mkdtempSync(join(tmpdir(), 'test-product-arch-021-'));
+const PRIVATE_BASE = mkdtempSync(join(tmpdir(), 'test-product-subagent-composition-'));
 afterAll(() => rmSync(PRIVATE_BASE, { recursive: true, force: true }));
 const CWD = join(PRIVATE_BASE, 'workspace');
 
@@ -39,7 +39,7 @@ function toolNames(tools: readonly { schema: { name: string } }[]): string[] {
  * comparing the product's two name sets passes whether the child composes from packs or from imported
  * defaults — a check that cannot fail on the defect it names. A uniquely-named pack tool can.
  */
-const UNIQUE_TOOL_NAME = 'arch021UniquelyNamedPackTool';
+const UNIQUE_TOOL_NAME = 'uniquelyNamedPackTool';
 
 function createScratchPacks(context: IProductPackContext): ReturnType<typeof createProductCapabilityPacks> {
   const tool = {

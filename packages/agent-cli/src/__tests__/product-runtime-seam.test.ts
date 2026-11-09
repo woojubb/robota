@@ -241,7 +241,7 @@ describe('the kernel overlay is test-product’s single assembly path', () => {
     // and the product adopts that very instance. The gate protects that the two paths must not
     // split — there is one registry to split FROM rather than two that happen to agree.
     const external: IPreset = {
-      id: 'arch-007-probe',
+      id: 'probe-preset',
       title: 'probe',
       description: 'split-SSOT gate',
       persona: 'probe persona',
@@ -250,15 +250,15 @@ describe('the kernel overlay is test-product’s single assembly path', () => {
     const shellRegistry = createPresetRegistry([external]);
 
     // (a) visible to the registry the startup delta + `/preset` discovery read…
-    expect(shellRegistry.getPreset('arch-007-probe')).toBeDefined();
-    expect(shellRegistry.listPresets().map((p) => p.id)).toContain('arch-007-probe');
+    expect(shellRegistry.getPreset('probe-preset')).toBeDefined();
+    expect(shellRegistry.listPresets().map((p) => p.id)).toContain('probe-preset');
 
     // (b) …and to the assembled product, resolving to exactly the same options.
     const { product } = productFixture({ presets: [external] });
-    expect(product.resolvePreset('arch-007-probe')).toEqual(
-      shellRegistry.resolvePreset('arch-007-probe'),
+    expect(product.resolvePreset('probe-preset')).toEqual(
+      shellRegistry.resolvePreset('probe-preset'),
     );
-    expect(product.resolvePreset('arch-007-probe')).toMatchObject({
+    expect(product.resolvePreset('probe-preset')).toMatchObject({
       persona: 'probe persona',
       permissionMode: 'default',
     });

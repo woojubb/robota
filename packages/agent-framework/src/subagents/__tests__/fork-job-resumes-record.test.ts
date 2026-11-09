@@ -27,7 +27,7 @@ import type { ISubagentJobStart } from '@robota-sdk/agent-executor';
 
 const testHost = createTestFrameworkHost();
 
-const FORK_ID = 'session_cli-1994-fork';
+const FORK_ID = 'session_fork';
 const PARENT_PROMPT = 'PARENT ASSEMBLED PROMPT — fork sentinel';
 const COPIED_USER = 'Remember the number 42.';
 const COPIED_ASSISTANT = 'Noted: 42.';

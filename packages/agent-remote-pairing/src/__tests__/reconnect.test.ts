@@ -77,6 +77,10 @@ function connect(
     send: toHost,
     timeoutMs: 1000,
   });
+  // A case awaits one side; the other would reject unobserved when its timer fires, which on a slow
+  // host lands in a later case and fails the whole file as an unhandled rejection.
+  host.result.catch(() => undefined);
+  device.result.catch(() => undefined);
   return { host, device };
 }
 

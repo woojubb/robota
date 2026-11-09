@@ -19,7 +19,7 @@ import { spawnTui, writeTuiProviderSettings } from './pty-driver.js';
 
 import type { IPtySession } from './pty-driver.js';
 
-const SESSION_ID = 'screen-1993-transcript';
+const SESSION_ID = 'transcript-in-scrollback';
 const TURNS = 60; // 120 messages: 60 user prompts and 60 assistant replies
 const PROMPT_WAIT_MS = 30_000;
 const FIXTURE_YEAR = 2026;

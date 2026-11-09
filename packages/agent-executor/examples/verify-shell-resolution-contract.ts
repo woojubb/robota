@@ -57,7 +57,7 @@ function unknownTask(
   const common = {
     label: `unknown-${kind}`,
     mode: 'background' as const,
-    parentSessionId: 'session-arch-026',
+    parentSessionId: 'session-shell-resolution',
     depth: 0,
     cwd: process.cwd(),
     command: 'must-not-spawn',

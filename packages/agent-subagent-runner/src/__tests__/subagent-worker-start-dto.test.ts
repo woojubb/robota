@@ -253,11 +253,11 @@ describe('child-process permission mode projection', () => {
  * runner adds the grant its sealer issues when it sends the payload, as these cases do.
  */
 describe('what a fork job puts on the wire', () => {
-  const FORK_SESSION_ID = 'session_cli-1994-fork';
+  const FORK_SESSION_ID = 'session_fork';
   /** Text that exists ONLY in the forked record; finding it outside `resumeHeld` is the failure. */
   const COPIED_CONVERSATION_TEXT = 'Remember the number 42.';
   /** The resolved credential: config loading turns the reference into the value itself. */
-  const PROVIDER_SECRET = 'sk-tc06-provider-secret';
+  const PROVIDER_SECRET = 'sk-provider-secret';
 
   const DEPS: IInProcessSubagentRunnerDeps = {
     host: testHost,
@@ -268,7 +268,7 @@ describe('what a fork job puts on the wire', () => {
         name: 'openai',
         model: 'test-model',
         apiKey: PROVIDER_SECRET,
-        apiKeyEnv: 'TC06_PROVIDER_KEY',
+        apiKeyEnv: 'PROVIDER_KEY_VAR',
         baseURL: 'http://localhost/v1',
       },
       permissions: { allow: [], deny: [] },
@@ -348,7 +348,7 @@ describe('what a fork job puts on the wire', () => {
   function sealedParent() {
     const sealer = createTestArtifactSealer({ locked: true });
     const store = createUserSessionStore(
-      join(realpathSync(mkdtempSync(join(tmpdir(), 'tc06-sealed-'))), 'sessions'),
+      join(realpathSync(mkdtempSync(join(tmpdir(), 'sealed-sessions-'))), 'sessions'),
       { sealing: { sealer } },
     );
     store.save(
@@ -470,7 +470,7 @@ describe('what a fork job puts on the wire', () => {
     expect(payload.writeGrant).toBe(sealer.writeGrant());
     // The double's grant is a handle into this process — it names a key and never holds one.
     expect(payload.writeGrant).toMatch(/^robota-test-grant\/v1:[0-9a-f-]+$/);
-    expect(payload.providerProfile.apiKeyEnv).toBe('TC06_PROVIDER_KEY');
+    expect(payload.providerProfile.apiKeyEnv).toBe('PROVIDER_KEY_VAR');
     expect(JSON.stringify(payload)).not.toContain(PROVIDER_SECRET);
   });
 

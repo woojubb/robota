@@ -20,12 +20,12 @@ import type {
 } from '@robota-sdk/agent-interface/session';
 import { loadedOrMissing } from './store-load-helpers.js';
 
-const SESSION_ID = 'arch-015-record-preservation';
+const SESSION_ID = 'record-preservation';
 const CREATED_AT = '2026-08-01T00:00:00.000Z';
 const STALE_UPDATED_AT = '2026-08-01T01:00:00.000Z';
 
 class PreservationProvider extends AbstractAIProvider {
-  override readonly name = 'arch-015-offline';
+  override readonly name = 'offline-record-preservation';
   override readonly version = '1.0.0';
 
   override async chat(
@@ -34,9 +34,9 @@ class PreservationProvider extends AbstractAIProvider {
   ): Promise<TUniversalMessage> {
     const content = messages.at(-1)?.content;
     return {
-      id: 'msg-arch-015',
+      id: 'msg-record-preservation',
       role: 'assistant',
-      content: `arch-015:${typeof content === 'string' ? content : ''}`,
+      content: `echo:${typeof content === 'string' ? content : ''}`,
       state: 'complete',
       timestamp: new Date(),
     };
@@ -194,7 +194,7 @@ describe('Session record field preservation', () => {
   });
 
   it('preserves every non-owned field while refreshing Session-owned fields', async () => {
-    const scratchDir = realpathSync(mkdtempSync(join(tmpdir(), 'arch-015-')));
+    const scratchDir = realpathSync(mkdtempSync(join(tmpdir(), 'record-preservation-')));
     scratchDirs.push(scratchDir);
     const store = new NodeSessionStore(join(scratchDir, 'sessions'), { sealing: 'plain' });
     const existing = createExistingRecord();
@@ -213,7 +213,7 @@ describe('Session record field preservation', () => {
     });
 
     await expect(session.run('preserve-record-fields')).resolves.toBe(
-      'arch-015:preserve-record-fields',
+      'echo:preserve-record-fields',
     );
     await session.shutdown();
 

@@ -61,9 +61,8 @@ const TRACKER_DATA = Object.freeze([
 ]);
 
 /**
- * Prefixes of standards and of user-content test data; any other prefix followed by digits is a
- * backlog ID. A standard this rejects belongs here, not reworded. Lowercase names and file names
- * that carry an ID are a separate cleanup and are not checked.
+ * Prefixes of standards and of user-content test data; any other upper-case prefix followed by
+ * digits is a backlog ID. A standard this rejects belongs here, not reworded.
  */
 const NOT_BACKLOG = new Set([
   ...['SHA', 'HMAC-SHA', 'SHA3', 'BLAKE2', 'UTF', 'ISO', 'SLIP', 'CWE', 'CVE', 'ECMA', 'ECDSA'],
@@ -72,22 +71,28 @@ const NOT_BACKLOG = new Set([
 ]);
 const BACKLOG_ID =
   /(?<![\w/.])((?:[A-Z][A-Z0-9]*-)*[A-Z][A-Z0-9]{1,20})-[A-Z]?\d{2,4}[a-z]?(?![\w-])/gu;
+/** The backlog prefixes this repository used, in any case and spelling: `-NN`, `_NN` or glued `NN`. */
+const KNOWN_ID =
+  /(?<![a-z])(?:arch|sec|tc|cli|mcp|screen|selfhost|observability)[-_]?\d{2,4}(?!\d)/iu;
 const ISSUE_REFERENCE =
   /\b(?:[Ii]ssues?|[Pp][Rr]s?|pull|[Ff]ix(?:es)?|[Cc]loses?|[Rr]esolves?) ?#\d+\b|(?<=^|[\s(,[])#[1-9]\d{3}(?![\w-])/u;
 const STAGE_LABEL = /\b[Ss]tage[- ][A-E]\d?\b|\bstage-[a-e]\b|\bwork unit \d+\b|§\s?\d{3,4}\b/u;
 
-/** Every line of code, tests or scripts holding a tracker reference, as `{ file, line, text }`. */
+/** Every file name and line of code, tests or scripts holding a tracker reference. */
 export function findTrackerReferences(files, read) {
   const violations = [];
   for (const file of files) {
-    if (!TRACKER_SCOPE.test(file) || TRACKER_DATA.some((pattern) => pattern.test(file))) continue;
+    if (!TRACKER_SCOPE.test(file)) continue;
+    if (KNOWN_ID.test(file))
+      violations.push({ file, line: 1, text: 'the file name carries an ID' });
+    if (TRACKER_DATA.some((pattern) => pattern.test(file))) continue;
     const text = read(file);
     if (text === undefined) continue;
     text.split('\n').forEach((content, index) => {
       const backlog = [...content.matchAll(BACKLOG_ID)].some(
         ([, prefix]) => !NOT_BACKLOG.has(prefix),
       );
-      if (backlog || ISSUE_REFERENCE.test(content) || STAGE_LABEL.test(content)) {
+      if (backlog || [KNOWN_ID, ISSUE_REFERENCE, STAGE_LABEL].some((rule) => rule.test(content))) {
         violations.push({ file, line: index + 1, text: content.trim() });
       }
     });

@@ -79,7 +79,7 @@ function tool(name: string, description: string, deferLoading?: boolean): IToolW
 function promptFor(tools: readonly IToolWithEventService[]): string {
   const { finalSystemMessage } = buildSessionSystemPrompt(
     makeOptions(),
-    '/tmp/cli-1990-roster',
+    '/tmp/tool-roster',
     [],
     undefined,
     undefined,

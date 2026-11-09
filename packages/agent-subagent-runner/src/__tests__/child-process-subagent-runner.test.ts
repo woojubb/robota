@@ -150,8 +150,8 @@ describe('ChildProcessSubagentRunner', () => {
   it(
     'persists a resumed fork turn into the copied record',
     async () => {
-      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-cli-1994-child-')));
-      const resumeSessionId = 'session_cli-1994-child-fork';
+      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-child-fork-')));
+      const resumeSessionId = 'session_child-fork';
       const record = {
         id: resumeSessionId,
         name: 'parent (fork)',
@@ -317,7 +317,7 @@ describe('ChildProcessSubagentRunner', () => {
       // The worktree runner does not rewrite `request.cwd` to the worktree path; the worktree rides
       // on the job envelope — and this asserts the fork followed it. `request.cwd` stays at the parent
       // checkout on purpose: it is the value the child must NOT land in.
-      const worktreePath = realpathSync(mkdtempSync(join(tmpdir(), 'arch-031-worktree-')));
+      const worktreePath = realpathSync(mkdtempSync(join(tmpdir(), 'subagent-worktree-')));
       const runner = new ChildProcessSubagentRunner(createDeps(), {
         logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
@@ -328,7 +328,7 @@ describe('ChildProcessSubagentRunner', () => {
 
       const handle = runner.start({
         ...createJob(),
-        worktree: { path: worktreePath, branch: 'subagent/arch-031' },
+        worktree: { path: worktreePath, branch: 'subagent/worktree-branch' },
       });
       const result = await handle.result;
 
@@ -1050,7 +1050,7 @@ describe('ChildProcessSubagentRunner — credential on the wire', () => {
   // actually received, because a parent-side assertion would still pass if the value were
   // re-resolved just before `send`.
   const SECRET = 'sk-secret-that-must-not-cross';
-  const VAR = 'SEC_009_TEST_KEY';
+  const VAR = 'TEST_PROVIDER_KEY';
 
   const runWith = async (
     provider: Partial<IInProcessSubagentRunnerDeps['config']['provider']>,

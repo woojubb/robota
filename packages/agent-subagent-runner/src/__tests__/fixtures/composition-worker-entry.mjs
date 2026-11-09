@@ -15,8 +15,8 @@ import { appendFileSync } from 'node:fs';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { runSubagentWorkerMain } from '../../../dist/node/index.js';
 
-const RECORD_PATH = process.env.ARCH_021_RECORD_PATH;
-const SCRATCH_TOOL_NAME = 'arch021ScratchTool';
+const RECORD_PATH = process.env.WORKER_RECORD_PATH;
+const SCRATCH_TOOL_NAME = 'scratchTool';
 
 function record(event) {
   if (!RECORD_PATH) return;
@@ -47,11 +47,11 @@ runSubagentWorkerMain({
   // `createDefaultProviderDefinitions()`, resolving this would throw `Unknown provider`.
   providerDefinitions: [
     {
-      type: 'arch021-scratch-provider',
+      type: 'scratch-provider',
       createProvider: () => {
         record({ createProvider: true });
         return {
-          name: 'arch021-scratch-provider',
+          name: 'scratch-provider',
           chat: () =>
             Promise.resolve({ role: 'assistant', content: 'scratch', timestamp: new Date() }),
         };

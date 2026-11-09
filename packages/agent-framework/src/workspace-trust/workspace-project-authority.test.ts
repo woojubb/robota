@@ -77,7 +77,7 @@ describe('WorkspaceTrustService project authority', () => {
     root: string;
     service: WorkspaceTrustService;
   } {
-    const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-arch-042-')));
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-authority-')));
     roots.push(root);
     const identity: IWorkspaceIdentity = {
       repositoryKey: `test:${root}`,
@@ -118,7 +118,7 @@ describe('WorkspaceTrustService project authority', () => {
 
   it('refuses to list a project directory link', async () => {
     const { root, service } = fixture();
-    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-arch-042-list-outside-')));
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-authority-list-outside-')));
     roots.push(outside);
     writeFileSync(join(outside, 'outside.txt'), 'outside', 'utf8');
     symlinkSync(
@@ -245,7 +245,7 @@ describe('WorkspaceTrustService project authority', () => {
     const { root, service } = fixture();
     mkdirSync(join(root, 'nested'));
     writeFileSync(join(root, 'nested', 'canary.txt'), 'trusted canary', 'utf8');
-    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-arch-042-outside-')));
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-authority-outside-')));
     roots.push(outside);
     writeFileSync(join(outside, 'secret.txt'), 'outside secret', 'utf8');
     symlinkSync(outside, join(root, 'linked-outside'));
@@ -291,7 +291,7 @@ describe('WorkspaceTrustService project authority', () => {
     'binds application state to a closed namespace and refuses linked write targets',
     async () => {
       const { root, service } = fixture();
-      const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-arch-042-state-outside-')));
+      const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-authority-state-outside-')));
       roots.push(outside);
       mkdirSync(join(root, '.agent'), { recursive: true });
       symlinkSync(outside, join(root, '.agent', 'sessions'));

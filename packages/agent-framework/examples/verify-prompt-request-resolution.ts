@@ -43,14 +43,14 @@ function readAskAnswer(session: InteractiveSession): string[] {
 }
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'arch-017-example-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'prompt-request-example-'));
   const markerPath = join(cwd, 'permission-allowed.txt');
   const script = createScriptedProvider([
     {
       toolCalls: [
         {
           name: 'Bash',
-          args: { command: `printf ARCH_017_ALLOWED > ${JSON.stringify(markerPath)}` },
+          args: { command: `printf PROMPT_ALLOWED > ${JSON.stringify(markerPath)}` },
         },
       ],
     },
@@ -119,10 +119,7 @@ async function main(): Promise<void> {
     assertCondition(existsSync(markerPath), 'allowed Bash tool did not create its marker');
     const allowedToolResult = readFileSync(markerPath, 'utf8');
     const askAnswer = readAskAnswer(session);
-    assertCondition(
-      allowedToolResult === 'ARCH_017_ALLOWED',
-      'allowed tool result was not observed',
-    );
+    assertCondition(allowedToolResult === 'PROMPT_ALLOWED', 'allowed tool result was not observed');
     assertCondition(askAnswer[0] === 'registry', 'ask answer was not observed by the tool caller');
 
     result = {

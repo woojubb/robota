@@ -14,8 +14,8 @@ import { createTestFrameworkHost } from '../framework-host.js';
 
 const testHost = createTestFrameworkHost();
 
-const LARGE_RESPONSE = `ARCH_014_LARGE:${'x'.repeat(40 * 1024)}`;
-const SENTINEL_RESPONSE = 'ARCH_014_SENTINEL';
+const LARGE_RESPONSE = `EXTERNAL_PAYLOAD_LARGE:${'x'.repeat(40 * 1024)}`;
+const SENTINEL_RESPONSE = 'EXTERNAL_PAYLOAD_SENTINEL';
 const TEST_TIMEOUT_MS = 20_000;
 
 let source: ScriptedSessionHarness | undefined;
@@ -65,9 +65,9 @@ describe('session-log external-payload replay (framework functional)', () => {
         .map((message) => message.content);
 
       expect(replayed).toEqual([LARGE_RESPONSE, SENTINEL_RESPONSE]);
-      expect(Buffer.byteLength(String(replayed[0]))).toBe(40_975);
+      expect(Buffer.byteLength(String(replayed[0]))).toBe(40_983);
       expect(createHash('sha256').update(String(replayed[0])).digest('hex')).toBe(
-        '42bc9897b0c5ebe94994f5ef0b494461e1133116821ed9141c0d2043a0168193',
+        'acae1f2d169f1e67b2c9aee5709252ca79e2c42330fce7bd5c73ef2c0ef905e5',
       );
     },
     TEST_TIMEOUT_MS,

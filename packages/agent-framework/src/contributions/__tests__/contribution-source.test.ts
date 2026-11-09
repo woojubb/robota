@@ -13,7 +13,7 @@ describe('contribution sources', () => {
   const scratchDirectories: string[] = [];
 
   function scratchDirectory(): string {
-    const directory = realpathSync(mkdtempSync(join(tmpdir(), 'arch-042-contribution-')));
+    const directory = realpathSync(mkdtempSync(join(tmpdir(), 'contribution-source-')));
     scratchDirectories.push(directory);
     return directory;
   }

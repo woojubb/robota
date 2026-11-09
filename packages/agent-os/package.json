@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-os",
-  "version": "3.2.2",
+  "version": "3.3.0",
   "description": "Node host primitives for the Robota SDK: rooted file authority, nonblocking operation locks and child-process tree termination, one subpath per primitive",
   "type": "module",
   "exports": {
