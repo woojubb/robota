@@ -59,3 +59,5 @@ export type {
   IOrganizationReceipt,
   IOrganizationAction,
 } from './types.js';
+
+// Probe: exercises the Windows selection of this package; never merged.
