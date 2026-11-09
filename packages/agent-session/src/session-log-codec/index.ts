@@ -148,7 +148,7 @@ function decodeEnvelope(
   if (typeof event !== 'string' || !EVENTS.has(event)) {
     issues.push({
       path: atKey(path, 'event'),
-      message: `expected a declared event name, received ${describeValue(event)}`,
+      message: `expected a declared event name, received ${typeof event === 'string' && /^[a-z][a-z0-9_]{0,79}$/.test(event) ? JSON.stringify(event) : describeValue(event)}`,
     });
     return { output, unsupported };
   }

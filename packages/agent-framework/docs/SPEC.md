@@ -87,9 +87,11 @@ React/Ink UI.
   only where it agrees with that place. A plain manifest counts only below every sealed one, since a
   store that seals writes none: that stops one being appended above the sealed ones, but nothing in
   the state anchors trust, so it cannot stop a program of the same user replacing sealed manifests
-  with plain ones. Making a checkpoint or resuming a branch never depends on opening one, so a store
-  that cannot open its checkpoints neither overwrites nor mislists them, and a checkpoint that
-  cannot be read is reported, never fatal to the others. A sealed manifest is replaced whole, since
+  with plain ones. Making a checkpoint or resuming a branch never depends on opening an earlier checkpoint; a
+  session has one checkpoint writer or restore at a time, and each checkpoint claims its own place
+  atomically, so concurrent edits and unreadable records do not make rollback restore the wrong
+  pre-image. A host without those guarantees is refused, and an unreadable checkpoint is reported
+  without hiding the others. A sealed manifest is replaced whole, since
   a torn one could not be told from a damaged one, and a restore is all or nothing, since a partial
   restore cannot be told from a finished one. A branch head a rollback through the first checkpoint
   cleared on purpose is recorded in the session record as a pointer with no checkpoint, so a resumed
