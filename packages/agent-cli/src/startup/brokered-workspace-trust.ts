@@ -2,6 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { isAbsolute, relative } from 'node:path';
 
 import {
+  type IProcessMarkerHandle,
+  type TProcessMarkerGuardResult,
+} from '@robota-sdk/agent-core';
+import {
   WorkspaceAuthorityRequiredError,
   WorkspaceTrustService,
   type IWorkspaceDirectoryEntry,
@@ -38,6 +42,39 @@ function within(root: string, cwd: string): boolean {
   const path = relative(root, cwd);
   return path === '' || (path !== '..' && !path.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) &&
     !isAbsolute(path));
+}
+
+/**
+ * A checkpoint writer lease the broker holds for this process. The broker owns the marker, so no other
+ * process can take it over while the broker runs, and it releases the lease when this process ends. The
+ * marker's operation lock cannot stay held across the process boundary (the framework hands the guard a
+ * closure), so a guarded operation runs only while the lease still holds, which is the same protection:
+ * only the broker changes this marker.
+ */
+function brokeredWriterLease(
+  sync: (request: Parameters<SyncWorkspaceRootBrokerClient['request']>[0]) => TWorkspaceRootBrokerResponse,
+  writerLease: string,
+): IProcessMarkerHandle {
+  let released = false;
+  const holds = (): boolean => {
+    if (released) return false;
+    try {
+      const response = sync({ op: 'writerLeaseHolds', writerLease });
+      return response.status === 'mutation' && response.value === true;
+    } catch {
+      return false;
+    }
+  };
+  return Object.freeze({
+    holds,
+    withGuard: <T>(operation: () => T): TProcessMarkerGuardResult<T> =>
+      holds() ? { status: 'ran', value: operation() } : { status: 'lost' },
+    release: (): void => {
+      if (released) return;
+      released = true;
+      try { sync({ op: 'writerLeaseRelease', writerLease }); } catch { /* the broker releases it when this process ends */ }
+    },
+  });
 }
 
 /** A CLI-owned service whose only project file port crosses the live root broker. */
@@ -185,6 +222,15 @@ export class BrokeredWorkspaceTrustService {
           },
           discardStaged: (path: string, temporaryName: string) => {
             mutation(root, 'discardStaged', path, { temporaryName });
+          },
+          claimDirectory: (path: string) => result(mutation(root, 'claimDirectory', path)) as boolean,
+          acquireWriter: (path: string): IProcessMarkerHandle | undefined => {
+            const response = sync({
+              op: 'acquireWriter', lease: leaseFor(root), relativePath: path, owner: process.pid,
+            });
+            if (response.status === 'missing') return undefined;
+            if (response.status !== 'writerLease') return refusal(response);
+            return brokeredWriterLease(sync, response.writerLease);
           },
         });
       },

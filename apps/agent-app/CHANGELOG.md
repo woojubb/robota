@@ -1,5 +1,14 @@
 # @robota-sdk/agent-app
 
+## 3.0.14
+### Patch Changes
+
+- Adopt SDK core 3.3, framework 3.3 and session 3.2.6 and workflows 0.0.7. Edit checkpoints are serialized per session and claimed atomically across processes, project logs and history reached through links are refused, and a session that closes normally keeps its record claim until it is down. The live workspace broker now supplies the checkpoint writer leases and directory claims the SDK requires: a lease is held by the broker for the session, ends when its client process is gone, and is released when its trust is revoked.
+- 57a832a: Watch a served session without being able to change it. `robota --serve --observer-port <port>` with `PRODUCT_OBSERVER_TOKEN` (at least 32 characters, different from the driver and HTTP tokens) opens a read-only loopback listener with its own token: an observer reads the conversation and state, cannot submit, answer prompts, run commands or switch sessions, and its disconnect does not end the session. A secure runtime and a hosted task worker refuse the flag.
+- Updated dependencies
+- Updated dependencies [57a832a]
+  - @robota-sdk/agent-cli@3.3.0
+
 ## 3.0.13
 ### Patch Changes
 

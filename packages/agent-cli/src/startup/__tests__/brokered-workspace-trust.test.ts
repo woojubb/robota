@@ -114,6 +114,50 @@ describe.skipIf(process.platform === 'win32')('brokered CLI workspace trust', ()
   }, 40_000);
 });
 
+describe.skipIf(process.platform !== 'linux')('brokered CLI checkpoint writer leases', () => {
+  it('hands the framework a writer lease and directory claims that the broker holds', async () => {
+    const parent = mkdtempSync(join(tmpdir(), 'brokered-cli-lease-'));
+    const home = join(parent, 'home');
+    const root = join(parent, 'root');
+    mkdirSync(home);
+    mkdirSync(root);
+    execFileSync('git', ['init', '--quiet', root]);
+    const runtime = createTestProductRuntime('test-product', { HOME: home });
+    const endpoint = workspaceRootBrokerEndpoint(runtime);
+    mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
+    const broker = await startTestBroker(
+      endpoint, dirname(endpoint), runtime.layout.userPaths.workspaceTrust,
+    );
+    const service = await BrokeredWorkspaceTrustService.create(runtime);
+    cleanups.push(async () => {
+      service.close();
+      await broker.close();
+      rmSync(dirname(endpoint), { recursive: true, force: true });
+      rmSync(parent, { recursive: true, force: true });
+    });
+    const access = await service.grant(root, await service.prepare(root));
+    expect(access.status).toBe('trusted');
+    if (access.status !== 'trusted') return;
+    const state = getWorkspaceProjectStateStorage(access.authority, 'memory');
+
+    expect(state.claimDirectory?.('checkpoints/one', 'lease test')).toBe(true);
+    expect(state.claimDirectory?.('checkpoints/one', 'lease test')).toBe(false);
+
+    const lease = state.acquireWriter?.('session_1/.writer', 'lease test');
+    expect(lease?.holds()).toBe(true);
+    expect(state.acquireWriter?.('session_1/.writer', 'lease test')).toBeUndefined();
+    expect(lease?.withGuard(() => 'ran')).toEqual({ status: 'ran', value: 'ran' });
+
+    lease?.release();
+    expect(lease?.holds()).toBe(false);
+    expect(lease?.withGuard(() => 'never')).toEqual({ status: 'lost' });
+    lease?.release();
+    const again = state.acquireWriter?.('session_1/.writer', 'lease test');
+    expect(again?.holds()).toBe(true);
+    again?.release();
+  }, 40_000);
+});
+
 describe.skipIf(process.platform !== 'win32')('brokered Windows CLI workspace trust', () => {
   it('round trips trusted project bytes through the protected pipe and sync client', async () => {
     const parent = mkdtempSync(join(tmpdir(), 'brokered-win-trust-'));
