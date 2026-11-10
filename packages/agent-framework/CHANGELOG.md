@@ -1,5 +1,19 @@
 # @robota-sdk/agent-framework
 
+## 3.3.0
+### Minor Changes
+
+- 8242eff: Serialize each session's checkpoint writer and restore, and claim checkpoint directories atomically so concurrent processes cannot overwrite or reorder pre-images. Custom checkpoint-state hosts and project mutation boundaries must supply writer leases and atomic directory claims. The Node core exposes process markers anchored to an open directory descriptor (the caller supplies its operation lock) and a check that refuses links in an owned directory chain, for host implementations.
+
+### Patch Changes
+
+- 8242eff: Protect subagent log directories, refuse linked prompt-history targets, decode refused tool handoffs, and capture project files whose names start with two dots.
+- a0bc53f: Keep a session's record claim through normal underlying session shutdown so another writer cannot take the record while shutdown is still writing the session log.
+- Updated dependencies [8242eff]
+- Updated dependencies [8242eff]
+  - @robota-sdk/agent-core@3.3.0
+  - @robota-sdk/agent-session@3.2.6
+
 ## 3.2.5
 ### Patch Changes
 
