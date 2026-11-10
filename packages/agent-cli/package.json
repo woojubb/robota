@@ -170,7 +170,7 @@
     "@robota-sdk/agent-transport": "npm:@robota-sdk/agent-transport@3.4.1",
     "@robota-sdk/agent-ui-terminal": "npm:@robota-sdk/agent-ui-terminal@3.2.4",
     "@robota-sdk/product-config": "npm:@robota-sdk/product-config@3.2.1",
-    "@robota-sdk/workflows": "0.0.6",
+    "@robota-sdk/workflows": "0.0.7",
     "@types/marked": "^6.0.0",
     "@types/qrcode": "^1.5.5",
     "@types/ws": "^8.18.1",
