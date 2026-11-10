@@ -1,5 +1,13 @@
 # @robota-sdk/agent-session
 
+## 3.2.6
+### Patch Changes
+
+- 8242eff: Protect subagent log directories, refuse linked prompt-history targets, decode refused tool handoffs, and capture project files whose names start with two dots.
+- Updated dependencies [8242eff]
+- Updated dependencies [8242eff]
+  - @robota-sdk/agent-core@3.3.0
+
 ## 3.2.5
 ### Patch Changes
 
