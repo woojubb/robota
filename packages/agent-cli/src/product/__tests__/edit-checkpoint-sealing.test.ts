@@ -156,10 +156,17 @@ function processSealerOf(runtime: ICliRuntimeContext): IArtifactSealer {
   return sealing.sealer;
 }
 
+/** The writer lease's lock file stays beside a session after release; a lock stores no state to seal. */
+const WRITER_LEASE_LOCK = join('.writer', 'active.guard');
+
 function expectSealed(files: readonly string[]): void {
   expect(files.length).toBeGreaterThan(0);
   for (const file of files) {
     const stored = readFileSync(file);
+    if (file.endsWith(WRITER_LEASE_LOCK)) {
+      expect(stored.length, file).toBe(0);
+      continue;
+    }
     expect(stored.subarray(0, 4).toString('latin1'), file).toBe('RSL1');
     expect(stored.includes(Buffer.from(CANARY)), file).toBe(false);
   }

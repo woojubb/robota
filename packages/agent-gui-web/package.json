@@ -29,8 +29,8 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@robota-sdk/agent-core": "npm:@robota-sdk/agent-core@3.2.3",
-    "@robota-sdk/agent-framework": "npm:@robota-sdk/agent-framework@3.2.5",
+    "@robota-sdk/agent-core": "npm:@robota-sdk/agent-core@3.3.0",
+    "@robota-sdk/agent-framework": "npm:@robota-sdk/agent-framework@3.3.0",
     "@robota-sdk/agent-transport": "npm:@robota-sdk/agent-transport@3.4.1",
     "@robota-sdk/product-config": "npm:@robota-sdk/product-config@3.2.1",
     "@tailwindcss/vite": "^4.3.3",

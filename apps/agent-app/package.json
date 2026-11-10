@@ -29,10 +29,10 @@
   },
   "devDependencies": {
     "@electron/asar": "^3.4.1",
-    "@robota-sdk/agent-framework": "npm:@robota-sdk/agent-framework@3.2.5",
+    "@robota-sdk/agent-framework": "npm:@robota-sdk/agent-framework@3.3.0",
     "@robota-sdk/agent-gui-web": "workspace:^",
     "@robota-sdk/agent-keyring": "npm:@robota-sdk/agent-keyring@3.2.1",
-    "@robota-sdk/agent-session": "npm:@robota-sdk/agent-session@3.2.5",
+    "@robota-sdk/agent-session": "npm:@robota-sdk/agent-session@3.2.6",
     "@robota-sdk/agent-ui-web": "npm:@robota-sdk/agent-ui-web@3.3.3",
     "@types/ws": "^8.18.1",
     "electron": "^43.5.0",
