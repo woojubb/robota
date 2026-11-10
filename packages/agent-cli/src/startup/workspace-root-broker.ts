@@ -21,6 +21,7 @@ import {
 import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
 import { WindowsControlPipeServer, type IControlChannel } from '@robota-sdk/agent-local-host';
 
+import type { IProcessMarkerHandle } from '@robota-sdk/agent-core';
 import type { IWorkspaceIdentity, IWorkspaceIdentityResolver } from '@robota-sdk/agent-framework';
 
 const PROTOCOL_VERSION = 1;
@@ -31,6 +32,7 @@ const MAX_PREPARED_ROOTS = 32;
 const PREPARED_ROOT_TTL_MS = 5 * 60 * 1_000;
 const REQUEST_TIMEOUT_MS = 10_000;
 const OWNER_CHECK_MS = 1_000;
+const MAX_WRITER_LEASES = 256;
 const CANDIDATE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 export type TWorkspaceRootBrokerRequest =
@@ -44,13 +46,15 @@ export type TWorkspaceRootBrokerRequest =
   | {
       readonly op: 'mutate'; readonly lease: string; readonly operationId: string;
       readonly method: 'write' | 'replace' | 'append' | 'delete' | 'sweepTemporaries' |
-        'linkCount' | 'stage' | 'commitStaged' | 'discardStaged';
+        'linkCount' | 'stage' | 'commitStaged' | 'discardStaged' | 'claimDirectory';
       readonly relativePath: string;
       readonly content?: string;
       readonly temporaryName?: string;
       readonly apply?: boolean;
       readonly migrationStartedAt?: number;
     }
+  | { readonly op: 'acquireWriter'; readonly lease: string; readonly relativePath: string; readonly owner: number }
+  | { readonly op: 'writerLeaseHolds' | 'writerLeaseRelease'; readonly writerLease: string }
   | { readonly op: 'prepareWriter'; readonly lease: string }
   | { readonly op: 'writerAssert' | 'writerClose'; readonly writer: string }
   | { readonly op: 'writerWrite'; readonly writer: string; readonly segments: readonly string[]; readonly content: string }
@@ -71,6 +75,7 @@ export type TWorkspaceRootBrokerResponse =
   | { readonly status: 'kind'; readonly kind: string }
   | { readonly status: 'mutation'; readonly value?: boolean | number | string }
   | { readonly status: 'writer'; readonly writer: string }
+  | { readonly status: 'writerLease'; readonly writerLease: string }
   | { readonly status: 'written' }
   | { readonly status: 'same' }
   | { readonly status: 'restricted-held'; readonly hold: string; readonly tag: string }
@@ -110,6 +115,16 @@ function privateEndpoint(endpoint: string, requireSocket: boolean): void {
 
 function candidate(value: unknown): value is string {
   return typeof value === 'string' && CANDIDATE.test(value);
+}
+
+/** Whether a process id still names a running process; a process another user owns counts as running. */
+function processRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== 'ESRCH';
+  }
 }
 
 function rootPath(value: unknown): value is string {
@@ -168,7 +183,7 @@ function parseRequest(frame: string): { version: number; request: TRequest } | u
   if (row.op === 'mutate' && candidate(row.lease) && candidate(row.operationId) &&
       relativePath(row.relativePath) && typeof row.method === 'string' &&
       ['write', 'replace', 'append', 'delete', 'sweepTemporaries', 'linkCount',
-        'stage', 'commitStaged', 'discardStaged'].includes(row.method) &&
+        'stage', 'commitStaged', 'discardStaged', 'claimDirectory'].includes(row.method) &&
       (row.content === undefined || base64(row.content)) &&
       (row.temporaryName === undefined ||
         (typeof row.temporaryName === 'string' && row.temporaryName.length <= 255 &&
@@ -185,6 +200,15 @@ function parseRequest(frame: string): { version: number; request: TRequest } | u
       ...(row.apply === undefined ? {} : { apply: row.apply }),
       ...(row.migrationStartedAt === undefined ? {} : { migrationStartedAt: row.migrationStartedAt }),
     } };
+  }
+  if (row.op === 'acquireWriter' && candidate(row.lease) && relativePath(row.relativePath) &&
+      Number.isSafeInteger(row.owner) && Number(row.owner) > 0 && Number(row.owner) <= 4_294_967_295) {
+    return { version: Number(row.version), request: {
+      op: 'acquireWriter', lease: row.lease, relativePath: row.relativePath, owner: Number(row.owner),
+    } };
+  }
+  if ((row.op === 'writerLeaseHolds' || row.op === 'writerLeaseRelease') && candidate(row.writerLease)) {
+    return { version: Number(row.version), request: { op: row.op, writerLease: row.writerLease } };
   }
   if (row.op === 'prepareWriter' && candidate(row.lease)) {
     return { version: Number(row.version), request: { op: 'prepareWriter', lease: row.lease } };
@@ -322,10 +346,33 @@ export async function startWorkspaceRootBroker(
   let generation = 0;
   const mutationResults = new Map<string, TResponse>();
   const writers = new Map<string, { readonly lease: string; readonly authority: INamedStableRootedFileWriter }>();
+  // A checkpoint writer lease is a marker owned by this broker process, which holds the project root.
+  // The client that asked for it is recorded so a crashed client cannot leave a live-looking lease behind.
+  const writerLeases = new Map<string, {
+    readonly lease: string; readonly owner: number; readonly marker: IProcessMarkerHandle;
+  }>();
+  const releaseWriterLeases = (matches: (entry: { readonly lease: string; readonly owner: number }) => boolean): void => {
+    for (const [id, entry] of writerLeases) {
+      if (!matches(entry)) continue;
+      writerLeases.delete(id);
+      entry.marker.release();
+    }
+  };
   const nodeFiles = createNodeWorkspaceProjectFiles();
   const history = historyFile === undefined ? undefined : createNodeWorkspaceTrustStore(historyFile);
   const sockets = new Set<Socket | IControlChannel>();
   let closed = false;
+  const boundaryOf = (approved: { readonly root: string; readonly reader: IStableRootedFileReader }) => {
+    const identity: IWorkspaceIdentity = {
+      worktreeRoot: approved.root, displayPath: approved.root, repositoryKey: approved.root,
+    };
+    const resolver: IWorkspaceIdentityResolver = {
+      resolve: () => identity,
+      assertOpenedRootDescriptor: (descriptor) =>
+        assertSameStablePosixRootDescriptor(approved.reader, descriptor),
+    };
+    return nodeFiles.createMutationBoundary(identity, resolver);
+  };
   const handle = async (frame: string): Promise<TResponse> => {
     if (closed) return refuse('broker-closing');
     for (const [id, pending] of prepared) {
@@ -487,6 +534,7 @@ export async function startWorkspaceRootBroker(
         historicalIdentity ??= approved.identity;
         revokedPaths.add(approved.root);
         active.delete(lease);
+        releaseWriterLeases((entry) => entry.lease === lease);
         for (const [writerId, writer] of writers) {
           if (writer.lease !== lease) continue;
           writers.delete(writerId);
@@ -517,17 +565,9 @@ export async function startWorkspaceRootBroker(
       if (prior !== undefined) return prior;
       const approved = active.get(request.lease);
       if (approved === undefined) return refuse('unknown-lease');
-      const identity: IWorkspaceIdentity = {
-        worktreeRoot: approved.root, displayPath: approved.root, repositoryKey: approved.root,
-      };
-      const resolver: IWorkspaceIdentityResolver = {
-        resolve: () => identity,
-        assertOpenedRootDescriptor: (descriptor) =>
-          assertSameStablePosixRootDescriptor(approved.reader, descriptor),
-      };
       let result: TResponse;
       try {
-        const boundary = nodeFiles.createMutationBoundary(identity, resolver);
+        const boundary = boundaryOf(approved);
         const path = request.relativePath;
         const content = request.content === undefined ? undefined : Buffer.from(request.content, 'base64');
         switch (request.method) {
@@ -549,6 +589,10 @@ export async function startWorkspaceRootBroker(
             result = { status: 'mutation' };
             break;
           case 'delete': result = { status: 'mutation', value: boundary.delete(path) }; break;
+          case 'claimDirectory':
+            if (boundary.claimDirectory === undefined) return refuse('unsupported');
+            result = { status: 'mutation', value: boundary.claimDirectory(path) };
+            break;
           case 'linkCount': {
             const value = boundary.linkCount(path);
             result = value === undefined ? { status: 'missing' } : { status: 'mutation', value };
@@ -573,6 +617,34 @@ export async function startWorkspaceRootBroker(
       mutationResults.set(request.operationId, result);
       if (mutationResults.size > 1_024) mutationResults.delete(mutationResults.keys().next().value!);
       return result;
+    }
+    if (request.op === 'acquireWriter') {
+      const approved = active.get(request.lease);
+      if (approved === undefined) return refuse('unknown-lease');
+      if (writerLeases.size >= MAX_WRITER_LEASES) return refuse('capacity');
+      let marker: IProcessMarkerHandle | undefined;
+      try {
+        const boundary = boundaryOf(approved);
+        if (boundary.acquireWriter === undefined) return refuse('unsupported');
+        marker = boundary.acquireWriter(request.relativePath);
+      } catch {
+        return refuse('writer-unavailable');
+      }
+      if (marker === undefined) return { status: 'missing' };
+      const id = randomUUID();
+      writerLeases.set(id, { lease: request.lease, owner: request.owner, marker });
+      return { status: 'writerLease', writerLease: id };
+    }
+    if (request.op === 'writerLeaseHolds' || request.op === 'writerLeaseRelease') {
+      const entry = writerLeases.get(request.writerLease);
+      if (request.op === 'writerLeaseHolds') {
+        return { status: 'mutation', value: entry !== undefined && entry.marker.holds() };
+      }
+      if (entry !== undefined) {
+        writerLeases.delete(request.writerLease);
+        entry.marker.release();
+      }
+      return { status: 'released' };
     }
     if (request.op === 'prepareWriter') {
       const approved = active.get(request.lease);
@@ -739,6 +811,7 @@ export async function startWorkspaceRootBroker(
         if (closed) return;
         closed = true;
         clearInterval(ownerCheck);
+        clearInterval(leaseSweep);
         owner?.close();
         for (const socket of sockets) socket.destroy();
         await tail;
@@ -747,6 +820,7 @@ export async function startWorkspaceRootBroker(
         prepared.clear();
         for (const root of restricted.values()) { closeSync(root.descriptor); root.reader.close(); }
         restricted.clear();
+        releaseWriterLeases(() => true);
         for (const root of active.values()) root.reader.close();
         active.clear();
         for (const writer of writers.values()) writer.authority.close();
@@ -771,6 +845,13 @@ export async function startWorkspaceRootBroker(
     if (owner?.present() === false) void broker.close().catch(() => undefined);
   }, OWNER_CHECK_MS);
   ownerCheck?.unref();
+  // A client that ended without releasing its checkpoint writer leases must not keep them alive in this
+  // longer-lived process: the marker would still name a running owner, and the next session of the same
+  // project would find its checkpoint directory held.
+  const leaseSweep = setInterval(() => {
+    releaseWriterLeases((entry) => !processRunning(entry.owner));
+  }, OWNER_CHECK_MS);
+  leaseSweep.unref();
   return broker;
 }
 

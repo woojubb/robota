@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { existsSync, mkdtempSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -262,6 +262,84 @@ describe.skipIf(process.platform === 'win32')('root broker custody', () => {
     expect(await requestWorkspaceRootBroker(f.endpoint, {
       op: 'compare', left: prepared.candidate, right: prepared.candidate,
     })).toMatchObject({ status: 'refused', reason: 'unknown-candidate' });
+  });
+});
+
+describe.skipIf(process.platform !== 'linux')('root broker checkpoint writer leases', () => {
+  async function approvedRoot() {
+    const f = fixture();
+    servers.push(await startWorkspaceRootBroker(f.endpoint));
+    const pending = await requestWorkspaceRootBroker(f.endpoint, { op: 'prepare', root: f.first });
+    if (pending.status !== 'prepared') throw new Error('expected a prepared root');
+    const approved = await requestWorkspaceRootBroker(f.endpoint, {
+      op: 'approve', candidate: pending.candidate, root: f.first,
+    });
+    if (approved.status !== 'trusted') throw new Error('expected a trusted root');
+    return { ...f, lease: approved.lease };
+  }
+  const claim = (f: { endpoint: string; lease: string }, relativePath: string) =>
+    requestWorkspaceRootBroker(f.endpoint, {
+      op: 'mutate', lease: f.lease, operationId: randomUUID(), method: 'claimDirectory', relativePath,
+    });
+  const acquire = (f: { endpoint: string; lease: string }, relativePath: string, owner = process.pid) =>
+    requestWorkspaceRootBroker(f.endpoint, { op: 'acquireWriter', lease: f.lease, relativePath, owner });
+  const holds = (f: { endpoint: string }, writerLease: string) =>
+    requestWorkspaceRootBroker(f.endpoint, { op: 'writerLeaseHolds', writerLease });
+  const release = (f: { endpoint: string }, writerLease: string) =>
+    requestWorkspaceRootBroker(f.endpoint, { op: 'writerLeaseRelease', writerLease });
+
+  it('claims a directory once and reports a later claim as already taken', async () => {
+    const f = await approvedRoot();
+    expect(await claim(f, 'checkpoints/one')).toMatchObject({ status: 'mutation', value: true });
+    expect(await claim(f, 'checkpoints/one')).toMatchObject({ status: 'mutation', value: false });
+    expect(existsSync(join(f.first, 'checkpoints', 'one'))).toBe(true);
+  });
+
+  it('grants one live lease per directory and a new one after release', async () => {
+    const f = await approvedRoot();
+    const first = await acquire(f, 'session_1/.writer');
+    expect(first.status).toBe('writerLease');
+    if (first.status !== 'writerLease') return;
+    expect(await holds(f, first.writerLease)).toMatchObject({ status: 'mutation', value: true });
+    expect(await acquire(f, 'session_1/.writer')).toMatchObject({ status: 'missing' });
+    expect(await acquire(f, 'session_2/.writer')).toMatchObject({ status: 'writerLease' });
+
+    expect(await release(f, first.writerLease)).toMatchObject({ status: 'released' });
+    expect(await holds(f, first.writerLease)).toMatchObject({ status: 'mutation', value: false });
+    expect(await release(f, first.writerLease)).toMatchObject({ status: 'released' });
+    expect(await acquire(f, 'session_1/.writer')).toMatchObject({ status: 'writerLease' });
+  });
+
+  it('refuses a lease for a trust lease the broker does not hold', async () => {
+    const f = await approvedRoot();
+    expect(await acquire({ ...f, lease: randomUUID() }, 'session_1/.writer'))
+      .toMatchObject({ status: 'refused', reason: 'unknown-lease' });
+  });
+
+  it('ends the leases of a trust lease when that trust is revoked', async () => {
+    const f = await approvedRoot();
+    const lease = await acquire(f, 'session_1/.writer');
+    if (lease.status !== 'writerLease') throw new Error('expected a lease');
+    expect(await requestWorkspaceRootBroker(f.endpoint, { op: 'revoke', root: f.first }))
+      .toMatchObject({ status: 'revoked' });
+    expect(await holds(f, lease.writerLease)).toMatchObject({ status: 'mutation', value: false });
+  });
+
+  it('releases the lease of a client process that is gone, and keeps one whose client runs', async () => {
+    const f = await approvedRoot();
+    const gone = spawn(process.execPath, ['-e', ''], { stdio: 'ignore' });
+    await once(gone, 'exit');
+    const orphaned = await acquire(f, 'session_1/.writer', gone.pid!);
+    const running = await acquire(f, 'session_2/.writer');
+    if (orphaned.status !== 'writerLease' || running.status !== 'writerLease') {
+      throw new Error('expected two leases');
+    }
+    await vi.waitFor(
+      async () => expect(await holds(f, orphaned.writerLease)).toMatchObject({ value: false }),
+      { timeout: 10_000, interval: 200 },
+    );
+    expect(await holds(f, running.writerLease)).toMatchObject({ status: 'mutation', value: true });
+    expect(await acquire(f, 'session_1/.writer')).toMatchObject({ status: 'writerLease' });
   });
 });
 
