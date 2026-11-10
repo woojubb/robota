@@ -51,7 +51,9 @@ const SDK_WINDOWS_WORKSPACES = new Set(['agent-executor', 'agent-keyring', 'agen
 const WINDOWS_WORKSPACES = new Set([...NATIVE_WORKSPACES, ...SDK_WINDOWS_WORKSPACES, 'packages/agent-local-host']);
 const PRODUCT_WORKSPACES = new Set(['agent-cli', 'agent-gui-web', 'agent-local-host',
   'agent-provider-replay'].map((name) => `packages/${name}`));
-const needsNative = (plan) => plan.full || plan.checks.some((dir) => NATIVE_WORKSPACES.has(dir));
+// Files outside every workspace that still feed a binary build; any other root input widens the scope without one.
+const NATIVE_INPUT = /^(?:scripts\/(?:product|release)\/|\.github\/(?:actions\/ci-setup\/|workflows\/(?:native-windows-ci|release-bun-binaries)\.yml$))/u;
+const needsNative = (plan) => (plan.full ? plan.native : plan.checks.some((dir) => NATIVE_WORKSPACES.has(dir)));
 const needsWindows = (plan) => plan.full || plan.windows === true;
 const needsSdkWindows = (plan) => plan.full || (needsWindows(plan) && (plan.windowsChecks?.length ?? 0) > 0);
 
@@ -97,8 +99,9 @@ export function selectScope({
 }) {
   const all = workspaces(cwd);
   let windowsChecks = [];
-  const full = (reason) => ({
+  const full = (reason, native = true) => ({
     full: true,
+    native,
     developerDocs: false,
     reason,
     checks: all.map((p) => p.dir),
@@ -140,6 +143,8 @@ export function selectScope({
     const manifests = new Set();
     const changedFiles = [];
     let lockChanged = false;
+    let broad;
+    let nativeInput = false;
     let docs = false;
     let developerDocs = false;
     let windows = false;
@@ -150,7 +155,10 @@ export function selectScope({
         lockChanged = true;
         continue;
       }
-      if (file === FULL_PLAN_DOCUMENT) return full('runtime-platform lists: ARCHITECTURE.md');
+      if (file === FULL_PLAN_DOCUMENT) {
+        broad ??= 'runtime-platform lists: ARCHITECTURE.md';
+        continue;
+      }
       if (isDeveloperDocument(file)) {
         developerDocs = true;
         continue;
@@ -160,7 +168,11 @@ export function selectScope({
         continue;
       }
       const project = all.find((p) => file.startsWith(`${p.dir}/`));
-      if (!project) return full(`unmapped input: ${file}`);
+      if (!project) {
+        broad ??= `unmapped input: ${file}`;
+        nativeInput ||= NATIVE_INPUT.test(file);
+        continue;
+      }
       windows ||= WINDOWS_WORKSPACES.has(project.dir) || /(?:windows|win32)/i.test(file);
       if (file === `${project.dir}/package.json` && project.dir.startsWith('packages/') &&
           !PRODUCT_WORKSPACES.has(project.dir) && sdkManifestNeedsWindows(project, status)) windows = true;
@@ -189,6 +201,11 @@ export function selectScope({
     if (docs) {
       if (!all.some((p) => p.dir === 'apps/docs')) return full('missing docs consumer');
       changed.add('apps/docs');
+    }
+    if (broad !== undefined) {
+      // Every workspace is validated, but binaries build only when a binary input is among the changes.
+      const touched = changed.size === 0 ? [] : workspaces(cwd, [...changed].flatMap((dir) => ['--filter', `...{${dir}}`]));
+      return full(broad, nativeInput || touched.some((p) => NATIVE_WORKSPACES.has(p.dir)));
     }
     if (!changed.size)
       return {

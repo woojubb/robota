@@ -104,3 +104,52 @@ it('selects the Windows suite of agent-organization-host when that package chang
   expect(plan.windowsChecks).toContain('packages/agent-organization-host');
   expect(plan.windows).toBe(true);
 });
+
+it('widens the scope for a root input that feeds no binary without building native binaries', () => {
+  const f = fixture();
+  mkdirSync(path.join(f.root, 'scripts'), { recursive: true });
+  f.write('scripts/lint.mjs', 'export {};\n');
+  f.commit();
+  const plan = selectScope({ cwd: f.root, event: 'pull_request', base: f.base });
+  expect(plan.full).toBe(true);
+  expect(plan.native).toBe(false);
+  const needs = (build, sdk) => ({ scope: { result: 'success', outputs: { plan: JSON.stringify(plan) } },
+    'build-bun': { result: build }, 'sdk-windows': { result: sdk } });
+  expect(() => assertNativeGate(needs('skipped', 'success'))).not.toThrow();
+  expect(() => assertNativeGate(needs('success', 'skipped'))).toThrow('Native builds');
+});
+
+it('keeps native binaries for a root input a binary build uses and for a change next to one', () => {
+  const f = fixture();
+  mkdirSync(path.join(f.root, 'scripts/release'), { recursive: true });
+  f.write('scripts/release/pack.mjs', 'export {};\n');
+  f.commit();
+  expect(selectScope({ cwd: f.root, event: 'pull_request', base: f.base }).native).toBe(true);
+  const next = fixture();
+  mkdirSync(path.join(next.root, 'scripts'), { recursive: true });
+  next.write('scripts/lint.mjs', 'export {};\n');
+  next.write('packages/agent-cli/change.ts', 'export {};\n');
+  next.commit();
+  const plan = selectScope({ cwd: next.root, event: 'pull_request', base: next.base });
+  expect(plan.full).toBe(true);
+  expect(plan.native).toBe(true);
+});
+
+it('does not build native binaries for an ARCHITECTURE.md change alone', () => {
+  const f = fixture();
+  f.write('ARCHITECTURE.md', '# Architecture\n');
+  f.commit();
+  const plan = selectScope({ cwd: f.root, event: 'pull_request', base: f.base });
+  expect(plan.full).toBe(true);
+  expect(plan.reason).toBe('runtime-platform lists: ARCHITECTURE.md');
+  expect(plan.native).toBe(false);
+});
+
+it('still builds native binaries for every other full plan', () => {
+  const f = fixture();
+  f.write('packages/agent-core/package.json', { name: '@fixture/core', version: '1.0.1', devDependencies: { '@fixture/extra': 'workspace:*' } });
+  f.write('pnpm-lock.yaml', f.lock('{changed: true}', '{integrity: changed}'));
+  f.commit();
+  expect(selectScope({ cwd: f.root, event: 'pull_request', base: f.base }).native).toBe(true);
+  expect(selectScope({ cwd: f.root, event: 'workflow_dispatch', base: f.base }).native).toBe(true);
+});
