@@ -135,6 +135,21 @@ it('keeps native binaries for a root input a binary build uses and for a change 
   expect(plan.native).toBe(true);
 });
 
+it('keeps native binaries for an unlisted root input such as the shared tsconfig', () => {
+  const f = fixture();
+  f.write('tsconfig.base.json', '{}\n');
+  f.commit();
+  const plan = selectScope({ cwd: f.root, event: 'pull_request', base: f.base });
+  expect(plan.full).toBe(true);
+  expect(plan.native).toBe(true);
+  const docs = fixture();
+  mkdirSync(path.join(docs.root, 'diagrams'), { recursive: true });
+  docs.write('diagrams/flow.svg', '<svg/>\n');
+  docs.write('.gitattributes', '* text=auto\n');
+  docs.commit();
+  expect(selectScope({ cwd: docs.root, event: 'pull_request', base: docs.base }).native).toBe(false);
+});
+
 it('does not build native binaries for an ARCHITECTURE.md change alone', () => {
   const f = fixture();
   f.write('ARCHITECTURE.md', '# Architecture\n');

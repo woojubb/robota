@@ -51,8 +51,9 @@ const SDK_WINDOWS_WORKSPACES = new Set(['agent-executor', 'agent-keyring', 'agen
 const WINDOWS_WORKSPACES = new Set([...NATIVE_WORKSPACES, ...SDK_WINDOWS_WORKSPACES, 'packages/agent-local-host']);
 const PRODUCT_WORKSPACES = new Set(['agent-cli', 'agent-gui-web', 'agent-local-host',
   'agent-provider-replay'].map((name) => `packages/${name}`));
-// Files outside every workspace that still feed a binary build; any other root input widens the scope without one.
-const NATIVE_INPUT = /^(?:scripts\/(?:product|release)\/|\.github\/(?:actions\/ci-setup\/|workflows\/(?:native-windows-ci|release-bun-binaries)\.yml$))/u;
+// Root inputs outside every workspace that no binary build reads; any other unmapped input (shared tsconfig, npm and
+// toolchain settings, a build script or a native workflow) may feed one.
+const NON_NATIVE_ROOT = /^(?:scripts\/(?!(?:product|release)\/)|\.github\/(?!actions\/ci-setup\/|workflows\/(?:native-windows-ci|release-bun-binaries)\.yml$)|diagrams\/|llms\.txt$|\.gitattributes$)/u;
 const needsNative = (plan) => (plan.full ? plan.native : plan.checks.some((dir) => NATIVE_WORKSPACES.has(dir)));
 const needsWindows = (plan) => plan.full || plan.windows === true;
 const needsSdkWindows = (plan) => plan.full || (needsWindows(plan) && (plan.windowsChecks?.length ?? 0) > 0);
@@ -170,7 +171,7 @@ export function selectScope({
       const project = all.find((p) => file.startsWith(`${p.dir}/`));
       if (!project) {
         broad ??= `unmapped input: ${file}`;
-        nativeInput ||= NATIVE_INPUT.test(file);
+        nativeInput ||= !NON_NATIVE_ROOT.test(file);
         continue;
       }
       windows ||= WINDOWS_WORKSPACES.has(project.dir) || /(?:windows|win32)/i.test(file);
