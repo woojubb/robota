@@ -1,5 +1,12 @@
 # @robota-sdk/agent-roundtable-robota
 
+## 3.2.6
+### Patch Changes
+
+- Refresh the package README so the npm page shows the current package layout, install steps and environment variable names.
+- Updated dependencies
+  - @robota-sdk/agent-roundtable@3.2.2
+
 ## 3.2.5
 ### Patch Changes
 

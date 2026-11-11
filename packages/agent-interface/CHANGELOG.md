@@ -1,5 +1,10 @@
 # @robota-sdk/agent-interface
 
+## 3.3.1
+### Patch Changes
+
+- Refresh the package README so the npm page shows the current package layout, install steps and environment variable names.
+
 ## 3.3.0
 ### Minor Changes
 

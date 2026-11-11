@@ -1,5 +1,18 @@
 # @robota-sdk/agent-framework
 
+## 3.3.1
+### Patch Changes
+
+- Refresh the package README so the npm page shows the current package layout, install steps and environment variable names.
+- Updated dependencies
+  - @robota-sdk/agent-core@3.3.1
+  - @robota-sdk/agent-executor@3.2.5
+  - @robota-sdk/agent-interface@3.3.1
+  - @robota-sdk/agent-os@3.3.1
+  - @robota-sdk/agent-roundtable@3.2.2
+  - @robota-sdk/agent-session@3.2.7
+  - @robota-sdk/agent-tools@3.3.2
+
 ## 3.3.0
 ### Minor Changes
 

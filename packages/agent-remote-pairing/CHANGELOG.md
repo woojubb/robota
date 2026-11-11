@@ -1,5 +1,10 @@
 # @robota-sdk/agent-remote-pairing
 
+## 3.2.4
+### Patch Changes
+
+- Refresh the package README so the npm page shows the current package layout, install steps and environment variable names.
+
 ## 3.2.3
 ### Patch Changes
 

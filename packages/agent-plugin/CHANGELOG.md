@@ -1,5 +1,12 @@
 # @robota-sdk/agent-plugin
 
+## 3.2.4
+### Patch Changes
+
+- Refresh the package README so the npm page shows the current package layout, install steps and environment variable names.
+- Updated dependencies
+  - @robota-sdk/agent-core@3.3.1
+
 ## 3.2.3
 ### Patch Changes
 
