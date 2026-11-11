@@ -28,12 +28,12 @@ prefix, and the shell function used for skill preprocessing.
 
 ### What the CLI supplies
 
-| Input                     | Where it comes from                                                           | Used for                                                                         |
-| ------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Skill roots               | `PRODUCT_SKILL_ROOTS` in `src/product/skill-roots.ts`                   | Where `SkillCommandSource` looks for skill folders and command files             |
-| Contribution sources      | `createCliWorkspaceComposition()`                                             | Project sources only when the workspace is trusted, plus user sources            |
-| Model command-tool prefix | `PRODUCT_MODEL_COMMAND_TOOL_PREFIX` (`__PRODUCT_MODEL_TOOL_PREFIX__`) in `product-profile.ts` | Names the tools that expose model-invocable commands                             |
-| `shellExec`               | `runShellCommand()` in `src/startup/shell-exec.ts`                            | Runs `` !`cmd` `` lines in skill bodies (synchronous, 5 s timeout, piped output) |
+| Input                     | Where it comes from                                                                                                           | Used for                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Skill roots               | `productSkillRoots()` in `src/product/skill-roots.ts`, which returns the layout's `skillRoots`                                | Where `SkillCommandSource` looks for skill folders and command files             |
+| Contribution sources      | `createCliWorkspaceComposition()`                                                                                             | Project sources only when the workspace is trusted, plus user sources            |
+| Model command-tool prefix | `modelCommandToolPrefix` from the product identity, set in `createSelectedProductProfile()` (`__PRODUCT_MODEL_TOOL_PREFIX__`) | Names the tools that expose model-invocable commands                             |
+| `shellExec`               | `runShellCommand()` in `src/startup/shell-exec.ts`                                                                            | Runs `` !`cmd` `` lines in skill bodies (synchronous, 5 s timeout, piped output) |
 
 ### Routing inside the session
 

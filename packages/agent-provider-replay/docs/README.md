@@ -14,6 +14,8 @@ Entry points:
 - `new ReplayProvider({ entries, ... })`: takes already-loaded log entries.
 
 A call past the last recorded response rejects. The log is validated as a whole before any response
-is replayed.
+is replayed. `chatStream()` yields the next recorded response as a single chunk. A sealed (secure
+conversation) session log is refused with fixed text: the provider holds no keys and replays plain logs
+only.
 
 - [SPEC.md](SPEC.md): contract, guarantees, error taxonomy and package boundary.

@@ -12,16 +12,20 @@ assembled from the same neutral building blocks you can embed in your own applic
 > Evaluating with an AI agent? Start at [`llms.txt`](./llms.txt) — the consumer map (minimal
 > package set, capabilities, behavior contracts).
 
-## Quick Start — Embed the Library
+## Quick start: embed an agent
 
-The minimal set is `agent-core` plus one `agent-provider-<vendor>` package; add `agent-tools` when the
-agent calls tools. Published packages need Node.js 22.12 or later.
+Install `agent-core` and a provider package to run an agent. This Node.js example requires
+Node.js 22.12 or later and an `ANTHROPIC_API_KEY` environment variable. Packages declare that
+minimum for Node installations; runtime requirements depend on the entry and host. See the [providers guide](./content/guide/providers.md) for other providers and local
+model servers.
 
 ```bash
 npm install @robota-sdk/agent-core @robota-sdk/agent-provider @anthropic-ai/sdk
 ```
 
-```typescript
+Save this example as `agent.mjs`:
+
+```javascript
 import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
@@ -36,20 +40,26 @@ const agent = new ConversationAgent({
 });
 
 const response = await agent.run('Hello!');
+console.log(response);
 ```
+
+Run `node agent.mjs`. The model's response appears in the console. The text depends on the model.
 
 [Runtime migration and compatibility](./content/guide/runtime-migration.md)
 
 ### Add a tool
 
 `createZodFunctionTool` validates the model's arguments against a zod schema before your function
-runs, and types the function's input from that schema:
+runs, and types the function's input from that schema. In addition to the packages above, install
+`agent-tools` and Zod 4:
 
 ```bash
-npm install @robota-sdk/agent-tools zod@3
+npm install @robota-sdk/agent-tools zod@4
 ```
 
-```typescript
+Save this example as `weather.mjs`:
+
+```javascript
 import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
@@ -70,16 +80,27 @@ const agent = new ConversationAgent({
 });
 
 const answer = await agent.run('What is the weather in Seoul?');
+console.log(answer);
 ```
+
+Run `node weather.mjs` to see the response.
 
 Any OpenAI-compatible endpoint works too — AI gateways, Azure, vLLM, local servers — through the
 OpenAI provider's `baseURL` (see the [providers guide](./content/guide/providers.md)).
 
-### Higher-level assembly — `createQuery`
+### Run a query with built-in tools
 
-`agent-framework` assembles the built-in tools, permissions, and config/context loading on top:
+`agent-framework` provides `createQuery` with built-in tools and permission checks. Install it with
+the Anthropic provider:
 
-```typescript
+```bash
+npm install @robota-sdk/agent-framework @robota-sdk/agent-tools @robota-sdk/agent-provider @anthropic-ai/sdk
+```
+
+With `ANTHROPIC_API_KEY` set, save this example as `query.mjs`. It shuts down the session when the
+query finishes:
+
+```javascript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
@@ -89,13 +110,21 @@ const query = createQuery({
   host: createNodeFrameworkHost({ createDefaultTools }),
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+  model: 'claude-sonnet-4-6',
 });
-const response = await query('List all TypeScript files in src/');
+try {
+  console.log(await query('List all TypeScript files in src/'));
+} finally {
+  await query.shutdown();
+}
 ```
 
+Run `node query.mjs` to see the response.
+
 `createQuery` runs in the `default` permission mode: with nobody to approve, a tool call that would
-ask for permission is denied. See the [SDK guide](./content/guide/sdk.md) for sessions, permission
-modes, and `InteractiveSession`.
+ask for permission is denied. Without `projectAccess`, a query runs Restricted: it uses its tools in
+`cwd` but loads no project context, settings, memory or session files. See the
+[SDK guide](./content/guide/sdk.md) for sessions, permission modes, and `InteractiveSession`.
 
 ### Use the CLI coding assistant
 
@@ -124,11 +153,11 @@ The installer detects your OS and CPU, downloads the matching binary from the la
 [GitHub release](__PROJECT_REPOSITORY_URL__/releases), verifies its SHA-256 checksum, and
 installs `__PRODUCT_CLI_NAME__` to `~/.robota/bin` (on Windows, `%LOCALAPPDATA%\robota\bin`, which it adds to your
 user PATH; on macOS/Linux it prints the `PATH` line to add if needed). To install a specific release,
-set `PRODUCT_VERSION` to its tag, e.g. `curl -fsSL … | PRODUCT_VERSION=v<version> bash`. Binaries are
-unsigned — macOS and Windows may warn.
+set `PROJECT_RELEASE_VERSION` to its version or tag, e.g.
+`curl -fsSL … | PROJECT_RELEASE_VERSION=<version> bash`. The macOS binaries are signed and
+notarized; the Windows binary is unsigned, so Windows may warn.
 
-
-> **Beta**: Robota is currently `3.0.0-beta`. APIs may change before the stable 3.0.0 release. See
+> APIs may change. See
 > [CHANGELOG.md](./CHANGELOG.md) for upgrade notes.
 
 > **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use
@@ -137,11 +166,11 @@ unsigned — macOS and Windows may warn.
 ## What You Can Build With It
 
 - **Multi-provider agents with fallback** — Anthropic, OpenAI, Google Gemini, DeepSeek, Qwen and
-  Gemma, plus any OpenAI-compatible endpoint. `FallbackProvider` (`agent-framework`) moves a turn to
+  Gemma, plus OpenRouter and any OpenAI-compatible endpoint. `FallbackProvider` (`agent-framework`) moves a turn to
   another model when the primary is overloaded or failing; the CLI exposes it as `--fallback-model`.
   [Providers guide](./content/guide/providers.md)
 - **Tools with runtime validation** — zod-validated function tools, plus built-in coding tools
-  (shell, read, write, edit, glob, grep, web fetch and search).
+  (shell, read, write, edit, glob, grep and web fetch).
   [Building agents](./content/guide/building-agents.md)
 - **Permissions, hooks and sandboxing** — permission modes (`plan`, `default`, `acceptEdits`,
   `bypassPermissions`, `auto`), allow/ask/deny rules, lifecycle hooks, and an OS-level sandbox for
@@ -152,7 +181,7 @@ unsigned — macOS and Windows may warn.
   (`__PRODUCT_CLI_NAME__ daemon start`) that the desktop app and the full terminal UI (`__PRODUCT_CLI_NAME__ --attach`) connect to.
   [Sessions and daemon](./content/guide/sessions-and-daemon.md)
 - **MCP, both directions** — connect to MCP servers (stdio or remote, including OAuth sign-in) with
-  `agent-mcp`, and serve an Robota session as an MCP server with `agent-transport/mcp`
+  `agent-mcp`, and serve a Robota session as an MCP server with `agent-transport/mcp`
   (`__PRODUCT_CLI_NAME__ mcp serve`). [MCP guide](./content/guide/mcp.md)
 - **Devices and remote control** — link your own devices, send messages and files between
   sessions, hand a session off to another device, and co-drive a session from a browser over
@@ -170,7 +199,7 @@ below it — see [ARCHITECTURE.md](./ARCHITECTURE.md) for the full picture.
 ```
 agent-cli                              ← Product interface: terminal AI coding assistant
 agent-product                          ← Product composition: profiles, capability packs, slash commands, presets, the coding pack
-agent-ui-terminal                      ← Terminal UI (React + Ink)
+agent-ui-terminal · agent-ui-web       ← Terminal UI (React + Ink); browser session surface (React)
 agent-transport                        ← Wire protocol and carriers: ws, http, mcp, acp, webrtc, link
   ↓
 agent-framework                        ← Assembly: InteractiveSession, createQuery(), createAgentRuntime()
@@ -180,7 +209,7 @@ agent-tools                            ← Tool factories and the default tool s
 agent-mcp · agent-plugin               ← MCP client; lifecycle plugins
 agent-provider                         ← One subpath per provider vendor
   ↓
-agent-interface · agent-os               ← Type-only contracts shared across layers; Node host primitives
+agent-interface · agent-os               ← Type contracts shared across layers; Node host primitives
 agent-core                             ← Foundation: ConversationAgent engine, provider/tool/plugin contracts, permissions
 ```
 
@@ -191,11 +220,11 @@ The [packages index](__PROJECT_DOCS_URL__/en/packages/) on the docs site covers 
 
 **Start here (embedding):**
 
-| Package                                                                                  | Description                                                                                                                                                                                       |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)         | `Robota` engine: run/runStream, history, tool calling, structured output, plugins                                                                                                                 |
-| [`@robota-sdk/agent-provider`](https://www.npmjs.com/package/@robota-sdk/agent-provider) | Anthropic, OpenAI, Gemini, DeepSeek, Qwen, Gemma and ByteDance providers, one subpath per vendor, the shared OpenAI-compatible protocol base, and the built-in provider definitions (`./builtin`) |
-| [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)       | Zod-validated function tools, built-in tool factories, sandbox ports, and the default tool set (`./defaults`: `createDefaultTools`)                                                               |
+| Package                                                                                  | Description                                                                                                                                                                                                             |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)         | `ConversationAgent`: run/runStream, history, tool calling, structured output, plugins                                                                                                                                   |
+| [`@robota-sdk/agent-provider`](https://www.npmjs.com/package/@robota-sdk/agent-provider) | Anthropic, OpenAI, Gemini, DeepSeek, Qwen, Gemma and ByteDance providers, one subpath per vendor, the shared OpenAI-compatible protocol base, and the built-in provider definitions, including OpenRouter (`./builtin`) |
+| [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)       | Zod-validated function tools, built-in tool factories, sandbox ports, and the default tool set (`./defaults`: `createDefaultTools`)                                                                                     |
 
 **App assembly** — sessions, permissions, runtime:
 
@@ -211,19 +240,21 @@ The [packages index](__PROJECT_DOCS_URL__/en/packages/) on the docs site covers 
 | [`@robota-sdk/agent-telemetry-otel`](https://www.npmjs.com/package/@robota-sdk/agent-telemetry-otel)       | OpenTelemetry spans and GenAI metrics for agent runs and live prompt traces, GenAI or `agent.*` names                                                                                 |
 | [`@robota-sdk/agent-os`](https://www.npmjs.com/package/@robota-sdk/agent-os)                               | Node host primitives, one subpath per primitive: bounded root-relative file reads (`./file-authority`), operation locks (`./node-lock`), child-process tree termination (`./process`) |
 | [`@robota-sdk/agent-keyring`](https://www.npmjs.com/package/@robota-sdk/agent-keyring)                     | Key custody and public-key sealing for secure conversations (`node:crypto` only)                                                                                                      |
+| [`@robota-sdk/agent-organization`](https://www.npmjs.com/package/@robota-sdk/agent-organization)           | Dependency-free canonical JSON and organization resource budget contracts, with runtime validators                                                                                    |
 
 **Multi-agent conversation** — coordinate independent agents and people in a shared conversation:
 
-| Package                                                                                                       | Description                                                                       |
-| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [`@robota-sdk/agent-roundtable`](https://www.npmjs.com/package/@robota-sdk/agent-roundtable)                 | Selects turns, runs parallel groups, publishes to a shared transcript; no model, no provider |
-| [`@robota-sdk/agent-roundtable-robota`](https://www.npmjs.com/package/@robota-sdk/agent-roundtable-robota)   | Runs a Robota `Session` or plain `Robota` agent as a roundtable participant or selector       |
+| Package                                                                                                    | Description                                                                                  |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [`@robota-sdk/agent-roundtable`](https://www.npmjs.com/package/@robota-sdk/agent-roundtable)               | Selects turns, runs parallel groups, publishes to a shared transcript; no model, no provider |
+| [`@robota-sdk/agent-roundtable-robota`](https://www.npmjs.com/package/@robota-sdk/agent-roundtable-robota) | Runs a Robota `Session` or plain `Robota` agent as a roundtable participant or selector      |
 
 **Product composition** — build your own product on the same runtime:
 
-| Package                                                                                | Description                                                                                                                                                                                                                                            |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`@robota-sdk/agent-product`](https://www.npmjs.com/package/@robota-sdk/agent-product) | `assembleProduct(profile)`: a product from a declarative profile; one subpath each for the `ICapabilityPack` contract, presets and output styles, slash-command modules and the coding pack (`./capability-pack`, `./preset`, `./command`, `./coding`) |
+| Package                                                                                  | Description                                                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`@robota-sdk/agent-product`](https://www.npmjs.com/package/@robota-sdk/agent-product)   | `assembleProduct(profile)`: a product from a declarative profile; one subpath each for the `ICapabilityPack` contract, presets and output styles, slash-command modules and the coding pack (`./capability-pack`, `./preset`, `./command`, `./coding`) |
+| [`@robota-sdk/product-config`](https://www.npmjs.com/package/@robota-sdk/product-config) | Explicit product configuration contracts and host loading                                                                                                                                                                                              |
 
 **Transports and UI** — put a session behind a protocol or a screen:
 
@@ -232,12 +263,13 @@ The [packages index](__PROJECT_DOCS_URL__/en/packages/) on the docs site covers 
 | [`@robota-sdk/agent-transport`](https://www.npmjs.com/package/@robota-sdk/agent-transport)           | Carrier-neutral wire protocol, session dispatch and delivery (`./client`, `./node`), and one subpath per carrier: `./ws`, `./http`, `./mcp`, `./acp`, `./webrtc`, `./link` |
 | [`@robota-sdk/agent-remote-pairing`](https://www.npmjs.com/package/@robota-sdk/agent-remote-pairing) | Pairing and DTLS-fingerprint channel binding for peer-to-peer connections                                                                                                  |
 | [`@robota-sdk/agent-ui-terminal`](https://www.npmjs.com/package/@robota-sdk/agent-ui-terminal)       | Terminal UI (React + Ink)                                                                                                                                                  |
+| [`@robota-sdk/agent-ui-web`](https://www.npmjs.com/package/@robota-sdk/agent-ui-web)                 | Browser-safe React session surface, wire reducer and WebSocket client for a consumer-owned agent renderer (`./client`, `./styles/theme.css`, `./styles/surface.css`)       |
 
-**Contracts** — type-only packages shared across layers:
+**Contracts** — type contracts shared across layers:
 
-| Package                                                                                    | Description                                                                                                                    |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| [`@robota-sdk/agent-interface`](https://www.npmjs.com/package/@robota-sdk/agent-interface) | Type contracts, one subpath per family: `session`, `session-mobility`, `command`, `execution`, `analytics`, `transport`, `tui` |
+| Package                                                                                    | Description                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@robota-sdk/agent-interface`](https://www.npmjs.com/package/@robota-sdk/agent-interface) | Type contracts, one subpath per family: `session`, `session-mobility`, `command`, `execution`, `analytics`, `transport`, `tui`; test doubles under `session/testing` and `transport/testing` |
 
 **Agent interface:**
 
@@ -272,8 +304,10 @@ The `/workflows` command uses a separately maintained workflow library bundled i
 
 Some workspace packages are **private** and never published to npm on their own:
 
-- The **GUI** packages (`agent-ui-web`, `agent-gui-web`) behind the
-  desktop app, `__PRODUCT_CLI_NAME__ --serve --open`, and the browser remote client.
+- `agent-gui-web`, the GUI web app that the desktop app loads and `__PRODUCT_CLI_NAME__ --serve --open` serves.
+- `agent-local-host`, Node host authority for owner-protected local runtime state.
+- `agent-organization-host`, an operator-owned organization broker with workload verification and
+  durable hierarchical budgets.
 - `agent-provider-replay`, a provider that replays a recorded session for offline tests.
 
 ## Contributing
@@ -286,6 +320,17 @@ pnpm test
 
 Development needs Node.js 22 (22.14 or a later 22.x release) and pnpm 8.15.4. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the
 workflow, the checks a pull request must pass, and the commit format.
+
+To package the built-in desktop app locally on Linux, install Bun and run these commands from a clean checkout:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm build
+bun packages/agent-cli/scripts/build-bun.mjs linux-x64
+pnpm --filter @robota-sdk/agent-app dist:app --linux AppImage
+```
+
+The AppImage is written to `apps/agent-app/release/`. A generated product uses the same build commands in its generated workspace. The Bun build also accepts `--entry <compiled-host-entry>` and `--artifact-name <basename>`; set `PRODUCT_DESKTOP_BINARY=<compiled-binary-path>` when running `dist:app` to bundle that binary in the desktop app.
 
 ## License
 

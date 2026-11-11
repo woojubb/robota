@@ -1,20 +1,19 @@
 ---
 layout: home
 title: Robota
-description: An adaptable foundation for AI agents, delivered through composable TypeScript libraries and maintained agent interfaces.
+description: 조합 가능한 TypeScript 라이브러리와 관리되는 에이전트 인터페이스로 제공하는, 적응력 있는 AI 에이전트 기반입니다.
 lang: ko-KR
 ---
 
 # Robota
 
-**Our agents develop and advance our agents.** Our direction is a dependable, adaptable foundation
-on which agents can carry their own development forward. The [canonical vision](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md)
-states the ambition; autonomous self-evolution is not a current guarantee.
+**우리의 에이전트가 우리의 에이전트를 개발하고 발전시킵니다.** 우리가 향하는 방향은 에이전트가 스스로의 개발을
+이어 갈 수 있는, 믿을 만하고 적응력 있는 기반입니다. [공식 비전](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md)에
+이 목표가 적혀 있으며, 자율적인 자기 진화는 현재 보장하는 기능이 아닙니다.
 
-Today, composable TypeScript libraries provide strict types, one provider interface across model
-vendors, runtime-validated tool arguments, plugins and events. Install only the packages your agent
-needs, or use `__PRODUCT_CLI_NAME__` (`@robota-sdk/agent-cli`), the coding-capable terminal interface
-built from the same libraries.
+현재는 조합 가능한 TypeScript 라이브러리가 엄격한 타입, 모델 벤더 전반에 걸친 하나의 프로바이더 인터페이스,
+런타임에 검증되는 도구 인자, 플러그인과 이벤트를 제공합니다. 에이전트에 필요한 패키지만 설치하거나, 같은
+라이브러리로 만든 코딩용 터미널 인터페이스 `__PRODUCT_CLI_NAME__`(`@robota-sdk/agent-cli`)를 사용하세요.
 
 [![npm version](https://img.shields.io/npm/v/@robota-sdk/agent-core?label=npm)](https://www.npmjs.com/package/@robota-sdk/agent-core)
 [![npm downloads](https://img.shields.io/npm/dm/@robota-sdk/agent-cli?label=downloads)](https://www.npmjs.com/package/@robota-sdk/agent-cli)
@@ -42,21 +41,21 @@ built from the same libraries.
 
 ## 설치
 
-아래 Node.js 예제와 npm CLI에는 Node.js 22.12 이상이 필요합니다. 배포 패키지는 Node 환경에서
-이 버전 이상을 요구합니다. 현재 소스에서는 플랫폼 중립 진입점과 Node 어댑터가 나뉘어 있습니다.
-설치한 버전에서 제공하는 진입점을 확인하세요.
+아래 Node.js 예제와 npm CLI에는 Node.js 22.12 이상이 필요하며, 배포되는 모든 패키지가 이 버전을 선언합니다.
+패키지의 메인 진입점은 플랫폼 중립이고, Node 호스트가 필요한 부분은 `@robota-sdk/agent-framework/node`처럼
+`/node` 서브패스에 있습니다.
 
 ```bash
 # 에이전트: 코어 엔진과 프로바이더 패키지 하나
 npm install @robota-sdk/agent-core @robota-sdk/agent-provider @anthropic-ai/sdk
 
-# Zod 스키마를 쓰는 함수 도구 (agent-tools는 Zod 3를 사용)
-npm install @robota-sdk/agent-tools zod@3
+# Zod 스키마를 쓰는 함수 도구 (agent-tools는 Zod 4를 사용)
+npm install @robota-sdk/agent-tools zod@4
 
 # 내장 도구, 권한 모드, 훅, 프로젝트 컨텍스트를 갖춘 세션
 npm install @robota-sdk/agent-framework @robota-sdk/agent-provider @anthropic-ai/sdk
 
-# The CLI
+# CLI
 npm install -g @robota-sdk/agent-cli
 ```
 
@@ -83,16 +82,17 @@ console.log(await agent.run('TypeScript 제네릭을 두 문장으로 설명해�
 
 패키지는 세 계층으로 나뉩니다. 어느 계층에서든 시작할 수 있습니다.
 
-- **라이브러리** — [`agent-core`](../../packages/agent-core/docs/README.md)(`Robota` 엔진과 프로바이더·도구·
-  플러그인·권한 계약), 모델 벤더마다 하나씩인 `agent-provider-<vendor>` 패키지,
-  [`agent-tools`](../../packages/agent-tools/docs/README.md)(함수 도구와 내장 도구 팩토리),
+- **라이브러리** — [`agent-core`](../../packages/agent-core/docs/README.md)(`ConversationAgent` 엔진과
+  프로바이더·도구·플러그인·권한 계약),
+  [`agent-provider`](../../packages/agent-provider/docs/README.md)(모델 벤더마다 하나씩인 서브패스),
+  [`agent-tools`](../../packages/agent-tools/docs/README.md)(함수 도구, 내장 도구 팩토리, 기본 도구 세트),
   [`agent-plugin`](../../packages/agent-plugin/docs/README.md)(라이프사이클 플러그인),
   [`agent-mcp`](../../packages/agent-mcp/docs/README.md)(MCP 클라이언트).
 - **조립** — [`agent-framework`](../../packages/agent-framework/docs/README.md)가 라이브러리를 세션으로
   묶습니다: `InteractiveSession`, `createQuery()`, `createAgentRuntime()`, 그리고 내장 도구, 권한 모드, 훅,
   컨텍스트 로딩, 영속성.
-- **Agent interface** — [`agent-cli`](../../packages/agent-cli/docs/README.md), the `__PRODUCT_CLI_NAME__` terminal coding
-  assistant, built on the assembly layer with a terminal UI, slash commands and transports.
+- **에이전트 인터페이스** — [`agent-cli`](../../packages/agent-cli/docs/README.md), 조립 계층 위에 터미널 UI,
+  슬래시 커맨드, 트랜스포트를 얹어 만든 `__PRODUCT_CLI_NAME__` 터미널 코딩 어시스턴트.
 
 계층 전체는 [architecture guide](../guide/architecture.md)(영어)와
 [ARCHITECTURE.md](../../ARCHITECTURE.md)(영어)에서 설명합니다. 모든 패키지는
@@ -100,7 +100,7 @@ console.log(await agent.run('TypeScript 제네릭을 두 문장으로 설명해�
 
 ## 프로바이더
 
-| 패키지                                                   | 범위                                                                                                          |
+| 임포트 경로                                              | 범위                                                                                                          |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `@robota-sdk/agent-provider/anthropic`                   | Anthropic Claude                                                                                              |
 | `@robota-sdk/agent-provider/openai`                      | OpenAI, 그리고 `baseURL`로 연결하는 모든 OpenAI 호환 엔드포인트(AI 게이트웨이, Azure OpenAI, vLLM, 로컬 서버) |
@@ -108,10 +108,13 @@ console.log(await agent.run('TypeScript 제네릭을 두 문장으로 설명해�
 | `@robota-sdk/agent-provider/deepseek`, `/qwen`, `/gemma` | DeepSeek, Qwen, 그리고 Ollama, LM Studio, llama.cpp 같은 로컬 서버                                            |
 | `@robota-sdk/agent-provider/bytedance`                   | ByteDance ModelArk 영상 생성(채팅 프로바이더 아님)                                                            |
 
-각 프로바이더는 [Providers Reference](../guide/providers.md)(영어)에서 다룹니다. API 키 없이 로컬 모델을
-실행하려면 [Local LLM Setup](../guide/local-llm.md)(영어)을 참고하세요.
+각 서브패스에는 해당 벤더의 SDK가 필요하며, 이는 `@robota-sdk/agent-provider`의 선택적 피어입니다.
+`anthropic`은 `@anthropic-ai/sdk`, `gemini`는 `@google/genai`, `openai`, `deepseek`, `qwen`, `gemma`는
+`openai`가 필요하고, `bytedance`는 필요 없습니다. 각 프로바이더는
+[Providers Reference](../guide/providers.md)(영어)에서 다룹니다. API 키 없이 로컬 모델을 실행하려면
+[Local LLM Setup](../guide/local-llm.md)(영어)을 참고하세요.
 
-## The CLI
+## CLI
 
 ```bash
 npx @robota-sdk/agent-cli          # 설치 없이 실행

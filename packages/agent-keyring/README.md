@@ -62,25 +62,26 @@ batch with `encryptRecord`, and put the artifact id and a sequence number in the
 
 ## API
 
-| Export                                                      | Description                                                                                   |
-| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `createKeyring`                                             | New keyring with a passphrase slot and a recovery slot; returns it unlocked                   |
-| `unlockWithPassphrase`, `unlockWithRecoveryKey`             | Recover the keys; scrypt runs off the event loop                                              |
-| `changePassphrase`                                          | Re-wrap the passphrase slot under a new passphrase, proven by the old one or the recovery key |
-| `checkSealingPublicKey`, `repairSealingPublicKey`           | Detect and repair a sealing public key swapped in the file                                    |
-| `parseKeyring`, `serializeKeyring`, `getSealingPublicKey`   | Strict keyring document I/O and the public key a locked writer needs                          |
-| `generateArtifactKey`, `sealArtifactKey`, `openArtifactKey` | Per-artifact data key, sealed to the public key and opened with the private key               |
-| `encryptRecord`, `decryptRecord`                            | AES-256-GCM records under a data key, many per key                                            |
-| `sealBlob`, `openBlob`                                      | A sealed key header plus one record, in one step                                              |
-| `splitSealedBlob`                                           | A blob's sealed key and record, for a caller that keeps opened keys by sealed key             |
-| `generateTransientSealingKeyPair`                           | A random X25519 sealing keypair for a key that lives only in one process's memory             |
-| `fingerprint`                                               | Short human-comparable string for a public key                                                |
-| `openOwnerHandover`                                         | The owner for a moment: certifies runtimes and proves the owner; hands out no key             |
-| `startSpawnerExchange`, `SpawnerKey`                        | The spawner's side of the key exchange over the runtime's inherited channel                   |
-| `createRuntimeIdentity`                                     | A runtime's memory-only instance key, its spawner key until certified, and its trust root     |
-| `createLinkInitiator`, `createLinkResponder`                | The owner link handshake, as a client and as a runtime                                        |
-| `linkFrameKind`                                             | The kind of a sealed link frame, before it is opened                                          |
-| `KeyringError`, `LinkRefusedError`                          | The only errors thrown deliberately; `code` and `reason` name the refusal, never a secret     |
+| Export                                                        | Description                                                                                                                                      |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createKeyring`                                               | New keyring with a passphrase slot and a recovery slot; returns it unlocked                                                                      |
+| `unlockWithPassphrase`, `unlockWithRecoveryKey`               | Recover the keys; scrypt runs off the event loop                                                                                                 |
+| `changePassphrase`                                            | Re-wrap the passphrase slot under a new passphrase, proven by the old one or the recovery key                                                    |
+| `checkSealingPublicKey`, `repairSealingPublicKey`             | Detect and repair a sealing public key swapped in the file                                                                                       |
+| `parseKeyring`, `serializeKeyring`, `getSealingPublicKey`     | Strict keyring document I/O and the public key a locked writer needs                                                                             |
+| `generateArtifactKey`, `sealArtifactKey`, `openArtifactKey`   | Per-artifact data key, sealed to the public key and opened with the private key                                                                  |
+| `encryptRecord`, `decryptRecord`                              | AES-256-GCM records under a data key, many per key                                                                                               |
+| `sealBlob`, `openBlob`                                        | A sealed key header plus one record, in one step                                                                                                 |
+| `splitSealedBlob`                                             | A blob's sealed key and record, for a caller that keeps opened keys by sealed key                                                                |
+| `generateTransientSealingKeyPair`                             | A random X25519 sealing keypair for a key that lives only in one process's memory                                                                |
+| `fingerprint`                                                 | Short human-comparable string for a public key                                                                                                   |
+| `openOwnerHandover`                                           | The owner for a moment: certifies runtimes and proves the owner; hands out no key                                                                |
+| `startSpawnerExchange`, `SpawnerKey`                          | The spawner's side of the key exchange over the runtime's inherited channel                                                                      |
+| `createRuntimeIdentity`                                       | A runtime's memory-only instance key, its spawner key until certified, and its trust root                                                        |
+| `createLinkInitiator`, `createLinkResponder`                  | The owner link handshake, as a client and as a runtime                                                                                           |
+| `linkFrameKind`                                               | The kind of a sealed link frame, before it is opened                                                                                             |
+| `KeyringError`, `LinkRefusedError`                            | The only errors thrown deliberately; `code` and `reason` name the refusal, never a secret                                                        |
+| `KEYRING_VERSION`, `LINK_*_BYTES`, `SPAWNER_EXCHANGE_*_BYTES` | The keyring document version and the exact or maximum lengths of link and spawner-exchange messages, for a carrier that reads them from a stream |
 
 See [`docs/SPEC.md`](./docs/SPEC.md) for the contract and its limits: `lock()` drops references and
 does not erase the keypairs, detecting truncated record sequences is the caller's job, a swapped

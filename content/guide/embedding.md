@@ -1,9 +1,5 @@
 # Embedding agent-framework
 
-> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
-> 3.1.0 or later after it is published, and check the exports in your installed version.
-> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
-
 `@robota-sdk/agent-framework` runs outside the CLI — in HTTP servers, bots, serverless functions and
 batch jobs. This guide shows the pattern for each context. It assumes you know the basics of
 `InteractiveSession` and `createQuery()` from [Using the SDK](./sdk.md).
@@ -41,17 +37,28 @@ const server = createServer((req, res) => {
     const base = { id: 'fixture', created: 0, model: 'fixture-model' };
     if (!JSON.parse(body).stream) {
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({
-        ...base,
-        object: 'chat.completion',
-        choices: [{ index: 0, message: { role: 'assistant', content: REPLY }, finish_reason: 'stop' }],
-        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-      }));
+      res.end(
+        JSON.stringify({
+          ...base,
+          object: 'chat.completion',
+          choices: [
+            { index: 0, message: { role: 'assistant', content: REPLY }, finish_reason: 'stop' },
+          ],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        }),
+      );
       return;
     }
     res.writeHead(200, { 'content-type': 'text/event-stream' });
-    for (const [delta, finish_reason] of [[{ role: 'assistant', content: REPLY }, null], [{}, 'stop']]) {
-      const chunk = { ...base, object: 'chat.completion.chunk', choices: [{ index: 0, delta, finish_reason }] };
+    for (const [delta, finish_reason] of [
+      [{ role: 'assistant', content: REPLY }, null],
+      [{}, 'stop'],
+    ]) {
+      const chunk = {
+        ...base,
+        object: 'chat.completion.chunk',
+        choices: [{ index: 0, delta, finish_reason }],
+      };
       res.write(`data: ${JSON.stringify(chunk)}\n\n`);
     }
     res.end('data: [DONE]\n\n');
@@ -108,9 +115,9 @@ use a hosted provider as in the next sections.
 
 ## Before you deploy: tools and permissions
 
-Every framework session gets the default tools — `Shell`, `Bash`, `Read`, `Write`, `Edit`, `Glob`,
-`Grep`, `WebFetch`, `AskUserQuestion` — with file tools confined to `cwd`. On a server,
-decide what the model may do before it can do it:
+A session on a Node host built with `createDefaultTools` gets the default tools — `Shell`, `Bash`,
+`Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebFetch`, `AskUserQuestion` — with file tools confined to
+`cwd`. On a server, decide what the model may do before it can do it:
 
 - Keep `permissionMode: 'default'` (the default). Reads and searches proceed; writing files, running
   commands and calling your own tools need approval, and **a request nobody answers is denied**.
@@ -325,19 +332,24 @@ In production, keep the channel-to-session map somewhere durable too.
 
 ## createStatelessRuntime — serverless
 
-`createStatelessRuntime({ provider, cwd? })` is a runtime with no session store and with settings
-reads and writes from commands turned into no-ops. Its sessions default to `bare: true`. It has no
-project access, so its sessions never read project files.
+`createStatelessRuntime({ host, provider, cwd })` is a runtime with no session store and with settings
+reads and writes from commands turned into no-ops. `cwd` is required: the absolute directory the
+sessions' tools work in. Its sessions default to `bare: true`. It has no project access, so its
+sessions never read project files.
 
 The default tools are still there, so deny the ones your environment should not offer:
 
 ```typescript
 import { createStatelessRuntime } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
 declare const apiKey: string;
 
 const runtime = createStatelessRuntime({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey }),
 });
 

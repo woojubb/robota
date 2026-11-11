@@ -13,7 +13,7 @@ another device, such as a phone.
 
 | Feature        | What connects                                                          | Commands                         | Needs                                                             |
 | -------------- | ---------------------------------------------------------------------- | -------------------------------- | ----------------------------------------------------------------- |
-| Local peers    | Your live Robota sessions on this machine                              | `/peers`, `/handoff`             | Nothing to set up                                                 |
+| Local peers    | Your live Robota sessions on this machine                              | `/peers`, `/handoff`             | Nothing to set up; not available on Windows                       |
 | Device mesh    | Robota on your other computers, linked by one device identity of yours | `/devices`, `/peers`, `/handoff` | A device identity on each computer, and `transports.mesh.enabled` |
 | Remote control | A browser page co-driving one session                                  | `/remote-control`                | A signaling relay and a hosted browser page, both run by you      |
 
@@ -31,7 +31,7 @@ you enrol. It is not a way to share a session with another person.
   `transports.webrtc.options.relayUrl` in `<user-state>/settings.json`.
 - For remote control only: the browser client page hosted somewhere you control (the `/remote` route
   of [`apps/agent-web`](../../apps/agent-web/docs/DEPLOYMENT.md)), set as
-  `transports.webrtc.options.clientUrl`.
+  `transports.webrtc.options.clientUrl` with your signaling relay in its `relay` query parameter.
 
 All `transports.*` settings in this guide are read from `<user-state>/settings.json` only. A project's
 settings cannot turn on the mesh or remote control.
@@ -138,12 +138,15 @@ Set both settings in `<user-state>/settings.json`:
     "webrtc": {
       "options": {
         "relayUrl": "wss://relay.example.com",
-        "clientUrl": "https://product.example.test/remote"
+        "clientUrl": "https://product.example.test/remote?relay=wss://relay.example.com"
       }
     }
   }
 }
 ```
+
+The browser page learns the relay from the `relay` query parameter of `clientUrl`; the pairing link
+adds the one-time rendezvous and secret after the `#`, which the browser never sends to the page's host.
 
 Then, in the session:
 
@@ -213,9 +216,13 @@ All keys live in `<user-state>/settings.json`.
 | `transports.mesh.options.turnServers`             | `[]`                                         | Your own TURN servers, tried after your devices' relays. Each needs a `turn:` URL, `username` and `credential`. |
 | `transports.mesh.options.relayOnly`               | `false`                                      | Use relayed connections only.                                                                                   |
 | `transports.webrtc.options.relayUrl`              | —                                            | Your signaling relay. Required for `/devices add`/`join` and remote control; the mesh also uses it when set.    |
-| `transports.webrtc.options.clientUrl`             | —                                            | The hosted browser page the remote-control pairing link opens. Without it, `/remote-control` refuses to start.  |
-| `transports.webrtc.options.iceServers`            | —                                            | STUN/TURN servers for remote control: `{ "urls": "turn:…", "username", "credential" }`, one URL per entry.      |
-| `transports.webrtc.options.forceTurn`             | `false`                                      | Remote control over TURN relays only; needs a TURN server in `iceServers`.                                      |
+| `transports.webrtc.options.clientUrl`             | —                                            | The browser page the pairing link opens, with `?relay=<your relay>`. Required for `/remote-control`.            |
+| `transports.webrtc.options.iceServers`            | —                                            | STUN/TURN servers for the host side of remote control: `{ "urls": "turn:…", "username", "credential" }`.        |
+| `transports.webrtc.options.forceTurn`             | `false`                                      | Host side: remote control over TURN relays only; needs a TURN server in `iceServers`.                           |
+
+The browser takes its own TURN servers from the `ice` query parameter of `clientUrl` (a base64url-encoded
+JSON list of `RTCIceServer`) and its relay-only choice from `forceTurn=1`; see the
+[browser client deployment](../../apps/agent-web/docs/DEPLOYMENT.md).
 
 A malformed mesh setting stops the mesh with an error naming the setting; nothing is partly applied.
 The mesh options are checked only while `enabled` is `true`. With the defaults, finding your devices
@@ -225,8 +232,8 @@ relay.
 
 ### Files and locations
 
-| Path                                     | Contents                                                                                                |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Path                                        | Contents                                                                                                |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | OS keychain, or `<user-state>/credentials/` | Private keys: device identity and the remote-control host key. `/devices init` names which one is used. |
 | `<user-state>/devices/`                     | Device roster, certificates, revocation list and the address cache.                                     |
 | `<user-state>/peer-files/<sender>/<name>`   | Files other sessions and devices sent you (mode `0600`, never executable).                              |
@@ -265,6 +272,9 @@ under `<user-state>/credentials`.
 ### Limitations
 
 - The mesh links one user's devices only.
+- Local peer discovery needs a Unix host. On Windows it is off, and only linked devices are reachable.
+- With secure conversations on, local peers, the device mesh and `/remote-control` do not start; see the
+  [CLI reference](./cli.md#secure-conversations).
 - Only one session per computer opens the mesh at a time; `/devices` in another session says so and
   it links nothing.
 - The mesh opens only in interactive sessions, not in print mode, `--serve` or the daemon.
@@ -276,18 +286,18 @@ under `<user-state>/credentials`.
 
 ### Troubleshooting
 
-| Message                                                                        | Fix                                                                                                                                                        |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Device mesh: off. Set transports.mesh.enabled to true in your user settings…` | Add the setting to `<user-state>/settings.json` and restart `__PRODUCT_CLI_NAME__`.                                                                                         |
-| `This device has no identity yet…`                                             | On a second computer, use `/devices add` on the first and `/devices join` here — not `/devices init`.                                                      |
-| `Enrolling a device needs a signaling relay…`                                  | Set `transports.webrtc.options.relayUrl` on both computers.                                                                                                |
-| `No device accepted that code…`                                                | The code was wrong, expired or used. Run `/devices add` again for a new one.                                                                               |
-| `This device does not hold the signing key.`                                   | Run `add` or `revoke` on the device that holds it (see `/devices`), or `/devices recover`.                                                                 |
-| `The signing key on this device has expired.`                                  | Run `/devices recover`.                                                                                                                                    |
-| `Remote control needs a signaling relay…` / `…needs a browser client page…`    | Set `relayUrl` / `clientUrl` under `transports.webrtc.options`.                                                                                            |
+| Message                                                                        | Fix                                                                                                                                                                       |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Device mesh: off. Set transports.mesh.enabled to true in your user settings…` | Add the setting to `<user-state>/settings.json` and restart `__PRODUCT_CLI_NAME__`.                                                                                       |
+| `This device has no identity yet…`                                             | On a second computer, use `/devices add` on the first and `/devices join` here — not `/devices init`.                                                                     |
+| `Enrolling a device needs a signaling relay…`                                  | Set `transports.webrtc.options.relayUrl` on both computers.                                                                                                               |
+| `No device accepted that code…`                                                | The code was wrong, expired or used. Run `/devices add` again for a new one.                                                                                              |
+| `This device does not hold the signing key.`                                   | Run `add` or `revoke` on the device that holds it (see `/devices`), or `/devices recover`.                                                                                |
+| `The signing key on this device has expired.`                                  | Run `/devices recover`.                                                                                                                                                   |
+| `Remote control needs a signaling relay…` / `…needs a browser client page…`    | Set `relayUrl` / `clientUrl` under `transports.webrtc.options`.                                                                                                           |
 | `Local peer discovery is off for this session: …` (at startup)                 | The private rendezvous directory (`$XDG_RUNTIME_DIR/<daemon-namespace>/peers`, else `<user-state>/peers`) is not usable; the message says why. Linked devices still work. |
-| `This session has no hand-off carrier…`                                        | The session reaches neither other local sessions nor a device mesh — see the previous row, or turn on the mesh.                                            |
-| `No other machine is reachable for a hand-off right now.`                      | Start the other session, or check `/devices` for linked devices.                                                                                           |
+| `This session has no hand-off carrier…`                                        | The session reaches neither other local sessions nor a device mesh — see the previous row, or turn on the mesh.                                                           |
+| `No other machine is reachable for a hand-off right now.`                      | Start the other session, or check `/devices` for linked devices.                                                                                                          |
 
 ## Related
 

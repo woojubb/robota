@@ -41,7 +41,9 @@ void rejectedPacks;
 ```
 
 A pack has an `id`, optional `title` and `description` for discovery, and any of the `commandModules`,
-`tools`, and `subagents` buckets.
+`tools`, and `subagents` buckets. The subpath also exports the result types `IMergedCapabilities`,
+`ICapabilityPackMetadata`, `IRejectedCapability`, `IRejectedCapabilityPack`, `TCapabilityKind` and
+`TCompositionFieldPolicy`.
 
 `mergeCapabilityPacks` is a **pure, deterministic, IO-free fold**. It produces the `base ⊕ pack` superset
 plus accepted pack metadata and distinct capability/pack rejection channels. A later duplicate pack id is

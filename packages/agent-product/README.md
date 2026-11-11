@@ -1,8 +1,5 @@
 # @robota-sdk/agent-product
 
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
-
 The **product-assembly kernel** for the Robota SDK.
 
 `assembleProduct(profile)` is a **pure, deterministic, IO-free fold** over an `IProductProfile` — the

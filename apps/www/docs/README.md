@@ -33,9 +33,9 @@ PRODUCT_CONFIG_FILE=/absolute/path/product.env pnpm --filter robota-www run depl
 
 ## Legacy documentation redirects
 
-The documentation used to be served from `__PROJECT_WEBSITE_HOST__`. [`public/_redirects`](../public/_redirects) forwards
-those old URLs (`/guide/...`, `/examples/...`, `/getting-started/...`, `/packages/...` and similar, including
-the old `.html` pages) to the matching English page on `docs.__PROJECT_WEBSITE_HOST__` with a permanent (301) redirect.
+[`public/_redirects`](../public/_redirects) forwards legacy documentation URLs on `__PROJECT_WEBSITE_HOST__`
+(`/guide/...`, `/examples/...`, `/getting-started/...`, `/packages/...` and similar, including `.html` pages)
+to the matching English page on `docs.__PROJECT_WEBSITE_HOST__` with a permanent (301) redirect.
 When a docs route is renamed, update the matching rule there.
 
 ## Spec

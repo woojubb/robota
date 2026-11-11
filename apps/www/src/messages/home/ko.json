@@ -29,7 +29,7 @@
   "copy": "복사",
   "copied": "복사됨",
   "copyFailed": "복사하지 못했습니다. 코드를 선택해 복사하세요.",
-  "exampleNote": "이 SDK 예제는 3.1.0을 기준으로 합니다. 출시된 뒤 해당 버전을 설치하세요. 프레임워크 3.0.7에는 이 예제에 쓰인 Node 호스트 진입점이 없습니다. 모델을 불러온 OpenAI 호환 서버와 해당 모델의 ID도 필요합니다. 로컬 포트 번호는 예시입니다. 'local' API 키는 인증이 없는 서버에서 쓰는 임시 값입니다. 서버에서 인증을 요구하면 해당 인증 정보로 바꾸세요. 예제에 실제 모델 응답을 싣지는 않았습니다.",
+  "exampleNote": "이 SDK 예제는 @robota-sdk/agent-framework/node의 Node 호스트를 사용합니다. 모델을 불러온 OpenAI 호환 서버와 해당 모델의 ID도 필요합니다. 로컬 포트 번호는 예시입니다. 'local' API 키는 인증이 없는 서버에서 쓰는 임시 값입니다. 서버에서 인증을 요구하면 해당 인증 정보로 바꾸세요. 예제에 실제 모델 응답을 싣지는 않았습니다.",
   "codeSource": "프레임워크 소스 보기",
   "tasksEyebrow": "첫 작업 선택",
   "tasksTitle": "시작 방법을 고르세요.",
@@ -38,7 +38,7 @@
     {
       "title": "앱에 질문 기능 넣기",
       "body": "프레임워크와 프로바이더 어댑터를 설치한 뒤 Node.js 스크립트에서 createQuery를 호출하세요. 직접 만든 UI에서 긴 대화를 다루려면 InteractiveSession을 사용하면 됩니다.",
-      "needs": "이 예제는 SDK 3.1.0을 기준으로 합니다. 출시된 뒤 설치하세요. Node.js 22.12 이상과 설정을 마친 프로바이더 엔드포인트, 모델 ID도 필요합니다. 이 페이지의 예제는 실행 중인 로컬 OpenAI 호환 서버를 사용합니다.",
+      "needs": "Node.js 22.12 이상과 설정을 마친 프로바이더 엔드포인트, 모델 ID가 필요합니다. 이 페이지의 예제는 실행 중인 로컬 OpenAI 호환 서버를 사용합니다.",
       "action": "SDK 가이드(영문)"
     },
     {
@@ -82,7 +82,7 @@
   "features": {
     "providers": {
       "title": "다양한 프로바이더 연결",
-      "body": "Anthropic, OpenAI, Google Gemini, DeepSeek, Qwen, Gemma용 프로바이더 패키지를 제공합니다. baseURL을 지정하면 게이트웨이, Azure, vLLM, 로컬 서버 등 OpenAI 호환 엔드포인트에도 연결할 수 있습니다."
+      "body": "Anthropic, OpenAI, Google Gemini, DeepSeek, Qwen, Gemma용 프로바이더 어댑터를 제공합니다. baseURL을 지정하면 게이트웨이, Azure, vLLM, 로컬 서버 등 OpenAI 호환 엔드포인트에도 연결할 수 있습니다."
     },
     "fallback": {
       "title": "폴백, effort, 어드바이저",
@@ -307,7 +307,7 @@
     "surfaces": "터미널 UI와 같은 와이어 프로토콜을 사용하는 전송 계층",
     "assembly": "구성: InteractiveSession, createQuery, createAgentRuntime",
     "runtime": "런타임: 세션, 백그라운드 작업, 도구, MCP 클라이언트, 플러그인",
-    "providers": "벤더마다 하나의 프로바이더 패키지",
+    "providers": "프로바이더 어댑터, 벤더마다 하나의 서브패스",
     "contracts": "계층 간에 공유하는 타입 전용 인터페이스",
     "foundation": "기반: 대화 엔진과 인터페이스"
   },
@@ -363,7 +363,7 @@
     },
     "sdk": {
       "title": "최소 구성으로 SDK 사용하기",
-      "body": "엔진 패키지 하나와 프로바이더 패키지 하나를 설치하면 됩니다. 에이전트에서 도구를 호출하려면 agent-tools를 추가하세요."
+      "body": "엔진 패키지와 프로바이더 패키지, 그리고 사용할 벤더 SDK를 설치하면 됩니다. 에이전트에서 도구를 호출하려면 agent-tools를 추가하세요."
     }
   },
   "binaryUnix": "macOS / Linux",
@@ -413,7 +413,7 @@
     },
     {
       "question": "베타 API는 안정적인가요?",
-      "answer": "아직은 아닙니다. 패키지는 3.0.0 베타 릴리스이며 정식 릴리스 전에 API가 바뀔 수 있습니다. 업그레이드 안내는 변경 기록에서 확인할 수 있습니다."
+      "answer": "아직은 아닙니다. 패키지는 공개 베타 상태이며 정식 릴리스 전에 API가 바뀔 수 있습니다. 업그레이드 안내는 변경 기록에서 확인할 수 있습니다."
     }
   ],
   "closeTitle": "실제 작업 하나로 시작하세요.",

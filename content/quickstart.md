@@ -1,9 +1,5 @@
 # 5-Minute Quick Start
 
-> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
-> 3.1.0 or later after it is published, and check the exports in your installed version.
-> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
-
 Two ways to use the same agent foundation: the CLI, or the SDK in your own code.
 
 ## Prerequisites
@@ -21,13 +17,13 @@ npx @robota-sdk/agent-cli
 ```
 
 On first run, the CLI asks whether you have an API key, then either configures that provider, walks
-you through getting a free Gemini key, or connects to a local model server (LM Studio). If
-`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `DASHSCOPE_API_KEY` or `DEEPSEEK_API_KEY` is already set, it
-skips the questions and starts with that provider's default model. Then it opens the interactive
-terminal UI.
+you through getting a free Gemini key, connects to a local model server (LM Studio) or connects to
+OpenRouter. If `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `DASHSCOPE_API_KEY`, `DEEPSEEK_API_KEY` or
+`OPENROUTER_API_KEY` is already set and no provider is configured, it skips the questions and starts
+with that provider's default model. Then it opens the interactive terminal UI.
 
 Tip: in the terminal UI, `/workflows create "<describe a multi-step task>"` asks the model to design a
-DAG workflow from your description, saves it under `.workflows/`, and runs it. See the
+DAG workflow from your description, saves it under `.workflows/` once you confirm, and runs it. See the
 [CLI reference](./guide/cli.md#workflows-workflows).
 
 ## Option B — Use the SDK in your code
@@ -92,7 +88,8 @@ console.log(response);
 ```
 
 Supported providers: Anthropic, OpenAI, Google Gemini, DeepSeek, Qwen, and any OpenAI-compatible
-endpoint, including local servers such as Ollama and LM Studio.
+endpoint, including local servers such as Ollama and LM Studio. Install the vendor SDK of the provider
+you import: `openai` for OpenAI, DeepSeek, Qwen and Gemma, `@google/genai` for Gemini.
 
 **Through an AI gateway** (Vercel AI Gateway, LiteLLM, OpenRouter): use the OpenAI provider with the
 gateway's `baseURL`, and pass a gateway model slug — non-OpenAI models included. Streaming and tool

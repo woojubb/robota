@@ -20,10 +20,13 @@ profile among many — an external repo brings its own and reuses the same kerne
 
 ## Boundaries
 
-The CLI does not own, and must not import the internals of: session/persistence adapters (owns none,
-must not import `@robota-sdk/agent-session`), tools (assembled by the framework; from
-`@robota-sdk/agent-tools` the CLI takes only the OS sandbox — its client, detection and settings — a
-host adapter it composes),
+The CLI does not own, and must not import the internals of: session/persistence adapters (owns none;
+from `@robota-sdk/agent-session` it takes only the stored-record, session-id, writer-claim and
+store-inspection and migration primitives that handoff, hosted recovery, `session release`, the
+workspace broker and secure activation need, and builds no session or store with them), tools
+(assembled by the framework; from `@robota-sdk/agent-tools` the CLI takes the default tool set it
+hands the Node host, the OS sandbox — its client, detection and settings — a host adapter it
+composes, and the E2B sandbox client the hosted worker connects through),
 permission/hook mechanics (only public types from
 `agent-core`), config/context loading, `@file` prompt reference resolution, context-reference
 inventory, automatic project memory capture/retrieval/storage, edit-checkpoint capture/storage,
@@ -219,8 +222,8 @@ Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`)
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
 | `agent-framework`        | SDK-owned APIs and facades                                                                                              |
 | `agent-core`             | Public types + utilities only; internal engine (`ConversationAgent`, `ExecutionService`, `ConversationStore`) forbidden |
-| `agent-session`          | Forbidden — the SDK provides its own session/permission types                                                           |
-| `agent-tools`            | The OS sandbox only (its client, detection and settings) — the SDK assembles tools internally                           |
+| `agent-session`          | Record decoding, session-id and writer-claim checks, store inspection and migration — never a session or store builder  |
+| `agent-tools`            | `./defaults` for the Node host, the OS sandbox (client, detection, settings) and the hosted worker's E2B client         |
 | `agent-product/command`  | Slash-command modules only                                                                                              |
 | `agent-subagent-runner`  | Subagent/background runner only                                                                                         |
 | `agent-provider/builtin` | Provider definition assembly only                                                                                       |
@@ -242,11 +245,9 @@ launch commands here.
 independent of sibling packages' publish state: build-time modules those paths need (including the pinned `@robota-sdk/workflows` runtime) are compiled into `dist`, declared as
 `devDependencies` only, so the published package's runtime `dependencies` contain zero `@robota-sdk`
 packages — `npm install @robota-sdk/agent-cli` never resolves an `@robota-sdk` sibling. `/workflows`
-is always bundled and present; its local runtime uses a fixed base node catalog plus saved instant
-nodes.
-
-The invariant "agent-cli runtime `dependencies` have zero `@robota-sdk`" is enforced by
-`scripts/harness/check-publish-safety.mjs`.
+comes from the exact `@robota-sdk/workflows` npm release the package pins, an external release
+rather than a workspace package; it is always bundled and present, and its local runtime uses a
+fixed base node catalog plus saved instant nodes.
 
 **What a `--session-log` replay executes.** The replay substitutes the MODEL, never the
 tools: a recorded `toolCalls` entry is dispatched against the session's live tool set and the real
@@ -617,7 +618,10 @@ capability. **Trusted** composition derives project sources plus named state fac
 runtime-accepted authority, and is refused when the real CLI working directory is outside the
 authority's frozen workspace root. Every session it builds gets an edit checkpoint store, and
 sessions that can run turns at the same time never share one, because a store holds its session's
-turn in progress. On a host that cannot prove a project write stays under that root,
+turn in progress. The broker holds the project root, so it also takes the checkpoint writer's
+exclusive lease and its atomic directory claims on the store's behalf; a lease ends when its trust
+lease is revoked, when the broker closes or when the process that took it is gone, so a crashed
+client never leaves a live-looking writer owned by the long-lived broker. On a host that cannot prove a project write stays under that root,
 nothing is written under the project: the workspace's sessions, which are the user's own, are kept in
 the user session store and found there by their working directory, so they are still saved and
 resumable, while project memory, which belongs to the repository, and edit checkpoints, whose restore
@@ -749,17 +753,20 @@ __PRODUCT_CLI_NAME__ open '<__PRODUCT_PROTOCOL_SCHEME__://open?v=1...>' # Open a
 __PRODUCT_CLI_NAME__ trust status | --yes | revoke --yes   # Inspect/grant/revoke workspace trust
 __PRODUCT_CLI_NAME__ doctor [--repair <id> -y]     # Diagnose configuration/runtime readiness (aliases: checkup, diagnose)
 __PRODUCT_CLI_NAME__ usage [--period 30d] [--timezone UTC] [--format json]  # Local personal usage summary
-__PRODUCT_CLI_NAME__ secure setup | status | verify | change-passphrase  # Keyring for secure conversations; secrets are typed at the terminal only
+__PRODUCT_CLI_NAME__ secure setup | status | enable | disable | lock | verify | change-passphrase  # Secure conversations and their keyring; secrets are typed at the terminal only
 __PRODUCT_CLI_NAME__ eval ./my-eval.mjs            # Run an evals-as-code definition; exit 1 on a metric breach
 __PRODUCT_CLI_NAME__ -p "prompt"                   # Print mode (one-shot, headless)
-__PRODUCT_CLI_NAME__ --serve                       # Headless runtime host
+__PRODUCT_CLI_NAME__ --serve                       # Headless runtime host (--http-port, --observer-port)
+__PRODUCT_CLI_NAME__ daemon start | status | stop  # This workspace's daemon; --attach opens the full TUI on it
+__PRODUCT_CLI_NAME__ session list | view | start --background | attach <id> [--observe] | stop | rename | release  # Supervised and saved sessions
+__PRODUCT_CLI_NAME__ mcp add | login | logout      # MCP server definitions and sign-in
 __PRODUCT_CLI_NAME__ mcp serve [--http-token-file <path> | --http-public-url <https> --oauth-*] [--http-port <port>]  # MCP server process
 __PRODUCT_CLI_NAME__ acp                           # Agent Client Protocol agent process, for editors
 __PRODUCT_CLI_NAME__ -c | --continue                       # Continue the most recent session for this cwd
 __PRODUCT_CLI_NAME__ -r <id> | --resume [id]               # Resume a session by id/name, or show a picker
 __PRODUCT_CLI_NAME__ -c --fork-session                     # Fork from the last session (new id, restored context)
 __PRODUCT_CLI_NAME__ --name <name> | --reset | --model <model> | --language <lang>
-__PRODUCT_CLI_NAME__ --permission-mode <plan|default|acceptEdits|bypassPermissions>
+__PRODUCT_CLI_NAME__ --permission-mode <plan|default|acceptEdits|bypassPermissions|auto>
 __PRODUCT_CLI_NAME__ --max-turns <n> | --goal <objective> [--goal-max-iterations <n>]
 __PRODUCT_CLI_NAME__ --allowed-tools <list> | --denied-tools <list>
 __PRODUCT_CLI_NAME__ --json-schema <schema> | --output-format <text|json|stream-json>
@@ -806,12 +813,14 @@ overwrites existing files even with `--yes`.
 
 ### Exit codes
 
-| Code | Meaning                                                                                      |
-| ---- | -------------------------------------------------------------------------------------------- |
-| 0    | Success or user interruption                                                                 |
-| 1    | Execution error — argument parse errors, provider API failures, user-local command errors    |
-| 3    | Provider configuration error at print-mode session start — reconfigure, do not retry         |
-| 130  | Interactive TUI force-quit — a second Ctrl+C/signal while a graceful shutdown is in progress |
+| Code | Meaning                                                                                                                                   |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | Success or user interruption                                                                                                              |
+| 1    | Execution error — argument parse errors, provider API failures, user-local command errors                                                 |
+| 2    | A `--goal` run that stops without reaching its goal; `secure verify` and `secure change-passphrase` after repairing a swapped sealing key |
+| 3    | Provider configuration error at print-mode session start — reconfigure, do not retry                                                      |
+| 4    | `secure verify` and `secure change-passphrase` found a swapped sealing key and could not repair it                                        |
+| 130  | Interactive TUI force-quit — a second Ctrl+C/signal while a graceful shutdown is in progress                                              |
 
 A provider API failure during a model call must never exit 0. The default `/loop` prompt resolves
 from trusted project content before the user's own file and finally a built-in default; project

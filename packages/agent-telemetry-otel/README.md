@@ -19,7 +19,7 @@ attribute. None exports anything; your OpenTelemetry SDK and exporter do.
 npm install @robota-sdk/agent-telemetry-otel @opentelemetry/api
 ```
 
-Requires Node.js 22.12 or later.
+`@opentelemetry/api` is a peer dependency (`^1.9.0`). Requires Node.js 22.12 or later.
 
 ## Tracing a run
 

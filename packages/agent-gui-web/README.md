@@ -13,7 +13,9 @@ pnpm gui:dev --scripted                           # deterministic sidecar, no mo
 pnpm --filter @robota-sdk/agent-gui-web test:e2e  # user scenarios in headless Chromium
 ```
 
-The sidecar runs where the command was started (or the configured development working directory), which must be a trusted workspace.
+The sidecar runs where the command was started, or in `PRODUCT_DEV_CWD`. In a folder not trusted yet,
+`pnpm gui:dev` asks at the terminal whether to trust it, start the sidecar Restricted or quit; the
+scripted sidecar asks nothing.
 
 The opt-in runtime outcome fixture uses the built GUI, actual source CLI bootstrap, authenticated
 WebSocket runtime and an admitted loopback MCP server. Supply an existing absolute Chromium executable
@@ -34,7 +36,7 @@ pnpm --filter @robota-sdk/agent-gui-web test:e2e:runtime /absolute/path/to/chrom
 
 Counts are 1, 20 or 100. The fixture checks actual image decoding, source attribution, call-linked
 success/failure receipts, persisted effects, permission suspension and fresh-runtime restoration
-without effect replay. The optional final argument selects `replay` (default), `anthropic` or `openai`.
+without effect replay. The optional provider argument, after the case, selects `replay` (default), `anthropic` or `openai`.
 Native modes use the actual provider SDK with deterministic loopback wire responses and check the
 outgoing call IDs, failure flags, source captions and screenshot bytes; OpenAI uses Chat Completions.
 All counts and permission/cancellation cases support both native modes. Reports include request bytes
@@ -71,7 +73,7 @@ waiting. Denial leaves the original effect unchanged; explicit approval adds onl
 Both retain the original receipt/image, persist the new call's own status/source, and check the
 corresponding native provider observations when a native mode is selected.
 
-The optional sixth argument selects `standalone` (default) or `packaged` MCP contributions. Packaged
+The optional contribution argument, after the provider, selects `standalone` (default) or `packaged` MCP contributions. Packaged
 mode creates a name-only Claude-style manifest with an inline MCP declaration and an explicit
 installed revision beside an unselected cache revision. The fixture owner initializes and grants
 trust to its disposable Git workspace through the persistent product trust service. The stock host
@@ -116,8 +118,6 @@ pnpm --filter @robota-sdk/agent-gui-web test:e2e:images /absolute/path/to/chromi
 pnpm --filter @robota-sdk/agent-gui-web test:e2e:images /absolute/path/to/chromium openai packaged failure
 ```
 
-## Build
-
 The plugin lifecycle fixture runs the built shared GUI with the source CLI and a pinned packaged
 MCP source. Disable and uninstall are real GUI commands issued while a call's effect has happened
 and its acknowledgement is held. The active call keeps its actual outcome; a subsequent call in
@@ -144,6 +144,8 @@ configure a semantic index or erase historical transcripts.
 pnpm --filter @robota-sdk/agent-gui-web test:e2e:memory /absolute/path/to/chromium anthropic
 pnpm --filter @robota-sdk/agent-gui-web test:e2e:memory /absolute/path/to/chromium openai
 ```
+
+## Build
 
 Run `pnpm build` from the repository root to build the complete dependency graph. The CLI and the desktop
 app each copy this package's `dist` into their own output; do not edit generated `dist`. The package

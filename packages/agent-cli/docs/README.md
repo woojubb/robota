@@ -3,7 +3,7 @@
 `@robota-sdk/agent-cli` provides `__PRODUCT_CLI_NAME__`, an AI coding assistant for the terminal and the
 maintained agent interface built from the Robota libraries. The CLI owns argument parsing, the choice of
 presentation — the terminal UI, print mode (`-p`), the headless runtime behind `--serve` and the
-desktop app, and `__PRODUCT_CLI_NAME__ mcp serve` — and the local host adapters those need. Sessions, commands,
+desktop app, `__PRODUCT_CLI_NAME__ mcp serve` and `__PRODUCT_CLI_NAME__ acp` — and the local host adapters those need. Sessions, commands,
 tools and permissions live in the SDK packages below it, chiefly `@robota-sdk/agent-framework`; the
 terminal UI itself is `@robota-sdk/agent-ui-terminal`.
 
@@ -13,7 +13,9 @@ For installation and a tour of what the CLI does, see the [package README](../RE
 
 - [SPEC.md](./SPEC.md) — what the CLI owns, what it must not own, and the guarantees it keeps.
 - [README-KO.md](./README-KO.md) — Korean translation of the package README.
-- [DEMO-SCRIPT.md](./DEMO-SCRIPT.md) — how the demo GIF in the README is recorded and regenerated.
+- [DEMO-SCRIPT.md](./DEMO-SCRIPT.md) — how the demo recording is regenerated for review.
+- [../examples/npm-product/README.md](../examples/npm-product/README.md) — a consumer-owned product
+  built on the published packages, for checking the public host entries.
 
 ### Design notes
 

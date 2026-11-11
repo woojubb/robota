@@ -1,8 +1,5 @@
 # @robota-sdk/agent-plugin
 
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
-
 Ready-made plugins for the Robota SDK: conversation history, error handling, execution analytics,
 limits, logging, performance metrics, usage tracking and webhooks. Each plugin extends
 `AbstractPlugin` from `@robota-sdk/agent-core` and receives the agent's lifecycle hooks (before and
@@ -101,8 +98,9 @@ import { NodeSystemMetricsCollector } from '@robota-sdk/agent-plugin/node';
 new PerformancePlugin({ strategy: 'memory', metricsCollector: new NodeSystemMetricsCollector() });
 ```
 
-With a `metricsCollector`, memory and CPU monitoring are on unless `monitorMemory` or `monitorCPU`
-is `false`. Without one, no system metrics are recorded, and turning `monitorMemory`, `monitorCPU`
+`memory` is the only strategy implemented; any other value of the strategy type throws a
+`ConfigurationError` at construction. With a `metricsCollector`, memory and CPU monitoring are on
+unless `monitorMemory` or `monitorCPU` is `false`. Without one, no system metrics are recorded, and turning `monitorMemory`, `monitorCPU`
 or `monitorNetwork` on throws a `ConfigurationError` at construction.
 
 ### LimitsPlugin

@@ -12,6 +12,8 @@ which order, is internal.
 The shell is `startCliCore()` in `src/cli-core.ts`. It reads arguments, settings and the environment,
 then calls the product-neutral `assembleProduct()` from `@robota-sdk/agent-product` once, with __PRODUCT_CLI_NAME__'s
 identity declared as data in `createSelectedProductProfile()` (`src/product/product-profile.ts`).
+`startCliEntry()` (`src/cli-entry.ts`) wraps it for an executable: it installs the diagnostics sink and
+the crash policy, then calls `startCli()`, which supplies the terminal presentation.
 
 ## Constraints
 
@@ -27,13 +29,15 @@ identity declared as data in `createSelectedProductProfile()` (`src/product/prod
 
 ### Entry points
 
-| Entry                 | What it does                                                             | Used by                                  |
-| --------------------- | ------------------------------------------------------------------------ | ---------------------------------------- |
-| `src/bin.ts`          | `startCli()` → `startCliCore(options, host, runners, presentation)`      | The `__PRODUCT_CLI_NAME__` binary                      |
-| `src/headless-bin.ts` | `startCliCore({}, host, runners)` with no presentation; accepts only `--serve` | The desktop app's headless runtime build |
-| `src/index.ts`        | Exports `startCli` and `IStartCliOptions`                                | Code that embeds the CLI                 |
+| Entry                 | What it does                                                                                                      | Used by                                  |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `src/bin.ts`          | Hardens the process, then `startCliEntry()` → `startCli()` → `startCliCore(options, host, runners, presentation)` | The `__PRODUCT_CLI_NAME__` binary        |
+| `src/headless-bin.ts` | `startCliCore({ productRuntime }, host, runners)` with no presentation; accepts only `--serve`                    | The desktop app's headless runtime build |
+| `src/index.ts`        | Exports `startCli`, `startCliEntry`, `createProductCliHost`, `IStartCliOptions` and the hosted-execution API      | Code that embeds the CLI                 |
+| `src/product-host.ts` | `createProductCliHost()`: binds one consumer executable to a fixed product identity (`./host`)                    | A separate product built on the CLI      |
+| `src/desktop-host.ts` | The desktop controller for trust admission, daemon start and the loopback endpoint (`./desktop-host`)             | A consumer's Electron main process       |
 
-Both binaries first check for the subagent worker flag and, when present, run
+`startCli()` and `headless-bin.ts` check for the subagent worker flag first and, when present, run
 `runSubagentWorkerMain(createProductSubagentComposition())` instead of the CLI (see
 [`subagent-wiring.md`](subagent-wiring.md)).
 
@@ -43,23 +47,23 @@ The operator can select hosted posture through `PRODUCT_RUNTIME_POSTURE=hosted` 
 `PRODUCT_HOSTED_RUNTIME_CONFIG` path. The owner-controlled deployment file contains public
 attestation pins and workload identity, never a worker management or issuer private key.
 `startCliCore()` admits both the worker and broker before entering the local startup chain below.
-Their Ed25519 proofs bind a fresh challenge to the tenant, task, actor, runtime, backend resource,
-current policy epoch and expected snapshot digest. Both must remain valid after the slower response
-arrives. Redirects, missing proofs, unavailable backends, stale epochs and corrupt resume state
+Their Ed25519 proofs bind a fresh challenge to the tenant, task and root task, actor, runtime,
+backend resource, current policy epoch, expected snapshot digest and the configured limits (the
+broker's also its cumulative usage). Both must remain valid after the slower response arrives. Redirects, missing proofs, unavailable backends, stale epochs and corrupt resume state
 refuse execution. A configured deployment cannot be downgraded through a local/disabled value.
 
-Hosted execution requires the embedding operator's `hostedRuntimeExecutorFactory`. Its returned
-executor owns the full session/mode composition and worker/broker teardown. The controller gives it
-an abort signal and a cumulative usage observer, rechecks current admission, and stops it on lost
-authority or lifetime expiry. The factory owns any partial allocation until it returns the
-executor; cancellation or failure must clean that allocation. Failed or timed-out teardown remains
-a failure even if a late result can subsequently be released.
+Hosted execution requires an executor: the embedding operator's `hostedRuntimeExecutorFactory`, or,
+when `PRODUCT_HOSTED_WORKER_EXECUTION_CONFIG` is set, the stock executor from
+`createE2BHostedRuntimeExecutorFactory()` that runs the CLI inside an admitted E2B worker (it loads
+the optional `e2b` package). The returned executor owns the full session/mode composition and
+worker/broker teardown. The controller gives it an abort signal and a cumulative usage observer,
+rechecks current admission, and stops it on lost authority or lifetime expiry. The factory owns any
+partial allocation until it returns the executor; cancellation or failure must clean that
+allocation. Failed or timed-out teardown remains a failure even if a late result can subsequently be
+released.
 
-The public binaries currently have no concrete hosted executor, so even valid proofs refuse hosted
-execution; they cannot authorize the ordinary host tool composition. This is an admission and
-lifecycle foundation, not an operational cloud deployment. Real provider attestation, task-worker
-composition, centralized budgets and cloud resource/connection cleanup still require their
-separate implementations and validation. The existing personal local path remains available only
+With neither executor, even valid proofs refuse hosted execution; an admitted hosted run never
+reaches the ordinary host tool composition. The existing personal local path remains available only
 when no hosted deployment is configured.
 
 ```mermaid
@@ -75,12 +79,13 @@ flowchart TD
     I --> J{mode}
     J -->|"-p / --goal"| K["runPrintMode"]
     J -->|"mcp serve"| L["runMcpServeMode"]
+    J -->|"acp"| O["runAcpMode"]
     J -->|"--serve"| M["runServeMode"]
     J -->|default| N["renderApp (agent-ui-terminal)"]
 ```
 
-Pre-parsed subcommands (`doctor`, `trust`, `daemon`, `session …`, `usage`, `mcp add|login|logout`,
-`eval`) are routed by `runPreparsedCliCommand()` in `src/startup/preparsed-command-routing.ts` and
+Pre-parsed subcommands (`doctor`, `trust`, `daemon`, `--attach`, `session …`, `secure`, `usage`,
+`mcp add|login|logout`, `eval`) are routed by `runPreparsedCliCommand()` in `src/startup/preparsed-command-routing.ts` and
 return before the product is assembled. See [`internal-structure.md`](internal-structure.md).
 
 ### Command modules
@@ -99,15 +104,16 @@ through `ICommandHostAdapters`.
    overridden, and the shell reports it (`Capability … was not composed`).
 4. `selectProductCommandModules()` (`src/product/runtime-plumbing.ts`) applies the preset's
    `enabledCommandModules` / `disabledCommandModules` to that merged set, then appends the fixed
-   modules the preset never filters: `/workflows` from `@robota-sdk/workflows/command` and any
-   `commandModules` a caller passed to `startCli()`.
+   modules the preset never filters: `/workflows` from `@robota-sdk/workflows/command` (the pinned
+   external `@robota-sdk/workflows` release, bundled into the CLI) and any `commandModules` a caller
+   passed to `startCli()`.
 
 Preset module names that match nothing are reported by `reportUnknownPresetModules()` before
 `init` and `--configure` can return early.
 
 ### Tool surface
 
-The packs own __PRODUCT_CLI_NAME__'s tools. `buildProductRuntimeOptions()` passes `PRODUCT_PACKS_OWN_TOOL_SURFACE`
+The packs own __PRODUCT_CLI_NAME__'s tools. `buildProductRuntimeOptions()` passes `PACKS_OWN_TOOL_SURFACE`
 (an empty list) as the session's `defaultTools`, which replaces agent-framework's own default tool
 tier; the kernel then adds each pack's tools to `additionalTools`. The pack file tools are scoped to
 the `cwd` they are built with, so the shell builds the packs before command setup. MCP tools and the
@@ -130,13 +136,17 @@ passes them into the profile, and reads them back from the assembled product wit
 - a `WsTransport` from `@robota-sdk/agent-transport/ws`, which takes an optional launch token and
   port from `PRODUCT_WS_TOKEN` / `PRODUCT_WS_PORT` (a supervised daemon's token instead arrives on a pipe
   its launcher inherited) and removes the token from the environment;
+- when `--serve --observer-port` is given, a second `WsTransport` with the `observe` role, on the
+  requested port and with the operator's `PRODUCT_OBSERVER_TOKEN`;
 - `bindTransports(session)`, which binds the WebSocket transport to a session with
-  `bindTransportAdapter()` and registers it, or replaces the earlier binding after a session switch.
+  `bindTransportAdapter()` and registers it, or replaces the earlier binding after a session switch,
+  and binds the observer transport after it.
 
-| Transport                    | Registered by                                                   | Started by                                    |
-| ---------------------------- | --------------------------------------------------------------- | --------------------------------------------- |
-| `WsTransport` (`ws`)         | `bindTransports()` when a session binds                         | `startAll()`; enabled by default              |
-| `WebRtcTransport` (`webrtc`) | the remote-control controller when `/remote-control` is enabled | the controller itself; not enabled by default |
+| Transport                     | Registered by                                                   | Started by                                                    |
+| ----------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------- |
+| `WsTransport` (`ws`)          | `bindTransports()` when a session binds                         | `startAll()`; enabled by default                              |
+| `WsTransport` (`ws-observer`) | `bindTransports()` when `--observer-port` is given              | `startAll()`, after `ws`; not listed or saved by `/transport` |
+| `WebRtcTransport` (`webrtc`)  | the remote-control controller when `/remote-control` is enabled | the controller itself; not enabled by default                 |
 
 Each mode receives the registry:
 

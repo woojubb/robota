@@ -1,8 +1,5 @@
 # @robota-sdk/agent-mcp
 
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
-
 The Model Context Protocol (MCP) client for the Robota SDK: everything needed to let an agent use tools
 from external MCP servers. It keeps three concerns separate:
 
@@ -92,6 +89,13 @@ the loaded YAML frontmatter with the advertised metadata, require explicit conte
 preserve server-plus-URI identity in registry/approvals/caches, and revoke consent when content changes.
 Nested `SKILL.md` files are supporting bytes until separately approved. CLI/app skill activation and
 optional directory reads are not provided by this wire view.
+
+### Opt-in MCP Apps
+
+A host that can show a tool's view in an isolated frame passes `apps: true` to `openMcpSession`.
+`session.apps` is then true only when the server also declared the UI extension and resources, and
+tool UI metadata is kept in discovery only then. A view is display data: it grants no tool authority,
+and a missing or invalid one never changes the model-facing tool result.
 
 ## Installation
 
@@ -193,9 +197,9 @@ The HTTP transport reads nothing from the machine it runs on, and has no network
 composition root passes the host's egress in the `createStreamableHttpAdapter(deps)` or
 `admitHttpEndpoint(endpoint, deps)` argument:
 
-| Option   | Without it                                                                                                                                              |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `egress` | Required. The type refuses a call without it, and a call that omits it anyway is refused at admission (`egress-unavailable`) before anything is sent  |
+| Option   | Without it                                                                                                                                           |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `egress` | Required. The type refuses a call without it, and a call that omits it anyway is refused at admission (`egress-unavailable`) before anything is sent |
 
 A Node host passes `{ egress: createNodeHttpEgress(options) }` from `/node`, as the CLI composition does for
 every HTTP server. A browser host passes `{ egress: createWebFetchEgress() }`: web `fetch` and no
@@ -243,14 +247,14 @@ it is never connected with its static headers alone.
 
 `@robota-sdk/agent-mcp/node` holds what only a Node host provides:
 
-| Export                                                         | Kind     | Description                                                                                  |
-| -------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------- |
-| `createStdioAdapter`                                           | Function | Admits and spawns a host-authorized stdio server (with the `IMCPStdio*` types)               |
-| `createNodeHttpEgress`, `INodeHttpEgressOptions`               | Function | The HTTP egress: resolved-address policy, pinned connection, owner/test `fetch`              |
-| `createNodeOAuthNetwork`, `INodeOAuthNetworkOptions`           | Function | The OAuth network: egress policy, byte caps, no redirect on a POST                           |
-| `createFileOAuthCredentialStore`                               | Function | Owner-only credential files, one per server identity and URL                                 |
-| `createFileOAuthRefreshLock`, `IFileOAuthRefreshLockOptions`   | Function | One refresh at a time per credential, across processes                                       |
-| `loopbackOAuthCallbackListener`, `startOAuthCallbackServer`, `freeLoopbackPort` | Value, functions | The loopback listener a sign-in redirects to |
+| Export                                                                          | Kind             | Description                                                                     |
+| ------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------- |
+| `createStdioAdapter`                                                            | Function         | Admits and spawns a host-authorized stdio server (with the `IMCPStdio*` types)  |
+| `createNodeHttpEgress`, `INodeHttpEgressOptions`                                | Function         | The HTTP egress: resolved-address policy, pinned connection, owner/test `fetch` |
+| `createNodeOAuthNetwork`, `INodeOAuthNetworkOptions`                            | Function         | The OAuth network: egress policy, byte caps, no redirect on a POST              |
+| `createFileOAuthCredentialStore`                                                | Function         | Owner-only credential files, one per server identity and URL                    |
+| `createFileOAuthRefreshLock`, `IFileOAuthRefreshLockOptions`                    | Function         | One refresh at a time per credential, across processes                          |
+| `loopbackOAuthCallbackListener`, `startOAuthCallbackServer`, `freeLoopbackPort` | Value, functions | The loopback listener a sign-in redirects to                                    |
 
 ## Where it sits
 

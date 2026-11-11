@@ -59,11 +59,13 @@ When the sandbox shares the host filesystem, file tools stay on the host, contai
 
 `createDefaultTools(options: ICreateDefaultToolsOptions): FunctionTool[]`
 
-| Option            | Type             | Description                                                                                                                                                                |
-| ----------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cwd`             | `string`         | Required. The root that host file tools are contained by (not file tools routed to a separate-filesystem sandbox), and the default working directory for `Shell` / `Bash`. |
-| `sandboxClient`   | `ISandboxClient` | Runs commands (and, on a separate filesystem, file tools) in a sandbox.                                                                                                    |
-| `shellExecutable` | `string`         | Host-selected executable for `Shell` and `Bash`.                                                                                                                           |
+| Option            | Type                                   | Description                                                                                                                                                                         |
+| ----------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cwd`             | `string`                               | Required. The root that host file tools are contained by (not file tools routed to a separate-filesystem sandbox), and the default working directory for `Shell` / `Bash`.          |
+| `sandboxClient`   | `ISandboxClient`                       | Runs commands (and, on a separate filesystem, file tools) in a sandbox.                                                                                                             |
+| `shellExecutable` | `string`                               | Host-selected executable for `Shell` and `Bash`.                                                                                                                                    |
+| `httpUserAgent`   | `string`                               | The `User-Agent` header `WebFetch` sends.                                                                                                                                           |
+| `editorFiles`     | `() => IEditorFileAccess \| undefined` | An editor that has the workspace open, asked at each call. It carries the host file tools only; commands never use it, and a sandbox with its own filesystem keeps every file tool. |
 
 `ISandboxClient` is exported by the main `@robota-sdk/agent-tools` entry.
 

@@ -29,13 +29,13 @@ function formatUsage(usage: IUsageSnapshot): string {
 
 ## What it defines
 
-| Family                     | Main types                                                                                                                                                                  |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Per-turn usage             | `IUsageSnapshot`, `IUsageSource`, `IUsageObservation`, `IUsageModelShare`, `TUsageSurface`                                                                                  |
-| Per-session report         | `IUsageBySourceReport`, `IUsageSourceTotals`, `IRunTraceTurn`, `IRunTraceSpan`, `ISpanEntry`                                                                                |
-| Live prompt trace          | `ILivePromptTraceBatch`, `IProviderCallTraceEntry`, `IToolBodyTraceEntry`, `IToolPermissionDecisionEntry`                                                                   |
-| Opt-in live content        | `ILivePromptContentPolicy`, `ILivePromptContentBatch`, `ILivePromptContentItem`, `ILivePromptContentToolRef`, `TLivePromptContentKind`, `TLivePromptContentOmitted`         |
-| Personal usage (7/30 days) | `IPersonalUsageRequest`, `IPersonalUsageReport`, `IPersonalUsageTotals`, `IPersonalUsageDay`, `IPersonalUsageDimension`, `IPersonalUsageActivity`, `IPersonalUsageCoverage` |
+| Family                     | Main types                                                                                                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Per-turn usage             | `IUsageSnapshot`, `IUsageSource`, `IUsageObservation`, `IUsageModelShare`, `TUsageSurface`                                                                                                  |
+| Per-session report         | `IUsageBySourceReport`, `IUsageSourceTotals`, `IRunTraceTurn`, `IRunTraceSpan`, `ISpanEntry`                                                                                                |
+| Live prompt trace          | `ILivePromptTraceBatch`, `ILivePromptTimingTotals`, `ILivePromptDurationTotal`, `ILivePromptQueueSummary`, `IProviderCallTraceEntry`, `IToolBodyTraceEntry`, `IToolPermissionDecisionEntry` |
+| Opt-in live content        | `ILivePromptContentPolicy`, `ILivePromptContentBatch`, `ILivePromptContentItem`, `ILivePromptContentToolRef`, `TLivePromptContentKind`, `TLivePromptContentOmitted`                         |
+| Personal usage (7/30 days) | `IPersonalUsageRequest`, `IPersonalUsageReport`, `IPersonalUsageTotals`, `IPersonalUsageDay`, `IPersonalUsageDimension`, `IPersonalUsageActivity`, `IPersonalUsageCoverage`                 |
 
 Usage, trace and personal-usage types carry counts, timings, identifiers and attribution only.
 Prompt, response, file path and tool payload text never appear in them.

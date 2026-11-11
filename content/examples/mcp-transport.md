@@ -1,9 +1,5 @@
 # MCP Transport
 
-> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
-> 3.1.0 or later after it is published, and check the exports in your installed version.
-> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
-
 Expose an `InteractiveSession` as a Model Context Protocol server with
 `@robota-sdk/agent-transport/mcp`, so an MCP client (a desktop assistant, an IDE, another agent) can
 call the session's tools or hand it a prompt.
@@ -21,7 +17,11 @@ import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { createMcpTransport } from '@robota-sdk/agent-transport/mcp';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
-const session = new InteractiveSession({ cwd: process.cwd(), host: createNodeFrameworkHost({ createDefaultTools }), provider });
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  provider,
+});
 
 const transport = createMcpTransport({
   name: 'my-agent',
@@ -80,10 +80,10 @@ await server.connect(new StdioServerTransport());
 
 For a loopback HTTP endpoint with a bearer token, or a remote endpoint behind OAuth, the package also
 exports `createMcpHttpHost()` and `createMcpRemoteHttpHost()`; see the
-[package README](../../packages/agent-transport/docs/mcp.md).
+[MCP carrier docs](../../packages/agent-transport/docs/mcp.md).
 
 ## From the CLI
 
 `__PRODUCT_CLI_NAME__ mcp serve` does the same for the CLI's own session, over stdio by default. It names the
-submit tool `__PRODUCT_MODEL_TOOL_PREFIX___submit` and command tools `__PRODUCT_MODEL_TOOL_PREFIX___command_<name>`. `__PRODUCT_CLI_NAME__ --help` lists its
+submit tool `__PRODUCT_CLI_NAME___submit` and command tools `__PRODUCT_MODEL_TOOL_PREFIX__<name>`. `__PRODUCT_CLI_NAME__ --help` lists its
 HTTP options (`--http-token-file`, `--http-public-url` and the `--oauth-*` flags).

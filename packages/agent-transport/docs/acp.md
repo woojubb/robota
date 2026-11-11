@@ -19,14 +19,16 @@ dependencies of the package, installed for this subpath only.
 ## Usage
 
 ```typescript
+import type { Writable } from 'node:stream';
 import { createAcpTransport } from '@robota-sdk/agent-transport/acp';
 import type { IAcpTransportSession } from '@robota-sdk/agent-transport/acp';
 
 declare const session: IAcpTransportSession; // e.g. an InteractiveSession from @robota-sdk/agent-framework
+declare const protocolOnlyStdout: Writable; // a stream nothing but this transport writes to
 
 const transport = createAcpTransport({
   input: process.stdin,
-  output: protocolOnlyStdout, // a stream nothing but this transport writes to
+  output: protocolOnlyStdout,
   agentInfo: { name: 'my-agent', version: '1.0.0' },
   cwd: process.cwd(),
   admitWorkspace: () => ({ admitted: true }), // the host's trust decision

@@ -16,7 +16,7 @@ existing `.robota` project and user storage, credential namespace and cryptograp
 incomplete or conflicting explicit settings still fail validation. Generated product workspaces
 keep their embedded identity and independently selected configuration.
 
-The beta remote-pairing API deliberately requires explicit cryptographic context and derivation
+The remote-pairing API deliberately requires explicit cryptographic context and derivation
 options. This prevents a reusable SDK from silently selecting a product's keys or signature domain.
 Replace the former implicit constants and calls with an instance-owned context and path:
 
@@ -32,7 +32,3 @@ certificate, handshake and reconnect functions. The former `PAIRWISE_SECRET_LABE
 `${context.namespace}/rdv/v1` protocol label. Robota keeps its existing signature and HKDF labels
 and hardened derivation path, so the explicit configuration reproduces its existing recovery
 identity and paired-device keys. Other products choose their own namespace and path.
-
-This migration does not bump package versions or publish packages. Local replay and packed-consumer
-checks establish the tested SDK behavior; they do not establish paid-provider quality or deployed
-cloud isolation guarantees.

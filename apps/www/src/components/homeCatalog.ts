@@ -61,7 +61,7 @@ export const featureCatalog = [
       { id: 'core', guide: 'guide/building-agents', tags: ['ConversationAgent', 'run', 'runStream', 'structured output'] },
       { id: 'framework', guide: 'guide/sdk', tags: ['createQuery', 'InteractiveSession', 'createAgentRuntime'] },
       { id: 'embedding', guide: 'guide/embedding', tags: ['createAgentRuntime', 'sessionStore', 'resumeSessionId', 'createStatelessRuntime'] },
-      { id: 'channels', guide: 'guide/deployment', tags: ['TransportRegistry', 'agent-transport-*'] },
+      { id: 'channels', guide: 'guide/deployment', tags: ['TransportRegistry', 'agent-transport/ws', 'agent-transport/http'] },
       { id: 'product', guide: 'guide/architecture', tags: ['assembleProduct', 'ICapabilityPack', 'createCodingPack', 'presets'] },
       { id: 'productHost', source: 'packages/agent-cli/README.md#build-a-separate-product-from-npm-packages', tags: ['agent-cli/host', 'createProductCliHost', 'agent-cli/desktop-host', 'buildProductNativeBinary'] },
       { id: 'analytics', guide: 'guide/cli', tags: ['doctor', 'usage', 'usage export', 'session analyze', 'eval'] },

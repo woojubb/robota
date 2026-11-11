@@ -61,7 +61,7 @@
       "items": [
         {
           "title": "1. 프로바이더 선택하기",
-          "body": "Anthropic, OpenAI, DeepSeek, Gemini용 어댑터를 사용하거나 OpenAI 호환 엔드포인트를 연결하세요. 인증 정보, 모델, 비용은 프로바이더마다 다릅니다."
+          "body": "Anthropic, OpenAI, Gemini, DeepSeek, Qwen용 어댑터를 사용하거나 OpenAI 호환 엔드포인트를 연결하세요. 인증 정보, 모델, 비용은 프로바이더마다 다릅니다."
         },
         {
           "title": "2. SDK로 에이전트 만들기",
@@ -248,8 +248,7 @@
       "items": [
         "릴리스 준비: 주요 버그를 고치고 SDK와 CLI의 핵심 사용 흐름을 검증한 뒤 정식 릴리스를 검토합니다.",
         "공식 GitHub 액션: 모든 워크플로에서 __PRODUCT_DISPLAY_NAME__를 CI 봇으로 실행할 수 있게 합니다.",
-        "공식 플러그인 스타터 팩: 로깅, Slack 알림, 비용 추적, Linear 연동, Datadog 지표를 위한 커뮤니티 플러그인 템플릿을 만듭니다.",
-        "SDK 연동 예제: Next.js, Express, CLI 스크립트에서 참고할 구현 예제를 만듭니다."
+        "공식 플러그인 스타터 팩: 로깅, Slack 알림, 비용 추적, Linear 연동, Datadog 지표를 위한 커뮤니티 플러그인 템플릿을 만듭니다."
       ]
     },
     "later": {
@@ -289,7 +288,7 @@
     "projects": [
       {
         "name": "__PRODUCT_DISPLAY_NAME__ CLI",
-        "description": "프로젝트 팀이 @robota-sdk/agent-framework와 터미널 UI 패키지로 만든 참조 구현입니다. 공개 구성 요소를 조합해 코딩 CLI를 만든 사례입니다. 고객이 도입한 사례는 아닙니다.",
+        "description": "프로젝트 팀이 @robota-sdk/agent-framework, @robota-sdk/agent-ui-terminal 등 공개 SDK 패키지로 만든 참조 구현입니다. 공개 구성 요소를 조합해 코딩 CLI를 만든 사례입니다. 고객이 도입한 사례는 아닙니다.",
         "highlights": [
           "여러 프로바이더 간 전환",
           "세션 저장과 재개",

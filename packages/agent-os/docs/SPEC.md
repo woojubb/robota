@@ -113,7 +113,7 @@ package needs and none should re-implement: reliably terminating a spawned proce
 descendants. Cohesion comes from that single responsibility — this subpath is deliberately not a
 catch-all for process utilities.
 
-The TUI-owned PTY runner uses a different process abstraction (`node-pty`'s `IPty`) and
+The terminal UI's PTY test harness uses a different process abstraction (`node-pty`'s `IPty`) and
 therefore cannot depend on this subpath's `ChildProcess`-shaped helper directly — it applies the
 same escalation pattern independently rather than sharing the implementation.
 

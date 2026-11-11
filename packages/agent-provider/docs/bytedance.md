@@ -86,7 +86,7 @@ HTTP response:
 - [`@robota-sdk/agent-provider/gemini`](./gemini.md): image generation through
   Gemini.
 
-See [docs/SPEC.md](docs/SPEC.md) for the package contract.
+See [SPEC.md](SPEC.md) for the package contract.
 
 ## License
 

@@ -11,12 +11,13 @@ bus, or any provider or tool infrastructure — those, and hook dispatch on a re
 
 ## Boundaries / Non-goals
 
-- Depends exclusively on `agent-core`. Must never import from `agent-framework`, `agent-session`,
-  or `agent-tools` — those are consumers of this package, not dependencies of it.
+- Depends exclusively on `agent-core` among the workspace packages. Must never import from
+  `agent-framework`, `agent-session`, or `agent-tools`; no SDK package depends on this one, and the
+  dependency runs only toward `agent-core`.
 - Sub-modules (one per plugin) must not import from each other; each plugin is independently
   tree-shakeable so an unused plugin is excluded from a consumer's bundle.
-- Does not perform provider calls or tool execution (owned by `agent-framework`), and does not own
-  session/conversation runtime state (owned by `agent-session`).
+- Does not perform provider calls or tool execution (owned by the `agent-core` execution loop), and
+  does not own session/conversation runtime state (owned by `agent-session`).
 
 ## Contract Guarantees
 
@@ -27,8 +28,8 @@ bus, or any provider or tool infrastructure — those, and hook dispatch on a re
   `file` strategies without an injected text-file store, and for `PerformancePlugin` with memory,
   CPU or network monitoring on and no injected metrics collector.
 - `PerformancePlugin`'s monitoring-strategy type includes values with no backing implementation
-  yet (only the in-memory backend is implemented); selecting one of those is a forward-looking
-  configuration surface, not a currently working backend.
+  (only `memory` is implemented); selecting any other throws a `ConfigurationError` at construction
+  rather than accepting metrics it cannot keep.
 - `LimitsPlugin` exposes a rate limiter (tokens/requests/cost) and an orthogonal per-run
   cumulative cost budget, tracked independently and reset independently of each other.
 - Storage and rate-limiting behavior is injected via option objects rather than requiring

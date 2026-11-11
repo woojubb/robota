@@ -2,8 +2,8 @@
 
 Robota's coding capability as a single
 [`ICapabilityPack`](./capability-pack.md): the built-in coding tools, the coding command
-modules, and the coding subagents in one unit that `assembleProduct` can add to any product. The
-The host CLI can compose it for its coding assistant.
+modules, and the coding subagents in one unit that `assembleProduct` can add to any product.
+`@robota-sdk/agent-cli` composes it for its coding assistant. The subpath is Node only.
 
 ## Installation
 
@@ -40,14 +40,16 @@ void session;
 The pack bundles:
 
 - **tools** — `Shell`, `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebFetch`,
-  `AskUserQuestion` (from `@robota-sdk/agent-tools/defaults`' `createDefaultTools`).
+  `AskUserQuestion` (from `@robota-sdk/agent-tools/defaults`' `createDefaultTools`). When the
+  `sandboxClient` has a separate filesystem, `Glob` and `Grep` are withheld, leaving seven.
 - **commandModules** — `/shell`, `/editor` (from `@robota-sdk/agent-product/command/node`), and `/git` (from
   `@robota-sdk/agent-product/command`).
 - **subagents** — `general-purpose`, `Explore`, `Plan` (agent-framework's built-in agents).
 
-`createCodingPack` passes its `cwd` and optional `sandboxClient` straight to the default tool factory,
-so the pack adds, drops, or reorders none of those tools. Its other options are `shellExecutable` (the
-shell for the tools and `/shell`) and `editorTemporaryDirectoryPrefix` (for `/editor`).
+`createCodingPack` passes its `cwd`, `sandboxClient`, `editorFiles`, `shellExecutable` and
+`httpUserAgent` options straight to the default tool factory, so the pack adds, drops, or reorders none
+of those tools. `shellExecutable` also selects the shell for `/shell`; `editorTemporaryDirectoryPrefix`
+and `editorUnavailableMessage` configure `/editor`. The pack's id is `coding`.
 
 ## Why a factory, and why `cwd` is required
 

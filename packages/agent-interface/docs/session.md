@@ -42,7 +42,7 @@ that `isTurnNotRunError` recognizes.
 | The session                                                 | `IInteractiveSession`, and the capability slices it is made of (`ISessionTurnSubmission`, `ISessionConversationRead`, `ISessionCommands`, `ISessionBackgroundTasks`, …) collected in `ISessionCapabilityMap` |
 | Turns                                                       | `ITurnHandle`, `IExecutionResult`, `ITurnNotRunError`, `TTurnNotRunReason`, `TTurnSource`, `ISubmitOptions`                                                                                                  |
 | Events                                                      | `IInteractiveSessionEvents`, `TInteractiveEventName`, `IPermissionRequestEvent`, `IAskRequestEvent`, `IPromptResolvedEvent`, `IBranchEvent`, `ISkillActivationEvent`, `IMemoryEvent`                         |
-| Persistence                                                 | `IInteractiveSessionRecord`, `IInteractiveSessionStore`, `TSessionLoadOutcome` (valid, missing, corrupt, unsupported or locked)                                                                           |
+| Persistence                                                 | `IInteractiveSessionRecord`, `IInteractiveSessionStore`, `TSessionLoadOutcome` (valid, missing, corrupt, unsupported or locked)                                                                              |
 | Interaction channel                                         | `IInteractionChannel`, `InteractionEvent`, `IAgentDriver`, `ICommandInfo`                                                                                                                                    |
 | Drivers and co-driving                                      | `TDriverId`, `IPeerTurnContext`, `IUiIntentEvent`                                                                                                                                                            |
 | Session listing, binding, loops, prompt history, compaction | `ISessionListing`, `ISessionBinder`, `ISessionLoopState`, `IPromptHistorySource`, `ICompactEvent`                                                                                                            |
@@ -54,6 +54,7 @@ Runtime exports:
 | `readAssistantReplies`, `readLastAssistantText`, `readToolCalls`, `readErrors` | Pure readers over an `InteractionEvent[]` stream             |
 | `isTurnNotRunError`                                                            | Tells a "turn did not run" rejection from a real failure     |
 | `isSessionChangeRefusal`, `SESSION_CHANGE_REFUSAL_CODES`                       | Recognize a refused session switch and list its reason codes |
+| `isSessionDeleteRefusal`, `SESSION_DELETE_REFUSAL_CODES`                       | Recognize a refused session delete and list its reason codes |
 | `SESSION_CAPABILITY_MEMBER_KEYS`                                               | The members each capability slice contributes to a session   |
 | `OWNER_DRIVER_ID`, `AGENT_DRIVER_ID`                                           | Driver ids for the local operator and for autonomous turns   |
 
@@ -69,6 +70,7 @@ separate from the main entry so the doubles never land in a production bundle.
 | `createTestInteractiveSession(overrides?)`                                            | Returns a complete `IInteractiveSession` with inert defaults; each double has its own session id and every `submit()` handle settles |
 | `createSessionCapabilityHost(capabilities)` (alias `createTestSessionCapabilityHost`) | Builds a host object from a partial set of capability slices, rejecting unknown slice names                                          |
 | `readSessionCapability(host, key)`                                                    | Reads one slice as `{ provided: true, value }` or `{ provided: false }`                                                              |
+| `withHoldReadClaim(store)`                                                            | Gives a session-store double the claim, lend and writer members every store offers, answering a claim with the store's own hold read |
 
 ```ts
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
@@ -87,7 +89,7 @@ compiling when the contract gains a member, instead of silently testing against 
   interaction channel (`ProgrammaticInteractionChannel`).
 - `@robota-sdk/agent-session` persists session records (`NodeSessionStore` implements
   `IInteractiveSessionStore`).
-- Transports (`@robota-sdk/agent-transport` and its `-http`, `-mcp`, `-ws` carriers), the UIs
+- Transports (`@robota-sdk/agent-transport` and its `ws`, `http` and `mcp` carriers), the UIs
   (`@robota-sdk/agent-ui-terminal`, `@robota-sdk/agent-ui-web`), `@robota-sdk/agent-product/command`,
   `@robota-sdk/agent-session-analytics` and `@robota-sdk/agent-interface/session-mobility` consume
   these types.

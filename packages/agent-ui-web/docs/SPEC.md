@@ -112,22 +112,23 @@ does not own session lifecycle, conversation history, or agent runtime state.
 
 ## Non-goals / boundaries
 
-- Does not own the wire protocol framing (message types) — that belongs to the transport package.
+- Does not own the wire protocol framing (message types) — that belongs to `@robota-sdk/agent-transport`.
 - Does not own the transport-facing contract types (interaction/event/workspace) — those belong to
-  the transport-interface package.
-- Does not own session/runtime contracts or agent-core types, and imports nothing from the
-  agent framework, session, or core packages (it declares `agent-core` only so the contract types
-  resolve).
+  `@robota-sdk/agent-interface`.
+- Does not own session/runtime contracts or agent-core types, and imports nothing from the agent
+  framework, session or core packages: wire types and decoders come from `@robota-sdk/agent-transport`
+  and contract types from `@robota-sdk/agent-interface`.
 - Does not own the CLI sidecar server.
-- Does not own the WebRTC remote peer or pairing flow — that is a separate package that consumes
-  this package's reducer and components and widens the status union.
+- Does not own the WebRTC remote peer or pairing flow — that is the browser remote client in
+  `apps/agent-web`, which consumes this package's reducer and components and widens the status union.
 - Does not own the Electron shell or sidecar process supervision — that is the desktop app.
 - Is not re-exported through a sibling product package; consumers import it directly.
 
 ## Design decisions
 
 - The reducer is generic over its status type rather than importing a widened status union from
-  the WebRTC package, because importing that union would create a package cycle.
+  the browser remote client in `apps/agent-web`, because importing that union would make this
+  package depend on the app that depends on it.
 - The session shell component holds no session/transport logic of its own — it only forwards user
   intent through the reducer's send/answer handles — so a new GUI surface can reuse it purely by
   supplying its own client factory.

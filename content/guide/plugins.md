@@ -1,15 +1,15 @@
 ---
 title: Plugins
-description: Observe and extend an Robota agent with runtime plugins, use the ready-made plugins in @robota-sdk/agent-plugin, and package skills and hooks as __PRODUCT_CLI_NAME__ CLI plugins.
+description: Observe and extend a Robota agent with runtime plugins, use the ready-made plugins in @robota-sdk/agent-plugin, and package skills and hooks as __PRODUCT_CLI_NAME__ CLI plugins.
 ---
 
 # Plugins
 
 "Plugin" means two different things in Robota:
 
-| Kind               | What it is                                                                                 | Where it runs                                  |
-| ------------------ | ------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| **Runtime plugin** | A class that observes a `Robota` agent's lifecycle: runs, provider calls, messages, errors | Your code, through `@robota-sdk/agent-core`    |
+| Kind               | What it is                                                                                 | Where it runs                                                |
+| ------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| **Runtime plugin** | A class that observes a `Robota` agent's lifecycle: runs, provider calls, messages, errors | Your code, through `@robota-sdk/agent-core`                  |
 | **CLI plugin**     | A folder of skills, commands, agent definitions, hooks and MCP declarations                | The `__PRODUCT_CLI_NAME__` CLI, installed from a marketplace |
 
 Runtime plugins are for cross-cutting concerns in code you write: logging, usage and cost tracking,
@@ -61,6 +61,13 @@ Each plugin's options type is exported next to it (`ILoggingPluginOptions`, `IUs
 `ILimitsPluginOptions`, `IWebhookPluginOptions` and so on), and most take a `strategy` that selects
 where data goes (for example `'console' | 'file' | 'remote' | 'silent'` for logging). See the
 [agent-plugin SPEC](../../packages/agent-plugin/docs/SPEC.md) for each plugin's contract.
+
+The main entry is platform-neutral, so what needs a Node host is passed in from
+`@robota-sdk/agent-plugin/node`. Writing to a file (`storage: 'file'` for
+`ConversationHistoryPlugin`, `strategy: 'file'` for `LoggingPlugin` and `UsagePlugin`) needs a
+`filePath` and a `fileStore` (`new NodePluginTextFileStore()`), and throws a `ConfigurationError` at
+construction without them. `PerformancePlugin` records memory and CPU figures
+only from a `metricsCollector` (`new NodeSystemMetricsCollector()`).
 
 ---
 
@@ -142,6 +149,11 @@ afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult)
 afterConversation(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void>
 afterToolExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> // only when tools ran
 
+// Around every tool call
+beforeToolCall(toolName: string, parameters: TToolParameters, context?: IToolExecutionContext): Promise<void>
+beforeToolExecution(context: IPluginExecutionContext, toolData: IToolExecutionContext): Promise<void>
+afterToolCall(toolName: string, parameters: TToolParameters, result: IToolExecutionResult): Promise<void>
+
 // Around every provider call and message
 beforeProviderCall(messages: TUniversalMessage[]): Promise<void>
 onStreamingChunk(chunk: TUniversalMessage): Promise<void> // each streamed piece of text, in order
@@ -157,9 +169,10 @@ provider reported usage), `toolsExecuted`, `success`, and `toolCalls` (the id an
 call that ran, with `result: null` for one that failed). The `context` carries `executionId` and
 the conversation `messages`.
 
-`IPluginHooks` also declares `beforeToolCall`, `beforeToolExecution` and `afterToolCall`, but the
-`Robota` run loop does not call them; a plugin that needs per-tool detail should read `toolCalls`
-in `afterToolExecution`. A plugin method that throws is logged and does not stop the run.
+`beforeToolCall` and `beforeToolExecution` run just before each tool call is dispatched, and
+`afterToolCall` runs when it returns, with its `IToolExecutionResult`. `afterToolExecution` runs once
+after the run, with the `toolCalls` of the whole run. A plugin method that throws is logged and does
+not stop the run.
 
 ### Stats helpers
 
@@ -276,8 +289,7 @@ describe('RunLoggerPlugin', () => {
 ### Publishing a runtime plugin
 
 A plugin package needs only `@robota-sdk/agent-core`. Declare it as a peer dependency so your plugin
-uses the application's copy. The following range targets SDK 3.1.0; use it after that release is
-published and check your application's installed version:
+uses the application's copy:
 
 ```json
 {
@@ -291,10 +303,10 @@ published and check your application's installed version:
     }
   },
   "peerDependencies": {
-    "@robota-sdk/agent-core": "^3.1.0"
+    "@robota-sdk/agent-core": "^3.3.0"
   },
   "devDependencies": {
-    "@robota-sdk/agent-core": "^3.1.0"
+    "@robota-sdk/agent-core": "^3.3.0"
   }
 }
 ```
@@ -307,7 +319,11 @@ published and check your application's installed version:
 subscribe to without writing a class:
 
 ```typescript
-import { EVENT_EMITTER_EVENTS, EventEmitterPlugin, ConversationAgent } from '@robota-sdk/agent-core';
+import {
+  EVENT_EMITTER_EVENTS,
+  EventEmitterPlugin,
+  ConversationAgent,
+} from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 declare const provider: IAIProvider;
@@ -337,16 +353,17 @@ const agent = new ConversationAgent({
 Each listener receives an `IEventEmitterEventData`: `type`, `timestamp`, `executionId`, `sessionId`,
 `userId`, `data`, `error` and `metadata`. A `Robota` run emits these events through the plugin:
 
-| Event constant             | Emitted                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------- |
-| `AGENT_EXECUTION_START`    | When a run starts                                                               |
-| `AGENT_EXECUTION_COMPLETE` | When a run completes (`data.duration`, `data.tokensUsed`, `data.toolsExecuted`) |
-| `AGENT_EXECUTION_ERROR`    | When a run fails (`error`)                                                      |
-| `TOOL_AFTER_EXECUTE`       | After a run, once per tool call that ran (`data.toolName`)                      |
-| `TOOL_SUCCESS`             | With `TOOL_AFTER_EXECUTE`, for each tool call that succeeded                    |
-| `TOOL_ERROR`               | With `TOOL_AFTER_EXECUTE`, for each tool call that failed                       |
-| `CONVERSATION_START`       | When a run starts; only if listed in the `events` option                        |
-| `CONVERSATION_COMPLETE`    | When a run completes; only if listed in the `events` option                     |
+| Event constant             | Emitted                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------- |
+| `AGENT_EXECUTION_START`    | When a run starts                                                                           |
+| `AGENT_EXECUTION_COMPLETE` | When a run completes (`data.duration`, `data.tokensUsed`, `data.toolsExecuted`)             |
+| `AGENT_EXECUTION_ERROR`    | When a run fails (`error`)                                                                  |
+| `TOOL_BEFORE_EXECUTE`      | Just before each tool call is dispatched (`data.toolName`, `data.toolId`, `data.arguments`) |
+| `TOOL_AFTER_EXECUTE`       | After a run, once per tool call that ran (`data.toolName`)                                  |
+| `TOOL_SUCCESS`             | With `TOOL_AFTER_EXECUTE`, for each tool call that succeeded                                |
+| `TOOL_ERROR`               | With `TOOL_AFTER_EXECUTE`, for each tool call that failed                                   |
+| `CONVERSATION_START`       | When a run starts; only if listed in the `events` option                                    |
+| `CONVERSATION_COMPLETE`    | When a run completes; only if listed in the `events` option                                 |
 
 By default the plugin emits only the agent-execution and tool events; pass
 `new EventEmitterPlugin({ events: [...] })` to choose the list. Other options include `filters`

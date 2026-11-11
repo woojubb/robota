@@ -10,7 +10,9 @@ code and no user depends on where a file sits.
 
 ## Constraints
 
-- The public surface is `src/index.ts`: `startCli` and the `IStartCliOptions` type.
+- The public surface is `src/index.ts` (`startCli`, `startCliEntry`, `createProductCliHost`, the
+  `IStartCliOptions` type and the hosted-execution API), plus the `./host`, `./desktop-host` and
+  `./native-build` entries of `package.json`.
 - The CLI holds no Ink components, hooks or render state. Those belong to
   `@robota-sdk/agent-ui-terminal`. Only `src/cli.ts` imports the terminal UI as values; the shared
   startup path (`src/cli-core.ts`) and the headless entry refer to it only through types, so the
@@ -23,45 +25,53 @@ code and no user depends on where a file sits.
 
 ### Top-level files
 
-| File                           | Role                                                                                                                                                     |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bin.ts`                       | `__PRODUCT_CLI_NAME__` binary entry: installs the diagnostics sink and the last-resort crash policy, runs the subagent worker when asked, otherwise calls `startCli()` |
-| `headless-bin.ts`              | Presentation-free entry for the desktop app's runtime; accepts only `--serve`                                                                            |
-| `cli.ts`                       | `startCli()`: hands the terminal presentation to `startCliCore()`                                                                                        |
-| `cli-core.ts`                  | `startCliCore()`: the shell — argument parsing, settings reads, product assembly, mode dispatch                                                          |
-| `index.ts`                     | Package exports                                                                                                                                          |
-| `bootstrap-diagnostics.ts`     | Routes agent-core diagnostics (warnings and errors) to stderr                                                                                            |
-| `process-guards.ts`            | TUI-only last-resort guards that report uncaught errors into the live session instead of exiting                                                         |
-| `print-terminal.ts`            | `PrintTerminal`, the `ITerminalOutput` used outside the TUI                                                                                              |
-| `cli-input.ts`                 | Masked raw-mode prompt used by `init` and provider setup                                                                                                 |
-| `user-local-direct-command.ts` | `__PRODUCT_CLI_NAME__ user-local …`, run without a provider                                                                                                            |
-| `constants.ts`                 | `AGENT_CLI_BIN` (`'__PRODUCT_CLI_NAME__'`)                                                                                                                             |
+| File                           | Role                                                                                                                                               |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bin.ts`                       | `__PRODUCT_CLI_NAME__` binary entry: hardens the process, then calls `startCliEntry()`                                                             |
+| `cli-entry.ts`                 | `startCliEntry()`: installs the diagnostics sink and the last-resort crash policy, handles the internal root-broker start, then calls `startCli()` |
+| `cli-crash-policy.ts`          | The crash policy `startCliEntry()` installs                                                                                                        |
+| `process-hardening.ts`         | `hardenProductProcess()`: same-user inspection hardening that only a product executable applies to its own process                                 |
+| `headless-bin.ts`              | Presentation-free entry for the desktop app's runtime; accepts only `--serve`                                                                      |
+| `cli.ts`                       | `startCli()`: runs the subagent worker when asked, otherwise hands the terminal presentation to `startCliCore()`                                   |
+| `cli-core.ts`                  | `startCliCore()`: the shell — argument parsing, settings reads, product assembly, mode dispatch                                                    |
+| `index.ts`                     | Package exports                                                                                                                                    |
+| `product-host.ts`              | `createProductCliHost()`, the `./host` entry: one consumer executable bound to a fixed product identity                                            |
+| `desktop-host.ts`              | The `./desktop-host` entry: the desktop controller for trust admission, daemon start and the loopback endpoint                                     |
+| `desktop-secure-host.ts`       | The desktop's secure-conversation owner handover, exported through `./desktop-host`                                                                |
+| `bootstrap-diagnostics.ts`     | Routes agent-core diagnostics (warnings and errors) to stderr                                                                                      |
+| `process-guards.ts`            | TUI-only last-resort guards that report uncaught errors into the live session instead of exiting                                                   |
+| `print-terminal.ts`            | `PrintTerminal`, the `ITerminalOutput` used outside the TUI                                                                                        |
+| `cli-input.ts`                 | Masked raw-mode prompt used by `init` and provider setup                                                                                           |
+| `user-local-direct-command.ts` | `__PRODUCT_CLI_NAME__ user-local …`, run without a provider                                                                                        |
+| `constants.ts`                 | `CLI_PROTOCOL_VERSION`                                                                                                                             |
 
 ### Directories
 
-| Directory            | Role                                                                                                                                                                                                                                                                                |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Directory            | Role                                                                                                                                                                                                                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `product/`           | __PRODUCT_DISPLAY_NAME__'s identity as data: the product profile (`product-profile.ts`), transport and runtime plumbing (`runtime-plumbing.ts`), packs and the subagent runner (`subagent-composition.ts`), and __PRODUCT_CLI_NAME__'s paths, settings layers, roots, presets, sandbox and permission baseline |
-| `startup/`           | Startup steps called by `cli-core.ts`: command setup, preset selection, provider setup, workspace trust, MCP client composition, `doctor`, host-action adapters, and the inputs the TUI is rendered with                                                                            |
-| `modes/`             | Print mode (`-p`, `--goal`), the `--serve` runtime host with its monitor UI and session directory, and `__PRODUCT_CLI_NAME__ mcp serve`                                                                                                                                                           |
-| `session-inventory/` | `session list`, `view`, `attach`, `start` and the per-workspace `daemon`: supervised background sessions                                                                                                                                                                            |
-| `remote-control/`    | `/remote-control` over WebRTC, the host identity, and local peer discovery and messaging                                                                                                                                                                                            |
-| `devices/`           | `/devices`: device identity, enrollment and the device mesh                                                                                                                                                                                                                         |
-| `handoff/`           | Moving a session to another session or device                                                                                                                                                                                                                                       |
-| `peer-files/`        | Files sent between peers: checks before sending, consent and quarantine on receipt                                                                                                                                                                                                  |
-| `external-events/`   | External-event grants and their HTTP endpoint for the TUI                                                                                                                                                                                                                           |
-| `credentials/`       | The host credential store: OS keychain, or an owner-only file                                                                                                                                                                                                                       |
-| `subagents/`         | `GitWorktreeIsolationAdapter` and the self-fork worker entry (see [`subagent-wiring.md`](subagent-wiring.md))                                                                                                                                                                       |
-| `plugins/`           | The `ICommandPluginAdapter` implementation and the plugin command-source loader                                                                                                                                                                                                     |
-| `launch-intent/`     | `__PRODUCT_CLI_NAME__ open <url>` deep links                                                                                                                                                                                                                                                      |
-| `telemetry/`         | Opt-in live telemetry export (OTLP or console)                                                                                                                                                                                                                                      |
-| `usage/`             | `__PRODUCT_CLI_NAME__ usage`, `usage export`, and the usage reporters the transports serve                                                                                                                                                                                                        |
-| `init/`              | `__PRODUCT_CLI_NAME__ init`                                                                                                                                                                                                                                                                       |
-| `eval/`              | `__PRODUCT_CLI_NAME__ eval`                                                                                                                                                                                                                                                                       |
-| `session-analyzer/`  | `__PRODUCT_CLI_NAME__ session analyze`                                                                                                                                                                                                                                                            |
-| `update-check/`      | The npm update check and its cache                                                                                                                                                                                                                                                  |
-| `testing/`           | `createBinaryAgentDriver()`, which drives the built binary in the `*.bintest.ts` suites                                                                                                                                                                                             |
-| `utils/`             | Argument parsing (`parseCliArgs`), help text, MCP HTTP flags                                                                                                                                                                                                                        |
+| `startup/`           | Startup steps called by `cli-core.ts`: command setup, preset selection, provider setup, workspace trust, MCP client composition, `doctor`, host-action adapters, and the inputs the TUI is rendered with                                                                                                       |
+| `modes/`             | Print mode (`-p`, `--goal`), the `--serve` runtime host with its monitor UI and session directory, `__PRODUCT_CLI_NAME__ mcp serve` and `__PRODUCT_CLI_NAME__ acp`                                                                                                                                             |
+| `session-inventory/` | `session list`, `view`, `attach`, `start`, `release` and the per-workspace `daemon`: supervised background sessions                                                                                                                                                                                            |
+| `secure/`            | `__PRODUCT_CLI_NAME__ secure`: the keyring, secure-conversation activation and migration, the key holder, and the table of what each surface may be in secure mode                                                                                                                                             |
+| `hosted/`            | Hosted task-worker execution: admission, the controller, the E2B executor and provisioning, the owner-side organization gateway and the remote desktop gateway                                                                                                                                                 |
+| `remote-control/`    | `/remote-control` over WebRTC, the host identity, and local peer discovery and messaging                                                                                                                                                                                                                       |
+| `devices/`           | `/devices`: device identity, enrollment and the device mesh                                                                                                                                                                                                                                                    |
+| `handoff/`           | Moving a session to another session or device                                                                                                                                                                                                                                                                  |
+| `peer-files/`        | Files sent between peers: checks before sending, consent and quarantine on receipt                                                                                                                                                                                                                             |
+| `external-events/`   | External-event grants and their HTTP endpoint for the TUI                                                                                                                                                                                                                                                      |
+| `credentials/`       | The host credential store: OS keychain, or an owner-only file                                                                                                                                                                                                                                                  |
+| `subagents/`         | `GitWorktreeIsolationAdapter` and the self-fork worker entry (see [`subagent-wiring.md`](subagent-wiring.md))                                                                                                                                                                                                  |
+| `plugins/`           | The `ICommandPluginAdapter` implementation and the plugin command-source loader                                                                                                                                                                                                                                |
+| `launch-intent/`     | `__PRODUCT_CLI_NAME__ open <url>` deep links                                                                                                                                                                                                                                                                   |
+| `telemetry/`         | Opt-in live telemetry export (OTLP or console)                                                                                                                                                                                                                                                                 |
+| `usage/`             | `__PRODUCT_CLI_NAME__ usage`, `usage export`, and the usage reporters the transports serve                                                                                                                                                                                                                     |
+| `init/`              | `__PRODUCT_CLI_NAME__ init`                                                                                                                                                                                                                                                                                    |
+| `eval/`              | `__PRODUCT_CLI_NAME__ eval`                                                                                                                                                                                                                                                                                    |
+| `session-analyzer/`  | `__PRODUCT_CLI_NAME__ session analyze`                                                                                                                                                                                                                                                                         |
+| `update-check/`      | The npm update check and its cache                                                                                                                                                                                                                                                                             |
+| `testing/`           | `createBinaryAgentDriver()`, which drives the built binary in the `*.bintest.ts` suites                                                                                                                                                                                                                        |
+| `utils/`             | Argument parsing (`parseCliArgs`), help text, and the `mcp serve`, `--serve --http-port` and `--observer-port` flags                                                                                                                                                                                           |
 
 ### Where a command is dispatched
 
@@ -70,12 +80,12 @@ code and no user depends on where a file sits.
 1. `__PRODUCT_CLI_NAME__ open <url>` is applied before anything reads the working directory.
 2. `runPreparsedCliCommand()` (`startup/preparsed-command-routing.ts`) handles the subcommands whose
    flags the strict global parser would reject: `doctor` (aliases `checkup`, `diagnose`), `trust`,
-   `daemon`, `--attach`, `session list|view|attach|start|stop|rename|events|link-pr|unlink-pr|analyze`,
-   `usage`, `mcp add|login|logout` and `eval`.
+   `daemon`, `--attach`, `session list|view|attach|start|stop|rename|events|link-pr|unlink-pr|release|analyze`,
+   `secure`, `usage`, `mcp add|login|logout` and `eval`.
 3. After `parseCliArgs()`: `--help`, `--version`, `--check-update`, `--reset` and `user-local`.
 4. After the command setup: `routeProjectSetup()` handles `init`, `--configure` and the
    provider-configuration flags, and makes sure a usable provider is configured.
-5. Mode dispatch: print mode, `mcp serve`, `--serve`, or the TUI. Before `renderApp()` the TUI path
+5. Mode dispatch: print mode, `mcp serve`, `acp`, `--serve`, or the TUI. Before `renderApp()` the TUI path
    warns about macOS Terminal.app and shows the first-run welcome.
 
 ## Key Flows

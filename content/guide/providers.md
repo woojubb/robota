@@ -86,8 +86,8 @@ Claude models. Best for long-context tasks, code generation, and nuanced reasoni
 npm install @robota-sdk/agent-provider @anthropic-ai/sdk
 ```
 
-The package depends on the Anthropic SDK itself; install `@anthropic-ai/sdk` in your project only if
-you build the client yourself (below).
+`@anthropic-ai/sdk` is an optional peer dependency of `@robota-sdk/agent-provider`; install it next to
+the package, and import the `Anthropic` client from it only if you build the client yourself (below).
 
 ### Basic usage
 
@@ -101,15 +101,15 @@ const provider = new AnthropicProvider({
 
 ### Configuration options
 
-| Option           | Type        | Required                       | Description                                                                 |
-| ---------------- | ----------- | ------------------------------ | --------------------------------------------------------------------------- |
-| `apiKey`         | `string`    | Yes (unless `client` provided) | Anthropic API key                                                           |
-| `client`         | `Anthropic` | No                             | Pre-built Anthropic SDK client                                              |
-| `baseURL`        | `string`    | No                             | Any Anthropic-Messages-API-compatible endpoint (proxy/gateway)              |
-| `timeout`        | `number`    | No                             | Request timeout in milliseconds                                             |
-| `defaultModel`   | `string`    | No                             | Model used when a request names none                                        |
-| `executor`       | `IExecutor` | No                             | Remote or local executor override                                           |
-| `enableWebTools` | `boolean`   | No                             | Attach Anthropic's server-side `web_search` tool to requests (default: off) |
+| Option           | Type        | Required                                     | Description                                                                 |
+| ---------------- | ----------- | -------------------------------------------- | --------------------------------------------------------------------------- |
+| `apiKey`         | `string`    | Yes (unless `client` or `executor` provided) | Anthropic API key                                                           |
+| `client`         | `Anthropic` | No                                           | Pre-built Anthropic SDK client                                              |
+| `baseURL`        | `string`    | No                                           | Any Anthropic-Messages-API-compatible endpoint (proxy/gateway)              |
+| `timeout`        | `number`    | No                                           | Request timeout in milliseconds                                             |
+| `defaultModel`   | `string`    | No                                           | Model used when a request names none                                        |
+| `executor`       | `IExecutor` | No                                           | Remote or local executor override                                           |
+| `enableWebTools` | `boolean`   | No                                           | Attach Anthropic's server-side `web_search` tool to requests (default: off) |
 
 A provider profile sets the same thing with `"options": { "nativeWebTools": { "webSearch": true } }`;
 the CLI turns it on by default for an Anthropic or OpenAI profile that does not set
@@ -158,26 +158,29 @@ const provider = new OpenAIProvider({
 
 ### Configuration options
 
-| Option                      | Type                                       | Required                       | Description                                                                                                                                                                  |
-| --------------------------- | ------------------------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apiKey`                    | `string`                                   | Yes (unless `client` provided) | OpenAI API key                                                                                                                                                               |
-| `client`                    | `OpenAI`                                   | No                             | Pre-built OpenAI SDK client                                                                                                                                                  |
-| `organization`              | `string`                                   | No                             | OpenAI organization ID                                                                                                                                                       |
-| `baseURL`                   | `string`                                   | No                             | Any OpenAI-compatible endpoint — gateways, Azure, vLLM, local                                                                                                                |
-| `defaultModel`              | `string`                                   | No                             | Model used when a request names none                                                                                                                                         |
-| `timeout`                   | `number`                                   | No                             | Request timeout in milliseconds                                                                                                                                              |
-| `apiSurface`                | `'responses' \| 'chat-completions'`        | No                             | API surface (default: `responses` for OpenAI, `chat-completions` when `baseURL` is set)                                                                                      |
-| `responseFormat`            | `'text' \| 'json_object' \| 'json_schema'` | No                             | Response format                                                                                                                                                              |
-| `jsonSchema`                | `IOpenAIJsonSchemaDefinition`              | No                             | Schema for `responseFormat: 'json_schema'`                                                                                                                                   |
-| `reasoning`                 | `IOpenAIResponsesReasoningOptions`         | No                             | Reasoning `effort` and `summary` for reasoning models (Responses API)                                                                                                        |
-| `store`                     | `boolean`                                  | No                             | Whether OpenAI stores Responses API results                                                                                                                                  |
-| `includeEncryptedReasoning` | `boolean`                                  | No                             | Include encrypted reasoning items for stateless continuation                                                                                                                 |
-| `strictTools`               | `boolean`                                  | No                             | Strict function-parameter validation (rewrites tool schemas for strict mode)                                                                                                 |
-| `nativeWebTools`            | `IOpenAINativeWebToolsOptions`             | No                             | Hosted `webSearch` on OpenAI's own Responses API; `true` throws on a custom endpoint or Chat Completions                                                                     |
-| `includeStreamUsage`        | `boolean`                                  | No                             | Request token usage on streaming turns (default `true`; turn off for endpoints that reject it)                                                                               |
-| `payloadLogger`             | `IPayloadLogger`                           | No                             | Receives a summary of each Chat Completions request (`ConsolePayloadLogger` in `@robota-sdk/agent-provider/openai/loggers`, `FilePayloadLogger` in `@robota-sdk/agent-provider/openai/node`) |
-| `executor`                  | `IExecutor`                                | No                             | Remote or local executor override                                                                                                                                            |
-| `logger`                    | `ILogger`                                  | No                             | Internal logger (default: silent)                                                                                                                                            |
+| Option                      | Type                                       | Required                                     | Description                                                                                                                                                                                  |
+| --------------------------- | ------------------------------------------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apiKey`                    | `string`                                   | Yes (unless `client` or `executor` provided) | OpenAI API key                                                                                                                                                                               |
+| `client`                    | `OpenAI`                                   | No                                           | Pre-built OpenAI SDK client                                                                                                                                                                  |
+| `organization`              | `string`                                   | No                                           | OpenAI organization ID                                                                                                                                                                       |
+| `baseURL`                   | `string`                                   | No                                           | Any OpenAI-compatible endpoint — gateways, Azure, vLLM, local                                                                                                                                |
+| `defaultModel`              | `string`                                   | No                                           | Model used when a request names none                                                                                                                                                         |
+| `timeout`                   | `number`                                   | No                                           | Request timeout in milliseconds                                                                                                                                                              |
+| `apiSurface`                | `'responses' \| 'chat-completions'`        | No                                           | API surface (default: `responses` for OpenAI, `chat-completions` when `baseURL` is set)                                                                                                      |
+| `responseFormat`            | `'text' \| 'json_object' \| 'json_schema'` | No                                           | Response format                                                                                                                                                                              |
+| `jsonSchema`                | `IOpenAIJsonSchemaDefinition`              | No                                           | Schema for `responseFormat: 'json_schema'`                                                                                                                                                   |
+| `reasoning`                 | `IOpenAIResponsesReasoningOptions`         | No                                           | Reasoning `effort` and `summary` for reasoning models (Responses API)                                                                                                                        |
+| `store`                     | `boolean`                                  | No                                           | Whether OpenAI stores Responses API results                                                                                                                                                  |
+| `includeEncryptedReasoning` | `boolean`                                  | No                                           | Include encrypted reasoning items for stateless continuation                                                                                                                                 |
+| `strictTools`               | `boolean`                                  | No                                           | Strict function-parameter validation (rewrites tool schemas for strict mode)                                                                                                                 |
+| `nativeWebTools`            | `IOpenAINativeWebToolsOptions`             | No                                           | Hosted `webSearch` on OpenAI's own Responses API; `true` throws on a custom endpoint or Chat Completions                                                                                     |
+| `includeStreamUsage`        | `boolean`                                  | No                                           | Request token usage on streaming turns (default `true`; turn off for endpoints that reject it)                                                                                               |
+| `parallelToolCalls`         | `boolean`                                  | No                                           | Sends the boolean as `parallel_tool_calls` (Chat Completions: only on requests with tools); omitted by default; cannot be combined with `executor`                                           |
+| `extraBody`                 | `TOpenAIExtraBody`                         | No                                           | JSON fields merged into every request body, for endpoint-specific options (a gateway's upstream settings); fields the provider manages are rejected; cannot be combined with `executor`      |
+| `durableOperations`         | `boolean`                                  | No                                           | Sends an `Idempotency-Key` header with a fresh ID on each model request, kept across the SDK's retries, for gateways that deduplicate requests                                               |
+| `payloadLogger`             | `IPayloadLogger`                           | No                                           | Receives a summary of each Chat Completions request (`ConsolePayloadLogger` in `@robota-sdk/agent-provider/openai/loggers`, `FilePayloadLogger` in `@robota-sdk/agent-provider/openai/node`) |
+| `executor`                  | `IExecutor`                                | No                                           | Remote or local executor override                                                                                                                                                            |
+| `logger`                    | `ILogger`                                  | No                                           | Internal logger (default: silent)                                                                                                                                                            |
 
 ### Through an AI gateway
 
@@ -304,17 +307,17 @@ const provider = new DeepSeekProvider({
 
 ### Configuration options
 
-| Option            | Type                                              | Required                       | Description                                     |
-| ----------------- | ------------------------------------------------- | ------------------------------ | ----------------------------------------------- |
-| `apiKey`          | `string`                                          | Yes (unless `client` provided) | DeepSeek API key                                |
-| `client`          | `OpenAI`                                          | No                             | Pre-built OpenAI SDK client pointed at DeepSeek |
-| `baseURL`         | `string`                                          | No                             | Default: `https://api.deepseek.com`             |
-| `defaultModel`    | `string`                                          | No                             | Default: `deepseek-v4-flash`                    |
-| `thinking`        | `'enabled' \| 'disabled'`                         | No                             | Enable extended thinking                        |
-| `reasoningEffort` | `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'` | No                             | Reasoning depth                                 |
-| `timeout`         | `number`                                          | No                             | Request timeout in milliseconds                 |
-| `executor`        | `IExecutor`                                       | No                             | Remote or local executor override               |
-| `logger`          | `ILogger`                                         | No                             | Internal logger                                 |
+| Option            | Type                                              | Required                                     | Description                                     |
+| ----------------- | ------------------------------------------------- | -------------------------------------------- | ----------------------------------------------- |
+| `apiKey`          | `string`                                          | Yes (unless `client` or `executor` provided) | DeepSeek API key                                |
+| `client`          | `OpenAI`                                          | No                                           | Pre-built OpenAI SDK client pointed at DeepSeek |
+| `baseURL`         | `string`                                          | No                                           | Default: `https://api.deepseek.com`             |
+| `defaultModel`    | `string`                                          | No                                           | Default: `deepseek-v4-flash`                    |
+| `thinking`        | `'enabled' \| 'disabled'`                         | No                                           | Enable extended thinking                        |
+| `reasoningEffort` | `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'` | No                                           | Reasoning depth                                 |
+| `timeout`         | `number`                                          | No                                           | Request timeout in milliseconds                 |
+| `executor`        | `IExecutor`                                       | No                                           | Remote or local executor override               |
+| `logger`          | `ILogger`                                         | No                                           | Internal logger                                 |
 
 ### Reasoning model with extended thinking
 
@@ -353,17 +356,17 @@ const provider = new QwenProvider({
 
 ### Configuration options
 
-| Option             | Type                          | Required                       | Description                                       |
-| ------------------ | ----------------------------- | ------------------------------ | ------------------------------------------------- |
-| `apiKey`           | `string`                      | Yes (unless `client` provided) | DashScope API key                                 |
-| `client`           | `OpenAI`                      | No                             | Pre-built OpenAI SDK client pointed at DashScope  |
-| `baseURL`          | `string`                      | No                             | Regional endpoint (see below)                     |
-| `responsesBaseURL` | `string`                      | No                             | Endpoint for DashScope's Responses-compatible API |
-| `defaultModel`     | `string`                      | No                             | Default: `qwen-plus`                              |
-| `builtInWebTools`  | `IQwenBuiltInWebToolsOptions` | No                             | Qwen-native web search / web fetch                |
-| `timeout`          | `number`                      | No                             | Request timeout in milliseconds                   |
-| `executor`         | `IExecutor`                   | No                             | Remote or local executor override                 |
-| `logger`           | `ILogger`                     | No                             | Internal logger                                   |
+| Option             | Type                          | Required                                     | Description                                       |
+| ------------------ | ----------------------------- | -------------------------------------------- | ------------------------------------------------- |
+| `apiKey`           | `string`                      | Yes (unless `client` or `executor` provided) | DashScope API key                                 |
+| `client`           | `OpenAI`                      | No                                           | Pre-built OpenAI SDK client pointed at DashScope  |
+| `baseURL`          | `string`                      | No                                           | Regional endpoint (see below)                     |
+| `responsesBaseURL` | `string`                      | No                                           | Endpoint for DashScope's Responses-compatible API |
+| `defaultModel`     | `string`                      | No                                           | Default: `qwen-plus`                              |
+| `builtInWebTools`  | `IQwenBuiltInWebToolsOptions` | No                                           | Qwen-native web search / web fetch                |
+| `timeout`          | `number`                      | No                                           | Request timeout in milliseconds                   |
+| `executor`         | `IExecutor`                   | No                                           | Remote or local executor override                 |
+| `logger`           | `ILogger`                     | No                                           | Internal logger                                   |
 
 ### Regional endpoints
 
@@ -403,7 +406,8 @@ A generic OpenAI-compatible provider. Use it for:
 
 In the `__PRODUCT_CLI_NAME__` CLI this is the provider type `gemma`, listed in setup as
 "Ollama / LM Studio / llama.cpp"; its setup defaults are LM Studio's `http://localhost:1234/v1` and
-the placeholder key `lm-studio`.
+the model `supergemma4-26b-uncensored-v2`. When no server key is configured, the CLI gives the client
+library the placeholder key `lm-studio`.
 
 ### Install
 
@@ -425,15 +429,15 @@ const provider = new GemmaProvider({
 
 ### Configuration options
 
-| Option         | Type        | Required | Description                                                           |
-| -------------- | ----------- | -------- | --------------------------------------------------------------------- |
-| `apiKey`       | `string`    | No       | API key (required by the SDK but not validated by most local servers) |
-| `baseURL`      | `string`    | No       | Server URL including `/v1` path                                       |
-| `defaultModel` | `string`    | No       | Model name as recognised by the server                                |
-| `timeout`      | `number`    | No       | Request timeout in milliseconds                                       |
-| `client`       | `OpenAI`    | No       | Pre-built OpenAI SDK client                                           |
-| `executor`     | `IExecutor` | No       | Remote or local executor override                                     |
-| `logger`       | `ILogger`   | No       | Internal logger                                                       |
+| Option         | Type        | Required                                     | Description                                                                        |
+| -------------- | ----------- | -------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `apiKey`       | `string`    | Yes (unless `client` or `executor` provided) | API key; most local servers do not validate it, so any non-empty placeholder works |
+| `baseURL`      | `string`    | No                                           | Server URL including `/v1` path                                                    |
+| `defaultModel` | `string`    | No                                           | Model name as recognised by the server                                             |
+| `timeout`      | `number`    | No                                           | Request timeout in milliseconds                                                    |
+| `client`       | `OpenAI`    | No                                           | Pre-built OpenAI SDK client                                                        |
+| `executor`     | `IExecutor` | No                                           | Remote or local executor override                                                  |
+| `logger`       | `ILogger`   | No                                           | Internal logger                                                                    |
 
 ### LM Studio
 
@@ -458,10 +462,16 @@ llama.cpp configuration details.
   ByteDance ModelArk (Seedance). It implements `IVideoGenerationProvider` (`createVideo`,
   `getVideoJob`, `cancelVideoJob`) rather than the chat `IAIProvider`, so it is not an agent's chat
   model.
+- **`@robota-sdk/agent-provider/openai-compatible`** — the shared OpenAI-compatible protocol layer
+  (message and tool conversion, request building, response parsing, stream assembly) that `openai`,
+  `deepseek`, `qwen` and `gemma` build on. Use it to write a provider for your own OpenAI-compatible
+  endpoint.
 - **`@robota-sdk/agent-provider/builtin`** — `createDefaultProviderDefinitions()`, the provider
   definitions (setup steps, defaults, model catalogs) the `__PRODUCT_CLI_NAME__` CLI offers for `anthropic`,
-  `openai`, `gemini`, `gemma`, `qwen` and `deepseek`. Use it when your own host wants the same
-  settings-driven provider selection.
+  `openai`, `gemini`, `gemma`, `qwen`, `deepseek` and `openrouter`, and
+  `createDefaultMediaProviderDefinitions()` for the Gemini image and Seedance video providers. Use it
+  when your own host wants the same settings-driven provider selection. It imports every provider
+  subpath, so install all three vendor SDKs next to it.
 
 ---
 

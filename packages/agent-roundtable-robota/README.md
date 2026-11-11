@@ -1,15 +1,14 @@
 # @robota-sdk/agent-roundtable-robota
 
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
-
 Runs an agent `Session` or a plain `ConversationAgent` as an `@robota-sdk/agent-roundtable` participant,
 and an agent as its selector. `agent-roundtable` stays free of both runtimes; this is the only
 package that imports `@robota-sdk/agent-core` and `@robota-sdk/agent-session` to bridge them in.
 
 The package root (`runtimeParticipant`, `runtimeSelector`, `meterJournal`, ...) only ever needs
 `@robota-sdk/agent-core`. `sessionParticipant`, which needs `@robota-sdk/agent-session` as well, is
-exported from the `/session` subpath instead — see below.
+exported from the `/session` subpath instead — see below. The root also exports `robotaParticipant`,
+`robotaSelector`, `robotaSelectorRegistration`, `RobotaParticipantError` and the `ROBOTA_*_CHECKPOINT_VERSION`
+constants, which are aliases of the `runtime*` names.
 
 ## Installation
 
@@ -31,10 +30,12 @@ and compatibility" below for the versions it supports.
 
 ## Supported environments
 
-Node.js only (the peer `@robota-sdk/agent-session` reads and writes the filesystem for permissions,
-hooks and persistence); there is no browser build. Requires Node.js 22.12 or later, matching
-`@robota-sdk/agent-core` and `@robota-sdk/agent-session`. `@robota-sdk/agent-roundtable` itself stays
-platform-neutral — only this adapter, and the runtimes it wraps, are Node-only.
+The package root (`runtimeParticipant`, `runtimeSelector`, `meterJournal`) is platform-neutral: it imports
+no Node built-in and runs wherever `@robota-sdk/agent-core` and `@robota-sdk/agent-roundtable` run. The
+`/session` subpath is Node-only (its manifest maps `browser` to `null`): `sessionParticipant` uses
+`node:crypto` and the peer `@robota-sdk/agent-session`, which reads and writes the filesystem for
+permissions, hooks and persistence. On Node.js the package requires 22.12 or later, matching
+`@robota-sdk/agent-core` and `@robota-sdk/agent-session`.
 
 ## Capabilities by participant kind
 
@@ -242,11 +243,11 @@ limits should disable that provider SDK's automatic retries.
 
 ## Version and compatibility
 
-This package is versioned in lockstep with `@robota-sdk/agent-roundtable`, `@robota-sdk/agent-core`
-and `@robota-sdk/agent-session`, and is supported with those packages from the same release. Its
-`peerDependencies` on the latter two are `workspace:^` in source and publish as `^<release version>`,
-so a package manager also accepts a later release of the same major line; `@robota-sdk/agent-session`
-is needed only when the host uses the `/session` subpath, since that peer is optional.
+This package, `@robota-sdk/agent-roundtable`, `@robota-sdk/agent-core` and `@robota-sdk/agent-session`
+are versioned independently. Its `peerDependencies` on the latter two are `workspace:^` in source and
+publish as a `^` range of the version each had at publication, so a package manager also accepts a later
+release of the same major line; `@robota-sdk/agent-session` is needed only when the host uses the
+`/session` subpath, since that peer is optional.
 
 That API version is separate from **checkpoint format compatibility**, which this package owns
 independently of any of those three:

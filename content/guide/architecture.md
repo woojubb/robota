@@ -1,9 +1,5 @@
 # Architecture
 
-> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
-> 3.1.0 or later after it is published, and check the exports in your installed version.
-> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
-
 Robota is a collection of TypeScript packages, not one framework you adopt whole. Each package owns
 one concern, and packages are stacked in layers so that a package only ever depends on the layers
 beneath it. This page explains what the layers are, why they are separate, and how a request moves
@@ -34,9 +30,9 @@ list the exact members.
 flowchart TB
     SURF["**Surfaces**\nagent-cli · agent-ui-terminal · agent-ui-web · agent-gui-web"]
     TRANS["**Transports**\nagent-transport (ws, http, mcp, acp, webrtc, link)"]
-    COMP["**Composition**\nagent-product (command, preset, coding, capability-pack)\nagent-provider/builtin"]
+    COMP["**Composition**\nagent-product (command, preset, coding, capability-pack)\nagent-provider/builtin · agent-tools/defaults"]
     FW["**Assembly**\nagent-framework"]
-    RT["**Runtime**\nagent-session · agent-executor · agent-tools/defaults"]
+    RT["**Runtime**\nagent-session · agent-executor"]
     CAP["**Capabilities**\nagent-tools · agent-mcp · agent-plugin\nagent-provider (anthropic, openai, gemini, deepseek, qwen, gemma, bytedance)"]
     IF["**Contracts**\nagent-interface"]
     CORE["**Foundation**\nagent-core"]
@@ -69,10 +65,11 @@ flowchart TB
 
 ### Foundation — `agent-core`
 
-`agent-core` contains the `Robota` agent class and its execution loop (model call, tool calls,
-repeat), the provider abstraction (`IAIProvider`, `AbstractAIProvider`), the tool registry
-(`FunctionTool`, `ToolRegistry`), the plugin base class (`AbstractPlugin`), permission evaluation,
-hook execution, context-window accounting, model metadata, and the typed error classes.
+`agent-core` contains the `ConversationAgent` agent class (also exported as `Robota`) and its
+execution loop (model call, tool calls, repeat), the provider abstraction (`IAIProvider`,
+`AbstractAIProvider`), the tool registry (`FunctionTool`, `ToolRegistry`), the plugin base class
+(`AbstractPlugin`), permission evaluation, hook execution, context-window accounting, model
+metadata, and the typed error classes.
 
 It has no dependency on any other Robota package. Everything else registers with it through its
 abstract contracts, so it can be used alone and nothing can form a dependency cycle through it.
@@ -82,45 +79,50 @@ a Node application passes in (hook executors, the process environment).
 
 ### Contracts — `agent-interface`
 
-| Package                            | Contracts it owns                                                           |
-| ---------------------------------- | --------------------------------------------------------------------------- |
-| `agent-interface/session`          | Interactive sessions, session events, turns, persistence records            |
-| `agent-interface/command`          | Commands, command results, command modules, capability descriptors          |
-| `agent-interface/execution`        | Background tasks, job groups, subagent jobs, execution workspaces           |
-| `agent-interface/transport`        | Transport adapters (`ITransportAdapter`) and transport configuration        |
-| `agent-interface/session-mobility` | Moving a session between processes and devices                              |
-| `agent-interface/analytics`        | Usage snapshots, per-source totals, run-trace timelines                     |
-| `agent-interface/tui`              | Terminal command interactions (pickers, confirmations, missing-arg prompts) |
+| Package                            | Contracts it owns                                                                   |
+| ---------------------------------- | ----------------------------------------------------------------------------------- |
+| `agent-interface/session`          | Interactive sessions, interaction channels, events, turns, session records          |
+| `agent-interface/command`          | Commands, command results, plugin adapters, capability descriptors                  |
+| `agent-interface/execution`        | Background tasks, job groups, subagent jobs, execution workspaces                   |
+| `agent-interface/transport`        | Transport adapters (`ITransportAdapter`), admission, access tokens, external events |
+| `agent-interface/session-mobility` | Peer messaging and session handoff between sessions and devices                     |
+| `agent-interface/analytics`        | Usage snapshots, per-source totals, run-trace timelines                             |
+| `agent-interface/tui`              | Terminal command interactions (pickers, confirmations, missing-arg prompts)         |
 
-This package holds types, not behavior. A subpath depends only on `agent-core` and on lower
-subpaths, never on an implementation. That is what lets, for example, every
-transport accept a session without depending on `agent-framework`.
+This package holds type declarations and a few pure accessors over them, and does no I/O. A
+subpath depends only on `agent-core` and on lower subpaths, never on an implementation. That is what
+lets, for example, every transport accept a session without depending on `agent-framework`.
 
 ### Capabilities — providers, tools, MCP, plugins
 
-| Package                                      | What it provides                                                                                  |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `agent-provider/anthropic`                   | Anthropic Claude                                                                                  |
-| `agent-provider/openai`                      | OpenAI                                                                                            |
-| `agent-provider/deepseek`, `/qwen`, `/gemma` | DeepSeek, Qwen, and Gemma-family models behind OpenAI-compatible endpoints                        |
-| `agent-provider/gemini`                      | Google Gemini                                                                                     |
-| `agent-provider/bytedance`                   | ByteDance (ModelArk) video generation                                                             |
-| `agent-tools`                                | Tool factories (`createZodFunctionTool`, `createFunctionTool`) and the built-in tools             |
-| `agent-mcp`                                  | Model Context Protocol client: server definitions, activation, OAuth sign-in                      |
-| `agent-plugin`                               | Eight ready-made plugins (logging, usage, limits, webhooks, and more)                             |
-| `agent-os`                                   | Node host primitives: bounded root-relative file reads, operation locks, process-tree termination |
-| `agent-keyring`                              | Key custody and public-key sealing for secure conversations (`node:crypto` only)                  |
-| `agent-session-analytics`                    | Session-log timing and usage analysis, reports and OTLP export                                    |
-| `agent-telemetry-otel`                       | OpenTelemetry spans and metrics for agent runs and traces, GenAI or `agent.*` names               |
-| `agent-remote-pairing`                       | Pairing and channel binding for peer-to-peer connections (no Robota dependencies)                 |
+| Package                                      | What it provides                                                                                                                                                |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent-provider/anthropic`                   | Anthropic Claude                                                                                                                                                |
+| `agent-provider/openai`                      | OpenAI                                                                                                                                                          |
+| `agent-provider/deepseek`, `/qwen`, `/gemma` | DeepSeek, Qwen, and Gemma-family models behind OpenAI-compatible endpoints                                                                                      |
+| `agent-provider/gemini`                      | Google Gemini                                                                                                                                                   |
+| `agent-provider/bytedance`                   | ByteDance (ModelArk) video generation                                                                                                                           |
+| `agent-provider/openai-compatible`           | The shared OpenAI-compatible protocol layer that `openai`, `deepseek`, `qwen` and `gemma` build on                                                              |
+| `agent-tools`                                | Tool factories (`createZodFunctionTool`, `createFunctionTool`) and the built-in tools                                                                           |
+| `agent-mcp`                                  | Model Context Protocol client: server definitions, activation, OAuth sign-in                                                                                    |
+| `agent-plugin`                               | Eight ready-made plugins (logging, usage, limits, webhooks, and more)                                                                                           |
+| `agent-os`                                   | Node host primitives, one subpath each: rooted file access (`file-authority`), a nonblocking operation lock (`node-lock`), process-tree termination (`process`) |
+| `agent-keyring`                              | Key custody and public-key sealing for secure conversations (`node:crypto` only)                                                                                |
+| `agent-session-analytics`                    | Session-log timing and usage analysis, reports and OTLP export                                                                                                  |
+| `agent-telemetry-otel`                       | OpenTelemetry spans and metrics for agent runs and traces, GenAI or `agent.*` names                                                                             |
+| `agent-remote-pairing`                       | Pairing and channel binding for peer-to-peer connections (no Robota dependencies)                                                                               |
+| `agent-roundtable`                           | Coordinates independent agents and people in sequential or parallel conversations (no Robota dependencies)                                                      |
+| `agent-organization`                         | Canonical JSON and generic organization budget contracts (no Robota dependencies)                                                                               |
+| `product-config`                             | Explicit product configuration contracts and their host loading (`product-config/node`)                                                                         |
 
-`agent-provider` is a leaf over `agent-core` with one subpath per vendor; the vendor SDKs are optional
-peers, so an application installs only the SDKs of the providers it imports. `agent-plugin` depends only on `agent-core`; plugins attach to the engine and never reach into
-the layers above it.
+`agent-provider` is a leaf over `agent-core` with one subpath per vendor and no root export; the vendor
+SDKs are optional peers, so an application installs only the SDKs of the providers it imports.
+`agent-plugin` depends only on `agent-core`; plugins attach to the engine and never reach into the
+layers above it.
 
-### Runtime — `agent-session`, `agent-executor`, `agent-tools/defaults`
+### Runtime — `agent-session`, `agent-executor`
 
-`agent-session` wraps a `Robota` instance in a `Session`: tool calls pass through permission checks
+`agent-session` wraps a `ConversationAgent` in a `Session`: tool calls pass through permission checks
 and hooks, context usage is tracked, the conversation is compacted when it grows too large, and
 records can be persisted through a store port. It receives its provider and tools already built;
 it never constructs them. Its main entry is platform-neutral; the file-backed store and log sink are
@@ -129,10 +131,8 @@ on `@robota-sdk/agent-session/node`.
 `agent-executor` provides background-task lifecycles (queueing, cancellation, snapshots) and the
 subagent job ports.
 
-The `agent-tools/defaults` subpath holds `createDefaultTools()`, the default tool set.
-`agent-framework` loads it lazily when it assembles a session, and a caller replaces it by passing its
-own `defaultTools`; a library that needs only the tool mechanism imports the `agent-tools` root and never
-loads the default catalog.
+`agent-roundtable-robota` runs a `Session` or a `ConversationAgent` as a participant, or as the
+selector of the next speaker, in an `agent-roundtable` conversation.
 
 ### Assembly — `agent-framework`
 
@@ -142,15 +142,17 @@ loading, workspace trust, the command registry, skills, subagent assembly, and t
 programmatic runners.
 
 It is provider-neutral — you construct the provider and pass it in — and it contains no React or
-Ink. It reads only the files and directories its host passes to it: without an explicit decision it
-loads no user settings, no project instructions and no project skills. See
-[Using the SDK](./sdk.md).
+Ink. Its main entry is platform-neutral and takes the platform as an injected `host`; a Node
+application builds one with `createNodeFrameworkHost` from `@robota-sdk/agent-framework/node`. It
+reads only the files and directories its host passes to it: without an explicit decision it loads no
+user settings, no project instructions and no project skills. See [Using the SDK](./sdk.md).
 
 ### Composition — defaults, presets, commands, packs
 
 | Package                         | Role                                                                              |
 | ------------------------------- | --------------------------------------------------------------------------------- |
 | `agent-provider/builtin`        | `createDefaultProviderDefinitions()` — the built-in chat provider definitions     |
+| `agent-tools/defaults`          | `createDefaultTools()` — the default tool set, handed to the Node host            |
 | `agent-product/command`         | The slash-command modules (`/help`, `/compact`, `/permissions`, and the rest)     |
 | `agent-product/preset`          | Named bundles of session options (persona, model, permission posture)             |
 | `agent-product/capability-pack` | `ICapabilityPack` and `mergeCapabilityPacks()` for adding tools, commands, agents |
@@ -164,15 +166,15 @@ never drags in these defaults.
 
 ### Transports
 
-| Package                  | Protocol                                                        |
-| ------------------------ | --------------------------------------------------------------- |
-| `agent-transport`        | Carrier-neutral wire messages, decoders and delivery helpers    |
-| `agent-transport/http`   | HTTP, built on Hono                                             |
-| `agent-transport/ws`     | WebSocket                                                       |
-| `agent-transport/mcp`    | Exposes a session as an MCP server (stdio and Streamable HTTP)  |
-| `agent-transport/acp`    | Serves a session to an editor as an ACP agent over stdio        |
-| `agent-transport/webrtc` | Peer-to-peer WebRTC data channels (remote control, device mesh) |
-| `agent-transport/link`   | Owner link to a local runtime, admitted by proof                |
+| Package                  | Protocol                                                                                                                                       |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent-transport`        | Carrier-neutral wire messages, decoders and delivery helpers; `./client` has the browser-safe decoders, `./node` the access-token verification |
+| `agent-transport/http`   | HTTP, built on Hono                                                                                                                            |
+| `agent-transport/ws`     | WebSocket                                                                                                                                      |
+| `agent-transport/mcp`    | Exposes a session as an MCP server (stdio and Streamable HTTP)                                                                                 |
+| `agent-transport/acp`    | Serves a session to an editor as an ACP agent over stdio                                                                                       |
+| `agent-transport/webrtc` | Peer-to-peer WebRTC data channels (remote control, device mesh)                                                                                |
+| `agent-transport/link`   | Owner link to a local runtime, admitted by proof                                                                                               |
 
 A transport is a thin adapter: it turns protocol messages into session calls (submit, abort,
 commands, permission answers) and sends session events back. Transports implement
@@ -183,12 +185,12 @@ together. See [Deployment](./deployment.md).
 
 ### Surfaces
 
-| Package                                 | What it is                                                                       |
-| --------------------------------------- | -------------------------------------------------------------------------------- |
-| `agent-ui-terminal`                     | The terminal UI (React + Ink), including `renderApp` and `TuiInteractionChannel` |
-| `agent-cli`                             | The `__PRODUCT_CLI_NAME__` command — a maintained agent interface built from the packages above     |
-| `agent-ui-web` (internal)               | GUI components and a session reducer over the transport wire protocol            |
-| `agent-gui-web` (internal)              | The GUI web app served by `__PRODUCT_CLI_NAME__ --serve --open` and loaded by the desktop app  |
+| Package                    | What it is                                                                                      |
+| -------------------------- | ----------------------------------------------------------------------------------------------- |
+| `agent-ui-terminal`        | The terminal UI (React + Ink), including `renderApp` and `TuiInteractionChannel`                |
+| `agent-cli`                | The `__PRODUCT_CLI_NAME__` command — a maintained agent interface built from the packages above |
+| `agent-ui-web`             | GUI components, a session reducer over the transport wire protocol and a WebSocket client       |
+| `agent-gui-web` (internal) | The GUI web app served by `__PRODUCT_CLI_NAME__ --serve --open` and loaded by the desktop app   |
 
 `agent-cli` bundles the Robota packages it uses into its own build, so installing it does not
 install the SDK packages separately. The desktop app (`apps/agent-app`) is an Electron shell: it
@@ -201,8 +203,11 @@ TypeScript.
 
 ### Internal packages
 
-Some workspace packages are private, including the web UI packages above and `agent-provider-replay`.
-The CLI bundles the separately maintained workflow library for its `/workflows` command.
+Four workspace packages are private and not published: `agent-gui-web` (above), `agent-local-host`
+(Node host authority for owner-protected local runtime state), `agent-organization-host` (an
+operator-owned organization broker with durable budgets) and `agent-provider-replay` (a provider that
+replays a recorded session log, for offline tests). The CLI bundles the separately maintained
+`@robota-sdk/workflows` library for its `/workflows` command; it is not a workspace package.
 
 ## Dependency rules
 
