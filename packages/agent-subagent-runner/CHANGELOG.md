@@ -1,5 +1,16 @@
 # @robota-sdk/agent-subagent-runner
 
+## 3.2.6
+### Patch Changes
+
+- Refresh the package README so the npm page shows the current package layout, install steps and environment variable names.
+- Updated dependencies
+  - @robota-sdk/agent-core@3.3.1
+  - @robota-sdk/agent-executor@3.2.5
+  - @robota-sdk/agent-framework@3.3.1
+  - @robota-sdk/agent-interface@3.3.1
+  - @robota-sdk/agent-os@3.3.1
+
 ## 3.2.5
 ### Patch Changes
 

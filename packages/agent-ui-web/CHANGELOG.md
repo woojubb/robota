@@ -1,5 +1,14 @@
 # @robota-sdk/agent-ui-web
 
+## 3.3.4
+### Patch Changes
+
+- Refresh the package README so the npm page shows the current package layout, install steps and environment variable names.
+- Updated dependencies
+  - @robota-sdk/agent-core@3.3.1
+  - @robota-sdk/agent-interface@3.3.1
+  - @robota-sdk/agent-transport@3.4.2
+
 ## 3.3.3
 ### Patch Changes
 
