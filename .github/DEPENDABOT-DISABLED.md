@@ -13,23 +13,19 @@ they could be triaged, several landed on `main` outside the `feature → develop
 twice crossed a major and broke the build (see the `brace-expansion` / `js-yaml`
 override incidents).
 
-## What did NOT change — dependency risk is still covered
+## What did NOT change — secret scanning and code analysis
 
-Removing Dependabot removed **automated update PRs only**, not vulnerability detection:
+Removing Dependabot removed **automated update PRs only**:
 
-- **`security` in `.github/workflows/ci.yml`** is the stable required context. It selects the
-  lockfile-wide osv-scanner job when a package manifest, lockfile, or scanner policy changes. Every
-  advisory handled on 2026-07-25 —
-  `builder-util-runtime` (credential leak), `postcss` (path traversal), `tar` (recursion DoS),
-  `brace-expansion` — was caught by that job, not by Dependabot.
-- **`Dependency Review`** still reports newly-introduced dependency vulnerability and license policy
-  findings as an advisory check.
-- **Secret Scan** checks same-repository PR commits, and **CodeQL** analyzes pushes to `develop` and
-  `main`; neither is represented as an additional required context.
+- **`security` in `.github/workflows/ci.yml`** is a required context (see
+  `.github/required-status-checks.json`). It passes when the **Secret Scan** (gitleaks,
+  `.github/workflows/gitleaks.yml`) over the pull request's commits passes.
+- **CodeQL** analyzes pushes to `develop` and `main`; it is not a required context.
+- No CI job scans the lockfile for known dependency vulnerabilities.
 - **Repo-level Dependabot security updates were already `disabled`** before this change.
 
-So the workflow is now: the scanners report, and a human or agent applies a **bounded** `pnpm.overrides`
-entry deliberately — the practice that fixed every advisory this session.
+So a dependency advisory is handled by a human or agent applying a **bounded** `pnpm.overrides`
+entry deliberately (see the root `package.json`).
 
 ## If you want it back
 

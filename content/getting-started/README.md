@@ -1,9 +1,5 @@
 # Getting Started
 
-> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
-> 3.1.0 or later after it is published, and check the exports in your installed version.
-> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
-
 Robota provides composable TypeScript libraries and agent interfaces on the same foundation.
 Our direction is [our agents developing and advancing our agents](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md);
 this guide covers current capabilities. Use the SDK to build an agent or the `__PRODUCT_CLI_NAME__` CLI
@@ -47,11 +43,11 @@ For Ollama or llama.cpp, see [Local LLM Setup](../guide/local-llm.md).
 ## Prerequisites
 
 - **Node.js 22.12 or later** — the Robota CLI and every published `@robota-sdk/*` package declare
-  `node >=22.12.0` for Node installations. The npm CLI and Node examples below need Node; check with
-  `node --version`. The current source separates neutral entries from Node adapters; check your
-  installed version for its available exports.
-- **An API key** for Anthropic, OpenAI, Gemini, DeepSeek or Qwen — _or_ a local model server such as
-  LM Studio or Ollama (no key needed).
+  `node >=22.12.0`. The npm CLI and Node examples below need Node; check with `node --version`. A
+  package's main entry is platform-neutral, and what needs a Node host sits on a `/node` subpath, such
+  as `@robota-sdk/agent-framework/node`.
+- **An API key** for Anthropic, OpenAI, Gemini, DeepSeek, Qwen or OpenRouter — _or_ a local model server
+  such as LM Studio or Ollama (no key needed).
 - **macOS, Linux or Windows.** The OS sandbox for shell commands is available on macOS, Linux and
   WSL2, not on native Windows.
 
@@ -75,13 +71,17 @@ npm install -g @robota-sdk/agent-cli
 npm install @robota-sdk/agent-core @robota-sdk/agent-provider @anthropic-ai/sdk
 ```
 
+`@robota-sdk/agent-provider` loads a vendor's SDK only for the provider you import: `@anthropic-ai/sdk`
+for Anthropic, `openai` for OpenAI, DeepSeek, Qwen and Gemma, `@google/genai` for Gemini. Install the
+ones you use.
+
 ### Tool calling (function tools)
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider @anthropic-ai/sdk zod@3
+npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider @anthropic-ai/sdk zod@4
 ```
 
-`agent-tools` uses Zod 3; install `zod@3` so your schemas match it.
+`agent-tools` uses Zod 4; install `zod@4` so your schemas match it.
 
 ### Sessions with built-in tools, permissions and hooks
 
@@ -91,9 +91,10 @@ npm install @robota-sdk/agent-framework @robota-sdk/agent-provider @anthropic-ai
 
 ## Quick Start — CLI
 
-Select a product environment file before starting the CLI. The installed package supplies its fixed
-identity; the file supplies your operational settings. For example, create `product.env` with paths
-for this product's state, cache and logs:
+The installed package supplies its fixed identity. Where it keeps state, cache and logs comes from its
+built-in defaults, or from a product environment file you select; a package built without those
+defaults needs the file. For example, create `product.env` with paths for this product's state, cache
+and logs:
 
 ```dotenv
 PRODUCT_USER_STATE_DIR=./state
@@ -104,9 +105,11 @@ PRODUCT_LOG_DIR=./logs
 
 Relative user paths resolve against the environment file's directory. Choose separate state paths
 for separate products. Keep identity settings out of this operational file unless they match the
-installed artifact, and select the file by its absolute path:
+installed artifact. Select the file by its absolute path, together with the installed product's id:
+the CLI reads `PRODUCT_CONFIG_FILE` only when `PRODUCT_ID` names the installed product.
 
 ```bash
+export PRODUCT_ID=__PRODUCT_ID__
 export PRODUCT_CONFIG_FILE=/absolute/path/to/product.env
 ```
 
@@ -120,9 +123,10 @@ __PRODUCT_CLI_NAME__
 ```
 
 On first run, the CLI asks whether you have an API key and walks you through configuring a provider,
-getting a free Gemini key, or connecting to a local model. If `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`,
-`DASHSCOPE_API_KEY` or `DEEPSEEK_API_KEY` is already set, it starts with that provider's default model
-instead. Run `__PRODUCT_CLI_NAME__ --configure` to change the provider later.
+getting a free Gemini key, connecting to a local model or connecting to OpenRouter. If
+`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `DASHSCOPE_API_KEY`, `DEEPSEEK_API_KEY` or `OPENROUTER_API_KEY` is
+already set and no provider is configured, it starts with that provider's default model instead. Run
+`__PRODUCT_CLI_NAME__ --configure` to change the provider later.
 
 In a Git repository you have not trusted yet, the CLI asks whether to trust it before it loads the
 project's instruction files, settings, skills and hooks. Answering no starts the session Restricted,
@@ -137,19 +141,20 @@ __PRODUCT_CLI_NAME__
 ```
 
 `/workflows create` asks your active provider to design the workflow, saves it to
-`.workflows/<name>.json`, and runs it immediately. See the
+`.workflows/<name>.json` once you confirm, and runs it immediately. See the
 [CLI Reference](../guide/cli.md#workflows-workflows).
 
 ### Supported Providers
 
-| Provider                             | Default model and examples                       | Key variable        | Get a key                                                                      |
-| ------------------------------------ | ------------------------------------------------ | ------------------- | ------------------------------------------------------------------------------ |
-| Anthropic (Claude)                   | `claude-sonnet-4-6` (default), `claude-opus-4-6` | `ANTHROPIC_API_KEY` | [platform.claude.com](https://platform.claude.com/settings/keys)               |
-| OpenAI                               | you enter the model at setup (e.g. `gpt-5.1`)    | `OPENAI_API_KEY`    | [platform.openai.com](https://platform.openai.com/api-keys)                    |
-| Gemini                               | `gemini-3-flash-preview` (default)               | `GEMINI_API_KEY`    | [aistudio.google.com](https://aistudio.google.com/apikey)                      |
-| DeepSeek                             | `deepseek-v4-flash` (default), `deepseek-v4-pro` | `DEEPSEEK_API_KEY`  | [platform.deepseek.com](https://platform.deepseek.com/api_keys)                |
-| Qwen (Alibaba Cloud)                 | `qwen-plus` (default), `qwen-max`                | `DASHSCOPE_API_KEY` | [Model Studio](https://modelstudio.console.alibabacloud.com/?tab=api#/api-key) |
-| Local (Ollama, LM Studio, llama.cpp) | the model your server runs                       | —                   | no key needed                                                                  |
+| Provider                             | Default model and examples                       | Key variable         | Get a key                                                                      |
+| ------------------------------------ | ------------------------------------------------ | -------------------- | ------------------------------------------------------------------------------ |
+| Anthropic (Claude)                   | `claude-sonnet-4-6` (default), `claude-opus-4-6` | `ANTHROPIC_API_KEY`  | [platform.claude.com](https://platform.claude.com/settings/keys)               |
+| OpenAI                               | you enter the model at setup (e.g. `gpt-5.1`)    | `OPENAI_API_KEY`     | [platform.openai.com](https://platform.openai.com/api-keys)                    |
+| Gemini                               | `gemini-3-flash-preview` (default)               | `GEMINI_API_KEY`     | [aistudio.google.com](https://aistudio.google.com/apikey)                      |
+| DeepSeek                             | `deepseek-v4-flash` (default), `deepseek-v4-pro` | `DEEPSEEK_API_KEY`   | [platform.deepseek.com](https://platform.deepseek.com/api_keys)                |
+| Qwen (Alibaba Cloud)                 | `qwen-plus` (default), `qwen-max`                | `DASHSCOPE_API_KEY`  | [Model Studio](https://modelstudio.console.alibabacloud.com/?tab=api#/api-key) |
+| OpenRouter                           | `anthropic/claude-sonnet-4.6` (default)          | `OPENROUTER_API_KEY` | [openrouter.ai](https://openrouter.ai/keys)                                    |
+| Local (Ollama, LM Studio, llama.cpp) | the model your server runs                       | —                    | no key needed                                                                  |
 
 ## Your First Agent
 
@@ -268,7 +273,8 @@ const session = new InteractiveSession({
 
 session.on('text_delta', (delta) => process.stdout.write(delta));
 
-// submit() resolves when the prompt is accepted; `completed` resolves when the turn ends.
+// submit() returns a handle: after the turn when the session is idle, at once when the prompt is queued
+// behind a running turn. `completed` resolves with this turn's result.
 const turn = await session.submit('List the TypeScript files in src/ and say what each one does.');
 const { response } = await turn.completed;
 ```
@@ -319,5 +325,6 @@ when it starts in Terminal.app.
 run `__PRODUCT_CLI_NAME__ --configure` and follow the prompts.
 
 **"Workspace trust is required before headless startup"**: print mode (`__PRODUCT_CLI_NAME__ -p`) does not start in
-a Git repository you have not trusted. Run `__PRODUCT_CLI_NAME__ trust --yes` there, or add `--safe-mode` to run with
-every customization off (instruction files, skills, plugins, hooks and MCP servers).
+a Git repository you have not trusted. Run `__PRODUCT_CLI_NAME__ trust --yes` there, add `--safe-mode` to run with
+every customization off (instruction files, skills, plugins, hooks and MCP servers), or add
+`--restricted-workspace` to start without the project's settings, hooks, plugins, skills and MCP servers.

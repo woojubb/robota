@@ -21,7 +21,8 @@ worktree adapter.
   sandbox from code, never from serialized objects.
 - A child must reproduce its parent. An OS sandbox the child cannot rebuild stops the spawn
   (`assertChildProcessSubagentsCanReproduce()`). A provider it cannot rebuild — a `--session-log`
-  replay provider, or provider definitions a caller passed to `startCli()` — makes the session use the
+  replay provider, provider definitions a caller passed to `startCli()`, a literal stored
+  credential, or a connection environment that differs from the child's — makes the session use the
   in-process runner instead, so the subagent runs on the parent's provider without process isolation.
 - Agent command behaviour belongs to `@robota-sdk/agent-product/command`; the terminal UI only renders it.
 
@@ -34,7 +35,7 @@ worktree adapter.
 | Child-process runner, IPC, transcripts                                    | `createChildProcessSubagentRunnerFactory()` in agent-subagent-runner | Worker entry, provider config and definitions, logs directory, worktree adapter, parent sandbox settings |
 | Worktree lifecycle (`WorktreeSubagentRunner`, `ISubagentWorktreeAdapter`) | agent-executor                                                       | `GitWorktreeIsolationAdapter`                                                                            |
 | In-process runner                                                         | `createInProcessSubagentRunner` in agent-framework                   | The decision to use it                                                                                   |
-| Worker recipe                                                             | `createProductSubagentComposition()` in the CLI                       | —                                                                                                        |
+| Worker recipe                                                             | `createProductSubagentComposition()` in the CLI                      | —                                                                                                        |
 
 ### Background task runners
 
@@ -55,7 +56,7 @@ framework exposes the process runner to the model as the `BackgroundProcess` too
 flowchart TD
     A["createProductSubagentRunnerFactory"] --> B{"can a child rebuild the provider?"}
     B -->|"yes"| C["createChildProcessSubagentRunnerFactory (agent-subagent-runner)"]
-    B -->|"replay provider or caller-supplied definitions"| D["createInProcessSubagentRunner (agent-framework)"]
+    B -->|"replay provider, caller-supplied definitions, literal credential or differing connection environment"| D["createInProcessSubagentRunner (agent-framework)"]
     C --> E["wrapped in WorktreeSubagentRunner (agent-executor)"]
 ```
 
@@ -65,13 +66,14 @@ For the child-process runner the CLI supplies:
   to start a copy of the running artifact — the npm bundle, a `tsx` source run, or a Bun single-file
   binary — in worker mode. There is no separate worker file.
 - `providerConfig` (the parent's resolved provider settings and model) and `providerDefinitions`.
-- `logsDir`: `$PRODUCT_USER_STATE_DIR/logs`.
+- `logsDir`: the product's log root (`subagentLogsRoot` in the runtime layout), only when the session
+  persists transcripts.
 - `worktreeAdapter`: `createGitWorktreeIsolationAdapter()`.
 - Getters for the parent's live OS sandbox settings, so a `/sandbox` change reaches children.
 
 ### The worker side
 
-The child is the same binary started with the worker-mode flag. `src/bin.ts` (or
+The child is the same binary started with the worker-mode flag. `startCli()` in `src/cli.ts` (or
 `src/headless-bin.ts`) checks for that flag first and runs
 `runSubagentWorkerMain(createProductSubagentComposition())`. The recipe rebuilds, inside the child:
 __PRODUCT_CLI_NAME__'s pack tools for the child's working directory (plus the goal tool when the session asks for
@@ -90,6 +92,8 @@ These are agent-subagent-runner's responsibilities, listed so the wiring above m
   `BackgroundTaskManager` progress events;
 - lets the worker append its transcript to `<logsDir>/<parentSessionId>/subagents/<taskId>.jsonl`, and
   pages through that file for `/agent read` while the worker is still running;
+- judges that a worker sent no result only once its IPC channel has closed, after every message the
+  channel held was delivered, because the exit event is not ordered against that channel;
 - forwards follow-up prompts (`send`) and cancellation: an IPC `cancel` first, then `SIGTERM` and
   `SIGKILL` to the worker's process tree after a grace period.
 
@@ -111,7 +115,7 @@ Git and filesystem work:
 
 - resolves the repository root from the job's working directory, so a nested directory works; a
   directory outside Git fails with an error that suggests isolation `"none"`;
-- creates `$PRODUCT_PROJECT_STATE_DIR/worktrees/<task>-<id>` on a new branch `__PRODUCT_CLI_NAME__/<task>-<id>` from `HEAD`, which also
+- creates `$PRODUCT_PROJECT_STATE_DIR/worktrees/<task>-<id>` on a new branch `<product id>/<task>-<id>` from `HEAD`, which also
   works on a detached `HEAD`, and retries with a new short id on a branch or path collision;
 - records the base revision and the parent's `git status --porcelain`, so a dirty parent checkout is
   allowed and reported;

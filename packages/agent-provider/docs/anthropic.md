@@ -11,6 +11,8 @@ also attach Anthropic's server-side web search tool to requests when you turn it
 npm install @robota-sdk/agent-provider @robota-sdk/agent-core @anthropic-ai/sdk
 ```
 
+`@anthropic-ai/sdk` is an optional peer dependency of the package (`^0.114.0`).
+
 ## Usage
 
 ```typescript
@@ -116,7 +118,10 @@ aborted call rethrows the abort unchanged. See [Provider failures](../../../cont
 - `AnthropicProvider`, `createAnthropicProvider()` and the option types
   (`IAnthropicProviderOptions`, `TAnthropicProviderOptionValue`).
 - `createAnthropicProviderDefinition()`: the provider definition used by Robota's built-in provider
-  registry, with its default constants (for example `DEFAULT_ANTHROPIC_PROVIDER_MODEL`).
+  registry, with its default constants: `DEFAULT_ANTHROPIC_PROVIDER_MODEL` (`claude-sonnet-4-6`) and
+  the API-key reference `$ENV:ANTHROPIC_API_KEY` (`DEFAULT_ANTHROPIC_PROVIDER_API_KEY_REFERENCE`). It
+  lists `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` as the environment variables the SDK reads
+  to choose the endpoint and credential.
 
 ## Related packages
 
@@ -128,7 +133,7 @@ aborted call rethrows the abort unchanged. See [Provider failures](../../../cont
 - [`@robota-sdk/agent-provider/builtin`](./builtin.md): the default provider
   definitions, including this one.
 
-See [docs/SPEC.md](docs/SPEC.md) for the package contract.
+See [SPEC.md](SPEC.md) for the package contract.
 
 ## License
 

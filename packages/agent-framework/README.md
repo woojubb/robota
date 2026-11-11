@@ -1,9 +1,5 @@
 # @robota-sdk/agent-framework
 
-> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
-> 3.1.0 or later after it is published, and check the exports in your installed version.
-> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
-
 The assembly layer of the Robota SDK. It composes `@robota-sdk/agent-core`,
 `@robota-sdk/agent-session`, `@robota-sdk/agent-tools` and `@robota-sdk/agent-executor` into one
 provider-neutral SDK for building agents: sessions with tools, permissions, hooks, streaming, context
@@ -156,20 +152,23 @@ path; an omitted location means that feature is off.
 
 ### Events
 
-| Event                                                      | Payload                                                                              |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `text_delta`                                               | A streamed text chunk                                                                |
-| `thinking`                                                 | `true` when a turn starts, `false` when it ends                                      |
-| `thinking_delta`                                           | A chunk of reasoning text a provider streamed; never part of the reply               |
-| `tool_start`, `tool_end`                                   | `IToolState` (`toolName`, `firstArg`, `isRunning`, `result`, …)                      |
-| `complete`, `interrupted`                                  | `IExecutionResult` (`response`, `history`, `toolSummaries`, `contextState`, `usage`) |
-| `error`                                                    | `Error`                                                                              |
-| `context_update`                                           | `IContextWindowState` (token usage)                                                  |
-| `compact`                                                  | Compaction trigger and before/after context state                                    |
-| `permission_request`, `ask_request`, `prompt_resolved`     | A pending approval or question, and its settlement                                   |
-| `background_task_event`, `background_job_group_event`      | Subagent and background task lifecycle                                               |
-| `goal_event`, `plan_event`, `branch_event`, `memory_event` | Goal, plan, checkpoint-branch and memory changes                                     |
-| `session_renamed`, `history_cleared`, `status_changed`     | Session state changes                                                                |
+| Event                                                      | Payload                                                                                                   |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `text_delta`                                               | A streamed text chunk                                                                                     |
+| `thinking`                                                 | `true` when a turn starts, `false` when it ends                                                           |
+| `thinking_delta`                                           | A chunk of reasoning text a provider streamed; never part of the reply                                    |
+| `tool_start`, `tool_end`                                   | `IToolState` (`toolName`, `firstArg`, `isRunning`, `result`, …)                                           |
+| `complete`, `interrupted`                                  | `IExecutionResult` (`response`, `history`, `toolSummaries`, `contextState`, `usage`)                      |
+| `error`                                                    | `Error`                                                                                                   |
+| `context_update`                                           | `IContextWindowState` (token usage)                                                                       |
+| `compact`                                                  | Compaction trigger and before/after context state                                                         |
+| `permission_request`, `ask_request`, `prompt_resolved`     | A pending approval or question, and its settlement                                                        |
+| `background_task_event`, `background_job_group_event`      | Subagent and background task lifecycle                                                                    |
+| `goal_event`, `plan_event`, `branch_event`, `memory_event` | Goal, plan, checkpoint-branch and memory changes                                                          |
+| `session_renamed`, `history_cleared`, `status_changed`     | Session state changes                                                                                     |
+| `user_message`, `turn_source`                              | The submitted prompt text, and whether the turn came from the user, a wakeup, a peer or an external event |
+| `skill_activation`, `execution_workspace_event`            | Skill activation and execution-workspace lifecycle                                                        |
+| `context_file_refreshed`, `ui_intent`, `session_switched`  | A refreshed context file, a UI-only intent, and a client moving to another session                        |
 
 ### Main methods
 
@@ -184,7 +183,10 @@ path; an omitted location means that feature is off.
 - `compactContext(instructions?)` summarizes the conversation to free context space.
 - `setGoal(objective)` pursues an objective over several turns; `setPlan(objective)` and
   `approvePlan()` drive explicit plan mode.
-- `getName()` / `setName(name)`, `getSession()` (the underlying `Session`), `shutdown()`.
+- `getName()` / `setName(name)`, `getSession()` (the underlying `Session`), `shutdown()`. `setName`
+  renames the stored record too: it throws `SessionRenameUnavailableError` when that record cannot
+  be read here (corrupt, unsupported or locked) and refuses when the session can no longer save its
+  record, so a rename never appears to succeed while changing nothing on disk.
 
 In a trusted project, path-like `@file` references in a prompt are read (bounded in size and
 recursion), added to the model's input, and recorded in history as a structured event.
@@ -237,7 +239,9 @@ const session = new InteractiveSession({ host, cwd, provider, projectAccess, ses
 
 Trust is bound to the Git worktree and repository identity. Non-Git paths, a replaced repository,
 a revoked grant or a trust-store error all resolve to Restricted, and a revoked authority stops
-working immediately. The `cwd` must be the trusted root or inside it.
+working immediately. The `cwd` must be the trusted root or inside it. A directory reached through a
+symlink (or, on Windows, an 8.3 short name) is accepted on its real path, and the session works in
+that real path so project reads resolve inside the root.
 
 **A Node host builds a trusted session** with `createNodeWorkspaceTrustService` from
 `@robota-sdk/agent-framework/node`: it composes the Git identity resolver, a persistent grant store
@@ -272,10 +276,16 @@ const runtime = createAgentRuntime({
 const session = runtime.createSession({ permissionMode: 'plan' });
 ```
 
+`createStatelessRuntime({ host, provider, cwd })` is the variant for serverless and embedded hosts: it
+keeps no session store, its settings adapter reads nothing and writes nothing, and its sessions start
+`bare` (no project context or plugin discovery) unless a session overrides it.
+
 `buildRuntimeSession()` is the one place a session is built from resolved options, and
 `startRuntimeHost()` adds transport start/stop and a bounded shutdown on top of it; the CLI's
 `<cli-name> --serve` uses both. `SessionPool` keeps several live sessions for a runtime that serves more
-than one client. Headless output is available through `createHeadlessRunner` and
+than one client; each client holds a binding as a driver (`'drive'`) or an observer (`'observe'`),
+and a binding's `isLastDriver()` is true only for a driver with no other driver on its session.
+Headless output is available through `createHeadlessRunner` and
 `createHeadlessTransport`, and `createProgrammaticAgent` drives a session from code. The headless pieces
 own no streams: each takes a required `output` (`{ stdout, stderr }`, anything with `write(text)`), and a
 Node process passes `process.stdout` and `process.stderr`.
@@ -374,7 +384,7 @@ a model-invocable command through a projected tool named `command_<name>` by def
 - `runSequential`, `runParallel`, `runHandoff`, `runHierarchical` and `runGroupChat` run multi-agent
   orchestration patterns over the contracts in `agent-core`. `runGroupChat` is a facade over
   `@robota-sdk/agent-roundtable`'s `Roundtable`: the core runs the only turn loop, one participant per
-  step id, while the neutral contract (`IGroupChatOrchestrationSpec`, `SelectNextStep`) is unchanged.
+  step id, and callers use the neutral contract (`IGroupChatOrchestrationSpec`, `SelectNextStep`).
 
 ## Sandbox execution
 
@@ -470,20 +480,6 @@ disable, uninstall, source replacement or changed trust refuses new dispatch. Al
 calls settle with their real outcomes. Fresh startup reuses durable approvals only when their
 source identity and trust still match; a new revision cannot silently replace an in-flight tool.
 
-The documented MCP declaration subset supports `mcpServers` as a plugin-relative `./` JSON path,
-an inline server map, or an ordered array of either. The default `.mcp.json` is read first; later
-declarations replace whole server entries, with each winning entry retaining its declaring file.
-Paths are checked against the selected installed revision, including symlinks. Unsupported paths
-and malformed declarations produce value-free compatibility codes. Binary MCP bundles are not
-supported by this adapter. See the [foreign manifest reference](https://code.claude.com/docs/en/plugins-reference).
-
-CLI and app startup route these definitions through the existing `plugin` MCP source tier, with
-`plugin-name:server-name` identities, ordinary precedence, workspace trust, approval and host stdio
-authority. Inspection never connects. `${CLAUDE_PLUGIN_ROOT}` resolves to the selected plugin root;
-other environment materialization remains owned by the MCP definition layer. Startup honors the
-current disable overlay; active-chain update/disable and restored-work revalidation still require
-their separate lifecycle implementation.
-
 ## Settings
 
 Settings are JSON files merged in the order the host gives them, later layers winning.
@@ -540,8 +536,10 @@ is also on `/node`.
 | `@robota-sdk/agent-session`                                                                                         | `Session`, logging and persistence ports                                           |
 | `@robota-sdk/agent-tools`                                                                                           | Tool factories and sandbox clients; the `./defaults` tool set for `./testing` only |
 | `@robota-sdk/agent-executor`                                                                                        | Background tasks and subagent managers                                             |
+| `@robota-sdk/agent-roundtable`                                                                                      | The turn loop behind `runGroupChat`                                                |
 | `@robota-sdk/agent-os`                                                                                              | Bounded, root-relative project file reads (`./file-authority`)                     |
 | `@robota-sdk/agent-interface` (the analytics, command, execution, session, session-mobility and transport subpaths) | Shared contracts                                                                   |
+| `koffi`                                                                                                             | The native binding the `agent-os` file authority loads                             |
 | `yaml`, `zod`                                                                                                       | Frontmatter parsing and settings validation                                        |
 
 ## Documentation

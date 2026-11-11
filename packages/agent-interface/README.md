@@ -13,9 +13,9 @@ types. The one family that carries behavior, `session-mobility`, does no I/O.
 npm install @robota-sdk/agent-interface
 ```
 
-`@robota-sdk/agent-core` is an optional peer dependency. The `session`, `session-mobility`,
-`command`, `execution` and `transport` contracts name its types, so install it next to them; the
-`analytics` and `tui` subpaths need nothing.
+`@robota-sdk/agent-core` is an optional peer dependency. The `session`, `command`, `execution` and
+`transport` contracts name its types, and `session-mobility` names them through `session`, so install it
+next to them; the `analytics` and `tui` subpaths need nothing.
 
 ## Subpaths
 

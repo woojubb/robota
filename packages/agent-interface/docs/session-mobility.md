@@ -76,8 +76,8 @@ task carries no authority, and a peer's driver id is for attribution only.
 
 ## Where it sits
 
-- Depends on `@robota-sdk/agent-core` and `@robota-sdk/agent-interface/session`. No other subpath
-  of this package imports it.
+- Depends on `@robota-sdk/agent-interface/session`, and through it on `@robota-sdk/agent-core` types.
+  No other subpath of this package imports it.
 - `@robota-sdk/agent-framework` admits incoming peer messages into a session.
 - `@robota-sdk/agent-transport` implements the peer-message ledger, handoff payload sealing and
   chunking, and file transfer; `@robota-sdk/agent-transport/webrtc` runs the device mesh, with a

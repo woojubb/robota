@@ -112,7 +112,7 @@ A compound command qualifies only when each part does on its own. A command does
 Shell commands (`Bash`, `Shell`) can run inside an OS-level sandbox that confines the command and
 every process it starts. Linux and WSL2 use [bubblewrap](https://github.com/containers/bubblewrap)
 (`bwrap`, installed from the `bubblewrap` package); macOS uses the built-in Seatbelt
-(`sandbox-exec`). Native Windows has no backend; run __PRODUCT_CLI_NAME__ inside WSL2 to use it.
+(`sandbox-exec`). Native Windows has no backend; run `__PRODUCT_CLI_NAME__` inside WSL2 to use it.
 
 Inside the sandbox:
 
@@ -139,7 +139,7 @@ Inside the sandbox:
   sockets are closed too, so a daemon on the host (a container engine, the session bus, an ssh
   agent) is out of reach. With the network on, those sockets are reachable, and a container
   engine's socket is as good as running on the host. There is no per-domain list;
-- the command runs in its own process namespace and cannot signal or inspect __PRODUCT_CLI_NAME__ or other host
+- the command runs in its own process namespace and cannot signal or inspect `__PRODUCT_CLI_NAME__` or other host
   processes.
 
 ```json
@@ -174,12 +174,12 @@ applies to a line that runs only that program, so `docker ps; rm -rf build` stay
 cannot ask to leave the sandbox.
 
 **When it cannot run.** If `bwrap` is missing or cannot create a sandbox (for example where user
-namespaces are disabled), __PRODUCT_CLI_NAME__ prints a warning at startup and runs commands unconfined;
-`__PRODUCT_CLI_NAME__ doctor` and `/sandbox` say what is missing. With `failIfUnavailable: true` __PRODUCT_CLI_NAME__ refuses to
+namespaces are disabled), `__PRODUCT_CLI_NAME__` prints a warning at startup and runs commands unconfined;
+`__PRODUCT_CLI_NAME__ doctor` and `/sandbox` say what is missing. With `failIfUnavailable: true` `__PRODUCT_CLI_NAME__` refuses to
 start instead.
 
 **Containers and VMs.** The sandbox confines what a command can write and reach; it does not
-isolate __PRODUCT_CLI_NAME__ itself, its file tools, or its model traffic. A dev container or VM isolates the
+isolate `__PRODUCT_CLI_NAME__` itself, its file tools, or its model traffic. A dev container or VM isolates the
 whole process, including everything the sandbox leaves readable. Use the sandbox to stop a command
 from changing things outside the project, and a container or VM when nothing on the host should be
 visible at all.

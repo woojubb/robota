@@ -1,17 +1,21 @@
 # @robota-sdk/agent-provider/openai-compatible
 
-OpenAI-compatible providers for the Robota SDK: `DeepSeekProvider`, `QwenProvider` and
-`GemmaProvider`. Each one speaks the OpenAI-compatible protocol through the `openai` SDK and
-implements the `@robota-sdk/agent-core` provider contract, so it can be passed to a `ConversationAgent` agent
-like any other provider. The package also ships the shared OpenAI-compatible protocol code
-(message and tool conversion, request building, response parsing, stream assembly) under its
-`./shared` entry; these providers and `@robota-sdk/agent-provider/openai` are built on it.
+OpenAI-compatible providers for the Robota SDK: `DeepSeekProvider`
+(`@robota-sdk/agent-provider/deepseek`), `QwenProvider` (`@robota-sdk/agent-provider/qwen`) and
+`GemmaProvider` (`@robota-sdk/agent-provider/gemma`). Each one speaks the OpenAI-compatible protocol
+through the `openai` SDK and implements the `@robota-sdk/agent-core` provider contract, so it can be
+passed to a `ConversationAgent` agent like any other provider. The shared OpenAI-compatible protocol
+code (message and tool conversion, request building, response parsing, stream assembly) is the
+`@robota-sdk/agent-provider/openai-compatible` subpath; these providers and
+`@robota-sdk/agent-provider/openai` are built on it.
 
 ## Installation
 
 ```bash
 npm install @robota-sdk/agent-provider @robota-sdk/agent-core openai
 ```
+
+`openai` is an optional peer dependency of the package (`^6.0.0`).
 
 ## Usage
 
@@ -45,11 +49,11 @@ const gemma = new GemmaProvider({ apiKey: 'lm-studio', baseURL: 'http://localhos
 
 ## Providers
 
-| Provider           | `defaultModel.provider` | Default endpoint                                        |
-| ------------------ | ----------------------- | ------------------------------------------------------- |
-| `DeepSeekProvider` | `'deepseek'`            | `https://api.deepseek.com`                              |
-| `QwenProvider`     | `'qwen'`                | DashScope OpenAI-compatible endpoint (Singapore region) |
-| `GemmaProvider`    | `'gemma'`               | None: set `baseURL` to the server hosting the model     |
+| Provider           | Import path                           | `defaultModel.provider` | Default endpoint                                        |
+| ------------------ | ------------------------------------- | ----------------------- | ------------------------------------------------------- |
+| `DeepSeekProvider` | `@robota-sdk/agent-provider/deepseek` | `'deepseek'`            | `https://api.deepseek.com`                              |
+| `QwenProvider`     | `@robota-sdk/agent-provider/qwen`     | `'qwen'`                | DashScope OpenAI-compatible endpoint (Singapore region) |
+| `GemmaProvider`    | `@robota-sdk/agent-provider/gemma`    | `'gemma'`               | None: set `baseURL` to the server hosting the model     |
 
 Each provider adds a few options and behaviors of its own:
 
@@ -58,7 +62,9 @@ Each provider adds a few options and behaviors of its own:
 - **Qwen:** turning on `builtInWebTools.webSearch` or `builtInWebTools.webFetch` switches requests to
   DashScope's Responses endpoint with its server-side web search and web extractor tools;
   `builtInWebTools.enableThinking` is sent as `enable_thinking` on those requests. `responsesBaseURL`
-  overrides the Responses endpoint.
+  overrides the Responses endpoint. `QWEN_PROVIDER_BASE_URLS` and `QWEN_PROVIDER_RESPONSES_BASE_URLS`
+  hold the DashScope endpoints per region (`singapore`, `usVirginia`, `beijing`, and `hongKong` for
+  Chat Completions only); the default is `singapore`.
 - **Gemma:** removes Gemma's reasoning-channel text from visible output and turns tool calls the
   model writes as text into structured tool calls. The `gemma` provider definition (used by
   `@robota-sdk/agent-provider/builtin`) defaults to a local server at `http://localhost:1234/v1`.
@@ -89,14 +95,21 @@ Streaming calls map failures the same way. An aborted call rethrows the abort un
 
 ## Exports
 
-- `DeepSeekProvider`, `QwenProvider`, `GemmaProvider` and their option types.
-- `createDeepSeekProviderDefinition()`, `createQwenProviderDefinition()`,
-  `createGemmaProviderDefinition()`: provider definitions used by Robota's built-in provider
-  registry, with their default constants (for example `DEFAULT_DEEPSEEK_PROVIDER_BASE_URL`).
+- `@robota-sdk/agent-provider/deepseek`: `DeepSeekProvider`, its option types,
+  `createDeepSeekProviderDefinition()` and the default constants (for example
+  `DEFAULT_DEEPSEEK_PROVIDER_MODEL`, `DEFAULT_DEEPSEEK_PROVIDER_BASE_URL`).
+- `@robota-sdk/agent-provider/qwen`: `QwenProvider`, its option types,
+  `createQwenProviderDefinition()` and the default constants, including the regional endpoint tables.
+- `@robota-sdk/agent-provider/gemma`: `GemmaProvider`, its option types,
+  `createGemmaProviderDefinition()` and the reasoning and tool-call text projectors.
 - `@robota-sdk/agent-provider/openai-compatible`: the shared protocol layer, including
   `convertToOpenAICompatibleMessages`, `convertToOpenAICompatibleTools`,
   `buildOpenAICompatibleRequestParams`, `OpenAICompatibleResponseParser`,
   `assembleOpenAICompatibleStream` and `probeOpenAICompatibleProfile`.
+
+The definitions are the ones Robota's built-in provider registry uses; their API-key references are
+`$ENV:DEEPSEEK_API_KEY` and `$ENV:DASHSCOPE_API_KEY`. The Gemma definition has no API-key default and
+requires none.
 
 ## Related packages
 
@@ -106,7 +119,7 @@ Streaming calls map failures the same way. An aborted call rethrows the abort un
 - [`@robota-sdk/agent-provider/builtin`](./builtin.md): the default provider
   definitions, including the ones exported here.
 
-See [docs/SPEC.md](docs/SPEC.md) for the package contract.
+See [SPEC.md](SPEC.md) for the package contract.
 
 ## License
 

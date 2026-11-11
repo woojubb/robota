@@ -1,9 +1,10 @@
 # Capability: tool-only decision agent
 
 For routers/orchestrators/classifiers the useful output is a **tool call, not prose**.
-`allowToolOnlyCompletion: true` makes the tool call a valid completion — no extra summary
-model call — and the app reads the decision from its own executor. `retainHistory: false`
-keeps every ticket independent (flat token profile).
+`allowToolOnlyCompletion: true` makes a run that ends on a tool call a valid completion, and with
+`maxExecutionRounds: 1` the run ends on that call — no extra model call for a summary — so the app reads
+the decision from its own executor. `retainHistory: false` keeps every ticket independent (flat token
+profile).
 
 ```bash
 pnpm install

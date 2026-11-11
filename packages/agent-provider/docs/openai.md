@@ -1,8 +1,5 @@
 # @robota-sdk/agent-provider/openai
 
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
-
 OpenAI provider for the Robota SDK, built on the official `openai` SDK. `OpenAIProvider` implements
 the `@robota-sdk/agent-core` provider contract, so a `ConversationAgent` agent can run on OpenAI models with
 streaming and tool calling. It is a protocol client rather than a vendor lock: set `baseURL` and the
@@ -15,6 +12,8 @@ verbatim.
 ```bash
 npm install @robota-sdk/agent-provider @robota-sdk/agent-core openai
 ```
+
+`openai` is an optional peer dependency of the package (`^6.0.0`).
 
 ## Usage
 
@@ -187,6 +186,7 @@ required; the constructor throws otherwise.
 | `includeEncryptedReasoning` | `boolean`                                  | Responses API only: asks for encrypted reasoning items, so reasoning can continue without server-side state.    |
 | `nativeWebTools`            | `IOpenAINativeWebToolsOptions`             | Hosted web search on OpenAI's own Responses API (`webSearch`); elsewhere `true` throws (see above).             |
 | `includeStreamUsage`        | `boolean`                                  | Requests token usage on streaming Chat Completions turns (default `true`).                                      |
+| `durableOperations`         | `boolean`                                  | Sends one `Idempotency-Key` header per model request, reused by SDK retries, for gateways that deduplicate.     |
 | `client`                    | `OpenAI`                                   | A pre-built `openai` client, used instead of `apiKey`.                                                          |
 | `executor`                  | `IExecutor`                                | Delegates chat calls to an executor instead of calling the API directly.                                        |
 | `payloadLogger`             | `IPayloadLogger`                           | Logs a summary of each Chat Completions request (model, message count, tools present, temperature, max tokens). |
@@ -203,9 +203,13 @@ unchanged. See [Provider failures](../../../content/guide/error-handling.md#prov
 
 ## Exports
 
-- `OpenAIProvider` and its option types (`IOpenAIProviderOptions`, `TOpenAIApiSurface`, and others).
+- `OpenAIProvider` and its option types (`IOpenAIProviderOptions`, `TOpenAIApiSurface`, and others),
+  the `IPayloadLogger` and `IPayloadLoggerOptions` interfaces, and `OpenAIConversationAdapter` (message
+  conversion helpers).
 - `createOpenAIProviderDefinition()`: the provider definition used by Robota's built-in provider
-  registry.
+  registry. It declares no default model, so a profile names one, and its default API-key reference is
+  `$ENV:OPENAI_API_KEY` (`DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE`). A profile turns on
+  `durableOperations` with `options.durableOperations: true`.
 - `@robota-sdk/agent-provider/openai/loggers`: `ConsolePayloadLogger` (writes to the console on any
   runtime).
 - `@robota-sdk/agent-provider/openai/node`: `FilePayloadLogger` (Node.js, writes log files with
@@ -220,7 +224,7 @@ unchanged. See [Provider failures](../../../content/guide/error-handling.md#prov
 - [`@robota-sdk/agent-provider/anthropic`](./anthropic.md) and
   [`@robota-sdk/agent-provider/gemini`](./gemini.md): other chat providers.
 
-See [docs/SPEC.md](docs/SPEC.md) for the package contract.
+See [SPEC.md](SPEC.md) for the package contract.
 
 ## License
 

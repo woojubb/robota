@@ -3,13 +3,17 @@
 ## Purpose
 
 `@robota-sdk/action` is a GitHub Actions runner: it turns Actions inputs into a
-call to `@robota-sdk/agent-cli` and surfaces the agent's reply as an Actions output. It is the sole
-integration point between GitHub CI/CD workflows and the configured agent CLI.
+call to the selected product's CLI (`<package-scope>/agent-cli`; `@robota-sdk/agent-cli` for Robota) and
+surfaces the agent's reply as an Actions output. It is the sole integration point between GitHub CI/CD
+workflows and the configured agent CLI.
 
 ## Contract
 
 - All AI execution, authentication, provider selection, and output formatting are delegated to
-  `@robota-sdk/agent-cli`; this app does not implement agent runtime, session, provider, or tool logic.
+  the CLI package; this app does not implement agent runtime, session, provider, or tool logic.
+- The CLI to install is selected only by a package scope, an exact version or a dist-tag, and a command
+  name that the installed package's `bin` declares; a range, path, tarball or URL is refused, so an
+  input cannot select another package.
 - The Action never grants checkout trust and always runs the CLI in safe mode, so a pull request's own
   settings, hooks and MCP servers never run on the runner. A `load-project` request fails before CLI
   installation because live workspace trust requires a person's terminal decision.

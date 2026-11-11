@@ -1,8 +1,5 @@
 # @robota-sdk/agent-tools
 
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
-
 Tool implementations for the Robota SDK: factories for building your own tools from Zod schemas,
 the built-in tools (Shell, Read, Write, Edit, Glob, Grep, WebFetch, AskUserQuestion,
 ToolSearch), codebase retrieval and computer-use tools, and the sandbox clients that run tools
@@ -236,6 +233,7 @@ its screenshot bytes without a Node global. There is no host fallback without a 
 | `@robota-sdk/agent-core` | Peer | Tool contract, `FunctionTool`, schemas, event types                                                                                                    |
 | `@robota-sdk/agent-os`   | Prod | Terminating shell process trees on cancel or timeout (`./process`) and atomic rooted writes for Write and Edit (`./file-authority`), both from `/node` |
 | `fast-glob`              | Prod | Glob matching (`/node`)                                                                                                                                |
+| `koffi`                  | Prod | The native binding behind the `agent-os` file authority (`/node`)                                                                                      |
 | `p-limit`                | Prod | Concurrency limit in the Glob tool (`/node`)                                                                                                           |
 | `zod`                    | Prod | Tool parameter schemas and validation                                                                                                                  |
 

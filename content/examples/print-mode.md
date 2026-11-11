@@ -16,7 +16,9 @@ to stderr.
 In a Git repository you have not trusted yet, print mode does not run: it prints
 `Workspace trust is required before headless startup` and exits with code 1, rather than silently
 running without the project's settings, hooks and skills. Trust the folder once with
-`__PRODUCT_CLI_NAME__ trust --yes`, or pass `--safe-mode` to run with every customization off.
+`__PRODUCT_CLI_NAME__ trust --yes`, pass `--safe-mode` to run with every customization off, or pass
+`--restricted-workspace` to start without the project's settings, hooks, plugins, skills and MCP
+servers.
 
 ## Permissions
 

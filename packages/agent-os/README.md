@@ -51,6 +51,18 @@ handles, canonical paths, and pathname fallbacks are never exposed. `writeUtf8()
 parents and atomically commits through the retained root authority. Close either authority with
 `close()`, or let `using` dispose it.
 
+The reader also lists and classifies entries without reading them: `listDirectory(segments)` returns
+`{ name, kind }` entries, where `kind` is `file`, `directory`, `link` or `other` (an empty list for a
+missing directory), and `inspectKind(segments)` returns one such kind, or `undefined` for a missing
+entry. The writer returned by `createStableRootedFileWriter` is an `INamedStableRootedFileWriter`:
+`assertNamedRoot()` and `writeUtf8WhileNamed()` additionally require that the original root path
+still names the retained directory. `assertSameStableRoot`, `assertSameStableRootedWriter` and
+`assertSameStablePosixRootDescriptor` throw unless the compared reader, writer or POSIX directory
+descriptor holds the same live root object, and `listWindowsRootedDirectory` lists a directory
+through a root-relative no-follow handle walk on Windows. The `file-authority/testing` subpath adds the
+deterministic seams `createStableRootedFileWriterForTest` and `listWindowsRootedDirectoryForTest`
+with their hook types.
+
 The qualified native targets are Linux x64/arm64, macOS x64/arm64, and Windows x64 on Node.js
 22.12 or newer. Other targets fail closed with `UNSUPPORTED_BACKEND`.
 
@@ -62,6 +74,28 @@ session-log payload reads, and `agent-tools` for contained host writes.
 Nonblocking operation locks for cooperating local processes. A guard is held until release or process exit.
 Every participant must use the same lock directory and name, and the guard path must remain in place while the
 namespace is in use.
+
+```typescript
+import { createProcessOperationLock } from '@robota-sdk/agent-os/node-lock';
+
+const locks = createProcessOperationLock('/var/lib/my-app/locks');
+const held = locks.tryAcquire('session_a');
+if (held === undefined) {
+  // another holder owns this name; acquisition never waits
+} else {
+  try {
+    // commit the shared operation
+  } finally {
+    held.release();
+  }
+}
+```
+
+`createProcessOperationLock(directory)` returns an `IProcessOperationLock`. Its `tryAcquire(name)` returns an
+`IProcessOperationLockHandle` whose `release()` is idempotent, or `undefined` while another holder has the name.
+The name must be a single path component of up to 128 characters starting with a letter or digit and continuing
+with letters, digits, `.`, `_` or `-`; it is held through the file `<name>.guard` in the existing directory. The
+supported platforms are Linux, macOS and Windows; any other platform throws.
 
 The lock does not fence older implementations or a program that replaces the guard path. Network filesystem
 behavior is not qualified.
@@ -105,7 +139,7 @@ await killProcessTree(child, {
 | `DEFAULT_KILL_GRACE_MS` | Shared grace window in ms (2000) between the initial signal and the forced SIGKILL      |
 | `IKillProcessOptions`   | `{ graceMs?, signal?, processGroup?, preKill? }`                                        |
 
-On Windows the forced step after the grace window uses `taskkill /T /F`, which ends the whole tree.
+Windows has no graceful signal: the whole tree is ended at once with `taskkill /T /F`, and again if the process outlives the grace window.
 
 See [`docs/SPEC.md`](./docs/SPEC.md) for the contracts and security boundaries.
 

@@ -4,7 +4,7 @@ Robota's default provider set. This package gathers the provider definitions of 
 provider into one list, supplies the two default media providers (Gemini image generation and
 Seedance video generation), and holds Robota's default role-to-model mapping. A host that lets its
 users pick a provider by name, such as `@robota-sdk/agent-cli`, reads this package instead of
-importing each provider package itself.
+importing each provider subpath itself.
 
 ## Installation
 
@@ -13,7 +13,8 @@ npm install @robota-sdk/agent-provider @robota-sdk/agent-core openai @anthropic-
 ```
 
 `./builtin` imports every provider subpath, so the three vendor SDKs, which are optional peers of the
-package, are installed alongside it.
+package (`openai` `^6.0.0`, `@anthropic-ai/sdk` `^0.114.0`, `@google/genai` `^1.52.0`), are installed
+alongside it.
 
 ## Usage
 
@@ -25,6 +26,7 @@ import {
   findProviderDefinition,
   resolveEnvReference,
 } from '@robota-sdk/agent-core';
+import { processEnvResolver } from '@robota-sdk/agent-core/node';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
 
 const definition = findProviderDefinition(createDefaultProviderDefinitions(), 'anthropic');
@@ -32,7 +34,7 @@ if (definition === undefined) throw new Error('Unknown provider type');
 
 const model = definition.defaults?.model ?? 'claude-sonnet-4-6';
 // defaults.apiKey is a reference such as '$ENV:ANTHROPIC_API_KEY'; resolve it to the key itself.
-const apiKey = resolveEnvReference(definition.defaults?.apiKey ?? '');
+const apiKey = resolveEnvReference(definition.defaults?.apiKey ?? '', processEnvResolver);
 
 const provider = definition.createProvider({ name: definition.type, model, apiKey });
 
@@ -50,25 +52,34 @@ console.log(await agent.run('Hello!'));
 `createDefaultProviderDefinitions()` returns one `IProviderDefinition` (the provider contract from
 `@robota-sdk/agent-core`) per built-in chat provider:
 
-| `type`                    | Provider package                               | `defaults.apiKey`                                                          |
-| ------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------- |
-| `anthropic`               | `@robota-sdk/agent-provider/anthropic`         | `$ENV:ANTHROPIC_API_KEY`                                                   |
-| `openai`                  | `@robota-sdk/agent-provider/openai`            | `$ENV:OPENAI_API_KEY`                                                      |
-| `gemini` (alias `google`) | `@robota-sdk/agent-provider/gemini`            | `$ENV:GEMINI_API_KEY`                                                      |
-| `gemma`                   | `@robota-sdk/agent-provider/openai-compatible` | `lm-studio` (placeholder for a local server at `http://localhost:1234/v1`) |
-| `qwen`                    | `@robota-sdk/agent-provider/openai-compatible` | `$ENV:DASHSCOPE_API_KEY`                                                   |
-| `deepseek`                | `@robota-sdk/agent-provider/openai-compatible` | `$ENV:DEEPSEEK_API_KEY`                                                    |
-| `openrouter`              | `@robota-sdk/agent-provider/openai`            | `$ENV:OPENROUTER_API_KEY`                                                  |
+| `type`                    | Provider subpath                       | `defaults.model`                | `defaults.apiKey`                                                    |
+| ------------------------- | -------------------------------------- | ------------------------------- | -------------------------------------------------------------------- |
+| `anthropic`               | `@robota-sdk/agent-provider/anthropic` | `claude-sonnet-4-6`             | `$ENV:ANTHROPIC_API_KEY`                                             |
+| `openai`                  | `@robota-sdk/agent-provider/openai`    | none (a profile names one)      | `$ENV:OPENAI_API_KEY`                                                |
+| `gemini` (alias `google`) | `@robota-sdk/agent-provider/gemini`    | `gemini-3-flash-preview`        | `$ENV:GEMINI_API_KEY`                                                |
+| `gemma`                   | `@robota-sdk/agent-provider/gemma`     | `supergemma4-26b-uncensored-v2` | none (a local server at `http://localhost:1234/v1`; no key required) |
+| `qwen`                    | `@robota-sdk/agent-provider/qwen`      | `qwen-plus`                     | `$ENV:DASHSCOPE_API_KEY`                                             |
+| `deepseek`                | `@robota-sdk/agent-provider/deepseek`  | `deepseek-v4-flash`             | `$ENV:DEEPSEEK_API_KEY`                                              |
+| `openrouter`              | `@robota-sdk/agent-provider/openai`    | `anthropic/claude-sonnet-4.6`   | `$ENV:OPENROUTER_API_KEY`                                            |
 
 A definition describes a provider for setup and configuration: its `type` and `aliases`, display
 name, `defaults` (model, API-key reference, base URL), model catalog and setup steps. Its
 `createProvider(config)` builds the provider and uses the `apiKey` it is given as-is, so resolve a
-`$ENV:` reference first. `findProviderDefinition(definitions, type)` from `@robota-sdk/agent-core`
-matches a type or an alias.
+`$ENV:` reference first; `resolveEnvReference(value, resolve)` takes the environment resolver, and
+`processEnvResolver` from `@robota-sdk/agent-core/node` reads `process.env`.
+`findProviderDefinition(definitions, type)` from `@robota-sdk/agent-core` matches a type or an alias.
+
+A definition also says whether an API key is required (`requiresApiKey`), lists the environment
+variables its vendor SDK reads to decide where a request goes or which credential it carries
+(`destinationEnvironment`), and may supply a live `probeProfile` check (every definition here except
+`anthropic` and `gemini` does). `anthropic` and `openai` also declare, through `nativeWebTools`, the
+hosted web tools a host may turn on by default.
 
 OpenRouter exposes browser and API-key connection methods to the host. Both build the same
-Chat Completions client at `https://openrouter.ai/api/v1`; browser authorization and credential
-storage belong to the CLI/App host, rather than this definition package.
+Chat Completions client at `https://openrouter.ai/api/v1`, with `anthropic/claude-sonnet-4.6` as the
+default model; browser authorization and credential storage belong to the CLI/App host, rather than
+this definition package. `createOpenRouterProviderDefinition()` builds its provider through the
+OpenAI definition.
 
 The ByteDance video provider is not in this list: it is a media provider (see below).
 
@@ -78,20 +89,23 @@ The ByteDance video provider is not in this list: it is a media provider (see be
 creates its provider only when it is used, from credentials it reads from environment variables, so a
 host can list the definitions before any key is set.
 
-| `type`                                                  | Factory                                   | Builds                                                                | Default model            | Environment                                               |
-| ------------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------- | ------------------------ | --------------------------------------------------------- |
-| `gemini-image` (`GEMINI_IMAGE_MEDIA_PROVIDER_TYPE`)     | `createGeminiImageProviderDefinition()`   | An image generation provider from `@robota-sdk/agent-provider/gemini` | `gemini-2.5-flash-image` | `GEMINI_API_KEY`                                          |
-| `seedance-video` (`SEEDANCE_VIDEO_MEDIA_PROVIDER_TYPE`) | `createSeedanceVideoProviderDefinition()` | A `BytedanceProvider` from `@robota-sdk/agent-provider/bytedance`     | `seedance-2.0`           | `SEEDANCE_API_KEY` and `SEEDANCE_BASE_URL`, both required |
+| `type`                                                  | Factory                                   | Builds                                                            | Default model            | Environment                                               |
+| ------------------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------- | ------------------------ | --------------------------------------------------------- |
+| `gemini-image` (`GEMINI_IMAGE_MEDIA_PROVIDER_TYPE`)     | `createGeminiImageProviderDefinition()`   | A `GoogleProvider` from `@robota-sdk/agent-provider/google`       | `gemini-2.5-flash-image` | `GEMINI_API_KEY`                                          |
+| `seedance-video` (`SEEDANCE_VIDEO_MEDIA_PROVIDER_TYPE`) | `createSeedanceVideoProviderDefinition()` | A `BytedanceProvider` from `@robota-sdk/agent-provider/bytedance` | `seedance-2.0`           | `SEEDANCE_API_KEY` and `SEEDANCE_BASE_URL`, both required |
 
-Build a provider from a definition with `createImageProviderFromDefinition()` or
-`createVideoProviderFromDefinition()` from `@robota-sdk/agent-core`. They return `undefined` when a
-required variable is missing; `resolveMediaProviderConfig(definition)` reports which ones.
+Build a provider from a definition with `createImageProviderFromDefinition(definition, overrides,
+resolve)` or `createVideoProviderFromDefinition(definition, overrides, resolve)` from
+`@robota-sdk/agent-core`; `resolve` is the environment resolver, such as `processEnvResolver` from
+`@robota-sdk/agent-core/node`. They return `undefined` when a required variable is missing;
+`resolveMediaProviderConfig(definition, overrides, resolve)` reports which ones.
 
 ```typescript
 import {
   createImageProviderFromDefinition,
   findMediaProviderDefinition,
 } from '@robota-sdk/agent-core';
+import { processEnvResolver } from '@robota-sdk/agent-core/node';
 import {
   createDefaultMediaProviderDefinitions,
   GEMINI_IMAGE_MEDIA_PROVIDER_TYPE,
@@ -104,7 +118,7 @@ const definition = findMediaProviderDefinition(
 if (definition === undefined) throw new Error('Unknown media provider type');
 
 // Reads GEMINI_API_KEY from the environment.
-const imageProvider = createImageProviderFromDefinition(definition);
+const imageProvider = createImageProviderFromDefinition(definition, {}, processEnvResolver);
 if (imageProvider === undefined) throw new Error('Set GEMINI_API_KEY');
 
 const result = await imageProvider.generateImage({
@@ -113,8 +127,6 @@ const result = await imageProvider.generateImage({
 });
 if (result.ok) console.log(result.value.outputs);
 ```
-
-Robota's default DAG node catalog loads these definitions for its image and video nodes.
 
 ## Default role-to-model mapping
 
@@ -159,6 +171,7 @@ resolveRoleModel(roleModels, 'planner'); // { provider: 'anthropic', model: 'cla
 ## Exports
 
 - `createDefaultProviderDefinitions()`: the built-in chat provider definitions.
+- `createOpenRouterProviderDefinition()`: the OpenRouter definition, also part of that list.
 - `createDefaultMediaProviderDefinitions()`, `createGeminiImageProviderDefinition()`,
   `createSeedanceVideoProviderDefinition()`, and the type constants
   `GEMINI_IMAGE_MEDIA_PROVIDER_TYPE` (`'gemini-image'`) and `SEEDANCE_VIDEO_MEDIA_PROVIDER_TYPE`
@@ -175,7 +188,7 @@ directory:
 node examples/deepseek-provider-demo.mjs
 ```
 
-It checks the DeepSeek definition from `@robota-sdk/agent-provider/openai-compatible` (type, display
+It checks the DeepSeek definition from `@robota-sdk/agent-provider/deepseek` (type, display
 name, default model, API-key reference and base URL, active and deprecated catalog models) and
 DeepSeek's place in `createDefaultProviderDefinitions()`. It creates no provider and sends no
 request; a failed check exits nonzero. The CLI's use of the same definitions is tested separately in
@@ -189,14 +202,14 @@ under `offers the same provider surface`.
 - [`@robota-sdk/agent-provider/anthropic`](./anthropic.md),
   [`@robota-sdk/agent-provider/openai`](./openai.md),
   [`@robota-sdk/agent-provider/gemini`](./gemini.md),
-  [`@robota-sdk/agent-provider/openai-compatible`](./openai-compatible.md) and
+  [`deepseek`, `qwen` and `gemma`](./openai-compatible.md) and
   [`@robota-sdk/agent-provider/bytedance`](./bytedance.md): the providers these
   definitions build.
 - [`@robota-sdk/agent-framework`](../../agent-framework/README.md): the role routing helpers.
 - [`@robota-sdk/agent-cli`](../../agent-cli/README.md): uses these definitions for provider setup and
   startup.
 
-See [docs/SPEC.md](docs/SPEC.md) for the package contract.
+See [SPEC.md](SPEC.md) for the package contract.
 
 ## License
 

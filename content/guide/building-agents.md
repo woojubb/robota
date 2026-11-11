@@ -1,12 +1,9 @@
 # Building Agents
 
-> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
-> 3.1.0 or later after it is published, and check the exports in your installed version.
-> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
-
 This guide covers building agents directly with `@robota-sdk/agent-core`, the foundation package.
-`agent-core` gives you the `Robota` agent class: a conversation with one or more AI providers, tool
-calling, plugins, and structured output. It reads no files and loads no project configuration.
+`agent-core` gives you the `ConversationAgent` agent class, also exported as `Robota`: a conversation
+with one or more AI providers, tool calling, plugins, and structured output. It reads no files and
+loads no project configuration.
 
 Use it when you want full control over a small agent — a classifier, a router, a chat endpoint with
 your own tools. When you want a ready-assembled agent with built-in file and shell tools, permission
@@ -228,11 +225,12 @@ const response = await agent.run('What time is it in Seoul, and is it warm there
 
 ### Built-in tools
 
-`@robota-sdk/agent-tools` also ships the tools the `__PRODUCT_CLI_NAME__` CLI gives its agent. The shell, file,
-search and `WebFetch` tools need a Node host, so they are on `@robota-sdk/agent-tools/node`; the
-main entry holds the function-tool factories, `AskUserQuestion` and the sandbox ports and clients.
-File and shell tools are factories that take the directory they may work in —
-`createReadTool({ cwd })` — because a file tool with no root would have no boundary.
+`@robota-sdk/agent-tools` also ships the tools the `__PRODUCT_CLI_NAME__` CLI gives its agent. The shell,
+file, search and `WebFetch` tools need a Node host, so they are on `@robota-sdk/agent-tools/node`;
+the main entry holds the function-tool factories, `AskUserQuestion`, the tool-search,
+codebase-retrieval and computer-use tools, and the sandbox ports and clients. File and shell tools
+are factories that take the directory they may work in — `createReadTool({ cwd })` — because a file
+tool with no root would have no boundary.
 
 | Factory or instance   | Tool name         | What it does                                                      |
 | --------------------- | ----------------- | ----------------------------------------------------------------- |
@@ -359,17 +357,21 @@ const agent = new ConversationAgent({
 
 `Robota` calls these hooks on every plugin that defines them:
 
-| Hook                                                                    | When it runs                                                  |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `beforeRun(input, options)`                                             | At the start of `run()`, after the user message is recorded   |
-| `onMessageAdded(message)`                                               | Each time a user or assistant message is added to the history |
-| `beforeExecution(context)`                                              | Before the first model call of the run                        |
-| `beforeProviderCall(messages)`                                          | Before each model call                                        |
-| `afterProviderCall(messages, response)`                                 | After each model reply                                        |
-| `afterRun(input, response, options)`                                    | After the run finishes                                        |
-| `afterExecution(context, result)`, `afterConversation(context, result)` | After the run finishes, with its result                       |
-| `afterToolExecution(context, result)`                                   | After the run finishes, if it called any tools                |
-| `onError(error, context)`                                               | When the run fails                                            |
+| Hook                                                                    | When it runs                                                     |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `beforeRun(input, options)`                                             | At the start of `run()`, after the user message is recorded      |
+| `onMessageAdded(message)`                                               | Each time a user or assistant message is added to the history    |
+| `beforeExecution(context)`                                              | Before the first model call of the run                           |
+| `beforeProviderCall(messages)`                                          | Before each model call                                           |
+| `onStreamingChunk(chunk)`                                               | For each streamed piece of text, in order                        |
+| `afterProviderCall(messages, response)`                                 | After each model reply                                           |
+| `beforeToolCall(toolName, parameters, context)`                         | Just before each tool call is dispatched                         |
+| `beforeToolExecution(context, toolData)`                                | Just before each tool call is dispatched, after `beforeToolCall` |
+| `afterToolCall(toolName, parameters, result)`                           | After each tool call returns, with its result                    |
+| `afterRun(input, response, options)`                                    | After the run finishes                                           |
+| `afterExecution(context, result)`, `afterConversation(context, result)` | After the run finishes, with its result                          |
+| `afterToolExecution(context, result)`                                   | After the run finishes, if it called any tools                   |
+| `onError(error, context)`                                               | When the run fails                                               |
 
 A hook that throws is logged as a warning; it does not fail the run.
 

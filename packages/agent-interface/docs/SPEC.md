@@ -29,8 +29,8 @@ carrier, the sealing, the record decoding and the persistence.
   types. As a regular dependency it would install `agent-core` for an importer of `analytics` or
   `tui`, which need nothing, so the packages that import the other families declare it themselves.
 - **A contract stays with its owner.** `agent-core` owns the provider contracts and every type the
-  families name from it; this package adds no re-export of them. The one exception, `TActionResponse`
-  from `transport`, stays as it was: `agent-ui-web` reaches it only through here.
+  families name from it; this package adds no re-export of them. The one exception is `TActionResponse`
+  from `transport`: `agent-ui-web` reaches it only through here.
 - **Cross-subpath imports are relative paths to the other subpath's entry file** (never the package
   name and never an internal file), so the layering test sees every edge and a build keeps each
   family in its own entry.
@@ -45,8 +45,8 @@ carrier, the sealing, the record decoding and the persistence.
   own. A consumer that needs a narrower shape declares it in its own package and states how it
   relates to the type here.
 
-The sections below keep the contract of each family unchanged by the merge; a heading names the
-subpath, and "this subpath" means that family.
+The sections below hold the contract of each family; a heading names the subpath, and "this subpath"
+means that family.
 
 ## `analytics` — usage and run traces
 
@@ -126,7 +126,7 @@ into), the plugin surfaces a command host exposes, the capability descriptors a 
 declares about itself, and the host's authority over lazily admitted skill instructions. A lazy
 instruction activation and its supporting bytes remain subject to the host's current consent and
 source; reading a supporting file grants neither another activation nor permission to execute local code. It contains type declarations only — no class, no runtime logic,
-no mechanism, and no runtime value except a small set of discriminators.
+no mechanism, and no runtime value.
 
 **This subpath declares what a command IS; it decides nothing about what any command DOES.**
 
@@ -178,7 +178,7 @@ Not owned here:
 | Command contracts                                          | `agent-interface/command`                 |
 | Transport adapter, config, channel and admission contracts | `agent-interface/transport`               |
 | The runtime that executes a background task                | `agent-executor`, `agent-subagent-runner` |
-| Persisting or projecting execution state                   | `agent-session`, `agent-transport-*`      |
+| Persisting or projecting execution state                   | `agent-session`, `agent-transport`        |
 
 ### Invariants
 
@@ -190,8 +190,8 @@ Not owned here:
   separate agent — declares a policy. A dedicated test enforces this.
 - `IBackgroundTaskError` describes the shape of a failure that crossed a boundary; this subpath
   throws nothing and decides no recovery policy itself.
-- No runtime value is exported, only types. The Interface Package Rule would allow publishing a
-  contract's vocabulary/discriminator as a runtime value; this subpath currently needs neither.
+- No runtime value is exported, only types. A contract's vocabulary or discriminator could be published
+  as a runtime value; this subpath needs neither.
 
 ### Design decisions
 
@@ -232,7 +232,7 @@ relates to the type here.
 This subpath owns the **runtime session contracts**: what an interactive session is and exposes,
 the channel a surface talks to it through, the events it emits, the handle for one turn, the
 record that persists it, and the compaction trigger. It contains type declarations only, plus the
-narrow accessors and discriminators the Interface Package Rule permits at the entry.
+narrow accessors and discriminators this package allows at the entry.
 
 ### Boundaries
 
@@ -241,7 +241,7 @@ narrow accessors and discriminators the Interface Package Rule permits at the en
 | Constructing and running a session                  | `agent-framework`, `agent-session`  |
 | Persisting a session record                         | `agent-session`                     |
 | Rendering a session to a surface                    | `agent-ui-terminal`, `agent-ui-web` |
-| Carrying a session across a wire                    | `agent-transport-*`                 |
+| Carrying a session across a wire                    | `agent-transport`                   |
 | Background tasks, job groups, subagents, workspaces | `agent-interface/execution`         |
 | Commands and capability descriptors                 | `agent-interface/command`           |
 | Usage and run-trace measurements                    | `agent-interface/analytics`         |
@@ -484,22 +484,18 @@ types — no classes, no I/O, no side effects.
   zero runtime `@robota-sdk/*` dependencies.
 - Imports no other subpath of this package, across every published surface.
 - Does not depend on `@robota-sdk/agent-framework` or any transport implementation package.
-- Implementation packages (the transport-specific packages and the headless runner) depend on this
-  package for interface types, directly from their contract owner, not through `agent-framework`.
-
-Other contract families that once lived here (command, session, background-task, subagent,
-background job-group, execution-workspace, peer messaging) have moved to their own subpaths; this
-subpath no longer re-exports them. This subpath's own export surface is exactly what its
-entry point declares — nothing broader is implied by its history as a former omnibus.
+- Transport implementations (the carriers in `agent-transport` and the headless runner in
+  `agent-framework`) depend on this package for interface types, directly from their contract owner,
+  not through `agent-framework`.
 
 ### Transport Admission
 
-Admission (which peers may reach a session) was not a member of any contract, so each transport
-package re-decided it independently and disagreed: two transports chose opposite defaults for
-whether to require a credential, and a third had no gate at all. This subpath owns the decision so
-there is one place to read and one place to change it — including the access-token admission a
-remote resource server makes, whose verdict is a closed set of refusal reasons that never carries
-token text or claim values, so logging a verdict cannot leak a credential or an identity.
+Admission (which peers may reach a session) is a member of the contract, so no transport re-decides
+it independently and ends up with a different default for whether to require a credential. This
+subpath owns the decision so there is one place to read and one place to change it — including the
+access-token admission a remote resource server makes, whose verdict is a closed set of refusal
+reasons that never carries token text or claim values, so logging a verdict cannot leak a credential
+or an identity.
 
 The resolved decision is SECURE BY DEFAULT: an explicit token wins, otherwise one is minted. A
 transport may still run open, but only by saying so explicitly, with a required written reason —
@@ -513,11 +509,11 @@ configuration must also name the subjects or clients allowed in. An external-eve
 this to exactly one principal, because the grant is what the event is attributed to: a carrier only
 moves the token and the event, and no sender name it or the payload carries is identity.
 
-The functions that produce the decision (minting, comparison, token verification) live in a
-separate Node-dependent package, not here: this subpath is inert by rule (no runtime dependency
-edges), and those functions need Node builtins for entropy and the network. A transport with no
-remote peer declares that admission does not apply to it in its own SPEC, rather than this subpath
-asserting a universal default.
+The functions that produce the decision live in `agent-transport`, not here, because this subpath is
+inert by rule (no runtime dependency edges): minting and comparison in its platform-neutral root entry,
+and access-token verification, which needs cryptography and the network, in `agent-transport/node`. A
+transport with no remote peer declares that admission does not apply to it in its own SPEC, rather
+than this subpath asserting a universal default.
 
 ### Interface Contracts
 
@@ -525,11 +521,10 @@ asserting a universal default.
 
 An adapter exposes a unique name, a required frozen lifecycle discriminant (`service` or
 `runner`), `attach(session)`, `start()`, and `stop()`. The discriminant is required, not optional —
-silence about which kind an adapter is was itself the defect: a runner used to run its entire
-prompt inside `start()`, so a caller awaiting `start()` to move on to the next step could never
-reach the point where a co-registered service actually started. Splitting the contract so a
-runner's `start()` launches and returns, with completion awaited separately, removes that
-ambiguity.
+silence about which kind an adapter is would leave it ambiguous: a runner that ran its entire prompt
+inside `start()` would keep a caller awaiting `start()` from ever reaching the point where a
+co-registered service actually started. Splitting the contract so a runner's `start()` launches and
+returns, with completion awaited separately, removes that ambiguity.
 
 `start()` resolves at the concrete package's own documented readiness boundary. Calling `start()`
 before `attach()`, or starting an already-active adapter, rejects rather than silently no-opping.

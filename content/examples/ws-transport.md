@@ -1,9 +1,5 @@
 # WebSocket Transport
 
-> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
-> 3.1.0 or later after it is published, and check the exports in your installed version.
-> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
-
 Drive an `InteractiveSession` over a WebSocket connection with `@robota-sdk/agent-transport/ws`. The
 client sends JSON messages (submit a prompt, run a command, answer a permission prompt) and receives
 the session's events as they happen.
@@ -28,7 +24,11 @@ const wss = new WebSocketServer({ host: '127.0.0.1', port: 8080 });
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 wss.on('connection', async (ws) => {
-  const session = new InteractiveSession({ cwd: process.cwd(), host: createNodeFrameworkHost({ createDefaultTools }), provider });
+  const session = new InteractiveSession({
+    cwd: process.cwd(),
+    host: createNodeFrameworkHost({ createDefaultTools }),
+    provider,
+  });
   const transport = createWsTransport({
     send: (msg) => ws.send(JSON.stringify(msg)),
     // Called once if a message cannot be delivered; the transport stops forwarding after it.
@@ -48,6 +48,10 @@ wss.on('connection', async (ws) => {
 
 `transport.onMessage` is set by `start()` and cleared by `stop()` or a delivery failure, hence the
 `?.`.
+
+A connection drives the session unless you grant less: pass `role: 'observe'` to `createWsTransport()`
+for a read-only connection that follows the session's conversation and state but cannot submit, answer
+prompts or control the session.
 
 ## Message protocol
 

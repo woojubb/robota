@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Owns the CLI session lifecycle for the Robota SDK. `Session` wraps a `ConversationAgent` agent instance
+Owns the session lifecycle for the Robota SDK. `Session` wraps a `ConversationAgent` agent instance
 with permission-gated tool execution governed by current host scheduling intent without granting
 permission or replay authority; its live observations preserve typed results, including refusals before
 execution, and registered source attribution alongside their call identity, hook-based lifecycle events, context window tracking,
@@ -82,7 +82,7 @@ location it failed — not just the first. Four decisions a consumer depends on:
 
 Absence (`missing`) is deliberately not an outcome of the decoder itself — absence is a property
 of a store, not of a value, so a store composes its own `missing` on top of the decoder's three
-outcomes. Collapsing corruption into absence is what previously let a damaged file resume as a
+outcomes. Collapsing corruption into absence would let a damaged file resume as a
 silently field-stripped session.
 
 The persisted envelope and the record it wraps share **one** version number: an incompatible
@@ -94,8 +94,8 @@ set it, optional would mean "absent is acceptable," which is the permissive read
 replaces. The version is read first; a version this build does not implement is reported as
 `unsupported` without nested field issues, because field defects measured against another
 version's shape describe the reader's expectations, not the data's condition.
-An optional omitted-prompt marker on a self-paced loop survives strict decoding and re-encoding;
-absence continues to mean an explicit or legacy instruction.
+The optional `useDefaultPrompt` marker on a self-paced loop survives strict decoding and
+re-encoding; its absence means the loop's own stored instruction.
 
 ### Session artifact (share/export)
 
@@ -131,8 +131,7 @@ round trip — a local round trip must be lossless.
   streamed reply and reasoning text, since a model that is only reasoning is still working.
 - Provider-round and permitted-tool-body completions are forwarded to the session's event bus as
   content-free observations (time, round, outcome, and a tool body's tool name — a label, never its
-  arguments or output), scoped to the active run; the public
-  `run()` call shape is unchanged and an observer failure can never replace the tool result.
+  arguments or output), scoped to the active run; an observer failure can never replace the tool result.
 - An omitted turn/round cap means the session run has no core round cap and is instead bounded by
   abort, context-window checks, provider idle timeout, and runtime-level controls.
 - The context-update callback fires twice per turn: once before the provider call (estimated,
@@ -242,8 +241,8 @@ A session's working directory is a required construction input, not derived from
 ambient working directory, and must be absolute in either platform's spelling — a drive or UNC root
 counts on a POSIX host too, since a session may drive a workspace on the other platform. Without an
 explicit root, every hook input, the permission enforcer's root, and the persisted record would
-inherit process state rather than the session's own — which previously caused a subagent to run in
-its parent's directory instead of its own workspace. It is readable back so a fork or subagent
+inherit process state rather than the session's own, and a subagent could run in its parent's
+directory instead of its own workspace. It is readable back so a fork or subagent
 derived from a session can ask which root that session actually uses instead of re-deriving one that
 could disagree.
 
@@ -316,7 +315,7 @@ path directly. Guarantees that are not obvious from the types:
   line and keeping its valid siblings — a partial recovery is never produced.
 - Recursive secret redaction runs before persistence (keys such as API keys, tokens, passwords).
 - Oversized log fields are spilled to sidecar files rather than inlined, written with an
-  exclusive-create flag rather than an existence check followed by a write — the latter was a
+  exclusive-create flag rather than an existence check followed by a write — the latter is a
   TOCTOU race between concurrent sessions externalizing the same payload. A plain sidecar's name is
   the content's own hash, so a collision on an existing file means the bytes are already identical
   and is safely ignored; a sealed sidecar's name is random, so no name says what a payload holds or

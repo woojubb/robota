@@ -7,11 +7,11 @@ same TypeScript libraries you can embed. It is a coding-capable agent within the
 direction is [our agents developing and advancing our agents](../../VISION.md). Autonomous
 self-evolution remains an ambition; the behavior below describes the current CLI. It reads your
 project, edits files and runs commands under a permission system you control, and works with
-Anthropic, OpenAI, Gemini, DeepSeek, Qwen and local OpenAI-compatible models.
+Anthropic, OpenAI, Gemini, DeepSeek, Qwen, OpenRouter and local OpenAI-compatible models.
 
 The CLI is assembled from the same packages you can use in your own app: `@robota-sdk/agent-framework`
-for the session, `@robota-sdk/agent-ui-terminal` for the terminal UI, and one package per model
-provider. To build your own agent rather than use this one, start with the
+for the session, `@robota-sdk/agent-ui-terminal` for the terminal UI, and `@robota-sdk/agent-provider`
+for the model providers. To build your own agent rather than use this one, start with the
 [SDK guide](../../content/guide/sdk.md).
 
 > **Beta.** Behavior may change before the stable release. Please
@@ -24,6 +24,15 @@ Requires Node.js 22.12.0 or later.
 ```bash
 npm install -g @robota-sdk/agent-cli   # installs the `robota` command
 npx @robota-sdk/agent-cli              # or run it once without installing
+```
+
+Without Node.js, the installer scripts download the standalone binary for your platform (macOS and
+Linux on arm64 or x64, Windows on x64) from the latest GitHub release, verify its SHA-256 and install
+it to `<configured-user-state-dir>/bin`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/woojubb/robota/main/scripts/install.sh | bash   # macOS and Linux
+irm https://raw.githubusercontent.com/woojubb/robota/main/scripts/install.ps1 | iex          # Windows PowerShell
 ```
 
 On macOS, Korean and other CJK input methods can crash inside Terminal.app; use a terminal such as
@@ -66,7 +75,7 @@ returns an endpoint only after the CLI has answered the trust and daemon command
 packages its own renderer files and the same product-bound CLI entry as the sidecar.
 
 `@robota-sdk/agent-cli/native-build` exports `buildProductNativeBinary` for host-matching Bun
-1.4.2 builds from an absolute consumer entry. It qualifies Koffi's installed native addon before
+builds (this repository builds with Bun 1.4.2) from an absolute consumer entry. It qualifies Koffi's installed native addon before
 compiling and requires an absolute consumer-maintained third-party notices file, which it copies
 beside the binary. Native addon builds require a matching macOS, Linux or Windows host; a compiled
 binary re-enters its embedded entry for workers and the daemon. The caller owns signing and desktop
@@ -142,8 +151,9 @@ a schema, and `--system-prompt` / `--append-system-prompt` change the system pro
 exit code is `0` on success and `1` on an error; `-p` exits `3` when no usable provider is
 configured, and a `--goal` run that stops without reaching its goal exits `2`. In a Git repository
 you have not trusted, print mode, `--goal`, `--serve`, `robota mcp serve`, `robota daemon start` and
-`robota session start` refuse to start; with `--safe-mode` the first four run Restricted instead, and
-`robota daemon start --restricted-workspace` starts the daemon Restricted.
+`robota session start` refuse to start; with `--safe-mode` or `--restricted-workspace` the first four
+run Restricted instead, and `robota daemon start --restricted-workspace` and
+`robota session start --restricted-workspace` start Restricted.
 
 ### Keep sessions, run them in the background, share a daemon
 
@@ -207,7 +217,8 @@ in any mode: `rm` on the root, home or working directory, and writes into `.git`
 Shell commands can also run inside an OS sandbox (bubblewrap on Linux, Seatbelt on macOS): `/sandbox`
 switches between `auto-allow`, `regular` and `off`, and the `sandbox` settings key configures it.
 A confined command cannot read the credential-bearing files under `<configured-user-state-dir>`
-(`settings.json`, `credentials/`, `mcp-credentials/`, `remote-host-identity.json`, `secure/`).
+(`settings.json`, `credentials/`, `mcp-credentials/`, `remote-host-identity.json`, `secure/`,
+`secure-v1/`).
 
 Commands the agent runs (tools, hooks, background shells, a skill's `!` commands, MCP header
 helpers) do not inherit the variables your provider profiles use as credentials — `$ENV:` references
@@ -235,8 +246,8 @@ See [Permissions and hooks](../../content/guide/permissions-and-hooks.md).
 ### Choose providers and models
 
 Each provider profile in `providers` names a `type` (`anthropic`, `openai`, `gemini`, `deepseek`,
-`qwen`, `gemma`), a model, and optionally a base URL and API key; `currentProvider` picks the one to
-use. Setup fills the key in as a reference to an environment variable:
+`qwen`, `gemma`, `openrouter`), a model, and optionally a base URL and API key; `currentProvider`
+picks the one to use. Setup fills the key in as a reference to an environment variable:
 
 | Provider type | Default key variable | Notes                                                                                |
 | ------------- | -------------------- | ------------------------------------------------------------------------------------ |
@@ -246,6 +257,7 @@ use. Setup fills the key in as a reference to an environment variable:
 | `deepseek`    | `DEEPSEEK_API_KEY`   |                                                                                      |
 | `qwen`        | `DASHSCOPE_API_KEY`  | Alibaba Cloud Model Studio                                                           |
 | `gemma`       | none                 | a local Gemma model; the base URL defaults to LM Studio's `http://localhost:1234/v1` |
+| `openrouter`  | `OPENROUTER_API_KEY` | connect in the browser (`/provider add openrouter`) or with an API key               |
 
 ```json
 {
@@ -390,7 +402,7 @@ daemon; it is not published to npm. See [The GUI and the Desktop App](../../cont
 
 `robota --serve --http-port <port>` also serves the agent over HTTP on `127.0.0.1:<port>`, so another
 application or service can use it without a Robota client library. Every request presents the
-bearer you choose in `PRODUCT_HTTP_TOKEN` (at least 32 characters); the runtime removes it from its
+bearer you choose in `ROBOTA_HTTP_TOKEN` (at least 32 characters); the runtime removes it from its
 environment, so the commands it runs do not inherit it. A command running as the same OS user can
 still read the server's launch environment unless the OS sandbox confines it (or the server runs
 as a separate user), so enable the sandbox on a server. With the bearer it binds loopback only.
@@ -398,12 +410,12 @@ as a separate user), so enable the sandbox on a server. With the bearer it binds
 To reach it from elsewhere, either put your own reverse proxy or tunnel in front, or serve it as an
 OAuth resource server, the same way `robota mcp serve` does: give `--http-public-url`, `--oauth-issuer`,
 `--oauth-scopes` and `--oauth-allowed-subjects` (optionally `--http-host <ip>` and `--trusted-proxy`)
-and no `PRODUCT_HTTP_TOKEN`. Clients then present access tokens from that issuer whose audience is the
+and no `ROBOTA_HTTP_TOKEN`. Clients then present access tokens from that issuer whose audience is the
 public URL, which carry the scopes and name an allowed subject. The routes below are served under the
 public URL's path, and its RFC 9728 metadata at `/.well-known/oauth-protected-resource<path>`.
 
 ```bash
-PRODUCT_HTTP_TOKEN="$(openssl rand -hex 32)" robota --serve --http-port 8787
+ROBOTA_HTTP_TOKEN="$(openssl rand -hex 32)" robota --serve --http-port 8787
 robota --serve --http-port 8787 --http-host 0.0.0.0 \
   --http-public-url https://agents.example.com/agent --oauth-issuer https://auth.example.com \
   --oauth-scopes agent.run --oauth-allowed-subjects client-a
@@ -431,15 +443,15 @@ would. See [Editors](../../content/guide/cli.md#editors-agent-client-protocol).
 
 `robota --serve --observer-port <port>` also opens a second WebSocket listener on
 `127.0.0.1:<port>` that only watches. It has its own token, which you choose in
-`PRODUCT_OBSERVER_TOKEN` (at least 32 characters); nothing is minted, and the runtime prints only
+`ROBOTA_OBSERVER_TOKEN` (at least 32 characters); nothing is minted, and the runtime prints only
 `Observer listening on ws://127.0.0.1:<port> (read-only)` on stderr. A client presents the token as
 `?token=` or as the WebSocket subprotocol, as on the driver listener. The token and the port must
-differ from the driver listener's and from `PRODUCT_HTTP_TOKEN` and `--http-port`: a shared
+differ from the driver listener's and from `ROBOTA_HTTP_TOKEN` and `--http-port`: a shared
 credential would let the holder of the read-only token drive through the other listener. A busy
 port fails the start instead of moving to the next one.
 
 ```bash
-PRODUCT_OBSERVER_TOKEN="$(openssl rand -hex 32)" robota --serve --observer-port 7171
+ROBOTA_OBSERVER_TOKEN="$(openssl rand -hex 32)" robota --serve --observer-port 7171
 ```
 
 An observer reads the session's conversation and state and the host's list of sessions. It cannot
@@ -485,7 +497,7 @@ Secure conversations are optional. After `secure setup`, run `secure enable` at 
 terminal with all Robota sessions closed. It verifies the keyring, migrates supported existing
 conversation data, and refuses activation if plaintext conversation data remains. Resolve anything
 it reports before trying again; it never silently discards a conversation or a forked worktree.
-Secure CLI conversations are available on macOS and Linux in this release. Windows keeps plaintext
+Secure CLI conversations are available on macOS and Linux. Windows keeps plaintext
 CLI conversations; `secure enable` and secure session startup refuse there. Secure desktop
 conversations are available on macOS.
 While secure mode is on, new conversations use the dedicated `secure-v1` storage area. The desktop
@@ -612,8 +624,7 @@ Existing E2B helpers remain exported from the CLI package; their asynchronous pr
 require that explicit SDK installation. A missing SDK refuses stock hosted startup before admission
 requests, with installation guidance, and never runs the task on the host. A host supplying its own
 `hostedRuntimeExecutorFactory` does not need E2B. Stock standalone full/headless binaries and the
-desktop's bundled runtime retain embedded E2B support; this npm installation change does not remove
-their hosted capability.
+desktop's bundled runtime embed E2B support.
 
 The executor runs the stock CLI inside the admitted worker. The runtime forwards arguments,
 input and output and owns cancellation, credential expiry and provider deletion; it does not run

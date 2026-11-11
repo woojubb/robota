@@ -62,22 +62,21 @@ The default set covers these commands, except `/shell` and `/editor`, which are 
 `agent-command-session` provides `/clear` through `/validate-session`, and `agent-command-schedule`
 provides `/schedule`, `/monitor`, and `/loop`.
 
-| Area               | Commands                                                                                                         |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Help and exit      | `/help`, `/exit`                                                                                                 |
-| Session            | `/clear`, `/rename`, `/cd`, `/resume`, `/cost`, `/validate-session`, `/fork`, `/rewind`, `/compact`, `/context`  |
-| Model and behavior | `/provider`, `/effort`, `/advisor`, `/preset`, `/output-style`, `/language`, `/mode`, `/permissions`, `/sandbox` |
-| Agents and work    | `/agent`, `/background`, `/goal`, `/plan`, `/schedule`, `/monitor`, `/loop`                                      |
-| Terminal           | `/shell`, `/editor`, `/keybindings`, `/theme`, `/statusline`                                                     |
-| Project and tools  | `/git`, `/memory`, `/skills`, `/mcp`, `/plugin`, `/reload-plugins`                                               |
-
-| Settings and state | `/settings`, `/reset`, `/user-local`, `/doctor` |
-| Other sessions | `/peers`, `/handoff`, `/events`, `/remote-control`, `/devices` |
+| Area               | Commands                                                                                                                   |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Help and exit      | `/help`, `/exit`                                                                                                           |
+| Session            | `/clear`, `/rename`, `/cd`, `/resume`, `/cost`, `/validate-session`, `/fork`, `/rewind`, `/compact`, `/context`            |
+| Model and behavior | `/provider`, `/model`, `/effort`, `/advisor`, `/preset`, `/output-style`, `/language`, `/mode`, `/permissions`, `/sandbox` |
+| Agents and work    | `/agent`, `/background`, `/goal`, `/plan`, `/schedule`, `/monitor`, `/loop`                                                |
+| Terminal           | `/shell`, `/editor`, `/keybindings`, `/theme`, `/statusline`                                                               |
+| Project and tools  | `/git`, `/memory`, `/skills`, `/mcp`, `/plugin`, `/reload-plugins`                                                         |
+| Settings and state | `/settings`, `/reset`, `/user-local`, `/doctor`                                                                            |
+| Other sessions     | `/peers`, `/handoff`, `/events`, `/remote-control`, `/devices`, `/unlock`, `/lock`                                         |
 
 `/memory correct <user|feedback|project|reference> <topic> <text>` replaces **every entry** in that topic. `/memory forget <topic>` removes the source topic file and its active index entries. Both operations are user-only and block subsequent automatic or model additions to that topic; use `correct` to deliberately restore it. Project memory retains only the current replacement or a topic tombstone in `lifecycle.json`, which remains authoritative if source cleanup is interrupted. Historical transcripts and backups remain. A configured semantic backend must support `removeTopic` for these commands; an index cleanup failure is reported, while active recall continues to read current durable source content. The next model turn refreshes its retained startup memory.
 
-`/doctor` and `/devices` are registered only when the host supplies their inputs (`doctorInputs`,
-`devicesPort`). `/doctor` also takes the probes and writers it runs through (`doctorDeps`); without
+`/doctor`, `/devices` and `/unlock` with `/lock` are registered only when the host supplies their inputs
+(`doctorInputs`, `devicesPort`, `keyCustodyPort`). `/doctor` also takes the probes and writers it runs through (`doctorDeps`); without
 them it is listed and says it is unavailable on that host. `/shell`, `/editor`, `/keybindings` and
 `/theme` belong to the terminal the user sits at: a terminal attached to a workspace daemon runs them
 itself (see `createTerminalClientCommands`).

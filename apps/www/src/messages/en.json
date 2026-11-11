@@ -61,7 +61,7 @@
       "items": [
         {
           "title": "1. Choose a supported provider",
-          "body": "Use supported adapters for Anthropic, OpenAI, DeepSeek and Gemini, or connect an OpenAI-compatible endpoint. Credentials, models and charges vary by provider."
+          "body": "Use supported adapters for Anthropic, OpenAI, Gemini, DeepSeek and Qwen, or connect an OpenAI-compatible endpoint. Credentials, models and charges vary by provider."
         },
         {
           "title": "2. Build with the SDK",
@@ -248,8 +248,7 @@
       "items": [
         "Release readiness — address critical bugs and verify core SDK and CLI journeys before considering a stable release",
         "Official GitHub Action — run __PRODUCT_DISPLAY_NAME__ as a CI bot in any workflow",
-        "Official plugins starter pack — community plugin templates: logging, Slack alerts, cost tracking, Linear integration, Datadog metrics",
-        "SDK embedding examples — Next.js, Express, and CLI script reference implementations"
+        "Official plugins starter pack — community plugin templates: logging, Slack alerts, cost tracking, Linear integration, Datadog metrics"
       ]
     },
     "later": {
@@ -289,7 +288,7 @@
     "projects": [
       {
         "name": "__PRODUCT_DISPLAY_NAME__ CLI",
-        "description": "Built by the project team from @robota-sdk/agent-framework and terminal UI packages. This reference shows how the public components can be assembled into a coding CLI; it is not a customer case study.",
+        "description": "Built by the project team from @robota-sdk/agent-framework, @robota-sdk/agent-ui-terminal and other public SDK packages. This reference shows how the public components can be assembled into a coding CLI; it is not a customer case study.",
         "highlights": [
           "Multi-provider switching",
           "Session persistence",

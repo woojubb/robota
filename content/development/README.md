@@ -27,7 +27,7 @@ A pull request must pass all five:
 ```bash
 pnpm build       # build every package
 pnpm typecheck   # TypeScript strict check
-pnpm lint        # ESLint
+pnpm lint        # ESLint, the repository-text, platform-neutrality and browser-runtime checks
 pnpm test        # every workspace package's tests, plus the scripts' tests
 pnpm deps:check  # dependency rules (dependency-cruiser)
 ```
@@ -39,8 +39,8 @@ pnpm --filter @robota-sdk/<pkg> build
 pnpm --filter @robota-sdk/<pkg> test
 ```
 
-Running the CLI writes to `<user-state>/`. A script or test that runs it points `HOME` at a temporary
-directory.
+Running the CLI writes to `<user-state>/`. A script or test that runs it points `HOME` and
+`PRODUCT_USER_STATE_DIR` at temporary directories.
 
 ## Run From Source
 
@@ -54,11 +54,15 @@ pnpm app:dev                # the desktop app: builds the page and what it bundl
 ```
 
 The CLI always runs through `scripts/dev/agent`, which starts `packages/agent-cli/src/bin.ts` with the
-`source` export condition. `cli:dev` works in the repo root; the GUI and the desktop app serve the directory
-the command was started from (or `AGENT_RUNTIME_DEV_CWD`). In a folder not trusted yet, `cli:dev` asks at the
+`product-source` export condition. `cli:dev` works in the repo root; the GUI and the desktop app serve the
+directory the command was started from (or `PRODUCT_DEV_CWD`). In a folder not trusted yet, `cli:dev` asks at the
 terminal whether to trust it (no starts Restricted); `gui:dev` asks the same at the terminal and
 `app:dev` in its window, each with trust, start Restricted, or quit. `pnpm cli:trust` trusts the repo
 root ahead of time. All of them use your own `<user-state>`.
+
+The CLI and the desktop app build on the exact SDK versions their `package.json` files pin, so a change under an
+SDK package such as `packages/agent-core` does not appear in these commands until the pin moves; their own
+sources and their private product modules run from this checkout. [ARCHITECTURE.md](../../ARCHITECTURE.md) states the rule.
 
 The desktop app reattaches to the workspace's running daemon when there is one. After changing CLI code, stop
 it in the directory the app serves, so the next `app:dev` starts a daemon on the new code:
@@ -70,10 +74,11 @@ it in the directory the app serves, so the next `app:dev` starts a daemon on the
 ## Repository Layout
 
 - `packages/` — the agent libraries (`agent-*`), their shared contracts (`agent-interface`), the
-  and the coding capability pack (`agent-product/coding`).
+  product assembly (`agent-product`, whose `coding` subpath holds the coding capability pack) and
+  `product-config`.
 - `apps/` — deployable apps, none published to npm (listed below).
-- `examples/` — runnable example projects. They are workspace members, so they build against the
-  local packages.
+- `examples/` — runnable example projects. They are private workspace members for shared tooling, and
+  each installs the published SDK from the registry, not the local packages.
 - `content/` — the docs site's pages.
 - `scripts/` — dev, docs, publish and repository-check scripts.
 
@@ -82,16 +87,16 @@ npm. [ARCHITECTURE.md](../../ARCHITECTURE.md) explains how they depend on each o
 
 The apps:
 
-| App                  | What it is                                                                                             |
-| -------------------- | ------------------------------------------------------------------------------------------------------ |
-| `docs`               | The docs site, docs.__PROJECT_WEBSITE_HOST__ (Next.js static export)                                                  |
-| `www`                | The marketing site, __PROJECT_WEBSITE_HOST__                                                                          |
-| `blog`               | The blog, blog.__PROJECT_WEBSITE_HOST__ (Astro)                                                                       |
-| `agent-app`          | The Electron desktop app: starts or reuses the workspace's `__PRODUCT_CLI_NAME__` daemon and loads the GUI           |
-| `agent-web`          | Next.js host for the browser remote-control client (`/remote`)                                         |
-| `remote-signaling`   | WebRTC signaling relay for remote control                                                              |
-| `starter-nextjs`     | Next.js starter template with one chat API route                                                       |
-| `action`             | GitHub Action that runs the CLI; not released (see [GitHub Actions](../integrations/github-action.md)) |
+| App                | What it is                                                                                                 |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `docs`             | The docs site, docs.__PROJECT_WEBSITE_HOST__ (Next.js static export)                                       |
+| `www`              | The marketing site, __PROJECT_WEBSITE_HOST__                                                               |
+| `blog`             | The blog, blog.__PROJECT_WEBSITE_HOST__ (Astro)                                                            |
+| `agent-app`        | The Electron desktop app: starts or reuses the workspace's `__PRODUCT_CLI_NAME__` daemon and loads the GUI |
+| `agent-web`        | Next.js host for the browser remote-control client (`/remote`)                                             |
+| `remote-signaling` | WebRTC signaling relay for remote control                                                                  |
+| `starter-nextjs`   | Next.js starter template with one chat API route                                                           |
+| `action`           | GitHub Action that runs the CLI; not released (see [GitHub Actions](../integrations/github-action.md))     |
 
 ## Key Rules
 
@@ -113,7 +118,7 @@ Where each kind of doc lives:
 - `content/**` — guides, examples and these pages. The docs site at docs.__PROJECT_WEBSITE_HOST__ serves them at
   `/{en,ko}/<path without .md>/` (a `README.md` is its folder's page). A Korean page comes from
   `content/ko/` when that file exists; otherwise the English page is shown. `content/images/` is not
-  rendered. Historical v2.0.0 documentation has been retired from the current workspace.
+  rendered.
 - `packages/<pkg>/docs/*.md` — the package's pages on the site, at `/{en,ko}/packages/<pkg>/` (English
   only). `docs/README.md` opens with a one-paragraph summary, which the packages index shows.
 - `packages/<pkg>/docs/SPEC.md` — the package contract.
@@ -153,10 +158,13 @@ serving a production build). The marketing site (`apps/www`, __PROJECT_WEBSITE_H
 Every package that is not `private` is published to npm under `@robota-sdk/` with its own version.
 Private packages and the apps are never published to npm.
 
-Releases publish from GitHub Actions: run the **Publish to npm** workflow (`.github/workflows/publish.yml`) on
-`main` for the selected package and approve the `npm-publish` environment. It uses npm trusted publishing (OIDC), so no npm token is
-stored anywhere and every package carries a provenance attestation. Packages are published under `latest`
-only.
+Releases publish from GitHub Actions. Run the **Publish to npm** workflow (`.github/workflows/publish.yml`) on
+`main` with the release `tag`, the `component` (`sdk` or `cli`) and, for an SDK package, its directory name as
+`package`, then approve the `npm-publish` environment. The tag must already exist and point at the same
+commit as `main`: `sdk-<package directory>-v<version>` for an SDK package (`sdk-agent-core-v3.3.0`), `v<version>`
+for the CLI (`v3.3.0`). The workflow builds and packs the package once, then publishes those exact tarballs
+with npm trusted publishing (OIDC), so no npm token is stored anywhere and every package carries a
+provenance attestation. Packages are published under `latest` only.
 
 A package's first publish cannot use trusted publishing, so the workflow refuses a release that contains a
 package npm has never seen. The owner publishes that package locally without provenance and then registers
@@ -168,7 +176,8 @@ RELEASE_PACKAGE=agent-core pnpm publish:beta
 bash scripts/publish/configure-trusted-publishers.sh @robota-sdk/<new-package>
 ```
 
-The command builds the selected package and its dependencies, verifies its tarball, and publishes that
-package only (it prompts for the npm OTP). Set `RELEASE_COMPONENT=cli` for the CLI. Publish updated
-dependencies before packages that need them. If npm authentication fails, run
-`npm login --registry https://registry.npmjs.org/`.
+The scripts require `PRODUCT_PACKAGE_SCOPE`, `PROJECT_REPOSITORY_URL` and `PROJECT_NPM_REGISTRY_URL` in
+the environment, taken from the selected product's configuration. The command builds the selected package and its dependencies,
+verifies its tarball, and publishes that package only (it prompts for the npm OTP). Set
+`RELEASE_COMPONENT=cli` for the CLI. Publish updated dependencies before packages that need them. If npm
+authentication fails, run `npm login --registry https://registry.npmjs.org/`.

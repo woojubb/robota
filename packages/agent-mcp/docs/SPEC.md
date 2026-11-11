@@ -12,9 +12,9 @@ transport seam, the canonical tools/prompts/resources catalog, and the connectio
 supervisor). Discovered tools enter the runtime through the existing generic tool slot
 (`IToolWithEventService`); no MCP-only runtime path exists.
 
-The hand-written JSON-RPC path that preceded the SDK client was removed rather than wrapped, and
-the explicitly selected revision is the same SDK client pinned to its era, not a second stack:
-two client stacks cannot both be authoritative, so each guarantee below is stated, and held, once.
+There is no hand-written JSON-RPC path beside the SDK client, and the explicitly selected revision
+is the same SDK client pinned to its era, not a second stack: two client stacks cannot both be
+authoritative, so each guarantee below is stated, and held, once.
 
 ## Non-goals / Boundaries
 

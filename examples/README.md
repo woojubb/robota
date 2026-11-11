@@ -39,9 +39,12 @@ capability. Each has its own README and a `dev` script (`tsx src/index.ts`).
 
 ## Install and run
 
-Each example is independent — install and run it separately. Copied out on its own, an example installs the
-published `@robota-sdk/*` packages from npm. Inside this repository the examples are pnpm workspace members
-linked to the local packages, so run `pnpm install && pnpm build` at the repository root first.
+Each example is independent — install and run it separately. An example installs the published `@robota-sdk/*`
+packages from npm, copied out on its own and inside this repository alike: the repository's `.npmrc` sets
+`link-workspace-packages=false`, so the examples are pnpm workspace members for shared tooling only and
+resolve their versioned `@robota-sdk/*` dependencies from the registry. The exception is
+[`capabilities/agent-eval/`](./capabilities/agent-eval/), whose outcome baselines link local packages with
+`workspace:^`, so it installs only inside this repository.
 
 The examples in this directory read their `.env` file themselves: the Slack, Discord and Telegram bots and the
 PR reviewer with `dotenv`, Next.js from `.env.local`, and the rest with Node's `process.loadEnvFile`. The
@@ -86,10 +89,12 @@ calculator and clock). Add your own tools with `additionalTools` and approve the
 
 ## Supported providers
 
-All examples default to Anthropic Claude. To use another chat provider, install its package and swap the
-provider class — see each example's README for the exact spot.
+All examples default to Anthropic Claude. Every provider is a subpath of `@robota-sdk/agent-provider`, which
+the provider-using examples already depend on. To use another chat provider, install the vendor SDK its subpath needs
+(`openai` for OpenAI, DeepSeek, Qwen and Gemma; `@google/genai` for Gemini) and swap the provider class —
+see each example's README for the exact spot.
 
-| Provider              | Package                                                  | Class                                               |
+| Provider              | Import path                                              | Class                                               |
 | --------------------- | -------------------------------------------------------- | --------------------------------------------------- |
 | Anthropic             | `@robota-sdk/agent-provider/anthropic`                   | `AnthropicProvider`                                 |
 | OpenAI                | `@robota-sdk/agent-provider/openai`                      | `OpenAIProvider`                                    |

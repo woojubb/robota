@@ -24,8 +24,8 @@ pnpm install
 pnpm build
 ```
 
-`pnpm install` also installs the git hooks: the pre-commit hook runs ESLint with `--fix` on staged
-files and refuses a commit on `main`; the commit-msg hook checks the commit message format (see
+`pnpm install` also installs the git hook (Husky): the pre-commit hook refuses a commit made
+directly on `main`. Commit messages are not checked by a hook (see
 [Commit messages](#commit-messages)).
 
 ## Checks
@@ -40,8 +40,9 @@ pnpm test        # every workspace package's tests, plus the scripts' tests
 pnpm deps:check  # dependency rules (dependency-cruiser), including no circular imports
 ```
 
-CI runs the same checks on every pull request into `develop` or `main`, plus release checks on the
-published packages and a secret scan.
+CI runs these checks on every pull request into `develop` or `main`, limited to the packages the
+change affects, plus a secret scan. The release checks on the packed packages run when a release is
+published.
 
 Other useful commands:
 
@@ -54,8 +55,8 @@ pnpm docs:dev                           # docs site dev server
 ```
 
 The CLI stores settings and sessions under its configured user state directory. A script or test that runs the CLI must
-point `HOME` at a temporary directory so it never touches your real one. Shell commands in scripts
-must work on both macOS and Linux.
+point `HOME` and `PRODUCT_USER_STATE_DIR` at temporary directories so it never touches your real
+state. Shell commands in scripts must work on both macOS and Linux.
 
 ## Workflow
 
@@ -72,9 +73,9 @@ must work on both macOS and Linux.
 3. **Make the change, with a test.** A behavior change ships with a test that fails before the
    change and passes after it.
 4. **Add a changeset** if you changed a published package (see [Changesets](#changesets)).
-5. **Open a pull request into `develop`.** One issue per pull request. Fill in the template
-   (Background, Change, Verification, `Closes #<issue>`); a bug fix names the test that failed
-   before the fix.
+5. **Open a pull request into `develop`.** One issue per pull request. Describe what changed and how
+   you verified it, and reference the issue (`Closes #<issue>`); a bug fix names the test that
+   failed before the fix.
 6. **Get CI green.** A pull request is merged only with CI green and after review. Nobody pushes to
    `develop` or `main` directly; `develop` is promoted to `main` when maintainers cut a release.
 
@@ -83,7 +84,8 @@ questions and ideas, use [GitHub Discussions](__PROJECT_REPOSITORY_URL__/discuss
 
 ## Commit messages
 
-Commits should follow [Conventional Commits](https://www.conventionalcommits.org/):
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/); no hook or CI check
+enforces the format:
 
 ```
 <type>(<optional scope>): <subject>
@@ -92,8 +94,7 @@ Commits should follow [Conventional Commits](https://www.conventionalcommits.org
 - `type` is one of `feat`, `fix`, `docs`, `refactor`, `test`, `perf`, `build`, `ci`, `chore`,
   `style`, `revert`.
 - `scope` is usually the package or area, without the `@robota-sdk/` prefix.
-- The header is at most 100 characters and the subject does not end with a period. Body lines have
-  no length limit.
+- The subject does not end with a period.
 - Write in English, in the present tense, and reference the issue.
 
 ```

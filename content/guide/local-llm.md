@@ -51,8 +51,8 @@ again, or use `/provider` inside a session, to change the provider, URL or model
 
 ### Servers with authentication enabled
 
-Use `/provider edit <profile>` inside a terminal session, or **Settings → Providers → Edit** in the
-App, to enter the optional server API key. Leaving a previously configured masked key blank keeps
+Use `/provider edit <profile>` inside a terminal session, or **Settings → Providers & Models → Edit…**
+in the App, to enter the optional server API key. Leaving a previously configured masked key blank keeps
 it unchanged; leaving a keyless profile's field blank keeps it keyless.
 
 For a terminal setup script, set an environment variable containing your server token and reference

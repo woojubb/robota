@@ -10,21 +10,22 @@ object you construct.
 npm install @robota-sdk/agent-provider @robota-sdk/agent-core
 ```
 
-The vendor SDKs are optional peer dependencies. Install the ones for the providers you import:
+The vendor SDKs are optional peer dependencies (`@anthropic-ai/sdk` `^0.114.0`, `@google/genai` `^1.52.0`,
+`openai` `^6.0.0`). Install the ones for the providers you import:
 
-| Import path                                        | Provider                                           | Install alongside        |
-| -------------------------------------------------- | -------------------------------------------------- | ------------------------ |
-| `@robota-sdk/agent-provider/anthropic`             | Anthropic Claude                                   | `@anthropic-ai/sdk`      |
-| `@robota-sdk/agent-provider/openai`                | OpenAI, and any OpenAI-compatible endpoint         | `openai`                 |
-| `@robota-sdk/agent-provider/gemini`                | Google Gemini (`/google` is a deprecated alias)    | `@google/genai`          |
-| `@robota-sdk/agent-provider/deepseek`              | DeepSeek                                           | `openai`                 |
-| `@robota-sdk/agent-provider/qwen`                  | Qwen (Alibaba DashScope)                           | `openai`                 |
-| `@robota-sdk/agent-provider/gemma`                 | Gemma and local OpenAI-compatible servers          | `openai`                 |
-| `@robota-sdk/agent-provider/bytedance`             | ByteDance ModelArk video generation                | nothing                  |
-| `@robota-sdk/agent-provider/openai-compatible`     | OpenAI wire-protocol base for your own provider    | `openai`                 |
-| `@robota-sdk/agent-provider/builtin`               | Default provider definitions for an application    | all three vendor SDKs    |
-| `@robota-sdk/agent-provider/openai/loggers`        | Console payload logger (any runtime)               | nothing                  |
-| `@robota-sdk/agent-provider/openai/node`           | File payload logger (Node only)                    | nothing                  |
+| Import path                                    | Provider                                           | Install alongside     |
+| ---------------------------------------------- | -------------------------------------------------- | --------------------- |
+| `@robota-sdk/agent-provider/anthropic`         | Anthropic Claude                                   | `@anthropic-ai/sdk`   |
+| `@robota-sdk/agent-provider/openai`            | OpenAI, and any OpenAI-compatible endpoint         | `openai`              |
+| `@robota-sdk/agent-provider/gemini`            | Google Gemini (`/google` is a compatibility alias) | `@google/genai`       |
+| `@robota-sdk/agent-provider/deepseek`          | DeepSeek                                           | `openai`              |
+| `@robota-sdk/agent-provider/qwen`              | Qwen (Alibaba DashScope)                           | `openai`              |
+| `@robota-sdk/agent-provider/gemma`             | Gemma and local OpenAI-compatible servers          | `openai`              |
+| `@robota-sdk/agent-provider/bytedance`         | ByteDance ModelArk video generation                | nothing               |
+| `@robota-sdk/agent-provider/openai-compatible` | OpenAI wire-protocol base for your own provider    | `openai`              |
+| `@robota-sdk/agent-provider/builtin`           | Default provider definitions for an application    | all three vendor SDKs |
+| `@robota-sdk/agent-provider/openai/loggers`    | Console payload logger (any runtime)               | nothing               |
+| `@robota-sdk/agent-provider/openai/node`       | File payload logger (Node only)                    | nothing               |
 
 ```typescript
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';

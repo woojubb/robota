@@ -1,6 +1,6 @@
 ---
 title: Model Context Protocol (MCP)
-description: Connect the __PRODUCT_CLI_NAME__ CLI to remote MCP servers, sign in with OAuth, serve an Robota session to other MCP clients with __PRODUCT_CLI_NAME__ mcp serve, and admit verified external events.
+description: Connect the __PRODUCT_CLI_NAME__ CLI to remote MCP servers, sign in with OAuth, serve a Robota session to other MCP clients with __PRODUCT_CLI_NAME__ mcp serve, and admit verified external events.
 ---
 
 # Model Context Protocol (MCP)
@@ -38,7 +38,7 @@ Read this first. `/mcp approve <server>` connects the server in the session wher
 the approval is kept in `<user-state>/mcp-approvals.json`, so the server also connects at later starts
 until its definition, its source or the workspace changes. So:
 
-| Server definition                                   | In the `__PRODUCT_CLI_NAME__` CLI                                                                                                                   |
+| Server definition                                   | In the `__PRODUCT_CLI_NAME__` CLI                                                                                                     |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Remote (`"type": "http"`) with `oauth`              | Connects once you run `/mcp approve <server>` and then `/mcp login <server>`.                                                         |
 | Remote without `oauth` (static headers or a helper) | Connects once you run `/mcp approve <server>`; a helper must also be allowed (see below).                                             |
@@ -54,9 +54,9 @@ own approval store (`mcpApprovalStore`) in place of that file, and per-server st
 Servers are defined under an `mcpServers` key in the same settings files as the rest of Robota's
 configuration:
 
-| File                                                         | Scope                              |
-| ------------------------------------------------------------ | ---------------------------------- |
-| `<user-state>/settings.json`, `~/.claude/settings.json`         | user                               |
+| File                                                                 | Scope                              |
+| -------------------------------------------------------------------- | ---------------------------------- |
+| `<user-state>/settings.json`, `~/.claude/settings.json`              | user                               |
 | `<project-state>/settings.json`, `.claude/settings.json`             | project (loaded only when trusted) |
 | `<project-state>/settings.local.json`, `.claude/settings.local.json` | local (loaded only when trusted)   |
 
@@ -170,13 +170,13 @@ non-integer value discards that file's whole `mcp` object. If `autoBackgroundMs`
 `callTimeoutMs`, the handoff is off and a diagnostic says so. Print mode (`-p`) never hands off; a
 call there runs to completion, bounded by `callTimeoutMs`.
 
-## Serving an Robota session over MCP
+## Serving a Robota session over MCP
 
 `__PRODUCT_CLI_NAME__ mcp serve` runs one Robota session as an MCP server, in the directory you start it from. It
 passes the same trust check as other headless starts. All notices go to stderr; stdout carries only
 MCP frames.
 
-The server offers the session's tools under their own names, plus `__PRODUCT_MODEL_TOOL_PREFIX___submit`, which takes
+The server offers the session's tools under their own names, plus `__PRODUCT_CLI_NAME___submit`, which takes
 `{ "prompt": "..." }`, runs a turn and returns its response. It does not advertise MCP resources or
 prompts. By default nobody can answer a permission or ask prompt, so a call that would ask fails as
 a tool error — allow what the client should use with [permission rules](./permissions-and-hooks.md).
@@ -293,20 +293,20 @@ background session, `__PRODUCT_CLI_NAME__ session events list <id>` and `__PRODU
 
 ### Commands
 
-| Command                                                    | What it does                                                                                      |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `/mcp` or `/mcp status`                                    | Every server's name, approval state, scope, reason and OAuth sign-in state. The model may run it. |
-| `/mcp approve <server>`                                    | Trust a server, connect it now, and keep the approval for later sessions.                         |
-| `/mcp reload`                                              | Retry every server that is not connected, and add the tools of those that connect.                |
-| `/mcp reject <server>`                                     | Refuse a server.                                                                                  |
-| `/mcp revoke <server>`                                     | Withdraw an earlier approval.                                                                     |
-| `/mcp login <server> [--no-browser]`                       | Sign in to an OAuth server and connect it in this session.                                        |
-| `/mcp logout <server>`                                     | Sign out and revoke the tokens.                                                                   |
+| Command                                                                                           | What it does                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/mcp` or `/mcp status`                                                                           | Every server's name, approval state, scope, reason and OAuth sign-in state. The model may run it.                                                        |
+| `/mcp approve <server>`                                                                           | Trust a server, connect it now, and keep the approval for later sessions.                                                                                |
+| `/mcp reload`                                                                                     | Retry every server that is not connected, and add the tools of those that connect.                                                                       |
+| `/mcp reject <server>`                                                                            | Refuse a server.                                                                                                                                         |
+| `/mcp revoke <server>`                                                                            | Withdraw an earlier approval.                                                                                                                            |
+| `/mcp login <server> [--no-browser]`                                                              | Sign in to an OAuth server and connect it in this session.                                                                                               |
+| `/mcp logout <server>`                                                                            | Sign out and revoke the tokens.                                                                                                                          |
 | `__PRODUCT_CLI_NAME__ mcp add <exa\|parallel>`, `__PRODUCT_CLI_NAME__ mcp add <name> <https-url>` | Add an HTTP server to your user settings and approve it in one step; it connects at the next start. `exa` and `parallel` are keyless web search servers. |
-| `__PRODUCT_CLI_NAME__ mcp login <name> [--client-secret] [--no-browser]` | Sign in from a terminal; tokens are kept for later sessions.                                      |
-| `__PRODUCT_CLI_NAME__ mcp logout <name>`                                 | Sign out from a terminal.                                                                         |
-| `__PRODUCT_CLI_NAME__ mcp serve [options]`                               | Serve one session over stdio, loopback HTTP or remote HTTP.                                       |
-| `/events`, `/events revoke <grant-id>`                     | List or withdraw this session's external-event grants.                                            |
+| `__PRODUCT_CLI_NAME__ mcp login <name> [--client-secret] [--no-browser]`                          | Sign in from a terminal; tokens are kept for later sessions.                                                                                             |
+| `__PRODUCT_CLI_NAME__ mcp logout <name>`                                                          | Sign out from a terminal.                                                                                                                                |
+| `__PRODUCT_CLI_NAME__ mcp serve [options]`                                                        | Serve one session over stdio, loopback HTTP or remote HTTP.                                                                                              |
+| `/events`, `/events revoke <grant-id>`                                                            | List or withdraw this session's external-event grants.                                                                                                   |
 
 Approval states: `approved`, `pending` (no decision yet), `rejected`, `revoked`, `stale` (the
 definition, its source or the workspace changed since approval), `untrusted` (a project or local
@@ -343,7 +343,7 @@ sign-in required, signed out.
 | `mcpServers`                                | Server definitions, in any settings file listed above.   |
 | `mcpHeaderHelpers`                          | Allowed header-helper command lines; user settings only. |
 | `mcp.autoBackgroundMs`, `mcp.callTimeoutMs` | Tool-call handoff threshold and time limit.              |
-| `<user-state>/mcp-credentials/`                | OAuth tokens for remote servers, owner-only.             |
+| `<user-state>/mcp-credentials/`             | OAuth tokens for remote servers, owner-only.             |
 
 ### Security model
 
@@ -384,12 +384,12 @@ sign-in required, signed out.
 | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | ``MCP definition "<name>" … was refused: no `type` …``                                    | Add `"type": "http"` (or `"stdio"`) to the entry.                                                   |
 | `MCP server "<name>" was not admitted (pending)`                                          | Run `/mcp approve <name>`, then `/mcp login <name>` for an OAuth server.                            |
-| `MCP server "<name>" was not admitted (untrusted)`                                        | The definition is in project settings; run `__PRODUCT_CLI_NAME__ trust --yes`.                                    |
+| `MCP server "<name>" was not admitted (untrusted)`                                        | The definition is in project settings; run `__PRODUCT_CLI_NAME__ trust --yes`.                      |
 | `MCP server "<name>" stdio was refused: missing host authority.`                          | The CLI does not start stdio servers from settings (see above).                                     |
 | `Signed in to MCP server <name>, but it is not approved for this session`                 | Run `/mcp approve <name>`; it retries the connection using the existing sign-in.                    |
 | `Sign-in … failed (browser-failed)`                                                       | Use `/mcp login <name> --no-browser`.                                                               |
-| `A client secret is never typed into a session.`                                          | Run `__PRODUCT_CLI_NAME__ mcp login <name> --client-secret` in a terminal.                                        |
-| `"mcpHeaderHelpers" in <file> was ignored: only user settings may allow a header helper.` | Move the list to `<user-state>/settings.json` or `~/.claude/settings.json`.                            |
+| `A client secret is never typed into a session.`                                          | Run `__PRODUCT_CLI_NAME__ mcp login <name> --client-secret` in a terminal.                          |
+| `"mcpHeaderHelpers" in <file> was ignored: only user settings may allow a header helper.` | Move the list to `<user-state>/settings.json` or `~/.claude/settings.json`.                         |
 | `Remote authorization requires … together`                                                | Pass all of `--http-public-url`, `--oauth-issuer`, `--oauth-scopes` and `--oauth-allowed-subjects`. |
 
 ## Related

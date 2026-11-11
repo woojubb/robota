@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Terminal UI presentation for the Robota SDK — the React + Ink interactive renderer. Split out of
-the former consolidated transport package so that React/Ink/node-pty stay isolated to this package
-and never enter the dependency graph of non-TUI consumers.
+Terminal UI presentation for the Robota SDK — the React + Ink interactive renderer. It stays apart
+from the transport packages so that React and Ink stay isolated to this package and never enter the
+dependency graph of non-TUI consumers.
 
 ## Transport admission
 
@@ -24,9 +24,11 @@ authenticate; the OS user who started the process is the boundary.
   it sends ends the host's session, and a question left open stays open for the other clients.
   Attached to observe, it sends only what an observer may send and refuses everything else with a
   notice, so the host never has to refuse it.
-- Depends on the TUI interaction contracts, the framework's interactive-session runtime and the
-  carrier-neutral session wire messages; does not depend on any transport implementation package,
-  and no transport package depends on this one.
+- Depends on the interaction contracts of `@robota-sdk/agent-interface`, the framework's
+  interactive-session runtime and the carrier-neutral session wire messages of
+  `@robota-sdk/agent-transport/client`; imports no carrier subpath of `@robota-sdk/agent-transport`
+  (`ws`, `http`, `mcp`, `acp`, `webrtc`, `link`), and `agent-transport` does not depend on this
+  package.
 - Exports no generic transport-adapter type. A channel that ignores the session handed to it and
   constructs a different one through the renderer would not be an honest implementation of that
   port — `renderApp` and the interaction channel are the only supported session-owning surfaces.
@@ -202,9 +204,9 @@ whoever has the terminal, including a passphrase the console prompt reads throug
 
 During focused text entry, the real terminal cursor is positioned at the composition point (rather
 than only drawing a fake cursor glyph) so the OS input-method window appears at the right place.
-This is opt-in and off by default specifically for one known-incompatible terminal, because hardware
-testing found it placed the composition window in the wrong location even without crashing — a
-wrong placement is worse than the plain drawn-cursor fallback it replaces.
+It is on for an interactive terminal and off otherwise, and the host can force it either way.
+macOS Terminal.app is the one terminal where it is off unless the host opts in: its input method
+crashed there before, and it stays off until the fix is confirmed on real hardware.
 
 ## Extension points
 

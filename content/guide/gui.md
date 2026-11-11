@@ -31,14 +31,15 @@ __PRODUCT_CLI_NAME__ --serve --open
 ```
 
 It starts a runtime, serves the GUI on `http://127.0.0.1:<port>` and opens it in your default
-browser. The page connects to the runtime over a loopback WebSocket with a token the CLI puts in the
-page, so another page in your browser cannot connect to it. The runtime stops when you stop the
-command (Ctrl+C). It is not the workspace daemon: `__PRODUCT_CLI_NAME__ --attach` and the desktop app do not see
-it.
+browser. The command needs an interactive terminal: it prints `Monitor access code: …`, and the
+browser shows a form that asks for that code before it serves the page. The page then connects to the
+runtime over a loopback WebSocket with a token the CLI puts in the page, so another page in your
+browser cannot connect to it. The runtime stops when you stop the command (Ctrl+C). It is not the
+workspace daemon: `__PRODUCT_CLI_NAME__ --attach` and the desktop app do not see it.
 
 In a folder you have not decided about, `__PRODUCT_CLI_NAME__ --serve --open` asks in the terminal before it
-starts: `y` trusts the folder, `r` starts Restricted, and anything else quits. Plain `--serve`, and
-`--serve --open` with no terminal to ask on, refuse instead and name both ways past:
+starts: `y` trusts the folder, `r` starts Restricted, and anything else quits. Plain `--serve` refuses
+instead, and so does `--serve --open` when its terminal cannot answer; both name the ways past:
 `__PRODUCT_CLI_NAME__ trust --yes`, or `--restricted-workspace`. See [the first run](#the-first-run).
 
 ### The desktop app
@@ -48,11 +49,9 @@ The desktop app is released as installers on
 `__PRODUCT_ARTIFACT_PREFIX__-desktop-<version>-<arch>`: a `.dmg` or `.zip` for macOS, an `.exe` for Windows, and an
 `.AppImage` or `.deb` for Linux. It is not published to npm.
 
-The installers are **not code-signed** yet, so the operating system stops or warns on the
-first launch:
+The macOS disk image is signed and notarized. The Windows and Linux installers are **not
+code-signed**, so the operating system can warn on the first launch:
 
-- **macOS** refuses to open it. After the first attempt, open **System Settings → Privacy & Security**
-  and choose **Open Anyway** for Robota.
 - **Windows** SmartScreen warns. Choose **More info**, then **Run anyway**.
 - **Linux**: make the AppImage executable (`chmod +x __PRODUCT_ARTIFACT_PREFIX__-desktop-*.AppImage`) before running it.
 
@@ -70,7 +69,7 @@ See [the workspace daemon](./sessions-and-daemon.md#walkthrough-the-workspace-da
 
 Secure conversations are optional. Enable them from an interactive terminal with
 `__PRODUCT_CLI_NAME__ secure setup` and `__PRODUCT_CLI_NAME__ secure enable` after closing Robota sessions.
-The secure desktop window is available on macOS in this release.
+The secure desktop window is available on macOS only.
 The app then opens on a locked screen. Choose **File → Unlock Secure Conversation…** and enter the
 passphrase in the native window. Reloading or closing the window locks the conversation; an unsent
 draft and attachment paths are discarded. To return to plaintext for **new** conversations, close
@@ -222,7 +221,6 @@ A `__PRODUCT_CLI_NAME__ --serve --open` runtime is separate from the daemon, so 
 
 ## What the GUI cannot do yet
 
-- **Choose a folder in the desktop app.** See the note under [the desktop app](#the-desktop-app).
 - **Attach images or other non-text files**, or attach anything from a browser.
 - **Add or edit an MCP server.** Configure servers in settings files; Settings turns them on or off.
 - **Create a schedule or a goal from a form.** Use `/schedule` and `/goal`; the Agents panel then
@@ -233,15 +231,16 @@ A `__PRODUCT_CLI_NAME__ --serve --open` runtime is separate from the daemon, so 
   device stays in the terminal. Typing one of them in the GUI says what to use instead.
 - **Show Advisor settings, or sandbox options beyond on and off, on a screen.** Use `/advisor` and
   `/sandbox`.
-- **Install a signed desktop app.** The installers remain unsigned.
+- **Install a signed desktop app on Windows or Linux.** Those installers are unsigned.
 
 ## Troubleshooting
 
-| Message or symptom                                               | What to do                                                                                                                                                        |
-| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Workspace trust is required before headless startup (state: …)` | Plain `--serve`, or `--serve --open` with no terminal to ask on, in an untrusted folder. Run `__PRODUCT_CLI_NAME__ trust --yes`, or add `--restricted-workspace`. |
-| `Robota web assets not found (dist/web) — run a full CLI build.` | A source checkout without the GUI build. Run `pnpm build` at the repository root.                                                                                 |
-| **The agent process stopped:** …                                 | Follow the message, then choose **Try again**.                                                                                                                    |
+| Message or symptom                                                                 | What to do                                                                                                                                                       |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Workspace trust is required before headless startup (state: …)`                   | Plain `--serve`, or `--serve --open` whose terminal cannot ask, in an untrusted folder. Run `__PRODUCT_CLI_NAME__ trust --yes`, or add `--restricted-workspace`. |
+| `Opening the monitor requires an interactive terminal for its access code.`        | `--serve --open` ran without a terminal. Run it at a terminal, or use the desktop app.                                                                           |
+| `__PRODUCT_DISPLAY_NAME__ web assets not found (dist/web) — run a full CLI build.` | A source checkout without the GUI build. Run `pnpm build` at the repository root.                                                                                |
+| **The agent process stopped:** …                                                   | Follow the message, then choose **Try again**.                                                                                                                   |
 
 ## Related
 

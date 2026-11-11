@@ -40,6 +40,7 @@ Fill in `.env` (the app loads it with `dotenv`):
 | `SLACK_APP_TOKEN`      | App-Level Token with `connections:write` (`xapp-...`) |
 | `SLACK_SIGNING_SECRET` | Signing secret from Basic Information                 |
 | `ANTHROPIC_API_KEY`    | Anthropic API key (`sk-ant-...`)                      |
+| `EXAMPLE_STATE_ROOT`   | Directory where session records are written           |
 
 ## Running
 

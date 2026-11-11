@@ -1,16 +1,21 @@
 # @robota-sdk/agent-remote-pairing
 
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
-
 Pairing and DTLS-fingerprint channel binding for Robota's peer-to-peer remote control, plus the identity
 primitives that let one user's devices recognise each other. A host uses it to prove that a connecting
 peer holds a single-use pairing secret, and binds that proof to the actual DTLS channel each side
 observes, so a signaling relay sitting in the middle is detected and the connection refused.
 
-The main entry point uses only WebCrypto and standard web APIs, with no `node:` imports and no WebRTC
-dependency, so the same code runs on the Node host and in the browser client. It never opens a
-connection itself: the caller supplies the DTLS fingerprints and a way to send frames.
+The main entry point uses only WebCrypto and standard web APIs (plus `@scure/bip39` for the recovery
+phrase), with no `node:` imports and no WebRTC dependency, so the same code runs on the Node host and in
+the browser client. It never opens a connection itself: the caller supplies the DTLS fingerprints and a
+way to send frames.
+
+The handshake, reconnect, enrollment and device-handshake controllers, and the functions that issue or
+verify certificates, lists, grants and rendezvous values, take an `IIdentityContext` as their first
+argument. `createIdentityContext(namespace)` builds one from a host-selected, non-secret namespace
+(letters, digits, `.`, `_` and `-`, starting with a letter or digit, at most 128 characters). The
+namespace separates this host's HKDF salts and signed statements from every other host's, so both peers
+must use the same one.
 
 ## Installation
 
@@ -29,6 +34,7 @@ Requires Node.js 22.12 or later, or a browser with WebCrypto.
 
 ```ts
 import {
+  createIdentityContext,
   decodePairingFrame,
   extractDtlsFingerprint,
   generatePairingSecret,
@@ -43,13 +49,16 @@ declare const channel: {
   onMessage(handler: (raw: string) => void): void;
 };
 
+// Both peers build the same identity context from the host's namespace.
+const context = createIdentityContext('my-product');
+
 // Host: create the secret and a pairing link. The secret lives in the URL fragment, which a browser
 // never sends to a server.
 const pairing = generatePairingSecret();
 const link = toPairingUrl('https://remote.example/app', pairing);
 
 // Once the data channel is open, both peers run the handshake (the initiator is the WebRTC offerer).
-const handshake = startPairingHandshake({
+const handshake = startPairingHandshake(context, {
   secret: pairing.secret,
   role: 'initiator',
   localFingerprint: extractDtlsFingerprint(localSdp),
@@ -75,8 +84,8 @@ const { sessionKey } = await handshake.result;
 
 In practice you rarely call this directly: `WebRtcTransport` in
 [`@robota-sdk/agent-transport/webrtc`](../agent-transport/docs/webrtc.md) runs the host side when you
-give it a `secret`, and the browser client in `apps/agent-web` (`src/remote-client`) runs the
-responder side.
+give it a `cryptoContext` and a `secret`, and the browser client in `apps/agent-web`
+(`src/remote-client`) runs the responder side.
 
 ### Why a keyed confirmation and not a PAKE
 
@@ -93,7 +102,8 @@ one.
 - **Reconnect:** `generateIdentityKeyPair` and the related key helpers give each device a long-lived key.
   `startHostReconnect` / `startDeviceReconnect` let a previously paired device and host reconnect without
   a new pairing secret, each verifying the other's signature against the key it pinned; every reconnect
-  meets at a fresh rendezvous from `deriveReconnectRendezvous`.
+  meets at a fresh rendezvous from `deriveReconnectRendezvous`, seeded from the pairing's session key by
+  `deriveReconnectSeed`.
 - **Same-user identity:** a chain of three keys. A master key derived from a recovery phrase
   (`generateRecoveryPhrase`, `deriveMasterKey`) certifies short-lived signing keys (`certifySigningKey`),
   which certify devices (`certifyDevice`) and issue signed device rosters and revocation lists.

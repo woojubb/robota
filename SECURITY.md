@@ -2,9 +2,8 @@
 
 ## Supported Versions
 
-Robota is under active development toward a stable release. Security fixes are applied to the **latest
-published release** on the `main` line. Older pre-release versions are not maintained — please upgrade to the
-latest release before reporting.
+Robota is under active development. Security fixes are applied to the **latest published release** on the
+`main` line. Older releases are not maintained — please upgrade to the latest release before reporting.
 
 | Version        | Supported          |
 | -------------- | ------------------ |

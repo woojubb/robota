@@ -11,6 +11,8 @@ run on Gemini models with streaming and tool calling. It also implements agent-c
 npm install @robota-sdk/agent-provider @robota-sdk/agent-core @google/genai
 ```
 
+`@google/genai` is an optional peer dependency of the package (`^1.52.0`).
+
 ## Usage
 
 ```typescript
@@ -130,10 +132,11 @@ response without an image, returns `PROVIDER_UPSTREAM_ERROR`.
 - `GeminiProvider` and its option types (`IGeminiProviderOptions`, `IGeminiThinkingConfig`,
   `IGeminiSafetySetting`).
 - `createGeminiProviderDefinition()`: the provider definition used by Robota's built-in provider
-  registry (type `gemini`, alias `google`), with its default constants (for example
-  `DEFAULT_GEMINI_PROVIDER_MODEL`).
-- `@robota-sdk/agent-provider/google`: the deprecated `GoogleProvider` compatibility alias
-  (registers as `google`). New code should use `GeminiProvider`.
+  registry (type `gemini`, alias `google`), with its default constants:
+  `DEFAULT_GEMINI_PROVIDER_MODEL` (`gemini-3-flash-preview`) and the API-key reference
+  `$ENV:GEMINI_API_KEY` (`DEFAULT_GEMINI_PROVIDER_API_KEY_REFERENCE`).
+- `@robota-sdk/agent-provider/google`: the `GoogleProvider` compatibility alias, a `GeminiProvider`
+  subclass that registers as `google`, with `IGoogleProviderOptions`. New code should use `GeminiProvider`.
 
 ## Related packages
 
@@ -146,7 +149,7 @@ response without an image, returns `PROVIDER_UPSTREAM_ERROR`.
 - [`@robota-sdk/agent-provider/builtin`](./builtin.md): the default provider
   definitions, including this one.
 
-See [docs/SPEC.md](docs/SPEC.md) for the package contract.
+See [SPEC.md](SPEC.md) for the package contract.
 
 ## License
 

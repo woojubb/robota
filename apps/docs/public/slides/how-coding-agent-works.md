@@ -36,12 +36,12 @@ Recently, while using Claude Code every day, I learned about the concept of AGEN
 
 ### Robota SDK structure
 
-| Layer          | Packages                           | Role                                             |
-| -------------- | ---------------------------------- | ------------------------------------------------ |
-| Core libraries | `agent-core, sessions, tools, sdk` | Execution loop, conversation management, plugins |
-| AI providers   | `anthropic / openai / google`      | Claude, GPT-4, Gemini                            |
-| Plugins (9)    | `agent-plugin-*`                   | Logging, analytics, errors, performance, etc.    |
-| Others         | `team, remote, mcp`                | Multi-agent, remote, MCP                         |
+| Layer          | Packages                                                  | Role                                           |
+| -------------- | --------------------------------------------------------- | ---------------------------------------------- |
+| Core libraries | `agent-core, agent-session, agent-tools, agent-framework` | Execution loop, conversation management, tools |
+| AI providers   | `agent-provider` (`anthropic / openai / gemini / ...`)    | Claude, GPT, Gemini, DeepSeek, Qwen, Gemma     |
+| Plugins (8)    | `agent-plugin`                                            | Logging, analytics, errors, performance, etc.  |
+| Others         | `agent-roundtable, agent-transport, agent-mcp`            | Multi-agent, transports (incl. remote), MCP    |
 
 ---
 
@@ -71,15 +71,17 @@ The core of a coding agent comes down to these three things: `system prompt` + `
 
 > Put these in your project folder and the agent picks them up automatically
 
-A coding agent scans specific folders in the project root and automatically loads skills, hooks, and settings.
+A coding agent scans specific folders in the project root and automatically loads skills, hooks, and settings. `<project-state>` is the product's own project folder (`.robota/` for Robota).
 
-| Path                    | Contents                                             |
-| ----------------------- | ---------------------------------------------------- |
-| `.agents/skills/`       | Project-specific skills — runnable as slash commands |
-| `.agents/rules/`        | Project rules — referenced from AGENTS.md            |
-| `.agents/tasks/`        | Backlog and tracking of work in progress             |
-| `.claude/settings.json` | Hook settings, permission allow/deny lists           |
-| `.claude/commands/`     | Claude Code custom commands                          |
+| Path                                                            | Contents                                              |
+| --------------------------------------------------------------- | ----------------------------------------------------- |
+| `<project-state>/skills/`, `.claude/skills/`, `.agents/skills/` | Project-specific skills — runnable as slash commands  |
+| `.claude/commands/`                                             | Claude Code custom commands                           |
+| `<project-state>/agents/`, `.agents/agents/`, `.claude/agents/` | Subagent definitions                                  |
+| `<project-state>/settings.json`, `.claude/settings.json`        | Hook settings, permission allow/deny lists            |
+| `<project-state>/tasks/`                                        | Work items injected into the system prompt as context |
+
+Files named `settings.local.json` next to the settings files hold local overrides.
 
 ---
 
@@ -100,7 +102,7 @@ I thought I would need dozens of tools at first, but in practice 6 handled almos
 | `Glob`  | Search for files    | \*_/_.ts pattern matching        |
 | `Grep`  | Search contents     | Find a function name in the code |
 
-The LLM freely combines and calls these tools. It reads files, edits them, runs tests, and checks the results. It's exactly what a developer does in a terminal.
+The LLM freely combines and calls these tools. It reads files, edits them, runs tests, and checks the results. It's exactly what a developer does in a terminal. The default tool set also has `WebFetch` and `AskUserQuestion`.
 
 ---
 
@@ -131,20 +133,22 @@ In each round, the LLM response is output in real time, token by token (streamin
 
 The agent edits files and runs shell commands. Permissions are evaluated before every tool call is executed.
 
-### Three-stage evaluation
+### Evaluation order
 
 - deny list — patterns that are explicitly blocked (e.g. rm -rf /)
+- always-ask calls — an ask list, removing a critical path (the root or home directory), and writing to protected files such as `.git` or `.claude` ask in every mode
 - allow list — patterns that are pre-approved (e.g. pnpm test:\*)
 - mode policy — everything else is decided by the current mode
 
-### Four modes
+### Five modes
 
-| Mode              | Behavior                                                    |
-| ----------------- | ----------------------------------------------------------- |
-| plan              | Reads only; all edits are blocked                           |
-| default           | Asks the user to confirm risky tools                        |
-| acceptEdits       | File edits auto-approved; only shell commands are confirmed |
-| bypassPermissions | Everything auto-approved (dangerous)                        |
+| Mode              | Behavior                                                                        |
+| ----------------- | ------------------------------------------------------------------------------- |
+| plan              | Reads only; edits and shell commands are blocked                                |
+| default           | Asks the user to confirm risky tools                                            |
+| acceptEdits       | File edits auto-approved; only shell commands are confirmed                     |
+| auto              | Reads and edits auto-approved; shell commands are decided by a model classifier |
+| bypassPermissions | Everything auto-approved except deny rules and always-ask calls (dangerous)     |
 
 ---
 
@@ -156,15 +160,16 @@ The agent edits files and runs shell commands. Permissions are evaluated before 
 
 Custom logic gets inserted at various points in the coding agent's flow. Hooks run not only before and after tool execution, but also at session start/end and right after user input.
 
-| Hook event         | When                  | Example use                                    |
-| ------------------ | --------------------- | ---------------------------------------------- |
-| `PreToolUse`       | Before tool execution | Branch protection, blocking dangerous commands |
-| `PostToolUse`      | After tool execution  | Auto-formatting, running lint                  |
-| `SessionStart`     | Session start         | Loading context, status checks                 |
-| `Stop`             | Session end           | Saving logs, cleanup tasks                     |
-| `UserPromptSubmit` | After user input      | Input preprocessing, validation                |
+| Hook event         | When                             | Example use                                    |
+| ------------------ | -------------------------------- | ---------------------------------------------- |
+| `PreToolUse`       | Before tool execution            | Branch protection, blocking dangerous commands |
+| `PostToolUse`      | After tool execution             | Auto-formatting, running lint                  |
+| `SessionStart`     | Session start                    | Loading context, status checks                 |
+| `SessionEnd`       | Session shutdown                 | Saving logs, cleanup tasks                     |
+| `Stop`             | After a turn's response is done  | Notifications, per-turn checks                 |
+| `UserPromptSubmit` | Before the prompt goes to the AI | Adding context to the prompt                   |
 
-Hooks can be implemented in several ways: shell commands, HTTP calls, prompts, and agent runs.
+Only `PreToolUse` can block; the other events observe. Hooks can be implemented in several ways: shell commands, HTTP calls, prompts, agent runs, and guardrails.
 
 ---
 
@@ -176,16 +181,18 @@ Hooks can be implemented in several ways: shell commands, HTTP calls, prompts, a
 
 The file state is snapshotted automatically on every prompt. Only files modified through the Write and Edit tools are tracked; files changed by Bash commands (rm, mv, etc.) are not.
 
-### Rewind options
+### Rewind commands
 
-| Option                      | Behavior                                                               |
-| --------------------------- | ---------------------------------------------------------------------- |
-| Restore code + conversation | Rewinds both files and conversation to that point                      |
-| Restore conversation only   | Rewinds the conversation but keeps the current files                   |
-| Restore code only           | Rewinds the files but keeps the conversation                           |
-| Summarize from here         | Compresses the conversation after the selected point (no file changes) |
+| Command                                   | Behavior                                                                                  |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `/rewind` (or `list`)                     | Lists the session's edit checkpoints                                                      |
+| `/rewind inspect <id>`                    | Shows the files a checkpoint captured and what a restore or rollback would touch          |
+| `/rewind restore <id>` (or `code <id>`)   | Reverts files to how they were after that checkpoint's prompt; later checkpoints are kept |
+| `/rewind rollback <id>`                   | Reverts through that checkpoint, back to before its prompt; the rolled-back ones are kept |
+| `/rewind fork <id>`                       | Reverts files like `restore` and starts a new branch; the previous future stays reachable |
+| `/rewind switch <id>`, `/rewind branches` | Switches to a branch tip; lists the branch tips                                           |
 
-Checkpoints are for quick, session-level recovery. They don't replace Git.
+Rewind restores files only; the conversation is not rewound. Checkpoints are for quick, session-level recovery. They don't replace Git.
 
 ---
 
@@ -250,10 +257,12 @@ After figuring all this out, I was confident I could build it with my SDK. Once 
 
 I stacked layers on top of the existing Robota SDK:
 
-- `agent-cli` — terminal UI (Ink/React)
-- `agent-sdk` — InteractiveSession, commands, skills, plugins
-- `agent-sessions` — Session, permissions, hooks, context
-- `agent-core` — the Robota library, providers, tools, execution loop
+- `agent-cli` — the `robota` command: assembles the product and binds the terminal UI, print mode, and `--serve`
+- `agent-ui-terminal` — terminal UI (Ink/React)
+- `agent-framework` — InteractiveSession, commands, skills, plugins
+- `agent-session` — Session, permission enforcement, hooks, context window, compaction
+- `agent-core` — the agent class (`ConversationAgent`, also exported as `Robota`), tool contract, execution loop
+- `agent-tools`, `agent-provider` — the default tools and the provider implementations
 
 ---
 
@@ -281,7 +290,7 @@ For people who use Claude Code to switch over, you need all the familiar feature
 
 ### System
 
-- Four permission modes, hook system
+- Five permission modes, hook system
 - Subagent execution
 - Non-interactive mode (Headless Transport)
 - Model selection, language setting, first-run setup
@@ -338,13 +347,13 @@ Thanks to this structure, resuming sessions, displaying history, and tracking ev
 
 > Five ways to manage the context
 
-| Strategy                | Description                                                        |
-| ----------------------- | ------------------------------------------------------------------ |
-| Early detection         | Estimate tokens (chars/2) before every round. Warn when over 83.5% |
-| Auto compression        | /compact or automatic. The AI summarizes earlier messages          |
-| System prompt preserved | AGENTS.md etc. are kept without being compressed                   |
-| Tool output cap         | Automatically truncated beyond 30K characters                      |
-| Tool result skipping    | Over 80%, the rest are skipped + the LLM is told what was omitted  |
+| Strategy                | Description                                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------------------- |
+| Early detection         | Before every prompt, track tokens: the provider's reported usage, or chars/4 for new messages |
+| Auto compression        | /compact or automatic at 83.5%. The AI summarizes the conversation                            |
+| System prompt preserved | AGENTS.md etc. are kept without being compressed                                              |
+| Tool output cap         | Automatically truncated beyond 30K characters                                                 |
+| Tool result skipping    | Over 80%, the rest are skipped + the LLM is told what was omitted                             |
 
 **Key point:** a single compression saves 40–60% of tokens. But you lose detailed context.
 
@@ -387,7 +396,7 @@ Yes, you can. Now I can develop Robota with the Robota CLI.
 - Parallel work delegated to subagents
 - Streaming markdown rendering
 - CJK (Korean) input support
-- Because agent-sdk is separate, other projects can import just the SDK and set up the same coding assistant
+- Because agent-framework is separate, other projects can import just the SDK and set up the same coding assistant
 
 But there are conditions.
 

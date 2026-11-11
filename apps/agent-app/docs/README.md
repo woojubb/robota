@@ -14,6 +14,20 @@ The loopback connection is authenticated by a token. The CLI creates it with the
 the address the shell hands to the page. The WebSocket transport rejects a connection without the token
 before emitting session data.
 
+## Secure conversations
+
+When secure conversations are on for the product (`__PRODUCT_CLI_NAME__ secure enable`, see
+[secure conversations](../../../packages/agent-cli/README.md#create-a-keyring-for-secure-conversations)), the
+window starts no plain daemon and the page gets no WebSocket address. **File → Unlock Secure
+Conversation…** opens an isolated native window for the passphrase or recovery key; the shell then
+attaches to the folder's secure runtime, or starts and certifies one, and relays that one session to the
+page over a message port. **File → Review Imported Secure Conversation…** lists imported conversations
+that are not yet accepted, and a native dialog accepts or cancels each one. Folder trust is decided in a
+native dialog, never by the page. Closing or reloading the window, locking the screen, suspending the
+machine and quitting lock the session. If the runtime lock cannot be confirmed, the app refuses to
+unlock, close or quit and says to stop the secure runtime. Secure desktop conversations run on macOS
+only; on other systems the window says to use the secure CLI.
+
 ## Run from source
 
 ```bash
@@ -26,10 +40,15 @@ local testing; `PRODUCT_CLI_NAME` selects the configured CLI command when that o
 
 ## Package
 
-`pnpm --filter @robota-sdk/agent-app dist:app` builds the shell, bundles a host-platform CLI runtime,
-and produces installers with electron-builder. The generated product configuration supplies the installed
-application ID, display name, executable names, and artifact prefix. Signing and notarization are separate
-release settings.
+`pnpm --filter @robota-sdk/agent-app dist:app` builds the shell and page, copies the host-platform CLI
+binary into the app, and produces installers with electron-builder: AppImage and deb on Linux, dmg and zip
+on macOS, NSIS on Windows. Compile the binary first with
+`pnpm --filter ./packages/agent-cli build:bun:<target>` (for example `darwin-arm64`, `linux-x64` or
+`windows-x64`; it needs Bun). `bundle:runtime` takes it from
+`packages/agent-cli/dist-bun/<artifact prefix>-<target>` and fails when it is missing;
+`PRODUCT_DESKTOP_BINARY` (or `--binary <path>` when running `bundle:runtime` alone) selects another file.
+The generated product configuration supplies the installed application ID, display name, executable
+names, and artifact prefix. Signing and notarization are separate release settings.
 
 See [`SPEC.md`](./SPEC.md) for the daemon/token contract, renderer hardening, and the limits of the shell.
 

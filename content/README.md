@@ -39,16 +39,16 @@ built from the same libraries.
 
 ## Install
 
-These Node.js examples and the npm CLI need Node.js 22.12 or later. Published packages declare this
-minimum for Node installations. Neutral entries and Node adapters are separate in the current
-source; check your installed version for its available exports.
+These Node.js examples and the npm CLI need Node.js 22.12 or later; every published package declares
+it. A package's main entry is platform-neutral, and what needs a Node host sits on a `/node` subpath,
+such as `@robota-sdk/agent-framework/node`.
 
 ```bash
 # An agent: the core engine and one provider package
 npm install @robota-sdk/agent-core @robota-sdk/agent-provider @anthropic-ai/sdk
 
-# Function tools with Zod schemas (agent-tools uses Zod 3)
-npm install @robota-sdk/agent-tools zod@3
+# Function tools with Zod schemas (agent-tools uses Zod 4)
+npm install @robota-sdk/agent-tools zod@4
 
 # Sessions with built-in tools, permission modes, hooks and project context
 npm install @robota-sdk/agent-framework @robota-sdk/agent-provider @anthropic-ai/sdk
@@ -81,11 +81,12 @@ tools, provider switching and sessions.
 
 The packages form three layers. You can start at any of them.
 
-- **Libraries** — [`agent-core`](../packages/agent-core/docs/README.md) (the `Robota` engine and the
-  provider, tool, plugin and permission contracts), one `agent-provider-<vendor>` package per model
-  vendor, [`agent-tools`](../packages/agent-tools/docs/README.md) (function tools and the built-in tool
-  factories), [`agent-plugin`](../packages/agent-plugin/docs/README.md) (lifecycle plugins) and
-  [`agent-mcp`](../packages/agent-mcp/docs/README.md) (MCP client).
+- **Libraries** — [`agent-core`](../packages/agent-core/docs/README.md) (the `ConversationAgent` engine
+  and the provider, tool, plugin and permission contracts),
+  [`agent-provider`](../packages/agent-provider/docs/README.md) (one subpath per model vendor),
+  [`agent-tools`](../packages/agent-tools/docs/README.md) (function tools, the built-in tool factories
+  and the default tool set), [`agent-plugin`](../packages/agent-plugin/docs/README.md) (lifecycle
+  plugins) and [`agent-mcp`](../packages/agent-mcp/docs/README.md) (MCP client).
 - **Assembly** — [`agent-framework`](../packages/agent-framework/docs/README.md) combines the libraries
   into sessions: `InteractiveSession`, `createQuery()` and `createAgentRuntime()`, with built-in tools,
   permission modes, hooks, context loading and persistence.
@@ -97,7 +98,7 @@ layers in full. The [packages index](/packages/) lists every package.
 
 ## Providers
 
-| Package                                                  | Covers                                                                                                        |
+| Import path                                              | Covers                                                                                                        |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `@robota-sdk/agent-provider/anthropic`                   | Anthropic Claude                                                                                              |
 | `@robota-sdk/agent-provider/openai`                      | OpenAI, and any OpenAI-compatible endpoint through `baseURL` (AI gateways, Azure OpenAI, vLLM, local servers) |
@@ -105,8 +106,10 @@ layers in full. The [packages index](/packages/) lists every package.
 | `@robota-sdk/agent-provider/deepseek`, `/qwen`, `/gemma` | DeepSeek, Qwen, and local servers such as Ollama, LM Studio or llama.cpp                                      |
 | `@robota-sdk/agent-provider/bytedance`                   | ByteDance ModelArk video generation (not a chat provider)                                                     |
 
-The [Providers Reference](./guide/providers.md) covers each one. To run a local model with no API key,
-see [Local LLM Setup](./guide/local-llm.md).
+Each subpath needs its vendor's SDK, an optional peer of `@robota-sdk/agent-provider`: `@anthropic-ai/sdk`
+for `anthropic`, `@google/genai` for `gemini`, and `openai` for `openai`, `deepseek`, `qwen` and `gemma`.
+`bytedance` needs none. The [Providers Reference](./guide/providers.md) covers each one. To run a local
+model with no API key, see [Local LLM Setup](./guide/local-llm.md).
 
 ## The CLI
 

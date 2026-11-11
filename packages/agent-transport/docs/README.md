@@ -1,8 +1,5 @@
 # @robota-sdk/agent-transport
 
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
-
 The transport-neutral protocol layer shared by every agent runtime transport: the wire messages a client and
 a host exchange, the session bridge that applies them to a live session, and the delivery helpers
 (backpressure, resumable delivery, channel framing, handoff chunking) a carrier builds on. It owns no

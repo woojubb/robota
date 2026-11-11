@@ -75,16 +75,17 @@ node scripts/release/prepare-devcontainer-feature.mjs \
 ```
 
 The prepared directory uses the selected product's identity, scoped npm package, artifact prefix and
-installer. The checked-in Feature semantic version is independent of the CLI version. Initial
-Feature `1.0.0` selects CLI `3.0.0-beta.96`. Increment the authored Feature version whenever its bundle
-or default CLI pin changes. An identical immutable-version retry may be skipped; different content
-for an existing exact Feature version must fail with the bump instruction.
+installer. The checked-in Feature semantic version is independent of the CLI version. When the CLI
+version changes, `pnpm run version` sets the default `version` option to it and increments the
+Feature's patch number. Increment the authored Feature version whenever its bundle or default CLI
+pin changes. An identical immutable-version retry may be skipped; different content for an existing
+exact Feature version must fail with the bump instruction.
 
 The release workflow publishes this Feature to the owner-confirmed
-`ghcr.io/woojubb/devcontainer-features/robota` namespace after the five native builds and binary
-publication succeed. Only its Feature publishing job receives package-write permission. The exact
-release tag must already contain the Feature, preparer and publisher; an older release cannot be
-bootstrapped with newer tooling. This source change does not start a release or publish a Feature.
+`ghcr.io/woojubb/devcontainer-features/robota` namespace once the native binary publication and the
+CLI npm publication have both succeeded for the same release commit. Only its Feature publishing
+job receives package-write permission. The exact release tag must already contain the Feature,
+preparer and publisher; an older release cannot be bootstrapped with newer tooling.
 
 The publisher requires a clean same-tag checkout, a deliberately authored matching CLI pin, the
 public npm version, both released Linux binaries and their actual checksums. Public workflow/job
@@ -96,8 +97,3 @@ Identical retries reconcile aliases without moving them backwards.
 After upload, anonymous exact-digest pull and actual normal/custom slash sessions before and after
 container rebuild must succeed. The consumer uses a private refusing credential helper, which prevents the packager's implicit OS-keychain fallback, and a credential-free child environment. A push alone does not establish public delivery; inaccessible
 packages require an explicit owner decision about access or visibility. No settings are changed.
-
-For controlled local verification, run `feature-publisher.integration.mjs` as documented in its
-header with pinned tools, an actual prepared bundle and a disposable loopback registry. The ordinary
-repository tests need no registry or credentials. Local OCI evidence does not establish GHCR access,
-public visibility, or native x64 runtime acceptance.

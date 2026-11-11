@@ -58,9 +58,15 @@ the profile. See [Local LLM Setup](./local-llm.md) for local servers and
 ### Set up a project
 
 ```bash
-__PRODUCT_CLI_NAME__ init            # write AGENTS.md and <project-state>/settings.json (never overwrites a file)
 __PRODUCT_CLI_NAME__ trust --yes     # trust this folder so its settings, hooks, skills and plugins load
+__PRODUCT_CLI_NAME__ init            # write AGENTS.md and <project-state>/settings.json
 ```
+
+`init` works only in a trusted folder. It also writes `<project-state>/.gitignore` so session records,
+logs, checkpoints and `settings.local.json` stay out of Git, and offers to carry over
+`.claude/settings.json` when the folder has a `.claude/` directory. When both `AGENTS.md` and
+`<project-state>/settings.json` already exist it asks before replacing them; `--yes` (or `CI=true`)
+answers no.
 
 `__PRODUCT_CLI_NAME__` loads a project's own configuration only from a folder you trust. Starting the terminal UI in
 a folder you have not decided about asks first: trust it, start Restricted (project content not
@@ -71,6 +77,7 @@ also accept `--restricted-workspace`, which starts Restricted instead (for examp
 there instead of refusing, and the desktop app asks in its window before it starts the daemon. Use
 `__PRODUCT_CLI_NAME__ trust` (or `__PRODUCT_CLI_NAME__ trust status`, with
 `--json` for one JSON line) to see the current decision and `__PRODUCT_CLI_NAME__ trust revoke` to withdraw it.
+Granting trust always needs a person at a terminal, even with `--yes`.
 
 ## Ways to run it
 
@@ -228,7 +235,8 @@ Sessions can also run without a terminal. `__PRODUCT_CLI_NAME__ session start --
 session that keeps running after you close the terminal; `__PRODUCT_CLI_NAME__ session list`, `view`, `attach`,
 `stop`, `rename`, `link-pr` and `unlink-pr` manage them. `__PRODUCT_CLI_NAME__ daemon start` keeps one long-lived
 runtime per folder that the desktop app and `__PRODUCT_CLI_NAME__ --attach` connect to; `__PRODUCT_CLI_NAME__ --serve --open`
-starts a runtime of its own and opens the GUI in a browser. See
+starts a runtime of its own and opens the GUI in a browser, which asks for an access code that the
+command prints in its terminal. See
 [Sessions, Background Sessions and the Daemon](./sessions-and-daemon.md) and
 [The GUI and the Desktop App](./gui.md).
 
@@ -259,12 +267,15 @@ asking (`--yes` skips the question; it is required without a terminal).
 | Make a profile the default             | `__PRODUCT_CLI_NAME__ --provider <profile> --set-current`, or `/provider switch <profile>` |
 | Use another model for one run          | `__PRODUCT_CLI_NAME__ --model <model>`                                                     |
 | Fall back when the model is overloaded | `__PRODUCT_CLI_NAME__ --fallback-model a,b` (up to three; setting `fallbackModel`)         |
-| Manage profiles in a session           | `/provider current \| list \| switch <profile> \| add [type] \| test [profile]`            |
+| Switch the model in a session          | `/model [<id>]`                                                                            |
+| Manage profiles in a session           | `/provider current \| list \| switch <profile> \| add [type] \| edit \| reconnect \| test` |
 
 `/provider switch` replaces the model in the running session and keeps the conversation. In the
 terminal UI, `/provider list` lets you pick a profile and then switch, edit, test, duplicate or delete
-it. `--fallback-model` takes model names or `profile:model` entries and moves a turn to the next one
-when the current model is overloaded, unavailable or failing.
+it. `/model` without an id opens a picker of the models of all your profiles; `/model <id>` switches
+the running session to that model and saves it on the profile, which becomes the default when the
+model belongs to another profile. `--fallback-model` takes model names or `profile:model` entries and
+moves a turn to the next one when the current model is overloaded, unavailable or failing.
 
 ### Model effort
 
@@ -374,7 +385,8 @@ long the CLI waits after that line before drawing the prompt; any key ends the w
 
 `__PRODUCT_CLI_NAME__` checks npm for a newer `@robota-sdk/agent-cli` at startup (not in print mode) and prints the
 `npm install -g '@robota-sdk/agent-cli@latest'` command when one exists. It never updates itself. The
-check is cached in `<user-state>/update-check.json`; `--disable-update-check` skips it for one run and
+check is cached in `update-check.json` in the cache folder (`cache/` inside `<user-state>` unless
+`__PRODUCT_ENV_PREFIX__CACHE_DIR` names another); `--disable-update-check` skips it for one run and
 `--check-update` checks now and exits.
 
 ### When something misbehaves
@@ -433,7 +445,7 @@ Each skill becomes a slash command: `/audit src/index.ts` runs the `audit` skill
 `/skills` lists them. Skills from plugins show their plugin (`/audit (my-plugin) ...`), and plugin
 commands use `plugin:command` (`/my-plugin:audit`).
 
-The agent activates a skill through the `/skills` command tool (`__PRODUCT_MODEL_TOOL_PREFIX___command_skills` with
+The agent activates a skill through the `/skills` command tool (`__PRODUCT_MODEL_TOOL_PREFIX__skills` with
 `args: "<skill-name> [args]"`), guided by the skill descriptions in its system prompt. Mentioning a
 skill in text does not activate it.
 
@@ -470,6 +482,7 @@ and are installed under `<user-state>/plugins/` (user) or `<project-state>/plugi
 actions as text:
 
 ```bash
+/plugin list
 /plugin install <name>@<marketplace>
 /plugin uninstall <name>@<marketplace>
 /plugin enable <name>@<marketplace>
@@ -515,7 +528,9 @@ different from the SDK's runtime plugins for the `Robota` class; both are covere
 
 ### Workflows (`/workflows`)
 
-`/workflows` authors and runs DAG workflows saved as JSON files under `.workflows/`:
+`/workflows` authors and runs DAG workflows saved as JSON files under `.workflows/`. It comes from the
+`@robota-sdk/workflows` package, which the CLI pins at an exact version and bundles; that package is
+released separately from the SDK packages.
 
 ```bash
 /workflows create "<description>" [--input key=value] [--name <name>]  # design with the model, save, run
@@ -583,7 +598,14 @@ a session, `__PRODUCT_CLI_NAME__ mcp login <name>` and `__PRODUCT_CLI_NAME__ mcp
 executable, approvals persist in `<user-state>/mcp-approvals.json`; approving retries the connection in
 this session, and `/mcp reload` retries later. OAuth servers also need sign-in; a stdio server needs
 an authority that a host embedding the CLI supplies. A changed definition or trust generation needs
-fresh approval.
+fresh approval. `__PRODUCT_CLI_NAME__ mcp add exa` (or `parallel`, both keyless web search servers) and
+`__PRODUCT_CLI_NAME__ mcp add <name> <https-url>` add an HTTP server to your user settings and approve it in
+one step; it connects at the next start.
+
+A server can also advertise skills. `/mcp skill-list <server>` lists them, `/mcp skill-inspect <server>
+<uri>` shows the exact instructions, and `/mcp skill-approve <server> <uri> <fingerprint>` and
+`/mcp skill-withdraw <server> <uri>` grant or withdraw consent for that content, separately from the
+server's trust.
 
 `__PRODUCT_CLI_NAME__ mcp serve` turns `__PRODUCT_CLI_NAME__` into an MCP server for one session, over stdio, authenticated
 loopback HTTP (`--http-token-file`, `--http-port`), or remote HTTP as an OAuth resource server
@@ -623,6 +645,42 @@ stable disk authority; they may not see unsaved editor buffers and their writes 
 editor's undo history. Searches also read the files on disk, and commands never run in the editor's
 terminal. Questions the agent would ask you are answered as cancelled, because ACP has no equivalent.
 
+## Secure conversations
+
+Secure conversations are optional and off until you enable them. While they are on, new session
+records, prompt history, spilled tool output and edit checkpoints are sealed to a keyring that your
+passphrase or its recovery key opens, and they are kept in a separate `secure-v1` area of the state
+folders.
+
+```bash
+__PRODUCT_CLI_NAME__ secure setup              # create the keyring; the recovery key is shown once
+__PRODUCT_CLI_NAME__ secure status             # the keyring file, its slots and its key fingerprint (no passphrase)
+__PRODUCT_CLI_NAME__ secure enable             # verify the keyring, seal existing conversations, turn secure mode on
+__PRODUCT_CLI_NAME__ secure disable            # new conversations are plaintext again; the sealed archive stays
+__PRODUCT_CLI_NAME__ secure lock               # ask every live runtime to discard its keys
+__PRODUCT_CLI_NAME__ secure verify [--recovery]             # unlock and check the stored sealing key
+__PRODUCT_CLI_NAME__ secure change-passphrase [--recovery]  # set a new passphrase
+```
+
+A passphrase or recovery key is typed at an interactive terminal when asked. It is never an
+argument and is never read from the environment, a pipe or a file, so the agent's shell tool cannot
+run these commands for you. `secure enable` needs every session closed and refuses while plaintext
+conversation data remains; `secure disable` asks for confirmation and needs every current-version
+session to exit. In a secure terminal session `/unlock` asks for the passphrase and `/lock` discards the
+keys again; both are yours alone, and the agent cannot run them.
+
+Secure CLI conversations are available on macOS and Linux. On Windows `secure enable` refuses, and a
+state that already has secure mode on refuses every command except `secure` (so `secure disable` is the
+way back). The secure desktop window is available on macOS only.
+
+Anything that a program running as your account could join does not start while secure mode is on:
+`--serve --open`, `--serve --http-port`, `--serve --observer-port`, `mcp serve` over HTTP,
+external-event grants, local peers, the device mesh and `/remote-control`. The terminal UI, print mode,
+`mcp serve` over stdio and `acp` still work. A background session or daemon asks the person at the
+terminal to unlock when it starts, and is reached through an owner link instead of a WebSocket token:
+`daemon start --json` prints no URL. See the
+[agent-cli README](../../packages/agent-cli/README.md#create-a-keyring-for-secure-conversations).
+
 ## Devices and remote control
 
 `/remote-control enable` pairs a phone or another browser to co-drive the running session over
@@ -634,61 +692,62 @@ another session or device. All four are user-only. See [Devices, Peers and Remot
 
 ### Options
 
-| Option                                                                                                                                                    | Meaning                                                                                                                                                                                                        |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-p`                                                                                                                                                      | Print mode: run the prompt argument (or stdin) and exit                                                                                                                                                        |
-| `--output-format text\|json\|stream-json`                                                                                                                 | Print-mode output format (default `text`)                                                                                                                                                                      |
-| `--bare`                                                                                                                                                  | Print mode: skip instruction files and plugins                                                                                                                                                                 |
-| `--json-schema <schema>`                                                                                                                                  | Print mode: ask for JSON matching this schema                                                                                                                                                                  |
-| `--system-prompt <text>`                                                                                                                                  | Replace the system prompt                                                                                                                                                                                      |
-| `--append-system-prompt <text>`                                                                                                                           | Add to the system prompt                                                                                                                                                                                       |
-| `--task-file <path>`                                                                                                                                      | Append a task file to the system prompt                                                                                                                                                                        |
-| `--language <code>`                                                                                                                                       | Response language                                                                                                                                                                                              |
-| `--max-turns <n>`                                                                                                                                         | Stop after this many agent turns                                                                                                                                                                               |
-| `--goal <objective>`                                                                                                                                      | Pursue an objective autonomously, then exit                                                                                                                                                                    |
-| `--goal-max-iterations <n>`                                                                                                                               | Turn budget for `--goal` (default 25)                                                                                                                                                                          |
-| `-c`, `--continue`                                                                                                                                        | Continue the most recent session                                                                                                                                                                               |
-| `-r`, `--resume <id\|name>`                                                                                                                               | Resume a session                                                                                                                                                                                               |
-| `-n`, `--name <name>`                                                                                                                                     | Name the new session                                                                                                                                                                                           |
-| `--fork-session`                                                                                                                                          | With `-c`/`-r`: continue as a new session, leaving the original untouched                                                                                                                                      |
-| `--no-session-persistence`                                                                                                                                | Leave no conversation on disk: no session, prompt history or subagent transcript; `/rewind` works only until the run ends                                                                                      |
-| `--permission-mode <mode>`                                                                                                                                | `plan`, `default`, `acceptEdits`, `bypassPermissions` or `auto`                                                                                                                                                |
-| `--dry-run`                                                                                                                                               | Same as `--permission-mode plan`                                                                                                                                                                               |
-| `--allowed-tools <list>`                                                                                                                                  | Tools that run without asking (comma-separated)                                                                                                                                                                |
-| `--denied-tools <list>`                                                                                                                                   | Tools to remove (comma-separated)                                                                                                                                                                              |
-| `--safe-mode`                                                                                                                                             | Start with every customization off                                                                                                                                                                             |
-| `--provider <profile>`                                                                                                                                    | Use this provider profile for the run                                                                                                                                                                          |
-| `--set-current`                                                                                                                                           | With `--provider` or `--configure-provider`: save it as the default                                                                                                                                            |
-| `--model <model>`                                                                                                                                         | Model for this run                                                                                                                                                                                             |
-| `--fallback-model <list>`                                                                                                                                 | Models to move a turn to when the model is overloaded                                                                                                                                                          |
-| `--effort <level>`                                                                                                                                        | Model effort                                                                                                                                                                                                   |
-| `--advisor <profile[:model]>\|off`                                                                                                                        | Model the main model may consult                                                                                                                                                                               |
-| `--preset <id>`                                                                                                                                           | Preset to apply                                                                                                                                                                                                |
-| `--output-style <id>`                                                                                                                                     | Response style                                                                                                                                                                                                 |
-| `--memory`, `--no-memory`                                                                                                                                 | Turn durable memory on or off for this run                                                                                                                                                                     |
-| `--memory-autosave`                                                                                                                                       | Save captured memory without the approval queue                                                                                                                                                                |
-| `--screen-reader`, `--no-screen-reader`                                                                                                                   | Plain-text screen-reader mode on or off                                                                                                                                                                        |
-| `--reduced-motion`, `--no-reduced-motion`                                                                                                                 | Animation off or on                                                                                                                                                                                            |
-| `--configure`                                                                                                                                             | Interactive provider setup                                                                                                                                                                                     |
-| `--configure-provider <profile>`                                                                                                                          | Save a provider profile from flags                                                                                                                                                                             |
-| `--type`, `--model`, `--base-url`, `--api-key`, `--api-key-env`                                                                                           | Profile fields for `--configure-provider`                                                                                                                                                                      |
-| `--settings-scope user\|project-local`                                                                                                                    | Which settings file provider setup writes                                                                                                                                                                      |
-| `--session-log <path>`                                                                                                                                    | Replay a recorded session log instead of calling a model                                                                                                                                                       |
-| `--serve`                                                                                                                                                 | Run the headless runtime over a loopback WebSocket; with `--http-port <port>` also serve the agent HTTP API on loopback (bearer in `PRODUCT_HTTP_TOKEN`), or with the remote flags as an OAuth resource server |
-| `--open`                                                                                                                                                  | With `--serve`: also serve the GUI on localhost and open it in a browser                                                                                                                                       |
-| `--observer-port <port>`                                                                                                                                  | With `--serve`: also open a read-only observer listener on loopback, admitted by its own token in `PRODUCT_OBSERVER_TOKEN`                                                                                     |
-| `--attach [--screen-reader\|--no-screen-reader]`                                                                                                          | Open the terminal UI on this folder's running daemon                                                                                                                                                           |
-| `--external-event-grant <file>`                                                                                                                           | Admit verified external events into this terminal session (repeatable)                                                                                                                                         |
-| `--external-event-port <port>`                                                                                                                            | Loopback port for external events                                                                                                                                                                              |
-| `--external-event-trusted-proxy <ip>`                                                                                                                     | Proxy whose `X-Forwarded-For` is believed (repeatable)                                                                                                                                                         |
-| `--http-token-file`, `--http-port`, `--http-host`, `--http-public-url`, `--oauth-issuer`, `--oauth-scopes`, `--oauth-allowed-subjects`, `--trusted-proxy` | Transport options for `__PRODUCT_CLI_NAME__ mcp serve`; all but `--http-token-file` also with `--serve --http-port`                                                                                            |
-| `--ask-client`                                                                                                                                            | With `__PRODUCT_CLI_NAME__ mcp serve`, ask the calling MCP client to answer permission and ask prompts (allow once or deny)                                                                                    |
-| `--reset`                                                                                                                                                 | Delete `<user-state>/settings.json` after confirming                                                                                                                                                           |
-| `-y`, `--yes`                                                                                                                                             | Skip confirmations (required for `--reset` without a terminal)                                                                                                                                                 |
-| `--check-update`                                                                                                                                          | Check npm for a newer version and exit                                                                                                                                                                         |
-| `--disable-update-check`                                                                                                                                  | Skip the startup update check                                                                                                                                                                                  |
-| `--version`                                                                                                                                               | Print the version                                                                                                                                                                                              |
-| `-h`, `--help`                                                                                                                                            | Print help                                                                                                                                                                                                     |
+| Option                                                                                                                                                    | Meaning                                                                                                                                                                                                                                                |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `-p`                                                                                                                                                      | Print mode: run the prompt argument (or stdin) and exit                                                                                                                                                                                                |
+| `--output-format text\|json\|stream-json`                                                                                                                 | Print-mode output format (default `text`)                                                                                                                                                                                                              |
+| `--bare`                                                                                                                                                  | Print mode: skip instruction files and plugins                                                                                                                                                                                                         |
+| `--json-schema <schema>`                                                                                                                                  | Print mode: ask for JSON matching this schema                                                                                                                                                                                                          |
+| `--system-prompt <text>`                                                                                                                                  | Replace the system prompt                                                                                                                                                                                                                              |
+| `--append-system-prompt <text>`                                                                                                                           | Add to the system prompt                                                                                                                                                                                                                               |
+| `--task-file <path>`                                                                                                                                      | Append a task file to the system prompt                                                                                                                                                                                                                |
+| `--language <code>`                                                                                                                                       | Response language                                                                                                                                                                                                                                      |
+| `--max-turns <n>`                                                                                                                                         | Stop after this many agent turns                                                                                                                                                                                                                       |
+| `--goal <objective>`                                                                                                                                      | Pursue an objective autonomously, then exit                                                                                                                                                                                                            |
+| `--goal-max-iterations <n>`                                                                                                                               | Turn budget for `--goal` (default 25)                                                                                                                                                                                                                  |
+| `-c`, `--continue`                                                                                                                                        | Continue the most recent session                                                                                                                                                                                                                       |
+| `-r`, `--resume <id\|name>`                                                                                                                               | Resume a session                                                                                                                                                                                                                                       |
+| `-n`, `--name <name>`                                                                                                                                     | Name the new session                                                                                                                                                                                                                                   |
+| `--fork-session`                                                                                                                                          | With `-c`/`-r`: continue as a new session, leaving the original untouched                                                                                                                                                                              |
+| `--no-session-persistence`                                                                                                                                | Leave no conversation on disk: no session, prompt history or subagent transcript; `/rewind` works only until the run ends                                                                                                                              |
+| `--permission-mode <mode>`                                                                                                                                | `plan`, `default`, `acceptEdits`, `bypassPermissions` or `auto`                                                                                                                                                                                        |
+| `--dry-run`                                                                                                                                               | Same as `--permission-mode plan`                                                                                                                                                                                                                       |
+| `--allowed-tools <list>`                                                                                                                                  | Tools that run without asking (comma-separated)                                                                                                                                                                                                        |
+| `--denied-tools <list>`                                                                                                                                   | Tools to remove (comma-separated)                                                                                                                                                                                                                      |
+| `--safe-mode`                                                                                                                                             | Start with every customization off                                                                                                                                                                                                                     |
+| `--restricted-workspace`                                                                                                                                  | With print mode, `--goal`, `--serve`, `daemon start` or `session start`: start without the project's settings, hooks, plugins, skills and MCP servers                                                                                                  |
+| `--provider <profile>`                                                                                                                                    | Use this provider profile for the run                                                                                                                                                                                                                  |
+| `--set-current`                                                                                                                                           | With `--provider` or `--configure-provider`: save it as the default                                                                                                                                                                                    |
+| `--model <model>`                                                                                                                                         | Model for this run                                                                                                                                                                                                                                     |
+| `--fallback-model <list>`                                                                                                                                 | Models to move a turn to when the model is overloaded                                                                                                                                                                                                  |
+| `--effort <level>`                                                                                                                                        | Model effort                                                                                                                                                                                                                                           |
+| `--advisor <profile[:model]>\|off`                                                                                                                        | Model the main model may consult                                                                                                                                                                                                                       |
+| `--preset <id>`                                                                                                                                           | Preset to apply                                                                                                                                                                                                                                        |
+| `--output-style <id>`                                                                                                                                     | Response style                                                                                                                                                                                                                                         |
+| `--memory`, `--no-memory`                                                                                                                                 | Turn durable memory on or off for this run                                                                                                                                                                                                             |
+| `--memory-autosave`                                                                                                                                       | Save captured memory without the approval queue                                                                                                                                                                                                        |
+| `--screen-reader`, `--no-screen-reader`                                                                                                                   | Plain-text screen-reader mode on or off                                                                                                                                                                                                                |
+| `--reduced-motion`, `--no-reduced-motion`                                                                                                                 | Animation off or on                                                                                                                                                                                                                                    |
+| `--configure`                                                                                                                                             | Interactive provider setup                                                                                                                                                                                                                             |
+| `--configure-provider <profile>`                                                                                                                          | Save a provider profile from flags                                                                                                                                                                                                                     |
+| `--type`, `--model`, `--base-url`, `--api-key`, `--api-key-env`                                                                                           | Profile fields for `--configure-provider`                                                                                                                                                                                                              |
+| `--settings-scope user\|project-local`                                                                                                                    | Which settings file provider setup writes                                                                                                                                                                                                              |
+| `--session-log <path>`                                                                                                                                    | Replay a recorded session log instead of calling a model                                                                                                                                                                                               |
+| `--serve`                                                                                                                                                 | Run the headless runtime over a loopback WebSocket; with `--http-port <port>` also serve the agent HTTP API on loopback (bearer of at least 32 characters in `__PRODUCT_ENV_PREFIX__HTTP_TOKEN`), or with the remote flags as an OAuth resource server |
+| `--open`                                                                                                                                                  | With `--serve`: also serve the GUI on localhost and open it in a browser, which asks for the access code printed in the terminal (needs an interactive terminal)                                                                                       |
+| `--observer-port <port>`                                                                                                                                  | With `--serve`: also open a read-only observer listener on loopback, admitted by its own token of at least 32 characters in `__PRODUCT_ENV_PREFIX__OBSERVER_TOKEN`                                                                                     |
+| `--attach [--screen-reader\|--no-screen-reader]`                                                                                                          | Open the terminal UI on this folder's running daemon                                                                                                                                                                                                   |
+| `--external-event-grant <file>`                                                                                                                           | Admit verified external events into this terminal session (repeatable)                                                                                                                                                                                 |
+| `--external-event-port <port>`                                                                                                                            | Loopback port for external events                                                                                                                                                                                                                      |
+| `--external-event-trusted-proxy <ip>`                                                                                                                     | Proxy whose `X-Forwarded-For` is believed (repeatable)                                                                                                                                                                                                 |
+| `--http-token-file`, `--http-port`, `--http-host`, `--http-public-url`, `--oauth-issuer`, `--oauth-scopes`, `--oauth-allowed-subjects`, `--trusted-proxy` | Transport options for `__PRODUCT_CLI_NAME__ mcp serve`; all but `--http-token-file` also with `--serve --http-port`                                                                                                                                    |
+| `--ask-client`                                                                                                                                            | With `__PRODUCT_CLI_NAME__ mcp serve`, ask the calling MCP client to answer permission and ask prompts (allow once or deny)                                                                                                                            |
+| `--reset`                                                                                                                                                 | Delete `<user-state>/settings.json` after confirming                                                                                                                                                                                                   |
+| `-y`, `--yes`                                                                                                                                             | Skip confirmations (required for `--reset` without a terminal)                                                                                                                                                                                         |
+| `--check-update`                                                                                                                                          | Check npm for a newer version and exit                                                                                                                                                                                                                 |
+| `--disable-update-check`                                                                                                                                  | Skip the startup update check                                                                                                                                                                                                                          |
+| `--version`                                                                                                                                               | Print the version                                                                                                                                                                                                                                      |
+| `-h`, `--help`                                                                                                                                            | Print help                                                                                                                                                                                                                                             |
 
 ### Subcommands
 
@@ -711,12 +770,15 @@ another session or device. All four are user-only. See [Devices, Peers and Remot
 | `__PRODUCT_CLI_NAME__ session release <session-id> [--force]`                                                    | Remove a saved session's writer marker its ended process left; `--force` asks at your terminal first                                           |
 | `__PRODUCT_CLI_NAME__ session analyze [--session <id>\|--last <n>\|--usage]`                                     | Timing and token analysis of saved sessions                                                                                                    |
 | `__PRODUCT_CLI_NAME__ daemon start [--json] [--restricted-workspace]`                                            | Start or reuse this folder's daemon; `--json` prints its id and URL; `--restricted-workspace` starts it Restricted in a folder not trusted yet |
-| `__PRODUCT_CLI_NAME__ daemon status [--json]` / `stop` / `unlock`                                                | Check, stop, or clear a stale start lock                                                                                                       |
+| `__PRODUCT_CLI_NAME__ daemon status [--json]` / `stop` / `clear-start-lock`                                      | Check, stop, or remove a start lock left by a `daemon start` that is gone                                                                      |
 | `__PRODUCT_CLI_NAME__ mcp serve [options]`                                                                       | Serve one session as an MCP server                                                                                                             |
+| `__PRODUCT_CLI_NAME__ mcp add <exa\|parallel>` / `mcp add <name> <https-url>`                                    | Add an HTTP MCP server to your user settings, approved; it connects at the next start                                                          |
 | `__PRODUCT_CLI_NAME__ mcp login <name> [--client-secret] [--no-browser]`                                         | Sign in to an OAuth MCP server                                                                                                                 |
 | `__PRODUCT_CLI_NAME__ mcp logout <name>`                                                                         | Sign out and revoke its tokens                                                                                                                 |
 | `__PRODUCT_CLI_NAME__ acp`                                                                                       | Run as an Agent Client Protocol agent for an editor, over stdio                                                                                |
 | `__PRODUCT_CLI_NAME__ eval <definition> [--threshold <0..1>]`                                                    | Run an eval definition; exit 1 below the threshold                                                                                             |
+| `__PRODUCT_CLI_NAME__ secure setup \| status \| enable \| disable \| lock`                                       | Secure conversations: keyring and mode; see [Secure conversations](#secure-conversations)                                                      |
+| `__PRODUCT_CLI_NAME__ secure verify [--recovery]` / `change-passphrase [--recovery]`                             | Check the stored sealing key, or set a new passphrase                                                                                          |
 | `__PRODUCT_CLI_NAME__ user-local storage list \| memory ...`                                                     | The `/user-local` command outside a session                                                                                                    |
 
 ### Slash commands
@@ -738,7 +800,8 @@ available in the current session.
 | `/validate-session`                                                        | Check the session log is replay-complete                              |
 | `/exit`                                                                    | Exit                                                                  |
 | **Model**                                                                  |                                                                       |
-| `/provider [current\|list\|switch\|add\|test]`                             | Manage provider profiles                                              |
+| `/provider [current\|list\|switch\|add\|edit\|reconnect\|test]`            | Manage provider profiles                                              |
+| `/model [<id>]`                                                            | Pick or switch the model across your profiles                         |
 | `/effort [level]`                                                          | Show or change model effort                                           |
 | `/advisor [<profile>[:<model>]\|off]`                                      | Show, set or turn off the advisor                                     |
 | `/preset [list\|<id>]`                                                     | List or switch presets                                                |
@@ -748,6 +811,7 @@ available in the current session.
 | `/permissions [mode\|retry <n>]`                                           | Rules, recent refusals, or change mode                                |
 | `/mode [mode]`                                                             | Show or change the permission mode                                    |
 | `/sandbox [auto-allow\|regular\|off]`                                      | How shell commands are confined                                       |
+| `/unlock`, `/lock`                                                         | Open or drop the keys of secure conversations (secure sessions only)  |
 | **Context and memory**                                                     |                                                                       |
 | `/compact [instructions]`                                                  | Compact the context now                                               |
 | `/context [list\|add\|remove\|clear\|auto]`                                | Context window, references, auto-compact policy                       |
@@ -770,7 +834,7 @@ available in the current session.
 | **Extensions and connections**                                             |                                                                       |
 | `/plugin ...`                                                              | Manage plugins and marketplaces                                       |
 | `/reload-plugins`                                                          | Reload plugin resources                                               |
-| `/mcp [status\|approve\|reject\|revoke\|login\|logout]`                    | MCP server trust and sign-in                                          |
+| `/mcp [status\|approve\|reject\|revoke\|login\|logout\|reload\|skill-*]`   | MCP server trust, sign-in and skills                                  |
 | `/events [revoke <grant-id>]`                                              | External-event grants                                                 |
 | `/settings`                                                                | Enable or disable transports and set their options                    |
 | `/remote-control [enable\|stop\|status\|devices\|revoke]`                  | Pair a device to co-drive this session                                |
@@ -785,8 +849,8 @@ available in the current session.
 | `/reset`                                                                   | Delete settings and exit                                              |
 
 The agent can run some commands itself through a command tool: `/skills`, `/agent`, `/compact`,
-`/context` (reading), `/cost` (the report), `/memory` (except `approve` and `reject`), `/mcp status`,
-`/schedule`, `/monitor`, and `/loop`. Every other command, and every
+`/context` (reading), `/cost` (the report), `/memory` (except `approve` and `reject`), `/mcp status` and
+`/mcp skill-list`, `/schedule`, `/monitor`, and `/loop`. Every other command, and every
 trust, credential or pairing action, runs only when you type it.
 
 ## The terminal UI

@@ -7,15 +7,17 @@ channels ship the same version independently.
 
 ## The flow (once the deploy key is set)
 
-1. Bump the version as part of a release (the runbook's bump step: `pnpm run version` on a branch
-   from `develop`, merged into `develop`). The version that matters here is `@robota-sdk/agent-cli`'s
-   in `packages/agent-cli/package.json`.
-2. When that bump lands on `main` (the `develop` → `main` promotion),
+1. Bump the version as part of a release (the runbook's first step: `pnpm run version` on the
+   release branch, whose pull request targets `main`). The version that matters here is
+   `@robota-sdk/agent-cli`'s in `packages/agent-cli/package.json`.
+2. When that bump lands on `main` (the release pull request merges),
    **`release-tag-on-version-bump.yml`** detects the `agent-cli` version change and pushes a
-   tag formed from the configured release prefix and version, then confirms that both release workflows below started for it.
+   tag formed from the configured release prefix and version, then reads the tag back from `origin`.
 3. That tag fires **`release-bun-binaries.yml`** (5 Bun binaries + `SHA256SUMS.txt`) and
-   **`release-desktop-app.yml`** (macOS `.dmg`/`.zip`, Linux `.AppImage`/`.deb`, Windows `.exe`), which attach all
-   assets to the tag's GitHub Release. The desktop installers are unsigned.
+   **`release-desktop-app.yml`** (macOS `.dmg`/`.zip`, Linux `.AppImage`/`.deb`, Windows `.exe`, each
+   OS with its own `SHA256SUMS-desktop-<os>.txt`), which attach all assets to the tag's GitHub
+   Release. The macOS binaries and disk images are signed and notarized; the Linux and Windows
+   assets are unsigned.
 4. Users install with no Node.js: `curl -fsSL …/scripts/install.sh | bash` (see the README).
 
 ## One-time setup: the deploy key
@@ -44,5 +46,7 @@ secret, and nothing else is affected. You can always cut a binary release manual
   `workflow_dispatch` (`dry_run` defaults to true). It resolves the version, reports the tag it would
   push, and verifies the deploy key authenticates.
 - Force a binary build for an existing tag: re-run `release-bun-binaries.yml` / `release-desktop-app.yml`, or
-  `workflow_dispatch` them with the `tag` input.
-- The two build workflows share a `concurrency` group per tag so they don't race on `gh release create`.
+  `workflow_dispatch` them with the `tag` input. An `app-` tag runs from its push; retry its failed
+  jobs in that run instead of dispatching.
+- Each build workflow has its own `concurrency` group per tag. Whichever workflow publishes first
+  creates the GitHub Release and the other reuses it, so neither depends on the other's order.

@@ -4,7 +4,7 @@
 
 `@robota-sdk/agent-executor` owns reusable runtime primitives for long-running agent runtime work:
 background task lifecycle, queueing, cancellation, events, and state snapshots; a subagent job
-compatibility facade over the generic background task layer; subagent runner ports and worktree
+facade over the generic background task layer; subagent runner ports and worktree
 isolation decoration; and provider factory helpers that construct provider instances from
 serializable config or profiles.
 
@@ -126,8 +126,8 @@ transport messages, or logs, but must not mutate manager state directly from a l
 - An idle timeout means no new runner progress event has arrived within the configured window;
   text deltas, tool start/end events, and permission requests all refresh the activity clock.
 - A max-runtime timeout is a separate wall-clock cap, defaulting to no cap (`0`) so background
-  agents are not bounded unless a caller opts in. A legacy agent-level timeout maps to the idle
-  timeout; a process task's timeout remains its own runner-owned wall-clock timeout.
+  agents are not bounded unless a caller opts in. An agent request's `timeoutMs` maps to the idle
+  timeout when `idleTimeoutMs` is absent; a process task's timeout remains its own runner-owned wall-clock timeout.
 - Agent requests may bound output size, text-delta count, and repetition to stop runaway streams.
 - A watchdog failure records which kind fired (idle, max runtime, output limit, repetition, or
   stale worker), cancels the runner handle when possible, and fails the task with the timeout error
@@ -178,8 +178,8 @@ Provider factory helpers resolve serializable provider config or profiles into l
 instances, depending only on core provider definitions so they stay provider-package-agnostic. Both
 the direct-key and the key-by-environment-variable-name resolution paths route through an injected
 environment resolver rather than reading `process.env` directly, so tests can inject a fake resolver
-instead of mutating the process environment; this is enforced by a repository-wide scan barring
-direct `process.env` reads in this module. The resolver is a required argument with no default,
+instead of mutating the process environment; the platform-neutrality check bars the main entry,
+where these helpers live, from reaching `process` at all. The resolver is a required argument with no default,
 because the neutral package has no host environment of its own.
 
 ## Transparent workflow relationship
@@ -222,5 +222,5 @@ use it for origin projection, grouping, or workspace read models.
 
 This package must not depend on SDK, sessions, tool, concrete-provider, concrete-transport, or CLI
 packages. Its own production dependencies are limited to core hook/provider types, the contract SSOT
-package for background-task/subagent state, a process-tree teardown helper used only by the
+package for background-task/subagent state, the process-tree teardown helper from `@robota-sdk/agent-os/process`, used only by the
 `./node` runners, and a cron-parsing library.

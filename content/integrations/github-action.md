@@ -1,12 +1,8 @@
 # Running Robota in GitHub Actions
 
-> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
-> 3.1.0 or later after it is published, and check the exports in your installed version.
-> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
-
-To use Robota in a GitHub Actions workflow today, install the CLI in a step and run it in
+To use Robota in a GitHub Actions workflow, install the CLI in a step and run it in
 print mode (`__PRODUCT_CLI_NAME__ -p`): it answers one prompt, writes the answer to stdout, and exits. The repository
-also contains a packaged GitHub Action, but it is not released yet — see
+also contains a packaged GitHub Action that is not released — see
 [The Robota GitHub Action](#the-robota-github-action-not-released) below.
 
 ## Run the CLI in a workflow
@@ -27,15 +23,15 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
 
-      - name: Install the ConversationAgent CLI
+      - name: Install the CLI
         run: npm install -g @robota-sdk/agent-cli
 
       - name: Review the pull request
@@ -55,12 +51,12 @@ What the steps rely on:
 
 - **Node.js 22.12 or later.** The CLI requires it, so set it up with `actions/setup-node`.
 - **An API key as a secret.** With `ANTHROPIC_API_KEY` set, the CLI needs no settings file and uses
-  Anthropic's default model; `GEMINI_API_KEY`, `DEEPSEEK_API_KEY` and `DASHSCOPE_API_KEY` (Qwen) work
-  the same way. Add `--model <model>` to choose another model.
-- **Workspace trust.** A fresh CI checkout has no live approval. The Action uses `--safe-mode`, which
-  runs Restricted without loading the checkout's instruction files, settings, skills, plugins, hooks
-  or MCP servers. Trust requires a person at a terminal; this Action cannot load project configuration
-  in an unattended job.
+  Anthropic's default model; `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY` (Qwen) and
+  `OPENROUTER_API_KEY` work the same way. Add `--model <model>` to choose another model.
+- **Workspace trust.** A fresh CI checkout has no live approval. The workflow passes `--safe-mode`,
+  which runs Restricted without loading the checkout's instruction files, settings, skills, plugins,
+  hooks or MCP servers. Trust requires a person at a terminal, so an unattended job cannot load
+  project configuration.
 - **Permissions.** Print mode uses the `default` permission mode: reads, searches and read-only commands
   such as `git diff` run, and anything that would ask for approval (an edit, another shell command) is
   denied, since no one can answer. Pass `--permission-mode acceptEdits` to allow edits, or
@@ -96,8 +92,8 @@ does not load the repository's instruction files or settings. See [Using the SDK
 
 ## The Robota GitHub Action (not released)
 
-The GitHub Action lives in [`apps/action`](../../apps/action/action.yml). It is not released yet: no
-tag or `uses:` reference is published for it, so until it is, use the CLI as shown above.
+The GitHub Action lives in [`apps/action`](../../apps/action/action.yml). It is not released: no
+tag or `uses:` reference is published for it, so use the CLI as shown above.
 
 It is a composite action for Linux and macOS runners. It sets up Node.js 22.12 or later with
 `actions/setup-node` (so later steps in the job see that Node.js too), installs
@@ -115,20 +111,22 @@ What the checkout can and cannot do:
   ever a prompt: it cannot inject shell commands, CLI options or a subcommand. The other inputs are
   separate arguments, never passed through a shell.
 - The CLI runs with `--safe-mode`, so the checkout's settings, hooks, skills and MCP servers do not
-  load. `load-project: 'true'` fails immediately with an explanation; it is retained as an input so
-  an existing workflow cannot silently lose its requested project configuration.
+  load. `load-project: 'true'` fails before the CLI is installed, with an explanation: workspace trust
+  requires a person at a terminal.
 
 ### Inputs
 
-| Input          | Required | Default  | Description                                                             |
-| -------------- | -------- | -------- | ----------------------------------------------------------------------- |
-| `task`         | yes      | —        | The task or prompt to send to the agent                                 |
-| `model`        | no       | —        | AI model to use (e.g. `claude-sonnet-4-6`)                              |
-| `api-key`      | no       | —        | Anthropic API key (pass it from `secrets`)                              |
-| `output`       | no       | `text`   | Output format: `text` \| `json` \| `stream-json`                        |
-| `max-turns`    | no       | —        | Maximum agent turns before stopping                                     |
-| `load-project` | no       | `false`  | `true` fails: unattended jobs cannot grant workspace trust              |
-| `cli-version`  | no       | `latest` | Exact version or dist-tag of `@robota-sdk/agent-cli` to install         |
+| Input           | Required | Default  | Description                                                         |
+| --------------- | -------- | -------- | ------------------------------------------------------------------- |
+| `package-scope` | yes      | —        | Package scope the CLI is installed from (for example `@robota-sdk`) |
+| `cli-name`      | yes      | —        | Installed CLI command name (for example `__PRODUCT_CLI_NAME__`)     |
+| `task`          | yes      | —        | The task or prompt to send to the agent                             |
+| `model`         | no       | —        | AI model to use (e.g. `claude-sonnet-4-6`)                          |
+| `api-key`       | no       | —        | Anthropic API key (pass it from `secrets`)                          |
+| `output`        | no       | `text`   | Output format: `text` \| `json` \| `stream-json`                    |
+| `max-turns`     | no       | —        | Maximum agent turns before stopping                                 |
+| `load-project`  | no       | `false`  | `true` fails: unattended jobs cannot grant workspace trust          |
+| `cli-version`   | no       | `latest` | Exact version or dist-tag of `@robota-sdk/agent-cli` to install     |
 
 ### Outputs
 

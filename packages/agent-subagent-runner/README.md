@@ -1,8 +1,5 @@
 # @robota-sdk/agent-subagent-runner
 
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
-
 Child-process subagent runner for the Robota SDK. It runs each subagent in its own Node.js child
 process, talks to it over a typed IPC protocol, and can wrap each job in worktree isolation and stream
 its logs to disk.
@@ -25,11 +22,12 @@ composition root (e.g. agent-cli)
         └── ChildProcessSubagentRunner  ← this package
               ├── spawn()               ← a copy of the running artifact in worker mode
               ├── IPC messages          ← TSubagentWorkerParentMessage / TSubagentWorkerChildMessage
-              └── worktree isolation    ← vian agent-executor, with an injected worktree adapter
+              └── worktree isolation    ← via agent-executor, with an injected worktree adapter
 ```
 
 The runner composes nothing itself. The composition root supplies how to start a copy of itself
 (`workerEntry`), the tool factory and provider registry the child uses, and the worktree adapter.
+Each job is wrapped in worktree isolation unless `worktreeIsolation: false` is passed.
 
 ## Usage
 
@@ -48,6 +46,7 @@ import type { ISubagentWorktreeAdapter } from '@robota-sdk/agent-executor';
 import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 
 declare const providerConfig: IProviderDefinitionConfig;
+declare const hostSelectedLogDirectory: string;
 // The concrete worktree adapter (git/fs I/O) is owned and injected by the composition root.
 declare const worktreeAdapter: ISubagentWorktreeAdapter;
 
@@ -102,15 +101,18 @@ Pass `factory` as the `subagentRunnerFactory` option of `agent-framework`'s `cre
 
 ### Types
 
-| Export                               | Description                                                                      |
-| ------------------------------------ | -------------------------------------------------------------------------------- |
-| `IChildProcessSubagentRunnerOptions` | Options for `createChildProcessSubagentRunnerFactory`                            |
-| `ISubagentWorkerEntry`               | How to spawn a copy of the running artifact in worker mode                       |
-| `ISubagentWorkerComposition`         | What the product composes in the child: tools, provider registry, optional ports |
-| `ISubagentWorkerStartPayload`        | IPC payload sent from parent to worker on start                                  |
-| `TSubagentWorkerParentMessage`       | Union of all messages the parent sends to the worker                             |
-| `TSubagentWorkerChildMessage`        | Union of all messages the worker sends to the parent                             |
-| `TSubagentWorkerWireValue`           | Serializable value type used in IPC messages                                     |
+| Export                                                                                                       | Description                                                                            |
+| ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `IChildProcessSubagentRunnerOptions`                                                                         | Options for `createChildProcessSubagentRunnerFactory`                                  |
+| `ISubagentWorkerEntry`                                                                                       | How to spawn a copy of the running artifact in worker mode                             |
+| `ISubagentWorkerComposition`                                                                                 | What the product composes in the child: host, tools, provider registry, optional ports |
+| `ISubagentComposedSandbox`, `TParentSandboxSettings`                                                         | The sandbox a child's composition builds, and the parent's sandbox settings it follows |
+| `TResumeSessionStore`                                                                                        | The session store a fork job's record is restored from                                 |
+| `ISubagentWorkerAgentDefinitionDto`, `ISubagentWorkerParentContextDto`, `ISubagentWorkerContextFileEntryDto` | The JSON-safe wire shapes of the agent definition and the parent's loaded context      |
+| `ISubagentWorkerStartPayload`                                                                                | IPC payload sent from parent to worker on start                                        |
+| `TSubagentWorkerParentMessage`                                                                               | Union of all messages the parent sends to the worker                                   |
+| `TSubagentWorkerChildMessage`                                                                                | Union of all messages the worker sends to the parent                                   |
+| `TSubagentWorkerWireValue`                                                                                   | Serializable value type used in IPC messages                                           |
 
 ### Type guards and wire helpers
 

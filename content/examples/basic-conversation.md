@@ -1,6 +1,6 @@
 # Basic Conversation
 
-A `Robota` agent keeps the conversation in memory, so each `run()` sees the turns before it.
+A `ConversationAgent` keeps the conversation in memory, so each `run()` sees the turns before it.
 
 ```typescript
 import { ConversationAgent } from '@robota-sdk/agent-core';
