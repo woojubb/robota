@@ -13,11 +13,52 @@ package also ships its own `CHANGELOG.md` with the complete record for each vers
 
 ---
 
+## 2026-11-10 — 3.0 to 3.3
+
+### New features
+
+**Read-only observer for a served session** (3.3.0) — `__PRODUCT_CLI_NAME__ --serve --observer-port <port>` opens a second
+loopback listener with its own token (`__PRODUCT_ENV_PREFIX__OBSERVER_TOKEN`, at least 32 characters, different from the
+driver and HTTP tokens). An observer reads the conversation and state; it cannot submit, answer prompts,
+run commands or switch sessions, and its disconnect does not end the session. A secure runtime and a
+hosted task worker refuse the flag.
+
+**Secure conversations, opt-in** (3.2.0) — The desktop shell opens a certified runtime for secure
+conversations, and `__PRODUCT_CLI_NAME__ secure setup`, `status`, `enable`, `disable`, `lock`, `verify` and
+`change-passphrase` manage the keyring they are sealed to. Secure mode stays off until you enable it.
+
+**Fork and daemon commands** (3.2.0) — Follow a running fork without stopping its parent, steer its job and
+continue its record after it ends. `__PRODUCT_CLI_NAME__ daemon clear-start-lock` clears an abandoned daemon start lock.
+
+### Fixes
+
+- Edit checkpoints are serialized per session and claimed across processes, and a session that closes
+  normally keeps its record claim until it is down (3.3.0).
+- A secure runtime launch that fails after the runtime was proved returns only once that runtime is gone
+  (3.2.2).
+- The workspace root broker exits once the user-state directory it serves is removed or replaced
+  (3.2.2).
+
+### Breaking (SDK)
+
+**Explicit project access** (3.0.0) — Project filesystem access is a host-issued authority, not an ambient
+consequence of `cwd`. A caller that supplies no `projectAccess` runs Restricted: it gets no project
+filesystem capability and does not load the project's instruction files or settings.
+
+**Merged SDK packages** (3.2.2) — The CLI and the desktop app import providers, host primitives, transport
+carriers, the default tool set, product assembly and the shared contracts from the subpaths of
+`@robota-sdk/agent-provider`, `@robota-sdk/agent-os`, `@robota-sdk/agent-transport`,
+`@robota-sdk/agent-tools`, `@robota-sdk/agent-product` and `@robota-sdk/agent-interface`. The command
+line, the settings and the behavior are unchanged. The [migration guide](../guide/migration.md) lists the
+import paths.
+
+---
+
 ## 2026-07-06 — Beta 77–79
 
 ### New features
 
-**`/workflows create` — natural-language workflow authoring (FLOW-007)** — The `/workflows` CLI
+**`/workflows create` — natural-language workflow authoring** — The `/workflows` CLI
 command can now author a workflow from a plain-English description. `__PRODUCT_CLI_NAME__` → `/workflows create
 "fetch the issues, summarize each, then post a digest"` asks the active provider to design the
 workflow, saves it as a reusable `.workflows/<name>.json` artifact (with any prompt-backed nodes
@@ -30,47 +71,31 @@ and `validate` / `run` operate on a workflow file.
 
 ### Internal
 
-**Self-contained `agent-cli` bundle (INFRA-028)** — `@robota-sdk/agent-cli` now publishes as a
-self-contained bundle: all `@robota-sdk` workspace code — including the `/workflows` command and the
-private DAG/workflow subsystem — is bundled into `dist`, and the published `dependencies` contain only
-third-party npm packages. The DAG/workflow packages remain private and are not published
-independently; they ship only inside the CLI bundle.
+**Self-contained `agent-cli` bundle** — `@robota-sdk/agent-cli` publishes as a self-contained bundle:
+the `@robota-sdk` code it uses, including the `/workflows` command, is bundled into `dist`, and the
+published `dependencies` contain only third-party npm packages.
 
-**Instant-node provider SSOT + persistence round-trip (DATA-003)** — Instant (prompt-backed) workflow
-nodes now resolve their provider from a single source of truth and survive a symmetric save/load
-round-trip, so an authored workflow reloads with the same provider wiring it was created with.
+**Instant-node provider and persistence round-trip** — Instant (prompt-backed) workflow nodes resolve
+their provider from a single source of truth and survive a symmetric save/load round-trip, so an
+authored workflow reloads with the same provider wiring it was created with.
 
-**Version-scoped single-OTP publish (INFRA-029)** — The release/publish flow now detects
-already-published versions per package version and completes a multi-package publish with a single
-OTP entry instead of prompting repeatedly.
+**Single-OTP publish** — The release/publish flow detects already-published versions per package
+version and completes a multi-package publish with a single OTP entry instead of prompting repeatedly.
 
 ---
 
 ## 2026-06-14 — Beta 68–76
 
-### Breaking (SDK imports)
-
-**Transport packages split out of `agent-transport`** — The protocol transports are now standalone
-packages instead of sub-paths of `@robota-sdk/agent-transport`. Update imports:
-
-- `@robota-sdk/agent-transport/tui` → `@robota-sdk/agent-transport-tui`
-- `@robota-sdk/agent-transport/http` → `@robota-sdk/agent-transport-http`
-- `@robota-sdk/agent-transport/ws` → `@robota-sdk/agent-transport-ws`
-- `@robota-sdk/agent-transport/mcp` → `@robota-sdk/agent-transport-mcp`
-
-`@robota-sdk/agent-transport` is now a lean core keeping only the `/headless` and `/testing` sub-paths.
-
 ### New features
 
-**`@robota-sdk/agent-session-analytics`** — A new package that analyzes `<user-state>/sessions/*.json`
-session logs to report timing breakdowns (LLM wait vs. tool/code time, slow intervals). Session-log
-analysis moved out of the `agent-cli` thin shell into this dedicated package.
+**`@robota-sdk/agent-session-analytics`** — A package that analyzes session logs to report timing
+breakdowns (LLM wait vs. tool/code time, slow intervals). Session-log analysis lives in this dedicated
+package instead of the `agent-cli` thin shell.
 
 ### Internal
 
 Design-quality audit remediation (SSOT consolidation, package cohesion, error/observability hygiene)
-and a round of harness/rules hardening. No runtime behavior change for existing apps beyond the import
-paths above.
+and a round of harness/rules hardening. No runtime behavior change for existing apps.
 
 ---
 
@@ -96,7 +121,7 @@ paths above.
 
 ### New features
 
-**`maxSameToolInputs` safety limit** — Set `maxSameToolInputs` on a `Robota` agent to automatically abort a run if the same tool is called with identical inputs more than N times. Prevents infinite retry loops.
+**`maxSameToolInputs` safety limit** — Set `maxSameToolInputs` on a `ConversationAgent` to automatically abort a run if the same tool is called with identical inputs more than N times. Prevents infinite retry loops.
 
 ### Fixes
 
@@ -118,15 +143,20 @@ See the [full release notes for Beta 59](../guide/release-2026-05-02.md) for a d
 
 ## Version history
 
-| Version          | Date       | Notes                                                                              |
-| ---------------- | ---------- | ---------------------------------------------------------------------------------- |
-| 3.0.0-beta.79    | 2026-07-06 | Instant-node provider SSOT (DATA-003), single-OTP publish (INFRA-029)              |
-| 3.0.0-beta.77–78 | 2026-07-05 | `/workflows create` NL authoring (FLOW-007), self-contained CLI bundle (INFRA-028) |
-| 3.0.0-beta.68–76 | 2026-06-14 | Transport package split, `agent-session-analytics`, design-quality audit           |
-| 3.0.0-beta.67    | 2026-05-23 | Plugin guide, `__PRODUCT_CLI_NAME__ init`, local LLM guide, UX improvements                      |
-| 3.0.0-beta.60–66 | 2026-05-10 | Safety limits, session log correlation                                             |
-| 3.0.0-beta.59    | 2026-05-02 | Subagents, multi-provider, session replay, parallel agents                         |
-| 3.0.0-beta.56–58 | 2026-05-01 | [See release notes](../guide/release-2026-05-02.md)                                |
+| Version           | Date       | Notes                                                                       |
+| ----------------- | ---------- | --------------------------------------------------------------------------- |
+| 3.3.0             | 2026-11-10 | Read-only observer listener, serialized edit checkpoints                    |
+| 3.2.0–3.2.2       | 2026-11-07 | Opt-in secure conversations, `daemon clear-start-lock`, merged SDK packages |
+| 3.1.0–3.1.2       | 2026-11-07 | Unlock gate for secure conversations (off until enabled), Intel macOS fixes |
+| 3.0.0–3.0.7       | 2026-10-30 | Explicit project access (workspace trust)                                   |
+| 3.0.0-beta.80–106 | —          | See the [CLI changelog](../../packages/agent-cli/CHANGELOG.md)              |
+| 3.0.0-beta.79     | 2026-07-06 | Instant-node provider and persistence round-trip, single-OTP publish        |
+| 3.0.0-beta.77–78  | 2026-07-05 | `/workflows create` NL authoring, self-contained CLI bundle                 |
+| 3.0.0-beta.68–76  | 2026-06-14 | `agent-session-analytics`, design-quality audit                             |
+| 3.0.0-beta.67     | 2026-05-23 | Plugin guide, `__PRODUCT_CLI_NAME__ init`, local LLM guide, UX improvements |
+| 3.0.0-beta.60–66  | 2026-05-10 | Safety limits, session log correlation                                      |
+| 3.0.0-beta.59     | 2026-05-02 | Subagents, multi-provider, session replay, parallel agents                  |
+| 3.0.0-beta.56–58  | 2026-05-01 | [See release notes](../guide/release-2026-05-02.md)                         |
 
 ---
 

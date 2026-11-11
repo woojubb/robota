@@ -72,7 +72,8 @@ subpaths so that importing one never loads another.
 - A carrier subpath imports the substrate and its own library and nothing from another carrier. Every
   carrier library, and the `agent-remote-pairing` and `agent-keyring` packages that `webrtc` and `link`
   build on, is an optional peer dependency, so a consumer installs only what the carriers it imports
-  need. Every carrier subpath is Node only and maps `browser: null`.
+  need. Every carrier subpath is Node only and maps `browser: null`, except `http`, which reaches no Node
+  built-in.
 - Does not forward another workspace package.
 
 ## ws
@@ -80,30 +81,29 @@ subpaths so that importing one never loads another.
 ### Purpose
 
 WebSocket carrier for the Robota SDK. The `ws` dependency and carrier lifecycle are isolated in
-this subpath; transport-neutral wire messages and session handling belong to
-`@robota-sdk/agent-transport` so browser and monitor consumers can depend on those contracts
-without pulling in `ws`, React, Ink, or Hono.
+this subpath; transport-neutral wire messages and session handling belong to the package root so
+browser and monitor consumers can depend on those contracts without pulling in `ws`, React, Ink,
+or Hono.
 
 ### Non-goals / Boundaries
 
 - Does not own the session bridge or the wire protocol (`TClientMessage`/`TServerMessage`) — both
-  were extracted to `@robota-sdk/agent-transport` so a non-WS transport can reuse them; this
-  package imports rather than redefines them.
+  live in the package root so a non-WS carrier can reuse them; this subpath imports rather than
+  redefines them.
 - Does not own the channel contracts (`IPayloadChannel`, `IChannelDescriptor`, `IBinaryFrame`) —
   owned by `agent-interface/transport`.
-- No other transport package may depend on this one; default transport-registry wiring that
+- No other carrier subpath imports this one; default transport-registry wiring that
   pre-registers the WS transport belongs to the CLI composition root, not the transport core.
-- Consumers import execution-workspace contract types directly from `agent-interface/transport`
+- Consumers import execution-workspace contract types directly from `agent-interface/execution`
   rather than through a pass-through re-export from this subpath.
 
 ### Design decision: transport admission default
 
-A prior state had two transports independently answering the same "auto-mint a credential, or stay
-open?" question differently. The admission decision now has exactly one owner
-(`resolveAdmission` in `agent-transport`), so there is one place to read and one place to change
-it, rather than transports drifting apart on a shared question. Opting to stay open additionally
-requires a written reason, because "no credential" and "nobody thought about it" must remain
-distinguishable outcomes.
+The admission decision has exactly one owner (`resolveAdmission` in the package root), so there is
+one place to read and one place to change it, rather than carriers drifting apart on the shared
+"auto-mint a credential, or stay open?" question. Opting to stay open additionally requires a
+written reason, because "no credential" and "nobody thought about it" must remain distinguishable
+outcomes.
 
 ### Invariants and guarantees
 
@@ -145,12 +145,11 @@ distinguishable outcomes.
 
 ### Purpose
 
-HTTP transport (Hono) for the Robota SDK, split out of the consolidated `agent-transport` package
-so the `hono` dependency is an isolated unit.
+HTTP transport (Hono) for the Robota SDK. The `hono` dependency is isolated in this subpath.
 
 ### Contract
 
-- Depends on `agent-interface/transport` for transport contracts and on `agent-transport` for the
+- Depends on `agent-interface/transport` for transport contracts and on the package root for the
   transport admission seam (`resolveAdmission`, `bearerCredential`, `credentialMatches`) and for the
   wire shape of a prompt answer; neither the admission decision nor what a valid answer is gets
   re-made here.
@@ -159,7 +158,7 @@ so the `hono` dependency is an isolated unit.
   is the host's.
 - Contract-pure otherwise: the one side concern of where a stream-failure detail goes is injected via
   `IAgentRoutesOptions.onStreamFailure`, never imported.
-- No other transport package may depend on this one.
+- No other carrier subpath imports this one.
 
 ### Invariants
 
@@ -205,7 +204,7 @@ HTTP errors surface as Hono responses; no new error classes are introduced.
 ### Non-goals
 
 - Does not bind or manage a network listener.
-- Does not re-decide admission; that decision belongs to `agent-transport`.
+- Does not re-decide admission; that decision belongs to the package root.
 
 ## mcp
 
@@ -213,15 +212,14 @@ HTTP errors surface as Hono responses; no new error classes are introduced.
 
 Model Context Protocol (MCP) server transport for the Robota SDK — stdio, authenticated loopback
 Streamable HTTP, and OAuth-authorized remote Streamable HTTP, all served from the same exact runtime
-session port. Split out of the consolidated `agent-transport` package so MCP SDK dependencies remain
-isolated. Every carrier is served from one generation of the official MCP server package, so a
-protocol change is carried once.
+session port. The MCP SDK dependencies are isolated in this subpath. Every carrier is served from
+one generation of the official MCP server package, so a protocol change is carried once.
 
 ### Transport Admission
 
 Stdio transport-admission is `none`: a peer that can write to this stdin already runs as the user.
 The loopback HTTP carrier is different: it binds only `127.0.0.1`, mints a fresh 256-bit bearer with
-the shared `agent-transport` admission primitive, and refuses an invalid Host, Origin, or bearer
+the shared admission primitive of the package root, and refuses an invalid Host, Origin, or bearer
 before reading a request body. The remote HTTP carrier is an OAuth resource server: it admits only
 an access token its injected verifier accepts and never mints or honours the loopback bearer, which
 is only as safe as the machine boundary. Its gate is the shared resource-server gate of
@@ -240,7 +238,7 @@ reaches the caller only when the operator enabled that (see Canonical catalog an
   is injected, so the cryptography stays in `agent-transport/node`.
 - Depends on `agent-interface/session` and `agent-interface/transport` contracts, not framework
   internals.
-- No other transport package depends on this one.
+- No other carrier subpath imports this one.
 - MCP consumes only the turn-submission, runtime-tool, session-event, prompt-resolution and
   driver-attribution session roles. The public transport
   implements `ITransportAdapter<IMcpTransportSession>` directly, with no broader inherited signature
@@ -319,9 +317,9 @@ ACP-specific vocabulary stay in this subpath, so a protocol revision touches one
 - Does not build sessions, decide workspace trust, or run slash commands. The host attaches the
   session and injects the trust check and the command port; command execution belongs to the
   framework layer this subpath may not import.
-- Depends on `agent-transport` (shared stdio carrier helper), the `agent-interface` contracts,
-  `agent-core` types and the ACP SDK. It imports no sibling transport, no `agent-framework` and no
-  CLI. Carrier mechanics shared with MCP live in `agent-transport/node`, not here and not copied.
+- Depends on the package root and `agent-transport/node` (the shared stdio carrier helper), the
+  `agent-interface` contracts, `agent-core` types and the ACP SDK. It imports no other carrier
+  subpath, no `agent-framework` and no CLI. Carrier mechanics shared with MCP live in `agent-transport/node`, not here and not copied.
 - Does not delegate terminals or searches to the editor, decide which tools use its file system,
   build or find stored sessions (loading one is the host's port), or advertise MCP capability, and
   speaks no ACP version other than 1.
@@ -446,10 +444,10 @@ dependency.
 
 ### Boundaries
 
-- Does NOT own the session bridge or wire protocol — that is `@robota-sdk/agent-transport`. This subpath only
-  carries those frames over a data channel; it has **no** `webrtc → ws` package edge.
+- Does NOT own the session bridge or wire protocol — that is the package root. This subpath only
+  carries those frames over a data channel and imports no other carrier subpath.
 - Owns the pairing GATE, not the pairing crypto — the directional-HMAC handshake + DTLS-fingerprint channel
-  binding is `@robota-sdk/agent-remote-pairing` (a zero-dep isomorphic leaf). The gate must live here because only
+  binding is `@robota-sdk/agent-remote-pairing` (an isomorphic leaf with no workspace dependency). The gate must live here because only
   the transport can see the offer/answer DTLS fingerprints and the pre-session channel frames; this is the sole
   reason for the `webrtc → agent-remote-pairing` edge.
 - Does NOT own signaling — SDP/ICE rendezvous is an injected signaling port. The transport never inspects
@@ -458,8 +456,9 @@ dependency.
   **optional peer dependency** loaded lazily, because it ships a native binary per platform; where it cannot load
   the transport is unavailable with an explicit "WebRTC transport unavailable" throw at point-of-use — never a
   silent no-op, and never another implementation (no-fallback rule).
-- **No enable path here.** The transport defaults to disabled, is not registered in `agent-cli`, and exposes no
-  command to turn it on; wiring an enable path is out of scope for this subpath.
+- **No enable path here.** The transport defaults to disabled (`defaultEnabled` is false) and nothing in this
+  subpath starts it; the host composes it, as the CLI's remote-control controller does, and owns the command
+  that turns it on.
 - **Admission is decided at construction, and there is no unstated default.** With a pairing secret, the data
   channel is phase-separated: pre-accept it carries only pairing frames (anything else is held, bounded, until
   this side's verdict and discarded if pairing fails, since the peer may finish first and speak at once), and only
@@ -467,9 +466,9 @@ dependency.
   mismatch/timeout (channel closed, session never exposed).
 
   Without a secret the constructor throws unless the caller explicitly opts in with a written reason. Running
-  ungated is a decision someone has to make and write down; it used to be what happened when nobody said anything,
-  which this construction-time check removes. A secret together with the ungated opt-in is contradictory and also
-  throws. The written-reason requirement is centralized in `@robota-sdk/agent-transport` so sibling transports
+  ungated is a decision someone has to make and write down, and the construction-time check refuses to let
+  silence stand for it. A secret together with the ungated opt-in is contradictory and also throws. The
+  written-reason requirement is centralized in `resolveAdmission` of the package root so the carriers
   cannot drift apart on what counts as an answer.
 
 - **Owns the local-peer channel GATE, not the local-peer policy.** When local-peer admission is configured, an
@@ -491,7 +490,7 @@ dependency.
   well as admissions, because "no local peer connected" and "a local peer was refused" call for different operator
   responses. The result carries an explicit trust level rather than a boolean.
 
-  Absent local-peer configuration, behaviour is exactly as before — a remote peer has no rendezvous to have
+  Absent local-peer configuration, no nonce is required — a remote peer has no rendezvous to have
   reached, and demanding one unconditionally would refuse every legitimate remote session.
 
 - **Owns where operator approval sits, not who approves.** When a connection approval is configured, the
@@ -563,9 +562,9 @@ dependency.
   WebRTC-signaling NIP is not used because its events would name the connection's parties; the event format is
   ours. pkarr relays carry no salt and only DNS
   packets, so a record's pkarr form is the salt-less item under the same one-time key, its value wrapped in one TXT
-  record. The DHT and Nostr clients are maintained, pure JavaScript and permissively licensed, so they are ordinary
-  dependencies; the DHT client is loaded only when a device turns the DHT on, so importing this subpath opens no
-  socket.
+  record. The DHT and Nostr clients are maintained, pure JavaScript and permissively licensed, so they need no native
+  binary and are optional peer dependencies like the other carrier libraries; the DHT client is loaded only when a
+  device turns the DHT on, so importing this subpath opens no socket.
 - **Where no direct path works, a relay moves datagrams and nothing more.** The relay is TURN on one of the user's
   own always-on devices, then a TURN server the user configured; with neither, a connection that needs one is
   refused with an error saying a relay device is needed, never left to fail silently and never carried some other

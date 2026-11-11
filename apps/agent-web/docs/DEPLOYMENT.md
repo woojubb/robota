@@ -8,11 +8,19 @@ Next.js app. See [`SPEC.md`](./SPEC.md) for the app's scope and boundaries.
 
 - `/` — redirects to `/remote`.
 - `/remote` — browser remote client for the configured CLI remote control (`RemoteClient` from
-  `src/remote-client`). It takes no environment variables; everything comes
-  from its URL. Set the CLI's `transports.webrtc.options.clientUrl` to this page with the signaling relay in
+  `src/remote-client`). Its connection inputs come from its URL, not from environment variables. Set the
+  CLI's `transports.webrtc.options.clientUrl` to this page with the signaling relay in
   the `relay` query parameter (for example `https://web.example.com/remote?relay=wss://relay.example.com`;
   optional `ice` and `forceTurn` parameters configure STUN/TURN). The pairing link the configured CLI prints adds the
   rendezvous id and secret in the URL fragment, which the browser never sends to the server.
+
+## Product configuration
+
+The server resolves the product configuration (identity, crypto namespace and browser credential database)
+for the page and its title; only the public projection reaches the browser. From the repository source,
+select the configuration with `PRODUCT_CONFIG_FILE=/absolute/path/product.env` (see
+[product configuration](../../../packages/product-config/README.md)) when you run the commands below. A
+generated product workspace bakes the selected public projection into the app, so it needs no environment.
 
 ## Build and Run
 
@@ -32,15 +40,13 @@ pnpm --filter robota-web build
 pnpm --filter robota-web start
 ```
 
-`next.config.ts` disables Node builtin polyfills for the browser bundle so Node-only optional exports
-from workspace packages never enter the client build. Type errors fail the build; ESLint is enforced
-separately in CI, not during the build.
+The repository root aliases the three app commands: `pnpm web:dev`, `pnpm web:build` and `pnpm web:start`.
+Type errors fail the build; ESLint is enforced separately in CI, not during the build.
 
 ## Deployment Notes
 
-- The app is stateless and needs no environment variables or secrets. It renders the remote-client UI,
-  which connects out at runtime to the signaling relay named in its pairing link (self-hosted with
-  `apps/remote-signaling`).
+- The app is stateless and holds no secrets. It renders the remote-client UI, which connects out at
+  runtime to the signaling relay named in its pairing link (self-hosted with `apps/remote-signaling`).
 - Any standard Next.js 15 host (Node server or a platform with Next.js support) works. Run
   `pnpm --filter robota-web build` followed by `pnpm --filter robota-web start`, or use your
   platform's Next.js build integration.

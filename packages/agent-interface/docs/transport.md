@@ -1,8 +1,5 @@
 # @robota-sdk/agent-interface/transport
 
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
-
 The transport contracts of the Robota SDK: the lifecycle every transport adapter follows (HTTP,
 WebSocket, MCP, WebRTC, headless), how transports are configured and registered, the payload
 channels a transport can carry beside its own protocol, and the shape of the admission decisions
@@ -104,8 +101,15 @@ The `./testing` subpath exports `runTransportLifecycleConformance` and its
 first violation. It imports no test framework, so it runs inside any test runner:
 
 ```ts
+import type { ITransportServiceAdapter } from '@robota-sdk/agent-interface/transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface/transport/testing';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface/session/testing';
+
+// The adapter built above.
+declare function createLogTransport(): ITransportServiceAdapter<IInteractiveSession> & {
+  isServing(): boolean;
+};
 
 await runTransportLifecycleConformance({
   subjectId: 'my-package#createLogTransport',

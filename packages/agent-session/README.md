@@ -1,8 +1,5 @@
 # @robota-sdk/agent-session
 
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
-
 Session lifecycle for the Robota SDK. A `Session` wraps a `ConversationAgent` agent from
 `@robota-sdk/agent-core` and adds permission-gated tool execution, lifecycle hooks, context-window
 tracking, conversation compaction, session logs and optional persistence.
@@ -165,14 +162,14 @@ A failed waiting save rejects instead of returning `waiting`. A failed settled o
 keeps admission blocked. Repair the sink and call `checkpoint(): void` to retry only the settled bytes;
 it never repeats provider calls or effects. Repeating the same abandonment can retry its failed save
 without duplicating receipts. Public conversation mutations remain blocked during unresolved recovery.
-`abandonPendingExecution` retains its synchronous `void` signature and now throws when its configured
+`abandonPendingExecution` is synchronous (`void`) and throws when its configured
 save cannot acknowledge closure. An original execution error remains primary if a secondary save fails.
 
 Coordinated readers accept strict v1 and v2 envelopes; all new file/workspace/artifact writes use v2.
 Older readers report v2 as unsupported and preserve its bytes, including settled records. Roll back
 these packages together or retain a compatible reader; do not strip recovery fields or downgrade the
 header. Available acknowledged snapshots carry this guarantee. Missing snapshots and history-only
-replay cannot rediscover pending identity; marker-free legacy interrupted-call repair remains unchanged.
+replay cannot rediscover pending identity.
 This does not add cross-process fencing, power-loss/fsync guarantees, arbitrary-effect recovery or
 durable Roundtable execution. Unresolved forks and workspace copies are refused before destination writes.
 
@@ -233,6 +230,9 @@ durable Roundtable execution. Unresolved forks and workspace copies are refused 
 | `TPermissionHandler`, `TPermissionResult`                                                | Types               | Approval callback and its answer (`true`, `false`, `'allow-session'`, `'allow-project'`) |
 | `ITerminalOutput`, `ISpinner`                                                            | Types               | Terminal I/O used for approval prompts                                                   |
 | `IInteractiveSessionRecord`, `IInteractiveSessionStore`                                  | Types               | The persisted session record and store port (from `@robota-sdk/agent-interface/session`) |
+| `loadSessionForUpdate`                                                                   | Function            | Read a record before saving it, so a writer keeps the members it does not own            |
+| `assertSafeSessionId`, `isSafeSessionId`                                                 | Functions           | Check that a session ID is one safe path segment                                         |
+| `SealedSessionUnreadableError`, `SessionClaimedError`, and their `is…Error` checks       | Errors, functions   | A store refused to replace a record nobody here can read, or the ID has a writer         |
 | `decodeInteractiveSessionRecord`, `decodeVersionedInteractiveSessionRecord`              | Functions           | Validate a stored record before use                                                      |
 | `serializeSessionArtifact`, `deserializeSessionArtifact`                                 | Functions           | Export a session record to a portable artifact and import it again                       |
 | `scrubSensitiveKeys`, `isSensitiveKey`                                                   | Functions           | Redact secret-looking keys (used by the logger; optional for artifacts)                  |
@@ -248,21 +248,23 @@ durable Roundtable execution. Unresolved forks and workspace copies are refused 
 
 `@robota-sdk/agent-session/node` holds what only a Node host provides:
 
-| Export                                             | Kind            | Description                                                                      |
-| -------------------------------------------------- | --------------- | -------------------------------------------------------------------------------- |
-| `NodeSessionStore`                                 | Class           | File-system JSON store for session records                                       |
-| `NodeSessionLogSink`, `NodeSessionLogSource`       | Classes         | File-system log writer and reader                                                |
-| `NodeExternalPayloadSource`                        | Class           | Reads a log's payload files from a base directory                                |
-| `NodeToolResultSpillStore`, `ToolResultSpillError` | Class, error    | Stores oversized tool results in files for the life of the session               |
-| `sweepStaleToolResultSpillDirectories`             | Function        | Removes spill directories left behind by a process that is no longer running     |
-| `NodePromptHistoryFile`, `parsePromptHistoryLine`  | Class, function | Append-only prompt history file that can be read newest-first                    |
-| `compactPromptHistoryFile`                         | Function        | Seals the prompt history one entry per line while terminals append               |
-| `StoredSessionRecords`                             | Class           | The sealed or plain stored form both session stores read and write               |
-| `StoredLines`, `StoredPayloads`                    | Classes         | The stored form of append lines and log sidecars                                 |
-| `migrateNodeSessionStore`                          | Function        | Seals the plain session records of a directory in place                          |
-| `migrateSessionLogDirectory`                       | Function        | Seals the plain session logs of a directory in place                             |
-| `createNodeWorkspacePathResolver`                  | Function        | The `resolveInWorkspace` option, for a host with a file system                   |
-| `registerProcessExitFlush`                         | Function        | The `registerExitFlush` option of `FileSessionLogger`, for a host with a process |
+| Export                                                  | Kind            | Description                                                                                             |
+| ------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------- |
+| `NodeSessionStore`, `SESSION_CLAIMS_DIRECTORY`          | Class, const    | File-system JSON store for session records, and the directory beside them that holds its writer markers |
+| `createProcessOperationLock`                            | Function        | The crash-released lock a store's writer markers share (from `@robota-sdk/agent-os/node-lock`)          |
+| `NodeSessionLogSink`, `NodeSessionLogSource`            | Classes         | File-system log writer and reader                                                                       |
+| `NodeExternalPayloadSource`                             | Class           | Reads a log's payload files from a base directory                                                       |
+| `NodeToolResultSpillStore`, `ToolResultSpillError`      | Class, error    | Stores oversized tool results in files for the life of the session                                      |
+| `sweepStaleToolResultSpillDirectories`                  | Function        | Removes spill directories left behind by a process that is no longer running                            |
+| `NodePromptHistoryFile`, `parsePromptHistoryLine`       | Class, function | Append-only prompt history file that can be read newest-first                                           |
+| `compactPromptHistoryFile`                              | Function        | Seals the prompt history one entry per line while terminals append                                      |
+| `inspectPromptHistoryFile`, `readPromptHistoryProjects` | Functions       | Report what a prompt history holds, and the projects it names                                           |
+| `StoredSessionRecords`                                  | Class           | The sealed or plain stored form both session stores read and write                                      |
+| `StoredLines`, `StoredPayloads`                         | Classes         | The stored form of append lines and log sidecars                                                        |
+| `migrateNodeSessionStore`                               | Function        | Seals the plain session records of a directory in place                                                 |
+| `migrateSessionLogDirectory`                            | Function        | Seals the plain session logs of a directory in place                                                    |
+| `createNodeWorkspacePathResolver`                       | Function        | The `resolveInWorkspace` option, for a host with a file system                                          |
+| `registerProcessExitFlush`                              | Function        | The `registerExitFlush` option of `FileSessionLogger`, for a host with a process                        |
 
 ## Session vs ConversationAgent
 
@@ -344,6 +346,9 @@ checks the conversion on disposable files without touching your sessions.
 - `@robota-sdk/agent-interface/execution` — background task contracts stored in the session record
 - `@robota-sdk/agent-os/file-authority` — bounded, root-relative file reads for log payloads, used only
   by `@robota-sdk/agent-session/node`
+- `@robota-sdk/agent-os/node-lock` — the process operation lock for writer markers, used only by
+  `@robota-sdk/agent-session/node`
+- `koffi` — the native binding those two `agent-os` subpaths load
 
 ## Documentation
 

@@ -5,10 +5,6 @@ description: How Robota SDK surfaces errors and how to handle them reliably in y
 
 # Error Handling
 
-> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
-> 3.1.0 or later after it is published, and check the exports in your installed version.
-> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
-
 Robota uses a typed error hierarchy. Errors thrown by the SDK extend `AgentRuntimeError`, which carries a
 `code`, a `category` and a `recoverable` flag, so you can handle kinds of errors instead of matching
 message text. All the classes below are exported from `@robota-sdk/agent-core`.
@@ -19,13 +15,14 @@ message text. All the classes below are exported from `@robota-sdk/agent-core`.
 
 | Class                     | Code                      | Category   | Recoverable | Where it comes from                                                                                         |
 | ------------------------- | ------------------------- | ---------- | ----------- | ----------------------------------------------------------------------------------------------------------- |
-| `ConfigurationError`      | `CONFIGURATION_ERROR`     | `user`     | No          | Invalid or missing configuration, e.g. a provider created without an API key                                |
+| `ConfigurationError`      | `CONFIGURATION_ERROR`     | `user`     | No          | Invalid or missing configuration, e.g. `AnthropicProvider` created without an API key, client or executor   |
 | `ValidationError`         | `VALIDATION_ERROR`        | `user`     | No          | Invalid input, e.g. tool arguments that fail the tool's Zod schema                                          |
 | `AuthenticationError`     | `AUTHENTICATION_ERROR`    | `user`     | No          | The provider rejected the API key (HTTP 401 or 403, or an authentication error type)                        |
 | `ModelNotAvailableError`  | `MODEL_NOT_AVAILABLE`     | `user`     | No          | The provider says the requested model does not exist or is not served                                       |
 | `ProviderError`           | `PROVIDER_ERROR`          | `provider` | Yes         | A provider call failed for any reason the other provider errors do not cover                                |
 | `RateLimitError`          | `RATE_LIMIT_ERROR`        | `provider` | Yes         | The provider reported a rate limit (HTTP 429); `retryAfter` holds the seconds it asked to wait              |
 | `StructuredOutputError`   | `STRUCTURED_OUTPUT_ERROR` | `provider` | Yes         | `run(prompt, { output })` got no valid object after all retries                                             |
+| `EmptyCompletionError`    | `EMPTY_COMPLETION`        | `provider` | Yes         | A run with `allowToolOnlyCompletion` ended a round with neither a tool call nor text                        |
 | `NetworkError`            | `NETWORK_ERROR`           | `system`   | Yes         | The request to the provider got no response: a refused or reset connection, DNS, a timeout                  |
 | `ToolExecutionError`      | `TOOL_EXECUTION_ERROR`    | `system`   | No          | A tool failed. During a run the failure goes back to the model as the tool's result instead of being thrown |
 | `SameToolInputLoopError`  | `SAME_TOOL_INPUT_LOOP`    | `system`   | Yes         | A tool was called with identical input more often than `maxSameToolInputs` allows                           |
@@ -42,7 +39,7 @@ message text. All the classes below are exported from `@robota-sdk/agent-core`.
 
 **Recoverable:** when `true`, retrying or falling back can make sense. `ErrorUtils.isRecoverable()`
 and `ErrorUtils.getErrorCode()` read these fields from any error (`false` and `'UNKNOWN_ERROR'` for
-an error that is not a `AgentRuntimeError`).
+an error that is not an `AgentRuntimeError`).
 
 ```typescript
 import { ErrorUtils } from '@robota-sdk/agent-core';

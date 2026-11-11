@@ -1,21 +1,22 @@
 # Robota agent image
 
 A Docker image and a reference `compose.yaml` for running the Robota agent on a server. This
-directory covers the **batch** shape: one container per task, which runs `robota -p` or
-`robota --goal` to completion and exits with the run's status.
+directory covers two shapes: **batch**, one container per task that runs `robota -p` or
+`robota --goal` to completion and exits with the run's status, and **server**, a long-running
+runtime behind the agent HTTP API (see "Server usage").
 
-| File | Purpose |
-| --- | --- |
-| `Dockerfile` | `node:22-bookworm-slim` with `bubblewrap`, `git`, CA certificates and `tini`; the CLI installed root-owned; runs as `node` |
-| `release-package-lock.json` | Placeholder replaced by the release workflow with the attested exact dependency graph for registry builds |
-| `validate-release-lock.mjs` | Fails registry builds unless the lock digest, sole CLI root, version, integrity and registry are exact |
-| `entrypoint.sh` | Seeds default settings, exports Docker secrets, then runs the command |
-| `default-settings.json` | Sandbox on, refuse to start when it cannot run, `/run/secrets` hidden from confined commands |
-| `seccomp-bwrap.json` | Docker's default seccomp profile plus the one rule `bubblewrap` needs |
-| `apparmor/robota-userns` | AppArmor profile granting only `userns`, for hosts that restrict user namespaces |
-| `compose.yaml` | Reference batch service |
-| `pack-local.sh` | Packs this checkout's CLI for a pre-release verification build |
-| `smoke/` | Loopback provider fixture and a smoke test of a built image |
+| File                        | Purpose                                                                                                                    |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `Dockerfile`                | `node:22-bookworm-slim` with `bubblewrap`, `git`, CA certificates and `tini`; the CLI installed root-owned; runs as `node` |
+| `release-package-lock.json` | Placeholder replaced by the release workflow with the attested exact dependency graph for registry builds                  |
+| `validate-release-lock.mjs` | Fails registry builds unless the lock digest, sole CLI root, version, integrity and registry are exact                     |
+| `entrypoint.sh`             | Seeds default settings, exports Docker secrets, then runs the command                                                      |
+| `default-settings.json`     | Sandbox on, refuse to start when it cannot run, `/run/secrets` hidden from confined commands                               |
+| `seccomp-bwrap.json`        | Docker's default seccomp profile plus the one rule `bubblewrap` needs                                                      |
+| `apparmor/robota-userns`    | AppArmor profile granting only `userns`, for hosts that restrict user namespaces                                           |
+| `compose.yaml`              | Reference batch and server services                                                                                        |
+| `pack-local.sh`             | Packs this checkout's CLI for a pre-release verification build                                                             |
+| `smoke/`                    | Loopback provider fixture and a smoke test of a built image                                                                |
 
 ## The container does not replace Robota's own isolation
 
@@ -24,18 +25,24 @@ own assets (provider credentials, settings, session state, the repository's `.gi
 inputs) from the commands the model runs inside the same container. The product's layers provide
 that boundary, so all of them stay on:
 
-| Layer | Protects | Overlap with Docker |
-| --- | --- | --- |
-| OS sandbox (bubblewrap) | writes outside the workspace, trust inputs, network for confined commands | none: the inner boundary |
-| Path containment and file authority | file tools escaping the workspace through paths or symlinks | none |
-| Workspace trust / Restricted | a repository running its own hooks, MCP servers, plugins | none: a trust question, not isolation |
-| Permissions / auto mode | outward actions such as push or network effects | none: a container cannot stop credential use |
+| Layer                               | Protects                                                                  | Overlap with Docker                          |
+| ----------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------- |
+| OS sandbox (bubblewrap)             | writes outside the workspace, trust inputs, network for confined commands | none: the inner boundary                     |
+| Path containment and file authority | file tools escaping the workspace through paths or symlinks               | none                                         |
+| Workspace trust / Restricted        | a repository running its own hooks, MCP servers, plugins                  | none: a trust question, not isolation        |
+| Permissions / auto mode             | outward actions such as push or network effects                           | none: a container cannot stop credential use |
 
 The image therefore ships settings that keep the OS sandbox on and make the CLI **refuse to start**
 when the sandbox cannot run here, rather than run commands unconfined:
 
 ```json
-{ "sandbox": { "enabled": true, "failIfUnavailable": true, "filesystem": { "denyRead": ["/run/secrets"] } } }
+{
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "filesystem": { "denyRead": ["/run/secrets"] }
+  }
+}
 ```
 
 `robota doctor` reports the result as `Command containment [execution.containment] ok:
@@ -48,13 +55,13 @@ those two). `bubblewrap` needs to create user, PID and network namespaces and mo
 inside the container, which Docker's defaults forbid. Measured on Ubuntu 24.04 (kernel 6.8,
 `kernel.apparmor_restrict_unprivileged_userns=1`, Docker 29):
 
-| Container options | `bwrap` result |
-| --- | --- |
-| Docker defaults | `No permissions to create new namespace` (seccomp) |
-| `seccomp=unconfined` | user namespace created, then `Failed to make / slave` (the `docker-default` AppArmor profile denies mount) |
-| `seccomp=unconfined`, `apparmor=unconfined` | `setting up uid map: Permission denied` (Ubuntu's unprivileged-userns restriction applies to unconfined tasks) |
-| `seccomp-bwrap.json` + an AppArmor profile with `userns` | namespaces work; `--proc /proc` fails because Docker masks `/proc` paths |
-| `seccomp-bwrap.json` + that AppArmor profile + `systempaths=unconfined` | Robota's actual sandbox (`--proc`, `--unshare-net`, `--unshare-pid`) runs |
+| Container options                                                       | `bwrap` result                                                                                                 |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Docker defaults                                                         | `No permissions to create new namespace` (seccomp)                                                             |
+| `seccomp=unconfined`                                                    | user namespace created, then `Failed to make / slave` (the `docker-default` AppArmor profile denies mount)     |
+| `seccomp=unconfined`, `apparmor=unconfined`                             | `setting up uid map: Permission denied` (Ubuntu's unprivileged-userns restriction applies to unconfined tasks) |
+| `seccomp-bwrap.json` + an AppArmor profile with `userns`                | namespaces work; `--proc /proc` fails because Docker masks `/proc` paths                                       |
+| `seccomp-bwrap.json` + that AppArmor profile + `systempaths=unconfined` | Robota's actual sandbox (`--proc`, `--unshare-net`, `--unshare-pid`) runs                                      |
 
 So the container needs three options, each for one reason:
 
@@ -73,6 +80,7 @@ So the container needs three options, each for one reason:
   A host without AppArmor (`docker info` lists no `apparmor` under Security Options) needs only
   the seccomp and systempaths options; use `apparmor=unconfined` there, or
   `ROBOTA_APPARMOR_PROFILE=unconfined` with `compose.yaml`.
+
 - `--security-opt systempaths=unconfined` removes Docker's masking of `/proc` paths so `bubblewrap`
   can mount a new `/proc` for the commands it confines. Those commands get their own PID namespace,
   so they cannot see the agent's processes.
@@ -85,9 +93,6 @@ Without these options the CLI refuses to start, for example:
 ```text
 Sandboxing is enabled but cannot run: missing bubblewrap cannot create a sandbox here: bwrap: Can't mount proc on /newroot/proc: Operation not permitted. Refusing to start (sandbox.failIfUnavailable).
 ```
-
-This refusal for a masked `/proc` needs a CLI release whose sandbox probe mounts `/proc`; with
-`3.0.0-beta.87` the probe passes there and each confined command fails instead.
 
 Docker Desktop runs containers in its own Linux VM; its kernel and AppArmor policy differ from a
 server's, so verify on the Linux host you deploy to.
@@ -108,7 +113,7 @@ out means you accept the container as the only boundary.
 Set up the provider once per state volume:
 
 ```sh
-docker run --rm $SECURITY -v robota-state:/home/node/.robota robota:3.0.0-beta.90 \
+docker run --rm $SECURITY -v robota-state:/home/node/.robota robota:<version> \
   --configure-provider main --type anthropic --model <model> --api-key-env ANTHROPIC_API_KEY --set-current
 ```
 
@@ -169,8 +174,8 @@ workflow; check it with `gh attestation verify oci://ghcr.io/woojubb/robota:<ver
 There is no `latest` tag; pin a version:
 
 ```sh
-docker pull ghcr.io/woojubb/robota:3.0.0-beta.90
-docker tag ghcr.io/woojubb/robota:3.0.0-beta.90 robota:3.0.0-beta.90   # the name used below
+docker pull ghcr.io/woojubb/robota:<version>
+docker tag ghcr.io/woojubb/robota:<version> robota:<version>   # the name used below
 ```
 
 Registry images are built only by the release workflow because the build requires its attested
@@ -186,14 +191,14 @@ SECURITY="--cap-drop ALL --security-opt no-new-privileges:true \
 
 docker run --rm $SECURITY -v robota-state:/home/node/.robota \
   -v /srv/secrets/anthropic:/run/secrets/ANTHROPIC_API_KEY:ro \
-  robota:3.0.0-beta.90 sh -c '
+  robota:<version> sh -c '
     set -e
     git clone --depth 1 https://example.com/org/repo.git /workspace/repo
     cd /workspace/repo
     robota --restricted-workspace -p "Fix the failing test" --output-format json'
 ```
 
-Arguments starting with `-` run `robota` directly (`docker run … robota:3.0.0-beta.90 -p "…"`);
+Arguments starting with `-` run `robota` directly (`docker run … robota:<version> -p "…"`);
 anything else runs as given. The container's exit status is the run's.
 
 With compose (`docker compose` resolves `./seccomp-bwrap.json` against this directory):
@@ -212,8 +217,7 @@ automatically, so use `restart: "no"` (the default) for batch tasks.
 
 ## Server usage
 
-**Requires a CLI release that contains `--serve --http-port` (3.0.0-beta.88 or later).** Set
-`ROBOTA_VERSION` to that release; compose pulls `ghcr.io/woojubb/robota:$ROBOTA_VERSION`.
+Set `ROBOTA_VERSION` to the release to run; compose pulls `ghcr.io/woojubb/robota:$ROBOTA_VERSION`.
 
 `robota --serve --http-port 8787` serves the agent HTTP API (see the agent-cli README, "Let other
 apps and services use the agent"). It binds loopback only, so the compose `server` profile pairs
@@ -224,7 +228,7 @@ only listener reachable from outside it:
 openssl rand -hex 32 > http-token          # the bearer clients present
 ROBOTA_REPO_URL=https://github.com/you/repo.git \
 OPENAI_API_KEY_FILE=./openai-key ROBOTA_HTTP_TOKEN_FILE=./http-token \
-ROBOTA_VERSION=3.0.0-beta.90 docker compose --profile server up -d
+ROBOTA_VERSION=<version> docker compose --profile server up -d
 curl -N -H "Authorization: Bearer $(cat http-token)" -H 'content-type: application/json' \
   -d '{"prompt":"Summarize the README"}' http://127.0.0.1:8080/submit
 ```

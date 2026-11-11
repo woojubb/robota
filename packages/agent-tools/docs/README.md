@@ -2,7 +2,7 @@
 
 `@robota-sdk/agent-tools` owns the Robota SDK's tool implementations: the Zod tool factories, the
 built-in tools (Shell, Read, Write, Edit, Glob, Grep, WebFetch, AskUserQuestion,
-ToolSearch), codebase retrieval and computer-use tools, and the sandbox clients and workspace
+ToolSearch), codebase retrieval and computer-use tools, the sandbox clients and workspace
 manifests, and the SDK's default tool set on the Node-only `./defaults` entry. The tool contract
 (`FunctionTool`, `ToolRegistry`) belongs to `@robota-sdk/agent-core`.
 

@@ -1,9 +1,5 @@
 # Deployment — one agent definition, many channels
 
-> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
-> 3.1.0 or later after it is published, and check the exports in your installed version.
-> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
-
 Robota needs no separate gateway to serve one agent over many surfaces. You build **one** session from
 one agent definition and bind that session to as many channels as you need. Every channel is a
 transport that `attach()`es the **same** session instance, so a WebSocket client, an HTTP caller and
@@ -24,7 +20,10 @@ import {
   bindTransportAdapter,
   createAgentRuntime,
 } from '@robota-sdk/agent-framework';
-import { createFileTransportSettingsRepository, createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import {
+  createFileTransportSettingsRepository,
+  createNodeFrameworkHost,
+} from '@robota-sdk/agent-framework/node';
 import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { createAnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { createHttpTransport } from '@robota-sdk/agent-transport/http';
@@ -82,11 +81,38 @@ A transport with `defaultEnabled: false`, such as the pairing-gated `WebRtcTrans
 attached to the same session when its own trigger fires (a paired device connecting), so two
 transports share one session at the same time.
 
+## Roles
+
+A transport grants each connection a role: `drive` (the default) or `observe`. A client may ask for
+less than its listener grants, never for more. An observing connection reads its session's
+conversation and state and cannot submit prompts, answer permission or ask prompts, or control the
+session. A host that needs both runs one listener per role, each with its own token (a random one
+is minted per launch unless you pass `token`):
+
+```ts
+import { WsTransport } from '@robota-sdk/agent-transport/ws';
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
+
+declare const session: IProtocolSession;
+
+const driver = new WsTransport({ port: 45678 });
+const observer = new WsTransport({ port: 45679, role: 'observe' });
+driver.attach(session);
+observer.attach(session);
+```
+
+The options and the wire details are in the
+[WebSocket transport reference](../../packages/agent-transport/docs/ws.md#roles). The CLI does this
+with `--serve --observer-port <port>`: a second loopback listener, admitted by a token the operator
+puts in the environment, that grants only `observe`. See the [CLI reference](./cli.md).
+
 ## Surfaces built on this pattern
 
 - **`__PRODUCT_CLI_NAME__` terminal UI** runs the session in the same process as the terminal UI.
 - **`__PRODUCT_CLI_NAME__ --serve`** runs a headless runtime that serves the session over a loopback WebSocket
-  with a per-launch token; `--serve --open` also serves the web GUI on localhost.
+  with a per-launch token; `--serve --open` also serves the web GUI on localhost, and
+  `--serve --observer-port <port>` opens a second loopback listener that only observes (see
+  [Roles](#roles)).
 - **`__PRODUCT_CLI_NAME__ daemon start`** keeps one such runtime per workspace; the desktop app, `__PRODUCT_CLI_NAME__ --attach`
   and the served GUI connect to it. See
   [Sessions, Background Sessions and the Daemon](./sessions-and-daemon.md).

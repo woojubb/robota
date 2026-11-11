@@ -51,6 +51,13 @@ Clients exchange JSON text frames typed as `TClientMessage` / `TServerMessage` f
 A listener grants `drive` unless the host sets `role`. A read-only observer listener has its own token and the usual binder:
 
 ```typescript
+import { WsTransport } from '@robota-sdk/agent-transport/ws';
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
+import type { ISessionBinder } from '@robota-sdk/agent-interface/session';
+
+declare const observerToken: string;
+declare const sessionBinder: ISessionBinder<IProtocolSession>;
+
 const observer = new WsTransport({ role: 'observe', token: observerToken, sessionBinder });
 ```
 
@@ -79,6 +86,7 @@ listener per role, each with its own token.
 | `sessionDirectory`                                                       | `ISessionDirectory`           | Lets clients list, start and switch the host's sessions.                                             |
 | `sessionBinder`                                                          | `ISessionBinder`              | Gives each connection its own session binding, so one client's switch does not move the others.      |
 | `personalUsageReporter` / `usageReporter` / `storedSessionUsageReporter` | reporters                     | Host-owned usage read models, available to admitted connections.                                     |
+| `settingsReporter`                                                       | `ISettingsReporter`           | Host-owned read and write for the Settings screen, available to admitted connections.                |
 
 `start()` before `attach()` throws, as does a second `start()` while running. `stop()` closes every
 client (forcing any that do not close within a few seconds), is safe to call more than once, and
@@ -91,6 +99,8 @@ that connection is cleaned up once and the session operation that produced the e
 
 - `createWsTransport(options)` — the same session bridge without a server, for a WebSocket you already
   own. Pass a `send` function; after `start()`, feed each inbound text frame to `transport.onMessage`.
+  The caller owns the socket, so it also decides the connection's `role` (`drive` unless set), for
+  example with `resolveSurfaceRole` from `@robota-sdk/agent-transport`.
 - `registerChannel(descriptor)` on `WsTransport` and the standalone `PayloadChannelRegistry` — carry
   application-defined events and binary frames on the same connection as the agent protocol. Binary
   frames go to channels; text frames go to the agent protocol.

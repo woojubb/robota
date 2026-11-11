@@ -10,6 +10,13 @@ web app and browser-remote surface.
 
 - `useSessionClient(makeClient)` — the transport-neutral session reducer (generic over the status type).
 - `useWsSession(url)` + `createWsSessionClient` — the localhost WebSocket binding.
+- `createDesktopSessionClient(bridge, callbacks)` — the session client for a desktop preload that
+  exposes frames (`IDesktopSessionBridge`) rather than an endpoint; `rememberSessionForRestore` lets a
+  host that restarts the runtime switch back to the session the person was in.
+- `state.role` — the role the host granted the connection (`'drive'` or `'observe'`, `null` until the
+  host answers). While it is `'observe'` the client sends only reads and `SessionSurface` renders
+  read-only: the conversation, its work and the project's reads, with no composer, answers, session
+  switching or control that changes the session. The host stays the authority.
 - `resolveClientRuntimeHost(environment)` — a browser endpoint resolver or a narrow desktop bridge
   adapter. The desktop bridge owns trust, endpoint validation and runtime lifecycle; a renderer asks
   `trustQuestion` before `getEndpoint` and calls `signalReady` after connection.
@@ -17,24 +24,53 @@ web app and browser-remote surface.
 - UI-intent state: `guiScreenForUiIntent` (the GUI screen a command's UI intent opens, if any) and
   `describeUiIntentForGui` (the explicit "not available on this surface" line otherwise).
 - Components: `SessionSurface`, `CenteredChrome`, `ConversationView`, `AgentActivityPanel`,
-  `PermissionPrompt`, `SessionSidebar` (the host's sessions; switch or start one), `SessionMonitor` (a
-  self-contained session page for a WebSocket URL), and `PersonalUsageDashboard` (7- and 30-day usage).
+  `AgentSwitcherSheet`, `PermissionPrompt`, `SessionSidebar` (the host's sessions; switch or start
+  one), `SessionMonitor` (a self-contained session page for a WebSocket URL), `SettingsScreen`,
+  `HelpSheet`, `Dialog`/`ConfirmDialog`, and `PersonalUsageDashboard` (7- and 30-day usage).
+- Product identity: `ProductIdentityProvider` and `useProductIdentity` supply the display name and
+  browser namespace the components use.
 - Brand marks: `ProductMark`, `ProductWordmark` — render them inside a `agent-ui` scope.
 - `styles/surface.css` — the design scoped to `.agent-ui` (bundled Pretendard, light and dark tokens, Tailwind
   token map, base layers); import it into a host app's Tailwind entry to embed the surface.
 - `styles/theme.css` — `surface.css` plus what a page that is only the surface owns (height, background,
   scrollbars); that page puts `agent-ui` on its `<html>`.
 
+## Entries
+
+The package root and `/client` are the same module; a browser consumer imports
+`@robota-sdk/agent-ui-web/client`. The CSS assets are `@robota-sdk/agent-ui-web/styles/theme.css` and
+`@robota-sdk/agent-ui-web/styles/surface.css`.
+
 ## Using it
 
 ```tsx
-import { useWsSession, SessionSurface } from '@robota-sdk/agent-ui-web/client';
+import {
+  ProductIdentityProvider,
+  SessionSurface,
+  useWsSession,
+} from '@robota-sdk/agent-ui-web/client';
 
-export function App({ url }: { url: string }) {
+const product = {
+  identity: { displayName: 'Cedar Agent', cliName: 'cedar' },
+  storage: { browserNamespace: 'cedar.agent' },
+} as const;
+
+function Session({ url }: { url: string }) {
   const state = useWsSession(url);
   return <SessionSurface state={state} surface="app" />;
 }
+
+export function App({ url }: { url: string }) {
+  return (
+    <ProductIdentityProvider value={product}>
+      <Session url={url} />
+    </ProductIdentityProvider>
+  );
+}
 ```
+
+The components read the product's display name and browser namespace from `ProductIdentityProvider`
+and throw without one.
 
 The components author Tailwind utility classes and ship **no compiled CSS** — the consumer owns the Tailwind
 entry and sources this package's `src`:
@@ -48,7 +84,8 @@ entry and sources this package's `src`:
 ```
 
 A different transport supplies its own `makeClient` (a `TMakeSessionClient<TStatus>`) and, if it adds
-connection states, instantiates `useSessionClient<ItsStatus>` — see `useRtcSession` in `apps/agent-web/src/remote-client`.
+connection states, instantiates `useSessionClient<ItsStatus>` — see `useRtcSession` in
+`apps/agent-web/src/remote-client/hooks/useRtcSession.ts`.
 
 See [SPEC.md](./SPEC.md) for the full contract.
 

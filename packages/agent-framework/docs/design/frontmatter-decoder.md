@@ -17,12 +17,16 @@ their own discovery precedence and their no-frontmatter behaviour, and refuse a 
 frontmatter before it is registered. A refused file is skipped and reported once per process. It
 still claims its file or directory name (its own `name:` cannot be read once refused), so a
 lower-priority definition with the same name cannot stand in for it, and one broken file shared with
-another host never stops the session. There is no public frontmatter parser.
+another host never stops the session. The package root exports two decode functions for hosts that
+read skills from somewhere other than the discovery loaders (`decodeFrontmatter`, which applies a
+profile, and `decodeFrontmatterJson`, which returns every field as a JSON value for content
+equality), and no other part of the decoder.
 
 ## Constraints
 
-- The implementation stays private to `agent-framework`: lower packages do not learn the file
-  formats, and the package entry points do not export the decoder.
+- The implementation stays in `agent-framework`: lower packages do not learn the file formats. The
+  package root exports `decodeFrontmatter`, `decodeFrontmatterJson` and `TFrontmatterJsonResult`;
+  the profile metadata, result and diagnostic types stay internal.
 - The caller selects the profile (`skill`, `bundle-skill` or `agent`). A file path never implies a
   profile.
 - YAML is untrusted input. Duplicate keys, aliases, merge keys, invalid roots, unsupported shapes,
@@ -51,6 +55,7 @@ another host never stops the session. There is no public frontmatter parser.
 | `frontmatter-primitives.ts`             | Validate non-empty strings, exact booleans, lists, effort, context, positive safe integers and scalar metadata |
 | `frontmatter-profile-fields.ts`         | Map validated YAML fields into the closed skill, bundle-skill and agent vocabularies                           |
 | `frontmatter-profiles.ts`               | Accumulate schema diagnostics and select the caller-provided profile definition                                |
+| `frontmatter-json.ts`                   | `decodeFrontmatterJson`: decode every YAML field as a JSON value, with no profile normalization                |
 | `frontmatter-error.ts`                  | `FrontmatterDecodeError`: keep structured diagnostics and format paths/codes without echoing untrusted values  |
 | `frontmatter-refusal-report.ts`         | Warn once per process that a skill or agent definition was refused and skipped (used by the discovery loaders) |
 | `__tests__/frontmatter-decoder.test.ts` | Verify behaviour through the decoder facade without coupling tests to the implementation modules               |

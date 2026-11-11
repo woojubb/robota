@@ -3,7 +3,7 @@
 ## Overview
 
 The official AI provider implementations of the Robota SDK in one package, one subpath per vendor:
-`./anthropic`, `./openai`, `./gemini` (with `./google`, a deprecated alias), `./bytedance`, `./deepseek`,
+`./anthropic`, `./openai`, `./gemini` (with `./google`, a compatibility alias), `./bytedance`, `./deepseek`,
 `./qwen`, `./gemma` and `./builtin`. `./openai-compatible` is the OpenAI wire-protocol base that `./openai`,
 `./deepseek`, `./qwen` and `./gemma` share, and that the author of another OpenAI-compatible provider can build on.
 
@@ -22,15 +22,15 @@ included here implements `IAIProvider` from `@robota-sdk/agent-core` (or extends
   Claude model module registers its models with the core registry, and only the code that uses those models imports it.
 - Among framework packages this package depends on `@robota-sdk/agent-core` only; `agent-framework`,
   `agent-session` and every higher-layer package must never be imported. A vendor subpath imports no other vendor
-  subpath, except that `./openai`, `./deepseek`, `./qwen` and `./gemma` build on `./openai-compatible` and
-  `./builtin` composes the others; `./builtin` belongs at a composition root.
+  subpath, except that `./openai`, `./deepseek`, `./qwen` and `./gemma` build on `./openai-compatible`,
+  `./google` extends `./gemini`, and `./builtin` composes the others; `./builtin` belongs at a composition root.
 
 ## Design decisions
 
-- **One package with subpaths, no facade.** An earlier single package re-exported every vendor from its root and
-  hard-depended on all three SDKs, so any importer installed them all and could bundle them all. Separate packages
-  fixed that but left the OpenAI protocol base without a parent to hold it. Subpaths plus optional peers keep a
-  one-vendor import the size of that vendor, with the shared base in the same package.
+- **One package with subpaths, no facade.** A root that re-exports every vendor hard-depends on all three SDKs, so
+  any importer installs them all and can bundle them all. One package per vendor avoids that but leaves the OpenAI
+  protocol base without a parent to hold it. Subpaths plus optional peers keep a one-vendor import the size of that
+  vendor, with the shared base in the same package.
 
 ## Anthropic (`./anthropic`)
 
@@ -129,8 +129,8 @@ Hosted search results exist only on OpenAI's side, named by a reply's output ite
 ### Purpose
 
 Google Gemini provider implementation (`@google/genai`), also implementing `IImageGenerationProvider`.
-A deprecated `GoogleProvider` compatibility alias is re-exported via the `./google` entry for callers
-migrating off the old name.
+The `./google` entry keeps `GoogleProvider`, a `GeminiProvider` subclass that registers as `google`, as a
+compatibility alias.
 
 ### Contract
 
@@ -159,14 +159,14 @@ migrating off the old name.
   understand must not fail silently downstream. The builder then avoids what that subset refuses
   although JSON Schema allows it: a null type, which becomes `nullable`, a `required` name with no
   property, and an empty `parameters` or nested `properties`. A tool that projection rejects is omitted from that
-  request alone and reported once per cache identity vian agent-core's `ToolSchemaProjection` logger.
+  request alone and reported once per cache identity via agent-core's `ToolSchemaProjection` logger.
 
 ### Design decisions
 
-- The provider definition's diagnostic `endpoint` (`generativelanguage.googleapis.com:443`) is stated
-  separately from `defaults.baseURL` on purpose: `endpoint` exists only for the pre-session doctor's TCP
-  reachability check, while `baseURL` is the runtime-effective value persisted into profiles and passed
-  to `createProvider`. A profile with its own `baseURL` is probed at that host instead.
+- The provider definition's diagnostic `endpoint` (`generativelanguage.googleapis.com:443`) exists only for
+  the pre-session doctor's TCP reachability check. It is deliberately not a `defaults.baseURL`: the
+  provider has no `baseURL` option because the vendor SDK embeds its endpoint, and no setup, persistence or
+  provider-construction path reads `endpoint`.
 
 ## DeepSeek, Qwen and Gemma, and the OpenAI-compatible protocol base (`./deepseek`, `./qwen`, `./gemma` and `./openai-compatible`)
 

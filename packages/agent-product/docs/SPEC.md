@@ -62,9 +62,11 @@ boundary has three parts:
 - Does not read provider settings, but does construct the provider from already-resolved config.
 - Does not mutate any module-level preset registry global — it builds or adopts an
   instance-scoped registry only, so two calls never cross-contaminate.
-- The subpaths are isolated: one reaches another only through the entry its former package
-  depended on, and no platform-neutral entry reaches a Node-only subpath. An in-package test pins
-  both.
+- The subpaths are isolated: one reaches another only through a fixed set of entries (the root
+  reaches `capability-pack` and `preset`, `command` reaches `preset`, `coding` reaches
+  `capability-pack`, `command` and `command/node`; `capability-pack` and `preset` reach no other
+  subpath), and no platform-neutral entry reaches a Node-only subpath or `coding`. An in-package
+  test pins both.
 
 ## Error handling
 
@@ -204,14 +206,12 @@ The output-style registry applies the same shape of precedence for style files: 
 on id collision, and a per-file parse or validation failure is isolated rather than aborting the
 whole load.
 
-#### Removed: `defaultTrustLevel`
+#### No `defaultTrustLevel`
 
-The preset contract used to carry a `defaultTrustLevel` field that nothing read. It was removed by
-owner decision rather than wired up, because a preset already states its trust/permission posture
-three other ways (permission mode, default permission mode, and autonomy), and resolution already
-promotes the latter two into the first — a fourth spelling would have been a second answer to a
-question that already had one. The trust axis itself is untouched elsewhere in the system; only the
-preset's own redundant copy of it is gone.
+The preset contract carries no `defaultTrustLevel` field. A preset already states its
+trust/permission posture three ways (permission mode, default permission mode, and autonomy), and
+resolution promotes the latter two into the first — a fourth spelling would be a second answer to a
+question that already has one. The trust axis itself is a settings concern, not a preset field.
 
 #### Built-in presets
 
@@ -233,8 +233,7 @@ ids. No custom error classes are defined for this package's single failure mode.
 
 ### Purpose
 
-Consolidated command module for the configured SDK CLI. Provides all slash-command implementations on one
-subpath. Plugin commands consume an injected `ICommandPluginAdapter`; human
+The slash-command implementations of the configured SDK CLI, all on one subpath. Plugin commands consume an injected `ICommandPluginAdapter`; human
 withdrawal controls remain reachable during active execution without activating new contributions,
 while the CLI owns the concrete adapter and plugin source loader.
 
@@ -458,10 +457,12 @@ guessing. The CLI does not hard-code command-specific dialog logic.
 
 ### Error taxonomy
 
-The subpath defines no custom error classes. All execution errors surface as `ICommandResult`
-values with `success: false` and a human-readable message. The one thrown condition is the
-`runtime` capability being unavailable when a command that requires it executes — a
-non-recoverable session configuration error.
+The subpath defines no custom error classes. All command execution errors surface as `ICommandResult`
+values with `success: false` and a human-readable message. The thrown conditions are the `runtime`
+capability being unavailable when a command that requires it executes — a non-recoverable session
+configuration error — and the exported provider-startup helpers, which throw the framework's
+`ProviderConfigError` when no usable provider configuration can be established, and refuse to run
+without host settings sources and stores or an authorized settings store.
 
 The CLI-owned plugin adapter treats a marketplace manifest fetch failure as non-fatal and returns an
 empty list rather than failing the caller.
@@ -493,9 +494,9 @@ re-implements none of them.
 
 ### Contract
 
-- The factory passes the caller's `cwd`, optional `sandboxClient` and optional `editorFiles` straight
-  through to the default tool factory; it does not maintain a separate tool list, so pack composition adds, drops, or
-  reorders no defaults relative to that source.
+- The factory passes the caller's tool options (`cwd`, `sandboxClient`, `editorFiles`, `shellExecutable`,
+  `httpUserAgent`) straight through to the default tool factory; it does not maintain a separate tool list, so pack
+  composition adds, drops, or reorders no defaults relative to that source.
 - Tools that need an adapter, a credential or an external service (`CodebaseRetrieval`, `Computer`)
   are absent: the default set it consumes holds none.
 

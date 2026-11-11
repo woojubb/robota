@@ -68,7 +68,8 @@ app.route(
 ```
 
 `sessionFactory` may return a new wrapper object on each call. `/submit` keys its one-turn-at-a-time
-check on `getSession().getSessionId()`, not on object identity.
+check on `getSession().getSessionId()`, not on object identity. A JSON request body over
+`maxJsonBodyBytes` (default 64 KiB) is answered `413`.
 
 ## Routes
 
@@ -109,7 +110,7 @@ Paths are relative to where the routes are mounted (`basePath`, or the prefix yo
 | `createAgentRoutes`      | function  | `(options: IAgentRoutesOptions) => Hono`                                                              |
 | `IHttpTransportOptions`  | interface | `{ basePath?, admission?, onStreamFailure?, attribution? }`                                           |
 | `IHttpTransport`         | interface | The transport; adds `getApp()` and `getAdmissionToken()` to the standard transport lifecycle          |
-| `IAgentRoutesOptions`    | interface | `{ sessionFactory, admission, onStreamFailure?, attribution? }`                                       |
+| `IAgentRoutesOptions`    | interface | `{ sessionFactory, admission, onStreamFailure?, attribution?, maxJsonBodyBytes? }`                    |
 | `TSessionFactory`        | type      | `(c: Context) => IHttpTransportSession \| Promise<IHttpTransportSession>`                             |
 | `IHttpTransportSession`  | interface | The session capabilities the routes use; a full interactive session satisfies it                      |
 | `TTurnAttribution`       | type      | Host-assigned `driverId`/`surface` for turns and prompt answers; never read from the request          |

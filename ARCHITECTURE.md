@@ -34,7 +34,8 @@ SDK packages (@robota-sdk/*)
   Product composition   agent-product (the capability-pack contract, presets, slash-command
                         modules and the coding pack are its subpaths) · agent-subagent-runner
   Presentation          agent-ui-terminal (React + Ink)
-                        agent-ui-web · agent-gui-web (private GUI)
+                        agent-ui-web (browser session surface) ·
+                        agent-gui-web (private GUI web app)
   Assembly              agent-framework: InteractiveSession, createQuery, createAgentRuntime,
                         runtime host (buildRuntimeSession / startRuntimeHost behind robota --serve)
   Transports            agent-transport (wire protocol, delivery) and the carriers built on it, one
@@ -44,24 +45,29 @@ SDK packages (@robota-sdk/*)
   Runtime               agent-session · agent-executor ·
                         agent-roundtable-robota (runs a session or agent as a roundtable participant and
                         selectors) ·
-                        agent-provider-replay (private: replays recorded provider responses in tests)
+                        agent-provider-replay (private: replays recorded provider responses in tests) ·
+                        agent-local-host (private: Node host authority for owner-protected local
+                        runtime state)
   Building blocks       agent-tools (its ./defaults entry is the default tool set, Node only) ·
                         agent-plugin · agent-mcp · agent-session-analytics ·
                         agent-telemetry-otel ·
                         agent-provider (one subpath per vendor; vendor SDKs are optional peers)
-  Contracts (type-only) agent-interface (one subpath per family: session, session-mobility,
-                        command, execution, analytics, transport, tui)
+  Contracts             agent-interface (one subpath per family: session, session-mobility,
+                        command, execution, analytics, transport, tui; the session and transport
+                        families also have a testing subpath)
   Foundation            agent-core
   Leaves                agent-os (file-authority, node-lock and process primitives; Koffi is an
                         optional peer) · agent-remote-pairing ·
                         agent-keyring (key custody and public-key sealing on node:crypto) ·
                         agent-organization (public canonical JSON and budget contracts) ·
                         agent-organization-host (private Node broker and durable authority) ·
+                        product-config (explicit product configuration contracts and host loading) ·
                         agent-roundtable (no @robota-sdk dependency)
 
 External workflow library
   @robota-sdk/workflows/command ← agent-cli (/workflows)
-  (The workflow artifact depends on host SDK peers, never the reverse.)
+  (The workflow artifact depends on host SDK peers (agent-core, agent-framework, agent-interface,
+  agent-provider, agent-tools), never the reverse.)
 ```
 
 The main package-level edges are drawn in [`diagrams/robota-architecture.mmd`](diagrams/robota-architecture.mmd).
@@ -73,8 +79,9 @@ and coordinated changes can be checked against packed SDK artifacts in an isolat
 
 > **What the rows do not show.** Providers are injected: `agent-framework` never depends on an
 > `agent-provider` subpath; the composition root constructs the provider and hands it in.
-> The transport family builds on `agent-core`, `agent-interface` and `agent-remote-pairing`,
-> not on `agent-framework`; `agent-ui-terminal` depends on both. `agent-subagent-runner` sits above the
+> The transport family builds on `agent-core` and `agent-interface`, with `agent-remote-pairing`
+> (`webrtc`) and `agent-keyring` (`link`) as optional peers, not on `agent-framework`;
+> `agent-ui-terminal` depends on both. `agent-subagent-runner` sits above the
 > framework because it assembles child sessions through it. `agent-mcp` depends only on
 > `agent-core`; the CLI connects it to the session. `agent-framework`'s `runGroupChat` is a facade
 > over the `agent-roundtable` leaf's `Roundtable` (Assembly → Leaves, a downward edge): the core owns
@@ -82,11 +89,13 @@ and coordinated changes can be checked against packed SDK artifacts in an isolat
 > Runtime for the product's own Session/Robota participants.
 
 > **Type contracts.** `agent-interface` owns the contract families, one subpath each, and contains
-> type declarations plus, at most, small pure accessors: sessions and interaction channels
-> (`session`), peer messaging and handoff (`session-mobility`), commands (`command`),
+> type declarations plus small pure accessors: sessions and interaction channels
+> (`session`), peer messaging and handoff (`session-mobility`, which also carries the handoff state
+> machine and the per-connection authority check), commands (`command`),
 > background tasks and subagent jobs (`execution`), usage and run traces (`analytics`),
 > transport adapters, admission, access tokens and external events (`transport`), and terminal UI
-> interactions (`tui`). A subpath depends only on `agent-core` and on lower subpaths.
+> interactions (`tui`); `session/testing` and `transport/testing` hold test doubles. A subpath
+> depends only on lower subpaths and, except `analytics` and `tui`, on `agent-core`.
 
 > **Workflows.** The CLI bundles the separately maintained workflow library, which uses host-owned
 > SDK peers and preserves the `/workflows` command and saved workflow formats.
@@ -144,8 +153,8 @@ configuration or network endpoint. In particular, a provider SDK may refuse clie
 
 ## Dependency and interface rule identifiers
 
-The identifiers below name architecture boundaries. The former broad dependency scans were removed
-by the minimal-harness reset; the one bundle-source graph gate is the runtime-platform check above.
+The identifiers below name architecture boundaries. The bundle-source graph gate is the
+runtime-platform check above, and `pnpm deps:check` covers source imports.
 This list is not a claim that each boundary has an automated gate. Package placement and dependency direction are shown in
 the System Overview diagram above. Current checks are defined in `AGENTS.md` and CI.
 
@@ -155,9 +164,8 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
 - `CORE-ZERO-DEPS` — the foundation package (`agent-core`) has no production dependency on any other
   `@robota-sdk/agent-*` package; a dependency from the bottom of the layer diagram to a package above
   it is a cycle through the foundation.
-- `PLUGIN-LAYER` — an `agent-plugin-*` package may depend, among `@robota-sdk/*` packages, only on the
-  allowed set (today: `agent-core`): plugins register with the foundation and never reach into the
-  framework above it.
+- `PLUGIN-LAYER` — `agent-plugin` may depend, among `@robota-sdk/*` packages, only on
+  `agent-core`: plugins register with the foundation and never reach into the framework above it.
 - `FAMILY-SIBLINGS` — the package name hierarchy is the dependency detector:
   an `agent-<family>-<child>` package (family = the second dash segment) may depend on its parent
   `agent-<family>` and on lower families, never on a sibling `agent-<family>-<other>` at any depth
@@ -184,10 +192,10 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
 - `ENTRY-POINT-ONLY` — a guarded composition aggregator (a package whose entry statically pulls a
   whole catalog, e.g. the default tool set) belongs at an application
   entry point or explicit composition root; mid-layer libraries use an injected port, never a lazy
-  import of a default. The former `GUARDED_AGGREGATORS` scan table no longer exists.
+  import of a default.
 - `PACKAGE-NAME` — the canonical architecture documents (plus every `packages/**/docs/SPEC.md`)
-  reference only real workspace package names; a scoped name that resolves to no package is drift
-  unless its line is marked "planned".
+  reference only real workspace package names, or the external `@robota-sdk/workflows` release; a
+  scoped name that resolves to no package is drift unless its line is marked "planned".
 - `RE-EXPORT` — no package barrel re-exports another workspace package wholesale
   (`export * from '<scope>/<other>'`); a public surface is owned, not forwarded.
 - `INTERFACE-IMPORT` — an implementation package imports a contract the interface package exports

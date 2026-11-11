@@ -11,7 +11,7 @@ and a browser remote client.
 
 - Does NOT open or own the WebRTC connection or signaling — it consumes the DTLS fingerprints of the negotiated
   channel + a data channel `send`, supplied by the caller (`agent-transport/webrtc` on the host; the browser client
-  elsewhere).
+  in `apps/agent-web`).
 - Does NOT wire an enable path — no command, no session exposure. That belongs to the transport.
 - **Zero workspace dependencies; no `node:` imports; no WebRTC implementation dependency** in the main entry point.
   Uses only `globalThis.crypto`, standard web APIs and pure-JS isomorphic code so it is reusable unchanged in a
@@ -59,7 +59,7 @@ So the proof is a chain of three keys, each with one job:
   devices show and both must say yes — nothing is certified, and no master key pinned, on the other side's word
   alone. The string covers the master key the new device will pin, because a device with no anchor yet has
   nothing else to check it against, and a random contribution from each side, one committed to before the other
-  is revealed, so nobody between the two devices can choose the digits. The code is spent by the first attempt that proves it and dies after a few
+  is revealed, so nobody between the two devices can choose the digits. The host spends the code on the first attempt that proves it and retires it after a few
   that fail; typed by a person, it is still long enough that, like the pairing secret, it needs no PAKE.
 - **Device keys.** A device's certificate binds its signing key (its id is that key's hash) and a separate
   key-agreement key that never signs, with the capabilities it may be asked for. Two devices' agreement keys give
@@ -163,7 +163,8 @@ single result on rejection (a resolver, crypto, or storage throw rejects it); no
 ## Extension Points
 
 The handshake is transport-agnostic (`send` + `onFrame`); a carrier wires it to its own channel and enforces
-accept-before-session-exposure. The session-key derivation output is reserved as a future TOFU/app-key seam.
+accept-before-session-exposure. The session key a first pairing yields is derived under its own HKDF label and
+seeds the per-device reconnect rendezvous.
 
 ## Error Taxonomy
 

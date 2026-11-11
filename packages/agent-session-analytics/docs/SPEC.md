@@ -4,8 +4,9 @@
 
 Owns session-log **timing and usage analysis and reporting** for the Robota SDK. Given persisted
 session records or one immutable host snapshot, it computes per-turn timing intervals (LLM wait vs.
-tool execution), aggregates cross-session personal usage into complete local-calendar buckets, and
-renders text reports. A pure analysis/observability concern — distinct from session
+tool execution), attributes token usage and cost to the source that spent it, aggregates
+cross-session personal usage into complete local-calendar buckets, projects usage into
+content-free OTLP payloads, and renders text reports. A pure analysis/observability concern — distinct from session
 lifecycle/persistence (`agent-session`) and from any CLI shell.
 
 ## Boundaries

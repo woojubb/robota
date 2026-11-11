@@ -2,19 +2,24 @@ graph TD
   %% Package dependency graph of the Robota monorepo.
   %% An arrow A --> B means "B depends on A" (A is used by B). Dotted arrows are runtime
   %% relations, not package dependencies. Grouped boxes stand for several packages.
+  %% Optional peer dependencies are drawn as dependencies. An edge already implied by a longer path
+  %% (for example agent-core reaching agent-cli through agent-framework) is not repeated.
 
-  subgraph Leaves["Leaves (no @robota-sdk dependency)"]
+  subgraph Leaves["Leaves"]
     OS[agent-os<br/>file-authority · node-lock · process]
     KR[agent-keyring<br/>key custody and sealing]
     PAIR[agent-remote-pairing]
     RT[agent-roundtable<br/>turn scheduling, no runtime]
+    ORG[agent-organization<br/>canonical JSON and budget contracts]
+    ORGH[agent-organization-host<br/>private · broker and durable authority]
+    PCFG[product-config<br/>product configuration contracts and host loading]
   end
 
   subgraph Foundation["Foundation"]
     CORE[agent-core<br/>Robota engine · tool/plugin/provider contracts · permissions]
   end
 
-  subgraph Contracts["agent-interface (type-only contracts)"]
+  subgraph Contracts["agent-interface (type contracts)"]
     IF[agent-interface<br/>one subpath per family]
   end
 
@@ -32,6 +37,7 @@ graph TD
     REPLAY[agent-provider-replay<br/>private · test replay]
     EXEC[agent-executor]
     RTR[agent-roundtable-robota<br/>Session/Robota roundtable participants]
+    LOCAL[agent-local-host<br/>private · owner-protected local state]
   end
 
   subgraph Assembly["Assembly"]
@@ -48,7 +54,8 @@ graph TD
 
   subgraph Presentation["Presentation"]
     TTUI[agent-ui-terminal<br/>React + Ink]
-    TGUI[agent-ui-web · agent-gui-web ·<br/>private]
+    UIW[agent-ui-web<br/>browser session surface]
+    GUI[agent-gui-web<br/>private · GUI web app]
   end
 
   subgraph Composition["Product composition"]
@@ -63,7 +70,7 @@ graph TD
     APP[apps/agent-app<br/>Electron desktop app]
     WEB[apps/agent-web<br/>browser remote client]
     STARTER[apps/starter-nextjs]
-    SIG[apps/remote-signaling]
+    SIG[apps/remote-signaling<br/>content-blind relay]
     ACTION[apps/action]
   end
 
@@ -84,6 +91,8 @@ graph TD
   OS --> EXEC
   IF --> EXEC
   CORE & SESS & RT --> RTR
+  CORE & KR & OS & PAIR --> LOCAL
+  ORG --> ORGH
 
   %% Assembly (providers are injected by the composition root, never imported)
   CORE & SESS & EXEC & TOOLS & OS & RT --> FW
@@ -98,22 +107,24 @@ graph TD
 
   %% Presentation
   FW & TCORE & IF --> TTUI
-  TCORE & PAIR --> TGUI
+  CORE & IF & TCORE --> UIW
+  UIW --> GUI
 
   %% Product composition
   FW --> SUB & PROD
   TOOLS --> PROD
   EXEC & OS --> SUB
 
-  CORE & FW --> WF
+  CORE & IF & TOOLS & PROV & FW --> WF
 
   %% Composition roots
-  FW & PROD & SUB & MCP & PROV & SA --> CLI
-  TTUI & TCAR & TWEBRTC & TGUI & WF --> CLI
-  KR --> CLI
-  TGUI --> APP
+  FW & PROD & SUB & MCP & PROV & SA & OTEL --> CLI
+  TTUI & TCAR & THTTP & TWEBRTC & TLINK & GUI & WF --> CLI
+  KR & PAIR & LOCAL & ORGH & PCFG --> CLI
+  GUI & LOCAL & PCFG & TCORE --> APP
+  CLI --> APP
   CLI -. daemon over loopback WebSocket .-> APP
-  TGUI --> WEB
-  FW & PROV --> STARTER
-  TWEBRTC --> SIG
+  CORE & UIW & PAIR & TCORE & PCFG --> WEB
+  FW & PROV & TOOLS --> STARTER
+  TWEBRTC -. signaling rendezvous .-> SIG
   CLI -. runs .-> ACTION

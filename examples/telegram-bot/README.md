@@ -27,7 +27,10 @@ Edit `.env` and fill in your values (the bot loads it with `dotenv`):
 ```
 BOT_TOKEN=your_telegram_bot_token_here
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
+EXAMPLE_STATE_ROOT=./state
 ```
+
+The bot refuses to start without `EXAMPLE_STATE_ROOT`, the directory where session records are written.
 
 ### 3. Install dependencies
 

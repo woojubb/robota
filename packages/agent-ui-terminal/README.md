@@ -20,7 +20,8 @@ import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-ui-term
 
 - `renderApp(options)` — render the full TUI on a session this process builds and owns.
 - `renderAttachedApp(options)` — render the full TUI as a thin client of a session another host (a
-  workspace daemon) runs. Leaving only detaches; the session keeps running.
+  workspace daemon) runs. Leaving only detaches; the session keeps running. With `mode: 'observe'`
+  it only reads: it sends nothing an observer may not send and answers the rest with a notice.
 - `renderSupervisedSessionView(options)` — the list view of supervised sessions behind
   `<cli-name> session view`.
 - `TuiInteractionChannel` — the session-owning interaction channel `renderApp` builds.

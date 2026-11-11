@@ -25,6 +25,7 @@ of the package, installed for this subpath only. `@robota-sdk/agent-transport` p
 
 ```typescript
 import { WebRtcTransport, WsSignalingClient } from '@robota-sdk/agent-transport/webrtc';
+import { createIdentityContext } from '@robota-sdk/agent-remote-pairing';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 declare const session: IProtocolSession; // e.g. a live interactive session
@@ -37,6 +38,7 @@ const signaling = new WsSignalingClient({
 });
 
 const transport = new WebRtcTransport({
+  cryptoContext: createIdentityContext('my-product'), // the namespace the remote client also uses
   signaling,
   secret: pairingSecret,
   onPaired: () => console.log('remote client paired'),
@@ -64,6 +66,7 @@ together for tests; `WsSignalingClient` joins a rendezvous on a WebSocket signal
 
 | Option                                                                   | Type                             | Description                                                                                                                       |
 | ------------------------------------------------------------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `cryptoContext`                                                          | `IIdentityContext`               | Required. The namespace both peers derive their pairing keys under (`createIdentityContext` from `agent-remote-pairing`).         |
 | `signaling`                                                              | `ISignalingClient`               | Required. Exchanges SDP/ICE with the remote peer.                                                                                 |
 | `secret`                                                                 | `string`                         | Pairing secret; gates the data channel until the pairing handshake accepts.                                                       |
 | `open` / `openReason`                                                    | `boolean` / `string`             | Runs without a pairing gate; `openReason` must say why.                                                                           |
@@ -74,6 +77,7 @@ together for tests; `WsSignalingClient` joins a rendezvous on a WebSocket signal
 | `connectionApproval`                                                     | `IConnectionApproval`            | With `secret`: asks an operator to approve each connection before it reaches the session.                                         |
 | `localPeer`                                                              | `ILocalPeerProof`                | With `secret`: also requires a nonce issued at a guarded local rendezvous.                                                        |
 | `resumeBridge` / `onDropped`                                             | `SessionResumeBridge` / callback | With `secret`: `resumeBridge` carries the paired session across channel drops; `onDropped` is called when a paired channel drops. |
+| `role`                                                                   | `'drive'` / `'observe'`          | Most the connection may do. Default `drive`; contradictory with `resumeBridge`, which carries the role its host gave it.          |
 | `onDeliveryError`                                                        | callback                         | Observes an outbound delivery failure before the channel is dropped.                                                              |
 | `personalUsageReporter` / `usageReporter` / `storedSessionUsageReporter` | reporters                        | Host-owned usage read models, available to the peer only after admission.                                                         |
 
@@ -83,15 +87,75 @@ requires attaching again.
 ## Other exports
 
 - Peers: `RtcPeer`, `RtcChannel` and `loadDataChannel`, one peer connection over `node-datachannel`.
-- Device mesh: `DeviceMeshNode` connects one user's devices, admitted by the device handshake.
-  Discovery and signaling for it: `DiscoveringMeshRelay`, `MeshMdns`, `MeshDht`, `NostrMeshRelay`,
-  `WsMeshRelayClient`, `startLanMeshRelay`.
-- Relay: `TurnServer` and `MeshTurnRelay`, a TURN relay one of the user's devices can run for its
-  paired devices.
 - Enrollment: `dialEnrollment` and `listenForEnrollment` open the channel used to enroll a new
   device; they fail with `EnrollmentLinkError`.
 - Admission frames: `localProofFrame` (the local-peer nonce) and `handoffGrantFrame` /
   `judgeHandoffGrant` (a signed cross-device hand-off grant, verified by a host-supplied verifier).
+- Test doubles: `createInMemorySignalingPair`, `createInMemoryMeshRelayHub`, `createInMemoryItemNetwork`,
+  `createInMemoryNostrHub`, `createInMemoryMdnsBus` and `createInMemoryMeshAddressCache` run the
+  signaling, relay and discovery ports in one process.
+
+## Device mesh
+
+`DeviceMeshNode` connects one user's devices to each other, each admitted by the device handshake of
+`@robota-sdk/agent-remote-pairing`. `new DeviceMeshNode(options)` takes `IDeviceMeshNodeOptions`:
+
+| Option               | Description                                                                                                                         |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `cryptoContext`      | Required. `IIdentityContext` the handshake runs under.                                                                              |
+| `identity`           | Required. This device's `IDeviceHandshakeIdentity`: certificates, keys and the lists in force.                                      |
+| `sessionDescriptor`  | Required. This device's signed descriptor of the session it offers.                                                                 |
+| `localPolicy`        | Required. The capabilities a peer may be asked for; an admission grants the intersection with the peer's certificate.               |
+| `relay`              | Required. The `IMeshRelay` signaling carrier, for example a `DiscoveringMeshRelay`.                                                 |
+| `operatorApprover`   | Asked before a peer may use a capability that needs approval. Absent: such capabilities are refused.                                |
+| `iceServers`         | STUN/TURN servers. None is contacted unless one is configured here or a paired device advertises its relay.                         |
+| `relays`             | `IDeviceMeshRelayOptions`: `advertised` (relays that peers advertise), `configured` (TURN servers), `relayOnly`, `credentialTtlMs`. |
+| `relayServer`        | This device's own relay; told which devices it serves (`declarePeers`) whenever the lists in force change.                          |
+| `fetchLatestLists`   | Before a remote admission, asks a signing-key holder for newer lists.                                                               |
+| `onListsAdopted`     | Receives the newer verified lists a handshake adopted, for the caller to persist.                                                   |
+| `connectTimeoutMs`   | From the first signal of an attempt to its admission. Default 20 s.                                                                 |
+| `handshakeTimeoutMs` | Bound on the device handshake.                                                                                                      |
+
+`start()` announces this device to every peer device the lists name. `refresh({ identity?, sessionDescriptor? })`
+applies newer lists or a new descriptor from the next handshake on, and drops peers the lists no longer
+name. `connect(deviceId, timeoutMs?)` resolves with an admitted `IDeviceMeshLink` (the existing one if there
+is one); `link(deviceId)`, `roleFor(deviceId)`, `onLink(handler)` and `onRefusal(handler)` read the state;
+`stop()` ends the node. Between two devices the one with the lower device id offers.
+
+An `IDeviceMeshLink` carries `admission`, `channelBinding` and an `authority`, the `ConnectionAuthority` of
+`@robota-sdk/agent-interface/session-mobility` that answers what the peer may do on this connection. It
+sends and receives messages (`send`, `onMessage`), opens a channel of its own for one file transfer
+(`openFileChannel`, `onFileChannel`) and reports its end (`onClose`, `close`).
+
+Discovery and signaling for the mesh try what reveals least first. `startLanMeshRelay` builds a
+`DiscoveringMeshRelay` over this device's direct signaling endpoint that looks for a peer in the address
+cache, with mDNS (`MeshMdns`), then in public records (`MeshDht` over the stores from
+`startMainlineDhtStore` or `createPkarrRelayStore`), and signals through public carriers
+(`NostrMeshRelay`) before the self-hosted relay (`WsMeshRelayClient`). `DEFAULT_NOSTR_RELAYS` and
+`DEFAULT_PKARR_RELAYS` are the default public relays. Every one of these only carries signals, so a stale
+or planted address delays a connection and never admits one.
+
+## Relay
+
+When no direct path works, a relay moves datagrams and nothing more. The relay is a TURN server on one of
+the user's own always-on devices, then a TURN server the user configured. With neither, a connection that
+needs a relay is refused with `MeshRelayNeededError` (its `need` is `relay-only` or `no-direct-path`).
+
+- `MeshTurnRelay.start(options)` runs the relay for a user's paired devices. `IMeshTurnRelayOptions`:
+  `host` (default every IPv4 interface), `port` (default 3478; `0` picks a free one), `relayAddress`,
+  `relayPorts` (`{ min, max }`), `quotas` (a partial `ITurnQuotas` over `DEFAULT_TURN_QUOTAS`),
+  `allowPrivatePeers` (default `true`: relayed data may reach private and link-local ranges),
+  `allowPeer`, `now` and `onError`. `endpoint` reports where it listens, `declarePeers(peers)` names the
+  devices it serves (any other device's credentials stop working and its allocations close), and `close()`
+  stops it.
+- `meshRelayCredential` and `meshRelayIceServers` derive the short-lived credential a device presents to a
+  peer's relay from their pairwise rendezvous (`DEFAULT_RELAY_CREDENTIAL_TTL_MS`, at most
+  `MAX_RELAY_CREDENTIAL_TTL_MS`).
+- `TurnServer.start(options)` is the TURN implementation underneath, over UDP. Its `ITurnServerOptions`
+  add a required `authorize(username)` that returns who a username belongs to and its password (or
+  `undefined` to refuse it), a `realm` of at most 4 bytes (default `r`) and `unauthenticatedLimits` (a
+  partial `IUnauthenticatedLimits` over `DEFAULT_UNAUTHENTICATED_LIMITS`), which bound the answers given to
+  requests nobody authenticated.
 
 ## Related packages
 

@@ -1,9 +1,5 @@
 # @robota-sdk/agent-core
 
-> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
-> 3.1.0 or later after it is published, and check the exports in your installed version.
-> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
-
 The foundation of the Robota SDK. It provides the `ConversationAgent` class (a conversation loop with
 tool calling), the provider, tool and plugin contracts with their abstract base classes, the
 permission evaluator, the hook runner, event services, typed errors, model metadata, and structured
@@ -227,8 +223,8 @@ The main fields:
 | `isToolVisible`         | `(name) => boolean`        | Hide a registered tool from the model, checked every round |
 
 `toolExecutionPolicy(calls)` is a trusted host callback evaluated for each model tool round.
-It receives a copy of that round's calls and returns a policy keyed by call ID. `dependsOn`
-requires successful predecessor results before dispatch; failed predecessors produce skipped
+It receives a copy of that round's calls and returns an `IToolExecutionPolicy` whose `scheduling`
+map is keyed by call ID. `dependsOn` requires successful predecessor results before dispatch; failed predecessors produce skipped
 receipts. Resource claims use a host-chosen asset identity shared across plugins: readers may
 share a resource, while a writer excludes readers and other writers. Omitted claims mean unknown
 shared state and serialize conservatively; `resources: []` explicitly permits independent work.
@@ -243,11 +239,11 @@ scheduling by supplying `scheduling`; its existing unplanned strategies retain t
 
 ## Entry points
 
-| Import path                      | What it contains                                                                                                                                                                                                                                                            |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@robota-sdk/agent-core`         | The main API, listed under Main exports. It is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun.                                                                                                                                                    |
-| `@robota-sdk/agent-core/node`    | Node-only pieces: the `CommandExecutor` and `HttpExecutor` hook executors, `processEnvResolver`, shell resolution (`resolvePlatformShell`), path containment (`canonicalizePath`, `isPathInside`), owner-only file writes, and the egress policy (`fetchWithEgressPolicy`). |
-| `@robota-sdk/agent-core/testing` | Test fixtures: `createScriptedProvider`, `createRecordingProvider`, `createReplayProvider`.                                                                                                                                                                                 |
+| Import path                      | What it contains                                                                                                                                                                                                                                                                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@robota-sdk/agent-core`         | The main API, listed under Main exports. It is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun.                                                                                                                                                                                                                   |
+| `@robota-sdk/agent-core/node`    | Node-only pieces: the `CommandExecutor` and `HttpExecutor` hook executors, `processEnvResolver`, shell resolution (`resolvePlatformShell`), path containment (`canonicalizePath`, `isPathInside`), owner-only file writes, process-scoped directories and markers, child-session control, and the egress policy (`fetchWithEgressPolicy`). |
+| `@robota-sdk/agent-core/testing` | Test fixtures: `createScriptedProvider`, `createRecordingProvider`, `createReplayProvider`, `loadToolSchemaProjectionFixtures`, `createTestArtifactSealer`.                                                                                                                                                                                |
 
 `runHooks` runs only the executors you pass; a hook whose type has none is reported in
 `unknownHookTypes`. On Node, pass `new CommandExecutor()` and `new HttpExecutor()` from
@@ -284,7 +280,8 @@ agent-framework       ← assembles sessions, commands, permissions and hooks
 agent-cli             ← the reference host
 ```
 
-- Built-in tools (Shell, Read, Edit, …): `@robota-sdk/agent-tools/node`
+- Built-in tools (Shell, Read, Edit, …): `@robota-sdk/agent-tools/node`; the default tool set:
+  `@robota-sdk/agent-tools/defaults`
 - Ready-made plugins (logging, usage, limits, …): `@robota-sdk/agent-plugin`
 - MCP servers and tools: `@robota-sdk/agent-mcp`
 - Sessions with permissions, hooks and compaction: `@robota-sdk/agent-session`

@@ -68,7 +68,7 @@ whether a missing value means "no" or "not stated".
   `ICommandPluginAdapter` that the `/plugin` command drives.
 - `@robota-sdk/agent-interface/session` names these types in the session contract;
   `@robota-sdk/agent-transport`, `@robota-sdk/agent-ui-terminal` and `@robota-sdk/agent-ui-web` use
-  them to list commands and render results. The DAG skill node consumes `ISkillExecutionPort`.
+  them to list commands and render results.
 
 ## Documentation
 

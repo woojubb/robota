@@ -1,8 +1,5 @@
 # @robota-sdk/agent-roundtable
 
-> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
-> release after publication; published 3.0.7 packages may have different exports and behavior.
-
 Coordinates independent agents and people in one shared conversation. Each participant keeps its own
 runtime and private state; the roundtable decides who speaks next, runs a turn or a parallel group of
 turns, and publishes their messages to a shared transcript in a stable order. The host supplies the
@@ -179,7 +176,7 @@ longer pending), `disposed`, `stale-claim` (this handle's claim on the store exp
 owner) or `recovery-required`.
 
 `model-call-limit` is different: it is thrown by `TurnServices.admitModelCall` itself, to whichever
-custom participant, selector or `meterJournal` host called it, once a configured `maxModelCallsPerRun`,
+custom participant, selector or `meterJournal` (from `@robota-sdk/agent-roundtable-robota`) host called it, once a configured `maxModelCallsPerRun`,
 `-PerConversation` or `-PerParticipant` limit is reached. Admission has already stopped the run,
 which ends `limited` (reason `'model-calls'`) either way. The caller should still let the rejection
 propagate (or return `failed`): the interrupted attempt is then discarded and retried on a later run,
@@ -221,7 +218,7 @@ A participant can be a plain object like `echo` above, or come from
 
 ## Version and compatibility
 
-This package's own API follows the release's semantic version. That is separate from the **stored
+This package's own API follows semantic versioning. That is separate from the **stored
 conversation schema**: `MemoryConversationStore` and any other `ConversationStore` persist a snapshot
 whose envelope carries `schemaVersion: 1`, and it keeps that envelope exactly as given — a store never
 inspects or validates it; decoding is the conversation owner's job. `loadRoundtable` is what decodes a

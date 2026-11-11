@@ -7,11 +7,11 @@ same TypeScript libraries you can embed. It is a coding-capable agent within the
 direction is [our agents developing and advancing our agents](../../VISION.md). Autonomous
 self-evolution remains an ambition; the behavior below describes the current CLI. It reads your
 project, edits files and runs commands under a permission system you control, and works with
-Anthropic, OpenAI, Gemini, DeepSeek, Qwen and local OpenAI-compatible models.
+Anthropic, OpenAI, Gemini, DeepSeek, Qwen, OpenRouter and local OpenAI-compatible models.
 
 The CLI is assembled from the same packages you can use in your own app: `@robota-sdk/agent-framework`
-for the session, `@robota-sdk/agent-ui-terminal` for the terminal UI, and one package per model
-provider. To build your own agent rather than use this one, start with the
+for the session, `@robota-sdk/agent-ui-terminal` for the terminal UI, and `@robota-sdk/agent-provider`
+for the model providers. To build your own agent rather than use this one, start with the
 [SDK guide](../../content/guide/sdk.md).
 
 > **Beta.** Behavior may change before the stable release. Please
@@ -26,8 +26,63 @@ npm install -g @robota-sdk/agent-cli   # installs the `__PRODUCT_CLI_NAME__` com
 npx @robota-sdk/agent-cli              # or run it once without installing
 ```
 
+Without Node.js, the installer scripts download the standalone binary for your platform (macOS and
+Linux on arm64 or x64, Windows on x64) from the latest GitHub release, verify its SHA-256 and install
+it to `<configured-user-state-dir>/bin`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/woojubb/robota/main/scripts/install.sh | bash   # macOS and Linux
+irm https://raw.githubusercontent.com/woojubb/robota/main/scripts/install.ps1 | iex          # Windows PowerShell
+```
+
 On macOS, Korean and other CJK input methods can crash inside Terminal.app; use a terminal such as
 [iTerm2](https://iterm2.com/) instead.
+
+## Build a separate product from npm packages
+
+An application can depend on the published `@robota-sdk/agent-cli` and
+`@robota-sdk/product-config` packages, and own its entry, identity, assets and packaging. The
+`/host` entry binds one executable to a build-fixed, non-secret identity. It is separate from the
+installed `__PRODUCT_CLI_NAME__` binary; direct `startCli`/`startCliEntry` calls to that binary still enforce its
+embedded identity. Supply a literal identity produced by `embeddedProductIdentity` from an explicit
+build config. The host validates and snapshots it before any session starts.
+
+```ts
+import { createProductCliHost } from '@robota-sdk/agent-cli/host';
+import { productIdentity } from './product-identity.js';
+import { productVersion } from './product-version.js';
+
+const host = createProductCliHost({
+  identity: productIdentity,
+  version: productVersion,
+  update: false,
+  // webRoot: absolute path to this product's built browser assets, when --serve --open is used
+});
+await host.run();
+```
+
+The same entry must run for ordinary invocations, daemon starts and self-forked workers. The host
+derives separate state, cache and log roots from its identity unless `runtimeDefaults` supplies
+validated home-relative paths. Operational settings remain selected at invocation time. Update
+checks are disabled unless the artifact explicitly supplies its own npm package and registry.
+Omitted `sourceVersion` uses the consumer artifact version; omitted build metadata is null.
+
+`@robota-sdk/agent-cli/desktop-host` provides trust admission, a curated CLI child environment,
+daemon start/reconnect, strict loopback endpoint parsing and a matching CSP. The consumer's Electron
+main process owns the window, native trust prompt, child-process execution and CSP installation;
+its preload owns IPC, and its renderer uses `@robota-sdk/agent-ui-web/client`. The desktop helper
+returns an endpoint only after the CLI has answered the trust and daemon commands. The consumer
+packages its own renderer files and the same product-bound CLI entry as the sidecar.
+
+`@robota-sdk/agent-cli/native-build` exports `buildProductNativeBinary` for host-matching Bun
+builds (this repository builds with Bun 1.4.2) from an absolute consumer entry. It qualifies Koffi's installed native addon before
+compiling and requires an absolute consumer-maintained third-party notices file, which it copies
+beside the binary. Native addon builds require a matching macOS, Linux or Windows host; a compiled
+binary re-enters its embedded entry for workers and the daemon. The caller owns signing and desktop
+packaging. The browser asset root, when provided, must be an absolute directory packaged by the
+consumer; a consumer host without one does not serve the SDK's built-in monitor assets.
+Install `e2b@2.51.0` alongside the CLI before calling the native builder. Native compilation embeds
+the complete hosted capability, including E2B; the resulting binary needs no adjacent SDK package.
 
 ## First run
 
@@ -96,8 +151,9 @@ a schema, and `--system-prompt` / `--append-system-prompt` change the system pro
 exit code is `0` on success and `1` on an error; `-p` exits `3` when no usable provider is
 configured, and a `--goal` run that stops without reaching its goal exits `2`. In a Git repository
 you have not trusted, print mode, `--goal`, `--serve`, `__PRODUCT_CLI_NAME__ mcp serve`, `__PRODUCT_CLI_NAME__ daemon start` and
-`__PRODUCT_CLI_NAME__ session start` refuse to start; with `--safe-mode` the first four run Restricted instead, and
-`__PRODUCT_CLI_NAME__ daemon start --restricted-workspace` starts the daemon Restricted.
+`__PRODUCT_CLI_NAME__ session start` refuse to start; with `--safe-mode` or `--restricted-workspace` the first four
+run Restricted instead, and `__PRODUCT_CLI_NAME__ daemon start --restricted-workspace` and
+`__PRODUCT_CLI_NAME__ session start --restricted-workspace` start Restricted.
 
 ### Keep sessions, run them in the background, share a daemon
 
@@ -160,14 +216,28 @@ in any mode: `rm` on the root, home or working directory, and writes into `.git`
 
 Shell commands can also run inside an OS sandbox (bubblewrap on Linux, Seatbelt on macOS): `/sandbox`
 switches between `auto-allow`, `regular` and `off`, and the `sandbox` settings key configures it.
+A confined command cannot read the credential-bearing files under `<configured-user-state-dir>`
+(`settings.json`, `credentials/`, `mcp-credentials/`, `remote-host-identity.json`, `secure/`,
+`secure-v1/`).
+
+Commands the agent runs (tools, hooks, background shells, a skill's `!` commands, MCP header
+helpers) do not inherit the variables your provider profiles use as credentials — `$ENV:` references
+and each provider's default key variable such as `OPENAI_API_KEY`; the runtime still authenticates
+with them. To let commands see one, list it in your user settings:
+`"commandEnvAllow": ["OPENAI_API_KEY"]` (project settings cannot do this). A variable you reference
+explicitly in an MCP server definition still resolves. A `$ENV:` reference added during a session is
+withheld from the next start.
+
 When something misbehaves, `__PRODUCT_CLI_NAME__ --safe-mode` starts with instruction files, skills, plugins, hooks
 and MCP servers all off.
 
-Workspace trust is granted per Git worktree and kept in `<configured-user-state-dir>/workspace-trust.json`:
+The trust manager holds approval for the exact folder while it runs. Reopening the CLI does not
+require another approval, but restarting the manager or computer does. The
+`<configured-user-state-dir>/workspace-trust.json` file records history and does not restore approval:
 
 ```bash
 __PRODUCT_CLI_NAME__ trust status    # is this workspace trusted, and what would trust load? (--json: one line)
-__PRODUCT_CLI_NAME__ trust --yes     # trust the Git workspace you are in
+__PRODUCT_CLI_NAME__ trust --yes     # request trust for this folder; confirm at the terminal
 __PRODUCT_CLI_NAME__ trust revoke --yes
 ```
 
@@ -176,8 +246,8 @@ See [Permissions and hooks](../../content/guide/permissions-and-hooks.md).
 ### Choose providers and models
 
 Each provider profile in `providers` names a `type` (`anthropic`, `openai`, `gemini`, `deepseek`,
-`qwen`, `gemma`), a model, and optionally a base URL and API key; `currentProvider` picks the one to
-use. Setup fills the key in as a reference to an environment variable:
+`qwen`, `gemma`, `openrouter`), a model, and optionally a base URL and API key; `currentProvider`
+picks the one to use. Setup fills the key in as a reference to an environment variable:
 
 | Provider type | Default key variable | Notes                                                                                |
 | ------------- | -------------------- | ------------------------------------------------------------------------------------ |
@@ -187,6 +257,7 @@ use. Setup fills the key in as a reference to an environment variable:
 | `deepseek`    | `DEEPSEEK_API_KEY`   |                                                                                      |
 | `qwen`        | `DASHSCOPE_API_KEY`  | Alibaba Cloud Model Studio                                                           |
 | `gemma`       | none                 | a local Gemma model; the base URL defaults to LM Studio's `http://localhost:1234/v1` |
+| `openrouter`  | `OPENROUTER_API_KEY` | connect in the browser (`/provider add openrouter`) or with an API key               |
 
 ```json
 {
@@ -331,7 +402,7 @@ daemon; it is not published to npm. See [The GUI and the Desktop App](../../cont
 
 `__PRODUCT_CLI_NAME__ --serve --http-port <port>` also serves the agent over HTTP on `127.0.0.1:<port>`, so another
 application or service can use it without a Robota client library. Every request presents the
-bearer you choose in `PRODUCT_HTTP_TOKEN` (at least 32 characters); the runtime removes it from its
+bearer you choose in `__PRODUCT_ENV_PREFIX__HTTP_TOKEN` (at least 32 characters); the runtime removes it from its
 environment, so the commands it runs do not inherit it. A command running as the same OS user can
 still read the server's launch environment unless the OS sandbox confines it (or the server runs
 as a separate user), so enable the sandbox on a server. With the bearer it binds loopback only.
@@ -339,24 +410,24 @@ as a separate user), so enable the sandbox on a server. With the bearer it binds
 To reach it from elsewhere, either put your own reverse proxy or tunnel in front, or serve it as an
 OAuth resource server, the same way `__PRODUCT_CLI_NAME__ mcp serve` does: give `--http-public-url`, `--oauth-issuer`,
 `--oauth-scopes` and `--oauth-allowed-subjects` (optionally `--http-host <ip>` and `--trusted-proxy`)
-and no `PRODUCT_HTTP_TOKEN`. Clients then present access tokens from that issuer whose audience is the
+and no `__PRODUCT_ENV_PREFIX__HTTP_TOKEN`. Clients then present access tokens from that issuer whose audience is the
 public URL, which carry the scopes and name an allowed subject. The routes below are served under the
 public URL's path, and its RFC 9728 metadata at `/.well-known/oauth-protected-resource<path>`.
 
 ```bash
-PRODUCT_HTTP_TOKEN="$(openssl rand -hex 32)" __PRODUCT_CLI_NAME__ --serve --http-port 8787
+__PRODUCT_ENV_PREFIX__HTTP_TOKEN="$(openssl rand -hex 32)" __PRODUCT_CLI_NAME__ --serve --http-port 8787
 __PRODUCT_CLI_NAME__ --serve --http-port 8787 --http-host 0.0.0.0 \
   --http-public-url https://agents.example.com/agent --oauth-issuer https://auth.example.com \
   --oauth-scopes agent.run --oauth-allowed-subjects client-a
 ```
 
-| Request | Does |
-| --- | --- |
+| Request                                                     | Does                                                                                                                                                                                     |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST /submit` `{"prompt": "...", "receivePrompts"?: true}` | Runs a turn and streams it as SSE (`text_delta`, `complete`, `error`; with `receivePrompts`, also `permission_request`, `ask_request`, `prompt_resolved`); `409` while a turn is running |
-| `GET /prompts` · `POST /prompts/<id>` `{"result": true}` | Lists the open permission/ask prompts · answers one (`{"response": ...}` for an ask) |
-| `POST /command` `{"name": "help", "args": ""}` | Runs a slash command |
-| `POST /abort` · `POST /cancel-queue` | Aborts the running turn · drops the queued prompt |
-| `GET /messages` · `/context` · `/executing` · `/pending` | Reads the conversation and its state |
+| `GET /prompts` · `POST /prompts/<id>` `{"result": true}`    | Lists the open permission/ask prompts · answers one (`{"response": ...}` for an ask)                                                                                                     |
+| `POST /command` `{"name": "help", "args": ""}`              | Runs a slash command                                                                                                                                                                     |
+| `POST /abort` · `POST /cancel-queue`                        | Aborts the running turn · drops the queued prompt                                                                                                                                        |
+| `GET /messages` · `/context` · `/executing` · `/pending`    | Reads the conversation and its state                                                                                                                                                     |
 
 A client that submits with `receivePrompts: true` answers the permission and ask prompts its turn
 raises; without it, a question no other client answers is denied, so choose the permission mode and
@@ -372,15 +443,15 @@ would. See [Editors](../../content/guide/cli.md#editors-agent-client-protocol).
 
 `__PRODUCT_CLI_NAME__ --serve --observer-port <port>` also opens a second WebSocket listener on
 `127.0.0.1:<port>` that only watches. It has its own token, which you choose in
-`PRODUCT_OBSERVER_TOKEN` (at least 32 characters); nothing is minted, and the runtime prints only
+`__PRODUCT_ENV_PREFIX__OBSERVER_TOKEN` (at least 32 characters); nothing is minted, and the runtime prints only
 `Observer listening on ws://127.0.0.1:<port> (read-only)` on stderr. A client presents the token as
 `?token=` or as the WebSocket subprotocol, as on the driver listener. The token and the port must
-differ from the driver listener's and from `PRODUCT_HTTP_TOKEN` and `--http-port`: a shared
+differ from the driver listener's and from `__PRODUCT_ENV_PREFIX__HTTP_TOKEN` and `--http-port`: a shared
 credential would let the holder of the read-only token drive through the other listener. A busy
 port fails the start instead of moving to the next one.
 
 ```bash
-PRODUCT_OBSERVER_TOKEN="$(openssl rand -hex 32)" __PRODUCT_CLI_NAME__ --serve --observer-port 7171
+__PRODUCT_ENV_PREFIX__OBSERVER_TOKEN="$(openssl rand -hex 32)" __PRODUCT_CLI_NAME__ --serve --observer-port 7171
 ```
 
 An observer reads the session's conversation and state and the host's list of sessions. It cannot
@@ -411,6 +482,8 @@ __PRODUCT_CLI_NAME__ secure setup              # create the keyring; the recover
 __PRODUCT_CLI_NAME__ secure status             # the keyring file, its slots and its key fingerprint (no passphrase)
 __PRODUCT_CLI_NAME__ secure verify             # unlock and check the stored key (--recovery: use the recovery key)
 __PRODUCT_CLI_NAME__ secure change-passphrase  # set a new passphrase (--recovery: reset a forgotten one)
+__PRODUCT_CLI_NAME__ secure enable             # migrate existing conversations, then turn secure mode on
+__PRODUCT_CLI_NAME__ secure disable            # turn secure mode off for new conversations
 ```
 
 The passphrase and the recovery key are typed at the terminal when asked, never given as an argument
@@ -419,6 +492,20 @@ agent's shell tool, cannot run these for you. Every program running as you can r
 so the passphrase (at least 12 characters, not one short pattern repeated) is what protects it. The
 keyring file is the only copy of your keys, and changing the passphrase does not lock out a copy
 someone already took. Creating a keyring does not by itself change how sessions are saved.
+
+Secure conversations are optional. After `secure setup`, run `secure enable` at an interactive
+terminal with all Robota sessions closed. It verifies the keyring, migrates supported existing
+conversation data, and refuses activation if plaintext conversation data remains. Resolve anything
+it reports before trying again; it never silently discards a conversation or a forked worktree.
+Secure CLI conversations are available on macOS and Linux. Windows keeps plaintext
+CLI conversations; `secure enable` and secure session startup refuse there. Secure desktop
+conversations are available on macOS.
+While secure mode is on, new conversations use the dedicated `secure-v1` storage area. The desktop
+app requires **File → Unlock Secure Conversation…** after opening; closing or reloading its window
+locks the session and discards unsent drafts and attachment paths. `secure disable` requires terminal
+confirmation and all current-version sessions to exit. New conversations then use plaintext storage;
+the sealed archive and keyring stay in place. Do not run an older Robota version against this state
+while secure mode is on: older versions cannot honor the secure mode choice.
 
 ### Check your setup and usage
 
@@ -447,24 +534,38 @@ Other files the CLI keeps under `<configured-user-state-dir>/`:
 
 | Path                   | Contents                                                                                       |
 | ---------------------- | ---------------------------------------------------------------------------------------------- |
-| `workspace-trust.json` | workspaces you have trusted                                                                    |
+| `workspace-trust.json` | approval history; live grants stay with the trust manager                                      |
 | `sessions/`            | saved sessions (a trusted project may keep them in `<configured-project-state-dir>/sessions/`) |
 | `history.jsonl`        | prompts you typed, for `Ctrl+R` (`"promptHistory": false` turns it off)                        |
 | `keybindings.json`     | key bindings                                                                                   |
 | `themes/`              | your own `/theme` themes                                                                       |
 | `plugins/`             | installed plugins (a project may have its own `<configured-project-state-dir>/plugins/`)       |
 | `mcp-credentials/`     | OAuth tokens for MCP servers, readable by you only                                             |
-| `secure/keyring.json`  | your keyring for secure conversations, protected by your passphrase and recovery key            |
+| `secure/keyring.json`  | your keyring for secure conversations, protected by your passphrase and recovery key           |
 
 ## Use it from code
 
-The package also exports `startCli`, the function the `__PRODUCT_CLI_NAME__` executable runs, and its options
-type `IStartCliOptions`. The package is ESM-only: load it with `import`, not `require()`.
+The package exports `startCliEntry`, the complete entry the executable runs, and its options
+type `IStartCliOptions`. It installs configured diagnostics, the interactive crash policy and
+startup error handling, then calls `startCli`. Use `startCli` directly when the host owns those
+process policies. The package is ESM-only: load it with `import`, not `require()`.
 
 A subagent runs in a child process that starts your entry script again with a worker flag; when
-`startCli()` sees that flag it runs the subagent instead of the CLI, and the returned promise never
-settles (the worker ends the process). So call `startCli()` from the script Node started, and put
+`startCliEntry()` or `startCli()` sees that flag it runs the subagent instead of the CLI, and the
+returned promise never settles (the worker ends the process). Call the entry from the script Node
+started, and put
 nothing before it that must not run once per subagent.
+
+The ordinary built-in entry keeps its own identity when another product's canonical variables are
+present. Installed entries accept canonical operational values only with a matching `PRODUCT_ID`;
+product-prefixed aliases and explicit host file selection remain available. The unembedded library's
+explicit `environment`, `productConfig`, or `productConfigFile` options are host construction inputs.
+Before execution, product variables in the process environment are replaced by the resolved
+invocation so spawned tools and workers inherit that product. Embedding hosts that run multiple
+invocations must keep and pass their own environment snapshots.
+
+A headless Restricted start reports its ignored configured project settings files on stderr.
+An untrusted refusal names the configured `<cli> trust --yes` command.
 
 ### Hosted task-worker execution
 
@@ -506,7 +607,26 @@ while physical containment, provider billing and independent remote custody requ
 measurements.
 
 Hosted posture requires current signed admission for a separate task worker and company broker.
-The installed E2B executor runs the stock CLI inside that worker. The runtime forwards arguments,
+The stock E2B executor is an explicitly installed capability for the npm/Node CLI. Local npm
+installation does not install or load the E2B SDK. Enable stock hosting in the same project:
+
+```sh
+npm install @robota-sdk/agent-cli e2b@2.51.0
+```
+
+For a global CLI installation, install both into the same global prefix:
+
+```sh
+npm install --global @robota-sdk/agent-cli e2b@2.51.0
+```
+
+Existing E2B helpers remain exported from the CLI package; their asynchronous provider operations
+require that explicit SDK installation. A missing SDK refuses stock hosted startup before admission
+requests, with installation guidance, and never runs the task on the host. A host supplying its own
+`hostedRuntimeExecutorFactory` does not need E2B. Stock standalone full/headless binaries and the
+desktop's bundled runtime embed E2B support.
+
+The executor runs the stock CLI inside the admitted worker. The runtime forwards arguments,
 input and output and owns cancellation, credential expiry and provider deletion; it does not run
 task tools against its own filesystem. Direct `--api-key` configuration is refused.
 

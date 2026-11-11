@@ -25,6 +25,8 @@ end-to-end tests.
 - Every event in the log must decode, including diagnostic events; an invalid entry never
   disappears by filtering for normalized responses only.
 - Message IDs, dates, and roles are preserved by the shared decoder rather than synthesized.
+- A sealed log is refused with fixed text that carries nothing of what the log holds: the harness holds no
+  keys, so it replays plain logs only.
 - When external payload references remain, only an explicitly supplied payload source can hydrate
   them, under one shared depth/byte budget; absent authority yields a typed `UNRESOLVED_REFERENCE`
   error rather than a silent gap. Already-hydrated inputs require no further payload reads.

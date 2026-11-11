@@ -250,7 +250,7 @@ it('fills adjacent underscore suffixes in actual published documentation', async
   const source = await readFile(new URL(`../../../${file}`, import.meta.url), 'utf8');
   const filled = fillProductContent(file, source, publicProductConfig(config), config);
   expect(filled).not.toMatch(/__PRODUCT_[A-Z_]+__/u);
-  expect(filled).toContain(`${config.identity.modelCommandToolPrefix}_submit`);
+  expect(filled).toContain(`${config.identity.cliName}_submit`);
 });
 
 it('publishes only verified generated output to the selected Pages project', async () => {

@@ -29,7 +29,7 @@ The two local provider endpoints are fixed at `127.0.0.1:43123` and `127.0.0.1:4
 provider or credential is needed. `node scripts/provider-server.mjs` serves deterministic model
 responses. Configure each CLI's local `gemma` profile in a disposable home with its corresponding
 URL and `fixture-model`, then exercise a normal prompt and its product's `/...-review` command.
-The model adapter is the published OpenAI-compatible provider; the server is consumer test data.
+The model adapter is the published `gemma` provider from `@robota-sdk/agent-provider/gemma`, which speaks the OpenAI-compatible protocol; the server is consumer test data.
 
 For host-native binaries, run `npm run build:native:cedar` and `npm run build:native:amber` under
 Bun 1.4.2 on the target host. The public native builder bundles each consumer entry, handles the

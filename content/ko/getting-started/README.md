@@ -4,15 +4,11 @@ description: __PRODUCT_DISPLAY_NAME__ CLI와 SDK의 설치, 프로바이더 설�
 
 # 시작하기
 
-> **버전 안내:** 이 페이지의 플랫폼 지원, 진입점과 호스트 API는 3.1.0 출시를 기준으로 합니다.
-> npm에 출시된 뒤 3.1.0 이상을 설치하고 제공되는 진입점을 확인하세요. 3.0.7에는
-> `@robota-sdk/agent-framework/node`가 없습니다.
-
-Robota provides composable TypeScript libraries and agent interfaces on the same foundation.
-Our direction is [our agents developing and advancing our agents](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md);
-this guide covers current capabilities. Use the SDK to build an agent or the `__PRODUCT_CLI_NAME__` CLI
-as a coding assistant. This page takes you from installation to a first agent, a session with
-built-in tools, and the CLI.
+Robota는 같은 기반 위에서 조합 가능한 TypeScript 라이브러리와 에이전트 인터페이스를 제공합니다.
+우리가 향하는 방향은 [우리의 에이전트가 우리의 에이전트를 개발하고 발전시키는 것](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md)이며,
+이 가이드는 현재 제공하는 기능을 다룹니다. 에이전트를 만들 때는 SDK를, 코딩 어시스턴트가 필요할 때는
+`__PRODUCT_CLI_NAME__` CLI를 사용하세요. 이 페이지는 설치부터 첫 에이전트, 내장 도구가 있는 세션, CLI까지
+안내합니다.
 
 > API는 새 버전에서 바뀔 수 있습니다.
 > [이슈 보고](__PROJECT_REPOSITORY_URL__/issues).
@@ -52,11 +48,11 @@ Ollama나 llama.cpp는 [Local LLM Setup](../../guide/local-llm.md)(영어)을 �
 ## 사전 요구사항
 
 - **Node.js 22.12 이상** — Robota CLI와 배포되는 모든 `@robota-sdk/*` 패키지가 `node >=22.12.0`을
-  Node 설치에 필요한 버전으로 선언합니다. 아래 npm CLI와 Node 예제에도 Node가 필요합니다.
-  `node --version`으로 확인하세요. 현재 소스에서는 플랫폼 중립 진입점과 Node 어댑터가 나뉘어 있습니다.
-  설치한 버전에서 어떤 진입점을 제공하는지 확인하세요.
-- **API 키**: Anthropic, OpenAI, Gemini, DeepSeek, Qwen 중 하나 — _또는_ LM Studio, Ollama 같은 로컬 모델
-  서버(키 불필요).
+  선언합니다. 아래 npm CLI와 Node 예제에도 Node가 필요합니다. `node --version`으로 확인하세요. 패키지의
+  메인 진입점은 플랫폼 중립이고, Node 호스트가 필요한 부분은 `@robota-sdk/agent-framework/node`처럼
+  `/node` 서브패스에 있습니다.
+- **API 키**: Anthropic, OpenAI, Gemini, DeepSeek, Qwen, OpenRouter 중 하나 — _또는_ LM Studio, Ollama 같은
+  로컬 모델 서버(키 불필요).
 - **macOS, Linux 또는 Windows.** 셸 명령용 OS 샌드박스는 macOS, Linux, WSL2에서 사용할 수 있고, 네이티브
   Windows에서는 사용할 수 없습니다.
 
@@ -80,13 +76,16 @@ npm install -g @robota-sdk/agent-cli
 npm install @robota-sdk/agent-core @robota-sdk/agent-provider @anthropic-ai/sdk
 ```
 
+`@robota-sdk/agent-provider`는 임포트한 프로바이더의 벤더 SDK만 불러옵니다. Anthropic은 `@anthropic-ai/sdk`,
+OpenAI, DeepSeek, Qwen, Gemma는 `openai`, Gemini는 `@google/genai`입니다. 사용하는 것을 설치하세요.
+
 ### 도구 호출(함수 도구)
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider @anthropic-ai/sdk zod@3
+npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider @anthropic-ai/sdk zod@4
 ```
 
-`agent-tools`는 Zod 3를 사용합니다. 스키마가 맞도록 `zod@3`를 설치하세요.
+`agent-tools`는 Zod 4를 사용합니다. 스키마가 맞도록 `zod@4`를 설치하세요.
 
 ### 내장 도구·권한·훅을 갖춘 세션
 
@@ -95,6 +94,27 @@ npm install @robota-sdk/agent-framework @robota-sdk/agent-provider @anthropic-ai
 ```
 
 ## 빠른 시작 — CLI
+
+설치한 패키지가 고정된 제품 식별 정보를 제공합니다. 상태, 캐시, 로그를 어디에 둘지는 패키지에 내장된 기본값에서
+오거나, 직접 고른 제품 환경 파일에서 옵니다. 이런 기본값 없이 빌드된 패키지는 파일이 필요합니다. 예를 들어
+이 제품의 상태, 캐시, 로그 경로를 담은 `product.env`를 만드세요:
+
+```dotenv
+PRODUCT_USER_STATE_DIR=./state
+PRODUCT_PROJECT_STATE_DIR=.project-state
+PRODUCT_CACHE_DIR=./cache
+PRODUCT_LOG_DIR=./logs
+```
+
+상대 경로로 적은 사용자 경로는 환경 파일이 있는 디렉터리를 기준으로 해석됩니다. 제품마다 상태 경로를 따로
+정하세요. 설치한 아티팩트와 일치하지 않는 식별 정보 설정은 이 운영 설정 파일에 넣지 마세요. 파일은 절대 경로로
+선택하되, 설치한 제품의 id를 함께 지정하세요. CLI는 `PRODUCT_ID`가 설치한 제품을 가리킬 때만
+`PRODUCT_CONFIG_FILE`을 읽습니다.
+
+```bash
+export PRODUCT_ID=__PRODUCT_ID__
+export PRODUCT_CONFIG_FILE=/absolute/path/to/product.env
+```
 
 ```bash
 # 설치 없이 바로 실행
@@ -105,10 +125,10 @@ npm install -g @robota-sdk/agent-cli
 __PRODUCT_CLI_NAME__
 ```
 
-처음 실행하면 CLI가 API 키가 있는지 묻고, 프로바이더 설정, 무료 Gemini 키 발급, 로컬 모델 연결 중 하나를
-안내합니다. `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `DASHSCOPE_API_KEY`, `DEEPSEEK_API_KEY` 중 하나가 이미
-설정되어 있으면 묻지 않고 그 프로바이더의 기본 모델로 시작합니다. 나중에 프로바이더를 바꾸려면
-`__PRODUCT_CLI_NAME__ --configure`를 실행하세요.
+처음 실행하면 CLI가 API 키가 있는지 묻고, 프로바이더 설정, 무료 Gemini 키 발급, 로컬 모델 연결, OpenRouter
+연결 중 하나를 안내합니다. `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `DASHSCOPE_API_KEY`, `DEEPSEEK_API_KEY`,
+`OPENROUTER_API_KEY` 중 하나가 이미 설정되어 있고 구성된 프로바이더가 없으면 묻지 않고 그 프로바이더의 기본
+모델로 시작합니다. 나중에 프로바이더를 바꾸려면 `__PRODUCT_CLI_NAME__ --configure`를 실행하세요.
 
 아직 신뢰하지 않은 Git 저장소에서는 프로젝트의 지침 파일, 설정, 스킬, 훅을 불러오기 전에 이 워크스페이스를
 신뢰할지 묻습니다. 거절하면 이것들 없이 Restricted 상태로 세션을 시작합니다.
@@ -121,20 +141,21 @@ __PRODUCT_CLI_NAME__
 > /workflows create "CLI 도구의 태그라인을 세 개 쓰고, 가장 좋은 것을 골라 이유를 설명해줘"
 ```
 
-`/workflows create`는 활성 프로바이더에게 워크플로우 설계를 요청하고, 이를 `.workflows/<name>.json`에 저장한
-다음 즉시 실행합니다. 자세한 내용은 [CLI Reference](../../guide/cli.md#workflows-workflows)(영어)를
+`/workflows create`는 활성 프로바이더에게 워크플로우 설계를 요청하고, 사용자가 확인하면 이를
+`.workflows/<name>.json`에 저장한 다음 즉시 실행합니다. 자세한 내용은 [CLI Reference](../../guide/cli.md#workflows-workflows)(영어)를
 참고하세요.
 
 ### 지원 프로바이더
 
-| 프로바이더                          | 기본 모델과 예시                              | 키 변수             | 키 발급                                                                        |
-| ----------------------------------- | --------------------------------------------- | ------------------- | ------------------------------------------------------------------------------ |
-| Anthropic (Claude)                  | `claude-sonnet-4-6` (기본), `claude-opus-4-6` | `ANTHROPIC_API_KEY` | [platform.claude.com](https://platform.claude.com/settings/keys)               |
-| OpenAI                              | 설정할 때 모델을 입력 (예: `gpt-5.1`)         | `OPENAI_API_KEY`    | [platform.openai.com](https://platform.openai.com/api-keys)                    |
-| Gemini                              | `gemini-3-flash-preview` (기본)               | `GEMINI_API_KEY`    | [aistudio.google.com](https://aistudio.google.com/apikey)                      |
-| DeepSeek                            | `deepseek-v4-flash` (기본), `deepseek-v4-pro` | `DEEPSEEK_API_KEY`  | [platform.deepseek.com](https://platform.deepseek.com/api_keys)                |
-| Qwen (Alibaba Cloud)                | `qwen-plus` (기본), `qwen-max`                | `DASHSCOPE_API_KEY` | [Model Studio](https://modelstudio.console.alibabacloud.com/?tab=api#/api-key) |
-| 로컬 (Ollama, LM Studio, llama.cpp) | 서버에서 실행 중인 모델                       | —                   | 키 불필요                                                                      |
+| 프로바이더                          | 기본 모델과 예시                              | 키 변수              | 키 발급                                                                        |
+| ----------------------------------- | --------------------------------------------- | -------------------- | ------------------------------------------------------------------------------ |
+| Anthropic (Claude)                  | `claude-sonnet-4-6` (기본), `claude-opus-4-6` | `ANTHROPIC_API_KEY`  | [platform.claude.com](https://platform.claude.com/settings/keys)               |
+| OpenAI                              | 설정할 때 모델을 입력 (예: `gpt-5.1`)         | `OPENAI_API_KEY`     | [platform.openai.com](https://platform.openai.com/api-keys)                    |
+| Gemini                              | `gemini-3-flash-preview` (기본)               | `GEMINI_API_KEY`     | [aistudio.google.com](https://aistudio.google.com/apikey)                      |
+| DeepSeek                            | `deepseek-v4-flash` (기본), `deepseek-v4-pro` | `DEEPSEEK_API_KEY`   | [platform.deepseek.com](https://platform.deepseek.com/api_keys)                |
+| Qwen (Alibaba Cloud)                | `qwen-plus` (기본), `qwen-max`                | `DASHSCOPE_API_KEY`  | [Model Studio](https://modelstudio.console.alibabacloud.com/?tab=api#/api-key) |
+| OpenRouter                          | `anthropic/claude-sonnet-4.6` (기본)          | `OPENROUTER_API_KEY` | [openrouter.ai](https://openrouter.ai/keys)                                    |
+| 로컬 (Ollama, LM Studio, llama.cpp) | 서버에서 실행 중인 모델                       | —                    | 키 불필요                                                                      |
 
 ## 첫 번째 에이전트
 
@@ -252,7 +273,8 @@ const session = new InteractiveSession({
 
 session.on('text_delta', (delta) => process.stdout.write(delta));
 
-// submit()은 프롬프트가 접수되면 끝나고, `completed`는 턴이 끝나면 완료됩니다.
+// submit()은 핸들을 돌려줍니다. 세션이 유휴 상태면 턴이 끝난 뒤에, 실행 중인 턴 뒤에 대기열로 들어가면
+// 즉시 돌려줍니다. `completed`는 이 턴의 결과로 완료됩니다.
 const turn = await session.submit('src/의 TypeScript 파일을 나열하고 각 파일이 하는 일을 알려줘.');
 const { response } = await turn.completed;
 ```
@@ -306,4 +328,5 @@ Terminal.app에서 시작하면 경고를 표시합니다.
 
 **"Workspace trust is required before headless startup"**: print 모드(`__PRODUCT_CLI_NAME__ -p`)는 신뢰하지 않은 Git
 저장소에서 시작하지 않습니다. 터미널에서 `__PRODUCT_CLI_NAME__ trust --yes`를 실행하고 직접 승인하거나, `--safe-mode`를 붙여 모든
-사용자 정의(지침 파일, 스킬, 플러그인, 훅, MCP 서버)를 끈 채로 실행하세요.
+사용자 정의(지침 파일, 스킬, 플러그인, 훅, MCP 서버)를 끈 채로 실행하거나, `--restricted-workspace`를 붙여
+프로젝트의 설정, 훅, 플러그인, 스킬, MCP 서버 없이 시작하세요.

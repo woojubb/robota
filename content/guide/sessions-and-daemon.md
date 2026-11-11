@@ -64,7 +64,7 @@ your confirmation. Workspace trust does not protect against that direct local cl
 
 | State                  | Meaning                                                                                                |
 | ---------------------- | ------------------------------------------------------------------------------------------------------ |
-| `trusted`              | The live manager holds approval for this exact folder.                                                |
+| `trusted`              | The live manager holds approval for this exact folder.                                                 |
 | `untrusted`            | Trust was never granted.                                                                               |
 | `revoked`              | Trust was granted, then revoked.                                                                       |
 | `stale/replaced`       | The grant changed while Robota ran, or the repository at this path was moved or replaced. Grant again. |
@@ -165,8 +165,9 @@ __PRODUCT_CLI_NAME__ daemon stop
 ## The browser GUI
 
 `__PRODUCT_CLI_NAME__ --serve --open` starts a runtime of its own (not the daemon), serves the GUI web app over
-`http://127.0.0.1:<port>` and opens it in your browser. The runtime lasts as long as the command
-runs. The GUI shows a sessions sidebar; `/resume` in the GUI opens it. Using the GUI and the desktop
+`http://127.0.0.1:<port>` and opens it in your browser. It needs an interactive terminal: the command
+prints an access code there, and the browser asks for it before it shows the page. The runtime lasts
+as long as the command runs. The GUI shows a sessions sidebar; `/resume` in the GUI opens it. Using the GUI and the desktop
 app is covered in [The GUI and the Desktop App](./gui.md).
 
 ## The session view
@@ -224,7 +225,7 @@ These limits are fixed in code, not settings.
 | `__PRODUCT_CLI_NAME__ daemon start [--json] [--restricted-workspace]`                          | Start this workspace's daemon, or reuse the running one. `--json` prints `{"id","url"}`; `--restricted-workspace` starts it Restricted in a folder not trusted yet. |
 | `__PRODUCT_CLI_NAME__ daemon status [--json]`                                                  | Whether this workspace's daemon runs. `--json` prints `{"running":false}` or `{"running":true,"id","url"}`.                                                         |
 | `__PRODUCT_CLI_NAME__ daemon stop`                                                             | Stop this workspace's daemon.                                                                                                                                       |
-| `__PRODUCT_CLI_NAME__ daemon clear-start-lock`                                                           | Remove a start lock left by a `daemon start` that is gone. Refuses while the start is still running.                                                                |
+| `__PRODUCT_CLI_NAME__ daemon clear-start-lock`                                                 | Remove a start lock left by a `daemon start` that is gone. Refuses while the start is still running.                                                                |
 | `__PRODUCT_CLI_NAME__ --attach [--screen-reader\|--no-screen-reader]`                          | Open the full terminal UI on this workspace's running daemon. TTY and confirmation required.                                                                        |
 | `__PRODUCT_CLI_NAME__ --serve --open`                                                          | Serve the GUI web app on localhost and open it in a browser.                                                                                                        |
 | `__PRODUCT_CLI_NAME__ session list [--format text\|json]`                                      | List live processes on this machine, saved sessions, and background sessions, in separate groups.                                                                   |
@@ -252,16 +253,17 @@ See the [CLI reference](./cli.md) for `/rename`, `/rewind`, `/cost` and the othe
 
 ### Files and locations
 
-| Path                                                                   | Contents                                                                                        |
-| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `<user-state>/workspace-trust.json`                                    | Approval history; live approval is held by the trust manager and is not restored from this file. |
-| `<user-state>/sessions/`                                               | Saved sessions for Restricted workspaces, and for trusted workspaces on hosts other than Linux. |
-| `<project-state>/sessions/`, `<project-state>/logs/` (in the project)  | Saved sessions and session logs for a trusted workspace on Linux.                               |
-| `$XDG_RUNTIME_DIR/robota/supervised/`, else `<user-state>/supervised/` | Background-session control state and daemon start locks. Must be private to your user.          |
+| Path                                                                               | Contents                                                                                         |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `<user-state>/workspace-trust.json`                                                | Approval history; live approval is held by the trust manager and is not restored from this file. |
+| `<user-state>/sessions/`                                                           | Saved sessions for Restricted workspaces, and for trusted workspaces on hosts other than Linux.  |
+| `<project-state>/sessions/`, `<project-state>/logs/` (in the project)              | Saved sessions and session logs for a trusted workspace on Linux.                                |
+| `$XDG_RUNTIME_DIR/<daemon-namespace>/supervised/`, else `<user-state>/supervised/` | Background-session control state and daemon start locks. Must be private to your user.           |
 
 On hosts other than Linux, Robota cannot prove that a write under the project stays inside it, so a
 trusted workspace's sessions are saved in `<user-state>/sessions` instead and nothing is written under
-the project root.
+the project root. With secure conversations on, new sessions are sealed and kept under a `secure-v1/`
+folder in `<user-state>` (and in `<project-state>` on Linux) in place of these paths.
 
 ### Security model
 
@@ -272,14 +274,25 @@ the project root.
   named: if the session restarted in the meantime, the attach is refused.
 - **Observers are read-only.** An `--observe` (or peek) client refuses prompts, commands, aborts and
   loop stops, and never receives permission questions — so a session with only observers still
-  denies and cancels at once.
+  denies and cancels at once. A client can ask for less than the role it is granted, never for more.
+- **`--serve --observer-port <port>` opens a read-only listener.** It binds `127.0.0.1:<port>` beside
+  the driver listener and grants only the observe role, admitted by a token you choose in
+  `__PRODUCT_ENV_PREFIX__OBSERVER_TOKEN` (at least 32 characters, different from the driver token and
+  `__PRODUCT_ENV_PREFIX__HTTP_TOKEN`). An observer joins the session the runtime started with, and a
+  driver's switch to another session does not move it.
 - **The daemon's token stays in memory.** It is minted fresh per start and passed to the daemon
   through an inherited pipe, not argv, the environment or disk. Its tools do not inherit it. It is
   printed only by `daemon start --json` / `daemon status --json`.
 - **Everything binds to loopback.** The daemon's WebSocket and the `--serve --open` GUI listen on
-  `127.0.0.1`; the GUI server also rejects requests whose `Host` header is not a loopback name.
+  `127.0.0.1`; the GUI server also rejects requests whose `Host` header is not a loopback name, and
+  serves the page only after the access code printed in the terminal is entered.
 - **Control requests are bound to one process start.** Attach and control requests such as stop
   carry the start they were issued for; a session restarted under the same id refuses them.
+- **Secure conversations change how a runtime is reached.** With them on, starting a background session
+  or the daemon asks the person at the terminal to unlock; the runtime is reached through an owner
+  link instead of a WebSocket token, and `daemon start --json` prints no URL. The browser GUI,
+  the HTTP API, the observer listener and external-event grants do not start. See
+  [Secure conversations](./cli.md#secure-conversations).
 
 ### Limitations
 
@@ -292,18 +305,18 @@ the project root.
 
 ### Troubleshooting
 
-| Message or symptom                                                                         | Cause and fix                                                                                                                                                                                  |
-| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Workspace trust is required before headless startup (state: …)`                           | Run `__PRODUCT_CLI_NAME__ trust --yes` in the repository, or start the daemon with `--restricted-workspace`.                                                                                   |
-| `Attaching needs an interactive terminal and the user's confirmation.`                     | The command ran without a TTY (a script or an agent). Run the printed command yourself.                                                                                                        |
-| `No daemon is running in <dir>. Start one with: __PRODUCT_CLI_NAME__ daemon start`         | `--attach` looks for the daemon of the exact directory; run it where the daemon was started.                                                                                                   |
-| `If no daemon start is running, remove it with: __PRODUCT_CLI_NAME__ daemon clear-start-lock`        | A previous start died holding the lock. Run `__PRODUCT_CLI_NAME__ daemon clear-start-lock`, then start again.                                                                                            |
-| `Daemon <id> is running but cannot be connected to. Run: __PRODUCT_CLI_NAME__ daemon stop` | Stop it and start again.                                                                                                                                                                       |
-| `<id> is not a live supervised session this terminal can attach to.`                       | The session stopped, or is not controllable. Check `__PRODUCT_CLI_NAME__ session list`.                                                                                                        |
-| `Supervised session directory is not private to this user.`                                | Make the control directory (see above) owned by you with mode `0700`.                                                                                                                          |
-| `Robota web assets not found (dist/web) — run a full CLI build.`                           | The GUI assets are missing (for example, a source checkout without a full build).                                                                                                              |
-| A saved session is listed as `corrupt` or `unsupported`                                    | The file is not a session record, or was written by a build this one does not read. It is kept, not overwritten, and cannot be resumed.                                                        |
-| `Session <id> is open in another process (pid …)`                                          | One session has one writer: close it in the process named, or wait for its subagent job to end. If that process is no longer running, run `__PRODUCT_CLI_NAME__ session release <id> --force`. |
+| Message or symptom                                                                            | Cause and fix                                                                                                                                                                                  |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Workspace trust is required before headless startup (state: …)`                              | Run `__PRODUCT_CLI_NAME__ trust --yes` in the repository, or start the daemon with `--restricted-workspace`.                                                                                   |
+| `Attaching needs an interactive terminal and the user's confirmation.`                        | The command ran without a TTY (a script or an agent). Run the printed command yourself.                                                                                                        |
+| `No daemon is running in <dir>. Start one with: __PRODUCT_CLI_NAME__ daemon start`            | `--attach` looks for the daemon of the exact directory; run it where the daemon was started.                                                                                                   |
+| `If no daemon start is running, remove it with: __PRODUCT_CLI_NAME__ daemon clear-start-lock` | A previous start died holding the lock. Run `__PRODUCT_CLI_NAME__ daemon clear-start-lock`, then start again.                                                                                  |
+| `Daemon <id> is running but cannot be connected to. Run: __PRODUCT_CLI_NAME__ daemon stop`    | Stop it and start again.                                                                                                                                                                       |
+| `<id> is not a live supervised session this terminal can attach to.`                          | The session stopped, or is not controllable. Check `__PRODUCT_CLI_NAME__ session list`.                                                                                                        |
+| `Supervised session directory is not private to this user.`                                   | Make the control directory (see above) owned by you with mode `0700`.                                                                                                                          |
+| `Robota web assets not found (dist/web) — run a full CLI build.`                              | The GUI assets are missing (for example, a source checkout without a full build).                                                                                                              |
+| A saved session is listed as `corrupt` or `unsupported`                                       | The file is not a session record, or was written by a build this one does not read. It is kept, not overwritten, and cannot be resumed.                                                        |
+| `Session <id> is open in another process (pid …)`                                             | One session has one writer: close it in the process named, or wait for its subagent job to end. If that process is no longer running, run `__PRODUCT_CLI_NAME__ session release <id> --force`. |
 
 ## Related
 

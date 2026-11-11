@@ -3,8 +3,8 @@
 ## Purpose
 
 `@robota-sdk/agent-framework` is the assembly layer of the Robota SDK. It composes `agent-core`,
-`agent-session`, `agent-tools`, `agent-executor`, and the `agent-interface/transport` type contracts
-into a single, provider-neutral SDK surface. `InteractiveSession` is the primary entry point,
+`agent-session`, `agent-tools`, `agent-executor`, `agent-roundtable` (the turn loop behind group
+chat), and the `agent-interface` contracts into a single, provider-neutral SDK surface. `InteractiveSession` is the primary entry point,
 preserving observed tool outcomes across live and restored presentation without replaying effects; a
 `createQuery({ host, cwd, provider })` factory covers single-shot prompt use; `createAgentRuntime()` composes a
 headless/multi-session runtime. Its main entry is platform-neutral: it runs in a browser, a Web Worker,
@@ -29,8 +29,9 @@ React/Ink UI.
   (`agent-core`, `agent-session`, `agent-tools`); this package exports only what it owns or narrows
   behind an SDK facade. A pass-through re-export is allowed only for a symbol a permitted consumer
   has no other legal import path to (such as `IBackgroundTaskRunner` from `agent-executor`, in
-  `background-tasks/`), so ownership stays visible in every import. This is enforced mechanically
-  across every file reachable from the `exports` map, whether the re-export is a runtime value or a type.
+  `background-tasks/`), so ownership stays visible in every import. A public-API test pins that the
+  general-purpose runtime symbols (permission evaluation, hook running, message helpers) are not
+  re-exported from the root.
 - **React-free.** No React/Ink dependency, so the SDK stays usable from a CLI, server, worker, or
   test in any TypeScript context. React and Ink belong to `agent-cli`.
 - **Provider-neutral.** The consumer creates the provider and injects it; the SDK never imports a
@@ -44,7 +45,10 @@ React/Ink UI.
   nothing but an authority the service issued reaches them, and a host that has none builds no service
   and runs Restricted. The brand and its maps live in one module that `.` and `./node` share. Trusted access is accepted only when the real working directory is the trusted root or a
   descendant of it — `cwd` and the access decision are independent inputs, so this boundary check keeps the pair
-  fail-closed. Once accepted, the pair is one value fixed for the session's life and handed by
+  fail-closed. A directory spelled another way than the root (through a symlink, or a Windows 8.3
+  short name) is accepted on its real path and bound to the session as that real path, so every
+  project read starts from a path inside the root; a directory already inside the root as written
+  keeps its spelling. Once accepted, the pair is one value fixed for the session's life and handed by
   reference, never copied field by field, so no lazy operation can hold a different answer from the
   session; a move to another directory is a new session, not a mutation of this one.
 - **Settings layers and stores never open a path; plugin enablement does.** A settings layer is read
@@ -88,9 +92,10 @@ React/Ink UI.
   store that seals writes none: that stops one being appended above the sealed ones, but nothing in
   the state anchors trust, so it cannot stop a program of the same user replacing sealed manifests
   with plain ones. Making a checkpoint or resuming a branch never depends on opening an earlier checkpoint; a
-  session has one checkpoint writer or restore at a time, and each checkpoint claims its own place
-  atomically, so concurrent edits and unreadable records do not make rollback restore the wrong
-  pre-image. A host without those guarantees is refused, and an unreadable checkpoint is reported
+  session has one checkpoint writer or restore at a time, across processes (the state host supplies
+  the writer lease), and each checkpoint claims its own place atomically, so concurrent edits and
+  unreadable records do not make rollback restore the wrong pre-image. A host without those
+  guarantees (no writer lease, no atomic directory claim) is refused, and an unreadable checkpoint is reported
   without hiding the others. A sealed manifest is replaced whole, since
   a torn one could not be told from a damaged one, and a restore is all or nothing, since a partial
   restore cannot be told from a finished one. A branch head a rollback through the first checkpoint
@@ -119,8 +124,9 @@ React/Ink UI.
   references and projected command tools use neutral identifiers unless the host supplies its own,
   and subagent lifecycle hooks add product environment aliases only when the host supplies their names.
   Model-facing identifiers remain consistent through prompt execution and child-tool filtering. SDK
-  core ships no user-visible built-in commands; command packages (`agent-command-*`) contribute
-  behavior through `ICommandModule`, consuming SDK command contracts and common APIs, and what a
+  core ships no user-visible built-in commands; the command modules of `@robota-sdk/agent-product/command`
+  (and any host's own) contribute behavior through `ICommandModule`, consuming SDK command contracts
+  and common APIs, and what a
   module opens to the model is all the model is offered or can run — a per-subcommand declaration is
   an allowlist enforced before the command runs, so an alias or a later subcommand stays user-only
   until its owner opens it. The SDK does
@@ -133,7 +139,7 @@ React/Ink UI.
 `agent-framework` sits above `agent-core` (engine, provider abstraction, permissions, hooks),
 `agent-session` (generic run loop, persistence ports), `agent-tools` (tool infrastructure and
 built-ins), and `agent-executor` (background task / subagent lifecycle primitives), and below
-`agent-cli` and other runtime shells. Command packages (`agent-command-*`) sit beside it, consuming
+`agent-cli` and other runtime shells. The command modules in `agent-product` sit beside it, consuming
 its command contracts without a reverse dependency. Assembly (wiring tools, provider, system prompt)
 happens inside the SDK; the provider instance itself always comes from the consumer.
 
@@ -277,6 +283,11 @@ These are behaviors a caller cannot infer from a type signature alone.
   good; once named, it is never renamed. A name it already has is kept, and a rename made while the
   title is generated wins. The title-generation call always disables tool use, so hosted web tools
   can never be invoked merely to generate a title.
+- **A rename reaches the stored record or says why not.** `setName` writes the name onto the
+  session's stored record. A record this process cannot read (corrupt, unsupported or locked), or a
+  session that can no longer save its record, raises an error, because a rename that appears to
+  succeed while changing nothing on disk is worse than a refusal. A session with nothing saved yet
+  is renamed in memory and the next save writes it.
 - **Status changes are pushed.** A status change made through any client reaches every client on
   the session. Context usage is not part of that: it moves every turn and
   is reported on its own, so counting it would push a status after every turn with nothing changed.
@@ -429,8 +440,8 @@ These are behaviors a caller cannot infer from a type signature alone.
 - **Restriction must be asked for; extension may be assumed** is the recurring shape behind several
   of the guarantees above (hook executors, tool composition, agent-definition tiers): a capability
   that is silently inferable from the _shape_ of an input (an empty vs. non-empty array, a name
-  collision) has repeatedly been the source of a real regression in this codebase, so every such seam
-  now requires an explicit, separately-named option rather than inferring intent from omission.
+  collision) is a recurring source of regressions, so every such seam requires an explicit,
+  separately-named option rather than inferring intent from omission.
 
 - **Workspace identity**: linked worktrees stay distinct by worktree root, while a nested working
   directory inside one worktree resolves to the same identity. A repository recreated at the same
@@ -453,8 +464,7 @@ These are behaviors a caller cannot infer from a type signature alone.
   `pending` candidate and re-runs the check, so nothing flagged reaches durable memory. This is a
   heuristic, not a secret scanner: a secret that reads like prose can still pass.
 - **`group-chat`'s only turn loop is the Roundtable core's.** The facade keeps no transcript, turn
-  counter or loop of its own, so conversation orchestration lives in exactly one place; it makes no
-  durability or cancellation claim beyond what the legacy loop it replaced already made.
+  counter or loop of its own, so conversation orchestration lives in exactly one place.
 
 ## Error taxonomy (shape, not enumeration)
 

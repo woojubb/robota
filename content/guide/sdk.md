@@ -1,9 +1,5 @@
 # Using the SDK
 
-> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
-> 3.1.0 or later after it is published, and check the exports in your installed version.
-> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
-
 `@robota-sdk/agent-framework` assembles the lower Robota packages — `agent-core`, `agent-session`,
 `agent-tools` and `agent-executor` — into a ready-to-use agent session: built-in file, shell and web
 tools, permission checks, hooks, context tracking and compaction, slash commands, subagents, and
@@ -19,7 +15,7 @@ provider package itself. The platform it runs on is passed in as `host`: on Node
 | Drive a long-lived agent from your own UI, server or bot   | `new InteractiveSession({ host, cwd, provider })`                               |
 | Ask a question and get a string back                       | `createQuery({ host, cwd, provider })`                                          |
 | Create many sessions that share one configuration          | `createAgentRuntime({ host, cwd, provider })` — see [Embedding](./embedding.md) |
-| Expose a session over HTTP, WebSocket or MCP               | `agent-transport/{http,ws,mcp}` — see [Deployment](./deployment.md)             |
+| Expose a session over HTTP, WebSocket or MCP               | `@robota-sdk/agent-transport/{http,ws,mcp}` — see [Deployment](./deployment.md) |
 | Build a small agent with only your own tools, no framework | `new Robota()` from `agent-core` — see [Building Agents](./building-agents.md)  |
 | Assemble your own session loop from the parts              | `new Session()` from `agent-session`, with your own provider and tools          |
 
@@ -63,7 +59,9 @@ await session.shutdown();
   recognizes it.
 - `abort()` stops the running turn and clears the queue. The partial reply is kept with
   `state: 'interrupted'`, the `interrupted` event fires, and `completed` resolves with
-  `interrupted: true`. `cancelQueue()` clears the queue and leaves the running turn alone.
+  `interrupted: true`. `cancelQueue()` clears the queue and leaves the running turn alone. Both
+  also settle any permission or ask prompt still waiting for an answer: a permission is denied and
+  an ask is cancelled.
 - `shutdown()` aborts any running turn, stops background work, saves the session if a store is
   configured, and removes all listeners. It is safe to call more than once. `submit()` after
   `shutdown()` rejects.
@@ -110,22 +108,22 @@ Subscribe with `on(event, listener)` and unsubscribe with `off(event, listener)`
 are exported from `@robota-sdk/agent-interface/session` (`IContextWindowState` from
 `@robota-sdk/agent-core`).
 
-| Event                | Payload                   | When                                                                              |
-| -------------------- | ------------------------- | --------------------------------------------------------------------------------- |
-| `text_delta`         | `string`                  | A chunk of streamed reply text                                                    |
-| `tool_start`         | `IToolState`              | A tool call started (`toolName`, `firstArg`, …)                                   |
-| `tool_end`           | `IToolState`              | A tool call ended; `result` is `'success'`, `'error'` or `'denied'`               |
-| `thinking`           | `boolean`                 | `true` while the session is waiting on the model, `false` when it stops           |
+| Event                | Payload                   | When                                                                                |
+| -------------------- | ------------------------- | ----------------------------------------------------------------------------------- |
+| `text_delta`         | `string`                  | A chunk of streamed reply text                                                      |
+| `tool_start`         | `IToolState`              | A tool call started (`toolName`, `firstArg`, …)                                     |
+| `tool_end`           | `IToolState`              | A tool call ended; `result` is `'success'`, `'error'` or `'denied'`                 |
+| `thinking`           | `boolean`                 | `true` while the session is waiting on the model, `false` when it stops             |
 | `thinking_delta`     | `string`                  | A chunk of reasoning text, from a provider that streams it; never part of the reply |
-| `context_update`     | `IContextWindowState`     | Token usage changed                                                               |
-| `compact`            | `ICompactEvent`           | The conversation was compacted (`trigger`, `before`, `after`)                     |
-| `complete`           | `IExecutionResult`        | A turn finished normally                                                          |
-| `interrupted`        | `IExecutionResult`        | A turn was aborted; the result holds the partial reply                            |
-| `error`              | `Error`                   | A turn (or background work) failed                                                |
-| `permission_request` | `IPermissionRequestEvent` | A tool call needs approval; answer with `resolvePermission(id, result)`           |
-| `ask_request`        | `IAskRequestEvent`        | A tool or command asks the user something; answer with `resolveAsk(id, response)` |
-| `prompt_resolved`    | `IPromptResolvedEvent`    | A pending permission or ask prompt was answered                                   |
-| `status_changed`     | `ISessionStatusSnapshot`  | The mode, model, effort, goal or name changed                                     |
+| `context_update`     | `IContextWindowState`     | Token usage changed                                                                 |
+| `compact`            | `ICompactEvent`           | The conversation was compacted (`trigger`, `before`, `after`)                       |
+| `complete`           | `IExecutionResult`        | A turn finished normally                                                            |
+| `interrupted`        | `IExecutionResult`        | A turn was aborted; the result holds the partial reply                              |
+| `error`              | `Error`                   | A turn (or background work) failed                                                  |
+| `permission_request` | `IPermissionRequestEvent` | A tool call needs approval; answer with `resolvePermission(id, result)`             |
+| `ask_request`        | `IAskRequestEvent`        | A tool or command asks the user something; answer with `resolveAsk(id, response)`   |
+| `prompt_resolved`    | `IPromptResolvedEvent`    | A pending permission or ask prompt was answered                                     |
+| `status_changed`     | `ISessionStatusSnapshot`  | The mode, model, effort, goal or name changed                                       |
 
 The full list, including background-task, skill, goal, plan and checkpoint events, is
 `IInteractiveSessionEvents` in `agent-interface/session`.
@@ -295,6 +293,9 @@ With a trusted `projectAccess` the session:
   when it compacts the conversation.
 
 A Restricted `projectAccess` (or none) reads no project file; user-level sources still apply.
+`createQuery()` and `createAgentRuntime()` accept a trusted `projectAccess` only when the real path
+of `cwd` is the trusted repository root or inside it, and only on a host that resolves real paths
+(`createNodeFrameworkHost` does); otherwise they throw `WorkspaceAuthorityRequiredError`.
 
 ### Settings file format
 
@@ -359,7 +360,7 @@ User interfaces and transports parse slash input themselves and call `executeCom
 submitting ordinary prompts. When the skills module is composed, an explicit `/skill-name` prompt is
 routed to the `skills` command with `<skill-name> [args]`. Commands a module marks as
 model-invocable are also offered to the model as tools named `<prefix><command>`; the prefix is
-`command_` by default (the `__PRODUCT_CLI_NAME__` CLI uses `__PRODUCT_MODEL_TOOL_PREFIX___command_`).
+`command_` by default (the `__PRODUCT_CLI_NAME__` CLI uses `__PRODUCT_MODEL_TOOL_PREFIX__`).
 
 ## Sandbox execution
 
@@ -474,9 +475,11 @@ Git commands and `fs` is the file system the directory is read through: `new Nod
 
 A transport exposes a session over a protocol. `agent-transport/http` (Hono), `agent-transport/ws`
 (WebSocket), `agent-transport/mcp` (MCP server over stdio or Streamable HTTP) and
-`agent-transport/acp` (Agent Client Protocol agent over stdio, for editors) are separate
-packages; each implements `ITransportAdapter` from `agent-interface/transport` and translates
-protocol messages into session calls and session events back into messages. `agent-framework` itself
+`agent-transport/acp` (Agent Client Protocol agent over stdio, for editors) are subpaths of
+`@robota-sdk/agent-transport`; the library each one needs (`hono`, `ws`, the MCP or ACP SDK) is an
+optional peer dependency you install for the carriers you import. Each implements
+`ITransportAdapter` from `agent-interface/transport` and translates protocol messages into session
+calls and session events back into messages. `agent-framework` itself
 provides the non-interactive runner (`createHeadlessRunner`, with `text`, `json` or `stream-json`
 output) and `TransportRegistry` for starting and stopping several transports together. The
 [Deployment](./deployment.md) guide shows how to serve one session over several channels.
