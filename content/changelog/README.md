@@ -146,7 +146,8 @@ See the [full release notes for Beta 59](../guide/release-2026-05-02.md) for a d
 | Version           | Date       | Notes                                                                       |
 | ----------------- | ---------- | --------------------------------------------------------------------------- |
 | 3.3.0             | 2026-11-10 | Read-only observer listener, serialized edit checkpoints                    |
-| 3.2.0–3.2.2       | 2026-11-07 | Opt-in secure conversations, `daemon clear-start-lock`, merged SDK packages |
+| 3.2.2             | 2026-11-09 | Merged SDK packages, session roles                                          |
+| 3.2.0–3.2.1       | 2026-11-07 | Opt-in secure conversations, `daemon clear-start-lock`                      |
 | 3.1.0–3.1.2       | 2026-11-07 | Unlock gate for secure conversations (off until enabled), Intel macOS fixes |
 | 3.0.0–3.0.7       | 2026-10-30 | Explicit project access (workspace trust)                                   |
 | 3.0.0-beta.80–106 | —          | See the [CLI changelog](../../packages/agent-cli/CHANGELOG.md)              |

@@ -235,12 +235,12 @@ A `__PRODUCT_CLI_NAME__ --serve --open` runtime is separate from the daemon, so 
 
 ## Troubleshooting
 
-| Message or symptom                                                          | What to do                                                                                                                                                       |
-| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Workspace trust is required before headless startup (state: …)`            | Plain `--serve`, or `--serve --open` whose terminal cannot ask, in an untrusted folder. Run `__PRODUCT_CLI_NAME__ trust --yes`, or add `--restricted-workspace`. |
-| `Opening the monitor requires an interactive terminal for its access code.` | `--serve --open` ran without a terminal. Run it at a terminal, or use the desktop app.                                                                           |
-| `Robota web assets not found (dist/web) — run a full CLI build.`            | A source checkout without the GUI build. Run `pnpm build` at the repository root.                                                                                |
-| **The agent process stopped:** …                                            | Follow the message, then choose **Try again**.                                                                                                                   |
+| Message or symptom                                                                 | What to do                                                                                                                                                       |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Workspace trust is required before headless startup (state: …)`                   | Plain `--serve`, or `--serve --open` whose terminal cannot ask, in an untrusted folder. Run `__PRODUCT_CLI_NAME__ trust --yes`, or add `--restricted-workspace`. |
+| `Opening the monitor requires an interactive terminal for its access code.`        | `--serve --open` ran without a terminal. Run it at a terminal, or use the desktop app.                                                                           |
+| `__PRODUCT_DISPLAY_NAME__ web assets not found (dist/web) — run a full CLI build.` | A source checkout without the GUI build. Run `pnpm build` at the repository root.                                                                                |
+| **The agent process stopped:** …                                                   | Follow the message, then choose **Try again**.                                                                                                                   |
 
 ## Related
 
