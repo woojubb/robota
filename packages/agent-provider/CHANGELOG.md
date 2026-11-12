@@ -1,5 +1,11 @@
 # @robota-sdk/agent-provider
 
+## 3.3.3
+### Patch Changes
+
+- 5b7bb70: The DeepSeek model catalog now lists `json_object` instead of `json_schema` for every model, matching what DeepSeek's JSON Output supports and what the provider's capability table already declared. DeepSeek takes no schema parameter, so the catalog no longer advertises schema enforcement the endpoint does not offer.
+- 6bb2baf: `OpenAIProvider`, `DeepSeekProvider`, `QwenProvider` and `GemmaProvider` now throw a `ConfigurationError` when built with no client, apiKey or executor, as `AnthropicProvider` already did, so a host can handle a missing credential once. The message gains the `Configuration Error: ` prefix; it still names the missing client, apiKey or executor.
+
 ## 3.3.2
 ### Patch Changes
 

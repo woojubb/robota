@@ -1,5 +1,12 @@
 # @robota-sdk/agent-cli
 
+## 3.3.2
+### Patch Changes
+
+- 4a7ec1c: `--help` and the errors for a missing or reused HTTP or observer token now name the environment variables the running product accepts (such as `ROBOTA_HTTP_TOKEN`) instead of the canonical `PRODUCT_*` names, which an installed product ignores.
+- 03e7a16: `init` now writes the starter `AGENTS.md`, the project settings and the runtime-data ignore rules in a trusted folder. The stock command refused every time with "requires project mutation permission", because only an embedding host could supply that permission and the CLI never did; a host that supplies its own bounded capability keeps it. On a host that cannot prove a project write stays under the trusted root the write is still refused. `init` also asks before replacing `AGENTS.md` or the project settings when either one already exists, not only when both do; declining, and `--yes`, leave both files as they are.
+- 5ea1361: `--serve --open` in an untrusted folder at a terminal now asks the trust question once. A person who answered "start Restricted" (or whose trust grant could not be recorded) was asked the same question a second time, because the startup check ran twice in a row.
+
 ## 3.3.1
 ### Patch Changes
 
