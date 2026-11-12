@@ -32,6 +32,13 @@ function maximalRecord(): IInteractiveSessionRecord {
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-02T00:00:00.000Z',
     systemPrompt: 'be useful',
+    systemPromptManifest: {
+      harnessVersion: 'sha256:0123456789ab',
+      sections: [
+        { id: 'preset-persona', source: 'persona', characters: 9 },
+        { id: 'runtime-cwd', source: 'runtime', characters: 40 },
+      ],
+    },
     sandboxSnapshotId: 'snapshot-1',
     messages: [
       {
@@ -913,6 +920,7 @@ describe('key parity between the contract and the decoder', () => {
       pendingExecution: true,
       history: true,
       systemPrompt: true,
+      systemPromptManifest: true,
       toolSchemas: true,
       backgroundTasks: true,
       backgroundTaskEvents: true,

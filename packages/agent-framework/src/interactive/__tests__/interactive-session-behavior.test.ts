@@ -72,6 +72,7 @@ function createMockSession(options?: {
     getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
     getSessionId: vi.fn().mockReturnValue('sess-1'),
     getSystemMessage: vi.fn().mockReturnValue('system prompt with capabilities'),
+    getSystemPromptManifest: vi.fn().mockReturnValue(undefined),
     getToolSchemas: vi
       .fn()
       .mockReturnValue([

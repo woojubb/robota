@@ -41,6 +41,7 @@ function input(overrides: Partial<IPrepareWorkspaceMoveInput> = {}): IPrepareWor
     source: {
       getHistory: () => [],
       getSystemMessage: () => 'SYSTEM PROMPT',
+      getSystemPromptManifest: () => undefined,
       getToolSchemas: () => [],
       getFullHistory: () => [],
     },

@@ -5,7 +5,12 @@ import { formatDeferredToolRoster } from './deferred-tool-roster.js';
 import { ToolCallHandoffTool } from './tool-call-handoff.js';
 import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { storeSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
-import { buildSystemPrompt } from '../context/system-prompt-builder.js';
+import { buildSystemPromptSections } from '../context/system-prompt-builder.js';
+import {
+  appendToSystemPromptManifest,
+  composeSystemPrompt,
+  describeSystemPromptSections,
+} from '../context/system-prompt-composer.js';
 import { storeAgentToolDeps } from '../tools/agent-tool.js';
 import { createBackgroundProcessTool } from '../tools/background-process-tool.js';
 import { formatProjectedModelCommandToolPromptDescription } from '../tools/model-command-tool-projection.js';
@@ -16,6 +21,7 @@ import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
+import type { IComposedSystemPrompt } from '../context/system-prompt-types.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
 import type { createModelCommandToolProjection } from '../tools/model-command-tool-projection.js';
@@ -154,11 +160,48 @@ export function buildToolCallHandoff(
 
 export interface ISystemPromptResult {
   finalSystemMessage: string;
+  /** What `finalSystemMessage` was composed from; absent when a caller-supplied builder made it. */
+  systemPromptManifest: IComposedSystemPrompt['manifest'];
   rebuildSystemMessage: (
     agentsMd: string,
     projectNotesMd: string,
     overrides?: TLivePromptOverrides,
-  ) => string;
+  ) => IComposedSystemPrompt;
+}
+
+const APPEND_SYSTEM_PROMPT_SECTION_ID = 'append-system-prompt';
+
+/**
+ * Compose the prompt for `params`. The default builder composes from sections, so the manifest can
+ * say which; a caller-supplied builder returns text only and its sections are not known.
+ */
+function composeSessionPrompt(
+  options: ICreateSessionOptions,
+  params: ISystemPromptParams,
+): IComposedSystemPrompt {
+  const customBuilder = options.systemPromptBuilder;
+  const composed: IComposedSystemPrompt =
+    customBuilder !== undefined
+      ? { message: customBuilder(params), manifest: undefined }
+      : composeFromSections(params);
+  const append = options.appendSystemPrompt;
+  if (!append) return composed;
+  const extra = `\n\n${append}`;
+  return {
+    message: `${composed.message}${extra}`,
+    manifest:
+      composed.manifest === undefined
+        ? undefined
+        : appendToSystemPromptManifest(composed.manifest, APPEND_SYSTEM_PROMPT_SECTION_ID, append),
+  };
+}
+
+function composeFromSections(params: ISystemPromptParams): IComposedSystemPrompt {
+  const sections = buildSystemPromptSections(params);
+  return {
+    message: composeSystemPrompt(sections),
+    manifest: describeSystemPromptSections(sections),
+  };
 }
 
 /**
@@ -220,7 +263,6 @@ export function buildSessionSystemPrompt(
   agentDefinitions: IAgentDefinition[],
   assembledTools: readonly IToolWithEventService[] = [],
 ): ISystemPromptResult {
-  const buildPrompt = options.systemPromptBuilder ?? buildSystemPrompt;
   const defaultToolDescriptions = [
     ...DEFAULT_TOOL_DESCRIPTIONS,
     ...(modelCommandToolProjection
@@ -283,7 +325,7 @@ export function buildSessionSystemPrompt(
     modelVisibleSkills,
     agentDefinitions,
   );
-  const systemMessage = buildPrompt({
+  const initial = composeSessionPrompt(options, {
     ...staticPromptParams,
     ...(currentOutputStyle !== undefined ? { outputStyle: currentOutputStyle } : {}),
     ...(currentPersona !== undefined ? { persona: currentPersona } : {}),
@@ -293,17 +335,13 @@ export function buildSessionSystemPrompt(
       ? { presetSystemPrompt: currentPresetSystemPrompt }
       : {}),
   });
-  const finalSystemMessage = options.appendSystemPrompt
-    ? `${systemMessage}\n\n${options.appendSystemPrompt}`
-    : systemMessage;
-
   let currentSkills = staticPromptParams.skills;
   let currentMemory = staticPromptParams.memoryMd;
   const rebuildSystemMessage = (
     newAgentsMd: string,
     newProjectNotesMd: string,
     overrides?: TLivePromptOverrides,
-  ): string => {
+  ): IComposedSystemPrompt => {
     if (overrides?.skills !== undefined) currentSkills = overrides.skills;
     if (overrides?.memoryMd !== undefined) currentMemory = overrides.memoryMd;
     if (overrides?.outputStyle !== undefined) {
@@ -325,7 +363,7 @@ export function buildSessionSystemPrompt(
     if (overrides?.presetSystemPrompt !== undefined) {
       currentPresetSystemPrompt = overrides.presetSystemPrompt;
     }
-    const rebuilt = buildPrompt({
+    return composeSessionPrompt(options, {
       ...staticPromptParams,
       memoryMd: currentMemory,
       skills: currentSkills,
@@ -341,10 +379,13 @@ export function buildSessionSystemPrompt(
       agentsMd: newAgentsMd,
       projectNotesMd: newProjectNotesMd,
     });
-    return options.appendSystemPrompt ? `${rebuilt}\n\n${options.appendSystemPrompt}` : rebuilt;
   };
 
-  return { finalSystemMessage, rebuildSystemMessage };
+  return {
+    finalSystemMessage: initial.message,
+    systemPromptManifest: initial.manifest,
+    rebuildSystemMessage,
+  };
 }
 
 export function wireSessionDeps(

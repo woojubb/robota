@@ -160,6 +160,10 @@ export function createTestSessionRuntime(
     // zero schema tokens rather than a made-up figure. A case that does care overrides it.
     getOfferedToolSchemas: () => [],
     addTools: async () => [],
+    // An empty prompt with no known composition, so a fixture that does not care about the prompt
+    // reports none rather than a made-up one. A case that does care overrides these.
+    getSystemMessage: () => '',
+    getSystemPromptManifest: () => undefined,
     applyModelOptions: () => {},
     applyAgentName: () => {},
     getActivePresetId: () => 'default',

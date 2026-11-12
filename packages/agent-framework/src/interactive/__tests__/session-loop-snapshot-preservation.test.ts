@@ -48,6 +48,7 @@ describe('self-paced loop snapshot preservation', () => {
       },
       getHistory: () => [],
       getSystemMessage: () => 'prompt',
+      getSystemPromptManifest: () => undefined,
       getToolSchemas: () => [],
     } as unknown as Session;
 

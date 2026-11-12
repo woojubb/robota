@@ -42,6 +42,10 @@ describe.runIf(process.platform === 'linux')('session persistence round-trip', (
       messages: [],
       history: [],
       systemPrompt: 'you are a helpful assistant',
+      systemPromptManifest: {
+        harnessVersion: 'none',
+        sections: [{ id: 'runtime-cwd', source: 'runtime', characters: 27 }],
+      },
       toolSchemas: [],
       backgroundTasks: [],
       backgroundTaskEvents: [],

@@ -57,6 +57,7 @@ function forkFrom(store: NodeSessionStore): string {
     source: {
       getHistory: () => [message(CANARY)],
       getSystemMessage: () => 'the parent prompt',
+      getSystemPromptManifest: () => undefined,
       getToolSchemas: () => [],
     },
     fullHistory: () => [],
@@ -93,7 +94,8 @@ describe('a fork job in this process while the keys are locked', () => {
     expect(session.injectRawMessage).toHaveBeenCalledWith(
       expect.objectContaining({ content: CANARY }),
     );
-    expect(session.updateSystemMessage).toHaveBeenCalledWith('the parent prompt');
+    // The parent's sections travel with its prompt; this parent knew none, so the copy claims none.
+    expect(session.updateSystemMessage).toHaveBeenCalledWith('the parent prompt', undefined);
   });
 
   it('still restores it after many other sessions were saved through the store', () => {

@@ -130,6 +130,10 @@ export type {
   TSessionProvenance,
 } from './session-store-contracts.js';
 export type { TSessionAuthorship } from './session-authorship-contracts.js';
+export type {
+  ISystemPromptManifest,
+  ISystemPromptManifestSection,
+} from './system-prompt-manifest.js';
 export { SESSION_CAPABILITY_MEMBER_KEYS } from './session-capability-contracts.js';
 export type {
   ISessionCapabilityHost,

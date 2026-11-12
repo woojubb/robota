@@ -31,6 +31,7 @@ import type {
   IInteractiveSessionRecord,
   TSessionLoadOutcome,
   IInteractiveSessionStore,
+  ISystemPromptManifest,
 } from '@robota-sdk/agent-interface/session';
 
 const logger = createLogger('SessionHistoryOps');
@@ -173,6 +174,7 @@ export interface IPersistContext {
   sessionId: string;
   cwd: string;
   systemPrompt: string;
+  systemPromptManifest: ISystemPromptManifest | undefined;
   toolSchemas: IToolSchema[];
   sessionStore: IInteractiveSessionStore;
   conversation: import('@robota-sdk/agent-interface/session').ISessionConversationSnapshot;
@@ -223,6 +225,9 @@ export function persistSession(ctx: IPersistContext): TSessionLoadOutcome {
     pendingExecution: ctx.conversation.pendingExecution,
     history: ctx.getFullHistory(),
     systemPrompt: ctx.systemPrompt,
+    // Written with the prompt it describes. Absent means unknown, so a stale manifest from the
+    // record read above must not survive beside a prompt that replaced it.
+    systemPromptManifest: ctx.systemPromptManifest,
     toolSchemas: ctx.toolSchemas,
   };
 

@@ -259,6 +259,7 @@ describe('writers that read before they write', () => {
       getConversationSnapshot: () => ({ id: 'sess_sealed', cwd: '/work', messages: [] }),
       getHistory: () => [],
       getSystemMessage: () => 'p',
+      getSystemPromptManifest: () => undefined,
       getToolSchemas: () => [],
     } as never;
 
@@ -297,6 +298,7 @@ describe('the process that holds a session keeps persisting it while locked', ()
       getConversationSnapshot: () => ({ id: 'sess_sealed', cwd: '/work', messages: [] }),
       getHistory: () => [],
       getSystemMessage: () => 'p',
+      getSystemPromptManifest: () => undefined,
       getToolSchemas: () => [],
     } as never;
 

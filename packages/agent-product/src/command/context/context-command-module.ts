@@ -20,13 +20,20 @@ export function createContextCommandEntry(): ICommand {
     source: 'context',
     modelInvocable: true,
     userInvocable: true,
-    argumentHint: 'list | add <path> | remove <path> | clear | auto ...',
+    argumentHint: 'list | prompt [<section-id>] | add <path> | remove <path> | clear | auto ...',
     subcommands: [
       {
         name: 'list',
         description: 'List loaded context references',
         source: 'context',
         modelInvocable: true,
+      },
+      {
+        name: 'prompt',
+        description: 'Show the sections the system prompt is composed of, or print one section',
+        source: 'context',
+        // The model already holds its own prompt; the composition is for the person reading it.
+        modelInvocable: false,
       },
       {
         name: 'add',

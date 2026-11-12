@@ -46,13 +46,14 @@ import type { IEditCheckpointStore } from '../checkpoints/edit-checkpoint-types.
 import type { ICommandResult } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IContextFileEntry } from '../context/context-loader.js';
+import type { IComposedSystemPrompt } from '../context/system-prompt-types.js';
 import type {
   IContextWindowState,
   IHistoryEntry,
   TToolArgs,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import type { ICompactEvent } from '@robota-sdk/agent-interface/session';
+import type { ICompactEvent, ISystemPromptManifest } from '@robota-sdk/agent-interface/session';
 import type { Session } from '@robota-sdk/agent-session';
 
 const logger = createLogger('InteractiveSessionInit');
@@ -82,7 +83,7 @@ export interface ICreatedInteractiveSession {
     agentsMd: string,
     projectNotesMd: string,
     overrides?: { persona?: string; selfVerification?: boolean | string },
-  ) => string;
+  ) => IComposedSystemPrompt;
 }
 
 /**
@@ -194,6 +195,8 @@ export interface IAsyncInitDeps {
   pendingRestoreConversation?: ISessionConversationSnapshot | null;
   /** The resumed record's assembled prompt — see {@link applyForkedSystemPrompt}. */
   restoredSystemPrompt: string | undefined;
+  /** The sections `restoredSystemPrompt` was composed from, when the record carried them. */
+  restoredSystemPromptManifest: ISystemPromptManifest | undefined;
   /** Registry-backed internal prompt handlers; never public InteractiveSession options. */
   permissionHandler: IInitOptions['permissionHandler'];
   askHandler: IInitOptions['askHandler'];
@@ -375,6 +378,7 @@ export async function initializeInteractiveSessionAsync(
     // A `/cd` target keeps the recorded prompt like a fork does.
     isFork: options.forkSession === true || options.workspaceMovedFrom !== undefined,
     restoredSystemPrompt: deps.restoredSystemPrompt,
+    restoredSystemPromptManifest: deps.restoredSystemPromptManifest,
     explicitSystemPrompt: options.systemPrompt,
   });
 

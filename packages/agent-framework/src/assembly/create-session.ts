@@ -185,7 +185,7 @@ export async function createSession(
   // Replaces the selected entries in the session-local `tools` array in place.
   buildToolCallHandoff(options, backgroundTaskManager, sessionId, cwd, tools);
 
-  const { finalSystemMessage, rebuildSystemMessage } = buildSessionSystemPrompt(
+  const { finalSystemMessage, systemPromptManifest, rebuildSystemMessage } = buildSessionSystemPrompt(
     options,
     cwd,
     modelInvocableCommandDescriptors,
@@ -243,6 +243,7 @@ export async function createSession(
     wrapAddedTools: wrapAdded,
     provider,
     systemMessage: finalSystemMessage,
+    ...(systemPromptManifest !== undefined ? { systemPromptManifest } : {}),
     terminal: options.terminal,
     // The same root the tools, hooks and skill source were bound to above. It used to be
     // computed here and then re-derived inside `Session` from `process.cwd()`, so the two could

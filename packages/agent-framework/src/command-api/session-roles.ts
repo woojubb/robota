@@ -8,6 +8,7 @@
 
 import type { IPermissionDenial, TAutoCompactThreshold } from '@robota-sdk/agent-session';
 import type { IModelReapplyOptions } from './host-context-types.js';
+import type { ISystemPromptManifest } from '@robota-sdk/agent-interface/session';
 import type {
   IContextWindowState,
   IHistoryEntry,
@@ -120,6 +121,16 @@ export interface ICommandSessionPreset {
   setParallelSubagentsEnabled(enabled: boolean): void;
 }
 
+/**
+ * The system prompt the session holds now, and what it was composed from. `/context` reports the
+ * sections so a person can see what each costs; the manifest is absent when the prompt was not
+ * composed from sections (a caller-supplied prompt), and the report says so.
+ */
+export interface ICommandSessionPrompt {
+  getSystemMessage(): string;
+  getSystemPromptManifest(): ISystemPromptManifest | undefined;
+}
+
 /** Aggregate: every member remains source-compatible. Declare a role port instead of this. */
 export interface ICommandSessionRuntime
   extends
@@ -129,4 +140,5 @@ export interface ICommandSessionRuntime
     ICommandSessionIdentity,
     ICommandSessionModel,
     ICommandSessionPreset,
-    ICommandSessionTools {}
+    ICommandSessionTools,
+    ICommandSessionPrompt {}
