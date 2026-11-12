@@ -1,7 +1,7 @@
 {
   "name": "__PRODUCT_DISPLAY_NAME__ Documentation",
   "short_name": "__PRODUCT_DISPLAY_NAME__",
-  "description": "A simple, powerful TypeScript library for building AI agents with function calling, tool integration, and multi-provider support for OpenAI, Anthropic, and Google AI",
+  "description": "A simple, powerful TypeScript library for building AI agents with function calling, tool integration, and multi-provider support",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

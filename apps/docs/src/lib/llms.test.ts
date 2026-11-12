@@ -17,7 +17,7 @@ function englishContentFiles(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const target = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      return ['ko', 'images', 'v2.0.0'].includes(entry.name) ? [] : englishContentFiles(target);
+      return ['ko', 'images'].includes(entry.name) ? [] : englishContentFiles(target);
     }
     return entry.name.endsWith('.md') ? [target] : [];
   });
