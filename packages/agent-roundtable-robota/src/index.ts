@@ -10,9 +10,9 @@ export type { TurnRenderer } from './render';
 export type { OpenContext } from './open-context';
 
 // `sessionParticipant` and its Session-specific types/codec live at the `/session` subpath, not
-// here: importing it pulls in `@robota-sdk/agent-session` (and, through it, the native
-// `agent-file-authority`/koffi binary), a cost this root entry must not impose on a consumer who
-// only wants `runtimeParticipant`/`runtimeSelector`. See `entry-isolation.test.ts`.
+// here: importing it pulls in `@robota-sdk/agent-session` (and, through it, the native koffi binary
+// of `@robota-sdk/agent-os`'s file authority), a cost this root entry must not impose on a consumer
+// who only wants `runtimeParticipant`/`runtimeSelector`. See `entry-isolation.test.ts`.
 export { runtimeParticipant, runtimeParticipant as robotaParticipant } from './runtime-participant';
 export type {
   RuntimeParticipantOptions,

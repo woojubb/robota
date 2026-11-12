@@ -93,9 +93,9 @@ describe('HOOK_ENFORCEMENT_POLICY', () => {
     });
 
     it('rejects posture "enforcing" with enforcementReachable: false, naming the event', () => {
-      // The NARROW mutant. Caught here without the harness scan, which is the point — the scan
-      // carries the wider case where both fields are flipped together and the row is internally
-      // consistent while still describing a gate its fire site cannot operate.
+      // The NARROW mutant. The wider case, where both fields are flipped together, leaves the row
+      // internally consistent while still describing a gate its fire site cannot operate; this
+      // check cannot see it.
       const dishonest: Record<string, IHookEventPolicy> = {
         ...HOOK_ENFORCEMENT_POLICY,
         SessionEnd: {

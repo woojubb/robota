@@ -1,5 +1,3 @@
-// @robota-sdk/agent-command-settings
-
 export {
   createSettingsCommandModule,
   createSettingsCommandEntry,

@@ -40,9 +40,8 @@ export function supportsImeCursorPositioning(
 /**
  * May this process write OSC 133 shell-integration marks at agent-turn boundaries?
  *
- * The marks are otherwise harmless: every emulator surveyed discards an unknown OSC sequence, so
- * this gate carries DOCUMENTED negatives, not a capability probe. The support table (the TUI
- * package's docs/SPEC.md) is the user-facing half of the same list.
+ * The marks are otherwise harmless: a terminal that does not know an OSC sequence discards it, so
+ * this gate carries the known negatives listed below, not a capability probe.
  *
  * Precedence:
  *  - Host override true → on (opt back in on a terminal listed below); false → off.

@@ -1,13 +1,14 @@
 /**
  * The acceptance criterion as a test: every built-in command the GUI's `get-commands`
  * catalog can return is either GUI-available (not on the exclusion list — it has a screen, a
- * control, or it works fine typed, per the Step 1 inventory in the PR body) or is on the documented
- * exclusion list (`excluded-commands.ts`, reasons grouped in `packages/agent-gui-web/docs/SPEC.md`).
+ * control, or it works fine typed) or is on the documented exclusion list
+ * (`excluded-commands.ts`, reasons grouped in `packages/agent-gui-web/docs/SPEC.md`).
  *
- * `agent-ui-web` does not depend on `agent-command`/`agent-framework` (see its own SPEC.md), so this
- * is a hand-kept snapshot of the built-in registry (`packages/agent-command/src/default/default-command-modules.ts`,
- * plus `/shell` and `/editor` from `agent-command/node` via `pack-coding`, and `/workflows`, which
- * `agent-cli` registers alongside it) — not a live import of it. A command
+ * `agent-ui-web` does not depend on `agent-product` or `agent-framework`, so this
+ * is a hand-kept snapshot of the built-in registry
+ * (`packages/agent-product/src/command/default/default-command-modules.ts`, plus `/shell` and
+ * `/editor` from the coding pack in `packages/agent-product/src/coding/coding-pack.ts`, and
+ * `/workflows`, which `agent-cli` registers alongside it) — not a live import of it. A command
  * added there needs a matching line here, exactly like any other cross-package contract this
  * repository does not enforce by the type system alone.
  */

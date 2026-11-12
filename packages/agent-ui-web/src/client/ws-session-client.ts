@@ -1,6 +1,6 @@
 /**
  * Browser WebSocket client for a running agent-cli sidecar session.
- * Wraps the native WebSocket API with typed agent-transport-ws messages.
+ * Wraps the native WebSocket API with the typed messages of `@robota-sdk/agent-transport`.
  */
 
 import { decodeFrame, decodeServerMessage } from '@robota-sdk/agent-transport/client';

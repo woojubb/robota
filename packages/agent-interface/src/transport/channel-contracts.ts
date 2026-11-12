@@ -15,7 +15,7 @@
  *
  *   agent-interface/transport   ← THIS FILE: the channel contracts
  *   agent-transport             ← the pure wire codec for these frames
- *   agent-transport-ws          ← the carrier: routes binary WS frames to channels, text WS
+ *   agent-transport/ws          ← the carrier: routes binary WS frames to channels, text WS
  *                                 frames to the text-agent protocol profile
  */
 

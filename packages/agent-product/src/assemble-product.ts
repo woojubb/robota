@@ -146,9 +146,9 @@ function overlaySessionOptions(
  * `mergeSettings`, `mergeCapabilityPacks`): it reads only its argument, calls only pure sub-folds and the
  * framework's runtime-construction seam, and hard-codes **no** product's choices — there is ZERO
  * product-specific branching (no `if (profile.id === '…')` ever). Everything product-specific arrives as
- * `profile` DATA. This property is what makes the `agent-product` carve-out safe under the amended
- * project-structure L129 rule, and it is enforced by the three composition-neutrality guards
- * (dependency-graph neutrality, purity/no-IO, no product-name conditionals).
+ * `profile` DATA. This property is what makes the `agent-product` carve-out from the "no shared
+ * product factory" rule safe; its three parts (dependency-graph neutrality, purity/no-IO, no
+ * product-name conditionals) are stated in this package's SPEC.md, "The pure-fold property".
  *
  * What it does:
  * 1. Builds a PER-CALL instance-scoped preset registry over `profile.presets` (R8) — or adopts the

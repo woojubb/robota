@@ -190,7 +190,7 @@ export function spawnPty(options: IPtyRunOptions): IPtyRunSession {
       }
       // Mirror the killProcessTree escalation pattern — a child that ignores SIGTERM
       // is force-killed after the grace window. Keep this test-local lifecycle implementation
-      // independent of @robota-sdk/agent-process.
+      // independent of @robota-sdk/agent-os/process.
       const graceTimer = setTimeout(() => {
         if (exitCode === undefined) {
           try {

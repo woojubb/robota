@@ -12,7 +12,7 @@ import type { TCommandCatalog, TModelListSnapshot, TSessionStatus } from '../hoo
 /**
  * The plain label for each effort selection. Kept in step with
  * `EFFORT_LEVEL_LABELS` in `packages/agent-framework/src/effort/effort-resolution.ts` (which
- * `agent-command`'s `/effort` re-exports and reports as its own outcome text) — this package cannot
+ * `agent-product`'s `/effort` re-exports and reports as its own outcome text) — this package cannot
  * import that one directly (it is a Node-side package this browser bundle does not depend on), so the
  * values are restated here. `Record<TSessionStatus['effort'], …>` still keeps this exhaustive against
  * the real wire type: an effort value added there without a label here is a compile error.

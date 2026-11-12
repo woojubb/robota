@@ -1,7 +1,7 @@
 /**
  * Context window tracking types.
  *
- * These types are used by agent-sessions (and downstream packages) to
+ * These types are used by agent-session (and downstream packages) to
  * track token usage and context window state across conversation turns.
  */
 

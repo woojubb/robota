@@ -2,9 +2,9 @@
  * The DEFAULT TOOL SET — a composition leaf.
  *
  * This lives outside `@robota-sdk/agent-framework`. It is a defaults aggregator, and
- * `.agents/project-structure.md` classifies that family as a composition leaf "imported only at
- * composition roots (entry-point-only)" — not something a mid-layer assembly library owns, publishes
- * and self-consumes.
+ * ARCHITECTURE.md's `ENTRY-POINT-ONLY` boundary places that family at an application entry point or
+ * explicit composition root — not in a mid-layer assembly library that owns, publishes and
+ * self-consumes it.
  *
  * The package boundary is what carries the guarantee. `agent-subagent-runner` may depend on
  * `agent-framework` (it needs `createSubagentSession` and friends) but has no manifest edge to
@@ -13,9 +13,9 @@
  * error rather than a scan finding — the same shape as on the provider axis with
  * `@robota-sdk/agent-provider/builtin`.
  *
- * `DEFAULT_TOOL_DESCRIPTIONS` deliberately did NOT come along: its only consumer builds the system
- * prompt synchronously, and dragging it here would force either a static edge back into this leaf or
- * a second async hop through prompt building. It stays beside its consumer in `agent-framework`.
+ * `DEFAULT_TOOL_DESCRIPTIONS` is deliberately not here: its only consumer builds the system
+ * prompt synchronously, and placing it here would force either a static edge back into this leaf or
+ * a second async hop through prompt building. It lives beside its consumer in `agent-framework`.
  */
 import { createAskUserQuestionTool, routesFilesThroughSandbox } from '../index.js';
 import {

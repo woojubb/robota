@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 // Through the PACKAGE barrel, not the module path. These exist so a provider package can declare
-// what its own models do — `agent-provider-openai-compatible` does exactly that — so being reachable
-// from outside is part of what they are, and a re-export nothing asserts is one that can be dropped
-// without a single test noticing.
+// what its own models do — `agent-provider`'s `openai-compatible` subpath does exactly that — so
+// being reachable from outside is part of what they are, and a re-export nothing asserts is one
+// that can be dropped without a single test noticing.
 import {
   modelDeclaresCapability,
   resolveModelCapabilities,

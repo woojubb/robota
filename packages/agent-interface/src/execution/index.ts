@@ -1,6 +1,6 @@
 // @robota-sdk/agent-interface/execution
 //
-// The execution-bounded contract families, owned here rather than by `agent-interface/transport`.
+// The execution-bounded contract families.
 //
 // LAYER 0: this subpath depends on `@robota-sdk/agent-core` and on no other subpath of
 // `agent-interface`. Consumers compose it downward — `agent-interface/session` names these types, never the

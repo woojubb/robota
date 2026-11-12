@@ -4,11 +4,10 @@
  * agent-core owns these; the framework layer implements the mechanism over
  * `agent-executor`'s `ISubagentRunner` port. Pure types only — no runtime.
  *
- * Extraction trigger: when a second implementer family lands (a dag-* adapter
- * mapping sequential/parallel onto the graph engine), BOTH these contracts AND the
- * event-type unions move to a new `agent-interface-orchestration` package
- * (deps ⊆ {agent-core}), so that adapter need not depend on heavy agent-core for
- * the event types.
+ * Extraction trigger: when a second implementer family lands (for example an adapter
+ * mapping sequential/parallel onto a graph engine), BOTH these contracts AND the
+ * event-type unions move to their own dedicated package (deps ⊆ {agent-core}), so
+ * that adapter need not depend on heavy agent-core for the event types.
  */
 export type {
   TOrchestrationPrimitive,

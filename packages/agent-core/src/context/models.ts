@@ -44,9 +44,9 @@ export const DEFAULT_CONTEXT_WINDOW = 200_000;
 /**
  * Model metadata contributed by a provider package.
  *
- * This package used to carry a CLAUDE table, against its own SPEC ("must not branch on concrete
- * provider or model names") — and `agent-provider-anthropic` imported it back out. The table now
- * lives with the package that owns those models, and every provider contributes the same way.
+ * This package carries no model table, because its SPEC says it must not branch on concrete
+ * provider or model names. The table lives with the package that owns those models
+ * (`@robota-sdk/agent-provider`), and every provider contributes the same way.
  *
  * The registry is the ONLY source. A model nobody registered is a model nobody owns, which is a
  * different answer from "here is a number", and the callers below say so.

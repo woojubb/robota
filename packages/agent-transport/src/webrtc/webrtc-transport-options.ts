@@ -3,8 +3,7 @@ import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
  * What a caller CONFIGURES on the WebRTC host transport.
  *
  * Separated from the transport itself because "what may be set" and "what the transport does with
- * it" are different subjects, and `webrtc-transport.ts` had reached the anti-monolith limit where
- * the rule is to split rather than extend. Types only — no behaviour moved.
+ * it" are different subjects. Types only — the behaviour lives in `webrtc-transport.ts`.
  */
 
 import type { IConnectionApproval, IHostReconnectConfig } from './pairing-gate.js';
@@ -60,9 +59,9 @@ export interface IWebRtcTransportOptions {
   /**
    * Run with NO pairing gate. Requires `openReason`.
    *
-   * Omitting `secret` used to mean this implicitly, which is how a remote peer reached the session
-   * because a field was left unset. It is still a legitimate mode — loopback, tests — but it is now
-   * a thing the host says rather than a thing that happens.
+   * Omitting `secret` does not mean this: running with no gate is a thing the host says, never a
+   * thing that happens because a field was left unset, which is how a remote peer would otherwise
+   * reach the session. It is a legitimate mode — loopback, tests.
    */
   readonly open?: boolean;
   /** Why running with no pairing gate is correct here. Required when `open` is true. */

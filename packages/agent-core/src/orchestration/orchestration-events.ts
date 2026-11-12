@@ -4,8 +4,7 @@
  * Mirrors the existing `task-events` / `user-events` pattern: a const name set +
  * a prefix + a union type. These are emitted by the framework orchestration
  * mechanism over the existing `IEventService`. The names are pure mechanism —
- * no app-domain identity fields anywhere (neutrality; enforced by the
- * `orchestration-neutrality` harness scan).
+ * no app-domain identity fields anywhere (neutrality).
  */
 export const ORCHESTRATION_EVENTS = {
   /** An orchestration run began. */

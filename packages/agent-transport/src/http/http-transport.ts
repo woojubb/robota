@@ -23,17 +23,15 @@ export interface IHttpTransportOptions {
   basePath?: string;
   /**
    * What a peer must present. Omitted means SECURE — a credential is minted and
-   * `getAdmissionToken()` returns it for the host to hand to its client.
-   *
-   * This transport previously had no gate at all, so omitting the option used to mean "anyone may
-   * execute anything". Omission now means the safe thing, and running open takes saying so.
+   * `getAdmissionToken()` returns it for the host to hand to its client. Omission never means
+   * "anyone may execute anything": running open takes saying so.
    */
   admission?: ITransportAdmissionConfig;
   /**
    * Where the DETAIL of a post-headers stream failure goes — forwarded to `createAgentRoutes`.
-   * Review found this seam missing: the option existed on the routes and not on the entry point
-   * README and the examples actually use, so "the host decides the destination" was a decision no
-   * host on this path could make. Same forwarding rule as `admission`, which sat beside it.
+   * The option is on this entry point, which the README and the examples use, so the host that
+   * builds the transport decides the destination, not only a host that mounts the routes itself.
+   * Same forwarding rule as `admission`, which sits beside it.
    */
   onStreamFailure?: TStreamFailureListener;
   /** Who `/submit` turns are attributed to — forwarded to `createAgentRoutes`, like `admission`. */
