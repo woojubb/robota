@@ -61,6 +61,14 @@ describe('test-product --help', () => {
     expect(bareLine).toContain('instruction files');
     expect(bareLine).not.toContain('raw text');
   });
+
+  it('names its environment variables with the product alias prefix, not the canonical one', () => {
+    const help = printHelp(createTestProductRuntime());
+    expect(help).toContain('TEST_PRODUCT_HTTP_TOKEN');
+    expect(help).toContain('TEST_PRODUCT_OBSERVER_TOKEN');
+    expect(help).not.toMatch(/\bPRODUCT_[A-Z]/u);
+    expect(help).not.toContain('{{');
+  });
 });
 
 describe('test-product <subcommand> --help', () => {

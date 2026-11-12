@@ -394,11 +394,20 @@ async function runCliCore(
             ? 'serve'
             : 'interactive',
   );
-  const serveHttp = resolveServeHttpOptions(args, productRuntime.environment);
-  const serveObserver = resolveServeObserverOptions(args, productRuntime.environment, {
-    driverToken: supervisedTransportToken ?? productRuntime.environment['PRODUCT_WS_TOKEN'],
-    driverPort: driverListenerPort(productRuntime.environment),
-  });
+  const serveHttp = resolveServeHttpOptions(
+    args,
+    productRuntime.environment,
+    productRuntime.config.identity.envPrefix,
+  );
+  const serveObserver = resolveServeObserverOptions(
+    args,
+    productRuntime.environment,
+    productRuntime.config.identity.envPrefix,
+    {
+      driverToken: supervisedTransportToken ?? productRuntime.environment['PRODUCT_WS_TOKEN'],
+      driverPort: driverListenerPort(productRuntime.environment),
+    },
+  );
   // Held by the serve options from here on. Left in the environment, every tool subprocess this
   // runtime starts would inherit the credential that admits an HTTP client or an observer.
   withholdEnvironmentVariables([

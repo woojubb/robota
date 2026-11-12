@@ -26,17 +26,24 @@ export type IServeHttpOptions =
   | { readonly port: number; readonly token: string; readonly remote?: undefined }
   | { readonly port: number; readonly remote: IMcpServeRemoteOptions; readonly token?: undefined };
 
-/** Resolves the HTTP API options, or `undefined` when `--serve` names no port. Throws when it cannot run. */
+/**
+ * Resolves the HTTP API options, or `undefined` when `--serve` names no port. Throws when it cannot
+ * run. The environment is the product runtime's, where the product's own alias of the variable is
+ * already folded into the canonical name; `envPrefix` is that alias prefix, so an error names the
+ * variable the running product accepts.
+ */
 export function resolveServeHttpOptions(
   args: IParsedCliArgs,
   environment: Readonly<Record<string, string | undefined>>,
+  envPrefix: string,
 ): IServeHttpOptions | undefined {
   if (!args.serve || args.httpPort === undefined) return undefined;
   const token = environment['PRODUCT_HTTP_TOKEN'];
+  const tokenName = `${envPrefix}HTTP_TOKEN`;
   if (remoteSettingsRequested(args)) {
     if (token !== undefined && token !== '') {
       throw new Error(
-        'PRODUCT_HTTP_TOKEN is loopback-only and cannot be combined with remote authorization',
+        `${tokenName} is loopback-only and cannot be combined with remote authorization`,
       );
     }
     return { port: args.httpPort, remote: resolveRemoteSettings(args) };
@@ -44,13 +51,11 @@ export function resolveServeHttpOptions(
   refuseNonLoopbackWithoutRemote(args, '--serve --http-port');
   if (token === undefined || token === '') {
     throw new Error(
-      '--serve --http-port needs PRODUCT_HTTP_TOKEN: the bearer every HTTP client presents',
+      `--serve --http-port needs ${tokenName}: the bearer every HTTP client presents`,
     );
   }
   if (token.length < SERVE_HTTP_TOKEN_MIN_LENGTH) {
-    throw new Error(
-      `PRODUCT_HTTP_TOKEN must be at least ${SERVE_HTTP_TOKEN_MIN_LENGTH} characters`,
-    );
+    throw new Error(`${tokenName} must be at least ${SERVE_HTTP_TOKEN_MIN_LENGTH} characters`);
   }
   return { port: args.httpPort, token };
 }

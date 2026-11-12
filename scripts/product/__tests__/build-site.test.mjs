@@ -253,6 +253,19 @@ it('fills adjacent underscore suffixes in actual published documentation', async
   expect(filled).toContain(`${config.identity.cliName}_submit`);
 });
 
+it('fills the product env prefix inside a template literal of the real homepage source', async () => {
+  const { loadProductConfig } = await import('../../../packages/product-config/src/node.ts');
+  const { publicProductConfig } = await import('../../../packages/product-config/src/index.ts');
+  const { fillProductContent } = await import('../generate-workspace.mjs');
+  const config = loadProductConfig({ environment: siteEnvironment() });
+  const file = 'apps/www/src/components/HomePageContent.tsx';
+  const source = await readFile(new URL(`../../../${file}`, import.meta.url), 'utf8');
+  const filled = fillProductContent(file, source, publicProductConfig(config), config);
+  expect(filled).not.toMatch(/__PRODUCT_[A-Z_]+__/u);
+  expect(filled).toContain(`${config.identity.envPrefix}HTTP_TOKEN="$(openssl rand -hex 32)"`);
+  expect(filled).not.toContain('PRODUCT_HTTP_TOKEN');
+});
+
 it('publishes only verified generated output to the selected Pages project', async () => {
   const root = await fixture();
   const calls = [];

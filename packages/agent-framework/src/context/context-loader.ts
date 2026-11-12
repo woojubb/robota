@@ -16,7 +16,7 @@ export interface ILoadedContext {
   projectNotesMd: string;
   /** Startup project memory index loaded from .agent/memory/MEMORY.md, if present */
   memoryMd?: string;
-  /** Formatted active task context loaded from .agents/tasks/*.md, if present */
+  /** Formatted active task context loaded from the host-selected task directory, if present */
   taskContext?: string;
   /** Extracted "Compact Instructions" section from CLAUDE.md, if present */
   compactInstructions?: string;

@@ -185,7 +185,9 @@ describe('createNodeFrameworkHost', () => {
   });
 
   it('refuses a root that names no default tools', () => {
-    expect(() => createNodeFrameworkHost({} as never)).toThrow(/requires `createDefaultTools`/);
+    expect(() => createNodeFrameworkHost({} as never)).toThrow(
+      /requires `createDefaultTools`[\s\S]*@robota-sdk\/agent-tools\/defaults/,
+    );
   });
 });
 
