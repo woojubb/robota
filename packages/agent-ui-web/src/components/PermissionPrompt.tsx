@@ -73,7 +73,7 @@ function isEditableElement(element: Element | null): boolean {
 
 /**
  * The one destructive option in the provider profile action menu (the ask built
- * by `askProviderProfileAction` in `agent-command`'s `provider-command-profile.ts`, `request.id`
+ * by `askProviderProfileAction` in `agent-product`'s `provider-command-profile.ts`, `request.id`
  * `'provider-profile-action'`): "Delete" answers to no digit and renders apart from Switch/Edit/Test/
  * Duplicate, styled destructive — the exact audited bug ("Delete looks the same as Switch, answers to
  * the key 5"). Every other ask (this `request.id` check is the only thing that scopes the change) is
@@ -199,7 +199,7 @@ export function PermissionPrompt({
   }, [promptId, onFocusReturn]);
   if (!prompt) return null;
 
-  // The provider-delete confirmation (`buildProviderDelete` in agent-command's
+  // The provider-delete confirmation (`buildProviderDelete` in agent-product's
   // `provider-command-profile-lifecycle.ts`) is now built on the shared `ConfirmDialog`
   // instead of the generic ask grid — a destructive-styled "Delete", Cancel focused by default, and
   // no accidental backdrop-click dismissal. `confirmAction`'s own `CONFIRM_YES`/`CONFIRM_NO` values

@@ -59,7 +59,7 @@ describe('checkPathWithinCwd', () => {
 
 /**
  * The guard is the ONLY sandbox boundary for `Read`/`Write`/`Edit` when no provider sandbox
- * is injected (see `pack-coding`'s `ICodingPackOptions.cwd`). It compared `path.resolve()` output,
+ * is injected (see `ICodingPackOptions.cwd` in `agent-product`). It compared `path.resolve()` output,
  * which performs pure lexical normalization and does NOT resolve symlinks — so a symlink *inside* the
  * working directory pointing outside it satisfied `startsWith(cwd + sep)` while `readFile`/`writeFile`
  * followed the link to the real target. A symlink is ordinary committed git content, so merely cloning

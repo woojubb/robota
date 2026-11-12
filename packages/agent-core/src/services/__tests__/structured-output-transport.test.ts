@@ -107,7 +107,7 @@ describe('resolveStructuredOutputCapability', () => {
   });
 
   it('reports a gateway even when the provider declares no table at all', () => {
-    // The `@robota-sdk/agent-provider-openai` case, and the one decision (1) is about: it declares
+    // The `@robota-sdk/agent-provider/openai` case, and the one decision (1) is about: it declares
     // no table by choice, and `baseURL` there ALSO switches the API surface to chat-completions. If
     // the endpoint signal were a field on the table, this provider could only report its endpoint by
     // inventing capability claims nobody verified.

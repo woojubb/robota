@@ -28,7 +28,7 @@ import type { IExecutionWorkspaceEvent } from '../execution/index';
 import type { TBackgroundTaskEvent } from '../execution/index';
 import type { TBackgroundJobGroupEvent } from '../execution/index';
 
-/** Permission handler result — SDK-owned type (mirrors agent-sessions TPermissionResult).
+/** Permission handler result — SDK-owned type (mirrors agent-session TPermissionResult).
  *  true = allow, false = deny, 'allow-session' = allow and remember for this session,
  *  'allow-project' = allow and persist to the project's local settings (location owned by the consuming layer). */
 export type TPermissionResultValue = boolean | 'allow-session' | 'allow-project';

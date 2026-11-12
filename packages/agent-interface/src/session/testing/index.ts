@@ -1,20 +1,16 @@
 // @robota-sdk/agent-interface/session/testing
 //
-// Doubles for the contracts this package owns, per `contracts→agent-interface, doubles→owner
-// /testing`. `createSessionCapabilityHost` lives here because it imports a VALUE
-// (`SESSION_CAPABILITY_MEMBER_KEYS`) from the capability contracts — a cross-package value import
-// that `interface-runtime` refuses, and a relative one it permits. The double belongs beside the
-// contract it exercises.
+// Doubles for the contracts this package owns; each lives in `testing/` beside the contract it
+// exercises. `createSessionCapabilityHost` is here, not in the contract file, because it is a test
+// double that builds a host at runtime, and a contract family holds type declarations, not runtime
+// logic.
 export {
   createSessionCapabilityHost,
   createSessionCapabilityHost as createTestSessionCapabilityHost,
 } from './session-capability-host.js';
 export { readSessionCapability } from './session-capability-host.js';
 
-// The conformant `IInteractiveSession` double, moved here from
-// `agent-interface/transport/testing`. `.agents/project-structure.md:314` states the convention —
-// `contracts→agent-interface, doubles→owner /testing` — and this package owns the contract it
-// doubles. Its previous home is also what held that package at layer 2.
+// The conformant `IInteractiveSession` double; this package owns the contract it doubles.
 export { createTestInteractiveSession } from './interactive-session-double.js';
 
 // Every store offers `claim`; a double whose test is not about claims answers it by its own

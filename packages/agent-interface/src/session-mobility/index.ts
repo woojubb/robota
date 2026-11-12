@@ -1,12 +1,10 @@
 // @robota-sdk/agent-interface/session-mobility
 //
 // Session mobility: moving MESSAGES between live sessions and AUTHORITY over a session to
-// another machine. Owned here rather than by `agent-interface/transport`.
+// another machine.
 //
 // LAYER 2 — the highest in this family. It composes `agent-interface/session`, which composes the
 // three layer-0 owners. Nothing names a type from here.
-//
-// Export each name from its declaring module so interface-runtime can classify it directly.
 
 // ── peer-message-contracts ──
 export type {

@@ -7,8 +7,7 @@ import type { ITokenUsage } from '../interfaces/provider';
  * agent-core OWNS these neutral contracts + the event-type unions the primitives
  * emit; the `agent-framework` layer IMPLEMENTS the mechanism over `agent-executor`'s
  * `ISubagentRunner` port. These are pure interfaces/types — NO runtime, NO class,
- * and NO app-domain identity fields, per the library-neutrality rule. The
- * `orchestration-neutrality` harness scan is the standing floor.
+ * and NO app-domain identity fields, per the library-neutrality rule.
  */
 
 /**
@@ -127,8 +126,7 @@ export interface IHierarchicalOrchestrationSpec {
  * Steps take turns; before each turn the caller-supplied policy selects which
  * step speaks next from the running history, `null` ending the run. Each step is
  * threaded the prior turns' outputs. A neutral turn-taking mechanism only — it
- * carries NO app-domain identity fields, enforced by the standing
- * `orchestration-neutrality` scan.
+ * carries NO app-domain identity fields.
  */
 export interface IGroupChatOrchestrationSpec {
   /** The steps that take turns, addressed by `id`. */

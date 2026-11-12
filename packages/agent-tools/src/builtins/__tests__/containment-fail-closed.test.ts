@@ -4,17 +4,12 @@ import { createReadTool } from '../read-tool.js';
 import { checkPathWithinCwd, isWithinCwd } from '../path-guard.js';
 
 /**
- * The containment guard used to be FAIL-OPEN: with no root configured it answered
- * "allowed" and every builtin let the path through.
- *
- * That default is why the strongest multi-sighting in the architecture audit exists. `pack-coding`
- * documented the consequence in its own source — "file tools constructed with no options carry a
- * DISARMED working-directory guard: their `Read` will happily return `/etc/hostname`" — and the
- * child-process subagent worker called `createDefaultTools()` with no argument, so that is exactly
- * what a subagent got.
+ * The containment guard is FAIL-CLOSED: with no root configured it answers "not allowed". A
+ * fail-open default would let every builtin through, and a `Read` built with no options would
+ * return `/etc/hostname`.
  *
  * A guard whose default is "allow" is not a guard; it is a guard that has to be remembered. The
- * root is now required by the contract, and the predicate refuses when it is absent, so forgetting
+ * root is required by the contract, and the predicate refuses when it is absent, so forgetting
  * it fails loudly at the type level and closed at runtime rather than silently returning content.
  */
 const OUTSIDE = '/etc/hostname';
@@ -43,8 +38,7 @@ describe('containment is fail-closed without a root', () => {
   });
 
   it('a Read built with no containment root REFUSES an absolute path instead of returning it', async () => {
-    // The end-to-end shape of the defect, stated as `pack-coding`'s doc comment states it. This is
-    // the tool a subagent got from the bare `createDefaultTools()` call.
+    // The end-to-end shape of the defect: the `Read` a context-free construction would produce.
     // Reaching past the type on purpose: `cwd` is REQUIRED now, so a TypeScript caller cannot build
     // this. A JavaScript consumer can, which is why the guard refuses at runtime rather than trusting
     // the type to be the boundary.

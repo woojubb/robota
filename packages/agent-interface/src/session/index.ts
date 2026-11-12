@@ -1,11 +1,10 @@
 // @robota-sdk/agent-interface/session
 //
-// The session, interaction, event, driver, turn and compaction contract families, moved out of
-// `agent-interface/transport`.
+// The session, interaction, event, driver, turn and compaction contract families.
 //
-// LAYER 1. Unlike the three wave-1 owners, this package COMPOSES rather than sits at the bottom: it
-// names execution, command and analytics contracts and depends on those packages downward. Nothing
-// at layer 0 names a type from here.
+// LAYER 1. Unlike the layer-0 subpaths, this one COMPOSES rather than sits at the bottom: it names
+// execution, command and analytics contracts and imports those subpaths downward. Nothing at
+// layer 0 names a type from here.
 
 export type { IOwnerSessionDirectory, TOwnerSessionQuestion } from './owner-session-directory.js';
 

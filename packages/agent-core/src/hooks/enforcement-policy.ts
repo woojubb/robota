@@ -126,11 +126,11 @@ export function isEnforcing(event: THookEvent): boolean {
 /**
  * The table's internal invariant: a row may not claim to enforce where enforcement is unreachable.
  *
- * This catches the NARROW contradiction — `posture: 'enforcing'` with `enforcementReachable: false`
- * — without needing the harness scan, which is the point: the two checks must be independent, or
- * whichever one is skipped becomes the only thing standing between the two fields. The scan carries
- * the WIDER case, where both fields are flipped together and the row is internally consistent while
- * still describing a gate the fire site cannot operate.
+ * This catches the NARROW contradiction — `posture: 'enforcing'` with `enforcementReachable: false`.
+ * It does not catch the WIDER case, where both fields are flipped together and the row is
+ * internally consistent while still describing a gate the fire site cannot operate; that is why
+ * the package's `docs/HOOK-CATALOG.md` says to review the fire sites when `enforcementReachable`
+ * changes.
  *
  * @throws when a row is self-contradictory, naming the event.
  */

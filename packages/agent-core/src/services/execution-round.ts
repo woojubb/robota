@@ -121,7 +121,7 @@ export async function executeRound(
     },
   );
 
-  // Pre-send hard-capacity check. Routine compaction is owned by agent-sessions; this guard is
+  // Pre-send hard-capacity check. Routine compaction is owned by agent-session; this guard is
   // only a last safety stop when the effective context estimate is already near the model limit.
   if (
     handleContextCapacityBlock(

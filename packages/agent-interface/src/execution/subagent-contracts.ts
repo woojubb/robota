@@ -6,9 +6,9 @@
  * `agent-executor` — `ISubagentRunner`, `ISubagentManager`, `ISubagentJobStart`, `ISubagentJobHandle`
  * — because those carry methods and Promises, i.e. runtime semantics this package bans.
  *
- * Spawn requests and results are declared here, not in `agent-executor`. They are pure data; `project-structure.md` puts the background-task/subagent data
- * contracts here and leaves the runtime SPI there. Declaring them twice is what let a field be dropped
- * at any of six hand-written projections without anything failing.
+ * Spawn requests and results are declared here, not in `agent-executor`. They are pure data, which
+ * this package owns, and the runtime SPI stays there. Declaring them twice is what let a field be
+ * dropped at any of six hand-written projections without anything failing.
  */
 
 import type {

@@ -365,11 +365,11 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
 });
 
 // ── Capability host contracts ──────────────────────────────────
-// These TYPES stayed here when the host's runtime mechanism moved to `testing/`. An
-// `agent-interface` contract family must not contain runtime logic (project-structure.md), and the
-// repository's own placement rule is `contracts→agent-interface, doubles→owner /testing`. The
-// contract is the part that belongs in a contracts package; the 100-line prototype-walking
-// forwarder that satisfies it is a double factory and now lives where doubles live.
+// These TYPES are declared here and the host's runtime mechanism is in `testing/`. An
+// `agent-interface` contract family holds type declarations and at most small pure accessors, and a
+// double lives in the `testing/` subpath beside the contract it exercises. The contract is the part
+// that belongs in a contracts package; the prototype-walking forwarder that satisfies it is a double
+// factory and lives where doubles live.
 
 type TUnionToIntersection<T> = (T extends T ? (value: T) => void : never) extends (
   value: infer TIntersection,

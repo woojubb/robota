@@ -2,10 +2,7 @@ import { spawnSync } from 'node:child_process';
 
 import type { ChildProcess } from 'node:child_process';
 
-/**
- * Shared grace window (ms) between the initial signal and the forced SIGKILL. Previously
- * duplicated as `DEFAULT_KILL_GRACE_MS` in every runner package.
- */
+/** Shared grace window (ms) between the initial signal and the forced SIGKILL. */
 export const DEFAULT_KILL_GRACE_MS = 2000;
 
 /** Options for {@link killProcessTree}. */

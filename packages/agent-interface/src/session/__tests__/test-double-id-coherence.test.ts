@@ -1,11 +1,11 @@
 /**
  * The double's surfaces agree about who the session is — including under an override.
  *
- * `parentSessionId` and the workspace snapshot's `sessionId` used to close over the counter value
- * directly, so a caller overriding `getSession` (the shape `agent-transport-http`'s claim tests
- * build) split the double's identity: the claim key said one name, every other surface said
- * another. That is the cross-surface id collision the counter was added to remove, reopened by the
- * override path. Review found it before a suite did.
+ * `parentSessionId` and the workspace snapshot's `sessionId` must not close over the counter value
+ * directly, or a caller overriding `getSession` (the shape the HTTP transport's claim tests in
+ * `agent-transport` build) would split the double's identity: the claim key would say one name,
+ * every other surface another. That is the cross-surface id collision the counter exists to
+ * remove, reopened by the override path.
  */
 
 import { describe, expect, it } from 'vitest';
