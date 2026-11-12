@@ -491,33 +491,6 @@ async function runCliCore(
   }
 
   if (
-    (args.printMode || args.goal !== undefined || args.serve || mcpServe) &&
-    // Safe mode, and a Restricted start a person chose (a background session started Restricted from
-    // the session view), ask for one; the refusal exists so an untrusted project is never silently
-    // run without its sources, which is exactly what they request.
-    !safeMode &&
-    !optionArgv(process.argv).includes(RESTRICTED_WORKSPACE_FLAG) &&
-    requiresHeadlessWorkspaceTrust(projectAccess)
-  ) {
-    // `--serve --open` opens a browser for whoever ran it — someone is at this terminal,
-    // unlike every other headless start here. With a TTY to ask on, this asks instead of refusing.
-    if (args.serve && args.open && canAskServeOpenTrustQuestion(projectAccess)) {
-      const answer = await askServeOpenTrustQuestion(projectAccess, cwd, { productRuntime });
-      if (answer.decision === 'quit') {
-        process.exitCode = 1;
-        return;
-      }
-      projectAccess = answer.access;
-    } else {
-      process.stderr.write(
-        `${formatHeadlessWorkspaceTrustError(projectAccess, cwd, productRuntime.config.identity.cliName)}\n`,
-      );
-      process.exitCode = 1;
-      return;
-    }
-  }
-
-  if (
     (args.printMode || args.goal !== undefined || args.serve || mcpServe || acp) &&
     projectAccess.status === 'restricted'
   ) {
