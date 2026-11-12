@@ -151,6 +151,7 @@ const agent = new ConversationAgent(config);
 // Force the model to answer through a router tool (decision-agent pattern)
 const decision = await agent.run('Route this request.', {
   toolChoice: { tool: 'route-request' },
+  maxExecutionRounds: 1,
   allowToolOnlyCompletion: true,
 });
 
