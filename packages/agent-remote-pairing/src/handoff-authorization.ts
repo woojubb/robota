@@ -4,7 +4,7 @@ import type { IIdentityContext } from './identity/crypto-context.js';
  *
  * ## Why a certificate is not enough
  *
- * `user-identity.ts` answers "is this device my user's". That is necessary and nowhere near
+ * `verifyDeviceChain` answers "is this device my user's". That is necessary and nowhere near
  * sufficient: it says nothing about WHICH transfer, to WHICH destination, over WHICH channel, or
  * WHEN. A same-user proof reused for a second transfer is exactly the failure the issue names —
  * *"authentication and authorization decisions are bound to the exact hand-off/session and cannot be
@@ -140,9 +140,8 @@ export interface IVerifyGrantOptions {
 /**
  * Verify a grant against THIS destination, THIS transfer, and THIS channel.
  *
- * The signature is checked first, for the same reason as in `user-identity.ts`: every later
- * comparison must be about fields the source actually signed, not about attacker-supplied values
- * that merely travelled alongside a signature.
+ * The signature is checked first: every later comparison must be about fields the source actually
+ * signed, not about attacker-supplied values that merely travelled alongside a signature.
  */
 export async function verifyHandoffGrant(
   cryptoContext: IIdentityContext,

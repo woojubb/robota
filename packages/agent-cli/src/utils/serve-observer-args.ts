@@ -35,30 +35,35 @@ function parsePort(raw: string | undefined): number | undefined {
   return Number.isInteger(port) ? port : undefined;
 }
 
-/** Resolves the observer listener options, or `undefined` when `--serve` names no port. Throws when it cannot run. */
+/**
+ * Resolves the observer listener options, or `undefined` when `--serve` names no port. Throws when
+ * it cannot run. The environment is the product runtime's, where the product's own alias of each
+ * variable is already folded into the canonical name; `envPrefix` is that alias prefix, so an error
+ * names the variable the running product accepts.
+ */
 export function resolveServeObserverOptions(
   args: IParsedCliArgs,
   environment: Readonly<Record<string, string | undefined>>,
+  envPrefix: string,
   neighbours: IServeObserverNeighbours = {},
 ): IServeObserverOptions | undefined {
   if (args.observerPort === undefined) return undefined;
   if (!args.serve) throw new Error('--observer-port is only valid with --serve');
   const token = environment['PRODUCT_OBSERVER_TOKEN'];
+  const tokenName = `${envPrefix}OBSERVER_TOKEN`;
   if (token === undefined || token === '') {
     throw new Error(
-      '--serve --observer-port needs PRODUCT_OBSERVER_TOKEN: the token every observer presents',
+      `--serve --observer-port needs ${tokenName}: the token every observer presents`,
     );
   }
   if (token.length < SERVE_OBSERVER_TOKEN_MIN_LENGTH) {
-    throw new Error(
-      `PRODUCT_OBSERVER_TOKEN must be at least ${SERVE_OBSERVER_TOKEN_MIN_LENGTH} characters`,
-    );
+    throw new Error(`${tokenName} must be at least ${SERVE_OBSERVER_TOKEN_MIN_LENGTH} characters`);
   }
   const driverToken = neighbours.driverToken;
   const httpToken = environment['PRODUCT_HTTP_TOKEN'];
   if (token === driverToken || token === httpToken) {
     throw new Error(
-      'PRODUCT_OBSERVER_TOKEN must differ from the driver token and PRODUCT_HTTP_TOKEN: a shared token would let an observer drive',
+      `${tokenName} must differ from the driver token and ${envPrefix}HTTP_TOKEN: a shared token would let an observer drive`,
     );
   }
   if (args.observerPort === args.httpPort || args.observerPort === neighbours.driverPort) {

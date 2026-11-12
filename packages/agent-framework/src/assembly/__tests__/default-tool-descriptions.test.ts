@@ -16,12 +16,12 @@ import type { ITerminalOutput } from '@robota-sdk/agent-session';
 const testHost = createTestFrameworkHost();
 
 /**
- * This file was split rather than moved. The tool-assembly cases live in
- * `@robota-sdk/agent-tool-defaults` with the aggregator; these two stay, because
- * `DEFAULT_TOOL_DESCRIPTIONS` stayed — its only consumer builds the system prompt synchronously.
+ * The tool-assembly cases live with `createDefaultTools` in `@robota-sdk/agent-tools/defaults`; these
+ * two live here because `DEFAULT_TOOL_DESCRIPTIONS` belongs to this package — its only consumer
+ * builds the system prompt synchronously.
  *
  * What these cases do NOT check, stated because the gap is the point: nothing here ties a description
- * to a tool that is actually assembled. The list is hard-coded and the coupling is now cross-package.
+ * to a tool that is actually assembled. The list is hard-coded and the coupling is cross-package.
  * Filed separately; asserting it here would be asserting the defect.
  *
  * The deferred roster below is the one part that IS derived. It has to be: which tools

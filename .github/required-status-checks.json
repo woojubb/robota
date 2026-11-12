@@ -9,13 +9,19 @@
           "context": "pr-validation",
           "workflow": ".github/workflows/ci.yml",
           "job": "pr-validation",
-          "verifies": "install, build, typecheck, lint, test, dependency direction, release safety checks"
+          "verifies": "install, scoped build, typecheck, eslint, language and platform lints, browser-runtime proof, dependency direction, workspace tests (root script tests on full-scope runs only); skipped for developer-document-only changes"
         },
         {
           "context": "security",
           "workflow": ".github/workflows/ci.yml",
           "job": "security",
           "verifies": "secret scan (gitleaks) on the change range"
+        },
+        {
+          "context": "native-validation",
+          "workflow": ".github/workflows/release-bun-binaries.yml",
+          "job": "native-validation",
+          "verifies": "native Bun binary builds and Windows SDK checks when the change needs them; skipped otherwise"
         }
       ]
     },
@@ -27,7 +33,7 @@
           "context": "pr-validation",
           "workflow": ".github/workflows/ci.yml",
           "job": "pr-validation",
-          "verifies": "install, build, typecheck, lint, test, dependency direction, release safety checks"
+          "verifies": "install, scoped build, typecheck, eslint, language and platform lints, browser-runtime proof, dependency direction, workspace tests (root script tests on full-scope runs only); skipped for developer-document-only changes"
         },
         {
           "context": "security",

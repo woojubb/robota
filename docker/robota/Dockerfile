@@ -6,13 +6,15 @@
 #   docker/robota/pack-local.sh
 #   docker build --build-arg ROBOTA_SOURCE=local -t robota:local docker/robota
 #
-# ROBOTA_SOURCE=registry (default) installs @robota-sdk/agent-cli@${ROBOTA_VERSION} from npm.
+# ROBOTA_SOURCE=registry (default) installs the @robota-sdk/agent-cli release named by ROBOTA_VERSION,
+# which has no default so a build can never silently pick an old release; the release workflow passes
+# it together with the attested lock digest.
 # ROBOTA_SOURCE=local installs the CLI tarball `pack-local.sh` wrote to local-packages/. That path
 # is for verifying unreleased changes before a release only; a deployed image comes from a release.
 
 FROM node:22-bookworm-slim
 
-ARG ROBOTA_VERSION=3.0.0-beta.90
+ARG ROBOTA_VERSION
 ARG ROBOTA_SOURCE=registry
 ARG ROBOTA_LOCK_SHA256=
 

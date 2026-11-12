@@ -394,11 +394,20 @@ async function runCliCore(
             ? 'serve'
             : 'interactive',
   );
-  const serveHttp = resolveServeHttpOptions(args, productRuntime.environment);
-  const serveObserver = resolveServeObserverOptions(args, productRuntime.environment, {
-    driverToken: supervisedTransportToken ?? productRuntime.environment['PRODUCT_WS_TOKEN'],
-    driverPort: driverListenerPort(productRuntime.environment),
-  });
+  const serveHttp = resolveServeHttpOptions(
+    args,
+    productRuntime.environment,
+    productRuntime.config.identity.envPrefix,
+  );
+  const serveObserver = resolveServeObserverOptions(
+    args,
+    productRuntime.environment,
+    productRuntime.config.identity.envPrefix,
+    {
+      driverToken: supervisedTransportToken ?? productRuntime.environment['PRODUCT_WS_TOKEN'],
+      driverPort: driverListenerPort(productRuntime.environment),
+    },
+  );
   // Held by the serve options from here on. Left in the environment, every tool subprocess this
   // runtime starts would inherit the credential that admits an HTTP client or an observer.
   withholdEnvironmentVariables([
@@ -454,33 +463,6 @@ async function runCliCore(
 
   // `acp` is deliberately not gated here: refusing at startup would show the editor a crashed agent
   // with no reason. Its trust check runs when the editor creates the session (`admitAcpWorkspace`).
-  if (
-    (args.printMode || args.goal !== undefined || args.serve || mcpServe) &&
-    // Safe mode, and a Restricted start a person chose (a background session started Restricted from
-    // the session view), ask for one; the refusal exists so an untrusted project is never silently
-    // run without its sources, which is exactly what they request.
-    !safeMode &&
-    !optionArgv(process.argv).includes(RESTRICTED_WORKSPACE_FLAG) &&
-    requiresHeadlessWorkspaceTrust(projectAccess)
-  ) {
-    // `--serve --open` opens a browser for whoever ran it — someone is at this terminal,
-    // unlike every other headless start here. With a TTY to ask on, this asks instead of refusing.
-    if (args.serve && args.open && canAskServeOpenTrustQuestion(projectAccess)) {
-      const answer = await askServeOpenTrustQuestion(projectAccess, cwd, { productRuntime });
-      if (answer.decision === 'quit') {
-        process.exitCode = 1;
-        return;
-      }
-      projectAccess = answer.access;
-    } else {
-      process.stderr.write(
-        `${formatHeadlessWorkspaceTrustError(projectAccess, cwd, productRuntime.config.identity.cliName)}\n`,
-      );
-      process.exitCode = 1;
-      return;
-    }
-  }
-
   if (
     (args.printMode || args.goal !== undefined || args.serve || mcpServe) &&
     // Safe mode, and a Restricted start a person chose (a background session started Restricted from

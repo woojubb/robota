@@ -83,10 +83,10 @@ export function assembleSessionTools(
   // session context (cwd → the working-directory path guard, sandbox client) — which is why a name
   // collision must never silently displace it (see `dedupeToolsByName`).
   //
-  // The framework names no tool package. A Node composition root passes `createDefaultTools` from
-  // `@robota-sdk/agent-tool-defaults` to `createNodeFrameworkHost`, so the aggregator stays at the
-  // composition root and this package keeps no edge to it. A host that lends none (`{}`, a browser)
-  // has no default tier: the session holds `additionalTools` and its own tools, and nothing else.
+  // The assembly names no default tool set. A Node composition root passes `createDefaultTools` from
+  // `@robota-sdk/agent-tools/defaults` to `createNodeFrameworkHost`, so the composition root chooses
+  // the tier. A host that lends none (`{}`, a browser) has no default tier: the session holds
+  // `additionalTools` and its own tools, and nothing else.
   const defaultTools =
     options.defaultTools ??
     options.host.createDefaultTools?.({

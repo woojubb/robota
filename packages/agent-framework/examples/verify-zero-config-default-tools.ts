@@ -13,15 +13,13 @@ const testHost = createTestFrameworkHost();
  * A zero-config session still receives the default tool tier, and
  * `IAgentRuntime.createSession` stays SYNCHRONOUS.
  *
- * Both halves matter, and the second is the trap. The default tool set lives in
- * `@robota-sdk/agent-tool-defaults` and `agent-framework` reaches it by dynamic `import()`, which
- * makes the assembly `createSession` async. `IAgentRuntime.createSession` survives synchronous only
- * because it does NOT call that function — it constructs the session directly and the assembly happens
- * later behind `initializeInteractiveSessionAsync`. That indirection is load-bearing rather than
- * incidental: an implementer propagating async "until it compiles" would very plausibly make this
- * return a Promise and break every consumer that builds a session without supplying `defaultTools` —
- * `createQuery` and the headless runtime have no `defaultTools` seam at all, so they could not opt back
- * in.
+ * Both halves matter, and the second is the trap. The default tier comes from the host
+ * (`host.createDefaultTools`, from `@robota-sdk/agent-tools/defaults` on a Node host), and the
+ * assembly function `createSession` is async. `IAgentRuntime.createSession` stays synchronous only
+ * because it does NOT call that function — it constructs the session directly and the assembly
+ * happens later behind `initializeInteractiveSessionAsync`. That indirection is load-bearing rather
+ * than incidental: propagating async "until it compiles" would make this return a Promise and break
+ * every consumer that uses the session it returns directly.
  *
  * The tool list is read from what the PROVIDER was actually asked to use, not from the session. The
  * framework exposes no public accessor for a built session's final tool list, so the scripted
@@ -31,7 +29,7 @@ const testHost = createTestFrameworkHost();
 const PROMPT = 'zero-config default tools';
 const RESPONSE = 'zero-config session ok';
 
-/** The tier a zero-config session must receive. Measured before the extraction, asserted after it. */
+/** The tier a zero-config session must receive. */
 const EXPECTED_TOOLS = [
   'AskUserQuestion',
   'BackgroundProcess',
@@ -62,7 +60,7 @@ async function main(): Promise<void> {
     const script = createScriptedProvider([{ text: RESPONSE }]);
     const runtime = createAgentRuntime({ host: testHost, cwd, provider: script.provider });
 
-    // No `defaultTools` anywhere — this is the zero-config path the extraction exists to preserve.
+    // No `defaultTools` anywhere — the zero-config path.
     const created = runtime.createSession({});
     const createSessionReturnedSynchronously = !(created instanceof Promise);
     assertCondition(

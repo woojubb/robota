@@ -8,167 +8,25 @@ import {
   verifyHandoffGrant,
   type IHandoffGrantClaims,
 } from '../handoff-authorization.js';
-import {
-  deriveUserId,
-  generateUserRootKeyPair,
-  issueDeviceCertificate,
-  verifyDeviceCertificate,
-  verifyDevicePossession,
-} from '../user-identity.js';
 
 const NOW = 1_700_000_000_000;
 const HOUR = 3_600_000;
+const USER_ID = 'user_1';
 
-async function aUser() {
-  const root = await generateUserRootKeyPair(true);
-  const userId = await deriveUserId(root.publicKey);
-  return { root, userId };
-}
-
-async function aDevice(user: { root: CryptoKeyPair; userId: string }) {
+async function aDevice() {
   const keyPair = await generateIdentityKeyPair(true);
-  const certificate = await issueDeviceCertificate(testIdentity, {
-    rootPrivateKey: user.root.privateKey,
-    userId: user.userId,
-    devicePublicKey: keyPair.publicKey,
-    issuedAt: NOW,
-    expiresAt: NOW + HOUR,
-  });
   return {
     keyPair,
-    certificate,
     deviceId: await deriveIdentityId(await exportPublicKey(keyPair.publicKey)),
   };
 }
 
-describe('same user, proven by the destination rather than asserted by the source', () => {
-  it('two devices signed by one root verify against that user', async () => {
-    const user = await aUser();
-    const source = await aDevice(user);
-    const destination = await aDevice(user);
-
-    for (const device of [source, destination]) {
-      const result = await verifyDeviceCertificate(testIdentity, device.certificate, {
-        rootPublicKey: user.root.publicKey,
-        expectedUserId: user.userId,
-        now: NOW,
-      });
-      expect(result.valid).toBe(true);
-      expect(result.deviceId).toBe(device.deviceId);
-    }
-  });
-
-  it('a device signed by a DIFFERENT root is a different person', async () => {
-    // The core rejection. Without it, any device with any certificate could receive a hand-off.
-    const mine = await aUser();
-    const theirs = await aUser();
-    const theirDevice = await aDevice(theirs);
-
-    const result = await verifyDeviceCertificate(testIdentity, theirDevice.certificate, {
-      rootPublicKey: mine.root.publicKey,
-      expectedUserId: mine.userId,
-      now: NOW,
-    });
-
-    expect(result.valid).toBe(false);
-    expect(result.rejection).toBe('signature-invalid');
-  });
-
-  it('every signed field is covered — tampering any of them invalidates', async () => {
-    // A signature over a subset would leave the omitted field attacker-editable while still
-    // verifying, which reads as a valid certificate. Checked field by field rather than asserted.
-    const user = await aUser();
-    const device = await aDevice(user);
-    const mutations = [
-      { userId: 'someone-else' },
-      { deviceId: 'another-device' },
-      { issuedAt: NOW - HOUR },
-      { expiresAt: NOW + 10 * HOUR },
-    ];
-
-    for (const mutation of mutations) {
-      const result = await verifyDeviceCertificate(
-        testIdentity,
-        { ...device.certificate, ...mutation },
-        { rootPublicKey: user.root.publicKey, expectedUserId: user.userId, now: NOW },
-      );
-      expect(result.rejection, JSON.stringify(mutation)).toBe('signature-invalid');
-    }
-  });
-
-  it('an expired certificate is refused however intact its signature', async () => {
-    const user = await aUser();
-    const device = await aDevice(user);
-
-    const expired = await verifyDeviceCertificate(testIdentity, device.certificate, {
-      rootPublicKey: user.root.publicKey,
-      expectedUserId: user.userId,
-      now: NOW + 2 * HOUR,
-    });
-    const early = await verifyDeviceCertificate(testIdentity, device.certificate, {
-      rootPublicKey: user.root.publicKey,
-      expectedUserId: user.userId,
-      now: NOW - 1,
-    });
-
-    expect(expired.rejection).toBe('expired');
-    expect(early.rejection).toBe('not-yet-valid');
-  });
-
-  it('a revoked device fails with an intact signature', async () => {
-    // Revocation must not depend on the certificate changing — a retired device still holds a
-    // perfectly valid one, which is exactly why revocation exists.
-    const user = await aUser();
-    const device = await aDevice(user);
-
-    const result = await verifyDeviceCertificate(testIdentity, device.certificate, {
-      rootPublicKey: user.root.publicKey,
-      expectedUserId: user.userId,
-      now: NOW,
-      revokedDeviceIds: [device.deviceId],
-    });
-
-    expect(result.valid).toBe(false);
-    expect(result.rejection).toBe('revoked');
-  });
-
-  it('a certificate alone proves nothing about who presents it', async () => {
-    // A certificate is a public document. Possession of the device key is a SEPARATE step, and the
-    // two are separate calls so neither looks complete on its own.
-    const user = await aUser();
-    const device = await aDevice(user);
-    const impostor = await generateIdentityKeyPair(true);
-    const challenge = new TextEncoder().encode('challenge-bytes');
-
-    const realSignature = new Uint8Array(
-      await crypto.subtle.sign(
-        { name: 'ECDSA', hash: 'SHA-256' },
-        device.keyPair.privateKey,
-        challenge as unknown as ArrayBuffer,
-      ),
-    );
-    const impostorSignature = new Uint8Array(
-      await crypto.subtle.sign(
-        { name: 'ECDSA', hash: 'SHA-256' },
-        impostor.privateKey,
-        challenge as unknown as ArrayBuffer,
-      ),
-    );
-
-    expect(await verifyDevicePossession(device.certificate, challenge, realSignature)).toBe(true);
-    expect(await verifyDevicePossession(device.certificate, challenge, impostorSignature)).toBe(
-      false,
-    );
-  });
-});
-
 describe('a grant authorizes ONE transfer, to ONE destination, over ONE channel', () => {
   async function aGrant(over: Partial<IHandoffGrantClaims> = {}) {
-    const user = await aUser();
-    const source = await aDevice(user);
-    const destination = await aDevice(user);
+    const source = await aDevice();
+    const destination = await aDevice();
     const claims: IHandoffGrantClaims = {
-      userId: user.userId,
+      userId: USER_ID,
       sourceDeviceId: source.deviceId,
       destinationDeviceId: destination.deviceId,
       handoffId: 'handoff_1',
@@ -180,12 +38,12 @@ describe('a grant authorizes ONE transfer, to ONE destination, over ONE channel'
       ...over,
     };
     const grant = await issueHandoffGrant(testIdentity, claims, source.keyPair.privateKey);
-    return { user, source, destination, grant, claims };
+    return { source, destination, grant, claims };
   }
 
   const baseOptions = (ctx: Awaited<ReturnType<typeof aGrant>>) => ({
     sourcePublicKey: ctx.source.keyPair.publicKey,
-    expectedUserId: ctx.user.userId,
+    expectedUserId: USER_ID,
     expectedDestinationDeviceId: ctx.destination.deviceId,
     expectedHandoffId: 'handoff_1',
     expectedSessionId: 'session_1',
@@ -260,7 +118,7 @@ describe('a grant authorizes ONE transfer, to ONE destination, over ONE channel'
   });
 
   it('every claim is inside the signature', async () => {
-    // The same field-by-field proof as for certificates. A binding outside the signature is a
+    // Checked field by field rather than asserted. A binding outside the signature is a
     // binding an attacker can edit while the signature still verifies.
     const ctx = await aGrant();
     const mutations: Partial<IHandoffGrantClaims>[] = [

@@ -6,8 +6,9 @@
  * `./node` entries of this package, and implements no tool itself.
  *
  * Import this at a composition root. It is deliberately NOT re-exported by
- * `@robota-sdk/agent-framework`: a pass-through re-export would restore the very route that was
- * closed, and the project-structure rules ban it independently.
+ * `@robota-sdk/agent-framework`: a pass-through re-export would restore the dependency that keeping
+ * this tier out of the framework removed, and ARCHITECTURE.md's `ENTRY-POINT-ONLY` boundary rules out
+ * a default aggregator in a mid-layer library independently.
  */
 export { createDefaultTools } from './create-default-tools.js';
 export type { ICreateDefaultToolsOptions } from './create-default-tools.js';

@@ -117,12 +117,11 @@ export function createTestInteractiveSession(
     getMessagesDisplay: () => [],
     getContextState: () => ({ ...EMPTY_CONTEXT_STATE }),
     getSession: () => ({
-      // DISTINCT per double, because a session id IDENTIFIES a session. A fixed literal made every
-      // instance report the same identity, so two doubles standing in for two different sessions
-      // were indistinguishable to any consumer that keys by id — and a fixture that cannot
-      // represent two sessions cannot test anything about two sessions. Found when
-      // `agent-transport-http` started keying its concurrent-turn claim by id and the multi-tenant
-      // case went red for the fixture's reason rather than the code's.
+      // DISTINCT per double, because a session id IDENTIFIES a session. A fixed literal would make
+      // every instance report the same identity, so two doubles standing in for two different
+      // sessions would be indistinguishable to any consumer that keys by id (the HTTP transport's
+      // concurrent-turn claim in `agent-transport` does) — and a fixture that cannot represent two
+      // sessions cannot test anything about two sessions.
       //
       // A counter, not a random: the value stays stable within one double and reproducible across
       // runs, so a failure message names the same session twice.

@@ -5,31 +5,37 @@ import { resolveMcpHttpOptions } from '../mcp-http-args.js';
 import { resolveServeHttpOptions, SERVE_HTTP_TOKEN_MIN_LENGTH } from '../serve-http-args.js';
 
 const TOKEN = 't'.repeat(SERVE_HTTP_TOKEN_MIN_LENGTH);
+/** The running product's own alias prefix: the name an error must give, not the canonical one. */
+const ENV_PREFIX = 'CEDAR_';
 
 describe('--serve HTTP API flags', () => {
   it('is off unless --serve names a port', () => {
     expect(
-      resolveServeHttpOptions(parseCliArgs(['--serve']), { PRODUCT_HTTP_TOKEN: TOKEN }),
+      resolveServeHttpOptions(parseCliArgs(['--serve']), { PRODUCT_HTTP_TOKEN: TOKEN }, ENV_PREFIX),
     ).toBeUndefined();
   });
 
-  it('serves the named loopback port with the bearer from PRODUCT_HTTP_TOKEN', () => {
+  it('serves the named loopback port with the bearer from the HTTP token variable', () => {
     expect(
-      resolveServeHttpOptions(parseCliArgs(['--serve', '--http-port', '8787']), {
-        PRODUCT_HTTP_TOKEN: TOKEN,
-      }),
+      resolveServeHttpOptions(
+        parseCliArgs(['--serve', '--http-port', '8787']),
+        { PRODUCT_HTTP_TOKEN: TOKEN },
+        ENV_PREFIX,
+      ),
     ).toEqual({ port: 8787, token: TOKEN });
   });
 
   it('refuses to serve without a bearer, or with one too short to guess-proof', () => {
     const args = parseCliArgs(['--serve', '--http-port', '8787']);
-    expect(() => resolveServeHttpOptions(args, {})).toThrow(/PRODUCT_HTTP_TOKEN/);
-    expect(() => resolveServeHttpOptions(args, { PRODUCT_HTTP_TOKEN: '' })).toThrow(
-      /PRODUCT_HTTP_TOKEN/,
+    const missing =
+      '--serve --http-port needs CEDAR_HTTP_TOKEN: the bearer every HTTP client presents';
+    expect(() => resolveServeHttpOptions(args, {}, ENV_PREFIX)).toThrow(missing);
+    expect(() => resolveServeHttpOptions(args, { PRODUCT_HTTP_TOKEN: '' }, ENV_PREFIX)).toThrow(
+      missing,
     );
-    expect(() => resolveServeHttpOptions(args, { PRODUCT_HTTP_TOKEN: TOKEN.slice(1) })).toThrow(
-      new RegExp(`at least ${SERVE_HTTP_TOKEN_MIN_LENGTH} characters`),
-    );
+    expect(() =>
+      resolveServeHttpOptions(args, { PRODUCT_HTTP_TOKEN: TOKEN.slice(1) }, ENV_PREFIX),
+    ).toThrow(`CEDAR_HTTP_TOKEN must be at least ${SERVE_HTTP_TOKEN_MIN_LENGTH} characters`);
   });
 
   it('takes --http-port with --serve as its own flag, not as an mcp serve one', () => {
@@ -80,6 +86,7 @@ describe('--serve HTTP API as an OAuth resource server', () => {
           ...REMOTE,
         ]),
         {},
+        ENV_PREFIX,
       ),
     ).toEqual({
       port: 8787,
@@ -96,8 +103,11 @@ describe('--serve HTTP API as an OAuth resource server', () => {
 
   it('binds loopback by default in remote mode', () => {
     expect(
-      resolveServeHttpOptions(parseCliArgs(['--serve', '--http-port', '8787', ...REMOTE]), {})
-        ?.remote?.host,
+      resolveServeHttpOptions(
+        parseCliArgs(['--serve', '--http-port', '8787', ...REMOTE]),
+        {},
+        ENV_PREFIX,
+      )?.remote?.host,
     ).toBe('127.0.0.1');
   });
 
@@ -106,13 +116,18 @@ describe('--serve HTTP API as an OAuth resource server', () => {
       resolveServeHttpOptions(
         parseCliArgs(['--serve', '--http-port', '8787', '--http-host', '0.0.0.0']),
         { PRODUCT_HTTP_TOKEN: TOKEN },
+        ENV_PREFIX,
       ),
     ).toThrow(/non-loopback address only with --http-public-url/);
   });
 
   it('requires the remote settings together, as https URLs and literal addresses', () => {
     const run = (extra: string[]) => () =>
-      resolveServeHttpOptions(parseCliArgs(['--serve', '--http-port', '8787', ...extra]), {});
+      resolveServeHttpOptions(
+        parseCliArgs(['--serve', '--http-port', '8787', ...extra]),
+        {},
+        ENV_PREFIX,
+      );
     expect(run(REMOTE.slice(0, 6))).toThrow(/requires --http-public-url.*together/);
     expect(run(['--http-public-url', 'http://a.test/agent', ...REMOTE.slice(2)])).toThrow(
       '--http-public-url must be an https URL',
@@ -127,10 +142,12 @@ describe('--serve HTTP API as an OAuth resource server', () => {
 
   it('refuses the static bearer in remote mode', () => {
     expect(() =>
-      resolveServeHttpOptions(parseCliArgs(['--serve', '--http-port', '8787', ...REMOTE]), {
-        PRODUCT_HTTP_TOKEN: TOKEN,
-      }),
-    ).toThrow(/PRODUCT_HTTP_TOKEN is loopback-only/);
+      resolveServeHttpOptions(
+        parseCliArgs(['--serve', '--http-port', '8787', ...REMOTE]),
+        { PRODUCT_HTTP_TOKEN: TOKEN },
+        ENV_PREFIX,
+      ),
+    ).toThrow('CEDAR_HTTP_TOKEN is loopback-only and cannot be combined with remote authorization');
   });
 
   it('refuses the remote settings with --serve but no --http-port', () => {

@@ -2,6 +2,7 @@ import { modelDeclaresCapability } from '@robota-sdk/agent-core';
 import { describe, expect, it } from 'vitest';
 
 import { DEEPSEEK_CAPABILITY_TABLE } from '../capability-table';
+import { DEEPSEEK_MODEL_CATALOG_ENTRIES } from '../model-catalog';
 import { DeepSeekProvider } from '../provider';
 
 /**
@@ -57,5 +58,51 @@ describe('deepseek stops contradicting its own catalog', () => {
     expect(modelDeclaresCapability(table, 'deepseek-reasoner', 'json_object')).toBe(true);
     expect(modelDeclaresCapability(table, 'deepseek-reasoner', 'json_schema')).toBe(false);
     expect(modelDeclaresCapability(table, 'deepseek-reasoner', 'streaming')).toBe(true);
+  });
+});
+
+describe('deepseek returns JSON as json_object, never as json_schema', () => {
+  // DeepSeek's JSON Output takes `response_format: { type: 'json_object' }` and no schema.
+  it('the model catalog lists the same JSON mode as the capability table for every model', () => {
+    for (const entry of DEEPSEEK_MODEL_CATALOG_ENTRIES) {
+      for (const mode of ['json_object', 'json_schema'] as const) {
+        const listed = entry.capabilities?.includes(mode) ?? false;
+        const declared =
+          modelDeclaresCapability(DEEPSEEK_CAPABILITY_TABLE, entry.id, mode) === true;
+        expect(listed, `${entry.id} ${mode}`).toBe(declared);
+      }
+    }
+  });
+
+  it('a structured request never puts a json_schema response_format on the wire', async () => {
+    const sent: Array<Record<string, unknown>> = [];
+    const client = {
+      chat: {
+        completions: {
+          create: async (params: Record<string, unknown>) => {
+            sent.push(params);
+            return {
+              id: 'completion-1',
+              choices: [
+                { index: 0, finish_reason: 'stop', message: { role: 'assistant', content: '{}' } },
+              ],
+              usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+            };
+          },
+        },
+      },
+    };
+    const provider = new DeepSeekProvider({ client: client as never });
+
+    await provider.chat(
+      [{ id: '1', role: 'user', content: 'hi', state: 'complete', timestamp: new Date() }],
+      {
+        model: 'deepseek-v4-flash',
+        responseFormat: { type: 'json_schema', schema: { type: 'object' }, name: 'Answer' },
+      },
+    );
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.['response_format']).not.toMatchObject({ type: 'json_schema' });
   });
 });

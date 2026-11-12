@@ -172,9 +172,13 @@ export async function runInitCommand(
     reader.inspectKind(settingsPath, 'inspect product project settings') === 'file';
   const hasAgentsMd = reader.inspectKind('AGENTS.md', 'inspect project instructions') === 'file';
 
-  if (hasSettings && hasAgentsMd) {
+  if (hasSettings || hasAgentsMd) {
     terminal.writeLine('');
-    terminal.writeLine(`Both AGENTS.md and ${settingsPath} already exist.`);
+    terminal.writeLine(
+      hasSettings && hasAgentsMd
+        ? `Both AGENTS.md and ${settingsPath} already exist.`
+        : `${hasAgentsMd ? 'AGENTS.md' : settingsPath} already exists.`,
+    );
     const overwrite = await confirm('Overwrite existing files?', false, confirmCtx);
     if (!overwrite) {
       terminal.writeLine('Init cancelled.');

@@ -32,16 +32,12 @@ import type { IToolInvocationResult } from '../types/tool-result.js';
  *
  * `cwd === undefined` means no containment root is configured, and the answer is NO.
  *
- * This used to return `true` there: with no root, everything was inside it. A guard whose default is
- * "allow" is not a guard, it is a guard that has to be remembered, and the architecture audit found
- * three independent layers that had forgotten. `pack-coding` had already written the consequence into
- * its own source — "file tools constructed with no options carry a DISARMED working-directory guard:
- * their `Read` will happily return `/etc/hostname`" — and the child-process subagent worker called
- * `createDefaultTools()` with no argument, so a subagent got exactly that. Measured, not inferred:
- * before this change a rootless `Read` of `/etc/hostname` returned the file.
+ * Answering `true` there would put everything inside the root. A guard whose default is "allow" is
+ * not a guard, it is a guard that has to be remembered: a file tool constructed with no root would
+ * carry a DISARMED working-directory guard, and its `Read` would happily return `/etc/hostname`.
  *
  * Refusing instead means a construction site that forgets the root fails loudly on its first file
- * access rather than silently running unconfined. The root is also required by the tool factories now,
+ * access rather than silently running unconfined. The root is also required by the tool factories,
  * so reaching this branch at all is an assembly bug — which is why the error says so specifically
  * rather than reporting an ordinary out-of-root path.
  */

@@ -1,13 +1,13 @@
 // @robota-sdk/agent-interface/command
 //
-// The command contract family, owned here rather than by `agent-interface/transport`.
+// The command contract family.
 //
 // LAYER 0: this subpath depends on `@robota-sdk/agent-core` and on no other subpath of
 // `agent-interface`. Consumers compose it downward — `agent-interface/session` names these types, never the
 // reverse.
 //
-// `capability-contracts` moves WITH its export and stays public: agent-framework's capability layer
-// re-exports its descriptor types.
+// `capability-contracts` is public: agent-framework's capability layer re-exports its descriptor
+// types.
 
 // ── Capability descriptor contracts ──────────────────────────
 export type {

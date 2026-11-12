@@ -8,10 +8,9 @@ import {
 } from './models.js';
 
 /**
- * The Claude table these tests used to assert against now lives with the package that
- * owns those models (`agent-provider-anthropic`), and its cases moved with it. What stays here is
- * what this vendor-NEUTRAL package still owns: the fallback behaviour when nobody has registered a
- * model, and token formatting.
+ * The Claude table lives with the package that owns those models (`agent-provider`), and its
+ * cases are tested there. What is tested here is what this vendor-NEUTRAL package owns: the
+ * fallback behaviour when nobody has registered a model, and token formatting.
  *
  * Registry behaviour — registration, override, and the no-longer-silent fallback — is covered in
  * `model-registry.test.ts`.

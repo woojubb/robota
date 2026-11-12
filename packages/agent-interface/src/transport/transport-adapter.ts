@@ -1,7 +1,7 @@
 /**
  * Core transport adapter contract.
- * Moved from agent-framework to break the circular dependency between
- * agent-transport-* implementations and the assembly layer.
+ * Declared here so the transport implementations and the assembly layer depend on this
+ * contract rather than on each other.
  */
 
 export type TTransportLifecycleKind = 'service' | 'runner';

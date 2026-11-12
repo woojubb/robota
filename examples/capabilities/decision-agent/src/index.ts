@@ -1,8 +1,9 @@
 /**
  * Capability: tool-only decision agent (router/orchestrator/classifier pattern).
  *
- * The tool call IS the answer: `allowToolOnlyCompletion: true` skips the extra
- * summary model call, and the app reads the decision from its own executor.
+ * The tool call IS the answer: `maxExecutionRounds: 1` with `allowToolOnlyCompletion: true`
+ * ends the run on the tool call and skips the extra summary model call, and the app reads the
+ * decision from its own executor.
  *
  * Run: ANTHROPIC_API_KEY=... pnpm dev
  */
@@ -39,7 +40,10 @@ const router = new ConversationAgent({
 const tickets = ['I was charged twice this month.', 'The app crashes when I open settings.'];
 for (const ticket of tickets) {
   decision = undefined;
-  await router.run(`Ticket: "${ticket}"`, { allowToolOnlyCompletion: true });
+  await router.run(`Ticket: "${ticket}"`, {
+    maxExecutionRounds: 1,
+    allowToolOnlyCompletion: true,
+  });
   console.log(`"${ticket}" -> ${decision ?? 'NO DECISION'}`);
 }
 await router.destroy();

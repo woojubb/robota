@@ -20,11 +20,10 @@ import type {
 /**
  * Where the DETAIL of a post-headers stream failure goes — injected, never imported.
  *
- * The first version imported `createLogger` from `agent-core`, and review held it against two
- * authorities at once: `project-structure.md` declares this package contract-pure (transports
- * depend on the contracts and the protocol, nothing else), and its side-concern rule says a logging
- * destination "must be injected, not imported directly". The host that mounts this router decides
- * where diagnostics go; a module-level singleton decided it for every host, with no override.
+ * This package is contract-pure (transports depend on the contracts and the protocol, nothing
+ * else), so the one side concern of where a diagnostic goes is injected, never imported — a logger
+ * taken from `agent-core` is out. The host that mounts this router decides where diagnostics go; a
+ * module-level singleton would decide it for every host, with no override.
  *
  * Absent, the detail is dropped — by the HOST's explicit default, which is a different thing from
  * this module deleting it: the client still learns the stream failed, and the host was offered the

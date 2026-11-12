@@ -15,7 +15,7 @@ export function requireFrameworkHost(host: unknown, owner: string): IFrameworkHo
       `${owner} requires \`host\`: the platform capabilities it may use (files, git, the ` +
         'environment, processes). On Node pass `createNodeFrameworkHost({ createDefaultTools })` ' +
         'from `@robota-sdk/agent-framework/node`, with `createDefaultTools` from ' +
-        '`@robota-sdk/agent-tool-defaults`; pass `{}` for a host that lends nothing.',
+        '`@robota-sdk/agent-tools/defaults`; pass `{}` for a host that lends nothing.',
     );
   }
   return host as IFrameworkHost;

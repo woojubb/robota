@@ -10,71 +10,89 @@ import {
 const TOKEN = 'o'.repeat(SERVE_OBSERVER_TOKEN_MIN_LENGTH);
 const OTHER_TOKEN = 'd'.repeat(SERVE_OBSERVER_TOKEN_MIN_LENGTH);
 const SERVE_OBSERVER = ['--serve', '--observer-port', '9001'];
+/** The running product's own alias prefix: the name an error must give, not the canonical one. */
+const ENV_PREFIX = 'CEDAR_';
+const SHARED_TOKEN =
+  'CEDAR_OBSERVER_TOKEN must differ from the driver token and CEDAR_HTTP_TOKEN: a shared token would let an observer drive';
 
 describe('--serve observer listener flags', () => {
   it('is off unless --serve names a port, even when the token is set', () => {
     expect(
-      resolveServeObserverOptions(parseCliArgs(['--serve']), { PRODUCT_OBSERVER_TOKEN: TOKEN }),
+      resolveServeObserverOptions(
+        parseCliArgs(['--serve']),
+        { PRODUCT_OBSERVER_TOKEN: TOKEN },
+        ENV_PREFIX,
+      ),
     ).toBeUndefined();
     expect(
-      resolveServeObserverOptions(parseCliArgs([]), { PRODUCT_OBSERVER_TOKEN: TOKEN }),
+      resolveServeObserverOptions(parseCliArgs([]), { PRODUCT_OBSERVER_TOKEN: TOKEN }, ENV_PREFIX),
     ).toBeUndefined();
   });
 
-  it('serves the named loopback port with the token from PRODUCT_OBSERVER_TOKEN', () => {
+  it('serves the named loopback port with the token from the observer token variable', () => {
     expect(
-      resolveServeObserverOptions(parseCliArgs(SERVE_OBSERVER), {
-        PRODUCT_OBSERVER_TOKEN: TOKEN,
-      }),
+      resolveServeObserverOptions(
+        parseCliArgs(SERVE_OBSERVER),
+        { PRODUCT_OBSERVER_TOKEN: TOKEN },
+        ENV_PREFIX,
+      ),
     ).toEqual({ port: 9001, token: TOKEN });
   });
 
   it('is refused without --serve, because no other mode opens it', () => {
     expect(() =>
-      resolveServeObserverOptions(parseCliArgs(['--observer-port', '9001']), {
-        PRODUCT_OBSERVER_TOKEN: TOKEN,
-      }),
+      resolveServeObserverOptions(
+        parseCliArgs(['--observer-port', '9001']),
+        { PRODUCT_OBSERVER_TOKEN: TOKEN },
+        ENV_PREFIX,
+      ),
     ).toThrow('--observer-port is only valid with --serve');
   });
 
   it('refuses to serve without a token, or with one too short to guess-proof', () => {
     const args = parseCliArgs(SERVE_OBSERVER);
-    expect(() => resolveServeObserverOptions(args, {})).toThrow(/PRODUCT_OBSERVER_TOKEN/);
-    expect(() => resolveServeObserverOptions(args, { PRODUCT_OBSERVER_TOKEN: '' })).toThrow(
-      /PRODUCT_OBSERVER_TOKEN/,
-    );
+    const missing =
+      '--serve --observer-port needs CEDAR_OBSERVER_TOKEN: the token every observer presents';
+    expect(() => resolveServeObserverOptions(args, {}, ENV_PREFIX)).toThrow(missing);
     expect(() =>
-      resolveServeObserverOptions(args, { PRODUCT_OBSERVER_TOKEN: TOKEN.slice(1) }),
-    ).toThrow(new RegExp(`at least ${SERVE_OBSERVER_TOKEN_MIN_LENGTH} characters`));
+      resolveServeObserverOptions(args, { PRODUCT_OBSERVER_TOKEN: '' }, ENV_PREFIX),
+    ).toThrow(missing);
+    expect(() =>
+      resolveServeObserverOptions(args, { PRODUCT_OBSERVER_TOKEN: TOKEN.slice(1) }, ENV_PREFIX),
+    ).toThrow(
+      `CEDAR_OBSERVER_TOKEN must be at least ${SERVE_OBSERVER_TOKEN_MIN_LENGTH} characters`,
+    );
   });
 
   it('refuses the driver listener token, which would let an observer drive', () => {
     const args = parseCliArgs(SERVE_OBSERVER);
     expect(() =>
-      resolveServeObserverOptions(args, { PRODUCT_OBSERVER_TOKEN: TOKEN }, { driverToken: TOKEN }),
-    ).toThrow(/must differ from the driver token and PRODUCT_HTTP_TOKEN/);
+      resolveServeObserverOptions(args, { PRODUCT_OBSERVER_TOKEN: TOKEN }, ENV_PREFIX, {
+        driverToken: TOKEN,
+      }),
+    ).toThrow(SHARED_TOKEN);
     expect(
-      resolveServeObserverOptions(
-        args,
-        { PRODUCT_OBSERVER_TOKEN: TOKEN },
-        { driverToken: OTHER_TOKEN },
-      ),
+      resolveServeObserverOptions(args, { PRODUCT_OBSERVER_TOKEN: TOKEN }, ENV_PREFIX, {
+        driverToken: OTHER_TOKEN,
+      }),
     ).toEqual({ port: 9001, token: TOKEN });
   });
 
   it('refuses the HTTP API bearer, which would let an observer drive', () => {
     const args = parseCliArgs(SERVE_OBSERVER);
     expect(() =>
-      resolveServeObserverOptions(args, {
-        PRODUCT_OBSERVER_TOKEN: TOKEN,
-        PRODUCT_HTTP_TOKEN: TOKEN,
-      }),
-    ).toThrow(/must differ from the driver token and PRODUCT_HTTP_TOKEN/);
+      resolveServeObserverOptions(
+        args,
+        { PRODUCT_OBSERVER_TOKEN: TOKEN, PRODUCT_HTTP_TOKEN: TOKEN },
+        ENV_PREFIX,
+      ),
+    ).toThrow(SHARED_TOKEN);
     expect(
-      resolveServeObserverOptions(args, {
-        PRODUCT_OBSERVER_TOKEN: TOKEN,
-        PRODUCT_HTTP_TOKEN: OTHER_TOKEN,
-      }),
+      resolveServeObserverOptions(
+        args,
+        { PRODUCT_OBSERVER_TOKEN: TOKEN, PRODUCT_HTTP_TOKEN: OTHER_TOKEN },
+        ENV_PREFIX,
+      ),
     ).toEqual({ port: 9001, token: TOKEN });
   });
 
@@ -83,12 +101,14 @@ describe('--serve observer listener flags', () => {
       resolveServeObserverOptions(
         parseCliArgs(['--serve', '--http-port', '9001', '--observer-port', '9001']),
         { PRODUCT_OBSERVER_TOKEN: TOKEN },
+        ENV_PREFIX,
       ),
     ).toThrow('--observer-port must differ from --http-port and the driver listener port');
     expect(
       resolveServeObserverOptions(
         parseCliArgs(['--serve', '--http-port', '9002', '--observer-port', '9001']),
         { PRODUCT_OBSERVER_TOKEN: TOKEN },
+        ENV_PREFIX,
       ),
     ).toEqual({ port: 9001, token: TOKEN });
   });
@@ -96,10 +116,14 @@ describe('--serve observer listener flags', () => {
   it('refuses the port of the driver listener', () => {
     const args = parseCliArgs(SERVE_OBSERVER);
     expect(() =>
-      resolveServeObserverOptions(args, { PRODUCT_OBSERVER_TOKEN: TOKEN }, { driverPort: 9001 }),
+      resolveServeObserverOptions(args, { PRODUCT_OBSERVER_TOKEN: TOKEN }, ENV_PREFIX, {
+        driverPort: 9001,
+      }),
     ).toThrow('--observer-port must differ from --http-port and the driver listener port');
     expect(
-      resolveServeObserverOptions(args, { PRODUCT_OBSERVER_TOKEN: TOKEN }, { driverPort: 9002 }),
+      resolveServeObserverOptions(args, { PRODUCT_OBSERVER_TOKEN: TOKEN }, ENV_PREFIX, {
+        driverPort: 9002,
+      }),
     ).toEqual({ port: 9001, token: TOKEN });
   });
 });

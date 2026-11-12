@@ -1,7 +1,6 @@
 // @robota-sdk/agent-tools/node — what only a Node host can run: the shell, file, search and
 // web-fetch tools, the OS sandbox and the host-file reads of a workspace manifest. The main entry is
-// platform-neutral (ARCHITECTURE.md "Runtime platforms") and takes a host's pieces by injection; the
-// one exception is the block at the end of `index.ts` that re-exports eleven of these names.
+// platform-neutral (ARCHITECTURE.md "Runtime platforms") and takes a host's pieces by injection.
 
 export { createShellTool, createBashTool } from './builtins/shell-tool.js';
 export type { IShellToolOptions } from './builtins/shell-tool.js';

@@ -1,5 +1,3 @@
-// @robota-sdk/agent-command-remote-control
-
 export {
   createRemoteControlCommandModule,
   createRemoteControlCommandEntry,

@@ -59,20 +59,20 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --fallback-model <list>    Comma-separated models to continue a turn on when the model is overloaded
   --effort <level>           Model effort: auto | none | minimal | low | medium | high | xhigh | max
   --advisor <profile[:model]> Model the main model may consult for advice (or "off");
-                             overrides settings.json advisorModel. PRODUCT_DISABLE_ADVISOR=1 turns it off
+                             overrides settings.json advisorModel. {{envPrefix}}DISABLE_ADVISOR=1 turns it off
   --preset <id>              Preset id to apply (default: settings.preset or "default")
   --output-style <id>        Response style: default | concise | proactive | explanatory | learning
   --memory / --no-memory     Enable/disable durable memory for this run (default: off; opt-in).
-                             Overrides settings.json memory.enabled; PRODUCT_MEMORY=1|0 overrides both
+                             Overrides settings.json memory.enabled; {{envPrefix}}MEMORY=1|0 overrides both
   --memory-autosave          With memory on, auto-save captured facts (default: approval-required queue)
   --screen-reader            Plain-text screen-reader mode: no box-drawing chrome, no spinners,
                              role-labelled transcript, numbered menus, bell + OSC 133 turn marks.
-                             Overrides PRODUCT_SCREEN_READER=1|0 and settings.json screenReader
-                             Pacing: PRODUCT_SCREEN_READER_STARTUP_QUIET_MS (default 900) and
-                             PRODUCT_SCREEN_READER_PREPARK_MS (default 50, 0 disables) in milliseconds
+                             Overrides {{envPrefix}}SCREEN_READER=1|0 and settings.json screenReader
+                             Pacing: {{envPrefix}}SCREEN_READER_STARTUP_QUIET_MS (default 900) and
+                             {{envPrefix}}SCREEN_READER_PREPARK_MS (default 50, 0 disables) in milliseconds
   --no-screen-reader         Force screen-reader mode off for this run
   --reduced-motion           Suppress animation for this run; colour is unaffected.
-                             Overrides PRODUCT_REDUCED_MOTION=1|0 and settings.json reducedMotion
+                             Overrides {{envPrefix}}REDUCED_MOTION=1|0 and settings.json reducedMotion
   --no-reduced-motion        Allow animation for this run, overriding a persisted reducedMotion
   --json-schema <schema>     Print mode: instruct the model to respond with JSON matching this schema
   --session-log <path>       Replay a recorded session log instead of calling a model
@@ -84,16 +84,16 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --serve --open             Serve {{name}} over localhost; enter the terminal access code in the browser
   --serve --http-port <port> Also serve the agent HTTP API (submit with SSE streaming, commands,
                              abort, messages) on 127.0.0.1:<port>, for other apps and services.
-                             Requires PRODUCT_HTTP_TOKEN (at least 32 characters): the bearer
+                             Requires {{envPrefix}}HTTP_TOKEN (at least 32 characters): the bearer
                              every request presents. Reach it from elsewhere through your own
                              reverse proxy or tunnel, or bind it as an OAuth resource server
                              with --http-public-url and the --oauth-* flags instead of the bearer
   --serve --observer-port <port>
                              Also open a read-only observer listener on 127.0.0.1:<port>: a client
                              reads this session's conversation and state and can drive nothing.
-                             Requires PRODUCT_OBSERVER_TOKEN (at least 32 characters): the token
+                             Requires {{envPrefix}}OBSERVER_TOKEN (at least 32 characters): the token
                              every observer presents, different from the driver token and
-                             PRODUCT_HTTP_TOKEN. Not available in a secure runtime
+                             {{envPrefix}}HTTP_TOKEN. Not available in a secure runtime
   --restricted-workspace     With print mode, --goal, --serve, daemon start or session start:
                              start without the project's settings, hooks, plugins, skills and
                              MCP servers
@@ -296,6 +296,7 @@ function renderHelp(text: string, runtime: ICliRuntimeContext): string {
   return text
     .replaceAll('{{cli}}', runtime.vocabulary.cliName)
     .replaceAll('{{name}}', runtime.vocabulary.displayName)
+    .replaceAll('{{envPrefix}}', runtime.config.identity.envPrefix)
     .replaceAll('{{settings}}', runtime.layout.userPaths.settings)
     .replaceAll('{{projectSettings}}', `${runtime.layout.projectDirectory}/settings.json`);
 }

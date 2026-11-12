@@ -3,8 +3,8 @@
  * specific to it.
  *
  * Split out of the root entry because `sessionParticipant` imports `@robota-sdk/agent-session`,
- * which pulls in `@robota-sdk/agent-file-authority`'s native binary (koffi) — a cost only a
- * consumer that actually wants a `Session`-backed participant should pay. A consumer that only
+ * which pulls in the native binary (koffi) of `@robota-sdk/agent-os`'s file authority — a cost
+ * only a consumer that actually wants a `Session`-backed participant should pay. A consumer that only
  * needs `runtimeParticipant`/`runtimeSelector` imports the package root and never resolves either.
  */
 export { sessionParticipant } from './session-participant';
