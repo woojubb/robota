@@ -29,7 +29,7 @@ export const GITHUB_RAW_BASE = configuredRepository
   : undefined;
 
 /** Content directories the site does not render as routes. */
-const UNROUTED_CONTENT_DIRS = new Set(['v2.0.0', 'images']);
+const UNROUTED_CONTENT_DIRS = new Set(['images']);
 const LOCALE_PREFIX = /^\/(en|ko)(\/|$)/;
 
 export interface IRemarkFixLinksOptions {

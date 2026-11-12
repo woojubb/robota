@@ -4,7 +4,7 @@ This is the maintained contract for the manual developer audit. IDs retain the c
 
 ## Obligations
 
-Every obligation receives a record; split compound obligations into named scenarios so a partially verified item cannot pass. Full runs cover all IDs and the exhaustive first-party module ledger. Profiles are embedded SDK, local CLI/daemon, desktop, browser/remote host, hosted organizational execution and DAG HTTP/workflow service. Record private/example/research applicability rather than treating those as deployed guarantees.
+Every obligation receives a record; split compound obligations into named scenarios so a partially verified item cannot pass. Full runs cover all IDs and the exhaustive first-party module ledger. Profiles are embedded SDK, local CLI/daemon, desktop, browser/remote host, hosted organizational execution and DAG HTTP/workflow service. The workflow runtime behind that last profile is the external `@robota-sdk/workflows` release, not code in this repository: audit the CLI's integration, the pinned release and its SDK peer ranges here, and record the runtime's own internals as outside this revision. Record private/example/research applicability rather than treating those as deployed guarantees.
 
 | ID | Required inspection and evidence |
 | --- | --- |
