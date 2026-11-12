@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-session-analytics",
   "version": "3.2.6",
-  "description": "Session-log timing analysis and reporting for the Robota SDK (analyzeSession, aggregateReports, report formatters)",
+  "description": "Pure analysis of persisted session records for the Robota SDK: turn timing, source-attributed token usage and cost, personal usage reports, OTLP usage, trace and event payloads, and text reports",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
