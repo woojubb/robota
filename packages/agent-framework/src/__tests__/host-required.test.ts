@@ -32,7 +32,8 @@ import type { ICreateProgrammaticAgentOptions } from '../transport-host/programm
  */
 const provider = createScriptedProvider([]).provider;
 const cwd = process.cwd();
-const REFUSAL = /requires `host`[\s\S]*createNodeFrameworkHost[\s\S]*pass `\{\}`/u;
+const REFUSAL =
+  /requires `host`[\s\S]*createNodeFrameworkHost[\s\S]*@robota-sdk\/agent-tools\/defaults[\s\S]*pass `\{\}`/u;
 
 describe('a missing host is refused where the framework is composed', () => {
   it('InteractiveSession names itself and what to pass', () => {

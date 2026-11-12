@@ -32,8 +32,8 @@ import type { IFrameworkHost } from './host/framework-host.js';
 export interface ICreateNodeFrameworkHostOptions {
   /**
    * Builds a session's default tool tier, normally `createDefaultTools` from
-   * `@robota-sdk/agent-tool-defaults`. The framework does not import that package itself, so the
-   * composition root names it. Pass `() => []` for a host whose sessions have no default tier.
+   * `@robota-sdk/agent-tools/defaults`. Neither the main nor the `/node` entry imports that subpath,
+   * so the composition root names it. Pass `() => []` for a host whose sessions have no default tier.
    */
   readonly createDefaultTools: NonNullable<IFrameworkHost['createDefaultTools']>;
 }
@@ -43,7 +43,7 @@ export function createNodeFrameworkHost(options: ICreateNodeFrameworkHostOptions
   if (typeof options?.createDefaultTools !== 'function') {
     throw new Error(
       "createNodeFrameworkHost requires `createDefaultTools`: the factory that builds a session's " +
-        'default tool tier. Pass `createDefaultTools` from `@robota-sdk/agent-tool-defaults`, or ' +
+        'default tool tier. Pass `createDefaultTools` from `@robota-sdk/agent-tools/defaults`, or ' +
         '`() => []` for sessions with no default tier.',
     );
   }

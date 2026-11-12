@@ -49,7 +49,7 @@ export interface ISystemPromptParams {
   projectNotesMd: string;
   /** Startup project memory index loaded from .agent/memory/MEMORY.md */
   memoryMd?: string;
-  /** Formatted active task context loaded from .agents/tasks/*.md */
+  /** Formatted active task context loaded from the host-selected task directory */
   taskContext?: string;
   /** Human-readable tool descriptions, one per entry */
   toolDescriptions: string[];

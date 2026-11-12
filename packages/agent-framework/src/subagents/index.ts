@@ -5,9 +5,7 @@ export type {
 } from './in-process-subagent-runner.js';
 
 /**
- * This file used to re-export eleven `agent-executor`-owned types. They were TYPES ONLY —
- * zero runtime values — so they bought none of the assembly convenience the then-current runtime-facade exception
- * exists for, while making one field family look like it had three owners. Consumers import from the
- * owner: the SPI from `@robota-sdk/agent-executor`, the data contracts from
- * `@robota-sdk/agent-interface/execution`.
+ * Consumers import the subagent SPI from `@robota-sdk/agent-executor` and the data contracts from
+ * `@robota-sdk/agent-interface/execution`. This barrel re-publishes neither, so one field family
+ * never has two owners.
  */

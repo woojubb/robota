@@ -714,10 +714,8 @@ export type {
   TExecutionAttachKind,
   TExecutionAttachOutcome,
 } from './background-tasks/execution-workspace-attach.js';
-// Nine `agent-executor` names were re-exported here through the background-tasks barrel
-// and had NO external importer — this barrel was their only consumer, re-publishing what nothing
-// asked for. The per-symbol exemption made that visible; they are imported from
-// `@robota-sdk/agent-executor` by anyone who needs them.
+// `IBackgroundTaskRunner` is the only `agent-executor` name re-published here (see
+// `background-tasks/index.ts`); anyone else imports from `@robota-sdk/agent-executor`.
 export type {
   IBackgroundTaskRunner,
   IBackgroundJobOrchestratorOptions,
@@ -730,8 +728,8 @@ export type {
 
 // ── Subagent process manager contracts ─────────────────────
 export { createInProcessSubagentRunner } from './subagents/index.js';
-// The type-only `agent-executor` republications are gone. Import from the owner: the SPI
-// from `@robota-sdk/agent-executor`, data contracts from `@robota-sdk/agent-interface/execution`.
+// Import the subagent SPI from `@robota-sdk/agent-executor` and the data contracts from
+// `@robota-sdk/agent-interface/execution`; this package republishes neither.
 export type { IInProcessSubagentRunnerDeps, TSubagentRunnerFactory } from './subagents/index.js';
 
 // ── Multi-agent orchestration mechanism ──────
