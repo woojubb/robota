@@ -54,6 +54,7 @@ vi.mock('@robota-sdk/agent-session', async () => {
         getHistory: vi.fn().mockReturnValue([]),
         getFullHistory: vi.fn().mockReturnValue([]),
         getSystemMessage: vi.fn().mockReturnValue('system prompt'),
+        getSystemPromptManifest: vi.fn().mockReturnValue(undefined),
         getToolSchemas: vi.fn().mockReturnValue([]),
         getContextState: vi.fn().mockReturnValue({
           usedTokens: 0,

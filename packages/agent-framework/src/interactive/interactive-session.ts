@@ -168,6 +168,7 @@ import type {
   IModelListSnapshot,
   TProjectDiffRead,
   TProjectMemoryRead,
+  ISystemPromptManifest,
   TProjectStatusRead,
   TWaitingLoopStopOutcome,
 } from '@robota-sdk/agent-interface/session';
@@ -229,6 +230,7 @@ export class InteractiveSession
   private pendingRestoreConversation: ISessionConversationSnapshot | null = null;
   /** The resumed record's assembled prompt, applied when this session is a fork. */
   private restoredSystemPrompt?: string;
+  private restoredSystemPromptManifest?: ISystemPromptManifest;
   private resumeSessionId?: string;
   /**
    * Whether THIS session was started as a copy of the record it resumed (`--fork-session`), rather
@@ -778,8 +780,12 @@ export class InteractiveSession
     this.pendingRestoreConversation = restored.pendingRestoreConversation;
     // A fork is a copy, prompt included; the deferred path applies it after assembly.
     this.restoredSystemPrompt = restored.restoredSystemPrompt;
+    this.restoredSystemPromptManifest = restored.restoredSystemPromptManifest;
     if (this.session && this.startedAsFork && restored.restoredSystemPrompt !== undefined) {
-      this.session.updateSystemMessage(restored.restoredSystemPrompt);
+      this.session.updateSystemMessage(
+        restored.restoredSystemPrompt,
+        restored.restoredSystemPromptManifest,
+      );
     }
     this.sandboxSnapshotId = this.startedAsFork ? undefined : restored.sandboxSnapshotId;
     // A fork starts fresh; a true resume restores any in-flight goal so pursuit continues.
@@ -828,6 +834,7 @@ export class InteractiveSession
       pendingRestoreMessages: this.pendingRestoreMessages,
       pendingRestoreConversation: this.pendingRestoreConversation,
       restoredSystemPrompt: this.restoredSystemPrompt,
+      restoredSystemPromptManifest: this.restoredSystemPromptManifest,
       // `context` is optional here so this stays assignable to the narrower
       // `TInteractivePermissionHandler` this deps field is typed as (2 args). The callers that supply
       // one — the session's approval path (the call's `executionId`) and the subagent runners (a
@@ -2026,7 +2033,7 @@ export class InteractiveSession
     const agents = this.agentsFileEntries.map((e) => e.content).join('\n\n');
     const notes = this.projectNotesFileEntries.map((e) => e.content).join('\n\n');
     const rebuilt = this.rebuildSystemMessage(agents, notes, overrides);
-    this.getSessionOrThrow().updateSystemMessage(rebuilt);
+    this.getSessionOrThrow().updateSystemMessage(rebuilt.message, rebuilt.manifest);
   }
 
   applyPersona(persona: string): void {
@@ -2173,6 +2180,7 @@ export class InteractiveSession
       source: {
         getHistory: () => session.getHistory(),
         getSystemMessage: () => session.getSystemMessage(),
+        getSystemPromptManifest: () => session.getSystemPromptManifest(),
         getToolSchemas: () => session.getToolSchemas(),
         getFullHistory: () => this.getFullHistory(),
       },

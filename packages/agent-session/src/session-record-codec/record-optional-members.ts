@@ -26,6 +26,7 @@ import {
 import { decodeHistoryEntry } from './message-decoders.js';
 import { decodeSessionLoopState } from './session-loop-decoders.js';
 import { decodeArray, decodeOptional, decodeString } from './scalars.js';
+import { decodeSystemPromptManifest } from './system-prompt-manifest-decoder.js';
 import { decodeToolSchema } from './tool-schema-decoders.js';
 
 import type { TDecodeIssues } from './decode-outcome.js';
@@ -64,6 +65,17 @@ export function applyOptionalRecordMembers(
   for (const key of ['name', 'systemPrompt', 'sandboxSnapshotId'] as const) {
     setOptional(record, key, decodeOptional(raw[key], atKey(path, key), issues, decodeString));
   }
+
+  setOptional(
+    record,
+    'systemPromptManifest',
+    decodeOptional(
+      raw['systemPromptManifest'],
+      atKey(path, 'systemPromptManifest'),
+      issues,
+      decodeSystemPromptManifest,
+    ),
+  );
 
   setOptional(record, 'history', optionalArray(raw, 'history', path, issues, decodeHistoryEntry));
   setOptional(

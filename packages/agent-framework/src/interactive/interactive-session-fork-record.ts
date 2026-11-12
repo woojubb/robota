@@ -19,12 +19,17 @@ import { createSessionId } from '../assembly/create-session.js';
 
 import type { IInteractiveSessionRecord, IInteractiveSessionStore } from './session-store-types.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { ISystemPromptManifest } from '@robota-sdk/agent-interface/session';
 import type { Session } from '@robota-sdk/agent-session';
 
-/** The four members of the live session a fork reads — and no others. */
+/** The members of the live session a fork reads — and no others. */
 export type TForkSourceSession = Pick<
   Session,
-  'getHistory' | 'getSystemMessage' | 'getToolSchemas' | 'getFullHistory'
+  | 'getHistory'
+  | 'getSystemMessage'
+  | 'getSystemPromptManifest'
+  | 'getToolSchemas'
+  | 'getFullHistory'
 >;
 
 export interface IBuildForkedSessionRecordInput {
@@ -38,6 +43,7 @@ export function buildForkedSessionRecord(
   input: IBuildForkedSessionRecordInput,
 ): IInteractiveSessionRecord {
   const now = new Date().toISOString();
+  const systemPromptManifest = input.source.getSystemPromptManifest();
   return {
     id: createSessionId(),
     name: input.name,
@@ -49,6 +55,7 @@ export function buildForkedSessionRecord(
     messages: [...input.source.getHistory()],
     history: [...input.source.getFullHistory()],
     systemPrompt: input.source.getSystemMessage(),
+    ...(systemPromptManifest !== undefined ? { systemPromptManifest } : {}),
     toolSchemas: [...input.source.getToolSchemas()],
   };
 }
@@ -65,17 +72,18 @@ export function buildForkedSessionRecord(
  * option is the operator replacing the prompt on purpose, which still wins.
  */
 export function applyForkedSystemPrompt(
-  session: { updateSystemMessage: (message: string) => void },
+  session: { updateSystemMessage: (message: string, manifest?: ISystemPromptManifest) => void },
   input: {
     readonly isFork: boolean;
     readonly restoredSystemPrompt: string | undefined;
+    readonly restoredSystemPromptManifest: ISystemPromptManifest | undefined;
     readonly explicitSystemPrompt: string | undefined;
   },
 ): boolean {
   if (!input.isFork) return false;
   if (input.restoredSystemPrompt === undefined) return false;
   if (input.explicitSystemPrompt !== undefined) return false;
-  session.updateSystemMessage(input.restoredSystemPrompt);
+  session.updateSystemMessage(input.restoredSystemPrompt, input.restoredSystemPromptManifest);
   return true;
 }
 
@@ -137,7 +145,10 @@ function resolveForkName(
 
 export interface IWriteForkedSessionRecordInput {
   /** The live session the copy is taken from. */
-  readonly source: Pick<Session, 'getHistory' | 'getSystemMessage' | 'getToolSchemas'>;
+  readonly source: Pick<
+    Session,
+    'getHistory' | 'getSystemMessage' | 'getSystemPromptManifest' | 'getToolSchemas'
+  >;
   /** The interactive transcript as the parent persists it (`InteractiveSession.getFullHistory`). */
   readonly fullHistory: () => IHistoryEntry[];
   readonly sessionStore: IInteractiveSessionStore;
@@ -162,6 +173,7 @@ export function writeForkedSessionRecord(input: IWriteForkedSessionRecordInput):
     source: {
       getHistory: () => input.source.getHistory(),
       getSystemMessage: () => input.source.getSystemMessage(),
+      getSystemPromptManifest: () => input.source.getSystemPromptManifest(),
       getToolSchemas: () => input.source.getToolSchemas(),
       getFullHistory: input.fullHistory,
     },

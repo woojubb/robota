@@ -30,13 +30,14 @@ import type { ICommandResult } from '@robota-sdk/agent-interface/command';
 import type { IContextReferenceItem } from '@robota-sdk/agent-interface/session';
 
 import { formatAutoCompactLine, formatThreshold } from './auto-compact-format.js';
+import { executePromptComposition } from './prompt-composition.js';
 
 export { formatAutoCompactLine } from './auto-compact-format.js';
 
 const PERCENT = 100;
 const USAGE = [
-  'Usage: /context [list] | add <path> | remove <path> | clear | auto on | off | <percent> | reset',
-  'Examples: /context list, /context add AGENTS.md, /context remove AGENTS.md, /context auto 85%',
+  'Usage: /context [list] | prompt [<section-id>] | add <path> | remove <path> | clear | auto on | off | <percent> | reset',
+  'Examples: /context list, /context prompt, /context prompt preset-persona, /context add AGENTS.md, /context remove AGENTS.md, /context auto 85%',
 ].join('\n');
 
 function formatPersistenceSuffix(persisted: boolean): string {
@@ -100,6 +101,10 @@ async function executeContextSubcommand(
   if (subcommand === 'list') {
     if (rest.length > 0) return { success: false, message: USAGE };
     return formatFullContextBreakdown(context);
+  }
+  if (subcommand === 'prompt') {
+    if (rest.length > 1) return { success: false, message: USAGE };
+    return executePromptComposition(context, rest[0]);
   }
   if (subcommand === 'add') {
     return executeAddContextReference(context, rest);

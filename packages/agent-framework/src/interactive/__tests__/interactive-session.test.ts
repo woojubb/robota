@@ -54,6 +54,7 @@ function createMockSession(options?: {
     getModelId: vi.fn().mockReturnValue('test-model'),
     getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
     getSystemMessage: vi.fn().mockReturnValue('mock system prompt'),
+    getSystemPromptManifest: vi.fn().mockReturnValue(undefined),
     getToolSchemas: vi.fn().mockReturnValue([]),
   };
 }

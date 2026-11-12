@@ -311,6 +311,7 @@ describe('an in-process job that takes follow-up input', () => {
         source: {
           getHistory: () => inherited,
           getSystemMessage: () => 'parent prompt',
+          getSystemPromptManifest: () => undefined,
           getToolSchemas: () => [],
         },
         fullHistory: () => [],
@@ -388,6 +389,7 @@ describe('an in-process job that takes follow-up input', () => {
               },
             ] as TUniversalMessage[],
           getSystemMessage: () => 'the parent prompt',
+          getSystemPromptManifest: () => undefined,
           getToolSchemas: () => [],
         },
         fullHistory: () => [],

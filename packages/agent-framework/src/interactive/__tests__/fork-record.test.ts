@@ -17,6 +17,7 @@ import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  applyForkedSystemPrompt,
   buildForkedSessionRecord,
   writeForkedSessionRecord,
   type TForkSourceSession,
@@ -24,7 +25,10 @@ import {
 import { listedRecords, loadedRecord } from './session-load-helpers.js';
 
 import type { IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
+import type {
+  IInteractiveSessionRecord,
+  ISystemPromptManifest,
+} from '@robota-sdk/agent-interface/session';
 
 const SOURCE_ID = 'session_source';
 const SOURCE_NAME = 'parent-work';
@@ -55,11 +59,12 @@ const HISTORY: IHistoryEntry[] = MESSAGES.map((message) => ({
   data: message,
 }));
 
-/** The four members a fork reads, answered from the fixture above. */
+/** The members a fork reads, answered from the fixture above. */
 function sourceSession(): TForkSourceSession {
   return {
     getHistory: () => MESSAGES,
     getSystemMessage: () => SYSTEM_PROMPT,
+    getSystemPromptManifest: () => undefined,
     getToolSchemas: () => [
       { name: 'Read', description: 'read', parameters: { type: 'object', properties: {} } },
     ],
@@ -137,6 +142,41 @@ describe('buildForkedSessionRecord', () => {
     // Fresh timestamps: the copy's life starts now, not when the parent started.
     expect(fork.createdAt).toBe(fork.updatedAt);
     expect(Date.parse(fork.createdAt)).toBeGreaterThan(Date.parse('2026-06-13T00:00:00.000Z'));
+  });
+
+  it('the copy names the sections of the prompt it inherited, and none when the source did not know them', () => {
+    const manifest: ISystemPromptManifest = {
+      harnessVersion: 'none',
+      sections: [{ id: 'runtime-cwd', source: 'runtime', characters: SYSTEM_PROMPT.length }],
+    };
+    const known = buildForkedSessionRecord({
+      source: { ...sourceSession(), getSystemPromptManifest: () => manifest },
+      name: 'known',
+      cwd,
+    });
+    const unknown = buildForkedSessionRecord({ source: sourceSession(), name: 'unknown', cwd });
+
+    expect(known.systemPromptManifest).toEqual(manifest);
+    expect(unknown).not.toHaveProperty('systemPromptManifest');
+  });
+
+  it('a fork applies the inherited prompt together with the sections it came with', () => {
+    const manifest: ISystemPromptManifest = { harnessVersion: 'none', sections: [] };
+    const applied: Array<{ message: string; manifest: ISystemPromptManifest | undefined }> = [];
+    const session = {
+      updateSystemMessage: (message: string, given?: ISystemPromptManifest) =>
+        applied.push({ message, manifest: given }),
+    };
+
+    const done = applyForkedSystemPrompt(session, {
+      isFork: true,
+      restoredSystemPrompt: 'inherited',
+      restoredSystemPromptManifest: manifest,
+      explicitSystemPrompt: undefined,
+    });
+
+    expect(done).toBe(true);
+    expect(applied).toEqual([{ message: 'inherited', manifest }]);
   });
 
   it("the copied arrays are the fork's own — mutating them never reaches the source", () => {

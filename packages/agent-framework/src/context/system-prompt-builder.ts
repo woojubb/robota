@@ -124,7 +124,8 @@ function buildCapabilityDescriptors(params: ISystemPromptParams): ICapabilityDes
   ];
 }
 
-export function buildSystemPrompt(params: ISystemPromptParams): string {
+/** The sections a prompt for `params` is composed from, before ordering and rendering. */
+export function buildSystemPromptSections(params: ISystemPromptParams): ISystemPromptSection[] {
   const sections: ISystemPromptSection[] = [];
 
   appendOptionalSection(
@@ -156,5 +157,9 @@ export function buildSystemPrompt(params: ISystemPromptParams): string {
   appendOptionalSection(sections, createToolDescriptionSection(params.toolDescriptions));
   sections.push(...createCapabilitySections(buildCapabilityDescriptors(params)));
 
-  return composeSystemPrompt(sections);
+  return sections;
+}
+
+export function buildSystemPrompt(params: ISystemPromptParams): string {
+  return composeSystemPrompt(buildSystemPromptSections(params));
 }

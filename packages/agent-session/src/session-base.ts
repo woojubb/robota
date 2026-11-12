@@ -5,6 +5,7 @@ import type { ContextWindowTracker, TAutoCompactThreshold } from './context-wind
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { PermissionEnforcer } from './permission-enforcer.js';
 import type { IPermissionDenial } from './permission-denial-log.js';
+import type { ISystemPromptManifest } from '@robota-sdk/agent-interface/session';
 import type {
   ConversationAgent,
   IAIProvider,
@@ -32,6 +33,7 @@ export abstract class SessionBase {
   protected abstract readonly toolSchemas: IToolSchema[];
   protected abstract model: string;
   protected abstract systemMessage: string;
+  protected abstract systemPromptManifest: ISystemPromptManifest | undefined;
   protected abstract messageCount: number;
   /** The session's execution root — owned here, with the check that it was supplied. */
   protected readonly cwd: string;
@@ -106,6 +108,11 @@ export abstract class SessionBase {
     return this.systemMessage;
   }
 
+  /** The sections the live system message was composed from; `undefined` when that is not known. */
+  getSystemPromptManifest(): ISystemPromptManifest | undefined {
+    return this.systemPromptManifest;
+  }
+
   /**
    * Replace the active system message and propagate it so the next provider request carries it.
    * Records the live value on `this.systemMessage` (re-injected on compaction) and delegates to
@@ -113,10 +120,15 @@ export abstract class SessionBase {
    * conversation store head. The system prompt is an agent-level concern, not model config, so this
    * does not route through `setModel`. Used by persona application, the self-verification toggle, and
    * AGENTS.md/CLAUDE.md staleness refresh.
+   *
+   * The manifest describes the message it arrives with. A caller that cannot say what the message
+   * was composed from passes none, and the session then reports that it does not know — never the
+   * previous message's sections.
    */
-  updateSystemMessage(newMessage: string): void {
+  updateSystemMessage(newMessage: string, manifest?: ISystemPromptManifest): void {
     this.assertInputAllowed();
     this.systemMessage = newMessage;
+    this.systemPromptManifest = manifest;
     this.agent.updateSystemPrompt(newMessage);
   }
 

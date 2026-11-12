@@ -78,7 +78,10 @@ import type {
   ISubprocessTraceEnv,
 } from '@robota-sdk/agent-core';
 import type { ConversationAgent } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
+import type {
+  IInteractiveSessionStore,
+  ISystemPromptManifest,
+} from '@robota-sdk/agent-interface/session';
 
 export type {
   ICompactEvent,
@@ -113,6 +116,7 @@ export class Session extends SessionBase {
   protected readonly toolSchemas: IToolSchema[];
   protected model: string;
   protected systemMessage: string;
+  protected systemPromptManifest: ISystemPromptManifest | undefined;
   protected messageCount = 0;
   private readonly terminal: ITerminalOutput;
   private readonly sessionStore?: IInteractiveSessionStore;
@@ -169,6 +173,7 @@ export class Session extends SessionBase {
     this.sessionStore = options.sessionStore;
     this.checkpointHistoryCallback = options.checkpointHistory;
     this.systemMessage = systemMessage;
+    this.systemPromptManifest = options.systemPromptManifest;
     this.toolSchemas = tools.map((tool) => tool.schema);
     this.wrapAddedTools = options.wrapAddedTools;
     this.sessionLogger = options.sessionLogger;
@@ -628,6 +633,7 @@ export class Session extends SessionBase {
       sessionId: this.sessionId,
       cwd: this.cwd,
       systemPrompt: this.systemMessage,
+      systemPromptManifest: this.systemPromptManifest,
       toolSchemas: this.toolSchemas,
       sessionStore: this.sessionStore,
       conversation: this.getConversationSnapshot(),

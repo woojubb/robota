@@ -38,7 +38,11 @@ import type {
   IResponseFormatConfig,
   IRunTraceContext,
 } from '@robota-sdk/agent-core';
-import type { ICompactEvent, IInteractiveSessionStore } from '@robota-sdk/agent-interface/session';
+import type {
+  ICompactEvent,
+  IInteractiveSessionStore,
+  ISystemPromptManifest,
+} from '@robota-sdk/agent-interface/session';
 
 export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface/session';
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
@@ -67,6 +71,8 @@ export interface ISessionOptions {
   providerOwnership?: TProviderOwnership;
   /** Pre-built system message string */
   systemMessage: string;
+  /** The sections `systemMessage` was composed from, when it was composed from sections. */
+  systemPromptManifest?: ISystemPromptManifest;
   /** Terminal I/O for permission prompts */
   terminal: ITerminalOutput;
   /**

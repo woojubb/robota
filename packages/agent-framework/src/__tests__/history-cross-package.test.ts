@@ -56,6 +56,8 @@ function createMockSession(options?: {
     syncContextFromHistory: vi.fn(),
 
     getSystemMessage: vi.fn().mockReturnValue('mock system prompt'),
+
+    getSystemPromptManifest: vi.fn().mockReturnValue(undefined),
     getToolSchemas: vi.fn().mockReturnValue([]),
   };
 }

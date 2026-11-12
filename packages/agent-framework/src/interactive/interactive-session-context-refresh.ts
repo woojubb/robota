@@ -10,6 +10,7 @@ import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
+import type { IComposedSystemPrompt } from '../context/system-prompt-types.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 
 export async function checkAndRefreshContextIfStale(
@@ -18,7 +19,9 @@ export async function checkAndRefreshContextIfStale(
   rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null,
   projectAccess: TWorkspaceProjectAccess,
   setEntries: (agents: IContextFileEntry[], claude: IContextFileEntry[]) => void,
-  getSessionOrThrow: () => { updateSystemMessage: (msg: string) => void },
+  getSessionOrThrow: () => {
+    updateSystemMessage: (msg: string, manifest?: IComposedSystemPrompt['manifest']) => void;
+  },
   emit: (event: string, payload: unknown) => void,
 ): Promise<void> {
   if (projectAccess.status !== 'trusted') return;
@@ -39,7 +42,7 @@ export async function checkAndRefreshContextIfStale(
     newAgents.map((e) => e.content).join('\n\n'),
     newClaude.map((e) => e.content).join('\n\n'),
   );
-  getSessionOrThrow().updateSystemMessage(newSystemMessage);
+  getSessionOrThrow().updateSystemMessage(newSystemMessage.message, newSystemMessage.manifest);
 
   for (const filePath of refreshed) {
     emit('context_file_refreshed', { filePath });

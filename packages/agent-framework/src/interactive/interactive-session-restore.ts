@@ -34,6 +34,7 @@ import type {
   IPlanArtifact,
   IActiveBranchPointer,
   ISessionLoopState,
+  ISystemPromptManifest,
 } from '@robota-sdk/agent-interface/session';
 import type { Session } from '@robota-sdk/agent-session';
 
@@ -90,6 +91,8 @@ export function loadSessionRecord(
    * `undefined` for a record written without one, which then rebuilds the prompt as before.
    */
   restoredSystemPrompt: string | undefined;
+  /** The sections `restoredSystemPrompt` was composed from, when the record carried them. */
+  restoredSystemPromptManifest: ISystemPromptManifest | undefined;
 } {
   if (outcome.status !== 'valid') {
     return {
@@ -112,6 +115,7 @@ export function loadSessionRecord(
       plan: undefined,
       activeBranch: undefined,
       restoredSystemPrompt: undefined,
+      restoredSystemPromptManifest: undefined,
     };
   }
   const record = outcome.record;
@@ -189,6 +193,7 @@ export function loadSessionRecord(
     plan: record.plan,
     activeBranch: record.activeBranch,
     restoredSystemPrompt: record.systemPrompt,
+    restoredSystemPromptManifest: record.systemPromptManifest,
   };
 }
 
@@ -303,7 +308,10 @@ export function restoreSessionRecordIntoSession(
   const refusal = resumeRefusal(resumeSessionId, restored.loadOutcome, false);
   if (refusal !== undefined) throw refusal;
   if (restored.restoredSystemPrompt !== undefined) {
-    session.updateSystemMessage(restored.restoredSystemPrompt);
+    session.updateSystemMessage(
+      restored.restoredSystemPrompt,
+      restored.restoredSystemPromptManifest,
+    );
   }
   session.syncContextFromHistory();
   return { systemPromptRestored: restored.restoredSystemPrompt !== undefined };

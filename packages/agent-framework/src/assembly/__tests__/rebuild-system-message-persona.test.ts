@@ -85,7 +85,8 @@ function buildSelfVerificationRebuilder(
     [],
     [],
   );
-  return rebuildSystemMessage;
+  return (agentsMd, projectNotesMd, overrides) =>
+    rebuildSystemMessage(agentsMd, projectNotesMd, overrides).message;
 }
 
 function buildRebuilder(
@@ -100,7 +101,8 @@ function buildRebuilder(
     [],
     [],
   );
-  return rebuildSystemMessage;
+  return (agentsMd, projectNotesMd, overrides) =>
+    rebuildSystemMessage(agentsMd, projectNotesMd, overrides).message;
 }
 
 describe('rebuildSystemMessage persona override', () => {
