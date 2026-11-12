@@ -205,6 +205,7 @@ With compose (`docker compose` resolves `./seccomp-bwrap.json` against this dire
 
 ```sh
 cd docker/robota
+export ROBOTA_VERSION=<version>                  # required: the release to run
 export OPENAI_API_KEY_FILE=/srv/secrets/openai   # readable by uid 1000
 docker compose run --rm robota --configure-provider main --type openai --model <model> \
   --api-key-env OPENAI_API_KEY --set-current
@@ -217,7 +218,7 @@ automatically, so use `restart: "no"` (the default) for batch tasks.
 
 ## Server usage
 
-Set `ROBOTA_VERSION` to the release to run; compose pulls `ghcr.io/woojubb/robota:$ROBOTA_VERSION`.
+`ROBOTA_VERSION` (the release to run) is required, with no default; compose pulls `ghcr.io/woojubb/robota:$ROBOTA_VERSION`.
 
 `robota --serve --http-port 8787` serves the agent HTTP API (see the agent-cli README, "Let other
 apps and services use the agent"). It binds loopback only, so the compose `server` profile pairs

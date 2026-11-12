@@ -1,14 +1,17 @@
 # Reference deployment of the Robota agent image. See README.md for host requirements, the provider
 # setup run, restricted mode and workspace guidance.
 #
-#   OPENAI_API_KEY_FILE=/path/to/key docker compose run --rm robota --configure-provider ...
-#   ROBOTA_REPO_URL=https://… ROBOTA_TASK='…' OPENAI_API_KEY_FILE=/path/to/key docker compose run --rm robota
+#   ROBOTA_VERSION=<version> OPENAI_API_KEY_FILE=/path/to/key docker compose run --rm robota --configure-provider ...
+#   ROBOTA_VERSION=<version> ROBOTA_REPO_URL=https://… ROBOTA_TASK='…' OPENAI_API_KEY_FILE=/path/to/key \
+#     docker compose run --rm robota
 
-# `image:` is the published release image (pulled by default; set ROBOTA_VERSION to pin another
-# release). `build:` is only for building it locally, or for a pre-release verification build with
-# ROBOTA_SOURCE=local (README, "Pre-release verification build"); run with --build for those, and
-# set ROBOTA_IMAGE=robota-local with ROBOTA_SOURCE=local so an unreleased build never takes the
-# published image's name (a later `up` would otherwise run it instead of pulling the release).
+# `image:` is the published release image, pulled at the release named by ROBOTA_VERSION. It is
+# required because releases publish no floating tag and a default would go stale. `build:` is only
+# for building it locally, or for a pre-release verification build with ROBOTA_SOURCE=local (README,
+# "Pre-release verification build"); run with --build for those, and set ROBOTA_IMAGE=robota-local
+# with ROBOTA_SOURCE=local so an unreleased build never takes the published image's name (a later
+# `up` would otherwise run it instead of pulling the release). ROBOTA_VERSION then only names the
+# tag of the local image, for example `local`.
 
 services:
   # Batch: one container per task. It clones the repository, runs in restricted mode, and completes the
@@ -18,9 +21,9 @@ services:
     build:
       context: .
       args:
-        ROBOTA_VERSION: ${ROBOTA_VERSION:-3.0.0-beta.90}
+        ROBOTA_VERSION: ${ROBOTA_VERSION:?set ROBOTA_VERSION to a released CLI version}
         ROBOTA_SOURCE: ${ROBOTA_SOURCE:-registry}
-    image: ${ROBOTA_IMAGE:-ghcr.io/woojubb/robota}:${ROBOTA_VERSION:-3.0.0-beta.90}
+    image: ${ROBOTA_IMAGE:-ghcr.io/woojubb/robota}:${ROBOTA_VERSION:?set ROBOTA_VERSION to a released CLI version}
     security_opt:
       # Lets bubblewrap create its namespaces and mounts; everything else stays at Docker's default.
       - seccomp=./seccomp-bwrap.json
@@ -64,9 +67,9 @@ services:
     build:
       context: .
       args:
-        ROBOTA_VERSION: ${ROBOTA_VERSION:-3.0.0-beta.90}
+        ROBOTA_VERSION: ${ROBOTA_VERSION:?set ROBOTA_VERSION to a released CLI version}
         ROBOTA_SOURCE: ${ROBOTA_SOURCE:-registry}
-    image: ${ROBOTA_IMAGE:-ghcr.io/woojubb/robota}:${ROBOTA_VERSION:-3.0.0-beta.90}
+    image: ${ROBOTA_IMAGE:-ghcr.io/woojubb/robota}:${ROBOTA_VERSION:?set ROBOTA_VERSION to a released CLI version}
     security_opt:
       - seccomp=./seccomp-bwrap.json
       - apparmor=${ROBOTA_APPARMOR_PROFILE:-robota-userns}
