@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.2
+### Patch Changes
+
+- Refresh the package README so the npm page shows the current package layout, install steps and environment variable names.
+
 ## 3.2.1
 
 ## 3.2.0
