@@ -7,7 +7,15 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
  * setup N. Non-TTY without --yes fails with an error naming the question.
  */
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -274,6 +282,174 @@ describe('runInitCommand prompt matrix', () => {
       expect(output()).toContain('Initialization complete.');
     },
   );
+
+  describe('a file that already exists is never replaced without asking, whichever of the two it is', () => {
+    const EXISTING_AGENTS_MD = '# existing agents file\n';
+    const EXISTING_SETTINGS = '{"existing":true}\n';
+
+    /** Seeds exactly one of the two files and returns it with the path of the one left absent. */
+    function seedOnly(which: 'AGENTS.md' | 'settings'): { present: string; absent: string } {
+      const agentsMd = join(cwd, 'AGENTS.md');
+      const settings = join(cwd, '.test-product', 'settings.json');
+      if (which === 'AGENTS.md') {
+        writeFileSync(agentsMd, EXISTING_AGENTS_MD, 'utf8');
+        return { present: agentsMd, absent: settings };
+      }
+      mkdirSync(join(cwd, '.test-product'), { recursive: true });
+      writeFileSync(settings, EXISTING_SETTINGS, 'utf8');
+      return { present: settings, absent: agentsMd };
+    }
+
+    // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+    it.runIf(process.platform === 'linux')(
+      'only AGENTS.md exists → asked, and declining leaves it untouched and writes no settings',
+      async () => {
+        const { present, absent } = seedOnly('AGENTS.md');
+        const { terminal, output } = createTerminal();
+        promptSpy.mockResolvedValueOnce('n');
+
+        await runInitCommand(terminal, {
+          productRuntime: createTestProductRuntime(),
+          projectAccess,
+          projectMutation,
+          promptFn: promptSpy as never,
+          isTTY: true,
+          ci: false,
+        });
+
+        expect(promptSpy).toHaveBeenCalledTimes(1);
+        expect(String(promptSpy.mock.calls[0]?.[0])).toContain('Overwrite existing files?');
+        expect(output()).toContain('AGENTS.md already exists.');
+        expect(output()).not.toContain('Both');
+        expect(output()).toContain('Init cancelled.');
+        expect(readFileSync(present, 'utf8')).toBe(EXISTING_AGENTS_MD);
+        expect(existsSync(absent)).toBe(false);
+      },
+    );
+
+    // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+    it.runIf(process.platform === 'linux')(
+      'only settings.json exists → asked, and declining leaves it untouched and writes no AGENTS.md',
+      async () => {
+        const { present, absent } = seedOnly('settings');
+        const { terminal, output } = createTerminal();
+        promptSpy.mockResolvedValueOnce('n');
+
+        await runInitCommand(terminal, {
+          productRuntime: createTestProductRuntime(),
+          projectAccess,
+          projectMutation,
+          promptFn: promptSpy as never,
+          isTTY: true,
+          ci: false,
+        });
+
+        expect(promptSpy).toHaveBeenCalledTimes(1);
+        expect(String(promptSpy.mock.calls[0]?.[0])).toContain('Overwrite existing files?');
+        expect(output()).toContain('.test-product/settings.json already exists.');
+        expect(output()).not.toContain('Both');
+        expect(output()).toContain('Init cancelled.');
+        expect(readFileSync(present, 'utf8')).toBe(EXISTING_SETTINGS);
+        expect(existsSync(absent)).toBe(false);
+      },
+    );
+
+    // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+    it.runIf(process.platform === 'linux')(
+      'both exist → the sentence names both, and declining leaves both untouched',
+      async () => {
+        const { agentsMd, settings } = seedExistingFiles();
+        const { terminal, output } = createTerminal();
+        promptSpy.mockResolvedValueOnce('n');
+
+        await runInitCommand(terminal, {
+          productRuntime: createTestProductRuntime(),
+          projectAccess,
+          projectMutation,
+          promptFn: promptSpy as never,
+          isTTY: true,
+          ci: false,
+        });
+
+        expect(promptSpy).toHaveBeenCalledTimes(1);
+        expect(output()).toContain('Both AGENTS.md and .test-product/settings.json already exist.');
+        expect(output()).toContain('Init cancelled.');
+        expect(readFileSync(agentsMd, 'utf8')).toBe(EXISTING_AGENTS_MD);
+        expect(readFileSync(settings, 'utf8')).toBe(EXISTING_SETTINGS);
+      },
+    );
+
+    // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+    it.runIf(process.platform === 'linux')(
+      'neither exists → no overwrite question, both files are written',
+      async () => {
+        const { terminal, output } = createTerminal();
+
+        await runInitCommand(terminal, {
+          productRuntime: createTestProductRuntime(),
+          projectAccess,
+          projectMutation,
+          promptFn: promptSpy as never,
+          isTTY: true,
+          ci: false,
+        });
+
+        expect(promptSpy).not.toHaveBeenCalled();
+        expect(output()).not.toContain('already exist');
+        expect(output()).toContain('Initialization complete.');
+        expect(existsSync(join(cwd, 'AGENTS.md'))).toBe(true);
+        expect(existsSync(join(cwd, '.test-product', 'settings.json'))).toBe(true);
+      },
+    );
+
+    // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+    it.runIf(process.platform === 'linux')(
+      'only AGENTS.md exists and the person says yes → it is replaced and the settings are written',
+      async () => {
+        const { present, absent } = seedOnly('AGENTS.md');
+        const { terminal, output } = createTerminal();
+        promptSpy.mockResolvedValueOnce('y');
+
+        await runInitCommand(terminal, {
+          productRuntime: createTestProductRuntime(),
+          projectAccess,
+          projectMutation,
+          promptFn: promptSpy as never,
+          isTTY: true,
+          ci: false,
+        });
+
+        expect(promptSpy).toHaveBeenCalledTimes(1);
+        expect(output()).toContain('Initialization complete.');
+        expect(readFileSync(present, 'utf8')).not.toBe(EXISTING_AGENTS_MD);
+        expect(existsSync(absent)).toBe(true);
+      },
+    );
+
+    // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+    it.runIf(process.platform === 'linux')(
+      'only AGENTS.md exists under --yes → no prompt, cancelled, untouched',
+      async () => {
+        const { present, absent } = seedOnly('AGENTS.md');
+        const { terminal, output } = createTerminal();
+
+        await runInitCommand(terminal, {
+          productRuntime: createTestProductRuntime(),
+          projectAccess,
+          projectMutation,
+          yes: true,
+          promptFn: promptSpy as never,
+          isTTY: false,
+          ci: false,
+        });
+
+        expect(promptSpy).not.toHaveBeenCalled();
+        expect(output()).toContain('Init cancelled.');
+        expect(readFileSync(present, 'utf8')).toBe(EXISTING_AGENTS_MD);
+        expect(existsSync(absent)).toBe(false);
+      },
+    );
+  });
 
   it('does not inspect or mutate project files without trusted access and mutation authority', async () => {
     seedExistingFiles();
