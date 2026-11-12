@@ -1,5 +1,6 @@
 import {
   AbstractAIProvider,
+  ConfigurationError,
   PERMISSIVE_TOOL_SCHEMA_PROFILE,
   SilentLogger,
   toProviderError,
@@ -81,7 +82,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
           ...(options.timeout !== undefined && { timeout: options.timeout }),
         });
       } else {
-        throw new Error('Either DeepSeek client, apiKey, or executor is required');
+        throw new ConfigurationError('Either DeepSeek client, apiKey, or executor is required');
       }
     }
 

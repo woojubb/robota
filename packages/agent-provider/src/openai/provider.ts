@@ -1,4 +1,4 @@
-import { AbstractAIProvider, randomId } from '@robota-sdk/agent-core';
+import { AbstractAIProvider, ConfigurationError, randomId } from '@robota-sdk/agent-core';
 import { createModelEffortOutcome } from '@robota-sdk/agent-core';
 import { PERMISSIVE_TOOL_SCHEMA_PROFILE, STRICT_TOOL_SCHEMA_PROFILE } from '@robota-sdk/agent-core';
 import { resolveModelEffort } from '@robota-sdk/agent-core';
@@ -87,7 +87,7 @@ export class OpenAIProvider extends AbstractAIProvider {
           ...(options.baseURL && { baseURL: options.baseURL }),
         });
       } else {
-        throw new Error('Either OpenAI client, apiKey, or executor is required');
+        throw new ConfigurationError('Either OpenAI client, apiKey, or executor is required');
       }
     }
 
