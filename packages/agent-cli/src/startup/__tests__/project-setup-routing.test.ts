@@ -5,25 +5,53 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
  * unchanged: they still exit with the same message.
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  createRestrictedWorkspaceProjectAccess,
+  createWorkspaceProjectMutation,
+} from '@robota-sdk/agent-framework';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTrustedWorkspaceProjectAccess } from '../../__tests__/helpers/trusted-workspace-project-access.js';
 import { promptInput } from '../../cli-input.js';
+import { runInitCommand } from '../../init/init-command.js';
 import { routeProjectSetup } from '../project-setup-routing.js';
 import { createCliWorkspaceComposition } from '../workspace-project-composition.js';
 
 import type { IStartCliOptions } from '../cli-options-types.js';
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
 import type { ITerminalOutput, ISpinner } from '@robota-sdk/agent-core';
+import type { IWorkspaceProjectMutation } from '@robota-sdk/agent-framework';
 
 vi.mock('../../cli-input.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../cli-input.js')>()),
   promptInput: vi.fn(() => Promise.resolve('')),
 }));
+
+// Both wrap the real function, so a test sees what the routing handed on or minted without
+// replacing the behavior of the tests that run `init` for real.
+vi.mock('../../init/init-command.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../init/init-command.js')>();
+  return { ...actual, runInitCommand: vi.fn(actual.runInitCommand) };
+});
+vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@robota-sdk/agent-framework')>();
+  return {
+    ...actual,
+    createWorkspaceProjectMutation: vi.fn(actual.createWorkspaceProjectMutation),
+  };
+});
 
 const NOOP_TERMINAL: ITerminalOutput = {
   write: () => {},
@@ -168,17 +196,34 @@ describe('routeProjectSetup — setup mode', () => {
 describe('routeProjectSetup — init', () => {
   let root: string;
 
+  beforeEach(() => {
+    vi.mocked(runInitCommand).mockClear();
+    vi.mocked(createWorkspaceProjectMutation).mockClear();
+  });
+
   afterEach(() => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  /** A trusted project whose host supplies no project mutation capability, as the stock entry does. */
-  async function runInit() {
+  /**
+   * Runs `init` through the routing. By default the project is trusted and the host supplies no
+   * project mutation capability, as the stock entry does.
+   */
+  async function runInit(
+    options: {
+      access?: 'trusted' | 'untrusted' | 'revoked';
+      hostMutation?: IWorkspaceProjectMutation;
+    } = {},
+  ) {
+    const { access = 'trusted', hostMutation } = options;
     root = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-init-routing-test-')));
     const cwd = join(root, 'project');
     mkdirSync(cwd);
     const productRuntime = createTestProductRuntime('test-product', { HOME: join(root, 'home') });
-    const projectAccess = await createTrustedWorkspaceProjectAccess(cwd);
+    const projectAccess =
+      access === 'trusted'
+        ? await createTrustedWorkspaceProjectAccess(cwd)
+        : createRestrictedWorkspaceProjectAccess(access, cwd);
     const workspace = createCliWorkspaceComposition({ productRuntime, cwd, projectAccess });
     const errors: string[] = [];
     const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
@@ -186,7 +231,10 @@ describe('routeProjectSetup — init', () => {
       const result = await routeProjectSetup({
         cwd,
         args: baseArgs({ positional: ['init'], yes: true }),
-        startOptions: { productRuntime } as IStartCliOptions,
+        startOptions: {
+          productRuntime,
+          ...(hostMutation === undefined ? {} : { projectMutation: hostMutation }),
+        } as IStartCliOptions,
         terminal: { ...NOOP_TERMINAL, writeError: (text: string) => void errors.push(text) },
         providerDefinitions: [],
         workspace,
@@ -224,4 +272,36 @@ describe('routeProjectSetup — init', () => {
       expect(existsSync(join(cwd, 'AGENTS.md'))).toBe(false);
     },
   );
+
+  it.each(['untrusted', 'revoked'] as const)(
+    'init in a project that is %s is refused for want of project access and writes nothing',
+    async (access) => {
+      const { cwd, result, errors, exit } = await runInit({ access });
+
+      expect(result.handled).toBe(true);
+      expect(errors).toEqual(['Project initialization requires project access.']);
+      expect(exit).toEqual([[1]]);
+      expect(readdirSync(cwd)).toEqual([]);
+      const handedOn = vi.mocked(runInitCommand).mock.calls[0]?.[1];
+      expect(handedOn?.projectMutation).toBeUndefined();
+      expect(vi.mocked(createWorkspaceProjectMutation)).not.toHaveBeenCalled();
+    },
+  );
+
+  it('a mutation capability the host supplies is handed to init as it is, and none is minted', async () => {
+    const hostMutation = Object.freeze({
+      writeBytes: () => {},
+      deleteFile: () => false,
+    }) as unknown as IWorkspaceProjectMutation;
+    vi.mocked(runInitCommand).mockImplementationOnce(async () => {});
+
+    const { result, errors, exit } = await runInit({ hostMutation });
+
+    expect(result.handled).toBe(true);
+    expect(errors).toEqual([]);
+    expect(exit).toEqual([]);
+    expect(vi.mocked(runInitCommand)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(runInitCommand).mock.calls[0]?.[1].projectMutation).toBe(hostMutation);
+    expect(vi.mocked(createWorkspaceProjectMutation)).not.toHaveBeenCalled();
+  });
 });
