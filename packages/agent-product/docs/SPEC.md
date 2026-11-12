@@ -365,6 +365,12 @@ not the registered one: a tool that declares deferred loading and that the model
 is not sent with the request and is therefore not counted. The resulting number can fall as a direct,
 observable consequence of deferral.
 
+**`/context prompt`.** It reads the composition the session stores with its system prompt and cuts
+the prompt by it, so a section is printed exactly as the model receives it and the sections printed in
+order are the prompt. It is for the person reading the prompt, not the model: the model already holds
+it, so the subcommand is not model-invocable. A prompt with no known composition, or a manifest that
+does not add up to the prompt, is reported as unavailable rather than split by guesswork.
+
 **`/loop` (in-session repeat).** A prompt-only invocation — self-paced or on an explicit interval —
 starts unconfirmed: it is the operator's own instruction. Any form that instead falls back to the
 host's default maintenance prompt — bare `/loop`, or an interval alone (`/loop <N><s|m|h|d>`, self-

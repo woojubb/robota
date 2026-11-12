@@ -28,6 +28,7 @@ function createSessionStub(): Session {
     getConversationSnapshot: () => ({ id: 'session_resumed', cwd: '/workspace', messages: [] }),
     getHistory: () => [],
     getSystemMessage: () => 'system',
+    getSystemPromptManifest: () => undefined,
     getToolSchemas: () => [],
     getContextState: () => ({
       usedTokens: 0,

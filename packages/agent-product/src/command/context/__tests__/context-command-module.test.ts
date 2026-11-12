@@ -14,7 +14,10 @@ import type {
   IContextReferenceRemoveResult,
   TAutoCompactThresholdSource,
 } from '@robota-sdk/agent-framework';
-import type { IContextReferenceItem } from '@robota-sdk/agent-interface/session';
+import type {
+  IContextReferenceItem,
+  ISystemPromptManifest,
+} from '@robota-sdk/agent-interface/session';
 import { CommandRegistry, SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createContextCommandModule } from '../context-command-module.js';
 import type { ICommandHostContextWindow } from '@robota-sdk/agent-framework';
@@ -187,10 +190,15 @@ describe('createContextCommandModule', () => {
     const executor = new SystemCommandExecutor([...(module.systemCommands ?? [])]);
     const entry = registry.getCommands().find((command) => command.name === 'context');
     const command = executor.getCommand('context');
-    expect(entry?.argumentHint).toBe('list | add <path> | remove <path> | clear | auto ...');
-    expect(command?.argumentHint).toBe('list | add <path> | remove <path> | clear | auto ...');
+    expect(entry?.argumentHint).toBe(
+      'list | prompt [<section-id>] | add <path> | remove <path> | clear | auto ...',
+    );
+    expect(command?.argumentHint).toBe(
+      'list | prompt [<section-id>] | add <path> | remove <path> | clear | auto ...',
+    );
     expect(command?.subcommands?.map((subcommand) => subcommand.name)).toEqual([
       'list',
+      'prompt',
       'add',
       'remove',
       'clear',
@@ -498,5 +506,111 @@ describe('/context reports toolSchemaTokens', () => {
 
     expect((result?.data as { toolSchemaTokens: number }).toolSchemaTokens).toBe(0);
     expect(result?.message).toContain('Tool schemas (sent every turn):\n  (none)');
+  });
+});
+
+describe('/context prompt', () => {
+  const PROMPT = 'You build things.\n\n## Working Directory\n`/work`';
+  const MANIFEST: ISystemPromptManifest = {
+    harnessVersion: 'sha256:0123456789ab',
+    sections: [
+      { id: 'preset-persona', source: 'persona', characters: 'You build things.'.length },
+      {
+        id: 'runtime-cwd',
+        source: 'runtime',
+        characters: '## Working Directory\n`/work`'.length,
+      },
+    ],
+  };
+
+  function createHostWithPrompt(
+    message: string,
+    manifest: ISystemPromptManifest | undefined,
+  ): ReturnType<typeof createTestCommandHost> {
+    const runtime = createTestSessionRuntime({
+      getSystemMessage: () => message,
+      getSystemPromptManifest: () => manifest,
+    });
+    return createTestCommandHost({ overrides: { getSession: () => runtime } });
+  }
+
+  it('lists the sections, the harness version and the total the model receives', async () => {
+    const result = await createExecutor().execute(
+      'context',
+      createHostWithPrompt(PROMPT, MANIFEST),
+      'prompt',
+    );
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain(`System prompt: ${PROMPT.length} characters`);
+    expect(result?.message).toContain('Harness version: sha256:0123456789ab');
+    expect(result?.message).toContain('preset-persona [persona] — 17 characters');
+    expect(result?.message).toContain(
+      `runtime-cwd [runtime] — ${'## Working Directory\n`/work`'.length} characters`,
+    );
+    expect(result?.data).toMatchObject({ characters: PROMPT.length, sections: MANIFEST.sections });
+  });
+
+  it('prints one section exactly as it stands in the prompt', async () => {
+    const context = createHostWithPrompt(PROMPT, MANIFEST);
+
+    const persona = await createExecutor().execute('context', context, 'prompt preset-persona');
+    const cwd = await createExecutor().execute('context', context, 'prompt runtime-cwd');
+
+    expect(persona?.message).toBe('You build things.');
+    expect(cwd?.message).toBe('## Working Directory\n`/work`');
+    // The sections printed one after another are the prompt, byte for byte.
+    expect([persona?.message, cwd?.message].join('\n\n')).toBe(PROMPT);
+  });
+
+  it('names the sections that exist when asked for one that does not', async () => {
+    const result = await createExecutor().execute(
+      'context',
+      createHostWithPrompt(PROMPT, MANIFEST),
+      'prompt nonsense',
+    );
+
+    expect(result?.success).toBe(false);
+    expect(result?.message).toContain('No system prompt section named "nonsense".');
+    expect(result?.message).toContain('Sections: preset-persona, runtime-cwd');
+  });
+
+  it('says the composition is unknown for a prompt that was supplied whole', async () => {
+    const result = await createExecutor().execute(
+      'context',
+      createHostWithPrompt('supplied whole', undefined),
+      'prompt',
+    );
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('not composed from sections');
+  });
+
+  it('does not label a prompt with the sections of a different one', async () => {
+    const result = await createExecutor().execute(
+      'context',
+      createHostWithPrompt('a prompt the manifest does not describe', MANIFEST),
+      'prompt',
+    );
+
+    expect(result?.message).toContain('not composed from sections');
+    expect(result?.message).not.toContain('preset-persona');
+  });
+
+  it('refuses extra arguments', async () => {
+    const result = await createExecutor().execute(
+      'context',
+      createHostWithPrompt(PROMPT, MANIFEST),
+      'prompt preset-persona extra',
+    );
+    expect(result?.success).toBe(false);
+    expect(result?.message).toContain('Usage: /context');
+  });
+
+  it('is for the person reading the prompt: the model is not offered it', () => {
+    const command = createExecutor().getCommand('context');
+    expect(command?.subcommands?.find((subcommand) => subcommand.name === 'prompt')).toMatchObject({
+      modelInvocable: false,
+    });
   });
 });

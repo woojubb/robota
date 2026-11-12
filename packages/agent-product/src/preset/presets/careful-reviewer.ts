@@ -40,7 +40,8 @@ const CAREFUL_REVIEWER_PERSONA = [
  *
  * - `autonomy: 'ask-first'` → the resolver maps this onto the ask-on-write permission posture, so
  *   writes/exec are prompted rather than auto-accepted.
- * - `selfVerification: true` → the framework/executor verifier loop runs before changes settle.
+ * - `selfVerification: true` → the prompt carries a verify-before-reporting directive. It is guidance
+ *   to the model, not a separate verification step: nothing checks the answer afterwards.
  * - `enableParallelSubagents: false` → focused analysis, not fan-out.
  * - `effort: 'high'` → deep reading/analysis of code and context before acting.
  *

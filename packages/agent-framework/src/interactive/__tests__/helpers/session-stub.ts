@@ -51,6 +51,7 @@ export function createSessionStub(overrides: Partial<Session> = {}): Session {
     getSessionId: () => 'session_stub',
     getHistory: () => [],
     getSystemMessage: () => 'system',
+    getSystemPromptManifest: () => undefined,
     getToolSchemas: () => [],
     getContextState: () => ({
       usedTokens: 0,

@@ -120,6 +120,7 @@ describe('a fork job in this process over a store that seals', () => {
       source: {
         getHistory: () => [message(PARENT_TEXT)],
         getSystemMessage: () => 'the parent prompt',
+        getSystemPromptManifest: () => undefined,
         getToolSchemas: () => [],
       },
       fullHistory: () => [],

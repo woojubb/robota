@@ -965,6 +965,8 @@ export type {
 } from './runtime/index.js';
 export type { IResolvedConfig } from './config/config-types.js';
 export type { IOutputStylePrompt } from './context/output-style-prompt.js';
+export { sliceSystemPromptByManifest } from './context/system-prompt-manifest-slice.js';
+export type { ISlicedSystemPromptSection } from './context/system-prompt-manifest-slice.js';
 
 // Per-role model routing policy (neutral, over the provider DIP).
 export {

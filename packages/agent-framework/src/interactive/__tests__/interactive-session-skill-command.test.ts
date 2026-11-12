@@ -62,6 +62,7 @@ function makeParentSession(cwd: string = process.cwd()) {
     getPermissionMode: vi.fn().mockReturnValue('default'),
     getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
     getSystemMessage: vi.fn().mockReturnValue('# system'),
+    getSystemPromptManifest: vi.fn().mockReturnValue(undefined),
     getToolSchemas: vi.fn().mockReturnValue([]),
   };
 }

@@ -45,6 +45,7 @@ import type {
 } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IToolCallHandoffPolicy } from './tool-call-handoff-types.js';
+import type { IComposedSystemPrompt } from '../context/system-prompt-types.js';
 
 /**
  * The session-level structured-output option is the provider contract's own
@@ -348,5 +349,5 @@ export interface ICreateSessionResult {
       language?: string;
       presetSystemPrompt?: string;
     },
-  ) => string;
+  ) => IComposedSystemPrompt;
 }

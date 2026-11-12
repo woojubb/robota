@@ -272,6 +272,7 @@ describe('attaching against the store the writer lives in', () => {
       source: {
         getHistory: () => [message('the parent conversation')],
         getSystemMessage: () => 'the parent prompt',
+        getSystemPromptManifest: () => undefined,
         getToolSchemas: () => [],
       },
       fullHistory: () => [],

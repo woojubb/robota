@@ -8,6 +8,7 @@ import type { ISessionPendingExecution } from './session-recovery-contracts.js';
  */
 
 import type { ISessionLoopState } from './session-loop-contracts.js';
+import type { ISystemPromptManifest } from './system-prompt-manifest.js';
 import type {
   IMemoryEvent,
   IMemoryReference,
@@ -151,6 +152,8 @@ export interface IInteractiveSessionRecord {
   pendingExecution?: ISessionPendingExecution;
   history?: IHistoryEntry[];
   systemPrompt?: string;
+  /** The sections `systemPrompt` was composed from; absent when the prompt was not composed from sections. */
+  systemPromptManifest?: ISystemPromptManifest;
   toolSchemas?: IToolSchema[];
   backgroundTasks?: IBackgroundTaskState[];
   backgroundTaskEvents?: TBackgroundTaskEvent[];

@@ -70,6 +70,7 @@ export const INTERACTIVE_SESSION_RECORD_KEYS: readonly string[] = [
   'pendingExecution',
   'history',
   'systemPrompt',
+  'systemPromptManifest',
   'toolSchemas',
   'backgroundTasks',
   'backgroundTaskEvents',

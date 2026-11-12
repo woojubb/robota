@@ -101,15 +101,17 @@ describe('createSession — generated session id', () => {
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
     });
-    const corrected = created.rebuildSystemMessage('', '', { memoryMd: 'Use pnpm for builds.' });
+    const corrected = created.rebuildSystemMessage('', '', {
+      memoryMd: 'Use pnpm for builds.',
+    }).message;
     expect(corrected).toContain('Use pnpm');
     expect(corrected).not.toContain('Use npm');
-    expect(created.rebuildSystemMessage('', '', { persona: 'Review carefully.' })).not.toContain(
-      'Use npm',
-    );
-    const forgotten = created.rebuildSystemMessage('', '', { memoryMd: '' });
+    expect(
+      created.rebuildSystemMessage('', '', { persona: 'Review carefully.' }).message,
+    ).not.toContain('Use npm');
+    const forgotten = created.rebuildSystemMessage('', '', { memoryMd: '' }).message;
     expect(forgotten).not.toContain('Use pnpm');
-    expect(created.rebuildSystemMessage('', '')).not.toContain('Use pnpm');
+    expect(created.rebuildSystemMessage('', '').message).not.toContain('Use pnpm');
   });
 
   beforeEach(() => {
@@ -288,6 +290,33 @@ describe('createSession — appendSystemPrompt option', () => {
     const opts = sessionCtorCalls[0]!;
     const systemMessage = opts.systemMessage as string;
     expect(systemMessage.endsWith('\n\nEXTRA TEXT')).toBe(true);
+  });
+
+  it('hands the session the sections its system message was composed from, the appended text included', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+
+    await createSession({
+      host: testHost,
+      cwd: process.cwd(),
+      config: baseConfig(),
+      context: { agentsMd: '', projectNotesMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      appendSystemPrompt: 'EXTRA TEXT',
+    });
+
+    const opts = sessionCtorCalls[0]!;
+    const systemMessage = opts.systemMessage as string;
+    const manifest = opts.systemPromptManifest as {
+      sections: Array<{ id: string; characters: number }>;
+    };
+    expect(manifest.sections.at(-1)).toMatchObject({
+      id: 'append-system-prompt',
+      characters: 'EXTRA TEXT'.length,
+    });
+    const separators = (manifest.sections.length - 1) * '\n\n'.length;
+    const total = manifest.sections.reduce((sum, section) => sum + section.characters, separators);
+    expect(total).toBe(systemMessage.length);
   });
 
   it('system message without appendSystemPrompt does not have trailing double newline', async () => {

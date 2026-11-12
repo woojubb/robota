@@ -212,13 +212,20 @@ These are behaviors a caller cannot infer from a type signature alone.
 - **Fork vs. resume is exactly one bit of difference.** Resume reuses the source session id; fork
   generates a fresh id while still restoring the same messages and the parent's assembled system
   prompt verbatim — a fork inherits the parent's full assembled prompt (including any active output
-  style, since that is just a section of the same string) rather than rebuilding one from current
-  project files. A plain resume is not a copy and always rebuilds, so edits to AGENTS.md between
+  style, since that is just a section of the same string) and the record of what it was composed
+  from, rather than rebuilding one from current project files. A plain resume is not a copy and always rebuilds, so edits to AGENTS.md between
   sessions still reach it. Writing a fork's record leaves the source record byte-identical; the two
   conversations never rejoin. An unresolved recovery conversation cannot be copied to another
   session or workspace because discovery is bound to its existing owner. Following a running fork or
   continuing an ended fork keeps its record separate from the parent; the live view is bounded and
   transient so observing it does not add another persisted conversation copy.
+- **A system prompt is stored with the sections it was composed from, or with none.** The default
+  builder composes from sections, and the session keeps a manifest of them — id, source and rendered
+  length, in prompt order, plus a digest of the product's own harness text — beside the prompt it
+  describes, replaced whenever the prompt is. A prompt a caller supplied whole has no known
+  composition and the session says so; it never keeps the previous prompt's manifest, and a manifest
+  that does not account for the prompt exactly is never used to label it. The text of the sections is
+  not duplicated into the record, because it is already in the stored prompt.
 - **Host-action parity.** A command's host actions (language change, settings reset, session
   exit/restart/rename, …) are executed by the session through injected host adapters, so headless and
   programmatic embeddings get the same command semantics as an attached UI. An embedding with no

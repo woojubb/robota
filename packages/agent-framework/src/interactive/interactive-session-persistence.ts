@@ -269,6 +269,7 @@ function buildInteractiveSessionRecord(
   input: IBuildInteractiveSessionRecordInput,
 ): IInteractiveSessionRecord {
   const conversation = input.session.getConversationSnapshot();
+  const systemPromptManifest = input.session.getSystemPromptManifest();
   return {
     id: input.recordId ?? conversation.id,
     ...(input.goalState !== undefined ? { goal: input.goalState } : {}),
@@ -283,6 +284,7 @@ function buildInteractiveSessionRecord(
     ...(conversation.pendingExecution ? { pendingExecution: conversation.pendingExecution } : {}),
     history: input.history,
     systemPrompt: input.session.getSystemMessage(),
+    ...(systemPromptManifest !== undefined ? { systemPromptManifest } : {}),
     toolSchemas: input.session.getToolSchemas(),
     ...(input.sandboxSnapshotId !== undefined
       ? { sandboxSnapshotId: input.sandboxSnapshotId }
