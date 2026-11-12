@@ -60,7 +60,7 @@ describe('homepage feature coverage', () => {
       const cli = sectionById(renderToStaticMarkup(<HomePageContent locale={locale} />), 'cli');
 
       for (const flow of t.cliFlows) expect(cli).toContain(escapeHtml(flow.title));
-      for (const command of ['cat task.md | example-cli -p', 'example-cli --goal "make the failing tests pass"', 'example-cli daemon start', 'example-cli --serve --open', 'PRODUCT_HTTP_TOKEN="$(openssl rand -hex 32)" example-cli --serve --http-port 8787', 'example-cli mcp serve', '/handoff <session-id>', '/remote-control enable', 'example-cli doctor', 'example-cli eval <definition.mjs>']) {
+      for (const command of ['cat task.md | example-cli -p', 'example-cli --goal "make the failing tests pass"', 'example-cli daemon start', 'example-cli --serve --open', '__PRODUCT_ENV_PREFIX__HTTP_TOKEN="$(openssl rand -hex 32)" example-cli --serve --http-port 8787', 'example-cli mcp serve', '/handoff <session-id>', '/remote-control enable', 'example-cli doctor', 'example-cli eval <definition.mjs>']) {
         expect(cli).toContain(`<code>${escapeHtml(command)}</code>`);
       }
       // Alternative commands are examples, not a script: no copy button joins them into one paste.
@@ -121,7 +121,9 @@ describe('server rendered homepage content', () => {
       expect(html).toContain(`href="/${locale}/roadmap"`);
       expect(html).toContain('AGPL-3.0');
       expect(html).toContain('MCP');
-      expect(html).not.toContain('__PRODUCT_');
+      // The environment variable prefix is private product config, not part of the public config this
+      // page reads, so the build fills that one placeholder; any other one left in the page is a leak.
+      expect(html.replaceAll('__PRODUCT_ENV_PREFIX__', '')).not.toContain('__PRODUCT_');
     });
   }
 

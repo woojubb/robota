@@ -44,7 +44,7 @@ function cliFlowCommands(cli: string): readonly CliFlow[] {
     { context: 'shell', commands: [cli, `${cli} --permission-mode acceptEdits`, `${cli} --screen-reader`] },
     { context: 'shell', commands: [`${cli} -p "List the TypeScript files in src/"`, `${cli} -p "Summarize this repository" --output-format json`, `cat task.md | ${cli} -p`, `${cli} --goal "make the failing tests pass"`] },
     { context: 'shell', commands: [`${cli} -c`, `${cli} -r <id-or-name>`, `${cli} session start --background --name nightly`, `${cli} daemon start`, `${cli} --attach`] },
-    { context: 'shell', commands: [`${cli} --serve --open`, `PRODUCT_HTTP_TOKEN="$(openssl rand -hex 32)" ${cli} --serve --http-port 8787`, `${cli} mcp serve`] },
+    { context: 'shell', commands: [`${cli} --serve --open`, `__PRODUCT_ENV_PREFIX__HTTP_TOKEN="$(openssl rand -hex 32)" ${cli} --serve --http-port 8787`, `${cli} mcp serve`] },
     { context: 'session', commands: ['/peers', '/peers send <session-id> <message>', '/handoff <session-id>', '/devices init', '/remote-control enable'] },
     { context: 'shell', commands: [`${cli} doctor`, `${cli} usage --period 30d`, `${cli} --check-update`, `${cli} eval <definition.mjs>`] },
   ];
