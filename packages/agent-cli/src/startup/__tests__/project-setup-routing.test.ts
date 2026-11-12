@@ -5,12 +5,13 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
  * unchanged: they still exit with the same message.
  */
 
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createTrustedWorkspaceProjectAccess } from '../../__tests__/helpers/trusted-workspace-project-access.js';
 import { promptInput } from '../../cli-input.js';
 import { routeProjectSetup } from '../project-setup-routing.js';
 import { createCliWorkspaceComposition } from '../workspace-project-composition.js';
@@ -162,4 +163,65 @@ describe('routeProjectSetup — setup mode', () => {
       stderr.mockRestore();
     }
   });
+});
+
+describe('routeProjectSetup — init', () => {
+  let root: string;
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  /** A trusted project whose host supplies no project mutation capability, as the stock entry does. */
+  async function runInit() {
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-init-routing-test-')));
+    const cwd = join(root, 'project');
+    mkdirSync(cwd);
+    const productRuntime = createTestProductRuntime('test-product', { HOME: join(root, 'home') });
+    const projectAccess = await createTrustedWorkspaceProjectAccess(cwd);
+    const workspace = createCliWorkspaceComposition({ productRuntime, cwd, projectAccess });
+    const errors: string[] = [];
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    try {
+      const result = await routeProjectSetup({
+        cwd,
+        args: baseArgs({ positional: ['init'], yes: true }),
+        startOptions: { productRuntime } as IStartCliOptions,
+        terminal: { ...NOOP_TERMINAL, writeError: (text: string) => void errors.push(text) },
+        providerDefinitions: [],
+        workspace,
+      });
+      return { cwd, productRuntime, result, errors, exit: exit.mock.calls };
+    } finally {
+      exit.mockRestore();
+    }
+  }
+
+  // Project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'init writes the project files in a trusted workspace when the host supplies no mutation capability',
+    async () => {
+      const { cwd, productRuntime, result, errors, exit } = await runInit();
+      expect(errors).toEqual([]);
+      expect(exit).toEqual([]);
+      expect(result.handled).toBe(true);
+      expect(existsSync(join(cwd, 'AGENTS.md'))).toBe(true);
+      expect(
+        readFileSync(join(cwd, productRuntime.layout.projectDirectory, 'settings.json'), 'utf8'),
+      ).toContain('permissions');
+    },
+  );
+
+  it.skipIf(process.platform === 'linux')(
+    'init reaches the host refusal, not a missing-permission refusal, when the host cannot prove project writes',
+    async () => {
+      const { cwd, errors, exit } = await runInit();
+      expect(errors.join('\n')).toContain(
+        'Project mutation requires stable root-anchored host support',
+      );
+      expect(errors.join('\n')).not.toContain('requires project mutation permission');
+      expect(exit).toEqual([[1]]);
+      expect(existsSync(join(cwd, 'AGENTS.md'))).toBe(false);
+    },
+  );
 });

@@ -1,8 +1,8 @@
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
 import { createStartupProviderInteraction, promptInput } from '../cli-input.js';
-import { ProviderConfigError } from '@robota-sdk/agent-framework';
+import { createWorkspaceProjectMutation, ProviderConfigError } from '@robota-sdk/agent-framework';
 
-import { runInitCommand } from '../init/init-command.js';
+import { runInitCommand, type IInitCommandOptions } from '../init/init-command.js';
 import {
   ensureConfig,
   handleProviderConfigurationArgs,
@@ -107,6 +107,27 @@ export async function routeProjectSetup(
   return { handled: false };
 }
 
+/**
+ * `init` is a command the person typed in a trusted folder, which is the approval its writes need.
+ * A host that supplies its own bounded capability keeps it; the stock entry supplies none, so
+ * without minting one here `init` would refuse in every trusted folder.
+ */
+function projectInitMutation(
+  startOptions: IStartCliOptions,
+  workspace: ICliWorkspaceComposition,
+): Pick<IInitCommandOptions, 'projectMutation'> {
+  if (startOptions.projectMutation !== undefined) {
+    return { projectMutation: startOptions.projectMutation };
+  }
+  if (workspace.projectAccess.status !== 'trusted') return {};
+  return {
+    projectMutation: createWorkspaceProjectMutation(workspace.projectAccess.authority, {
+      status: 'approved',
+      purpose: 'initialize the project',
+    }),
+  };
+}
+
 async function runProjectInit(
   options: IProjectSetupRoutingOptions,
   settingsAccess: IProviderStartupSettingsAccess,
@@ -116,9 +137,7 @@ async function runProjectInit(
     await runInitCommand(terminal, {
       productRuntime: resolveCliRuntimeContext(startOptions),
       projectAccess: workspace.projectAccess,
-      ...(startOptions.projectMutation === undefined
-        ? {}
-        : { projectMutation: startOptions.projectMutation }),
+      ...projectInitMutation(startOptions, workspace),
       yes: args.yes,
       onProviderSetup: () =>
         runInteractiveProviderSetup(
