@@ -1,5 +1,6 @@
 import {
   AbstractAIProvider,
+  ConfigurationError,
   PERMISSIVE_TOOL_SCHEMA_PROFILE,
   SilentLogger,
   toProviderError,
@@ -73,7 +74,7 @@ export class QwenProvider extends AbstractAIProvider {
           ...(options.timeout !== undefined && { timeout: options.timeout }),
         });
       } else {
-        throw new Error('Either Qwen client, apiKey, or executor is required');
+        throw new ConfigurationError('Either Qwen client, apiKey, or executor is required');
       }
     }
 
