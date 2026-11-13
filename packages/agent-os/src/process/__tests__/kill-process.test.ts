@@ -56,6 +56,18 @@ describe('killProcessTree', () => {
     expect(DEFAULT_KILL_GRACE_MS).toBe(2000);
   });
 
+  it('refuses a child that never spawned, naming the helper and the missing pid', async () => {
+    const unspawned = {
+      pid: undefined,
+      exitCode: null,
+      signalCode: null,
+    } as unknown as ChildProcess;
+
+    await expect(killProcessTree(unspawned)).rejects.toThrow(
+      'killProcessTree was called with a child that never spawned: it has no pid.',
+    );
+  });
+
   it('resolves immediately for an already-exited child without signalling', async () => {
     const child = track(spawn('true', [], { detached: isPosix }));
     await new Promise<void>((resolve) => child.on('exit', () => resolve()));
