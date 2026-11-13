@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { confirmRegistryPublication } from './confirm-registry-publication.mjs';
 
 const [packDirectory, output] = process.argv.slice(2);
 if (!packDirectory || !output) {
@@ -46,22 +47,9 @@ if (!['cli', 'sdk'].includes(component) || !/^[a-z0-9][a-z0-9._-]*$/u.test(selec
     (component === 'cli') !== (selected === 'agent-cli') || packages.length !== 1 ||
     packages[0].name !== `${packageScope}/${selected}` || packages[0].version !== releaseVersion)
   throw new Error('invalid release component or tarballs');
-// One bounded observation; a failed receipt can resume from the retained artifact without rebuilding.
-let cursor = 0;
-await Promise.all(Array.from({ length: Math.min(6, packages.length) }, async () => {
-  while (cursor < packages.length) {
-    const pkg = packages[cursor++];
-    const response = await fetch(new URL(encodeURIComponent(pkg.name), `${registry.replace(/\/$/, '')}/`), {
-      headers: { accept: 'application/vnd.npm.install-v1+json' },
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!response.ok) throw new Error(`${pkg.name}: registry returned ${response.status}`);
-    const metadata = await response.json();
-    if (metadata.versions?.[pkg.version]?.dist?.integrity !== pkg.integrity ||
-        metadata['dist-tags']?.latest !== pkg.version)
-      throw new Error(`${pkg.name}@${pkg.version}: registry integrity/latest not yet confirmed; resume this run without repacking.`);
-  }
-}));
+// Wait, within a bound, for the registry to serve the uploaded version; a failed receipt can still resume
+// from the retained artifact without rebuilding.
+await Promise.all(packages.map((pkg) => confirmRegistryPublication(pkg, registry)));
 const cli = packages.find((entry) => entry.name === `${packageScope}/agent-cli`);
 if (component === 'cli' && !cli) throw new Error('the configured CLI tarball was not published');
 if (component === 'sdk' && cli) throw new Error('the SDK release must not contain the CLI');

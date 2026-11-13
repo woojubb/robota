@@ -28,7 +28,8 @@ npm environment. Use one release PR; do not create a separate version-bump PR or
 4. After an understood partial failure, rerun only failed jobs in the same run. Successful preparation is
    reused; never repack an already published version or restart the entire workflow to resume publication.
    An existing version must have matching integrity.
-   Registry visibility is checked once; if it is transiently unavailable, resume the same retained artifact.
+   The publish job waits, within a 20-minute bound, for the registry to serve the published version and `latest`;
+   if that bound passes, resume the same retained artifact.
 5. Successful CLI npm completion starts the agent image. The Feature runs when both native and CLI npm
    completion events have succeeded for the same commit. Confirm npm latest versions and durable receipts;
    for CLI releases also confirm native/desktop assets, Feature and multi-platform image delivery. For an
