@@ -1,9 +1,8 @@
 /**
  * The `ICommandSessionRuntime` role ports.
  *
- * Split out of `host-context.ts` because the decomposition made that file 448 lines — over the
- * anti-monolith limit. The split follows the same seam the ports do: one file per contract axis,
- * so a reader looking for a session capability is not reading the agent-job ones.
+ * Split out of `host-context.ts` along the same seam the ports do: one file per contract axis, so a
+ * reader looking for a session capability is not reading the agent-job ones.
  */
 
 import type { IPermissionDenial, TAutoCompactThreshold } from '@robota-sdk/agent-session';

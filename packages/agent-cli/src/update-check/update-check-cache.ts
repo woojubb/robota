@@ -2,9 +2,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * Persistence for the CLI update-check cache: where it lives, how it is read, how it is written.
  *
- * Split out of `update-check.ts` under the anti-monolith ratchet — that file sits on its frozen
- * 305-line baseline, and routing the write through the owner-only writer needed one
- * line more than it had. The cluster carved out here is the cohesive one: a path, a codec, and the
+ * Split out of `update-check.ts`: the cluster here is the cohesive one — a path, a codec, and the
  * two IO calls, with the policy and formatting left behind.
  *
  * The write goes through `writeOwnerOnlyFile` because every writer into

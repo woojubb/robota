@@ -1,9 +1,9 @@
 /**
  * The per-instance run queue.
  *
- * Split out of `agent.ts`, which is long past the file-size ceiling: serializing runs is a
- * self-contained responsibility with its own invariant, and it is the one part of the agent whose
- * correctness is about ordering rather than about conversation.
+ * Split out of `agent.ts`: serializing runs is a self-contained responsibility with its own
+ * invariant, and it is the one part of the agent whose correctness is about ordering rather than
+ * about conversation.
  *
  * The invariant: **one run at a time, per agent instance.** A second `run()` (or `runStream()`)
  * waits for the first to settle rather than interleaving with it, because both write to the same

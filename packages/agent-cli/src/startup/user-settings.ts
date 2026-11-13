@@ -27,10 +27,8 @@ import type { TSettingsData } from '@robota-sdk/agent-framework';
  * defect into a clean exit wearing the settings message — a worse failure than the one being fixed,
  * and one that still passes a test asserting only the happy refusal.
  *
- * It lives here rather than at the call site because `cli.ts` is at its `file-size` floor: the same
- * guard inlined cost 17 lines and broke the freeze. The
- * second reason holds regardless — the presentation of a read failure belongs beside
- * the read rather than in the shell that happens to call it.
+ * It lives here rather than at the call site because the presentation of a read failure belongs
+ * beside the read rather than in the shell that happens to call it.
  */
 export function readUserSettingsOrExit(runtime: ICliRuntimeContext): TSettingsData {
   try {

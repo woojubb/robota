@@ -8,8 +8,7 @@ import type {
  *
  * Split out of `interactive-session-options.ts`. That file held three interfaces
  * restating one option list — the public standard arm, the injected arm, and this — so every preset
- * field had to be added three times, and the anti-monolith floor refused the fourth addition. The
- * split is by responsibility: what a CALLER may pass lives there, what the async init hands onward
+ * field had to be added three times. The split is by responsibility: what a CALLER may pass lives there, what the async init hands onward
  * lives here.
  *
  * Re-exported from the original module, so no consumer has to know it moved.

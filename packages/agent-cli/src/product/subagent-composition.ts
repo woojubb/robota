@@ -437,10 +437,7 @@ export function createProductPackSet(
  * The product's subagent runner, wired.
  *
  * The three fixed inputs below — the log directory, the self-fork entry, and the worktree adapter —
- * are the product's own answers and have no reason to be spelled at the call site. Bringing them here is
- * also what let the selection be added at all: `cli.ts` is a file the size floor has already frozen
- * as debt, where the rule is "split instead of extending", so the change had to take more out of it
- * than it put in.
+ * are the product's own answers and have no reason to be spelled at the call site.
  */
 function resumeStoreReference(workspace: ICliWorkspaceComposition) {
   if (workspace.sessionStoreScope === 'user') return { scope: 'user' as const };

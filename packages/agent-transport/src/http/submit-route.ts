@@ -1,9 +1,9 @@
 /**
  * `POST /submit` — the admission decision and the handler that hands an admitted turn to the relay.
  *
- * Split from `routes.ts` under the file-size ceiling, along the same seam the review rounds carved:
- * the route factory is a LIST of routes, and this one carries the concurrency-admission decision
- * plus the claim lifecycle, which is a different job from mounting endpoints.
+ * Kept apart from `routes.ts`: the route factory is a LIST of routes, and this one carries the
+ * concurrency-admission decision plus the claim lifecycle, which is a different job from mounting
+ * endpoints.
  */
 
 import { streamSSE } from 'hono/streaming';

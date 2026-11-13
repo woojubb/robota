@@ -1,10 +1,8 @@
 /**
  * Helpers over the error taxonomy.
  *
- * Split out of `errors.ts`, which owns the CLASSES. Two responsibilities lived in one file: what the
- * errors ARE, and what a caller does with an arbitrary one. Keeping them together pushed the
- * taxonomy file past the size ceiling the moment a class was added to it, which is the wrong thing
- * for a ceiling to be blocking.
+ * Kept apart from `errors.ts`, which owns the CLASSES: what the errors ARE and what a caller does
+ * with an arbitrary one are two responsibilities.
  */
 
 import { ConfigurationError, ProviderError, AgentRuntimeError } from './errors';

@@ -1,7 +1,7 @@
 /**
  * Relaying ONE turn to an SSE client, and letting go of it afterwards.
  *
- * Split out of `routes.ts` under the file-size ceiling. The route's job is to decide whether this
+ * Split out of `routes.ts`. The route's job is to decide whether this
  * request may start a turn; relaying the turn's events, tearing the subscriptions down, and telling
  * a client whose stream broke after the headers went out is a different job with its own failure
  * modes, and it was four fifths of the handler.

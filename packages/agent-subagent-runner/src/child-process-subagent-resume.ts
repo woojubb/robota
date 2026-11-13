@@ -9,7 +9,7 @@
  * parent's writer marker over, so every save of the record is the child's own. Beside the worker rather
  * than inside it for the same reason the start-payload projection sits beside the wire vocabulary:
  * "how a fork job resumes its record" is a different question from "how a worker process runs a
- * job", and the worker is already at the anti-monolith limit.
+ * job".
  *
  * The store is opened for the PARENT's cwd (`request.cwd`), not the execution root: a
  * worktree-isolated child runs in a directory that holds no session records of its own.
