@@ -4,6 +4,9 @@ import { CommandExecutor } from '../executors/command-executor.js';
 import { HttpExecutor } from '../executors/http-executor.js';
 import type { THooksConfig, IHookInput, IHookTypeExecutor, THookDefinition } from '../types.js';
 
+// A real command hook spawns a shell (PowerShell on the Windows runner), which can take longer to start than the 5 s default.
+const SHELL_HOOK_TEST_TIMEOUT_MS = 30_000;
+
 describe('Hook flow integration', () => {
   const nodeExecutors = [new CommandExecutor(), new HttpExecutor()];
   const baseInput: IHookInput = {
@@ -13,70 +16,82 @@ describe('Hook flow integration', () => {
     tool_name: 'Bash',
   };
 
-  it('should execute command hooks end-to-end', async () => {
-    const config: THooksConfig = {
-      PreToolUse: [
-        {
-          matcher: 'Bash',
-          hooks: [{ type: 'command', command: 'echo allowed' }],
-        },
-      ],
-    };
+  it(
+    'should execute command hooks end-to-end',
+    { timeout: SHELL_HOOK_TEST_TIMEOUT_MS },
+    async () => {
+      const config: THooksConfig = {
+        PreToolUse: [
+          {
+            matcher: 'Bash',
+            hooks: [{ type: 'command', command: 'echo allowed' }],
+          },
+        ],
+      };
 
-    const result = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
+      const result = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
 
-    expect(result.blocked).toBe(false);
-  });
+      expect(result.blocked).toBe(false);
+    },
+  );
 
-  it('should block when command hook exits with code 2', async () => {
-    const config: THooksConfig = {
-      PreToolUse: [
-        {
-          matcher: 'Bash',
-          hooks: [
-            {
-              type: 'command',
-              // Shell-neutral: `sh` and PowerShell both run a double-quoted `node -e` argument.
-              command: `node -e "console.error('denied'); process.exit(2)"`,
-            },
-          ],
-        },
-      ],
-    };
+  it(
+    'should block when command hook exits with code 2',
+    { timeout: SHELL_HOOK_TEST_TIMEOUT_MS },
+    async () => {
+      const config: THooksConfig = {
+        PreToolUse: [
+          {
+            matcher: 'Bash',
+            hooks: [
+              {
+                type: 'command',
+                // Shell-neutral: `sh` and PowerShell both run a double-quoted `node -e` argument.
+                command: `node -e "console.error('denied'); process.exit(2)"`,
+              },
+            ],
+          },
+        ],
+      };
 
-    const result = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
+      const result = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
 
-    expect(result.blocked).toBe(true);
-    expect(result.reason).toContain('denied');
-  });
+      expect(result.blocked).toBe(true);
+      expect(result.reason).toContain('denied');
+    },
+  );
 
-  it('should handle multiple hook types in same config', async () => {
-    // Mock fetch for HTTP executor
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ ok: true }),
-    });
-    vi.stubGlobal('fetch', mockFetch);
+  it(
+    'should handle multiple hook types in same config',
+    { timeout: SHELL_HOOK_TEST_TIMEOUT_MS },
+    async () => {
+      // Mock fetch for HTTP executor
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+      vi.stubGlobal('fetch', mockFetch);
 
-    const config: THooksConfig = {
-      PreToolUse: [
-        {
-          matcher: 'Bash',
-          hooks: [
-            { type: 'command', command: 'echo command-ok' },
-            { type: 'http', url: 'https://example.com/hook' },
-          ],
-        },
-      ],
-    };
+      const config: THooksConfig = {
+        PreToolUse: [
+          {
+            matcher: 'Bash',
+            hooks: [
+              { type: 'command', command: 'echo command-ok' },
+              { type: 'http', url: 'https://example.com/hook' },
+            ],
+          },
+        ],
+      };
 
-    const result = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
+      const result = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
 
-    expect(result.blocked).toBe(false);
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(result.blocked).toBe(false);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
 
-    vi.unstubAllGlobals();
-  });
+      vi.unstubAllGlobals();
+    },
+  );
 
   it('should skip unknown hook types gracefully', async () => {
     const config: THooksConfig = {
@@ -98,53 +113,61 @@ describe('Hook flow integration', () => {
     expect(result.blocked).toBe(false);
   });
 
-  it('should process multiple events independently', async () => {
-    const config: THooksConfig = {
-      PreToolUse: [
-        {
-          matcher: 'Bash',
-          hooks: [{ type: 'command', command: 'echo pre-tool' }],
-        },
-      ],
-      SessionStart: [
-        {
-          matcher: '',
-          hooks: [{ type: 'command', command: 'echo session-start' }],
-        },
-      ],
-    };
+  it(
+    'should process multiple events independently',
+    { timeout: SHELL_HOOK_TEST_TIMEOUT_MS },
+    async () => {
+      const config: THooksConfig = {
+        PreToolUse: [
+          {
+            matcher: 'Bash',
+            hooks: [{ type: 'command', command: 'echo pre-tool' }],
+          },
+        ],
+        SessionStart: [
+          {
+            matcher: '',
+            hooks: [{ type: 'command', command: 'echo session-start' }],
+          },
+        ],
+      };
 
-    const preResult = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
-    expect(preResult.blocked).toBe(false);
+      const preResult = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
+      expect(preResult.blocked).toBe(false);
 
-    const sessionInput: IHookInput = {
-      session_id: 'integration-test',
-      cwd: process.cwd(),
-      hook_event_name: 'SessionStart',
-    };
-    const sessionResult = await runHooks(config, 'SessionStart', sessionInput, nodeExecutors);
-    expect(sessionResult.blocked).toBe(false);
-  });
+      const sessionInput: IHookInput = {
+        session_id: 'integration-test',
+        cwd: process.cwd(),
+        hook_event_name: 'SessionStart',
+      };
+      const sessionResult = await runHooks(config, 'SessionStart', sessionInput, nodeExecutors);
+      expect(sessionResult.blocked).toBe(false);
+    },
+  );
 
-  it('should match tool names with regex patterns', async () => {
-    const config: THooksConfig = {
-      PreToolUse: [
-        {
-          matcher: '^(Bash|Read)$',
-          hooks: [{ type: 'command', command: 'echo matched' }],
-        },
-      ],
-    };
+  it(
+    'should match tool names with regex patterns',
+    { timeout: SHELL_HOOK_TEST_TIMEOUT_MS },
+    async () => {
+      const config: THooksConfig = {
+        PreToolUse: [
+          {
+            matcher: '^(Bash|Read)$',
+            hooks: [{ type: 'command', command: 'echo matched' }],
+          },
+        ],
+      };
 
-    // Should match Bash
-    const bashResult = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
-    expect(bashResult.blocked).toBe(false);
+      // Should match Bash
+      const bashResult = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
+      expect(bashResult.blocked).toBe(false);
 
-    // Should not match Write
-    const writeInput: IHookInput = { ...baseInput, tool_name: 'Write' };
-    const writeResult = await runHooks(config, 'PreToolUse', writeInput, nodeExecutors);
-    expect(writeResult.blocked).toBe(false);
-  });
+      // Should not match Write
+      const writeInput: IHookInput = { ...baseInput, tool_name: 'Write' };
+      const writeResult = await runHooks(config, 'PreToolUse', writeInput, nodeExecutors);
+      expect(writeResult.blocked).toBe(false);
+    },
+  );
 
   it('should match SessionEnd hooks by reason', async () => {
     const inputs: IHookInput[] = [];
