@@ -83,7 +83,7 @@ export interface IProductProfile {
   observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   // (3) behavior axis — external presets to register + the default id
   /**
-   * External presets to register into a PER-CALL instance-scoped registry (R8). Ignored when
+   * External presets to register into a PER-CALL instance-scoped registry. Ignored when
    * {@link presetRegistry} is supplied — that registry is then used as-is.
    */
   presets?: readonly IPreset[];
@@ -95,8 +95,8 @@ export interface IProductProfile {
    * can carry the `model` and `agentName` the profile itself is constructed from, so "resolve, then
    * assemble" is a real ordering constraint, not a product-specific quirk. Handing the registry in (rather than the
    * presets) is what keeps that pre-assembly resolution and `assembleProduct`'s own resolution on ONE
-   * registry instead of two equivalent-but-separate ones. R8 is unaffected: the registry is
-   * still instance-scoped and no module-level state is read or mutated.
+   * registry instead of two equivalent-but-separate ones. The registry is still instance-scoped
+   * and no module-level state is read or mutated.
    */
   presetRegistry?: IPresetRegistry;
   /** The default preset id, resolved to seed the assembled product's default posture. */
@@ -170,7 +170,7 @@ export interface IAssembledProduct {
   rejectedPacks: readonly IRejectedCapabilityPack[];
 
   /**
-   * The per-call instance-scoped preset registry (R8 — no module-global mutation). This is the SAME
+   * The per-call instance-scoped preset registry (no module-global mutation). This is the SAME
    * object the profile supplied as `presetRegistry`, when it supplied one.
    */
   presets: IPresetRegistry;
@@ -202,7 +202,7 @@ export interface IAssembledProduct {
   buildRuntimeOptions: (input: IBuildRuntimeInput) => TInteractiveSessionOptions;
 
   /**
-   * Build the runtime session by DELEGATING to `agent-framework`'s `buildRuntimeSession` seam (R2) — never
+   * Build the runtime session by DELEGATING to `agent-framework`'s `buildRuntimeSession` seam — never
    * a re-implementation. Equivalent to `buildRuntimeSession(buildRuntimeOptions(input))`; returns the
    * framework `InteractiveSession` the shell binds its presentation over.
    */

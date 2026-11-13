@@ -21,8 +21,8 @@ const testHost = createTestFrameworkHost();
 
 /**
  * `assembleProduct` is a PURE, deterministic, IO-free fold over `IProductProfile`. It
- * resolves presets via a per-call instance-scoped registry (R8), merges packs via `mergeCapabilityPacks`,
- * and delegates runtime construction to `agent-framework`'s `buildRuntimeSession` seam (R2) — it never
+ * resolves presets via a per-call instance-scoped registry, merges packs via `mergeCapabilityPacks`,
+ * and delegates runtime construction to `agent-framework`'s `buildRuntimeSession` seam — it never
  * re-implements runtime assembly and never special-cases any product's id.
  */
 

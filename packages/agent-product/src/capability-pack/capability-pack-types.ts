@@ -10,7 +10,7 @@ import type { IAgentDefinition, ICommandModule } from '@robota-sdk/agent-framewo
  * selection, persona, permission posture), a pack contributes **capability** (new tools, command modules,
  * and subagents).
  *
- * **A pack is NOT declarative JSON (R6).** Unlike a serialized manifest (e.g. VS Code's `contributes`
+ * **A pack is NOT declarative JSON.** Unlike a serialized manifest (e.g. VS Code's `contributes`
  * block, which the host reads without running contributor code), a pack carries **executable code
  * objects** — `ICommandModule` values with `systemCommands` handlers, `FunctionTool` instances with
  * `execute` functions, and subagent definitions. It is an **in-process composition argument**, a live
