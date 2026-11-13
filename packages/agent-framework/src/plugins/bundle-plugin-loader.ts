@@ -176,11 +176,10 @@ export class BundlePluginLoader {
     }
     const manifestPath = joinPath(versionDir, '.claude-plugin', 'plugin.json');
 
-    // One broken plugin used to take down ALL of them. `readManifest` throws on
-    // unparseable JSON, that throw escaped discovery, and the caller answered with a bare
-    // `catch {}` — so a single malformed manifest silently disabled every installed plugin and the
-    // user's hooks just did not run. A plugin that cannot be read is skipped, by name, out loud;
-    // its neighbours still load.
+    // One broken plugin must not take down ALL of them. `readManifest` throws on unparseable JSON;
+    // if that throw escaped discovery, a single malformed manifest would silently disable every
+    // installed plugin and the user's hooks would just not run. A plugin that cannot be read is
+    // skipped, by name, out loud; its neighbours still load.
     let manifest: IBundlePluginManifest | null;
     try {
       manifest = this.readManifest(manifestPath);

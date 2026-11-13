@@ -85,7 +85,7 @@ export const FRAMEWORK_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPe
  * Tell the permission system about every tool this package defines. Idempotent.
  *
  * Not exported: the one caller is the line below. A registration a consumer could choose to skip is
- * a registration that might not happen, which is the state this change exists to leave behind.
+ * a registration that might not happen.
  */
 function registerFrameworkToolPermissionProfiles(): void {
   for (const [toolName, profile] of Object.entries(FRAMEWORK_TOOL_PERMISSION_PROFILES)) {

@@ -3,7 +3,7 @@
  *
  * Split out of `bundle-plugin-installer.ts` so `installed-plugins-registry.ts` can depend on
  * these types without importing back from `bundle-plugin-installer.ts` (which imports the
- * registry's read/write functions), which previously created an import cycle between the two.
+ * registry's read/write functions), which would create an import cycle between the two.
  */
 
 /** Record of an installed plugin in installed_plugins.json. */

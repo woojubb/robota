@@ -2,7 +2,7 @@
  * Leaf type module for {@link ISettingsDocumentStore} and the document it holds.
  *
  * Split out of `settings-store.ts` so a file that only needs these types does not import the store
- * module (which imports the workspace project reader) — that previously created an import cycle
+ * module (which imports the workspace project reader) — that would create an import cycle
  * between the two.
  */
 import type {

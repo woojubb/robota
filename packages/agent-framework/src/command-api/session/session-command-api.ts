@@ -22,12 +22,11 @@ export interface ICommandSessionInfo {
 /**
  * One path, chosen because the member is required rather than possibly absent.
  *
- * This used to branch: call the host's richer clear when present, otherwise reach past it into
- * `getSession().clearHistory()`. Those are not the same operation — the host's version also
- * broadcasts `history_cleared` to every attached surface, so the fallback
- * silently cleared the transcript on ONE surface and left the others showing it. That divergence
- * is what an absence-guarded default buys, and why the member being required removes the guard
- * rather than keeping it "just in case".
+ * There is no branch that falls back to reaching past the host into `getSession().clearHistory()`.
+ * That is not the same operation — the host's version also broadcasts `history_cleared` to every
+ * attached surface, so the fallback would silently clear the transcript on ONE surface and leave
+ * the others showing it. That divergence is what an absence-guarded default buys, and why the
+ * member is required instead of guarded "just in case".
  */
 export function clearConversationHistory(context: ICommandHostSessionAccess): void {
   context.clearConversationHistory();
@@ -64,14 +63,13 @@ export function readCommandSessionInfo(context: ICommandHostSessionAccess): ICom
 /**
  * The one computed path, and its only owner.
  *
- * This used to be the ELSE branch of an override hook: `validateCurrentSessionReplayLog?.()` was
- * optional, and no production host implemented it, so this branch was the only code that ever ran.
- * An override with a framework-owned default and no overrider is not a capability — it is two
- * declared paths, one of which is dead, and the dead one is where the two would silently diverge.
+ * It is not the ELSE branch of an optional override hook: an override with a framework-owned
+ * default and no overrider is not a capability — it is two declared paths, one of which is dead,
+ * and the dead one is where the two would silently diverge.
  *
- * So the member is now REQUIRED, the host delegates here, and this is the single place the report
- * is computed. Deleting the branch rather than leaving it as a fallback is the point (No-Fallback):
- * a fallback that no longer has a caller is a second implementation waiting to drift.
+ * So the host's member is REQUIRED, the host delegates here, and this is the single place the
+ * report is computed. There is no fallback branch (No-Fallback): a fallback with no caller is a
+ * second implementation waiting to drift.
  */
 export function computeSessionReplayValidationReport(
   source: ISessionLogSource,

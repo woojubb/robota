@@ -470,7 +470,7 @@ export class ScriptedSessionHarness {
     };
   }
 
-  /** The real session-log directory the framework writes to (`{cwd}/.agent/logs`). */
+  /** The real session-log directory the framework writes to (`logs` in the project-state dir). */
   logsDir(): string {
     return logsDirOf(this.cwd);
   }

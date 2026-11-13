@@ -1,7 +1,7 @@
 /**
  * Transport-neutral pending-prompt registry.
  *
- * A permission decision and an "ask the user" request are no longer served by a single injected
+ * A permission decision and an "ask the user" request are not served by a single injected
  * callback bound to one surface. Instead the session's event-emitting default handler asks this
  * registry to **park** the awaiting promise under a minted `id`, emit the corresponding session event
  * (`permission_request` / `ask_request`), and let ANY attached surface (local TUI, a WS/WebRTC driver,

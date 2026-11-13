@@ -2,7 +2,7 @@
  * Leaf type module for {@link IAgentToolDeps}.
  *
  * Split out of `agent-tool.ts` so `agent-tool-batch.ts` can depend on this type without importing
- * back from `agent-tool.ts`, which previously created an import cycle between the two.
+ * back from `agent-tool.ts`, which would create an import cycle between the two.
  */
 import type { IInProcessSubagentRunnerDeps } from '../subagents/index.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';

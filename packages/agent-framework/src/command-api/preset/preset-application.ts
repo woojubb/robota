@@ -23,7 +23,7 @@ export interface IPresetApplicationResult {
   /**
    * Preset `enabledCommandModules`/`disabledCommandModules` names that matched no live
    * command module. Empty when every name matched (or the group was skipped). The `/preset` command
-   * surfaces these as a non-fatal notice so an in-session switch is no longer silent.
+   * surfaces these as a non-fatal notice so an in-session switch is not silent.
    */
   readonly unknownCommandModules: readonly IUnknownCommandModuleName[];
 }
@@ -128,8 +128,7 @@ export async function applyPresetToSession(
   }
 
   // Identity group — startup applies the preset's `agentName`, so the live path must too, or
-  // switching to the SAME preset mid-session leaves the old name. Owner decision 2026-08-20:
-  // `/preset` renames.
+  // switching to the SAME preset mid-session leaves the old name. `/preset` renames.
   if (options.agentName !== undefined) {
     await context.getSession().applyAgentName(options.agentName);
     applied.push('agentName');

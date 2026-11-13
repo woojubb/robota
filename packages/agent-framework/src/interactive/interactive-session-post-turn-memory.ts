@@ -4,7 +4,7 @@
  * Split out of the execution controller, which had grown past its size ratchet. Deciding whether a
  * finished turn produced anything worth remembering is its own job; running the turn is another.
  *
- * Two properties this keeps, and both were load-bearing where it used to live:
+ * Two properties this keeps, both load-bearing:
  *
  *  - COMPLETED USER turns only. An agent-wakeup or goal turn carries agent-authored text rather than
  *    user facts, so capturing from it would file the agent's own words as things the user said.

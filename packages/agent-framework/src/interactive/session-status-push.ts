@@ -1,11 +1,11 @@
 /**
  * Push the session's status to every attached client when it changes.
  *
- * A client used to read the status once and then only saw what it changed itself, so one client's
- * `/mode` never reached the others. The session now emits `status_changed` after anything that can
- * change the mode, model, effort, goal or name. Context usage is left out of the comparison: it
- * changes on every turn and has its own `context_update` event, so counting it would turn every turn
- * into a status push.
+ * A client that read the status once would see only what it changed itself, so one client's
+ * `/mode` would never reach the others. The session therefore emits `status_changed` after
+ * anything that can change the mode, model, effort, goal or name. Context usage is left out of the
+ * comparison: it changes on every turn and has its own `context_update` event, so counting it would
+ * turn every turn into a status push.
  */
 
 import type {

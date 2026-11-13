@@ -14,7 +14,10 @@ export interface ILoadedContext {
   agentsMd: string;
   /** Concatenated content of all CLAUDE.md files found (root-first) */
   projectNotesMd: string;
-  /** Startup project memory index loaded from .agent/memory/MEMORY.md, if present */
+  /**
+   * Startup project memory index loaded from `memory/MEMORY.md` in the project-state directory, if
+   * present
+   */
   memoryMd?: string;
   /** Formatted active task context loaded from the host-selected task directory, if present */
   taskContext?: string;

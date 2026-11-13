@@ -6,7 +6,8 @@
  *
  * Outcomes: `ok: true` → `allow`; `ok: false` → `deny` with its reason; a non-boolean
  * or missing `ok`, or an unparseable response → `error`/`malformed-response`; a provider or
- * session failure → `error`/`transport-failure`. The three used to share exit code 1.
+ * session failure → `error`/`transport-failure`. The three stay distinct instead of collapsing
+ * into one exit code 1.
  */
 
 import { decodeHookVerdict } from '@robota-sdk/agent-core';

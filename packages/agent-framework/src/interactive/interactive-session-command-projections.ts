@@ -3,12 +3,12 @@
  *
  * Split out of the skill router, which routes commands and skills; turning an internal command into
  * the entry a transport receives is a different job, and that job is load-bearing.
- * `listCommands` used to drop `modelInvocable`, so every consumer got a flat catalogue with no way
- * to tell an operator-only command from a model-callable one — and the MCP adapter, reading that
- * list, offered commands marked NOT model-invocable to a remote peer's model.
+ * Dropping `modelInvocable` from the projection would give every consumer a flat catalogue with no
+ * way to tell an operator-only command from a model-callable one — and the MCP adapter, reading
+ * that list, would offer commands marked NOT model-invocable to a remote peer's model.
  *
  * A projection that silently narrows a contract is the defect this file exists to keep visible: the
- * mapping is now one small unit whose whole content is what crosses the boundary.
+ * mapping is one small unit whose whole content is what crosses the boundary.
  */
 
 import type { ICommandSkillListEntry } from '../commands/index.js';

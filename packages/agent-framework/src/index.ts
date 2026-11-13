@@ -824,8 +824,8 @@ export type {
 } from './context/context-reference-inventory.js';
 
 // ── Interaction channel contracts: SSOT is @robota-sdk/agent-interface/session ─────
-// (the residual type-only pass-through re-exports were removed;
-// consumers import IInteractionChannel/InteractionEvent/ICommandInfo from the SSOT.)
+// (this package does not re-export them; consumers import
+// IInteractionChannel/InteractionEvent/ICommandInfo from the SSOT.)
 export { parseInput, isSlashCommand, tokeniseSlashCommand } from './interaction/input-parser.js';
 export type { TParsedInput } from './interaction/input-parser.js';
 export type { IInteractiveRuntime } from './interaction/InteractiveRuntime.js';

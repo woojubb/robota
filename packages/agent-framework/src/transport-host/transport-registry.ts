@@ -154,7 +154,7 @@ export class TransportRegistry {
   /**
    * Hand the persisted options to a transport BEFORE it starts. Non-empty
    * options a transport cannot receive (`configure` absent) or refuses (`validateOptions` false) are
-   * a typed configuration error rather than a silent ignore — the former "read, displayed, never
+   * a typed configuration error rather than a silent ignore — never a "read, displayed, never
    * applied" state.
    */
   private deliverOptions(transport: TBoundTransportAdapter): void {

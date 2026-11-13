@@ -1,9 +1,9 @@
 /**
  * The session names itself once, after its first turn that ran.
  *
- * Naming used to happen in the in-process terminal, so a session driven by any other client stayed
- * unnamed, and a terminal attached to a served session could not name it. The session owns it now,
- * with the provider it is using when that turn ends (a `/provider switch` before then is honored).
+ * The session owns the naming, not the in-process terminal, so a session driven by any other client
+ * is named too and a terminal attached to a served session need not name it. It uses the provider
+ * the session has when that turn ends (a `/provider switch` before then is honored).
  *
  * Only a turn's own message counts: a remote-control notice is emitted as a `user_message` too, but
  * no `turn_source` precedes it. A turn that failed, or a title that could not be generated, does not

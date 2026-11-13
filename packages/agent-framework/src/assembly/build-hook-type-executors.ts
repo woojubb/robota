@@ -3,7 +3,8 @@
  *
  * Extracted from `create-session.ts` so the registry has one owner. The ordering rule below is the
  * reason it is worth a file of its own: it is a correctness property, not a formatting choice, and
- * it was previously implied by the order of statements inside a much longer function.
+ * it is stated here instead of being implied by the order of statements inside a much longer
+ * function.
  */
 
 import { GuardrailExecutor } from '@robota-sdk/agent-core';
