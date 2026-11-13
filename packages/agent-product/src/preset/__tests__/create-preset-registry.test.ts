@@ -36,7 +36,7 @@ describe('createPresetRegistry — instance-scoped resolution', () => {
     expect(registry.listPresets().map((p) => p.id)).toContain('default');
   });
 
-  it('leaves a later registry unaffected (R8 — no cross-contamination)', () => {
+  it('leaves a later registry unaffected (no cross-contamination)', () => {
     createPresetRegistry([acmeReviewer]);
 
     // This used to assert the module-level global was untouched. There is no global to

@@ -312,7 +312,7 @@ describe('assembleProduct — capability fold', () => {
   });
 });
 
-describe('assembleProduct — instance-scoped preset resolution (R8)', () => {
+describe('assembleProduct — instance-scoped preset resolution', () => {
   const acmeReviewer: IPreset = {
     id: 'acme-reviewer',
     title: 'Acme Reviewer',
@@ -340,7 +340,7 @@ describe('assembleProduct — instance-scoped preset resolution (R8)', () => {
     expect(product.presets.getPreset('default')).toBeDefined();
   });
 
-  it('does NOT mutate the module-global preset registry (R8 — no cross-contamination)', () => {
+  it('does NOT mutate the module-global preset registry (no cross-contamination)', () => {
     const profile: IProductProfile = {
       id: 'acme',
       providerDefinitions: [],
@@ -431,7 +431,7 @@ describe('assembleProduct — instance-scoped preset resolution (R8)', () => {
   });
 });
 
-describe('assembleProduct — runtime construction delegates to the framework seam (R2)', () => {
+describe('assembleProduct — runtime construction delegates to the framework seam', () => {
   it('buildRuntime returns an InteractiveSession built via buildRuntimeSession, threading the assembled modules', async () => {
     const profile: IProductProfile = {
       id: 'acme',
