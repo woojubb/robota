@@ -6,7 +6,7 @@ const MONOREPO_ROOT = path.join(process.cwd(), '..', '..');
 const CONTENT_DIR = path.join(MONOREPO_ROOT, 'content');
 const PACKAGES_DIR = path.join(MONOREPO_ROOT, 'packages');
 
-const EXCLUDED_DIRS = new Set(['images', 'ko']);
+const EXCLUDED_DIRS = new Set(['ko']);
 
 export interface SidebarItem {
   title: string;

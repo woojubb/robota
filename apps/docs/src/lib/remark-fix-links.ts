@@ -28,8 +28,6 @@ export const GITHUB_RAW_BASE = configuredRepository
   ? configuredRepository.replace('https://github.com/', 'https://raw.githubusercontent.com/') + '/main'
   : undefined;
 
-/** Content directories the site does not render as routes. */
-const UNROUTED_CONTENT_DIRS = new Set(['images']);
 const LOCALE_PREFIX = /^\/(en|ko)(\/|$)/;
 
 export interface IRemarkFixLinksOptions {
@@ -136,7 +134,6 @@ function siteRoute(parts: string[], absolutePath: string): string | null {
   if (parts[0] === 'content') {
     let rest = parts.slice(1);
     if (rest[0] === 'ko') rest = rest.slice(1);
-    if (rest.length > 0 && UNROUTED_CONTENT_DIRS.has(rest[0])) return null;
     return pageRoute(rest, isDir, absolutePath);
   }
 

@@ -8,7 +8,6 @@ build time; it does not own any of that content.
 
 - `content/**` at `/{en,ko}/<path without .md>/` (a `README.md` is its folder's index). A Korean page
   comes from `content/ko/` when that file exists and falls back to the English one otherwise.
-  `content/images/` is not rendered.
 - `packages/<dir>/docs/**/*.md` at `/{en,ko}/packages/<dir>/` (`docs/README.md`) and
   `/{en,ko}/packages/<dir>/<path without .md>/`, in English for both locales. The sidebar lists only
   a package's top-level files. `apps/*/docs/` is not rendered.
