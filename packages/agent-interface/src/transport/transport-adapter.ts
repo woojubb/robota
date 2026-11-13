@@ -63,13 +63,11 @@ export interface ITransportAdapter<TSession = unknown> {
    * Begin serving or launch runner work. This resolves at the concrete transport's documented
    * readiness boundary; runner completion is observed separately through `waitForCompletion()`.
    *
-   * The contract used to say only `start(): Promise<void>`, and two readings coexisted.
-   * Four transports bound a port and returned; `headless` ran the entire prompt inside `start()` and
-   * `tui` blocked for the life of the UI. `TransportRegistry.startAll` awaited each in turn, so
-   * registering either of those first meant every transport behind it never started — no crash, no
-   * error, simply never reached.
-   *
-   * The required lifecycle discriminant removes the former ambiguous `runsToCompletion` flag.
+   * `start(): Promise<void>` alone is ambiguous between a transport that binds a port and returns
+   * and one that runs the entire prompt inside `start()` or blocks for the life of the UI.
+   * `TransportRegistry.startAll` awaits each in turn, so a transport of the second kind registered
+   * first would leave every transport behind it never started — no crash, no error, simply never
+   * reached. The `lifecycle` discriminant is required so that a transport states which kind it is.
    */
   start(): Promise<void>;
   stop(): Promise<void>;

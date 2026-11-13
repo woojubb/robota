@@ -1,8 +1,8 @@
 /**
  * The persistence port for resumable interactive sessions, and the vocabulary its loads answer in.
  *
- * Split out of `session-contracts.ts`: the port, its outcome union, its listing entry
- * and the decode-issue shape are one subject, and the file they were in is at its size ratchet.
+ * The port, its outcome union, its listing entry and the decode-issue shape are one subject,
+ * declared apart from `session-contracts.ts`.
  * It lives in this package rather than `agent-interface/transport` because the
  * session contract family is owned here; a store port is a session contract, and the owner map says so.
  */
@@ -88,9 +88,10 @@ export type TSessionLoadOutcome =
     }
   /**
    * Present and written by a build this one does not read. Carries the version it saw, and `cwd`
-   * when the raw bytes still carry a plain `cwd` string despite the version mismatch — this is the
-   * shape a pre-envelope legacy record takes. A file sealed in a framing version this build does not
-   * open is this too, with no version and no `cwd`, since nothing inside it can be read.
+   * when the raw bytes still carry a plain `cwd` string despite the version mismatch — a record with
+   * no numeric `schemaVersion` of its own takes this shape. A file sealed in a framing version this
+   * build does not open is this too, with no version and no `cwd`, since nothing inside it can be
+   * read.
    */
   | {
       readonly status: 'unsupported';

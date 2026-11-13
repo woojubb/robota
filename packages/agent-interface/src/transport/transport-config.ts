@@ -44,7 +44,10 @@ export interface ITransportSettingsRepository {
   write(name: string, saved: ITransportSavedConfig): void;
 }
 
-/** Legacy configurable transports are services; settings remain an orthogonal capability. */
+/**
+ * A configurable transport that is a service; settings stay an orthogonal capability, so
+ * {@link TConfigurableTransport} also admits runners.
+ */
 export interface IConfigurableTransport<TSession = unknown>
   extends ITransportServiceAdapter<TSession>, ITransportSettingsCapability {}
 

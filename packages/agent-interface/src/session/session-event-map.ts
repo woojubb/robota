@@ -188,7 +188,6 @@ export interface IPromptResolvedEvent {
 export interface IContextFileRefreshedEvent {
   filePath: string; // Authority-scoped project-root-relative path, never an ambient host path.
 }
-// is at its size ratchet, so a new member splits rather than extends.
 /** A checkpoint/branch lifecycle transition a surface renders. */
 type TCheckpointEventKind = `checkpoint_${'created' | 'restored' | 'rolled_back'}`;
 type TBranchEventKind = `branch_${'forked' | 'switched'}`;
@@ -286,7 +285,7 @@ export interface ISessionStatusSnapshot {
   /**
    * True while `model` is a placeholder because no provider is configured yet — a
    * served runtime's first run. A client shows a setup screen instead of a composer. Absent (never
-   * `false`) once a provider is configured, which is every session before this existed.
+   * `false`) once a provider is configured.
    */
   readonly setupRequired?: boolean;
   /**
@@ -417,9 +416,9 @@ export interface IPlanArtifact {
  * mirroring how {@link IGoalEvent} carries the goal state. The event only OBSERVES the phase
  * transition — the mutation gate stays the existing `plan` permission mode.
  *
- * Declared here (rather than `event-contracts.ts`, where it used to live) because it carries
- * {@link IPlanArtifact}, declared in this file; `event-contracts.ts` re-exports it for
- * compatibility.
+ * Declared here rather than in `event-contracts.ts` because it carries {@link IPlanArtifact},
+ * declared in this file. `event-contracts.ts` does not re-export it: this file imports from that
+ * one, so a re-export would create an import cycle. The session entry exports it from here.
  */
 export interface IPlanApprovalEvent {
   type: 'plan_created' | 'plan_approved' | 'plan_reverted';
