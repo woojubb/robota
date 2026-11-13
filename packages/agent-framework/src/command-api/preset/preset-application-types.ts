@@ -4,7 +4,7 @@
  * Split out of `preset-application.ts` so `host-adapters.ts` can depend on this type without
  * importing back from `preset-application.ts` (which imports `ICommandHostPresetApplication`/
  * `ICommandHostSessionAccess` from `host-roles.ts`, which imports `ICommandHostAdapters` from
- * `host-adapters.ts`) — that previously created an import cycle.
+ * `host-adapters.ts`) — that would create an import cycle.
  */
 import type { TModelEffortSelection, TPermissionMode } from '@robota-sdk/agent-core';
 
@@ -37,7 +37,7 @@ export interface IPresetApplicationOptions {
   /**
    * The preset's tool lists, re-applied to the live enforcer.
    *
-   * An allowlist REPLACES what the preset layer previously contributed; a denylist UNIONS, because a
+   * An allowlist REPLACES what the preset layer contributed before; a denylist UNIONS, because a
    * denial is not weakened by a later layer that forgot to repeat it. Both halves ship together: an
    * allowlist that replaces while its paired denylist stayed behind would widen what the session
    * permits, which is the failure the pairing exists to prevent.

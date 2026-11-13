@@ -21,8 +21,8 @@ const testHost = createTestFrameworkHost();
 
 /**
  * `assembleProduct` is a PURE, deterministic, IO-free fold over `IProductProfile`. It
- * resolves presets via a per-call instance-scoped registry (R8), merges packs via `mergeCapabilityPacks`,
- * and delegates runtime construction to `agent-framework`'s `buildRuntimeSession` seam (R2) — it never
+ * resolves presets via a per-call instance-scoped registry, merges packs via `mergeCapabilityPacks`,
+ * and delegates runtime construction to `agent-framework`'s `buildRuntimeSession` seam — it never
  * re-implements runtime assembly and never special-cases any product's id.
  */
 
@@ -312,7 +312,7 @@ describe('assembleProduct — capability fold', () => {
   });
 });
 
-describe('assembleProduct — instance-scoped preset resolution (R8)', () => {
+describe('assembleProduct — instance-scoped preset resolution', () => {
   const acmeReviewer: IPreset = {
     id: 'acme-reviewer',
     title: 'Acme Reviewer',
@@ -340,7 +340,7 @@ describe('assembleProduct — instance-scoped preset resolution (R8)', () => {
     expect(product.presets.getPreset('default')).toBeDefined();
   });
 
-  it('does NOT mutate the module-global preset registry (R8 — no cross-contamination)', () => {
+  it('does NOT mutate the module-global preset registry (no cross-contamination)', () => {
     const profile: IProductProfile = {
       id: 'acme',
       providerDefinitions: [],
@@ -431,7 +431,7 @@ describe('assembleProduct — instance-scoped preset resolution (R8)', () => {
   });
 });
 
-describe('assembleProduct — runtime construction delegates to the framework seam (R2)', () => {
+describe('assembleProduct — runtime construction delegates to the framework seam', () => {
   it('buildRuntime returns an InteractiveSession built via buildRuntimeSession, threading the assembled modules', async () => {
     const profile: IProductProfile = {
       id: 'acme',

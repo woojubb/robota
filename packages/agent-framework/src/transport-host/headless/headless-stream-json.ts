@@ -30,8 +30,7 @@ export async function executeSlashCommandIfPresent(
 
   const result = await session.executeCommand(command.name, command.args);
   if (result) {
-    // `data.sessionExecution` is the requester-local "a session turn is now
-    // running" hint (formerly the `session-execution-started` effect).
+    // `data.sessionExecution` is the requester-local "a session turn is now running" hint.
     if (result.data?.['sessionExecution'] === true) {
       return { kind: 'session-execution' };
     }

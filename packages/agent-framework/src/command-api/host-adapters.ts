@@ -63,7 +63,7 @@ export interface ICommandPermissionModeAdapter {
 
 /** The permission rules one settings layer declares, named the way the user would find the file. */
 export interface IPermissionRuleLayer {
-  /** The file as the user would find it, e.g. `~/.agent/settings.json`. */
+  /** The file as the user would find it: the settings source's display name. */
   readonly source: string;
   readonly scope: string;
   readonly allow: readonly string[];
@@ -636,9 +636,9 @@ export interface ICommandCostBudget {
 /**
  * The narrow storage port `/cost budget` reads and writes through.
  *
- * The command used to own the budget file's location and the filesystem calls itself, which made a
+ * The command does not own the budget file's location or the filesystem calls: that would make a
  * reusable command package responsible for a product's storage location and symlink policy. The
- * shell now composes an adapter (agent-cli: a file under the workspace, written atomically and never
+ * shell composes an adapter (agent-cli: a file under the workspace, written atomically and never
  * through a symlink); the command sees `read/write/clear` and nothing else, so another product can
  * store the budget wherever it likes. `write`/`clear` throw a typed failure the command renders.
  */

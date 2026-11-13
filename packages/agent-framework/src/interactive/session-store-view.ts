@@ -4,7 +4,7 @@
  *
  * The members are listed once, held by the compiler to the port's own keys, so a member added to the
  * port cannot be left out of a view without the build saying so. A member a decorator forgot to
- * forward is how a view used to switch a store's guarantees off; here it cannot be forgotten.
+ * forward would silently switch a store's guarantees off; here it cannot be forgotten.
  */
 
 import type { IInteractiveSessionStore } from './session-store-types.js';

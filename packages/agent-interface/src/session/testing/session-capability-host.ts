@@ -1,5 +1,5 @@
 /**
- * The session-capability host MECHANISM, moved out of the interface package's
+ * The session-capability host MECHANISM, kept out of the interface package's
  * contract surface.
  *
  * This testing-only factory walks prototypes, caches accessors, rejects reserved or duplicate
@@ -9,7 +9,7 @@
  * subpath's `createTestSessionCapabilityHost`; it is not part of the production contract surface.
  *
  * The CONTRACTS it satisfies (`ISessionCapabilityHost`, `TSessionCapabilityHost`,
- * `TSessionCapabilityReadResult`) stayed in `session-capability-contracts.ts`, where contracts go.
+ * `TSessionCapabilityReadResult`) live in `session-capability-contracts.ts`, where contracts go.
  */
 
 import { SESSION_CAPABILITY_MEMBER_KEYS } from '../session-capability-contracts.js';

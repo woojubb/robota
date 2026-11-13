@@ -66,10 +66,10 @@ export type { IAgentRuntimeResult } from './build-runtime.js';
 /**
  * What a live preset switch may re-apply to the system prompt.
  *
- * One type rather than an inline literal at each site, because it is now written in four places —
+ * One type rather than an inline literal at each site, because it is written in four places —
  * the closure's parameter, the interface that declares it, the session's applier, and the host role.
- * Three of those were an inline `{ persona?; selfVerification? }` and the fourth would have been the
- * copy that forgets a field.
+ * An inline `{ persona?; selfVerification? }` at each would be four copies, and one of them would
+ * be the copy that forgets a field.
  */
 export interface TLivePromptOverrides {
   memoryMd?: string;
@@ -305,9 +305,8 @@ export function buildSessionSystemPrompt(
   // override) must keep the most recently applied value.
   //
   // Sourced from `config.language`, which is where a preset's language already ARRIVES — the
-  // interactive init merges `options.language` into the config. Adding a second key on
-  // `ICreateSessionOptions` would have been a second route to one value, which is the shape this
-  // whole item is about; it was written, and removed for that reason.
+  // interactive init merges `options.language` into the config. A second key on
+  // `ICreateSessionOptions` would be a second route to one value, so there is none.
   let currentLanguage = options.config.language;
 
   // A preset-supplied system prompt, mutable for the lifetime of this closure like the

@@ -123,9 +123,9 @@ export function listUnreadableSessions(
 /**
  * The unreadable sessions of ONE workspace.
  *
- * A store shared across workspaces (the user-level `~/.agent/sessions`) holds unreadable records
- * from every folder ever worked in there, and a brand-new folder used to be told about all of them —
- * "191 sessions could not be read" on a folder that had never seen one. An unreadable record still
+ * A store shared across workspaces (the user-level sessions directory) holds unreadable records
+ * from every folder ever worked in there, and reporting all of them would tell a brand-new folder
+ * "191 sessions could not be read" though it had never seen one. An unreadable record still
  * carries its raw `cwd` when the bytes are readable enough for that (the best-effort peek);
  * this asks only for the ones whose peeked `cwd` is THIS workspace. A record whose workspace cannot
  * be told at all is left out here — it is not lost, it simply is not this workspace's business.

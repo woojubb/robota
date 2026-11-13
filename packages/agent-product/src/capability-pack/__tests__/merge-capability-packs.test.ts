@@ -91,7 +91,7 @@ describe('mergeCapabilityPacks — additive merge', () => {
   });
 });
 
-describe('mergeCapabilityPacks — conflict rejection channel (R5)', () => {
+describe('mergeCapabilityPacks — conflict rejection channel', () => {
   it('rejects a duplicate pack atomically, including an empty duplicate, and continues', () => {
     const result = mergeCapabilityPacks(
       [],

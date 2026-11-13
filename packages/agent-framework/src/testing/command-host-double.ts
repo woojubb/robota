@@ -28,8 +28,7 @@ import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface/sess
  *
  * The returned object is typed `ICommandHostContext` with **no assertion**. The compiler refuses it
  * the moment the contract gains a member this file does not answer. A double built through a cast —
- * or through a typed factory that lies — would satisfy the cast ratchet and guarantee nothing, which
- * is the failure mode `scan-contract-cast-ratchet.mjs` documents in its own header.
+ * or through a typed factory that lies — would satisfy a cast check and guarantee nothing.
  *
  * ## What the defaults mean
  *
@@ -124,10 +123,9 @@ let doublesCreated = 0;
 export function createTestSessionRuntime(
   overrides?: TOverrides<ICommandSessionRuntime>,
 ): ICommandSessionRuntime {
-  // No cast here either. An earlier revision of this file wrote `as ICommandSessionRuntime` over four
-  // members of an 18-member contract — the exact defect this double exists to remove, inside the file
-  // that removes it. A double built through a helper that casts satisfies the ratchet and guarantees
-  // nothing; `scan-contract-cast-ratchet.mjs` says so in its own header.
+  // No cast here either. `as ICommandSessionRuntime` over members of an 18-member contract is the
+  // exact defect this double exists to remove, inside the file that removes it. A double built
+  // through a helper that casts satisfies a cast check and guarantees nothing.
   const appliedPresetToolLists: {
     allowedTools?: readonly string[];
     deniedTools?: readonly string[];

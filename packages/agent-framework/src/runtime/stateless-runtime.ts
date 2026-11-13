@@ -3,7 +3,7 @@
  *
  * Thin wrapper around createAgentRuntime that disables all filesystem side-effects —
  * - sessionStore: undefined  (no session persistence)
- * - commandHostAdapters with no-op settings (no ~/.agent/settings.json writes)
+ * - commandHostAdapters with no-op settings (no user-level settings file writes)
  *
  * Sessions created from this runtime default to bare: true (skip AGENTS.md/CLAUDE.md
  * loading and plugin discovery). Override per-session if needed.

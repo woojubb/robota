@@ -16,14 +16,12 @@ import type { IUniversalObjectValue, TUniversalValue } from '@robota-sdk/agent-c
  * indistinguishable, and the second silently removed provider allowlisting, blocked commands and the
  * plaintext-key requirement together.
  *
- * A file that EXISTS and cannot be understood therefore throws. That answers the concern the
- * sanctioned-degradation comment here used to state — "malformed org-policy.json must not crash CLI
- * startup" — rather than deleting it: a **missing** file is the common case and still returns `null`
- * without throwing. What throws is a file an administrator put there that cannot be read, which is
- * their error to see.
+ * A file that EXISTS and cannot be understood therefore throws. A **missing** `org-policy.json` is
+ * the common case and must not crash CLI startup, so it still returns `null` without throwing. What
+ * throws is a file an administrator put there that cannot be read, which is their error to see.
  *
  * `settings-io.ts` and the trusted-device store answer the same question the same way, one
- * and two files over. This loader was the one that did not.
+ * and two files over.
  */
 export function loadOrgPolicy(policyPath: string): IOrgPolicy | null {
   if (typeof policyPath !== 'string' || policyPath.trim() === '') {

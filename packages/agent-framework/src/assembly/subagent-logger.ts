@@ -69,7 +69,7 @@ export function resolveSubagentTranscriptPath(
  *
  * @param parentSessionId - ID of the parent session (used as directory name)
  * @param agentId - Unique identifier for this subagent run
- * @param baseLogsDir - Root logs directory (e.g., `.agent/logs`)
+ * @param baseLogsDir - Root logs directory (the `logs` folder of the project-state directory)
  * @param options - `sealing` (required), as for the session stores: `{ sealer }` seals every record
  *   of the log, `'plain'` writes it plain
  * @param fs - the file system the directory is made in

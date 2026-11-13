@@ -263,10 +263,10 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
   /**
    * Load a session, saying which of the five things happened.
    *
-   * **The replay log runs for `missing` and only for `missing`.** It used to run
-   * whenever the parse failed, so a damaged snapshot was quietly replaced by a partial
-   * reconstruction — no `goal`, no `plan`, no `activeBranch`, no `toolSchemas`, and no indication
-   * that a more complete record was sitting on disk unreadable. Recovery is for absence; a damaged
+   * **The replay log runs for `missing` and only for `missing`.** Running it whenever the parse
+   * failed would quietly replace a damaged snapshot with a partial reconstruction — no `goal`, no
+   * `plan`, no `activeBranch`, no `toolSchemas`, and no indication that a more complete record was
+   * sitting on disk unreadable. Recovery is for absence; a damaged
    * record is reported — and a `locked` one is present too, so a sealed snapshot the keys cannot
    * open never falls through to a reconstruction either. Nor does a snapshot past the read limit:
    * it is present, so it is `corrupt` rather than a reason to rebuild it or to take a listing down.
@@ -387,8 +387,8 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
    *
    * `load` validates the id because a caller's malformed id is a bug or an attack. A name
    * read out of the project directory is neither, and the two wrong answers are symmetrical: throw,
-   * and one file takes the listing down; filter, and the file disappears exactly the way an
-   * unreadable record used to. The second is what this store did.
+   * and one file takes the listing down; filter, and the file disappears from the listing as if
+   * it were not there. This store does neither: it reports the entry as `corrupt`.
    */
   private outcomeForListedId(id: string): TSessionLoadOutcome {
     if (!isSafeSessionId(id)) {

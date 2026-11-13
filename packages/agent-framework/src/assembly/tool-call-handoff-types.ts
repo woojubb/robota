@@ -5,7 +5,7 @@
  * {@link IToolCallHandoffProvenance} without importing back from `create-session-types.ts`
  * (which imports `TSubagentRunnerFactory` from `in-process-subagent-runner.ts`, which imports
  * `createSubagentSession` from `create-subagent-session.ts`, which imports
- * `unwrapToolCallHandoff` from `tool-call-handoff.ts`) — that previously created an import cycle.
+ * `unwrapToolCallHandoff` from `tool-call-handoff.ts`) — that would create an import cycle.
  */
 
 /**

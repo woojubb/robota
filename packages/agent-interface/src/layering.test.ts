@@ -8,9 +8,8 @@ const SRC = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * The layering of the contract families: the subpaths each one may import (the dependency edges
- * the contract packages declared before they became one package). A subpath may import only
- * itself, the entry of a subpath listed here and, for the families in `MAY_IMPORT_CORE`,
- * `@robota-sdk/agent-core`.
+ * between the families). A subpath may import only itself, the entry of a subpath listed here and,
+ * for the families in `MAY_IMPORT_CORE`, `@robota-sdk/agent-core`.
  */
 const MAY_IMPORT: Readonly<Record<string, readonly string[]>> = {
   analytics: [],
@@ -22,7 +21,7 @@ const MAY_IMPORT: Readonly<Record<string, readonly string[]>> = {
   tui: [],
 };
 
-/** The subpaths that may name `@robota-sdk/agent-core`: the old packages that depended on it. */
+/** The subpaths that may name `@robota-sdk/agent-core`; the others stay free of it. */
 const MAY_IMPORT_CORE: readonly string[] = [
   'command',
   'execution',

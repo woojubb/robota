@@ -13,17 +13,16 @@ import type { IEditorFileAccess, ISandboxClient } from '@robota-sdk/agent-tools'
 /**
  * The session context agent's coding tools are bound to.
  *
- * `cwd` is **required, not optional** — and that is the whole point of this factory. `agent-tools`'
- * `checkPathWithinCwd` USED TO BE a no-op when `cwd` was `undefined`, so file tools constructed with no
- * options carried a DISARMED working-directory guard: their `Read` returned `/etc/hostname`. That was
- * inert while the framework's own context-bound default tier always won a name
- * collision. Once a product could hand the entire tool surface to its packs (`defaultTools: []`), a
- * context-free pack became an unsandboxed `Read`/`Write`/`Edit`.
+ * `cwd` is **required, not optional** — and that is the whole point of this factory. File tools
+ * built without a working directory have nothing to bind their working-directory guard to; a guard
+ * that read a missing `cwd` as "no restriction" would let a context-free pack become an unsandboxed
+ * `Read`/`Write`/`Edit`. That matters because a product can hand the entire tool surface to its
+ * packs (`defaultTools: []`) instead of leaving it to the framework's context-bound default tier.
  *
- * The layer below is fixed too: the guard refuses when no root is configured, and the tool
- * factories require `cwd` themselves. This requirement is therefore no longer load-bearing on its own —
- * it stays because the scoping decision should be
- * impossible to forget at every layer, not only the lowest one.
+ * The layer below refuses too: `agent-tools`' `checkPathWithinCwd` refuses when no root is
+ * configured, and the tool factories require `cwd` themselves. This requirement is therefore not
+ * load-bearing on its own — it stays because the scoping decision should be impossible to forget
+ * at every layer, not only the lowest one.
  */
 export interface ICodingPackOptions {
   /** Product-host shell choice for tools and the interactive /shell command. */
@@ -62,11 +61,11 @@ export interface ICodingPackOptions {
  *
  * - **tools** — `createDefaultTools()` from `@robota-sdk/agent-tools/defaults`, CONSUMED rather than
  *   mirrored. That set is shell/bash/read/write/edit/glob/grep/webFetch/askUserQuestion,
- *   all tools that need no adapter, credential or external service. The list used to be rebuilt
- *   here from the `@robota-sdk/agent-tools` factories and held to the defaults by a NAME-equality test
- *   — a pin that could not fail, because comparing names
+ *   all tools that need no adapter, credential or external service. The list is not rebuilt here
+ *   from the `@robota-sdk/agent-tools` factories and held to the defaults by a NAME-equality test
+ *   — such a pin could not fail, because comparing names
  *   cannot distinguish a pack-composed surface from an imported-default one when the two are pinned.
- *   The relationship is structural now, so there is no drift left to pin.
+ *   The relationship is structural, so there is no drift to pin.
  * - **commandModules** — the coding command modules: `/shell`, `/editor` and `/git` (the capability-level
  *   command modules, distinct from product-shell/settings/provider command infrastructure).
  * - **subagents** — agent's built-in coding subagents (`general-purpose`, `Explore`, `Plan`).
@@ -95,11 +94,10 @@ export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
       'Built-in coding capability: file/shell tools, /shell + /editor + /git commands, and the coding subagents.',
     // The always-present default set, consumed from its owner rather than rebuilt here.
     //
-    // This list used to be hand-maintained, identical to `createDefaultTools()`'s always-present
-    // tier, and the two were held together by a test asserting their NAMES matched. That pin is what
-    // made it unable to fail: comparing tool names cannot tell a
-    // pack-composed surface from an imported-default one when the pack is pinned to the defaults.
-    // Consuming the set makes the relationship structural, so there is nothing left to drift.
+    // This list is not hand-maintained to mirror `createDefaultTools()`'s always-present tier: a
+    // test asserting that the NAMES matched could not fail, because comparing tool names cannot
+    // tell a pack-composed surface from an imported-default one when the pack is pinned to the
+    // defaults. Consuming the set makes the relationship structural, so there is nothing to drift.
     //
     // The default set holds no tool that needs an adapter, a credential or an external service, so
     // neither does this pack. The sandbox still holds — `cwd` is REQUIRED here, so the file-tool

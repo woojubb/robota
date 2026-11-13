@@ -2,12 +2,12 @@
  * Config loader — discovers, merges, and validates settings files.
  *
  * Precedence (lowest → highest):
- *   1. ~/.agent/settings.json       (user)
- *   2. ~/.claude/settings.json       (user, Claude Code compat)
- *   3. .agent/settings.json         (project)
- *   4. .agent/settings.local.json   (project-local)
- *   5. .claude/settings.json         (project, Claude Code compat)
- *   6. .claude/settings.local.json   (project-local, highest priority)
+ *   1. <user state dir>/settings.json           (user)
+ *   2. ~/.claude/settings.json                  (user, Claude Code compat)
+ *   3. <project state dir>/settings.json        (project)
+ *   4. <project state dir>/settings.local.json  (project-local)
+ *   5. .claude/settings.json                    (project, Claude Code compat)
+ *   6. .claude/settings.local.json              (project-local, highest priority)
  */
 import { mergeSettingsWithHookSources } from './config-merge.js';
 import { readSettingsLayers } from './settings-inspection.js';

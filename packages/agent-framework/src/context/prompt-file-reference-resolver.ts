@@ -21,11 +21,11 @@ const BYTES_PER_KIB = Number('1024');
 const DEFAULT_MAX_FILE_BYTES = Number('64') * BYTES_PER_KIB;
 const DEFAULT_MAX_TOTAL_BYTES = Number('256') * BYTES_PER_KIB;
 // The reader decodes every file as UTF-8 unconditionally (`readText` in
-// workspace-trust/project-reader-path.ts) — a binary file was previously sent to the model as
-// mangled text instead of being refused. A NUL byte survives that decode unchanged (0x00 is valid
-// single-byte UTF-8), so sniffing for one in the first 8 KiB reliably flags binary content without
-// needing raw-byte access here. Every surface shares this resolver, so this refusal is universal
-// (GUI, TUI, headless), not a GUI-only client-side check.
+// workspace-trust/project-reader-path.ts), so without a check a binary file would be sent to the
+// model as mangled text instead of being refused. A NUL byte survives that decode unchanged (0x00
+// is valid single-byte UTF-8), so sniffing for one in the first 8 KiB reliably flags binary
+// content without needing raw-byte access here. Every surface shares this resolver, so this
+// refusal is universal (GUI, TUI, headless), not a GUI-only client-side check.
 const BINARY_SNIFF_CHARS = Number('8') * BYTES_PER_KIB;
 
 interface IResolvedLimits {
@@ -166,9 +166,9 @@ function hasUnsafePathShape(value: string): boolean {
  * to attach a dotless filename, which `@Makefile` alone cannot do. A literal `.` segment (leading or
  * internal) is always a no-op in ordinary path semantics, so it is stripped here before the safety
  * check and the workspace-relative lookup, rather than loosening `hasUnsafePathShape` itself. `..` is
- * left completely untouched (never collapsed, never specially handled) — it still reaches
- * `hasUnsafePathShape` exactly as before and is still refused, so `../secret.md` and the
- * `.`-disguised `./../secret.md` are both still `outside-root` after this change, same as before it.
+ * left completely untouched (never collapsed, never specially handled) — it reaches
+ * `hasUnsafePathShape` unchanged and is refused, so `../secret.md` and the `.`-disguised
+ * `./../secret.md` are both `outside-root`.
  */
 function collapseDotSegments(value: string): string {
   return value

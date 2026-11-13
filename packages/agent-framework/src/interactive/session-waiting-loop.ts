@@ -1,8 +1,8 @@
 /**
  * Stopping the self-paced loop that waits for its next wake (Esc on an idle prompt).
  *
- * The rule used to live in the in-process terminal, so an attached client could not apply it. It
- * belongs to the session: the session knows which loops wait, and every client gets the same answer.
+ * The rule lives in the session, not the in-process terminal, so an attached client can apply it
+ * too: the session knows which loops wait, and every client gets the same answer.
  */
 
 import type {

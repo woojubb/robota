@@ -29,8 +29,7 @@ export const MAX_PENDING_QUEUE_DEPTH = 32;
 export interface IQueueSettlers {
   /** Tell the holder of this submission's handle that it will never run. */
   // The reason type comes from the contract that owns it. Spelling the members here again would be
-  // a second vocabulary to keep in step — and this file's own subject is a queue whose members
-  // changed once already in review ('shutdown' was removed as unreachable).
+  // a second vocabulary to keep in step.
   refuse: (turnId: string, reason: TTurnNotRunReason) => void;
   fail?: (turnId: string, error: Error) => void;
   /** Release a wake gate for an entry that will never run. */

@@ -134,10 +134,10 @@ export async function createInteractiveSession(
       }
     } catch (error) {
       // allow-fallback: a plugin problem must not stop the session from starting; what it
-      // must not do is stay invisible — the previous comment ("No plugins dir or load failed")
-      // conflated a normal case with an error, and both produced identical silence, so a user whose
-      // hooks stopped running had nothing to look at. The loader now reports and skips per plugin,
-      // so reaching here at all means discovery itself failed.
+      // must not do is stay invisible — a normal case (no plugins dir) and an error (load failed)
+      // must not produce the same silence, or a user whose hooks stopped running has nothing to
+      // look at. The loader reports and skips per plugin, so reaching here at all means discovery
+      // itself failed.
       logger.warn('plugin discovery failed — no bundle plugin hooks are active this session', {
         pluginsDirs,
         error: error instanceof Error ? error.message : String(error),

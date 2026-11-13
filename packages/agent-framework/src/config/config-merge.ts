@@ -53,8 +53,8 @@ export interface ISettingsLayerWithSource {
  * Deep-merge settings objects. Later entries in the array win.
  *
  * Arrays are replaced (not concatenated) so that project settings fully override user settings for
- * list-type fields — with ONE exception, stated here because the previous version of this comment
- * described two behaviours and the function performed three.
+ * list-type fields — with ONE exception, stated here so that every behaviour the function
+ * performs is documented.
  *
  * **`hooks` is merged per event, never replaced.** It is not a list-type field: it is an
  * object keyed by lifecycle event, so it fell through the top-level spread and neither documented
@@ -149,9 +149,9 @@ function mergePermissions(
 ): TEnvResolvedSettings['permissions'] {
   if (base === undefined && override === undefined) return undefined;
   return {
-    // Every list UNIONS. An allow list is no longer "the complete permitted set" —
+    // Every list UNIONS. An allow list is not "the complete permitted set" —
     // deny and ask rules, the never-auto-approve set and a caller's ceiling all outrank it — and
-    // replacing let a checked-in project file silently discard the user's own rules.
+    // replacing would let a checked-in project file silently discard the user's own rules.
     allow: unionPatterns(base?.allow, override?.allow),
     // A denial is not weakened by a later layer that forgot to repeat it; nor is an ask.
     deny: unionPatterns(base?.deny, override?.deny),
