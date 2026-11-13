@@ -14,7 +14,7 @@ import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface/sess
  * ## Why this exists
  *
  * 21 test fixtures reached the command host through a double assertion to it, and another
- * set reaches it through typed literals the cast ratchet cannot see. They are not carelessness —
+ * set reaches it through typed literals. They are not carelessness —
  * until now there was nothing honest to reach for. A 46-member contract with 32 optional members
  * means a partial object satisfies the compiler while proving nothing about the real host.
  *

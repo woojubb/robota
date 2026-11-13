@@ -130,8 +130,7 @@ describe('an MCP submit is answered by its own turn', () => {
 /** A session whose one submission is accepted and then rejected with `rejection`. */
 function createRejectingSession(rejection: unknown): IInteractiveSession {
   // Spread over the conformant double rather than cast to the contract: a cast is a partial
-  // re-implementation nothing checks against the real interface, and `scan-contract-cast-ratchet`
-  // refuses another one — correctly, since only `submit` differs here.
+  // re-implementation nothing checks against the real interface, and only `submit` differs here.
   return {
     ...createQueueingSession(),
     submit: () =>

@@ -95,9 +95,8 @@ describe('a client disconnect releases the claim even when abort throws', () => 
     // as a synchronous void and the shipped one does not throw — this case is what turns that from
     // a load-bearing assumption into an implementation detail.
     const release = vi.fn();
-    // The conformant double, not a cast — the contract-cast ratchet refuses another one, and it is
-    // right to. `submit` resolves at once so the relay parks on `done`, which only the abort path
-    // settles here.
+    // The conformant double, not a cast. `submit` resolves at once so the relay parks on `done`,
+    // which only the abort path settles here.
     const session = createTestInteractiveSession({
       abort: () => {
         throw new Error('abort blew up');
