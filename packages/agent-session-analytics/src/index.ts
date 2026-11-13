@@ -1,7 +1,8 @@
 // @robota-sdk/agent-session-analytics
 //
-// Session-log timing analysis and reporting. Pure analysis over canonical session records — no
-// file I/O, no process concerns. Composition (loading records, writing output) lives in the caller.
+// Session-log timing and usage analysis and reporting. Pure analysis over canonical session
+// records — no file I/O, no process concerns. Composition (loading records, writing output) lives
+// in the caller.
 
 export type {
   TSessionAnalysisInput,
