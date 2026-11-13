@@ -104,14 +104,18 @@ describe('buildOpenAICompatibleRequestParams', () => {
 });
 
 describe('buildOpenAICompatibleRequestParams — response_format', () => {
-  // The builder is the ONE place that decides what a compat request carries, and it dropped
-  // `IChatOptions.responseFormat` entirely — so attempt 1 carried no schema signal and success
-  // depended on the prose retry loop `outputRetries: 0` disables. Emission is gated on the DECLARED
-  // capability because the two facts had drifted in opposite directions: deepseek's table declares
-  // `json_schema` while nothing sent the field, and qwen's omits it while the documented deployment
-  // targets include servers that reject unknown parameters.
+  // The builder is the ONE place that decides what a compat request carries. Emission is gated on
+  // the DECLARED capability: a model that declares `json_schema` takes either format, a model that
+  // declares only `json_object` (deepseek) takes JSON mode, and a model that declares neither
+  // (qwen, gemma) gets nothing, because the documented deployment targets include servers that
+  // reject unknown parameters.
   const DECLARING = {
     vendorDefault: ['tools', 'json_schema', 'streaming'],
+    verifiedAt: '2026-01-01',
+    sourceUrl: 'https://example.invalid/models',
+  } as const;
+  const JSON_OBJECT_ONLY = {
+    vendorDefault: ['tools', 'json_object', 'streaming'],
     verifiedAt: '2026-01-01',
     sourceUrl: 'https://example.invalid/models',
   } as const;
@@ -120,10 +124,23 @@ describe('buildOpenAICompatibleRequestParams — response_format', () => {
     verifiedAt: '2026-01-01',
     sourceUrl: 'https://example.invalid/models',
   } as const;
+  const UNFILLED = {
+    vendorDefault: [],
+    verifiedAt: '2026-01-01',
+    sourceUrl: 'https://example.invalid/models',
+  } as const;
 
   const SCHEMA_OPTIONS = {
     model: 'test-model',
     responseFormat: { type: 'json_schema', schema: { type: 'object' }, name: 'Answer' },
+  } as unknown as IChatOptions;
+  const JSON_OBJECT_OPTIONS = {
+    model: 'test-model',
+    responseFormat: { type: 'json_object' },
+  } as unknown as IChatOptions;
+  const TEXT_OPTIONS = {
+    model: 'test-model',
+    responseFormat: { type: 'text' },
   } as unknown as IChatOptions;
 
   const build = (options: IChatOptions | undefined, table?: unknown) =>
@@ -156,10 +173,53 @@ describe('buildOpenAICompatibleRequestParams — response_format', () => {
   });
 
   it('carries a non-schema format type through unchanged', () => {
-    const options = {
-      model: 'test-model',
-      responseFormat: { type: 'json_object' },
-    } as unknown as IChatOptions;
-    expect(build(options, DECLARING).response_format).toEqual({ type: 'json_object' });
+    expect(build(JSON_OBJECT_OPTIONS, DECLARING).response_format).toEqual({ type: 'json_object' });
+    expect(build(TEXT_OPTIONS, DECLARING).response_format).toEqual({ type: 'text' });
+  });
+
+  describe('a model that declares only json_object', () => {
+    it('sends JSON mode on the wire', () => {
+      expect(build(JSON_OBJECT_OPTIONS, JSON_OBJECT_ONLY).response_format).toEqual({
+        type: 'json_object',
+      });
+    });
+
+    it('sends no schema request, because it takes no schema parameter', () => {
+      expect(build(SCHEMA_OPTIONS, JSON_OBJECT_ONLY)).not.toHaveProperty('response_format');
+    });
+
+    it('sends no text format, which json_object does not cover', () => {
+      expect(build(TEXT_OPTIONS, JSON_OBJECT_ONLY)).not.toHaveProperty('response_format');
+    });
+
+    it('sends JSON mode for the model that declares it and nothing for one that does not', () => {
+      const perModel = {
+        ...SILENT,
+        deviations: {
+          'json-model': {
+            capabilities: ['json_object'],
+            verifiedAt: '2026-01-01',
+            sourceUrl: 'https://example.invalid/models',
+          },
+        },
+      } as const;
+      const jsonOptions = { ...JSON_OBJECT_OPTIONS, model: 'json-model' } as IChatOptions;
+      expect(build(jsonOptions, perModel).response_format).toEqual({ type: 'json_object' });
+      expect(build(JSON_OBJECT_OPTIONS, perModel)).not.toHaveProperty('response_format');
+    });
+  });
+
+  describe('JSON mode for a model that declares nothing', () => {
+    it('sends nothing when the table lists capabilities without json_object or json_schema', () => {
+      expect(build(JSON_OBJECT_OPTIONS, SILENT)).not.toHaveProperty('response_format');
+    });
+
+    it('sends nothing when the table is unfilled, because silence is not permission', () => {
+      expect(build(JSON_OBJECT_OPTIONS, UNFILLED)).not.toHaveProperty('response_format');
+    });
+
+    it('sends nothing when the provider publishes no capability table at all', () => {
+      expect(build(JSON_OBJECT_OPTIONS)).not.toHaveProperty('response_format');
+    });
   });
 });
