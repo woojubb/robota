@@ -204,6 +204,43 @@ describe('product strings in generated artifact syntax', () => {
     expect(filled).toEqual(original);
     expect(typeof filled.date).toBe('string');
   });
+  it.each([
+    { quote: "'", escaped: "\\'", unescaped: '\\"' },
+    { quote: '"', escaped: '\\"', unescaped: "\\'" },
+  ])('escapes only the $quote delimiter in a filled literal', ({ quote, escaped, unescaped }) => {
+    const source = `${quote}__PRODUCT_DISPLAY_NAME__${quote};`;
+    const fillLiteral = (displayName) =>
+      fillProductContent('literal.ts', source, { identity: { displayName } }, {}).slice(0, -1);
+    const evaluate = (literal) => new Function(`return ${literal};`)();
+    const value = 'O\'Reilly "Agent" \\ line\nbreak';
+    const literal = fillLiteral(value);
+    expect(evaluate(literal)).toBe(value);
+    for (const adjacent of ['\\"', "\\'", '\\\\"', '"\\']) {
+      expect(evaluate(fillLiteral(adjacent))).toBe(adjacent);
+    }
+    expect(literal).toContain(escaped);
+    expect(literal).not.toContain(unescaped);
+    expect(literal).toContain('\\\\');
+    expect(literal).toContain('\\n');
+    expect(literal).not.toContain('\n');
+  });
+  it('adds no quote escape to any tracked source that carries a placeholder', async () => {
+    // CI lints the neutral sources, so a filled copy must not gain an escape they lack.
+    const root = new URL('../../../', import.meta.url);
+    const pattern = '__(PROJECT|PRODUCT|DEPLOY)_[A-Z_]+__';
+    const listed = execFileSync('git', ['grep', '-l', '-z', '-E', pattern, '--', '.'], {
+      cwd: root,
+      encoding: 'utf8',
+    });
+    const files = listed.split('\0').filter((file) => file && file !== 'pnpm-lock.yaml');
+    const quoteEscapes = (text) => text.match(/\\["']/gu)?.length ?? 0;
+    expect(files.length).toBeGreaterThan(20);
+    for (const file of files) {
+      const source = await readFile(new URL(file, root), 'utf8');
+      const filled = fillProductContent(file, source, publicProductConfig(base), base);
+      expect(quoteEscapes(filled), file).toBeLessThanOrEqual(quoteEscapes(source));
+    }
+  });
   it('reports the effective artifact prefix without changing the canonical optional configuration', () => {
     expect(workflowProductOutputs(base)).toContain('artifact_prefix=alpha\n');
     expect(workflowProductOutputs(resolveTestConfig({ scope: '@beta', displayName: 'Beta' }))).toContain('artifact_prefix=beta-bundle\n');
