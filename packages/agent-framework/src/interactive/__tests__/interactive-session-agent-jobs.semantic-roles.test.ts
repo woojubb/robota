@@ -1,9 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
+import { InteractiveSession } from '../interactive-session.js';
 import { spawnAgentJobFromSession } from '../interactive-session-agent-jobs.js';
+import { createSessionStub } from './helpers/session-stub.js';
 
 import type { Session } from '@robota-sdk/agent-session';
+
+const testHost = createTestFrameworkHost();
 
 describe('agent job semantic-role provenance', () => {
   it('records an alternate semantic spawn-command id', async () => {
@@ -43,6 +48,47 @@ describe('agent job semantic-role provenance', () => {
         metadata: expect.objectContaining({
           executionOriginCommandName: 'spawn-subagent-alt',
         }),
+      }),
+    );
+  });
+
+  it('hands the session command that declares the subagentSpawn role to the job as its origin', async () => {
+    const spawn = vi.fn().mockResolvedValue({ id: 'job-1' });
+    const session = createSessionStub({ getModelEffort: () => 'low' });
+    storeAgentToolDeps(session, {
+      backgroundTaskManager: { subscribe: () => () => {} },
+      subagentManager: { spawn },
+      customAgentRegistry: () => ({ name: 'worker', description: 'Worker', systemPrompt: 'Work' }),
+    } as never);
+    const interactive = new InteractiveSession({
+      host: testHost,
+      cwd: '/workspace',
+      session,
+      commandModules: [
+        {
+          name: 'alternate-roles',
+          systemCommands: [
+            {
+              name: 'spawn-subagent-alt',
+              semanticRole: 'subagentSpawn',
+              description: 'Spawn a subagent',
+              execute: async () => ({ success: true, message: '' }),
+            },
+          ],
+        },
+      ],
+    });
+
+    await interactive.spawnAgentJob({
+      agentType: 'worker',
+      label: 'Worker',
+      mode: 'background',
+      prompt: 'Do work',
+    });
+
+    expect(spawn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ executionOriginCommandName: 'spawn-subagent-alt' }),
       }),
     );
   });
