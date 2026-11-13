@@ -218,9 +218,8 @@ export class InteractiveSession
   private sessionName?: string;
   /**
    * The working directory and the project-access decision, as ONE value fixed for the life
-   * of this session and handed by reference to everything that needs either. They are not two
-   * fields copied into collaborators separately, which is how a lazy operation could end up holding a
-   * different answer from the session. A move to another directory is a new session (`/cd`), never a
+   * of this session and handed by reference to everything that needs either. Two separately copied
+   * fields are how a lazy operation could end up holding a different answer from the session. A move to another directory is a new session (`/cd`), never a
    * mutation of this one.
    */
   private readonly workspace: IWorkspacePolicy;
@@ -251,9 +250,9 @@ export class InteractiveSession
   private externalEventIngress?: ExternalEventIngress;
   private readonly peerTurnRate = new PeerTurnRateLimiter();
   private readonly sandboxClient?: ISandboxClient;
-  // The durable-memory port for this session — the surface-injected store or the neutral
-  // fs default (lazily created + cached so it is ONE shared instance). Exposed to the `/memory` command
-  // host context via getMemoryStore() so command reads/writes hit the SAME store as startup + capture.
+  // The durable-memory port for this session — the store the surface injected (absent: getMemoryStore()
+  // throws). Exposed to the `/memory` command host context via getMemoryStore() so command reads/writes
+  // hit the SAME store as startup + capture.
   private injectedMemoryStore?: IMemoryStore;
   private readonly startupMemoryEnabled: boolean;
   // Optional post-turn auto-capture policy (surface-supplied); absent ⇒ capture OFF.
