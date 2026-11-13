@@ -248,8 +248,8 @@ narrow accessors and discriminators this package allows at the entry.
 | Transport adapters, channels, admission             | `agent-interface/transport`         |
 | Peer messaging and handoff                          | `agent-interface/session-mobility`  |
 
-This subpath composes downward — it names execution, command and analytics contracts, and nothing
-at the layer-0 packages names a type from here.
+This subpath composes downward — it names execution, command and analytics contracts, and none of
+those subpaths names a type from here.
 
 ### Contract
 
