@@ -416,9 +416,8 @@ export function buildCommandSetup(
  * `buildCommandSetup`, with the one startup failure that is terminal presented rather than thrown.
  *
  * An org policy file that EXISTS and cannot be read means the policy is NOT applied.
- * Starting anyway is the fail-open that change removed, and crashing with a stack trace is the
- * "must not crash CLI startup" outcome the comment it replaced was protecting — an administrator
- * needs to see which file to fix, not a trace.
+ * Starting anyway would fail open, and crashing with a stack trace would defeat the aim that CLI
+ * startup must not crash — an administrator needs to see which file to fix, not a trace.
  *
  * Presented the way `resolveShellPreset` presents an unknown preset id: message to stderr, exit 1.
  * It lives HERE rather than in `cli.ts` because the presentation of a setup failure belongs beside

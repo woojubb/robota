@@ -45,13 +45,13 @@ const DEFAULTS: IResolvedConfig = {
  * Raise the loader's read-phase error for a classified layer.
  *
  * The classification itself lives in `settings-inspection.ts` (`readSettingsLayers`) so the doctor
- * and the loader read one implementation; the errors raised here are the ones
- * this loader has always raised, at the same layer:
+ * and the loader read one implementation; the errors raised here are the loader's own, by layer
+ * state:
  * - an existing but empty file is corrupt, not absent (`settings-io.readSettings` reaches
  *   `JSON.parse('')` for the same file, and a crash during write is precisely how a settings file
  *   becomes empty);
- * - a corrupt layer is refused rather than skipped: returning `undefined`
- *   let a truncated project file that had carried a deny list come back as a config with none;
+ * - a corrupt layer is refused rather than skipped: skipping it would let a truncated project file
+ *   that had carried a deny list come back as a config with none;
  * - an unreadable existing file propagates the reader's own error.
  */
 function throwReadPhaseError(layer: IReadSettingsLayer): void {
@@ -113,12 +113,11 @@ function resolveEnvRefs(
 }
 
 /**
- * Resolving a `$ENV:` reference here is correct — an in-process provider needs the secret
- * — but it DISCARDED the variable name, so every later caller saw only the resolved value. A caller
- * that has to serialize the config then had no way to carry the reference instead of the secret,
- * which is how the plaintext credential reached the subagent IPC start payload on every
- * configuration, including the ones whose owner deliberately stored a reference. Recording the
- * variable name costs nothing and is what makes the reference recoverable downstream.
+ * Resolving a `$ENV:` reference here is correct — an in-process provider needs the secret — and the
+ * variable name is recorded beside the resolved value (`apiKeyEnv`), so a caller that has to
+ * serialize the config can carry the reference instead of the secret. Without it every later caller
+ * sees only the resolved value, and the plaintext credential reaches the subagent IPC start payload
+ * even when its owner deliberately stored a reference.
  */
 function resolveProviderCredentialEnvRefs<TProvider extends { apiKey?: string }>(
   provider: TProvider,
@@ -165,9 +164,8 @@ function resolveActiveProviderProfile(merged: TEnvResolvedSettings): IResolvedCo
       profile.apiKeyRef === undefined ? (profile.apiKey ?? DEFAULTS.provider.apiKey) : undefined,
     ...(profile.apiKeyRef !== undefined && { apiKeyRef: profile.apiKeyRef }),
     // This projection is field-by-field, so the credential's ORIGIN has to be copied
-    // deliberately. Resolving `$ENV:` and recording the variable name upstream achieved nothing
-    // while this line was missing — the resolved config the subagent runner serializes had only
-    // the secret, which is the whole defect.
+    // deliberately. Without this line the resolved config the subagent runner serializes carries
+    // only the secret, not the variable name recorded when `$ENV:` was resolved.
     ...(profile.apiKeyEnv !== undefined && { apiKeyEnv: profile.apiKeyEnv }),
     ...(profile.baseURL !== undefined && { baseURL: profile.baseURL }),
     ...(profile.timeout !== undefined && { timeout: profile.timeout }),
@@ -215,8 +213,8 @@ export async function loadConfigWithHookSources(
   environment: Readonly<Record<string, string | undefined>> = {},
 ): Promise<{ config: IResolvedConfig; hookSources: readonly IHookDefinitionSource[] }> {
   const layers = readSettingsLayers(sources);
-  // Read-phase errors first, across every layer, then the first schema failure — the order the
-  // two-phase loader always had (see `throwReadPhaseError`).
+  // Read-phase errors first, across every layer, then the first schema failure — the loader's
+  // two-phase order (see `throwReadPhaseError`).
   for (const layer of layers) throwReadPhaseError(layer);
   const parsedLayers: Array<{ settings: TEnvResolvedSettings; source: string }> = [];
   for (const layer of layers) {
