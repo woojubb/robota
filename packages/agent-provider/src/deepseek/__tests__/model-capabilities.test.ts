@@ -5,6 +5,8 @@ import { DEEPSEEK_CAPABILITY_TABLE } from '../capability-table';
 import { DEEPSEEK_MODEL_CATALOG_ENTRIES } from '../model-catalog';
 import { DeepSeekProvider } from '../provider';
 
+import type { IChatOptions } from '@robota-sdk/agent-core';
+
 /**
  * The self-contradiction this provider carried.
  *
@@ -74,7 +76,10 @@ describe('deepseek returns JSON as json_object, never as json_schema', () => {
     }
   });
 
-  it('a structured request never puts a json_schema response_format on the wire', async () => {
+  async function sendThroughDeepSeek(
+    model: string,
+    responseFormat: NonNullable<IChatOptions['responseFormat']>,
+  ): Promise<Array<Record<string, unknown>>> {
     const sent: Array<Record<string, unknown>> = [];
     const client = {
       chat: {
@@ -96,13 +101,30 @@ describe('deepseek returns JSON as json_object, never as json_schema', () => {
 
     await provider.chat(
       [{ id: '1', role: 'user', content: 'hi', state: 'complete', timestamp: new Date() }],
-      {
-        model: 'deepseek-v4-flash',
-        responseFormat: { type: 'json_schema', schema: { type: 'object' }, name: 'Answer' },
-      },
+      { model, responseFormat },
     );
+    return sent;
+  }
+
+  it('a structured request never puts a json_schema response_format on the wire', async () => {
+    const sent = await sendThroughDeepSeek('deepseek-v4-flash', {
+      type: 'json_schema',
+      schema: { type: 'object' },
+      name: 'Answer',
+    });
 
     expect(sent).toHaveLength(1);
-    expect(sent[0]?.['response_format']).not.toMatchObject({ type: 'json_schema' });
+    expect(sent[0]).not.toHaveProperty('response_format');
+  });
+
+  it('a JSON mode request carries response_format json_object on the wire', async () => {
+    // The structured-output guard turns a schema request into this request and reports it as sent,
+    // so the wire has to carry it for every DeepSeek model, the reasoning model included.
+    for (const model of ['deepseek-v4-flash', 'deepseek-reasoner']) {
+      const sent = await sendThroughDeepSeek(model, { type: 'json_object' });
+
+      expect(sent, model).toHaveLength(1);
+      expect(sent[0]?.['response_format'], model).toEqual({ type: 'json_object' });
+    }
   });
 });

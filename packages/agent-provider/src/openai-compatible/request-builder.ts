@@ -35,11 +35,12 @@ export interface IOpenAICompatibleRequestInput {
   /** Provider-level fallback used when `options.model` is absent. */
   defaultModel: string | undefined;
   /**
-   * The calling provider's per-model capability table. `response_format` is emitted only
-   * for a model that DECLARES `json_schema`, because the deployment targets this family documents
-   * (`llms.txt`: any gateway, Azure, vLLM, Ollama, LM Studio) differ in whether an unknown parameter
-   * is ignored or rejected. Absent table, or a model that declares nothing, means no emission —
-   * today's behaviour.
+   * The calling provider's per-model capability table. `response_format` is emitted only for a
+   * model that DECLARES the capability the request needs (`json_schema` for a schema request,
+   * `json_object` or `json_schema` for a JSON-mode request), because the deployment targets this
+   * family documents (`llms.txt`: any gateway, Azure, vLLM, Ollama, LM Studio) differ in whether an
+   * unknown parameter is ignored or rejected. An absent table, or a model that declares nothing,
+   * means no emission.
    */
   capabilityTable?: IProviderCapabilityTable;
 }
@@ -86,20 +87,20 @@ export function buildOpenAICompatibleRequestParams({
 }
 
 /**
- * The structured-output field this family never sent.
+ * The structured-output field of the request, gated on the capability the model DECLARES.
  *
- * `agent-core` emits `IChatOptions.responseFormat` on every structured run, and this builder — the
- * ONE place that decides what a compat request carries — dropped it, so attempt 1 carried no schema
- * signal at all and success depended on the prose retry loop that `outputRetries: 0` disables.
+ * - `json_schema` is sent, with its schema, only for a model that declares `json_schema`.
+ * - `json_object` (JSON mode: the response parses, its shape is not enforced) is sent for a model
+ *   that declares `json_object` or `json_schema`. DeepSeek declares only `json_object`, so a JSON
+ *   mode request reaches it as `response_format: { type: 'json_object' }`. A schema request does
+ *   not, because DeepSeek takes no schema parameter: the structured-output guard in `agent-core`
+ *   turns it into a JSON mode request before it reaches the provider.
+ * - `text` is sent only for a model that declares `json_schema`.
  *
- * Gated on the DECLARED capability rather than emitted unconditionally, because the two facts had
- * drifted apart in opposite directions: deepseek's table declares `json_schema` while nothing sent
- * the field, and qwen's table omits it while the documented deployment targets include servers that
- * reject unknown parameters. Emitting for a model that declares the capability removes the first
- * contradiction without creating the second.
- *
- * `modelDeclaresCapability` returns `undefined` for silence (no table, or an unfilled list) and that
- * is deliberately NOT treated as permission — silence keeps today's behaviour.
+ * Gated on the declaration rather than sent unconditionally because the documented deployment
+ * targets include servers that reject unknown parameters. `modelDeclaresCapability` returns
+ * `undefined` for silence (no table, or an unfilled list) and that is deliberately NOT treated as
+ * permission.
  */
 function buildResponseFormat(
   responseFormat: IChatOptions['responseFormat'],
@@ -107,12 +108,15 @@ function buildResponseFormat(
   capabilityTable: IProviderCapabilityTable | undefined,
 ): { response_format?: OpenAI.Chat.ChatCompletionCreateParams['response_format'] } {
   if (!responseFormat) return {};
-  // allow-fallback: a model that does not DECLARE `json_schema` keeps the documented universal
-  // contract — `agent-core`'s enforcement loop — rather than being sent a field its endpoint may
-  // reject. The capability table is the explicit declaration that produces this branch.
-  if (modelDeclaresCapability(capabilityTable, model, 'json_schema') !== true) return {};
+  const declaresSchema = modelDeclaresCapability(capabilityTable, model, 'json_schema') === true;
+  const declaresJsonObject =
+    modelDeclaresCapability(capabilityTable, model, 'json_object') === true;
 
   if (responseFormat.type === 'json_schema') {
+    // allow-fallback: a model that does not DECLARE `json_schema` keeps the documented universal
+    // contract — `agent-core`'s enforcement loop — rather than being sent a field its endpoint may
+    // reject. The capability table is the explicit declaration that produces this branch.
+    if (!declaresSchema) return {};
     return {
       response_format: {
         type: 'json_schema',
@@ -123,5 +127,11 @@ function buildResponseFormat(
       },
     };
   }
-  return { response_format: { type: responseFormat.type } };
+
+  if (declaresSchema || (responseFormat.type === 'json_object' && declaresJsonObject)) {
+    return { response_format: { type: responseFormat.type } };
+  }
+  // allow-fallback: a model that declares neither capability is not sent a field its endpoint may
+  // reject; the table is the explicit declaration that produces this branch.
+  return {};
 }
