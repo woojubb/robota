@@ -1,5 +1,10 @@
 # @robota-sdk/agent-cli
 
+## 3.4.0
+### Minor Changes
+
+- `/context prompt` lists the sections the session's system prompt was composed from (id, source, size, and the harness version), and `/context prompt <section-id>` prints one section exactly as the model receives it. The sections printed in order are the prompt, byte for byte. The session record keeps that composition beside the prompt, and a fork inherits it. The CLI now runs on the SDK versions that provide this (`agent-framework` 3.3.2, `agent-session` 3.2.8, `agent-product` 3.3.3, `agent-interface` 3.3.2) and on the current patch versions of its other SDK packages.
+
 ## 3.3.2
 ### Patch Changes
 
