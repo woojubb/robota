@@ -155,7 +155,9 @@ jobs:
     name: publish
     needs: prepare
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    # Upload, then wait up to 20 minutes for the registry to serve the version and `latest`
+    # (scripts/publish/confirm-registry-publication.mjs), then the install lock, receipt upload and attestation.
+    timeout-minutes: 30
     environment: npm-publish
     outputs:
       release_tag: ${{ needs.prepare.outputs.release_tag }}
