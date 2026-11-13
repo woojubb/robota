@@ -50,9 +50,9 @@ export type { IProviderSpecificOptions } from './provider-specific-options';
 export type { TModelEffort, TModelEffortSelection } from './model-effort-capability';
 export { isModelEffort, MODEL_EFFORT_VALUES } from './model-effort-capability';
 
-// The universal JSON-schema subset moved to `./tool-schema`: it is its own concept,
-// reached by producers, validators and four provider adapters, and `provider.ts` was over its
-// frozen size baseline. Re-exported here so every existing `from './provider'` import resolves.
+// The universal JSON-schema subset is declared in `./tool-schema`: it is its own concept,
+// reached by producers, validators and four provider adapters. Re-exported here so
+// `from './provider'` imports of these names resolve.
 export type {
   IObjectParameterSchema,
   IParameterSchema,

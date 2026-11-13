@@ -339,9 +339,9 @@ export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils
 export type { IExecutionProxyConfig } from './utils/execution-proxy-types';
 
 // Permissions
-// One re-export of the permissions sub-barrel rather than a hand-listed block. The list it
-// replaced had to be edited every time the module gained a public name — which is how it grew, and why
-// adding one constant tripped the size ratchet. `export *` cannot fall out of step with its owner.
+// One re-export of the permissions sub-barrel rather than a hand-listed block, which would have to
+// be edited every time the module gained a public name. `export *` cannot fall out of step with its
+// owner.
 export * from './permissions/index.js';
 
 // Context window tracking

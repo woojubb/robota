@@ -1,10 +1,9 @@
 /**
  * The co-drive input queue: what happens to an input that arrives mid-turn.
  *
- * Split out of the execution controller, which had grown past its size ratchet. Deciding whether an
- * arriving input coalesces, appends or is dropped is its own job, and it has
- * consequences: each of those outcomes now has to settle the handle its submitter is holding, or the
- * caller waits forever on a turn that will never run.
+ * Deciding whether an arriving input coalesces, appends or is dropped is its own job, apart from the
+ * execution controller's, and it has consequences: each of those outcomes has to settle the handle
+ * its submitter is holding, or the caller waits forever on a turn that will never run.
  */
 
 import type { IQueuedInput } from './interactive-session-execution-contracts.js';

@@ -421,8 +421,8 @@ export function buildCommandSetup(
  * needs to see which file to fix, not a trace.
  *
  * Presented the way `resolveShellPreset` presents an unknown preset id: message to stderr, exit 1.
- * It lives HERE rather than in `cli.ts` because that file is at its size baseline, and because the
- * presentation of a setup failure belongs beside the setup rather than in the shell that calls it.
+ * It lives HERE rather than in `cli.ts` because the presentation of a setup failure belongs beside
+ * the setup rather than in the shell that calls it.
  *
  * **Narrow on purpose.** A broad catch would turn every unrelated startup defect into a clean exit
  * carrying someone else's message, which is a worse failure than the one being fixed.

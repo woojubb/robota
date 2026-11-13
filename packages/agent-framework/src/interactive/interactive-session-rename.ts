@@ -1,13 +1,12 @@
 /**
  * Renaming a session on disk, and saying so when it cannot be done.
  *
- * This lives in its own module for two reasons. `interactive-session.ts` is at its size ratchet, so
- * the logic had to move rather than grow there. And it was wrong in place: the rename sat inside a
- * `try { … } catch { /* Session not initialized yet *\/ }`, so a thrown report of "this record
- * cannot be written" was swallowed by a catch meant for an uninitialised session — silence replacing
- * silence, which is the defect this leaf exists to remove, reintroduced while removing it.
+ * This lives in its own module because the rename must not sit inside a
+ * `try { … } catch { /* Session not initialized yet *\/ }`: a thrown report of "this record
+ * cannot be written" would be swallowed by a catch meant for an uninitialised session — silence
+ * replacing silence, which is the defect this leaf exists to remove.
  *
- * The split here is between the two things that catch was covering: obtaining the session id may
+ * The split here is between the two things such a catch would cover: obtaining the session id may
  * legitimately fail before initialisation and is handled; the STORE outcome may not be swallowed.
  */
 

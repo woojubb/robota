@@ -1,12 +1,11 @@
 /**
  * What the harness reads off DISK, as opposed to out of the session.
  *
- * Split from `scripted-session-harness.ts`, which had reached its size ratchet where the rule is to
- * split rather than extend. The boundary is real rather than convenient: everything here answers a
- * question about the workspace — what the framework WROTE — while the harness's other inspectors
- * answer questions about live session state. A test asserting on the transcript is using the
- * system's own durable record as its verification surface, and that is a different kind of evidence
- * from reading an in-memory field.
+ * Kept apart from `scripted-session-harness.ts`. The boundary is real rather than convenient:
+ * everything here answers a question about the workspace — what the framework WROTE — while the
+ * harness's other inspectors answer questions about live session state. A test asserting on the
+ * transcript is using the system's own durable record as its verification surface, and that is a
+ * different kind of evidence from reading an in-memory field.
  *
  * Free functions taking the paths they need, so none of them can reach for session state and
  * quietly become the other kind.

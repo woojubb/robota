@@ -88,10 +88,9 @@ export interface IToolWrapperDeps {
 /**
  * Wrap one tool so every call passes the permission gate, the hooks and the truncation limit.
  *
- * Extracted from `PermissionEnforcer` because the file-size ratchet refused to let it grow further,
- * and a ratchet that says "split instead of extending" is asking for exactly this. It takes what it
- * needs as `deps` rather than the enforcer itself: the ten members it reads are the honest surface
- * of this function, and naming them is what makes the extraction a boundary rather than a move.
+ * It takes what it needs as `deps` rather than the `PermissionEnforcer` itself: the ten members it
+ * reads are the honest surface of this function, and naming them is what makes it a boundary rather
+ * than a move.
  */
 export function wrapToolWithPermission(
   tool: IToolWithEventService,
