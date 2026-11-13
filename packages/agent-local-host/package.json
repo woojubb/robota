@@ -52,10 +52,10 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "npm:@robota-sdk/agent-core@3.3.0",
-    "@robota-sdk/agent-keyring": "npm:@robota-sdk/agent-keyring@3.2.1",
-    "@robota-sdk/agent-os": "npm:@robota-sdk/agent-os@3.3.0",
-    "@robota-sdk/agent-remote-pairing": "npm:@robota-sdk/agent-remote-pairing@3.2.3",
+    "@robota-sdk/agent-core": "npm:@robota-sdk/agent-core@3.3.1",
+    "@robota-sdk/agent-keyring": "npm:@robota-sdk/agent-keyring@3.2.2",
+    "@robota-sdk/agent-os": "npm:@robota-sdk/agent-os@3.3.1",
+    "@robota-sdk/agent-remote-pairing": "npm:@robota-sdk/agent-remote-pairing@3.3.0",
     "koffi": "3.3.1"
   },
   "devDependencies": {

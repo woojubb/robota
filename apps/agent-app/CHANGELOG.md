@@ -1,5 +1,12 @@
 # @robota-sdk/agent-app
 
+## 3.0.15
+### Patch Changes
+
+- The desktop app runs on the current SDK versions, including the one that stores the sections a session's system prompt was composed from.
+- Updated dependencies
+  - @robota-sdk/agent-cli@3.4.0
+
 ## 3.0.14
 ### Patch Changes
 
