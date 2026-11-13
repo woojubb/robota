@@ -115,7 +115,7 @@ Git and filesystem work:
 
 - resolves the repository root from the job's working directory, so a nested directory works; a
   directory outside Git fails with an error that suggests isolation `"none"`;
-- creates `$PRODUCT_PROJECT_STATE_DIR/worktrees/<task>-<id>` on a new branch `<product id>/<task>-<id>` from `HEAD`, which also
+- creates `$__PRODUCT_ENV_PREFIX__PROJECT_STATE_DIR/worktrees/<task>-<id>` on a new branch `<product id>/<task>-<id>` from `HEAD`, which also
   works on a detached `HEAD`, and retries with a new short id on a branch or path collision;
 - records the base revision and the parent's `git status --porcelain`, so a dirty parent checkout is
   allowed and reported;
