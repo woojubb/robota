@@ -9,17 +9,23 @@ import type {
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IResolvedPresetOptions } from '@robota-sdk/agent-product/preset';
 
-/** Resolve all CLI-owned effort sources before any product surface is assembled. */
+/**
+ * Resolve all CLI-owned effort sources before any product surface is assembled. The environment is
+ * the product runtime's, where the product's own alias of the variable is already folded into the
+ * canonical name; `envPrefix` is that alias prefix, so an error names the variable the running
+ * product accepts.
+ */
 export function resolveCliModelEffort(
   args: Pick<IParsedCliArgs, 'effort'>,
   environment: NodeJS.ProcessEnv,
+  envPrefix: string,
   settings: Record<string, TUniversalValue>,
   preset: Pick<IResolvedPresetOptions, 'effort'>,
   modelDefault: IModelEffortResolution['modelDefault'] = 'high',
 ): IModelEffortResolution {
   return resolveModelEffort({
     flag: args.effort,
-    environment: parseModelEffort(environment.PRODUCT_EFFORT, 'PRODUCT_EFFORT'),
+    environment: parseModelEffort(environment.PRODUCT_EFFORT, `${envPrefix}EFFORT`),
     settings: parseModelEffort(settings.effort, 'settings.effort'),
     preset: preset.effort,
     modelDefault,

@@ -31,6 +31,11 @@ export interface ILiveTelemetryHostResource {
   readonly telemetryServiceName: string;
   readonly serviceVersion: string;
   readonly surface: TLiveTelemetrySurface;
+  /**
+   * The product's own alias prefix for environment variables (such as `ROBOTA_`), so a refused
+   * setting is named as the running product accepts it. Absent for a caller with no product identity.
+   */
+  readonly envPrefix?: string;
 }
 
 export interface ILiveTelemetryResource {

@@ -16,3 +16,24 @@ export function takeProductTelemetryEnvironment(
   }
   return Object.freeze(snapshot);
 }
+
+/**
+ * Settings resolve under their canonical names, where the product bootstrap has already folded the
+ * product's own alias: the operator only ever set the alias. A refusal therefore names the alias
+ * the running product accepts, by putting `envPrefix` in place of the canonical namespace on the
+ * way out. Which variables are read is not affected. Without a prefix (a caller that has no product
+ * identity) the canonical names are the only names there are, and the error passes unchanged.
+ */
+export function nameAcceptedTelemetryVariables<T>(
+  envPrefix: string | undefined,
+  resolve: () => T,
+): T {
+  try {
+    return resolve();
+  } catch (error) {
+    if (envPrefix === undefined || !(error instanceof Error)) throw error;
+    throw new Error(
+      error.message.replaceAll(PRODUCT_TELEMETRY_ENV_PREFIX, () => `${envPrefix}TELEMETRY_`),
+    );
+  }
+}

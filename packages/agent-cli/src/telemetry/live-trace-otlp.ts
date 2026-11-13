@@ -18,6 +18,7 @@ import type { INodeOtlpLiveContentPort } from './live-content-otlp.js';
 import type { ILiveContentRedactionContext } from './live-content-redaction.js';
 import { LIVE_CONTENT_SETTINGS, resolveLiveContentPolicy } from './live-content-settings.js';
 import { createLiveTelemetryResource } from './live-resource.js';
+import { nameAcceptedTelemetryVariables } from './live-telemetry-env.js';
 import {
   buildOtlpRequestHeaders, mergeOtlpHeaderMaps, otlpProtobufRequestHeaders, parseOtlpHeaderSetting,
 } from './live-otlp-headers.js';
@@ -483,6 +484,15 @@ export function validateNodeOtlpLiveTelemetrySettings(
   env: Readonly<Record<string, string | undefined>>,
   hostResource?: ILiveTelemetryHostResource,
 ): void {
+  nameAcceptedTelemetryVariables(hostResource?.envPrefix, () =>
+    validateSettings(env, hostResource),
+  );
+}
+
+function validateSettings(
+  env: Readonly<Record<string, string | undefined>>,
+  hostResource: ILiveTelemetryHostResource | undefined,
+): void {
   const destinations = resolveNodeOtlpLiveDestinations(env);
   const contentPolicy = resolveLiveContentPolicy(env);
   if (contentPolicy && hostResource && hostResource.surface !== 'interactive') {
@@ -510,6 +520,19 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
   onDiagnostic?: (message: string) => void,
   /** What content redaction needs from the host; required only when a content gate is on. */
   contentRedaction?: ILiveContentRedactionContext,
+): INodeOtlpLiveTracePort | undefined {
+  return nameAcceptedTelemetryVariables(hostResource?.envPrefix, () =>
+    buildConfiguredPort(env, onFailure, writeConsole, hostResource, onDiagnostic, contentRedaction),
+  );
+}
+
+function buildConfiguredPort(
+  env: Readonly<Record<string, string | undefined>>,
+  onFailure: INodeOtlpLiveTraceOptions['onFailure'],
+  writeConsole: (line: string) => void | Promise<void>,
+  hostResource: ILiveTelemetryHostResource | undefined,
+  onDiagnostic: ((message: string) => void) | undefined,
+  contentRedaction: ILiveContentRedactionContext | undefined,
 ): INodeOtlpLiveTracePort | undefined {
   const destinations = resolveNodeOtlpLiveDestinations(env);
   const { traces, metrics, logs } = destinations;
