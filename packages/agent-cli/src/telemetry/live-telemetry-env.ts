@@ -34,6 +34,7 @@ export function nameAcceptedTelemetryVariables<T>(
     if (envPrefix === undefined || !(error instanceof Error)) throw error;
     throw new Error(
       error.message.replaceAll(PRODUCT_TELEMETRY_ENV_PREFIX, () => `${envPrefix}TELEMETRY_`),
+      { cause: error },
     );
   }
 }
