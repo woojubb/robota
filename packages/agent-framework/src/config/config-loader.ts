@@ -1,13 +1,20 @@
 /**
  * Config loader — discovers, merges, and validates settings files.
  *
- * Precedence (lowest → highest):
- *   1. <user state dir>/settings.json           (user)
- *   2. ~/.claude/settings.json                  (user, Claude Code compat)
- *   3. <project state dir>/settings.json        (project)
- *   4. <project state dir>/settings.local.json  (project-local)
- *   5. .claude/settings.json                    (project, Claude Code compat)
- *   6. .claude/settings.local.json              (project-local, highest priority)
+ * The loader names no paths: it reads the ordered `TSettingsSource` list its host composes, and a
+ * later layer overrides an earlier one. The CLI product composes this order (lowest → highest):
+ *   1. `settings.json` in the product's user state root (`storage.userRoot`)       (user)
+ *   2. each `settings.sharedUserFiles` entry, relative to the user's home          (user)
+ *   3. `settings.json` in the project state directory (`storage.projectDirectory`) (project)
+ *   4. `settings.local.json` in the project state directory                        (project-local)
+ *   5. each `settings.sharedProjectFiles` entry, relative to the workspace root    (scope per entry)
+ *
+ * `storage.*` and `settings.*` are fields of the product config. The user state root is an absolute
+ * path; the project state directory is one directory segment under the trusted workspace root, which
+ * a consumer product host defaults to `.<product id>` from the product identity. The product config
+ * declares the Claude Code files as the shared-file defaults (`~/.claude/settings.json`,
+ * `.claude/settings.json` and `.claude/settings.local.json`); a consumer product host defaults both
+ * lists to none.
  */
 import { mergeSettingsWithHookSources } from './config-merge.js';
 import { readSettingsLayers } from './settings-inspection.js';
