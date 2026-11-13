@@ -447,6 +447,7 @@ export async function runPreparsedCliCommand(
         // (thrown here, not swallowed there) actually surfaces.
         validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
           telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
+          envPrefix: productRuntime.config.identity.envPrefix,
           serviceVersion: runtimeVersion(productRuntime),
           surface: 'serve',
         });
@@ -497,6 +498,7 @@ export async function runPreparsedCliCommand(
         }
         validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
           telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
+          envPrefix: productRuntime.config.identity.envPrefix,
           serviceVersion: runtimeVersion(productRuntime),
           surface: 'serve',
         });
@@ -557,6 +559,7 @@ export async function runPreparsedCliCommand(
     try {
       validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
         telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
+        envPrefix: productRuntime.config.identity.envPrefix,
         serviceVersion: runtimeVersion(productRuntime),
         surface: 'serve',
       });
@@ -699,6 +702,7 @@ export async function runPreparsedCliCommand(
       // message instead of only the child's generic "exited before it was ready".
       validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
         telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
+        envPrefix: productRuntime.config.identity.envPrefix,
         serviceVersion: runtimeVersion(productRuntime),
         surface: 'serve',
       });

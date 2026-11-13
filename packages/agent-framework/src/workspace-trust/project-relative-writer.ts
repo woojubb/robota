@@ -35,6 +35,12 @@ import type {
 const OWNER_ONLY_FILE_MODE = 0o600;
 const OWNER_ONLY_DIRECTORY_MODE = 0o700;
 
+/** What a person sees on a platform where project writes cannot be proven to stay under the root. */
+const PROJECT_MUTATION_UNSUPPORTED =
+  'Project mutation requires stable root-anchored host support: only on Linux can the host prove ' +
+  'that a project write stays under the trusted workspace root, so on this platform it refuses ' +
+  "every project mutation. Run on Linux, or make the change to the project's files yourself.";
+
 /**
  * Whether a project write on `platform` can be proven to stay under the trusted root. The proof
  * walks descriptor-relative paths through `/proc/self/fd`, which only Linux provides; elsewhere every
@@ -99,7 +105,7 @@ function withAnchoredParent<T>(
   if (!supportsWorkspaceProjectMutation()) {
     // Contained. Portable project mutation fails closed until a stable root-anchored
     // primitive owns equivalent semantics on every supported platform.
-    refuseProjectRead('Project mutation requires stable root-anchored host support.');
+    refuseProjectRead(PROJECT_MUTATION_UNSUPPORTED);
   }
   assertCurrentWorkspaceIdentity(identity, identityResolver);
   const filename = segments.at(-1);
@@ -583,7 +589,7 @@ function withExistingAnchoredDirectory<T>(
   operation: (directoryDescriptor: number) => T,
 ): T | undefined {
   if (!supportsWorkspaceProjectMutation()) {
-    refuseProjectRead('Project mutation requires stable root-anchored host support.');
+    refuseProjectRead(PROJECT_MUTATION_UNSUPPORTED);
   }
   assertCurrentWorkspaceIdentity(identity, identityResolver);
   const opened: number[] = [];

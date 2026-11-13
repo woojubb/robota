@@ -96,7 +96,7 @@ claim, and it decides where an answer goes and whom the turn is attributed to �
 may do, which the session's ordinary permissions decide as for its own work, wherever the peer runs.
 
 A file from another session or device is kept only with the operator's yes to that file, as an inert
-copy in a directory of the sender's under this user's `$PRODUCT_USER_STATE_DIR`, under a name that cannot leave it,
+copy in a directory of the sender's under this user's `$__PRODUCT_ENV_PREFIX__USER_STATE_DIR`, under a name that cannot leave it,
 replace anything or follow a link; the conversation is told its name, size and hash, never its
 content. Sending is the operator's command for any readable file, and the model's only within the
 workspace and away from anything that looks like a secret, because a model steered by what it read
@@ -176,7 +176,7 @@ explicit protocol with a validated destination (OTLP or a local console sink). I
 resource and trace identity, never ambient OpenTelemetry identity, trace context or credentials, and
 sends a trace's identifiers to a provider only at origins the operator listed exactly, and to a
 child process only of a class the operator listed, while traces are exported — the collector's origin and credentials are never implied by that. Its spans
-and metrics carry Robota's `agent.*` names unless the operator opts in (`PRODUCT_TELEMETRY_SEMCONV`) to the
+and metrics carry Robota's `agent.*` names unless the operator opts in (`__PRODUCT_ENV_PREFIX__TELEMETRY_SEMCONV`) to the
 still-developing OpenTelemetry GenAI conventions, the only case in which a tool's name — a label, never its arguments or output — appears on
 a span or metric. Its spans, metrics
 and console output are always content-free, correlated by validated IDs; duration totals remain
@@ -210,7 +210,7 @@ provider credentials in its own `environment` — they are not remembered. Telem
 later call that sets none of its own reuses the whole settings a previous call captured, and one that
 sets any of its own uses only those, in full — settings from different calls are never mixed key by
 key, so a destination and the credentials configured for it always come from the same call, and
-`PRODUCT_TELEMETRY_ENABLED=0` alone turns export off for every later call until one sets its own
+`__PRODUCT_ENV_PREFIX__TELEMETRY_ENABLED=0` alone turns export off for every later call until one sets its own
 again. None of this is ever written back to `process.env`.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
@@ -260,7 +260,7 @@ not bundled in published installs.
 The CLI implements `agent-core`'s credential store port for its own secrets — the remote-control host
 key and this device's identity keys: the OS keychain through
 the optional `@napi-rs/keyring` binding when it loads and keeps a probe value, else an owner-only file
-under `$PRODUCT_USER_STATE_DIR`. The choice is made at first use, told to the operator when it is the file, named
+under `$__PRODUCT_ENV_PREFIX__USER_STATE_DIR`. The choice is made at first use, told to the operator when it is the file, named
 by `/remote-control status`, and recorded: a recorded keychain that stops working fails closed
 instead of degrading to the file, because secrets already in the keychain would silently stop being
 found. On Linux only the Secret Service counts as a keychain — the binding's kernel-keyring fallback
@@ -296,7 +296,7 @@ the operator at this terminal.
 
 ### Keyring custody (`__PRODUCT_CLI_NAME__ secure`)
 
-The keyring file under `$PRODUCT_USER_STATE_DIR/secure` holds only what a locked process may know: the
+The keyring file under `$__PRODUCT_ENV_PREFIX__USER_STATE_DIR/secure` holds only what a locked process may know: the
 passphrase- and recovery-wrapped master key and the sealing public key. Every program of the same OS
 user can read it, so what protects it is the passphrase, not the mode: the length rule and the refusal
 of trivially repetitive input raise the cost of guessing offline at the key-derivation cost, and no
@@ -433,7 +433,7 @@ the user allowed the program, not handing their credentials to wherever that rep
 Stdio and helper diagnostics never include raw child or SDK errors or anything a helper printed, and
 the ordinary executable does not auto-approve package-runner commands. An OAuth server's tokens come
 only from the user's own per-server sign-in — `__PRODUCT_CLI_NAME__ mcp login` in a terminal or `/mcp login` in a
-session — kept owner-only under `$PRODUCT_USER_STATE_DIR`. A sign-in inside a session asks for a pasted
+session — kept owner-only under `$__PRODUCT_ENV_PREFIX__USER_STATE_DIR`. A sign-in inside a session asks for a pasted
 redirect only through the session's own prompt, never the terminal the session owns, and never asks
 for a client secret, because what is typed there becomes part of the conversation; a secret is
 entered only in a terminal. A server signed in to mid-session connects through the same admission as
@@ -571,14 +571,14 @@ Each of these product surfaces is **opt-in and resolved by the CLI**, not the li
 here because the reasoning differs between them:
 
 - **Durable memory:** default OFF. Precedence lowest→highest: `settings.json`
-  `memory.enabled` → `--memory`/`--no-memory` flag → `PRODUCT_MEMORY` env (**env wins** — a
+  `memory.enabled` → `--memory`/`--no-memory` flag → `__PRODUCT_ENV_PREFIX__MEMORY` env (**env wins** — a
   machine-level policy a CI runner sets once). Capture + recall are enabled together by one switch;
-  scope is repo/project (`$PRODUCT_PROJECT_STATE_DIR/memory/`), because project memory is shared through the
+  scope is repo/project (`$__PRODUCT_ENV_PREFIX__PROJECT_STATE_DIR/memory/`), because project memory is shared through the
   repository, so it never moves to a per-user store: on a host that cannot write under the project
   safely, memory stays off and says why once. A one-time enable notice is printed to stderr on first
   enable; no blocking prompt.
 - **Screen-reader mode:** default OFF. Precedence lowest→highest: `settings.json`
-  `screenReader` → `PRODUCT_SCREEN_READER`/`INK_SCREEN_READER` env → `--screen-reader`/
+  `screenReader` → `__PRODUCT_ENV_PREFIX__SCREEN_READER`/`INK_SCREEN_READER` env → `--screen-reader`/
   `--no-screen-reader` flag (**flag wins**). This is a deliberate divergence from memory's
   precedence: accessibility must let a per-invocation flag turn the mode ON for one run on a machine
   whose environment has it off (e.g. SSH into a shared host), while memory is a machine-level policy.
@@ -587,11 +587,11 @@ here because the reasoning differs between them:
   user's interface with no telemetry to ever catch it.
 - **Prompt history:** default ON (prompts are already persisted verbatim per session,
   and this is a shell-history analogue). Precedence: `settings.json` `promptHistory: false` ←
-  `PRODUCT_PROMPT_HISTORY` env (**env wins**, same direction as memory — a machine-level policy).
+  `__PRODUCT_ENV_PREFIX__PROMPT_HISTORY` env (**env wins**, same direction as memory — a machine-level policy).
   TUI only; print/serve receive no writer. A run with `--no-session-persistence` writes none,
   whatever the setting or the environment says.
 - **Advisor:** default OFF. Precedence: `settings.json` `advisorModel` ← `--advisor` flag (**flag
-  wins**, a per-run choice like the screen-reader flag), and `PRODUCT_DISABLE_ADVISOR` above both as a
+  wins**, a per-run choice like the screen-reader flag), and `__PRODUCT_ENV_PREFIX__DISABLE_ADVISOR` above both as a
   kill switch nothing inside a session can undo — it is how an operator guarantees that conversation
   history is not sent to a second model. Per-destination consent lives in the user settings file, so
   it is asked once per destination rather than once per session.
@@ -664,13 +664,13 @@ collector, and generic credentials belong to the generic destination.
 
 ### Exact-origin trace propagation
 
-`PRODUCT_TELEMETRY_PROPAGATE_TO` takes exact origins rather than hosts, suffixes or wildcards: a
+`__PRODUCT_ENV_PREFIX__TELEMETRY_PROPAGATE_TO` takes exact origins rather than hosts, suffixes or wildcards: a
 `traceparent` lets whoever receives it join their own logs to the operator's trace, so each recipient
 is named on purpose and a subdomain, port or scheme change is a different recipient. One list covers
 providers and MCP HTTP servers alike, because the trust is in the origin, not in the kind of client
 that reaches it. An entry must
 already be its own origin, so the value compared is exactly the value written.
-`PRODUCT_TELEMETRY_PROPAGATE_TO_SUBPROCESSES` is a closed list of classes rather than a pattern,
+`__PRODUCT_ENV_PREFIX__TELEMETRY_PROPAGATE_TO_SUBPROCESSES` is a closed list of classes rather than a pattern,
 because each class is a supported child target for trace handoff — the foreground shell and
 command hooks — and every other child (the `!` passthrough, background, managed and scheduled
 shells, stdio MCP servers, HTTP, prompt and agent hooks) must never receive it. It is independent of
@@ -678,7 +678,7 @@ the origin list, since a child process is not an origin.
 
 ### Opt-in metric attributes
 
-`PRODUCT_TELEMETRY_METRIC_ATTRIBUTES` keys its labels `agent.session.id`, `agent.provider.id` and
+`__PRODUCT_ENV_PREFIX__TELEMETRY_METRIC_ATTRIBUTES` keys its labels `agent.session.id`, `agent.provider.id` and
 `agent.model.id` — matching the live trace spans' default naming — rather than `session.id` or `gen_ai.*`: a
 metric/trace join needs the same key on both sides, the provider id is whatever the host configured
 rather than a well-known system, and which model actually answered a request cannot be verified
@@ -748,7 +748,7 @@ are what they can rely on.
 
 ```bash
 __PRODUCT_CLI_NAME__                               # Interactive TUI
-__PRODUCT_CLI_NAME__ init                          # Initialize project (AGENTS.md + $PRODUCT_PROJECT_STATE_DIR/settings.json)
+__PRODUCT_CLI_NAME__ init                          # Initialize project (AGENTS.md + $__PRODUCT_ENV_PREFIX__PROJECT_STATE_DIR/settings.json)
 __PRODUCT_CLI_NAME__ open '<__PRODUCT_PROTOCOL_SCHEME__://open?v=1...>' # Open a deep link into a trusted directory
 __PRODUCT_CLI_NAME__ trust status | --yes | revoke --yes   # Inspect/grant/revoke workspace trust
 __PRODUCT_CLI_NAME__ doctor [--repair <id> -y]     # Diagnose configuration/runtime readiness (aliases: checkup, diagnose)
@@ -775,7 +775,7 @@ __PRODUCT_CLI_NAME__ --check-update | --disable-update-check | --version
 ```
 
 `--output-style <id>` selects the provider-neutral response style (flag > persisted `outputStyle`
-setting > `default`); `--effort` (or `PRODUCT_EFFORT`/settings/preset) selects the model-effort tier
+setting > `default`); `--effort` (or `__PRODUCT_ENV_PREFIX__EFFORT`/settings/preset) selects the model-effort tier
 from `auto`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` — invalid values are terminal
 startup errors.
 

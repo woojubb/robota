@@ -82,7 +82,7 @@ export async function killProcessTree(
 
   if (hasExited(child)) return;
   if (typeof child.pid !== 'number') {
-    throw new Error('[agent-process] killProcessTree called with an unspawned child (no pid)');
+    throw new Error('killProcessTree was called with a child that never spawned: it has no pid.');
   }
 
   if (options.preKill) {

@@ -43,8 +43,8 @@ the crash policy, then calls `startCli()`, which supplies the terminal presentat
 
 ### Startup order
 
-The operator can select hosted posture through `PRODUCT_RUNTIME_POSTURE=hosted` and the absolute
-`PRODUCT_HOSTED_RUNTIME_CONFIG` path. The owner-controlled deployment file contains public
+The operator can select hosted posture through `__PRODUCT_ENV_PREFIX__RUNTIME_POSTURE=hosted` and the absolute
+`__PRODUCT_ENV_PREFIX__HOSTED_RUNTIME_CONFIG` path. The owner-controlled deployment file contains public
 attestation pins and workload identity, never a worker management or issuer private key.
 `startCliCore()` admits both the worker and broker before entering the local startup chain below.
 Their Ed25519 proofs bind a fresh challenge to the tenant, task and root task, actor, runtime,
@@ -53,7 +53,7 @@ broker's also its cumulative usage). Both must remain valid after the slower res
 refuse execution. A configured deployment cannot be downgraded through a local/disabled value.
 
 Hosted execution requires an executor: the embedding operator's `hostedRuntimeExecutorFactory`, or,
-when `PRODUCT_HOSTED_WORKER_EXECUTION_CONFIG` is set, the stock executor from
+when `__PRODUCT_ENV_PREFIX__HOSTED_WORKER_EXECUTION_CONFIG` is set, the stock executor from
 `createE2BHostedRuntimeExecutorFactory()` that runs the CLI inside an admitted E2B worker (it loads
 the optional `e2b` package). The returned executor owns the full session/mode composition and
 worker/broker teardown. The controller gives it an abort signal and a cumulative usage observer,
@@ -134,10 +134,10 @@ passes them into the profile, and reads them back from the assembled product wit
 - a `TransportRegistry` — the class belongs to `@robota-sdk/agent-framework` — whose saved
   enable/option state lives in the `transports` section of the user settings file;
 - a `WsTransport` from `@robota-sdk/agent-transport/ws`, which takes an optional launch token and
-  port from `PRODUCT_WS_TOKEN` / `PRODUCT_WS_PORT` (a supervised daemon's token instead arrives on a pipe
+  port from `__PRODUCT_ENV_PREFIX__WS_TOKEN` / `__PRODUCT_ENV_PREFIX__WS_PORT` (a supervised daemon's token instead arrives on a pipe
   its launcher inherited) and removes the token from the environment;
 - when `--serve --observer-port` is given, a second `WsTransport` with the `observe` role, on the
-  requested port and with the operator's `PRODUCT_OBSERVER_TOKEN`;
+  requested port and with the operator's `__PRODUCT_ENV_PREFIX__OBSERVER_TOKEN`;
 - `bindTransports(session)`, which binds the WebSocket transport to a session with
   `bindTransportAdapter()` and registers it, or replaces the earlier binding after a session switch,
   and binds the observer transport after it.
