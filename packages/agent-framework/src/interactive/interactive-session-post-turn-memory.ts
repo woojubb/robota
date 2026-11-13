@@ -1,8 +1,8 @@
 /**
  * Post-turn automatic memory capture.
  *
- * Split out of the execution controller, which had grown past its size ratchet. Deciding whether a
- * finished turn produced anything worth remembering is its own job; running the turn is another.
+ * Deciding whether a finished turn produced anything worth remembering is its own job; running the
+ * turn, which the execution controller does, is another.
  *
  * Two properties this keeps, both load-bearing:
  *

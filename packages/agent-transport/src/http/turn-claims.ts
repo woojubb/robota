@@ -1,9 +1,8 @@
 /**
  * Who currently holds the one turn a session can run.
  *
- * Split out of `routes.ts`, which had grown past its size ceiling: routing is one job and deciding
- * whether a second turn may start on a session is another, and the second is the only part of that
- * file with state of its own.
+ * Split out of `routes.ts`: routing is one job and deciding whether a second turn may start on a
+ * session is another, and the second is the only part of that file with state of its own.
  *
  * PER SESSION, not one flag for the router. `sessionFactory` resolves a session per request (the
  * documented multi-tenant shape), so a single flag made one tenant's turn refuse every other

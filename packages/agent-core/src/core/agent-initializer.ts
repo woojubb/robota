@@ -1,8 +1,6 @@
 import { executeWithToolAdmission } from './tool-effect-admission';
 /**
  * Async initialization logic for the ConversationAgent agent.
- *
- * Extracted from agent.ts to keep the main class under 300 lines.
  */
 import { AbstractTool } from '../abstracts/abstract-tool';
 import { AIProviders } from '../managers/ai-provider-manager';

@@ -3,8 +3,7 @@
  * and what happens when the operator attaches to a forked one.
  *
  * Both belong to the same surface and both are read by the same component, so `App` asks for them
- * once rather than wiring two hooks whose inputs it has to keep in step. Split out because
- * `App.tsx` is at its size budget; growing it was the alternative the size rule forbids.
+ * once rather than wiring two hooks whose inputs it has to keep in step.
  */
 
 import { useMemo } from 'react';

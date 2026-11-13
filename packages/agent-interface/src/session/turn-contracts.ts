@@ -1,9 +1,9 @@
 /**
  * The identity of one submission, and the ways it can end.
  *
- * Split out of `session-contracts.ts`, which had grown past its size ratchet: turn identity is its
- * own subject, and the rule is to split rather than extend. Everything here is a TYPE — this package
- * is inert by rule, so the error is declared as a shape and constructed in `@robota-sdk/agent-framework`.
+ * Turn identity is its own subject, declared apart from `session-contracts.ts`. Everything here is a
+ * TYPE or a pure predicate over one — this package is inert by rule, so the error is declared as a
+ * shape and constructed in `@robota-sdk/agent-framework`.
  */
 
 import type { IPromptFileReferenceRecord } from './prompt-file-reference-types.js';
@@ -42,10 +42,10 @@ export type TTurnNotRunReason =
   /**
    * The queue was cleared before it ran — abort, cancel, or session shutdown.
    *
-   * A separate `'shutdown'` member was declared here and never produced: shutdown clears the queue
-   * through the same `clearPendingQueue`, so every entry it discards is already reported as
-   * cancelled. Review found it, and a vocabulary member no code path can emit is a promise to the
-   * consumer that nothing keeps — it would have them writing a branch that never runs.
+   * There is no separate `'shutdown'` member: shutdown clears the queue through the same
+   * `clearPendingQueue`, so every entry it discards is already reported as cancelled. A vocabulary
+   * member no code path can emit is a promise to the consumer that nothing keeps — it would have
+   * them writing a branch that never runs.
    */
   | 'cancelled';
 
@@ -68,8 +68,8 @@ export interface ITurnNotRunError extends Error {
  * The narrowing the comment above prescribes, written ONCE. A consumer that catches
  * `completed`'s rejection has two different things in hand: an ordinary refusal, which it should
  * report to its caller as an outcome, and an exception from inside a turn, which it should let
- * surface. Review found the MCP adapter flattening both into a soft tool error and so hiding real
- * bugs behind a message that reads like a queue decision.
+ * surface. Flattening both into one soft tool error would hide real bugs behind a message that
+ * reads like a queue decision.
  *
  * A pure predicate over a shape — no class, no runtime dependency edge, the same category as the
  * event readers this package already exports. Each consumer spelling `error.name ===
@@ -102,8 +102,6 @@ export interface IExecutionResult {
  * input is not something code can branch on. WHICH peer it was travels in `driverId`, which stays
  * display attribution and never becomes an authorization input.
  *
- * Declared here rather than in `session-contracts.ts`, where it used to live: that file is at its
- * size ratchet and the rule is to split rather than extend, and turn origin belongs to turn identity
- * — the same reasoning that created this file.
+ * Declared here rather than in `session-contracts.ts` because turn origin belongs to turn identity.
  */
 export type TTurnSource = 'user' | 'agent-wakeup' | 'peer' | 'external';

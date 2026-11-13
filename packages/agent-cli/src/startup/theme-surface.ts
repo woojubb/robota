@@ -6,8 +6,8 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * `renderApp`. They must be the same instance or a listing and a switch can disagree about which
  * themes exist — the arrangement `keybindingsSource` already uses for the same reason.
  *
- * Assembled here rather than inline in `cli.ts` because that file sits at its `file-size` floor and
- * because a composition belongs beside its siblings in `startup/`, not in the shell that calls it.
+ * Assembled here rather than inline in `cli.ts` because a composition belongs beside its siblings
+ * in `startup/`, not in the shell that calls it.
  */
 import { readSettings } from '@robota-sdk/agent-framework/node';
 import { productUserSettingsPath } from '../product/user-settings.js';

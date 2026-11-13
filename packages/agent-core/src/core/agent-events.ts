@@ -1,7 +1,6 @@
 /**
  * Event-related helpers for the ConversationAgent agent class.
  *
- * Extracted from core/agent.ts to keep that file under 300 lines.
  * Handles agent event emission and owner path construction.
  */
 import { AGENT_EVENTS, AGENT_EVENT_PREFIX } from '../agents/constants';

@@ -174,4 +174,4 @@ export interface IInteractiveSessionRecord {
 }
 
 // The persistence port and its load-outcome vocabulary live in `session-store-contracts.ts`:
-// they are one subject, and this file is at its size ratchet.
+// they are one subject.

@@ -33,7 +33,7 @@ function configurableTransport(
 }
 
 // The published conformant double, not a bare cast: the registry only hands the session through to
-// `attach`, but a cast is what the contract-cast ratchet exists to refuse.
+// `attach`, but a cast is not checked against the real contract.
 const session = createTestInteractiveSession();
 
 function register(

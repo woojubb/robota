@@ -8,7 +8,7 @@ import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface/ex
  *
  * The tracker outlives channels (it is the terminal's), the recap belongs to the session being
  * shown; the coordinator subscribes for the channel's lifetime and pushes each recap line into the
- * channel's notice store. It lives here rather than in `tui-state-manager.ts` (at its line ceiling).
+ * channel's notice store.
  */
 export interface IAttentionCoordinatorOptions {
   readonly source: IAttentionSource;

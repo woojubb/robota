@@ -1,6 +1,6 @@
 /**
- * What `ConversationAgent`'s constructor builds that is more than a `new` — kept beside `agent-initializer`
- * for the reason that file exists: the class file sits at its size ceiling.
+ * What `ConversationAgent`'s constructor builds that is more than a `new` — kept beside
+ * `agent-initializer`, outside the class file.
  */
 
 import { Tools } from '../managers/tool-manager';

@@ -1,7 +1,5 @@
 /**
  * Type definitions for AbstractPlugin.
- *
- * Extracted from abstract-plugin.ts to keep each file under 300 lines.
  */
 import type { IRunOptions } from '../interfaces/run-options';
 import type { TUniversalMessage } from '../interfaces/messages';

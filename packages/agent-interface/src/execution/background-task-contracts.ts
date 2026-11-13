@@ -13,12 +13,8 @@ import type {
   TUniversalValue,
 } from '@robota-sdk/agent-core';
 
-// The `TBackgroundPermissionPolicy` pass-through re-export is removed. Its stated reason
-// was "so existing consumers keep importing it from `agent-interface/transport` unchanged". There was
-// exactly one — `agent-executor` — and it already depends on `agent-core`, so the same change points
-// it at the SSOT; `agent-framework` and `agent-session` were importing from `agent-core` already. An
-// earlier revision of this comment said "there were none", which was wrong about the very consumer
-// this change had to redirect. The type is still imported above for this file's own use.
+// `TBackgroundPermissionPolicy` is imported above for this file's own use and is not re-exported:
+// its owner is `@robota-sdk/agent-core`, and consumers import it from there.
 
 export type TBackgroundTaskKind = 'agent' | 'process' | 'scheduled' | 'tool-invocation';
 
@@ -246,7 +242,7 @@ export interface IToolInvocationBackgroundTaskResult extends IBaseBackgroundTask
 /**
  * The outcome hop discriminates by kind exactly as the request hop
  * (`TBackgroundTaskRequest`) does — `exitCode`/`signalCode` are producible only by the process
- * runner and `usage` only by the agent runner (`ISubagentJobResult` is now
+ * runner and `usage` only by the agent runner (`ISubagentJobResult` is
  * `Omit<IBackgroundTaskResult<'agent'>, 'kind'>`, not a hand-maintained `Omit` off the flat shape).
  * `IBackgroundTaskResult<K>` narrows to the kind-specific member for a caller that knows `K`
  * statically (a runner's `start()`, the decoder once it has

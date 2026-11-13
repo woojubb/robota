@@ -1,6 +1,5 @@
 /**
- * The contracts for moving work BETWEEN sessions — a sub-barrel, so the root barrel stays under the
- * anti-monolith limit as this axis grows.
+ * The contracts for moving work BETWEEN sessions — one sub-barrel for the whole axis.
  *
  * Two features, one axis: peer messaging moves MESSAGES between two live sessions, and
  * hand-off moves AUTHORITY over one session to another machine. They are grouped because

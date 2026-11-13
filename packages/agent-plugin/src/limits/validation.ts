@@ -1,7 +1,6 @@
 /**
  * Validation logic for LimitsPlugin options.
  *
- * Extracted from limits-plugin.ts to keep each file under 300 lines.
  * @internal
  */
 import { PluginError, type ILogger } from '@robota-sdk/agent-core';

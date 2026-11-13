@@ -115,8 +115,7 @@ describe('executePlanCommand (/plan)', () => {
     // behaviour. `if (!context.setPlan) return 'Plan mode is not available in this session.'` was
     // already unreachable — the members are unconditionally implemented on `InteractiveSession`
     // over always-constructed controllers, and it is the only host (`implements` is compiler-
-    // checked, casts are ratcheted at 0, and heritage-clause aliases are counted since this
-    // review). Required-ness makes the branch unreachable for the type checker too. So what can be
+    // checked). Required-ness makes the branch unreachable for the type checker too. So what can be
     // pinned is that the branch is not in the file, and that is what this asserts.
     const source = readFileSync(
       fileURLToPath(new URL('../plan-command.js', import.meta.url)).replace(/\.js$/, '.ts'),

@@ -247,9 +247,8 @@ export class PermissionEnforcer {
   wrapTools(tools: IToolWithEventService[]): IToolWithEventService[] {
     this.registerToolParameters(tools);
     // Built explicitly rather than cast. A blind assertion here would compile only by silencing the
-    // private-member mismatch, and this repository counts and ratchets those. Naming the ten members
-    // is what makes the extraction a boundary: if the wrapper starts reading an eleventh, this stops
-    // compiling instead of quietly widening.
+    // private-member mismatch. Naming the ten members is what makes the extraction a boundary: if
+    // the wrapper starts reading an eleventh, this stops compiling instead of quietly widening.
     const deps: IToolWrapperDeps = {
       sessionId: this.sessionId,
       cwd: this.cwd,

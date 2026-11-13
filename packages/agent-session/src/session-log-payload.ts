@@ -1,10 +1,9 @@
 /**
  * Session log payload normalization — scrubbing and size-bounding what goes into a log line.
  *
- * Split out of `session-logger.ts` to keep each file under 300 lines. The split is by
- * responsibility, not by size alone: this module decides WHAT a line may contain (sensitive keys
- * redacted, oversized payloads written beside the log and referenced), while `session-logger.ts`
- * decides WHERE and WHEN the bytes are written.
+ * Split out of `session-logger.ts` by responsibility: this module decides WHAT a line may contain
+ * (sensitive keys redacted, oversized payloads written beside the log and referenced), while
+ * `session-logger.ts` decides WHERE and WHEN the bytes are written.
  */
 
 import { sha256Hex, utf8ByteLength } from '@robota-sdk/agent-core';

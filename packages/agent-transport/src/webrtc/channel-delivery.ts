@@ -4,8 +4,8 @@
  * Both places that build a bare `createSessionMessageHandler` in this package — `PairingGate`'s no-`resumeBridge`
  * branch and `WebRtcTransport`'s no-secret branch — need exactly the same thing: serialize a
  * `TServerMessage` onto an `RTCDataChannel` and route a send failure into that carrier's own failure
- * policy. Written inline at both sites it was two copies of one decision, and it pushed both files past
- * their size ceilings. One owner, named after what it is.
+ * policy. Written inline at both sites it would be two copies of one decision. One owner, named
+ * after what it is.
  */
 
 import { createOutboundDelivery } from '../index';

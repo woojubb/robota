@@ -1,9 +1,9 @@
 /**
  * One entry per accepted submission, until its turn ends or it is refused one.
  *
- * Split out of the execution controller, which had grown well past its size ratchet. The controller
- * runs turns; keeping track of who is waiting on which submission is a different job, and it is the
- * job that makes `ITurnHandle.completed` able to promise it always settles.
+ * The execution controller runs turns; keeping track of who is waiting on which submission is a
+ * different job, and it is the job that makes `ITurnHandle.completed` able to promise it always
+ * settles.
  */
 
 import { randomId } from '@robota-sdk/agent-core';

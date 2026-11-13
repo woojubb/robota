@@ -6,10 +6,9 @@ import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
  * and what may reach the session" — the same boundary that already moved the frame vocabulary into
  * `pairing-frames.ts` and the best-effort channel calls into `pairing-channel-lifecycle.ts`.
  *
- * Split out because `pairing-gate.ts` had reached the size limit, where the rule is to split rather
- * than extend. These two functions were the largest thing in it that was not about gating, and they
- * touch nothing of the gate's own state: they take inputs, wire a controller's `send` to the
- * channel, and hand back the controller plus a settled/rejected outcome for the caller to act on.
+ * Split out of `pairing-gate.ts`. These two functions are not about gating, and they touch nothing
+ * of the gate's own state: they take inputs, wire a controller's `send` to the channel, and hand
+ * back the controller plus a settled/rejected outcome for the caller to act on.
  */
 
 import { startHostReconnect, startPairingHandshake } from '@robota-sdk/agent-remote-pairing';

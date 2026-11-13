@@ -1,10 +1,8 @@
 /**
  * @robota-sdk/agent-interface/analytics — usage and run-trace contracts.
  *
- * These declarations are separate from `agent-interface/transport`'s `session-contracts.ts`.
- *
- * This family was declared INSIDE another module rather than as a file of its own, which is why the
- * extraction split declarations rather than moving a whole file.
+ * These declarations live in a file of their own, apart from `session/session-contracts.ts`, so the
+ * usage and run-trace contracts are importable without the session surface.
  *
  * LAYER 0, with an EMPTY dependency set — every field below is a primitive or another declaration in
  * this file, so the package needs nothing, not even `agent-core`. Consumers compose it downward.

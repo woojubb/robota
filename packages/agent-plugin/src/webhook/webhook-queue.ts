@@ -1,7 +1,6 @@
 /**
  * Webhook Plugin - Queue and batch management.
  *
- * Extracted from webhook-plugin.ts to keep each file under 300 lines.
  * @internal
  */
 

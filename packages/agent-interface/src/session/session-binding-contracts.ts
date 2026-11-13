@@ -1,10 +1,10 @@
 /**
  * One client's hold on a host that keeps several sessions live at once.
  *
- * A host that can switch sessions used to hold one current session for every client, so one client's
- * switch moved all of them. A binder gives each client connection a binding of its own instead: the
- * session it is on, its own view of the directory, and a release for when it leaves. Switching moves
- * only that binding, and only its client hears `session_switched`.
+ * A host that can switch sessions must not hold one current session for every client, or one
+ * client's switch would move all of them. A binder gives each client connection a binding of its
+ * own: the session it is on, its own view of the directory, and a release for when it leaves.
+ * Switching moves only that binding, and only its client hears `session_switched`.
  *
  * Everything here is a type or a pure predicate: this package is inert by rule, so the refusal is
  * declared as a shape and constructed where it is thrown.

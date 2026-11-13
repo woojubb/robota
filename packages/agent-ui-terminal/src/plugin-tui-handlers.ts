@@ -1,6 +1,5 @@
 /**
  * Screen-specific selection handlers for PluginTUI.
- * Extracted to keep PluginTUI.tsx under 300 lines.
  */
 
 import type { IMenuSelectItem } from './MenuSelect.js';

@@ -1,9 +1,6 @@
 /**
  * The contracts the execution controller is driven through.
  *
- * Split out of `interactive-session-execution-controller.ts`, which had grown too large to keep
- * extending.
- *
  * The seam is not arbitrary. These three describe what a CALLER supplies and what a submission
  * CARRIES; the class beside them describes what the controller DOES with those. It is the same
  * split `turn-contracts.ts` makes one package over.

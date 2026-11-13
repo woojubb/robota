@@ -1,7 +1,6 @@
 /**
  * Helper functions for EventEmitterPlugin.
  *
- * Extracted from plugins/event-emitter-plugin.ts to keep that file under 300 lines.
  * Contains validation logic, event processing, and stats computation.
  */
 import { PluginError } from '../utils/errors';

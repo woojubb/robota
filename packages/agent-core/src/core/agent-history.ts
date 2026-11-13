@@ -1,8 +1,7 @@
 /**
  * History helper functions for the ConversationAgent agent.
  *
- * These standalone functions operate on ConversationHistory + a conversationId,
- * extracted from core/agent.ts to keep that file under 300 lines.
+ * These standalone functions operate on ConversationHistory + a conversationId.
  */
 import type { TUniversalMessage } from '../interfaces/agent';
 import type { IHistoryEntry } from '../interfaces/messages';

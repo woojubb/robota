@@ -33,10 +33,9 @@ import type { IFileSystem } from '@robota-sdk/agent-core';
 /**
  * Where the host keeps plugin bundles and the settings file that records their enablement.
  *
- * `pluginsDir` is REQUIRED and deliberately has no default. A first draft defaulted it, and the
- * `product-identity` ratchet refused the change with the argument that settles it: a library that
- * names its consumer's product hands every other product that name too. The host knows where its
- * bundles live; this module does not, and should not learn.
+ * `pluginsDir` is REQUIRED and deliberately has no default: a library that names its consumer's
+ * product hands every other product that name too. The host knows where its bundles live; this
+ * module does not, and should not learn.
  */
 export interface IHostBundlePluginLoaderOptions {
   /** The host's bundle cache directory. No default — the host owns this path. */

@@ -1,7 +1,6 @@
 /**
  * Conversation History Plugin - Validation and storage factory helpers.
  *
- * Extracted from conversation-history-plugin.ts to keep each file under 300 lines.
  * @internal
  */
 

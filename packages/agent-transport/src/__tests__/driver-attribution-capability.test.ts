@@ -27,8 +27,8 @@ import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface
  * what makes "no active driver" the only thing `null` can mean.
  */
 function hostWithAttribution(driverId: TDriverId | null): IInteractiveSession {
-  // The conformant double, not another hand-rolled partial — the cast ratchet objected to the first
-  // draft of this very file, which is the behaviour it exists for.
+  // The conformant double, not another hand-rolled partial: a partial is not checked against the
+  // real interface.
   return createTestInteractiveSession({
     getActiveDriverId: () => driverId,
     on: vi.fn(),

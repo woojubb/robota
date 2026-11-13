@@ -19,7 +19,6 @@ import type { TUniversalMessage } from '../interfaces/messages';
 
 /**
  * Emit the EXECUTION START event.
- * Extracted from ExecutionEventEmitter to reduce file size.
  */
 export function emitExecutionStartEvent(
   emitter: IExecutionEventEmitterSurface,
@@ -65,7 +64,6 @@ export function emitExecutionStartEvent(
 
 /**
  * Emit the USER_MESSAGE event.
- * Extracted from ExecutionEventEmitter to reduce file size.
  */
 export function emitUserMessageEvent(
   emitter: IExecutionEventEmitterSurface,
@@ -105,7 +103,6 @@ export function emitUserMessageEvent(
 
 /**
  * Emit the ASSISTANT_MESSAGE_COMPLETE event.
- * Extracted from ExecutionEventEmitter to reduce file size.
  */
 export function emitAssistantMessageComplete(
   emitter: IExecutionEventEmitterSurface,
@@ -192,7 +189,6 @@ export function emitAssistantMessageComplete(
 
 /**
  * Emit TOOL_RESULTS_READY and TOOL_RESULTS_TO_LLM events.
- * Extracted from ExecutionEventEmitter to reduce file size.
  */
 export function emitToolResultsEvents(
   emitter: IExecutionEventEmitterSurface,

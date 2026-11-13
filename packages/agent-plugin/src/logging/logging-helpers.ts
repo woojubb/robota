@@ -1,7 +1,6 @@
 /**
  * Logging Plugin - Validation and storage factory helpers.
  *
- * Extracted from logging-plugin.ts to keep each file under 300 lines.
  * @internal
  */
 

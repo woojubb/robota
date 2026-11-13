@@ -1,7 +1,5 @@
 /**
  * Type definitions, interfaces, and enums for the module system.
- *
- * Extracted from abstract-module.ts to keep each file under 300 lines.
  */
 import type { IEventEmitterPlugin } from '../plugins/event-emitter/types';
 

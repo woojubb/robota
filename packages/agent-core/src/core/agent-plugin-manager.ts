@@ -1,7 +1,6 @@
 /**
  * Plugin management delegate for the ConversationAgent agent.
  *
- * Extracted from agent.ts to keep the main class under 300 lines.
  * All public method signatures are preserved via delegation.
  */
 import { ConfigurationError } from '../utils/errors';
