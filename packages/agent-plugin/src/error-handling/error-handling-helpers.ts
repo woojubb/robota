@@ -1,7 +1,6 @@
 /**
  * Error Handling Plugin - Validation and strategy handler helpers.
  *
- * Extracted from error-handling-plugin.ts to keep each file under 300 lines.
  * @internal
  */
 

@@ -1,7 +1,5 @@
 /**
  * Type definitions for EventEmitterPlugin.
- *
- * Extracted from event-emitter-plugin.ts to keep each file under 300 lines.
  */
 import type { IEventEmitterMetrics } from './metrics';
 import type { IEventEmitterEventData, TEventName, TEventEmitterListener } from './types';

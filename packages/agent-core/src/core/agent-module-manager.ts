@@ -1,7 +1,6 @@
 /**
  * Module management delegate for the ConversationAgent agent.
  *
- * Extracted from agent.ts to keep the main class under 300 lines.
  * All public method signatures are preserved via delegation.
  */
 import type { IModule } from '../abstracts/abstract-module';

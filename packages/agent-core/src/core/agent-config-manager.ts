@@ -1,8 +1,6 @@
 import { executeWithToolAdmission } from './tool-effect-admission';
 /**
  * Configuration and tool management delegate for the ConversationAgent agent.
- *
- * Extracted from agent.ts to keep the main class under 300 lines.
  */
 import { AGENT_EVENTS } from '../agents/constants';
 import { ConfigurationError } from '../utils/errors';

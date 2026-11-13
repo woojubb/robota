@@ -1,7 +1,6 @@
 /**
  * Performance Plugin - Validation, storage factory, and module data extraction helpers.
  *
- * Extracted from performance-plugin.ts to keep each file under 300 lines.
  * @internal
  */
 

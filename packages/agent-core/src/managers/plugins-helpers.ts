@@ -1,7 +1,6 @@
 /**
  * Lifecycle and dependency helpers for Plugins manager.
  *
- * Extracted from plugins.ts to keep each file under 300 lines.
  * @internal
  */
 import { PluginError, ConfigurationError } from '../utils/errors';

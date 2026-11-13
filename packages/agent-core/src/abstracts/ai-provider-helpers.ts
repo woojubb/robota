@@ -1,7 +1,6 @@
 /**
  * Helper functions for AbstractAIProvider.
  *
- * Extracted from abstracts/abstract-ai-provider.ts to keep that file under 300 lines.
  * Contains message/tool validation and executor delegation utilities.
  */
 import type { IExecutor, IExecutorChatResult, TExecutorStreamEvent } from '../interfaces/executor';

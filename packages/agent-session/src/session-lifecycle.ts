@@ -1,7 +1,6 @@
 /**
  * Session lifecycle helpers — provider configuration and session start hooks.
  *
- * Extracted from Session to keep session.ts under the 300-line limit.
  * All functions receive their dependencies explicitly.
  */
 

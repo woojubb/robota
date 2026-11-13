@@ -1,7 +1,6 @@
 /**
  * Webhook Plugin - Validation helpers and event constants.
  *
- * Extracted from webhook-plugin.ts to keep each file under 300 lines.
  * @internal
  */
 

@@ -1,7 +1,6 @@
 /**
  * Session run — core execution logic for a single agent turn.
  *
- * Extracted from Session to keep session.ts under the 300-line limit.
  * Stateless: all mutable state is passed in via IRunContext.
  */
 

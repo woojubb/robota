@@ -1,7 +1,6 @@
 /**
  * Builtin type registrations and helper logic for ModuleDescriptorRegistry.
  *
- * Extracted from module-type-registry.ts to keep each file under 300 lines.
  * @internal
  */
 import { ModuleCategory, ModuleLayer } from '../abstracts/abstract-module';
