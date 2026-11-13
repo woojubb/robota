@@ -8,7 +8,7 @@ export const MONOREPO_ROOT = path.join(process.cwd(), '..', '..');
 const CONTENT_DIR = path.join(MONOREPO_ROOT, 'content');
 export const PACKAGES_DIR = path.join(MONOREPO_ROOT, 'packages');
 
-const EXCLUDED_DIRS = new Set(['images', 'ko']);
+const EXCLUDED_DIRS = new Set(['ko']);
 
 /** Recursively collect all .md files under a directory, returning paths relative to that dir. */
 function collectMarkdownFiles(dir: string, base: string = ''): string[] {
