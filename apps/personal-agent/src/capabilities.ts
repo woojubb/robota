@@ -150,6 +150,10 @@ export function createPersonalCapabilities(
       sideChats,
       layout,
       browser: watchedBrowser,
+      interruptWork: () => {
+        runner?.interrupt();
+        channelTurns?.interrupt();
+      },
       runner: () => runner,
       stateDir: options.stateDir,
       environment: options.environment,

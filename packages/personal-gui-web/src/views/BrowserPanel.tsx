@@ -9,8 +9,8 @@ const REFRESH_MS = 2000;
 
 /**
  * The agent's own browser, as the person watching it sees it: the page it is on, a picture of that
- * page, what it did there, and what it is waiting to send. Stop ends the agent's turn and closes its
- * pages. Approving a held submission stays where the agent asks for it, in the chat or the feed.
+ * page, what it did there, and what it is waiting to send. Stop ends the agent's work in progress (the
+ * chat's turn here; the host ends goal runs and messenger turns) and closes its pages. Approving a held submission stays where the agent asks for it, in the chat or the feed.
  */
 export function BrowserPanel({
   api,

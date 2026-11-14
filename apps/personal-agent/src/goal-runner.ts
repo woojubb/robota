@@ -39,6 +39,8 @@ export interface IGoalRunner {
   answer(feedId: string, approve: boolean): Promise<IFeedItem>;
   /** Resolves when every run started so far has ended. */
   settled(): Promise<void>;
+  /** End the turns of the runs in progress, as a person's Stop does; later runs still start. */
+  interrupt(): void;
   stop(): Promise<void>;
 }
 
@@ -223,6 +225,9 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     answer: (feedId, approve) => approvals.answer(feedId, approve),
     async settled() {
       while (running.size > 0) await Promise.allSettled([...running.values()]);
+    },
+    interrupt() {
+      for (const session of sessions) session.abort();
     },
     async stop() {
       stopped = true;

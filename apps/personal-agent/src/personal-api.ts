@@ -47,6 +47,8 @@ export interface IPersonalApiOptions {
   readonly layout: ILayoutBook;
   /** The agent's browser as a watching person sees it. */
   readonly browser: IWatchedBrowser;
+  /** End the agent's work in progress outside the chat (goal runs, messenger turns): Stop uses it. */
+  readonly interruptWork: () => void;
   /** The goal runner, once the agent is running; approvals and "run now" need it. */
   readonly runner: () => IGoalRunner | undefined;
   readonly stateDir: string;
@@ -324,6 +326,8 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
         );
       }
       if (collection === 'stop' && method === 'POST') {
+        // Whatever is driving the browser stops first, so it cannot open the pages again.
+        options.interruptWork();
         await browser.stop();
         return ok({ stopped: true });
       }

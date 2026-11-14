@@ -36,6 +36,9 @@ export interface IWatchedBrowser {
 
 const MAX_ACTIVITY = 30;
 
+const firstLine = (error: unknown): string =>
+  (error instanceof Error ? error.message : String(error)).split('\n')[0] ?? '';
+
 export function watchBrowser(
   inner: IBrowserPort,
   now: () => Date = () => new Date(),
@@ -68,10 +71,8 @@ export function watchBrowser(
     } catch (error) {
       record({
         action: 'failed',
-        summary: `${what} failed: ${error instanceof Error ? error.message : String(error)}`.slice(
-          0,
-          200,
-        ),
+        // Only the first line: an automation error's call log can repeat what was typed.
+        summary: `${what} failed: ${firstLine(error)}`.slice(0, 200),
       });
       throw error;
     }

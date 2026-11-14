@@ -33,6 +33,17 @@ function fakePort(): IBrowserPort & { closed: number } {
   return port;
 }
 
+/** A failing type through a fresh watch, returning the watch's record afterwards. */
+let typedRecord = '';
+async function typeThroughWatch(inner: IBrowserPort): Promise<void> {
+  const watched = watchBrowser(inner);
+  try {
+    await watched.port.type(1, 'hunter2-secret');
+  } finally {
+    typedRecord = JSON.stringify(watched.watch());
+  }
+}
+
 describe('the watched browser', () => {
   it('records what the agent did, never what it typed, and what waits for approval', async () => {
     const inner = fakePort();
@@ -61,6 +72,12 @@ describe('the watched browser', () => {
     inner.open = async () => {
       throw new Error('Refused to open http://10.0.0.1/: private');
     };
+    inner.type = async () => {
+      throw new Error('locator.fill: Timeout\nCall log:\n  - fill("hunter2-secret")');
+    };
+    await expect(typeThroughWatch(inner)).rejects.toThrow('Timeout');
+    expect(typedRecord).toContain('Timeout');
+    expect(typedRecord).not.toContain('hunter2');
     const watched = watchBrowser(inner);
     await expect(watched.port.open('http://10.0.0.1/')).rejects.toThrow('Refused');
     expect(watched.watch().activity[0]).toEqual(
