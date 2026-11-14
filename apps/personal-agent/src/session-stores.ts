@@ -16,3 +16,11 @@ import type { IInteractiveSessionStore } from '@robota-sdk/agent-framework';
 export function createPersonalSessionStore(stateDir: string): IInteractiveSessionStore {
   return createUserSessionStore(join(stateDir, 'sessions'), { sealing: 'plain' });
 }
+
+/**
+ * Where goal runs keep their transcripts: the audit of what the agent did while the person was away.
+ * Kept apart from the chats, so a run never appears in the chat list as a chat to continue.
+ */
+export function createPersonalGoalSessionStore(stateDir: string): IInteractiveSessionStore {
+  return createUserSessionStore(join(stateDir, 'goal-sessions'), { sealing: 'plain' });
+}

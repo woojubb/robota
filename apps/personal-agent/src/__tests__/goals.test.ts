@@ -181,6 +181,15 @@ describe.skipIf(findChromiumExecutable() === undefined)(
       const feed = (await client.get('feed')).items as any[];
       expect(feed[0]).toEqual(expect.objectContaining({ kind: 'report', goalId }));
       expect(feed.find((item) => item.id === approval.id).approval.state).toBe('approved');
+      // The run's transcript is kept as its audit, apart from the chats: it never shows as a chat.
+      const { createPersonalGoalSessionStore, createPersonalSessionStore } =
+        await import('../session-stores.js');
+      expect(JSON.stringify(createPersonalGoalSessionStore(harness.stateDir).list())).toContain(
+        'Goal: Concert tickets',
+      );
+      expect(JSON.stringify(createPersonalSessionStore(harness.stateDir).list())).not.toContain(
+        'Goal: Concert tickets',
+      );
     });
 
     it('sends nothing when the person denies, and still reports', async () => {

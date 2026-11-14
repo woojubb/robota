@@ -106,10 +106,53 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         );
 
         // The chat stayed mounted while other menus were open.
-        await menu.getByRole('button', { name: 'Chat' }).click();
+        await menu.getByRole('button', { name: 'Chat', exact: true }).click();
         expect(await page.locator('body').innerText()).toContain(
           'Noted: Mina is allergic to peanuts.',
         );
+      } finally {
+        await browser.close();
+      }
+    });
+
+    it('starts a new chat and switches back to the earlier one from the chat list', async () => {
+      harness = await startHarness({ gui: true });
+      harness.model.script(
+        { text: 'Reply in the first chat' },
+        { text: 'Reply in the second chat' },
+      );
+      const browser = await chromium!.launch();
+      try {
+        const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+        await page.goto(harness.local.gui!.url);
+        await page.fill('input[name=code]', harness.local.gui!.accessCode);
+        await page.click('button[type=submit]');
+        await page.waitForFunction(bodyIncludes, 'Session connected', { timeout: 15_000 });
+        await page.locator('textarea').fill('Plan the weekend trip');
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(bodyIncludes, 'Reply in the first chat', { timeout: 15_000 });
+
+        await page
+          .getByRole('navigation', { name: 'Menu' })
+          .getByRole('button', { name: 'New chat' })
+          .click();
+        await page.waitForFunction(
+          (text: string) => !document.body.innerText.includes(text),
+          'Reply in the first chat',
+          { timeout: 15_000 },
+        );
+        await page.locator('textarea').fill('Draft a birthday message');
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(bodyIncludes, 'Reply in the second chat', { timeout: 15_000 });
+
+        const show = page.getByRole('button', { name: 'Show sessions' });
+        if (await show.isVisible()) await show.click();
+        await page
+          .getByLabel('Sessions')
+          .getByRole('button', { name: 'Plan the weekend trip', exact: true })
+          .click();
+        await page.waitForFunction(bodyIncludes, 'Reply in the first chat', { timeout: 15_000 });
+        expect(await page.locator('body').innerText()).not.toContain('Reply in the second chat');
       } finally {
         await browser.close();
       }
