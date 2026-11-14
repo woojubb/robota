@@ -109,3 +109,40 @@ describe('goal runner', () => {
     expect((await book.get(goal.id))?.status).toBe('done');
   });
 });
+
+describe('goal runner stopping', () => {
+  it('does not start the work of a run that was opening while the runner stopped', async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    let submitted = 0;
+    let runner: ReturnType<typeof createGoalRunner> | undefined;
+    const session = {
+      on: () => undefined,
+      off: () => undefined,
+      submit: async () => {
+        submitted += 1;
+        return { turnId: 't', completed: Promise.resolve({ response: 'worked' }) };
+      },
+      resolvePermission: () => undefined,
+      abort: () => undefined,
+      shutdown: async () => undefined,
+    } as unknown as TRunSession;
+    runner = createGoalRunner({
+      book,
+      // The runner stops while this run is opening its session.
+      openSession: () => {
+        void runner!.stop();
+        return session;
+      },
+    });
+    const goal = await book.create({ title: 'Late', instructions: 'x' });
+    await runner.runDue();
+    await runner.settled();
+    expect(submitted).toBe(0);
+    expect((await book.runs(goal.id))[0]).toEqual(
+      expect.objectContaining({
+        outcome: 'failed',
+        report: 'The run failed: the agent was stopping',
+      }),
+    );
+  });
+});

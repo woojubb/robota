@@ -91,8 +91,6 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       deniedTools: Object.values(GOAL_TOOL_NAMES),
     });
     sessions.add(session);
-    // A run that was starting while the runner stopped ends at once instead of working unwatched.
-    if (stopped) session.abort();
     /** Prompt id to the feed item that shows it. */
     const ownPrompts = new Map<string, string>();
     const onToolEnd = (state: { toolName: string; firstArg: string; result?: string }): void => {
@@ -167,6 +165,8 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     let outcome: 'done' | 'failed' = 'done';
     let report: string;
     try {
+      // A run that was starting while the runner stopped ends here instead of working unwatched.
+      if (stopped) throw new Error('the agent was stopping');
       const handle = await session.submit(goal.instructions);
       const result = await handle.completed;
       report =
