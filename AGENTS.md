@@ -26,8 +26,8 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 - A task is finished only when its change is on `main`, not `develop`. After a PR merges into `develop`, promote `develop`
   to `main` through a PR (branch from `develop` with `main` merged in; no version bump, tag or publish) and back-merge
   `main` into `develop`, every time and without asking, except while a release freezes `main`; report done only when
-  `origin/main` contains the work. A release (one release PR
-  from `develop` to `main`, version bumps, npm publish) is a separate request: [.agents/skills/release](.agents/skills/release/SKILL.md).
+  `origin/main` contains the work. A release (one release PR from `develop` to `main`, version bumps, npm publish) is a
+  separate request: [.agents/skills/release](.agents/skills/release/SKILL.md).
 
 ## Checks
 
