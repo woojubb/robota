@@ -48,12 +48,14 @@ export type TWorkspaceRootBrokerRequest =
   | {
       readonly op: 'mutate'; readonly lease: string; readonly operationId: string;
       readonly method: 'write' | 'replace' | 'append' | 'delete' | 'sweepTemporaries' |
-        'linkCount' | 'stage' | 'commitStaged' | 'discardStaged' | 'claimDirectory';
+        'linkCount' | 'stage' | 'commitStaged' | 'discardStaged' | 'claimDirectory' | 'removeDirectory';
       readonly relativePath: string;
       readonly content?: string;
       readonly temporaryName?: string;
       readonly apply?: boolean;
       readonly migrationStartedAt?: number;
+      readonly maxEntries?: number;
+      readonly maxMs?: number;
     }
   | { readonly op: 'acquireWriter'; readonly lease: string; readonly relativePath: string; readonly owner: number }
   | { readonly op: 'writerLeaseHolds' | 'writerLeaseRelease'; readonly writerLease: string }
@@ -185,14 +187,16 @@ function parseRequest(frame: string): { version: number; request: TRequest } | u
   if (row.op === 'mutate' && candidate(row.lease) && candidate(row.operationId) &&
       relativePath(row.relativePath) && typeof row.method === 'string' &&
       ['write', 'replace', 'append', 'delete', 'sweepTemporaries', 'linkCount',
-        'stage', 'commitStaged', 'discardStaged', 'claimDirectory'].includes(row.method) &&
+        'stage', 'commitStaged', 'discardStaged', 'claimDirectory', 'removeDirectory'].includes(row.method) &&
       (row.content === undefined || base64(row.content)) &&
       (row.temporaryName === undefined ||
         (typeof row.temporaryName === 'string' && row.temporaryName.length <= 255 &&
           !row.temporaryName.includes('/') && !row.temporaryName.includes('\\'))) &&
       (row.apply === undefined || typeof row.apply === 'boolean') &&
       (row.migrationStartedAt === undefined ||
-        (typeof row.migrationStartedAt === 'number' && Number.isFinite(row.migrationStartedAt)))) {
+        (typeof row.migrationStartedAt === 'number' && Number.isFinite(row.migrationStartedAt))) &&
+      (row.maxEntries === undefined || (typeof row.maxEntries === 'number' && Number.isFinite(row.maxEntries))) &&
+      (row.maxMs === undefined || (typeof row.maxMs === 'number' && Number.isFinite(row.maxMs)))) {
     return { version: Number(row.version), request: {
       op: 'mutate', lease: row.lease, operationId: row.operationId,
       method: row.method as Extract<TRequest, { op: 'mutate' }>['method'],
@@ -201,6 +205,8 @@ function parseRequest(frame: string): { version: number; request: TRequest } | u
       ...(row.temporaryName === undefined ? {} : { temporaryName: row.temporaryName }),
       ...(row.apply === undefined ? {} : { apply: row.apply }),
       ...(row.migrationStartedAt === undefined ? {} : { migrationStartedAt: row.migrationStartedAt }),
+      ...(row.maxEntries === undefined ? {} : { maxEntries: row.maxEntries }),
+      ...(row.maxMs === undefined ? {} : { maxMs: row.maxMs }),
     } };
   }
   if (row.op === 'acquireWriter' && candidate(row.lease) && relativePath(row.relativePath) &&
@@ -606,6 +612,18 @@ export async function startWorkspaceRootBroker(
               path, request.apply, request.migrationStartedAt,
             ) };
             break;
+          case 'removeDirectory': {
+            if (boundary.removeDirectory === undefined) return refuse('unsupported');
+            const removal = boundary.removeDirectory(path, {
+              ...(request.maxEntries === undefined ? {} : { maxEntries: request.maxEntries }),
+              ...(request.maxMs === undefined ? {} : { maxMs: request.maxMs }),
+            });
+            result = {
+              status: 'mutation',
+              value: removal.status === 'partial' ? `partial-${removal.reason}` : removal.status,
+            };
+            break;
+          }
           case 'commitStaged':
           case 'discardStaged':
             if (request.temporaryName === undefined) return refuse('malformed');

@@ -9,6 +9,7 @@ import {
   WorkspaceAuthorityRequiredError,
   WorkspaceTrustService,
   type IWorkspaceDirectoryEntry,
+  type IWorkspaceDirectoryRemovalOptions,
   type IWorkspaceIdentity,
   type IWorkspaceIdentityResolver,
   type IWorkspaceProjectFiles,
@@ -16,6 +17,7 @@ import {
   type IWorkspaceProjectStableWriter,
   type IWorkspaceTrustStore,
   type TWorkspaceContributionKind,
+  type TWorkspaceDirectoryRemoval,
   type TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import { createNodeWorkspaceIdentityResolver } from '@robota-sdk/agent-framework/node';
@@ -31,6 +33,30 @@ const KINDS = new Set(['file', 'directory', 'link', 'other']);
 function refusal(response: TWorkspaceRootBrokerResponse): never {
   const reason = response.status === 'refused' ? response.reason : response.status;
   throw new WorkspaceAuthorityRequiredError(`The live workspace broker refused the operation (${reason}).`);
+}
+
+/**
+ * What a brokered directory removal achieved. The broker's namespace is keyed by the user root, not by
+ * the CLI version, so a broker started by an older CLI can still be serving; it does not know the
+ * operation and answers `malformed`, which only a restart of that broker cures.
+ */
+export function brokeredDirectoryRemoval(response: TWorkspaceRootBrokerResponse): TWorkspaceDirectoryRemoval {
+  if (response.status === 'refused' && response.reason === 'malformed') {
+    throw new WorkspaceAuthorityRequiredError(
+      'The running workspace-root broker is older than this CLI and cannot remove directories. ' +
+      'Restart the workspace-root broker: end its process (started with --internal-root-broker), ' +
+      'then run the command again so a current broker starts.',
+    );
+  }
+  if (response.status !== 'mutation') return refusal(response);
+  switch (response.value) {
+    case 'removed': return { status: 'removed' };
+    case 'absent': return { status: 'absent' };
+    case 'partial-budget': return { status: 'partial', reason: 'budget' };
+    case 'partial-concurrent': return { status: 'partial', reason: 'concurrent' };
+    default:
+      throw new WorkspaceAuthorityRequiredError('The workspace broker returned an invalid removal result.');
+  }
 }
 
 function kind(value: string): TWorkspaceContributionKind {
@@ -158,13 +184,15 @@ export class BrokeredWorkspaceTrustService {
     };
     const sync = (request: Parameters<SyncWorkspaceRootBrokerClient['request']>[0]) =>
       this.#sync.request(request);
-    const mutation = (
+    const mutate = (
       root: string,
       method: Extract<Parameters<typeof sync>[0], { op: 'mutate' }>['method'],
       relativePath: string,
-      options: { content?: Uint8Array | string; temporaryName?: string; apply?: boolean; migrationStartedAt?: number } = {},
-    ): TWorkspaceRootBrokerResponse => {
-      const response = sync({
+      options: {
+        content?: Uint8Array | string; temporaryName?: string; apply?: boolean; migrationStartedAt?: number;
+      } & IWorkspaceDirectoryRemovalOptions = {},
+    ): TWorkspaceRootBrokerResponse =>
+      sync({
         op: 'mutate', lease: leaseFor(root), operationId: randomUUID(), method, relativePath,
         ...(options.content === undefined ? {} : {
           content: (typeof options.content === 'string'
@@ -175,7 +203,11 @@ export class BrokeredWorkspaceTrustService {
         ...(options.migrationStartedAt === undefined ? {} : {
           migrationStartedAt: options.migrationStartedAt,
         }),
+        ...(options.maxEntries === undefined ? {} : { maxEntries: options.maxEntries }),
+        ...(options.maxMs === undefined ? {} : { maxMs: options.maxMs }),
       });
+    const mutation = (...args: Parameters<typeof mutate>): TWorkspaceRootBrokerResponse => {
+      const response = mutate(...args);
       if (response.status !== 'mutation' && response.status !== 'missing') return refusal(response);
       return response;
     };
@@ -224,6 +256,8 @@ export class BrokeredWorkspaceTrustService {
             mutation(root, 'discardStaged', path, { temporaryName });
           },
           claimDirectory: (path: string) => result(mutation(root, 'claimDirectory', path)) as boolean,
+          removeDirectory: (path: string, options?: IWorkspaceDirectoryRemovalOptions) =>
+            brokeredDirectoryRemoval(mutate(root, 'removeDirectory', path, options)),
           acquireWriter: (path: string): IProcessMarkerHandle | undefined => {
             const response = sync({
               op: 'acquireWriter', lease: leaseFor(root), relativePath: path, owner: process.pid,

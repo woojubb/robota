@@ -325,6 +325,33 @@ describe.skipIf(process.platform !== 'linux')('root broker checkpoint writer lea
     expect(await holds(f, lease.writerLease)).toMatchObject({ status: 'mutation', value: false });
   });
 
+  it('removes a directory in bounded steps and answers a repeated operation id from its record', async () => {
+    const f = await approvedRoot();
+    const victim = join(f.first, 'state', 'victim');
+    mkdirSync(join(victim, 'nested'), { recursive: true });
+    writeFileSync(join(victim, 'one.txt'), 'one');
+    writeFileSync(join(victim, 'nested', 'two.txt'), 'two');
+    const remove = (operationId: string, maxEntries?: number) => requestWorkspaceRootBroker(f.endpoint, {
+      op: 'mutate', lease: f.lease, operationId, method: 'removeDirectory', relativePath: 'state/victim',
+      ...(maxEntries === undefined ? {} : { maxEntries }),
+    });
+
+    expect(await remove(randomUUID(), 1)).toEqual({ status: 'mutation', value: 'partial-budget' });
+    const operationId = randomUUID();
+    expect(await remove(operationId)).toEqual({ status: 'mutation', value: 'removed' });
+    expect(existsSync(victim)).toBe(false);
+    mkdirSync(victim);
+    expect(await remove(operationId)).toEqual({ status: 'mutation', value: 'removed' });
+    expect(existsSync(victim)).toBe(true);
+    expect(await remove(randomUUID())).toEqual({ status: 'mutation', value: 'removed' });
+    expect(existsSync(victim)).toBe(false);
+    expect(await remove(randomUUID())).toEqual({ status: 'mutation', value: 'absent' });
+    expect(await requestWorkspaceRootBroker(f.endpoint, {
+      op: 'mutate', lease: f.lease, operationId: randomUUID(), method: 'removeEverything', relativePath: 'state',
+    } as unknown as Parameters<typeof requestWorkspaceRootBroker>[1]))
+      .toEqual({ status: 'refused', reason: 'malformed' });
+  });
+
   it('releases the lease of a client process that is gone, and keeps one whose client runs', async () => {
     const f = await approvedRoot();
     const gone = spawn(process.execPath, ['-e', ''], { stdio: 'ignore' });

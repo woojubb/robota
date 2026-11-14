@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
-import { BrokeredWorkspaceTrustService } from '../brokered-workspace-trust.js';
+import { BrokeredWorkspaceTrustService, brokeredDirectoryRemoval } from '../brokered-workspace-trust.js';
 import { workspaceRootBrokerEndpoint } from '../workspace-root-broker-process.js';
 import { runWorkspaceTrustCommand } from '../workspace-trust-command.js';
 import { prepareDesktopRestrictedRoot } from '../../desktop-host.js';
@@ -155,7 +155,27 @@ describe.skipIf(process.platform !== 'linux')('brokered CLI checkpoint writer le
     const again = state.acquireWriter?.('session_1/.writer', 'lease test');
     expect(again?.holds()).toBe(true);
     again?.release();
+
+    state.writeText('checkpoints/one/file.txt', 'file', 'lease test');
+    expect(state.removeDirectory?.('checkpoints', 'lease test')).toEqual({ status: 'removed' });
+    expect(state.removeDirectory?.('checkpoints', 'lease test')).toEqual({ status: 'absent' });
   }, 40_000);
+});
+
+describe('brokered directory removal results', () => {
+  it('maps the broker answers, and tells the person to restart a broker too old for the operation', () => {
+    expect(brokeredDirectoryRemoval({ status: 'mutation', value: 'removed' })).toEqual({ status: 'removed' });
+    expect(brokeredDirectoryRemoval({ status: 'mutation', value: 'absent' })).toEqual({ status: 'absent' });
+    expect(brokeredDirectoryRemoval({ status: 'mutation', value: 'partial-budget' }))
+      .toEqual({ status: 'partial', reason: 'budget' });
+    expect(brokeredDirectoryRemoval({ status: 'mutation', value: 'partial-concurrent' }))
+      .toEqual({ status: 'partial', reason: 'concurrent' });
+    expect(() => brokeredDirectoryRemoval({ status: 'refused', reason: 'malformed' }))
+      .toThrow(/Restart the workspace-root broker/u);
+    expect(() => brokeredDirectoryRemoval({ status: 'refused', reason: 'write-outcome-unknown' }))
+      .toThrow(/write-outcome-unknown/u);
+    expect(() => brokeredDirectoryRemoval({ status: 'mutation', value: true })).toThrow(/invalid removal/u);
+  });
 });
 
 describe.skipIf(process.platform !== 'win32')('brokered Windows CLI workspace trust', () => {
