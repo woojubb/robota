@@ -51,7 +51,11 @@ interface IPendingApproval {
   readonly session: TRunSession;
   readonly promptId: string;
   readonly goalId: string;
-  readonly record: (outcome: 'approved' | 'denied') => Promise<void>;
+  /**
+   * Record the person's answer on the run's ordered chain. Queued before the session hears the answer,
+   * so the run cannot finish ahead of the record of what allowed it to go on.
+   */
+  readonly recordAnswer: (approve: boolean) => Promise<IFeedItem>;
 }
 
 export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
@@ -121,7 +125,22 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
           session,
           promptId: event.id,
           goalId: goal.id,
-          record: (outcome) => record({ tool: event.toolName, detail, outcome }),
+          recordAnswer: (approve) => {
+            let answered: IFeedItem | undefined;
+            const done = enqueue(async () => {
+              answered = await book.setApproval(item.id, approve ? 'approved' : 'denied');
+              run = await book.recordAction(run, {
+                tool: event.toolName,
+                detail,
+                outcome: approve ? 'approved' : 'denied',
+              });
+              await settleWaiting(goal.id);
+            });
+            return done.then(() => {
+              if (answered === undefined) throw new Error('The answer could not be recorded');
+              return answered;
+            });
+          },
         });
         await book.setWaiting(goal.id, true);
       });
@@ -211,13 +230,12 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
         throw new Error('This approval is no longer waiting');
       }
       pending.delete(feedId);
-      // Answered first, recorded after: nothing can settle the prompt between the person's answer and
-      // the session receiving it, so the record always says what the session did.
+      // The record is queued first and the session answered at once: nothing can settle the prompt
+      // between the person's answer and the session receiving it, and the run cannot end before the
+      // record of that answer is written.
+      const recorded = waiting.recordAnswer(approve);
       waiting.session.resolvePermission(waiting.promptId, approve);
-      const item = await book.setApproval(feedId, approve ? 'approved' : 'denied');
-      await waiting.record(approve ? 'approved' : 'denied');
-      await settleWaiting(waiting.goalId);
-      return item;
+      return recorded;
     },
     async settled() {
       while (running.size > 0) await Promise.allSettled([...running.values()]);
