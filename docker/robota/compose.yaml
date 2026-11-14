@@ -82,9 +82,9 @@ services:
     secrets:
       - source: openai_api_key
         target: OPENAI_API_KEY
-      # Exported as PRODUCT_HTTP_TOKEN: the bearer every HTTP client presents (at least 32 characters).
+      # Exported as ROBOTA_HTTP_TOKEN: the bearer every HTTP client presents (at least 32 characters).
       - source: robota_http_token
-        target: PRODUCT_HTTP_TOKEN
+        target: ROBOTA_HTTP_TOKEN
     environment:
       ROBOTA_REPO_URL: ${ROBOTA_REPO_URL:-}
     ports:

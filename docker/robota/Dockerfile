@@ -63,7 +63,10 @@ RUN --mount=type=bind,source=local-packages,target=/tmp/local-packages \
   ln -s /opt/robota/node_modules/.bin/robota /usr/local/bin/robota; \
   robota --version
 
+# The installed CLI reads its state root from ROBOTA_USER_STATE_DIR; PRODUCT_USER_STATE_DIR names the
+# same directory for tools that use the product-neutral name, as the Dev Container Feature does.
 ENV HOME=/home/node \
+    ROBOTA_USER_STATE_DIR=/home/node/.robota \
     PRODUCT_USER_STATE_DIR=/home/node/.robota
 
 RUN mkdir -p /home/node/.robota /workspace /usr/local/share/robota \
