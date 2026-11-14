@@ -25,6 +25,8 @@ export interface IChannelTurns {
     key: { readonly channel: string; readonly conversationId: string },
     text: string,
   ): Promise<string>;
+  /** End the turns in progress, as a person's Stop does; the conversations stay open. */
+  interrupt(): void;
   stop(): Promise<void>;
 }
 
@@ -100,6 +102,9 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
         turn.catch(() => undefined),
       );
       return turn;
+    },
+    interrupt() {
+      for (const session of sessions.values()) session.abort();
     },
     async stop() {
       for (const session of sessions.values()) session.abort();

@@ -40,6 +40,14 @@ export interface IBrowserActionResult {
   readonly held?: readonly IHeldSubmission[];
 }
 
+/** What the agent's page looks like right now, for a person watching it work. */
+export interface IBrowserSnapshot {
+  readonly url: string;
+  readonly title: string;
+  /** A PNG screenshot of the visible page. */
+  readonly png: Uint8Array;
+}
+
 export interface IBrowserPort {
   open(url: string): Promise<IBrowserView>;
   view(): Promise<IBrowserView>;
@@ -53,6 +61,11 @@ export interface IBrowserPort {
     id: string,
     expected: { readonly method: string; readonly url: string },
   ): Promise<IBrowserActionResult>;
+  /**
+   * The current page as a person would see it, or undefined when no page is open. Optional: a host
+   * that cannot take a picture leaves it out, and only watching is lost.
+   */
+  snapshot?(): Promise<IBrowserSnapshot | undefined>;
   close(): Promise<void>;
 }
 
