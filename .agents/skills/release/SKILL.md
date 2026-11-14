@@ -32,8 +32,11 @@ npm environment. Use one release PR; do not create a separate version-bump PR or
    if that bound passes, resume the same retained artifact.
 5. Successful CLI npm completion starts the agent image. The Feature runs when both native and CLI npm
    completion events have succeeded for the same commit. Confirm npm latest versions and durable receipts;
-   for CLI releases also confirm native/desktop assets, Feature and multi-platform image delivery. For an
-   app-only release, confirm its desktop installers and the app-only macOS verification job.
+   for CLI releases also confirm native/desktop assets, Feature, multi-platform image delivery and the
+   repository's Latest release. Producers create GitHub releases with `--latest=false`; the macOS verification
+   workflow marks the tag Latest after both producers are verified and never moves Latest backward. If its
+   `mark-latest` job fails or is skipped, run `gh release edit <tag> --latest` once the release is complete.
+   For an app-only release, confirm its desktop installers and the app-only macOS verification job.
 
 Keep tarball inspection, integrity, provenance, signing and real installed-artifact checks at the delivery
 boundary. Do not repeat full package packing in PR CI or reconstruct past release diffs to authorize a release.

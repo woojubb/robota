@@ -310,7 +310,7 @@ jobs:
         run: |
           set -euo pipefail
           gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1 || \
-            gh release create "$TAG" --repo "$GH_REPO" --title "$TAG" --notes-file "$NOTES" || \
+            gh release create "$TAG" --repo "$GH_REPO" --title "$TAG" --notes-file "$NOTES" --latest=false || \
             gh release view "$TAG" --repo "$GH_REPO" >/dev/null
           # `# reason`, not `-- reason`: shellcheck cannot PARSE the `--` form, and a directive it
           # shellcheck disable=SC2086 # $ASSETS is an intentional multi-pattern glob list.
