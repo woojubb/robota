@@ -1,9 +1,12 @@
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { confirmRegistryPublication } from './confirm-registry-publication.mjs';
+import {
+  confirmRegistryPublication,
+  installLockThroughRegistryLag,
+} from './confirm-registry-publication.mjs';
 
 const [packDirectory, output] = process.argv.slice(2);
 if (!packDirectory || !output) {
@@ -47,8 +50,9 @@ if (!['cli', 'sdk'].includes(component) || !/^[a-z0-9][a-z0-9._-]*$/u.test(selec
     (component === 'cli') !== (selected === 'agent-cli') || packages.length !== 1 ||
     packages[0].name !== `${packageScope}/${selected}` || packages[0].version !== releaseVersion)
   throw new Error('invalid release component or tarballs');
-// Wait, within a bound, for the registry to serve the uploaded version; a failed receipt can still resume
-// from the retained artifact without rebuilding.
+// Wait, within one bound shared with the lock generation below, for the registry to serve the uploaded
+// version; a failed receipt can still resume from the retained artifact without rebuilding.
+const waitStarted = Date.now();
 await Promise.all(packages.map((pkg) => confirmRegistryPublication(pkg, registry)));
 const cli = packages.find((entry) => entry.name === `${packageScope}/agent-cli`);
 if (component === 'cli' && !cli) throw new Error('the configured CLI tarball was not published');
@@ -62,19 +66,22 @@ try {
     join(lockRoot, 'package.json'),
     `${JSON.stringify({ name: component === 'cli' ? 'robota-release-image' : 'robota-sdk-release', private: true, dependencies: Object.fromEntries(roots.map((pkg) => [pkg.name, pkg.version])) }, null, 2)}\n`,
   );
-  execFileSync(
-    'npm',
-    [
-      'install',
-      '--package-lock-only',
-      '--omit=dev',
-      '--ignore-scripts',
-      '--no-audit',
-      '--no-fund',
-      '--registry',
-      registry,
-    ],
-    { cwd: lockRoot, stdio: 'inherit', timeout: 60_000 },
+  await installLockThroughRegistryLag(
+    roots,
+    registry,
+    (args) => {
+      const result = spawnSync('npm', args, {
+        cwd: lockRoot,
+        stdio: ['inherit', 'inherit', 'pipe'],
+        encoding: 'utf8',
+        timeout: 60_000,
+      });
+      // The captured stderr stays in the job log: it is what the failure kind is recognised from.
+      if (result.stderr) process.stderr.write(result.stderr);
+      if (result.error) throw result.error;
+      return { status: result.status, stderr: result.stderr };
+    },
+    { started: waitStarted },
   );
   lockBytes = readFileSync(join(lockRoot, 'package-lock.json'));
   const lock = JSON.parse(lockBytes.toString('utf8'));
