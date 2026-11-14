@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import type { IFeedItem, IGoal, IGoalRun, IGoalStore } from './types.js';
 
 const GOAL_ID = /^[a-z0-9][a-z0-9-]{0,79}$/;
+const FEED_ID = /^feed-[a-z0-9]{1,40}$/;
 const FEED_LIMIT = 500;
 const RUNS_PER_GOAL = 100;
 
@@ -25,6 +26,21 @@ function writeAtomic(path: string, value: unknown): void {
 const newestFirst = <T extends { readonly id: string }>(items: T[], at: (item: T) => string): T[] =>
   items.sort((a, b) => at(b).localeCompare(at(a)) || b.id.localeCompare(a.id));
 
+/** A record's own entry only: an id such as `constructor` must not reach the object's prototype. */
+function own<T>(map: Record<string, T>, id: string): T | undefined {
+  return Object.hasOwn(map, id) ? map[id] : undefined;
+}
+
+/** The newest feed items up to the bound, never dropping an approval still waiting for an answer. */
+function boundedFeed(items: IFeedItem[]): IFeedItem[] {
+  const sorted = newestFirst(items, (item) => item.at);
+  const waiting = sorted.filter((item) => item.approval?.state === 'pending');
+  const rest = sorted
+    .filter((item) => item.approval?.state !== 'pending')
+    .slice(0, Math.max(0, FEED_LIMIT - waiting.length));
+  return newestFirst([...waiting, ...rest], (item) => item.at);
+}
+
 export function createFileGoalStore(directory: string): IGoalStore {
   mkdirSync(join(directory, 'runs'), { recursive: true, mode: 0o700 });
   const goalsPath = join(directory, 'goals.json');
@@ -38,7 +54,7 @@ export function createFileGoalStore(directory: string): IGoalStore {
 
   return {
     listGoals: async () => Object.values(goals()),
-    getGoal: async (id) => goals()[id],
+    getGoal: async (id) => own(goals(), id),
     putGoal: async (goal) => {
       if (!GOAL_ID.test(goal.id)) throw new Error(`Invalid goal id: ${goal.id}`);
       writeAtomic(goalsPath, { ...goals(), [goal.id]: goal });
@@ -58,13 +74,11 @@ export function createFileGoalStore(directory: string): IGoalStore {
     },
     listRuns: async (goalId, limit) => readJson<IGoalRun[]>(runsPath(goalId), []).slice(0, limit),
     putFeedItem: async (item) => {
-      const items = newestFirst(
-        Object.values({ ...feed(), [item.id]: item }),
-        (entry) => entry.at,
-      ).slice(0, FEED_LIMIT);
+      if (!FEED_ID.test(item.id)) throw new Error(`Invalid feed item id: ${item.id}`);
+      const items = boundedFeed(Object.values({ ...feed(), [item.id]: item }));
       writeAtomic(feedPath, Object.fromEntries(items.map((entry) => [entry.id, entry])));
     },
-    getFeedItem: async (id) => feed()[id],
+    getFeedItem: async (id) => own(feed(), id),
     listFeed: async (limit) =>
       newestFirst(Object.values(feed()), (item) => item.at).slice(0, limit),
   };

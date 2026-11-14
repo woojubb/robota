@@ -15,7 +15,10 @@ import { GOAL_TOOL_NAMES, goalRunInstructions } from '@robota-sdk/agent-product/
 import type { GoalBook, IFeedItem, IGoal, IGoalRun } from '@robota-sdk/agent-product/personal';
 import type { IExtraSessionOptions, TPersonalSession } from './agent.js';
 
-type TRunSession = Pick<TPersonalSession, 'on' | 'off' | 'submit' | 'resolvePermission' | 'shutdown'>;
+export type TRunSession = Pick<
+  TPersonalSession,
+  'on' | 'off' | 'submit' | 'resolvePermission' | 'shutdown' | 'abort'
+>;
 
 export interface IGoalRunnerOptions {
   readonly book: GoalBook;
@@ -54,34 +57,55 @@ interface IPendingApproval {
 export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
   const { book } = options;
   const running = new Map<string, Promise<void>>();
+  const sessions = new Set<TRunSession>();
   const pending = new Map<string, IPendingApproval>();
   let stopped = false;
 
+  /** A goal waits while any of its approvals does, and works again once none is left. */
+  const settleWaiting = async (goalId: string): Promise<void> => {
+    const stillWaiting = [...pending.values()].some((entry) => entry.goalId === goalId);
+    await book.setWaiting(goalId, stillWaiting);
+  };
+
   const runGoal = async (goal: IGoal): Promise<void> => {
     let run: IGoalRun = await book.startRun(goal.id);
-    // Writes to the run happen in order, whatever order the session's events arrive in.
+    // Writes to the run and the feed happen in order, whatever order the session's events arrive in.
     let chain = Promise.resolve();
-    const record = (action: Parameters<GoalBook['recordAction']>[1]): Promise<void> => {
-      chain = chain.then(async () => {
-        run = await book.recordAction(run, action);
-      });
+    const enqueue = (work: () => Promise<void>): Promise<void> => {
+      // allow-fallback: one failed write must not keep the run from finishing and reporting.
+      chain = chain.then(work).catch(() => undefined);
       return chain;
     };
+    const record = (action: Parameters<GoalBook['recordAction']>[1]): Promise<void> =>
+      enqueue(async () => {
+        run = await book.recordAction(run, action);
+      });
     const session = options.openSession({
       sessionName: `Goal: ${goal.title}`,
       instructions: goalRunInstructions(goal),
       permissionMode: goal.readOnly ? 'plan' : 'acceptEdits',
       deniedTools: Object.values(GOAL_TOOL_NAMES),
     });
+    sessions.add(session);
+    /** Prompt id to the feed item that shows it. */
     const ownPrompts = new Map<string, string>();
     const onToolEnd = (state: { toolName: string; firstArg: string; result?: string }): void => {
-      const outcome = state.result === 'success' ? 'done' : state.result === 'denied' ? 'denied' : 'error';
+      const outcome =
+        state.result === 'success' ? 'done' : state.result === 'denied' ? 'denied' : 'error';
       void record({ tool: state.toolName, detail: state.firstArg.slice(0, DETAIL_LIMIT), outcome });
     };
-    const onPermission = (event: { id: string; toolName: string; toolArgs: Record<string, unknown> }): void => {
+    const onPermission = (event: {
+      id: string;
+      toolName: string;
+      toolArgs: Record<string, unknown>;
+    }): void => {
       const detail = describeCall(event.toolName, event.toolArgs);
-      void (async () => {
-        await record({ tool: event.toolName, detail, outcome: 'waiting-approval' });
+      void enqueue(async () => {
+        run = await book.recordAction(run, {
+          tool: event.toolName,
+          detail,
+          outcome: 'waiting-approval',
+        });
         const item = await book.post({
           kind: 'approval',
           title: goal.title,
@@ -98,29 +122,49 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
           record: (outcome) => record({ tool: event.toolName, detail, outcome }),
         });
         await book.setWaiting(goal.id, true);
-      })();
+      });
+    };
+    // A prompt settled by anything but the person's answer (the session's backstop, a shutdown) was
+    // refused: its approval can no longer be given, so it is expired, never approved.
+    const onResolved = (event: { id: string }): void => {
+      void enqueue(async () => {
+        const feedId = ownPrompts.get(event.id);
+        if (feedId === undefined || !pending.delete(feedId)) return;
+        await book.setApproval(feedId, 'expired');
+        const item = await book.feedItem(feedId);
+        run = await book.recordAction(run, {
+          tool: item?.approval?.tool ?? 'unknown',
+          detail: item?.approval?.detail ?? '',
+          outcome: 'denied',
+        });
+        await settleWaiting(goal.id);
+      });
     };
     session.on('tool_end', onToolEnd as never);
     session.on('permission_request', onPermission as never);
+    session.on('prompt_resolved', onResolved as never);
     let outcome: 'done' | 'failed' = 'done';
     let report: string;
     try {
       const handle = await session.submit(goal.instructions);
       const result = await handle.completed;
-      report = result.response.trim() === '' ? 'The run ended without a report.' : result.response.trim();
+      report =
+        result.response.trim() === '' ? 'The run ended without a report.' : result.response.trim();
     } catch (error) {
       outcome = 'failed';
       report = `The run failed: ${error instanceof Error ? error.message : String(error)}`;
     } finally {
       session.off('tool_end', onToolEnd as never);
       session.off('permission_request', onPermission as never);
+      session.off('prompt_resolved', onResolved as never);
     }
     await chain;
-    // An approval the turn stopped waiting for (its backstop, or the turn ending) can no longer be answered.
+    // An approval the turn stopped waiting for can no longer be answered.
     for (const feedId of ownPrompts.values()) {
       if (pending.delete(feedId)) await book.setApproval(feedId, 'expired');
     }
     await book.finishRun(run, outcome, report);
+    sessions.delete(session);
     await session.shutdown().catch(() => undefined);
   };
 
@@ -139,6 +183,8 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
             goalId: goal.id,
           });
         })
+        // allow-fallback: a run that cannot even report must not end the process serving the person.
+        .catch(() => undefined)
         .finally(() => running.delete(goal.id));
       running.set(goal.id, task);
     }
@@ -148,7 +194,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
   const timer =
     options.tickMs !== undefined && options.tickMs > 0
       ? setInterval(() => {
-          void runDue();
+          void runDue().catch(() => undefined);
         }, options.tickMs)
       : undefined;
   timer?.unref();
@@ -165,7 +211,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       pending.delete(feedId);
       const item = await book.setApproval(feedId, approve ? 'approved' : 'denied');
       await waiting.record(approve ? 'approved' : 'denied');
-      await book.setWaiting(waiting.goalId, false);
+      await settleWaiting(waiting.goalId);
       waiting.session.resolvePermission(waiting.promptId, approve);
       return item;
     },
@@ -175,7 +221,8 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     async stop() {
       stopped = true;
       if (timer !== undefined) clearInterval(timer);
-      for (const waiting of pending.values()) waiting.session.resolvePermission(waiting.promptId, false);
+      // Abort every running turn: its prompts are refused, so nothing waits on a person who is gone.
+      for (const session of sessions) session.abort();
       await Promise.allSettled([...running.values()]);
     },
   };

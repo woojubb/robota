@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -160,6 +160,40 @@ describe.each([
 });
 
 describe('goal file store', () => {
+  it('treats an id that names an object property as unknown, and leaves the files intact', async () => {
+    const { store, dir } = fileStore();
+    const book = new GoalBook({ store, now: clock().now });
+    await book.post({ kind: 'notice', title: 'Hello', body: 'x' });
+    for (const id of ['constructor', '__proto__', 'toString']) {
+      expect(await book.get(id)).toBeUndefined();
+      await expect(book.pause(id)).rejects.toThrow(GoalRefusedError);
+      await expect(book.dismiss(id)).rejects.toThrow(GoalRefusedError);
+    }
+    await book.post({ kind: 'notice', title: 'Still works', body: 'y' });
+    expect((await book.feed()).map((item) => item.title)).toEqual(['Still works', 'Hello']);
+    // Nothing was written for those ids: no goal file came into being.
+    expect(existsSync(join(dir, 'goals.json'))).toBe(false);
+  });
+
+  it('keeps a waiting approval when the feed is trimmed to its bound', async () => {
+    const time = clock();
+    const { store } = fileStore();
+    const book = new GoalBook({ store, now: time.now });
+    const approval = await book.post({
+      kind: 'approval',
+      title: 'Buy',
+      body: 'x',
+      approval: { tool: 'BrowserSubmit', detail: 'POST', state: 'pending' },
+    });
+    for (let index = 0; index < 510; index += 1) {
+      time.advance(1);
+      await book.post({ kind: 'notice', title: `n${index}`, body: 'x' });
+    }
+    const feed = await book.feed(1000);
+    expect(feed).toHaveLength(500);
+    expect(feed.some((item) => item.id === approval.id)).toBe(true);
+  });
+
   it('keeps owner-only JSON files', async () => {
     const { store, dir } = fileStore();
     const book = new GoalBook({ store, now: clock().now });

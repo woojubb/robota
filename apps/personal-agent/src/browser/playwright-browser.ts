@@ -55,6 +55,10 @@ export interface IPlaywrightBrowserOptions {
   readonly environment?: Readonly<Record<string, string | undefined>>;
 }
 
+function escapeHtml(text: string): string {
+  return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+}
+
 /** Whether an address or name is one the browser must not reach on its own. */
 export function isRestrictedHost(hostname: string): boolean {
   const host = hostname.replace(/^\[|\]$/g, '').toLowerCase();
@@ -225,7 +229,7 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
       await route.fulfill({
         status,
         contentType: 'text/html; charset=utf-8',
-        body: `<!doctype html><title>Not opened</title><p>Your agent's browser did not open this page: ${reason}.</p>`,
+        body: `<!doctype html><title>Not opened</title><p>Your agent's browser did not open this page: ${escapeHtml(reason)}.</p>`,
       });
       return;
     }
