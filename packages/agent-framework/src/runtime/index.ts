@@ -34,3 +34,14 @@ export {
   claimedSessionMessage,
   claimRefusalMessage,
 } from './session-change-refusal.js';
+export { createServeSessionDirectory } from './session-directory.js';
+export type {
+  TServeDirectorySession,
+  IServeSessionLease,
+  IServeSessionPoolBinding,
+  IServeSessionPool,
+  IServeSessionDirectoryHost,
+  IServeSessionDirectory,
+  IServeOwnerDirectory,
+  IServeOwnerBinding,
+} from './session-directory.js';
