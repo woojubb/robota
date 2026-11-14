@@ -150,15 +150,26 @@ describe('removeSubagentLogs', () => {
     expect(readFileSync(join(outside, 'keep.txt'), 'utf8')).toBe('keep');
   });
 
-  it('refuses a log root that is itself a link or not a directory, touching nothing', () => {
+  it('works under a log root that is a link, removing only the confined subtree', () => {
     seed('session_a');
+    seed('session_b');
+    writeFileSync(join(logRoot, 'canary.txt'), 'canary');
+    writeFileSync(join(logRoot, 'session_a', 'beside.txt'), 'beside');
     const alias = join(scratch, 'alias');
     linkDirectory(logRoot, alias);
-    expect(() => removeSubagentLogs(alias, 'session_a')).toThrow(SubagentLogRemovalRefusedError);
-    expect(existsSync(join(logRoot, 'session_a', 'subagents', 'task_1.jsonl'))).toBe(true);
+    expect(removeSubagentLogs(alias, 'session_a')).toBe('removed');
+    expect(existsSync(join(logRoot, 'session_a', 'subagents'))).toBe(false);
+    expect(readFileSync(join(logRoot, 'session_a', 'beside.txt'), 'utf8')).toBe('beside');
+    expect(readFileSync(join(logRoot, 'canary.txt'), 'utf8')).toBe('canary');
+    expect(existsSync(join(logRoot, 'session_b', 'subagents', 'task_1.jsonl'))).toBe(true);
+    expect(lstatSync(alias).isSymbolicLink()).toBe(true);
+  });
+
+  it('refuses a log root that is not a directory, touching nothing', () => {
     const fileRoot = join(scratch, 'file-root');
     writeFileSync(fileRoot, 'file');
     expect(() => removeSubagentLogs(fileRoot, 'session_a')).toThrow(SubagentLogRemovalRefusedError);
+    expect(readFileSync(fileRoot, 'utf8')).toBe('file');
   });
 
   it('works under a log root whose ancestor is reached through a link', () => {

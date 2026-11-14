@@ -126,8 +126,9 @@ function removeTree(directory: string): void {
  * Removes `{baseLogsDir}/{parentSessionId}/subagents/` and everything under it, then the parent's own
  * directory if that is left empty; a link or other non-directory at the parent or `subagents` name is
  * unlinked by name instead, never followed. `parentSessionId` must be a session id (no separator,
- * never `..`), and `baseLogsDir` itself must be a directory, not a link (directories above it are
- * resolved once); otherwise nothing is removed and {@link SubagentLogRemovalRefusedError} is thrown.
+ * never `..`), and `baseLogsDir` must resolve to a directory (it is resolved once, through any link,
+ * since it is the host's configured anchor); otherwise nothing is removed and
+ * {@link SubagentLogRemovalRefusedError} is thrown. A missing root holds no logs (`'absent'`).
  * `baseLogsDir` is the root the host's subagent loggers write under (its sealed-artifact root
  * included, when it keeps one), and nothing above it is touched.
  */
@@ -138,14 +139,15 @@ export function removeSubagentLogs(
   if (!isSafeSessionId(parentSessionId)) {
     throw new SubagentLogRemovalRefusedError('The parent session id is not a usable session id.');
   }
-  const rootMetadata = lstatSync(baseLogsDir, { throwIfNoEntry: false });
-  if (rootMetadata === undefined) return 'absent';
-  if (rootMetadata.isSymbolicLink() || !rootMetadata.isDirectory()) {
-    throw new SubagentLogRemovalRefusedError(
-      'The subagent log root is a link or not a directory, so nothing under it is removed.',
-    );
+  // The root is the host's configured anchor, which a person may point elsewhere through a link: it
+  // is resolved once, and the never-follow rule holds for everything below it.
+  let root: string;
+  try {
+    root = realpathSync(baseLogsDir);
+  } catch (error) {
+    if (isMissing(error)) return 'absent';
+    throw error;
   }
-  const root = realpathSync(baseLogsDir);
   if (plainDirectory(root) === undefined) return 'absent';
   const subagents = resolveSubagentLogDir(parentSessionId, root);
   const parent = join(root, parentSessionId);
