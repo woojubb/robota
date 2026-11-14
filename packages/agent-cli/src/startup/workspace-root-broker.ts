@@ -37,6 +37,22 @@ const OWNER_CHECK_MS = 1_000;
 const MAX_WRITER_LEASES = 256;
 const CANDIDATE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
+/**
+ * The project mutations a client may ask for. A non-creating append is its own operation, not a flag
+ * on `append`: a broker started by an older CLI ignores a field it does not know and would create the
+ * file, but it refuses an operation it does not know as malformed, having touched nothing.
+ */
+const MUTATIONS = [
+  'write', 'replace', 'append', 'appendExisting', 'delete', 'sweepTemporaries', 'linkCount',
+  'stage', 'commitStaged', 'discardStaged', 'claimDirectory', 'removeDirectory',
+] as const;
+export type TWorkspaceRootBrokerMutation = (typeof MUTATIONS)[number];
+
+/** A directory removal budget the broker accepts: a positive whole number (the framework caps it). */
+export function isRemovalBudget(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) > 0;
+}
+
 export type TWorkspaceRootBrokerRequest =
   | { readonly op: 'ping' }
   | { readonly op: 'prepare'; readonly root: string }
@@ -47,13 +63,14 @@ export type TWorkspaceRootBrokerRequest =
   | { readonly op: 'list' | 'kind'; readonly lease: string; readonly segments: readonly string[] }
   | {
       readonly op: 'mutate'; readonly lease: string; readonly operationId: string;
-      readonly method: 'write' | 'replace' | 'append' | 'delete' | 'sweepTemporaries' |
-        'linkCount' | 'stage' | 'commitStaged' | 'discardStaged' | 'claimDirectory';
+      readonly method: TWorkspaceRootBrokerMutation;
       readonly relativePath: string;
       readonly content?: string;
       readonly temporaryName?: string;
       readonly apply?: boolean;
       readonly migrationStartedAt?: number;
+      readonly maxEntries?: number;
+      readonly maxMs?: number;
     }
   | { readonly op: 'acquireWriter'; readonly lease: string; readonly relativePath: string; readonly owner: number }
   | { readonly op: 'writerLeaseHolds' | 'writerLeaseRelease'; readonly writerLease: string }
@@ -184,23 +201,26 @@ function parseRequest(frame: string): { version: number; request: TRequest } | u
   }
   if (row.op === 'mutate' && candidate(row.lease) && candidate(row.operationId) &&
       relativePath(row.relativePath) && typeof row.method === 'string' &&
-      ['write', 'replace', 'append', 'delete', 'sweepTemporaries', 'linkCount',
-        'stage', 'commitStaged', 'discardStaged', 'claimDirectory'].includes(row.method) &&
+      (MUTATIONS as readonly string[]).includes(row.method) &&
       (row.content === undefined || base64(row.content)) &&
       (row.temporaryName === undefined ||
         (typeof row.temporaryName === 'string' && row.temporaryName.length <= 255 &&
           !row.temporaryName.includes('/') && !row.temporaryName.includes('\\'))) &&
       (row.apply === undefined || typeof row.apply === 'boolean') &&
       (row.migrationStartedAt === undefined ||
-        (typeof row.migrationStartedAt === 'number' && Number.isFinite(row.migrationStartedAt)))) {
+        (typeof row.migrationStartedAt === 'number' && Number.isFinite(row.migrationStartedAt))) &&
+      (row.maxEntries === undefined || isRemovalBudget(row.maxEntries)) &&
+      (row.maxMs === undefined || isRemovalBudget(row.maxMs))) {
     return { version: Number(row.version), request: {
       op: 'mutate', lease: row.lease, operationId: row.operationId,
-      method: row.method as Extract<TRequest, { op: 'mutate' }>['method'],
+      method: row.method as TWorkspaceRootBrokerMutation,
       relativePath: row.relativePath,
       ...(row.content === undefined ? {} : { content: row.content }),
       ...(row.temporaryName === undefined ? {} : { temporaryName: row.temporaryName }),
       ...(row.apply === undefined ? {} : { apply: row.apply }),
       ...(row.migrationStartedAt === undefined ? {} : { migrationStartedAt: row.migrationStartedAt }),
+      ...(row.maxEntries === undefined ? {} : { maxEntries: row.maxEntries }),
+      ...(row.maxMs === undefined ? {} : { maxMs: row.maxMs }),
     } };
   }
   if (row.op === 'acquireWriter' && candidate(row.lease) && relativePath(row.relativePath) &&
@@ -586,10 +606,26 @@ export async function startWorkspaceRootBroker(
             break;
           }
           case 'append':
+          case 'appendExisting':
             if (content === undefined) return refuse('malformed');
-            boundary.append(path, new TextDecoder('utf-8', { fatal: true }).decode(content));
-            result = { status: 'mutation' };
+            result = { status: 'mutation', value: boundary.append(
+              path,
+              new TextDecoder('utf-8', { fatal: true }).decode(content),
+              { create: request.method === 'append' },
+            ) };
             break;
+          case 'removeDirectory': {
+            if (boundary.removeDirectory === undefined) return refuse('unsupported');
+            const removal = boundary.removeDirectory(path, {
+              ...(request.maxEntries === undefined ? {} : { maxEntries: request.maxEntries }),
+              ...(request.maxMs === undefined ? {} : { maxMs: request.maxMs }),
+            });
+            result = {
+              status: 'mutation',
+              value: removal.status === 'partial' ? `partial-${removal.reason}` : removal.status,
+            };
+            break;
+          }
           case 'delete': result = { status: 'mutation', value: boundary.delete(path) }; break;
           case 'claimDirectory':
             if (boundary.claimDirectory === undefined) return refuse('unsupported');
