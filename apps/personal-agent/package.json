@@ -20,6 +20,7 @@
     "@robota-sdk/agent-gui-web": "workspace:^",
     "@robota-sdk/agent-interface": "workspace:^",
     "@robota-sdk/agent-local-host": "workspace:^",
+    "@robota-sdk/agent-product": "workspace:^",
     "@robota-sdk/agent-provider": "workspace:^",
     "@robota-sdk/agent-session": "workspace:^",
     "@robota-sdk/agent-tools": "workspace:^",

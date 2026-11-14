@@ -9,10 +9,10 @@ Owns the **product-assembly kernel**: the `IProductProfile` declarative product 
 third party imports to build their own product on the published runtime. Product identity comes from
 the host's profile. The root entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and
 Bun, and has no Node adapter; what needs a Node host is on the Node-only subpaths `preset/node`,
-`command/node` and `coding`.
+`command/node`, `coding` and `personal`.
 
 The package also holds the pieces a product is assembled from, one subpath each: `capability-pack`,
-`preset`, `command` and `coding`. They live in one package to save a manifest, a build and a release
+`preset`, `command`, `coding` and `personal`. They live in one package to save a manifest, a build and a release
 receipt each, and stay separate subpaths so that importing one never loads another.
 
 ## The pure-fold property
@@ -524,3 +524,30 @@ callers pass the same value the session is assembled with. `sandboxClient` is op
 tools operate through the sandbox and the host path guard does not apply, because the sandbox is the
 isolation boundary. Each call returns fresh instances bound to the supplied context, so two products
 assembled in one process get independently-scoped file tools.
+
+## personal
+
+### Purpose
+
+What a personal agent does, independent of how it is hosted: the capabilities a composition root
+lends a state directory and a live session. The first is the knowledge wiki, the agent's maintained
+memory of the person it works for.
+
+### Contract
+
+Knowledge is kept as linked pages of claims, not as a transcript. Each claim names the conversation it
+came from and whether the person said it or the agent read it elsewhere. A changed fact retires the
+claim it replaces with an end time instead of overwriting it, so the wiki can say what held when.
+Recall marks every claim the agent read rather than heard as data, so an instruction inside one is
+never the person's. Likely secrets are refused before anything is written. A forgotten claim is
+removed from every page that held it and leaves only a content-free log line, so it is never recalled
+again. The store is a port: a host supplies one per principal, and the file store keeps plain Markdown
+a person can read and export without Robota.
+
+### Design decisions
+
+Pages are ranked by the query terms their titles and current claims contain, not by embeddings: at a
+personal scale an index the model reads first is enough, and a ranking a person can follow is worth
+more than one they cannot. The wiki is maintained by the agent through tools rather than by a
+separate extraction pass, so what is filed is what the agent judged worth keeping in context, and every
+write goes through the permission gate like any other tool.

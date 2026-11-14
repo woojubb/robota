@@ -457,6 +457,9 @@ importers:
       '@robota-sdk/agent-local-host':
         specifier: workspace:^
         version: link:../../packages/agent-local-host
+      '@robota-sdk/agent-product':
+        specifier: workspace:^
+        version: link:../../packages/agent-product
       '@robota-sdk/agent-provider':
         specifier: workspace:^
         version: link:../../packages/agent-provider
@@ -1753,6 +1756,9 @@ importers:
       '@robota-sdk/agent-tools':
         specifier: workspace:^
         version: link:../agent-tools
+      zod:
+        specifier: '>=4.6.7 <5.0.0'
+        version: 4.6.7
     devDependencies:
       '@types/node':
         specifier: ^22.19.21
