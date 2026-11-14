@@ -193,6 +193,9 @@ describe('the personal API behind the web UI', () => {
       expect.objectContaining({ status: 'taken-up', takenUpAs: `goal:${made.goal.id}` }),
     );
     expect((await api.get(`goals/${made.goal.id}`)).body.goal.status).toBe('active');
+    // Taking it up again is refused, and no second goal appears.
+    expect((await api.send('POST', `ideas/${kimchi.id}/make-goal`)).status).toBe(400);
+    expect((await api.get('goals')).body.goals).toHaveLength(1);
 
     await api.send('POST', `ideas/${kimchi.id}/archive`);
     expect((await api.get('ideas')).body.ideas.map((idea: any) => idea.text)).toEqual([

@@ -16,6 +16,7 @@ export function IdeasView({
   readonly onOpenGoal: (goalId: string) => void;
 }): React.ReactElement {
   const [ideas, setIdeas] = useState<readonly IIdeaView[] | undefined>(undefined);
+  const [allTags, setAllTags] = useState<readonly string[]>([]);
   const [tag, setTag] = useState<string | undefined>(undefined);
   const [text, setText] = useState('');
   const [tags, setTags] = useState('');
@@ -23,6 +24,8 @@ export function IdeasView({
   const reload = useCallback(async () => {
     try {
       setIdeas(await api.ideas(tag));
+      // The tag choices come from every idea, so choosing one tag never hides the others.
+      setAllTags([...new Set((await api.ideas()).flatMap((idea) => idea.tags))].sort());
       setError(undefined);
     } catch (caught) {
       setError(errorText(caught));
@@ -46,7 +49,6 @@ export function IdeasView({
       setError(errorText(caught));
     }
   };
-  const allTags = [...new Set((ideas ?? []).flatMap((idea) => idea.tags))].sort();
   return (
     <ViewFrame title="Ideas">
       <form

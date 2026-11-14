@@ -152,6 +152,8 @@ export class IdeaBook {
   /** The person took the idea up; `as` names what it became. */
   async takeUp(id: string, as: string): Promise<IIdea> {
     const idea = await this.require(id);
+    if (idea.status !== 'open')
+      throw new IdeaRefusedError('This idea was already taken up or archived');
     const next: IIdea = {
       ...idea,
       status: 'taken-up',

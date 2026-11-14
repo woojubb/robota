@@ -205,6 +205,8 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
         return ok({ removed: idea.id });
       }
       if (id === 'make-goal') {
+        if (idea.status !== 'open')
+          throw new BadRequest('This idea was already taken up or archived');
         // The person takes the idea up: it becomes a goal in their words, and the idea says so.
         const firstLine = idea.text.split(/[.!?\n]/u)[0]!.trim();
         const goal = await goals.create({

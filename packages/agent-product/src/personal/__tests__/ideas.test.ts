@@ -54,6 +54,8 @@ describe.each([
     const book = new IdeaBook({ store: makeStore(), now: clock });
     const idea = await book.add({ text: 'Visit Jeju in spring', origin: 'owner' });
     expect((await book.takeUp(idea.id, 'goal:jeju-1')).takenUpAs).toBe('goal:jeju-1');
+    await expect(book.takeUp(idea.id, 'goal:jeju-2')).rejects.toThrow(IdeaRefusedError);
+    expect((await book.get(idea.id))?.takenUpAs).toBe('goal:jeju-1');
     await book.archive(idea.id);
     expect(await book.list()).toEqual([]);
     expect((await book.list({ includeArchived: true })).map((entry) => entry.status)).toEqual([
