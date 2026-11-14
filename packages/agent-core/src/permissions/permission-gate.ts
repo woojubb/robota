@@ -9,13 +9,14 @@
  *    The reply to a peer outside a turn a peer's message started → deny
  * 3. Deny list UNEVALUABLE → ask
  * 4. Never-auto-approve set → ask, in every mode: an ask rule, a critical-path removal, a
- *    modify-class call on a protected path
+ *    modify-class call on a protected path, a call to a tool with a consequential effect
  * 5. The caller asks about everything → ask
  * 6. bypassPermissions → auto
  * 7. Allow list match → auto
  * 8. Mode policy lookup
  *
- * In plan mode an ask about anything but an inspect-class call is a deny.
+ * In plan mode an ask about anything but an inspect-class call without a consequential effect is
+ * a deny.
  *
  * Pattern syntax (same as Claude Code):
  * - `Bash(pnpm *)` — Bash tool whose command starts with "pnpm "
@@ -140,6 +141,16 @@ export interface IToolPermissionProfile {
    * call and is refused in plan mode.
    */
   riskClass?: TToolRiskClass;
+  /**
+   * The tool's effect reaches people or systems outside this machine and cannot be taken back —
+   * a message sent, money spent, a call placed, something published.
+   *
+   * Such a call reaches a person every time, in every mode, and plan mode refuses it whatever its
+   * risk class says. No allow rule, remembered consent, classifier or hook answers it, because each
+   * of those would let text the agent read on the way (a page, an email, a peer's message) ride a
+   * standing permission into an effect nobody can undo.
+   */
+  consequential?: boolean;
   /**
    * The tool's top-level input parameter names. `Tool(name:value)` is a parameter rule only when
    * `name` is one of these — keyed on the schema, not the text's shape, so `WebFetch(https://…)`
@@ -374,6 +385,7 @@ function isNeverAutoApproved(
   context: ICriticalPathContext,
 ): boolean {
   const profile = toolProfiles.get(toolName);
+  if (profile?.consequential === true) return true;
   const argument = profile?.argument;
   if (argument === undefined) return false;
   const value = toolArgs[argument.key];
@@ -462,9 +474,11 @@ export function evaluatePermission(
   const { allow = [], deny = [], ask = [] } = permissions;
   const riskClass = effectiveRiskClass(toolName, toolArgs, context);
   // Plan mode's promise is "change nothing": an ask about anything that could change something is
-  // a refusal there, and only an inspect-class call may still reach a person.
-  const askDecision: TPermissionDecision =
-    mode === 'plan' && riskClass !== 'inspect' ? 'deny' : 'approve';
+  // a refusal there, and only an inspect-class call without a consequential effect may still reach
+  // a person.
+  const changesSomething =
+    riskClass !== 'inspect' || toolProfiles.get(toolName)?.consequential === true;
+  const askDecision: TPermissionDecision = mode === 'plan' && changesSomething ? 'deny' : 'approve';
 
   // 1. A matching deny blocks immediately.
   if (matchesAnyPattern(toolName, toolArgs, deny, 'deny')) {

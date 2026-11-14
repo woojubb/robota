@@ -190,6 +190,21 @@ describe('PermissionEnforcer in auto mode', () => {
     expect(classifier.classify).not.toHaveBeenCalled();
   });
 
+  it('sends a consequential call to a person every time, never the classifier', async () => {
+    registerToolPermissionProfile('SendMessage', { riskClass: 'execute', consequential: true });
+    const classifier = classifierAnswering(ALLOW, ALLOW);
+    const handler = vi.fn().mockResolvedValue(true);
+    const enforcer = makeEnforcer({
+      permissionClassifier: classifier,
+      permissionHandler: handler,
+      config: { permissions: { allow: ['SendMessage'], deny: [] } },
+    });
+    await expect(enforcer.checkPermission('SendMessage', { to: 'a' })).resolves.toBe(true);
+    await expect(enforcer.checkPermission('SendMessage', { to: 'a' })).resolves.toBe(true);
+    expect(handler).toHaveBeenCalledTimes(2);
+    expect(classifier.classify).not.toHaveBeenCalled();
+  });
+
   it('sets aside an allow rule that approves any command', async () => {
     const classifier = classifierAnswering(BLOCK, BLOCK);
     const enforcer = makeEnforcer({
