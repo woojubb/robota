@@ -4,7 +4,7 @@
  * A screen reader sees bytes and time, nothing else, so the claim is checked where both exist: the
  * raw PTY stream is sampled every few milliseconds and each growth is stamped. A COMMIT the park
  * released arrives as one growth (its chunks are written contiguously); the interval shows up as
- * the gap between consecutive printable growths. The same fixture runs three ways — park 250 ms,
+ * the gap between consecutive printable growths. The same fixture runs three ways — a long park,
  * park 0, mode off — so the interval is attributed to the park and not to the replay.
  *
  * Runs under `test:pty` against the built CLI (`pnpm build` first).
@@ -26,8 +26,13 @@ const REPLAY_FIXTURE = join(FIXTURES, 'replay-conversation.jsonl');
 
 const WAIT_MS = 30_000;
 const CASE_TIMEOUT_MS = 120_000;
-/** The park under test — large against the frame cadence, small against the case budget. */
-const PARK_MS = 250;
+/**
+ * The park under test. It must be large against the base echo-to-answer latency of a replayed turn
+ * on a slow runner: the park-off and park-0 cases measure exactly that latency against
+ * `PARK_MS - SLACK_MS`, so a base latency above it fails them loudly instead of letting the parked
+ * case pass because the turn alone took that long. It must stay small against the case budget.
+ */
+const PARK_MS = 1000;
 /** Sampling period; the gap resolution is twice this. */
 const SAMPLE_MS = 5;
 /** OS and PTY jitter allowance on the asserted interval. */
@@ -71,16 +76,22 @@ async function sampleUntil(
 ): Promise<IGrowth[]> {
   const growths: IGrowth[] = [];
   let seen = since.raw;
-  const deadline = Date.now() + budgetMs;
-  while (Date.now() < deadline) {
+  const capture = (): void => {
     const raw = session.raw();
     if (raw.length > seen) {
       growths.push({ at: Date.now(), bytes: raw.slice(seen) });
       seen = raw.length;
     }
+  };
+  const deadline = Date.now() + budgetMs;
+  while (Date.now() < deadline) {
+    capture();
     if (until.test(session.snapshotSince(since.stripped))) break;
     await new Promise((resolve) => setTimeout(resolve, SAMPLE_MS));
   }
+  // The pattern can match on bytes that arrived after this iteration's read; without them the burst
+  // that completed it would be cut short, losing the end of a synchronized-output window.
+  capture();
   return growths;
 }
 

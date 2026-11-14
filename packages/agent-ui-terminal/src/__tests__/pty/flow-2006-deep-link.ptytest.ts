@@ -26,14 +26,15 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { spawnTui } from './pty-driver.js';
+import { createPtyEnv } from './isolated-home.js';
+import { grantWorkspaceTrust, spawnTui } from './pty-driver.js';
 
 import type { IPtySession } from './pty-driver.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
 const AGENT_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/agent.cjs');
-const CLI_NAME = 'fixture-agent';
-const PROTOCOL_SCHEME = 'fixture-agent';
+const CLI_NAME = 'robota';
+const PROTOCOL_SCHEME = 'robota';
 const WAIT_MS = 20_000;
 const CASE_TIMEOUT_MS = 120_000;
 const PROMPT = 'Summarize the README in one sentence';
@@ -51,8 +52,6 @@ interface IFixture {
 function writeProviderSettings(home: string): void {
   const dir = join(home, 'state');
   mkdirSync(dir, { recursive: true });
-  // Skip the first-run welcome: it is an onboarding screen, not what this scenario observes.
-  writeFileSync(join(dir, 'onboarded'), new Date().toISOString(), 'utf8');
   writeFileSync(
     join(dir, 'settings.json'),
     JSON.stringify({
@@ -78,42 +77,17 @@ function initRepo(path: string, env: NodeJS.ProcessEnv): void {
   run('commit', '-q', '-m', 'chore: fixture');
 }
 
-function makeFixture(): IFixture {
+async function makeFixture(): Promise<IFixture> {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-flow2006-')));
   const home = join(root, 'home');
   mkdirSync(home, { recursive: true });
   writeProviderSettings(home);
   const userStateRoot = join(home, 'state');
-  const env: NodeJS.ProcessEnv = {
-    PATH: process.env['PATH'] ?? '',
+  const env = createPtyEnv({
     HOME: home,
-    PRODUCT_ID: CLI_NAME,
-    PRODUCT_DISPLAY_NAME: 'Fixture Agent',
-    PRODUCT_CLI_NAME: CLI_NAME,
-    PRODUCT_ENV_PREFIX: 'FIXTURE_AGENT_',
-    PRODUCT_PACKAGE_SCOPE: '@fixture-agent',
-    PRODUCT_APP_ID: 'org.example.fixture-agent',
-    PRODUCT_PROTOCOL_SCHEME: PROTOCOL_SCHEME,
-    PRODUCT_TELEMETRY_SERVICE_NAME: 'fixture-agent',
-    PRODUCT_DAEMON_NAMESPACE: 'fixture-agent-daemon',
-    PRODUCT_DESKTOP_EXECUTABLE: 'fixture-robota',
-    PRODUCT_MCP_CLIENT_NAME: 'fixture-agent-client',
-    PRODUCT_MODEL_TOOL_PREFIX: 'fixture_agent_command_',
-    PRODUCT_PROMPT_TAG: 'fixture_agent_references',
-    PRODUCT_EDITOR_TEMP_PREFIX: 'fixture-agent-editor-',
-    PRODUCT_USER_STATE_DIR: userStateRoot,
-    PRODUCT_PROJECT_STATE_DIR: '.fixture-agent',
-    PRODUCT_CACHE_DIR: join(userStateRoot, 'cache'),
-    PRODUCT_LOG_DIR: join(userStateRoot, 'logs'),
-    PRODUCT_BROWSER_NAMESPACE: 'fixture-agent-browser',
-    PRODUCT_BROWSER_CREDENTIAL_DATABASE: 'fixture-agent-credentials',
-    PRODUCT_CREDENTIAL_SERVICE: 'org.example.fixture-agent.credentials',
-    PRODUCT_CRYPTO_NAMESPACE: 'fixture-agent-crypto',
-    SECURITY_MASTER_KEY_DERIVATION_PATH: '[123,0]',
-    TERM: 'xterm-256color',
     GIT_CONFIG_NOSYSTEM: '1',
     GIT_CONFIG_GLOBAL: join(home, 'gitconfig'),
-  };
+  });
   writeFileSync(join(home, 'gitconfig'), '[commit]\n\tgpgsign = false\n');
   const fixture: IFixture = {
     root,
@@ -128,12 +102,7 @@ function makeFixture(): IFixture {
   initRepo(fixture.untrusted, env);
   mkdirSync(fixture.elsewhere, { recursive: true });
   // Grant trust to the one repository a link is allowed to open.
-  const granted = spawnSync(process.execPath, [AGENT_BIN, 'trust', '--yes'], {
-    cwd: fixture.trusted,
-    env,
-    encoding: 'utf8',
-  });
-  if (granted.status !== 0) throw new Error(`trust --yes failed: ${granted.stderr}`);
+  await grantWorkspaceTrust(fixture.trusted, env);
   return fixture;
 }
 
@@ -191,7 +160,10 @@ function malformedLinks(fixture: IFixture): readonly (readonly [string, string])
     ],
     [`${PROTOCOL_SCHEME}://open?v=1&prompt=hi&cwd=relative/path`, 'absolute'],
     [`${PROTOCOL_SCHEME}://open?v=1&prompt=hi&cwd=${fixture.trusted}/../untrusted`, '`..`'],
-    [`${PROTOCOL_SCHEME}://open?v=1&prompt=hi&cwd=${join(fixture.root, 'absent')}`, 'does not exist'],
+    [
+      `${PROTOCOL_SCHEME}://open?v=1&prompt=hi&cwd=${join(fixture.root, 'absent')}`,
+      'does not exist',
+    ],
   ];
 }
 
@@ -199,8 +171,8 @@ describe('configured open deep link through the CLI binary', () => {
   let fixture: IFixture | undefined;
   let session: IPtySession | undefined;
 
-  beforeEach(() => {
-    fixture = makeFixture();
+  beforeEach(async () => {
+    fixture = await makeFixture();
   });
 
   afterEach(async () => {
@@ -300,7 +272,10 @@ describe('configured open deep link through the CLI binary', () => {
       expect(untrusted.status).toBe(1);
       expect(`${untrusted.stderr}`).toContain(`${CLI_NAME} trust --yes`);
 
-      const slug = openHeadless(current, `${PROTOCOL_SCHEME}://open?v=1&prompt=hi&repo=nobody/not-a-clone`);
+      const slug = openHeadless(
+        current,
+        `${PROTOCOL_SCHEME}://open?v=1&prompt=hi&repo=nobody/not-a-clone`,
+      );
       expect(slug.status).toBe(1);
       expect(`${slug.stderr}`).toContain('nobody/not-a-clone');
       expect(`${slug.stderr}`).not.toContain('cloning');

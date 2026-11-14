@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { spawnTui } from './pty-driver.js';
+import { grantWorkspaceTrust, spawnTui } from './pty-driver.js';
 import { createPtyEnv } from './isolated-home.js';
 
 import type { IPtySession } from './pty-driver.js';
@@ -323,15 +323,10 @@ describe('/git through the real binary', () => {
 
   it(
     'Scenario 4: headless /git commit cancels (no confirmation can be asked), exits 1, commits nothing',
-    () => {
+    async () => {
       fixture = makeFixture(true);
+      await grantWorkspaceTrust(fixture.repo, fixture.env);
       const env: NodeJS.ProcessEnv = { ...fixture.env, TERM: 'dumb' };
-      const trust = spawnSync(process.execPath, [AGENT_BIN, 'trust', '--yes'], {
-        cwd: fixture.repo,
-        env,
-        encoding: 'utf8',
-      });
-      expect(trust.status).toBe(0);
       const result = spawnSync(
         process.execPath,
         [AGENT_BIN, '-p', '/git commit feat: add greeting', '--bare', '--no-session-persistence'],
