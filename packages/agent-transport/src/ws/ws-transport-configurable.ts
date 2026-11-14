@@ -326,8 +326,10 @@ export class WsTransport implements IConfigurableTransport<IProtocolSession>, IP
           });
         });
 
+        // The port the server actually bound: with port 0 the system picks a free one.
+        const address = httpServer.address();
         resolve({
-          port,
+          port: typeof address === 'object' && address !== null ? address.port : port,
           stop: () =>
             new Promise<void>((res) => {
               // Graceful-then-forced shutdown. Send a close frame to each client so well-behaved
