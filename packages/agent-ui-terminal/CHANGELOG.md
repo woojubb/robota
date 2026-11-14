@@ -1,5 +1,20 @@
 # @robota-sdk/agent-ui-terminal
 
+## 3.2.7
+### Patch Changes
+
+- 5aa2d36: Switching sessions from the resume picker or `/resume` stopped the running session's channel, and with it every background job still running, without asking. A local switch that would stop live background jobs now asks first and says how many; declining leaves the person on their session with the jobs running. Continuing an ended fork asks once, not twice, and a terminal attached to a host still asks nothing because the host keeps the jobs.
+- Updated dependencies [1c31c9e]
+- Updated dependencies [7b312a3]
+- Updated dependencies [4bfcf78]
+- Updated dependencies [19c75f1]
+- Updated dependencies [adb13b2]
+- Updated dependencies [b44c72e]
+- Updated dependencies [1f82ef7]
+- Updated dependencies [daff4d9]
+  - @robota-sdk/agent-framework@3.3.4
+  - @robota-sdk/agent-core@3.3.2
+
 ## 3.2.6
 ### Patch Changes
 
