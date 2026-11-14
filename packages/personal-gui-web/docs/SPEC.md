@@ -36,6 +36,9 @@ importable library.
 
 - The shell keeps the chat mounted while another menu is open, so a session and its draft survive a
   trip to the library.
+- The menu is the person's own: their spaces are tabs beside the fixed ones, in an order they choose
+  and the agent keeps with their other state, so it follows them across browsers. Anything else the
+  menu offers (settings, search, a new chat) stays out of the tabs, at its foot.
 - A side chat is a second connection with a chat of its own, so nothing said there reaches the main
   chat unless the person brings it back, and then as their own message. It can start from the main
   chat's latest turns, quoted in the person's first message rather than shared, and the menu lists

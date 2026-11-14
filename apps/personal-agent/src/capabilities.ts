@@ -28,6 +28,7 @@ import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playw
 import { createApprovalRegistry } from './approvals.js';
 import { createChannelTurns } from './channel-turns.js';
 import { createGoalRunner } from './goal-runner.js';
+import { createLayoutBook } from './layout.js';
 import { createSideChatBook } from './side-chats.js';
 import { createPersonalApi } from './personal-api.js';
 
@@ -88,6 +89,7 @@ export function createPersonalCapabilities(
   const ideas = new IdeaBook({ store: createFileIdeaStore(join(options.stateDir, 'ideas')) });
   const spaces = new SpaceBook({ store: createFileSpaceStore(join(options.stateDir, 'spaces')) });
   const sideChats = createSideChatBook(join(options.stateDir, 'side-chats'));
+  const layout = createLayoutBook(join(options.stateDir, 'layout'));
   let runner: IGoalRunner | undefined;
   let channelTurns: IChannelTurns | undefined;
   const approvals = createApprovalRegistry(goals);
@@ -139,6 +141,7 @@ export function createPersonalCapabilities(
       ideas,
       spaces,
       sideChats,
+      layout,
       runner: () => runner,
       stateDir: options.stateDir,
       environment: options.environment,

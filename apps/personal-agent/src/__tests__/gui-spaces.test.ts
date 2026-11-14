@@ -59,14 +59,19 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         await page.keyboard.press('Enter');
         await page.waitForFunction(bodyIncludes, 'Hello there.', { timeout: 15_000 });
         const menu = page.getByRole('navigation', { name: 'Menu' });
-        await menu.getByRole('button', { name: 'Spaces' }).click();
-        await page.getByRole('button', { name: 'Create space' }).click();
+        await menu.getByRole('button', { name: 'Create space' }).click();
         const form = page.getByRole('form', { name: 'New space' });
         await form.getByRole('textbox', { name: 'Name' }).fill('Garden');
         await form
           .getByRole('textbox', { name: /How should your agent work/u })
           .fill('Organic only. No pesticides.');
         await form.getByRole('button', { name: 'Save space' }).click();
+        // The space is a tab now, and open.
+        await menu
+          .getByRole('list', { name: 'Tabs' })
+          .getByRole('button', { name: 'Garden' })
+          .and(page.locator('[aria-current="page"]'))
+          .waitFor();
         await page
           .getByRole('combobox', { name: 'Pin a library page to Garden' })
           .selectOption({ label: 'Tomato beds' });
@@ -103,7 +108,10 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
 
         const menu = page.getByRole('navigation', { name: 'Menu' });
         await expect(menu.getByText('Side chats you start appear here.').count()).resolves.toBe(1);
-        await menu.getByRole('button', { name: 'Side chat', exact: true }).click();
+        await page
+          .getByRole('main')
+          .getByRole('button', { name: 'Side chat', exact: true })
+          .click();
         const side = page.getByRole('complementary', { name: 'Side chat' });
         const starter = side.getByRole('form', { name: 'Start a side chat' });
         expect(
@@ -175,7 +183,7 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
       const { page, close } = await open(harness);
       try {
         await page
-          .getByRole('navigation', { name: 'Menu' })
+          .getByRole('main')
           .getByRole('button', { name: 'Side chat', exact: true })
           .click();
         const starter = page.getByRole('form', { name: 'Start a side chat' });
