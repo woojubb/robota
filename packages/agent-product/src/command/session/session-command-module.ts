@@ -166,32 +166,45 @@ function createValidateSessionSystemCommand(): ISystemCommand {
   });
 }
 
+/** The session commands, by name, each with its entry and its system command. */
+const SESSION_COMMANDS: readonly (readonly [() => ICommand, () => ISystemCommand])[] = [
+  [createClearCommandEntry, createClearSystemCommand],
+  [createRenameCommandEntry, createRenameSystemCommand],
+  [createCdCommandEntry, createCdSystemCommand],
+  [createResumeCommandEntry, createResumeSystemCommand],
+  [createCostCommandEntry, createCostSystemCommand],
+  [createValidateSessionCommandEntry, createValidateSessionSystemCommand],
+];
+
+export interface ISessionCommandModuleOptions {
+  /**
+   * Only these commands, by name. A product whose agent must not change its working folder or
+   * open other sessions takes just the commands it can offer; absent, every session command.
+   */
+  readonly only?: readonly string[];
+}
+
+function selected(options: ISessionCommandModuleOptions | undefined) {
+  const only = options?.only;
+  return only === undefined
+    ? SESSION_COMMANDS
+    : SESSION_COMMANDS.filter(([entry]) => only.includes(entry().name));
+}
+
 export class SessionCommandSource implements ICommandSource {
   readonly name = 'session';
 
+  constructor(private readonly options?: ISessionCommandModuleOptions) {}
+
   getCommands(): ICommand[] {
-    return [
-      createClearCommandEntry(),
-      createRenameCommandEntry(),
-      createCdCommandEntry(),
-      createResumeCommandEntry(),
-      createCostCommandEntry(),
-      createValidateSessionCommandEntry(),
-    ];
+    return selected(this.options).map(([entry]) => entry());
   }
 }
 
-export function createSessionCommandModule(): ICommandModule {
+export function createSessionCommandModule(options?: ISessionCommandModuleOptions): ICommandModule {
   return {
     name: 'agent-command-session',
-    commandSources: [new SessionCommandSource()],
-    systemCommands: [
-      createClearSystemCommand(),
-      createRenameSystemCommand(),
-      createCdSystemCommand(),
-      createResumeSystemCommand(),
-      createCostSystemCommand(),
-      createValidateSessionSystemCommand(),
-    ],
+    commandSources: [new SessionCommandSource(options)],
+    systemCommands: selected(options).map(([, command]) => command()),
   };
 }

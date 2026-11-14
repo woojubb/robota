@@ -15,6 +15,11 @@ node apps/personal-agent/bin/personal-agent.mjs configure --type openai --model 
 node apps/personal-agent/bin/personal-agent.mjs start
 ```
 
+A model gateway that speaks the OpenAI API works the same way: give its address and the gateway's
+model id, for example `configure --type openai --base-url https://ai-gateway.vercel.sh/v1 --model
+deepseek/deepseek-v4.1-flash --api-key-env AI_GATEWAY_API_KEY`, or `--type openrouter` with
+`OPENROUTER_API_KEY`.
+
 `start` prints a loopback URL and an access code. Open the URL, type the code, and you are in. It also
 prints an HTTP API address and the bearer for scripts.
 
@@ -31,6 +36,8 @@ prints an HTTP API address and the bearer for scripts.
 | **Feed** | Results from your goals, and actions waiting for your approval. Approve or decline here. |
 | **Ideas** | Thoughts kept for later, yours or suggested by your agent (marked as such). Make one a goal when you want. |
 | **Goals** | What your agent keeps working on, once or on a schedule, with each run's report and what it did. |
+| **Spaces** | Areas of your life with your own instructions and pinned library pages; a chat started in a space opens with them. |
+| **Side chat** | A quick chat beside the main one, optionally starting from the main chat's latest turns. Side chats are listed in the menu; bring an answer back when you want it there. |
 | **Library** | What your agent knows about you, page by page, with where each fact came from. Correct or forget anything. |
 | **Search** | Find anything in your library. |
 | **Settings** | Model, browser, and where your data lives. |

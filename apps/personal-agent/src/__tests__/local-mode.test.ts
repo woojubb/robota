@@ -46,6 +46,25 @@ describe('local mode', () => {
     expect(tools).toContain('WebFetch');
   });
 
+  it('names a chat with the rename command and offers no session command that leaves its bounds', async () => {
+    harness = await startHarness();
+    const command = (name: string, args: string) =>
+      fetch(`${harness!.local.httpUrl}/command`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${harness!.local.httpToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ name, args }),
+      });
+    const renamed = await command('rename', 'Jeju trip');
+    expect(renamed.status).toBe(200);
+    expect(await renamed.json()).toEqual(expect.objectContaining({ success: true }));
+    for (const name of ['cd', 'resume', 'clear']) {
+      expect((await command(name, '..')).status).toBe(404);
+    }
+  });
+
   it('shows the model the personal instructions', async () => {
     harness = await startHarness();
     harness.model.script({ text: 'ok' });

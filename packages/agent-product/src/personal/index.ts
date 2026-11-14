@@ -93,3 +93,10 @@ export type {
   IChannelHandler,
   IChannelMessage,
 } from './channels/types.js';
+export {
+  SpaceBook,
+  SpaceRefusedError,
+  createFileSpaceStore,
+  createMemorySpaceStore,
+} from './spaces/spaces.js';
+export type { ISpace, ISpacePage, ISpaceStore } from './spaces/spaces.js';

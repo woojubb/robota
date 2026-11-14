@@ -126,6 +126,25 @@ export interface IIdeaView {
   readonly createdAt: string;
 }
 
+export interface ISpaceView {
+  readonly id: string;
+  readonly name: string;
+  readonly instructions: string;
+  readonly tag: string;
+  /** Library pages pinned to the space that still exist. */
+  readonly pinned: readonly { readonly id: string; readonly title: string }[];
+  /** The first message of a chat started in the space. */
+  readonly opening: string;
+}
+
+export interface ISideChatView {
+  /** The side chat's session id. */
+  readonly id: string;
+  readonly parentId?: string;
+  readonly title: string;
+  readonly createdAt: string;
+}
+
 export const API_WRITE_HEADER = 'x-robota-api';
 
 export class ApiError extends Error {
@@ -165,6 +184,21 @@ export interface IPersonalApi {
   goalAction(id: string, action: 'pause' | 'resume' | 'run' | 'stop'): Promise<unknown>;
   feed(): Promise<readonly IFeedItemView[]>;
   ideas(tag?: string): Promise<readonly IIdeaView[]>;
+  spaces(): Promise<readonly ISpaceView[]>;
+  saveSpace(input: {
+    id?: string;
+    name: string;
+    instructions: string;
+  }): Promise<{ space: ISpaceView }>;
+  removeSpace(id: string): Promise<unknown>;
+  sideChats(): Promise<readonly ISideChatView[]>;
+  recordSideChat(input: {
+    id: string;
+    parentId?: string;
+    title: string;
+  }): Promise<{ sideChat: ISideChatView }>;
+  removeSideChat(id: string): Promise<unknown>;
+  pinPage(spaceId: string, pageId: string, pinned: boolean): Promise<{ space: ISpaceView }>;
   addIdea(input: { text: string; tags: readonly string[] }): Promise<{ idea: IIdeaView }>;
   ideaAction(
     id: string,
@@ -219,6 +253,16 @@ export function createPersonalApi(
         )
       ).ideas,
     addIdea: (input) => call('POST', 'ideas', input),
+    spaces: async () => (await call<{ spaces: ISpaceView[] }>('GET', 'spaces')).spaces,
+    saveSpace: ({ id: spaceId, ...input }) =>
+      call('POST', spaceId === undefined ? 'spaces' : `spaces/${id(spaceId)}/update`, input),
+    removeSpace: (spaceId) => call('POST', `spaces/${id(spaceId)}/remove`),
+    sideChats: async () =>
+      (await call<{ sideChats: ISideChatView[] }>('GET', 'side-chats')).sideChats,
+    recordSideChat: (input) => call('POST', 'side-chats', input),
+    removeSideChat: (chatId) => call('POST', `side-chats/${id(chatId)}/remove`),
+    pinPage: (spaceId, pageId, pinned) =>
+      call('POST', `spaces/${id(spaceId)}/${pinned ? 'pin' : 'unpin'}`, { pageId }),
     ideaAction: (ideaId, action) => call('POST', `ideas/${id(ideaId)}/${action}`),
     answerFeed: (itemId, action) => call('POST', `feed/${id(itemId)}/${action}`),
   };

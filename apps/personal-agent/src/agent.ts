@@ -11,6 +11,7 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { createSessionCommandModule } from '@robota-sdk/agent-product/command';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
@@ -76,6 +77,9 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
     cwd: workspace,
     provider: options.provider,
     sessionStore: createPersonalSessionStore(options.stateDir),
+    // Naming a chat is the one session command a personal agent offers: the others change its
+    // working folder or open other sessions, which its boundaries and menus own.
+    commandModules: [createSessionCommandModule({ only: ['rename'] })],
   });
   const base = {
     ...(options.model !== undefined && { model: options.model }),

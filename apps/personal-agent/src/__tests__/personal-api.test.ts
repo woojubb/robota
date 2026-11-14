@@ -204,4 +204,88 @@ describe('the personal API behind the web UI', () => {
     expect((await api.send('POST', `ideas/${kimchi.id}/remove`)).status).toBe(200);
     expect((await api.send('POST', 'ideas/constructor/archive')).status).toBe(404);
   });
+
+  it('pins existing library pages to a space and opens with them', async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    await api.send('POST', 'wiki/pages', { title: 'Tomatoes', kind: 'topic', text: 'Stake them' });
+    const space = (await api.send('POST', 'spaces', { name: 'Garden' })).body.space;
+    expect(space.pinned).toEqual([]);
+    const pin = (pageId: string) => api.send('POST', `spaces/${space.id}/pin`, { pageId });
+    expect((await pin('nope')).status).toBe(404);
+    expect((await pin('../config')).status).toBe(404);
+    expect((await api.send('POST', 'spaces/space-none/pin', { pageId: 'tomatoes' })).status).toBe(
+      404,
+    );
+    const pinned = (await pin('tomatoes')).body.space;
+    expect(pinned.pinned).toEqual([{ id: 'tomatoes', title: 'Tomatoes' }]);
+    expect(pinned.opening).toContain('- Tomatoes (tomatoes)');
+    // A forgotten page drops out of the space without unpinning.
+    await api.send('POST', 'wiki/forget', { pageId: 'tomatoes' });
+    const [after] = (await api.get('spaces')).body.spaces;
+    expect(after.pinned).toEqual([]);
+    expect(after.opening).toBe('Let\'s work in my space "Garden".');
+    const unpinned = await api.send('POST', `spaces/${space.id}/unpin`, { pageId: 'tomatoes' });
+    expect(unpinned.body.space.pages).toEqual([]);
+  });
+
+  it('records side chats for the menu and forgets them on request', async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    expect((await api.get('side-chats')).body).toEqual({ sideChats: [] });
+    const recorded = await api.send('POST', 'side-chats', {
+      id: 'session-a',
+      parentId: 'session-main',
+      title: 'Ferry times',
+    });
+    expect(recorded.body.sideChat).toEqual(
+      expect.objectContaining({ id: 'session-a', parentId: 'session-main', title: 'Ferry times' }),
+    );
+    expect((await api.send('POST', 'side-chats', { id: '../x', title: 't' })).status).toBe(400);
+    expect((await api.send('POST', 'side-chats', { title: 't' })).status).toBe(400);
+    expect((await api.get('side-chats')).body.sideChats.map((chat: any) => chat.id)).toEqual([
+      'session-a',
+    ]);
+    expect((await api.send('POST', 'side-chats/session-a/remove')).status).toBe(200);
+    expect((await api.send('POST', 'side-chats/session-a/remove')).status).toBe(404);
+  });
+
+  it('keeps spaces with their opening, edits and removes them', async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    const created = (
+      await api.send('POST', 'spaces', { name: 'Jeju trip', instructions: 'Quiet places only.' })
+    ).body.space;
+    expect(created).toEqual(
+      expect.objectContaining({
+        name: 'Jeju trip',
+        tag: 'jeju-trip',
+        opening: 'Let\'s work in my space "Jeju trip".\n\nQuiet places only.',
+      }),
+    );
+    const edited = (
+      await api.send('POST', `spaces/${created.id}/update`, {
+        name: 'Jeju trip',
+        instructions: 'Budget 1M won.',
+      })
+    ).body.space;
+    expect(edited.opening).toContain('Budget 1M won.');
+    expect((await api.get('spaces')).body.spaces.map((space: any) => space.name)).toEqual([
+      'Jeju trip',
+    ]);
+    expect((await api.send('POST', 'spaces', { name: ' ' })).status).toBe(400);
+    expect((await api.send('POST', 'spaces', { name: 'X', instructions: 3 })).status).toBe(400);
+    // The page sends empty instructions for a space without them, and to clear them.
+    const plain = await api.send('POST', 'spaces', { name: 'Apartment', instructions: '' });
+    expect(plain.status).toBe(200);
+    const cleared = await api.send('POST', `spaces/${created.id}/update`, {
+      name: 'Jeju trip',
+      instructions: '',
+    });
+    expect(cleared.body.space.opening).toBe('Let\'s work in my space "Jeju trip".');
+    expect((await api.send('POST', `spaces/${plain.body.space.id}/remove`)).status).toBe(200);
+    expect((await api.send('POST', `spaces/${created.id}/remove`)).status).toBe(200);
+    expect((await api.send('POST', 'spaces/constructor/remove')).status).toBe(404);
+    expect((await api.get('spaces')).body.spaces).toEqual([]);
+  });
 });
