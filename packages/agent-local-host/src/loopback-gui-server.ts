@@ -79,7 +79,8 @@ function escapeHtml(text: string): string {
 }
 
 function injectHead(html: string, headHtml: string): string {
-  return html.includes('</head>') ? html.replace('</head>', `    ${headHtml}\n  </head>`) : `${headHtml}\n${html}`;
+  // A replacer function keeps `$&` and friends in the markup literal.
+  return html.includes('</head>') ? html.replace('</head>', () => `    ${headHtml}\n  </head>`) : `${headHtml}\n${html}`;
 }
 
 /**
