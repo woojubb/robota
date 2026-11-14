@@ -1,5 +1,11 @@
 # @robota-sdk/agent-cli
 
+## 3.4.2
+### Patch Changes
+
+- 18df2ea: The workspace-root broker now removes its `/tmp/robota-root-*` directory when it ends because its user-state root is gone, and a start that launches a new broker removes the directories of brokers that are gone. Every user-state root used to leave a directory holding a socket and a guard file behind, so they accumulated without bound.
+- The CLI now ships the SDK fixes released since the last pin adoption: a key typed while the terminal UI starts is kept instead of lost (typing `/exit` as soon as the prompt appeared dropped the `/` in about one start in ten), the off-Linux project-write refusal says why it refuses and what to do, the kill-process error reads as a plain sentence, and JSON mode is sent to the models that declare it.
+
 ## 3.4.1
 ### Patch Changes
 
