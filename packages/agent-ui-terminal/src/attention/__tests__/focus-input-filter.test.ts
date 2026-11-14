@@ -70,6 +70,79 @@ describe('focus input filter', () => {
     expect(Buffer.concat(chunks).toString()).toBe('x');
   });
 
+  describe('input deferral', () => {
+    function deferred() {
+      const source = new FakeStdin();
+      const hooks = {
+        negotiated: () => true,
+        onFocusIn: vi.fn(),
+        onFocusOut: vi.fn(),
+        onKeystroke: vi.fn(),
+      };
+      const proxy = new FocusReportingStdin(source, hooks);
+      proxy.deferInput();
+      return { source, hooks, proxy, chunks: collect(proxy) };
+    }
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+    it('keeps what is typed, in order, until input is opened, then forwards directly', async () => {
+      const { source, proxy, chunks } = deferred();
+      source.emit('data', Buffer.from('/'));
+      source.emit('data', Buffer.from('ex'));
+      await settle();
+      expect(chunks).toEqual([]);
+
+      proxy.openInput();
+      source.emit('data', Buffer.from('it'));
+      await settle();
+      // Each keystroke stays its own chunk, so Ink reads typing and Enter as typing and Enter.
+      expect(chunks.map((chunk) => chunk.toString())).toEqual(['/', 'ex', 'it']);
+    });
+
+    it('still reports focus and keystrokes while input is deferred, and never forwards the focus sequences', async () => {
+      const { source, hooks, proxy, chunks } = deferred();
+      source.emit('data', Buffer.from('\x1b[Ia\x1b[O'));
+      await settle();
+      expect(hooks.onFocusIn).toHaveBeenCalledTimes(1);
+      expect(hooks.onFocusOut).toHaveBeenCalledTimes(1);
+      expect(hooks.onKeystroke).toHaveBeenCalledTimes(1);
+
+      proxy.openInput();
+      await settle();
+      expect(Buffer.concat(chunks).toString()).toBe('a');
+    });
+
+    it('opens on Ctrl+C so a start that never becomes ready can still be interrupted', async () => {
+      const { source, chunks } = deferred();
+      source.emit('data', Buffer.from('ab'));
+      source.emit('data', Buffer.from('\x03'));
+      await settle();
+      expect(Buffer.concat(chunks).toString()).toBe('ab\x03');
+    });
+
+    it('drops what is typed while the terminal is handed over, deferred or not', async () => {
+      const { source, proxy, chunks } = deferred();
+      source.emit('data', Buffer.from('a'));
+      proxy.hold();
+      source.emit('data', Buffer.from('b'));
+      proxy.release();
+      proxy.openInput();
+      source.emit('data', Buffer.from('c'));
+      await settle();
+      expect(Buffer.concat(chunks).toString()).toBe('ac');
+    });
+
+    it('opens once and forwards nothing twice', async () => {
+      const { source, proxy, chunks } = deferred();
+      source.emit('data', Buffer.from('a'));
+      proxy.openInput();
+      proxy.openInput();
+      source.emit('data', Buffer.from('b'));
+      await settle();
+      expect(Buffer.concat(chunks).toString()).toBe('ab');
+    });
+  });
+
   it('writes DECSET 1004 only when the gate allows, and DECRST once on disable', () => {
     const written: string[] = [];
     let supported = false;

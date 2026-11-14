@@ -9,6 +9,7 @@ import { Readable } from 'node:stream';
  * unchanged — including a split escape sequence and a bracketed paste, which are Ink's to parse.
  */
 const ESC = 0x1b;
+const END_OF_TEXT = 0x03;
 const FOCUS_IN = '\x1b[I';
 const FOCUS_OUT = '\x1b[O';
 
@@ -79,6 +80,15 @@ export class FocusReportingStdin extends Readable {
   /** Set while the terminal is handed over: whatever arrives then is not the composer's. */
   private held = false;
 
+  /**
+   * Bytes read while no key consumer is ready yet, or still being handed over, in order; `undefined`
+   * once input flows directly.
+   */
+  private deferred: Buffer[] | undefined;
+
+  /** Whether {@link openInput} has been called: the deferred bytes are being handed over. */
+  private opened = false;
+
   private readonly onData = (data: Buffer | string): void => {
     if (this.held) return;
     const chunk = typeof data === 'string' ? Buffer.from(data) : data;
@@ -87,7 +97,25 @@ export class FocusReportingStdin extends Readable {
     for (let i = 0; i < result.focusIn; i += 1) this.hooks.onFocusIn();
     if (result.forwarded.length === 0) return;
     this.hooks.onKeystroke();
-    this.push(result.forwarded);
+    if (this.deferred === undefined) {
+      this.push(result.forwarded);
+      return;
+    }
+    this.deferred.push(result.forwarded);
+    // A person who interrupts a start that never becomes ready must still be heard.
+    if (result.forwarded.includes(END_OF_TEXT)) this.openInput();
+  };
+
+  /** One chunk per turn of the event loop, so Ink reads each as the separate keystroke it was. */
+  private readonly handOver = (): void => {
+    const queued = this.deferred;
+    const next = queued?.shift();
+    if (queued === undefined || next === undefined) {
+      this.deferred = undefined;
+      return;
+    }
+    this.push(next);
+    setImmediate(this.handOver);
   };
 
   constructor(
@@ -126,6 +154,28 @@ export class FocusReportingStdin extends Readable {
   asInkStdin(): NodeJS.ReadStream {
     const surface: TInkStdinSurface = this;
     return surface as NodeJS.ReadStream;
+  }
+
+  /**
+   * Keep what is typed from now until {@link openInput}. Ink reads this stream as soon as its first
+   * frame is committed and hands each key to whoever is listening at that moment; the composer
+   * listens only after a later commit, so a key typed in between is read and dropped. Deferring the
+   * bytes here keeps them in order until the screen that takes them has its listeners attached.
+   */
+  deferInput(): void {
+    this.deferred ??= [];
+  }
+
+  /**
+   * Hand the deferred bytes to Ink, in order and one chunk at a time, and forward every later byte
+   * directly once they are all delivered. Ink reads whatever has accumulated as one string, so handing
+   * `/exit` and Enter over together would read as pasted text rather than as typing and a submit.
+   * Idempotent.
+   */
+  openInput(): void {
+    if (this.deferred === undefined || this.opened) return;
+    this.opened = true;
+    this.handOver();
   }
 
   /**
