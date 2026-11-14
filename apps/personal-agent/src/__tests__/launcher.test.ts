@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -56,10 +56,17 @@ describe('personal-agent launcher', () => {
     expect(spawnSync('test', ['-e', env['PERSONAL_AGENT_STATE_DIR']!]).status).not.toBe(0);
   });
 
-  it('configures, starts, answers over the HTTP API and stops on SIGTERM', async () => {
+  it('configures, starts, answers, files a fact, runs a slash command and stops on SIGTERM', async () => {
     const model: IScriptedModel = await startScriptedModel();
     cleanup.push(() => model.close());
-    model.script({ text: 'Launched and answering' });
+    model.script(
+      { text: 'Launched and answering' },
+      {
+        tool: 'WikiRemember',
+        args: { page: 'Mina', kind: 'person', claim: 'Mina drinks green tea.', origin: 'owner' },
+      },
+      { text: 'Filed it.' },
+    );
     const env = sandbox();
     const configured = run(
       [
@@ -93,12 +100,29 @@ describe('personal-agent launcher', () => {
     }
     const match = /HTTP API at (\S+) \(bearer printed once\): (\S+)/.exec(output);
     expect(match, output).not.toBeNull();
-    const res = await fetch(`${match![1]}/submit`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${match![2]}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ prompt: 'hello' }),
-    });
-    expect(await res.text()).toContain('Launched and answering');
+    const post = (path: string, body: unknown) =>
+      fetch(`${match![1]}${path}`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${match![2]}`, 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    expect(await (await post('/submit', { prompt: 'hello' })).text()).toContain(
+      'Launched and answering',
+    );
+    // A turn that uses a personal tool through the provider's tool-call wire, landing in the library.
+    expect(
+      await (await post('/submit', { prompt: 'Remember that Mina drinks green tea.' })).text(),
+    ).toContain('Filed it.');
+    expect(model.requests[1]!.tools?.map((tool) => tool.function?.name)).toContain('WikiRemember');
+    const page = readFileSync(
+      join(env['PERSONAL_AGENT_STATE_DIR']!, 'wiki', 'pages', 'mina.md'),
+      'utf8',
+    );
+    expect(page).toContain('Mina drinks green tea.');
+    // A slash command.
+    const renamed = await post('/command', { name: 'rename', args: 'Launcher chat' });
+    expect(renamed.status).toBe(200);
+    expect(await renamed.json()).toEqual(expect.objectContaining({ success: true }));
     child.kill('SIGTERM');
     expect(await exited).toBe(0);
   });
