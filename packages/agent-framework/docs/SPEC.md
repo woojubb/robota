@@ -96,7 +96,9 @@ React/Ink UI.
   the writer lease), and each checkpoint claims its own place atomically, so concurrent edits and
   unreadable records do not make rollback restore the wrong pre-image. A host without those
   guarantees (no writer lease, no atomic directory claim) is refused, and an unreadable checkpoint is reported
-  without hiding the others. A sealed manifest is replaced whole, since
+  without hiding the others and, like every checkpoint with a manifest, is never expired by age or size:
+  only a turn directory holding no manifest, left by a writer that stopped before finalizing, is reclaimed
+  under the writer lease, and a session's checkpoints otherwise go only with its delete. A sealed manifest is replaced whole, since
   a torn one could not be told from a damaged one, and a restore is all or nothing, since a partial
   restore cannot be told from a finished one. A branch head a rollback through the first checkpoint
   cleared on purpose is recorded in the session record as a pointer with no checkpoint, so a resumed
