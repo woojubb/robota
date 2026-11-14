@@ -14,7 +14,7 @@ import { containsSensitiveMemoryContent } from '@robota-sdk/agent-framework';
 
 import { oneLine, renderPageForModel } from './render.js';
 
-import type { IClaim, IClaimSource, IKnowledgeStore, IWikiPage, TPageKind } from './types.js';
+import type { IClaim, IClaimSource, IKnowledgeStore, IWikiLogEntry, IWikiPage, TPageKind } from './types.js';
 
 export class SensitiveContentRefusedError extends Error {
   constructor() {
@@ -218,6 +218,11 @@ export class KnowledgeWiki {
     return hits.map((hit) => renderPageForModel(hit.page)).join('\n\n');
   }
 
+  /** The change log, newest first: what was filed, corrected, linked and forgotten, never forgotten text. */
+  async log(limit = 200): Promise<readonly IWikiLogEntry[]> {
+    return this.store.readLog(limit);
+  }
+
   /** Every page title and kind: what the model reads first, as an index. */
   async index(): Promise<string> {
     const pages = await this.list();
@@ -231,21 +236,24 @@ export class KnowledgeWiki {
   }
 
   /**
-   * Forget a claim by id, or every current or retired claim containing `text`. Returns how many
-   * claims were removed. A page left with no claims is deleted, and with it every link to it and
-   * every log entry that named it, since a page's id is its title and can carry the fact itself.
+   * Forget a claim by id, every claim on a page, or every current or retired claim containing
+   * `text`. Returns how many claims were removed. A page left with no claims is deleted, and with it
+   * every link to it and every log entry that named it, since a page's id is its title and can carry
+   * the fact itself.
    */
-  async forget(target: { claimId: string } | { text: string }): Promise<number> {
+  async forget(
+    target: { claimId: string } | { pageId: string } | { text: string },
+  ): Promise<number> {
     const at = this.now().toISOString();
     const forgottenClaims = new Set<string>();
     const deletedPages = new Set<string>();
     const pages = await this.store.listPages();
     for (const page of pages) {
-      const keep = page.claims.filter((claim) =>
-        'claimId' in target
-          ? claim.id !== target.claimId
-          : !claim.text.toLowerCase().includes(target.text.toLowerCase()),
-      );
+      const keep = page.claims.filter((claim) => {
+        if ('claimId' in target) return claim.id !== target.claimId;
+        if ('pageId' in target) return page.id !== target.pageId;
+        return !claim.text.toLowerCase().includes(target.text.toLowerCase());
+      });
       if (keep.length === page.claims.length) continue;
       for (const claim of page.claims) if (!keep.includes(claim)) forgottenClaims.add(claim.id);
       if (keep.length === 0) {

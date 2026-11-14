@@ -1,0 +1,31 @@
+{
+  "name": "@robota-sdk/personal-gui-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The personal agent's web UI: the shared chat surface inside a menu shell (chat, library, search, settings) over the personal agent's own API. Private product shell, served by apps/personal-agent; not an importable library.",
+  "type": "module",
+  "scripts": {
+    "build": "rimraf dist && vite build",
+    "test": "vitest run",
+    "typecheck": "tsgo --noEmit",
+    "lint": "eslint src --ext .ts,.tsx --max-warnings 0"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-ui-web": "workspace:^",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^25.0.1",
+    "rimraf": "^5.0.10",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "vite": "^6.0.7",
+    "vitest": "^3.2.6"
+  }
+}

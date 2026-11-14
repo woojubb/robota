@@ -1,0 +1,9 @@
+@import 'tailwindcss';
+@import '@robota-sdk/agent-ui-web/styles/theme.css';
+
+/*
+ * The shared GUI presentation core ships Tailwind class strings and no compiled CSS; this app
+ * generates it, scanning the core's sources and its own.
+ */
+@source '../../agent-ui-web/src';
+@source './';

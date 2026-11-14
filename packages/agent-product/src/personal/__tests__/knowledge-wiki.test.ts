@@ -128,6 +128,30 @@ describe.each([
     expect(report.missingLinks).toContainEqual({ from: 'coffee', to: 'gym-plan' });
   });
 
+  it('forgets a whole page and every link to it', async () => {
+    const wiki = new KnowledgeWiki({ store: makeStore(), now: clock });
+    await wiki.remember({
+      pageTitle: 'Old flat',
+      kind: 'place',
+      claim: 'Rent was 900',
+      source: { origin: 'owner' },
+    });
+    await wiki.remember({
+      pageTitle: 'Old flat',
+      claim: 'Landlord is Park',
+      source: { origin: 'owner' },
+    });
+    await wiki.remember({
+      pageTitle: 'Moves',
+      claim: 'Moved twice',
+      source: { origin: 'owner' },
+      linkTo: ['Old flat'],
+    });
+    expect(await wiki.forget({ pageId: 'old-flat' })).toBe(2);
+    expect(await wiki.read('old-flat')).toBeUndefined();
+    expect((await wiki.read('moves'))?.links).toEqual([]);
+  });
+
   it('frames claims read from elsewhere as data on recall', async () => {
     const wiki = new KnowledgeWiki({ store: makeStore(), now: clock });
     await wiki.remember({

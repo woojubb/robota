@@ -24,7 +24,7 @@ import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robot
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { IPersonalAgent } from './agent.js';
-import type { ILoopbackGuiServer } from '@robota-sdk/agent-local-host';
+import type { ILoopbackGuiServer, ILoopbackGuiServerOptions } from '@robota-sdk/agent-local-host';
 
 const LOOPBACK = '127.0.0.1';
 
@@ -39,6 +39,8 @@ export interface ILocalModeOptions {
   readonly gui?: boolean;
   /** The built GUI to serve; defaults to the one `@robota-sdk/agent-gui-web` ships. */
   readonly webRoot?: string;
+  /** The personal API the web UI calls, served beside it behind the same access cookie. */
+  readonly api?: ILoopbackGuiServerOptions['api'];
   /** WebSocket port; omitted lets the system choose a free one. */
   readonly wsPort?: number;
 }
@@ -129,8 +131,13 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
 
     if (options.gui !== false) {
       const webRoot = options.webRoot ?? resolveGuiRoot();
-      if (webRoot === undefined) throw new Error('The web GUI is not built: run `pnpm --filter @robota-sdk/agent-gui-web build`');
-      const started = await startLoopbackGuiServer({ webRoot, headHtml: guiHeadHtml(wsUrl), labels: GUI_LABELS });
+      if (webRoot === undefined) throw new Error('The web UI is not built: run `pnpm --filter @robota-sdk/personal-gui-web build`');
+      const started = await startLoopbackGuiServer({
+        webRoot,
+        headHtml: guiHeadHtml(wsUrl),
+        labels: GUI_LABELS,
+        ...(options.api !== undefined && { api: options.api }),
+      });
       gui = started;
       cleanups.push(() => started.close());
     }
