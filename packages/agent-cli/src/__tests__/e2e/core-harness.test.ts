@@ -62,6 +62,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** The structured part of a command's json envelope: what `/context prompt` lists. */
+interface IEnvelopeData {
+  readonly sections?: readonly { readonly id: string; readonly characters: number }[];
+}
+
 function scriptedDefinition(scripted: IScriptedProvider): IProviderDefinition {
   return {
     type: 'scripted',
@@ -74,7 +79,7 @@ function scriptedDefinition(scripted: IScriptedProvider): IProviderDefinition {
 async function run(
   prompt: string,
   extra: readonly string[] = [],
-): Promise<{ result: string; scripted: IScriptedProvider }> {
+): Promise<{ result: string; data: IEnvelopeData | undefined; scripted: IScriptedProvider }> {
   const scripted = createScriptedProvider([{ text: 'ok' }, { text: 'ok' }]);
   process.argv = [
     'node',
@@ -106,8 +111,8 @@ async function run(
     vi.mocked(process.stdout.write).mockRestore();
     vi.mocked(process.stderr.write).mockRestore();
   }
-  const envelope = JSON.parse(out.join('').trim()) as { result?: string };
-  return { result: envelope.result ?? '', scripted };
+  const envelope = JSON.parse(out.join('').trim()) as { result?: string; data?: IEnvelopeData };
+  return { result: envelope.result ?? '', data: envelope.data, scripted };
 }
 
 function systemText(scripted: IScriptedProvider): string {
@@ -127,9 +132,9 @@ describe('the core harness in a default run', () => {
     expect(occurrences(systemText(prompt.scripted), CORE_HARNESS_PROMPT)).toBe(1);
 
     const listing = await run('/context prompt');
-    expect(listing.result).toContain(
-      `preset-system-prompt [preset-system-prompt] — ${CORE_HARNESS_PROMPT.length.toLocaleString()} characters`,
-    );
+    const listed = listing.data?.sections?.find((section) => section.id === 'preset-system-prompt');
+    expect(listing.result).toContain('preset-system-prompt');
+    expect(listed?.characters).toBe(CORE_HARNESS_PROMPT.length);
 
     const section = await run('/context prompt preset-system-prompt');
     expect(section.result).toBe(CORE_HARNESS_PROMPT);

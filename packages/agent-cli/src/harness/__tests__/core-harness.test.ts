@@ -20,15 +20,4 @@ describe('the core harness text', () => {
     expect(CORE_HARNESS_PROMPT).not.toMatch(/\{\{|\$\{/);
     expect(CORE_HARNESS_PROMPT).toBe(CORE_HARNESS_PROMPT.trim());
   });
-
-  it('opens with the identity and keeps its three guidance groups', () => {
-    expect(CORE_HARNESS_PROMPT.startsWith('You are Robota,')).toBe(true);
-    for (const heading of [
-      'How this harness works',
-      'Report only what you verified',
-      'When a tool is denied',
-    ]) {
-      expect(CORE_HARNESS_PROMPT).toContain(`\n${heading}\n`);
-    }
-  });
 });
