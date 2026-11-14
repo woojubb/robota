@@ -15,7 +15,7 @@ import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 
-import { createPersonalSessionStore } from './session-stores.js';
+import { createPersonalGoalSessionStore, createPersonalSessionStore } from './session-stores.js';
 
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 import type { IAgentRuntime, SessionRecipe } from '@robota-sdk/agent-framework';
@@ -81,9 +81,11 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
       deniedTools: [...PERSONAL_WITHHELD_TOOLS],
       ...(options.instructions !== undefined && { appendSystemPrompt: options.instructions }),
     });
+  const goalSessionStore = createPersonalGoalSessionStore(options.stateDir);
   const openSession = (extra: IExtraSessionOptions): TPersonalSession =>
     runtime.createSession({
       ...base,
+      sessionStore: goalSessionStore,
       sessionName: extra.sessionName,
       permissionMode: extra.permissionMode,
       deniedTools: [...PERSONAL_WITHHELD_TOOLS, ...(extra.deniedTools ?? [])],

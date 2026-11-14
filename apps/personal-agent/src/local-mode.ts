@@ -111,7 +111,7 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
       maxRetries: 0,
       driverId: 'local:web',
       surface: 'browser',
-      sessionBinder: directory as never,
+      sessionBinder: directory,
     });
     const registry = new TransportRegistry(createMemoryTransportSettingsRepository());
     const host: IRuntimeHostHandle = await startRuntimeHost({
@@ -125,6 +125,13 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
           maxLive: SESSION_POOL_MAX_LIVE,
         });
         pool = live;
+        // Registered as soon as there is something to release, so a start that fails after this
+        // (a WebSocket port already taken, say) still stops the transports and closes the sessions.
+        cleanups.push(async () => {
+          stopping = true;
+          await registry.stopAll();
+          await live.shutdownAll('The personal agent is stopping');
+        });
         directory.attach({ pool: live, primary: slot.current, store, cwd: agent.workspace, isStopping: () => stopping });
         registry.register(bindTransportAdapter(ws, slot));
       },
