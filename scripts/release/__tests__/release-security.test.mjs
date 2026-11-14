@@ -393,3 +393,52 @@ fi
     rmSync(scratch, { recursive: true, force: true });
   }
 });
+
+// Every command of a workflow's shell steps, with line continuations joined so one command is one line.
+const workflowCommands = (name) =>
+  Object.values(readWorkflow(name).jobs)
+    .flatMap((job) => job.steps ?? [])
+    .flatMap((step) => (step.run ?? '').replace(/\\\n\s*/g, ' ').split('\n'));
+
+it('never lets a release producer take Latest', () => {
+  for (const name of ['publish.yml', 'release-bun-binaries.yml', 'release-desktop-app.yml']) {
+    const commands = workflowCommands(name);
+    const creates = commands.filter((line) => line.includes('gh release create'));
+    expect(creates.length, name).toBeGreaterThan(0);
+    for (const line of creates) expect(line, name).toContain('--latest=false');
+    // Editing a release must not move Latest either: `--latest` is only ever `--latest=false`.
+    expect(
+      commands.filter((line) => /--latest(?!=false)/.test(line)),
+      name,
+    ).toEqual([]);
+  }
+});
+
+it('marks Latest in one write-scoped job, only once every producer is verified', () => {
+  const verification = readWorkflow('release-macos-verification.yml');
+  expect(verification.permissions.contents).toBe('read');
+  const writers = Object.entries(verification.jobs)
+    .filter(([, job]) => job.permissions?.contents === 'write')
+    .map(([name]) => name);
+  expect(writers).toEqual(['mark-latest']);
+
+  const markLatest = verification.jobs['mark-latest'];
+  expect(markLatest.needs).toEqual(['prerequisites', 'verify']);
+  const evaluate = Function('needs', 'cancelled', `return (${markLatest.if.slice(3, -2)});`);
+  const runs = (verify, cancelled = false) =>
+    evaluate({ verify: { result: verify } }, () => cancelled);
+  expect(runs('success')).toBe(true);
+  for (const result of ['failure', 'skipped', 'cancelled']) expect(runs(result)).toBe(false);
+  expect(runs('success', true)).toBe(false);
+
+  expect(markLatest.env.READY_TAGS).toBe(
+    "${{ join(fromJSON(needs.prerequisites.outputs.matrix).*.tag, ' ') }}",
+  );
+  const checkout = markLatest.steps.find((step) => step.uses === 'actions/checkout@v7');
+  expect(checkout.with.ref).toBe('${{ github.workflow_sha }}');
+  expect(checkout.with['persist-credentials']).toBe(false);
+  // The tag list reaches the script through the environment, never through the script text.
+  expect(markLatest.steps.find((step) => step.run).run).toBe(
+    'node scripts/release/mark-latest-release.mjs',
+  );
+});
