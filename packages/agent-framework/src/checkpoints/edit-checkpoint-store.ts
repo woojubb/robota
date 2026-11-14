@@ -12,6 +12,7 @@ import {
   EditCheckpointsLockedError,
 } from './edit-checkpoint-errors.js';
 import { buildEditCheckpointInspection } from './edit-checkpoint-inspection.js';
+import { reclaimOrphanTurns } from './edit-checkpoint-orphan-reclamation.js';
 import { SealedEditCheckpointCatalog } from './edit-checkpoint-sealed-catalog.js';
 import {
   SealedEditCheckpointState,
@@ -97,6 +98,7 @@ interface IEditCheckpointStoreOptions {
 
 export class EditCheckpointStore implements IEditCheckpointStore {
   private readonly cwd: string;
+  private readonly state: IEditCheckpointStateStorage;
   private readonly authorityIO: EditCheckpointAuthorityIO;
   /** Sealed exactly when the state seals; every rule for sealed checkpoints goes through it. */
   private readonly catalog: IEditCheckpointCatalog;
@@ -113,6 +115,8 @@ export class EditCheckpointStore implements IEditCheckpointStore {
   private readonly activeBranch = new Map<string, string>();
   /** Monotonic fork counter for minting distinct branch ids. */
   private forkCounter = 0;
+  /** Sessions whose abandoned turn directories this store already tried to reclaim. */
+  private readonly reclaimedSessions = new Set<string>();
 
   constructor(options: IEditCheckpointStoreOptions) {
     assertSessionSealing(options.sealing);
@@ -129,6 +133,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
       options.sealing,
       options.sealedOnly === true ? { sealedOnly: true } : {},
     );
+    this.state = state;
     this.authorityIO = new EditCheckpointAuthorityIO(options.authority, options.mutation, state);
     this.catalog =
       state instanceof SealedEditCheckpointState
@@ -150,6 +155,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
     const lease = this.authorityIO.acquireTurn(this.sessionDir(input.sessionId));
     try {
       if (!lease.holds()) throw new Error('The checkpoint writer lease was lost.');
+      this.reclaimOrphanTurns(input.sessionId, lease);
       const next = this.nextCheckpoint(input.sessionId);
       const parentId = next.parentId;
       let nextSequence = next.nextSequence;
@@ -189,6 +195,22 @@ export class EditCheckpointStore implements IEditCheckpointStore {
     } catch (error) {
       lease.release();
       throw error;
+    }
+  }
+
+  /**
+   * Once per session per store, under the writer lease and before the new turn is claimed: this
+   * store has claimed no turn of the session yet, so every manifest-less turn directory it finds was
+   * left by a writer that stopped. Best-effort: whatever goes wrong leaves the directories for a later
+   * process and never stops the turn.
+   */
+  private reclaimOrphanTurns(sessionId: string, lease: IProcessMarkerHandle): void {
+    if (this.reclaimedSessions.has(sessionId)) return;
+    this.reclaimedSessions.add(sessionId);
+    try {
+      reclaimOrphanTurns(this.state, this.sessionDir(sessionId), lease);
+    } catch {
+      // allow-fallback: an abandoned directory that stays only takes space; the turn goes on.
     }
   }
 
