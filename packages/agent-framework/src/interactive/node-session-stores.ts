@@ -11,6 +11,7 @@ import {
 import { WorkspaceProjectSessionStore } from './workspace-session-store.js';
 
 import type { IHostToolResultSpillStore, IInteractiveSessionStore } from './session-store-types.js';
+import type { IProjectSessionStoreOptions } from './workspace-session-store.js';
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import type { IPromptHistorySource, IPromptHistoryWriter } from '@robota-sdk/agent-interface/session';
 import type {
@@ -40,12 +41,13 @@ export function sweepStaleToolResultSpillDirectories(parent: string): readonly s
 
 /**
  * Project session store over a trusted workspace's state facets. `options.sealing` (required) seals
- * its records with `{ sealer }`, or states `'plain'`.
+ * its records with `{ sealer }`, or states `'plain'`; `options.deletion` says what a delete removes
+ * besides the record (`WorkspaceProjectSessionStore.delete`).
  */
 export function createProjectSessionStore(
   sessions: IWorkspaceProjectStateStorage,
   logs: IWorkspaceProjectStateStorage,
-  options: ISessionStoreOptions,
+  options: IProjectSessionStoreOptions,
 ): IInteractiveSessionStore {
   return new WorkspaceProjectSessionStore(sessions, logs, options);
 }

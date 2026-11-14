@@ -29,6 +29,8 @@ describe('checkpoint and session store entry surfaces', () => {
     'createUserPromptHistoryFile',
     'sweepStaleToolResultSpillDirectories',
     'WorkspaceProjectSessionStore',
+    'ProjectSessionDeletionStoppedError',
+    'removeSubagentLogs',
     'WorkspaceSessionLogSink',
     'WorkspaceSessionLogSource',
     'migrateWorkspaceProjectSessionLogs',

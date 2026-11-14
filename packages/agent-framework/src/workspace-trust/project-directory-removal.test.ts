@@ -215,21 +215,18 @@ describe('project directory removal', () => {
   });
 
   it.runIf(linux)(
-    'refuses a linked or non-directory ancestor, a replaced root and a target that is a link, a file or a mount point',
+    'refuses a linked or non-directory ancestor, a replaced root and a mount point',
     () => {
       const f = fixture();
       fs.mkdirSync(join(f.outside, 'victim'));
       fs.writeFileSync(join(f.outside, 'victim', 'kept.txt'), 'kept');
       fs.symlinkSync(f.outside, join(f.root, 'linked'));
       fs.writeFileSync(join(f.root, 'file.txt'), 'file');
-      fs.symlinkSync(join(f.outside, 'victim'), join(f.root, 'state', 'link-target'));
       fs.writeFileSync(join(f.victim, 'inside.txt'), 'inside');
       const boundary = boundaryFor(f.root);
 
       expect(() => remove(boundary, 'linked/victim')).toThrow(WorkspaceAuthorityRequiredError);
       expect(() => remove(boundary, 'file.txt/victim')).toThrow(WorkspaceAuthorityRequiredError);
-      expect(() => remove(boundary, 'state/link-target')).toThrow(WorkspaceAuthorityRequiredError);
-      expect(() => remove(boundary, 'file.txt')).toThrow(WorkspaceAuthorityRequiredError);
       expect(() => remove(boundary, '')).toThrow(WorkspaceAuthorityRequiredError);
       expect(() => remove(boundary, '../outside')).toThrow(WorkspaceAuthorityRequiredError);
       expect(fs.readFileSync(join(f.outside, 'victim', 'kept.txt'), 'utf8')).toBe('kept');
@@ -247,6 +244,50 @@ describe('project directory removal', () => {
       );
       expect(() => remove(mountedVictim, 'state/victim')).toThrow(/another mount/u);
       expect(fs.readFileSync(join(f.victim, 'inside.txt'), 'utf8')).toBe('inside');
+      expectCanaryIntact(f);
+    },
+  );
+
+  it.runIf(linux)(
+    'unlinks a target that is a link, a file, a FIFO or a socket by name, leaving what a link points at',
+    async () => {
+      const f = fixture();
+      const state = join(f.root, 'state');
+      fs.symlinkSync(f.outside, join(state, 'link-to-directory'));
+      fs.symlinkSync(join(f.outside, 'missing'), join(state, 'dangling-link'));
+      fs.writeFileSync(join(state, 'file.txt'), 'file');
+      execFileSync('mkfifo', [join(state, 'pipe')]);
+      const server = createServer();
+      servers.push(server);
+      await new Promise<void>((resolve) => server.listen(join(state, 'sock'), resolve));
+      const boundary = boundaryFor(f.root);
+
+      for (const name of ['link-to-directory', 'dangling-link', 'file.txt', 'pipe', 'sock']) {
+        expect(remove(boundary, `state/${name}`)).toEqual({ status: 'removed' });
+        expect(fs.existsSync(join(state, name))).toBe(false);
+        expect(remove(boundary, `state/${name}`)).toEqual({ status: 'absent' });
+      }
+      expect(fs.readdirSync(state)).toEqual(['victim']);
+      expectCanaryIntact(f);
+    },
+  );
+
+  it.runIf(linux)(
+    "removes a directory that took a non-directory target's name between the open and the unlink",
+    () => {
+      const f = fixture();
+      const target = join(f.root, 'state', 'swapped');
+      fs.writeFileSync(target, 'file');
+      hooks.unlink.push({
+        path: target,
+        act: () => {
+          fs.unlinkSync(target);
+          fs.mkdirSync(target);
+          fs.writeFileSync(join(target, 'inner.txt'), 'inner');
+        },
+      });
+      expect(remove(boundaryFor(f.root), 'state/swapped')).toEqual({ status: 'removed' });
+      expect(fs.existsSync(target)).toBe(false);
       expectCanaryIntact(f);
     },
   );

@@ -1,0 +1,5 @@
+---
+'@robota-sdk/agent-framework': patch
+---
+
+`EditCheckpointStore` reclaims the turn directories a checkpoint writer that stopped before finalizing left behind (empty claims and claims holding pre-images but no manifest): once per session per store, at the session's first `beginTurn`, under the writer lease and before the new turn is claimed. A turn counts as abandoned only when it is a directory with a canonical turn name whose listing shows no `manifest.json` entry of any kind; no manifest is read or opened, so a damaged checkpoint or one sealed with locked keys is kept, and a link, FIFO or file under a turn name, other names, the `.writer` lease directory and other sessions are never touched. Reclamation is best-effort: a removal still `partial` after a bounded number of retries is left, a lost lease or any error stops it, and the turn always goes on. State that cannot remove directories (a directory kept outside the project) reclaims nothing. Checkpoints with a manifest are never expired by age or size; a session's checkpoints otherwise go only with its delete.
