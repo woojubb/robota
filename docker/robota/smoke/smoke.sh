@@ -13,7 +13,9 @@
 #   2. without systempaths=unconfined: startup refuses (sandbox.failIfUnavailable);
 #   3. with Docker's default security options: startup refuses;
 #   4. an untrusted workspace: a print-mode prompt fails closed;
-#   5. the fixture credential appears in no output, container configuration or image history.
+#   5. the fixture credential appears in no output, container configuration or image history;
+#   6. the compose `server` profile's shape: `--serve` behind a proxy sharing its network namespace,
+#      the bearer from the secret that profile names, reached by a client only through the proxy.
 #
 set -euo pipefail
 
@@ -24,10 +26,17 @@ SECCOMP="$SMOKE_DIR/../seccomp-bwrap.json"
 ID="robota-smoke-$$"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/robota-smoke.XXXXXX")"
 KEY="fixture-key-$ID-$RANDOM$RANDOM"
+TOKEN="http-token-$ID-$RANDOM$RANDOM$RANDOM$RANDOM"
+# The bearer's secret name as the compose `server` profile delivers it, so a profile that passes it
+# under a name the CLI ignores fails here.
+TOKEN_NAME="$(sed -n 's/^ *target: *\([A-Z_]*HTTP_TOKEN\) *$/\1/p' "$SMOKE_DIR/../compose.yaml")"
+[ -n "$TOKEN_NAME" ] || { echo "FAIL  compose.yaml names no HTTP token secret"; exit 1; }
+# The proxy the compose `server` profile runs, pinned like the rest of the release inputs.
+PROXY_IMAGE='caddy@sha256:4e2425f6009577e7c651010f16679c28f7d12df3e7b1914f941a7a3370746b3c'
 FAILED=0
 
 cleanup() {
-  docker rm -f -v "$ID-fixture" >/dev/null 2>&1 || true
+  docker rm -f -v "$ID-fixture" "$ID-server" "$ID-proxy" >/dev/null 2>&1 || true
   docker volume rm "$ID-state" >/dev/null 2>&1 || true
   docker network rm "$ID" >/dev/null 2>&1 || true
   rm -rf "$WORK"
@@ -65,8 +74,9 @@ robota_container() {
 # The credential reaches the container as a Docker-secret-style file, never as configuration.
 mkdir -p "$WORK/secrets"
 printf '%s' "$KEY" >"$WORK/secrets/OPENAI_API_KEY"
+printf '%s' "$TOKEN" >"$WORK/secrets/$TOKEN_NAME"
 chmod 0755 "$WORK/secrets"
-chmod 0644 "$WORK/secrets/OPENAI_API_KEY"
+chmod 0644 "$WORK/secrets/OPENAI_API_KEY" "$WORK/secrets/$TOKEN_NAME"
 
 docker network create --internal "$ID" >/dev/null
 docker volume create "$ID-state" >/dev/null
@@ -97,6 +107,40 @@ robota_container docker-default docker-default sh -c '
   git init -q /workspace/repo && cd /workspace/repo && robota --restricted-workspace -p "hello" --output-format json'
 robota_container untrusted full sh -c '
   git init -q /workspace/repo && cd /workspace/repo && robota -p "hello" --output-format json'
+# The server profile's shape: the HTTP API on loopback inside the server container, a proxy in its
+# network namespace on :8080, and a client container that can reach only the proxy.
+docker create --name "$ID-server" --network "$ID" --network-alias server -v "$ID-state:/home/node/.robota" \
+  --cap-drop ALL --security-opt no-new-privileges:true --security-opt "seccomp=$SECCOMP" \
+  --security-opt "apparmor=$APPARMOR" --security-opt systempaths=unconfined "$IMAGE" sh -c '
+    set -eu; git init -q /workspace/repo; cd /workspace/repo
+    exec robota --restricted-workspace --serve --http-port 8787' >/dev/null
+docker cp "$WORK/secrets" "$ID-server:/run/secrets"
+docker start "$ID-server" >/dev/null
+docker run -d --name "$ID-proxy" --network "container:$ID-server" --cap-drop ALL --cap-add NET_BIND_SERVICE \
+  --security-opt no-new-privileges:true "$PROXY_IMAGE" caddy reverse-proxy --from :8080 --to 127.0.0.1:8787 >/dev/null
+docker run --rm --network "$ID" -e SMOKE_TOKEN="$TOKEN" --entrypoint node "$IMAGE" --input-type=module -e '
+  const base = "http://server:8080";
+  const call = (path, token, init = {}) => fetch(base + path, { ...init,
+    headers: { "content-type": "application/json", ...(token && { authorization: "Bearer " + token }) } });
+  let ready = false;
+  for (let i = 0; i < 90 && !ready; i++) {
+    ready = await call("/messages").then((r) => r.status === 401, () => false);
+    if (!ready) await new Promise((r) => setTimeout(r, 1000));
+  }
+  console.log("server ready", ready);
+  console.log("no token", (await call("/messages")).status);
+  console.log("wrong token", (await call("/messages", "wrong-" + process.env.SMOKE_TOKEN)).status);
+  const stream = await (await call("/submit", process.env.SMOKE_TOKEN,
+    { method: "POST", body: JSON.stringify({ prompt: "Reply with the smoke word." }) })).text();
+  console.log("submit complete", /^event: complete$/m.test(stream), "answer", stream.includes("SMOKE_OK"));
+  const messages = await (await call("/messages", process.env.SMOKE_TOKEN)).text();
+  console.log("messages turn", messages.includes("Reply with the smoke word.") && messages.includes("SMOKE_OK"));
+  console.log("direct port", await fetch("http://server:8787/messages").then(() => "reachable", () => "closed"));
+' >"$WORK/server-client.out" 2>&1 || true
+docker logs "$ID-server" >"$WORK/server.out" 2>&1
+echo "----- server"
+cat "$WORK/server-client.out"
+
 docker history --no-trunc "$IMAGE" >"$WORK/history"
 docker logs "$ID-fixture" >"$WORK/fixture.log" 2>&1
 
@@ -118,6 +162,14 @@ check "docker defaults: refused" grep -q 'Refusing to start (sandbox.failIfUnava
 check "docker defaults: non-zero exit" grep -qvx 0 "$WORK/docker-default.status"
 check "untrusted workspace: non-zero exit" grep -qvx 0 "$WORK/untrusted.status"
 check "untrusted workspace: trust admission refused" grep -q 'Workspace trust is required before headless startup' "$WORK/untrusted.out"
+check "server: answers through the proxy" grep -q 'server ready true' "$WORK/server-client.out"
+check "server: no token refused" grep -q 'no token 401' "$WORK/server-client.out"
+check "server: wrong token refused" grep -q 'wrong token 401' "$WORK/server-client.out"
+check "server: /submit streams to complete with the fixture answer" grep -q 'submit complete true answer true' "$WORK/server-client.out"
+check "server: the turn is in /messages" grep -q 'messages turn true' "$WORK/server-client.out"
+check "server: reachable only through the proxy" grep -q 'direct port closed' "$WORK/server-client.out"
+check "server: token and provider key absent from the server log" \
+  bash -c '! grep -qF -e "$1" -e "$2" "$3"' _ "$TOKEN" "$KEY" "$WORK/server.out"
 check "credential absent from outputs, container configuration, image history and fixture log" \
   bash -c '! grep -rqF -- "$1" "$2"/*.out "$2"/*.inspect "$2"/history "$2"/fixture.log' _ "$KEY" "$WORK"
 # Known gap, reported rather than counted: the shell tool hands confined commands the CLI's own
