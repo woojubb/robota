@@ -1,4 +1,4 @@
-import { isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
+import { join, posix, resolve } from 'node:path';
 
 import { CheckpointTree } from '@robota-sdk/agent-session';
 import { assertSessionSealing } from '@robota-sdk/agent-session/node';
@@ -25,6 +25,7 @@ import {
   checkpointIdOf,
   checkpointTreeNodesOf,
   isInsideCheckpointRoot,
+  relativeInsideProject,
   resolveContainedSnapshotPath,
   safePathSegment,
   toEditCheckpointSummary as toSummary,
@@ -197,15 +198,12 @@ export class EditCheckpointStore implements IEditCheckpointStore {
 
     const originalPath = resolve(this.cwd, filePath);
     if (this.activeTurn.capturedPaths.has(originalPath)) return;
-    const relativePath = relative(this.cwd, originalPath);
+    const relativePath = relativeInsideProject(this.cwd, originalPath);
     const checkpointRoot = this.authorityIO.checkpointRootRelativePath;
     if (
-      relativePath.length === 0 ||
-      relativePath === '..' ||
-      relativePath.startsWith(`..${sep}`) ||
-      isAbsolute(relativePath) ||
-      resolve(this.cwd, relativePath) !== originalPath ||
-      (checkpointRoot !== undefined && isInsideCheckpointRoot(relativePath, checkpointRoot))
+      relativePath === undefined ||
+      (checkpointRoot !== undefined &&
+        isInsideCheckpointRoot(this.cwd, relativePath, checkpointRoot))
     ) {
       return;
     }
