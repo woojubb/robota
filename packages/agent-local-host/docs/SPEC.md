@@ -22,4 +22,6 @@ The store does not choose product paths, collect a passphrase, unlock a keyring,
 
 ## Design decisions
 
+From the first unlock in a process the key holder seals to the sealing key that unlock verified, locked or not, even when the repair of the file cannot be written. Before that first unlock a locked writer can only seal to the key the file holds; that is an accepted weakness, caught at the next unlock and visible meanwhile through the fingerprint. An append-only writer reuses one data key per store for a writer epoch because one public-key operation per line was measured too slow to read back; the epoch ends as soon as the verified key is not the one its data key was sealed to, and at every lock, because a writer's data key reads every line sealed under it and so is key material like any other.
+
 The lock can be taken over after its stale bound even if its former holder is still alive. The final ownership and content checks are separate from the filesystem replacement, so a stalled or non-cooperating writer can change the file between them. The store does not provide an atomic compare-and-swap or an unconditional guarantee against restoring an older keyslot. On filesystems without hard links, creation also relies on a separate absence check and replacement.
