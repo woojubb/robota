@@ -77,7 +77,8 @@ The main package-level edges are drawn in [`diagrams/robota-architecture.mmd`](d
 SDK packages develop against workspace dependencies. Standalone examples use published SDK ranges.
 The CLI, desktop app and their private product modules consume exact published SDK versions; their
 product-to-product links remain local. A product that has never been released (the personal agent)
-builds on the workspace SDK until its first release pins it. Upgrading the product's SDK is an explicit dependency change,
+builds on the workspace SDK until its first release pins it; the product modules it shares with the
+CLI keep their own published pins. Upgrading the product's SDK is an explicit dependency change,
 and coordinated changes can be checked against packed SDK artifacts in an isolated workspace.
 
 > **What the rows do not show.** Providers are injected: `agent-framework` never depends on an

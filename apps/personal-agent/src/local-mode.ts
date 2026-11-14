@@ -99,10 +99,11 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
     });
     const registry = new TransportRegistry(createMemoryTransportSettingsRepository());
     registry.register(bindTransportAdapter(ws, agent.session));
-    await registry.startAll();
+    // Registered before the start, so a start that fails after binding still stops what it bound.
     cleanups.push(async () => {
       await registry.stopAll();
     });
+    await registry.startAll();
     const wsToken = ws.resolvedToken;
     if (wsToken === undefined || ws.boundPort === undefined) throw new Error('The WebSocket transport did not start');
     wsUrl = `ws://${LOOPBACK}:${ws.boundPort}/?token=${encodeURIComponent(wsToken)}`;

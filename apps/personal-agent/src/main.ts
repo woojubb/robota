@@ -39,6 +39,10 @@ export async function main(argv: readonly string[], environment: NodeJS.ProcessE
     process.stdout.write(`${USAGE}\n`);
     return 0;
   }
+  if (command !== 'configure' && command !== 'start') {
+    process.stderr.write(`Unknown command "${command}"\n${USAGE}\n`);
+    return 2;
+  }
   const stateDir = resolveStateDir(values['state-dir'], environment);
   ensureStateDir(stateDir);
 
@@ -89,7 +93,6 @@ export async function main(argv: readonly string[], environment: NodeJS.ProcessE
     return 0;
   }
 
-  process.stderr.write(`Unknown command "${command}"\n${USAGE}\n`);
   return 2;
 }
 
