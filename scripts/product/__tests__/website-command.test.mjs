@@ -37,8 +37,8 @@ function websiteModule(file, config, locale = 'en') {
         setRequestLocale: () => {},
         getTranslations: async (input) => translate(typeof input === 'string' ? input : input?.namespace),
       };
-      if (name === 'next/font/google') return {
-        IBM_Plex_Sans: () => ({ variable: 'sans' }), IBM_Plex_Mono: () => ({ variable: 'mono' }),
+      if (name === 'next/font/local') return {
+        __esModule: true, default: ({ variable }) => ({ variable }),
       };
       if (name === 'next-intl') return {
         NextIntlClientProvider: ({ children }) => children,
