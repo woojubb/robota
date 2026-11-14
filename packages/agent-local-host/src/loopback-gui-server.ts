@@ -10,7 +10,9 @@
  * hostile throughout: no request may crash the process that serves it.
  *
  * Any product composition root that serves its GUI on this machine uses this one server, so the
- * login gate has one implementation.
+ * login gate has one implementation. A product that needs its own data on the page supplies an API
+ * handler: it is reached only under the session path, so only a browser holding the cookie reaches
+ * it, and a request that changes something must also carry a header a cross-site form cannot set.
  */
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { closeSync, fstatSync, openSync, readFileSync, realpathSync } from 'node:fs';
@@ -59,12 +61,35 @@ const DEFAULT_LABELS: ILoopbackGuiLabels = {
   submit: 'Open monitor',
 };
 
+/** A request the product's API handler answers: its path below `api/`, the query, and a parsed JSON body. */
+export interface ILoopbackGuiApiRequest {
+  readonly method: string;
+  /** The path below the session's `api/`, starting with `/`, percent-decoded per segment. */
+  readonly path: string;
+  readonly segments: readonly string[];
+  readonly query: URLSearchParams;
+  readonly body: unknown;
+}
+
+/** What the handler answers: a status and a JSON body. */
+export interface ILoopbackGuiApiResponse {
+  readonly status: number;
+  readonly body: unknown;
+}
+
+/** The header every API request that changes something must carry; a cross-site form cannot set it. */
+export const LOOPBACK_GUI_API_HEADER = 'x-robota-api';
+
+const API_BODY_LIMIT = 1024 * 1024;
+
 export interface ILoopbackGuiServerOptions {
   /** The built GUI; its `index.html` is served only after the access code. */
   readonly webRoot: string;
   /** Markup placed before `</head>` of the index, such as the runtime's `<meta name="ws-url">`. */
   readonly headHtml: string;
   readonly labels?: Partial<ILoopbackGuiLabels>;
+  /** The product's API under the session path's `api/`, reached only with the access cookie. */
+  readonly api?: (request: ILoopbackGuiApiRequest) => Promise<ILoopbackGuiApiResponse>;
 }
 
 /** A running GUI server: its loopback URL, the code a person types, and a close that ends open connections. */
@@ -76,6 +101,43 @@ export interface ILoopbackGuiServer {
 
 function escapeHtml(text: string): string {
   return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+}
+
+function sendJson(res: import('node:http').ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'x-content-type-options': 'nosniff' });
+  res.end(JSON.stringify(body ?? null));
+}
+
+/** Read and parse a JSON request body, bounded in size and time; undefined when there is none. */
+function readJsonBody(req: import('node:http').IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.setEncoding('utf8');
+    req.setTimeout(10_000, () => req.destroy());
+    req.on('error', reject);
+    // A request destroyed before it ended (timeout, client gone) settles as a failure.
+    req.on('close', () => {
+      if (!req.complete) reject(new Error('request closed'));
+    });
+    req.on('data', (chunk: string) => {
+      body += chunk;
+      if (body.length > API_BODY_LIMIT) {
+        req.destroy();
+        reject(new Error('body too large'));
+      }
+    });
+    req.on('end', () => {
+      if (body === '') {
+        resolve(undefined);
+        return;
+      }
+      try {
+        resolve(JSON.parse(body));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
 }
 
 function injectHead(html: string, headHtml: string): string {
@@ -132,11 +194,13 @@ export async function startLoopbackGuiServer(options: ILoopbackGuiServerOptions)
       });
       return;
     }
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      res.writeHead(405).end('Method not allowed');
-      return;
-    }
+    const method = req.method ?? 'GET';
+    const isRead = method === 'GET' || method === 'HEAD';
     if (req.url === '/') {
+      if (!isRead) {
+        res.writeHead(405).end('Method not allowed');
+        return;
+      }
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
         'content-security-policy': "default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
@@ -160,6 +224,15 @@ export async function startLoopbackGuiServer(options: ILoopbackGuiServerOptions)
         res.writeHead(403).end('Forbidden');
         return;
       }
+      const apiPrefix = `${sessionPath}api/`;
+      if (options.api !== undefined && requestPath.startsWith(apiPrefix)) {
+        void serveApi(options.api, req, res, requestPath.slice(apiPrefix.length - 1), isRead);
+        return;
+      }
+    }
+    if (!isRead) {
+      res.writeHead(405).end('Method not allowed');
+      return;
     }
     // A malformed percent-encoding (e.g. `GET /%`) must NOT crash the serve host via an uncaught URIError —
     // Localhost is treated as hostile, so a co-resident process must not DoS the running agent.
@@ -248,6 +321,51 @@ export async function startLoopbackGuiServer(options: ILoopbackGuiServerOptions)
     });
     res.end(body);
   });
+
+  async function serveApi(
+    api: NonNullable<ILoopbackGuiServerOptions['api']>,
+    req: import('node:http').IncomingMessage,
+    res: import('node:http').ServerResponse,
+    rawPath: string,
+    isRead: boolean,
+  ): Promise<void> {
+    try {
+      if (!isRead) {
+        if (req.headers[LOOPBACK_GUI_API_HEADER] !== '1') {
+          sendJson(res, 403, { error: `missing ${LOOPBACK_GUI_API_HEADER} header` });
+          return;
+        }
+        const type = req.headers['content-type'] ?? '';
+        if (req.headers['content-length'] !== '0' && type !== '' && !type.startsWith('application/json')) {
+          sendJson(res, 415, { error: 'expected application/json' });
+          return;
+        }
+      }
+      let segments: string[];
+      try {
+        segments = rawPath.split('/').filter((segment) => segment !== '').map((segment) => decodeURIComponent(segment));
+      } catch {
+        sendJson(res, 400, { error: 'bad path' });
+        return;
+      }
+      let body: unknown;
+      try {
+        body = isRead ? undefined : await readJsonBody(req);
+      } catch {
+        sendJson(res, 400, { error: 'bad JSON body' });
+        return;
+      }
+      const query = new URLSearchParams((req.url ?? '').split('?')[1] ?? '');
+      // HEAD is answered as the GET it mirrors; Node leaves the body out of a HEAD response.
+      const method = req.method === 'HEAD' ? 'GET' : (req.method ?? 'GET');
+      const answer = await api({ method, path: `/${segments.join('/')}`, segments, query, body });
+      sendJson(res, answer.status, answer.body);
+    } catch {
+      // allow-fallback: a failing handler is a 500 for that request, never a crash of the agent.
+      if (!res.headersSent) sendJson(res, 500, { error: 'internal error' });
+      else res.end();
+    }
+  }
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);

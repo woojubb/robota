@@ -6,6 +6,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { loadConfig, saveConfig } from '../config.js';
 import { startLocalMode } from '../local-mode.js';
 import { createProviderFromProfile } from '../provider.js';
 import { createPersonalCapabilities } from '../capabilities.js';
@@ -91,21 +92,22 @@ export async function startHarness(
       browserAllowedHosts: options.browserAllowedHosts,
     }),
   });
+  // Saved the way `personal-agent configure` saves it, so settings read what this run uses.
+  const profile = {
+    type: 'openai',
+    model: 'scripted-model',
+    baseURL: model.baseURL,
+    apiKeyEnv: 'SCRIPTED_KEY',
+  };
+  saveConfig(stateDir, { ...loadConfig(stateDir), provider: profile });
   const local = await startLocalMode({
     stateDir,
-    provider: createProviderFromProfile(
-      {
-        type: 'openai',
-        model: 'scripted-model',
-        baseURL: model.baseURL,
-        apiKeyEnv: 'SCRIPTED_KEY',
-      },
-      environment,
-    ),
+    provider: createProviderFromProfile(profile, environment),
     model: 'scripted-model',
     tools: capabilities.tools,
     instructions: capabilities.instructions,
     gui: options.gui ?? false,
+    api: capabilities.api,
     ...(options.webRoot !== undefined && { webRoot: options.webRoot }),
   });
   capabilities.attach(local.agent.session);

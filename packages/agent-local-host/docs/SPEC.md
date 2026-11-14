@@ -12,7 +12,7 @@ Supervised-runtime registrations are untrusted discovery metadata. A registratio
 
 ## Invariants
 
-The GUI server treats every local program as hostile: the page that carries a runtime's credential is served only to the browser that exchanged the access code for its path-scoped cookie, never to a request whose Host is not loopback, and never from outside the web root; no request can crash the process serving it.
+The GUI server treats every local program as hostile: the page that carries a runtime's credential, and a product API beside it, are served only to the browser that exchanged the access code for its path-scoped cookie, never to a request whose Host is not loopback, and never from outside the web root; an API request that changes something also carries a header no cross-site form can set; no request can crash the process serving it.
 
 The key holder offers operations on the keys, never the keys themselves, so every way of locking ends in one place and a lock ends every way of reading, the data keys of writer epochs included. Sealing needs only the public key and works while locked; opening and authorship need the holder unlocked. No sealer error carries plaintext, a key or a path, and a swapped sealing key is never accepted quietly.
 
