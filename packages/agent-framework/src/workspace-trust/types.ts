@@ -133,10 +133,16 @@ export interface IWorkspaceProjectStateStorage {
    * it was.
    */
   replaceBytes(relativePath: string, content: Uint8Array, purpose: string): void;
-  appendText(relativePath: string, content: string, purpose: string): void;
+  /** Appends as the mutation boundary does; false only when `create` is off and nothing was there. */
+  appendText(
+    relativePath: string,
+    content: string,
+    purpose: string,
+    options?: IWorkspaceAppendOptions,
+  ): boolean;
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[];
   deleteFile(relativePath: string, purpose: string): boolean;
-  /** Remove a directory of this state and everything under it, as the mutation boundary does. */
+  /** Remove an entry of this state and everything under it, as the mutation boundary does. */
   removeDirectory?(
     relativePath: string,
     purpose: string,
@@ -166,7 +172,12 @@ export interface IWorkspaceProjectMutationBoundary {
    * crashed replace left for the same name are swept.
    */
   replace(relativePath: string, content: Uint8Array | string): void;
-  append(relativePath: string, content: string): void;
+  /**
+   * Appends to the file, creating it (and missing directories) unless `options.create` is false: then
+   * a missing file or directory is left missing, nothing is written and the answer is false, so a
+   * late write for something removed cannot bring it back. True when the content was appended.
+   */
+  append(relativePath: string, content: string, options?: IWorkspaceAppendOptions): boolean;
   delete(relativePath: string): boolean;
   /**
    * Removes (with `apply`) every temp file a crashed replace left in the directory, by the same rule
@@ -190,18 +201,25 @@ export interface IWorkspaceProjectMutationBoundary {
   /** Removes a staged temp file that was not committed; one already gone is fine. */
   discardStaged(relativePath: string, temporaryName: string): void;
   /**
-   * Removes the directory at the path and everything under it, in bounded steps a caller repeats
-   * while the result is `partial`. Every directory is reached from a held descriptor chain, never a
+   * Removes the entry at the path and everything under it, in bounded steps a caller repeats while
+   * the result is `partial`; a target that is not a directory (a file, link, socket or FIFO) is
+   * unlinked by name, never followed or opened. Every directory is reached from a held descriptor chain, never a
    * path string; a link or other non-directory entry is unlinked by name, never followed; a directory
    * on another mount (a bind mount included) is refused before anything under it is touched; a
    * directory is removed only while its name still opens the directory that was emptied, so a
-   * replacement swapped in under that name is refused rather than removed. A target that is a link,
-   * not a directory or a mount point is refused. Missing ancestors are not created.
+   * replacement swapped in under that name is refused rather than removed. A target that is a mount
+   * point is refused, as is a link or non-directory ancestor. Missing ancestors are not created.
    */
   removeDirectory?(
     relativePath: string,
     options?: IWorkspaceDirectoryRemovalOptions,
   ): TWorkspaceDirectoryRemoval;
+}
+
+/** How an append treats a file that is not there. */
+export interface IWorkspaceAppendOptions {
+  /** False: append only to a file that exists, creating nothing. Default true. */
+  readonly create?: boolean;
 }
 
 /** How much one directory removal call may do before it answers `partial`. */

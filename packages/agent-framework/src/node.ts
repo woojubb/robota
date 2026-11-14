@@ -96,6 +96,11 @@ export type {
   ISubagentTranscriptPage,
   ISubagentTranscriptUnreadable,
 } from './assembly/subagent-logger.js';
+export {
+  SubagentLogRemovalRefusedError,
+  removeSubagentLogs,
+} from './assembly/subagent-log-removal.js';
+export type { TSubagentLogRemoval } from './assembly/subagent-log-removal.js';
 
 // The git process that runs `git` for project status and diff.
 export {
@@ -179,6 +184,13 @@ export {
   WorkspaceProjectSessionStore,
   projectSessionClaimsDirectory,
 } from './interactive/workspace-session-store.js';
+export type { IProjectSessionStoreOptions } from './interactive/workspace-session-store.js';
+export { ProjectSessionDeletionStoppedError } from './interactive/workspace-session-deletion.js';
+export type {
+  IProjectSessionDeletion,
+  IProjectSessionLogFence,
+  TProjectSessionDeletionStop,
+} from './interactive/workspace-session-deletion.js';
 export {
   migrateWorkspaceProjectSessionLogs,
   migrateWorkspaceProjectSessionRecords,

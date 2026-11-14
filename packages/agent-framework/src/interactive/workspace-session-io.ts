@@ -10,6 +10,7 @@ import {
 import { assertWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import { ProjectReadLimitExceededError } from '../workspace-trust/project-reader-path.js';
 
+import type { IProjectSessionLogFence } from './workspace-session-deletion.js';
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import type {
   IExternalPayloadReference,
@@ -113,13 +114,26 @@ export class WorkspaceSessionLogSource implements ISessionLogSource, IExternalPa
   }
 }
 
-/** Authority-backed best-effort sink for project session logs and sidecars. */
-export class WorkspaceSessionLogSink implements ISessionLogSink, IExternalPayloadSink {
+/**
+ * Authority-backed best-effort sink for project session logs and sidecars.
+ *
+ * Only a session's first line creates its log. Every later line appends to the log only while it
+ * still exists, so a line flushed after the session was deleted (by this process or another) creates
+ * nothing; that id is then dropped quietly, as is every id a store tells it was deleted
+ * (`sessionDeleted`), until the id is claimed again (`sessionStarted`).
+ */
+export class WorkspaceSessionLogSink
+  implements ISessionLogSink, IExternalPayloadSink, IProjectSessionLogFence
+{
   readonly externalPayloadSink: IExternalPayloadSink = this;
   private readonly storage: IWorkspaceProjectStateStorage;
   private readonly lines: StoredLines;
   private readonly payloads: StoredPayloads;
   private enabled = true;
+  /** Ids whose log this sink has written: a later line goes only to a log that still exists. */
+  private readonly opened = new Set<string>();
+  /** Ids deleted since: nothing more is written for them. */
+  private readonly deleted = new Set<string>();
 
   /**
    * @param options `sealing` (required): `{ sealer }` seals every append (one sealed line per call)
@@ -132,15 +146,29 @@ export class WorkspaceSessionLogSink implements ISessionLogSink, IExternalPayloa
     this.payloads = new StoredPayloads(sealing);
   }
 
+  sessionDeleted(sessionId: string): void {
+    this.deleted.add(sessionId);
+    this.opened.delete(sessionId);
+  }
+
+  sessionStarted(sessionId: string): void {
+    this.deleted.delete(sessionId);
+    this.opened.delete(sessionId);
+  }
+
   append(sessionId: string, text: string): void {
     if (!this.enabled) return;
     assertSafeSessionId(sessionId);
+    if (this.deleted.has(sessionId)) return;
     try {
-      this.storage.appendText(
+      const appended = this.storage.appendText(
         `${sessionId}.jsonl`,
         this.lines.encode(text, sessionId),
         'append project session log',
+        { create: !this.opened.has(sessionId) },
       );
+      if (appended) this.opened.add(sessionId);
+      else this.sessionDeleted(sessionId);
     } catch (error) {
       // allow-fallback: session logging is diagnostic and must not disable the session. A sealing
       // failure lands here too, and disables the log rather than writing the line in the clear.
@@ -153,14 +181,26 @@ export class WorkspaceSessionLogSink implements ISessionLogSink, IExternalPayloa
 
   writeJson(sessionId: string, sha256: string, serialized: string): IExternalPayloadReference {
     return this.payloads.place(sessionId, sha256, serialized, (target) =>
-      this.writePayload(target),
+      this.writePayload(sessionId, target),
     );
   }
 
-  private writePayload(target: IStoredPayloadWrite): void {
-    if (!this.enabled) return;
+  private writePayload(sessionId: string, target: IStoredPayloadWrite): void {
+    if (!this.enabled || this.deleted.has(sessionId)) return;
     const purpose = 'write project session log payload';
     try {
+      // A session that has logged writes a payload only while its log is still there (an empty
+      // append that creates nothing asks), so a late payload does not bring a deleted session's
+      // payload directory back.
+      if (
+        this.opened.has(sessionId) &&
+        !this.storage.appendText(`${sessionId}.jsonl`, '', 'inspect project session log', {
+          create: false,
+        })
+      ) {
+        this.sessionDeleted(sessionId);
+        return;
+      }
       // A content-addressed file already there holds these exact bytes.
       if (
         target.contentAddressed &&

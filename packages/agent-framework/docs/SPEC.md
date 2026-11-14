@@ -208,7 +208,17 @@ These are behaviors a caller cannot infer from a type signature alone.
   refusal only the locked keys stand behind is decided at the unlock, and a session that ends while
   either refusal stands saves that copy as it ends and reports a copy it could not write. A project
   session record is replaced whole, so a failed write can leave either the prior record or the
-  complete replacement; a replay log rebuilds only the session it names. A record carries only a
+  complete replacement; a replay log rebuilds only the session it names. A delete of a project
+  session whose host says what the session leaves removes its log, payloads, checkpoints (under their
+  writer lease, which a writer holding refuses the delete) and subagent logs before its record, since
+  a log alone would list the session again: a delete that stops part-way keeps the record, so the
+  session stays listed and deleting it again finishes it. Only the claim markers' zero-byte lock file
+  stays, because it is their lock identity and removing it would reopen a race between lockers. A
+  link, FIFO, socket or other entry planted under any of the session's own names (record, log,
+  payloads, checkpoints, subagent logs) is removed by name, never followed, so nothing makes a
+  session undeletable. A log write that arrives after the delete is meant to create nothing; the
+  known exception is a sink in another process that never wrote for the id, whose first late line
+  can still create a log. The id is free: a session claimed under it later is a new one. A record carries only a
   bounded recent window of a session's background task events, never their whole history, so a job
   that streams output neither grows it nor rewrites it for every chunk: a reader treats the list as a
   tail, and a task's state is in the record's task list.
