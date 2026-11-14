@@ -9,7 +9,7 @@ import {
   SquarePen,
   SquarePlus,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { LucideIcon } from 'lucide-react';
 import type { ISideChatView, ISpaceView } from './api.js';
@@ -96,6 +96,14 @@ export function Menu({
 }): React.ReactElement {
   const [dragging, setDragging] = useState<number | undefined>(undefined);
   const [query, setQuery] = useState('');
+  // A tab moved with the keyboard keeps focus: moving its element in the list can drop focus.
+  const buttons = useRef(new Map<TTab, HTMLButtonElement>());
+  const [refocus, setRefocus] = useState<TTab | undefined>(undefined);
+  useEffect(() => {
+    if (refocus === undefined) return;
+    buttons.current.get(refocus)?.focus();
+    setRefocus(undefined);
+  }, [refocus, order]);
   const describe = (tab: TTab): { label: string; hint: string; icon: LucideIcon } => {
     const fixed = FIXED_TABS.find((entry) => entry.id === tab);
     if (fixed !== undefined) return fixed;
@@ -131,6 +139,10 @@ export function Menu({
                 className={dragging === index ? 'opacity-50' : undefined}
               >
                 <button
+                  ref={(element) => {
+                    if (element === null) buttons.current.delete(tab);
+                    else buttons.current.set(tab, element);
+                  }}
                   type="button"
                   title={`${hint} — drag, or Alt+Up/Down, to move`}
                   aria-current={current === tab ? 'page' : undefined}
@@ -141,6 +153,7 @@ export function Menu({
                     if (step === 0) return;
                     event.preventDefault();
                     onReorder(moveTab(order, index, index + step));
+                    setRefocus(tab);
                   }}
                   className={rowClass(current === tab)}
                 >

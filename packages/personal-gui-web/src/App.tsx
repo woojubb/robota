@@ -48,6 +48,19 @@ export function App({
   );
 }
 
+/** Whether the screen is narrow enough for the menu to be a drawer (Tailwind's `md` breakpoint). */
+function useNarrowScreen(): boolean {
+  const query = '(max-width: 767px)';
+  const [narrow, setNarrow] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const update = (): void => setNarrow(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  return narrow;
+}
+
 /** What the main area shows: a tab, or one of the views the menu's other controls open. */
 type TView = TTab | 'search' | 'settings' | 'create-space';
 
@@ -60,6 +73,15 @@ function Shell({
 }): React.ReactElement {
   const [view, setView] = useState<TView>('chat');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // On a narrow screen the closed drawer is off screen: it leaves the focus order and the
+  // accessibility tree until it opens.
+  const drawer = useRef<HTMLDivElement>(null);
+  const narrow = useNarrowScreen();
+  useEffect(() => {
+    const element = drawer.current;
+    if (element === null) return;
+    element.inert = narrow && !drawerOpen;
+  }, [narrow, drawerOpen]);
   const show = (next: TView): void => {
     setView(next);
     setDrawerOpen(false);
@@ -77,13 +99,17 @@ function Shell({
   // The person's tabs: the fixed menus and their spaces, in the order they chose.
   const [spaces, setSpaces] = useState<readonly ISpaceView[]>([]);
   const [savedOrder, setSavedOrder] = useState<readonly string[]>([]);
+  // Moving a tab is held until the saved order has loaded once, so a move never starts from a guess,
+  // and a load that started before the person's latest move does not undo it.
+  const [orderLoaded, setOrderLoaded] = useState(false);
+  const moves = useRef(0);
   const reloadTabs = useCallback(async () => {
-    try {
-      const [nextSpaces, nextOrder] = await Promise.all([api.spaces(), api.tabs()]);
-      setSpaces(nextSpaces);
-      setSavedOrder(nextOrder);
-    } catch {
-      // The fixed tabs still show; spaces come back on the next reload.
+    const movesAtStart = moves.current;
+    const [nextSpaces, nextOrder] = await Promise.allSettled([api.spaces(), api.tabs()]);
+    if (nextSpaces.status === 'fulfilled') setSpaces(nextSpaces.value);
+    if (nextOrder.status === 'fulfilled' && moves.current === movesAtStart) {
+      setSavedOrder(nextOrder.value);
+      setOrderLoaded(true);
     }
   }, [api]);
   useEffect(() => {
@@ -91,6 +117,8 @@ function Shell({
   }, [reloadTabs]);
   const order = orderTabs(savedOrder, spaces);
   const reorder = (next: TTab[]): void => {
+    if (!orderLoaded) return;
+    moves.current += 1;
     setSavedOrder(next);
     void api.saveTabs(next).catch(() => undefined);
   };
@@ -185,6 +213,10 @@ function Shell({
         />
       )}
       <div
+        ref={drawer}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') setDrawerOpen(false);
+        }}
         className={`fixed inset-y-0 left-0 z-40 border-r border-border transition-transform md:static md:translate-x-0 ${drawerOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <Menu
@@ -260,6 +292,7 @@ function Shell({
             api={api}
             spaceId={openSpace}
             onStartChat={startChat}
+            onChanged={() => void reloadTabs()}
             onRemoved={() => {
               void reloadTabs();
               show('chat');

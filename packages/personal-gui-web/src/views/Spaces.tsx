@@ -13,14 +13,18 @@ export function SpaceView({
   api,
   spaceId,
   onStartChat,
+  onChanged,
   onRemoved,
 }: {
   readonly api: IPersonalApi;
   readonly spaceId: string;
   readonly onStartChat: (opening: string) => void;
+  /** The space was renamed or edited: the menu shows its new name. */
+  readonly onChanged: () => void;
   readonly onRemoved: () => void;
 }): React.ReactElement {
   const [space, setSpace] = useState<ISpaceView | undefined>(undefined);
+  const [missing, setMissing] = useState(false);
   const [pages, setPages] = useState<readonly IPageSummary[]>([]);
   const [ideas, setIdeas] = useState<readonly IIdeaView[]>([]);
   const [editing, setEditing] = useState(false);
@@ -30,6 +34,7 @@ export function SpaceView({
       const [spaces, library] = await Promise.all([api.spaces(), api.listPages()]);
       const found = spaces.find((candidate) => candidate.id === spaceId);
       setSpace(found);
+      setMissing(found === undefined);
       setPages(library);
       setIdeas(found === undefined ? [] : await api.ideas(found.tag));
       setError(undefined);
@@ -43,7 +48,13 @@ export function SpaceView({
   if (space === undefined) {
     return (
       <ViewFrame title="Space">
-        {error !== undefined ? <Notice tone="error">{error}</Notice> : <Notice>Loading…</Notice>}
+        {error !== undefined ? (
+          <Notice tone="error">{error}</Notice>
+        ) : missing ? (
+          <Notice>This space no longer exists.</Notice>
+        ) : (
+          <Notice>Loading…</Notice>
+        )}
       </ViewFrame>
     );
   }
@@ -86,6 +97,7 @@ export function SpaceView({
           onSaved={async () => {
             setEditing(false);
             await reload();
+            onChanged();
           }}
           onCancel={() => setEditing(false)}
         />

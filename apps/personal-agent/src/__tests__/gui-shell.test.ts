@@ -75,15 +75,32 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           .getByRole('listitem')
           .filter({ hasText: 'Garden' })
           .dragTo(tabs.getByRole('listitem').filter({ hasText: 'Chat' }));
-        const moved = ['Garden', 'Chat', 'Feed', 'Ideas', 'Library', 'Goals'];
+        expect(await tabNames(page)).toEqual([
+          'Garden',
+          'Chat',
+          'Feed',
+          'Ideas',
+          'Library',
+          'Goals',
+        ]);
+        // Alt+Down twice in a row: the moved tab keeps focus, so the second press moves it again.
+        await tabs.getByRole('button', { name: 'Chat', exact: true }).focus();
+        await page.keyboard.press('Alt+ArrowDown');
+        await page.keyboard.press('Alt+ArrowDown');
+        const moved = ['Garden', 'Feed', 'Ideas', 'Chat', 'Library', 'Goals'];
         expect(await tabNames(page)).toEqual(moved);
+        const savedTabs = () =>
+          JSON.parse(readFileSync(join(harness!.stateDir, 'layout', 'layout.json'), 'utf8')).tabs;
         await expect
-          .poll(
-            () =>
-              JSON.parse(readFileSync(join(harness!.stateDir, 'layout', 'layout.json'), 'utf8'))
-                .tabs.length,
-          )
-          .toBe(6);
+          .poll(savedTabs)
+          .toEqual([
+            expect.stringMatching(/^space:/u),
+            'feed',
+            'ideas',
+            'chat',
+            'library',
+            'goals',
+          ]);
 
         // The order follows the person to a fresh page.
         await page.reload();
@@ -95,12 +112,19 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         await page.waitForFunction(bodyIncludes, 'Session connected', { timeout: 15_000 });
         await expect.poll(() => tabNames(page)).toEqual(moved);
 
-        // A space tab opens its page; deleting it takes it out of the tabs.
+        // Renaming a space renames its tab; deleting it takes it out of the tabs.
         await tabs.getByRole('button', { name: 'Garden' }).click();
+        await page.getByRole('button', { name: 'Edit' }).click();
+        const edit = page.getByRole('form', { name: 'Edit space' });
+        await edit.getByRole('textbox', { name: 'Name' }).fill('Vegetable garden');
+        await edit.getByRole('button', { name: 'Save space' }).click();
+        await expect
+          .poll(() => tabNames(page))
+          .toEqual(['Vegetable garden', 'Feed', 'Ideas', 'Chat', 'Library', 'Goals']);
         await page.getByRole('button', { name: 'Delete' }).click();
         await expect
           .poll(() => tabNames(page))
-          .toEqual(['Chat', 'Feed', 'Ideas', 'Library', 'Goals']);
+          .toEqual(['Feed', 'Ideas', 'Chat', 'Library', 'Goals']);
       } finally {
         await close();
       }
@@ -155,7 +179,12 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         await expect.poll(shown).toBe(true);
         await menu.getByRole('button', { name: 'Feed' }).click();
         await page.getByRole('heading', { name: 'Feed', level: 1 }).waitFor();
-        // Choosing a tab closes the drawer.
+        // Choosing a tab closes the drawer, and so does Escape.
+        await expect.poll(shown).toBe(false);
+        await page.getByRole('button', { name: 'Open menu' }).click();
+        await expect.poll(shown).toBe(true);
+        await menu.getByRole('button', { name: 'Feed' }).focus();
+        await page.keyboard.press('Escape');
         await expect.poll(shown).toBe(false);
       } finally {
         await close();
