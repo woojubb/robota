@@ -198,13 +198,41 @@ describe.skipIf(chromium === undefined)('the personal agent browser', () => {
     const profileDir = mkdtempSync(join(tmpdir(), 'personal-agent-browser-'));
     const browser = createPlaywrightBrowser({ profileDir, allowedHosts: [outerHost] });
     try {
-      const page = await browser.open(`http://${outerHost}/go`).catch((error: unknown) => error);
-      expect(JSON.stringify(page)).not.toContain('SECRET INTERNAL');
+      await expect(browser.open(`http://${outerHost}/go`)).rejects.toThrow('not reachable');
       expect(reached).toEqual([]);
+      // The browser is usable again at once.
+      expect((await browser.open(`http://${outerHost}/`)).text).toContain('outer');
     } finally {
       await browser.close();
       await new Promise<void>((resolve) => inner.close(() => resolve()));
       await new Promise<void>((resolve) => outer.close(() => resolve()));
+      rmSync(profileDir, { recursive: true, force: true });
+    }
+  });
+
+  it('survives a page whose resources sit on a host that does not answer', async () => {
+    const dead = createServer();
+    await new Promise<void>((resolve) => dead.listen(0, '127.0.0.1', () => resolve()));
+    const deadHost = `127.0.0.1:${(dead.address() as AddressInfo).port}`;
+    await new Promise<void>((resolve) => dead.close(() => resolve()));
+    const server = createServer((_req, res) => {
+      res
+        .writeHead(200, { 'content-type': 'text/html' })
+        .end(
+          `<title>Page</title><p>still here</p><img src="http://${deadHost}/x.png"><script src="http://${deadHost}/x.js"></script>`,
+        );
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const host = `127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const profileDir = mkdtempSync(join(tmpdir(), 'personal-agent-browser-'));
+    const browser = createPlaywrightBrowser({ profileDir, allowedHosts: [host, deadHost] });
+    try {
+      expect((await browser.open(`http://${host}/`)).text).toContain('still here');
+      expect((await browser.view()).text).toContain('still here');
+      await expect(browser.open(`http://${deadHost}/`)).rejects.toThrow('the page did not load');
+    } finally {
+      await browser.close();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
       rmSync(profileDir, { recursive: true, force: true });
     }
   });

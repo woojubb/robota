@@ -18,7 +18,10 @@ import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { isIP } from 'node:net';
 
-import { BrowserNavigationRefusedError, BrowserUnavailableError } from '@robota-sdk/agent-product/personal';
+import {
+  BrowserNavigationRefusedError,
+  BrowserUnavailableError,
+} from '@robota-sdk/agent-product/personal';
 
 import type {
   IBrowserActionResult,
@@ -55,7 +58,10 @@ export interface IPlaywrightBrowserOptions {
 /** Whether an address or name is one the browser must not reach on its own. */
 export function isRestrictedHost(hostname: string): boolean {
   const host = hostname.replace(/^\[|\]$/g, '').toLowerCase();
-  if (host === 'localhost' || ['.localhost', '.local', '.internal'].some((suffix) => host.endsWith(suffix))) {
+  if (
+    host === 'localhost' ||
+    ['.localhost', '.local', '.internal'].some((suffix) => host.endsWith(suffix))
+  ) {
     return true;
   }
   const family = isIP(host);
@@ -89,7 +95,9 @@ export function fieldNames(body: string | null, contentType: string | undefined)
   if (contentType?.includes('application/json')) {
     try {
       const parsed: unknown = JSON.parse(body);
-      return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? Object.keys(parsed) : [];
+      return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+        ? Object.keys(parsed)
+        : [];
     } catch {
       return [];
     }
@@ -132,7 +140,7 @@ interface IHeldRequest {
   readonly postData: string | null;
   readonly headers: Record<string, string>;
   readonly navigation: boolean;
-  /** The origin of the page that made it, for deciding whether its cookies may go along. */
+  /** The origin of the frame that made it, for deciding whether its cookies may go along. */
   readonly pageOrigin: string;
 }
 
@@ -158,7 +166,8 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
 
   const resolveHost =
     options.resolveHost ??
-    (async (hostname: string) => (await lookup(hostname, { all: true })).map((entry) => entry.address));
+    (async (hostname: string) =>
+      (await lookup(hostname, { all: true })).map((entry) => entry.address));
   const resolved = new Map<string, { restricted: boolean; at: number }>();
 
   /** Whether a public-looking name resolves to a restricted address. A failed lookup passes: the browser's own lookup fails too. */
@@ -183,11 +192,14 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
       return 'not a valid URL';
     }
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return ['data:', 'blob:', 'about:'].includes(parsed.protocol) ? undefined : `${parsed.protocol} is not allowed`;
+      return ['data:', 'blob:', 'about:'].includes(parsed.protocol)
+        ? undefined
+        : `${parsed.protocol} is not allowed`;
     }
     if (allowed.has(parsed.host)) return undefined;
     const bare = parsed.hostname.replace(/^\[|\]$/g, '');
-    const restricted = isRestrictedHost(bare) || (isIP(bare) === 0 && (await resolvesRestricted(bare)));
+    const restricted =
+      isRestrictedHost(bare) || (isIP(bare) === 0 && (await resolvesRestricted(bare)));
     return restricted ? REFUSED : undefined;
   };
 
@@ -196,7 +208,18 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
    * the browser follows it: the browser routes that next hop through the gate again.
    */
   const forward = async (route: Route, overrides: IForward = {}): Promise<void> => {
-    const response = await route.fetch({ ...overrides, maxRedirects: 0, timeout: NAVIGATION_TIMEOUT_MS });
+    let response: Awaited<ReturnType<Route['fetch']>>;
+    try {
+      response = await route.fetch({
+        ...overrides,
+        maxRedirects: 0,
+        timeout: NAVIGATION_TIMEOUT_MS,
+      });
+    } catch {
+      // allow-fallback: an unreachable host fails that one request, as it would in any browser.
+      await route.abort('failed');
+      return;
+    }
     const location = response.headers()['location'];
     if (response.status() >= 300 && response.status() < 400 && location !== undefined) {
       if ((await refusal(new URL(location, route.request().url()).href)) !== undefined) {
@@ -207,7 +230,17 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
     await route.fulfill({ response });
   };
 
+  /** A route handler must never reject: an unhandled rejection would take the agent down with the page. */
   const gate = async (route: Route): Promise<void> => {
+    try {
+      await decide(route);
+    } catch {
+      // allow-fallback: whatever went wrong deciding this request, it does not go out.
+      await route.abort('failed').catch(() => undefined);
+    }
+  };
+
+  const decide = async (route: Route): Promise<void> => {
     const request = route.request();
     if ((await refusal(request.url())) !== undefined) {
       await route.abort('blockedbyclient');
@@ -215,7 +248,11 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
     }
     const method = request.method().toUpperCase();
     const approved = approvedNavigation;
-    if (approved !== undefined && request.isNavigationRequest() && request.url() === approved.submission.url) {
+    if (
+      approved !== undefined &&
+      request.isNavigationRequest() &&
+      request.url() === approved.submission.url
+    ) {
       approvedNavigation = undefined;
       await forward(route, {
         method: approved.submission.method,
@@ -242,7 +279,7 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
         postData: request.postData(),
         headers,
         navigation: request.isNavigationRequest(),
-        pageOrigin: page === undefined ? '' : new URL(page.url()).origin,
+        pageOrigin: new URL(request.frame().url()).origin,
       });
     }
     await route.abort('blockedbyclient');
@@ -252,7 +289,8 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
     if (page !== undefined) return page;
     launching ??= (async () => {
       const executablePath = options.executablePath ?? findChromiumExecutable(options.environment);
-      if (executablePath === undefined) throw new BrowserUnavailableError('no Chromium is installed on this machine');
+      if (executablePath === undefined)
+        throw new BrowserUnavailableError('no Chromium is installed on this machine');
       try {
         context = await loadPlaywright().chromium.launchPersistentContext(options.profileDir, {
           headless: true,
@@ -261,7 +299,9 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
           acceptDownloads: false,
         });
       } catch (error) {
-        throw new BrowserUnavailableError(error instanceof Error ? error.message.split('\n')[0]! : String(error));
+        throw new BrowserUnavailableError(
+          error instanceof Error ? error.message.split('\n')[0]! : String(error),
+        );
       }
       await context.route('**/*', gate);
       await context.routeWebSocket('**/*', async (socket) => {
@@ -287,15 +327,35 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
         const tag = element.tagName.toLowerCase();
         const input = element as HTMLInputElement;
         const inputRole =
-          input.type === 'submit' || input.type === 'button' ? 'button' : input.type === 'checkbox' ? 'checkbox' : 'textbox';
+          input.type === 'submit' || input.type === 'button'
+            ? 'button'
+            : input.type === 'checkbox'
+              ? 'checkbox'
+              : 'textbox';
         const role =
           element.getAttribute('role') ??
-          (tag === 'a' ? 'link' : tag === 'input' ? inputRole : tag === 'select' ? 'combobox' : tag === 'textarea' ? 'textbox' : tag);
-        const labelled = element.id === '' ? null : document.querySelector(`label[for="${CSS.escape(element.id)}"]`);
+          (tag === 'a'
+            ? 'link'
+            : tag === 'input'
+              ? inputRole
+              : tag === 'select'
+                ? 'combobox'
+                : tag === 'textarea'
+                  ? 'textbox'
+                  : tag);
+        const labelled =
+          element.id === ''
+            ? null
+            : document.querySelector(`label[for="${CSS.escape(element.id)}"]`);
         const name =
           input.type === 'password'
             ? 'password field'
-            : (element.getAttribute('aria-label') ?? labelled?.textContent ?? element.innerText ?? '').trim() ||
+            : (
+                element.getAttribute('aria-label') ??
+                labelled?.textContent ??
+                element.innerText ??
+                ''
+              ).trim() ||
               input.placeholder ||
               (role === 'button' ? input.value : '') ||
               element.getAttribute('title') ||
@@ -305,17 +365,27 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
       }
       return { text: (document.body?.innerText ?? '').slice(0, limit), marks };
     }, maxText);
-    return { url: current.url(), title: await current.title(), text: snapshot.text, marks: snapshot.marks as IBrowserMark[] };
+    return {
+      url: current.url(),
+      title: await current.title(),
+      text: snapshot.text,
+      marks: snapshot.marks as IBrowserMark[],
+    };
   };
 
   /** Run an action and report what it held; a new action discards holds the agent did not submit. */
-  const act = async (action: (current: Page) => Promise<void>, holds: boolean): Promise<IBrowserActionResult> => {
+  const act = async (
+    action: (current: Page) => Promise<void>,
+    holds: boolean,
+  ): Promise<IBrowserActionResult> => {
     const current = await ensurePage();
     held.clear();
     acting = holds;
     try {
       await action(current);
-      await current.waitForLoadState('domcontentloaded', { timeout: ACTION_SETTLE_MS }).catch(() => undefined);
+      await current
+        .waitForLoadState('domcontentloaded', { timeout: ACTION_SETTLE_MS })
+        .catch(() => undefined);
       await current.waitForTimeout(200);
     } finally {
       acting = false;
@@ -324,12 +394,37 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
     return { view: await view(), ...(submissions.length > 0 && { held: submissions }) };
   };
 
-  const markLocator = (current: Page, mark: number) => current.locator(`[data-robota-mark="${mark}"]`);
+  /**
+   * Go to a URL, turning a navigation the gate stopped (or the network failed) into a refusal the
+   * model can read. Chromium answers a failed navigation with its own error page; that one is allowed
+   * to finish, so the next action does not collide with it.
+   */
+  const navigate = async (current: Page, url: string, retried = false): Promise<void> => {
+    try {
+      await current.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await current.waitForLoadState('load', { timeout: ACTION_SETTLE_MS }).catch(() => undefined);
+      if (!retried && message.includes('interrupted by another navigation')) {
+        await navigate(current, url, true);
+        return;
+      }
+      const reason = message.includes('ERR_BLOCKED_BY_CLIENT')
+        ? `it led to an address that is not reachable (${REFUSED})`
+        : `the page did not load (${message.split('\n')[0]!.replace(/^page\.goto: /, '')})`;
+      throw new BrowserNavigationRefusedError(url, reason);
+    }
+  };
+
+  const markLocator = (current: Page, mark: number) =>
+    current.locator(`[data-robota-mark="${mark}"]`);
 
   /** Resend a background request the page made, with the profile's cookies only for the page's own origin. */
   const resendBackground = async (entry: IHeldRequest): Promise<void> => {
     const sameOrigin = new URL(entry.submission.url).origin === entry.pageOrigin;
-    const request = sameOrigin ? (context as BrowserContext).request : await loadPlaywright().request.newContext();
+    const request = sameOrigin
+      ? (context as BrowserContext).request
+      : await loadPlaywright().request.newContext();
     try {
       await request.fetch(entry.submission.url, {
         method: entry.submission.method,
@@ -348,7 +443,7 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
       const reason = await refusal(url);
       if (reason !== undefined) throw new BrowserNavigationRefusedError(url, reason);
       const result = await act(async (current) => {
-        await current.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS });
+        await navigate(current, url);
       }, false);
       return result.view;
     },
@@ -368,13 +463,23 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
     async submitHeld(id, expected) {
       const entry = held.get(id);
       if (entry === undefined) {
-        throw new BrowserNavigationRefusedError(id, "no such held submission; only the last action's submissions can be sent");
+        throw new BrowserNavigationRefusedError(
+          id,
+          "no such held submission; only the last action's submissions can be sent",
+        );
       }
-      if (entry.submission.method !== expected.method.toUpperCase() || entry.submission.url !== expected.url) {
-        throw new BrowserNavigationRefusedError(id, 'the method or address does not match the held submission');
+      if (
+        entry.submission.method !== expected.method.toUpperCase() ||
+        entry.submission.url !== expected.url
+      ) {
+        throw new BrowserNavigationRefusedError(
+          id,
+          'the method or address does not match the held submission',
+        );
       }
       const reason = await refusal(entry.submission.url);
-      if (reason !== undefined) throw new BrowserNavigationRefusedError(entry.submission.url, reason);
+      if (reason !== undefined)
+        throw new BrowserNavigationRefusedError(entry.submission.url, reason);
       held.delete(id);
       if (!entry.navigation) {
         await resendBackground(entry);
@@ -385,7 +490,7 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
       approvedNavigation = entry;
       try {
         return await act(async (current) => {
-          await current.goto(entry.submission.url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS });
+          await navigate(current, entry.submission.url);
         }, false);
       } finally {
         approvedNavigation = undefined;
