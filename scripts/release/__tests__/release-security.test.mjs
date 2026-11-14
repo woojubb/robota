@@ -319,6 +319,13 @@ it('generates a release manifest only when registry and reviewed tarball integri
 if [ "$1" = view ]; then
   printf "%s\\n" "$FIXTURE_INTEGRITY"
 elif [ "$1" = install ]; then
+  echo "$*" >> "$FIXTURE_NPM_CALLS"
+  if [ "$(wc -l < "$FIXTURE_NPM_CALLS" | tr -d ' ')" -le "\${FIXTURE_NPM_LAG:-0}" ]; then
+    echo "npm error code ETARGET" >&2
+    echo "npm error notarget No matching version found for @robota-sdk/agent-cli@1.2.3." >&2
+    exit 1
+  fi
+  if [ -n "$FIXTURE_NPM_FAIL" ]; then echo "npm error code $FIXTURE_NPM_FAIL" >&2; exit 1; fi
   node -e 'const fs=require("fs"); const pkg=require("./package.json"); const [name,version]=Object.entries(pkg.dependencies)[0]; fs.writeFileSync("package-lock.json", JSON.stringify({name:pkg.name,lockfileVersion:3,packages:{"":{name:pkg.name,dependencies:pkg.dependencies},["node_modules/"+name]:{version,integrity:process.env.FIXTURE_LOCK_INTEGRITY || process.env.FIXTURE_INTEGRITY}}}));'
 else
   exit 2
@@ -328,6 +335,9 @@ fi
     chmodSync(npm, 0o755);
     const output = join(scratch, 'manifest.json');
     const lockOutput = join(scratch, 'package-lock.json');
+    let runs = 0;
+    const npmCallsFile = (n) => join(scratch, `npm-calls-${n}`);
+    const npmCalls = () => readFileSync(npmCallsFile(runs), 'utf8').trim().split('\n');
     const run = (published, extra = {}) =>
       spawnSync(
         process.execPath,
@@ -349,6 +359,7 @@ fi
             RELEASE_VERSION: '1.2.3',
             RELEASE_INSTALL_LOCK: lockOutput,
             FIXTURE_INTEGRITY: published,
+            FIXTURE_NPM_CALLS: npmCallsFile(++runs),
             NODE_OPTIONS: `--import=${fetchStub}`,
             ...extra,
           },
@@ -364,6 +375,16 @@ fi
     const lagged = run(integrity, { FIXTURE_LAG: '3' });
     expect(lagged.status, lagged.stderr).toBe(0);
     expect(run(integrity, { FIXTURE_LOCK_INTEGRITY: 'sha512-other' }).status).toBe(1);
+    // npm can still report the version as missing after the confirmation saw it: the lock is retried.
+    const npmLag = run(integrity, { FIXTURE_NPM_LAG: '3' });
+    expect(npmLag.status, npmLag.stderr).toBe(0);
+    expect(npmCalls()).toHaveLength(4);
+    expect(npmCalls()[0]).toContain('--prefer-online');
+    expect(npmLag.stderr).toContain('No matching version found');
+    const npmFailure = run(integrity, { FIXTURE_NPM_FAIL: 'E404' });
+    expect(npmFailure.status).toBe(1);
+    expect(npmCalls()).toHaveLength(1);
+    expect(npmFailure.stderr).toContain('npm error code E404');
     const success = run(integrity);
     expect(success.status, success.stderr).toBe(0);
     expect(JSON.parse(readFileSync(output, 'utf8'))).toMatchObject({
