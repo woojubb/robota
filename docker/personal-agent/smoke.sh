@@ -16,7 +16,8 @@ cleanup() {
   [ -n "${fixture_pid:-}" ] && kill "$fixture_pid" 2>/dev/null || true
   rm -f "$log" "$fixture_log"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT TERM
 
 PORT="$port" FIXTURE_TEXT=PERSONAL_SMOKE_OK node "$root/docker/robota/smoke/provider-fixture.mjs" >"$fixture_log" 2>&1 &
 fixture_pid=$!

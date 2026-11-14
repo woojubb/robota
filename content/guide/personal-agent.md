@@ -65,8 +65,8 @@ docker compose -f docker/personal-agent/compose.yaml logs   # the URL, access co
 ```
 
 The container takes its model from the `PERSONAL_AGENT_PROVIDER`, `PERSONAL_AGENT_MODEL`,
-`PERSONAL_AGENT_BASE_URL` and `PERSONAL_AGENT_API_KEY_ENV` variables at every start, so a model chosen
-in Settings lasts until the next restart; change the variables to change it for good. Local mode
+`PERSONAL_AGENT_BASE_URL` and `PERSONAL_AGENT_API_KEY_ENV` variables at every start, which replaces a
+model chosen in Settings before it takes effect: change the variables instead. Local mode
 serves only loopback, so the container shares the host's network (Linux). The state lives
 in the `personal-agent-state` volume. `docker/personal-agent/smoke.sh` checks a built image against a
 fixture model. Serving it to other machines safely (TLS, accounts) is a later server mode; until then,
