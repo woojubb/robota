@@ -371,36 +371,22 @@ project only when the trust service says it is trusted now, on a host that can w
 through the authority that service mints: the roots records and the history name are same-user
 writable, so they are candidates, never authority, and every other root is listed and left alone.
 
-There is no `secure unlock`: unlocked keys live in the memory of the process that
-uses them, in one holder that every lock (the user, inactivity, the last client leaving, a locked
-screen, suspend) ends and that offers operations with the keys rather than the keys themselves —
-opening, and the authorship tag that is the only proof a stored artifact was written by the owner's
-unlocked process, since anything sealed to the public key opens — so after a lock no caller still
-holds one, and each unlock is announced so what was written while locked can be tagged then; a
-short-lived command could only unlock to throw the keys away. `secure lock` asks live runtimes to
-discard their keys without a credential and reports any unconfirmed request, including a plain runtime's
-refusal. Open control replies are not owner proof, so requests without authenticated confirmation return
-an unverified result even when acknowledged. A terminal session holding keys is
-unlocked where it runs instead, by the local unlock gate: store reads never say why they read (many
-are not the person's), so the reason lives on the prompt, which opens only for a read the terminal UI
-says the person started — a request its action modules mint from a key press, which the import rule
-keeps every other module from minting and the gate checks against the mint's record, refusing one
-it did not make — or for `/unlock`, a user-only command, and `/lock` drops the keys. The passphrase
-is then asked on the secret terminal while the session has handed the terminal over, one question at
-a time, and never where nobody can answer, so no command or tool the model runs opens the prompt and
-nothing typed there reaches the conversation.
-Unlocking catches a swapped stored sealing key: a terminal may repair it with the credential, while a runtime receiving an owner grant reports it and leaves the file untouched. From the first unlock in a process the
-holder seals to the key that unlock verified, locked or not and even when the repair of the file
-cannot be written; the mismatch is always reported, and the exit status tells a repair that completed
-from one that did not. Before that first unlock a locked writer seals to the key the file holds: that
-is the design's accepted weakness, caught at the next unlock and visible meanwhile through the
-fingerprint. A writer of an append-only store seals one data key per store and reuses it, since a
-public-key operation per line is too slow to read back; it starts a new one as soon as the verified
-key is not the one the old key was sealed to, so once an unlock has caught a swapped key nothing
-written afterwards goes on using a data key sealed to the swapped one. A lock ends every writer's
-key too, wiping it, and the next line starts a new one: a writer's key reads every line sealed under
-it, so it is key material like the data keys an unlocked holder opens to read, which are wiped with
-the keys, even though a locked process reads nothing, not even what it wrote.
+There is no `secure unlock`: unlocked keys live only in the key holder of the process that uses them
+(its guarantees are `agent-local-host`'s), so a short-lived command could only unlock to throw the
+keys away. `secure lock` asks live runtimes to discard their keys without a credential and reports any
+unconfirmed request, including a plain runtime's refusal. Open control replies are not owner proof, so
+requests without authenticated confirmation return an unverified result even when acknowledged. A
+terminal session holding keys is unlocked where it runs instead, by the local unlock gate: store reads
+never say why they read (many are not the person's), so the reason lives on the prompt, which opens
+only for a read the terminal UI says the person started — a request its action modules mint from a key
+press, which the import rule keeps every other module from minting and the gate checks against the
+mint's record, refusing one it did not make — or for `/unlock`, a user-only command, and `/lock` drops
+the keys. The passphrase is then asked on the secret terminal while the session has handed the
+terminal over, one question at a time, and never where nobody can answer, so no command or tool the
+model runs opens the prompt and nothing typed there reaches the conversation. When an unlock catches a
+swapped stored sealing key, a terminal may repair it with the credential, while a runtime receiving an
+owner grant reports it and leaves the file untouched; the exit status tells a repair that completed
+from one that did not.
 
 ### MCP client composition
 

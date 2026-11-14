@@ -22,7 +22,7 @@ import {
   parseWriteGrant,
 } from '../artifact-sealer.js';
 import { KeyHolder } from '../key-holder.js';
-import { FIXTURE_PASSPHRASE, createMemoryKeyringStore, fixtureKeyring } from './helpers.js';
+import { FIXTURE_PASSPHRASE, createMemoryKeyringStore, fixtureKeyring } from '../testing.js';
 
 const passphrase: TKeyringCredential = { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE };
 const CANARY = 'CANARY-77e2-what-the-child-wrote';

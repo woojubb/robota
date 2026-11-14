@@ -5,7 +5,7 @@
  * `migration-steps.ts`.
  */
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
-import type { KeyHolder } from './key-holder.js';
+import type { KeyHolder } from '@robota-sdk/agent-local-host';
 
 /** What a step is given: the run's unlocked keys and the way to learn that another process appeared. */
 export interface IMigrationContext {

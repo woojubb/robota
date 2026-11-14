@@ -10,10 +10,10 @@ import {
   type TKeyringCredential,
 } from '@robota-sdk/agent-keyring';
 
-import { PASSPHRASE_RULE_EXPLANATION, passphraseProblem } from './passphrase-policy.js';
+import { PASSPHRASE_RULE_EXPLANATION, passphraseProblem } from '@robota-sdk/agent-local-host';
 
 import type { ISecretTerminal } from '../devices/secret-terminal.js';
-import type { KeyHolder, TSealingKeyOutcome } from './key-holder.js';
+import type { KeyHolder, TSealingKeyOutcome } from '@robota-sdk/agent-local-host';
 
 /** Raw mode does no newline translation, so lines on the secret terminal end with CRLF. */
 const NL = '\r\n';

@@ -38,8 +38,8 @@ import { loadSessionLogEntries } from '@robota-sdk/agent-session';
 import { NodePromptHistoryFile, NodeSessionLogSource } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
-import { KeyHolder } from '../key-holder.js';
+import { KeyHolderArtifactSealer } from '@robota-sdk/agent-local-host';
+import { KeyHolder } from '@robota-sdk/agent-local-host';
 import { createMemoryKeyringStore } from './helpers.js';
 
 import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';

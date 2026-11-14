@@ -14,8 +14,8 @@ import { PROCESS_OWNER_RECORD_NAME } from '@robota-sdk/agent-core/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { ProcessLocalArtifactSealer } from '../../secure/artifact-sealer.js';
-import { KeyHolder } from '../../secure/key-holder.js';
+import { ProcessLocalArtifactSealer } from '@robota-sdk/agent-local-host';
+import { KeyHolder } from '@robota-sdk/agent-local-host';
 import {
   FIXTURE_PASSPHRASE,
   createMemoryKeyringStore,

@@ -49,7 +49,7 @@ import {
 import { userPaths } from '../product/user-paths.js';
 import { readProductConversationMode, writeProductConversationMode } from './conversation-mode-state.js';
 import { importSealedProjectArchives, importSealedUserArchive } from './secure-archive-import.js';
-import { KeyHolder, SealingKeyMismatchError } from './key-holder.js';
+import { KeyHolder, SealingKeyMismatchError } from '@robota-sdk/agent-local-host';
 import {
   EXIT_FAILED,
   EXIT_OK,

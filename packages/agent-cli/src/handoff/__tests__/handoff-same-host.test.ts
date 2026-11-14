@@ -32,7 +32,7 @@ import {
   startLocalPeerMessaging,
   type IPeerMessaging,
 } from '../../remote-control/local-peer-messaging.js';
-import { KeyHolder } from '../../secure/key-holder.js';
+import { KeyHolder } from '@robota-sdk/agent-local-host';
 import { createMemoryKeyringStore, fixtureKeyring } from '../../secure/__tests__/helpers.js';
 import { createHandoffComposition } from '../handoff-composition-root.js';
 import {

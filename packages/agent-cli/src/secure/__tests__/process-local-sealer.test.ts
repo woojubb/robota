@@ -26,8 +26,8 @@ import {
   KeyHolderArtifactSealer,
   ProcessLocalArtifactSealer,
   ProcessLocalSealerDisposedError,
-} from '../artifact-sealer.js';
-import { KeyHolder } from '../key-holder.js';
+} from '@robota-sdk/agent-local-host';
+import { KeyHolder } from '@robota-sdk/agent-local-host';
 import { FIXTURE_PASSPHRASE, createMemoryKeyringStore, fixtureKeyring } from './helpers.js';
 
 import type { IKeyPair } from '@robota-sdk/agent-keyring';

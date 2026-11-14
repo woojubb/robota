@@ -32,7 +32,7 @@ import {
 } from '@robota-sdk/agent-framework/node';
 import { compactPromptHistoryFile, inspectPromptHistoryFile } from '@robota-sdk/agent-session/node';
 
-import { KeyHolderArtifactSealer } from '../secure/artifact-sealer.js';
+import { KeyHolderArtifactSealer } from '@robota-sdk/agent-local-host';
 import {
   EPHEMERAL_CHECKPOINT_DIRECTORY_PREFIX,
   prepareSpillParentDirectory,
@@ -46,7 +46,7 @@ import { enterProductStores } from './process-presence.js';
 import { userPaths } from './user-paths.js';
 
 import type { ICliRuntimeContext } from './runtime-context.js';
-import type { KeyHolder } from '../secure/key-holder.js';
+import type { KeyHolder } from '@robota-sdk/agent-local-host';
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
 import type {
   IEditCheckpointStore,

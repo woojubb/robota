@@ -54,8 +54,8 @@ import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-works
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
-import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
-import { KeyHolder } from '../key-holder.js';
+import { KeyHolderArtifactSealer } from '@robota-sdk/agent-local-host';
+import { KeyHolder } from '@robota-sdk/agent-local-host';
 import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { runSecureCommand } from '../secure-command.js';
 import { EXIT_INCOMPLETE, createMigrationSteps } from '../secure-migrate.js';
