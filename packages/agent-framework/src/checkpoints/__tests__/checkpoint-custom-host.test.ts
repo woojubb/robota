@@ -3,8 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it, vi } from 'vitest';
 
+import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
+
+import { createSealedEditCheckpointState } from '../edit-checkpoint-sealed-state.js';
 import { createProjectEditCheckpointState } from '../edit-checkpoint-state-storage.js';
 import {
+  WorkspaceAuthorityRequiredError,
   WorkspaceTrustService,
   getWorkspaceProjectStateStorage,
 } from '../../workspace-trust/index.js';
@@ -81,6 +85,64 @@ it('uses a virtual project host writer capability without touching the local fil
     expect(() => state.acquireTurn?.('session_1', 'test')).toThrow(
       /cannot acquire checkpoint writer leases/,
     );
+    expect(readdirSync(root)).toEqual([]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+it('forwards a directory removal from the state facets to the host boundary, and fails closed without one', async () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'virtual-removal-host-')));
+  const noop = () => {};
+  const removeDirectory = vi.fn(() => ({ status: 'partial' as const, reason: 'budget' as const }));
+  const boundary = {
+    removeDirectory,
+    write: noop,
+    replace: noop,
+    append: noop,
+    delete: () => false,
+    sweepTemporaries: () => 0,
+    linkCount: () => undefined,
+    stage: () => 'unused',
+    commitStaged: noop,
+    discardStaged: noop,
+  };
+  const files: IWorkspaceProjectFiles = {
+    readBytes: () => undefined,
+    listDirectory: () => [],
+    inspectKind: () => undefined,
+    createMutationBoundary: () => boundary,
+    createStableWriter: () => ({ assertNamedRoot: noop, writeUtf8WhileNamed: noop, close: noop }),
+  };
+  const identity = { repositoryKey: 'virtual', displayPath: root, worktreeRoot: root };
+  try {
+    const access = await new WorkspaceTrustService({
+      identityResolver: { resolve: () => identity },
+      store: trust,
+      projectFiles: files,
+      projectStateDirectories: STATE,
+    }).inspect(root);
+    if (access.status !== 'trusted') throw new Error('fixture trust missing');
+    const storage = getWorkspaceProjectStateStorage(access.authority, 'checkpoints');
+    const sealed = createSealedEditCheckpointState(createProjectEditCheckpointState(storage), {
+      sealer: createTestArtifactSealer(),
+    });
+
+    expect(sealed.removeDirectory?.('session_1', 'test', { maxEntries: 5 })).toEqual({
+      status: 'partial',
+      reason: 'budget',
+    });
+    expect(removeDirectory).toHaveBeenCalledWith('.state/checkpoints/session_1', { maxEntries: 5 });
+    expect(() => storage.removeDirectory?.('session_1', ' ')).toThrow(
+      WorkspaceAuthorityRequiredError,
+    );
+    expect(() => storage.removeDirectory?.('', 'test')).toThrow(WorkspaceAuthorityRequiredError);
+
+    Object.defineProperty(boundary, 'removeDirectory', { value: undefined });
+    expect(() => sealed.removeDirectory?.('session_1', 'test')).toThrow(
+      /cannot remove directories/,
+    );
+    expect(removeDirectory).toHaveBeenCalledOnce();
     expect(readdirSync(root)).toEqual([]);
   } finally {
     rmSync(root, { recursive: true, force: true });

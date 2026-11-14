@@ -12,10 +12,12 @@ import {
 
 import type {
   IWorkspaceDirectoryEntry,
+  IWorkspaceDirectoryRemovalOptions,
   IWorkspaceProjectAuthority,
   IWorkspaceProjectMutationBoundary,
   IWorkspaceProjectReader,
   IWorkspaceProjectStateStorage,
+  TWorkspaceDirectoryRemoval,
   TWorkspaceProjectAuthorityCandidate,
   TWorkspaceProjectStateNamespace,
 } from './types.js';
@@ -119,6 +121,19 @@ class WorkspaceProjectStateStorage {
     assertWorkspaceProjectAuthority(this.#authority);
     assertProjectReadPurpose(purpose);
     return this.#mutationBoundary.delete(this.projectRelativePath(relativePath));
+  }
+
+  removeDirectory(
+    relativePath: string,
+    purpose: string,
+    options?: IWorkspaceDirectoryRemovalOptions,
+  ): TWorkspaceDirectoryRemoval {
+    assertWorkspaceProjectAuthority(this.#authority);
+    assertProjectReadPurpose(purpose);
+    if (this.#mutationBoundary.removeDirectory === undefined) {
+      throw new WorkspaceAuthorityRequiredError('The project host cannot remove directories.');
+    }
+    return this.#mutationBoundary.removeDirectory(this.projectRelativePath(relativePath), options);
   }
 
   projectRelativePath(relativePath: string, allowRoot = false): string {

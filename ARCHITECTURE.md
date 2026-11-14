@@ -22,6 +22,8 @@ Composition roots
   apps/agent-app            Electron desktop app: loads agent-gui-web and attaches to the
                             workspace daemon, starting one if none is running
   apps/agent-web            Next.js host for the browser remote client
+  apps/personal-agent       Personal agent: one long-running session served to the web GUI and an
+                            HTTP API on loopback, composed from the SDK without the CLI
   apps/starter-nextjs       Next.js chat starter over agent-framework
   apps/remote-signaling     Content-blind WebRTC signaling relay for remote control
   apps/action               GitHub Action that runs agent-cli
@@ -74,7 +76,9 @@ The main package-level edges are drawn in [`diagrams/robota-architecture.mmd`](d
 
 SDK packages develop against workspace dependencies. Standalone examples use published SDK ranges.
 The CLI, desktop app and their private product modules consume exact published SDK versions; their
-product-to-product links remain local. Upgrading the product's SDK is an explicit dependency change,
+product-to-product links remain local. A product that has never been released (the personal agent)
+builds on the workspace SDK until its first release pins it; the product modules it shares with the
+CLI keep their own published pins. Upgrading the product's SDK is an explicit dependency change,
 and coordinated changes can be checked against packed SDK artifacts in an isolated workspace.
 
 > **What the rows do not show.** Providers are injected: `agent-framework` never depends on an

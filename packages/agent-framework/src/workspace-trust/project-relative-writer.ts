@@ -19,6 +19,14 @@ import { createProcessMarkersInOpenDirectory } from '@robota-sdk/agent-core/node
 import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
 
 import {
+  descriptorPath,
+  directoryOpenFlags,
+  readProcMountId,
+  removePinnedDirectory,
+  syncDirectory,
+  type TMountIdReader,
+} from './project-directory-removal.js';
+import {
   assertCurrentWorkspaceIdentity,
   refuseProjectRead,
   workspacePathSegments,
@@ -27,9 +35,11 @@ import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-
 
 import type { IProcessMarkerHandle, TProcessMarkerGuardResult } from '@robota-sdk/agent-core';
 import type {
+  IWorkspaceDirectoryRemovalOptions,
   IWorkspaceIdentity,
   IWorkspaceIdentityResolver,
   IWorkspaceProjectMutationBoundary,
+  TWorkspaceDirectoryRemoval,
 } from './types.js';
 
 const OWNER_ONLY_FILE_MODE = 0o600;
@@ -50,20 +60,6 @@ export function supportsWorkspaceProjectMutation(
   platform: NodeJS.Platform = process.platform,
 ): boolean {
   return platform === 'linux';
-}
-
-function descriptorPath(descriptor: number, segment?: string): string {
-  const root = `/proc/self/fd/${descriptor}`;
-  return segment === undefined ? root : `${root}/${segment}`;
-}
-
-function directoryOpenFlags(): number {
-  return (
-    constants.O_RDONLY |
-    (constants.O_NOFOLLOW ?? 0) |
-    (constants.O_NONBLOCK ?? 0) |
-    (constants.O_DIRECTORY ?? 0)
-  );
 }
 
 /**
@@ -186,17 +182,6 @@ const TEMP_NAME_RANDOM_BYTES = 8;
 const STALE_TEMP_AGE_MS = 5 * 60 * 1000;
 
 const REGEXP_SPECIAL_CHARACTERS = /[.*+?^${}()|[\]\\]/g;
-
-/** `fsync` of a directory is POSIX; a few filesystems refuse the call. */
-function syncDirectory(directoryDescriptor: number): void {
-  try {
-    fsyncSync(directoryDescriptor);
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    // allow-fallback: EINVAL/ENOTSUP mean the filesystem has no directory flush to offer.
-    if (code !== 'EINVAL' && code !== 'ENOTSUP') throw error;
-  }
-}
 
 /**
  * Removes the temp files a crashed replace left in the anchored directory — of `filename` alone, or
@@ -394,10 +379,18 @@ function workspaceRelativeLinkCount(
   );
 }
 
+/** What a test may put in place of the kernel when it builds a boundary. */
+export interface IWorkspaceProjectMutationBoundaryOptions {
+  /** Reads the mount id of an open directory; `/proc/self/fdinfo` by default. */
+  readonly readMountId?: TMountIdReader;
+}
+
 export function createWorkspaceProjectMutationBoundary(
   identity: IWorkspaceIdentity,
   identityResolver: IWorkspaceIdentityResolver,
+  options: IWorkspaceProjectMutationBoundaryOptions = {},
 ): IWorkspaceProjectMutationBoundary {
+  const readMountId = options.readMountId ?? readProcMountId;
   return Object.freeze({
     acquireWriter: (relativeDirectory: string): IProcessMarkerHandle | undefined =>
       acquireWorkspaceRelativeWriter(identity, identityResolver, relativeDirectory),
@@ -431,7 +424,39 @@ export function createWorkspaceProjectMutationBoundary(
       commitStagedWorkspaceRelativeFile(identity, identityResolver, relativePath, temporaryName),
     discardStaged: (relativePath: string, temporaryName: string): void =>
       discardStagedWorkspaceRelativeFile(identity, identityResolver, relativePath, temporaryName),
+    removeDirectory: (
+      relativePath: string,
+      removalOptions?: IWorkspaceDirectoryRemovalOptions,
+    ): TWorkspaceDirectoryRemoval =>
+      removeWorkspaceRelativeDirectory(
+        identity,
+        identityResolver,
+        relativePath,
+        removalOptions,
+        readMountId,
+      ),
   });
+}
+
+/**
+ * Removes a directory beneath the trusted root through the anchored, non-creating walk: a missing
+ * ancestor means nothing is there, and a link or non-directory ancestor is refused.
+ */
+function removeWorkspaceRelativeDirectory(
+  identity: IWorkspaceIdentity,
+  identityResolver: IWorkspaceIdentityResolver,
+  relativePath: string,
+  options: IWorkspaceDirectoryRemovalOptions | undefined,
+  readMountId: TMountIdReader,
+): TWorkspaceDirectoryRemoval {
+  const segments = workspacePathSegments(relativePath);
+  const name = segments.at(-1);
+  if (name === undefined) refuseProjectRead('Project directory removal requires a directory path.');
+  return (
+    withExistingAnchoredDirectory(identity, identityResolver, segments.slice(0, -1), (parent) =>
+      removePinnedDirectory(parent, name, options, readMountId),
+    ) ?? { status: 'absent' }
+  );
 }
 
 /** Retain the checked directory descriptor for every marker operation and its whole lease. */
