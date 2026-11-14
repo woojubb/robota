@@ -23,6 +23,7 @@ import { createProviderFromProfile } from './provider.js';
 import type { ILoopbackGuiApiRequest, ILoopbackGuiApiResponse } from '@robota-sdk/agent-local-host';
 import type {
   GoalBook,
+  ISpace,
   IWikiPage,
   IdeaBook,
   KnowledgeWiki,
@@ -71,6 +72,14 @@ function text(body: Record<string, unknown>, key: string, optional = false): str
   return value;
 }
 
+/** A text field that may be left empty; when it is sent, it has to be a string. */
+function optionalText(body: Record<string, unknown>, key: string): string {
+  const value = body[key];
+  if (value === undefined) return '';
+  if (typeof value !== 'string') throw new BadRequest(`${key} must be a string`);
+  return value;
+}
+
 function summary(page: IWikiPage) {
   return {
     id: page.id,
@@ -87,6 +96,13 @@ export function providerTypes(): string[] {
 
 export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
   const { wiki, goals, ideas, spaces } = options;
+  /** A space as the page shows it: its pinned pages that still exist, and the opening they make. */
+  const spaceView = async (space: ISpace) => {
+    const pinned = (await Promise.all(space.pages.map((pageId) => wiki.read(pageId))))
+      .filter((page): page is IWikiPage => page !== undefined)
+      .map((page) => ({ id: page.id, title: page.title }));
+    return { ...space, pinned, opening: spaces.opening(space, pinned) };
+  };
 
   const routes = async (request: ILoopbackGuiApiRequest): Promise<ILoopbackGuiApiResponse> => {
     const { method, segments } = request;
@@ -222,29 +238,37 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
     if (area === 'spaces' && collection === undefined) {
       if (method === 'GET') {
         return ok({
-          spaces: (await spaces.list()).map((space) => ({
-            ...space,
-            opening: spaces.opening(space),
-          })),
+          spaces: await Promise.all((await spaces.list()).map((space) => spaceView(space))),
         });
       }
       if (method === 'POST') {
         const body = record(request.body);
         const space = await spaces.create({
           name: text(body, 'name')!,
-          instructions: text(body, 'instructions', true) ?? '',
+          instructions: optionalText(body, 'instructions'),
         });
-        return ok({ space: { ...space, opening: spaces.opening(space) } });
+        return ok({ space: await spaceView(space) });
       }
     }
     if (area === 'spaces' && collection !== undefined && method === 'POST') {
+      if ((await spaces.get(collection)) === undefined) return fail(404, 'no such space');
       if (id === 'update') {
         const body = record(request.body);
         const space = await spaces.update(collection, {
           name: text(body, 'name')!,
-          instructions: text(body, 'instructions', true) ?? '',
+          instructions: optionalText(body, 'instructions'),
         });
-        return ok({ space: { ...space, opening: spaces.opening(space) } });
+        return ok({ space: await spaceView(space) });
+      }
+      if (id === 'pin' || id === 'unpin') {
+        const pageId = text(record(request.body), 'pageId')!;
+        if (id === 'pin' && (await wiki.read(pageId)) === undefined)
+          return fail(404, 'no such page');
+        const space =
+          id === 'pin'
+            ? await spaces.pin(collection, pageId)
+            : await spaces.unpin(collection, pageId);
+        return ok({ space: await spaceView(space) });
       }
       if (id === 'remove') {
         await spaces.remove(collection);

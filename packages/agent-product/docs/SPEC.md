@@ -562,8 +562,9 @@ was running is due again, and an approval nobody can still answer is marked expi
 
 An idea is kept as the person's or as the agent's own suggestion, and a suggestion stays one: nothing
 acts on an idea until the person takes it up, and an idea taken up records what it became. A space
-carries the person's own instructions, and a chat started in it opens with them as the person's first
-message rather than as instructions the agent gives itself.
+carries the person's own instructions and the library pages they pinned to it, and a chat started in it
+opens with them as the person's first message rather than as instructions the agent gives itself; a
+pinned page the library no longer has drops out of the opening.
 
 A channel is any messenger, plugged in as an adapter of one contract: the adapter declares what its
 platform can carry and reports each sender as the platform authenticated them, and everything it

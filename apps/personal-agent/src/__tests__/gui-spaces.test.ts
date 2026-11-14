@@ -43,6 +43,12 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         { text: 'Hello there.' },
         { text: 'Happy to plan the garden organically.' },
       );
+      await harness.capabilities.wiki.remember({
+        pageTitle: 'Tomato beds',
+        kind: 'topic',
+        claim: 'Tomatoes get the south bed.',
+        source: { origin: 'owner' },
+      });
       const { page, close } = await open(harness);
       try {
         // The current chat is in use, so the space opens a new one.
@@ -58,12 +64,17 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           .getByRole('textbox', { name: /How should your agent work/u })
           .fill('Organic only. No pesticides.');
         await form.getByRole('button', { name: 'Save space' }).click();
+        await page
+          .getByRole('combobox', { name: 'Pin a library page to Garden' })
+          .selectOption({ label: 'Tomato beds' });
+        await page.getByRole('button', { name: 'Unpin Tomato beds' }).waitFor();
         await page.getByRole('button', { name: 'New chat in this space' }).click();
         await page.waitForFunction(bodyIncludes, 'Happy to plan the garden organically.', {
           timeout: 15_000,
         });
         expect(userMessages(harness).at(-1)).toBe(
-          `Let's work in my space "Garden".\n\nOrganic only. No pesticides.`,
+          `Let's work in my space "Garden".\n\nOrganic only. No pesticides.\n\n` +
+            'Read these pages from my library first:\n- Tomato beds (tomato-beds)',
         );
         // It is a new chat: the earlier exchange is not part of it.
         expect(JSON.stringify(harness.model.requests.at(-1)!.messages)).not.toContain(

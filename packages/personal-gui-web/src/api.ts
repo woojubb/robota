@@ -131,6 +131,8 @@ export interface ISpaceView {
   readonly name: string;
   readonly instructions: string;
   readonly tag: string;
+  /** Library pages pinned to the space that still exist. */
+  readonly pinned: readonly { readonly id: string; readonly title: string }[];
   /** The first message of a chat started in the space. */
   readonly opening: string;
 }
@@ -181,6 +183,7 @@ export interface IPersonalApi {
     instructions: string;
   }): Promise<{ space: ISpaceView }>;
   removeSpace(id: string): Promise<unknown>;
+  pinPage(spaceId: string, pageId: string, pinned: boolean): Promise<{ space: ISpaceView }>;
   addIdea(input: { text: string; tags: readonly string[] }): Promise<{ idea: IIdeaView }>;
   ideaAction(
     id: string,
@@ -239,6 +242,8 @@ export function createPersonalApi(
     saveSpace: ({ id: spaceId, ...input }) =>
       call('POST', spaceId === undefined ? 'spaces' : `spaces/${id(spaceId)}/update`, input),
     removeSpace: (spaceId) => call('POST', `spaces/${id(spaceId)}/remove`),
+    pinPage: (spaceId, pageId, pinned) =>
+      call('POST', `spaces/${id(spaceId)}/${pinned ? 'pin' : 'unpin'}`, { pageId }),
     ideaAction: (ideaId, action) => call('POST', `ideas/${id(ideaId)}/${action}`),
     answerFeed: (itemId, action) => call('POST', `feed/${id(itemId)}/${action}`),
   };

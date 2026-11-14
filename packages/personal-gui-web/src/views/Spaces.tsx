@@ -2,11 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { Button, Notice, ViewFrame, errorText, inputClass } from './ui.js';
 
-import type { IPersonalApi, ISpaceView } from '../api.js';
+import type { IPageSummary, IPersonalApi, ISpaceView } from '../api.js';
 
 /**
- * Areas of the person's life with their own instructions. A chat started in a space opens with those
- * instructions as the person's first message.
+ * Areas of the person's life with their own instructions and pinned library pages. A chat started in a
+ * space opens with those instructions, and the pages to read, as the person's first message.
  */
 export function SpacesView({
   api,
@@ -16,11 +16,14 @@ export function SpacesView({
   readonly onStartChat: (opening: string) => void;
 }): React.ReactElement {
   const [spaces, setSpaces] = useState<readonly ISpaceView[] | undefined>(undefined);
+  const [pages, setPages] = useState<readonly IPageSummary[]>([]);
   const [editing, setEditing] = useState<ISpaceView | 'new' | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const reload = useCallback(async () => {
     try {
-      setSpaces(await api.spaces());
+      const [nextSpaces, nextPages] = await Promise.all([api.spaces(), api.listPages()]);
+      setSpaces(nextSpaces);
+      setPages(nextPages);
       setError(undefined);
     } catch (caught) {
       setError(errorText(caught));
@@ -66,6 +69,18 @@ export function SpacesView({
                 {space.instructions}
               </p>
             )}
+            <PinnedPages
+              space={space}
+              pages={pages}
+              onPin={async (pageId, pinned) => {
+                try {
+                  await api.pinPage(space.id, pageId, pinned);
+                  await reload();
+                } catch (caught) {
+                  setError(errorText(caught));
+                }
+              }}
+            />
             <div className="mt-2 flex gap-2">
               <Button tone="primary" onClick={() => onStartChat(space.opening)}>
                 New chat in this space
@@ -95,6 +110,56 @@ export function SpacesView({
         ))}
       </ul>
     </ViewFrame>
+  );
+}
+
+/** The library pages pinned to a space, and a picker for the rest of the library. */
+function PinnedPages({
+  space,
+  pages,
+  onPin,
+}: {
+  readonly space: ISpaceView;
+  readonly pages: readonly IPageSummary[];
+  readonly onPin: (pageId: string, pinned: boolean) => Promise<void>;
+}): React.ReactElement {
+  const unpinned = pages.filter((page) => !space.pinned.some((pin) => pin.id === page.id));
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
+      {space.pinned.map((page) => (
+        <span
+          key={page.id}
+          className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5"
+        >
+          {page.title}
+          <button
+            type="button"
+            aria-label={`Unpin ${page.title}`}
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => void onPin(page.id, false)}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      {unpinned.length > 0 && (
+        <select
+          aria-label={`Pin a library page to ${space.name}`}
+          className={inputClass}
+          value=""
+          onChange={(event) => {
+            if (event.target.value !== '') void onPin(event.target.value, true);
+          }}
+        >
+          <option value="">Pin a library page…</option>
+          {unpinned.map((page) => (
+            <option key={page.id} value={page.id}>
+              {page.title}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
   );
 }
 

@@ -50,6 +50,25 @@ describe.each([
     expect(book.opening(space)).toBe(`Let's work in my space "Garden".\n\nOrganic only.`);
   });
 
+  it('pins library pages once each and names them in the opening', async () => {
+    const book = new SpaceBook({ store: makeStore() });
+    const space = await book.create({ name: 'Garden', instructions: '' });
+    await book.pin(space.id, 'tomatoes');
+    const pinned = await book.pin(space.id, 'tomatoes');
+    expect(pinned.pages).toEqual(['tomatoes']);
+    expect(book.opening(pinned, [{ id: 'tomatoes', title: 'Tomato  beds' }])).toBe(
+      `Let's work in my space "Garden".\n\nRead these pages from my library first:\n- Tomato beds (tomatoes)`,
+    );
+    expect((await book.unpin(space.id, 'tomatoes')).pages).toEqual([]);
+    await expect(book.pin('constructor', 'tomatoes')).rejects.toThrow(SpaceRefusedError);
+  });
+
+  it('gives a name without ASCII letters a tag that cannot repeat', async () => {
+    const book = new SpaceBook({ store: makeStore() });
+    const space = await book.create({ name: 'Κρήτη', instructions: '' });
+    expect(space.tag).toBe(space.id);
+  });
+
   it('refuses a nameless space, secrets and unknown ids', async () => {
     const book = new SpaceBook({ store: makeStore() });
     await expect(book.create({ name: ' ', instructions: 'x' })).rejects.toThrow(SpaceRefusedError);

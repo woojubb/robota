@@ -99,4 +99,4 @@ export {
   createFileSpaceStore,
   createMemorySpaceStore,
 } from './spaces/spaces.js';
-export type { ISpace, ISpaceStore } from './spaces/spaces.js';
+export type { ISpace, ISpacePage, ISpaceStore } from './spaces/spaces.js';
