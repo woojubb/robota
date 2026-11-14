@@ -25,7 +25,12 @@ import type { IAgentRuntime, SessionRecipe } from '@robota-sdk/agent-framework';
  * (`Bash`, `Shell`, `BackgroundProcess`), and sending files to other agent sessions, which a personal
  * agent does not do.
  */
-export const PERSONAL_WITHHELD_TOOLS = ['Bash', 'Shell', 'BackgroundProcess', 'peer_send_file'] as const;
+export const PERSONAL_WITHHELD_TOOLS = [
+  'Bash',
+  'Shell',
+  'BackgroundProcess',
+  'peer_send_file',
+] as const;
 
 export interface IPersonalAgentOptions {
   readonly stateDir: string;
@@ -59,6 +64,8 @@ export interface IExtraSessionOptions {
   readonly instructions: string;
   readonly permissionMode: TPermissionMode;
   readonly deniedTools?: readonly string[];
+  /** Where its transcript is kept: among the person's chats, or with the goal runs' audit (the default). */
+  readonly keepWith?: 'chats' | 'goals';
 }
 
 export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAgent {
@@ -85,11 +92,13 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
   const openSession = (extra: IExtraSessionOptions): TPersonalSession =>
     runtime.createSession({
       ...base,
-      sessionStore: goalSessionStore,
+      sessionStore: extra.keepWith === 'chats' ? runtime.sessionStore : goalSessionStore,
       sessionName: extra.sessionName,
       permissionMode: extra.permissionMode,
       deniedTools: [...PERSONAL_WITHHELD_TOOLS, ...(extra.deniedTools ?? [])],
-      appendSystemPrompt: [options.instructions, extra.instructions].filter((text) => text !== undefined).join('\n\n'),
+      appendSystemPrompt: [options.instructions, extra.instructions]
+        .filter((text) => text !== undefined)
+        .join('\n\n'),
     });
   return { runtime, chatRecipe, workspace, openSession };
 }

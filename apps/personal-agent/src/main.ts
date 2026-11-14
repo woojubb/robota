@@ -20,7 +20,10 @@ const USAGE = `Usage:
   personal-agent start [--no-gui]
 Options for every command: --state-dir <dir>`;
 
-export async function main(argv: readonly string[], environment: NodeJS.ProcessEnv): Promise<number> {
+export async function main(
+  argv: readonly string[],
+  environment: NodeJS.ProcessEnv,
+): Promise<number> {
   const { values, positionals } = parseArgs({
     args: [...argv],
     allowPositionals: true,
@@ -81,7 +84,9 @@ export async function main(argv: readonly string[], environment: NodeJS.ProcessE
   });
   await capabilities.attach(local.agent);
   if (local.gui !== undefined) {
-    process.stdout.write(`Personal agent is open at ${local.gui.url}\nAccess code: ${local.gui.accessCode}\n`);
+    process.stdout.write(
+      `Personal agent is open at ${local.gui.url}\nAccess code: ${local.gui.accessCode}\n`,
+    );
   }
   process.stdout.write(`HTTP API at ${local.httpUrl} (bearer printed once): ${local.httpToken}\n`);
   await new Promise<void>((resolve) => {

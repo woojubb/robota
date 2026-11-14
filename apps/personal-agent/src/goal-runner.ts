@@ -14,6 +14,7 @@ import { GOAL_TOOL_NAMES, goalRunInstructions } from '@robota-sdk/agent-product/
 
 import type { GoalBook, IFeedItem, IGoal, IGoalRun } from '@robota-sdk/agent-product/personal';
 import type { IExtraSessionOptions, TPersonalSession } from './agent.js';
+import type { IApprovalRegistry } from './approvals.js';
 
 export type TRunSession = Pick<
   TPersonalSession,
@@ -23,6 +24,10 @@ export type TRunSession = Pick<
 export interface IGoalRunnerOptions {
   readonly book: GoalBook;
   readonly openSession: (extra: IExtraSessionOptions) => TRunSession;
+  /** Where the runs' approvals wait for the person, shared with every other source of approvals. */
+  readonly approvals: IApprovalRegistry;
+  /** Called with each finished run's report, such as to tell the person on their channels. */
+  readonly onReport?: (goal: IGoal, report: string) => void;
   /** How often to look for due goals; 0 runs only when asked. */
   readonly tickMs?: number;
 }
@@ -47,28 +52,16 @@ export function describeCall(toolName: string, args: Readonly<Record<string, unk
   return `${toolName} ${json.length > DETAIL_LIMIT ? `${json.slice(0, DETAIL_LIMIT)}…` : json}`;
 }
 
-interface IPendingApproval {
-  readonly session: TRunSession;
-  readonly promptId: string;
-  readonly goalId: string;
-  /**
-   * Record the person's answer on the run's ordered chain. Queued before the session hears the answer,
-   * so the run cannot finish ahead of the record of what allowed it to go on.
-   */
-  readonly recordAnswer: (approve: boolean) => Promise<IFeedItem>;
-}
-
 export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
   const { book } = options;
   const running = new Map<string, Promise<void>>();
   const sessions = new Set<TRunSession>();
-  const pending = new Map<string, IPendingApproval>();
+  const { approvals } = options;
   let stopped = false;
 
   /** A goal waits while any of its approvals does, and works again once none is left. */
   const settleWaiting = async (goalId: string): Promise<void> => {
-    const stillWaiting = [...pending.values()].some((entry) => entry.goalId === goalId);
-    await book.setWaiting(goalId, stillWaiting);
+    await book.setWaiting(goalId, approvals.waitingFor(goalId));
   };
 
   const runGoal = async (goal: IGoal): Promise<void> => {
@@ -119,7 +112,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
           approval: { tool: event.toolName, detail, state: 'pending' },
         });
         ownPrompts.set(event.id, item.id);
-        pending.set(item.id, {
+        approvals.register(item, {
           session,
           promptId: event.id,
           goalId: goal.id,
@@ -148,7 +141,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     const onResolved = (event: { id: string }): void => {
       void enqueue(async () => {
         const feedId = ownPrompts.get(event.id);
-        if (feedId === undefined || !pending.delete(feedId)) return;
+        if (feedId === undefined || !approvals.release(feedId)) return;
         await book.setApproval(feedId, 'expired');
         const item = await book.feedItem(feedId);
         run = await book.recordAction(run, {
@@ -182,9 +175,14 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     await chain;
     // An approval the turn stopped waiting for can no longer be answered.
     for (const feedId of ownPrompts.values()) {
-      if (pending.delete(feedId)) await book.setApproval(feedId, 'expired');
+      if (approvals.release(feedId)) await book.setApproval(feedId, 'expired');
     }
     await book.finishRun(run, outcome, report);
+    try {
+      options.onReport?.(goal, report);
+    } catch {
+      // allow-fallback: telling the person elsewhere must never undo a finished run.
+    }
     sessions.delete(session);
     await session.shutdown().catch(() => undefined);
   };
@@ -222,21 +220,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
 
   return {
     runDue,
-    async answer(feedId, approve) {
-      const waiting = pending.get(feedId);
-      if (waiting === undefined) {
-        const item = await book.feedItem(feedId);
-        if (item?.approval?.state === 'pending') return book.setApproval(feedId, 'expired');
-        throw new Error('This approval is no longer waiting');
-      }
-      pending.delete(feedId);
-      // The record is queued first and the session answered at once: nothing can settle the prompt
-      // between the person's answer and the session receiving it, and the run cannot end before the
-      // record of that answer is written.
-      const recorded = waiting.recordAnswer(approve);
-      waiting.session.resolvePermission(waiting.promptId, approve);
-      return recorded;
-    },
+    answer: (feedId, approve) => approvals.answer(feedId, approve),
     async settled() {
       while (running.size > 0) await Promise.allSettled([...running.values()]);
     },

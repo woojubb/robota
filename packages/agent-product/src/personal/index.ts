@@ -75,3 +75,21 @@ export type {
   TIdeaStatus,
 } from './ideas/ideas.js';
 export { IDEA_INSTRUCTIONS, IDEA_TOOL_NAMES, createIdeaTools } from './ideas/tools.js';
+export { createChannelHub, splitForChannel } from './channels/hub.js';
+export type {
+  IChannelBinding,
+  IChannelHub,
+  IChannelHubOptions,
+  TChannelApprovalAnswer,
+  TChannelTurn,
+} from './channels/hub.js';
+export { createFixtureChannel } from './channels/fixture.js';
+export type { IFixtureChannel } from './channels/fixture.js';
+export type {
+  IChannelAdapter,
+  IChannelApprovalAnswer,
+  IChannelApprovalRequest,
+  IChannelCapabilities,
+  IChannelHandler,
+  IChannelMessage,
+} from './channels/types.js';

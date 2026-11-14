@@ -31,7 +31,11 @@ import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robot
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { IPersonalAgent } from './agent.js';
-import type { IRuntimeHostHandle, InteractiveSession, SessionSlot } from '@robota-sdk/agent-framework';
+import type {
+  IRuntimeHostHandle,
+  InteractiveSession,
+  SessionSlot,
+} from '@robota-sdk/agent-framework';
 import type { ILoopbackGuiServer, ILoopbackGuiServerOptions } from '@robota-sdk/agent-local-host';
 
 const LOOPBACK = '127.0.0.1';
@@ -103,7 +107,10 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
     const store = agent.runtime.sessionStore;
     if (store === undefined) throw new Error('The personal agent keeps no session store');
     // Each connected page gets its own place in the pool: its chat list, new chats and switches.
-    const directory = createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>();
+    const directory = createServeSessionDirectory<
+      InteractiveSession,
+      SessionSlot<InteractiveSession>
+    >();
     let stopping = false;
     let pool: SessionPool<InteractiveSession> | undefined;
     const ws = new WsTransport({
@@ -121,7 +128,10 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
         const live = new SessionPool<InteractiveSession>({
           primary: slot.current,
           build: (resumeSessionId) =>
-            buildRuntimeSession({ ...agent.chatRecipe(), ...(resumeSessionId !== undefined && { resumeSessionId }) }),
+            buildRuntimeSession({
+              ...agent.chatRecipe(),
+              ...(resumeSessionId !== undefined && { resumeSessionId }),
+            }),
           maxLive: SESSION_POOL_MAX_LIVE,
         });
         pool = live;
@@ -132,7 +142,13 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
           await registry.stopAll();
           await live.shutdownAll('The personal agent is stopping');
         });
-        directory.attach({ pool: live, primary: slot.current, store, cwd: agent.workspace, isStopping: () => stopping });
+        directory.attach({
+          pool: live,
+          primary: slot.current,
+          store,
+          cwd: agent.workspace,
+          isStopping: () => stopping,
+        });
         registry.register(bindTransportAdapter(ws, slot));
       },
     });
@@ -143,7 +159,8 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
     });
     primary = host.session.current;
     const wsToken = ws.resolvedToken;
-    if (wsToken === undefined || ws.boundPort === undefined) throw new Error('The WebSocket transport did not start');
+    if (wsToken === undefined || ws.boundPort === undefined)
+      throw new Error('The WebSocket transport did not start');
     wsUrl = `ws://${LOOPBACK}:${ws.boundPort}/?token=${encodeURIComponent(wsToken)}`;
 
     const http = createHttpTransport({ admission: { token: httpToken } });
@@ -167,7 +184,10 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
 
     if (options.gui !== false) {
       const webRoot = options.webRoot ?? resolveGuiRoot();
-      if (webRoot === undefined) throw new Error('The web UI is not built: run `pnpm --filter @robota-sdk/personal-gui-web build`');
+      if (webRoot === undefined)
+        throw new Error(
+          'The web UI is not built: run `pnpm --filter @robota-sdk/personal-gui-web build`',
+        );
       const started = await startLoopbackGuiServer({
         webRoot,
         headHtml: guiHeadHtml(wsUrl),

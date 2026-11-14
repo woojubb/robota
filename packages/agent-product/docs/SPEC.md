@@ -532,7 +532,8 @@ assembled in one process get independently-scoped file tools.
 What a personal agent does, independent of how it is hosted: the capabilities a composition root
 lends a state directory and a live session: the knowledge wiki, the agent's maintained memory of the
 person it works for; the browser it acts on the web through; the goals it keeps working on while the
-person is away, with the feed it reports to; and the ideas it keeps for later.
+person is away, with the feed it reports to; the ideas it keeps for later; and the channels the person
+reaches it through.
 
 ### Contract
 
@@ -561,6 +562,12 @@ was running is due again, and an approval nobody can still answer is marked expi
 
 An idea is kept as the person's or as the agent's own suggestion, and a suggestion stays one: nothing
 acts on an idea until the person takes it up, and an idea taken up records what it became.
+
+A channel is any messenger, plugged in as an adapter of one contract: the adapter declares what its
+platform can carry and reports each sender as the platform authenticated them, and everything it
+delivers is untrusted. Only the owner's verified sender ids on a channel get a turn or a reply. An
+approval goes out as a structured action where the platform has one and as a pointer to the feed
+where it does not, and only the owner's structured action answers it; text is never an approval.
 
 ### Non-goals
 

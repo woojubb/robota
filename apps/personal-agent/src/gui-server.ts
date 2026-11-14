@@ -11,7 +11,10 @@ import { dirname, join } from 'node:path';
 export function resolveGuiRoot(): string | undefined {
   const require = createRequire(import.meta.url);
   try {
-    const root = join(dirname(require.resolve('@robota-sdk/personal-gui-web/package.json')), 'dist');
+    const root = join(
+      dirname(require.resolve('@robota-sdk/personal-gui-web/package.json')),
+      'dist',
+    );
     readFileSync(join(root, 'index.html'));
     return root;
   } catch {
@@ -24,4 +27,8 @@ export function guiHeadHtml(wsUrl: string): string {
   return `<meta name="ws-url" content="${wsUrl.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}" />`;
 }
 
-export const GUI_LABELS = { title: 'Personal agent', prompt: 'Access code', submit: 'Open' } as const;
+export const GUI_LABELS = {
+  title: 'Personal agent',
+  prompt: 'Access code',
+  submit: 'Open',
+} as const;
