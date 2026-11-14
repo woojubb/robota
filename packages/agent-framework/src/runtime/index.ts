@@ -7,7 +7,7 @@ export { createAgentRuntime } from './session-runtime.js';
 export type { IStatelessRuntimeConfig } from './stateless-runtime.js';
 export { createStatelessRuntime } from './stateless-runtime.js';
 export { buildRuntimeSession, startRuntimeHost } from './runtime-host.js';
-export type { IRuntimeHostOptions, IRuntimeHostHandle } from './runtime-host.js';
+export type { IRuntimeHostOptions, IRuntimeHostHandle, SessionRecipe } from './runtime-host.js';
 export { SessionSlot } from './session-slot.js';
 export type { ISessionSlotOptions } from './session-slot.js';
 export type { IRuntimeHostPoolOptions } from './runtime-host.js';

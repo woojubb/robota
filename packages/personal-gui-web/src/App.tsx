@@ -35,11 +35,6 @@ export const MENUS: readonly {
   { id: 'settings', label: 'Settings', hint: 'Model, browser and privacy' },
 ];
 
-function ChatView({ wsUrl }: { readonly wsUrl: string }): React.ReactElement {
-  const state = useWsSession(wsUrl);
-  return <SessionSurface state={state} surface="web" draftMode="persistent" />;
-}
-
 /**
  * The shell: a menu rail beside the current view. The chat stays mounted while another menu is open,
  * so its session and draft survive a trip to the library.
@@ -51,7 +46,24 @@ export function App({
   readonly wsUrl: string;
   readonly api: IPersonalApi;
 }): React.ReactElement {
+  // The shared surface's hooks read the product identity, so everything sits inside its provider.
+  return (
+    <ProductIdentityProvider value={PERSONAL_IDENTITY}>
+      <Shell wsUrl={wsUrl} api={api} />
+    </ProductIdentityProvider>
+  );
+}
+
+function Shell({
+  wsUrl,
+  api,
+}: {
+  readonly wsUrl: string;
+  readonly api: IPersonalApi;
+}): React.ReactElement {
   const [menu, setMenu] = useState<TMenu>('chat');
+  // The chat connection lives here, so the menu can start a new chat as well as the chat list can.
+  const chat = useWsSession(wsUrl);
   const [openPage, setOpenPage] = useState<string | undefined>(undefined);
   const [openGoal, setOpenGoal] = useState<string | undefined>(undefined);
   const showGoal = (goalId: string): void => {
@@ -63,39 +75,48 @@ export function App({
     setMenu('library');
   };
   return (
-    <ProductIdentityProvider value={PERSONAL_IDENTITY}>
-      <div className="flex h-full w-full bg-background text-foreground">
-        <nav
-          aria-label="Menu"
-          className="flex w-44 flex-shrink-0 flex-col gap-1 border-r border-border bg-sidebar px-2 py-3"
+    <div className="flex h-full w-full bg-background text-foreground">
+      <nav
+        aria-label="Menu"
+        className="flex w-44 flex-shrink-0 flex-col gap-1 border-r border-border bg-sidebar px-2 py-3"
+      >
+        <div className="px-2.5 pb-3 text-[15px] font-semibold">Personal agent</div>
+        <button
+          type="button"
+          disabled={chat.newSession === undefined}
+          onClick={() => {
+            setMenu('chat');
+            chat.newSession?.();
+          }}
+          className="mb-2 rounded-lg border border-border px-2.5 py-2 text-left text-[14px] font-medium hover:bg-hover disabled:opacity-50"
         >
-          <div className="px-2.5 pb-3 text-[15px] font-semibold">Personal agent</div>
-          {MENUS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              title={item.hint}
-              aria-current={menu === item.id ? 'page' : undefined}
-              onClick={() => setMenu(item.id)}
-              className={`rounded-lg px-2.5 py-2 text-left text-[14px] font-medium hover:bg-hover ${menu === item.id ? 'bg-hover text-foreground' : 'text-muted-foreground'}`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
-        <main className="relative min-w-0 flex-1">
-          <div className={menu === 'chat' ? 'h-full' : 'hidden'}>
-            <ChatView wsUrl={wsUrl} />
-          </div>
-          {menu === 'feed' && <FeedView api={api} onOpenGoal={showGoal} />}
-          {menu === 'goals' && <GoalsView api={api} openGoal={openGoal} onOpenGoal={setOpenGoal} />}
-          {menu === 'library' && (
-            <LibraryView api={api} openPage={openPage} onOpenPage={setOpenPage} />
-          )}
-          {menu === 'search' && <SearchView api={api} onOpenPage={showPage} />}
-          {menu === 'settings' && <SettingsView api={api} />}
-        </main>
-      </div>
-    </ProductIdentityProvider>
+          New chat
+        </button>
+        {MENUS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            title={item.hint}
+            aria-current={menu === item.id ? 'page' : undefined}
+            onClick={() => setMenu(item.id)}
+            className={`rounded-lg px-2.5 py-2 text-left text-[14px] font-medium hover:bg-hover ${menu === item.id ? 'bg-hover text-foreground' : 'text-muted-foreground'}`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
+      <main className="relative min-w-0 flex-1">
+        <div className={menu === 'chat' ? 'h-full' : 'hidden'}>
+          <SessionSurface state={chat} surface="web" draftMode="persistent" />
+        </div>
+        {menu === 'feed' && <FeedView api={api} onOpenGoal={showGoal} />}
+        {menu === 'goals' && <GoalsView api={api} openGoal={openGoal} onOpenGoal={setOpenGoal} />}
+        {menu === 'library' && (
+          <LibraryView api={api} openPage={openPage} onOpenPage={setOpenPage} />
+        )}
+        {menu === 'search' && <SearchView api={api} onOpenPage={showPage} />}
+        {menu === 'settings' && <SettingsView api={api} />}
+      </main>
+    </div>
   );
 }

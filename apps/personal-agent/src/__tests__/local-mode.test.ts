@@ -38,7 +38,9 @@ describe('local mode', () => {
     harness.model.script({ text: 'ok' });
     await harness.submit('What can you do?');
     const tools = offeredTools(harness.model.requests[0]!);
-    const executing = tools.filter((name) => getToolPermissionProfile(name).riskClass === 'execute');
+    const executing = tools.filter(
+      (name) => getToolPermissionProfile(name).riskClass === 'execute',
+    );
     expect(executing).toEqual([]);
     expect(tools).not.toContain('peer_send_file');
     expect(tools).toContain('WebFetch');
@@ -114,12 +116,18 @@ describe('web GUI server', () => {
     const page = await fetch(new URL(location, gui.url), { headers: { cookie } });
     expect(page.status).toBe(200);
     const html = await page.text();
-    expect(html).toContain(`<meta name="ws-url" content="${harness.local.wsUrl.replaceAll('"', '&quot;')}"`);
+    expect(html).toContain(
+      `<meta name="ws-url" content="${harness.local.wsUrl.replaceAll('"', '&quot;')}"`,
+    );
 
-    const asset = await fetch(new URL(`${location}assets/app.js`, gui.url), { headers: { cookie } });
+    const asset = await fetch(new URL(`${location}assets/app.js`, gui.url), {
+      headers: { cookie },
+    });
     expect(asset.status).toBe(200);
 
-    const traversal = await fetch(new URL(`${location}..%2F..%2Fpackage.json`, gui.url), { headers: { cookie } });
+    const traversal = await fetch(new URL(`${location}..%2F..%2Fpackage.json`, gui.url), {
+      headers: { cookie },
+    });
     expect(traversal.status).toBe(403);
   });
 
@@ -128,11 +136,45 @@ describe('web GUI server', () => {
     const { request } = await import('node:http');
     const url = new URL(harness.local.gui!.url);
     const status = await new Promise<number>((resolve) => {
-      const req = request({ host: url.hostname, port: url.port, path: '/', headers: { host: 'evil.example' } }, (res) =>
-        resolve(res.statusCode ?? 0),
+      const req = request(
+        { host: url.hostname, port: url.port, path: '/', headers: { host: 'evil.example' } },
+        (res) => resolve(res.statusCode ?? 0),
       );
       req.end();
     });
     expect(status).toBe(403);
+  });
+});
+
+describe('local mode start and stop', () => {
+  it('releases what it started when the WebSocket port is taken, so the next start on the same state works', async () => {
+    const { createServer } = await import('node:http');
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { startLocalMode } = await import('../local-mode.js');
+    const { startScriptedModel } = await import('./scripted-model.js');
+    const { createProviderFromProfile } = await import('../provider.js');
+    const stateDir = mkdtempSync(join(tmpdir(), 'personal-agent-start-'));
+    const model = await startScriptedModel();
+    const busy = createServer();
+    await new Promise<void>((resolve) => busy.listen(0, '127.0.0.1', () => resolve()));
+    const takenPort = (busy.address() as import('node:net').AddressInfo).port;
+    const provider = () =>
+      createProviderFromProfile(
+        { type: 'openai', model: 'scripted-model', baseURL: model.baseURL, apiKeyEnv: 'KEY' },
+        { KEY: 'k' },
+      );
+    try {
+      await expect(
+        startLocalMode({ stateDir, provider: provider(), gui: false, wsPort: takenPort }),
+      ).rejects.toThrow();
+      const local = await startLocalMode({ stateDir, provider: provider(), gui: false });
+      await local.stop();
+    } finally {
+      await new Promise<void>((resolve) => busy.close(() => resolve()));
+      await model.close();
+      rmSync(stateDir, { recursive: true, force: true });
+    }
   });
 });

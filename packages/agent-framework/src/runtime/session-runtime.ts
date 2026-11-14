@@ -3,6 +3,7 @@ import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { InteractiveSession } from '../interactive/interactive-session.js';
 import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { buildRuntimeSession } from './runtime-host.js';
+import type { SessionRecipe } from './runtime-host.js';
 import { assertTrustedProjectCoversCwd } from './trusted-project-cwd.js';
 import { createRestrictedWorkspaceProjectAccess } from '../workspace-trust/index.js';
 
@@ -79,6 +80,11 @@ export interface IAgentRuntime {
   readonly transportRegistry: ITransportRegistryView | undefined;
   readonly reloadPluginCommandSource: (registry: CommandRegistry) => void;
   createSession(opts: IHeadlessSessionOptions): InteractiveSession;
+  /**
+   * The recipe `createSession` builds from: what a runtime host or a session pool needs to build this
+   * runtime's sessions itself, such as one per chat a client opens.
+   */
+  sessionRecipe(opts: IHeadlessSessionOptions): SessionRecipe;
 }
 
 export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
@@ -94,6 +100,40 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
     createRestrictedWorkspaceProjectAccess('identity-unavailable', config.cwd);
   assertTrustedProjectCoversCwd(config.host, projectAccess, config.cwd);
 
+  const sessionRecipe = (opts: IHeadlessSessionOptions): SessionRecipe => {
+    const effectiveSessionStore = 'sessionStore' in opts ? opts.sessionStore : sessionStore;
+    return {
+      host: config.host,
+      cwd: config.cwd,
+      provider: config.provider,
+      projectAccess,
+      ...(config.userSettingsSources !== undefined
+        ? { userSettingsSources: config.userSettingsSources }
+        : {}),
+      backgroundTaskRunners,
+      subagentRunnerFactory: config.subagentRunnerFactory,
+      commandModules,
+      commandHostAdapters,
+      permissionMode: opts.permissionMode,
+      maxTurns: opts.maxTurns,
+      sessionStore: effectiveSessionStore,
+      sessionName: opts.sessionName,
+      bare: opts.bare,
+      allowedTools: opts.allowedTools,
+      deniedTools: opts.deniedTools,
+      model: opts.model,
+      appendSystemPrompt: opts.appendSystemPrompt,
+      systemPrompt: opts.systemPrompt,
+      shellExec: opts.shellExec,
+      agentName: opts.agentName,
+      orgPolicy: config.orgPolicy,
+      ...(config.remoteCommandPolicy ? { remoteCommandPolicy: config.remoteCommandPolicy } : {}),
+      additionalTools: opts.additionalTools,
+      resumeSessionId: opts.resumeSessionId,
+      ...(opts.responseFormat ? { responseFormat: opts.responseFormat } : {}),
+    };
+  };
+
   return {
     cwd: config.cwd,
     provider: config.provider,
@@ -106,37 +146,8 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
     transportRegistry: config.transportRegistry,
     reloadPluginCommandSource: config.reloadPluginCommandSource ?? (() => {}),
     createSession(opts: IHeadlessSessionOptions): InteractiveSession {
-      const effectiveSessionStore = 'sessionStore' in opts ? opts.sessionStore : sessionStore;
-      return buildRuntimeSession({
-        host: config.host,
-        cwd: config.cwd,
-        provider: config.provider,
-        projectAccess,
-        ...(config.userSettingsSources !== undefined
-          ? { userSettingsSources: config.userSettingsSources }
-          : {}),
-        backgroundTaskRunners,
-        subagentRunnerFactory: config.subagentRunnerFactory,
-        commandModules,
-        commandHostAdapters,
-        permissionMode: opts.permissionMode,
-        maxTurns: opts.maxTurns,
-        sessionStore: effectiveSessionStore,
-        sessionName: opts.sessionName,
-        bare: opts.bare,
-        allowedTools: opts.allowedTools,
-        deniedTools: opts.deniedTools,
-        model: opts.model,
-        appendSystemPrompt: opts.appendSystemPrompt,
-        systemPrompt: opts.systemPrompt,
-        shellExec: opts.shellExec,
-        agentName: opts.agentName,
-        orgPolicy: config.orgPolicy,
-        ...(config.remoteCommandPolicy ? { remoteCommandPolicy: config.remoteCommandPolicy } : {}),
-        additionalTools: opts.additionalTools,
-        resumeSessionId: opts.resumeSessionId,
-        ...(opts.responseFormat ? { responseFormat: opts.responseFormat } : {}),
-      });
+      return buildRuntimeSession(sessionRecipe(opts));
     },
+    sessionRecipe,
   };
 }
