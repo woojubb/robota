@@ -87,6 +87,8 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       deniedTools: Object.values(GOAL_TOOL_NAMES),
     });
     sessions.add(session);
+    // A run that was starting while the runner stopped ends at once instead of working unwatched.
+    if (stopped) session.abort();
     /** Prompt id to the feed item that shows it. */
     const ownPrompts = new Map<string, string>();
     const onToolEnd = (state: { toolName: string; firstArg: string; result?: string }): void => {
@@ -209,10 +211,12 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
         throw new Error('This approval is no longer waiting');
       }
       pending.delete(feedId);
+      // Answered first, recorded after: nothing can settle the prompt between the person's answer and
+      // the session receiving it, so the record always says what the session did.
+      waiting.session.resolvePermission(waiting.promptId, approve);
       const item = await book.setApproval(feedId, approve ? 'approved' : 'denied');
       await waiting.record(approve ? 'approved' : 'denied');
       await settleWaiting(waiting.goalId);
-      waiting.session.resolvePermission(waiting.promptId, approve);
       return item;
     },
     async settled() {
