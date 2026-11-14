@@ -1,5 +1,10 @@
 # @robota-sdk/agent-local-host
 
+## 3.1.0
+### Minor Changes
+
+- b70c658: `startLoopbackGuiServer` accepts an optional `api` handler. A product composition root uses it to serve its own JSON API under the session path's `api/`. The handler is reached only by the browser holding the access cookie, and a request that changes something must also carry the `x-robota-api` header, which a cross-site form cannot set.
+
 ## 3.0.3
 ### Patch Changes
 
