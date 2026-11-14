@@ -8,7 +8,7 @@ import { createRuntimeIdentity } from '@robota-sdk/agent-keyring';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { KeyHolder } from '../../secure/key-holder.js';
+import { KeyHolder } from '@robota-sdk/agent-local-host';
 import { createMemoryKeyringStore } from '../../secure/__tests__/helpers.js';
 import { SECURE_SURFACES } from '../../secure/secure-surfaces.js';
 

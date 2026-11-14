@@ -17,8 +17,8 @@ import {
 import { SealedSessionUnreadableError } from '@robota-sdk/agent-session';
 import { describe, expect, it } from 'vitest';
 
-import { KeyHolderArtifactSealer, WriteOnlyArtifactSealer } from '../artifact-sealer.js';
-import { KeyHolder } from '../key-holder.js';
+import { KeyHolderArtifactSealer, WriteOnlyArtifactSealer } from '@robota-sdk/agent-local-host';
+import { KeyHolder } from '@robota-sdk/agent-local-host';
 import { FIXTURE_PASSPHRASE, createMemoryKeyringStore, fixtureKeyring } from './helpers.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';

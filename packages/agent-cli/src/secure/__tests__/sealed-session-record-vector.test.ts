@@ -25,8 +25,8 @@ import { KeyringError, getSealingPublicKey, parseKeyring } from '@robota-sdk/age
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
-import { KeyHolder } from '../key-holder.js';
+import { KeyHolderArtifactSealer } from '@robota-sdk/agent-local-host';
+import { KeyHolder } from '@robota-sdk/agent-local-host';
 import { createMemoryKeyringStore } from './helpers.js';
 
 const fixture = (name: string): string =>

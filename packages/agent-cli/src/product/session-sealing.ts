@@ -2,10 +2,10 @@ import {
   KeyHolderArtifactSealer,
   ProcessLocalArtifactSealer,
   WriteOnlyArtifactSealer,
-} from '../secure/artifact-sealer.js';
+} from '@robota-sdk/agent-local-host';
 
 import type { ICliRuntimeContext } from './runtime-context.js';
-import type { KeyHolder } from '../secure/key-holder.js';
+import type { KeyHolder } from '@robota-sdk/agent-local-host';
 import type { IArtifactSealer, TArtifactSealing } from '@robota-sdk/agent-core';
 
 /** Be told each time the key a process seals to is verified or changes; returns the way to stop. */

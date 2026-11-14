@@ -19,7 +19,7 @@ import { isUserReadRequest } from '@robota-sdk/agent-ui-terminal';
 
 import { SecretInputCancelled } from '../devices/secret-terminal.js';
 import { terminalHandoffHostOf } from '../remote-control/operator-approval.js';
-import { SealingKeyMismatchError } from '../secure/key-holder.js';
+import { SealingKeyMismatchError } from '@robota-sdk/agent-local-host';
 import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import {
   describeMismatchFailure,
@@ -37,7 +37,7 @@ import { userPaths } from './user-paths.js';
 import type { ICliRuntimeContext } from './runtime-context.js';
 import type { ISecretTerminalSession } from '../devices/secret-terminal.js';
 import type { ITerminalHandoffHost } from '../remote-control/operator-approval.js';
-import type { KeyHolder } from '../secure/key-holder.js';
+import type { KeyHolder } from '@robota-sdk/agent-local-host';
 import type { IKeyringStore } from '@robota-sdk/agent-local-host';
 import type { IKeyCustodyCommandPort, IUnlockResult } from '@robota-sdk/agent-product/command';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';

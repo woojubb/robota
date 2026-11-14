@@ -26,8 +26,8 @@ import { createKeyring } from '@robota-sdk/agent-keyring';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { KeyHolderArtifactSealer } from '../../secure/artifact-sealer.js';
-import { KeyHolder } from '../../secure/key-holder.js';
+import { KeyHolderArtifactSealer } from '@robota-sdk/agent-local-host';
+import { KeyHolder } from '@robota-sdk/agent-local-host';
 import {
   FIXTURE_PASSPHRASE,
   createMemoryKeyringStore,

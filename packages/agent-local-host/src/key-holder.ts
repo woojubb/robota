@@ -47,7 +47,7 @@ import {
   type TKeyringCredential,
 } from '@robota-sdk/agent-keyring';
 
-import { KeyringStoreError, type IKeyringStore } from '@robota-sdk/agent-local-host';
+import { KeyringStoreError, type IKeyringStore } from './keyring-store.js';
 
 import type { IArtifactContext } from '@robota-sdk/agent-core';
 

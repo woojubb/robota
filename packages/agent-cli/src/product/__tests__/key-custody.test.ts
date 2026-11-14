@@ -10,7 +10,7 @@ import { PassThrough } from 'node:stream';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { KeyHolder } from '../../secure/key-holder.js';
+import { KeyHolder } from '@robota-sdk/agent-local-host';
 import {
   FIXTURE_PASSPHRASE,
   createMemoryKeyringStore,

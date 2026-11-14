@@ -37,14 +37,14 @@ import {
   formatWriteGrant,
 } from '../artifact-sealer.js';
 import { KeyHolder, SealingKeyMismatchError } from '../key-holder.js';
-import { KeyringStoreError } from '@robota-sdk/agent-local-host';
+import { KeyringStoreError } from '../index.js';
 import {
   FIXTURE_PASSPHRASE,
   OTHER_PASSPHRASE,
   createMemoryKeyringStore,
   fixtureKeyring,
   withSwappedSealingKey,
-} from './helpers.js';
+} from '../testing.js';
 
 import type { IArtifactContext, TArtifactKind } from '@robota-sdk/agent-core';
 

@@ -48,7 +48,7 @@ import type {
   TRuntimeAdmissionFactory,
 } from '../session-inventory/runtime-admission.js';
 import type { TSupervisedAttachTarget } from '../session-inventory/supervised-attach.js';
-import type { KeyHolder } from './key-holder.js';
+import type { KeyHolder } from '@robota-sdk/agent-local-host';
 import type { SecureWorkspaceRootFence } from './workspace-root-fence.js';
 
 export interface IRuntimeCustodyOptions {

@@ -22,7 +22,7 @@ import {
 import { migrateNodeSessionStore } from '@robota-sdk/agent-session/node';
 
 import { adoptMigratedSessionRecords } from '../product/session-stores.js';
-import { KeyHolderArtifactSealer } from './artifact-sealer.js';
+import { KeyHolderArtifactSealer } from '@robota-sdk/agent-local-host';
 import { sweepMigrationLeftovers } from './migration-leftovers.js';
 import { discoverProjectRoots } from './migration-roots.js';
 

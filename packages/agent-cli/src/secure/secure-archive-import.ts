@@ -9,11 +9,11 @@ import { inspectPromptHistoryFile } from '@robota-sdk/agent-session/node';
 import { createProductArchivePromptHistoryFile } from '../product/session-stores.js';
 import { createCliRuntimeContext } from '../product/runtime-context.js';
 import { BrokeredWorkspaceTrustService } from '../startup/brokered-workspace-trust.js';
-import { KeyHolderArtifactSealer } from './artifact-sealer.js';
+import { KeyHolderArtifactSealer } from '@robota-sdk/agent-local-host';
 import { discoverProjectRoots } from './migration-roots.js';
 
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
-import type { KeyHolder } from './key-holder.js';
+import type { KeyHolder } from '@robota-sdk/agent-local-host';
 import type { IPromptHistorySource } from '@robota-sdk/agent-interface/session';
 
 const MAX_FILE_BYTES = 64 * 1024 * 1024;

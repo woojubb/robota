@@ -27,7 +27,7 @@ import {
   OTHER_PASSPHRASE,
   createMemoryKeyringStore,
   fixtureKeyring,
-} from './helpers.js';
+} from '../testing.js';
 
 import type { IArtifactContext } from '@robota-sdk/agent-core';
 
