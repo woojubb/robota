@@ -6,7 +6,17 @@
  * stored: a profile names the environment variable that holds it, and the key is read from the
  * environment when a provider is built.
  */
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -52,7 +62,9 @@ export function ensureStateDir(stateDir: string): void {
   const mode = statSync(stateDir).mode & 0o777;
   if ((mode & 0o077) === 0) return;
   if (readdirSync(stateDir).length > 0) {
-    throw new Error(`${stateDir} is readable by other users; choose an owner-only or empty state directory`);
+    throw new Error(
+      `${stateDir} is readable by other users; choose an owner-only or empty state directory`,
+    );
   }
   chmodSync(stateDir, 0o700);
 }

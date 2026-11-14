@@ -13,6 +13,7 @@ import {
   KnowledgeWiki,
   WIKI_INSTRUCTIONS,
   createBrowserTools,
+  createChannelHub,
   createFileGoalStore,
   createFileIdeaStore,
   createFileKnowledgeStore,
@@ -22,11 +23,14 @@ import {
 } from '@robota-sdk/agent-product/personal';
 
 import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playwright-browser.js';
+import { createApprovalRegistry } from './approvals.js';
+import { createChannelTurns } from './channel-turns.js';
 import { createGoalRunner } from './goal-runner.js';
 import { createPersonalApi } from './personal-api.js';
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
-import type { IBrowserPort } from '@robota-sdk/agent-product/personal';
+import type { IBrowserPort, IChannelHub } from '@robota-sdk/agent-product/personal';
+import type { IChannelTurns } from './channel-turns.js';
 import type { IPersonalAgent } from './agent.js';
 import type { IGoalRunner } from './goal-runner.js';
 import type { TPersonalApi } from './personal-api.js';
@@ -38,6 +42,11 @@ export interface IPersonalCapabilities {
   readonly browser: IBrowserPort;
   readonly goals: GoalBook;
   readonly ideas: IdeaBook;
+  /**
+   * The channels the person reaches the agent through. Any messenger connects as an adapter of the
+   * standard channel contract; only the owner's verified sender ids are admitted on each.
+   */
+  readonly channels: IChannelHub;
   /** Present once attached to a running agent. */
   readonly runner: () => IGoalRunner | undefined;
   /** The API the web UI calls for the library, search and settings. */
@@ -74,6 +83,24 @@ export function createPersonalCapabilities(
   const goals = new GoalBook({ store: createFileGoalStore(join(options.stateDir, 'goals')) });
   const ideas = new IdeaBook({ store: createFileIdeaStore(join(options.stateDir, 'ideas')) });
   let runner: IGoalRunner | undefined;
+  let channelTurns: IChannelTurns | undefined;
+  const approvals = createApprovalRegistry(goals);
+  const channels = createChannelHub({
+    runTurn: async (key, text) => {
+      if (channelTurns === undefined) throw new Error('The agent is not running yet');
+      return channelTurns.runTurn(key, text);
+    },
+    answerApproval: async (approvalId, approve) => {
+      await approvals.answer(approvalId, approve);
+    },
+  });
+  // Every approval, whatever raised it, is announced on the person's channels as well as the feed.
+  approvals.onRegistered((item) => {
+    if (item.approval === undefined) return;
+    void channels
+      .announceApproval({ approvalId: item.id, title: item.title, detail: item.approval.detail })
+      .catch(() => undefined);
+  });
   const browser = createPlaywrightBrowser({
     profileDir: join(options.stateDir, 'browser-profile'),
     environment: options.environment,
@@ -97,6 +124,7 @@ export function createPersonalCapabilities(
     browser,
     goals,
     ideas,
+    channels,
     runner: () => runner,
     api: createPersonalApi({
       wiki,
@@ -109,14 +137,25 @@ export function createPersonalCapabilities(
     }),
     attach: async (agent) => {
       await goals.recover();
+      channelTurns = createChannelTurns({
+        book: goals,
+        approvals,
+        openSession: (extra) => agent.openSession(extra),
+      });
       runner = createGoalRunner({
         book: goals,
+        approvals,
+        onReport: (goal, report) => {
+          void channels.notify(`${goal.title}: ${report}`).catch(() => undefined);
+        },
         openSession: (extra) => agent.openSession(extra),
         tickMs: options.goalTickMs ?? DEFAULT_GOAL_TICK_MS,
       });
     },
     dispose: async () => {
       await runner?.stop();
+      await channelTurns?.stop();
+      for (const channel of channels.channels()) await channels.disconnect(channel.id);
       await browser.close();
     },
   };
