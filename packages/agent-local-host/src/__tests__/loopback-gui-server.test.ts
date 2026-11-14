@@ -75,6 +75,64 @@ describe('loopback GUI server', () => {
     expect(status).toBe(403);
   });
 
+  describe('behind a reverse proxy', () => {
+    /** A request with a chosen Host header, as a proxy forwarding the public name sends it. */
+    function asHost(server: ILoopbackGuiServer, host: string, init: { method?: string; path?: string; body?: string; cookie?: string } = {}) {
+      const url = new URL(server.url);
+      return new Promise<{ status: number; headers: import('node:http').IncomingHttpHeaders; body: string }>((resolve, reject) => {
+        const req = request({
+          host: url.hostname,
+          port: url.port,
+          method: init.method ?? 'GET',
+          path: init.path ?? '/',
+          headers: {
+            host,
+            ...(init.cookie !== undefined && { cookie: init.cookie }),
+            ...(init.body !== undefined && { 'content-type': 'application/x-www-form-urlencoded' }),
+          },
+        }, (res) => {
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk: string) => (body += chunk));
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body }));
+        });
+        req.on('error', reject);
+        req.end(init.body);
+      });
+    }
+
+    it('admits the configured public host with a Secure cookie over https, and still refuses others', async () => {
+      const code = 'k'.repeat(43);
+      const server = await start({ publicOrigin: 'https://Agent.Example.com', accessCode: code });
+      expect(new URL(server.url).hostname).toBe('127.0.0.1');
+      expect(server.accessCode).toBe(code);
+      expect((await asHost(server, 'agent.example.com')).status).toBe(200);
+      expect((await asHost(server, 'agent.example.com:443')).status).toBe(200);
+      expect((await asHost(server, 'evil.example')).status).toBe(403);
+      expect((await asHost(server, 'agent.example.com.evil.example')).status).toBe(403);
+      const login = await asHost(server, 'agent.example.com', { method: 'POST', path: '/__monitor_login', body: new URLSearchParams({ code }).toString() });
+      expect(login.status).toBe(303);
+      const setCookie = String(login.headers['set-cookie']);
+      expect(setCookie).toMatch(/HttpOnly; SameSite=Strict; Path=\/[^;]+\/; Secure/u);
+      const index = await asHost(server, 'agent.example.com', { path: String(login.headers.location), cookie: setCookie.split(';')[0]! });
+      expect(index.status).toBe(200);
+      expect(index.body).toContain('ws-url');
+    });
+
+    it('keeps the cookie without Secure over plain http, binds a fixed port, and refuses a short kept code', async () => {
+      const probe = await start();
+      const port = Number(new URL(probe.url).port);
+      await probe.close();
+      cleanup.pop();
+      const server = await start({ publicOrigin: 'http://agent.test', port });
+      expect(new URL(server.url).port).toBe(String(port));
+      const login = await asHost(server, 'agent.test', { method: 'POST', path: '/__monitor_login', body: new URLSearchParams({ code: server.accessCode }).toString() });
+      expect(String(login.headers['set-cookie'])).not.toContain('Secure');
+      await expect(start({ accessCode: 'short' })).rejects.toThrow(/at least 32/u);
+      await expect(start({ publicOrigin: 'ftp://agent.test' })).rejects.toThrow(/http or https/u);
+    });
+  });
+
   describe('product API', () => {
     async function session(api: NonNullable<Parameters<typeof startLoopbackGuiServer>[0]['api']>) {
       const server = await start({ api });

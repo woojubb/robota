@@ -3,7 +3,8 @@
  *
  *   personal-agent configure --type <provider> --model <model> [--base-url <url>] [--api-key-env <VAR>]
  *   personal-agent env
- *   personal-agent start [--no-gui]
+ *   personal-agent start [--no-gui] [--server --public-url <https://host> [--gui-port N] [--ws-port N]]
+ *   personal-agent access-code
  *
  * Every command takes `--state-dir <dir>`; without it the state directory comes from
  * `PERSONAL_AGENT_STATE_DIR` or defaults to `~/.robota/personal`.
@@ -16,11 +17,21 @@ import { startLocalMode } from './local-mode.js';
 import { createProviderFromProfile } from './provider.js';
 import { createPersonalCapabilities } from './capabilities.js';
 import { ensureEnvFile, openInEditor, withEnvFile } from './env-file.js';
+import {
+  DEFAULT_GUI_PORT,
+  DEFAULT_WS_PORT,
+  parsePort,
+  parsePublicOrigin,
+  serverAccessCode,
+} from './server-access.js';
 
 const USAGE = `Usage:
   personal-agent configure --type <provider> --model <model> [--base-url <url>] [--api-key-env <VAR>]
   personal-agent env        open the owner-only .env for your provider key in your editor
   personal-agent start [--no-gui]
+  personal-agent start --server --public-url https://agent.example.com [--gui-port 7360] [--ws-port 7361]
+                            publish through a TLS reverse proxy on this host (see the guide)
+  personal-agent access-code   print the published agent's access code
 Options for every command: --state-dir <dir>`;
 
 export async function main(
@@ -37,6 +48,10 @@ export async function main(
       'base-url': { type: 'string' },
       'api-key-env': { type: 'string' },
       'no-gui': { type: 'boolean' },
+      server: { type: 'boolean' },
+      'public-url': { type: 'string' },
+      'gui-port': { type: 'string' },
+      'ws-port': { type: 'string' },
       help: { type: 'boolean' },
     },
   });
@@ -45,13 +60,22 @@ export async function main(
     process.stdout.write(`${USAGE}\n`);
     return 0;
   }
-  if (command !== 'configure' && command !== 'start' && command !== 'env') {
+  if (
+    command !== 'configure' &&
+    command !== 'start' &&
+    command !== 'env' &&
+    command !== 'access-code'
+  ) {
     process.stderr.write(`Unknown command "${command}"\n${USAGE}\n`);
     return 2;
   }
   const stateDir = resolveStateDir(values['state-dir'], environment);
   ensureStateDir(stateDir);
 
+  if (command === 'access-code') {
+    process.stdout.write(`${serverAccessCode(stateDir)}\n`);
+    return 0;
+  }
   if (command === 'env') {
     const path = ensureEnvFile(stateDir);
     process.stdout.write(`Opening ${path}\nPaste your key after "=" on its line and save.\n`);
@@ -85,6 +109,22 @@ export async function main(
     process.stderr.write('No provider is configured. Run `personal-agent configure` first.\n');
     return 2;
   }
+  // Published: the public address, fixed loopback ports for the proxy, and the kept access code.
+  const publicUrlSetting = values['public-url'] ?? merged['PERSONAL_AGENT_PUBLIC_URL'];
+  const server =
+    values.server === true
+      ? {
+          publicOrigin: parsePublicOrigin(
+            publicUrlSetting ??
+              ((): never => {
+                throw new Error('--server needs --public-url (or PERSONAL_AGENT_PUBLIC_URL)');
+              })(),
+          ),
+          guiPort: parsePort(values['gui-port'], DEFAULT_GUI_PORT, '--gui-port'),
+          wsPort: parsePort(values['ws-port'], DEFAULT_WS_PORT, '--ws-port'),
+          accessCode: serverAccessCode(stateDir),
+        }
+      : undefined;
   const capabilities = createPersonalCapabilities({ stateDir, environment: merged });
   const local = await startLocalMode({
     stateDir,
@@ -94,9 +134,14 @@ export async function main(
     instructions: capabilities.instructions,
     gui: values['no-gui'] !== true,
     api: capabilities.api,
+    ...(server !== undefined && { server }),
   });
   await capabilities.attach(local.agent);
-  if (local.gui !== undefined) {
+  if (local.gui !== undefined && server !== undefined) {
+    process.stdout.write(
+      `Personal agent is published at ${server.publicOrigin} (loopback ${local.gui.url})\nAccess code: ${local.gui.accessCode}\n`,
+    );
+  } else if (local.gui !== undefined) {
     process.stdout.write(
       `Personal agent is open at ${local.gui.url}\nAccess code: ${local.gui.accessCode}\n`,
     );

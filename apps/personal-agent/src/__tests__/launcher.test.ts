@@ -49,6 +49,32 @@ describe('personal-agent launcher', () => {
     expect(result.stdout).toContain('personal-agent configure');
   });
 
+  it('prints the kept access code, and refuses --server without a public URL', () => {
+    const env = sandbox();
+    const first = run(['access-code'], env);
+    expect(first.status).toBe(0);
+    expect(first.stdout.trim()).toMatch(/^[A-Za-z0-9_-]{43}$/u);
+    expect(run(['access-code'], env).stdout).toBe(first.stdout);
+    const configured = run(
+      [
+        'configure',
+        '--type',
+        'openai',
+        '--model',
+        'm',
+        '--base-url',
+        'http://127.0.0.1:9/v1',
+        '--api-key-env',
+        'SCRIPTED_KEY',
+      ],
+      env,
+    );
+    expect(configured.status, configured.stderr).toBe(0);
+    const refused = run(['start', '--server'], env);
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toContain('--server needs --public-url');
+  });
+
   it('refuses an unknown command without creating the state directory', () => {
     const env = sandbox();
     const result = run(['strat'], env);

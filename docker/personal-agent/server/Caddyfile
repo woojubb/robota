@@ -1,0 +1,15 @@
+# The public face of a self-hosted personal agent: HTTPS for the domain, the WebSocket under /ws/,
+# everything else to the web UI. The agent itself listens on the host's loopback only.
+{$PERSONAL_AGENT_DOMAIN}{$PERSONAL_AGENT_PUBLIC_PORT_SUFFIX} {
+	# An email gets a public certificate (and expiry notices); "internal" (the compose default when no
+	# email is set) has Caddy's own CA sign it, which only suits a test.
+	tls {$PERSONAL_AGENT_ACME_EMAIL}
+	encode zstd gzip
+	header -Server
+	handle_path /ws/* {
+		reverse_proxy 127.0.0.1:{$PERSONAL_AGENT_WS_PORT:7361}
+	}
+	handle {
+		reverse_proxy 127.0.0.1:{$PERSONAL_AGENT_GUI_PORT:7360}
+	}
+}

@@ -39,7 +39,8 @@ ENV HOME=/home/node \
 RUN mkdir -p /home/node/.personal && chown node:node /home/node/.personal && chmod 0700 /home/node/.personal
 
 # Configures the provider from the environment on every start (the key itself is only ever read
-# from the variable PERSONAL_AGENT_API_KEY_ENV names), then runs the agent in the foreground.
+# from the variable PERSONAL_AGENT_API_KEY_ENV names), then runs the agent in the foreground,
+# published through the host's reverse proxy when PERSONAL_AGENT_PUBLIC_URL is set.
 COPY --chmod=0755 <<'EOF' /usr/local/bin/personal-agent-entrypoint
 #!/bin/sh
 set -eu
@@ -49,6 +50,8 @@ if [ -n "${PERSONAL_AGENT_PROVIDER:-}" ]; then
   if [ -n "${PERSONAL_AGENT_API_KEY_ENV:-}" ]; then set -- "$@" --api-key-env "$PERSONAL_AGENT_API_KEY_ENV"; fi
   personal-agent configure "$@"
 fi
+# Published through a TLS reverse proxy on the host when a public URL is given.
+if [ -n "${PERSONAL_AGENT_PUBLIC_URL:-}" ]; then exec personal-agent start --server; fi
 exec personal-agent start
 EOF
 

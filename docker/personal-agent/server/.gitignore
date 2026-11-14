@@ -1,0 +1,3 @@
+# Settings and the provider key are written here by install.sh; never commit them.
+.env
+secrets.env
