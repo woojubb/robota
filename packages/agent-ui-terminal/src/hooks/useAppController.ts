@@ -10,7 +10,7 @@ import { useTuiChannel } from './useTuiChannel.js';
 import type { IBuildStaticItemsInputs } from '../app-static-items.js';
 import type { IAppInputViewModel, IAppStatusViewModel, IAppViewModel } from '../app-view-model.js';
 import type { ITuiAppChannelPort, ITuiRuntimeStatusSnapshot } from '../tui-app-channel-port.js';
-import type { TSessionSwitch } from '../types.js';
+import type { ISessionSwitchQuestion, TSessionSwitch } from '../types.js';
 import type { IAppInteractionState } from './useAppInteractionState.js';
 import type { IAppLifecycleState } from './useAppLifecycleState.js';
 import type { IAppScreenState } from './useAppScreenState.js';
@@ -43,6 +43,8 @@ export interface IUseAppControllerOptions {
   pluginAdapter?: ICommandPluginAdapter;
   sessionSwitchError?: string;
   sessionSwitchPending?: boolean;
+  /** Open while the person is asked about the running jobs a switch would stop. */
+  sessionSwitchQuestion?: ISessionSwitchQuestion | undefined;
   channel: ITuiAppChannelPort;
   onSessionSwitch: TSessionSwitch;
   onRetrySessionSwitch: () => void;
@@ -81,7 +83,10 @@ function getCoordinationState(
 ): ICoordinationState {
   const error = props.sessionSwitchError ?? lifecycle.startError;
   const pending = Boolean(props.sessionSwitchPending || lifecycle.startPending);
-  return { error, pending, blocked: error !== undefined || pending };
+  // A question about the switch holds the keys like a failed or pending one, so nothing else acts
+  // while it is open.
+  const asking = props.sessionSwitchQuestion !== undefined;
+  return { error, pending, blocked: error !== undefined || pending || asking };
 }
 
 function buildHistorySearch(composition: IComposition): IAppInputViewModel['historySearch'] {
@@ -165,6 +170,7 @@ function buildViewModel(composition: IComposition): IAppViewModel {
     updateNotice: lifecycle.updateNotice,
     coordinationError: composition.coordination.error,
     coordinationPending: composition.coordination.pending,
+    sessionSwitchQuestion: composition.props.sessionSwitchQuestion,
     sessionEventNotices: state.sessionEventNotices,
     isShuttingDown: state.isShuttingDown,
     stream: {
