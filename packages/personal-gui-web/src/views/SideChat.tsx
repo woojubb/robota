@@ -122,7 +122,7 @@ export function SideChat({
   return (
     <aside
       aria-label="Side chat"
-      className="flex h-full w-[480px] flex-shrink-0 flex-col border-l border-border"
+      className="absolute inset-0 z-20 flex h-full flex-col bg-background md:static md:w-[480px] md:flex-shrink-0 md:border-l md:border-border"
     >
       <div className="flex h-12 flex-shrink-0 items-center gap-2 border-b border-border px-3">
         <span className="text-[14px] font-semibold">Side chat</span>

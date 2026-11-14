@@ -17,6 +17,7 @@ import {
 } from '@robota-sdk/agent-product/personal';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
 
+import { LayoutRefusedError } from './layout.js';
 import { SideChatRefusedError } from './side-chats.js';
 import { loadConfig, saveConfig } from './config.js';
 import { createProviderFromProfile } from './provider.js';
@@ -31,6 +32,7 @@ import type {
   SpaceBook,
   TPageKind,
 } from '@robota-sdk/agent-product/personal';
+import type { ILayoutBook } from './layout.js';
 import type { ISideChatBook } from './side-chats.js';
 import type { IGoalRunner } from './goal-runner.js';
 import type { IProviderProfile } from './config.js';
@@ -41,6 +43,7 @@ export interface IPersonalApiOptions {
   readonly ideas: IdeaBook;
   readonly spaces: SpaceBook;
   readonly sideChats: ISideChatBook;
+  readonly layout: ILayoutBook;
   /** The goal runner, once the agent is running; approvals and "run now" need it. */
   readonly runner: () => IGoalRunner | undefined;
   readonly stateDir: string;
@@ -98,7 +101,7 @@ export function providerTypes(): string[] {
 }
 
 export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
-  const { wiki, goals, ideas, spaces, sideChats } = options;
+  const { wiki, goals, ideas, spaces, sideChats, layout } = options;
   /** A space as the page shows it: its pinned pages that still exist, and the opening they make. */
   const spaceView = async (space: ISpace) => {
     const pinned = (await Promise.all(space.pages.map((pageId) => wiki.read(pageId))))
@@ -275,6 +278,8 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       }
       if (id === 'remove') {
         await spaces.remove(collection);
+        // A removed space leaves the person's tab order too.
+        layout.saveTabs(layout.tabs().filter((tab) => tab !== `space:${collection}`));
         return ok({ removed: collection });
       }
     }
@@ -297,6 +302,14 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       }
     }
 
+    if (area === 'layout' && collection === undefined) {
+      if (method === 'GET') return ok({ tabs: layout.tabs() });
+      if (method === 'POST') {
+        const tabs = record(request.body)['tabs'];
+        if (!Array.isArray(tabs)) throw new BadRequest('tabs must be a list');
+        return ok({ tabs: layout.saveTabs(tabs) });
+      }
+    }
     if (area === 'side-chats' && collection === undefined) {
       if (method === 'GET') return ok({ sideChats: sideChats.list() });
       if (method === 'POST') {
@@ -386,6 +399,7 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       if (error instanceof IdeaRefusedError) return fail(400, error.message);
       if (error instanceof SpaceRefusedError) return fail(400, error.message);
       if (error instanceof SideChatRefusedError) return fail(400, error.message);
+      if (error instanceof LayoutRefusedError) return fail(400, error.message);
       if (error instanceof Error && /^No (current claim|wiki page)/u.test(error.message))
         return fail(400, error.message);
       throw error;

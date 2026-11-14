@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@robota-sdk/agent-ui-web": "workspace:^",
+    "lucide-react": "^1.26.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

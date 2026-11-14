@@ -229,6 +229,23 @@ describe('the personal API behind the web UI', () => {
     expect(unpinned.body.space.pages).toEqual([]);
   });
 
+  it('keeps the tab order, refuses what is not a tab, and drops a removed space', async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    expect((await api.get('layout')).body).toEqual({ tabs: [] });
+    const space = (await api.send('POST', 'spaces', { name: 'Garden' })).body.space;
+    const saved = await api.send('POST', 'layout', {
+      tabs: [`space:${space.id}`, 'library', 'chat', 'chat'],
+    });
+    expect(saved.body).toEqual({ tabs: [`space:${space.id}`, 'library', 'chat'] });
+    for (const tabs of [['../x'], ['space:nope'], [3], 'chat']) {
+      expect((await api.send('POST', 'layout', { tabs })).status).toBe(400);
+    }
+    expect((await api.get('layout')).body.tabs).toHaveLength(3);
+    await api.send('POST', `spaces/${space.id}/remove`);
+    expect((await api.get('layout')).body).toEqual({ tabs: ['library', 'chat'] });
+  });
+
   it('records side chats for the menu and forgets them on request', async () => {
     harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
     const api = await client(harness);

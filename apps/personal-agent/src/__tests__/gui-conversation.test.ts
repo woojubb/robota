@@ -87,9 +87,9 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         await page.waitForFunction(bodyIncludes, 'No longer current (1)', { timeout: 5_000 });
         await page.screenshot({ path: join(harness.stateDir, 'library.png') });
 
-        await menu.getByRole('button', { name: 'Search' }).click();
-        await page.getByRole('searchbox', { name: 'Search' }).fill('shellfish');
-        await page.keyboard.press('Enter');
+        // The menu's search field opens the results.
+        await menu.getByRole('searchbox', { name: 'Search' }).fill('shellfish');
+        await menu.getByRole('searchbox', { name: 'Search' }).press('Enter');
         await page.getByRole('button', { name: /Mina/u }).click();
         await page.waitForFunction(bodyIncludes, 'Mina is allergic to peanuts and shellfish', {
           timeout: 5_000,

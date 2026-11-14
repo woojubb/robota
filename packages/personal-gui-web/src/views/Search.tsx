@@ -1,38 +1,54 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { Button, Notice, ViewFrame, errorText, inputClass } from './ui.js';
 
 import type { IPersonalApi, ISearchResult } from '../api.js';
 
-/** One search over what the agent keeps; a result opens its page in the library. */
+/**
+ * One search over what the agent keeps; a result opens its page in the library. A query typed in the
+ * menu's search field arrives as `initialQuery` and runs at once.
+ */
 export function SearchView({
   api,
+  initialQuery,
   onOpenPage,
 }: {
   readonly api: IPersonalApi;
+  readonly initialQuery?: string;
   readonly onOpenPage: (pageId: string) => void;
 }): React.ReactElement {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery ?? '');
   const [results, setResults] = useState<readonly ISearchResult[] | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
+  const run = useCallback(
+    async (text: string) => {
+      try {
+        setResults(await api.search(text));
+        setError(undefined);
+      } catch (caught) {
+        setError(errorText(caught));
+      }
+    },
+    [api],
+  );
+  useEffect(() => {
+    if (initialQuery === undefined || initialQuery.trim() === '') return;
+    setQuery(initialQuery);
+    void run(initialQuery);
+  }, [initialQuery, run]);
   return (
     <ViewFrame title="Search">
       <form
         role="search"
         className="flex max-w-2xl gap-2 p-4"
-        onSubmit={async (event) => {
+        onSubmit={(event) => {
           event.preventDefault();
-          try {
-            setResults(await api.search(query));
-            setError(undefined);
-          } catch (caught) {
-            setError(errorText(caught));
-          }
+          void run(query);
         }}
       >
         <input
           type="search"
-          aria-label="Search"
+          aria-label="Search the library"
           placeholder="People, places, plans, preferences…"
           className={inputClass}
           value={query}

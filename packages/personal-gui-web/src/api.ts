@@ -192,6 +192,9 @@ export interface IPersonalApi {
   }): Promise<{ space: ISpaceView }>;
   removeSpace(id: string): Promise<unknown>;
   sideChats(): Promise<readonly ISideChatView[]>;
+  /** The person's tab order: fixed tab ids and `space:<id>`. */
+  tabs(): Promise<readonly string[]>;
+  saveTabs(tabs: readonly string[]): Promise<{ tabs: readonly string[] }>;
   recordSideChat(input: {
     id: string;
     parentId?: string;
@@ -260,6 +263,8 @@ export function createPersonalApi(
     sideChats: async () =>
       (await call<{ sideChats: ISideChatView[] }>('GET', 'side-chats')).sideChats,
     recordSideChat: (input) => call('POST', 'side-chats', input),
+    tabs: async () => (await call<{ tabs: string[] }>('GET', 'layout')).tabs,
+    saveTabs: (tabs) => call('POST', 'layout', { tabs }),
     removeSideChat: (chatId) => call('POST', `side-chats/${id(chatId)}/remove`),
     pinPage: (spaceId, pageId, pinned) =>
       call('POST', `spaces/${id(spaceId)}/${pinned ? 'pin' : 'unpin'}`, { pageId }),
