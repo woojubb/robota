@@ -39,11 +39,25 @@ export interface IPersonalAgentOptions {
   readonly permissionMode?: TPermissionMode;
 }
 
+export type TPersonalSession = ReturnType<IAgentRuntime['createSession']>;
+
 export interface IPersonalAgent {
   readonly runtime: IAgentRuntime;
-  readonly session: ReturnType<IAgentRuntime['createSession']>;
+  readonly session: TPersonalSession;
   /** The directory the agent's file tools are confined to. */
   readonly workspace: string;
+  /**
+   * Open another session with the same tools and limits, such as one a goal runs in. It may withhold
+   * more tools and add instructions, never offer more.
+   */
+  openSession(extra: IExtraSessionOptions): TPersonalSession;
+}
+
+export interface IExtraSessionOptions {
+  readonly sessionName: string;
+  readonly instructions: string;
+  readonly permissionMode: TPermissionMode;
+  readonly deniedTools?: readonly string[];
 }
 
 export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAgent {
@@ -55,12 +69,23 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
     provider: options.provider,
     sessionStore: createPersonalSessionStore(options.stateDir),
   });
-  const session = runtime.createSession({
-    permissionMode: options.permissionMode ?? 'acceptEdits',
-    deniedTools: [...PERSONAL_WITHHELD_TOOLS],
+  const base = {
     ...(options.model !== undefined && { model: options.model }),
     ...(options.tools !== undefined && { additionalTools: [...options.tools] }),
+  };
+  const session = runtime.createSession({
+    ...base,
+    permissionMode: options.permissionMode ?? 'acceptEdits',
+    deniedTools: [...PERSONAL_WITHHELD_TOOLS],
     ...(options.instructions !== undefined && { appendSystemPrompt: options.instructions }),
   });
-  return { runtime, session, workspace };
+  const openSession = (extra: IExtraSessionOptions): TPersonalSession =>
+    runtime.createSession({
+      ...base,
+      sessionName: extra.sessionName,
+      permissionMode: extra.permissionMode,
+      deniedTools: [...PERSONAL_WITHHELD_TOOLS, ...(extra.deniedTools ?? [])],
+      appendSystemPrompt: [options.instructions, extra.instructions].filter((text) => text !== undefined).join('\n\n'),
+    });
+  return { runtime, session, workspace, openSession };
 }
