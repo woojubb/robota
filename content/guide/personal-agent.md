@@ -54,7 +54,8 @@ Any messenger can reach your agent through an adapter of the standard channel co
 (`createChannelHub` and `IChannelAdapter` in `@robota-sdk/agent-product/personal`). Only the sender ids
 you verified for yourself on a channel get answers. Approvals arrive as buttons where the messenger has
 them; elsewhere you get a note to approve in your Feed, because a typed "yes" is never an approval.
-Goal reports are sent to your channels too. No messenger adapter ships yet; each is added as its own
+Goal reports are sent to your channels too. Approvals and reports go to the conversation you choose for
+notices, so make it a direct chat with your agent, not a group. No messenger adapter ships yet; each is added as its own
 adapter.
 
 ## Where it keeps things

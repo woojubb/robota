@@ -45,6 +45,8 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
       keepWith: 'chats',
     });
     const ownPrompts = new Map<string, string>();
+    /** Prompts settled before their approval was posted, such as by a shutdown: never offered. */
+    const settledEarly = new Set<string>();
     opened.on('permission_request', ((event: {
       id: string;
       toolName: string;
@@ -59,6 +61,10 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
           approval: { tool: event.toolName, detail, state: 'pending' },
         });
         ownPrompts.set(event.id, item.id);
+        if (settledEarly.delete(event.id)) {
+          await book.setApproval(item.id, 'expired');
+          return;
+        }
         approvals.register(item, {
           session: opened,
           promptId: event.id,
@@ -69,7 +75,11 @@ export function createChannelTurns(options: IChannelTurnsOptions): IChannelTurns
     // A prompt settled by anything but the person's answer can no longer be approved.
     opened.on('prompt_resolved', ((event: { id: string }) => {
       const feedId = ownPrompts.get(event.id);
-      if (feedId !== undefined && approvals.release(feedId))
+      if (feedId === undefined) {
+        settledEarly.add(event.id);
+        return;
+      }
+      if (approvals.release(feedId))
         void book.setApproval(feedId, 'expired').catch(() => undefined);
     }) as never);
     sessions.set(key, opened);

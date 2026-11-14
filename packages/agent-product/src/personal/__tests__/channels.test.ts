@@ -110,6 +110,15 @@ describe('channel hub', () => {
     await expect(instance.connect({ adapter: broken, ownerSenderIds: ['o'] })).rejects.toThrow(
       'cannot request an approval',
     );
+    for (const maxTextLength of [0, -5, 0.5]) {
+      const bad = createFixtureChannel({
+        id: `bad-${maxTextLength}`,
+        capabilities: { maxTextLength },
+      });
+      await expect(instance.connect({ adapter: bad, ownerSenderIds: ['o'] })).rejects.toThrow(
+        'positive whole number',
+      );
+    }
     expect(instance.channels().map((channel) => channel.id)).toEqual(['fixture']);
     await instance.disconnect('fixture');
     expect(instance.channels()).toEqual([]);
@@ -128,6 +137,32 @@ describe('splitting for a channel', () => {
       'x'.repeat(10),
       'x'.repeat(10),
       'x'.repeat(5),
+    ]);
+  });
+
+  it('tells the owner briefly when a turn or an answer fails, and never passes the failure to the adapter', async () => {
+    const instance = createChannelHub({
+      runTurn: async () => {
+        throw new Error('model unavailable');
+      },
+      answerApproval: async () => {
+        throw new Error('no longer waiting');
+      },
+    });
+    const channel = createFixtureChannel();
+    await instance.connect({
+      adapter: channel,
+      ownerSenderIds: ['owner-1'],
+      notifyConversationId: 'dm',
+    });
+    await expect(channel.deliver('chat-1', 'owner-1', 'Hello')).resolves.toBeUndefined();
+    await expect(channel.press('feed-9', true, 'owner-1')).resolves.toBeUndefined();
+    expect(channel.sent).toEqual([
+      {
+        conversationId: 'chat-1',
+        text: 'Your agent could not answer that just now. Try again, or use the web UI.',
+      },
+      { conversationId: 'dm', text: 'That approval is no longer waiting.' },
     ]);
   });
 });

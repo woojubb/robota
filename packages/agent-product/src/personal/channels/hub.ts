@@ -89,11 +89,17 @@ export function createChannelHub(options: IChannelHubOptions): IChannelHub {
         options.onRefused?.(binding.adapter.id, message.senderId);
         return;
       }
-      const reply = await options.runTurn(
-        { channel: binding.adapter.id, conversationId: message.conversationId },
-        message.text,
-      );
-      await send(binding, message.conversationId, reply);
+      // A failed turn is told to the owner briefly; an adapter never receives the agent's failure.
+      let reply: string;
+      try {
+        reply = await options.runTurn(
+          { channel: binding.adapter.id, conversationId: message.conversationId },
+          message.text,
+        );
+      } catch {
+        reply = 'Your agent could not answer that just now. Try again, or use the web UI.';
+      }
+      await send(binding, message.conversationId, reply).catch(() => undefined);
     },
     async onApprovalAnswer(answer: IChannelApprovalAnswer): Promise<void> {
       // Only a structured action from the owner answers an approval; anyone else's is ignored.
@@ -101,7 +107,17 @@ export function createChannelHub(options: IChannelHubOptions): IChannelHub {
         options.onRefused?.(binding.adapter.id, answer.senderId);
         return;
       }
-      await options.answerApproval(answer.approvalId, answer.approve);
+      try {
+        await options.answerApproval(answer.approvalId, answer.approve);
+      } catch {
+        if (binding.notifyConversationId !== undefined) {
+          await send(
+            binding,
+            binding.notifyConversationId,
+            'That approval is no longer waiting.',
+          ).catch(() => undefined);
+        }
+      }
     },
   });
 
@@ -111,6 +127,12 @@ export function createChannelHub(options: IChannelHubOptions): IChannelHub {
         throw new Error(`Channel ${binding.adapter.id} is already connected`);
       if (binding.ownerSenderIds.length === 0)
         throw new Error('A channel needs the owner identity it admits');
+      const limit = binding.adapter.capabilities.maxTextLength;
+      if (limit !== undefined && !(Number.isInteger(limit) && limit > 0)) {
+        throw new Error(
+          `Channel ${binding.adapter.id} declares a text limit that is not a positive whole number`,
+        );
+      }
       if (binding.adapter.capabilities.actions && binding.adapter.requestApproval === undefined) {
         throw new Error(
           `Channel ${binding.adapter.id} declares actions but cannot request an approval`,
