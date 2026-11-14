@@ -3,14 +3,15 @@
  * from the host's layout in whatever spelling the host used (`.a\cp` from a Windows host), while the
  * path under test comes from `node:path`, so the guard compares segments, not text.
  */
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, parse } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { makeCanonicalTempDir } from '../../testing/canonical-temp-dir.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createWorkspaceProjectMutation } from '../../workspace-trust/index.js';
+import { EditCheckpointAuthorityIO } from '../edit-checkpoint-authority-io.js';
 import { EditCheckpointStore } from '../edit-checkpoint-store.js';
 import { createDirectoryEditCheckpointState } from '../edit-checkpoint-state-storage.js';
 import { isInsideCheckpointRoot } from '../edit-checkpoint-store-helpers.js';
@@ -57,6 +58,25 @@ function stateSittingUnder(root: string): IEditCheckpointStateStorage {
   return Object.create(held, { rootRelativePath: { value: root } }) as IEditCheckpointStateStorage;
 }
 
+/** The authority and approved mutation a trusted fixture project gives a checkpoint store. */
+async function trustedProject(project: string) {
+  const access = await createTrustedProjectAccessFixture(project);
+  if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+  const mutation = createWorkspaceProjectMutation(access.authority, {
+    status: 'approved',
+    purpose: 'checkpoint root guard test',
+  });
+  return { authority: access.authority, mutation };
+}
+
+async function openStore(
+  project: string,
+  stateStorage: IEditCheckpointStateStorage,
+): Promise<EditCheckpointStore> {
+  const { authority, mutation } = await trustedProject(project);
+  return new EditCheckpointStore({ authority, mutation, stateStorage, sealing: 'plain' });
+}
+
 async function captureUnder(root: string, file: string): Promise<number | undefined> {
   const project = join(base, 'project');
   mkdirSync(join(project, '.a', 'cp', 's1', 'turn-0001'), { recursive: true });
@@ -64,17 +84,7 @@ async function captureUnder(root: string, file: string): Promise<number | undefi
   writeFileSync(join(project, '.a', 'cp', 's1', 'turn-0001', 'manifest.json'), '{}');
   writeFileSync(join(project, '.a', 'cp-two', 'notes.txt'), 'not state');
   writeFileSync(join(project, '..dots.txt'), 'a valid project file');
-  const access = await createTrustedProjectAccessFixture(project);
-  if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
-  const store = new EditCheckpointStore({
-    authority: access.authority,
-    mutation: createWorkspaceProjectMutation(access.authority, {
-      status: 'approved',
-      purpose: 'checkpoint root guard test',
-    }),
-    stateStorage: stateSittingUnder(root),
-    sealing: 'plain',
-  });
+  const store = await openStore(project, stateSittingUnder(root));
   await store.beginTurn({ sessionId: 'session_1', prompt: 'edit' });
   await store.captureFile(join(project, file));
   return (await store.finalizeTurn())?.fileCount;
@@ -99,3 +109,125 @@ describe('an EditCheckpointStore whose state sits under the project', () => {
     },
   );
 });
+
+/** A name that merely starts with two dots is a file inside the project, not a way out of it. */
+describe('EditCheckpointAuthorityIO.toProjectRelativePath', () => {
+  async function authorityIO(project: string): Promise<EditCheckpointAuthorityIO> {
+    mkdirSync(project, { recursive: true });
+    const { authority, mutation } = await trustedProject(project);
+    return new EditCheckpointAuthorityIO(
+      authority,
+      mutation,
+      createDirectoryEditCheckpointState(join(base, 'held')),
+    );
+  }
+
+  it.each([
+    ['..dots.txt', ['..dots.txt']],
+    ['...', ['...']],
+    ['.. x', ['.. x']],
+    ['..hidden/notes.txt', ['..hidden', 'notes.txt']],
+    ['a/..b/c', ['a', '..b', 'c']],
+  ])('accepts %j, a name inside the project', async (name, segments) => {
+    const project = join(base, 'project');
+    const io = await authorityIO(project);
+    expect(io.toProjectRelativePath(join(project, ...name.split('/')))).toBe(join(...segments));
+  });
+
+  it.each([
+    ['the project root itself', (project: string) => project],
+    ['a sibling of the project', (project: string) => join(dirname(project), 'x')],
+    ['a sibling that shares the project name as a prefix', (project: string) => `${project}-x/f`],
+    [
+      'a path that climbs out of the project',
+      (project: string) => join(project, 'a', '..', '..', 'x'),
+    ],
+    ['the filesystem root', (project: string) => parse(project).root],
+  ])('refuses %s', async (_label, pathOf) => {
+    const project = join(base, 'project');
+    const io = await authorityIO(project);
+    expect(() => io.toProjectRelativePath(pathOf(project))).toThrow(
+      /outside the authorized project/u,
+    );
+  });
+
+  it.runIf(process.platform === 'win32')('refuses a path on another drive or share', async () => {
+    const project = join(base, 'project');
+    const io = await authorityIO(project);
+    const drive = parse(project).root[0]?.toUpperCase() === 'Z' ? 'Y' : 'Z';
+    for (const path of [`${drive}:\\x\\y.txt`, '\\\\server\\share\\y.txt']) {
+      expect(() => io.toProjectRelativePath(path), path).toThrow(/outside the authorized project/u);
+    }
+  });
+});
+
+/** Writing a project file back needs the host's root-anchored mutation, which only Linux provides. */
+describe.runIf(process.platform === 'linux')(
+  'restoring a project file whose name starts with two dots',
+  () => {
+    const FILES = ['..dots.txt', join('..hidden', 'notes.txt')];
+
+    function projectWith(file: string, content: string | undefined): string {
+      const project = join(base, 'project');
+      mkdirSync(dirname(join(project, file)), { recursive: true });
+      if (content !== undefined) writeFileSync(join(project, file), content);
+      return project;
+    }
+
+    /** Checkpoint `file` in a turn of its own, then change it the way the turn's edit did. */
+    async function editInTurn(
+      store: EditCheckpointStore,
+      project: string,
+      file: string,
+      after: string,
+    ): Promise<void> {
+      await store.beginTurn({ sessionId: 'session_1', prompt: 'edit' });
+      await store.captureFile(join(project, file));
+      writeFileSync(join(project, file), after);
+      await store.finalizeTurn();
+    }
+
+    it.each(FILES)('rolls %j back through the checkpoint that captured it', async (file) => {
+      const project = projectWith(file, 'before');
+      const store = await openStore(
+        project,
+        createDirectoryEditCheckpointState(join(base, 'held')),
+      );
+      await editInTurn(store, project, file, 'after');
+
+      const result = await store.rollbackThroughCheckpoint('session_1', 'turn-0001');
+
+      expect(result.restoredFileCount).toBe(1);
+      expect(readFileSync(join(project, file), 'utf8')).toBe('before');
+    });
+
+    it.each(FILES)('restores %j to the checkpoint taken before it was edited', async (file) => {
+      const project = projectWith(file, 'before');
+      const store = await openStore(
+        project,
+        createDirectoryEditCheckpointState(join(base, 'held')),
+      );
+      await store.beginTurn({ sessionId: 'session_1', prompt: 'first' });
+      await store.finalizeTurn();
+      await editInTurn(store, project, file, 'after');
+
+      const result = await store.restoreToCheckpoint('session_1', 'turn-0001');
+
+      expect(result.restoredFileCount).toBe(1);
+      expect(readFileSync(join(project, file), 'utf8')).toBe('before');
+    });
+
+    it.each(FILES)('removes %j when the checkpointed turn created it', async (file) => {
+      const project = projectWith(file, undefined);
+      const store = await openStore(
+        project,
+        createDirectoryEditCheckpointState(join(base, 'held')),
+      );
+      await editInTurn(store, project, file, 'created');
+
+      await store.rollbackThroughCheckpoint('session_1', 'turn-0001');
+
+      expect(existsSync(join(project, file))).toBe(false);
+    });
+  },
+);

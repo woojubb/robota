@@ -1,4 +1,4 @@
-import { relative, resolve } from 'node:path';
+import { resolve } from 'node:path';
 
 import { SEALED_ARTIFACT_MAX_OVERHEAD_BYTES } from '@robota-sdk/agent-core';
 
@@ -8,6 +8,8 @@ import {
 } from '../workspace-trust/index.js';
 import { assertWorkspaceProjectMutationForAuthority } from '../workspace-trust/project-mutation.js';
 import { MAX_PROJECT_READ_BYTES } from '../workspace-trust/project-reader-path.js';
+
+import { relativeInsideProject } from './edit-checkpoint-store-helpers.js';
 
 import type { IEditCheckpointStateStorage } from './edit-checkpoint-state-storage.js';
 import type {
@@ -158,13 +160,8 @@ export class EditCheckpointAuthorityIO {
 
   /** The project-relative form of a manifest's `originalPath`; throws when it is not inside the project. */
   toProjectRelativePath(originalPath: string): string {
-    const candidate = resolve(originalPath);
-    const relativePath = relative(this.cwd, candidate);
-    if (
-      relativePath.length === 0 ||
-      relativePath.startsWith('..') ||
-      resolve(this.cwd, relativePath) !== candidate
-    ) {
+    const relativePath = relativeInsideProject(this.cwd, resolve(originalPath));
+    if (relativePath === undefined) {
       throw new Error(`Checkpoint path is outside the authorized project: ${originalPath}`);
     }
     return relativePath;

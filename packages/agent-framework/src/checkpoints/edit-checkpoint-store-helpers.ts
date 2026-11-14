@@ -1,4 +1,4 @@
-import { isAbsolute, join, relative } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { DEFAULT_BRANCH_ID } from './edit-checkpoint-types.js';
 import { workspacePathSegments } from '../workspace-trust/project-reader-path.js';
@@ -117,6 +117,25 @@ export function migrateManifestsToTree(
       ...(previous ? { parentId: previous.id } : {}),
     };
   });
+}
+
+/**
+ * `absolutePath` relative to the project root `cwd`, or `undefined` when it is the root itself or
+ * leaves it. A path leaves the project only when its first segment is exactly `..` or it is anchored
+ * elsewhere (another drive or share); a name that merely starts with two dots, such as `..notes`, is
+ * an ordinary file inside it.
+ */
+export function relativeInsideProject(cwd: string, absolutePath: string): string | undefined {
+  const relativePath = relative(cwd, absolutePath);
+  if (
+    relativePath.length === 0 ||
+    relativePath.split(sep)[0] === '..' ||
+    isAbsolute(relativePath) ||
+    resolve(cwd, relativePath) !== absolutePath
+  ) {
+    return undefined;
+  }
+  return relativePath;
 }
 
 /**
