@@ -605,9 +605,14 @@ runtime-accepted authority, and is refused when the real CLI working directory i
 authority's frozen workspace root. Every session it builds gets an edit checkpoint store, and
 sessions that can run turns at the same time never share one, because a store holds its session's
 turn in progress. The broker holds the project root, so it also takes the checkpoint writer's
-exclusive lease and its atomic directory claims on the store's behalf; a lease ends when its trust
+exclusive lease, its atomic directory claims and the removals that let deleting a project session
+take everything the session left (its subagent logs, which are the user's, included) on the
+stores' behalf; a lease ends when its trust
 lease is revoked, when the broker closes or when the process that took it is gone, so a crashed
-client never leaves a live-looking writer owned by the long-lived broker. On a host that cannot prove a project write stays under that root,
+client never leaves a live-looking writer owned by the long-lived broker. A broker an older CLI
+started refuses an operation added since as malformed, having done nothing, and the CLI says to
+restart it rather than bump the protocol version, which would break the check that finds a live
+broker. On a host that cannot prove a project write stays under that root,
 nothing is written under the project: the workspace's sessions, which are the user's own, are kept in
 the user session store and found there by their working directory, so they are still saved and
 resumable, while project memory, which belongs to the repository, and edit checkpoints, whose restore

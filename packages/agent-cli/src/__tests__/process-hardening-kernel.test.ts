@@ -47,14 +47,15 @@ ${READY}`,
 
 /**
  * A hardened process doing what the product does through `/proc/self`: a trusted project-state
- * write walks `/proc/self/fd`, and the Read tool's path guard resolves `/proc/self/fd/<n>`. The
- * escaping link and the linked ancestor are the negative controls: still refused once hardened.
+ * write walks `/proc/self/fd`, a directory removal also reads each directory's mount id from
+ * `/proc/self/fdinfo`, and the Read tool's path guard resolves `/proc/self/fd/<n>`. The escaping
+ * link and the linked ancestor are the negative controls: still refused once hardened.
  */
 const battery = join(scratch, 'battery.mjs');
 writeFileSync(
   battery,
   `import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -88,9 +89,17 @@ try {
   result.write = attempt(() => logs.writeText('nested/run.jsonl', '{"line":1}\\n', 'kernel test'));
   result.onDisk = readFileSync(join(workspace, '.state/logs/nested/run.jsonl'), 'utf8');
   result.readBack = logs.readText('nested/run.jsonl', 'kernel test');
+  logs.writeText('removed/inner/run.jsonl', 'x', 'kernel test');
+  symlinkSync(join(outside, 'secret.txt'), join(workspace, '.state/logs/removed/inner/planted'));
+  result.removal = logs.removeDirectory('removed', 'kernel test').status;
+  result.removedOnDisk = existsSync(join(workspace, '.state/logs/removed'));
+  result.outsideAfterRemoval = readFileSync(join(outside, 'secret.txt'), 'utf8');
   symlinkSync(join(outside, 'elsewhere'), join(workspace, '.state/logs/linked'));
   result.linkedAncestor = attempt(() => logs.writeText('linked/x.jsonl', 'no', 'kernel test'));
   result.outsideAfterLinkedWrite = readdirSync(join(outside, 'elsewhere'));
+  mkdirSync(join(outside, 'elsewhere', 'inner'));
+  result.linkedRemoval = attempt(() => logs.removeDirectory('linked/inner', 'kernel test'));
+  result.outsideAfterLinkedRemoval = readdirSync(join(outside, 'elsewhere'));
   const read = async (file) => JSON.parse(String((await createReadTool({ cwd: workspace }).execute({ filePath: join(workspace, file) })).data));
   const inside = await read('inside.txt');
   const escape = await read('escape.txt');
@@ -263,8 +272,13 @@ async function signalInspector(
       write: 'ok',
       onDisk: '{"line":1}\n',
       readBack: '{"line":1}\n',
+      removal: 'removed',
+      removedOnDisk: false,
+      outsideAfterRemoval: 'OUTSIDE-SECRET',
       linkedAncestor: 'WORKSPACE_AUTHORITY_REQUIRED',
       outsideAfterLinkedWrite: [],
+      linkedRemoval: 'WORKSPACE_AUTHORITY_REQUIRED',
+      outsideAfterLinkedRemoval: ['inner'],
       readInside: true,
       readEscape: false,
     });

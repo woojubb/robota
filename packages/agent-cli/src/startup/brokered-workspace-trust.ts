@@ -8,7 +8,9 @@ import {
 import {
   WorkspaceAuthorityRequiredError,
   WorkspaceTrustService,
+  type IWorkspaceAppendOptions,
   type IWorkspaceDirectoryEntry,
+  type IWorkspaceDirectoryRemovalOptions,
   type IWorkspaceIdentity,
   type IWorkspaceIdentityResolver,
   type IWorkspaceProjectFiles,
@@ -16,12 +18,18 @@ import {
   type IWorkspaceProjectStableWriter,
   type IWorkspaceTrustStore,
   type TWorkspaceContributionKind,
+  type TWorkspaceDirectoryRemoval,
   type TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import { createNodeWorkspaceIdentityResolver } from '@robota-sdk/agent-framework/node';
 
 import { ensureWorkspaceRootBroker } from './workspace-root-broker-process.js';
-import { requestWorkspaceRootBroker, type TWorkspaceRootBrokerResponse } from './workspace-root-broker.js';
+import {
+  isRemovalBudget,
+  requestWorkspaceRootBroker,
+  type TWorkspaceRootBrokerMutation,
+  type TWorkspaceRootBrokerResponse,
+} from './workspace-root-broker.js';
 import { SyncWorkspaceRootBrokerClient } from './workspace-root-broker-sync.js';
 
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
@@ -31,6 +39,62 @@ const KINDS = new Set(['file', 'directory', 'link', 'other']);
 function refusal(response: TWorkspaceRootBrokerResponse): never {
   const reason = response.status === 'refused' ? response.reason : response.status;
   throw new WorkspaceAuthorityRequiredError(`The live workspace broker refused the operation (${reason}).`);
+}
+
+/**
+ * The broker's namespace is keyed by the user root, not by the CLI version, so a broker an older CLI
+ * started can still be serving. It does not know an operation added since and refuses it as
+ * malformed, having done nothing; only restarting that broker cures it, so the person is told that.
+ */
+function refusalOfNewOperation(response: TWorkspaceRootBrokerResponse, operation: string): never {
+  if (response.status === 'refused' && response.reason === 'malformed') {
+    throw new WorkspaceAuthorityRequiredError(
+      `The running workspace-root broker is older than this CLI and cannot ${operation}. ` +
+        'Restart the workspace-root broker: end its process (started with --internal-root-broker), ' +
+        'then run the command again so a current broker starts.',
+    );
+  }
+  return refusal(response);
+}
+
+/** What a brokered directory removal achieved, from the broker's answer. */
+export function brokeredDirectoryRemoval(
+  response: TWorkspaceRootBrokerResponse,
+): TWorkspaceDirectoryRemoval {
+  if (response.status !== 'mutation') return refusalOfNewOperation(response, 'remove directories');
+  switch (response.value) {
+    case 'removed':
+      return { status: 'removed' };
+    case 'absent':
+      return { status: 'absent' };
+    case 'partial-budget':
+      return { status: 'partial', reason: 'budget' };
+    case 'partial-concurrent':
+      return { status: 'partial', reason: 'concurrent' };
+    default:
+      throw new WorkspaceAuthorityRequiredError(
+        'The workspace broker returned an invalid removal result.',
+      );
+  }
+}
+
+/**
+ * Whether a brokered append appended, from the broker's answer. A creating append always does when it
+ * answers at all (a broker an older CLI started sends no value for it); a non-creating one answers
+ * with a boolean, and anything else is refused rather than read as either.
+ */
+export function brokeredAppend(response: TWorkspaceRootBrokerResponse, create: boolean): boolean {
+  if (!create) {
+    if (response.status !== 'mutation')
+      return refusalOfNewOperation(response, 'append without creating');
+    if (typeof response.value === 'boolean') return response.value;
+  } else {
+    if (response.status !== 'mutation') return refusal(response);
+    if (response.value === undefined || response.value === true) return true;
+  }
+  throw new WorkspaceAuthorityRequiredError(
+    'The workspace broker returned an invalid append result.',
+  );
 }
 
 function kind(value: string): TWorkspaceContributionKind {
@@ -158,13 +222,26 @@ export class BrokeredWorkspaceTrustService {
     };
     const sync = (request: Parameters<SyncWorkspaceRootBrokerClient['request']>[0]) =>
       this.#sync.request(request);
-    const mutation = (
+    /** One mutation request, its answer unread: each gets a fresh operation id. */
+    const mutate = (
       root: string,
-      method: Extract<Parameters<typeof sync>[0], { op: 'mutate' }>['method'],
+      method: TWorkspaceRootBrokerMutation,
       relativePath: string,
-      options: { content?: Uint8Array | string; temporaryName?: string; apply?: boolean; migrationStartedAt?: number } = {},
+      options: {
+        content?: Uint8Array | string;
+        temporaryName?: string;
+        apply?: boolean;
+        migrationStartedAt?: number;
+      } & IWorkspaceDirectoryRemovalOptions = {},
     ): TWorkspaceRootBrokerResponse => {
-      const response = sync({
+      for (const budget of [options.maxEntries, options.maxMs]) {
+        if (budget !== undefined && !isRemovalBudget(budget)) {
+          throw new WorkspaceAuthorityRequiredError(
+            'A directory removal budget must be a positive whole number.',
+          );
+        }
+      }
+      return sync({
         op: 'mutate', lease: leaseFor(root), operationId: randomUUID(), method, relativePath,
         ...(options.content === undefined ? {} : {
           content: (typeof options.content === 'string'
@@ -175,7 +252,12 @@ export class BrokeredWorkspaceTrustService {
         ...(options.migrationStartedAt === undefined ? {} : {
           migrationStartedAt: options.migrationStartedAt,
         }),
+        ...(options.maxEntries === undefined ? {} : { maxEntries: options.maxEntries }),
+        ...(options.maxMs === undefined ? {} : { maxMs: options.maxMs }),
       });
+    };
+    const mutation = (...args: Parameters<typeof mutate>): TWorkspaceRootBrokerResponse => {
+      const response = mutate(...args);
       if (response.status !== 'mutation' && response.status !== 'missing') return refusal(response);
       return response;
     };
@@ -207,7 +289,13 @@ export class BrokeredWorkspaceTrustService {
         return Object.freeze({
           write: (path: string, content: Uint8Array | string) => { mutation(root, 'write', path, { content }); },
           replace: (path: string, content: Uint8Array | string) => { mutation(root, 'replace', path, { content }); },
-          append: (path: string, content: string) => { mutation(root, 'append', path, { content }); },
+          append: (path: string, content: string, options?: IWorkspaceAppendOptions) => {
+            const create = options?.create !== false;
+            return brokeredAppend(
+              mutate(root, create ? 'append' : 'appendExisting', path, { content }),
+              create,
+            );
+          },
           delete: (path: string) => result(mutation(root, 'delete', path)) as boolean,
           sweepTemporaries: (path: string, apply: boolean, migrationStartedAt?: number) =>
             result(mutation(root, 'sweepTemporaries', path, { apply, migrationStartedAt })) as number,
@@ -224,6 +312,8 @@ export class BrokeredWorkspaceTrustService {
             mutation(root, 'discardStaged', path, { temporaryName });
           },
           claimDirectory: (path: string) => result(mutation(root, 'claimDirectory', path)) as boolean,
+          removeDirectory: (path: string, options?: IWorkspaceDirectoryRemovalOptions) =>
+            brokeredDirectoryRemoval(mutate(root, 'removeDirectory', path, options)),
           acquireWriter: (path: string): IProcessMarkerHandle | undefined => {
             const response = sync({
               op: 'acquireWriter', lease: leaseFor(root), relativePath: path, owner: process.pid,

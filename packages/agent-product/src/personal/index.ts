@@ -61,3 +61,17 @@ export type {
   TGoalRunOutcome,
   TGoalStatus,
 } from './goals/types.js';
+export {
+  IdeaBook,
+  IdeaRefusedError,
+  createFileIdeaStore,
+  createMemoryIdeaStore,
+} from './ideas/ideas.js';
+export type {
+  IIdea,
+  IIdeaBookOptions,
+  IIdeaStore,
+  TIdeaOrigin,
+  TIdeaStatus,
+} from './ideas/ideas.js';
+export { IDEA_INSTRUCTIONS, IDEA_TOOL_NAMES, createIdeaTools } from './ideas/tools.js';

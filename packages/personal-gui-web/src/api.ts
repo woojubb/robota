@@ -116,6 +116,16 @@ export interface IFeedItemView {
   };
 }
 
+export interface IIdeaView {
+  readonly id: string;
+  readonly text: string;
+  readonly tags: readonly string[];
+  readonly origin: 'owner' | 'agent';
+  readonly status: 'open' | 'taken-up' | 'archived';
+  readonly takenUpAs?: string;
+  readonly createdAt: string;
+}
+
 export const API_WRITE_HEADER = 'x-robota-api';
 
 export class ApiError extends Error {
@@ -154,6 +164,12 @@ export interface IPersonalApi {
   }): Promise<{ goal: IGoalView }>;
   goalAction(id: string, action: 'pause' | 'resume' | 'run' | 'stop'): Promise<unknown>;
   feed(): Promise<readonly IFeedItemView[]>;
+  ideas(tag?: string): Promise<readonly IIdeaView[]>;
+  addIdea(input: { text: string; tags: readonly string[] }): Promise<{ idea: IIdeaView }>;
+  ideaAction(
+    id: string,
+    action: 'archive' | 'remove' | 'make-goal',
+  ): Promise<{ idea?: IIdeaView; goal?: IGoalView }>;
   answerFeed(id: string, action: 'approve' | 'deny' | 'dismiss'): Promise<unknown>;
   saveProvider(provider: IProviderSettings): Promise<{ saved: true; restartRequired: boolean }>;
 }
@@ -195,6 +211,15 @@ export function createPersonalApi(
     createGoal: (input) => call('POST', 'goals', input),
     goalAction: (goalId, action) => call('POST', `goals/${id(goalId)}/${action}`),
     feed: async () => (await call<{ items: IFeedItemView[] }>('GET', 'feed')).items,
+    ideas: async (tag) =>
+      (
+        await call<{ ideas: IIdeaView[] }>(
+          'GET',
+          tag === undefined ? 'ideas' : `ideas?tag=${encodeURIComponent(tag)}`,
+        )
+      ).ideas,
+    addIdea: (input) => call('POST', 'ideas', input),
+    ideaAction: (ideaId, action) => call('POST', `ideas/${id(ideaId)}/${action}`),
     answerFeed: (itemId, action) => call('POST', `feed/${id(itemId)}/${action}`),
   };
 }

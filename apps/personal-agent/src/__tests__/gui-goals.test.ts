@@ -98,5 +98,47 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         await browser.close();
       }
     });
+
+    it('shows an idea the agent suggested in chat as its suggestion, and makes it a goal when the person chooses', async () => {
+      harness = await startHarness({ gui: true });
+      harness.model.script(
+        {
+          tool: 'IdeaAdd',
+          args: {
+            text: 'Plan a picnic at the river this spring',
+            tags: ['outdoors'],
+            origin: 'agent',
+          },
+        },
+        { text: 'I kept a picnic idea for you.' },
+      );
+      const browser = await chromium!.launch();
+      try {
+        const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+        await page.goto(harness.local.gui!.url);
+        await page.fill('input[name=code]', harness.local.gui!.accessCode);
+        await page.click('button[type=submit]');
+        await page.waitForFunction(bodyIncludes, 'Session connected', { timeout: 15_000 });
+        await page.locator('textarea').fill('Any ideas for the spring?');
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(bodyIncludes, 'I kept a picnic idea for you.', {
+          timeout: 15_000,
+        });
+
+        const menu = page.getByRole('navigation', { name: 'Menu' });
+        await menu.getByRole('button', { name: 'Ideas' }).click();
+        await page.waitForFunction(bodyIncludes, 'Suggested by your agent', { timeout: 10_000 });
+        expect(await page.locator('body').innerText()).toContain('#outdoors');
+        // Nothing happens to a suggestion until the person takes it up.
+        expect(await harness.capabilities.goals.list()).toEqual([]);
+        await page.getByRole('button', { name: 'Make it a goal' }).click();
+        await page.waitForFunction(bodyIncludes, 'Run now', { timeout: 10_000 });
+        expect((await harness.capabilities.goals.list()).map((goal) => goal.title)).toEqual([
+          'Plan a picnic at the river this spring',
+        ]);
+      } finally {
+        await browser.close();
+      }
+    });
   },
 );

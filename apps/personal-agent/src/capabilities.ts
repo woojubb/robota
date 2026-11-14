@@ -8,12 +8,16 @@ import {
   BROWSER_INSTRUCTIONS,
   GOAL_INSTRUCTIONS,
   GoalBook,
+  IDEA_INSTRUCTIONS,
+  IdeaBook,
   KnowledgeWiki,
   WIKI_INSTRUCTIONS,
   createBrowserTools,
   createFileGoalStore,
+  createFileIdeaStore,
   createFileKnowledgeStore,
   createGoalTools,
+  createIdeaTools,
   createWikiTools,
 } from '@robota-sdk/agent-product/personal';
 
@@ -33,6 +37,7 @@ export interface IPersonalCapabilities {
   readonly wiki: KnowledgeWiki;
   readonly browser: IBrowserPort;
   readonly goals: GoalBook;
+  readonly ideas: IdeaBook;
   /** Present once attached to a running agent. */
   readonly runner: () => IGoalRunner | undefined;
   /** The API the web UI calls for the library, search and settings. */
@@ -60,9 +65,14 @@ export const PERSONAL_INSTRUCTIONS = [
   'Before you state a price, time or confirmation, read it again from its source.',
 ].join('\n');
 
-export function createPersonalCapabilities(options: IPersonalCapabilityOptions): IPersonalCapabilities {
-  const wiki = new KnowledgeWiki({ store: createFileKnowledgeStore(join(options.stateDir, 'wiki')) });
+export function createPersonalCapabilities(
+  options: IPersonalCapabilityOptions,
+): IPersonalCapabilities {
+  const wiki = new KnowledgeWiki({
+    store: createFileKnowledgeStore(join(options.stateDir, 'wiki')),
+  });
   const goals = new GoalBook({ store: createFileGoalStore(join(options.stateDir, 'goals')) });
+  const ideas = new IdeaBook({ store: createFileIdeaStore(join(options.stateDir, 'ideas')) });
   let runner: IGoalRunner | undefined;
   const browser = createPlaywrightBrowser({
     profileDir: join(options.stateDir, 'browser-profile'),
@@ -70,15 +80,28 @@ export function createPersonalCapabilities(options: IPersonalCapabilityOptions):
     ...(options.browserAllowedHosts !== undefined && { allowedHosts: options.browserAllowedHosts }),
   });
   return {
-    tools: [...createWikiTools(wiki), ...createBrowserTools(browser), ...createGoalTools(goals)],
-    instructions: [PERSONAL_INSTRUCTIONS, WIKI_INSTRUCTIONS, BROWSER_INSTRUCTIONS, GOAL_INSTRUCTIONS].join('\n\n'),
+    tools: [
+      ...createWikiTools(wiki),
+      ...createBrowserTools(browser),
+      ...createGoalTools(goals),
+      ...createIdeaTools(ideas),
+    ],
+    instructions: [
+      PERSONAL_INSTRUCTIONS,
+      WIKI_INSTRUCTIONS,
+      BROWSER_INSTRUCTIONS,
+      GOAL_INSTRUCTIONS,
+      IDEA_INSTRUCTIONS,
+    ].join('\n\n'),
     wiki,
     browser,
     goals,
+    ideas,
     runner: () => runner,
     api: createPersonalApi({
       wiki,
       goals,
+      ideas,
       runner: () => runner,
       stateDir: options.stateDir,
       environment: options.environment,

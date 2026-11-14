@@ -8,20 +8,32 @@
  * variable that holds it.
  */
 import { findProviderDefinition, formatSupportedProviderTypes } from '@robota-sdk/agent-core';
-import { GoalRefusedError, PAGE_KINDS, SensitiveContentRefusedError } from '@robota-sdk/agent-product/personal';
+import {
+  GoalRefusedError,
+  IdeaRefusedError,
+  PAGE_KINDS,
+  SensitiveContentRefusedError,
+} from '@robota-sdk/agent-product/personal';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
 
 import { loadConfig, saveConfig } from './config.js';
 import { createProviderFromProfile } from './provider.js';
 
 import type { ILoopbackGuiApiRequest, ILoopbackGuiApiResponse } from '@robota-sdk/agent-local-host';
-import type { GoalBook, IWikiPage, KnowledgeWiki, TPageKind } from '@robota-sdk/agent-product/personal';
+import type {
+  GoalBook,
+  IWikiPage,
+  IdeaBook,
+  KnowledgeWiki,
+  TPageKind,
+} from '@robota-sdk/agent-product/personal';
 import type { IGoalRunner } from './goal-runner.js';
 import type { IProviderProfile } from './config.js';
 
 export interface IPersonalApiOptions {
   readonly wiki: KnowledgeWiki;
   readonly goals: GoalBook;
+  readonly ideas: IdeaBook;
   /** The goal runner, once the agent is running; approvals and "run now" need it. */
   readonly runner: () => IGoalRunner | undefined;
   readonly stateDir: string;
@@ -37,17 +49,22 @@ const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 class BadRequest extends Error {}
 
 const ok = (body: unknown): ILoopbackGuiApiResponse => ({ status: 200, body });
-const fail = (status: number, error: string): ILoopbackGuiApiResponse => ({ status, body: { error } });
+const fail = (status: number, error: string): ILoopbackGuiApiResponse => ({
+  status,
+  body: { error },
+});
 
 function record(body: unknown): Record<string, unknown> {
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) throw new BadRequest('expected a JSON object');
+  if (typeof body !== 'object' || body === null || Array.isArray(body))
+    throw new BadRequest('expected a JSON object');
   return body as Record<string, unknown>;
 }
 
 function text(body: Record<string, unknown>, key: string, optional = false): string | undefined {
   const value = body[key];
   if (value === undefined && optional) return undefined;
-  if (typeof value !== 'string' || value.trim() === '') throw new BadRequest(`${key} must be a non-empty string`);
+  if (typeof value !== 'string' || value.trim() === '')
+    throw new BadRequest(`${key} must be a non-empty string`);
   return value;
 }
 
@@ -66,7 +83,7 @@ export function providerTypes(): string[] {
 }
 
 export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
-  const { wiki, goals } = options;
+  const { wiki, goals, ideas } = options;
 
   const routes = async (request: ILoopbackGuiApiRequest): Promise<ILoopbackGuiApiResponse> => {
     const { method, segments } = request;
@@ -77,7 +94,8 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       if (method === 'POST') {
         const body = record(request.body);
         const kind = text(body, 'kind')!;
-        if (!PAGE_KINDS.includes(kind as TPageKind)) throw new BadRequest(`kind must be one of ${PAGE_KINDS.join(', ')}`);
+        if (!PAGE_KINDS.includes(kind as TPageKind))
+          throw new BadRequest(`kind must be one of ${PAGE_KINDS.join(', ')}`);
         const filed = await wiki.remember({
           pageTitle: text(body, 'title')!,
           kind: kind as TPageKind,
@@ -107,19 +125,23 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       const body = record(request.body);
       const claimId = text(body, 'claimId', true);
       const pageId = text(body, 'pageId', true);
-      if ((claimId === undefined) === (pageId === undefined)) throw new BadRequest('give exactly one of claimId and pageId');
+      if ((claimId === undefined) === (pageId === undefined))
+        throw new BadRequest('give exactly one of claimId and pageId');
       const removed = await wiki.forget(claimId !== undefined ? { claimId } : { pageId: pageId! });
       return ok({ removed });
     }
-    if (area === 'wiki' && collection === 'log' && method === 'GET') return ok({ entries: await wiki.log() });
-    if (area === 'wiki' && collection === 'lint' && method === 'GET') return ok(await wiki.lint({ record: false }));
+    if (area === 'wiki' && collection === 'log' && method === 'GET')
+      return ok({ entries: await wiki.log() });
+    if (area === 'wiki' && collection === 'lint' && method === 'GET')
+      return ok(await wiki.lint({ record: false }));
 
     if (area === 'goals' && collection === undefined) {
       if (method === 'GET') return ok({ goals: await goals.list() });
       if (method === 'POST') {
         const body = record(request.body);
         const everyMinutes = body['everyMinutes'];
-        if (everyMinutes !== undefined && typeof everyMinutes !== 'number') throw new BadRequest('everyMinutes must be a number');
+        if (everyMinutes !== undefined && typeof everyMinutes !== 'number')
+          throw new BadRequest('everyMinutes must be a number');
         const goal = await goals.create({
           title: text(body, 'title')!,
           instructions: text(body, 'instructions')!,
@@ -132,7 +154,8 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
     if (area === 'goals' && collection !== undefined) {
       const goal = await goals.get(collection);
       if (goal === undefined) return fail(404, 'no such goal');
-      if (id === undefined && method === 'GET') return ok({ goal, runs: await goals.runs(goal.id) });
+      if (id === undefined && method === 'GET')
+        return ok({ goal, runs: await goals.runs(goal.id) });
       if (method === 'POST' && id === 'pause') return ok({ goal: await goals.pause(goal.id) });
       if (method === 'POST' && id === 'resume') return ok({ goal: await goals.resume(goal.id) });
       if (method === 'POST' && id === 'stop') {
@@ -143,6 +166,54 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
         const resumed = await goals.resume(goal.id);
         await options.runner()?.runDue();
         return ok({ goal: (await goals.get(goal.id)) ?? resumed });
+      }
+    }
+    if (area === 'ideas' && collection === undefined) {
+      if (method === 'GET') {
+        const tag = request.query.get('tag') ?? undefined;
+        return ok({
+          ideas: await ideas.list({
+            ...(tag !== undefined && tag !== '' && { tag }),
+            includeArchived: request.query.get('archived') === '1',
+          }),
+        });
+      }
+      if (method === 'POST') {
+        const body = record(request.body);
+        const tags = body['tags'];
+        if (
+          tags !== undefined &&
+          (!Array.isArray(tags) || !tags.every((tag) => typeof tag === 'string'))
+        ) {
+          throw new BadRequest('tags must be a list of words');
+        }
+        return ok({
+          idea: await ideas.add({
+            text: text(body, 'text')!,
+            origin: 'owner',
+            ...(tags !== undefined && { tags: tags as string[] }),
+          }),
+        });
+      }
+    }
+    if (area === 'ideas' && collection !== undefined && method === 'POST') {
+      const idea = await ideas.get(collection);
+      if (idea === undefined) return fail(404, 'no such idea');
+      if (id === 'archive') return ok({ idea: await ideas.archive(idea.id) });
+      if (id === 'remove') {
+        await ideas.remove(idea.id);
+        return ok({ removed: idea.id });
+      }
+      if (id === 'make-goal') {
+        if (idea.status !== 'open')
+          throw new BadRequest('This idea was already taken up or archived');
+        // The person takes the idea up: it becomes a goal in their words, and the idea says so.
+        const firstLine = idea.text.split(/[.!?\n]/u)[0]!.trim();
+        const goal = await goals.create({
+          title: firstLine.length > 60 ? `${firstLine.slice(0, 57)}...` : firstLine,
+          instructions: idea.text,
+        });
+        return ok({ idea: await ideas.takeUp(idea.id, `goal:${goal.id}`), goal });
       }
     }
     if (area === 'feed' && collection === undefined && method === 'GET') {
@@ -173,7 +244,11 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
         results: hits.map((hit) => ({
           page: summary(hit.page),
           matches: hit.page.claims
-            .filter((claim) => claim.validTo === undefined && words.some((word) => claim.text.toLowerCase().includes(word)))
+            .filter(
+              (claim) =>
+                claim.validTo === undefined &&
+                words.some((word) => claim.text.toLowerCase().includes(word)),
+            )
             .map((claim) => claim.text),
         })),
       });
@@ -193,12 +268,16 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       const type = text(body, 'type')!;
       const definitions = createDefaultProviderDefinitions();
       if (findProviderDefinition(definitions, type) === undefined) {
-        throw new BadRequest(`unknown provider type; supported: ${formatSupportedProviderTypes(definitions)}`);
+        throw new BadRequest(
+          `unknown provider type; supported: ${formatSupportedProviderTypes(definitions)}`,
+        );
       }
       const baseURL = text(body, 'baseURL', true);
       const apiKeyEnv = text(body, 'apiKeyEnv', true);
-      if (baseURL !== undefined && !URL.canParse(baseURL)) throw new BadRequest('baseURL must be a URL');
-      if (apiKeyEnv !== undefined && !ENV_NAME.test(apiKeyEnv)) throw new BadRequest('apiKeyEnv must be an environment variable name');
+      if (baseURL !== undefined && !URL.canParse(baseURL))
+        throw new BadRequest('baseURL must be a URL');
+      if (apiKeyEnv !== undefined && !ENV_NAME.test(apiKeyEnv))
+        throw new BadRequest('apiKeyEnv must be an environment variable name');
       const provider: IProviderProfile = {
         type,
         model: text(body, 'model')!,
@@ -224,7 +303,9 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       if (error instanceof BadRequest) return fail(400, error.message);
       if (error instanceof SensitiveContentRefusedError) return fail(422, error.message);
       if (error instanceof GoalRefusedError) return fail(400, error.message);
-      if (error instanceof Error && /^No (current claim|wiki page)/u.test(error.message)) return fail(400, error.message);
+      if (error instanceof IdeaRefusedError) return fail(400, error.message);
+      if (error instanceof Error && /^No (current claim|wiki page)/u.test(error.message))
+        return fail(400, error.message);
       throw error;
     }
   };
