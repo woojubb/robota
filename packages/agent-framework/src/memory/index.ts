@@ -22,6 +22,7 @@ export type {
 } from './project-memory-store.js';
 export { WorkspaceMemoryStore, createWorkspaceMemoryStore } from './file-system-memory-store.js';
 export { approvePendingMemoryCandidate } from './memory-approval.js';
+export { containsSensitiveMemoryContent } from './memory-policy-evaluator.js';
 export type { IApprovedMemoryCandidate } from './memory-approval.js';
 export { SemanticMemoryStore, createSemanticMemoryStore } from './semantic-memory-store.js';
 export type {

@@ -2,13 +2,18 @@
  * The personal capabilities this root composes into its session. Each capability family arrives
  * here as tools plus a lifecycle; the root only lends it a state directory and the live session.
  */
+import { join } from 'node:path';
+
+import { KnowledgeWiki, WIKI_INSTRUCTIONS, createFileKnowledgeStore, createWikiTools } from '@robota-sdk/agent-product/personal';
+
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { IPersonalAgent } from './agent.js';
 
 export interface IPersonalCapabilities {
   readonly tools: readonly IToolWithEventService[];
   readonly instructions: string;
-  /** Connect what needs the live session (after-turn ingest, goals, notifications). */
+  readonly wiki: KnowledgeWiki;
+  /** Connect what needs the live session (goals, notifications). */
   attach(session: IPersonalAgent['session']): void;
   dispose(): Promise<void>;
 }
@@ -25,10 +30,12 @@ export const PERSONAL_INSTRUCTIONS = [
   'Before you state a price, time or confirmation, read it again from its source.',
 ].join('\n');
 
-export function createPersonalCapabilities(_options: IPersonalCapabilityOptions): IPersonalCapabilities {
+export function createPersonalCapabilities(options: IPersonalCapabilityOptions): IPersonalCapabilities {
+  const wiki = new KnowledgeWiki({ store: createFileKnowledgeStore(join(options.stateDir, 'wiki')) });
   return {
-    tools: [],
-    instructions: PERSONAL_INSTRUCTIONS,
+    tools: createWikiTools(wiki),
+    instructions: [PERSONAL_INSTRUCTIONS, WIKI_INSTRUCTIONS].join('\n\n'),
+    wiki,
     attach: () => undefined,
     dispose: async () => undefined,
   };

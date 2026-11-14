@@ -64,36 +64,32 @@ export async function main(argv: readonly string[], environment: NodeJS.ProcessE
     return 0;
   }
 
-  if (command === 'start') {
-    const config = loadConfig(stateDir);
-    if (config.provider === undefined) {
-      process.stderr.write('No provider is configured. Run `personal-agent configure` first.\n');
-      return 2;
-    }
-    const capabilities = createPersonalCapabilities({ stateDir, environment });
-    const local = await startLocalMode({
-      stateDir,
-      provider: createProviderFromProfile(config.provider, environment),
-      model: config.provider.model,
-      tools: capabilities.tools,
-      instructions: capabilities.instructions,
-      gui: values['no-gui'] !== true,
-    });
-    capabilities.attach(local.agent.session);
-    if (local.gui !== undefined) {
-      process.stdout.write(`Personal agent is open at ${local.gui.url}\nAccess code: ${local.gui.accessCode}\n`);
-    }
-    process.stdout.write(`HTTP API at ${local.httpUrl} (bearer printed once): ${local.httpToken}\n`);
-    await new Promise<void>((resolve) => {
-      process.once('SIGINT', resolve);
-      process.once('SIGTERM', resolve);
-    });
-    await capabilities.dispose();
-    await local.stop();
-    return 0;
+  const config = loadConfig(stateDir);
+  if (config.provider === undefined) {
+    process.stderr.write('No provider is configured. Run `personal-agent configure` first.\n');
+    return 2;
   }
-
-  return 2;
+  const capabilities = createPersonalCapabilities({ stateDir, environment });
+  const local = await startLocalMode({
+    stateDir,
+    provider: createProviderFromProfile(config.provider, environment),
+    model: config.provider.model,
+    tools: capabilities.tools,
+    instructions: capabilities.instructions,
+    gui: values['no-gui'] !== true,
+  });
+  capabilities.attach(local.agent.session);
+  if (local.gui !== undefined) {
+    process.stdout.write(`Personal agent is open at ${local.gui.url}\nAccess code: ${local.gui.accessCode}\n`);
+  }
+  process.stdout.write(`HTTP API at ${local.httpUrl} (bearer printed once): ${local.httpToken}\n`);
+  await new Promise<void>((resolve) => {
+    process.once('SIGINT', resolve);
+    process.once('SIGTERM', resolve);
+  });
+  await capabilities.dispose();
+  await local.stop();
+  return 0;
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
