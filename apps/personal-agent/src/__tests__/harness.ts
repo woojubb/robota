@@ -22,8 +22,22 @@ export interface IHarness {
   readonly capabilities: IPersonalCapabilities;
   /** Submit a prompt over the HTTP API and return the SSE events it streamed. */
   submit(prompt: string, options?: { receivePrompts?: boolean }): Promise<ISubmitResult>;
+  /**
+   * Submit as a client that answers permission prompts: each one is shown to `decide`, and its
+   * answer is sent back. Returns the turn and the prompts that were asked.
+   */
+  submitAnswering(
+    prompt: string,
+    decide: (event: IPromptEvent) => boolean,
+  ): Promise<ISubmitResult & { prompts: IPromptEvent[] }>;
   get(path: string): Promise<{ status: number; body: unknown }>;
   close(): Promise<void>;
+}
+
+export interface IPromptEvent {
+  readonly id: string;
+  readonly toolName?: string;
+  readonly [key: string]: unknown;
 }
 
 export interface ISubmitEvent {
@@ -60,16 +74,32 @@ export function parseSse(raw: string): ISubmitEvent[] {
 }
 
 export async function startHarness(
-  options: { gui?: boolean; webRoot?: string; stateDir?: string } = {},
+  options: {
+    gui?: boolean;
+    webRoot?: string;
+    stateDir?: string;
+    browserAllowedHosts?: readonly string[];
+  } = {},
 ): Promise<IHarness> {
   const stateDir = options.stateDir ?? mkdtempSync(join(tmpdir(), 'personal-agent-'));
   const model = await startScriptedModel();
   const environment = { HOME: stateDir, SCRIPTED_KEY: 'scripted-key' };
-  const capabilities = createPersonalCapabilities({ stateDir, environment });
+  const capabilities = createPersonalCapabilities({
+    stateDir,
+    environment,
+    ...(options.browserAllowedHosts !== undefined && {
+      browserAllowedHosts: options.browserAllowedHosts,
+    }),
+  });
   const local = await startLocalMode({
     stateDir,
     provider: createProviderFromProfile(
-      { type: 'openai', model: 'scripted-model', baseURL: model.baseURL, apiKeyEnv: 'SCRIPTED_KEY' },
+      {
+        type: 'openai',
+        model: 'scripted-model',
+        baseURL: model.baseURL,
+        apiKeyEnv: 'SCRIPTED_KEY',
+      },
       environment,
     ),
     model: 'scripted-model',
@@ -80,27 +110,59 @@ export async function startHarness(
   });
   capabilities.attach(local.agent.session);
   const auth = { authorization: `Bearer ${local.httpToken}` };
+  async function submit(
+    prompt: string,
+    submitOptions: { receivePrompts?: boolean } = {},
+  ): Promise<ISubmitResult> {
+    const res = await fetch(`${local.httpUrl}/submit`, {
+      method: 'POST',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        ...(submitOptions.receivePrompts === true && { receivePrompts: true }),
+      }),
+    });
+    const raw = await res.text();
+    const events = parseSse(raw);
+    const text = events
+      .filter((event) => event.event === 'text_delta')
+      .map((event) => {
+        const data = event.data as { delta?: string; text?: string } | string;
+        return typeof data === 'string' ? data : (data.delta ?? data.text ?? '');
+      })
+      .join('');
+    return { status: res.status, events, text };
+  }
   return {
     stateDir,
     model,
     local,
     capabilities,
-    async submit(prompt, submitOptions = {}) {
-      const res = await fetch(`${local.httpUrl}/submit`, {
-        method: 'POST',
-        headers: { ...auth, 'content-type': 'application/json' },
-        body: JSON.stringify({ prompt, ...(submitOptions.receivePrompts === true && { receivePrompts: true }) }),
+    submit,
+    async submitAnswering(prompt, decide) {
+      const turn = submit(prompt, { receivePrompts: true });
+      const prompts: IPromptEvent[] = [];
+      const answered = new Set<string>();
+      let done = false;
+      void turn.finally(() => {
+        done = true;
       });
-      const raw = await res.text();
-      const events = parseSse(raw);
-      const text = events
-        .filter((event) => event.event === 'text_delta')
-        .map((event) => {
-          const data = event.data as { delta?: string; text?: string } | string;
-          return typeof data === 'string' ? data : (data.delta ?? data.text ?? '');
-        })
-        .join('');
-      return { status: res.status, events, text };
+      while (!done) {
+        const open = await fetch(`${local.httpUrl}/prompts`, { headers: auth });
+        const body = (await open.json()) as { prompts?: { type: string; event: IPromptEvent }[] };
+        for (const entry of body.prompts ?? []) {
+          if (entry.type !== 'permission_request' || answered.has(entry.event.id)) continue;
+          answered.add(entry.event.id);
+          prompts.push(entry.event);
+          await fetch(`${local.httpUrl}/prompts/${encodeURIComponent(entry.event.id)}`, {
+            method: 'POST',
+            headers: { ...auth, 'content-type': 'application/json' },
+            body: JSON.stringify({ result: decide(entry.event) }),
+          });
+        }
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      return { ...(await turn), prompts };
     },
     async get(path) {
       const res = await fetch(`${local.httpUrl}${path}`, { headers: auth });
@@ -125,7 +187,10 @@ export async function startHarness(
 /** A stand-in for the built GUI: an index page and one asset, enough to test the server around it. */
 export function createFixtureWebRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'personal-agent-web-'));
-  writeFileSync(join(root, 'index.html'), '<!doctype html><html><head><title>fixture</title></head><body></body></html>');
+  writeFileSync(
+    join(root, 'index.html'),
+    '<!doctype html><html><head><title>fixture</title></head><body></body></html>',
+  );
   mkdirSync(join(root, 'assets'));
   writeFileSync(join(root, 'assets', 'app.js'), 'export {};');
   return root;
