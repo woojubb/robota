@@ -15,6 +15,11 @@ node apps/personal-agent/bin/personal-agent.mjs configure --type openai --model 
 node apps/personal-agent/bin/personal-agent.mjs start
 ```
 
+A model gateway that speaks the OpenAI API works the same way: give its address and the gateway's
+model id, for example `configure --type openai --base-url https://ai-gateway.vercel.sh/v1 --model
+deepseek/deepseek-v4.1-flash --api-key-env AI_GATEWAY_API_KEY`, or `--type openrouter` with
+`OPENROUTER_API_KEY`.
+
 `start` prints a loopback URL and an access code. Open the URL, type the code, and you are in. It also
 prints an HTTP API address and the bearer for scripts.
 

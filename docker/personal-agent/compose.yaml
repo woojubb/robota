@@ -19,6 +19,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
       # Another provider's key: add its variable here and name it in PERSONAL_AGENT_API_KEY_ENV.
     volumes:
       - personal-agent-state:/home/node/.personal
