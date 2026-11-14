@@ -27,6 +27,17 @@ export interface ISessionSwitchOptions {
    * session that opens the record resumes it only if it is the owner's or exactly these bytes.
    */
   readonly acceptedDigest?: string;
+  /**
+   * How many live background jobs the person already agreed to have stopped with this switch. A
+   * switch that would stop more asks again. Absent ⇒ none were agreed to.
+   */
+  readonly liveJobsApproved?: number;
+}
+
+/** A yes or no the terminal asks of the person before it goes on with a switch. */
+export interface ISessionSwitchQuestion {
+  readonly message: string;
+  readonly answer: (yes: boolean) => void;
 }
 
 /** The surface's session-switch path: the resume picker and a fork attach both take it. */

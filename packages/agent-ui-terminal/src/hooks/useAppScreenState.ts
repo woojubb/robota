@@ -5,6 +5,7 @@ import { useAppWorkspaceState } from './useAppWorkspaceState.js';
 import { useSideEffects } from './useSideEffects.js';
 import { useStatusLineSettings } from './useStatusLineSettings.js';
 
+import type { TSessionSwitch } from '../types.js';
 import type { IUseSideEffectsResult } from './side-effects-types.js';
 import type { IAppWorkspaceState } from './useAppWorkspaceState.js';
 import type { ITuiChannelState } from './useTuiChannel.js';
@@ -18,7 +19,7 @@ interface IOptions {
   readonly state: ITuiChannelState;
   readonly setSessionName: (name: string) => void;
   readonly sessionStore: IInteractiveSessionStore | undefined;
-  readonly onSessionSwitch: (sessionId: string) => Promise<void>;
+  readonly onSessionSwitch: TSessionSwitch;
   readonly showSessionPickerOnStart: boolean | undefined;
   readonly coordinationBlocked: boolean;
 }

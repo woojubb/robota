@@ -22,10 +22,12 @@ import {
 import { useCallback, useRef, useState } from 'react';
 
 import { attachToForkedSession } from '../flows/fork-attach-flow.js';
+import { JOBS_RUNNING_NOT_SWITCHED_NOTICE, stopJobsNotice } from '../flows/session-switch-flow.js';
 import { mintUserReadRequest } from '../key-custody/user-read-request-mint.js';
 import { useTuiCliAdapter, useUnlockCommand } from '../tui-cli-adapter-context.js';
 
 import type { TReadability } from '../key-custody/key-custody-port.js';
+import type { ISessionSwitchOptions } from '../types.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IExecutionWorkspaceEntry,
@@ -40,7 +42,7 @@ export interface IUseForkAttachOptions {
    */
   readonly sessionStore: IInteractiveSessionStore | undefined;
   /** The surface's session-switch path — the same one the session picker takes. */
-  readonly onSessionSwitch: (sessionId: string) => void;
+  readonly onSessionSwitch: (sessionId: string, options?: ISessionSwitchOptions) => void;
   /** Selects a workspace entry: the view a followed job is watched, and steered, in. */
   readonly select: (entryId: string) => void;
   /** Where a refusal is written, so it reaches the operator instead of disappearing. */
@@ -125,11 +127,11 @@ export function useForkAttach({
       // honour asks: a fork whose record still has a writer is refused without a prompt.
       function ask(number: number, target: string): void {
         setContinueQuestion({
-          message: `${number} background ${number === 1 ? 'job is' : 'jobs are'} still running and will be stopped. Continue ${entry.title}?`,
+          message: `${stopJobsNotice(number)} Continue ${entry.title}?`,
           answer: (yes) => {
             setContinueQuestion(undefined);
             if (!yes) {
-              notify('Background jobs are still running; session not switched.');
+              notify(JOBS_RUNNING_NOT_SWITCHED_NOTICE);
               return;
             }
             const current = snapshotRef.current;
@@ -156,10 +158,15 @@ export function useForkAttach({
           },
         });
       }
+      // The switch itself asks again for jobs beyond the ones the person agreed to stop here.
+      function switchAfterAsking(target: string, approvedCount: number): void {
+        if (approvedCount > 0) onSessionSwitch(target, { liveJobsApproved: approvedCount });
+        else onSessionSwitch(target);
+      }
       function unlockThenSwitch(target: string, approvedCount: number): void {
         const currentReason = lockedSessionReason(store, target);
         if (currentReason === undefined) {
-          onSessionSwitch(target);
+          switchAfterAsking(target, approvedCount);
           return;
         }
         if (currentReason !== 'locked' || keys === undefined || unlockCommand === undefined) {
@@ -198,7 +205,7 @@ export function useForkAttach({
                 hasSessionRecord: (id) => store.load(id).status === 'valid',
                 hasWriter: (id) => store.hasWriter(id),
               },
-              switchSession: onSessionSwitch,
+              switchSession: (id) => switchAfterAsking(id, approvedCount),
             });
           },
           // allow-fallback: a holder that failed to ask leaves the fork locked, which is said.

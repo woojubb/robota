@@ -114,6 +114,14 @@ function Overlays({ model }: { model: IAppViewModel }): React.ReactElement {
       {background.continueQuestion && (
         <SessionAcceptancePrompt acceptance={background.continueQuestion} />
       )}
+      {model.sessionSwitchQuestion && (
+        // Keyed by its words: a question asked again about more jobs opens on No, not on the answer
+        // the person just gave.
+        <SessionAcceptancePrompt
+          key={model.sessionSwitchQuestion.message}
+          acceptance={model.sessionSwitchQuestion}
+        />
+      )}
       {model.permissionRequest && <PermissionPrompt request={model.permissionRequest} />}
       {pendingUserAction && (
         <PendingActionPrompt

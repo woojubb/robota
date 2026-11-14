@@ -11,6 +11,7 @@ import { useMemo } from 'react';
 import { useExecutionDetailPage } from './useExecutionDetailPage.js';
 import { useForkAttach } from './useForkAttach.js';
 
+import type { TSessionSwitch } from '../types.js';
 import type { IExecutionDetailState } from './useExecutionDetailPage.js';
 import type { IContinueForkQuestion } from './useForkAttach.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
@@ -29,7 +30,7 @@ export interface IUseBackgroundPanelOptions {
   readonly read: (entryId: string) => Promise<IExecutionDetailPage>;
   /** Absent ⇒ this surface has no store of its own: continuing a fork is asked of its host. */
   readonly sessionStore: IInteractiveSessionStore | undefined;
-  readonly onSessionSwitch: (sessionId: string) => void;
+  readonly onSessionSwitch: TSessionSwitch;
   /** Selects a workspace entry: how attaching follows a running job. */
   readonly select: (entryId: string) => void;
   readonly addEntry: (entry: IHistoryEntry) => void;
