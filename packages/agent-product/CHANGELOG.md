@@ -1,5 +1,24 @@
 # @robota-sdk/agent-product
 
+## 3.4.0
+### Minor Changes
+
+- 34fbcca: `@robota-sdk/agent-product/personal` adds the browser port and its tools. The agent reads a page as text with numbered elements and acts by number. When the agent's own action makes a request that writes to a site (any method but GET, HEAD and OPTIONS), the request is held and reported. Only `BrowserSubmit` sends it: the call names the request's method and address, and a person approves it every time. Reads, including data placed in a URL, are not held.
+- b44c72e: `@robota-sdk/agent-product/personal` (Node-only) adds the personal capability pack's knowledge wiki. It keeps linked pages of claims with their source and trust, retires superseded claims with validity intervals, recalls claims read from elsewhere as data, refuses likely secrets, forgets everywhere, and lints for contradictions, stale claims, orphans and missing links. It comes with file and memory stores behind one store port and the tools an agent uses to maintain it. `agent-framework` exports `containsSensitiveMemoryContent`, the heuristic the wiki shares with project memory.
+
+### Patch Changes
+
+- Updated dependencies [1c31c9e]
+- Updated dependencies [7b312a3]
+- Updated dependencies [4bfcf78]
+- Updated dependencies [19c75f1]
+- Updated dependencies [adb13b2]
+- Updated dependencies [b44c72e]
+- Updated dependencies [1f82ef7]
+- Updated dependencies [daff4d9]
+  - @robota-sdk/agent-framework@3.3.4
+  - @robota-sdk/agent-core@3.3.2
+
 ## 3.3.3
 ### Patch Changes
 
