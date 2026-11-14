@@ -38,6 +38,15 @@ export function descriptorPath(descriptor: number, segment?: string): string {
   return segment === undefined ? root : `${root}/${segment}`;
 }
 
+/**
+ * The byte-exact path of entry `name` of the pinned `descriptor`. A Linux file name is bytes, not
+ * text: a name that is not valid UTF-8 would turn into U+FFFD if decoded, and the decoded path would
+ * name nothing, so entries stay `Buffer`s from the listing to the call that uses them.
+ */
+function entryPath(descriptor: number, name: Buffer): Buffer {
+  return Buffer.concat([Buffer.from(`/proc/self/fd/${descriptor}/`), name]);
+}
+
 export function directoryOpenFlags(): number {
   return (
     constants.O_RDONLY |
@@ -79,10 +88,10 @@ interface IPinnedDirectory {
   readonly descriptor: number;
   /** The pinned directory the name below is an entry of. */
   readonly parent: number;
-  readonly name: string;
+  readonly name: Buffer;
   readonly dev: bigint;
   readonly ino: bigint;
-  entries: string[] | undefined;
+  entries: Buffer[] | undefined;
   next: number;
 }
 
@@ -96,11 +105,11 @@ type TOpened =
  * what the entry is: a link fails with `ELOOP` and every other non-directory with `ENOTDIR`, before
  * anything is opened, so a socket, FIFO or device is never opened and a dirent type is never needed.
  */
-function openEntry(parent: number, name: string): TOpened {
+function openEntry(parent: number, name: Buffer): TOpened {
   try {
     return {
       kind: 'directory',
-      descriptor: openSync(descriptorPath(parent, name), directoryOpenFlags()),
+      descriptor: openSync(entryPath(parent, name), directoryOpenFlags()),
     };
   } catch (error) {
     const code = errorCode(error);
@@ -137,13 +146,14 @@ export function removePinnedDirectory(
     attempts > 0 && (attempts >= budget.maxEntries || performance.now() - started >= budget.maxMs);
 
   const mount = readMountId(parent);
-  const target = openEntry(parent, name);
+  const targetName = Buffer.from(name, 'utf8');
+  const target = openEntry(parent, targetName);
   if (target.kind === 'missing') return { status: 'absent' };
   if (target.kind === 'other') {
     refuseProjectRead('Project directory removal requires a plain, non-link directory target.');
   }
   const stack: IPinnedDirectory[] = [];
-  const pin = (descriptor: number, from: number, entry: string, dev?: bigint): IPinnedDirectory => {
+  const pin = (descriptor: number, from: number, entry: Buffer, dev?: bigint): IPinnedDirectory => {
     let pinned: IPinnedDirectory | undefined;
     try {
       const metadata = fstatSync(descriptor, { bigint: true });
@@ -167,11 +177,11 @@ export function removePinnedDirectory(
   };
 
   try {
-    stack.push(pin(target.descriptor, parent, name));
+    stack.push(pin(target.descriptor, parent, targetName));
     const rootDevice = stack[0]!.dev;
     while (stack.length > 0) {
       const current = stack[stack.length - 1]!;
-      current.entries ??= readdirSync(descriptorPath(current.descriptor));
+      current.entries ??= readdirSync(descriptorPath(current.descriptor), { encoding: 'buffer' });
       if (current.next < current.entries.length) {
         if (exhausted()) return { status: 'partial', reason: 'budget' };
         const entry = current.entries[current.next]!;
@@ -207,9 +217,9 @@ export function removePinnedDirectory(
 }
 
 /** Unlinks a non-directory entry by name; false when the name now holds a directory. */
-function unlinkEntry(parent: number, entry: string): boolean {
+function unlinkEntry(parent: number, entry: Buffer): boolean {
   try {
-    unlinkSync(descriptorPath(parent, entry));
+    unlinkSync(entryPath(parent, entry));
     return true;
   } catch (error) {
     const code = errorCode(error);
@@ -241,7 +251,7 @@ function removeIfStillNamed(pinned: IPinnedDirectory): boolean {
     closeSync(named.descriptor);
   }
   try {
-    rmdirSync(descriptorPath(pinned.parent, pinned.name));
+    rmdirSync(entryPath(pinned.parent, pinned.name));
     return true;
   } catch (error) {
     const code = errorCode(error);

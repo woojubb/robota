@@ -20,12 +20,14 @@ const hooks = vi.hoisted(() => ({
 
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
-  const logical = (path: string): string => {
-    const match = /^\/proc\/self\/fd\/(\d+)\/(.+)$/u.exec(path);
+  // The removal names entries by bytes; every name these hooks watch is valid UTF-8.
+  const logical = (raw: string | Buffer): string => {
+    const path = Buffer.isBuffer(raw) ? raw.toString('utf8') : raw;
+    const match = /^\/proc\/self\/fd\/(\d+)\/(.+)$/su.exec(path);
     if (match === null) return path;
     return `${actual.realpathSync(`/proc/self/fd/${match[1]}`)}/${match[2]}`;
   };
-  const fire = (list: { path: string; act: () => void }[], path: string): void => {
+  const fire = (list: { path: string; act: () => void }[], path: string | Buffer): void => {
     if (list.length === 0) return;
     const resolved = logical(path);
     const index = list.findIndex((hook) => hook.path === resolved);
@@ -33,8 +35,8 @@ vi.mock('node:fs', async (importOriginal) => {
   };
   return {
     ...actual,
-    openSync(path: string, flags: number, mode?: number) {
-      if (typeof path === 'string' && hooks.open.length > 0) {
+    openSync(path: string | Buffer, flags: number, mode?: number) {
+      if (hooks.open.length > 0) {
         const resolved = logical(path);
         const index = hooks.open.findIndex((hook) => hook.path === resolved);
         const hook = hooks.open[index];
@@ -45,12 +47,12 @@ vi.mock('node:fs', async (importOriginal) => {
       }
       return actual.openSync(path, flags, mode);
     },
-    unlinkSync(path: string) {
-      fire(hooks.unlink, String(path));
+    unlinkSync(path: string | Buffer) {
+      fire(hooks.unlink, path);
       actual.unlinkSync(path);
     },
-    rmdirSync(path: string) {
-      fire(hooks.rmdir, String(path));
+    rmdirSync(path: string | Buffer) {
+      fire(hooks.rmdir, path);
       actual.rmdirSync(path);
     },
   };
@@ -145,7 +147,7 @@ describe('project directory removal', () => {
     const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
     Object.defineProperty(process, 'platform', { value: linux ? 'darwin' : process.platform });
     try {
-      const boundary = boundaryFor(join(tmpdir(), 'never-opened'));
+      const boundary = boundaryFor(join(fixture().root, 'never-opened'));
       expect(() => remove(boundary, 'state/victim')).toThrow(WorkspaceAuthorityRequiredError);
       expect(() => remove(boundary, 'state/victim')).toThrow(/only on Linux/u);
     } finally {
@@ -182,6 +184,35 @@ describe('project directory removal', () => {
       expect(fs.existsSync(join(f.root, 'missing'))).toBe(false);
     },
   );
+
+  it.runIf(linux)('removes entries whose names are not valid UTF-8 in one call', () => {
+    const f = fixture();
+    const named = (directory: string, ...bytes: number[][]): Buffer =>
+      Buffer.concat([Buffer.from(`${directory}/`), ...bytes.map((part) => Buffer.from(part))]);
+    fs.writeFileSync(join(f.victim, 'ok.txt'), 'ok');
+    fs.writeFileSync(named(f.victim, [0x66, 0xff]), 'f-ff');
+    fs.writeFileSync(named(f.victim, [0xff]), 'ff');
+    const directory = named(f.victim, [0x64, 0xc3, 0x28]);
+    fs.mkdirSync(directory);
+    fs.writeFileSync(Buffer.concat([directory, Buffer.from('/inner.txt')]), 'inner');
+    fs.symlinkSync(f.canary, named(f.victim, [0xfe, 0x6c]));
+
+    expect(remove(boundaryFor(f.root), 'state/victim')).toEqual({ status: 'removed' });
+    expect(fs.existsSync(f.victim)).toBe(false);
+    expectCanaryIntact(f);
+  });
+
+  it.runIf(linux)('removes entries whose names hold characters a URL would treat specially', () => {
+    const f = fixture();
+    for (const name of ['with space', 'hash#tag', 'per%20cent', 'what?', 'new\nline', 'ünï']) {
+      fs.mkdirSync(join(f.victim, `${name}-dir`));
+      fs.writeFileSync(join(f.victim, `${name}-dir`, name), name);
+      fs.writeFileSync(join(f.victim, name), name);
+    }
+
+    expect(remove(boundaryFor(f.root), 'state/victim')).toEqual({ status: 'removed' });
+    expect(fs.existsSync(f.victim)).toBe(false);
+  });
 
   it.runIf(linux)(
     'refuses a linked or non-directory ancestor, a replaced root and a target that is a link, a file or a mount point',
