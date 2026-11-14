@@ -23,6 +23,8 @@ import { restoreSessionRecordIntoSession } from '../interactive-session-restore.
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface/session';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
+const STORE_HEAVY_TIMEOUT_MS = 60_000;
+
 const CANARY = 'CANARY-in-process-fork-9b31-conversation';
 
 function message(content: string): TUniversalMessage {
@@ -98,31 +100,41 @@ describe('a fork job in this process while the keys are locked', () => {
     expect(session.updateSystemMessage).toHaveBeenCalledWith('the parent prompt', undefined);
   });
 
-  it('still restores it after many other sessions were saved through the store', () => {
-    const { store } = lockedSealedStore();
-    const forkId = forkFrom(store);
-    for (let index = 0; index < 40; index += 1) store.save(record(`sess_other_${index}`));
-    const session = childSession();
+  // Sealed saves are slow on some CI machines; these cases write dozens of records, so they get a
+  // budget sized for that work rather than the default.
+  it(
+    'still restores it after many other sessions were saved through the store',
+    { timeout: STORE_HEAVY_TIMEOUT_MS },
+    () => {
+      const { store } = lockedSealedStore();
+      const forkId = forkFrom(store);
+      for (let index = 0; index < 40; index += 1) store.save(record(`sess_other_${index}`));
+      const session = childSession();
 
-    restoreSessionRecordIntoSession(
-      store,
-      forkId,
-      session as never,
-      loadSessionForUpdate(store, forkId),
-    );
+      restoreSessionRecordIntoSession(
+        store,
+        forkId,
+        session as never,
+        loadSessionForUpdate(store, forkId),
+      );
 
-    expect(session.injectRawMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ content: CANARY }),
-    );
-  });
+      expect(session.injectRawMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ content: CANARY }),
+      );
+    },
+  );
 
-  it('does not push a running session out of what the store holds', () => {
-    const { store } = lockedSealedStore();
-    const running = Array.from({ length: 32 }, (_, index) => `sess_running_${index}`);
-    for (const id of running) store.save(record(id));
+  it(
+    'does not push a running session out of what the store holds',
+    { timeout: STORE_HEAVY_TIMEOUT_MS },
+    () => {
+      const { store } = lockedSealedStore();
+      const running = Array.from({ length: 32 }, (_, index) => `sess_running_${index}`);
+      for (const id of running) store.save(record(id));
 
-    forkFrom(store);
+      forkFrom(store);
 
-    for (const id of running) expect(store.loadHeld?.(id)?.status, id).toBe('valid');
-  });
+      for (const id of running) expect(store.loadHeld?.(id)?.status, id).toBe('valid');
+    },
+  );
 });

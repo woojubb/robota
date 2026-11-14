@@ -4,15 +4,26 @@
  */
 import { join } from 'node:path';
 
-import { KnowledgeWiki, WIKI_INSTRUCTIONS, createFileKnowledgeStore, createWikiTools } from '@robota-sdk/agent-product/personal';
+import {
+  BROWSER_INSTRUCTIONS,
+  KnowledgeWiki,
+  WIKI_INSTRUCTIONS,
+  createBrowserTools,
+  createFileKnowledgeStore,
+  createWikiTools,
+} from '@robota-sdk/agent-product/personal';
+
+import { createPlaywrightBrowser } from './browser/playwright-browser.js';
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
+import type { IBrowserPort } from '@robota-sdk/agent-product/personal';
 import type { IPersonalAgent } from './agent.js';
 
 export interface IPersonalCapabilities {
   readonly tools: readonly IToolWithEventService[];
   readonly instructions: string;
   readonly wiki: KnowledgeWiki;
+  readonly browser: IBrowserPort;
   /** Connect what needs the live session (goals, notifications). */
   attach(session: IPersonalAgent['session']): void;
   dispose(): Promise<void>;
@@ -21,6 +32,8 @@ export interface IPersonalCapabilities {
 export interface IPersonalCapabilityOptions {
   readonly stateDir: string;
   readonly environment: Readonly<Record<string, string | undefined>>;
+  /** Exact `host:port` origins the browser may reach despite being loopback or private. */
+  readonly browserAllowedHosts?: readonly string[];
 }
 
 export const PERSONAL_INSTRUCTIONS = [
@@ -32,11 +45,19 @@ export const PERSONAL_INSTRUCTIONS = [
 
 export function createPersonalCapabilities(options: IPersonalCapabilityOptions): IPersonalCapabilities {
   const wiki = new KnowledgeWiki({ store: createFileKnowledgeStore(join(options.stateDir, 'wiki')) });
+  const browser = createPlaywrightBrowser({
+    profileDir: join(options.stateDir, 'browser-profile'),
+    environment: options.environment,
+    ...(options.browserAllowedHosts !== undefined && { allowedHosts: options.browserAllowedHosts }),
+  });
   return {
-    tools: createWikiTools(wiki),
-    instructions: [PERSONAL_INSTRUCTIONS, WIKI_INSTRUCTIONS].join('\n\n'),
+    tools: [...createWikiTools(wiki), ...createBrowserTools(browser)],
+    instructions: [PERSONAL_INSTRUCTIONS, WIKI_INSTRUCTIONS, BROWSER_INSTRUCTIONS].join('\n\n'),
     wiki,
+    browser,
     attach: () => undefined,
-    dispose: async () => undefined,
+    dispose: async () => {
+      await browser.close();
+    },
   };
 }

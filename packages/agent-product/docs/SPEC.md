@@ -530,8 +530,8 @@ assembled in one process get independently-scoped file tools.
 ### Purpose
 
 What a personal agent does, independent of how it is hosted: the capabilities a composition root
-lends a state directory and a live session. The first is the knowledge wiki, the agent's maintained
-memory of the person it works for.
+lends a state directory and a live session: the knowledge wiki, the agent's maintained memory of the
+person it works for, and the browser it acts on the web through.
 
 ### Contract
 
@@ -545,10 +545,28 @@ that held it; a page it empties goes too, with every link and log entry that nam
 named by its title. Only a content-free log line remains, so the fact is never recalled again. The store is a port: a host supplies one per principal, and the file store keeps plain Markdown
 a person can read and export without Robota.
 
+The browser is a port too. The agent reads a page as text with numbered elements and acts by number;
+page text reaches the model as data from the site, never as instructions. A request that writes to a
+site (any method but GET, HEAD and OPTIONS) caused by the agent's own action is held and reported, and
+only a submission that names its method and address, which a person approves on every call, sends it;
+no permission mode, allow rule or classifier can send it on the agent's behalf, and the host sends
+exactly the request it held.
+
+### Non-goals
+
+The browser does not hold reads. Opening a page, following a link or submitting a GET form sends
+whatever the URL carries, and whatever the agent types the page's own scripts can read; the tools tell
+the agent to keep the person's information out of URLs and never to type passwords or card numbers,
+and what may leave at all is an egress policy's decision, not the browser's. The host's address
+checks narrow what the browser can reach but do not stand in for a network boundary: a name can
+resolve differently for the browser than for the check.
+
 ### Design decisions
 
 Pages are ranked by the query terms their titles and current claims contain, not by embeddings: at a
 personal scale an index the model reads first is enough, and a ranking a person can follow is worth
 more than one they cannot. The wiki is maintained by the agent through tools rather than by a
 separate extraction pass, so what is filed is what the agent judged worth keeping in context, and every
-write goes through the permission gate like any other tool.
+write goes through the permission gate like any other tool. The browser grounds actions on numbered
+elements rather than pixels: a number is something the model can name exactly, and it keeps the port
+implementable by any browser host.
