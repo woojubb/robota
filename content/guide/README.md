@@ -14,6 +14,7 @@ your configured paths. `<daemon-namespace>` refers to `PRODUCT_DAEMON_NAMESPACE`
 - [CLI Reference](./cli.md) — Every `__PRODUCT_CLI_NAME__` option, subcommand and slash command
 - [Sessions, Background Sessions and the Daemon](./sessions-and-daemon.md) — Sessions that outlive the terminal, attaching, one daemon per workspace, workspace trust
 - [The GUI and the Desktop App](./gui.md) — `__PRODUCT_CLI_NAME__ --serve --open` and the desktop app: first run, sessions, prompts, settings, and current limits
+- [The Personal Agent](./personal-agent.md) — A long-running assistant on your machine: chat, a library of what it knows about you, ideas, goals that run while you are away, its own browser, and a container image
 - [TUI Keybindings](./keybindings.md) — Contextual shortcuts, hot reload, chords, and terminal limits
 - [Local LLM Setup](./local-llm.md) — Ollama, LM Studio and llama.cpp with no API key
 - [Providers](./providers.md) — Every provider, its options, and switching between them
