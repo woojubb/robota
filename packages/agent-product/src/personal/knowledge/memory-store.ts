@@ -17,5 +17,9 @@ export function createMemoryKnowledgeStore(): IKnowledgeStore {
       log.push(entry);
     },
     readLog: async (limit) => log.slice(-limit).reverse(),
+    rewriteLog: async (keep) => {
+      const kept = log.filter(keep);
+      log.splice(0, log.length, ...kept);
+    },
   };
 }

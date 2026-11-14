@@ -12,7 +12,7 @@
  */
 import { containsSensitiveMemoryContent } from '@robota-sdk/agent-framework';
 
-import { renderPageForModel } from './render.js';
+import { oneLine, renderPageForModel } from './render.js';
 
 import type { IClaim, IClaimSource, IKnowledgeStore, IWikiPage, TPageKind } from './types.js';
 
@@ -106,8 +106,25 @@ export class KnowledgeWiki {
     return `c${this.now().getTime().toString(36)}${this.sequence.toString(36)}`;
   }
 
-  async remember(input: IRememberInput): Promise<IRememberResult> {
-    if (containsSensitiveMemoryContent(input.claim) || containsSensitiveMemoryContent(input.pageTitle)) {
+  async remember(raw: IRememberInput): Promise<IRememberResult> {
+    // Stored text is single-line, so no claim can lay out a line that reads as another claim.
+    const input: IRememberInput = {
+      ...raw,
+      pageTitle: oneLine(raw.pageTitle),
+      claim: oneLine(raw.claim),
+      source: {
+        ...raw.source,
+        ...(raw.source.reference !== undefined && { reference: oneLine(raw.source.reference) }),
+      },
+      ...(raw.linkTo !== undefined && { linkTo: raw.linkTo.map(oneLine) }),
+    };
+    const written = [
+      input.claim,
+      input.pageTitle,
+      input.source.reference ?? '',
+      ...(input.linkTo ?? []),
+    ];
+    if (written.some((text) => containsSensitiveMemoryContent(text))) {
       throw new SensitiveContentRefusedError();
     }
     const at = this.now().toISOString();
@@ -116,7 +133,11 @@ export class KnowledgeWiki {
     const claimId = this.claimId();
     let retired: string | undefined;
     const claims = (existing?.claims ?? []).map((claim) => {
-      if (input.supersedes !== undefined && claim.id === input.supersedes && claim.validTo === undefined) {
+      if (
+        input.supersedes !== undefined &&
+        claim.id === input.supersedes &&
+        claim.validTo === undefined
+      ) {
         retired = claim.id;
         return { ...claim, validTo: at, supersededBy: claimId };
       }
@@ -125,15 +146,22 @@ export class KnowledgeWiki {
     if (input.supersedes !== undefined && retired === undefined) {
       throw new Error(`No current claim ${input.supersedes} on page ${pageId}`);
     }
-    const duplicate = claims.find((claim) => claim.validTo === undefined && claim.text.trim() === input.claim.trim());
-    if (duplicate !== undefined && retired === undefined) return { pageId, claimId: duplicate.id };
-    const claim: IClaim = { id: claimId, text: input.claim.trim(), source: { ...input.source, at }, validFrom: at };
-    const links = [...new Set([...(existing?.links ?? []), ...(input.linkTo ?? []).map(pageIdFor)])].filter(
-      (link) => link !== pageId,
+    const duplicate = claims.find(
+      (claim) => claim.validTo === undefined && claim.text === input.claim,
     );
+    if (duplicate !== undefined && retired === undefined) return { pageId, claimId: duplicate.id };
+    const claim: IClaim = {
+      id: claimId,
+      text: input.claim,
+      source: { ...input.source, at },
+      validFrom: at,
+    };
+    const links = [
+      ...new Set([...(existing?.links ?? []), ...(input.linkTo ?? []).map(pageIdFor)]),
+    ].filter((link) => link !== pageId);
     await this.store.putPage({
       id: pageId,
-      title: existing?.title ?? input.pageTitle.trim(),
+      title: existing?.title ?? input.pageTitle,
       kind: existing?.kind ?? input.kind ?? 'other',
       claims: [...claims, claim],
       links,
@@ -165,7 +193,14 @@ export class KnowledgeWiki {
     const hits: ISearchHit[] = [];
     for (const page of await this.store.listPages()) {
       const haystack = new Set(
-        terms([page.title, ...page.claims.filter((claim) => claim.validTo === undefined).map((claim) => claim.text)].join(' ')),
+        terms(
+          [
+            page.title,
+            ...page.claims
+              .filter((claim) => claim.validTo === undefined)
+              .map((claim) => claim.text),
+          ].join(' '),
+        ),
       );
       let score = 0;
       for (const term of wanted) if (haystack.has(term)) score += 1;
@@ -187,31 +222,60 @@ export class KnowledgeWiki {
   async index(): Promise<string> {
     const pages = await this.list();
     if (pages.length === 0) return 'The wiki is empty.';
-    return pages.map((page) => `- ${page.title} [${page.id}] (${page.kind}, ${page.claims.filter((c) => c.validTo === undefined).length} current claims)`).join('\n');
+    return pages
+      .map(
+        (page) =>
+          `- ${page.title} [${page.id}] (${page.kind}, ${page.claims.filter((c) => c.validTo === undefined).length} current claims)`,
+      )
+      .join('\n');
   }
 
   /**
    * Forget a claim by id, or every current or retired claim containing `text`. Returns how many
-   * claims were removed. Pages left with no claims are deleted.
+   * claims were removed. A page left with no claims is deleted, and with it every link to it and
+   * every log entry that named it, since a page's id is its title and can carry the fact itself.
    */
   async forget(target: { claimId: string } | { text: string }): Promise<number> {
     const at = this.now().toISOString();
-    let removed = 0;
-    for (const page of await this.store.listPages()) {
+    const forgottenClaims = new Set<string>();
+    const deletedPages = new Set<string>();
+    const pages = await this.store.listPages();
+    for (const page of pages) {
       const keep = page.claims.filter((claim) =>
-        'claimId' in target ? claim.id !== target.claimId : !claim.text.toLowerCase().includes(target.text.toLowerCase()),
+        'claimId' in target
+          ? claim.id !== target.claimId
+          : !claim.text.toLowerCase().includes(target.text.toLowerCase()),
       );
-      const dropped = page.claims.length - keep.length;
-      if (dropped === 0) continue;
-      removed += dropped;
+      if (keep.length === page.claims.length) continue;
+      for (const claim of page.claims) if (!keep.includes(claim)) forgottenClaims.add(claim.id);
       if (keep.length === 0) {
+        deletedPages.add(page.id);
         await this.store.deletePage(page.id);
       } else {
         await this.store.putPage({ ...page, claims: keep, updatedAt: at });
       }
-      await this.store.appendLog({ at, action: 'forget', pageId: page.id, summary: `${dropped} claim(s) forgotten` });
     }
-    return removed;
+    if (forgottenClaims.size === 0) return 0;
+    if (deletedPages.size > 0) {
+      for (const page of await this.store.listPages()) {
+        const links = page.links.filter((link) => !deletedPages.has(link));
+        if (links.length !== page.links.length)
+          await this.store.putPage({ ...page, links, updatedAt: at });
+      }
+    }
+    const named = (id: string | undefined): boolean => id !== undefined && deletedPages.has(id);
+    await this.store.rewriteLog(
+      (entry) =>
+        !named(entry.pageId) &&
+        !named(entry.linkedTo) &&
+        !(entry.claimId !== undefined && forgottenClaims.has(entry.claimId)),
+    );
+    await this.store.appendLog({
+      at,
+      action: 'forget',
+      summary: `${forgottenClaims.size} claim(s) forgotten`,
+    });
+    return forgottenClaims.size;
   }
 
   async link(from: string, to: string): Promise<void> {
@@ -220,7 +284,13 @@ export class KnowledgeWiki {
     if (page.links.includes(to) || from === to) return;
     const at = this.now().toISOString();
     await this.store.putPage({ ...page, links: [...page.links, to], updatedAt: at });
-    await this.store.appendLog({ at, action: 'link', pageId: from, summary: `linked to ${to}` });
+    await this.store.appendLog({
+      at,
+      action: 'link',
+      pageId: from,
+      linkedTo: to,
+      summary: 'linked',
+    });
   }
 
   async lint(): Promise<ILintReport> {
@@ -237,30 +307,42 @@ export class KnowledgeWiki {
         const key = claim.text.trim().toLowerCase();
         byText.set(key, [...(byText.get(key) ?? []), claim.id]);
       }
-      for (const ids of byText.values()) if (ids.length > 1) contradictions.push({ pageId: page.id, claimIds: ids });
-      const negations = current.filter((claim) => /\b(no longer|not|never|stopped|doesn't|does not)\b/iu.test(claim.text));
+      for (const ids of byText.values())
+        if (ids.length > 1) contradictions.push({ pageId: page.id, claimIds: ids });
+      const negations = current.filter((claim) =>
+        /\b(no longer|not|never|stopped|doesn't|does not)\b/iu.test(claim.text),
+      );
       for (const negation of negations) {
         const negated = terms(negation.text);
         const conflict = current.find(
           (claim) =>
             claim.id !== negation.id &&
             !negations.includes(claim) &&
-            terms(claim.text).filter((term) => negated.includes(term)).length >= Math.min(2, terms(claim.text).length),
+            terms(claim.text).filter((term) => negated.includes(term)).length >=
+              Math.min(2, terms(claim.text).length),
         );
-        if (conflict !== undefined) contradictions.push({ pageId: page.id, claimIds: [conflict.id, negation.id] });
+        if (conflict !== undefined)
+          contradictions.push({ pageId: page.id, claimIds: [conflict.id, negation.id] });
       }
       if (TIME_SENSITIVE.has(page.kind)) {
         for (const claim of current) {
-          if (now - Date.parse(claim.validFrom) > this.staleAfterMs) stale.push({ pageId: page.id, claimId: claim.id });
+          if (now - Date.parse(claim.validFrom) > this.staleAfterMs)
+            stale.push({ pageId: page.id, claimId: claim.id });
         }
       }
       const text = current.map((claim) => claim.text.toLowerCase()).join(' ');
       for (const other of pages) {
         if (other.id === page.id || page.links.includes(other.id)) continue;
-        if (other.title.length > 2 && text.includes(other.title.toLowerCase())) missingLinks.push({ from: page.id, to: other.id });
+        if (other.title.length > 2 && text.includes(other.title.toLowerCase()))
+          missingLinks.push({ from: page.id, to: other.id });
       }
     }
-    const orphans = pages.length > 1 ? pages.filter((page) => page.kind !== 'persona' && !linked.has(page.id)).map((page) => page.id) : [];
+    const orphans =
+      pages.length > 1
+        ? pages
+            .filter((page) => page.kind !== 'persona' && !linked.has(page.id))
+            .map((page) => page.id)
+        : [];
     const report = { contradictions, stale, orphans, missingLinks };
     await this.store.appendLog({
       at: this.now().toISOString(),

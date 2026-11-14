@@ -8,14 +8,7 @@
  */
 
 export type TPageKind =
-  | 'person'
-  | 'place'
-  | 'preference'
-  | 'topic'
-  | 'matter'
-  | 'procedure'
-  | 'persona'
-  | 'other';
+  'person' | 'place' | 'preference' | 'topic' | 'matter' | 'procedure' | 'persona' | 'other';
 
 export const PAGE_KINDS: readonly TPageKind[] = [
   'person',
@@ -68,13 +61,16 @@ export interface IWikiPage {
   readonly updatedAt: string;
 }
 
-export type TWikiLogAction = 'remember' | 'supersede' | 'forget' | 'link' | 'edit' | 'delete-page' | 'lint';
+export type TWikiLogAction =
+  'remember' | 'supersede' | 'forget' | 'link' | 'edit' | 'delete-page' | 'lint';
 
 export interface IWikiLogEntry {
   readonly at: string;
   readonly action: TWikiLogAction;
   readonly pageId?: string;
   readonly claimId?: string;
+  /** The page a link entry points to. */
+  readonly linkedTo?: string;
   /** A short human summary; never the text of a forgotten claim. */
   readonly summary: string;
 }
@@ -87,4 +83,6 @@ export interface IKnowledgeStore {
   deletePage(id: string): Promise<void>;
   appendLog(entry: IWikiLogEntry): Promise<void>;
   readLog(limit: number): Promise<readonly IWikiLogEntry[]>;
+  /** Rewrite the log keeping only the entries `keep` accepts: how forget reaches the log. */
+  rewriteLog(keep: (entry: IWikiLogEntry) => boolean): Promise<void>;
 }

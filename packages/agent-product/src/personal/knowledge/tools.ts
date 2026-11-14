@@ -13,7 +13,14 @@ import { SensitiveContentRefusedError } from './wiki.js';
 import type { FunctionTool, TUniversalValue } from '@robota-sdk/agent-core';
 import type { KnowledgeWiki } from './wiki.js';
 
-const ORIGINS = ['owner', 'web', 'mail', 'peer', 'tool', 'agent'] as const satisfies readonly TClaimOrigin[];
+const ORIGINS = [
+  'owner',
+  'web',
+  'mail',
+  'peer',
+  'tool',
+  'agent',
+] as const satisfies readonly TClaimOrigin[];
 
 export const WIKI_TOOL_NAMES = {
   index: 'WikiIndex',
@@ -25,11 +32,13 @@ export const WIKI_TOOL_NAMES = {
   lint: 'WikiLint',
 } as const;
 
-let profilesRegistered = false;
 function registerProfiles(): void {
-  if (profilesRegistered) return;
-  profilesRegistered = true;
-  for (const name of [WIKI_TOOL_NAMES.index, WIKI_TOOL_NAMES.search, WIKI_TOOL_NAMES.read, WIKI_TOOL_NAMES.lint]) {
+  for (const name of [
+    WIKI_TOOL_NAMES.index,
+    WIKI_TOOL_NAMES.search,
+    WIKI_TOOL_NAMES.read,
+    WIKI_TOOL_NAMES.lint,
+  ]) {
     registerToolPermissionProfile(name, { riskClass: 'inspect' });
   }
   // The wiki is the person's own data inside the agent's state directory: writing it changes
@@ -76,7 +85,10 @@ export function createWikiTools(wiki: KnowledgeWiki): FunctionTool[] {
       kind: z.enum(PAGE_KINDS as [TPageKind, ...TPageKind[]]).optional(),
       claim: z.string().min(1).describe('One self-contained fact.'),
       origin: z.enum(ORIGINS),
-      reference: z.string().optional().describe('URL or name of what you read, for non-owner origins.'),
+      reference: z
+        .string()
+        .optional()
+        .describe('URL or name of what you read, for non-owner origins.'),
       supersedes: z.string().optional().describe('Id of the current claim this replaces.'),
       linkTo: z.array(z.string()).optional().describe('Titles or ids of related pages.'),
     }),
@@ -94,9 +106,15 @@ export function createWikiTools(wiki: KnowledgeWiki): FunctionTool[] {
           ...(args.supersedes !== undefined && { supersedes: args.supersedes }),
           ...(args.linkTo !== undefined && { linkTo: args.linkTo }),
         });
-        return { saved: true, page: result.pageId, claim: result.claimId, ...(result.retired !== undefined && { retired: result.retired }) };
+        return {
+          saved: true,
+          page: result.pageId,
+          claim: result.claimId,
+          ...(result.retired !== undefined && { retired: result.retired }),
+        };
       } catch (error) {
-        if (error instanceof SensitiveContentRefusedError) return { saved: false, reason: error.message };
+        if (error instanceof SensitiveContentRefusedError)
+          return { saved: false, reason: error.message };
         throw error;
       }
     },
@@ -130,7 +148,10 @@ export function createWikiTools(wiki: KnowledgeWiki): FunctionTool[] {
     async (): Promise<TUniversalValue> => {
       const report = await wiki.lint();
       return {
-        contradictions: report.contradictions.map((entry) => ({ ...entry, claimIds: [...entry.claimIds] })),
+        contradictions: report.contradictions.map((entry) => ({
+          ...entry,
+          claimIds: [...entry.claimIds],
+        })),
         stale: report.stale.map((entry) => ({ ...entry })),
         orphans: [...report.orphans],
         missingLinks: report.missingLinks.map((entry) => ({ ...entry })),

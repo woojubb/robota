@@ -1,9 +1,18 @@
 /**
  * A knowledge store in an owner-only directory: one JSON record per page (the source of truth), a
  * Markdown rendering beside it that a person can read and export without Robota, an `index.md` of
- * every page, and an append-only `log.md`.
+ * every page, and a `log.md` that grows with every change and is rewritten only to forget.
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 
 import { renderPageMarkdown } from './render.js';
@@ -18,10 +27,22 @@ function writeAtomic(path: string, content: string): void {
   renameSync(temporary, path);
 }
 
+function logLine(entry: IWikiLogEntry): string {
+  return `- ${entry.at} ${entry.action}${entry.pageId === undefined ? '' : ` ${entry.pageId}`}: ${entry.summary}\n`;
+}
+
 export function createFileKnowledgeStore(directory: string): IKnowledgeStore {
   const pagesDir = join(directory, 'pages');
   mkdirSync(pagesDir, { recursive: true, mode: 0o700 });
   const logPath = join(directory, 'log.jsonl');
+  const logMarkdownPath = join(directory, 'log.md');
+  const readEntries = (): IWikiLogEntry[] =>
+    existsSync(logPath)
+      ? readFileSync(logPath, 'utf8')
+          .split('\n')
+          .filter((line) => line !== '')
+          .map((line) => JSON.parse(line) as IWikiLogEntry)
+      : [];
 
   const assertId = (id: string): void => {
     if (!PAGE_ID.test(id)) throw new Error(`Invalid wiki page id: ${id}`);
@@ -41,12 +62,20 @@ export function createFileKnowledgeStore(directory: string): IKnowledgeStore {
       .map(readPage)
       .filter((page): page is IWikiPage => page !== undefined)
       .sort((a, b) => a.title.localeCompare(b.title));
-    const lines = ['# Index', '', ...pages.map((page) => `- [${page.title}](pages/${page.id}.md) — ${page.kind}`), ''];
+    const lines = [
+      '# Index',
+      '',
+      ...pages.map((page) => `- [${page.title}](pages/${page.id}.md) — ${page.kind}`),
+      '',
+    ];
     writeAtomic(join(directory, 'index.md'), lines.join('\n'));
   };
 
   return {
-    listPages: async () => listIds().map(readPage).filter((page): page is IWikiPage => page !== undefined),
+    listPages: async () =>
+      listIds()
+        .map(readPage)
+        .filter((page): page is IWikiPage => page !== undefined),
     getPage: async (id) => (PAGE_ID.test(id) ? readPage(id) : undefined),
     putPage: async (page) => {
       assertId(page.id);
@@ -62,19 +91,13 @@ export function createFileKnowledgeStore(directory: string): IKnowledgeStore {
     },
     appendLog: async (entry) => {
       appendFileSync(logPath, `${JSON.stringify(entry)}\n`, { mode: 0o600 });
-      appendFileSync(
-        join(directory, 'log.md'),
-        `- ${entry.at} ${entry.action}${entry.pageId === undefined ? '' : ` ${entry.pageId}`}: ${entry.summary}\n`,
-        { mode: 0o600 },
-      );
+      appendFileSync(logMarkdownPath, logLine(entry), { mode: 0o600 });
     },
-    readLog: async (limit) => {
-      if (!existsSync(logPath)) return [];
-      const lines = readFileSync(logPath, 'utf8').split('\n').filter((line) => line !== '');
-      return lines
-        .slice(-limit)
-        .reverse()
-        .map((line) => JSON.parse(line) as IWikiLogEntry);
+    readLog: async (limit) => readEntries().slice(-limit).reverse(),
+    rewriteLog: async (keep) => {
+      const kept = readEntries().filter(keep);
+      writeAtomic(logPath, kept.map((entry) => `${JSON.stringify(entry)}\n`).join(''));
+      writeAtomic(logMarkdownPath, kept.map(logLine).join(''));
     },
   };
 }
