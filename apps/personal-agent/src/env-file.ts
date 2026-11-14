@@ -85,6 +85,12 @@ export function ensureEnvFile(stateDir: string): string {
   return path;
 }
 
+/** A path as one literal shell word: single quotes on POSIX, double quotes for cmd.exe. */
+export function shellQuote(path: string, platform: NodeJS.Platform = process.platform): string {
+  if (platform === 'win32') return `"${path.replace(/"/gu, '""')}"`;
+  return `'${path.replace(/'/gu, `'\\''`)}'`;
+}
+
 /**
  * How to open the file for editing: the person's own editor first, else the system's text editor.
  * A terminal editor runs in this terminal; a desktop one opens a window.
@@ -96,8 +102,9 @@ export function editorCommand(
 ): { readonly command: string; readonly args: readonly string[]; readonly shell: boolean } {
   const chosen = environment['VISUAL'] || environment['EDITOR'];
   if (chosen !== undefined && chosen !== '') {
-    // An editor setting may carry its own arguments ("code --wait"), so it runs through the shell.
-    return { command: `${chosen} ${JSON.stringify(path)}`, args: [], shell: true };
+    // An editor setting may carry its own arguments ("code --wait"), so it runs through the shell,
+    // with the path quoted so the shell takes it literally ($ and backticks included).
+    return { command: `${chosen} ${shellQuote(path, platform)}`, args: [], shell: true };
   }
   if (platform === 'darwin') return { command: 'open', args: ['-t', path], shell: false };
   if (platform === 'win32') return { command: 'notepad', args: [path], shell: false };

@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,6 +10,7 @@ import {
   ensureEnvFile,
   envFilePath,
   parseEnvFile,
+  shellQuote,
   withEnvFile,
 } from '../env-file.js';
 
@@ -68,14 +70,27 @@ describe('the owner .env', () => {
     expect(() => withEnvFile(dir, {})).toThrow(/chmod 600/u);
   });
 
+  it.skipIf(process.platform === 'win32')(
+    'quotes a path so the shell takes $, backticks and quotes literally',
+    () => {
+      for (const path of ['/s/a$HOME/.env', '/s/a`echo x`/.env', "/s/it's/.env", '/s/a b/.env']) {
+        const echoed = spawnSync(`printf %s ${shellQuote(path, 'linux')}`, {
+          shell: true,
+          encoding: 'utf8',
+        });
+        expect(echoed.stdout).toBe(path);
+      }
+    },
+  );
+
   it("opens the person's editor first, else the system's text editor", () => {
     expect(editorCommand('/s/.env', { EDITOR: 'code --wait' }, 'linux')).toEqual({
-      command: 'code --wait "/s/.env"',
+      command: "code --wait '/s/.env'",
       args: [],
       shell: true,
     });
     expect(editorCommand('/s/.env', { VISUAL: 'vim', EDITOR: 'nano' }, 'linux').command).toBe(
-      'vim "/s/.env"',
+      "vim '/s/.env'",
     );
     expect(editorCommand('/s/.env', {}, 'darwin')).toEqual({
       command: 'open',
