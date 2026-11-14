@@ -22,7 +22,10 @@ run in this order and the first one that decides wins:
    - removing a critical path with `rm`/`rmdir` (the root, a top-level directory, home, the working
      directory or a parent);
    - a write into `.git`, `<project-state>`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a
-     shell rc file.
+     shell rc file;
+   - a call to a tool that declares a consequential effect: one that leaves the machine and cannot be
+     taken back, such as sending a message, spending money or placing a call. Allow rules do not
+     answer it, and `plan` mode refuses it.
 6. **Ask for everything**: when the caller routes every remaining call to a person (a background
    task whose policy is `prompt`), return `approve`.
 7. **bypassPermissions**: return `auto`.
@@ -66,7 +69,7 @@ web page cannot argue for its own call.
 
 - **What reaches a person:**
   - Deny rules still deny.
-  - `ask` rules, critical removals and protected paths still ask a person.
+  - `ask` rules, critical removals, protected paths and consequential calls still ask a person.
   - After 3 refusals in a row (blocks, or no usable verdict), or 20 blocks in a session, the mode
     asks a person until one approves.
   - With no one to ask, such a call is denied.
