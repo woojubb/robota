@@ -7,6 +7,7 @@ import { useState } from 'react';
 
 import { FeedView } from './views/Feed.js';
 import { GoalsView } from './views/Goals.js';
+import { IdeasView } from './views/Ideas.js';
 import { LibraryView } from './views/Library.js';
 import { SearchView } from './views/Search.js';
 import { SettingsView } from './views/Settings.js';
@@ -20,7 +21,7 @@ export const PERSONAL_IDENTITY: IWebProductIdentity = {
   storage: { browserNamespace: 'robota-personal-agent' },
 };
 
-export type TMenu = 'chat' | 'feed' | 'goals' | 'library' | 'search' | 'settings';
+export type TMenu = 'chat' | 'feed' | 'ideas' | 'goals' | 'library' | 'search' | 'settings';
 
 export const MENUS: readonly {
   readonly id: TMenu;
@@ -29,6 +30,7 @@ export const MENUS: readonly {
 }[] = [
   { id: 'chat', label: 'Chat', hint: 'Talk with your agent' },
   { id: 'feed', label: 'Feed', hint: 'Results and what needs you' },
+  { id: 'ideas', label: 'Ideas', hint: 'Thoughts kept for later' },
   { id: 'goals', label: 'Goals', hint: 'What your agent keeps working on' },
   { id: 'library', label: 'Library', hint: 'What your agent knows about you' },
   { id: 'search', label: 'Search', hint: 'Find anything your agent keeps' },
@@ -110,6 +112,7 @@ function Shell({
           <SessionSurface state={chat} surface="web" draftMode="persistent" />
         </div>
         {menu === 'feed' && <FeedView api={api} onOpenGoal={showGoal} />}
+        {menu === 'ideas' && <IdeasView api={api} onOpenGoal={showGoal} />}
         {menu === 'goals' && <GoalsView api={api} openGoal={openGoal} onOpenGoal={setOpenGoal} />}
         {menu === 'library' && (
           <LibraryView api={api} openPage={openPage} onOpenPage={setOpenPage} />

@@ -168,4 +168,40 @@ describe('the personal API behind the web UI', () => {
     expect(JSON.stringify(config)).not.toContain('scripted-key');
     expect((await api.get('settings')).body.provider.model).toBe('gpt-x');
   });
+
+  it('keeps ideas by tag and turns one into a goal that remembers where it came from', async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    const kimchi = (
+      await api.send('POST', 'ideas', {
+        text: 'Learn to make kimchi. Ask mum for her recipe.',
+        tags: ['food'],
+      })
+    ).body.idea;
+    await api.send('POST', 'ideas', { text: 'A picnic at the river', tags: ['outdoors'] });
+    expect(kimchi.origin).toBe('owner');
+    expect((await api.get('ideas?tag=food')).body.ideas.map((idea: any) => idea.id)).toEqual([
+      kimchi.id,
+    ]);
+    expect((await api.send('POST', 'ideas', { text: 'x', tags: 'food' })).status).toBe(400);
+    expect((await api.send('POST', 'ideas', { text: 'x', tags: ['two words'] })).status).toBe(400);
+
+    const made = (await api.send('POST', `ideas/${kimchi.id}/make-goal`)).body;
+    expect(made.goal.title).toBe('Learn to make kimchi');
+    expect(made.goal.instructions).toBe('Learn to make kimchi. Ask mum for her recipe.');
+    expect(made.idea).toEqual(
+      expect.objectContaining({ status: 'taken-up', takenUpAs: `goal:${made.goal.id}` }),
+    );
+    expect((await api.get(`goals/${made.goal.id}`)).body.goal.status).toBe('active');
+    // Taking it up again is refused, and no second goal appears.
+    expect((await api.send('POST', `ideas/${kimchi.id}/make-goal`)).status).toBe(400);
+    expect((await api.get('goals')).body.goals).toHaveLength(1);
+
+    await api.send('POST', `ideas/${kimchi.id}/archive`);
+    expect((await api.get('ideas')).body.ideas.map((idea: any) => idea.text)).toEqual([
+      'A picnic at the river',
+    ]);
+    expect((await api.send('POST', `ideas/${kimchi.id}/remove`)).status).toBe(200);
+    expect((await api.send('POST', 'ideas/constructor/archive')).status).toBe(404);
+  });
 });
