@@ -1,8 +1,10 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { describe, expect, it } from 'vitest';
 
+import { CORE_HARNESS_PROMPT } from '../../harness/core-harness.js';
 import { buildPresetSurfaceOptions, toSessionOptions } from '../preset-surface-options.js';
 
+import type { IParsedCliArgs } from '../../utils/cli-args.js';
 import type { IServeModePresetOptions } from '../../modes/serve-mode.js';
 import type { IPrintModePresetOptions } from '../../modes/print-mode.js';
 import type { IPresetSurfaceOptions } from '../preset-surface-options.js';
@@ -129,8 +131,53 @@ describe('the preset surface projection is declared once', () => {
       'default',
     );
     const sessionOptions = toSessionOptions(surface);
-    expect(sessionOptions.presetSystemPrompt).toBe('seed text');
+    expect(sessionOptions.presetSystemPrompt).toBe(`${CORE_HARNESS_PROMPT}\n\nseed text`);
     expect('systemPrompt' in sessionOptions).toBe(false);
+  });
+
+  it('seeds every default run with the core harness alone', () => {
+    // A preset that states no system prompt of its own still reaches the model with the product's
+    // core guidance: the projection is where the shell owns it, so no surface has to remember it.
+    const surface = buildPresetSurfaceOptions(
+      createTestProductRuntime(),
+      {} as IResolvedPresetOptions,
+      'default',
+      'default',
+    );
+    expect(surface.systemPrompt).toBe(CORE_HARNESS_PROMPT);
+  });
+
+  it('puts a preset’s own system prompt after the core, separated by a blank line', () => {
+    const surface = buildPresetSurfaceOptions(
+      createTestProductRuntime(),
+      { systemPrompt: 'Preset guidance.' } as IResolvedPresetOptions,
+      'acme',
+      'default',
+    );
+    expect(surface.systemPrompt).toBe(`${CORE_HARNESS_PROMPT}\n\nPreset guidance.`);
+  });
+
+  it('treats a blank preset system prompt as none', () => {
+    const surface = buildPresetSurfaceOptions(
+      createTestProductRuntime(),
+      { systemPrompt: '  \n' } as IResolvedPresetOptions,
+      'acme',
+      'default',
+    );
+    expect(surface.systemPrompt).toBe(CORE_HARNESS_PROMPT);
+  });
+
+  it('leaves a caller-supplied whole prompt alone, with no core in front of it', () => {
+    // `--system-prompt` replaces the composed prompt on the session, so the core must not be
+    // composed into what the caller meant to be the entire prompt on any surface.
+    const surface = buildPresetSurfaceOptions(
+      createTestProductRuntime(),
+      { systemPrompt: 'WHOLE-PROMPT' } as IResolvedPresetOptions,
+      'default',
+      'default',
+      { cwd: '/work', args: { systemPrompt: 'WHOLE-PROMPT' } as IParsedCliArgs },
+    );
+    expect(surface.systemPrompt).toBe('WHOLE-PROMPT');
   });
 
   it('omits `model` entirely when the preset names none, so the shell’s fallback survives', () => {
