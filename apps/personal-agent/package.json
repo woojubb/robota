@@ -14,6 +14,8 @@
     "lint": "eslint src/ --ext .ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.114.0",
+    "@google/genai": "^1.52.0",
     "@hono/node-server": "^2.0.11",
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-framework": "workspace:^",
@@ -26,13 +28,14 @@
     "@robota-sdk/agent-transport": "workspace:^",
     "@robota-sdk/personal-gui-web": "workspace:^",
     "hono": "^4.12.32",
+    "openai": "^6.0.0",
     "playwright": "^1.49.1",
+    "tsx": "^4.23.1",
     "ws": "^8.21.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.1",
-    "tsx": "^4.23.1",
     "vitest": "^3.2.6"
   },
   "engines": {

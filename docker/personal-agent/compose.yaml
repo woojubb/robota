@@ -1,0 +1,34 @@
+# The personal agent on this machine. Local mode serves only loopback, so the container shares the
+# host's network: the web UI and the HTTP API are on the host's 127.0.0.1 and nowhere else.
+#
+#   OPENAI_API_KEY=... docker compose -f docker/personal-agent/compose.yaml up --build
+#
+# The access code and the HTTP bearer are printed to the container log at each start.
+services:
+  personal-agent:
+    build:
+      context: ../..
+      dockerfile: docker/personal-agent/Dockerfile
+    image: personal-agent:local
+    network_mode: host
+    environment:
+      PERSONAL_AGENT_PROVIDER: ${PERSONAL_AGENT_PROVIDER:-openai}
+      PERSONAL_AGENT_MODEL: ${PERSONAL_AGENT_MODEL:-gpt-5-mini}
+      PERSONAL_AGENT_BASE_URL: ${PERSONAL_AGENT_BASE_URL:-}
+      PERSONAL_AGENT_API_KEY_ENV: ${PERSONAL_AGENT_API_KEY_ENV:-OPENAI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Another provider's key: add its variable here and name it in PERSONAL_AGENT_API_KEY_ENV.
+    volumes:
+      - personal-agent-state:/home/node/.personal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+volumes:
+  personal-agent-state:
