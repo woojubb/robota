@@ -942,6 +942,10 @@ export type {
   IStatelessRuntimeConfig,
 } from './runtime/index.js';
 // The shared, presentation-free runtime host (build session + transport lifecycle).
+export { buildRuntimeSession, startRuntimeHost } from './runtime/index.js';
+export type { IRuntimeHostOptions, IRuntimeHostHandle } from './runtime/index.js';
+// One client's view of a served runtime's sessions: list, switch, start, rename and delete.
+export { createServeSessionDirectory } from './runtime/index.js';
 export type {
   TServeDirectorySession,
   IServeSessionLease,
@@ -952,10 +956,6 @@ export type {
   IServeOwnerDirectory,
   IServeOwnerBinding,
 } from './runtime/index.js';
-export { buildRuntimeSession, startRuntimeHost } from './runtime/index.js';
-export type { IRuntimeHostOptions, IRuntimeHostHandle } from './runtime/index.js';
-// One client's view of a served runtime's sessions: list, switch, start, rename and delete.
-export { createServeSessionDirectory } from './runtime/index.js';
 export { SessionSlot } from './runtime/index.js';
 export type { ISessionSlotOptions, IRuntimeHostPoolOptions } from './runtime/index.js';
 export {
