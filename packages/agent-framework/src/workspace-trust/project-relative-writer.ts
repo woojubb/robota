@@ -35,6 +35,7 @@ import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-
 
 import type { IProcessMarkerHandle, TProcessMarkerGuardResult } from '@robota-sdk/agent-core';
 import type {
+  IWorkspaceAppendOptions,
   IWorkspaceDirectoryRemovalOptions,
   IWorkspaceIdentity,
   IWorkspaceIdentityResolver,
@@ -400,8 +401,8 @@ export function createWorkspaceProjectMutationBoundary(
       writeWorkspaceRelativeFile(identity, identityResolver, relativePath, content),
     replace: (relativePath: string, content: Uint8Array | string): void =>
       replaceWorkspaceRelativeFile(identity, identityResolver, relativePath, content),
-    append: (relativePath: string, content: string): void =>
-      appendWorkspaceRelativeFile(identity, identityResolver, relativePath, content),
+    append: (relativePath: string, content: string, appendOptions?: IWorkspaceAppendOptions) =>
+      appendWorkspaceRelativeFile(identity, identityResolver, relativePath, content, appendOptions),
     delete: (relativePath: string): boolean =>
       deleteWorkspaceRelativeFile(identity, identityResolver, relativePath),
     sweepTemporaries: (
@@ -568,13 +569,52 @@ function appendWorkspaceRelativeFile(
   identityResolver: IWorkspaceIdentityResolver,
   relativePath: string,
   content: string,
-): void {
+  options: IWorkspaceAppendOptions | undefined,
+): boolean {
   const segments = workspacePathSegments(relativePath);
-  withAnchoredParent(identity, identityResolver, segments, (parentDescriptor, filename) => {
-    writeWithFlags(parentDescriptor, filename, content, constants.O_WRONLY | constants.O_APPEND, {
-      truncate: false,
+  if (options?.create !== false) {
+    withAnchoredParent(identity, identityResolver, segments, (parentDescriptor, filename) => {
+      writeWithFlags(parentDescriptor, filename, content, constants.O_WRONLY | constants.O_APPEND, {
+        truncate: false,
+      });
     });
-  });
+    return true;
+  }
+  const filename = segments.at(-1);
+  if (filename === undefined) refuseProjectRead('Project writes require a file path.');
+  // Nothing on the way is created: a missing directory or file means there is nothing to append to.
+  return (
+    withExistingAnchoredDirectory(
+      identity,
+      identityResolver,
+      segments.slice(0, -1),
+      (parentDescriptor) => {
+        let descriptor: number;
+        try {
+          descriptor = openSync(
+            descriptorPath(parentDescriptor, filename),
+            // Non-blocking, so a FIFO planted under the name cannot hang the append.
+            constants.O_WRONLY |
+              constants.O_APPEND |
+              (constants.O_NOFOLLOW ?? 0) |
+              (constants.O_NONBLOCK ?? 0),
+          );
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+          throw error;
+        }
+        try {
+          if (!fstatSync(descriptor).isFile()) {
+            refuseProjectRead('The opened project write target is not a regular file.');
+          }
+          writeFileSync(descriptor, content);
+          return true;
+        } finally {
+          closeSync(descriptor);
+        }
+      },
+    ) ?? false
+  );
 }
 
 function deleteWorkspaceRelativeFile(

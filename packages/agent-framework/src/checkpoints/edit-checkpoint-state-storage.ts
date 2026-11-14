@@ -68,7 +68,7 @@ export interface IEditCheckpointStateStorage {
   replaceBytes(relativePath: string, content: Uint8Array, purpose: string): void;
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[];
   /**
-   * Remove a checkpoint directory and everything under it, in bounded steps repeated while the
+   * Remove a checkpoint entry and everything under it, in bounded steps repeated while the
    * result is `partial`; only the project's state offers it, with the project boundary's guarantees.
    */
   removeDirectory?(

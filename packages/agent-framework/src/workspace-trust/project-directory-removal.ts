@@ -120,11 +120,13 @@ function openEntry(parent: number, name: Buffer): TOpened {
 }
 
 /**
- * Removes the directory `name` of the pinned `parent` and everything under it, within one mount and
- * one budget. Every directory is reached from a descriptor chain that starts at `parent`; no path
- * string is resolved twice. A directory on another mount than `parent` (a bind or tmpfs mount, even
- * one with the same device number) is refused before anything under it is touched; a non-directory
- * entry is unlinked by name, never followed or opened; a directory is removed only when empty and
+ * Removes the entry `name` of the pinned `parent` and everything under it, within one mount and one
+ * budget. A target that is not a directory (a regular file, a link, a socket, a FIFO) is unlinked by
+ * name through `parent`, never followed or opened, so no planted entry can make a name unremovable.
+ * Every directory is reached from a descriptor chain that starts at `parent`; no path string is
+ * resolved twice. A directory on another mount than `parent` (a bind or tmpfs mount, even one with
+ * the same device number) is refused before anything under it is touched; a non-directory entry is
+ * unlinked by name, never followed or opened; a directory is removed only when empty and
  * only while its name still opens the directory that was emptied, so a replacement swapped in under
  * that name is refused, not removed.
  *
@@ -147,11 +149,18 @@ export function removePinnedDirectory(
 
   const mount = readMountId(parent);
   const targetName = Buffer.from(name, 'utf8');
-  const target = openEntry(parent, targetName);
-  if (target.kind === 'missing') return { status: 'absent' };
+  let target = openEntry(parent, targetName);
   if (target.kind === 'other') {
-    refuseProjectRead('Project directory removal requires a plain, non-link directory target.');
+    if (unlinkEntry(parent, targetName)) {
+      syncDirectory(parent);
+      return { status: 'removed' };
+    }
+    // A directory took the name after the open said otherwise: visit the name once more.
+    target = openEntry(parent, targetName);
+    if (target.kind === 'other') return { status: 'partial', reason: 'concurrent' };
+    if (target.kind === 'missing') return { status: 'removed' };
   }
+  if (target.kind === 'missing') return { status: 'absent' };
   const stack: IPinnedDirectory[] = [];
   const pin = (descriptor: number, from: number, entry: Buffer, dev?: bigint): IPinnedDirectory => {
     let pinned: IPinnedDirectory | undefined;
