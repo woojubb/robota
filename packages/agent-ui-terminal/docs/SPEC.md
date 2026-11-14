@@ -95,13 +95,15 @@ contract is authoritative for how the TUI releases resources on session switch a
 - On session switch, nothing of the old session reaches what shows the new one: a channel that owns
   its session is fully stopped before the new one becomes active, and on stop failure stays selected
   with input disabled until a retry succeeds, rather than silently creating a second live channel. A
-  running fork is followed without stopping its parent; continuing an ended fork asks before a local
-  switch would stop other background work. Earlier sealed output remains subject to the user's read
-  gate. A session another writer holds is refused in the store's words before the old one stops, so the
-  person stays on it; a writer that took the id since sends them back to the session they were on,
-  never to a retry of the refused id. A channel attached to a host asks the host to switch and, when
-  the host does, drops the old session's questions unanswered, re-reads everything it shows and
-  prints the new transcript from its start.
+  running fork is followed without stopping its parent; every local switch that would stop live
+  background jobs (the resume picker, `/resume`, continuing an ended fork) first says how many and
+  leaves the person on their session, jobs running, if they decline. Earlier sealed output remains
+  subject to the user's read gate. A session another writer holds is refused in the store's words
+  before the old one stops, so the person stays on it; a writer that took the id since sends them
+  back to the session they were on, never to a retry of the refused id. A channel attached to a host
+  asks the host to switch, which keeps the jobs running and so needs no such question, and, when the
+  host does, drops the old session's questions unanswered, re-reads everything it shows and prints
+  the new transcript from its start.
 - The permission queue and the user-action queue are both drained on abort, cancel, and shutdown:
   every queued or in-flight action resolves (as cancelled or denied) rather than dangling — an
   unresolved permission promise would hang the tool that is waiting on it, and a queue drain that

@@ -466,7 +466,8 @@ describe('continuing an ended fork while other jobs of the session run', () => {
 
     probe.question()?.answer(true);
 
-    expect(probe.onSessionSwitch).toHaveBeenCalledWith(FORK_SESSION_ID);
+    // What the person agreed to travels with the switch, so the switch does not ask it again.
+    expect(probe.onSessionSwitch).toHaveBeenCalledWith(FORK_SESSION_ID, { liveJobsApproved: 2 });
     await vi.waitFor(() => expect(probe.question()).toBeUndefined());
     probe.done();
   });
@@ -549,7 +550,7 @@ describe('continuing an ended fork while other jobs of the session run', () => {
     await vi.waitFor(() => expect(probe.question()?.message).toContain('2 background jobs'));
     expect(probe.onSessionSwitch).not.toHaveBeenCalled();
     probe.question()?.answer(true);
-    expect(probe.onSessionSwitch).toHaveBeenCalledWith(FORK_SESSION_ID);
+    expect(probe.onSessionSwitch).toHaveBeenCalledWith(FORK_SESSION_ID, { liveJobsApproved: 2 });
     probe.done();
   });
 

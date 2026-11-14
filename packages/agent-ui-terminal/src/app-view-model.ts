@@ -3,7 +3,7 @@ import type { IAppThemeViewModel } from './hooks/useAppThemeState.js';
 import type { IInputAreaHistorySearch } from './hooks/useInputAreaHistorySearch.js';
 import type { ITuiCommandQueryPort } from './tui-app-channel-port.js';
 import type { ITuiSessionEventNotice } from './tui-session-events.js';
-import type { IPendingPermissionRequest } from './types.js';
+import type { IPendingPermissionRequest, ISessionSwitchQuestion } from './types.js';
 import type {
   IActionRequest,
   IHistoryEntry,
@@ -31,6 +31,8 @@ export interface IAppViewModel {
   readonly updateNotice: string | undefined;
   readonly coordinationError: string | undefined;
   readonly coordinationPending: boolean;
+  /** Present while the person is asked whether to stop the running jobs a session switch would cancel. */
+  readonly sessionSwitchQuestion?: ISessionSwitchQuestion | undefined;
   readonly sessionEventNotices: readonly ITuiSessionEventNotice[];
   readonly isShuttingDown: boolean;
   readonly stream: {

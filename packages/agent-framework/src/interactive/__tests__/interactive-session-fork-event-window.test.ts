@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { STREAM_EVENT_SAVE_INTERVAL_MS } from '../recorded-task-events.js';
 import { createSessionStub } from './helpers/session-stub.js';
 
 import type {
@@ -245,7 +246,8 @@ describe('a task that is not a fork', () => {
 });
 
 describe('the saved record of a session with a fork running', () => {
-  it('holds every event as it came, not the window', async () => {
+  it('holds the events as they came once the save that waits for output has run, not the window', async () => {
+    vi.useFakeTimers();
     const { runner, job } = createScriptedRunner();
     const records = new Map<string, unknown>();
     const sessionStore = withHoldReadClaim({
@@ -263,6 +265,8 @@ describe('the saved record of a session with a fork running', () => {
     await manager.spawn(agentRequest({ fork: true }));
 
     streamSomeOutput(job);
+    vi.advanceTimersByTime(STREAM_EVENT_SAVE_INTERVAL_MS);
+    vi.useRealTimers();
 
     const saved = sessionStore.save.mock.calls.at(-1)?.[0] as {
       backgroundTaskEvents?: Array<{ type: string; delta?: string }>;

@@ -1,4 +1,5 @@
-import { isAbsolute, join, relative } from 'node:path';
+import { lstatSync } from 'node:fs';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { DEFAULT_BRANCH_ID } from './edit-checkpoint-types.js';
 import { workspacePathSegments } from '../workspace-trust/project-reader-path.js';
@@ -120,13 +121,63 @@ export function migrateManifestsToTree(
 }
 
 /**
- * Whether `relativePath` is the checkpoint state root or lies inside it. Both are read as segments,
- * the way the project reader reads a path, so the spelling of the host's root (`.a\cp` or `.a/cp`)
- * and the separator `node:path` gave `relativePath` do not matter.
+ * `absolutePath` relative to the project root `cwd`, or `undefined` when it is the root itself or
+ * leaves it. A path leaves the project only when its first segment is exactly `..` or it is anchored
+ * elsewhere (another drive or share); a name that merely starts with two dots, such as `..notes`, is
+ * an ordinary file inside it.
  */
-export function isInsideCheckpointRoot(relativePath: string, root: string): boolean {
+export function relativeInsideProject(cwd: string, absolutePath: string): string | undefined {
+  const relativePath = relative(cwd, absolutePath);
+  if (
+    relativePath.length === 0 ||
+    relativePath.split(sep)[0] === '..' ||
+    isAbsolute(relativePath) ||
+    resolve(cwd, relativePath) !== absolutePath
+  ) {
+    return undefined;
+  }
+  return relativePath;
+}
+
+/**
+ * Whether `relativePath`, in the project at `cwd`, is the checkpoint state root or lies inside it.
+ * Both are read as segments, the way the project reader reads a path, so the spelling of the host's
+ * root (`.a\cp` or `.a/cp`) and the separator `node:path` gave `relativePath` do not matter.
+ *
+ * A name is not an identity: on a volume that ignores case, `.A/CP` and `.a/cp` are one directory. A
+ * path spelled the root's way is inside it; one spelled otherwise is inside only when the directory
+ * it names at the root's depth is the root itself, as the volume reports it. A different directory
+ * is never taken for the root by its name, and a link to the root is not the root.
+ */
+export function isInsideCheckpointRoot(cwd: string, relativePath: string, root: string): boolean {
   const path = workspacePathSegments(relativePath);
-  return workspacePathSegments(root).every((segment, index) => path[index] === segment);
+  const rootSegments = workspacePathSegments(root);
+  if (path.length < rootSegments.length) return false;
+  if (rootSegments.every((segment, index) => path[index] === segment)) return true;
+  const atRootDepth = directoryIdentity(join(cwd, ...path.slice(0, rootSegments.length)));
+  const rootIdentity = directoryIdentity(join(cwd, ...rootSegments));
+  return (
+    atRootDepth !== undefined &&
+    rootIdentity !== undefined &&
+    atRootDepth.ino === rootIdentity.ino &&
+    atRootDepth.dev === rootIdentity.dev
+  );
+}
+
+/**
+ * The device and inode of the directory at `path`, or `undefined` when nothing there is a directory
+ * the volume gives an identity to: absent, a link (not followed), not a directory, or an inode of 0
+ * (a volume that numbers nothing). Windows reports a device of 0 for both sides alike, so its inode
+ * is what tells two directories apart there.
+ */
+function directoryIdentity(path: string): { dev: bigint; ino: bigint } | undefined {
+  try {
+    const stat = lstatSync(path, { bigint: true });
+    return stat.isDirectory() && stat.ino !== 0n ? { dev: stat.dev, ino: stat.ino } : undefined;
+  } catch {
+    // allow-fallback: a directory that cannot be examined cannot be shown to be the root.
+    return undefined;
+  }
 }
 
 export function safePathSegment(value: string): string {

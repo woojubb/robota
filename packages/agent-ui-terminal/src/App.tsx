@@ -4,13 +4,18 @@ import { useApp } from 'ink';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import AppView from './AppView.js';
-import { refusalBeforeStop } from './flows/session-switch-flow.js';
+import {
+  JOBS_RUNNING_NOT_SWITCHED_NOTICE,
+  liveJobsStoppedBySwitch,
+  refusalBeforeStop,
+  stopJobsNotice,
+} from './flows/session-switch-flow.js';
 import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
 
 import type { IThemeRegistry } from './theme/theme-registry.js';
 import type { ITuiAppChannelPort } from './tui-app-channel-port.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
-import type { ISessionSwitchOptions } from './types.js';
+import type { ISessionSwitchOptions, ISessionSwitchQuestion } from './types.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { TReducedMotionOverride } from '@robota-sdk/agent-interface/command';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface/command';
@@ -73,6 +78,8 @@ interface IActiveChannel {
   readonly showPicker: boolean;
   readonly error: string | undefined;
   readonly switching: boolean;
+  /** Open while the person is asked whether to stop the running jobs a switch would cancel. */
+  readonly question: ISessionSwitchQuestion | undefined;
   readonly switchSession: (sessionId: string, options?: ISessionSwitchOptions) => Promise<void>;
   readonly retrySwitch: () => void;
 }
@@ -119,6 +126,7 @@ function useActiveChannel(props: IProps, firstChannel: ITuiAppChannelPort): IAct
   const [error, setError] = useState<string | undefined>();
   const [isSwitching, setIsSwitching] = useState(false);
   const [failedTarget, setFailedTarget] = useState<IFailedSwitch | undefined>();
+  const [question, setQuestion] = useState<ISessionSwitchQuestion | undefined>();
   const switching = useRef(false);
   const mounted = useRef(true);
   useEffect(
@@ -144,6 +152,30 @@ function useActiveChannel(props: IProps, firstChannel: ITuiAppChannelPort): IAct
             // A held id stops nothing: the person stays on the session they are on, told by the store.
             state.channel.addEntry(systemEntry(refusal));
           } else {
+            // Stopping the channel cancels the jobs its session runs, so that is the person's call.
+            const live = liveJobsStoppedBySwitch(
+              state.channel.getSnapshot().executionWorkspaceSnapshot,
+            );
+            if (live > (switchOptions?.liveJobsApproved ?? 0)) {
+              const channel = state.channel;
+              // The failure a retry was offered for gives way to the question: both want the keys.
+              setFailedTarget(undefined);
+              setError(undefined);
+              setQuestion({
+                message: `${stopJobsNotice(live)} Switch sessions?`,
+                answer: (yes) => {
+                  setQuestion(undefined);
+                  if (!yes) {
+                    channel.addEntry(systemEntry(JOBS_RUNNING_NOT_SWITCHED_NOTICE));
+                    return;
+                  }
+                  void switchSession(sessionId, { ...switchOptions, liveJobsApproved: live });
+                },
+              });
+              return;
+            }
+            // A retry after a failed stop must not ask again about jobs the person already agreed to.
+            retry = { sessionId, options: { ...switchOptions, liveJobsApproved: live } };
             await state.channel.stop();
             if (!mounted.current) return;
             const opened = openOrRefusal(
@@ -157,7 +189,9 @@ function useActiveChannel(props: IProps, firstChannel: ITuiAppChannelPort): IAct
               // A writer took the id after it was asked about. The person is back on the session
               // they were on, with the store's words, and the refused id is not tried again.
               const previous = here.sessionId === '' ? undefined : here.sessionId;
-              if (previous !== undefined) retry = { sessionId: previous, options: undefined };
+              if (previous !== undefined) {
+                retry = { sessionId: previous, options: { liveJobsApproved: live } };
+              }
               setState({
                 channel: openChannel(props.createChannel, previous, undefined),
                 sessionId: previous,
@@ -190,7 +224,7 @@ function useActiveChannel(props: IProps, firstChannel: ITuiAppChannelPort): IAct
     if (failedTarget !== undefined)
       void switchSession(failedTarget.sessionId, failedTarget.options);
   }, [failedTarget, switchSession]);
-  return { state, showPicker, error, switching: isSwitching, switchSession, retrySwitch };
+  return { state, showPicker, error, switching: isSwitching, question, switchSession, retrySwitch };
 }
 
 type TFirstChannel = { readonly channel: ITuiAppChannelPort } | { readonly refusal: string };
@@ -243,6 +277,7 @@ function ActiveApp(
         onRetrySessionSwitch={active.retrySwitch}
         sessionSwitchError={active.error}
         sessionSwitchPending={active.switching}
+        sessionSwitchQuestion={active.question}
         showSessionPickerOnStart={active.showPicker}
         {...(props.initialInput !== undefined ? { initialInput: props.initialInput } : {})}
         {...(props.initialInputOrigin !== undefined

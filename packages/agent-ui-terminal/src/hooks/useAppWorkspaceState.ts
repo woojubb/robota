@@ -9,6 +9,7 @@ import { resolveBackgroundFocusKey } from '../flows/background-focus-flow.js';
 import { useKeybindingActions } from '../keybindings/keybindings-context.js';
 
 import type { IAppBackgroundViewModel } from '../app-view-model.js';
+import type { TSessionSwitch } from '../types.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IExecutionDetailPage,
@@ -34,7 +35,7 @@ interface IOptions {
   readonly select: (entryId: string) => void;
   readonly read: (entryId: string) => Promise<IExecutionDetailPage>;
   readonly sessionStore: IInteractiveSessionStore | undefined;
-  readonly onSessionSwitch: (sessionId: string) => Promise<void>;
+  readonly onSessionSwitch: TSessionSwitch;
   readonly addEntry: (entry: IHistoryEntry) => void;
   readonly navigationEnabled: boolean;
   readonly switcherVisible: boolean;

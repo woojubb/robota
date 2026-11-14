@@ -22,10 +22,12 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '../App.js';
+import { ScreenReaderProvider } from '../screen-reader-context.js';
 import { TuiStateManager } from '../tui-state-manager.js';
 
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { ITuiAppChannelPort } from '../tui-app-channel-port.js';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface/execution';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
@@ -589,6 +591,270 @@ describe('App session-switch channel ownership', () => {
     expect(channelC.stop).not.toHaveBeenCalled();
     expect(createChannel).toHaveBeenCalledTimes(4);
   });
+
+  /**
+   * Stopping a channel cancels the background jobs its session still runs, so a switch that would do
+   * that is the person's decision. The picker, `/resume` and a retried switch all end in the same
+   * switch, which is where the question is asked.
+   */
+  describe('switching sessions while background jobs run', () => {
+    const FIRST_ROW = 'session-aaaaaaaa';
+    const JOBS_QUESTION = /background jobs? (is|are) still running and will be stopped/;
+
+    /** The jobs the session reports, one per status, as its workspace shows them. */
+    function reportJobs(channel: IFakeChannel, statuses: readonly string[]): void {
+      const entries = statuses.map((status, index) => ({
+        id: `task:job_${index}`,
+        sourceId: `job_${index}`,
+        kind: 'background_task' as const,
+        taskKind: 'agent' as const,
+        origin: { kind: 'slash_command' as const, sessionId: 'parent' },
+        status: status as IExecutionWorkspaceEntry['status'],
+        state: 'working' as const,
+        title: `job ${index}`,
+        subtitle: 'general-purpose',
+        unread: false,
+        attention: 'none' as const,
+        visibility: 'default' as const,
+        updatedAt: '2026-11-14T00:00:00.000Z',
+        controls: ['select', 'cancel'] as IExecutionWorkspaceEntry['controls'],
+      }));
+      channel.stateManager.executionWorkspaceSnapshot = {
+        sessionId: 'parent',
+        selectedEntryId: entries[0]?.id ?? '',
+        updatedAt: '2026-11-14T00:00:00.000Z',
+        entries,
+      };
+      channel.onChange?.();
+    }
+
+    const said = (channel: IFakeChannel): string => JSON.stringify(channel.stateManager.history);
+
+    /** The question is on screen and its keys are listening: an answer typed now is not lost. */
+    async function waitForQuestion(
+      lastFrame: () => string | undefined,
+      wording: RegExp | string = JOBS_QUESTION,
+    ): Promise<void> {
+      await waitForFrame(lastFrame, (frame) =>
+        typeof wording === 'string' ? frame.includes(wording) : wording.test(frame),
+      );
+      await tick();
+    }
+
+    /** The startup picker is open and the first channel reports `statuses` as its jobs. */
+    async function pickerWithJobs(statuses: readonly string[]) {
+      const view = renderApp();
+      await waitForSessionPicker(view.lastFrame);
+      const initial = created[0]!;
+      reportJobs(initial, statuses);
+      await tick();
+      return { ...view, initial };
+    }
+
+    it('asks first, naming the jobs, and a decline keeps the session and its jobs', async () => {
+      const { stdin, lastFrame, initial } = await pickerWithJobs([
+        'running',
+        'queued',
+        'completed',
+      ]);
+
+      stdin.write('\r'); // the first row of the picker
+      await tick();
+
+      expect(initial.stop).not.toHaveBeenCalled();
+      expect(createChannel).toHaveBeenCalledTimes(1);
+      await waitForQuestion(lastFrame, '2 background jobs are still running and will be stopped');
+
+      stdin.write('n');
+      await tick();
+
+      expect(initial.stop).not.toHaveBeenCalled();
+      expect(createChannel).toHaveBeenCalledTimes(1);
+      expect(lastFrame()).not.toMatch(JOBS_QUESTION);
+      expect(lastFrame()).toContain('Type a message');
+      expect(said(initial)).toContain('session not switched');
+    });
+
+    it('a bare Enter declines: the question opens on No', async () => {
+      const { stdin, lastFrame, initial } = await pickerWithJobs(['running']);
+
+      stdin.write('\r');
+      await waitForQuestion(lastFrame, '1 background job is still running and will be stopped');
+      stdin.write('\r');
+      await tick();
+
+      expect(initial.stop).not.toHaveBeenCalled();
+      expect(createChannel).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops the jobs with the channel and switches when the person confirms', async () => {
+      const { stdin, lastFrame, initial } = await pickerWithJobs(['running', 'waiting_permission']);
+
+      stdin.write('\r');
+      await waitForQuestion(lastFrame);
+      expect(initial.stop).not.toHaveBeenCalled();
+      stdin.write('y');
+      await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 2);
+
+      expect(initial.stop).toHaveBeenCalledTimes(1);
+      expect(createChannel).toHaveBeenNthCalledWith(2, FIRST_ROW);
+    });
+
+    it('asks nothing when no job is running', async () => {
+      const { stdin, lastFrame, initial } = await pickerWithJobs(['completed', 'failed']);
+
+      stdin.write('\r');
+      await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 2);
+
+      expect(lastFrame()).not.toMatch(JOBS_QUESTION);
+      expect(initial.stop).toHaveBeenCalledTimes(1);
+      expect(createChannel).toHaveBeenNthCalledWith(2, FIRST_ROW);
+    });
+
+    it('asks on the picker `/resume` opens, not only on the startup picker', async () => {
+      const { stdin, lastFrame } = renderApp({ showSessionPickerOnStart: false });
+      await tick();
+      const initial = created[0]!;
+      reportJobs(initial, ['running']);
+      initial.emitSessionEvent('ui_intent', {
+        intent: { type: 'show-session-picker' },
+        requesterDriverId: 'owner',
+      });
+      await waitForSessionPicker(lastFrame);
+
+      stdin.write('\r');
+      await waitForQuestion(lastFrame);
+      expect(initial.stop).not.toHaveBeenCalled();
+      stdin.write('n');
+      await tick();
+
+      expect(initial.stop).not.toHaveBeenCalled();
+      expect(createChannel).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks again when more jobs started while the question was open, on a fresh No', async () => {
+      const { stdin, lastFrame, initial } = await pickerWithJobs(['running']);
+
+      stdin.write('\r');
+      await waitForQuestion(lastFrame, '1 background job is still');
+      reportJobs(initial, ['running', 'running']);
+      await tick();
+      stdin.write('y');
+      await waitForQuestion(lastFrame, '2 background jobs are still');
+      expect(initial.stop).not.toHaveBeenCalled();
+
+      // The new question is its own: the earlier yes does not carry into it.
+      stdin.write('\r');
+      await tick();
+      expect(initial.stop).not.toHaveBeenCalled();
+      expect(createChannel).toHaveBeenCalledTimes(1);
+    });
+
+    it('retries a failed switch without asking again what the person already agreed to', async () => {
+      const { stdin, lastFrame, initial } = await pickerWithJobs(['running']);
+      initial.stop.mockRejectedValueOnce(new Error('transport stop failed'));
+
+      stdin.write('\r');
+      await waitForQuestion(lastFrame);
+      stdin.write('y');
+      await waitForFrame(lastFrame, (frame) => frame.includes('Session switch failed'));
+      await tick();
+      stdin.write('\r');
+      await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 2);
+
+      expect(initial.stop).toHaveBeenCalledTimes(2);
+      expect(lastFrame()).not.toMatch(JOBS_QUESTION);
+    });
+
+    it('a retry asks again, in place of the failure, when more jobs started since the person agreed', async () => {
+      const { stdin, lastFrame, initial } = await pickerWithJobs(['running']);
+      initial.stop.mockRejectedValueOnce(new Error('transport stop failed'));
+
+      stdin.write('\r');
+      await waitForQuestion(lastFrame);
+      stdin.write('y');
+      await waitForFrame(lastFrame, (frame) => frame.includes('Session switch failed'));
+      reportJobs(initial, ['running', 'queued']);
+      await tick();
+      stdin.write('\r');
+      await waitForQuestion(lastFrame, '2 background jobs are still');
+
+      expect(lastFrame()).not.toContain('Session switch failed');
+      expect(initial.stop).toHaveBeenCalledTimes(1);
+    });
+
+    it('in screen-reader mode the question is plain text, answered by typing y or n', async () => {
+      const store = createFakeStore([sessionRecord(FIRST_ROW, cwd)]);
+      const { stdin, lastFrame } = render(
+        <ScreenReaderProvider enabled={true}>
+          <App
+            cwd={cwd}
+            createChannel={createChannel}
+            sessionStore={store}
+            showSessionPickerOnStart
+            cliAdapter={createCliAdapter(join(cwd, 'settings.json'))}
+          />
+        </ScreenReaderProvider>,
+      );
+      await waitForSessionPicker(lastFrame);
+      const initial = created[0]!;
+      reportJobs(initial, ['running']);
+      await tick();
+
+      stdin.write('1');
+      await tick();
+      stdin.write('\r');
+      await waitForQuestion(lastFrame);
+      expect(lastFrame()).toContain('Answer y or n and press Enter');
+      expect(lastFrame()).not.toMatch(/[╭╮╰╯│]/u);
+      stdin.write('n');
+      await tick();
+      stdin.write('\r');
+      await tick();
+      expect(initial.stop).not.toHaveBeenCalled();
+      expect(said(initial)).toContain('session not switched');
+
+      initial.emitSessionEvent('ui_intent', {
+        intent: { type: 'show-session-picker' },
+        requesterDriverId: 'owner',
+      });
+      await waitForSessionPicker(lastFrame);
+      stdin.write('1');
+      await tick();
+      stdin.write('\r');
+      await waitForQuestion(lastFrame);
+      stdin.write('y');
+      await tick();
+      stdin.write('\r');
+      await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 2);
+      expect(initial.stop).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks nothing of a terminal attached to a host: the host keeps its jobs', async () => {
+      const requestSessionSwitch = vi.fn(async () => {});
+      const records = [sessionRecord(FIRST_ROW, cwd)];
+      const { stdin, lastFrame } = render(
+        <App
+          cwd={cwd}
+          createChannel={createChannel}
+          sessionStore={createFakeStore(records)}
+          requestSessionSwitch={requestSessionSwitch}
+          showSessionPickerOnStart
+          cliAdapter={createCliAdapter(join(cwd, 'settings.json'))}
+        />,
+      );
+      await waitForSessionPicker(lastFrame);
+      reportJobs(created[0]!, ['running']);
+      await tick();
+
+      stdin.write('\r');
+      await waitForFrame(lastFrame, () => requestSessionSwitch.mock.calls.length === 1);
+
+      expect(requestSessionSwitch).toHaveBeenCalledWith(FIRST_ROW);
+      expect(lastFrame()).not.toMatch(JOBS_QUESTION);
+      expect(created[0]!.stop).not.toHaveBeenCalled();
+    });
+  });
 });
 
 /**
@@ -716,6 +982,45 @@ describe('picking a session the store will not claim', () => {
     await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 2);
     expect(createChannel).toHaveBeenNthCalledWith(2, FREE_ID);
     expect(created[0]!.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a held session before asking about jobs: nothing would be stopped, so nothing is asked', async () => {
+    const { stdin, lastFrame } = renderPicker();
+    await waitForSessionPicker(lastFrame);
+    created[0]!.stateManager.executionWorkspaceSnapshot = {
+      sessionId: CURRENT_ID,
+      selectedEntryId: 'task:job',
+      updatedAt: '2026-11-14T00:00:00.000Z',
+      entries: [
+        {
+          id: 'task:job',
+          sourceId: 'job',
+          kind: 'background_task',
+          taskKind: 'agent',
+          origin: { kind: 'slash_command', sessionId: CURRENT_ID },
+          status: 'running',
+          state: 'working',
+          title: 'job',
+          unread: false,
+          attention: 'none',
+          visibility: 'default',
+          updatedAt: '2026-11-14T00:00:00.000Z',
+          controls: ['select', 'cancel'],
+        },
+      ],
+    };
+    created[0]!.onChange?.();
+    await tick();
+    holdBy(HELD_ID);
+
+    stdin.write('\r'); // the newest row: the held session
+    await waitForFrame(
+      () => saidIn(created[0]!),
+      (said) => said.includes(`pid ${process.ppid}`),
+    );
+
+    expect(lastFrame()).not.toContain('will be stopped');
+    expect(created[0]!.stop).not.toHaveBeenCalled();
   });
 
   it('still reopens the session the person is on when they pick it again, though its own claim holds the id', async () => {

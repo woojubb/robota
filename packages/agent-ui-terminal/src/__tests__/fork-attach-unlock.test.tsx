@@ -242,7 +242,8 @@ describe('attaching to a fork sealed with the keys locked', () => {
     await vi.waitFor(() => expect(probe.question()?.message).toContain('1 background job'));
     expect(probe.onSessionSwitch).not.toHaveBeenCalled();
     probe.question()?.answer(true);
-    expect(probe.onSessionSwitch).toHaveBeenCalledWith(FORK);
+    // What the person agreed to travels with the switch, so the switch does not ask it again.
+    expect(probe.onSessionSwitch).toHaveBeenCalledWith(FORK, { liveJobsApproved: 1 });
     probe.done();
   });
 });
