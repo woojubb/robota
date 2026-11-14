@@ -50,23 +50,31 @@ function refusalOfNewOperation(response: TWorkspaceRootBrokerResponse, operation
   if (response.status === 'refused' && response.reason === 'malformed') {
     throw new WorkspaceAuthorityRequiredError(
       `The running workspace-root broker is older than this CLI and cannot ${operation}. ` +
-      'Restart the workspace-root broker: end its process (started with --internal-root-broker), ' +
-      'then run the command again so a current broker starts.',
+        'Restart the workspace-root broker: end its process (started with --internal-root-broker), ' +
+        'then run the command again so a current broker starts.',
     );
   }
   return refusal(response);
 }
 
 /** What a brokered directory removal achieved, from the broker's answer. */
-export function brokeredDirectoryRemoval(response: TWorkspaceRootBrokerResponse): TWorkspaceDirectoryRemoval {
+export function brokeredDirectoryRemoval(
+  response: TWorkspaceRootBrokerResponse,
+): TWorkspaceDirectoryRemoval {
   if (response.status !== 'mutation') return refusalOfNewOperation(response, 'remove directories');
   switch (response.value) {
-    case 'removed': return { status: 'removed' };
-    case 'absent': return { status: 'absent' };
-    case 'partial-budget': return { status: 'partial', reason: 'budget' };
-    case 'partial-concurrent': return { status: 'partial', reason: 'concurrent' };
+    case 'removed':
+      return { status: 'removed' };
+    case 'absent':
+      return { status: 'absent' };
+    case 'partial-budget':
+      return { status: 'partial', reason: 'budget' };
+    case 'partial-concurrent':
+      return { status: 'partial', reason: 'concurrent' };
     default:
-      throw new WorkspaceAuthorityRequiredError('The workspace broker returned an invalid removal result.');
+      throw new WorkspaceAuthorityRequiredError(
+        'The workspace broker returned an invalid removal result.',
+      );
   }
 }
 
@@ -77,13 +85,16 @@ export function brokeredDirectoryRemoval(response: TWorkspaceRootBrokerResponse)
  */
 export function brokeredAppend(response: TWorkspaceRootBrokerResponse, create: boolean): boolean {
   if (!create) {
-    if (response.status !== 'mutation') return refusalOfNewOperation(response, 'append without creating');
+    if (response.status !== 'mutation')
+      return refusalOfNewOperation(response, 'append without creating');
     if (typeof response.value === 'boolean') return response.value;
   } else {
     if (response.status !== 'mutation') return refusal(response);
     if (response.value === undefined || response.value === true) return true;
   }
-  throw new WorkspaceAuthorityRequiredError('The workspace broker returned an invalid append result.');
+  throw new WorkspaceAuthorityRequiredError(
+    'The workspace broker returned an invalid append result.',
+  );
 }
 
 function kind(value: string): TWorkspaceContributionKind {
@@ -217,12 +228,17 @@ export class BrokeredWorkspaceTrustService {
       method: TWorkspaceRootBrokerMutation,
       relativePath: string,
       options: {
-        content?: Uint8Array | string; temporaryName?: string; apply?: boolean; migrationStartedAt?: number;
+        content?: Uint8Array | string;
+        temporaryName?: string;
+        apply?: boolean;
+        migrationStartedAt?: number;
       } & IWorkspaceDirectoryRemovalOptions = {},
     ): TWorkspaceRootBrokerResponse => {
       for (const budget of [options.maxEntries, options.maxMs]) {
         if (budget !== undefined && !isRemovalBudget(budget)) {
-          throw new WorkspaceAuthorityRequiredError('A directory removal budget must be a positive whole number.');
+          throw new WorkspaceAuthorityRequiredError(
+            'A directory removal budget must be a positive whole number.',
+          );
         }
       }
       return sync({
@@ -275,7 +291,10 @@ export class BrokeredWorkspaceTrustService {
           replace: (path: string, content: Uint8Array | string) => { mutation(root, 'replace', path, { content }); },
           append: (path: string, content: string, options?: IWorkspaceAppendOptions) => {
             const create = options?.create !== false;
-            return brokeredAppend(mutate(root, create ? 'append' : 'appendExisting', path, { content }), create);
+            return brokeredAppend(
+              mutate(root, create ? 'append' : 'appendExisting', path, { content }),
+              create,
+            );
           },
           delete: (path: string) => result(mutation(root, 'delete', path)) as boolean,
           sweepTemporaries: (path: string, apply: boolean, migrationStartedAt?: number) =>

@@ -43,8 +43,18 @@ const CANDIDATE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a
  * file, but it refuses an operation it does not know as malformed, having touched nothing.
  */
 const MUTATIONS = [
-  'write', 'replace', 'append', 'appendExisting', 'delete', 'sweepTemporaries', 'linkCount',
-  'stage', 'commitStaged', 'discardStaged', 'claimDirectory', 'removeDirectory',
+  'write',
+  'replace',
+  'append',
+  'appendExisting',
+  'delete',
+  'sweepTemporaries',
+  'linkCount',
+  'stage',
+  'commitStaged',
+  'discardStaged',
+  'claimDirectory',
+  'removeDirectory',
 ] as const;
 export type TWorkspaceRootBrokerMutation = (typeof MUTATIONS)[number];
 
@@ -608,11 +618,14 @@ export async function startWorkspaceRootBroker(
           case 'append':
           case 'appendExisting':
             if (content === undefined) return refuse('malformed');
-            result = { status: 'mutation', value: boundary.append(
-              path,
-              new TextDecoder('utf-8', { fatal: true }).decode(content),
-              { create: request.method === 'append' },
-            ) };
+            result = {
+              status: 'mutation',
+              value: boundary.append(
+                path,
+                new TextDecoder('utf-8', { fatal: true }).decode(content),
+                { create: request.method === 'append' },
+              ),
+            };
             break;
           case 'removeDirectory': {
             if (boundary.removeDirectory === undefined) return refuse('unsupported');
