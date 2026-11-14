@@ -194,8 +194,8 @@ importers:
         specifier: ^3.4.1
         version: 3.4.1
       '@robota-sdk/agent-framework':
-        specifier: npm:@robota-sdk/agent-framework@3.3.3
-        version: 3.3.3
+        specifier: npm:@robota-sdk/agent-framework@3.3.4
+        version: 3.3.4
       '@robota-sdk/agent-gui-web':
         specifier: workspace:^
         version: link:../../packages/agent-gui-web
@@ -652,7 +652,7 @@ importers:
         version: 3.3.1(@anthropic-ai/sdk@0.114.0)
       '@robota-sdk/agent-tools':
         specifier: ^3.3.0
-        version: 3.3.1(@robota-sdk/agent-core@3.3.1)
+        version: 3.3.1(@robota-sdk/agent-core@3.3.2)
       p-limit:
         specifier: ^6.1.0
         version: 6.2.0
@@ -742,7 +742,7 @@ importers:
         version: 3.3.1(@anthropic-ai/sdk@0.114.0)
       '@robota-sdk/agent-tools':
         specifier: ^3.3.0
-        version: 3.3.1(@robota-sdk/agent-core@3.3.1)
+        version: 3.3.1(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-transport':
         specifier: ^3.4.0
         version: 3.4.1(hono@4.13.14)(ws@8.21.1)(zod@4.6.7)
@@ -864,7 +864,7 @@ importers:
         version: 3.3.1(@anthropic-ai/sdk@0.114.0)
       '@robota-sdk/agent-tools':
         specifier: ^3.3.0
-        version: 3.3.1(@robota-sdk/agent-core@3.3.1)
+        version: 3.3.1(@robota-sdk/agent-core@3.3.2)
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -892,7 +892,7 @@ importers:
         version: 3.3.1(@anthropic-ai/sdk@0.114.0)
       '@robota-sdk/agent-tools':
         specifier: ^3.3.0
-        version: 3.3.1(@robota-sdk/agent-core@3.3.1)
+        version: 3.3.1(@robota-sdk/agent-core@3.3.2)
       discord-api-types:
         specifier: ^0.38.50
         version: 0.38.50
@@ -926,7 +926,7 @@ importers:
         version: 3.3.1(@anthropic-ai/sdk@0.114.0)
       '@robota-sdk/agent-tools':
         specifier: ^3.3.0
-        version: 3.3.1(@robota-sdk/agent-core@3.3.1)
+        version: 3.3.1(@robota-sdk/agent-core@3.3.2)
       express:
         specifier: ^4.18.0
         version: 4.22.2
@@ -963,7 +963,7 @@ importers:
         version: 3.3.1(@anthropic-ai/sdk@0.114.0)
       '@robota-sdk/agent-tools':
         specifier: ^3.3.0
-        version: 3.3.1(@robota-sdk/agent-core@3.3.1)
+        version: 3.3.1(@robota-sdk/agent-core@3.3.2)
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -991,7 +991,7 @@ importers:
         version: 3.3.1(@anthropic-ai/sdk@0.114.0)
       '@robota-sdk/agent-tools':
         specifier: ^3.3.0
-        version: 3.3.1(@robota-sdk/agent-core@3.3.1)
+        version: 3.3.1(@robota-sdk/agent-core@3.3.2)
       next:
         specifier: ^15.5.24
         version: 15.5.28(@babel/core@7.29.7)(@types/node@22.19.21)(react-dom@19.2.8)(react@19.2.8)
@@ -1028,7 +1028,7 @@ importers:
         version: 3.3.1(@anthropic-ai/sdk@0.114.0)
       '@robota-sdk/agent-tools':
         specifier: ^3.3.0
-        version: 3.3.1(@robota-sdk/agent-core@3.3.1)
+        version: 3.3.1(@robota-sdk/agent-core@3.3.2)
       '@slack/bolt':
         specifier: ^3.21.1
         version: 3.22.0
@@ -1059,7 +1059,7 @@ importers:
         version: 3.3.1(@anthropic-ai/sdk@0.114.0)
       '@robota-sdk/agent-tools':
         specifier: ^3.3.0
-        version: 3.3.1(@robota-sdk/agent-core@3.3.1)
+        version: 3.3.1(@robota-sdk/agent-core@3.3.2)
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -1090,7 +1090,7 @@ importers:
         version: 3.3.1(@anthropic-ai/sdk@0.114.0)
       '@robota-sdk/agent-tools':
         specifier: ^3.3.0
-        version: 3.3.1(@robota-sdk/agent-core@3.3.1)
+        version: 3.3.1(@robota-sdk/agent-core@3.3.2)
       ws:
         specifier: ^8.21.1
         version: 8.21.1
@@ -1233,20 +1233,20 @@ importers:
         specifier: ^0.14.1
         version: 0.14.1
       '@robota-sdk/agent-core':
-        specifier: npm:@robota-sdk/agent-core@3.3.1
-        version: 3.3.1
+        specifier: npm:@robota-sdk/agent-core@3.3.2
+        version: 3.3.2
       '@robota-sdk/agent-executor':
         specifier: npm:@robota-sdk/agent-executor@3.2.5
         version: 3.2.5(koffi@3.3.1)
       '@robota-sdk/agent-framework':
-        specifier: npm:@robota-sdk/agent-framework@3.3.3
-        version: 3.3.3
+        specifier: npm:@robota-sdk/agent-framework@3.3.4
+        version: 3.3.4
       '@robota-sdk/agent-gui-web':
         specifier: workspace:^
         version: link:../agent-gui-web
       '@robota-sdk/agent-interface':
         specifier: npm:@robota-sdk/agent-interface@3.3.2
-        version: 3.3.2(@robota-sdk/agent-core@3.3.1)
+        version: 3.3.2(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-keyring':
         specifier: npm:@robota-sdk/agent-keyring@3.2.2
         version: 3.2.2
@@ -1255,7 +1255,7 @@ importers:
         version: link:../agent-local-host
       '@robota-sdk/agent-mcp':
         specifier: npm:@robota-sdk/agent-mcp@3.2.3
-        version: 3.2.3(@robota-sdk/agent-core@3.3.1)
+        version: 3.2.3(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-organization-host':
         specifier: workspace:^
         version: link:../agent-organization-host
@@ -1263,8 +1263,8 @@ importers:
         specifier: npm:@robota-sdk/agent-os@3.3.2
         version: 3.3.2(koffi@3.3.1)
       '@robota-sdk/agent-product':
-        specifier: npm:@robota-sdk/agent-product@3.3.3
-        version: 3.3.3
+        specifier: npm:@robota-sdk/agent-product@3.4.0
+        version: 3.4.0
       '@robota-sdk/agent-provider':
         specifier: npm:@robota-sdk/agent-provider@3.3.4
         version: 3.3.4(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
@@ -1288,19 +1288,19 @@ importers:
         version: 3.2.5(@opentelemetry/api@1.9.1)
       '@robota-sdk/agent-tools':
         specifier: npm:@robota-sdk/agent-tools@3.3.2
-        version: 3.3.2(@robota-sdk/agent-core@3.3.1)
+        version: 3.3.2(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-transport':
         specifier: npm:@robota-sdk/agent-transport@3.4.2
         version: 3.4.2(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       '@robota-sdk/agent-ui-terminal':
-        specifier: npm:@robota-sdk/agent-ui-terminal@3.2.6
-        version: 3.2.6(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
+        specifier: npm:@robota-sdk/agent-ui-terminal@3.2.7
+        version: 3.2.7(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       '@robota-sdk/product-config':
         specifier: npm:@robota-sdk/product-config@3.2.2
         version: 3.2.2
       '@robota-sdk/workflows':
         specifier: 0.0.7
-        version: 0.0.7(@robota-sdk/agent-core@3.3.1)(@robota-sdk/agent-framework@3.3.3)(@robota-sdk/agent-interface@3.3.2)(@robota-sdk/agent-provider@3.3.4)(@robota-sdk/agent-tools@3.3.2)
+        version: 0.0.7(@robota-sdk/agent-core@3.3.2)(@robota-sdk/agent-framework@3.3.4)(@robota-sdk/agent-interface@3.3.2)(@robota-sdk/agent-provider@3.3.4)(@robota-sdk/agent-tools@3.3.2)
       '@types/marked':
         specifier: ^6.0.0
         version: 6.0.0
@@ -1504,11 +1504,11 @@ importers:
         version: 19.2.8(react@19.2.8)
     devDependencies:
       '@robota-sdk/agent-core':
-        specifier: npm:@robota-sdk/agent-core@3.3.1
-        version: 3.3.1
+        specifier: npm:@robota-sdk/agent-core@3.3.2
+        version: 3.3.2
       '@robota-sdk/agent-framework':
-        specifier: npm:@robota-sdk/agent-framework@3.3.3
-        version: 3.3.3
+        specifier: npm:@robota-sdk/agent-framework@3.3.4
+        version: 3.3.4
       '@robota-sdk/agent-transport':
         specifier: npm:@robota-sdk/agent-transport@3.4.2
         version: 3.4.2(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
@@ -1594,8 +1594,8 @@ importers:
   packages/agent-local-host:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: npm:@robota-sdk/agent-core@3.3.1
-        version: 3.3.1
+        specifier: npm:@robota-sdk/agent-core@3.3.2
+        version: 3.3.2
       '@robota-sdk/agent-keyring':
         specifier: npm:@robota-sdk/agent-keyring@3.2.2
         version: 3.2.2
@@ -1813,8 +1813,8 @@ importers:
   packages/agent-provider-replay:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: npm:@robota-sdk/agent-core@3.3.1
-        version: 3.3.1
+        specifier: npm:@robota-sdk/agent-core@3.3.2
+        version: 3.3.2
       '@robota-sdk/agent-session':
         specifier: npm:@robota-sdk/agent-session@3.2.8
         version: 3.2.8
@@ -6960,13 +6960,22 @@ packages:
       jssha: 3.3.2
       undici: 7.30.1
       zod: 4.6.7
+    dev: false
+
+  /@robota-sdk/agent-core@3.3.2:
+    resolution: {integrity: sha512-paUcX1Bw168Ul6PXT1EUUHQulbq1ccfoxkpvolcgGbooXbGXyVW7v/jEEiwEMzZrFeyRNqkU+1kCasPU9qoGQg==}
+    engines: {node: '>=22.12.0'}
+    dependencies:
+      jssha: 3.3.2
+      undici: 7.30.1
+      zod: 4.6.7
 
   /@robota-sdk/agent-executor@3.2.4(koffi@3.3.1):
     resolution: {integrity: sha512-x+FO11uLQoEBg+kJpYvzIOZDiD8SsH2FEjZYtV0hEnm8gmAV2NDXEal2rrpcdGwVeApxkLZPAqe95F/jgulmjg==}
     engines: {node: '>=22.12.0'}
     dependencies:
-      '@robota-sdk/agent-core': 3.3.0
-      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.3.0)
+      '@robota-sdk/agent-core': 3.3.1
+      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.3.1)
       '@robota-sdk/agent-os': 3.3.1(koffi@3.3.1)
       croner: 10.0.1
     transitivePeerDependencies:
@@ -6977,8 +6986,8 @@ packages:
     resolution: {integrity: sha512-9UO7wsaFMhe1tvtG8uOUeU83S2KIcNcjYmRd75UmzB09w3LWvc71HtD5bhpq4ERyMvTB3Gw9foKnfpgLOvZ1ig==}
     engines: {node: '>=22.12.0'}
     dependencies:
-      '@robota-sdk/agent-core': 3.3.1
-      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.1)
+      '@robota-sdk/agent-core': 3.3.2
+      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-os': 3.3.2(koffi@3.3.1)
       croner: 10.0.1
     transitivePeerDependencies:
@@ -7001,17 +7010,17 @@ packages:
       zod: 4.6.7
     dev: false
 
-  /@robota-sdk/agent-framework@3.3.3:
-    resolution: {integrity: sha512-R+tPnsIVKj88Hy5bdgMWErq1gBm1Qj3I+pJY8dgS5y0Kt68EegvsBxw3JrpqScA/Gvxa2CXXzNdvgaiFk96tOg==}
+  /@robota-sdk/agent-framework@3.3.4:
+    resolution: {integrity: sha512-iaZperjhup88z13BlRuQ4Wllli3tph83oLfzgB95W2qGqBu42G0m8UpYP0cc1PZsRq7fvDqVpKhYvQNVhAK6bQ==}
     engines: {node: '>=22.12.0'}
     dependencies:
-      '@robota-sdk/agent-core': 3.3.1
+      '@robota-sdk/agent-core': 3.3.2
       '@robota-sdk/agent-executor': 3.2.5(koffi@3.3.1)
-      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.1)
+      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-os': 3.3.2(koffi@3.3.1)
       '@robota-sdk/agent-roundtable': 3.2.2
       '@robota-sdk/agent-session': 3.2.8
-      '@robota-sdk/agent-tools': 3.3.2(@robota-sdk/agent-core@3.3.1)
+      '@robota-sdk/agent-tools': 3.3.2(@robota-sdk/agent-core@3.3.2)
       koffi: 3.3.1
       yaml: 2.9.0
       zod: 4.6.7
@@ -7041,7 +7050,19 @@ packages:
       '@robota-sdk/agent-core': 3.3.0
     dev: false
 
-  /@robota-sdk/agent-interface@3.3.2(@robota-sdk/agent-core@3.3.1):
+  /@robota-sdk/agent-interface@3.3.0(@robota-sdk/agent-core@3.3.1):
+    resolution: {integrity: sha512-P0gPbcB31aMYuAQEWjKo4UALWxOw+nNbdjAXJTygf0ISHgjsQoo3rvbGvv4NIar7sosZ9XvrCMJDwUvfdo/QAQ==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      '@robota-sdk/agent-core': ^3.2.3
+    peerDependenciesMeta:
+      '@robota-sdk/agent-core':
+        optional: true
+    dependencies:
+      '@robota-sdk/agent-core': 3.3.1
+    dev: false
+
+  /@robota-sdk/agent-interface@3.3.2(@robota-sdk/agent-core@3.3.2):
     resolution: {integrity: sha512-SRCdis2lEzvIigPPqtAGajTzFxKHSoePL4bLyMJNEavKZ2zWpd0jdh9nM8rmT0chOjGvf23UR7oCztW8beJLsQ==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
@@ -7050,13 +7071,13 @@ packages:
       '@robota-sdk/agent-core':
         optional: true
     dependencies:
-      '@robota-sdk/agent-core': 3.3.1
+      '@robota-sdk/agent-core': 3.3.2
 
   /@robota-sdk/agent-keyring@3.2.2:
     resolution: {integrity: sha512-oGsDsL2GrLqraSn+KPwm7NF+UBdu0coPxgo13xJaKkBZdzoX6r8ydFBcopA3Oy1iaa3tWMK8Wr6wGJp+nB47hw==}
     engines: {node: '>=22.12.0'}
 
-  /@robota-sdk/agent-mcp@3.2.3(@robota-sdk/agent-core@3.3.1):
+  /@robota-sdk/agent-mcp@3.2.3(@robota-sdk/agent-core@3.3.2):
     resolution: {integrity: sha512-mWPaSjLhVPfpaMKk2KJLvxC19q78L+EApUmiU/FSYkNXOGCqpYGjMSs/Yns2XDKi7hWade3pcgzOUe7MLs7h6A==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
@@ -7064,7 +7085,7 @@ packages:
     dependencies:
       '@modelcontextprotocol/client': 2.3.0
       '@modelcontextprotocol/core': 2.3.0
-      '@robota-sdk/agent-core': 3.3.1
+      '@robota-sdk/agent-core': 3.3.2
     dev: true
 
   /@robota-sdk/agent-organization@3.2.1:
@@ -7107,14 +7128,15 @@ packages:
     dependencies:
       koffi: 3.3.1
 
-  /@robota-sdk/agent-product@3.3.3:
-    resolution: {integrity: sha512-mM5HoziFPzCk63jBcIab0z337besNfFBdvnRa/F8SSXq/9rVn8hZjEqwf5971NxfPC+H1LS/6A7vCxSxtWFTzw==}
+  /@robota-sdk/agent-product@3.4.0:
+    resolution: {integrity: sha512-+K9iFcqN+L3MRQaHPlpdhuujns13FN+mAWe0ZIU7JS5m3ygcaF2vs9z7xGYFtanONjlkDVTsLlHeCbLFWGMzag==}
     engines: {node: '>=22.12.0'}
     dependencies:
-      '@robota-sdk/agent-core': 3.3.1
-      '@robota-sdk/agent-framework': 3.3.3
-      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.1)
-      '@robota-sdk/agent-tools': 3.3.2(@robota-sdk/agent-core@3.3.1)
+      '@robota-sdk/agent-core': 3.3.2
+      '@robota-sdk/agent-framework': 3.3.4
+      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
+      '@robota-sdk/agent-tools': 3.3.2(@robota-sdk/agent-core@3.3.2)
+      zod: 4.6.7
     dev: true
 
   /@robota-sdk/agent-provider@3.3.1(@anthropic-ai/sdk@0.114.0):
@@ -7172,7 +7194,7 @@ packages:
     dependencies:
       '@anthropic-ai/sdk': 0.114.0(zod@4.6.7)
       '@google/genai': 1.52.0
-      '@robota-sdk/agent-core': 3.3.1
+      '@robota-sdk/agent-core': 3.3.2
       openai: 6.0.0(ws@8.21.1)(zod@4.6.7)
     dev: true
 
@@ -7196,16 +7218,16 @@ packages:
     resolution: {integrity: sha512-uhtaMt/+EkkGnC6iCD23asyVHzo7EZiu+wS21RprvpjCVWo94IYowmJAiYaHw1nqgbud3PdKv56efPd0lM3naQ==}
     engines: {node: '>=22.12.0'}
     dependencies:
-      '@robota-sdk/agent-core': 3.3.1
-      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.1)
+      '@robota-sdk/agent-core': 3.3.2
+      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
     dev: true
 
   /@robota-sdk/agent-session@3.2.6:
     resolution: {integrity: sha512-2sNEQcqaDFE2aUsNw4yU6nW1f9Dh3EjswVdoYiJT1VdTcgP3BPEe+2oMAtuyk94KVN7ARIZLfFm/smTh39+BJw==}
     engines: {node: '>=22.12.0'}
     dependencies:
-      '@robota-sdk/agent-core': 3.3.0
-      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.3.0)
+      '@robota-sdk/agent-core': 3.3.1
+      '@robota-sdk/agent-interface': 3.3.0(@robota-sdk/agent-core@3.3.1)
       '@robota-sdk/agent-os': 3.3.1(koffi@3.3.1)
       koffi: 3.3.1
     dev: false
@@ -7214,8 +7236,8 @@ packages:
     resolution: {integrity: sha512-s+/WGazCJ1/d6PWqVUJPjTLIyAjs/Ry2+HPm8F1pT8ttZkb6qBQ+t+GVJvMOwT4fAKU53JxS5lwkwazs/dBrlA==}
     engines: {node: '>=22.12.0'}
     dependencies:
-      '@robota-sdk/agent-core': 3.3.1
-      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.1)
+      '@robota-sdk/agent-core': 3.3.2
+      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-os': 3.3.2(koffi@3.3.1)
       koffi: 3.3.1
 
@@ -7223,10 +7245,10 @@ packages:
     resolution: {integrity: sha512-3NejdcMm5HS2YGyt6C4UXhKXK+/S+fJ9LjbirTWjXep0Trqcyzp3XhRhXFAj2z146i6vVQlDsTSVR8GLvyLFWA==}
     engines: {node: '>=22.12.0'}
     dependencies:
-      '@robota-sdk/agent-core': 3.3.1
+      '@robota-sdk/agent-core': 3.3.2
       '@robota-sdk/agent-executor': 3.2.5(koffi@3.3.1)
-      '@robota-sdk/agent-framework': 3.3.3
-      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.1)
+      '@robota-sdk/agent-framework': 3.3.4
+      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-os': 3.3.2(koffi@3.3.1)
     transitivePeerDependencies:
       - koffi
@@ -7239,8 +7261,8 @@ packages:
       '@opentelemetry/api': ^1.9.0
     dependencies:
       '@opentelemetry/api': 1.9.1
-      '@robota-sdk/agent-core': 3.3.1
-      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.1)
+      '@robota-sdk/agent-core': 3.3.2
+      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
     dev: true
 
   /@robota-sdk/agent-tools@3.3.1(@robota-sdk/agent-core@3.2.3):
@@ -7257,13 +7279,13 @@ packages:
       zod: 4.6.7
     dev: false
 
-  /@robota-sdk/agent-tools@3.3.1(@robota-sdk/agent-core@3.3.1):
+  /@robota-sdk/agent-tools@3.3.1(@robota-sdk/agent-core@3.3.2):
     resolution: {integrity: sha512-YbPAI8l0E7dB0g6ZM7OO3bvm6dsDCsGtswoW4/4Spos1CvahnWwok2DtpnrbjRpFQrDBEBnd9tut0soEkyvEng==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
       '@robota-sdk/agent-core': ^3.2.3
     dependencies:
-      '@robota-sdk/agent-core': 3.3.1
+      '@robota-sdk/agent-core': 3.3.2
       '@robota-sdk/agent-os': 3.3.0(koffi@3.3.1)
       fast-glob: 3.3.3
       koffi: 3.3.1
@@ -7285,13 +7307,13 @@ packages:
       zod: 4.6.7
     dev: false
 
-  /@robota-sdk/agent-tools@3.3.2(@robota-sdk/agent-core@3.3.1):
+  /@robota-sdk/agent-tools@3.3.2(@robota-sdk/agent-core@3.3.2):
     resolution: {integrity: sha512-xo/JI89XbvfDrZ7++I6+/BEEpSnIdASZCRniH4o+PLVJkG6Dqwdk493HeeAKS2Xc3gpe1tZ58YgqFMw0NlFmKw==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
       '@robota-sdk/agent-core': ^3.3.1
     dependencies:
-      '@robota-sdk/agent-core': 3.3.1
+      '@robota-sdk/agent-core': 3.3.2
       '@robota-sdk/agent-os': 3.3.2(koffi@3.3.1)
       fast-glob: 3.3.3
       koffi: 3.3.1
@@ -7394,8 +7416,8 @@ packages:
       '@agentclientprotocol/sdk': 1.9.0(zod@4.6.7)
       '@modelcontextprotocol/node': 2.1.0(@modelcontextprotocol/server@2.3.0)(hono@4.13.14)
       '@modelcontextprotocol/server': 2.3.0
-      '@robota-sdk/agent-core': 3.3.1
-      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.1)
+      '@robota-sdk/agent-core': 3.3.2
+      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-keyring': 3.2.2
       '@robota-sdk/agent-remote-pairing': 3.3.0
       bittorrent-dht: 11.0.12
@@ -7407,13 +7429,13 @@ packages:
       ws: 8.21.1
       zod: 4.6.7
 
-  /@robota-sdk/agent-ui-terminal@3.2.6(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7):
-    resolution: {integrity: sha512-HNTzYfQ62ucB/7sMoWsMygAAcT/CdCcEzVg4Fhoiu7CWg811wwYCbFtt1dxsuWHyh77uHev53cyFc8LeKVrNqw==}
+  /@robota-sdk/agent-ui-terminal@3.2.7(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7):
+    resolution: {integrity: sha512-s5cvCL2yaIW6MqImbtuFg3fDCoL2BOSa3/eSo4Nc4q8AYiTJdHPFKIwtyBzbrNbeNLoLHn+ojBIC+1cpfyIF0A==}
     engines: {node: '>=22.12.0'}
     dependencies:
-      '@robota-sdk/agent-core': 3.3.1
-      '@robota-sdk/agent-framework': 3.3.3
-      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.1)
+      '@robota-sdk/agent-core': 3.3.2
+      '@robota-sdk/agent-framework': 3.3.4
+      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-transport': 3.4.2(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       chalk: 5.6.2
       ink: 7.1.1(@types/react@19.2.17)(react@19.2.8)
@@ -7446,8 +7468,8 @@ packages:
     peerDependencies:
       react: '>=18'
     dependencies:
-      '@robota-sdk/agent-core': 3.3.1
-      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.1)
+      '@robota-sdk/agent-core': 3.3.2
+      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-transport': 3.4.2(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       lucide-react: 1.26.0(react@19.2.8)
       pretendard: 1.3.9
@@ -7474,7 +7496,7 @@ packages:
     resolution: {integrity: sha512-eVia8GXuPTQuHU7//HmGE+pYBc3EKCjrpABJNgMCf5L0gOLYshCWmKh29hbJiUbOx+0RwWTqB4O3XkTqiTFgEA==}
     engines: {node: '>=22.12.0'}
 
-  /@robota-sdk/workflows@0.0.7(@robota-sdk/agent-core@3.3.1)(@robota-sdk/agent-framework@3.3.3)(@robota-sdk/agent-interface@3.3.2)(@robota-sdk/agent-provider@3.3.4)(@robota-sdk/agent-tools@3.3.2):
+  /@robota-sdk/workflows@0.0.7(@robota-sdk/agent-core@3.3.2)(@robota-sdk/agent-framework@3.3.4)(@robota-sdk/agent-interface@3.3.2)(@robota-sdk/agent-provider@3.3.4)(@robota-sdk/agent-tools@3.3.2):
     resolution: {integrity: sha512-yIuArJGj9fnzbq43cNZKheZwJny4Mo77nEmplp8q+VOrDwllnfAtII75a+K84+y2jVll9IDeKN30HXwICsDlbg==}
     engines: {node: ^22.14.0}
     peerDependencies:
@@ -7485,11 +7507,11 @@ packages:
       '@robota-sdk/agent-tools': ~3.3.0
     dependencies:
       '@marcbachmann/cel-js': 7.6.1
-      '@robota-sdk/agent-core': 3.3.1
-      '@robota-sdk/agent-framework': 3.3.3
-      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.1)
+      '@robota-sdk/agent-core': 3.3.2
+      '@robota-sdk/agent-framework': 3.3.4
+      '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-provider': 3.3.4(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
-      '@robota-sdk/agent-tools': 3.3.2(@robota-sdk/agent-core@3.3.1)
+      '@robota-sdk/agent-tools': 3.3.2(@robota-sdk/agent-core@3.3.2)
       better-sqlite3: 11.10.0
       zod: 4.6.7
     dev: true

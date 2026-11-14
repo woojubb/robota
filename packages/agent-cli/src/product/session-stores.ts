@@ -29,6 +29,7 @@ import {
   createProjectSessionStore,
   createUserPromptHistoryFile,
   createUserSessionStore,
+  removeSubagentLogs,
 } from '@robota-sdk/agent-framework/node';
 import { compactPromptHistoryFile, inspectPromptHistoryFile } from '@robota-sdk/agent-session/node';
 
@@ -87,19 +88,31 @@ export function createProductUserSessionStore(
   });
 }
 
-/** A trusted workspace's own session store, with its replay logs. */
+/**
+ * A trusted workspace's own session store, with its replay logs. Deleting a session removes
+ * everything it left: its checkpoints (the same grant's facet) and the subagent logs this process
+ * writes under the run's log root (`secure-v1` inside it in secure mode, as the workers are given).
+ * The product writes no project session log through a sink of its own, so there is none to tell.
+ */
 export function createProductProjectSessionStore(
   authority: ITrustedWorkspaceProjectAccess['authority'],
   runtime: ICliRuntimeContext,
 ): IInteractiveSessionStore {
   const sealing = resolveProductSessionSealing(runtime);
   enterProductStores(runtime);
+  const subagentLogsRoot = runtime.layout.subagentLogsRoot;
   return createProjectSessionStore(
     getWorkspaceProjectStateStorage(authority, 'sessions'),
     getWorkspaceProjectStateStorage(authority, 'session-logs'),
     {
       sealing,
       releaseCommand: productSessionReleaseCommand(runtime),
+      deletion: {
+        checkpoints: getWorkspaceProjectStateStorage(authority, 'checkpoints'),
+        removeSubagentLogs: (sessionId) => {
+          removeSubagentLogs(subagentLogsRoot, sessionId);
+        },
+      },
     },
   );
 }

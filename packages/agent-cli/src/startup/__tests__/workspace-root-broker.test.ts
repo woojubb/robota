@@ -1,7 +1,16 @@
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { existsSync, mkdtempSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -323,6 +332,136 @@ describe.skipIf(process.platform !== 'linux')('root broker checkpoint writer lea
     expect(await requestWorkspaceRootBroker(f.endpoint, { op: 'revoke', root: f.first }))
       .toMatchObject({ status: 'revoked' });
     expect(await holds(f, lease.writerLease)).toMatchObject({ status: 'mutation', value: false });
+  });
+
+  const remove = (
+    f: { endpoint: string; lease: string },
+    relativePath: string,
+    operationId = randomUUID(),
+    budget: { maxEntries?: number; maxMs?: number } = {},
+  ) =>
+    requestWorkspaceRootBroker(f.endpoint, {
+      op: 'mutate',
+      lease: f.lease,
+      operationId,
+      method: 'removeDirectory',
+      relativePath,
+      ...budget,
+    });
+  const append = (
+    f: { endpoint: string; lease: string },
+    method: 'append' | 'appendExisting',
+    relativePath: string,
+    text: string,
+    operationId = randomUUID(),
+  ) =>
+    requestWorkspaceRootBroker(f.endpoint, {
+      op: 'mutate',
+      lease: f.lease,
+      operationId,
+      method,
+      relativePath,
+      content: Buffer.from(text).toString('base64'),
+    });
+
+  it('removes a nested tree in bounded steps and answers a repeated operation id from its record', async () => {
+    const f = await approvedRoot();
+    const victim = join(f.first, 'state', 'victim');
+    mkdirSync(join(victim, 'nested', 'deeper'), { recursive: true });
+    writeFileSync(join(victim, 'one.txt'), 'one');
+    writeFileSync(join(victim, 'nested', 'deeper', 'two.txt'), 'two');
+    writeFileSync(join(f.first, 'state', 'sibling.txt'), 'kept');
+
+    expect(await remove(f, 'state/victim', randomUUID(), { maxEntries: 1 })).toEqual({
+      status: 'mutation',
+      value: 'partial-budget',
+    });
+    expect(existsSync(victim)).toBe(true);
+    const operationId = randomUUID();
+    expect(await remove(f, 'state/victim', operationId)).toEqual({
+      status: 'mutation',
+      value: 'removed',
+    });
+    expect(existsSync(victim)).toBe(false);
+    expect(readFileSync(join(f.first, 'state', 'sibling.txt'), 'utf8')).toBe('kept');
+    mkdirSync(victim);
+    // The same operation id is answered from the record: nothing is removed a second time.
+    expect(await remove(f, 'state/victim', operationId)).toEqual({
+      status: 'mutation',
+      value: 'removed',
+    });
+    expect(existsSync(victim)).toBe(true);
+    expect(await remove(f, 'state/victim')).toEqual({ status: 'mutation', value: 'removed' });
+    expect(await remove(f, 'state/victim')).toEqual({ status: 'mutation', value: 'absent' });
+    expect(await remove(f, 'missing/below/victim')).toEqual({
+      status: 'mutation',
+      value: 'absent',
+    });
+    expect(existsSync(join(f.first, 'missing'))).toBe(false);
+  });
+
+  it('refuses a removal through a linked ancestor and touches nothing it leads to', async () => {
+    const f = await approvedRoot();
+    mkdirSync(join(f.second, 'target'), { recursive: true });
+    writeFileSync(join(f.second, 'target', 'keep.txt'), 'outside');
+    symlinkSync(f.second, join(f.first, 'linked'));
+
+    expect(await remove(f, 'linked/target')).toEqual({
+      status: 'refused',
+      reason: 'write-outcome-unknown',
+    });
+    expect(readFileSync(join(f.second, 'target', 'keep.txt'), 'utf8')).toBe('outside');
+  });
+
+  it('refuses removal budgets that are not positive whole numbers, and an operation it does not know', async () => {
+    const f = await approvedRoot();
+    mkdirSync(join(f.first, 'victim'));
+    for (const budget of [{ maxEntries: 0 }, { maxMs: 1.5 }, { maxMs: -1 }]) {
+      expect(await remove(f, 'victim', randomUUID(), budget)).toEqual({
+        status: 'refused',
+        reason: 'malformed',
+      });
+    }
+    expect(
+      await requestWorkspaceRootBroker(f.endpoint, {
+        op: 'mutate',
+        lease: f.lease,
+        operationId: randomUUID(),
+        method: 'removeEverything',
+        relativePath: 'victim',
+      } as unknown as Parameters<typeof requestWorkspaceRootBroker>[1]),
+    ).toEqual({ status: 'refused', reason: 'malformed' });
+    expect(existsSync(join(f.first, 'victim'))).toBe(true);
+  });
+
+  it('appends without creating only to a file that is there, and answers whether it appended', async () => {
+    const f = await approvedRoot();
+    expect(await append(f, 'appendExisting', 'logs/late.jsonl', 'late\n')).toEqual({
+      status: 'mutation',
+      value: false,
+    });
+    expect(existsSync(join(f.first, 'logs'))).toBe(false);
+    mkdirSync(join(f.first, 'logs'));
+    expect(await append(f, 'appendExisting', 'logs/late.jsonl', 'late\n')).toEqual({
+      status: 'mutation',
+      value: false,
+    });
+    expect(existsSync(join(f.first, 'logs', 'late.jsonl'))).toBe(false);
+
+    expect(await append(f, 'append', 'logs/run.jsonl', 'one\n')).toEqual({
+      status: 'mutation',
+      value: true,
+    });
+    const operationId = randomUUID();
+    expect(await append(f, 'appendExisting', 'logs/run.jsonl', 'two\n', operationId)).toEqual({
+      status: 'mutation',
+      value: true,
+    });
+    expect(await append(f, 'appendExisting', 'logs/run.jsonl', 'two\n', operationId)).toEqual({
+      status: 'mutation',
+      value: true,
+    });
+    expect(readFileSync(join(f.first, 'logs', 'run.jsonl'), 'utf8')).toBe('one\ntwo\n');
   });
 
   it('releases the lease of a client process that is gone, and keeps one whose client runs', async () => {
