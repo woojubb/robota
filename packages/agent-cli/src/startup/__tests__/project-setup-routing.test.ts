@@ -265,7 +265,7 @@ describe('routeProjectSetup — init', () => {
     async () => {
       const { cwd, errors, exit } = await runInit();
       expect(errors.join('\n')).toContain(
-        'Project mutation requires stable root-anchored host support',
+        "Project mutation requires stable root-anchored host support: only on Linux can the host prove that a project write stays under the trusted workspace root, so on this platform it refuses every project mutation. Run on Linux, or make the change to the project's files yourself.",
       );
       expect(errors.join('\n')).not.toContain('requires project mutation permission');
       expect(exit).toEqual([[1]]);

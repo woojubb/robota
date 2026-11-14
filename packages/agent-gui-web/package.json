@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@robota-sdk/agent-core": "npm:@robota-sdk/agent-core@3.3.1",
-    "@robota-sdk/agent-framework": "npm:@robota-sdk/agent-framework@3.3.2",
+    "@robota-sdk/agent-framework": "npm:@robota-sdk/agent-framework@3.3.3",
     "@robota-sdk/agent-transport": "npm:@robota-sdk/agent-transport@3.4.2",
     "@robota-sdk/product-config": "npm:@robota-sdk/product-config@3.2.2",
     "@tailwindcss/vite": "^4.3.3",

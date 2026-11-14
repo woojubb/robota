@@ -611,8 +611,8 @@ broker retains the exact folder object approved through the user prompt, and all
 operations compare their opened root with it; its same-user IPC cannot authenticate a person, so a
 direct local client can create a new approval. CLI
 and desktop restarts reattach without another approval. The broker lives only as long as the user-state
-root its approvals belong to, so removing that root, like a broker or OS restart, requires one new
-approval per root. Absence is deterministically **Restricted**: only user contribution/settings sources and
+root its approvals belong to and leaves nothing under its shared directory when that ends, so removing
+that root, like a broker or OS restart, requires one new approval per root. Absence is deterministically **Restricted**: only user contribution/settings sources and
 the user session store are available, no project memory, and `cwd` alone cannot mint any project
 capability. **Trusted** composition derives project sources plus named state facets from the exact
 runtime-accepted authority, and is refused when the real CLI working directory is outside the

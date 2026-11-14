@@ -21,6 +21,8 @@ import {
 import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
 import { WindowsControlPipeServer, type IControlChannel } from '@robota-sdk/agent-local-host';
 
+import { BROKER_LOCK_NAME, removeBrokerNamespaceDirectory } from './workspace-root-broker-directory.js';
+
 import type { IProcessMarkerHandle } from '@robota-sdk/agent-core';
 import type { IWorkspaceIdentity, IWorkspaceIdentityResolver } from '@robota-sdk/agent-framework';
 
@@ -320,7 +322,7 @@ export async function startWorkspaceRootBroker(
   historyFile?: string,
 ): Promise<{ close(): Promise<void> }> {
   privateEndpoint(endpoint, false);
-  const lock = createProcessOperationLock(lockDirectory).tryAcquire('workspace-root-broker');
+  const lock = createProcessOperationLock(lockDirectory).tryAcquire(BROKER_LOCK_NAME);
   if (lock === undefined) throw new Error('A root broker already owns this namespace.');
   try {
     await clearCrashedEndpoint(endpoint);
@@ -805,6 +807,9 @@ export async function startWorkspaceRootBroker(
     throw error;
   }
   let closing: Promise<void> | undefined;
+  // Set when the broker ends because the state it serves is gone: nothing will ever use its namespace
+  // directory again, so it takes the directory with it instead of leaving one behind per state root.
+  let removeNamespaceDirectory = false;
   const broker = {
     close(): Promise<void> {
       return closing ??= (async () => {
@@ -836,13 +841,23 @@ export async function startWorkspaceRootBroker(
             if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
           }
         }
+        if (removeNamespaceDirectory) {
+          try {
+            // Still holding the guard, so no other broker is serving this directory while it is removed.
+            removeBrokerNamespaceDirectory(lockDirectory, process.getuid?.() ?? -1);
+          } catch {
+            // The directory only holds two empty entries; a failed removal is retried by the next start's sweep.
+          }
+        }
         lock.release();
       })();
     },
   };
   // Unreferenced: the check never keeps a host alive; a broker process stays up on its server alone.
   const ownerCheck = owner === undefined ? undefined : setInterval(() => {
-    if (owner?.present() === false) void broker.close().catch(() => undefined);
+    if (owner?.present() !== false) return;
+    removeNamespaceDirectory = true;
+    void broker.close().catch(() => undefined);
   }, OWNER_CHECK_MS);
   ownerCheck?.unref();
   // A client that ended without releasing its checkpoint writer leases must not keep them alive in this
