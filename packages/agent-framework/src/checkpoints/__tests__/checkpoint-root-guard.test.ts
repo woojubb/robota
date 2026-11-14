@@ -3,7 +3,7 @@
  * from the host's layout in whatever spelling the host used (`.a\cp` from a Windows host), while the
  * path under test comes from `node:path`, so the guard compares segments, not text.
  */
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, parse } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -18,7 +18,39 @@ import { isInsideCheckpointRoot } from '../edit-checkpoint-store-helpers.js';
 
 import type { IEditCheckpointStateStorage } from '../edit-checkpoint-state-storage.js';
 
+/** Whether `dir`'s volume reads names that differ only in case as one name (APFS and NTFS by default). */
+function volumeIgnoresCase(dir: string): boolean {
+  const marker = join(dir, 'Case-Probe');
+  writeFileSync(marker, '');
+  try {
+    return existsSync(join(dir, 'case-probe'));
+  } finally {
+    rmSync(marker, { force: true });
+  }
+}
+
+const probeDir = makeCanonicalTempDir('checkpoint-root-case-');
+const caseInsensitive = volumeIgnoresCase(probeDir);
+rmSync(probeDir, { recursive: true, force: true });
+
+let base: string;
+beforeEach(() => {
+  base = makeCanonicalTempDir('checkpoint-root-guard-');
+});
+afterEach(() => {
+  rmSync(base, { recursive: true, force: true });
+});
+
 describe('isInsideCheckpointRoot', () => {
+  /** The directories the tables below name, so a spelling is tested against what the volume holds. */
+  let project: string;
+  beforeEach(() => {
+    project = join(base, 'project');
+    for (const dir of ['.a/cp/s1', '.a/cp/s2', '.a/cp-two', '.a/c', 'x/.a/cp']) {
+      mkdirSync(join(project, ...dir.split('/')), { recursive: true });
+    }
+  });
+
   it.each([
     ['.a/cp', '.a/cp'],
     ['.a/cp/s1/turn-0001/manifest.json', '.a/cp'],
@@ -28,7 +60,7 @@ describe('isInsideCheckpointRoot', () => {
     ['.a\\cp\\s1\\manifest.json', '.a\\cp'],
     ['.a/cp/s1', '.a\\cp/s1'],
   ])('holds %j to be the checkpoint root %j or inside it', (relativePath, root) => {
-    expect(isInsideCheckpointRoot(relativePath, root)).toBe(true);
+    expect(isInsideCheckpointRoot(project, relativePath, root)).toBe(true);
   });
 
   it.each([
@@ -40,16 +72,53 @@ describe('isInsideCheckpointRoot', () => {
     ['x/.a/cp/y', '.a/cp'],
     ['.a/cp/s1', '.a/cp/s2'],
   ])('does not hold %j to be the checkpoint root %j or inside it', (relativePath, root) => {
-    expect(isInsideCheckpointRoot(relativePath, root)).toBe(false);
+    expect(isInsideCheckpointRoot(project, relativePath, root)).toBe(false);
   });
-});
 
-let base: string;
-beforeEach(() => {
-  base = makeCanonicalTempDir('checkpoint-root-guard-');
-});
-afterEach(() => {
-  rmSync(base, { recursive: true, force: true });
+  it.runIf(caseInsensitive).each([
+    ['.A/CP', '.a/cp'],
+    ['.A/Cp/s1/turn-0001/manifest.json', '.a/cp'],
+    ['.a/cp/S1/x', '.A/CP'],
+    ['.A\\CP\\s1', '.a\\cp'],
+  ])(
+    'holds %j to be the checkpoint root %j or inside it, the volume ignoring case',
+    (relativePath, root) => {
+      expect(isInsideCheckpointRoot(project, relativePath, root)).toBe(true);
+    },
+  );
+
+  it.each([
+    ['.A/CP-TWO/notes.txt', '.a/cp'],
+    ['.A/C/x', '.a/cp'],
+    ['.A/CP/S1/x', '.a/cp/s2'],
+    ['.A/CP', '.a/cp/s1'],
+  ])(
+    'does not hold %j to be the checkpoint root %j or inside it, on any volume',
+    (relativePath, root) => {
+      expect(isInsideCheckpointRoot(project, relativePath, root)).toBe(false);
+    },
+  );
+
+  it.runIf(!caseInsensitive)(
+    'does not take a directory whose name differs only in case for the root, when the volume tells them apart',
+    () => {
+      mkdirSync(join(project, '.a', 'CP', 's1'), { recursive: true });
+      expect(isInsideCheckpointRoot(project, '.a/CP/s1/x', '.a/cp')).toBe(false);
+      expect(isInsideCheckpointRoot(project, '.a/cp/s1/x', '.a/cp')).toBe(true);
+    },
+  );
+
+  it.runIf(process.platform !== 'win32')('does not follow a link to the root', () => {
+    symlinkSync(join(project, '.a', 'cp'), join(project, 'alias'), 'dir');
+    expect(isInsideCheckpointRoot(project, 'alias/s1/x', '.a/cp')).toBe(false);
+  });
+
+  it('holds nothing spelled another way inside a root that is not there yet', () => {
+    const empty = join(base, 'empty');
+    mkdirSync(empty);
+    expect(isInsideCheckpointRoot(empty, '.A/CP/x', '.a/cp')).toBe(false);
+    expect(isInsideCheckpointRoot(empty, '.a/cp/x', '.a/cp')).toBe(true);
+  });
 });
 
 /** Directory state that says it sits under `root` in the project, spelled as given. */
@@ -108,6 +177,21 @@ describe('an EditCheckpointStore whose state sits under the project', () => {
       expect(await captureUnder(root, '.a/cp-two/notes.txt')).toBe(1);
     },
   );
+
+  it.runIf(caseInsensitive).each([
+    ['.a/cp', '.A/CP/s1/turn-0001/manifest.json'],
+    ['.A/Cp', '.a/cp/s1/turn-0001/manifest.json'],
+    ['.a/cp', '.a/Cp/S1/turn-0001/manifest.json'],
+  ])(
+    'does not snapshot its own state as a project file when root %j is reached as %j',
+    async (root, file) => {
+      expect(await captureUnder(root, file)).toBe(0);
+    },
+  );
+
+  it('still captures a project file beside the root when it is reached by another case', async () => {
+    expect(await captureUnder('.a/cp', '.A/CP-TWO/notes.txt')).toBe(1);
+  });
 });
 
 /** A name that merely starts with two dots is a file inside the project, not a way out of it. */

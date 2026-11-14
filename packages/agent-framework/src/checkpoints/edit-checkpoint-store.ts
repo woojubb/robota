@@ -202,7 +202,8 @@ export class EditCheckpointStore implements IEditCheckpointStore {
     const checkpointRoot = this.authorityIO.checkpointRootRelativePath;
     if (
       relativePath === undefined ||
-      (checkpointRoot !== undefined && isInsideCheckpointRoot(relativePath, checkpointRoot))
+      (checkpointRoot !== undefined &&
+        isInsideCheckpointRoot(this.cwd, relativePath, checkpointRoot))
     ) {
       return;
     }
