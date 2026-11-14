@@ -10,6 +10,8 @@ import type { AddressInfo } from 'node:net';
 export interface IModelRequest {
   readonly messages: readonly { role: string; content: unknown; tool_calls?: unknown }[];
   readonly tools?: readonly { function?: { name?: string } }[];
+  /** The Authorization header the provider sent, so a test can tell which key reached the model. */
+  readonly authorization?: string;
 }
 
 export type TModelReply =
@@ -47,7 +49,11 @@ export async function startScriptedModel(): Promise<IScriptedModel> {
     }
     let raw = '';
     for await (const chunk of req) raw += String(chunk);
-    const body = JSON.parse(raw) as IModelRequest & { stream?: boolean };
+    const parsed = JSON.parse(raw) as IModelRequest & { stream?: boolean };
+    const body = {
+      ...parsed,
+      ...(req.headers.authorization !== undefined && { authorization: req.headers.authorization }),
+    };
     requests.push(body);
     const entry = replies[Math.min(next, replies.length - 1)]!;
     next += 1;
