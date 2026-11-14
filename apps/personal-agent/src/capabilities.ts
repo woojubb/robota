@@ -13,17 +13,21 @@ import {
   createWikiTools,
 } from '@robota-sdk/agent-product/personal';
 
-import { createPlaywrightBrowser } from './browser/playwright-browser.js';
+import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playwright-browser.js';
+import { createPersonalApi } from './personal-api.js';
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { IBrowserPort } from '@robota-sdk/agent-product/personal';
 import type { IPersonalAgent } from './agent.js';
+import type { TPersonalApi } from './personal-api.js';
 
 export interface IPersonalCapabilities {
   readonly tools: readonly IToolWithEventService[];
   readonly instructions: string;
   readonly wiki: KnowledgeWiki;
   readonly browser: IBrowserPort;
+  /** The API the web UI calls for the library, search and settings. */
+  readonly api: TPersonalApi;
   /** Connect what needs the live session (goals, notifications). */
   attach(session: IPersonalAgent['session']): void;
   dispose(): Promise<void>;
@@ -55,6 +59,12 @@ export function createPersonalCapabilities(options: IPersonalCapabilityOptions):
     instructions: [PERSONAL_INSTRUCTIONS, WIKI_INSTRUCTIONS, BROWSER_INSTRUCTIONS].join('\n\n'),
     wiki,
     browser,
+    api: createPersonalApi({
+      wiki,
+      stateDir: options.stateDir,
+      environment: options.environment,
+      browserAvailable: () => findChromiumExecutable(options.environment) !== undefined,
+    }),
     attach: () => undefined,
     dispose: async () => {
       await browser.close();

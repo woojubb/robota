@@ -5,9 +5,9 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { startLoopbackGuiServer } from '../index.js';
+import { LOOPBACK_GUI_API_HEADER, startLoopbackGuiServer } from '../index.js';
 
-import type { ILoopbackGuiServer } from '../index.js';
+import type { ILoopbackGuiApiRequest, ILoopbackGuiServer } from '../index.js';
 
 const cleanup: (() => Promise<void> | void)[] = [];
 afterEach(async () => {
@@ -73,5 +73,73 @@ describe('loopback GUI server', () => {
       request({ host: url.hostname, port: url.port, path: '/', headers: { host: 'evil.example' } }, (res) => resolve(res.statusCode ?? 0)).end();
     });
     expect(status).toBe(403);
+  });
+
+  describe('product API', () => {
+    async function session(api: NonNullable<Parameters<typeof startLoopbackGuiServer>[0]['api']>) {
+      const server = await start({ api });
+      const ok = await login(server, server.accessCode);
+      const base = new URL(`${ok.headers.get('location')!}api/`, server.url);
+      return { server, base, cookie: ok.headers.get('set-cookie')!.split(';')[0]! };
+    }
+
+    it('answers only a browser holding the access cookie, under the session path', async () => {
+      const seen: ILoopbackGuiApiRequest[] = [];
+      const { server, base, cookie } = await session(async (request) => {
+        seen.push(request);
+        return { status: 200, body: { pages: ['mina'] } };
+      });
+      expect((await fetch(new URL('wiki/pages', base))).status).toBe(403);
+      expect((await fetch(new URL('/api/wiki/pages', server.url), { headers: { cookie } })).status).toBe(404);
+      const answer = await fetch(new URL('wiki/pages/mina%20lee?kind=person', base), { headers: { cookie } });
+      expect(answer.status).toBe(200);
+      expect(answer.headers.get('content-type')).toContain('application/json');
+      expect(await answer.json()).toEqual({ pages: ['mina'] });
+      const head = await fetch(new URL('wiki/pages', base), { method: 'HEAD', headers: { cookie } });
+      expect(head.status).toBe(200);
+      expect(seen.map((request) => [request.method, request.path, request.segments, request.query.get('kind')])).toEqual([
+        ['GET', '/wiki/pages/mina lee', ['wiki', 'pages', 'mina lee'], 'person'],
+        ['GET', '/wiki/pages', ['wiki', 'pages'], null],
+      ]);
+    });
+
+    it('refuses a write without the API header, so a cross-site form cannot drive it', async () => {
+      const seen: unknown[] = [];
+      const { base, cookie } = await session(async (request) => {
+        seen.push(request.body);
+        return { status: 200, body: { ok: true } };
+      });
+      const form = await fetch(new URL('wiki/forget', base), {
+        method: 'POST',
+        headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+        body: 'text=everything',
+      });
+      expect(form.status).toBe(403);
+      const json = await fetch(new URL('wiki/forget', base), {
+        method: 'POST',
+        headers: { cookie, 'content-type': 'application/json', [LOOPBACK_GUI_API_HEADER]: '1' },
+        body: JSON.stringify({ text: 'bicycle' }),
+      });
+      expect(json.status).toBe(200);
+      expect(seen).toEqual([{ text: 'bicycle' }]);
+    });
+
+    it('turns a bad body or a failing handler into an error answer, not a crash', async () => {
+      const { base, cookie } = await session(async () => {
+        throw new Error('boom');
+      });
+      const headers = { cookie, 'content-type': 'application/json', [LOOPBACK_GUI_API_HEADER]: '1' };
+      expect((await fetch(new URL('x', base), { method: 'POST', headers, body: '{not json' })).status).toBe(400);
+      const failed = await fetch(new URL('x', base), { headers: { cookie } });
+      expect(failed.status).toBe(500);
+      expect(await failed.json()).toEqual({ error: 'internal error' });
+      expect((await fetch(new URL('x', base), { headers: { cookie } })).status).toBe(500);
+    });
+
+    it('still refuses writes to everything that is not the API', async () => {
+      const { base, cookie } = await session(async () => ({ status: 200, body: null }));
+      const index = new URL('..', base);
+      expect((await fetch(index, { method: 'POST', headers: { cookie, [LOOPBACK_GUI_API_HEADER]: '1' } })).status).toBe(405);
+    });
   });
 });

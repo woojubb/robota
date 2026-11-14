@@ -37,7 +37,8 @@ SDK packages (@robota-sdk/*)
                         modules and the coding pack are its subpaths) · agent-subagent-runner
   Presentation          agent-ui-terminal (React + Ink)
                         agent-ui-web (browser session surface) ·
-                        agent-gui-web (private GUI web app)
+                        agent-gui-web (private GUI web app) ·
+                        personal-gui-web (private web UI of the personal agent)
   Assembly              agent-framework: InteractiveSession, createQuery, createAgentRuntime,
                         runtime host (buildRuntimeSession / startRuntimeHost behind robota --serve)
   Transports            agent-transport (wire protocol, delivery) and the carriers built on it, one
@@ -147,7 +148,7 @@ configuration or network endpoint. In particular, a provider SDK may refuse clie
   `product-config`,
   `agent-plugin`, `agent-executor`, `agent-session`, `agent-mcp`,
   `agent-tools`, `agent-framework`, `agent-product`
-- **Browser (DOM)**: `agent-ui-web`, `agent-gui-web` — free of Node
+- **Browser (DOM)**: `agent-ui-web`, `agent-gui-web`, `personal-gui-web` — free of Node
   like the neutral packages, and they also need a DOM.
 - **Node host**: `agent-cli`, `agent-ui-terminal`, `agent-os`, `agent-local-host`,
   `agent-organization-host`, `agent-subagent-runner`,

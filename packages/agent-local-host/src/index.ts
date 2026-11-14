@@ -15,5 +15,11 @@ export type { IKeyHolderOptions, IKeyHolderPolicy, IKeyHolderTimer, IKeyHolderTi
 export { KeyHolderArtifactSealer, ProcessLocalArtifactSealer, ProcessLocalSealerDisposedError, SealingKeyUnavailableError, WRITER_EPOCH_LIMITS, WriteOnlyArtifactSealer, WriterEpochs, formatWriteGrant, parseWriteGrant } from './artifact-sealer.js';
 export type { IWriterEpochKeys, IWriterEpochLimits } from './artifact-sealer.js';
 export { MIN_PASSPHRASE_CHARACTERS, PASSPHRASE_RULE_EXPLANATION, passphraseProblem } from './passphrase-policy.js';
-export { startLoopbackGuiServer } from './loopback-gui-server.js';
-export type { ILoopbackGuiLabels, ILoopbackGuiServer, ILoopbackGuiServerOptions } from './loopback-gui-server.js';
+export { LOOPBACK_GUI_API_HEADER, startLoopbackGuiServer } from './loopback-gui-server.js';
+export type {
+  ILoopbackGuiApiRequest,
+  ILoopbackGuiApiResponse,
+  ILoopbackGuiLabels,
+  ILoopbackGuiServer,
+  ILoopbackGuiServerOptions,
+} from './loopback-gui-server.js';

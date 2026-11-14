@@ -17,7 +17,6 @@
     "@hono/node-server": "^2.0.11",
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-framework": "workspace:^",
-    "@robota-sdk/agent-gui-web": "workspace:^",
     "@robota-sdk/agent-interface": "workspace:^",
     "@robota-sdk/agent-local-host": "workspace:^",
     "@robota-sdk/agent-product": "workspace:^",
@@ -25,6 +24,7 @@
     "@robota-sdk/agent-session": "workspace:^",
     "@robota-sdk/agent-tools": "workspace:^",
     "@robota-sdk/agent-transport": "workspace:^",
+    "@robota-sdk/personal-gui-web": "workspace:^",
     "hono": "^4.12.32",
     "playwright": "^1.49.1",
     "ws": "^8.21.1"

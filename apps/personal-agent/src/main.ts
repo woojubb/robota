@@ -77,6 +77,7 @@ export async function main(argv: readonly string[], environment: NodeJS.ProcessE
     tools: capabilities.tools,
     instructions: capabilities.instructions,
     gui: values['no-gui'] !== true,
+    api: capabilities.api,
   });
   capabilities.attach(local.agent.session);
   if (local.gui !== undefined) {
