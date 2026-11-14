@@ -18,7 +18,7 @@ const LISTENER_SITES: Readonly<Record<string, readonly TListenerSurface[]>> = {
   'packages/agent-local-host/src/windows-control-pipe.ts': ['control-socket'],
   'packages/agent-cli/src/startup/workspace-root-broker.ts': ['control-socket'],
   'packages/agent-cli/src/modes/serve-http-host.ts': ['serve-http'],
-  'packages/agent-cli/src/modes/serve-monitor-ui.ts': ['serve-monitor'],
+  'packages/agent-local-host/src/loopback-gui-server.ts': ['serve-monitor'],
   'packages/agent-cli/src/external-events/external-event-http-host.ts': ['external-events'],
   'packages/agent-cli/src/hosted/hosted-serve-ingress.ts': ['hosted-ingress'],
   'packages/agent-cli/src/hosted/desktop/gateway.ts': ['hosted-desktop-gateway'],
