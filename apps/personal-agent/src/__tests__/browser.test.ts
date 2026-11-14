@@ -147,17 +147,28 @@ describe.skipIf(chromium === undefined)('the personal agent browser', () => {
       (request) => ({ text: toolResults(request).at(-1) ?? '' }),
     );
     const held = await harness.submit('Buy two tickets');
-    expect(held.text).toContain('HELD: this action would send data to');
-    expect(held.text).toContain('/buy (POST with fields qty)');
+    expect(held.text).toContain(
+      `HELD submission-1: POST ${site.origin}/buy with fields qty. Nothing was sent.`,
+    );
     expect(site.posts).toHaveLength(0);
+    const submit = { id: 'submission-1', method: 'POST', url: `${site.origin}/buy` };
 
     // Without anyone to approve, the submission is refused and nothing is sent.
-    harness.model.script({ tool: 'BrowserSubmit', args: { id: 'submission-1' } }, { text: 'done' });
+    harness.model.script({ tool: 'BrowserSubmit', args: submit }, { text: 'done' });
     await harness.submit('Go ahead');
     expect(site.posts).toHaveLength(0);
 
-    // A person approves: exactly that request goes out.
-    harness.model.script({ tool: 'BrowserSubmit', args: { id: 'submission-1' } }, (request) => ({
+    // An approved call naming another address is refused by the host: what the person saw is what goes out.
+    harness.model.script(
+      { tool: 'BrowserSubmit', args: { ...submit, url: `${site.origin}/elsewhere` } },
+      (request) => ({ text: toolResults(request).at(-1) ?? '' }),
+    );
+    const mismatched = await harness.submitAnswering('Send it', () => true);
+    expect(mismatched.text).toContain('does not match the held submission');
+    expect(site.posts).toHaveLength(0);
+
+    // A person approves, seeing the method and address: exactly that request goes out.
+    harness.model.script({ tool: 'BrowserSubmit', args: submit }, (request) => ({
       text: toolResults(request).at(-1) ?? '',
     }));
     const approved = await harness.submitAnswering(
@@ -165,8 +176,108 @@ describe.skipIf(chromium === undefined)('the personal agent browser', () => {
       (event) => event.toolName === 'BrowserSubmit',
     );
     expect(approved.prompts.map((event) => event.toolName)).toEqual(['BrowserSubmit']);
+    expect(JSON.stringify(approved.prompts[0])).toContain(`${site.origin}/buy`);
     expect(site.posts).toEqual([{ path: '/buy', body: 'qty=2' }]);
     expect(approved.text).toContain('Order received');
+  });
+
+  it('checks every redirect hop, so an allowed site cannot bounce the browser to a private one', async () => {
+    const reached: string[] = [];
+    const inner = createServer((req, res) => {
+      reached.push(req.url ?? '');
+      res.writeHead(200, { 'content-type': 'text/html' }).end('<p>SECRET INTERNAL</p>');
+    });
+    await new Promise<void>((resolve) => inner.listen(0, '127.0.0.1', () => resolve()));
+    const innerHost = `127.0.0.1:${(inner.address() as AddressInfo).port}`;
+    const outer = createServer((req, res) => {
+      if (req.url === '/go') res.writeHead(302, { location: `http://${innerHost}/admin` }).end();
+      else res.writeHead(200, { 'content-type': 'text/html' }).end('<p>outer</p>');
+    });
+    await new Promise<void>((resolve) => outer.listen(0, '127.0.0.1', () => resolve()));
+    const outerHost = `127.0.0.1:${(outer.address() as AddressInfo).port}`;
+    const profileDir = mkdtempSync(join(tmpdir(), 'personal-agent-browser-'));
+    const browser = createPlaywrightBrowser({ profileDir, allowedHosts: [outerHost] });
+    try {
+      const page = await browser.open(`http://${outerHost}/go`).catch((error: unknown) => error);
+      expect(JSON.stringify(page)).not.toContain('SECRET INTERNAL');
+      expect(reached).toEqual([]);
+    } finally {
+      await browser.close();
+      await new Promise<void>((resolve) => inner.close(() => resolve()));
+      await new Promise<void>((resolve) => outer.close(() => resolve()));
+      rmSync(profileDir, { recursive: true, force: true });
+    }
+  });
+
+  it('follows a redirect between allowed pages', async () => {
+    const server = createServer((req, res) => {
+      if (req.url === '/old') res.writeHead(301, { location: '/new' }).end();
+      else
+        res
+          .writeHead(200, { 'content-type': 'text/html' })
+          .end('<title>New</title><p>moved here</p>');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const host = `127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const profileDir = mkdtempSync(join(tmpdir(), 'personal-agent-browser-'));
+    const browser = createPlaywrightBrowser({ profileDir, allowedHosts: [host] });
+    try {
+      const page = await browser.open(`http://${host}/old`);
+      expect(page.url).toBe(`http://${host}/new`);
+      expect(page.text).toContain('moved here');
+    } finally {
+      await browser.close();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      rmSync(profileDir, { recursive: true, force: true });
+    }
+  });
+
+  it('drops writes a page makes on its own and resends a cross-origin write without the profile cookies', async () => {
+    const received: { host: string; method: string; cookie: string | undefined }[] = [];
+    const bank = createServer((req, res) => {
+      received.push({ host: 'bank', method: req.method ?? '', cookie: req.headers.cookie });
+      res
+        .writeHead(200, {
+          'set-cookie': 'session=bank-secret; Path=/',
+          'content-type': 'text/html',
+        })
+        .end('<p>bank</p>');
+    });
+    await new Promise<void>((resolve) => bank.listen(0, '127.0.0.1', () => resolve()));
+    const bankHost = `127.0.0.1:${(bank.address() as AddressInfo).port}`;
+    const shop = createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/html' }).end(
+        `<title>Shop</title><script>fetch('http://${bankHost}/transfer-on-load', { method: 'POST', body: 'to=x' });</script>
+         <button onclick="fetch('http://${bankHost}/transfer', { method: 'POST', body: 'to=x' })">Search</button>`,
+      );
+    });
+    await new Promise<void>((resolve) => shop.listen(0, '127.0.0.1', () => resolve()));
+    const shopHost = `127.0.0.1:${(shop.address() as AddressInfo).port}`;
+    const profileDir = mkdtempSync(join(tmpdir(), 'personal-agent-browser-'));
+    const browser = createPlaywrightBrowser({ profileDir, allowedHosts: [bankHost, shopHost] });
+    try {
+      await browser.open(`http://${bankHost}/`);
+      expect(received.at(-1)).toEqual({ host: 'bank', method: 'GET', cookie: undefined });
+      await browser.open(`http://${shopHost}/`);
+      const clicked = await browser.click(1);
+      // The write the page made while loading was dropped; the one the agent's click caused is held.
+      expect(clicked.held?.map((submission) => submission.url)).toEqual([
+        `http://${bankHost}/transfer`,
+      ]);
+      expect(received.filter((entry) => entry.method === 'POST')).toEqual([]);
+      await browser.submitHeld(clicked.held![0]!.id, {
+        method: 'POST',
+        url: `http://${bankHost}/transfer`,
+      });
+      expect(received.filter((entry) => entry.method === 'POST')).toEqual([
+        { host: 'bank', method: 'POST', cookie: undefined },
+      ]);
+    } finally {
+      await browser.close();
+      await new Promise<void>((resolve) => bank.close(() => resolve()));
+      await new Promise<void>((resolve) => shop.close(() => resolve()));
+      rmSync(profileDir, { recursive: true, force: true });
+    }
   });
 
   it('refuses WebSockets, which would carry data past the held-request gate', async () => {
@@ -206,7 +317,10 @@ describe.skipIf(chromium === undefined)('the personal agent browser', () => {
     harness.model.script(
       { tool: 'BrowserOpen', args: { url: `${site.origin}/evil` } },
       { tool: 'BrowserClick', args: { mark: 1 } },
-      { tool: 'BrowserSubmit', args: { id: 'submission-1' } },
+      {
+        tool: 'BrowserSubmit',
+        args: { id: 'submission-1', method: 'POST', url: `${site.origin}/exfil` },
+      },
       { text: 'Tried.' },
     );
     const result = await harness.submitAnswering('Check the deals page', () => false);

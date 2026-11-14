@@ -3,10 +3,10 @@
  *
  * The agent sees a page as its visible text plus numbered marks on the elements it can act on, and
  * acts by mark: grounding actions to page elements rather than raw pixels is what makes web agents
- * reliable, and a number is something the model can name exactly. Reading and typing stay inside the
- * agent's own browser; the moment data would leave for a site (a form submission or any other
- * request that writes), the host holds the request and reports it, and only a separate, explicitly
- * approved submission sends it.
+ * reliable, and a number is something the model can name exactly. When the agent's own action makes a
+ * request that writes to a site (a form submission, or any method but GET, HEAD and OPTIONS), the host
+ * holds it and reports it, and only a separate submission that names its method and address, approved
+ * by a person, sends it.
  */
 
 export interface IBrowserMark {
@@ -36,8 +36,8 @@ export interface IHeldSubmission {
 
 export interface IBrowserActionResult {
   readonly view: IBrowserView;
-  /** Present when the action tried to send data and was held. */
-  readonly held?: IHeldSubmission;
+  /** Present when the action made requests that write; they were held, not sent. */
+  readonly held?: readonly IHeldSubmission[];
 }
 
 export interface IBrowserPort {
@@ -45,8 +45,14 @@ export interface IBrowserPort {
   view(): Promise<IBrowserView>;
   click(mark: number): Promise<IBrowserActionResult>;
   type(mark: number, text: string, pressEnter?: boolean): Promise<IBrowserActionResult>;
-  /** Replay the action that produced a held submission, letting that one request through. */
-  submitHeld(id: string): Promise<IBrowserActionResult>;
+  /**
+   * Send one submission the last action held, exactly as it was made. The method and address must
+   * match it, so what a person approved is what goes out.
+   */
+  submitHeld(
+    id: string,
+    expected: { readonly method: string; readonly url: string },
+  ): Promise<IBrowserActionResult>;
   close(): Promise<void>;
 }
 

@@ -546,17 +546,20 @@ named by its title. Only a content-free log line remains, so the fact is never r
 a person can read and export without Robota.
 
 The browser is a port too. The agent reads a page as text with numbered elements and acts by number;
-page text reaches the model as data from the site, never as instructions. Reading and typing stay in
-the agent's own browser. A request that would send data to a site is held and reported, and only a
-submission tool that a person approves on every call sends it, so no permission mode, allow rule or
-classifier can send it on the agent's behalf.
+page text reaches the model as data from the site, never as instructions. A request that writes to a
+site (any method but GET, HEAD and OPTIONS) caused by the agent's own action is held and reported, and
+only a submission that names its method and address, which a person approves on every call, sends it;
+no permission mode, allow rule or classifier can send it on the agent's behalf, and the host sends
+exactly the request it held.
 
 ### Non-goals
 
-The browser does not keep what is typed into a page from that page's own scripts: whatever the agent
-types, the site can read, which is why the tools tell the agent never to type passwords or card
-numbers. The host's address checks narrow what the browser can reach but do not stand in for a network
-boundary: a name can resolve differently for the browser than for the check.
+The browser does not hold reads. Opening a page, following a link or submitting a GET form sends
+whatever the URL carries, and whatever the agent types the page's own scripts can read; the tools tell
+the agent to keep the person's information out of URLs and never to type passwords or card numbers,
+and what may leave at all is an egress policy's decision, not the browser's. The host's address
+checks narrow what the browser can reach but do not stand in for a network boundary: a name can
+resolve differently for the browser than for the check.
 
 ### Design decisions
 

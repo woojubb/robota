@@ -23,7 +23,9 @@ function fakeBrowser(): IBrowserPort & { submitted: string[] } {
   const submitted: string[] = [];
   const held: IBrowserActionResult = {
     view: page,
-    held: { id: 'submission-1', method: 'POST', url: 'https://shop.example/buy', fields: ['qty'] },
+    held: [
+      { id: 'submission-1', method: 'POST', url: 'https://shop.example/buy', fields: ['qty'] },
+    ],
   };
   return {
     submitted,
@@ -38,8 +40,8 @@ function fakeBrowser(): IBrowserPort & { submitted: string[] } {
     view: async () => page,
     click: async () => held,
     type: async () => ({ view: page }),
-    submitHeld: async (id) => {
-      submitted.push(id);
+    submitHeld: async (id, expected) => {
+      submitted.push(`${id} ${expected.method} ${expected.url}`);
       return { view: { ...page, text: 'Order received' } };
     },
     close: async () => undefined,
@@ -80,10 +82,22 @@ describe('browser tools', () => {
       ),
     );
     expect(text).toContain(
-      'HELD: this action would send data to https://shop.example/buy (POST with fields qty). Nothing was sent.',
+      'HELD submission-1: POST https://shop.example/buy with fields qty. Nothing was sent.',
     );
-    expect(text).toContain('BrowserSubmit with id "submission-1"');
+    expect(text).toContain('BrowserSubmit with its id, method and URL');
     expect(browser.submitted).toEqual([]);
+  });
+
+  it('passes the method and address the person approves to the host', async () => {
+    const browser = fakeBrowser();
+    const text = dataOf(
+      await toolsOf(browser)['BrowserSubmit']!.execute(
+        { id: 'submission-1', method: 'POST', url: 'https://shop.example/buy' },
+        { toolName: 'BrowserSubmit', parameters: {} },
+      ),
+    );
+    expect(text).toContain('Order received');
+    expect(browser.submitted).toEqual(['submission-1 POST https://shop.example/buy']);
   });
 
   it('returns a refused navigation to the model as an error instead of throwing', async () => {
@@ -101,13 +115,25 @@ describe('browser tools', () => {
     // 'approve' means a person must approve the call; 'auto' would let it run on its own.
     for (const mode of ['acceptEdits', 'auto', 'bypassPermissions'] as const) {
       expect(
-        evaluatePermission('BrowserSubmit', { id: 'submission-1' }, mode, {
-          allow: ['BrowserSubmit'],
-        }),
+        evaluatePermission(
+          'BrowserSubmit',
+          { id: 'submission-1', method: 'POST', url: 'https://shop.example/buy' },
+          mode,
+          {
+            allow: ['BrowserSubmit'],
+          },
+        ),
         mode,
       ).toBe('approve');
     }
-    expect(evaluatePermission('BrowserSubmit', { id: 'submission-1' }, 'plan', {})).toBe('deny');
+    expect(
+      evaluatePermission(
+        'BrowserSubmit',
+        { id: 'submission-1', method: 'POST', url: 'https://shop.example/buy' },
+        'plan',
+        {},
+      ),
+    ).toBe('deny');
     expect(evaluatePermission('BrowserClick', { mark: 1 }, 'acceptEdits', {})).toBe('auto');
   });
 });
