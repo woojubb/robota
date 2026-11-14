@@ -37,6 +37,7 @@ const PRODUCT_FILES = [
   'packages/agent-ui-terminal/src/new-hook.ts',
   'packages/agent-product/src/new-module.ts',
   'apps/agent-app/src/new-module.ts',
+  'apps/personal-agent/src/new-module.ts',
 ];
 
 const FRAMEWORK = "'@robota-sdk/agent-framework'";
@@ -85,7 +86,13 @@ describe('session stores are built only by the product factory', () => {
     },
   );
 
-  it('allows the factory itself, type-only imports, other names, and tests', async () => {
+  it('allows each product factory itself, type-only imports, other names, and tests', async () => {
+    expect(
+      await restrictedImports(
+        "import { createUserSessionStore } from '@robota-sdk/agent-framework/node';",
+        'apps/personal-agent/src/session-stores.ts',
+      ),
+    ).toBe(0);
     const factory = 'packages/agent-cli/src/product/session-stores.ts';
     expect(
       await restrictedImports(
