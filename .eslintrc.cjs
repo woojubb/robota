@@ -278,6 +278,7 @@ module.exports = {
       ],
       excludedFiles: [
         'packages/agent-cli/src/product/session-stores.ts',
+        'apps/personal-agent/src/session-stores.ts',
         '**/*.test.ts',
         '**/*.test.tsx',
         '**/__tests__/**',
@@ -292,14 +293,14 @@ module.exports = {
                 importNames: FRAMEWORK_STORE_CONSTRUCTORS,
                 allowTypeImports: true,
                 message:
-                  'Build conversation stores with packages/agent-cli/src/product/session-stores.ts, which states how they seal.',
+                  "Build conversation stores with the product's one session-stores factory (packages/agent-cli/src/product/session-stores.ts, apps/personal-agent/src/session-stores.ts), which states how they seal.",
               },
               {
                 name: '@robota-sdk/agent-framework/node',
                 importNames: FRAMEWORK_STORE_CONSTRUCTORS,
                 allowTypeImports: true,
                 message:
-                  'Build conversation stores with packages/agent-cli/src/product/session-stores.ts, which states how they seal.',
+                  "Build conversation stores with the product's one session-stores factory (packages/agent-cli/src/product/session-stores.ts, apps/personal-agent/src/session-stores.ts), which states how they seal.",
               },
               {
                 name: '@robota-sdk/agent-session/node',
@@ -312,7 +313,7 @@ module.exports = {
                 ],
                 allowTypeImports: true,
                 message:
-                  'Build conversation stores with packages/agent-cli/src/product/session-stores.ts, which states how they seal.',
+                  "Build conversation stores with the product's one session-stores factory (packages/agent-cli/src/product/session-stores.ts, apps/personal-agent/src/session-stores.ts), which states how they seal.",
               },
             ],
           },
