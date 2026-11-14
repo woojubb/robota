@@ -11,6 +11,11 @@ import {
 } from '@robota-sdk/agent-executor';
 
 import { createSourceUsageSummaryEntry } from './interactive-session-execution.js';
+import {
+  RecordedTaskEvents,
+  STREAM_EVENT_SAVE_INTERVAL_MS,
+  isDurableTaskTransition,
+} from './recorded-task-events.js';
 import { isReArmableScheduledTask, restoredScheduleDisposition } from './schedule-rearm.js';
 import { sessionLoopExpiry, sessionLoopFirstWakeEligibility } from './session-loop-lifecycle.js';
 import {
@@ -81,7 +86,15 @@ export class SessionBackgroundTaskTracker {
   private unexpectedRestoreEvent = false;
   /** Restored loops held by the host switch, or terminally expired before re-arm. */
   private heldSessionLoops: IBackgroundTaskState[] = [];
-  private backgroundTaskEvents: TBackgroundTaskEvent[] = [];
+  /** The bounded recent window of task events that a save carries; see {@link RecordedTaskEvents}. */
+  private recordedTaskEvents = new RecordedTaskEvents();
+  /**
+   * The save a stream of output events is waiting for. Output rewrites no state a resume reads, so
+   * it waits for the next save of any kind or for this one, which bounds how often a streaming job
+   * rewrites the record. Lifecycle changes do not wait: they save at once, and that save carries
+   * what was waiting. Shutdown's own final save does too, after {@link dispose} drops this timer.
+   */
+  private streamSaveTimer: ReturnType<typeof setTimeout> | undefined;
   private backgroundJobGroups: IBackgroundJobGroupState[] = [];
   private backgroundJobGroupEvents: TBackgroundJobGroupEvent[] = [];
   private backgroundTaskUnsubscribe: (() => void) | null = null;
@@ -89,7 +102,7 @@ export class SessionBackgroundTaskTracker {
   private backgroundJobOrchestrator: BackgroundJobOrchestrator | null = null;
   /**
    * A fork job's recent events, which a surface following the fork reads. A view of the events the
-   * parent already receives, never saved: the record above is what persists.
+   * parent already receives, never saved: the recorded events above are what persists.
    */
   private readonly forkEventWindows = new TaskEventWindows(
     (taskId) => this.isForkTask(taskId),
@@ -343,6 +356,7 @@ export class SessionBackgroundTaskTracker {
     this.backgroundJobUnsubscribe = null;
     this.backgroundJobOrchestrator?.dispose();
     this.backgroundJobOrchestrator = null;
+    this.cancelStreamSave();
     this.forkEventWindows.clear();
   }
 
@@ -377,7 +391,7 @@ export class SessionBackgroundTaskTracker {
       : [];
     this.backgroundTasks = preserveTerminalTasks ? state.tasks : [];
     this.heldSessionLoops = [];
-    this.backgroundTaskEvents = state.taskEvents;
+    this.recordedTaskEvents = new RecordedTaskEvents(state.taskEvents);
     this.backgroundJobGroups = state.groups;
     this.backgroundJobGroupEvents = state.groupEvents;
   }
@@ -389,7 +403,7 @@ export class SessionBackgroundTaskTracker {
         tasks.set(task.id, task);
       return {
         tasks: [...tasks.values()],
-        taskEvents: this.backgroundTaskEvents,
+        taskEvents: this.recordedTaskEvents.toArray(),
         groups: this.backgroundJobGroups,
         groupEvents: this.backgroundJobGroupEvents,
       };
@@ -411,7 +425,7 @@ export class SessionBackgroundTaskTracker {
           ...this.shutdownSchedules.values(),
         ].filter((task) => !ids.has(task.id)),
       ],
-      taskEvents: this.backgroundTaskEvents,
+      taskEvents: this.recordedTaskEvents.toArray(),
       groups: this.getGroupSnapshots(),
       groupEvents: this.backgroundJobGroupEvents,
     };
@@ -637,11 +651,36 @@ export class SessionBackgroundTaskTracker {
 
   private recordTaskEvent(event: TBackgroundTaskEvent): void {
     this.forkEventWindows.record(event);
+    const tasksBefore = this.backgroundTasks;
     this.backgroundTasks = this.getTaskSnapshots();
-    this.backgroundTaskEvents.push(event);
+    this.recordedTaskEvents.push(event);
     this.recordCompletedTaskUsage(event);
-    if (!this.restoreOwnershipLost) this.persistSession();
+    if (!this.restoreOwnershipLost) {
+      if (isDurableTaskTransition(event, tasksBefore)) {
+        this.cancelStreamSave();
+        this.persistSession();
+      } else {
+        this.scheduleStreamSave();
+      }
+    }
     this.onChanged('background_task', getTaskEventEntryId(event));
+  }
+
+  private scheduleStreamSave(): void {
+    if (this.streamSaveTimer !== undefined) return;
+    const timer = setTimeout(() => {
+      this.streamSaveTimer = undefined;
+      if (!this.restoreOwnershipLost) this.persistSession();
+    }, STREAM_EVENT_SAVE_INTERVAL_MS);
+    // A save that has not happened yet must not keep the process alive.
+    (timer as { unref?: () => void }).unref?.();
+    this.streamSaveTimer = timer;
+  }
+
+  private cancelStreamSave(): void {
+    if (this.streamSaveTimer === undefined) return;
+    clearTimeout(this.streamSaveTimer);
+    this.streamSaveTimer = undefined;
   }
 
   /**
