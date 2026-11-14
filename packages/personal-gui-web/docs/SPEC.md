@@ -3,7 +3,7 @@
 ## Purpose
 
 The personal agent's web UI: the shared session surface (`@robota-sdk/agent-ui-web`) for chat, inside a
-menu shell for what a personal agent keeps — the feed of results and approvals, its goals, the library
+menu shell for what a personal agent keeps — the feed of results and approvals, ideas, its goals, the library
 of what it knows about the person, search and settings. `apps/personal-agent` serves its build behind
 the shared access-code server.
 
