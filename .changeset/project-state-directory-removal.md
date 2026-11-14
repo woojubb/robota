@@ -1,0 +1,5 @@
+---
+'@robota-sdk/agent-framework': patch
+---
+
+The project mutation boundary can now remove a directory and everything under it (`removeDirectory`), and the project state and edit checkpoint state facets forward it; nothing calls it yet. It is Linux-only like every project mutation and refuses elsewhere. Every directory is reached from a held descriptor chain under the trusted root, never a path string; a link, socket or FIFO entry is unlinked by name and never followed or opened; a directory on another mount, a bind mount with the same device number included, is refused before anything under it is touched; a directory is removed only while its name still opens the directory that was emptied, so a replacement swapped in under that name is refused rather than removed. Each call is bounded by an entry and a time budget and answers `removed`, `absent` or `partial` (budget spent, or an entry created concurrently), so a caller repeats it until the directory is gone. A host boundary without the operation makes the facets fail closed.

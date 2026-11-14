@@ -136,6 +136,12 @@ export interface IWorkspaceProjectStateStorage {
   appendText(relativePath: string, content: string, purpose: string): void;
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[];
   deleteFile(relativePath: string, purpose: string): boolean;
+  /** Remove a directory of this state and everything under it, as the mutation boundary does. */
+  removeDirectory?(
+    relativePath: string,
+    purpose: string,
+    options?: IWorkspaceDirectoryRemovalOptions,
+  ): TWorkspaceDirectoryRemoval;
   projectRelativePath(relativePath: string): string;
 }
 
@@ -183,7 +189,38 @@ export interface IWorkspaceProjectMutationBoundary {
   commitStaged(relativePath: string, temporaryName: string): void;
   /** Removes a staged temp file that was not committed; one already gone is fine. */
   discardStaged(relativePath: string, temporaryName: string): void;
+  /**
+   * Removes the directory at the path and everything under it, in bounded steps a caller repeats
+   * while the result is `partial`. Every directory is reached from a held descriptor chain, never a
+   * path string; a link or other non-directory entry is unlinked by name, never followed; a directory
+   * on another mount (a bind mount included) is refused before anything under it is touched; a
+   * directory is removed only while its name still opens the directory that was emptied, so a
+   * replacement swapped in under that name is refused rather than removed. A target that is a link,
+   * not a directory or a mount point is refused. Missing ancestors are not created.
+   */
+  removeDirectory?(
+    relativePath: string,
+    options?: IWorkspaceDirectoryRemovalOptions,
+  ): TWorkspaceDirectoryRemoval;
 }
+
+/** How much one directory removal call may do before it answers `partial`. */
+export interface IWorkspaceDirectoryRemovalOptions {
+  /** Unlinks and `rmdir`s to attempt; at least one is always made, so a retry gets further. */
+  readonly maxEntries?: number;
+  /** Milliseconds to spend; the default stays well under a brokered request's timeout. */
+  readonly maxMs?: number;
+}
+
+/**
+ * What one directory removal call achieved: `removed` (gone, including when another remover finished
+ * it), `absent` (nothing was there), or `partial`, to be called again: the budget ran out, or an entry
+ * appeared while the directory was being emptied (`concurrent`).
+ */
+export type TWorkspaceDirectoryRemoval =
+  | { readonly status: 'removed' }
+  | { readonly status: 'absent' }
+  | { readonly status: 'partial'; readonly reason: 'budget' | 'concurrent' };
 
 /**
  * A writer that holds one project root's directory open across a human approval and writes only

@@ -24,12 +24,15 @@ import {
   refuseProjectRead,
   workspacePathSegments,
 } from '../workspace-trust/project-reader-path.js';
+import { WorkspaceAuthorityRequiredError } from '../workspace-trust/workspace-authority-required-error.js';
 
 import type { IProcessMarkerHandle } from '@robota-sdk/agent-core';
 import type {
+  IWorkspaceDirectoryRemovalOptions,
   IWorkspaceProjectStateStorage,
   IWorkspaceDirectoryEntry,
   TWorkspaceContributionKind,
+  TWorkspaceDirectoryRemoval,
 } from '../workspace-trust/index.js';
 
 /**
@@ -64,6 +67,15 @@ export interface IEditCheckpointStateStorage {
    */
   replaceBytes(relativePath: string, content: Uint8Array, purpose: string): void;
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[];
+  /**
+   * Remove a checkpoint directory and everything under it, in bounded steps repeated while the
+   * result is `partial`; only the project's state offers it, with the project boundary's guarantees.
+   */
+  removeDirectory?(
+    relativePath: string,
+    purpose: string,
+    options?: IWorkspaceDirectoryRemovalOptions,
+  ): TWorkspaceDirectoryRemoval;
 }
 
 const READ_FLAGS = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
@@ -208,5 +220,10 @@ export function createProjectEditCheckpointState(
     writeBytes: (path, content, purpose) => storage.writeBytes(path, content, purpose),
     replaceBytes: (path, content, purpose) => storage.replaceBytes(path, content, purpose),
     listDirectory: (path, purpose) => storage.listDirectory(path, purpose),
+    removeDirectory: (path, purpose, options) => {
+      if (storage.removeDirectory === undefined)
+        throw new WorkspaceAuthorityRequiredError('The project host cannot remove directories.');
+      return storage.removeDirectory(path, purpose, options);
+    },
   };
 }
