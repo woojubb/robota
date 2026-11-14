@@ -1,0 +1,20 @@
+# The public face of a self-hosted personal agent: HTTPS for the domain, the WebSocket under /ws/,
+# everything else to the web UI. The agent itself listens on the host's loopback only.
+{
+	# Nothing configures Caddy at run time, so its admin endpoint stays closed.
+	admin off
+}
+
+{$PERSONAL_AGENT_DOMAIN}{$PERSONAL_AGENT_PUBLIC_PORT_SUFFIX} {
+	# The certificate email (a public certificate and its expiry notices), or "internal" for a test
+	# signed by Caddy's own CA; compose refuses to start without one of them.
+	tls {$PERSONAL_AGENT_TLS}
+	encode zstd gzip
+	header -Server
+	handle_path /ws/* {
+		reverse_proxy 127.0.0.1:{$PERSONAL_AGENT_WS_PORT:7361}
+	}
+	handle {
+		reverse_proxy 127.0.0.1:{$PERSONAL_AGENT_GUI_PORT:7360}
+	}
+}

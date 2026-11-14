@@ -83,6 +83,28 @@ Everything lives in one owner-only folder: `--state-dir <dir>`, else `PERSONAL_A
 (`goal-sessions/`), the library as plain Markdown (`wiki/`), goals and the feed (`goals/`), ideas
 (`ideas/`), the browser profile, and the agent's `workspace/`. Back the folder up to keep everything.
 
+## Use it from anywhere: your own server
+
+The agent can run on a small server (2 GB of memory leaves room for the first build) and be opened over HTTPS
+from any browser. It still listens only on the server's loopback; Caddy, in the same bundle, holds the
+certificate and forwards your domain to it. Point your domain's DNS at the server, open ports 80 and
+443, then on the server:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/woojubb/robota/main/docker/personal-agent/server/install.sh
+sudo sh install.sh
+```
+
+It installs Docker, asks for the domain, an email for the certificate, the model and its key (typed
+hidden, kept in an owner-only `secrets.env`), starts everything and prints the access code. The code
+stays the same across restarts and updates; print it again with
+`docker compose exec personal-agent personal-agent access-code` in `/opt/robota/docker/personal-agent/server`.
+Run `install.sh` again to update; your settings, key and data are kept.
+
+Without Docker, the same is `personal-agent start --server --public-url https://your.domain` behind any
+TLS proxy that sends `/ws/` to port 7361 and everything else to port 7360 on loopback, keeping the
+`Host` header.
+
 ## Run it in a container
 
 The image builds from this repository and includes Chromium for the agent's browser:

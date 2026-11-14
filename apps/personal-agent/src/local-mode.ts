@@ -55,6 +55,27 @@ export interface ILocalModeOptions {
   readonly api?: ILoopbackGuiServerOptions['api'];
   /** WebSocket port; omitted lets the system choose a free one. */
   readonly wsPort?: number;
+  /**
+   * Publish the web UI through a TLS reverse proxy on this host. Everything still listens on
+   * loopback; the proxy forwards the public host to the GUI port, and `/ws/` to the WebSocket port.
+   */
+  readonly server?: IServerExposure;
+}
+
+export interface IServerExposure {
+  /** Where people open the agent, such as `https://agent.example.com`. */
+  readonly publicOrigin: string;
+  readonly guiPort: number;
+  readonly wsPort: number;
+  /** The access code kept across restarts. */
+  readonly accessCode: string;
+}
+
+/** The WebSocket address the page is given when the agent is published at `publicOrigin`. */
+export function publicWsUrl(publicOrigin: string, token: string): string {
+  const url = new URL(publicOrigin);
+  const scheme = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${scheme}//${url.host}/ws/?token=${encodeURIComponent(token)}`;
 }
 
 export interface ILocalMode {
@@ -98,9 +119,16 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
     >();
     let stopping = false;
     let pool: SessionPool<InteractiveSession> | undefined;
+    const publicUrl =
+      options.server === undefined ? undefined : new URL(options.server.publicOrigin);
     const ws = new WsTransport({
       // Port 0 lets the system pick a free port; the transport reports the one it bound.
-      port: options.wsPort ?? 0,
+      port: options.server?.wsPort ?? options.wsPort ?? 0,
+      // Behind the proxy the upgrade carries the public host and, from a browser, its origin.
+      ...(publicUrl !== undefined && {
+        allowedHosts: [publicUrl.hostname.toLowerCase()],
+        allowedOrigins: [publicUrl.origin],
+      }),
       maxRetries: 0,
       driverId: 'local:web',
       surface: 'browser',
@@ -148,6 +176,9 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
     if (wsToken === undefined || ws.boundPort === undefined)
       throw new Error('The WebSocket transport did not start');
     wsUrl = `ws://${LOOPBACK}:${ws.boundPort}/?token=${encodeURIComponent(wsToken)}`;
+    // The page reaches the WebSocket the way people reach the page: through the proxy when published.
+    const pageWsUrl =
+      options.server === undefined ? wsUrl : publicWsUrl(options.server.publicOrigin, wsToken);
 
     const http = createHttpTransport({ admission: { token: httpToken } });
     http.attach(primary);
@@ -176,8 +207,13 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
         );
       const started = await startLoopbackGuiServer({
         webRoot,
-        headHtml: guiHeadHtml(wsUrl),
+        headHtml: guiHeadHtml(pageWsUrl),
         labels: GUI_LABELS,
+        ...(options.server !== undefined && {
+          publicOrigin: options.server.publicOrigin,
+          port: options.server.guiPort,
+          accessCode: options.server.accessCode,
+        }),
         ...(options.api !== undefined && { api: options.api }),
       });
       gui = started;

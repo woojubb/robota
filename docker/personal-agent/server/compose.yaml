@@ -1,0 +1,55 @@
+# A self-hosted personal agent: the agent on the host's loopback, and Caddy publishing it over HTTPS.
+#
+#   cp example.env .env && $EDITOR .env      # domain, email, provider (install.sh does this for you)
+#   install -m 600 /dev/null secrets.env && $EDITOR secrets.env   # the provider key, e.g. AI_GATEWAY_API_KEY=...
+#   docker compose up -d --build
+#   docker compose logs personal-agent       # the access code
+#
+# Both services use the host's network: the agent binds 127.0.0.1 only, so nothing reaches it except
+# through Caddy on ports 80 and 443.
+services:
+  personal-agent:
+    build:
+      context: ../../..
+      dockerfile: docker/personal-agent/Dockerfile
+    image: personal-agent:local
+    network_mode: host
+    environment:
+      PERSONAL_AGENT_PUBLIC_URL: https://${PERSONAL_AGENT_DOMAIN:?set PERSONAL_AGENT_DOMAIN in .env}${PERSONAL_AGENT_PUBLIC_PORT_SUFFIX:-}
+      PERSONAL_AGENT_PROVIDER: ${PERSONAL_AGENT_PROVIDER:?set PERSONAL_AGENT_PROVIDER in .env}
+      PERSONAL_AGENT_MODEL: ${PERSONAL_AGENT_MODEL:?set PERSONAL_AGENT_MODEL in .env}
+      PERSONAL_AGENT_BASE_URL: ${PERSONAL_AGENT_BASE_URL:-}
+      PERSONAL_AGENT_API_KEY_ENV: ${PERSONAL_AGENT_API_KEY_ENV:?set PERSONAL_AGENT_API_KEY_ENV in .env}
+    # The provider key, in an owner-only file beside this one; never in .env or the compose file.
+    env_file:
+      - secrets.env
+    volumes:
+      - personal-agent-state:/home/node/.personal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+  caddy:
+    image: caddy:2
+    network_mode: host
+    environment:
+      PERSONAL_AGENT_DOMAIN: ${PERSONAL_AGENT_DOMAIN}
+      # The certificate email; a test sets PERSONAL_AGENT_TLS=internal instead, never by default.
+      PERSONAL_AGENT_TLS: ${PERSONAL_AGENT_TLS:-${PERSONAL_AGENT_ACME_EMAIL:?set PERSONAL_AGENT_ACME_EMAIL in .env}}
+      # Only for a test on a port other than 443, such as ":8443".
+      PERSONAL_AGENT_PUBLIC_PORT_SUFFIX: ${PERSONAL_AGENT_PUBLIC_PORT_SUFFIX:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - personal-agent
+    restart: unless-stopped
+volumes:
+  personal-agent-state:
+  caddy-data:
+  caddy-config:

@@ -9,6 +9,10 @@
  * served path is resolved once into a descriptor inside the web root. Localhost is treated as
  * hostile throughout: no request may crash the process that serves it.
  *
+ * Published to other machines, the server still listens on loopback only: a TLS reverse proxy on the
+ * same host forwards one configured public host, which joins the loopback names the server accepts,
+ * and over https the cookie is also Secure. The access code can then be kept, so it survives restarts.
+ *
  * Any product composition root that serves its GUI on this machine uses this one server, so the
  * login gate has one implementation. A product that needs its own data on the page supplies an API
  * handler: it is reached only under the session path, so only a browser holding the cookie reaches
@@ -42,10 +46,15 @@ const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
  * `Host` is rejected (a well-formed HTTP/1.1 client always sends one). */
 function isLoopbackHostHeader(host: string | undefined): boolean {
   if (!host) return false;
+  return LOOPBACK_HOSTS.has(hostName(host));
+}
+
+/** The host name of a `Host` header, its port stripped. */
+function hostName(host: string): string {
   const name = host.startsWith('[')
     ? host.slice(0, host.indexOf(']') + 1)
     : host.slice(0, host.lastIndexOf(':') === -1 ? host.length : host.lastIndexOf(':'));
-  return LOOPBACK_HOSTS.has(name);
+  return name.toLowerCase();
 }
 
 /** Text of the access-code page. */
@@ -90,6 +99,16 @@ export interface ILoopbackGuiServerOptions {
   readonly labels?: Partial<ILoopbackGuiLabels>;
   /** The product's API under the session path's `api/`, reached only with the access cookie. */
   readonly api?: (request: ILoopbackGuiApiRequest) => Promise<ILoopbackGuiApiResponse>;
+  /**
+   * The address a TLS reverse proxy on this host publishes the GUI at, such as
+   * `https://agent.example.com`. Its host is accepted besides the loopback names; over https the
+   * cookie is Secure. The server itself still listens on loopback only.
+   */
+  readonly publicOrigin?: string;
+  /** A fixed loopback port for the proxy to reach; an OS-assigned one when absent. */
+  readonly port?: number;
+  /** A kept access code (at least 32 characters) instead of a new one for each start. */
+  readonly accessCode?: string;
 }
 
 /** A running GUI server: its loopback URL, the code a person types, and a close that ends open connections. */
@@ -154,7 +173,19 @@ export async function startLoopbackGuiServer(options: ILoopbackGuiServerOptions)
   // Canonicalized once: webRoot is a fixed build output for the life of the server, and every
   // request's containment decision is made against this resolved form.
   const webRootReal = realpathSync(webRoot);
-  const accessCode = randomBytes(32).toString('base64url');
+  if (options.accessCode !== undefined && options.accessCode.length < 32) {
+    throw new Error('A kept access code must be at least 32 characters');
+  }
+  const accessCode = options.accessCode ?? randomBytes(32).toString('base64url');
+  const publicUrl = options.publicOrigin === undefined ? undefined : new URL(options.publicOrigin);
+  if (publicUrl !== undefined && publicUrl.protocol !== 'https:' && publicUrl.protocol !== 'http:') {
+    throw new Error('The public origin must be an http or https URL');
+  }
+  const publicHost = publicUrl?.hostname.toLowerCase();
+  const secureCookie = publicUrl?.protocol === 'https:' ? '; Secure' : '';
+  const hostAccepted = (host: string | undefined): boolean =>
+    isLoopbackHostHeader(host) ||
+    (publicHost !== undefined && host !== undefined && hostName(host) === publicHost);
   const sessionCookie = randomBytes(32).toString('base64url');
   const sessionPath = `/${randomBytes(24).toString('base64url')}/`;
 
@@ -163,7 +194,7 @@ export async function startLoopbackGuiServer(options: ILoopbackGuiServerOptions)
     res.setHeader('Cache-Control', 'no-store');
     // Defense-in-depth: reject a non-loopback Host so a DNS-rebinding page cannot read the
     // token-carrying index.html from this server, mirroring the WS transport's upgrade check.
-    if (!isLoopbackHostHeader(req.headers.host)) {
+    if (!hostAccepted(req.headers.host)) {
       res.writeHead(403).end('Forbidden host');
       return;
     }
@@ -189,7 +220,7 @@ export async function startLoopbackGuiServer(options: ILoopbackGuiServerOptions)
         }
         res.writeHead(303, {
           Location: sessionPath,
-          'Set-Cookie': `robota_monitor=${sessionCookie}; HttpOnly; SameSite=Strict; Path=${sessionPath}`,
+          'Set-Cookie': `robota_monitor=${sessionCookie}; HttpOnly; SameSite=Strict; Path=${sessionPath}${secureCookie}`,
         }).end();
       });
       return;
@@ -369,7 +400,7 @@ export async function startLoopbackGuiServer(options: ILoopbackGuiServerOptions)
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
-    server.listen(0, LOOPBACK, () => {
+    server.listen(options.port ?? 0, LOOPBACK, () => {
       server.off('error', reject);
       resolve();
     });
