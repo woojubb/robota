@@ -552,7 +552,9 @@ page text reaches the model as data from the site, never as instructions. A requ
 site (any method but GET, HEAD and OPTIONS) caused by the agent's own action is held and reported, and
 only a submission that names its method and address, which a person approves on every call, sends it;
 no permission mode, allow rule or classifier can send it on the agent's behalf, and the host sends
-exactly the request it held.
+exactly the request it held. A held navigation leaves the page where it was. A host may also offer a
+picture of the current page, so a person can watch what the agent's browser does; watching never
+opens a page.
 
 A goal is the person's instruction with a schedule, kept in a store port beside the feed. Each run
 records what the agent did and what it only proposed, and ends with a report in the feed; whatever a

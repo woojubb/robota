@@ -320,6 +320,12 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
         pageOrigin: new URL(request.frame().url()).origin,
       });
     }
+    // A held page navigation answers No Content, which leaves the page where it was (the form and
+    // what was typed stay); an aborted one would replace it with the browser's error page.
+    if (request.isNavigationRequest()) {
+      await route.fulfill({ status: 204 }).catch(() => undefined);
+      return;
+    }
     await route.abort('blockedbyclient');
   };
 
@@ -526,6 +532,20 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
         }, false);
       } finally {
         approvedNavigation = undefined;
+      }
+    },
+    async snapshot() {
+      // Only a page the agent already opened: watching never launches the browser.
+      const current = page;
+      if (current === undefined) return undefined;
+      try {
+        return {
+          url: current.url(),
+          title: await current.title(),
+          png: await current.screenshot({ type: 'png', timeout: 5_000 }),
+        };
+      } catch {
+        return undefined;
       }
     },
     async close() {

@@ -145,6 +145,32 @@ export interface ISideChatView {
   readonly createdAt: string;
 }
 
+export interface IBrowserActivityView {
+  readonly at: string;
+  readonly action: 'open' | 'click' | 'type' | 'submit' | 'stop' | 'failed';
+  readonly summary: string;
+  readonly url?: string;
+}
+
+export interface IBrowserWatchView {
+  readonly available: boolean;
+  readonly page?: { readonly url: string; readonly title: string };
+  readonly activity: readonly IBrowserActivityView[];
+  readonly held: readonly {
+    readonly id: string;
+    readonly method: string;
+    readonly url: string;
+    readonly fields: readonly string[];
+  }[];
+}
+
+export interface IBrowserScreenshotView {
+  readonly url: string;
+  readonly title: string;
+  /** A `data:image/png;base64,…` URL. */
+  readonly png: string;
+}
+
 export const API_WRITE_HEADER = 'x-robota-api';
 
 export class ApiError extends Error {
@@ -192,6 +218,9 @@ export interface IPersonalApi {
   }): Promise<{ space: ISpaceView }>;
   removeSpace(id: string): Promise<unknown>;
   sideChats(): Promise<readonly ISideChatView[]>;
+  browser(): Promise<IBrowserWatchView>;
+  browserScreenshot(): Promise<IBrowserScreenshotView | null>;
+  stopBrowser(): Promise<unknown>;
   /** The person's tab order: fixed tab ids and `space:<id>`. */
   tabs(): Promise<readonly string[]>;
   saveTabs(tabs: readonly string[]): Promise<{ tabs: readonly string[] }>;
@@ -263,6 +292,11 @@ export function createPersonalApi(
     sideChats: async () =>
       (await call<{ sideChats: ISideChatView[] }>('GET', 'side-chats')).sideChats,
     recordSideChat: (input) => call('POST', 'side-chats', input),
+    browser: () => call('GET', 'browser'),
+    browserScreenshot: async () =>
+      (await call<{ screenshot: IBrowserScreenshotView | null }>('GET', 'browser/screenshot'))
+        .screenshot,
+    stopBrowser: () => call('POST', 'browser/stop'),
     tabs: async () => (await call<{ tabs: string[] }>('GET', 'layout')).tabs,
     saveTabs: (tabs) => call('POST', 'layout', { tabs }),
     removeSideChat: (chatId) => call('POST', `side-chats/${id(chatId)}/remove`),

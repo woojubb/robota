@@ -32,6 +32,7 @@ import type {
   SpaceBook,
   TPageKind,
 } from '@robota-sdk/agent-product/personal';
+import type { IWatchedBrowser } from './browser/watched-browser.js';
 import type { ILayoutBook } from './layout.js';
 import type { ISideChatBook } from './side-chats.js';
 import type { IGoalRunner } from './goal-runner.js';
@@ -44,6 +45,8 @@ export interface IPersonalApiOptions {
   readonly spaces: SpaceBook;
   readonly sideChats: ISideChatBook;
   readonly layout: ILayoutBook;
+  /** The agent's browser as a watching person sees it. */
+  readonly browser: IWatchedBrowser;
   /** The goal runner, once the agent is running; approvals and "run now" need it. */
   readonly runner: () => IGoalRunner | undefined;
   readonly stateDir: string;
@@ -101,7 +104,7 @@ export function providerTypes(): string[] {
 }
 
 export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
-  const { wiki, goals, ideas, spaces, sideChats, layout } = options;
+  const { wiki, goals, ideas, spaces, sideChats, layout, browser } = options;
   /** A space as the page shows it: its pinned pages that still exist, and the opening they make. */
   const spaceView = async (space: ISpace) => {
     const pinned = (await Promise.all(space.pages.map((pageId) => wiki.read(pageId))))
@@ -302,6 +305,29 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       }
     }
 
+    if (area === 'browser') {
+      if (collection === undefined && method === 'GET') {
+        return ok({ available: options.browserAvailable(), ...browser.watch() });
+      }
+      if (collection === 'screenshot' && method === 'GET') {
+        const snapshot = await browser.snapshot();
+        return ok(
+          snapshot === undefined
+            ? { screenshot: null }
+            : {
+                screenshot: {
+                  url: snapshot.url,
+                  title: snapshot.title,
+                  png: `data:image/png;base64,${Buffer.from(snapshot.png).toString('base64')}`,
+                },
+              },
+        );
+      }
+      if (collection === 'stop' && method === 'POST') {
+        await browser.stop();
+        return ok({ stopped: true });
+      }
+    }
     if (area === 'layout' && collection === undefined) {
       if (method === 'GET') return ok({ tabs: layout.tabs() });
       if (method === 'POST') {

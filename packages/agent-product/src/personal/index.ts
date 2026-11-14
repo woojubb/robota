@@ -30,6 +30,7 @@ export type {
   IBrowserActionResult,
   IBrowserMark,
   IBrowserPort,
+  IBrowserSnapshot,
   IBrowserView,
   IHeldSubmission,
 } from './browser/types.js';

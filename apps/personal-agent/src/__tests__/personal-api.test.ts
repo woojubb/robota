@@ -229,6 +229,16 @@ describe('the personal API behind the web UI', () => {
     expect(unpinned.body.space.pages).toEqual([]);
   });
 
+  it("shows the agent's browser before it opens a page, and stops it", async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    const watch = (await api.get('browser')).body;
+    expect(watch).toEqual({ available: expect.any(Boolean), activity: [], held: [] });
+    expect((await api.get('browser/screenshot')).body).toEqual({ screenshot: null });
+    expect((await api.send('POST', 'browser/stop')).body).toEqual({ stopped: true });
+    expect((await api.get('browser')).body.activity[0].action).toBe('stop');
+  });
+
   it('keeps the tab order, refuses what is not a tab, and drops a removed space', async () => {
     harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
     const api = await client(harness);

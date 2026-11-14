@@ -57,7 +57,9 @@ Alt+Up/Down on it, to move it). On a narrow screen it opens from the menu button
   address. A goal that hits such an action waits in your Feed.
 - **Its browser is its own.** It cannot reach your local network or private addresses, every redirect
   is checked, and pages are read as information, never as instructions. It does not hold reads: do
-  not ask it to put private information into a web address.
+  not ask it to put private information into a web address. The globe button in the chat opens
+  **Agent browser**: the page it is on, a picture of it, what it did there (never what it typed, only
+  how much) and what waits for your approval. **Stop** ends its turn and closes its pages.
 - **It forgets for real.** Forgetting a fact or a page removes it from every page, link and log
   entry that held it.
 - **Secrets are refused.** Passwords, keys and similar strings are not kept in the library, ideas or goals.
