@@ -1,7 +1,7 @@
 /**
- * Compose one personal-agent session from the SDK: a provider, the default file and web tools
+ * Compose the personal agent's sessions from the SDK: a provider, the default file and web tools
  * confined to the agent's own workspace, the personal capabilities, and a session store under the
- * agent's state directory.
+ * agent's state directory. Every chat and every goal run is built from the same tools and limits.
  *
  * What the agent does comes from the capabilities handed in; this module only decides how a local
  * host lends them a place to run. The host shell is not offered: a personal agent acts through its
@@ -18,7 +18,7 @@ import { createDefaultTools } from '@robota-sdk/agent-tools/defaults';
 import { createPersonalSessionStore } from './session-stores.js';
 
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
-import type { IAgentRuntime } from '@robota-sdk/agent-framework';
+import type { IAgentRuntime, SessionRecipe } from '@robota-sdk/agent-framework';
 
 /**
  * Tools a personal agent withholds from the model entirely: every way to run a host command
@@ -43,7 +43,8 @@ export type TPersonalSession = ReturnType<IAgentRuntime['createSession']>;
 
 export interface IPersonalAgent {
   readonly runtime: IAgentRuntime;
-  readonly session: TPersonalSession;
+  /** The recipe of a chat with the person; every chat a client opens is built from it. */
+  chatRecipe(): SessionRecipe;
   /** The directory the agent's file tools are confined to. */
   readonly workspace: string;
   /**
@@ -73,12 +74,13 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
     ...(options.model !== undefined && { model: options.model }),
     ...(options.tools !== undefined && { additionalTools: [...options.tools] }),
   };
-  const session = runtime.createSession({
-    ...base,
-    permissionMode: options.permissionMode ?? 'acceptEdits',
-    deniedTools: [...PERSONAL_WITHHELD_TOOLS],
-    ...(options.instructions !== undefined && { appendSystemPrompt: options.instructions }),
-  });
+  const chatRecipe = (): SessionRecipe =>
+    runtime.sessionRecipe({
+      ...base,
+      permissionMode: options.permissionMode ?? 'acceptEdits',
+      deniedTools: [...PERSONAL_WITHHELD_TOOLS],
+      ...(options.instructions !== undefined && { appendSystemPrompt: options.instructions }),
+    });
   const openSession = (extra: IExtraSessionOptions): TPersonalSession =>
     runtime.createSession({
       ...base,
@@ -87,5 +89,5 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
       deniedTools: [...PERSONAL_WITHHELD_TOOLS, ...(extra.deniedTools ?? [])],
       appendSystemPrompt: [options.instructions, extra.instructions].filter((text) => text !== undefined).join('\n\n'),
     });
-  return { runtime, session, workspace, openSession };
+  return { runtime, chatRecipe, workspace, openSession };
 }

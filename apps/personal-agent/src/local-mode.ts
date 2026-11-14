@@ -1,16 +1,23 @@
 /**
- * The personal agent's local mode: one session on this machine, reached by the web GUI over a
+ * The personal agent's local mode: the agent's chats on this machine, reached by the web GUI over a
  * loopback WebSocket and by scripts over a loopback HTTP API, both admitted by credentials minted
- * for this launch.
+ * for this launch. The runtime keeps several chats live in a pool, and each page that connects has
+ * its own place in it: it lists the saved chats, starts a new one or switches, without moving
+ * anyone else. The HTTP API drives the chat the runtime started with.
  */
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 
 import { getRequestListener } from '@hono/node-server';
 import {
+  SESSION_POOL_MAX_LIVE,
+  SessionPool,
   TransportRegistry,
   bindTransportAdapter,
+  buildRuntimeSession,
   createMemoryTransportSettingsRepository,
+  createServeSessionDirectory,
+  startRuntimeHost,
 } from '@robota-sdk/agent-framework';
 import { createHttpTransport } from '@robota-sdk/agent-transport/http';
 import { WsTransport } from '@robota-sdk/agent-transport/ws';
@@ -24,6 +31,7 @@ import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robot
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { IPersonalAgent } from './agent.js';
+import type { IRuntimeHostHandle, InteractiveSession, SessionSlot } from '@robota-sdk/agent-framework';
 import type { ILoopbackGuiServer, ILoopbackGuiServerOptions } from '@robota-sdk/agent-local-host';
 
 const LOOPBACK = '127.0.0.1';
@@ -47,6 +55,8 @@ export interface ILocalModeOptions {
 
 export interface ILocalMode {
   readonly agent: IPersonalAgent;
+  /** The chat the runtime started with: the one the HTTP API drives. */
+  readonly primary: InteractiveSession;
   readonly wsUrl: string;
   readonly httpUrl: string;
   /** The bearer every HTTP API request presents. */
@@ -80,11 +90,7 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
     ...(options.permissionMode !== undefined && { permissionMode: options.permissionMode }),
   });
 
-  const cleanups: (() => Promise<void>)[] = [
-    async () => {
-      await agent.session.shutdown();
-    },
-  ];
+  const cleanups: (() => Promise<void>)[] = [];
   const unwind = async (): Promise<void> => {
     for (const step of cleanups.splice(0).reverse()) await step().catch(() => undefined);
   };
@@ -92,26 +98,49 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
   let httpUrl: string;
   const httpToken = randomBytes(32).toString('base64url');
   let gui: ILoopbackGuiServer | undefined;
+  let primary: InteractiveSession;
   try {
+    const store = agent.runtime.sessionStore;
+    if (store === undefined) throw new Error('The personal agent keeps no session store');
+    // Each connected page gets its own place in the pool: its chat list, new chats and switches.
+    const directory = createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>();
+    let stopping = false;
+    let pool: SessionPool<InteractiveSession> | undefined;
     const ws = new WsTransport({
       port: options.wsPort ?? (await findFreeLoopbackPort()),
       maxRetries: 0,
       driverId: 'local:web',
       surface: 'browser',
+      sessionBinder: directory as never,
     });
     const registry = new TransportRegistry(createMemoryTransportSettingsRepository());
-    registry.register(bindTransportAdapter(ws, agent.session));
-    // Registered before the start, so a start that fails after binding still stops what it bound.
-    cleanups.push(async () => {
-      await registry.stopAll();
+    const host: IRuntimeHostHandle = await startRuntimeHost({
+      session: agent.chatRecipe(),
+      transportRegistry: registry,
+      bindTransports: (slot) => {
+        const live = new SessionPool<InteractiveSession>({
+          primary: slot.current,
+          build: (resumeSessionId) =>
+            buildRuntimeSession({ ...agent.chatRecipe(), ...(resumeSessionId !== undefined && { resumeSessionId }) }),
+          maxLive: SESSION_POOL_MAX_LIVE,
+        });
+        pool = live;
+        directory.attach({ pool: live, primary: slot.current, store, cwd: agent.workspace, isStopping: () => stopping });
+        registry.register(bindTransportAdapter(ws, slot));
+      },
     });
-    await registry.startAll();
+    cleanups.push(async () => {
+      stopping = true;
+      await host.shutdown('The personal agent is stopping');
+      await pool?.shutdownAll('The personal agent is stopping');
+    });
+    primary = host.session.current;
     const wsToken = ws.resolvedToken;
     if (wsToken === undefined || ws.boundPort === undefined) throw new Error('The WebSocket transport did not start');
     wsUrl = `ws://${LOOPBACK}:${ws.boundPort}/?token=${encodeURIComponent(wsToken)}`;
 
     const http = createHttpTransport({ admission: { token: httpToken } });
-    http.attach(agent.session);
+    http.attach(primary);
     await http.start();
     cleanups.push(() => http.stop().catch(() => undefined));
     const httpServer: Server = createServer(getRequestListener(http.getApp().fetch));
@@ -149,6 +178,7 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
   let stopped = false;
   return {
     agent,
+    primary,
     wsUrl,
     httpUrl,
     httpToken,
