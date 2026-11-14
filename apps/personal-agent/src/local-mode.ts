@@ -69,21 +69,6 @@ export interface ILocalMode {
   stop(): Promise<void>;
 }
 
-/**
- * A free loopback port, chosen by the system. The WebSocket transport reports the port it was asked
- * for rather than the one it bound, so it is handed a concrete free port instead of 0.
- */
-async function findFreeLoopbackPort(): Promise<number> {
-  const probe = createServer();
-  await new Promise<void>((resolve, reject) => {
-    probe.once('error', reject);
-    probe.listen(0, LOOPBACK, () => resolve());
-  });
-  const port = (probe.address() as AddressInfo).port;
-  await new Promise<void>((resolve) => probe.close(() => resolve()));
-  return port;
-}
-
 export async function startLocalMode(options: ILocalModeOptions): Promise<ILocalMode> {
   const agent = createPersonalAgent({
     stateDir: options.stateDir,
@@ -114,7 +99,8 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
     let stopping = false;
     let pool: SessionPool<InteractiveSession> | undefined;
     const ws = new WsTransport({
-      port: options.wsPort ?? (await findFreeLoopbackPort()),
+      // Port 0 lets the system pick a free port; the transport reports the one it bound.
+      port: options.wsPort ?? 0,
       maxRetries: 0,
       driverId: 'local:web',
       surface: 'browser',
