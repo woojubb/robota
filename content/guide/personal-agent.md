@@ -20,7 +20,8 @@ prints an HTTP API address and the bearer for scripts.
 
 - `--type` takes any built-in provider type. An OpenAI-compatible endpoint is `--type openai --base-url <url>`.
 - The key is never written to disk: the profile keeps only the name of the environment variable holding it.
-- Settings in the web UI change the same profile; restart to use a new one.
+- Settings in the web UI change the same profile; restart to use a new one. (In the container the
+  profile comes from its environment instead; see below.)
 
 ## The menus
 
@@ -63,7 +64,10 @@ OPENAI_API_KEY=... docker compose -f docker/personal-agent/compose.yaml up --bui
 docker compose -f docker/personal-agent/compose.yaml logs   # the URL, access code and HTTP bearer
 ```
 
-Local mode serves only loopback, so the container shares the host's network (Linux). The state lives
+The container takes its model from the `PERSONAL_AGENT_PROVIDER`, `PERSONAL_AGENT_MODEL`,
+`PERSONAL_AGENT_BASE_URL` and `PERSONAL_AGENT_API_KEY_ENV` variables at every start, so a model chosen
+in Settings lasts until the next restart; change the variables to change it for good. Local mode
+serves only loopback, so the container shares the host's network (Linux). The state lives
 in the `personal-agent-state` volume. `docker/personal-agent/smoke.sh` checks a built image against a
 fixture model. Serving it to other machines safely (TLS, accounts) is a later server mode; until then,
 reach a remote install through an SSH tunnel.

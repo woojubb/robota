@@ -16,7 +16,7 @@ cleanup() {
   [ -n "${fixture_pid:-}" ] && kill "$fixture_pid" 2>/dev/null || true
   rm -f "$log" "$fixture_log"
 }
-trap cleanup EXIT
+trap cleanup EXIT INT TERM
 
 PORT="$port" FIXTURE_TEXT=PERSONAL_SMOKE_OK node "$root/docker/robota/smoke/provider-fixture.mjs" >"$fixture_log" 2>&1 &
 fixture_pid=$!
@@ -41,7 +41,9 @@ gui_url="$(grep -o 'open at [^ ]*' "$log" | awk '{print $3}')"
 
 reply="$(curl -sS -N -X POST -H "authorization: Bearer $token" -H 'content-type: application/json' \
   -d '{"prompt":"Say hello"}' "$http_url/submit")"
-echo "$reply" | grep -q '"response":"PERSONAL_SMOKE_OK"' || { echo "FAIL: no completed turn"; echo "$reply" | tail -5; exit 1; }
+echo "$reply" | grep -q '"response":"PERSONAL_SMOKE_OK"' || {
+  echo "FAIL: no completed turn"; echo "$reply" | tail -5; echo "provider fixture:"; cat "$fixture_log"; exit 1;
+}
 echo "ok: a turn completed over the HTTP API"
 
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$http_url/submit" -X POST)" = 401 ] || { echo "FAIL: the HTTP API admitted a request without the bearer"; exit 1; }
@@ -68,6 +70,7 @@ echo "ok: the agent's browser runs in the image"
 
 [ "$(docker exec "$name" stat -c '%a %U' /home/node/.personal)" = "700 node" ] || { echo "FAIL: state is not owner-only"; exit 1; }
 if docker exec "$name" grep -rq smoke-secret-key /home/node/.personal; then echo "FAIL: the provider key was written to state"; exit 1; fi
+docker logs "$name" >"$log" 2>&1
 if grep -q smoke-secret-key "$log"; then echo "FAIL: the provider key reached the log"; exit 1; fi
 echo "ok: state is owner-only and holds no provider key"
 

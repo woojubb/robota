@@ -18,6 +18,8 @@ services:
       PERSONAL_AGENT_API_KEY_ENV: ${PERSONAL_AGENT_API_KEY_ENV:-OPENAI_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Another provider's key: add its variable here and name it in PERSONAL_AGENT_API_KEY_ENV.
     volumes:
       - personal-agent-state:/home/node/.personal
     security_opt:

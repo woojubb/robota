@@ -16,3 +16,4 @@ coverage
 .env
 .env.*
 !.env.example
+.worktrees
