@@ -19,12 +19,18 @@ import {
 } from '@robota-sdk/agent-session/node';
 
 import { deriveBackgroundJobGroups, deriveBackgroundTasks } from './session-replay-state.js';
+import { removeSessionCheckpoints, removeStateDirectory } from './workspace-session-deletion.js';
 import { WorkspaceSessionLogSource } from './workspace-session-io.js';
 import { assertWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import { ProjectReadLimitExceededError } from '../workspace-trust/project-reader-path.js';
 import { workspaceProjectStateDirectoryPath } from '../workspace-trust/node-project-state-directory.js';
-import { assertWorkspaceProjectStateStoragePair } from '../workspace-trust/project-state-storage.js';
+import {
+  assertWorkspaceProjectStateStoragePair,
+  workspaceProjectStateRemovesDirectories,
+} from '../workspace-trust/project-state-storage.js';
+import { WorkspaceAuthorityRequiredError } from '../workspace-trust/workspace-authority-required-error.js';
 
+import type { IProjectSessionDeletion } from './workspace-session-deletion.js';
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import type { TArtifactSealing } from '@robota-sdk/agent-core';
@@ -49,9 +55,15 @@ import type {
 } from '@robota-sdk/agent-interface/session';
 import type { ISessionStoreOptions, TStoredSessionFile } from '@robota-sdk/agent-session/node';
 
+/** A project session store's options: how it seals, and what it removes with a deleted session. */
+export interface IProjectSessionStoreOptions extends ISessionStoreOptions {
+  /** Absent: a delete removes only the record. */
+  readonly deletion?: IProjectSessionDeletion;
+}
+
 function assertNamespace(
   storage: IWorkspaceProjectStateStorage,
-  namespace: 'sessions' | 'session-logs',
+  namespace: 'sessions' | 'session-logs' | 'checkpoints',
 ): IWorkspaceProjectStateStorage {
   const accepted = assertWorkspaceProjectStateStorage(storage);
   if (accepted.namespace !== namespace) {
@@ -148,21 +160,31 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
   private readonly records: StoredSessionRecords;
   /** What only a store that seals offers (`IInteractiveSessionStore.authorship`); absent from one that never does. */
   declare readonly authorship?: ISessionAuthorship;
+  /** What a delete removes besides the record; absent, a delete removes only the record. */
+  private readonly deletion: IProjectSessionDeletion | undefined;
 
   /**
    * @param options `sealing` (required): `{ sealer }` seals what `save` writes and opens what `load`
    *   reads, replay logs included; `'plain'` writes plain records and meets a sealed file as
-   *   `locked`. `releaseCommand`: see `ISessionStoreOptions`.
+   *   `locked`. `releaseCommand`: see `ISessionStoreOptions`. `deletion`: see {@link delete}.
    */
   constructor(
     sessions: IWorkspaceProjectStateStorage,
     logs: IWorkspaceProjectStateStorage,
-    options: ISessionStoreOptions,
+    options: IProjectSessionStoreOptions,
   ) {
     this.sealing = sessionSealingOf(options);
     this.sessions = assertNamespace(sessions, 'sessions');
     this.logs = assertNamespace(logs, 'session-logs');
     assertWorkspaceProjectStateStoragePair(this.sessions, this.logs);
+    const checkpoints = options.deletion?.checkpoints;
+    if (checkpoints !== undefined) {
+      assertWorkspaceProjectStateStoragePair(
+        this.sessions,
+        assertNamespace(checkpoints, 'checkpoints'),
+      );
+    }
+    this.deletion = options.deletion;
     // The writer markers are published by hard links, which no facet call makes, so the claims
     // directory beside the records is reached by its path, checked through the authority-gated facet.
     const markers = createProcessMarkers(projectSessionClaimsDirectory(this.sessions), {
@@ -199,7 +221,9 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
    */
   claim(id: string, options?: ISessionClaimOptions): ISessionClaim {
     assertSafeSessionId(id);
-    return this.records.claim(id, options);
+    const claim = this.records.claim(id, options);
+    for (const sink of this.deletion?.logSinks ?? []) sink.sessionStarted(id);
+    return claim;
   }
 
   /** Lends `id` to another process that will write it (`IInteractiveSessionStore.lend`). */
@@ -400,10 +424,44 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     return this.records.listed(id);
   }
 
-  /** Deletes session `id`'s record, holding its writer marker: refused while another writer holds it. */
+  /**
+   * Deletes session `id`, holding its writer marker: refused while another writer holds it.
+   *
+   * A store built without `deletion` removes only the record. With it, everything the session left is
+   * removed while the marker is held, the record LAST: the log first (it alone would list the session
+   * again), its payloads, its checkpoints under their writer lease, its subagent logs, then the
+   * record. So a delete that stops part-way (a crash, a checkpoint writer holding the lease, a
+   * directory still `partial` after the retry bound) leaves the record in place: the session is still
+   * listed and loads from its record, and deleting it again finishes the job; once the record is gone
+   * nothing that `list` or `load` reads is left. A host that cannot remove directories is refused
+   * before anything is touched. The claim markers' lock file (`claims/<id>.guard`) stays: it is the
+   * markers' lock identity, and removing it would reopen a race between lockers. A delete frees the
+   * id: a session later claimed under it is a new one.
+   */
   delete(id: string): void {
     assertSafeSessionId(id);
+    const deletion = this.deletion;
+    if (deletion === undefined) {
+      this.records.delete(id, () => {
+        this.sessions.deleteFile(`${id}.json`, 'delete project session record');
+      });
+      return;
+    }
+    const checkpoints = deletion.checkpoints;
+    if (
+      !workspaceProjectStateRemovesDirectories(this.logs) ||
+      (checkpoints !== undefined && !workspaceProjectStateRemovesDirectories(checkpoints))
+    ) {
+      throw new WorkspaceAuthorityRequiredError(
+        "The project host cannot remove directories, so a session's files cannot be deleted with it.",
+      );
+    }
     this.records.delete(id, () => {
+      for (const sink of deletion.logSinks ?? []) sink.sessionDeleted(id);
+      this.logs.deleteFile(`${id}.jsonl`, 'delete project session log');
+      removeStateDirectory(this.logs, `${id}.payloads`, id, 'delete project session log payloads');
+      if (checkpoints !== undefined) removeSessionCheckpoints(checkpoints, id);
+      deletion.removeSubagentLogs?.(id);
       this.sessions.deleteFile(`${id}.json`, 'delete project session record');
     });
   }
