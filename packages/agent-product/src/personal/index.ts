@@ -25,3 +25,17 @@ export type {
   TWikiLogAction,
 } from './knowledge/types.js';
 export { WIKI_INSTRUCTIONS, WIKI_TOOL_NAMES, createWikiTools } from './knowledge/tools.js';
+export { BrowserNavigationRefusedError, BrowserUnavailableError } from './browser/types.js';
+export type {
+  IBrowserActionResult,
+  IBrowserMark,
+  IBrowserPort,
+  IBrowserView,
+  IHeldSubmission,
+} from './browser/types.js';
+export {
+  BROWSER_INSTRUCTIONS,
+  BROWSER_TOOL_NAMES,
+  createBrowserTools,
+  renderView,
+} from './browser/tools.js';

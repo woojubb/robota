@@ -26,6 +26,7 @@
     "@robota-sdk/agent-tools": "workspace:^",
     "@robota-sdk/agent-transport": "workspace:^",
     "hono": "^4.12.32",
+    "playwright": "^1.49.1",
     "ws": "^8.21.1"
   },
   "devDependencies": {
