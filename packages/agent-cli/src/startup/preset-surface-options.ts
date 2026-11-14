@@ -1,5 +1,7 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
+import { CORE_HARNESS_PROMPT } from '../harness/core-harness.js';
+
 import { buildAppendSystemPrompt } from './append-system-prompt.js';
 import { buildJsonSchemaResponseFormat } from './json-schema-response-format.js';
 
@@ -69,11 +71,14 @@ export interface IPresetSurfaceOptions {
   /** Response language, composed as a prompt section rather than a provider parameter. */
   language?: string;
   /**
-   * A preset-supplied system prompt that SEEDS the composed prompt.
+   * The system prompt that SEEDS the composed prompt: the product's core harness, then the
+   * resolved preset's own system prompt when it has one.
    *
    * Named `presetSystemPrompt` on the SESSION, deliberately: the session's own `systemPrompt` option
    * REPLACES the composed prompt, and a preset pointing at that would drop the AGENTS.md and
    * capability sections without saying so. Two names because they are two different things.
+   *
+   * A `--system-prompt` flag is such a full replacement, so it is carried as given, without the core.
    */
   systemPrompt?: string;
   /**
@@ -115,6 +120,20 @@ export interface IPresetSurfaceOptions {
 }
 
 /**
+ * The seed prompt every surface sends. The core harness comes first and a preset's own system
+ * prompt follows it, so a preset adds to the core instead of replacing it. When the caller supplied
+ * the whole prompt (`replaced`), the text is returned as given and no core is added.
+ */
+function composeSeedSystemPrompt(
+  presetPrompt: string | undefined,
+  replaced: boolean,
+): string | undefined {
+  if (replaced) return presetPrompt;
+  if (presetPrompt === undefined || presetPrompt.trim().length === 0) return CORE_HARNESS_PROMPT;
+  return `${CORE_HARNESS_PROMPT}\n\n${presetPrompt}`;
+}
+
+/**
  * @param resolved   The resolved preset — the merge of preset file, CLI overrides and defaults.
  * @param presetId   The selected preset's id, which is not a field of the resolved options.
  * @param permissionMode The posture the KERNEL resolved (explicit `--permission-mode`, else the
@@ -122,7 +141,8 @@ export interface IPresetSurfaceOptions {
  * @param cli The parsed CLI args and cwd, from which the prompt addition is composed HERE — once,
  *   where the projection is built, so all three shells receive the same text. Absent in callers that
  *   have no CLI (tests, and the live `/preset` path). Kept distinct from the preset's own
- *   `appendSystemPrompt`, whose merge order against this is not yet decided.
+ *   `appendSystemPrompt`, whose merge order against this is not yet decided. A `--system-prompt`
+ *   among its args replaces the whole prompt, so no core harness is composed in front of it.
  */
 export function buildPresetSurfaceOptions(
   runtime: ICliRuntimeContext,
@@ -137,6 +157,10 @@ export function buildPresetSurfaceOptions(
     cli !== undefined ? buildAppendSystemPrompt(cli.cwd, cli.args) : undefined;
   const responseFormat =
     cli !== undefined ? buildJsonSchemaResponseFormat(cli.args.jsonSchema) : undefined;
+  const systemPrompt = composeSeedSystemPrompt(
+    resolved.systemPrompt,
+    Boolean(cli?.args.systemPrompt),
+  );
   return {
     ...(resolved.model !== undefined ? { model: resolved.model } : {}),
     ...(outputStyle !== undefined ? { outputStyle } : {}),
@@ -161,7 +185,7 @@ export function buildPresetSurfaceOptions(
       ? { maxOutputTokens: resolved.maxOutputTokens }
       : {}),
     ...(resolved.language !== undefined ? { language: resolved.language } : {}),
-    ...(resolved.systemPrompt !== undefined ? { systemPrompt: resolved.systemPrompt } : {}),
+    ...(systemPrompt !== undefined ? { systemPrompt } : {}),
     ...(resolved.allowedTools !== undefined ? { allowedTools: resolved.allowedTools } : {}),
     ...(resolved.deniedTools !== undefined ? { deniedTools: resolved.deniedTools } : {}),
     ...(cliAppendSystemPrompt !== undefined ? { cliAppendSystemPrompt } : {}),
