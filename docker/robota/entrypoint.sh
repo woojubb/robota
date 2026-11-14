@@ -2,7 +2,7 @@
 # Image entrypoint: prepare the state directory and credentials, then run the command.
 #
 # - The image's default user settings (sandbox on, refuse to start when it cannot run) are copied
-#   into PRODUCT_USER_STATE_DIR only when no settings.json exists there. A volume mounted over the
+#   into the CLI's state root (ROBOTA_USER_STATE_DIR) only when no settings.json exists there. A volume mounted over the
 #   state directory would otherwise hide a file baked into the image; an operator's own
 #   settings.json is never overwritten.
 # - Each file in /run/secrets whose name is a valid environment variable name (for example a
@@ -13,7 +13,7 @@
 #   `sh -c 'git clone … && robota --restricted-workspace -p …'`).
 set -eu
 
-state="${PRODUCT_USER_STATE_DIR:?PRODUCT_USER_STATE_DIR must be set}"
+state="${ROBOTA_USER_STATE_DIR:?ROBOTA_USER_STATE_DIR must be set}"
 if [ ! -e "$state/settings.json" ]; then
   mkdir -p "$state"
   chmod 0700 "$state"

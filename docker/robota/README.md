@@ -99,7 +99,7 @@ server's, so verify on the Linux host you deploy to.
 
 ## Settings and state
 
-`HOME` is `/home/node` and the CLI's user state (`PRODUCT_USER_STATE_DIR`) is `/home/node/.robota`,
+`HOME` is `/home/node` and the CLI's user state (`ROBOTA_USER_STATE_DIR`) is `/home/node/.robota`,
 a volume. Mount a named volume there to keep provider profiles between runs. A bind
 mount must be writable by uid 1000.
 
@@ -234,7 +234,7 @@ curl -N -H "Authorization: Bearer $(cat http-token)" -H 'content-type: applicati
   -d '{"prompt":"Summarize the README"}' http://127.0.0.1:8080/submit
 ```
 
-- The token reaches the runtime as the Docker secret `PRODUCT_HTTP_TOKEN` and is removed from its
+- The token reaches the runtime as the Docker secret `ROBOTA_HTTP_TOKEN` and is removed from its
   environment before any command runs.
 - Configure the provider once with the batch service's `--configure-provider` run against the
   `robota-server-state` volume, or provide settings in that volume.
