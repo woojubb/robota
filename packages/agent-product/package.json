@@ -86,6 +86,18 @@
         "default": "./dist/coding/index.cjs"
       }
     },
+    "./personal": {
+      "source": "./src/personal/index.ts",
+      "browser": null,
+      "import": {
+        "types": "./dist/personal/index.d.ts",
+        "default": "./dist/personal/index.js"
+      },
+      "require": {
+        "types": "./dist/personal/index.d.cts",
+        "default": "./dist/personal/index.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "engines": {
@@ -112,7 +124,8 @@
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-framework": "workspace:^",
     "@robota-sdk/agent-interface": "workspace:^",
-    "@robota-sdk/agent-tools": "workspace:^"
+    "@robota-sdk/agent-tools": "workspace:^",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.19.21",

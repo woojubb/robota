@@ -510,6 +510,7 @@ export {
   DEFAULT_MEMORY_EXTRACTOR_POLICY,
   RegexMemoryCandidateExtractor,
   approvePendingMemoryCandidate,
+  containsSensitiveMemoryContent,
 } from './memory/index.js';
 export type {
   IApprovedMemoryCandidate,
