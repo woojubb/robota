@@ -41,8 +41,7 @@ function makeFixture(): IFixture {
   const home = join(root, 'home');
   const repo = join(root, 'repo');
   mkdirSync(join(home, 'state'), { recursive: true });
-  // Skip the first-run welcome and provider setup: neither is what this scenario observes.
-  writeFileSync(join(home, 'state', 'onboarded'), new Date().toISOString(), 'utf8');
+  // Skip provider setup: it is not what this scenario observes.
   writeFileSync(
     join(home, 'state', 'settings.json'),
     JSON.stringify({

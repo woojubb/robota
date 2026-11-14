@@ -365,6 +365,10 @@ async function main() {
     if (plan.checks.includes('packages/agent-cli'))
       run('--filter', './packages/agent-cli', 'exec', 'vitest', 'run', '--passWithNoTests',
         `--shard=${kind.at(-1)}/4`);
+    // Real-terminal suite on the compiled CLI. It runs the published agent-ui-terminal that agent-cli
+    // depends on, not this workspace's copy, so an agent-ui-terminal change alone is not what it checks.
+    if (kind === 'tests-cli-2' && plan.checks.includes('packages/agent-cli'))
+      run('--filter', './packages/agent-ui-terminal', 'run', 'test:pty');
   } else if (/^tests-rest-[123]$/.test(kind)) {
     const shard = Number(kind.at(-1)) - 1;
     const remaining = plan.checks.filter((dir) => dir !== 'packages/agent-cli')

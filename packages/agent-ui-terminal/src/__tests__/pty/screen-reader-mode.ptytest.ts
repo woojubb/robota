@@ -12,7 +12,7 @@
  * Runs under `test:pty` against the built CLI (`pnpm build` first).
  */
 
-import { mkdtempSync, rmSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,15 +35,6 @@ const OSC_133_PROMPT_START = '\x1b]133;A';
 /** How long one `waitFor` may block, and how long a whole case may take, on a loaded CI runner. */
 const WAIT_MS = 30_000;
 const CASE_TIMEOUT_MS = 90_000;
-
-/**
- * Mark the isolated HOME as already onboarded. The test asserts on the FIRST line the process
- * writes, and the first-run welcome is a separate concern with its own onboarding copy — a
- * returning user is the case where "the first line confirms the mode" is the claim being made.
- */
-function markOnboarded(homeDir: string): void {
-  writeFileSync(join(homeDir, 'state', 'onboarded'), new Date().toISOString());
-}
 
 describe('screen-reader mode through the real binary', () => {
   let projectDir: string;
@@ -190,7 +181,6 @@ describe('the channel the mode was enabled through', () => {
   it(
     'PRODUCT_SCREEN_READER=1 with no flag announces the env channel first',
     async () => {
-      markOnboarded(join(projectDir, 'home'));
       session = spawnTui({
         projectDir,
         homeDir: join(projectDir, 'home'),
@@ -209,7 +199,6 @@ describe('the channel the mode was enabled through', () => {
   it(
     '--screen-reader beats PRODUCT_SCREEN_READER=0 and says so',
     async () => {
-      markOnboarded(join(projectDir, 'home'));
       session = spawnTui({
         projectDir,
         homeDir: join(projectDir, 'home'),

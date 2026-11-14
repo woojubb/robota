@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createIsolatedHome, createPtyEnv } from './isolated-home.js';
+import { grantWorkspaceTrust, waitForQuietOutput } from './pty-driver.js';
 import { spawnPty } from './spawn-pty.js';
 
 import type { IPtyRunSession } from './spawn-pty.js';
@@ -67,7 +68,6 @@ describe('the CLI session attach command on the built binary', () => {
     const home = createIsolatedHome();
     const stateRoot = join(runtime, 's');
     mkdirSync(stateRoot, { recursive: true });
-    writeFileSync(join(stateRoot, 'onboarded'), new Date().toISOString(), 'utf8');
     writeFileSync(
       join(stateRoot, 'settings.json'),
       JSON.stringify({
@@ -101,8 +101,7 @@ describe('the CLI session attach command on the built binary', () => {
     writeFileSync(join(project, 'README.md'), 'fixture\n');
     git('add', '--', 'README.md');
     git('commit', '-q', '-m', 'chore: fixture');
-    const trusted = agent(['trust', '--yes'], project, env);
-    expect(trusted.status, trusted.stderr).toBe(0);
+    await grantWorkspaceTrust(project, env);
     const started = agent(
       ['session', 'start', '--background', '--name', 'pty-attach'],
       project,
@@ -121,6 +120,7 @@ describe('the CLI session attach command on the built binary', () => {
     await drive.sendKeys('yes');
     await drive.pressEnter();
     await drive.waitFor('Type a message or /help', WAIT_MS);
+    await waitForQuietOutput(drive);
     await drive.sendKeys('hello from the pty');
     await drive.pressEnter();
     await drive.waitFor('Last turn failed', WAIT_MS);
