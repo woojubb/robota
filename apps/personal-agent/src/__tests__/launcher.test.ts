@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -54,6 +54,70 @@ describe('personal-agent launcher', () => {
     const result = run(['strat'], env);
     expect(result.status).toBe(2);
     expect(spawnSync('test', ['-e', env['PERSONAL_AGENT_STATE_DIR']!]).status).not.toBe(0);
+  });
+
+  it('opens the owner .env in the editor, and a key pasted there is used', async () => {
+    const model: IScriptedModel = await startScriptedModel();
+    cleanup.push(() => model.close());
+    model.script({ text: 'Answered with the key from .env' });
+    const env = sandbox();
+    delete env['SCRIPTED_KEY'];
+    // The "editor" pastes the key the way a person would, then exits.
+    const editor = join(env['HOME']!, 'paste-key.mjs');
+    writeFileSync(
+      editor,
+      "import { appendFileSync } from 'node:fs';\nappendFileSync(process.argv[2], 'SCRIPTED_KEY=from-env-file\\n');\n",
+    );
+    const opened = run(['env'], {
+      ...env,
+      EDITOR: `${JSON.stringify(process.execPath)} ${JSON.stringify(editor)}`,
+    });
+    expect(opened.stderr).toBe('');
+    expect(opened.status).toBe(0);
+    const envFile = join(env['PERSONAL_AGENT_STATE_DIR']!, '.env');
+    expect(opened.stdout).toContain(envFile);
+    expect(readFileSync(envFile, 'utf8')).toContain('SCRIPTED_KEY=from-env-file');
+
+    const configured = run(
+      [
+        'configure',
+        '--type',
+        'openai',
+        '--model',
+        'scripted-model',
+        '--base-url',
+        model.baseURL,
+        '--api-key-env',
+        'SCRIPTED_KEY',
+      ],
+      env,
+    );
+    expect(configured.stderr).toBe('');
+    expect(configured.status).toBe(0);
+    const child = spawn(process.execPath, [LAUNCHER, 'start', '--no-gui'], { env });
+    let output = '';
+    child.stdout.on('data', (chunk) => (output += String(chunk)));
+    child.stderr.on('data', (chunk) => (output += String(chunk)));
+    const exited = new Promise<number | null>((resolve) =>
+      child.once('exit', (code) => resolve(code)),
+    );
+    cleanup.push(() => {
+      if (child.exitCode === null) child.kill('SIGKILL');
+    });
+    for (let waited = 0; !output.includes('HTTP API at') && waited < 60_000; waited += 100) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    const match = /HTTP API at (\S+) \(bearer printed once\): (\S+)/.exec(output);
+    expect(match, output).not.toBeNull();
+    const res = await fetch(`${match![1]}/submit`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${match![2]}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: 'hello' }),
+    });
+    expect(await res.text()).toContain('Answered with the key from .env');
+    expect(model.requests[0]!.authorization).toBe('Bearer from-env-file');
+    child.kill('SIGTERM');
+    expect(await exited).toBe(0);
   });
 
   it('configures, starts, answers, files a fact, runs a slash command and stops on SIGTERM', async () => {

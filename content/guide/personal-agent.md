@@ -10,10 +10,14 @@ anything that sends data somewhere or spends money.
 ```sh
 pnpm install
 pnpm --filter "robota-personal-agent^..." build     # the SDK packages and the web UI it serves
-export OPENAI_API_KEY=...                            # or any provider's key
+node apps/personal-agent/bin/personal-agent.mjs env          # opens your key file in your editor
 node apps/personal-agent/bin/personal-agent.mjs configure --type openai --model <model> --api-key-env OPENAI_API_KEY
 node apps/personal-agent/bin/personal-agent.mjs start
 ```
+
+`env` creates `~/.robota/personal/.env`, readable only by you, and opens it in `$VISUAL`/`$EDITOR` (or
+the system's text editor). Paste your key after the `=` of its line, for example `OPENAI_API_KEY=`, and
+save. The agent reads the file each time it starts; a variable already exported in your shell wins.
 
 A model gateway that speaks the OpenAI API works the same way: give its address and the gateway's
 model id, for example `configure --type openai --base-url https://ai-gateway.vercel.sh/v1 --model
@@ -24,7 +28,8 @@ deepseek/deepseek-v4.1-flash --api-key-env AI_GATEWAY_API_KEY`, or `--type openr
 prints an HTTP API address and the bearer for scripts.
 
 - `--type` takes any built-in provider type. An OpenAI-compatible endpoint is `--type openai --base-url <url>`.
-- The key is never written to disk: the profile keeps only the name of the environment variable holding it.
+- The profile keeps only the name of the variable holding the key; the key itself lives in your
+  environment or in the owner-only `.env`, which the agent refuses to read if others can.
 - Settings in the web UI change the same profile; restart to use a new one. (In the container the
   profile comes from its environment instead; see below.)
 
