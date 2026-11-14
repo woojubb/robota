@@ -1,5 +1,10 @@
 # @robota-sdk/agent-provider
 
+## 3.3.4
+### Patch Changes
+
+- 3b943bb: The OpenAI-compatible request now carries `response_format: { type: "json_object" }` for a model that declares `json_object` (such as the DeepSeek models), so what the structured-output guard reports as sent is what the request carries.
+
 ## 3.3.3
 ### Patch Changes
 

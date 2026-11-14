@@ -1,5 +1,10 @@
 # @robota-sdk/agent-os
 
+## 3.3.2
+### Patch Changes
+
+- 285627c: The error `killProcessTree` throws for a child that never spawned no longer carries the retired `[agent-process]` prefix and now reads as a plain sentence naming the helper and the missing pid.
+
 ## 3.3.1
 ### Patch Changes
 
