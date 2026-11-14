@@ -23,10 +23,9 @@ const SETTLE_QUIET_MS = 300;
 const SETTLE_MAX_MS = 5_000;
 
 /**
- * The TUI draws its prompt and draws it again a moment later, and a key that arrives between the two
- * draws is dropped. Nothing in the output marks the second draw, so a `spawnTui` session lets the
- * screen go quiet after its first match before anything is typed; a test that drives `spawnPty`
- * itself calls this. Best effort: a screen that keeps changing ends the wait at the cap.
+ * Waits until the screen has stayed unchanged for a short while, for a test that drives `spawnPty`
+ * itself and wants a settled screen before it types. Best effort: a screen that keeps changing ends
+ * the wait at the cap.
  */
 export async function waitForQuietOutput(
   session: Pick<IPtyRunSession, 'outputOffset'>,
@@ -185,27 +184,15 @@ export function spawnTui(options: ISpawnTuiOptions): IPtySession {
     ...(options.rows !== undefined ? { rows: options.rows } : {}),
   });
 
-  let settled = false;
-  const settleOnce = async (): Promise<void> => {
-    if (settled) return;
-    settled = true;
-    await waitForQuietOutput(session);
-  };
-
   return {
     sendKeys: (text, perKeyDelayMs): Promise<void> => session.sendKeys(text, perKeyDelayMs),
     pressEnter: (): Promise<void> => session.pressEnter(),
     pressEscape: (): void => session.write('\x1b'),
     writeRaw: (data): void => session.write(data),
-    waitFor: async (pattern, timeoutMs): Promise<void> => {
-      await session.waitFor(pattern, timeoutMs);
-      await settleOnce();
-    },
+    waitFor: (pattern, timeoutMs): Promise<void> => session.waitFor(pattern, timeoutMs),
     outputOffset: (): number => session.outputOffset(),
-    waitForSince: async (since, pattern, timeoutMs): Promise<void> => {
-      await session.waitForSince(since, pattern, timeoutMs);
-      await settleOnce();
-    },
+    waitForSince: (since, pattern, timeoutMs): Promise<void> =>
+      session.waitForSince(since, pattern, timeoutMs),
     snapshotSince: (since): string => session.snapshotSince(since),
     snapshot: (): string => session.snapshot(),
     raw: (): string => session.raw(),
