@@ -73,3 +73,25 @@ export const inputClass =
 export function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
+
+/** A moment in the viewer's own time zone, short. */
+export function when(iso: string | undefined): string {
+  if (iso === undefined) return '—';
+  return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+/** A repeat interval in the largest whole unit: every 2 hours, every week. */
+export function interval(minutes: number): string {
+  for (const [size, unit] of [
+    [10_080, 'week'],
+    [1_440, 'day'],
+    [60, 'hour'],
+    [1, 'minute'],
+  ] as const) {
+    if (minutes % size === 0) {
+      const count = minutes / size;
+      return count === 1 ? `Every ${unit}` : `Every ${count} ${unit}s`;
+    }
+  }
+  return `Every ${minutes} minutes`;
+}

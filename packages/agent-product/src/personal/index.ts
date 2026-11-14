@@ -39,3 +39,25 @@ export {
   createBrowserTools,
   renderView,
 } from './browser/tools.js';
+export { GoalBook, GoalRefusedError } from './goals/goal-book.js';
+export type { ICreateGoalInput, IGoalBookOptions } from './goals/goal-book.js';
+export { createFileGoalStore } from './goals/file-store.js';
+export { createMemoryGoalStore } from './goals/memory-store.js';
+export {
+  GOAL_INSTRUCTIONS,
+  GOAL_TOOL_NAMES,
+  createGoalTools,
+  goalRunInstructions,
+  renderGoal,
+} from './goals/tools.js';
+export type {
+  IFeedItem,
+  IGoal,
+  IGoalAction,
+  IGoalRun,
+  IGoalStore,
+  TApprovalState,
+  TFeedKind,
+  TGoalRunOutcome,
+  TGoalStatus,
+} from './goals/types.js';

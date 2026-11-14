@@ -8,18 +8,22 @@
  * variable that holds it.
  */
 import { findProviderDefinition, formatSupportedProviderTypes } from '@robota-sdk/agent-core';
-import { PAGE_KINDS, SensitiveContentRefusedError } from '@robota-sdk/agent-product/personal';
+import { GoalRefusedError, PAGE_KINDS, SensitiveContentRefusedError } from '@robota-sdk/agent-product/personal';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
 
 import { loadConfig, saveConfig } from './config.js';
 import { createProviderFromProfile } from './provider.js';
 
 import type { ILoopbackGuiApiRequest, ILoopbackGuiApiResponse } from '@robota-sdk/agent-local-host';
-import type { IWikiPage, KnowledgeWiki, TPageKind } from '@robota-sdk/agent-product/personal';
+import type { GoalBook, IWikiPage, KnowledgeWiki, TPageKind } from '@robota-sdk/agent-product/personal';
+import type { IGoalRunner } from './goal-runner.js';
 import type { IProviderProfile } from './config.js';
 
 export interface IPersonalApiOptions {
   readonly wiki: KnowledgeWiki;
+  readonly goals: GoalBook;
+  /** The goal runner, once the agent is running; approvals and "run now" need it. */
+  readonly runner: () => IGoalRunner | undefined;
   readonly stateDir: string;
   readonly environment: Readonly<Record<string, string | undefined>>;
   /** Whether the agent has a browser on this machine. */
@@ -62,7 +66,7 @@ export function providerTypes(): string[] {
 }
 
 export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
-  const { wiki } = options;
+  const { wiki, goals } = options;
 
   const routes = async (request: ILoopbackGuiApiRequest): Promise<ILoopbackGuiApiResponse> => {
     const { method, segments } = request;
@@ -109,6 +113,56 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
     }
     if (area === 'wiki' && collection === 'log' && method === 'GET') return ok({ entries: await wiki.log() });
     if (area === 'wiki' && collection === 'lint' && method === 'GET') return ok(await wiki.lint({ record: false }));
+
+    if (area === 'goals' && collection === undefined) {
+      if (method === 'GET') return ok({ goals: await goals.list() });
+      if (method === 'POST') {
+        const body = record(request.body);
+        const everyMinutes = body['everyMinutes'];
+        if (everyMinutes !== undefined && typeof everyMinutes !== 'number') throw new BadRequest('everyMinutes must be a number');
+        const goal = await goals.create({
+          title: text(body, 'title')!,
+          instructions: text(body, 'instructions')!,
+          ...(everyMinutes !== undefined && { everyMinutes }),
+          readOnly: body['readOnly'] === true,
+        });
+        return ok({ goal });
+      }
+    }
+    if (area === 'goals' && collection !== undefined) {
+      const goal = await goals.get(collection);
+      if (goal === undefined) return fail(404, 'no such goal');
+      if (id === undefined && method === 'GET') return ok({ goal, runs: await goals.runs(goal.id) });
+      if (method === 'POST' && id === 'pause') return ok({ goal: await goals.pause(goal.id) });
+      if (method === 'POST' && id === 'resume') return ok({ goal: await goals.resume(goal.id) });
+      if (method === 'POST' && id === 'stop') {
+        await goals.remove(goal.id);
+        return ok({ stopped: goal.id });
+      }
+      if (method === 'POST' && id === 'run') {
+        const resumed = await goals.resume(goal.id);
+        await options.runner()?.runDue();
+        return ok({ goal: (await goals.get(goal.id)) ?? resumed });
+      }
+    }
+    if (area === 'feed' && collection === undefined && method === 'GET') {
+      return ok({ items: (await goals.feed()).filter((item) => !item.dismissed) });
+    }
+    if (area === 'feed' && collection !== undefined && method === 'POST') {
+      if (id === 'approve' || id === 'deny') {
+        const runner = options.runner();
+        if (runner === undefined) return fail(409, 'the agent is not running goals');
+        try {
+          return ok({ item: await runner.answer(collection, id === 'approve') });
+        } catch (error) {
+          throw new BadRequest(error instanceof Error ? error.message : String(error));
+        }
+      }
+      if (id === 'dismiss') {
+        await goals.dismiss(collection);
+        return ok({ dismissed: collection });
+      }
+    }
 
     if (area === 'search' && method === 'GET') {
       const query = (request.query.get('q') ?? '').trim();
@@ -169,6 +223,7 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
     } catch (error) {
       if (error instanceof BadRequest) return fail(400, error.message);
       if (error instanceof SensitiveContentRefusedError) return fail(422, error.message);
+      if (error instanceof GoalRefusedError) return fail(400, error.message);
       if (error instanceof Error && /^No (current claim|wiki page)/u.test(error.message)) return fail(400, error.message);
       throw error;
     }

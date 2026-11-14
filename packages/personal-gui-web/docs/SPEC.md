@@ -3,8 +3,9 @@
 ## Purpose
 
 The personal agent's web UI: the shared session surface (`@robota-sdk/agent-ui-web`) for chat, inside a
-menu shell for what a personal agent keeps — the library of what it knows about the person, search
-and settings. `apps/personal-agent` serves its build behind the shared access-code server.
+menu shell for what a personal agent keeps — the feed of results and approvals, its goals, the library
+of what it knows about the person, search and settings. `apps/personal-agent` serves its build behind
+the shared access-code server.
 
 It is a **`private` product-shell package**: a product UI assembled from the shared libraries, not an
 importable library.
@@ -18,6 +19,8 @@ importable library.
   the access-code session path the page was served from; every call that changes something carries
   the write header the server requires. The built page may reach only its own origin and a loopback
   WebSocket.
+- **An approval answers the real request.** Approving or declining in the feed resolves the very
+  action a goal is waiting on; the page shows the method and address being approved.
 - **The person's word, labelled as such.** A fact the person adds or corrects in the library is
   theirs; facts the agent read elsewhere are shown with where they came from.
 - **Secrets stay out of the page.** Settings name the environment variable that holds a provider key;

@@ -531,7 +531,8 @@ assembled in one process get independently-scoped file tools.
 
 What a personal agent does, independent of how it is hosted: the capabilities a composition root
 lends a state directory and a live session: the knowledge wiki, the agent's maintained memory of the
-person it works for, and the browser it acts on the web through.
+person it works for; the browser it acts on the web through; and the goals it keeps working on while
+the person is away, with the feed it reports to.
 
 ### Contract
 
@@ -551,6 +552,12 @@ site (any method but GET, HEAD and OPTIONS) caused by the agent's own action is 
 only a submission that names its method and address, which a person approves on every call, sends it;
 no permission mode, allow rule or classifier can send it on the agent's behalf, and the host sends
 exactly the request it held.
+
+A goal is the person's instruction with a schedule, kept in a store port beside the feed. Each run
+records what the agent did and what it only proposed, and ends with a report in the feed; whatever a
+run would ask a person becomes an approval in the feed, and the run waits for that answer rather than
+guessing it. A read-only goal can only look. The book is the record: after a host restarts, a goal it
+was running is due again, and an approval nobody can still answer is marked expired, never approved.
 
 ### Non-goals
 

@@ -79,7 +79,7 @@ export async function main(argv: readonly string[], environment: NodeJS.ProcessE
     gui: values['no-gui'] !== true,
     api: capabilities.api,
   });
-  capabilities.attach(local.agent.session);
+  await capabilities.attach(local.agent);
   if (local.gui !== undefined) {
     process.stdout.write(`Personal agent is open at ${local.gui.url}\nAccess code: ${local.gui.accessCode}\n`);
   }

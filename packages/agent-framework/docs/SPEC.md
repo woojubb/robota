@@ -257,6 +257,11 @@ These are behaviors a caller cannot infer from a type signature alone.
   words; it admits a model command only when no user or remote command runs, or when that command has
   started its own turn, whose model commands all carry the same scope and cannot overwrite each other;
   and it refuses a forked skill before it starts, naming the missing `createAsyncScope`.
+- **Each client of a served pool has its own view of its sessions.** The session directory binds every
+  client connection to a session of its own: switching or starting one moves that client alone, and
+  leaving a session never stops its work. A change is refused only where carrying it out would leave
+  something no one can finish, such as a prompt only that client could answer, and the refusal says
+  why with a code a client can branch on.
 - **Local peer status is display-only.** Host-observed activity, independently verified process
   liveness and the verified workspace relation never grant authority over the peer or identify a persisted session record, and a passive
   observer can never keep a request alive after its last answering surface leaves.

@@ -75,3 +75,14 @@ describe('claim origin', () => {
     );
   });
 });
+
+describe('goal schedule wording', () => {
+  it('names a repeat interval in its largest whole unit', async () => {
+    const { interval } = await import('../views/ui.js');
+    expect(interval(10_080)).toBe('Every week');
+    expect(interval(2_880)).toBe('Every 2 days');
+    expect(interval(60)).toBe('Every hour');
+    expect(interval(90)).toBe('Every 90 minutes');
+    expect(interval(1)).toBe('Every minute');
+  });
+});

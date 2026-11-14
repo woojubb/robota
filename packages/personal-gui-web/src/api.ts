@@ -74,6 +74,48 @@ export interface ISettings {
   readonly browser: { readonly available: boolean };
 }
 
+export type TGoalStatus = 'active' | 'running' | 'waiting' | 'paused' | 'done' | 'failed';
+
+export interface IGoalView {
+  readonly id: string;
+  readonly title: string;
+  readonly instructions: string;
+  readonly everyMinutes?: number;
+  readonly readOnly: boolean;
+  readonly status: TGoalStatus;
+  readonly nextRunAt?: string;
+  readonly lastRunAt?: string;
+  readonly createdAt: string;
+}
+
+export interface IGoalRunView {
+  readonly id: string;
+  readonly startedAt: string;
+  readonly endedAt?: string;
+  readonly outcome?: 'done' | 'failed' | 'interrupted';
+  readonly report?: string;
+  readonly actions: readonly {
+    readonly at: string;
+    readonly tool: string;
+    readonly detail: string;
+    readonly outcome: string;
+  }[];
+}
+
+export interface IFeedItemView {
+  readonly id: string;
+  readonly at: string;
+  readonly kind: 'report' | 'approval' | 'notice';
+  readonly title: string;
+  readonly body: string;
+  readonly goalId?: string;
+  readonly approval?: {
+    readonly tool: string;
+    readonly detail: string;
+    readonly state: 'pending' | 'approved' | 'denied' | 'expired';
+  };
+}
+
 export const API_WRITE_HEADER = 'x-robota-api';
 
 export class ApiError extends Error {
@@ -102,6 +144,17 @@ export interface IPersonalApi {
   lint(): Promise<ILintReport>;
   search(query: string): Promise<readonly ISearchResult[]>;
   settings(): Promise<ISettings>;
+  goals(): Promise<readonly IGoalView[]>;
+  goal(id: string): Promise<{ goal: IGoalView; runs: readonly IGoalRunView[] }>;
+  createGoal(input: {
+    title: string;
+    instructions: string;
+    everyMinutes?: number;
+    readOnly: boolean;
+  }): Promise<{ goal: IGoalView }>;
+  goalAction(id: string, action: 'pause' | 'resume' | 'run' | 'stop'): Promise<unknown>;
+  feed(): Promise<readonly IFeedItemView[]>;
+  answerFeed(id: string, action: 'approve' | 'deny' | 'dismiss'): Promise<unknown>;
   saveProvider(provider: IProviderSettings): Promise<{ saved: true; restartRequired: boolean }>;
 }
 
@@ -137,5 +190,11 @@ export function createPersonalApi(
         .results,
     settings: () => call('GET', 'settings'),
     saveProvider: (provider) => call('PUT', 'settings/provider', provider),
+    goals: async () => (await call<{ goals: IGoalView[] }>('GET', 'goals')).goals,
+    goal: (goalId) => call('GET', `goals/${id(goalId)}`),
+    createGoal: (input) => call('POST', 'goals', input),
+    goalAction: (goalId, action) => call('POST', `goals/${id(goalId)}/${action}`),
+    feed: async () => (await call<{ items: IFeedItemView[] }>('GET', 'feed')).items,
+    answerFeed: (itemId, action) => call('POST', `feed/${id(itemId)}/${action}`),
   };
 }

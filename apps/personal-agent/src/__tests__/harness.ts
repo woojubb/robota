@@ -88,6 +88,8 @@ export async function startHarness(
   const capabilities = createPersonalCapabilities({
     stateDir,
     environment,
+    // Goals run when a test asks, never on a timer.
+    goalTickMs: 0,
     ...(options.browserAllowedHosts !== undefined && {
       browserAllowedHosts: options.browserAllowedHosts,
     }),
@@ -110,7 +112,7 @@ export async function startHarness(
     api: capabilities.api,
     ...(options.webRoot !== undefined && { webRoot: options.webRoot }),
   });
-  capabilities.attach(local.agent.session);
+  await capabilities.attach(local.agent);
   const auth = { authorization: `Bearer ${local.httpToken}` };
   async function submit(
     prompt: string,
