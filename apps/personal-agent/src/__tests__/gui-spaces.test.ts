@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -129,7 +129,20 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         const [record] = JSON.parse(
           readFileSync(join(harness.stateDir, 'side-chats', 'side-chats.json'), 'utf8'),
         );
-        expect(typeof record.parentId).toBe('string');
+        // The parent is the main chat: the session whose transcript holds the main exchange and not
+        // the side question.
+        const sessions = join(harness.stateDir, 'sessions');
+        const files = readdirSync(sessions, { recursive: true, encoding: 'utf8' }).filter((file) =>
+          statSync(join(sessions, file)).isFile(),
+        );
+        const transcript = (file: string) => readFileSync(join(sessions, file), 'utf8');
+        const mainChat = files.find(
+          (file) =>
+            transcript(file).includes('Main chat answer.') &&
+            !transcript(file).includes('My question:'),
+        );
+        expect(mainChat).toBeDefined();
+        expect(mainChat).toContain(record.parentId);
         expect(record.parentId).not.toBe(record.id);
 
         await side.getByRole('button', { name: 'Bring back' }).click();
@@ -151,6 +164,33 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           .getByRole('complementary', { name: 'Side chat' })
           .getByText('Side answer: 42 guests.')
           .waitFor({ timeout: 15_000 });
+      } finally {
+        await close();
+      }
+    });
+
+    it('does not name a side chat after a question that looks like a secret', async () => {
+      harness = await startHarness({ gui: true });
+      harness.model.script({ text: 'I will not keep that.' });
+      const { page, close } = await open(harness);
+      try {
+        await page
+          .getByRole('navigation', { name: 'Menu' })
+          .getByRole('button', { name: 'Side chat', exact: true })
+          .click();
+        const starter = page.getByRole('form', { name: 'Start a side chat' });
+        await starter
+          .getByRole('textbox', { name: 'Ask on the side' })
+          .fill('password: hunter2-very-secret');
+        await starter.getByRole('button', { name: 'Ask' }).click();
+        await page.waitForFunction(bodyIncludes, 'I will not keep that.', { timeout: 15_000 });
+        await page
+          .getByRole('region', { name: 'Side chats' })
+          .getByRole('button', { name: 'Side chat', exact: true })
+          .waitFor({ timeout: 15_000 });
+        // Give a rename the time it would take, then check none happened.
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        expect(await page.locator('body').innerText()).not.toContain('Side: password');
       } finally {
         await close();
       }

@@ -66,8 +66,11 @@ export function SideChat({
   readonly resumeId?: string;
   /** The main chat's latest turns, offered to a new side chat. */
   readonly context?: string;
-  /** A new side chat got its first message: record it so the menu lists it. */
-  readonly onStarted: (sessionId: string, title: string) => void;
+  /**
+   * A new side chat got its first message: record it so the menu lists it. Resolves to the title the
+   * record kept (a question that looks like a secret is not kept), or undefined when it was not kept.
+   */
+  readonly onStarted: (sessionId: string, title: string) => Promise<string | undefined>;
   readonly onBringBack: (text: string) => void;
   readonly onClose: () => void;
 }): React.ReactElement {
@@ -100,21 +103,21 @@ export function SideChat({
     const listing = side.sessionListing;
     if (waiting === undefined || listing === null || listing === waiting.listing) return;
     pending.current = undefined;
-    naming.current = { title: waiting.title };
-    onStarted(listing.currentSessionId, waiting.title);
+    void onStarted(listing.currentSessionId, waiting.title).then((kept) => {
+      if (kept !== undefined) setNaming(kept);
+    });
   }, [side.sessionListing, onStarted]);
   const answer = lastAnswer(side.messages);
-  // Named after the question rather than the quoted context its first message starts with, once
-  // the first turn is over (a session busy with a turn is not renamed).
-  const naming = useRef<{ title: string } | undefined>(undefined);
+  // Named after the question as the record kept it, rather than the quoted context its first
+  // message starts with, once the first turn is over (a session busy with a turn is not renamed).
+  const [naming, setNaming] = useState<string | undefined>(undefined);
   const turnOver = answer !== undefined && !side.isThinking && side.activeTools.length === 0;
   useEffect(() => {
-    const name = naming.current;
-    if (name === undefined || !turnOver) return;
-    naming.current = undefined;
+    if (naming === undefined || !turnOver) return;
+    setNaming(undefined);
     // The open session's own rename path; renaming it through the list would be overwritten.
-    side.sendCommandSilently('rename', `Side: ${name.title.slice(0, 60)}`);
-  }, [turnOver, side.sendCommandSilently]);
+    side.sendCommandSilently('rename', `Side: ${naming.slice(0, 60)}`);
+  }, [naming, turnOver, side.sendCommandSilently]);
   const starting = resumeId === undefined && !asked && side.messages.length === 0;
   return (
     <aside

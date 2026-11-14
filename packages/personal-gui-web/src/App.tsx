@@ -41,6 +41,9 @@ export const MENUS: readonly {
   { id: 'settings', label: 'Settings', hint: 'Model, browser and privacy' },
 ];
 
+/** The title the side chat record gives a question it does not keep. */
+const SIDE_CHAT_FALLBACK_TITLE = 'Side chat';
+
 /**
  * The shell: a menu rail beside the current view. The chat stays mounted while another menu is open,
  * so its session and draft survive a trip to the library.
@@ -97,11 +100,20 @@ function Shell({
     });
   };
   const sideStarted = useCallback(
-    (sessionId: string, title: string) => {
+    async (sessionId: string, title: string): Promise<string | undefined> => {
       const parentId = chat.sessionListing?.currentSessionId;
-      void api
-        .recordSideChat({ id: sessionId, title, ...(parentId !== undefined && { parentId }) })
-        .then(reloadSideChats, () => undefined);
+      try {
+        const { sideChat } = await api.recordSideChat({
+          id: sessionId,
+          title,
+          ...(parentId !== undefined && { parentId }),
+        });
+        await reloadSideChats();
+        // The record's fallback title marks a question it would not keep: the session keeps its name.
+        return sideChat.title === SIDE_CHAT_FALLBACK_TITLE ? undefined : sideChat.title;
+      } catch {
+        return undefined;
+      }
     },
     [api, chat.sessionListing, reloadSideChats],
   );
