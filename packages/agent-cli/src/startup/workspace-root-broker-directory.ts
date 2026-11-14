@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { lstatSync, readdirSync, rmdirSync, unlinkSync } from 'node:fs';
+import { lstatSync, lutimesSync, mkdirSync, readdirSync, rmdirSync, unlinkSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
 import type { Stats } from 'node:fs';
@@ -41,6 +41,38 @@ function lstatOrUndefined(path: string): Stats | undefined {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
     throw error;
   }
+}
+
+/**
+ * Claims the namespace directory a start is about to launch a broker in: it is created when missing, and
+ * a directory a killed broker left behind is renewed to the age of a new one. A sweep treats a directory
+ * younger than its age gate as one a broker may still be starting in, but a leftover keeps the age of its
+ * last change, so without the renewal a concurrent start's sweep would remove it before the broker locks
+ * it. An entry that is not an owner-private directory is refused and never touched.
+ */
+export function claimBrokerNamespaceDirectory(directory: string, owner: number): void {
+  // A sweep that removes the directory between the check and the renewal leaves it missing; the next pass creates it.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      mkdirSync(directory, { mode: 0o700 });
+      return;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    }
+    const existing = lstatOrUndefined(directory);
+    if (existing === undefined) continue;
+    if (!isOwnerPrivateDirectory(existing, owner)) {
+      throw new Error('The workspace broker directory is not owner-private.');
+    }
+    try {
+      const now = new Date();
+      lutimesSync(directory, now, now);
+      return;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
+  throw new Error('The workspace broker directory could not be claimed.');
 }
 
 /**

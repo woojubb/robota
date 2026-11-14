@@ -9,6 +9,7 @@ import {
   BROKER_LOCK_NAME,
   BROKER_SOCKET_NAME,
   brokerNamespaceName,
+  claimBrokerNamespaceDirectory,
   isBrokerNamespaceName,
   isOwnerPrivateDirectory,
   removeBrokerNamespaceDirectory,
@@ -40,7 +41,7 @@ function brokerDirectory(runtime: ICliRuntimeContext, create = false): string {
   const owner = process.getuid?.();
   if (owner === undefined) throw new Error('The broker owner could not be determined.');
   const directory = join(SHARED_DIRECTORY, brokerNamespaceName(runtime.layout.userRoot, owner));
-  if (create && !existsSync(directory)) mkdirSync(directory, { recursive: true, mode: 0o700 });
+  if (create) claimBrokerNamespaceDirectory(directory, owner);
   if (!existsSync(directory)) return directory;
   if (!isOwnerPrivateDirectory(lstatSync(directory), owner)) {
     throw new Error('The workspace broker directory is not owner-private.');
@@ -102,6 +103,8 @@ async function removeIfBrokerIsGone(directory: string, owner: number): Promise<b
   try {
     const held = lstatSync(directory);
     if (held.dev !== listed.dev || held.ino !== listed.ino) return false;
+    // A start that claimed the directory since the first look has a broker on its way that does not hold the guard yet.
+    if (Date.now() - held.mtimeMs < STALE_DIRECTORY_MS) return false;
     return removeBrokerNamespaceDirectory(directory, owner);
   } finally {
     guard.release();
@@ -110,8 +113,9 @@ async function removeIfBrokerIsGone(directory: string, owner: number): Promise<b
 
 /** Start a detached broker once; it serves leases past CLI and desktop sidecar exits until its user-state root is gone. */
 export async function ensureWorkspaceRootBroker(runtime: ICliRuntimeContext): Promise<string> {
-  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  // Claiming the directory comes first: it is what keeps a sweep from reading a leftover as a broker that is gone.
   const directory = brokerDirectory(runtime, true);
+  const endpoint = workspaceRootBrokerEndpoint(runtime);
   if (await isReady(endpoint)) return endpoint;
   // A new broker is being started, so directories of brokers that are gone are the leftovers of earlier
   // ones; sweeping them is off the start's path, and a failed sweep never fails the start.

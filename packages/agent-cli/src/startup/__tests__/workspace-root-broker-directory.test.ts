@@ -1,10 +1,13 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import {
   chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  renameSync,
   rmSync,
+  statSync,
   symlinkSync,
   utimesSync,
   writeFileSync,
@@ -14,9 +17,29 @@ import { join } from 'node:path';
 import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { BROKER_LOCK_NAME, BROKER_SOCKET_NAME } from '../workspace-root-broker-directory.js';
-import { removeStaleBrokerDirectories } from '../workspace-root-broker-process.js';
+import {
+  BROKER_LOCK_NAME,
+  BROKER_SOCKET_NAME,
+  brokerNamespaceName,
+  claimBrokerNamespaceDirectory,
+} from '../workspace-root-broker-directory.js';
+import {
+  ensureWorkspaceRootBroker,
+  removeStaleBrokerDirectories,
+} from '../workspace-root-broker-process.js';
 import { requestWorkspaceRootBroker, startWorkspaceRootBroker } from '../workspace-root-broker.js';
+
+import type { ICliRuntimeContext } from '../../product/runtime-context.js';
+
+// Both wrappers run the real function unless a test hands one call a replacement.
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return { ...actual, spawn: vi.fn(actual.spawn) };
+});
+vi.mock('../workspace-root-broker.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../workspace-root-broker.js')>();
+  return { ...actual, requestWorkspaceRootBroker: vi.fn(actual.requestWorkspaceRootBroker) };
+});
 
 const owner = process.getuid?.() ?? -1;
 const roots: string[] = [];
@@ -55,6 +78,14 @@ function leaveCrashedBroker(directory: string): void {
   ]);
   expect(killed.signal).toBe('SIGKILL');
   age(directory);
+}
+
+/** Runs `during` while a sweep waits for the directory's socket to answer, then reports that nothing does. */
+function duringNextPing(during: () => void): void {
+  vi.mocked(requestWorkspaceRootBroker).mockImplementationOnce(async () => {
+    during();
+    throw new Error('No broker answers.');
+  });
 }
 
 afterEach(async () => {
@@ -173,6 +204,41 @@ describe.skipIf(process.platform === 'win32')(
       expect(existsSync(directory)).toBe(true);
     });
 
+    it('keeps a leftover directory that a start has claimed', async () => {
+      const parent = fixture();
+      const directory = makeDirectory(parent, namespaceName('a'));
+      leaveCrashedBroker(directory);
+      claimBrokerNamespaceDirectory(directory, owner);
+
+      expect(await removeStaleBrokerDirectories({ parent })).toBe(0);
+      expect(existsSync(directory)).toBe(true);
+    });
+
+    it('keeps a directory that a start claims while the sweep is checking it', async () => {
+      const parent = fixture();
+      const directory = makeDirectory(parent, namespaceName('a'));
+      leaveCrashedBroker(directory);
+      duringNextPing(() => claimBrokerNamespaceDirectory(directory, owner));
+
+      expect(await removeStaleBrokerDirectories({ parent })).toBe(0);
+      expect(existsSync(directory)).toBe(true);
+    });
+
+    it('keeps a directory that was replaced while the sweep was checking it', async () => {
+      const parent = fixture();
+      const directory = makeDirectory(parent, namespaceName('a'));
+      leaveCrashedBroker(directory);
+      duringNextPing(() => {
+        renameSync(directory, join(parent, 'replaced'));
+        makeDirectory(parent, namespaceName('a'));
+        leaveCrashedBroker(directory);
+      });
+
+      expect(await removeStaleBrokerDirectories({ parent })).toBe(0);
+      expect(existsSync(directory)).toBe(true);
+      expect(existsSync(join(parent, 'replaced', BROKER_SOCKET_NAME))).toBe(true);
+    });
+
     it('never removes an entry that is not exactly an owner-private namespace directory of this user', async () => {
       const parent = fixture();
       const kept: string[] = [];
@@ -225,6 +291,56 @@ describe.skipIf(process.platform === 'win32')(
       expect(existsSync(join(target, BROKER_SOCKET_NAME))).toBe(true);
       expect(await removeStaleBrokerDirectories({ parent, owner: owner + 1 })).toBe(0);
       expect(existsSync(foreignOwner)).toBe(true);
+    });
+  },
+);
+
+describe.skipIf(process.platform === 'win32')(
+  'a start claims the directory it launches a broker in',
+  () => {
+    it('creates a missing directory and refuses a link without touching its target', () => {
+      const parent = fixture();
+      const created = join(parent, namespaceName('a'));
+      claimBrokerNamespaceDirectory(created, owner);
+      expect(statSync(created).isDirectory()).toBe(true);
+      expect(statSync(created).mode & 0o077).toBe(0);
+
+      const target = makeDirectory(parent, 'link-target');
+      age(target);
+      const before = statSync(target).mtimeMs;
+      const link = join(parent, namespaceName('b'));
+      symlinkSync(target, link);
+      expect(() => claimBrokerNamespaceDirectory(link, owner)).toThrow('not owner-private');
+      expect(statSync(target).mtimeMs).toBe(before);
+    });
+
+    it('renews a leftover directory before it spawns the broker', async () => {
+      const userRoot = mkdtempSync('/tmp/rbu-');
+      const directory = join('/tmp', brokerNamespaceName(userRoot, owner));
+      roots.push(userRoot, directory);
+      mkdirSync(directory, { mode: 0o700 });
+      leaveCrashedBroker(directory);
+      const runtime = {
+        layout: { userRoot, userPaths: { workspaceTrust: join(userRoot, 'workspace-trust.json') } },
+      } as ICliRuntimeContext;
+
+      // The broker never starts: the stand-in child ends at once, which fails the start after the spawn.
+      let ageAtSpawn = Number.POSITIVE_INFINITY;
+      vi.mocked(spawn).mockImplementationOnce((() => {
+        ageAtSpawn = Date.now() - statSync(directory).mtimeMs;
+        const child = Object.assign(new EventEmitter(), {
+          connected: false,
+          stderr: null,
+          kill: () => true,
+          disconnect: () => undefined,
+          unref: () => undefined,
+        });
+        queueMicrotask(() => child.emit('exit', 1));
+        return child;
+      }) as unknown as typeof spawn);
+
+      await expect(ensureWorkspaceRootBroker(runtime)).rejects.toThrow('could not be attached');
+      expect(ageAtSpawn).toBeLessThan(60_000);
     });
   },
 );
