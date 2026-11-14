@@ -882,6 +882,7 @@ async function runCliCore(
     effortResolution = resolveCliModelEffort(
       args,
       productRuntime.environment,
+      productRuntime.config.identity.envPrefix,
       readMergedProviderSettings(workspaceComposition.settingsSources),
       resolvedPreset,
     );
@@ -1114,6 +1115,7 @@ async function runCliCore(
     {
       serviceVersion: version,
       telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
+      envPrefix: productRuntime.config.identity.envPrefix,
       surface: resolveLiveTelemetrySurface(args, mcpServe, acp),
     },
     (message) => process.stderr.write(`${message}\n`),

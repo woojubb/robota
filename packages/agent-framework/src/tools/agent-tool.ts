@@ -140,8 +140,8 @@ export type { IAgentToolDeps } from './agent-tool-deps-types.js';
  * Per-session deps store — maps an opaque key (typically a Session instance) to
  * the IAgentToolDeps used when creating that session's agent tool.
  *
- * This replaces the former module-level singleton, enabling concurrent sessions
- * without overwriting each other's deps.
+ * Keyed per session rather than held in a module-level singleton, so concurrent sessions
+ * do not overwrite each other's deps.
  */
 const sessionDepsStore = new WeakMap<object, IAgentToolDeps>();
 

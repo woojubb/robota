@@ -10,13 +10,62 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { spawnPty } from './spawn-pty.js';
+import { PTY_TIME_FACTOR, spawnPty } from './spawn-pty.js';
 import { fixtureProductEnvironment } from './isolated-home.js';
 
 import type { IPtyRunSession } from './spawn-pty.js';
 
 const REPO_ROOT = resolve(__dirname, '../../../../..');
 const AGENT_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/agent.cjs');
+
+/** How long the screen must stay unchanged to count as settled, and the most a wait for that may take. */
+const SETTLE_QUIET_MS = 300;
+const SETTLE_MAX_MS = 5_000;
+
+/**
+ * The TUI draws its prompt and draws it again a moment later, and a key that arrives between the two
+ * draws is dropped. Nothing in the output marks the second draw, so a `spawnTui` session lets the
+ * screen go quiet after its first match before anything is typed; a test that drives `spawnPty`
+ * itself calls this. Best effort: a screen that keeps changing ends the wait at the cap.
+ */
+export async function waitForQuietOutput(
+  session: Pick<IPtyRunSession, 'outputOffset'>,
+): Promise<void> {
+  const quietMs = SETTLE_QUIET_MS * PTY_TIME_FACTOR;
+  const deadline = Date.now() + SETTLE_MAX_MS * PTY_TIME_FACTOR;
+  let seen = session.outputOffset();
+  let quietSince = Date.now();
+  while (Date.now() < deadline && Date.now() - quietSince < quietMs) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const now = session.outputOffset();
+    if (now !== seen) {
+      seen = now;
+      quietSince = Date.now();
+    }
+  }
+}
+
+/**
+ * Grant workspace trust to `cwd` the way a person does. `trust --yes` asks on the terminal and
+ * refuses without one, so the question is answered through a PTY.
+ */
+export async function grantWorkspaceTrust(cwd: string, env: NodeJS.ProcessEnv): Promise<void> {
+  const session = spawnPty({
+    command: process.execPath,
+    args: [AGENT_BIN, 'trust', '--yes'],
+    cwd,
+    env,
+  });
+  try {
+    await session.waitFor('Trust this exact folder? [y/N]');
+    await session.sendKeys('y');
+    await session.pressEnter();
+    const code = await session.expectExit();
+    if (code !== 0) throw new Error(`trust --yes exited ${code}\n${session.snapshot()}`);
+  } finally {
+    session.dispose();
+  }
+}
 
 /**
  * Signal the PTY child and await its ACTUAL exit before the caller removes the project dir.
@@ -136,15 +185,27 @@ export function spawnTui(options: ISpawnTuiOptions): IPtySession {
     ...(options.rows !== undefined ? { rows: options.rows } : {}),
   });
 
+  let settled = false;
+  const settleOnce = async (): Promise<void> => {
+    if (settled) return;
+    settled = true;
+    await waitForQuietOutput(session);
+  };
+
   return {
     sendKeys: (text, perKeyDelayMs): Promise<void> => session.sendKeys(text, perKeyDelayMs),
     pressEnter: (): Promise<void> => session.pressEnter(),
     pressEscape: (): void => session.write('\x1b'),
     writeRaw: (data): void => session.write(data),
-    waitFor: (pattern, timeoutMs): Promise<void> => session.waitFor(pattern, timeoutMs),
+    waitFor: async (pattern, timeoutMs): Promise<void> => {
+      await session.waitFor(pattern, timeoutMs);
+      await settleOnce();
+    },
     outputOffset: (): number => session.outputOffset(),
-    waitForSince: (since, pattern, timeoutMs): Promise<void> =>
-      session.waitForSince(since, pattern, timeoutMs),
+    waitForSince: async (since, pattern, timeoutMs): Promise<void> => {
+      await session.waitForSince(since, pattern, timeoutMs);
+      await settleOnce();
+    },
     snapshotSince: (since): string => session.snapshotSince(since),
     snapshot: (): string => session.snapshot(),
     raw: (): string => session.raw(),

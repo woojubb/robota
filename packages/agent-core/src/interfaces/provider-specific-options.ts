@@ -1,9 +1,9 @@
 /**
  * Vendor-specific request options, kept out of `provider.ts`.
  *
- * Split by responsibility rather than shaved: `provider.ts` is long past the size ceiling, and these
- * are the one part of it that describes particular VENDORS rather than the neutral contract every
- * provider implements. They are re-exported from `provider.ts`, so no consumer sees a difference.
+ * Split by responsibility: these are the one part of `provider.ts` that describes particular
+ * VENDORS rather than the neutral contract every provider implements. They are re-exported from
+ * `provider.ts`, so no consumer sees a difference.
  */
 
 /**

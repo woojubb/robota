@@ -2,9 +2,8 @@
  * Constructing the pairing-gated WebRTC transport the remote-control controller registers.
  *
  * "How a transport is built from resolved inputs" is a different subject from "what state the
- * remote-control session is in", which is the controller's. Split out because that file had reached
- * its size ratchet, where the rule is to split rather than extend — and because this is the one
- * place a new transport option is threaded, so it is worth being findable.
+ * remote-control session is in", which is the controller's. It is a file of its own because this is
+ * the one place a new transport option is threaded, so it is worth being findable.
  */
 
 import { WebRtcTransport } from '@robota-sdk/agent-transport/webrtc';

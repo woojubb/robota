@@ -179,3 +179,24 @@ jobs:
           path: ${{ runner.temp }}/verified-macos-evidence.txt
           if-no-files-found: error
           retention-days: 90
+
+  mark-latest:
+    name: Mark the verified release Latest
+    needs: [prerequisites, verify]
+    if: ${{ !cancelled() && needs.verify.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      READY_TAGS: ${{ join(fromJSON(needs.prerequisites.outputs.matrix).*.tag, ' ') }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          sparse-checkout: scripts/release
+          persist-credentials: false
+      - name: Mark the highest verified tag Latest, never moving Latest backward
+        run: node scripts/release/mark-latest-release.mjs

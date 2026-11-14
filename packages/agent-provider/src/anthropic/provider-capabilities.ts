@@ -1,8 +1,8 @@
 /**
  * What this provider can and cannot do at the VENDOR level.
  *
- * Split out of `provider.ts` to keep it under the size ceiling, and because the two capability
- * answers this package gives are about different granularities: this one speaks for the vendor,
+ * Split out of `provider.ts` because the two capability answers this package gives are about
+ * different granularities: this one speaks for the vendor,
  * while `capability-table.ts` answers per MODEL. Keeping them in one file is what let a vendor-level
  * boolean stand in for a per-model fact everywhere else.
  */

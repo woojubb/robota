@@ -1,9 +1,9 @@
 /**
  * The `/context` transcript breakdown: token accounting over the history plus its rendering.
  *
- * Split out of `context-command.ts` when that file passed its size floor. The seam is a real one and
- * the role ports named it: this half only READS (`TContextReadHost`), while the command surface it
- * came from dispatches subcommands and writes thresholds and references.
+ * Split out of `context-command.ts` along a real seam, which the role ports name: this half only
+ * READS (`TContextReadHost`), while the command surface dispatches subcommands and writes
+ * thresholds and references.
  */
 
 import { CONTEXT_ESTIMATE_CHARS_PER_TOKEN, estimateToolSchemaTokens } from '@robota-sdk/agent-core';

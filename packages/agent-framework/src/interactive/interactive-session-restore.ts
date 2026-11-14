@@ -49,11 +49,11 @@ export function injectSavedMessage(session: Session, msg: TUniversalMessage): vo
  * Returns the loaded history, any pending messages that need injection once the session is ready,
  * and WHY the record is empty when it is empty.
  *
- * The empty shape used to be returned for every failure: a damaged file produced a result
- * indistinguishable from a brand-new session, and the user saw their conversation, goal, plan and
- * branch pointer silently absent with nothing said. `loadOutcome` carries the store's verdict so a
- * surface can tell "there was nothing to restore" from "there is something here this build cannot
- * read", which are different sentences to show a person.
+ * The empty shape alone must not stand for every failure: a damaged file would produce a result
+ * indistinguishable from a brand-new session, and the user would see their conversation, goal, plan
+ * and branch pointer silently absent with nothing said. `loadOutcome` carries the store's verdict
+ * so a surface can tell "there was nothing to restore" from "there is something here this build
+ * cannot read", which are different sentences to show a person.
  */
 export function loadSessionRecord(
   sessionStore: IInteractiveSessionStore,

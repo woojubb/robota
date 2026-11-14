@@ -3,7 +3,6 @@ import { assertSynchronousCheckpoint } from './synchronous-checkpoint.js';
 /**
  * Session history operations — compaction and persistence helpers.
  *
- * Extracted from Session to keep session.ts under the 300-line limit.
  * Each function receives its dependencies explicitly.
  */
 

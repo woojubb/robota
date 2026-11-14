@@ -579,6 +579,36 @@ describe('project-relative writer containment', () => {
     }
   });
 
+  it('says why a platform without that support refuses, and what to do, on every route in', () => {
+    const root = fs.mkdtempSync(join(tmpdir(), 'agent-project-unsupported-reason-'));
+    roots.push(root);
+    const identity = Object.freeze({
+      repositoryKey: `test:${root}`,
+      displayPath: root,
+      worktreeRoot: root,
+    });
+    const refusal =
+      'Project mutation requires stable root-anchored host support: only on Linux can the host ' +
+      'prove that a project write stays under the trusted workspace root, so on this platform it ' +
+      "refuses every project mutation. Run on Linux, or make the change to the project's files " +
+      'yourself.';
+    for (const unsupported of ['darwin', 'win32'] as const) {
+      const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue(unsupported);
+      try {
+        const boundary = createWorkspaceProjectMutationBoundary(identity, {
+          resolve: () => identity,
+        });
+        // A write reaches the refusal through the anchored parent; a link count reads through the
+        // existing anchored directory. Both name the same reason and the same way forward.
+        expect(() => boundary.write('entry.txt', 'must refuse')).toThrowError(refusal);
+        expect(() => boundary.linkCount('entry.txt')).toThrowError(refusal);
+      } finally {
+        platform.mockRestore();
+      }
+    }
+    expect(fs.readdirSync(root)).toEqual([]);
+  });
+
   it('tells a host in advance which platforms can write project state', () => {
     expect(supportsWorkspaceProjectMutation('linux')).toBe(true);
     for (const platform of ['darwin', 'win32', 'freebsd'] as const) {

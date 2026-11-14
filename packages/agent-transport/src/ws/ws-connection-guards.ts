@@ -3,8 +3,7 @@
  *
  * Pure, socket-free predicates over the HTTP upgrade request — token minting/comparison plus the
  * `Host` and `Origin` allow-lists. Split out of `ws-transport-configurable.ts` so the transport file
- * carries lifecycle and frame routing only; the admission policy is independently readable and the
- * transport module stays within the file-size ratchet.
+ * carries lifecycle and frame routing only; the admission policy is independently readable.
  */
 
 import { timingSafeEqual } from 'node:crypto';
@@ -97,7 +96,7 @@ export function requestedRole(req: IncomingMessage): string | undefined {
  *
  * Lives here rather than in the transport file because this module already owns the admission
  * policy — token comparison and the Host/Origin allow-lists — and the transport file carries
- * lifecycle and frame routing. The split is also what keeps that file inside its size ratchet.
+ * lifecycle and frame routing.
  */
 export function resolveWsAdmission(config: {
   token?: string;

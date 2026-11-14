@@ -47,7 +47,7 @@ export interface ISystemPromptParams {
   agentsMd: string;
   /** Concatenated CLAUDE.md content (may be empty string) */
   projectNotesMd: string;
-  /** Startup project memory index loaded from .agent/memory/MEMORY.md */
+  /** Startup project memory index loaded from `memory/MEMORY.md` in the project-state directory */
   memoryMd?: string;
   /** Formatted active task context loaded from the host-selected task directory */
   taskContext?: string;

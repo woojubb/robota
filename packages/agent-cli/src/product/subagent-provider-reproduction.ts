@@ -8,8 +8,7 @@ import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
  *
  * Separate from the recipe next door because it answers a different question. That file says what
  * the product composes; this one says what survives a process boundary, which is a property OF a
- * composition rather than a part of one — and the file-size floor is what made the distinction
- * worth acting on rather than only noticing.
+ * composition rather than a part of one.
  */
 
 /**

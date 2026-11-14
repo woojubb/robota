@@ -18,8 +18,8 @@
  * async port without a breaking migration; no vector-DB SDK becomes an `agent-framework` dependency.
  *
  * Library-neutrality: this port and its fs reference adapter are neutral MECHANISMS. Memory CONTENT lives
- * only in the consumer workspace (`<cwd>/.agent/memory/`), and curation POLICY/prompt is supplied by the
- * surface — neither belongs in `packages/`.
+ * only in the consumer workspace (the `memory/` folder of its project-state directory), and
+ * curation POLICY/prompt is supplied by the surface — neither belongs in `packages/`.
  */
 
 import type {

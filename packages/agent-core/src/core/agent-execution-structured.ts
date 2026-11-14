@@ -1,8 +1,8 @@
 /**
  * Structured-output execution for the ConversationAgent agent.
  *
- * Split from agent-execution.ts to keep each file under 300 lines: the plain turn and the
- * schema-enforced retry loop are separate responsibilities that happen to share an entry object.
+ * The plain turn and the schema-enforced retry loop are separate responsibilities that happen to
+ * share an entry object; this module holds the second, `agent-execution.ts` the first.
  */
 import { agentRun, agentRunStream } from './agent-execution';
 import { parseStructuredResponseText } from '../schema/structured-output';

@@ -19,9 +19,9 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface/session';
 /**
  * A session that names itself however the case needs it to.
  *
- * Built on the PUBLISHED conformant double rather than cast to the contract — `contract-cast-ratchet`
- * refuses another cast, and it is right to: a cast is a partial re-implementation nothing checks
- * against the real interface, so a member the contract gains later is silently absent from it.
+ * Built on the PUBLISHED conformant double rather than cast to the contract: a cast is a partial
+ * re-implementation nothing checks against the real interface, so a member the contract gains later
+ * is silently absent from it.
  */
 function sessionNamed(id: string): IInteractiveSession {
   return createTestInteractiveSession({

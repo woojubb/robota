@@ -205,9 +205,9 @@ function buildMeshOnlyPeersAdapter(
  * this does not. With a device mesh, `/peers` still lists its linked devices and says why the
  * sessions on this host are missing.
  *
- * The policy lives here rather than at the composition root because the root is at its frozen size
- * and, more to the point, deciding what a refused rendezvous MEANS is adapter assembly — the same
- * judgement the two functions above make about their own capabilities.
+ * The policy lives here rather than at the composition root because deciding what a refused
+ * rendezvous MEANS is adapter assembly — the same judgement the two functions above make about
+ * their own capabilities.
  */
 function attachLocalPeerDiscovery(
   adapters: ICommandHostAdapters,
@@ -328,11 +328,9 @@ function startMessaging(
 /**
  * Assemble every host adapter this shell provides, in one call.
  *
- * The composition root asks for the adapters; this module knows how to build them. Adding a
- * capability there had it grow a line per adapter, and `cli.ts` is frozen debt that may shrink and
- * never grow — the ratchet's answer to that is "split instead of extending", and this is the split:
- * the root keeps one line, and the knowledge of what an adapter needs stays where the other two
- * already keep it.
+ * The composition root asks for the adapters; this module knows how to build them. The root keeps
+ * one line, and the knowledge of what an adapter needs stays where the other two already keep it,
+ * so a new capability does not add a line per adapter to the root.
  */
 export function attachHostAdapters(
   adapters: ICommandHostAdapters,

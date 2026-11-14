@@ -231,8 +231,8 @@ export interface IToolCrashAnnouncement {
 /**
  * The crash path, as one call: announce the failure to the listener and return an honest envelope.
  *
- * It lives beside the envelope rather than in the enforcer because the enforcer is at its size
- * ceiling and this is the same subject — what a failed tool call looks like. Two things happen here
+ * It lives beside the envelope rather than in the enforcer because this is the same subject as the
+ * envelope — what a failed tool call looks like. Two things happen here
  * and both are the point: a catch that returned `success: true` AND emitted no end
  * event would leave a crash invisible to the caller and to anything watching.
  */

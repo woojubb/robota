@@ -24,7 +24,8 @@ function gate(env: Readonly<Record<string, string | undefined>>, name: string): 
 /**
  * Content capture is opt-in per kind and only ever travels as OTLP log records: console output
  * never carries content, so a gate that would need it is refused rather than silently unused.
- * Errors name the setting, never its value.
+ * Errors name the setting, never its value; they carry the canonical name, which the telemetry
+ * entry points replace with the running product's own prefix before the operator sees it.
  */
 export function resolveLiveContentPolicy(
   env: Readonly<Record<string, string | undefined>>,

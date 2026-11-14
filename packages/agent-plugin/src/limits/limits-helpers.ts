@@ -1,7 +1,6 @@
 /**
  * Limits Plugin - Rate limit check, cost calculation, and utility helpers.
  *
- * Extracted from limits-plugin.ts to keep each file under 300 lines.
  * @internal
  */
 

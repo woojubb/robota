@@ -1,7 +1,6 @@
 /**
  * Execution Analytics Plugin - Validation and utility helpers.
  *
- * Extracted from execution-analytics-plugin.ts to keep each file under 300 lines.
  * @internal
  */
 

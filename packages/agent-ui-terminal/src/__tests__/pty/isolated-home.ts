@@ -13,7 +13,7 @@
  * `packages/agent-ui-terminal/src/__tests__/pty/pty-driver.ts` already took an explicit
  * `homeDir`; this generalizes that discipline to every `spawnPty` caller, including the default.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -67,10 +67,11 @@ function windowsSystemEnvironment(): Record<string, string> {
  * The environment is deliberately minimal rather than a copy of `process.env` — a PTY run must not
  * inherit real provider API keys, and an explicit base makes every variable the child can see
  * visible at the call site. Pass `overrides` for anything else the fixture needs (e.g. `EDITOR`).
+ * The user state directory it names is marked onboarded, so a start reaches the prompt.
  */
 export function createPtyEnv(overrides: Readonly<NodeJS.ProcessEnv> = {}): NodeJS.ProcessEnv {
   const home = typeof overrides.HOME === 'string' ? overrides.HOME : createIsolatedHome();
-  return {
+  const env: NodeJS.ProcessEnv = {
     PATH: process.env['PATH'] ?? '',
     HOME: home,
     TERM: 'xterm-256color',
@@ -78,35 +79,23 @@ export function createPtyEnv(overrides: Readonly<NodeJS.ProcessEnv> = {}): NodeJ
     ...fixtureProductEnvironment(home),
     ...overrides,
   };
+  markOnboarded(env['PRODUCT_USER_STATE_DIR'] ?? join(home, 'state'));
+  return env;
 }
 
-/** Product identity and state roots for the compiled CLI's isolated PTY fixtures. */
+/**
+ * Identity and user state root for the compiled CLI's isolated PTY fixtures. The built binary has
+ * its own identity and drops every `PRODUCT_*` value that names another product, so the fixture
+ * names the product it runs; a made-up one would lose its state root too and run against the
+ * developer's real state.
+ */
 export function fixtureProductEnvironment(home: string): Record<string, string> {
-  const id = 'fixture-agent';
-  const stateRoot = join(home, 'state');
-  return {
-    PRODUCT_ID: id,
-    PRODUCT_DISPLAY_NAME: 'Fixture Agent',
-    PRODUCT_CLI_NAME: id,
-    PRODUCT_ENV_PREFIX: 'FIXTURE_AGENT_',
-    PRODUCT_PACKAGE_SCOPE: '@fixture-agent',
-    PRODUCT_APP_ID: 'org.example.fixture-agent',
-    PRODUCT_PROTOCOL_SCHEME: id,
-    PRODUCT_TELEMETRY_SERVICE_NAME: `${id}.agent`,
-    PRODUCT_DAEMON_NAMESPACE: `${id}.daemon`,
-    PRODUCT_DESKTOP_EXECUTABLE: `${id}-runtime`,
-    PRODUCT_MCP_CLIENT_NAME: `${id}-client`,
-    PRODUCT_MODEL_TOOL_PREFIX: 'fixture_agent_command_',
-    PRODUCT_PROMPT_TAG: 'fixture_agent_references',
-    PRODUCT_EDITOR_TEMP_PREFIX: `${id}-editor-`,
-    PRODUCT_USER_STATE_DIR: stateRoot,
-    PRODUCT_PROJECT_STATE_DIR: '.fixture-agent',
-    PRODUCT_CACHE_DIR: join(stateRoot, 'cache'),
-    PRODUCT_LOG_DIR: join(stateRoot, 'logs'),
-    PRODUCT_BROWSER_NAMESPACE: `${id}.browser`,
-    PRODUCT_BROWSER_CREDENTIAL_DATABASE: `${id}-credentials`,
-    PRODUCT_CREDENTIAL_SERVICE: `org.example.${id}.credentials`,
-    PRODUCT_CRYPTO_NAMESPACE: `${id}.crypto`,
-    SECURITY_MASTER_KEY_DERIVATION_PATH: '[123,0]',
-  };
+  return { PRODUCT_ID: 'robota', PRODUCT_USER_STATE_DIR: join(home, 'state') };
+}
+
+/** Mark a user state directory as past the first-run questions, which block an interactive start. */
+function markOnboarded(stateDir: string): void {
+  mkdirSync(stateDir, { recursive: true });
+  const marker = join(stateDir, 'onboarded');
+  if (!existsSync(marker)) writeFileSync(marker, new Date().toISOString(), 'utf8');
 }

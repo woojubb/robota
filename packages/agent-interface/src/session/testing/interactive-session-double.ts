@@ -42,22 +42,19 @@ const EMPTY_BACKGROUND_GROUP = {
 /**
  * The conformant `IInteractiveSession` double, next to the contract it implements.
  *
- * WHY IT LIVES HERE. A double for this contract already existed, published, and documented — in
- * `@robota-sdk/agent-framework`. It had **zero consumers**, and the reason is the dependency
- * direction: every transport package sits BELOW `agent-framework`, so none of them can import it.
- * The 41 hand-rolled `as unknown as IInteractiveSession` partials across 29 files were not an
- * oversight; they were the only thing those packages could reach.
+ * WHY IT LIVES HERE. Every transport package sits BELOW `agent-framework`, so none of them can
+ * import a double declared there. Without one beside the contract, each would hand-roll
+ * `as unknown as IInteractiveSession` partials, the only thing it could reach.
  *
  * Placed with the contract, it is importable by everything that consumes the contract — but behind
  * the `./testing` SUBPATH, never the main entry. `code-quality.md` is explicit about that, and the
  * reason is concrete: the main entry is the shipped runtime bundle of a published package, and a test
  * fixture has no business in it. `@robota-sdk/agent-core/testing`'s scripted-provider is the
- * precedent. The first draft of this move put it on the main entry and review measured the double in
- * `dist/index.js`.
+ * precedent.
  *
  * WHAT MAKES IT CONFORMANT: it is typed as `IInteractiveSession` with no cast, so the compiler
- * refuses it the moment the contract gains a member. That is the property the private partials do not
- * have — each was checked against nothing, so the suites built on them proved things no shipped code
+ * refuses it the moment the contract gains a member. That is the property a private partial does not
+ * have — it is checked against nothing, so suites built on it prove things no shipped code
  * guarantees.
  */
 /** Counts doubles so each gets its own session id. See `getSessionId` below. */
@@ -71,12 +68,12 @@ export function createTestInteractiveSession(
   /**
    * The id EVERY surface of this double names — including when a caller overrides `getSession`.
    *
-   * `parentSessionId`/workspace `sessionId` used to close over the counter value directly, so an
-   * overridden `getSession().getSessionId()` and the other surfaces disagreed about who this
-   * session is — the exact cross-surface id collision the counter was added to remove, reopened by
-   * the override path. Review found it before a suite did. Resolved LAZILY through the assembled
-   * object, falling back to the counter when the override cannot answer (throws, or returns an
-   * empty id — both are shapes tests deliberately build).
+   * `parentSessionId`/workspace `sessionId` do not close over the counter value directly: an
+   * overridden `getSession().getSessionId()` and the other surfaces would then disagree about who
+   * this session is — the cross-surface id collision the counter exists to prevent, reopened by the
+   * override path. The id is resolved LAZILY through the assembled object, falling back to the
+   * counter when the override cannot answer (throws, or returns an empty id — both are shapes
+   * tests deliberately build).
    */
   const sessionId = (): string => {
     try {
@@ -88,9 +85,9 @@ export function createTestInteractiveSession(
     }
   };
   const base: IInteractiveSession = {
-    // Required, not optional. A double that omitted them let a consumer's
+    // Required, not optional. A double that omitted them would let a consumer's
     // `getActiveDriverId?.()` resolve to `undefined` and read as "no active driver" — the ambiguity
-    // the contract change removes. `null` here means nobody is driving, and only that.
+    // a required member removes. `null` here means nobody is driving, and only that.
     isInitialized: true,
     getPendingCount: () => 0,
     getActiveDriverId: () => null,

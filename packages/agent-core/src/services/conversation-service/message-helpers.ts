@@ -1,7 +1,6 @@
 /**
  * Message creation helpers and retry utilities for ConversationService.
  *
- * Extracted from conversation-service/index.ts to keep each file under 300 lines.
  * @internal
  */
 import { NetworkError } from '../../utils/errors';

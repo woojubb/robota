@@ -284,7 +284,7 @@ export const CLI_OPTION_NAMES: readonly string[] = Object.keys(PARSE_ARGS_CONFIG
 type TParsedArgValues = ReturnType<typeof parseArgs<typeof PARSE_ARGS_CONFIG>>['values'];
 
 /**
- * Resolve the memory flags separately so mapParsedValues stays within its size budget.
+ * Resolve the memory flags apart from `mapParsedValues`.
  * `--memory`/`--no-memory` is tri-state (`--no-memory` wins if both); `--memory-autosave` is a plain flag.
  */
 function resolveMemoryArgs(

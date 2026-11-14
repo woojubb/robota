@@ -126,9 +126,9 @@ describe('color/motion through the real binary', () => {
     // eslint-disable-next-line no-control-regex -- asserting on raw SGR escape bytes by design
     expect(raw).toMatch(/\x1b\[32m[^\x1b]*✓ Shell/);
 
-    // Assistant label renders the accent token (cyan → ESC[36m ... "Fixture Agent:").
+    // Assistant label renders the accent token (cyan → ESC[36m ... "Robota:").
     // eslint-disable-next-line no-control-regex -- asserting on raw SGR escape bytes by design
-    expect(raw).toMatch(/\x1b\[36m(?:\x1b\[[0-9;]*m)*Fixture Agent:/);
+    expect(raw).toMatch(/\x1b\[36m(?:\x1b\[[0-9;]*m)*Robota:/);
 
     // Markdown diff block carries the resolved theme's SGR pair (added line: light green on a dark
     // green background) — the values live in the theme.

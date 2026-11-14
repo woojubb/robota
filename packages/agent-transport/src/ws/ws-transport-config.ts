@@ -1,10 +1,9 @@
 /**
  * The construction contract for `WsTransport` — what a caller decides before the server exists.
  *
- * Split from `ws-transport-configurable.ts` under the file-size ceiling, and the seam is the
- * honest one: everything here is a decision the CALLER makes (port, retries, admission — the
- * `token`/`open`/`openReason` contract lives in these doc comments), while the class next door is
- * what the transport DOES with those decisions.
+ * Split from `ws-transport-configurable.ts` at the honest seam: everything here is a decision the
+ * CALLER makes (port, retries, admission — the `token`/`open`/`openReason` contract lives in these
+ * doc comments), while the class next door is what the transport DOES with those decisions.
  */
 
 import type { TUsageSurface } from '@robota-sdk/agent-interface/analytics';

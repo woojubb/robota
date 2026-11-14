@@ -8,10 +8,9 @@ import type { IExecutionJournal } from './execution-journal';
  * The per-RUN contract: what one `run()` may override or observe, as distinct from the agent's
  * standing configuration in `IAgentConfig`.
  *
- * Split out of `agent.ts` when `driverId` was added. That file sits at a frozen size baseline,
- * and the anti-monolith rule asks for a split rather than one more field on a file already at its
- * limit. The two execution-event types come along because `onExecutionEvent` is their only consumer
- * — leaving them behind would have made this module import back from `agent.ts`.
+ * Declared apart from `agent.ts`. The two execution-event types come along because
+ * `onExecutionEvent` is their only consumer — leaving them behind would make this module import
+ * back from `agent.ts`.
  */
 
 export type TExecutionEventData = Record<string, unknown>;

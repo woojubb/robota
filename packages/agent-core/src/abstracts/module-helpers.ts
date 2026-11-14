@@ -1,7 +1,6 @@
 /**
  * Helper functions for AbstractModule.
  *
- * Extracted from abstracts/abstract-module.ts to keep that file under 300 lines.
  * Contains context data extraction, event payload conversion, and stats utilities.
  */
 import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';

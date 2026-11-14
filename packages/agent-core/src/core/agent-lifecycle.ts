@@ -1,7 +1,5 @@
 /**
  * Lifecycle and stats helpers for the ConversationAgent agent.
- *
- * Extracted from agent.ts to keep the main class under 300 lines.
  */
 import type { TAgentStatsMetadata } from './agent-config-manager';
 import type { TUniversalMessage } from '../interfaces/agent';

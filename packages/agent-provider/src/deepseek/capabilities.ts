@@ -1,8 +1,8 @@
 /**
  * What this provider can and cannot do.
  *
- * Split out of `provider.ts` to keep it under the size ceiling, and because the two answers here
- * are about different granularities: `DEEPSEEK_PROVIDER_CAPABILITIES` speaks for the VENDOR, while
+ * Split out of `provider.ts` because the two answers here are about different granularities:
+ * `DEEPSEEK_PROVIDER_CAPABILITIES` speaks for the VENDOR, while
  * the per-MODEL answer lives in `model-catalog.ts` — and the whole defect this item fixed was those
  * two disagreeing with only the vendor-level one being read.
  */

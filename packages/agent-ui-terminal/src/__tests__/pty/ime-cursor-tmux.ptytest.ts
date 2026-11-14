@@ -30,6 +30,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import korean from '../__fixtures__/korean-text.json';
 
 import { fixtureProductEnvironment } from './isolated-home.js';
+import { grantWorkspaceTrust } from './pty-driver.js';
 
 const REPO_ROOT = resolve(__dirname, '../../../../..');
 const AGENT_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/agent.cjs');
@@ -66,7 +67,11 @@ interface ITmuxRun {
 }
 
 /** Run the CLI inside a real tmux pane and ask tmux where the cursor ended up. */
-function runInTmux(run: ITmuxRun, rows: number, imeCursor: string | undefined): ITmuxProbe {
+async function runInTmux(
+  run: ITmuxRun,
+  rows: number,
+  imeCursor: string | undefined,
+): Promise<ITmuxProbe> {
   const tmux = TMUX!;
   const projectDir = join(run.root, 'proj');
   const homeDir = join(run.root, 'home');
@@ -112,10 +117,7 @@ function runInTmux(run: ITmuxRun, rows: number, imeCursor: string | undefined): 
     ],
     { cwd: projectDir, env: fixtureEnv },
   );
-  execFileSync(process.execPath, [AGENT_BIN, 'trust', '--yes'], {
-    cwd: projectDir,
-    env: fixtureEnv,
-  });
+  await grantWorkspaceTrust(projectDir, fixtureEnv);
   writeFileSync(
     wrapper,
     [
@@ -184,8 +186,8 @@ describe.skipIf(TMUX === undefined)(
       rmSync(run.root, { recursive: true, force: true });
     });
 
-    it('24-row pane: tmux reports the cursor VISIBLE on the input row at the composition column', () => {
-      const probe = runInTmux(run, 24, undefined);
+    it('24-row pane: tmux reports the cursor VISIBLE on the input row at the composition column', async () => {
+      const probe = await runInTmux(run, 24, undefined);
       const inputRow = probe.pane.findIndex((line) => line.includes(`> ${COMPOSITION}`));
       expect(inputRow, `no input row in pane:\n${probe.pane.join('\n')}`).toBeGreaterThanOrEqual(0);
 
@@ -194,14 +196,14 @@ describe.skipIf(TMUX === undefined)(
       expect(probe.cursorX).toBe(probe.pane[inputRow]!.indexOf('> ') + 2 + COMPOSITION_WIDTH);
     }, 90_000);
 
-    it('5-row pane (frame ≥ viewport, I2): tmux reports the cursor hidden, never positioned', () => {
-      const probe = runInTmux(run, 5, undefined);
+    it('5-row pane (frame ≥ viewport, I2): tmux reports the cursor hidden, never positioned', async () => {
+      const probe = await runInTmux(run, 5, undefined);
       expect(probe.pane.some((line) => line.includes(`> ${COMPOSITION}`))).toBe(true);
       expect(probe.cursorVisible).toBe(false);
     }, 90_000);
 
-    it('PRODUCT_IME_CURSOR=0 kill switch: tmux reports the cursor hidden even at 24 rows', () => {
-      const probe = runInTmux(run, 24, '0');
+    it('PRODUCT_IME_CURSOR=0 kill switch: tmux reports the cursor hidden even at 24 rows', async () => {
+      const probe = await runInTmux(run, 24, '0');
       const inputRow = probe.pane.findIndex((line) => line.includes(`> ${COMPOSITION}`));
       expect(inputRow).toBeGreaterThanOrEqual(0);
       expect(probe.cursorVisible).toBe(false);

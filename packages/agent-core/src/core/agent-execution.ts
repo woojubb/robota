@@ -1,7 +1,5 @@
 /**
  * Execution methods (run, runStream) for the ConversationAgent agent.
- *
- * Extracted from agent.ts to keep the main class under 300 lines.
  */
 import { ExecutionSuspendedError } from '../utils/execution-suspended-error';
 import { AGENT_EVENTS } from '../agents/constants';

@@ -3,8 +3,7 @@
  *
  * Constructing an error with a stable `name`, a `code` and non-enumerable causes is its own job: the
  * shape is a contract consumers match on, and it changes for reasons that have nothing to do with
- * how entries are held or started. Split out when the registry reached its size limit — this is the
- * seam that was already there rather than a cut made to fit.
+ * how entries are held or started.
  */
 
 import type {

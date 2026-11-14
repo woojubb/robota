@@ -1,10 +1,9 @@
 /**
  * The `Grep` tool's search internals — file enumeration and per-file matching.
  *
- * Split out of `grep-tool.ts` when adding containment pushed that file past the
- * anti-monolith limit. The split is by responsibility, not by line count: this module is HOW the
- * search is performed, while `grep-tool.ts` is the tool SURFACE — schema, model-facing description,
- * factory, and the result envelope. Neither half needs to know the other's concerns.
+ * Split out of `grep-tool.ts` by responsibility: this module is HOW the search is performed, while
+ * `grep-tool.ts` is the tool SURFACE — schema, model-facing description, factory, and the result
+ * envelope. Neither half needs to know the other's concerns.
  */
 
 import { readdir, stat } from 'node:fs/promises';

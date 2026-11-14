@@ -117,8 +117,7 @@ Where each kind of doc lives:
 
 - `content/**` — guides, examples and these pages. The docs site at docs.__PROJECT_WEBSITE_HOST__ serves them at
   `/{en,ko}/<path without .md>/` (a `README.md` is its folder's page). A Korean page comes from
-  `content/ko/` when that file exists; otherwise the English page is shown. `content/images/` is not
-  rendered.
+  `content/ko/` when that file exists; otherwise the English page is shown.
 - `packages/<pkg>/docs/*.md` — the package's pages on the site, at `/{en,ko}/packages/<pkg>/` (English
   only). `docs/README.md` opens with a one-paragraph summary, which the packages index shows.
 - `packages/<pkg>/docs/SPEC.md` — the package contract.

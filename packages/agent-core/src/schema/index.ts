@@ -1,10 +1,9 @@
 /**
  * The schema layer's public surface, in one place.
  *
- * Collected into a sub-barrel because the root barrel is past the file-size ceiling and a further export
- * would grow it: the rule is to split rather than extend, and these modules already form one
- * group — converting a Zod schema into the universal subset, inspecting it, validating against it,
- * and closing it for providers that reject open-world objects.
+ * Collected into a sub-barrel because these modules form one group — converting a Zod schema into
+ * the universal subset, inspecting it, validating against it, and closing it for providers that
+ * reject open-world objects.
  */
 
 export { zodToJsonSchema } from './zod-to-json-schema';
@@ -54,6 +53,6 @@ export type {
 // The resolver that PRODUCES `TStructuredOutputMechanism` / `TStructuredOutputProvenance`.
 // Those types were already public and are not useful without it — a caller could name the answer but
 // not obtain it. Re-exported from the schema barrel rather than the root: deciding which transport
-// can carry a schema is a schema concern, and the root is at its size ceiling.
+// can carry a schema is a schema concern.
 export { resolveStructuredOutputCapability } from '../services/structured-output-transport';
 export type { IStructuredOutputResolutionInput } from '../services/structured-output-transport';

@@ -2,9 +2,7 @@
  * Wiring an admitted channel to the session — the step immediately after the gate says yes.
  *
  * "How session frames travel once admission is settled" is a different subject from "what may reach
- * the session at all", which is the gate's. Split out for the same reason the frame vocabulary and
- * the controllers already were: `pairing-gate.ts` is at its size limit, and the rule there is to
- * split rather than extend.
+ * the session at all", which is the gate's.
  *
  * Two carriers, chosen by whether a resume bridge exists. Neither decides anything about admission —
  * by the time either runs, that question is closed.

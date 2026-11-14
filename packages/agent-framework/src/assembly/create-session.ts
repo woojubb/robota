@@ -245,9 +245,9 @@ export async function createSession(
     systemMessage: finalSystemMessage,
     ...(systemPromptManifest !== undefined ? { systemPromptManifest } : {}),
     terminal: options.terminal,
-    // The same root the tools, hooks and skill source were bound to above. It used to be
-    // computed here and then re-derived inside `Session` from `process.cwd()`, so the two could
-    // disagree the moment a caller supplied `options.cwd`.
+    // The same root the tools, hooks and skill source were bound to above. `Session` takes it from
+    // here instead of re-deriving it from `process.cwd()`, which would disagree with them as soon
+    // as a caller supplied `options.cwd`.
     cwd,
     permissions: mergedPermissions,
     presetFreePermissions,

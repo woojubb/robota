@@ -1,7 +1,6 @@
 /**
  * Factory functions for creating the ConversationAgent delegate managers.
  *
- * Extracted from core/agent.ts to keep that file under 300 lines.
  * Creates AgentModuleManager, AgentPluginManager, and AgentConfigManager
  * with all required closures bound to the ConversationAgent instance state.
  */

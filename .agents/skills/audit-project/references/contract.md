@@ -1,6 +1,11 @@
-# Audit contract v1
+# Audit contract v2
 
 This is the maintained contract for the manual developer audit. IDs retain the complete scope of the developer audit request; changes to obligations, applicability or thresholds require a new contract version and visible comparison. User-specified scope and requirements take precedence. This contract is not an enterprise certification.
+
+## Changes from v1
+
+- The DAG HTTP/workflow service profile audits the CLI's integration with the external workflow release, not the release's internals, which the profile sentence already said. H3 and H4 now agree with it; their v1 text asked for node effects, SQLite adapters, concurrent workers and migrations inside that release.
+- Not changed: every other ID and every threshold. H2 still reads as the release's own scheduling and is the next candidate for the same rewrite; H1 stays as written because it also covers the catalog compatibility the CLI owns.
 
 ## Obligations
 
@@ -38,8 +43,8 @@ Every obligation receives a record; split compound obligations into named scenar
 | G4 | Exercise CLI interactive/print/serve/MCP routes, desktop and web clients, GitHub Action and starter/server entry points for correct errors, approval flows, interruption, usable recovery and accessibility. Record unsupported platform lanes explicitly. |
 | H1 | Verify node/runtime/worker/builder/API/projection boundaries, provider-neutral injected definitions and compatibility between the CLI catalog and optional/private workspace catalog. |
 | H2 | Inspect graph validation, scheduling, branches, fan-in, cycle rejection, retries, cancellation and partially completed nodes for bounded, deterministic outcomes. |
-| H3 | Check workflow definitions, instant/skill/media nodes and file/HTTP effects for the same authority and resource boundaries as ordinary tools. |
-| H4 | Exercise persisted workflow migrations, SQLite/local adapters, concurrent workers and crash/restart; separate in-process workflow behavior from distributed durability claims. |
+| H3 | Check the CLI's integration with the pinned external workflow release (the `/workflows` command module bundled into the CLI, the host exports the release imports, and the workflow-file writes it can request, including the user-only approval before files are saved) for the same authority, approval and resource boundaries as ordinary tools and commands. Record the release's own node effects as outside this revision. |
+| H4 | Exercise the pinned release as the CLI ships it: the exact pin and its SDK peer ranges against the SDK versions the CLI carries, the bundled command's startup and failure behavior, and the workflow files the CLI itself reads and writes. Record the release's own persisted-state migrations, adapters, concurrent workers and crash recovery as outside this revision, and do not infer distributed durability from the in-process integration. |
 | I1 | Establish reproducible workloads for concurrent tenants/sessions/agents, long transcripts, large catalogs/media, DAG graphs and slow consumers; run a small baseline before selecting stress sizes. |
 | I2 | Measure throughput, p50/p95/p99 latency, event-loop delay, startup/resume time, memory/CPU/file descriptors, disk growth and cost per successful task. Separate model, runtime, transport and tool time. |
 | I3 | Test saturation, queue limits, fairness/noisy neighbors, rate limiting and backpressure. Inspect unbounded buffers/caches, synchronous blocking and repeated scanning/serialization. |

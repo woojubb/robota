@@ -91,9 +91,9 @@ export interface IInProcessSubagentRunnerDeps {
   /**
    * The PARENT's resolved agent roster — discovered definitions merged over the built-in tier.
    *
-   * The agent axis. A runner in another process used to resolve an unknown type by
-   * importing `getBuiltInAgent` from this package's barrel, which is the same "compose from imported
-   * defaults instead of from the product" shape closed on the provider and tool axes.
+   * The agent axis. A runner in another process does not resolve an unknown type by importing
+   * `getBuiltInAgent` from this package's barrel: that is the "compose from imported defaults
+   * instead of from the product" shape the provider and tool axes avoid too.
    * The parent already knows the answer — `buildAgentRuntime` computes this list —
    * so carrying it is what lets the child stop asking the framework.
    *

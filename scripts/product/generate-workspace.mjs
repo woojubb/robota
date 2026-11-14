@@ -242,8 +242,13 @@ export function fillProductContent(filePath, text, publicConfig, productConfig) 
   })[char]);
   const literal = (value, quote) => {
     if (quote === '`') return value.replace(/\\/gu, '\\\\').replace(/`/gu, '\\`').replace(/\$\{/gu, '\\${');
+    // JSON escaping is a double-quoted literal; a single-quoted one escapes `'` instead of `"`.
     const escaped = JSON.stringify(value).slice(1, -1);
-    return quote === "'" ? escaped.replace(/'/gu, "\\'") : escaped;
+    return quote === "'"
+      ? escaped.replace(/\\\\|\\"|'/gu, (match) =>
+          match === '\\"' ? '"' : match === "'" ? "\\'" : match,
+        )
+      : escaped;
   };
   const javascript = (source, scriptPath = filePath) => {
     const extension = path.extname(scriptPath).toLowerCase();

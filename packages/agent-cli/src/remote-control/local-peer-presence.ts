@@ -40,10 +40,9 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * The summary shape, DERIVED from the port rather than imported beside it.
  *
- * The framework's root barrel is at its frozen size and pre-existing debt may
- * shrink but never grow, so two more re-export lines are not available. Deriving costs nothing in
- * coupling — this module must satisfy that exact port anyway — and it is stricter than a second
- * import would be: the type cannot drift from the adapter it feeds, because it IS the adapter's.
+ * Deriving costs nothing in coupling — this module must satisfy that exact port anyway — and it is
+ * stricter than a second import would be: the type cannot drift from the adapter it feeds, because
+ * it IS the adapter's.
  */
 type TPeerSummary = ReturnType<NonNullable<ICommandHostAdapters['localPeers']>['list']>[number];
 const SECOND_MS = 1_000;

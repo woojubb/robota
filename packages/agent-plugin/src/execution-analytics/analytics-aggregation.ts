@@ -1,7 +1,6 @@
 /**
  * Stats aggregation logic for ExecutionAnalyticsPlugin.
  *
- * Extracted from execution-analytics-plugin.ts to keep each file under 300 lines.
  * @internal
  */
 import type { IExecutionStats, IAggregatedExecutionStats } from './types';

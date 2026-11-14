@@ -73,8 +73,8 @@ import type { ICompactEvent, IToolAppViewRef } from '@robota-sdk/agent-interface
 
 export type { TTurnSource };
 
-// The contracts moved to their own file when this one grew past its size baseline; re-exported so
-// every existing importer keeps working and the split is not a breaking change to the package.
+// The contracts live in their own file; re-exported here so importers of this module keep one
+// import path.
 export type {
   IExecutionControllerCallbacks,
   ITurnOptions,

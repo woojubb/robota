@@ -151,7 +151,7 @@ function overlaySessionOptions(
  * product-name conditionals) are stated in this package's SPEC.md, "The pure-fold property".
  *
  * What it does:
- * 1. Builds a PER-CALL instance-scoped preset registry over `profile.presets` (R8) — or adopts the
+ * 1. Builds a PER-CALL instance-scoped preset registry over `profile.presets` — or adopts the
  *    instance the caller already built and handed in as `profile.presetRegistry`. Either way it
  *    never mutates the `preset` subpath's module-level `externalPresets` global, so two products in one process do
  *    not share one registry and repeat calls do not accumulate. `defaultPresetId` is resolved over that
@@ -169,7 +169,7 @@ function overlaySessionOptions(
  * receives already-resolved data and returns neutral materials the shell binds its own transport over.
  */
 export function assembleProduct(profile: IProductProfile): IAssembledProduct {
-  // (1) Per-call instance-scoped preset registry — pure w.r.t. process state (R8). A caller that had to
+  // (1) Per-call instance-scoped preset registry — pure w.r.t. process state. A caller that had to
   // resolve a preset BEFORE it could build this profile (a preset can carry the `model`/`agentName` the
   // profile is constructed from) hands its own instance in as `presetRegistry`; the assembler then uses
   // THAT one rather than building a second, equivalent registry, so there is exactly one resolution path.

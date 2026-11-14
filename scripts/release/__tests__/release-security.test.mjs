@@ -286,12 +286,21 @@ it('generates a release manifest only when registry and reviewed tarball integri
     mkdirSync(payload, { recursive: true });
     mkdirSync(bin);
     const fetchStub = join(scratch, 'fetch-stub.mjs');
+    // The registry waits are skipped, not shortened: each sleep advances a fake clock and returns at once.
     writeFileSync(
       fetchStub,
       `
+      const realSetTimeout = globalThis.setTimeout;
+      const realNow = Date.now.bind(Date);
+      let skew = 0;
+      Date.now = () => realNow() + skew;
+      globalThis.setTimeout = (callback, ms, ...args) => { skew += ms; return realSetTimeout(callback, 0, ...args); };
+      let requests = 0;
       globalThis.fetch = async () => ({
         ok: process.env.FIXTURE_HTTP !== 'fail', status: 403,
-        json: async () => ({ versions: { '1.2.3': { dist: { integrity: process.env.FIXTURE_INTEGRITY } } },
+        json: async () => ({
+          versions: requests++ < Number(process.env.FIXTURE_LAG || 0) ? {} :
+            { '1.2.3': { dist: { integrity: process.env.FIXTURE_INTEGRITY } } },
           'dist-tags': { latest: process.env.FIXTURE_LATEST || '1.2.3' } })
       });
     `,
@@ -345,9 +354,15 @@ fi
           },
         },
       );
-    expect(run('sha512-wrong').status).toBe(1);
-    expect(run(integrity, { FIXTURE_LATEST: '0.9.0' }).status).toBe(1);
+    const wrong = run('sha512-wrong');
+    expect(wrong.status).toBe(1);
+    expect(wrong.stderr).toContain('differs from the reviewed tarball');
+    const stale = run(integrity, { FIXTURE_LATEST: '0.9.0' });
+    expect(stale.status).toBe(1);
+    expect(stale.stderr).toMatch(/not yet confirmed after waiting \d+ s \(latest is 0\.9\.0\)/u);
     expect(run(integrity, { FIXTURE_HTTP: 'fail' }).status).toBe(1);
+    const lagged = run(integrity, { FIXTURE_LAG: '3' });
+    expect(lagged.status, lagged.stderr).toBe(0);
     expect(run(integrity, { FIXTURE_LOCK_INTEGRITY: 'sha512-other' }).status).toBe(1);
     const success = run(integrity);
     expect(success.status, success.stderr).toBe(0);
@@ -377,4 +392,53 @@ fi
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
+});
+
+// Every command of a workflow's shell steps, with line continuations joined so one command is one line.
+const workflowCommands = (name) =>
+  Object.values(readWorkflow(name).jobs)
+    .flatMap((job) => job.steps ?? [])
+    .flatMap((step) => (step.run ?? '').replace(/\\\n\s*/g, ' ').split('\n'));
+
+it('never lets a release producer take Latest', () => {
+  for (const name of ['publish.yml', 'release-bun-binaries.yml', 'release-desktop-app.yml']) {
+    const commands = workflowCommands(name);
+    const creates = commands.filter((line) => line.includes('gh release create'));
+    expect(creates.length, name).toBeGreaterThan(0);
+    for (const line of creates) expect(line, name).toContain('--latest=false');
+    // Editing a release must not move Latest either: `--latest` is only ever `--latest=false`.
+    expect(
+      commands.filter((line) => /--latest(?!=false)/.test(line)),
+      name,
+    ).toEqual([]);
+  }
+});
+
+it('marks Latest in one write-scoped job, only once every producer is verified', () => {
+  const verification = readWorkflow('release-macos-verification.yml');
+  expect(verification.permissions.contents).toBe('read');
+  const writers = Object.entries(verification.jobs)
+    .filter(([, job]) => job.permissions?.contents === 'write')
+    .map(([name]) => name);
+  expect(writers).toEqual(['mark-latest']);
+
+  const markLatest = verification.jobs['mark-latest'];
+  expect(markLatest.needs).toEqual(['prerequisites', 'verify']);
+  const evaluate = Function('needs', 'cancelled', `return (${markLatest.if.slice(3, -2)});`);
+  const runs = (verify, cancelled = false) =>
+    evaluate({ verify: { result: verify } }, () => cancelled);
+  expect(runs('success')).toBe(true);
+  for (const result of ['failure', 'skipped', 'cancelled']) expect(runs(result)).toBe(false);
+  expect(runs('success', true)).toBe(false);
+
+  expect(markLatest.env.READY_TAGS).toBe(
+    "${{ join(fromJSON(needs.prerequisites.outputs.matrix).*.tag, ' ') }}",
+  );
+  const checkout = markLatest.steps.find((step) => step.uses === 'actions/checkout@v7');
+  expect(checkout.with.ref).toBe('${{ github.workflow_sha }}');
+  expect(checkout.with['persist-credentials']).toBe(false);
+  // The tag list reaches the script through the environment, never through the script text.
+  expect(markLatest.steps.find((step) => step.run).run).toBe(
+    'node scripts/release/mark-latest-release.mjs',
+  );
 });

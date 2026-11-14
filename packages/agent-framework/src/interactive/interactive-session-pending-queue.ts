@@ -1,10 +1,9 @@
 /**
  * The co-drive input queue: what happens to an input that arrives mid-turn.
  *
- * Split out of the execution controller, which had grown past its size ratchet. Deciding whether an
- * arriving input coalesces, appends or is dropped is its own job, and it has
- * consequences: each of those outcomes now has to settle the handle its submitter is holding, or the
- * caller waits forever on a turn that will never run.
+ * Deciding whether an arriving input coalesces, appends or is dropped is its own job, apart from the
+ * execution controller's, and it has consequences: each of those outcomes has to settle the handle
+ * its submitter is holding, or the caller waits forever on a turn that will never run.
  */
 
 import type { IQueuedInput } from './interactive-session-execution-contracts.js';
@@ -29,8 +28,7 @@ export const MAX_PENDING_QUEUE_DEPTH = 32;
 export interface IQueueSettlers {
   /** Tell the holder of this submission's handle that it will never run. */
   // The reason type comes from the contract that owns it. Spelling the members here again would be
-  // a second vocabulary to keep in step — and this file's own subject is a queue whose members
-  // changed once already in review ('shutdown' was removed as unreachable).
+  // a second vocabulary to keep in step.
   refuse: (turnId: string, reason: TTurnNotRunReason) => void;
   fail?: (turnId: string, error: Error) => void;
   /** Release a wake gate for an entry that will never run. */

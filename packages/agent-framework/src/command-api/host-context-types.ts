@@ -1,13 +1,12 @@
 /**
- * Leaf type module for the small, self-contained types that used to be declared directly in
- * `host-context.ts` alongside its `host-roles.ts`/`session-roles.ts`/`agent-job-roles.ts`
- * re-exports.
+ * Leaf type module for the small, self-contained types that `host-context.ts` re-exports together
+ * with the `host-roles.ts`/`session-roles.ts`/`agent-job-roles.ts` role ports.
  *
- * `host-context.ts` is otherwise a pure re-export barrel over those three role-port files, and
- * several of them (`host-roles.ts`, `session-roles.ts`) imported these locally-declared types back
- * from `host-context.ts` — which, combined with the barrel's re-export edge, created import
- * cycles. This file has no internal `command-api` imports, so anything importing from it cannot
- * cycle back.
+ * `host-context.ts` is a pure re-export barrel over those three role-port files and this one. The
+ * types are declared here, not in the barrel, because several role-port files (`host-roles.ts`,
+ * `session-roles.ts`) need them, and importing them from `host-context.ts` would — combined with
+ * the barrel's re-export edge — create import cycles. This file has no internal `command-api`
+ * imports, so anything importing from it cannot cycle back.
  */
 import type { TModelEffortSelection } from '@robota-sdk/agent-core';
 import type {

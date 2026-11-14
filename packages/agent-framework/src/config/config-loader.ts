@@ -1,13 +1,20 @@
 /**
  * Config loader — discovers, merges, and validates settings files.
  *
- * Precedence (lowest → highest):
- *   1. ~/.agent/settings.json       (user)
- *   2. ~/.claude/settings.json       (user, Claude Code compat)
- *   3. .agent/settings.json         (project)
- *   4. .agent/settings.local.json   (project-local)
- *   5. .claude/settings.json         (project, Claude Code compat)
- *   6. .claude/settings.local.json   (project-local, highest priority)
+ * The loader names no paths: it reads the ordered `TSettingsSource` list its host composes, and a
+ * later layer overrides an earlier one. The CLI product composes this order (lowest → highest):
+ *   1. `settings.json` in the product's user state root (`storage.userRoot`)       (user)
+ *   2. each `settings.sharedUserFiles` entry, relative to the user's home          (user)
+ *   3. `settings.json` in the project state directory (`storage.projectDirectory`) (project)
+ *   4. `settings.local.json` in the project state directory                        (project-local)
+ *   5. each `settings.sharedProjectFiles` entry, relative to the workspace root    (scope per entry)
+ *
+ * `storage.*` and `settings.*` are fields of the product config. The user state root is an absolute
+ * path; the project state directory is one directory segment under the trusted workspace root, which
+ * a consumer product host defaults to `.<product id>` from the product identity. The product config
+ * declares the Claude Code files as the shared-file defaults (`~/.claude/settings.json`,
+ * `.claude/settings.json` and `.claude/settings.local.json`); a consumer product host defaults both
+ * lists to none.
  */
 import { mergeSettingsWithHookSources } from './config-merge.js';
 import { readSettingsLayers } from './settings-inspection.js';
@@ -38,13 +45,13 @@ const DEFAULTS: IResolvedConfig = {
  * Raise the loader's read-phase error for a classified layer.
  *
  * The classification itself lives in `settings-inspection.ts` (`readSettingsLayers`) so the doctor
- * and the loader read one implementation; the errors raised here are the ones
- * this loader has always raised, at the same layer:
+ * and the loader read one implementation; the errors raised here are the loader's own, by layer
+ * state:
  * - an existing but empty file is corrupt, not absent (`settings-io.readSettings` reaches
  *   `JSON.parse('')` for the same file, and a crash during write is precisely how a settings file
  *   becomes empty);
- * - a corrupt layer is refused rather than skipped: returning `undefined`
- *   let a truncated project file that had carried a deny list come back as a config with none;
+ * - a corrupt layer is refused rather than skipped: skipping it would let a truncated project file
+ *   that had carried a deny list come back as a config with none;
  * - an unreadable existing file propagates the reader's own error.
  */
 function throwReadPhaseError(layer: IReadSettingsLayer): void {
@@ -106,12 +113,11 @@ function resolveEnvRefs(
 }
 
 /**
- * Resolving a `$ENV:` reference here is correct — an in-process provider needs the secret
- * — but it DISCARDED the variable name, so every later caller saw only the resolved value. A caller
- * that has to serialize the config then had no way to carry the reference instead of the secret,
- * which is how the plaintext credential reached the subagent IPC start payload on every
- * configuration, including the ones whose owner deliberately stored a reference. Recording the
- * variable name costs nothing and is what makes the reference recoverable downstream.
+ * Resolving a `$ENV:` reference here is correct — an in-process provider needs the secret — and the
+ * variable name is recorded beside the resolved value (`apiKeyEnv`), so a caller that has to
+ * serialize the config can carry the reference instead of the secret. Without it every later caller
+ * sees only the resolved value, and the plaintext credential reaches the subagent IPC start payload
+ * even when its owner deliberately stored a reference.
  */
 function resolveProviderCredentialEnvRefs<TProvider extends { apiKey?: string }>(
   provider: TProvider,
@@ -158,9 +164,8 @@ function resolveActiveProviderProfile(merged: TEnvResolvedSettings): IResolvedCo
       profile.apiKeyRef === undefined ? (profile.apiKey ?? DEFAULTS.provider.apiKey) : undefined,
     ...(profile.apiKeyRef !== undefined && { apiKeyRef: profile.apiKeyRef }),
     // This projection is field-by-field, so the credential's ORIGIN has to be copied
-    // deliberately. Resolving `$ENV:` and recording the variable name upstream achieved nothing
-    // while this line was missing — the resolved config the subagent runner serializes had only
-    // the secret, which is the whole defect.
+    // deliberately. Without this line the resolved config the subagent runner serializes carries
+    // only the secret, not the variable name recorded when `$ENV:` was resolved.
     ...(profile.apiKeyEnv !== undefined && { apiKeyEnv: profile.apiKeyEnv }),
     ...(profile.baseURL !== undefined && { baseURL: profile.baseURL }),
     ...(profile.timeout !== undefined && { timeout: profile.timeout }),
@@ -208,8 +213,8 @@ export async function loadConfigWithHookSources(
   environment: Readonly<Record<string, string | undefined>> = {},
 ): Promise<{ config: IResolvedConfig; hookSources: readonly IHookDefinitionSource[] }> {
   const layers = readSettingsLayers(sources);
-  // Read-phase errors first, across every layer, then the first schema failure — the order the
-  // two-phase loader always had (see `throwReadPhaseError`).
+  // Read-phase errors first, across every layer, then the first schema failure — the loader's
+  // two-phase order (see `throwReadPhaseError`).
   for (const layer of layers) throwReadPhaseError(layer);
   const parsedLayers: Array<{ settings: TEnvResolvedSettings; source: string }> = [];
   for (const layer of layers) {

@@ -40,9 +40,8 @@ const UNLIMITED_EXECUTION_ROUNDS = 0;
  * to generate a summary.
  *
  * Its own file: the loop that decides WHETHER to force a summary and the call that
- * PERFORMS one are separate responsibilities, and this one grew a request assembly, a transport
- * option set and three replay-event emissions of its own — enough that keeping it beside the loop
- * pushed `execution-pipeline.ts` past the file ceiling.
+ * PERFORMS one are separate responsibilities, and this one carries a request assembly, a transport
+ * option set and three replay-event emissions of its own.
  */
 export async function forceSummaryCall(
   conversationStore: ConversationStore,

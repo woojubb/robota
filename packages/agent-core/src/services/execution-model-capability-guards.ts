@@ -5,8 +5,8 @@
  * `json_schema`, `reasoning`, `native_web`, `streaming` — and nothing read it. Tool gating asked a
  * per-PROVIDER boolean, so a model whose own entry declares no `tools` was handed the whole toolset.
  *
- * Split out of `execution-round-provider.ts` to keep it under the size ceiling, and because "may
- * this model be asked this?" is a question of its own — separate from assembling the request.
+ * Split out of `execution-round-provider.ts` because "may this model be asked this?" is a question
+ * of its own — separate from assembling the request.
  *
  * The rule: only a POPULATED capability list that omits the capability is a denial. A catalog silent
  * about a model has said nothing, and reading silence as refusal would cripple every model no

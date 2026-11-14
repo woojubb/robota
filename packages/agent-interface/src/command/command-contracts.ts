@@ -322,11 +322,10 @@ export interface ICommandListEntry {
   /**
    * Whether a MODEL may invoke this command, carried through instead of dropped.
    *
-   * The list used to stop at name/description, so every consumer received a flat catalogue with no
-   * way to tell an operator-only command from a model-callable one. The MCP adapter read that list
-   * and registered all of it as callable tools, which turned commands explicitly marked
-   * `modelInvocable: false` — `plugin` installs and enables code — into things a remote peer's model
-   * could call.
+   * Without it the list is a flat catalogue with no way to tell an operator-only command from a
+   * model-callable one. An adapter that registered every entry as a callable tool (the MCP adapter
+   * reads this list) would turn commands explicitly marked `modelInvocable: false` — `plugin`
+   * installs and enables code — into things a remote peer's model could call.
    *
    * REQUIRED rather than optional, because an optional flag would let a consumer read `undefined`
    * for two unrelated situations: "this command may not be model-invoked" and "the producer of this

@@ -68,7 +68,7 @@ export type {
 // The one narrowing for a rejected `ITurnHandle.completed` (a value, not a type).
 // `createSessionCapabilityHost` / `readSessionCapability` are NOT here. They are the
 // runtime mechanism the interface-package rule forbids, they have no production consumer, and they
-// now live under `testing/` per `contracts→agent-interface, doubles→owner /testing`.
+// live under `testing/` per `contracts→agent-interface, doubles→owner /testing`.
 
 // The SHAPE of an admission decision. The machinery that produces it lives in
 // @robota-sdk/agent-transport — an interface package carries no runtime dependency edge.

@@ -2,10 +2,9 @@
  * The `Shell`/`Bash` tools' MODEL-FACING DESCRIPTION — the text that tells the model which shell it is
  * writing for and which sibling tool to prefer.
  *
- * Split out of `shell-tool.ts` when documenting the containment decision pushed that file
- * past the anti-monolith limit. The split is by responsibility: this module owns a model-facing
- * CONTRACT (neutral, mechanism-only default text a consumer overrides at the composition
- * root), while `shell-tool.ts` owns process execution. They change for entirely different reasons.
+ * Split out of `shell-tool.ts` by responsibility: this module owns a model-facing CONTRACT
+ * (neutral, mechanism-only default text a consumer overrides at the composition root), while
+ * `shell-tool.ts` owns process execution. They change for entirely different reasons.
  */
 
 import type { IPlatformShell } from '@robota-sdk/agent-core/node';

@@ -1,7 +1,6 @@
 /**
  * Module validation helpers for ModuleRegistry.
  *
- * Extracted from module-registry.ts to keep each file under 300 lines.
  * @internal
  */
 import { ConfigurationError } from '../utils/errors';

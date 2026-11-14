@@ -11,8 +11,6 @@
  *    running. Otherwise a queued one has no identity for the whole time its caller waits on it.
  *    Queued resumption stays out of this new-submission function, so every call mints
  *    exactly one identity and a queued entry carries it directly to execution.
- *
- * Split out of `interactive-session.ts`, which had grown past its size ratchet.
  */
 
 import { AGENT_DRIVER_ID, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface/session';

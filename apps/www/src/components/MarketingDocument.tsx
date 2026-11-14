@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 import { NextIntlClientProvider } from 'next-intl';
 import { Header } from './Header';
 import { Footer } from './Footer';
@@ -9,19 +9,48 @@ import { getMarketingHomeGraph, type MarketingLocale } from '../lib/marketing';
 import en from '../messages/en.json';
 import ko from '../messages/ko.json';
 
-const sans = IBM_Plex_Sans({
-  subsets: ['latin'], weight: ['400', '500', '600', '700'],
-  variable: '--font-ibm-plex-sans', display: 'swap',
+const ibmPlexSans = localFont({
+  src: [
+    {
+      path: '../fonts/ibm-plex-sans/ibm-plex-sans-latin-400-normal.woff2',
+      weight: '400',
+      style: 'normal',
+    },
+    {
+      path: '../fonts/ibm-plex-sans/ibm-plex-sans-latin-500-normal.woff2',
+      weight: '500',
+      style: 'normal',
+    },
+    {
+      path: '../fonts/ibm-plex-sans/ibm-plex-sans-latin-600-normal.woff2',
+      weight: '600',
+      style: 'normal',
+    },
+    {
+      path: '../fonts/ibm-plex-sans/ibm-plex-sans-latin-700-normal.woff2',
+      weight: '700',
+      style: 'normal',
+    },
+  ],
+  variable: '--font-ibm-plex-sans',
+  display: 'swap',
 });
-const mono = IBM_Plex_Mono({
-  subsets: ['latin'], weight: ['400'],
-  variable: '--font-ibm-plex-mono', display: 'swap',
+const ibmPlexMono = localFont({
+  src: [
+    {
+      path: '../fonts/ibm-plex-mono/ibm-plex-mono-latin-400-normal.woff2',
+      weight: '400',
+      style: 'normal',
+    },
+  ],
+  variable: '--font-ibm-plex-mono',
+  display: 'swap',
 });
 
 export function MarketingDocument({ locale, children }: { locale: MarketingLocale; children: ReactNode }) {
   const messages = locale === 'ko' ? ko : en;
   return (
-    <html lang={locale} className={`${sans.variable} ${mono.variable}`}>
+    <html lang={locale} className={`${ibmPlexSans.variable} ${ibmPlexMono.variable}`}>
       <body>
         <NextIntlClientProvider locale={locale} messages={{ common: messages.common }}>
           <Header />

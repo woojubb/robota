@@ -1,14 +1,9 @@
 /**
  * The contracts the execution controller is driven through.
  *
- * Split out of `interactive-session-execution-controller.ts` because that file grew past its frozen
- * size baseline while this change was in review, and `scan-file-size.mjs` says what to do about
- * that: "pre-existing debt may shrink but never grow — split instead of extending." Raising the
- * baseline would have been the other option and is the one the ratchet exists to refuse.
- *
  * The seam is not arbitrary. These three describe what a CALLER supplies and what a submission
- * CARRIES; the class beside them describes what the controller DOES with those. The same split this
- * change already made for `turn-contracts.ts` one package over.
+ * CARRIES; the class beside them describes what the controller DOES with those. It is the same
+ * split `turn-contracts.ts` makes one package over.
  */
 
 import type { TPromptHistoryRecorder } from './interactive-session-prompt-history.js';
@@ -114,10 +109,9 @@ export interface IQueuedInput {
  *
  * The handle comes back and this callback's callers do not read it — the drain
  * re-submits an input whose handle its original submitter already holds. Not reading a value is not
- * a reason to declare that it might not exist: `| void` was the old `Promise<void>` signature left
- * behind by this change, and it described a submission that answers with nothing, which no longer
- * happens on either path. Review found it. An ignored return is the caller's business; a wider type
- * is everyone's.
+ * a reason to declare that it might not exist: a `| void` return would describe a submission that
+ * answers with nothing, which does not happen on either path. An ignored return is the caller's
+ * business; a wider type is everyone's.
  */
 export type TSubmitFn = (
   prompt: string,

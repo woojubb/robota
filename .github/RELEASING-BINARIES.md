@@ -49,4 +49,5 @@ secret, and nothing else is affected. You can always cut a binary release manual
   `workflow_dispatch` them with the `tag` input. An `app-` tag runs from its push; retry its failed
   jobs in that run instead of dispatching.
 - Each build workflow has its own `concurrency` group per tag. Whichever workflow publishes first
-  creates the GitHub Release and the other reuses it, so neither depends on the other's order.
+  creates the GitHub Release (never as Latest) and the other reuses it, so neither depends on the other's
+  order. `release-macos-verification.yml` marks the tag Latest once both are verified.

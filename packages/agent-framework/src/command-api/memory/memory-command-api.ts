@@ -123,12 +123,10 @@ export function buildMemoryCommandSubcommands(source = 'memory'): ICommand[] {
  * The durable-memory port the `/memory` command reads/writes through — the SAME `IMemoryStore`
  * instance the session uses for startup injection and capture.
  *
- * This used to fall back to `createFileSystemMemoryStore(context.getCwd(), now)`
- * when the host injected none. That default was redundant, not load-bearing —
- * `InteractiveSession.getMemoryStore()` already did `??= createFileSystemMemoryStore(this.getCwd())`
- * itself, so the framework was re-deriving what the one production host already owned. With the
- * member required there is one owner. `now` went with the fallback: no caller ever passed it, and
- * `ICommandHostWorkspace` went with `getCwd()` — a role the body no longer reads.
+ * There is no fallback to a file-system store derived from the command context: the host owns the
+ * store (`InteractiveSession.getMemoryStore()` returns the one it was given, or throws), so a
+ * framework-side default would re-derive what the host already owns. With the member required
+ * there is one owner, and the command needs neither a clock nor a working-directory role.
  */
 export function createCommandMemoryStores(context: ICommandHostMemory): IMemoryStore {
   return context.getMemoryStore();
