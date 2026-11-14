@@ -163,6 +163,8 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
   let acting = false;
   /** An approved page submission: the next navigation to its URL is sent as the held request. */
   let approvedNavigation: IHeldRequest | undefined;
+  /** Why the page's last navigation was stopped, if it was; `navigate` turns it into a refusal. */
+  let stoppedNavigation: string | undefined;
 
   const resolveHost =
     options.resolveHost ??
@@ -207,6 +209,29 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
    * Send one hop ourselves without following redirects, so a redirect's target passes the gate before
    * the browser follows it: the browser routes that next hop through the gate again.
    */
+  /**
+   * Stop a request. A navigation of the page itself is answered with a small page saying why, rather
+   * than aborted: an aborted navigation makes Chromium start an error page of its own, and the next
+   * action would race it. Everything else (a subresource, a frame) is aborted.
+   */
+  const stop = async (route: Route, reason: string, status: number): Promise<void> => {
+    const request = route.request();
+    if (
+      page !== undefined &&
+      request.isNavigationRequest() &&
+      request.frame() === page.mainFrame()
+    ) {
+      stoppedNavigation = reason;
+      await route.fulfill({
+        status,
+        contentType: 'text/html; charset=utf-8',
+        body: `<!doctype html><title>Not opened</title><p>Your agent's browser did not open this page: ${reason}.</p>`,
+      });
+      return;
+    }
+    await route.abort(status === 403 ? 'blockedbyclient' : 'failed');
+  };
+
   const forward = async (route: Route, overrides: IForward = {}): Promise<void> => {
     let response: Awaited<ReturnType<Route['fetch']>>;
     try {
@@ -215,15 +240,19 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
         maxRedirects: 0,
         timeout: NAVIGATION_TIMEOUT_MS,
       });
-    } catch {
+    } catch (error) {
       // allow-fallback: an unreachable host fails that one request, as it would in any browser.
-      await route.abort('failed');
+      const detail =
+        error instanceof Error
+          ? error.message.split('\n')[0]!.replace(/^route\.fetch: /u, '')
+          : String(error);
+      await stop(route, `the page did not load (${detail})`, 502);
       return;
     }
     const location = response.headers()['location'];
     if (response.status() >= 300 && response.status() < 400 && location !== undefined) {
       if ((await refusal(new URL(location, route.request().url()).href)) !== undefined) {
-        await route.abort('blockedbyclient');
+        await stop(route, `it led to an address that is not reachable (${REFUSED})`, 403);
         return;
       }
     }
@@ -242,8 +271,9 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
 
   const decide = async (route: Route): Promise<void> => {
     const request = route.request();
-    if ((await refusal(request.url())) !== undefined) {
-      await route.abort('blockedbyclient');
+    const refused = await refusal(request.url());
+    if (refused !== undefined) {
+      await stop(route, refused, 403);
       return;
     }
     const method = request.method().toUpperCase();
@@ -394,26 +424,20 @@ export function createPlaywrightBrowser(options: IPlaywrightBrowserOptions): IBr
     return { view: await view(), ...(submissions.length > 0 && { held: submissions }) };
   };
 
-  /**
-   * Go to a URL, turning a navigation the gate stopped (or the network failed) into a refusal the
-   * model can read. Chromium answers a failed navigation with its own error page; that one is allowed
-   * to finish, so the next action does not collide with it.
-   */
-  const navigate = async (current: Page, url: string, retried = false): Promise<void> => {
+  /** Go to a URL, turning a navigation the gate stopped, or the network failed, into a refusal the model can read. */
+  const navigate = async (current: Page, url: string): Promise<void> => {
+    stoppedNavigation = undefined;
     try {
       await current.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      await current.waitForLoadState('load', { timeout: ACTION_SETTLE_MS }).catch(() => undefined);
-      if (!retried && message.includes('interrupted by another navigation')) {
-        await navigate(current, url, true);
-        return;
-      }
-      const reason = message.includes('ERR_BLOCKED_BY_CLIENT')
-        ? `it led to an address that is not reachable (${REFUSED})`
-        : `the page did not load (${message.split('\n')[0]!.replace(/^page\.goto: /, '')})`;
-      throw new BrowserNavigationRefusedError(url, reason);
+      const message = error instanceof Error ? error.message.split('\n')[0]! : String(error);
+      throw new BrowserNavigationRefusedError(
+        url,
+        `the page did not load (${message.replace(/^page\.goto: /u, '')})`,
+      );
     }
+    if (stoppedNavigation !== undefined)
+      throw new BrowserNavigationRefusedError(url, stoppedNavigation);
   };
 
   const markLocator = (current: Page, mark: number) =>
