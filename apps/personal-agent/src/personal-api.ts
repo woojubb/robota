@@ -11,6 +11,7 @@ import { findProviderDefinition, formatSupportedProviderTypes } from '@robota-sd
 import {
   GoalRefusedError,
   IdeaRefusedError,
+  SpaceRefusedError,
   PAGE_KINDS,
   SensitiveContentRefusedError,
 } from '@robota-sdk/agent-product/personal';
@@ -25,6 +26,7 @@ import type {
   IWikiPage,
   IdeaBook,
   KnowledgeWiki,
+  SpaceBook,
   TPageKind,
 } from '@robota-sdk/agent-product/personal';
 import type { IGoalRunner } from './goal-runner.js';
@@ -34,6 +36,7 @@ export interface IPersonalApiOptions {
   readonly wiki: KnowledgeWiki;
   readonly goals: GoalBook;
   readonly ideas: IdeaBook;
+  readonly spaces: SpaceBook;
   /** The goal runner, once the agent is running; approvals and "run now" need it. */
   readonly runner: () => IGoalRunner | undefined;
   readonly stateDir: string;
@@ -83,7 +86,7 @@ export function providerTypes(): string[] {
 }
 
 export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
-  const { wiki, goals, ideas } = options;
+  const { wiki, goals, ideas, spaces } = options;
 
   const routes = async (request: ILoopbackGuiApiRequest): Promise<ILoopbackGuiApiResponse> => {
     const { method, segments } = request;
@@ -216,6 +219,38 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
         return ok({ idea: await ideas.takeUp(idea.id, `goal:${goal.id}`), goal });
       }
     }
+    if (area === 'spaces' && collection === undefined) {
+      if (method === 'GET') {
+        return ok({
+          spaces: (await spaces.list()).map((space) => ({
+            ...space,
+            opening: spaces.opening(space),
+          })),
+        });
+      }
+      if (method === 'POST') {
+        const body = record(request.body);
+        const space = await spaces.create({
+          name: text(body, 'name')!,
+          instructions: text(body, 'instructions', true) ?? '',
+        });
+        return ok({ space: { ...space, opening: spaces.opening(space) } });
+      }
+    }
+    if (area === 'spaces' && collection !== undefined && method === 'POST') {
+      if (id === 'update') {
+        const body = record(request.body);
+        const space = await spaces.update(collection, {
+          name: text(body, 'name')!,
+          instructions: text(body, 'instructions', true) ?? '',
+        });
+        return ok({ space: { ...space, opening: spaces.opening(space) } });
+      }
+      if (id === 'remove') {
+        await spaces.remove(collection);
+        return ok({ removed: collection });
+      }
+    }
     if (area === 'feed' && collection === undefined && method === 'GET') {
       return ok({ items: (await goals.feed()).filter((item) => !item.dismissed) });
     }
@@ -304,6 +339,7 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       if (error instanceof SensitiveContentRefusedError) return fail(422, error.message);
       if (error instanceof GoalRefusedError) return fail(400, error.message);
       if (error instanceof IdeaRefusedError) return fail(400, error.message);
+      if (error instanceof SpaceRefusedError) return fail(400, error.message);
       if (error instanceof Error && /^No (current claim|wiki page)/u.test(error.message))
         return fail(400, error.message);
       throw error;

@@ -126,6 +126,15 @@ export interface IIdeaView {
   readonly createdAt: string;
 }
 
+export interface ISpaceView {
+  readonly id: string;
+  readonly name: string;
+  readonly instructions: string;
+  readonly tag: string;
+  /** The first message of a chat started in the space. */
+  readonly opening: string;
+}
+
 export const API_WRITE_HEADER = 'x-robota-api';
 
 export class ApiError extends Error {
@@ -165,6 +174,13 @@ export interface IPersonalApi {
   goalAction(id: string, action: 'pause' | 'resume' | 'run' | 'stop'): Promise<unknown>;
   feed(): Promise<readonly IFeedItemView[]>;
   ideas(tag?: string): Promise<readonly IIdeaView[]>;
+  spaces(): Promise<readonly ISpaceView[]>;
+  saveSpace(input: {
+    id?: string;
+    name: string;
+    instructions: string;
+  }): Promise<{ space: ISpaceView }>;
+  removeSpace(id: string): Promise<unknown>;
   addIdea(input: { text: string; tags: readonly string[] }): Promise<{ idea: IIdeaView }>;
   ideaAction(
     id: string,
@@ -219,6 +235,10 @@ export function createPersonalApi(
         )
       ).ideas,
     addIdea: (input) => call('POST', 'ideas', input),
+    spaces: async () => (await call<{ spaces: ISpaceView[] }>('GET', 'spaces')).spaces,
+    saveSpace: ({ id: spaceId, ...input }) =>
+      call('POST', spaceId === undefined ? 'spaces' : `spaces/${id(spaceId)}/update`, input),
+    removeSpace: (spaceId) => call('POST', `spaces/${id(spaceId)}/remove`),
     ideaAction: (ideaId, action) => call('POST', `ideas/${id(ideaId)}/${action}`),
     answerFeed: (itemId, action) => call('POST', `feed/${id(itemId)}/${action}`),
   };

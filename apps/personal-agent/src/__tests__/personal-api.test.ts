@@ -204,4 +204,33 @@ describe('the personal API behind the web UI', () => {
     expect((await api.send('POST', `ideas/${kimchi.id}/remove`)).status).toBe(200);
     expect((await api.send('POST', 'ideas/constructor/archive')).status).toBe(404);
   });
+
+  it('keeps spaces with their opening, edits and removes them', async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    const created = (
+      await api.send('POST', 'spaces', { name: 'Jeju trip', instructions: 'Quiet places only.' })
+    ).body.space;
+    expect(created).toEqual(
+      expect.objectContaining({
+        name: 'Jeju trip',
+        tag: 'jeju-trip',
+        opening: 'Let\'s work in my space "Jeju trip".\n\nQuiet places only.',
+      }),
+    );
+    const edited = (
+      await api.send('POST', `spaces/${created.id}/update`, {
+        name: 'Jeju trip',
+        instructions: 'Budget 1M won.',
+      })
+    ).body.space;
+    expect(edited.opening).toContain('Budget 1M won.');
+    expect((await api.get('spaces')).body.spaces.map((space: any) => space.name)).toEqual([
+      'Jeju trip',
+    ]);
+    expect((await api.send('POST', 'spaces', { name: ' ' })).status).toBe(400);
+    expect((await api.send('POST', `spaces/${created.id}/remove`)).status).toBe(200);
+    expect((await api.send('POST', 'spaces/constructor/remove')).status).toBe(400);
+    expect((await api.get('spaces')).body.spaces).toEqual([]);
+  });
 });

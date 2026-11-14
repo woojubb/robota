@@ -31,6 +31,8 @@ prints an HTTP API address and the bearer for scripts.
 | **Feed** | Results from your goals, and actions waiting for your approval. Approve or decline here. |
 | **Ideas** | Thoughts kept for later, yours or suggested by your agent (marked as such). Make one a goal when you want. |
 | **Goals** | What your agent keeps working on, once or on a schedule, with each run's report and what it did. |
+| **Spaces** | Areas of your life with your own instructions; a chat started in a space opens with them. |
+| **Side chat** | A quick chat beside the main one; bring its answer back when you want it there. |
 | **Library** | What your agent knows about you, page by page, with where each fact came from. Correct or forget anything. |
 | **Search** | Find anything in your library. |
 | **Settings** | Model, browser, and where your data lives. |

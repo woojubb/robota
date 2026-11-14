@@ -532,8 +532,8 @@ assembled in one process get independently-scoped file tools.
 What a personal agent does, independent of how it is hosted: the capabilities a composition root
 lends a state directory and a live session: the knowledge wiki, the agent's maintained memory of the
 person it works for; the browser it acts on the web through; the goals it keeps working on while the
-person is away, with the feed it reports to; the ideas it keeps for later; and the channels the person
-reaches it through.
+person is away, with the feed it reports to; the ideas it keeps for later; the spaces the person
+organizes their life in; and the channels the person reaches it through.
 
 ### Contract
 
@@ -561,7 +561,9 @@ guessing it. A read-only goal can only look. The book is the record: after a hos
 was running is due again, and an approval nobody can still answer is marked expired, never approved.
 
 An idea is kept as the person's or as the agent's own suggestion, and a suggestion stays one: nothing
-acts on an idea until the person takes it up, and an idea taken up records what it became.
+acts on an idea until the person takes it up, and an idea taken up records what it became. A space
+carries the person's own instructions, and a chat started in it opens with them as the person's first
+message rather than as instructions the agent gives itself.
 
 A channel is any messenger, plugged in as an adapter of one contract: the adapter declares what its
 platform can carry and reports each sender as the platform authenticated them, and everything it

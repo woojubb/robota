@@ -11,12 +11,14 @@ import {
   IDEA_INSTRUCTIONS,
   IdeaBook,
   KnowledgeWiki,
+  SpaceBook,
   WIKI_INSTRUCTIONS,
   createBrowserTools,
   createChannelHub,
   createFileGoalStore,
   createFileIdeaStore,
   createFileKnowledgeStore,
+  createFileSpaceStore,
   createGoalTools,
   createIdeaTools,
   createWikiTools,
@@ -42,6 +44,7 @@ export interface IPersonalCapabilities {
   readonly browser: IBrowserPort;
   readonly goals: GoalBook;
   readonly ideas: IdeaBook;
+  readonly spaces: SpaceBook;
   /**
    * The channels the person reaches the agent through. Any messenger connects as an adapter of the
    * standard channel contract; only the owner's verified sender ids are admitted on each.
@@ -82,6 +85,7 @@ export function createPersonalCapabilities(
   });
   const goals = new GoalBook({ store: createFileGoalStore(join(options.stateDir, 'goals')) });
   const ideas = new IdeaBook({ store: createFileIdeaStore(join(options.stateDir, 'ideas')) });
+  const spaces = new SpaceBook({ store: createFileSpaceStore(join(options.stateDir, 'spaces')) });
   let runner: IGoalRunner | undefined;
   let channelTurns: IChannelTurns | undefined;
   const approvals = createApprovalRegistry(goals);
@@ -124,12 +128,14 @@ export function createPersonalCapabilities(
     browser,
     goals,
     ideas,
+    spaces,
     channels,
     runner: () => runner,
     api: createPersonalApi({
       wiki,
       goals,
       ideas,
+      spaces,
       runner: () => runner,
       stateDir: options.stateDir,
       environment: options.environment,
