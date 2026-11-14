@@ -3,12 +3,13 @@ import {
   SessionSurface,
   useWsSession,
 } from '@robota-sdk/agent-ui-web/client';
-import { MessageCircle, Menu as MenuIcon } from 'lucide-react';
+import { Globe, MessageCircle, Menu as MenuIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { FeedView } from './views/Feed.js';
 import { GoalsView } from './views/Goals.js';
 import { IdeasView } from './views/Ideas.js';
+import { BrowserPanel } from './views/BrowserPanel.js';
 import { SideChat, recentTurns } from './views/SideChat.js';
 import { CreateSpaceView, SpaceView } from './views/Spaces.js';
 import { Menu, orderTabs, spaceTab } from './menu.js';
@@ -138,8 +139,11 @@ function Shell({
   useEffect(() => {
     void reloadSideChats();
   }, [reloadSideChats]);
+  // One panel beside the chat at a time: a side chat, or the agent's browser.
+  const [browserOpen, setBrowserOpen] = useState(false);
   const openSide = (resumeId?: string): void => {
     show('chat');
+    setBrowserOpen(false);
     // The side chat records the chat it was started beside, so the listing has to be current.
     chat.requestSessions();
     const context = resumeId === undefined ? recentTurns(chat.messages) : undefined;
@@ -256,7 +260,18 @@ function Shell({
         <div className={view === 'chat' ? 'relative flex h-full min-h-0' : 'hidden'}>
           <div className="relative min-w-0 flex-1">
             <SessionSurface state={chat} surface="web" draftMode="persistent" />
-            {side === undefined && (
+            {side === undefined && !browserOpen && (
+              <button
+                type="button"
+                aria-label="Agent browser"
+                title="Watch your agent's browser"
+                onClick={() => setBrowserOpen(true)}
+                className="absolute bottom-56 right-5 z-10 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-background shadow-md hover:bg-hover"
+              >
+                <Globe aria-hidden className="h-6 w-6" strokeWidth={1.75} />
+              </button>
+            )}
+            {side === undefined && !browserOpen && (
               <button
                 type="button"
                 aria-label="Side chat"
@@ -277,6 +292,13 @@ function Shell({
               onStarted={sideStarted}
               onBringBack={bringBack}
               onClose={() => setSide(undefined)}
+            />
+          )}
+          {browserOpen && side === undefined && (
+            <BrowserPanel
+              api={api}
+              onStop={() => chat.send({ type: 'abort' })}
+              onClose={() => setBrowserOpen(false)}
             />
           )}
         </div>

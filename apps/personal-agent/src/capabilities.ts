@@ -28,6 +28,7 @@ import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playw
 import { createApprovalRegistry } from './approvals.js';
 import { createChannelTurns } from './channel-turns.js';
 import { createGoalRunner } from './goal-runner.js';
+import { watchBrowser } from './browser/watched-browser.js';
 import { createLayoutBook } from './layout.js';
 import { createSideChatBook } from './side-chats.js';
 import { createPersonalApi } from './personal-api.js';
@@ -109,11 +110,17 @@ export function createPersonalCapabilities(
       .announceApproval({ approvalId: item.id, title: item.title, detail: item.approval.detail })
       .catch(() => undefined);
   });
-  const browser = createPlaywrightBrowser({
-    profileDir: join(options.stateDir, 'browser-profile'),
-    environment: options.environment,
-    ...(options.browserAllowedHosts !== undefined && { allowedHosts: options.browserAllowedHosts }),
-  });
+  // Watched, so the person can see what the agent's browser does and stop it.
+  const watchedBrowser = watchBrowser(
+    createPlaywrightBrowser({
+      profileDir: join(options.stateDir, 'browser-profile'),
+      environment: options.environment,
+      ...(options.browserAllowedHosts !== undefined && {
+        allowedHosts: options.browserAllowedHosts,
+      }),
+    }),
+  );
+  const browser = watchedBrowser.port;
   return {
     tools: [
       ...createWikiTools(wiki),
@@ -142,6 +149,11 @@ export function createPersonalCapabilities(
       spaces,
       sideChats,
       layout,
+      browser: watchedBrowser,
+      interruptWork: () => {
+        runner?.interrupt();
+        channelTurns?.interrupt();
+      },
       runner: () => runner,
       stateDir: options.stateDir,
       environment: options.environment,

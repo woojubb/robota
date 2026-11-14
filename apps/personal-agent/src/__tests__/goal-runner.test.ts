@@ -60,6 +60,27 @@ async function pendingApproval(book: GoalBook) {
 }
 
 describe('goal runner', () => {
+  it("interrupts a run in progress, as a person's Stop does, and keeps running goals afterwards", async () => {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    let stub = promptingSession();
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
+    const goal = await book.create({ title: 'Buy', instructions: 'Buy tickets' });
+    await runner.runDue();
+    await pendingApproval(book);
+    runner.interrupt();
+    await runner.settled();
+    expect((await book.runs(goal.id))[0]?.report).toBe('Not bought.');
+    // Not stopped: a goal made afterwards still runs.
+    stub = promptingSession();
+    await book.create({ title: 'Again', instructions: 'Buy more tickets' });
+    expect(await runner.runDue()).toBe(1);
+    await runner.stop();
+  });
+
   it('expires an approval its session stopped waiting for, so it can never be approved afterwards', async () => {
     const book = new GoalBook({ store: createMemoryGoalStore() });
     const stub = promptingSession();
