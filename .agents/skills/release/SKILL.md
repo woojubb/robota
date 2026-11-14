@@ -43,5 +43,11 @@ boundary. Do not repeat full package packing in PR CI or reconstruct past releas
 Use short timeouts based on observed work with a small margin. A missing prerequisite is a concrete failed or
 pending state, never an unbounded runner wait.
 
+Before tagging, check every prerequisite that could force a second pass: each package's trusted publisher
+(`npm view <package> _npmUser` names GitHub Actions), the npm login when a first publication is needed, the version
+plan read from `pnpm run version`, and installed-CLI acceptance on the release branch head. From the tags until the
+last publish, main is frozen: no promotion or merge to main, because `publish.yml` requires the tag, the workflow
+SHA and main to be one commit; tell every session when the tags are pushed.
+
 Never overwrite published versions or tags. First publication of a new npm package requires owner OTP/setup;
 do not guess or retain credentials. Source changes made after a tag belong to a new release.
