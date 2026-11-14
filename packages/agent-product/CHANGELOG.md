@@ -1,5 +1,18 @@
 # @robota-sdk/agent-product
 
+## 3.5.0
+### Minor Changes
+
+- e036847: `@robota-sdk/agent-product/personal` adds goals and the feed. `GoalBook` keeps goals that run once or on a schedule, with optional read-only runs. Each run keeps its report and an audit trail of actions. The feed carries reports and approvals, and after a restart, approvals that can no longer be answered expire. The book has file and memory stores behind one port, and `GoalCreate`, `GoalList` and `GoalUpdate` tools.
+- 1fd6494: `@robota-sdk/agent-product/personal` adds ideas. `IdeaBook` keeps thoughts for later, each with tags and marked as the person's own or as the agent's suggestion. Nothing acts on an idea until the person takes it up, and an idea taken up records what it became. It has file and memory stores behind one port, and `IdeaAdd` and `IdeaList` tools.
+- b70c658: `KnowledgeWiki.forget` also takes `{ pageId }`, which forgets every claim on a page along with every link to it. `KnowledgeWiki.log()` reads the change log. Both serve the personal agent's web UI.
+
+### Patch Changes
+
+- Updated dependencies [393c036]
+- Updated dependencies [9642508]
+  - @robota-sdk/agent-framework@3.3.5
+
 ## 3.4.0
 ### Minor Changes
 
