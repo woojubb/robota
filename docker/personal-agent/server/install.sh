@@ -59,7 +59,8 @@ say '== Settings'
 if [ -f "$bundle/.env" ]; then
   while IFS='=' read -r name value; do
     case "$name" in
-      PERSONAL_AGENT_[A-Z_]*) eval "[ -n \"\${$name:-}\" ] || $name=\$value" ;;
+      PERSONAL_AGENT_*[!A-Z_]*) ;;
+      PERSONAL_AGENT_*) eval "[ -n \"\${$name:-}\" ] || $name=\$value" ;;
     esac
   done <"$bundle/.env"
 fi
@@ -87,9 +88,12 @@ if [ ! -s "$bundle/secrets.env" ]; then
   eval "key=\${$PERSONAL_AGENT_API_KEY_ENV:-}"
   if [ -z "$key" ]; then
     printf 'Paste the %s (input hidden): ' "$PERSONAL_AGENT_API_KEY_ENV"
+    # Echo comes back even if the prompt is interrupted.
+    trap 'stty echo </dev/tty 2>/dev/null || true' EXIT INT TERM
     stty -echo </dev/tty 2>/dev/null || true
     read -r key </dev/tty || true
     stty echo </dev/tty 2>/dev/null || true
+    trap - EXIT INT TERM
     printf '\n'
   fi
   [ -n "$key" ] || fail 'a provider key is required'

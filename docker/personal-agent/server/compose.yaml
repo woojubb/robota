@@ -38,8 +38,8 @@ services:
     network_mode: host
     environment:
       PERSONAL_AGENT_DOMAIN: ${PERSONAL_AGENT_DOMAIN}
-      # Without an email, Caddy signs with its own CA: for a test only.
-      PERSONAL_AGENT_ACME_EMAIL: ${PERSONAL_AGENT_ACME_EMAIL:-internal}
+      # The certificate email; a test sets PERSONAL_AGENT_TLS=internal instead, never by default.
+      PERSONAL_AGENT_TLS: ${PERSONAL_AGENT_TLS:-${PERSONAL_AGENT_ACME_EMAIL:?set PERSONAL_AGENT_ACME_EMAIL in .env}}
       # Only for a test on a port other than 443, such as ":8443".
       PERSONAL_AGENT_PUBLIC_PORT_SUFFIX: ${PERSONAL_AGENT_PUBLIC_PORT_SUFFIX:-}
     volumes:

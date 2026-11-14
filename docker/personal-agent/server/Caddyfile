@@ -1,9 +1,14 @@
 # The public face of a self-hosted personal agent: HTTPS for the domain, the WebSocket under /ws/,
 # everything else to the web UI. The agent itself listens on the host's loopback only.
+{
+	# Nothing configures Caddy at run time, so its admin endpoint stays closed.
+	admin off
+}
+
 {$PERSONAL_AGENT_DOMAIN}{$PERSONAL_AGENT_PUBLIC_PORT_SUFFIX} {
-	# An email gets a public certificate (and expiry notices); "internal" (the compose default when no
-	# email is set) has Caddy's own CA sign it, which only suits a test.
-	tls {$PERSONAL_AGENT_ACME_EMAIL}
+	# The certificate email (a public certificate and its expiry notices), or "internal" for a test
+	# signed by Caddy's own CA; compose refuses to start without one of them.
+	tls {$PERSONAL_AGENT_TLS}
 	encode zstd gzip
 	header -Server
 	handle_path /ws/* {

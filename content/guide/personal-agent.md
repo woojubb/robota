@@ -85,7 +85,7 @@ Everything lives in one owner-only folder: `--state-dir <dir>`, else `PERSONAL_A
 
 ## Use it from anywhere: your own server
 
-The agent can run on a small server (a VPS with 1 GB of memory is enough) and be opened over HTTPS
+The agent can run on a small server (2 GB of memory leaves room for the first build) and be opened over HTTPS
 from any browser. It still listens only on the server's loopback; Caddy, in the same bundle, holds the
 certificate and forwards your domain to it. Point your domain's DNS at the server, open ports 80 and
 443, then on the server:
