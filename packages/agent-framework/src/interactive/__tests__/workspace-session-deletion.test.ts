@@ -331,6 +331,7 @@ describe('deleting a project session (virtual host)', () => {
       `release .state/checkpoints/${DOOMED}/.writer`,
       `removeDirectory .state/checkpoints/${DOOMED}`,
       `removeSubagentLogs ${DOOMED}`,
+      `removeDirectory .state/sessions/${DOOMED}.json`,
       `delete .state/sessions/${DOOMED}.json`,
     ]);
     expect(listedIds(store)).toEqual([CANARY]);
@@ -401,6 +402,8 @@ describe('deleting a project session (virtual host)', () => {
     [`.state/logs/${DOOMED}.payloads`, 'other'],
     [`.state/checkpoints/${DOOMED}`, 'link'],
     [`.state/checkpoints/${DOOMED}`, 'other'],
+    [`.state/sessions/${DOOMED}.json`, 'link'],
+    [`.state/sessions/${DOOMED}.json`, 'other'],
   ] as const)('removes a %s planted as a %s by name, the record last', async (name, kind) => {
     const f = await fixture();
     f.seed(DOOMED);
@@ -416,6 +419,7 @@ describe('deleting a project session (virtual host)', () => {
     store.delete(DOOMED);
 
     expect(f.project.has(name)).toBe(false);
+    expect(f.project.has(`.state/sessions/${DOOMED}.json`)).toBe(false);
     expect(f.project.operations).toContain(`removeDirectory ${name}`);
     expect(f.project.operations.at(-1)).toBe(`delete .state/sessions/${DOOMED}.json`);
     expect(listedIds(store)).toEqual([]);

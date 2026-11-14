@@ -213,8 +213,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   writer lease, which a writer holding refuses the delete) and subagent logs before its record, since
   a log alone would list the session again: a delete that stops part-way keeps the record, so the
   session stays listed and deleting it again finishes it. Only the claim markers' zero-byte lock file
-  stays, because it is their lock identity and removing it would reopen a race between lockers. Any
-  other entry planted under one of those names is removed by name, never followed, so nothing makes a
+  stays, because it is their lock identity and removing it would reopen a race between lockers. A
+  link, FIFO, socket or other entry planted under any of the session's own names (record, log,
+  payloads, checkpoints, subagent logs) is removed by name, never followed, so nothing makes a
   session undeletable. A log write that arrives after the delete is meant to create nothing; the
   known exception is a sink in another process that never wrote for the id, whose first late line
   can still create a log. The id is free: a session claimed under it later is a new one. A record carries only a

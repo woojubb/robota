@@ -1,13 +1,17 @@
+import { execFileSync } from 'node:child_process';
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { createServer, type Server } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -28,7 +32,14 @@ beforeEach(() => {
   writeFileSync(join(outside, 'keep.txt'), 'keep');
 });
 
-afterEach(() => {
+const servers: Server[] = [];
+
+afterEach(async () => {
+  await Promise.all(
+    servers
+      .splice(0)
+      .map((server) => new Promise<void>((resolve) => server.close(() => resolve()))),
+  );
   rmSync(scratch, { recursive: true, force: true });
 });
 
@@ -80,28 +91,55 @@ describe('removeSubagentLogs', () => {
     expect(readFileSync(join(outside, 'keep.txt'), 'utf8')).toBe('keep');
   });
 
-  it('refuses a parent directory that is a link, following nothing', () => {
+  it('unlinks a parent name that is a link by name, following nothing', () => {
     mkdirSync(join(outside, 'subagents'));
     writeFileSync(join(outside, 'subagents', 'victim.jsonl'), 'victim');
     linkDirectory(outside, join(logRoot, 'session_a'));
-    expect(() => removeSubagentLogs(logRoot, 'session_a')).toThrow(SubagentLogRemovalRefusedError);
+    expect(removeSubagentLogs(logRoot, 'session_a')).toBe('removed');
+    expect(lstatSync(join(logRoot, 'session_a'), { throwIfNoEntry: false })).toBeUndefined();
     expect(readFileSync(join(outside, 'subagents', 'victim.jsonl'), 'utf8')).toBe('victim');
-  });
-
-  it('refuses a subagents directory that is a link, following nothing', () => {
-    mkdirSync(join(logRoot, 'session_a'));
-    linkDirectory(outside, join(logRoot, 'session_a', 'subagents'));
-    expect(() => removeSubagentLogs(logRoot, 'session_a')).toThrow(SubagentLogRemovalRefusedError);
     expect(readFileSync(join(outside, 'keep.txt'), 'utf8')).toBe('keep');
   });
 
-  it('refuses a parent or subagents entry that is not a directory', () => {
+  it('unlinks a subagents name that is a link by name, following nothing', () => {
+    mkdirSync(join(logRoot, 'session_a'));
+    linkDirectory(outside, join(logRoot, 'session_a', 'subagents'));
+    expect(removeSubagentLogs(logRoot, 'session_a')).toBe('removed');
+    expect(existsSync(join(logRoot, 'session_a'))).toBe(false);
+    expect(readFileSync(join(outside, 'keep.txt'), 'utf8')).toBe('keep');
+  });
+
+  it('unlinks a parent or subagents name that is a plain file', () => {
     writeFileSync(join(logRoot, 'session_a'), 'a file');
-    expect(() => removeSubagentLogs(logRoot, 'session_a')).toThrow(SubagentLogRemovalRefusedError);
+    expect(removeSubagentLogs(logRoot, 'session_a')).toBe('removed');
+    expect(existsSync(join(logRoot, 'session_a'))).toBe(false);
     mkdirSync(join(logRoot, 'session_b'));
     writeFileSync(join(logRoot, 'session_b', 'subagents'), 'a file');
-    expect(() => removeSubagentLogs(logRoot, 'session_b')).toThrow(SubagentLogRemovalRefusedError);
-    expect(readFileSync(join(logRoot, 'session_b', 'subagents'), 'utf8')).toBe('a file');
+    expect(removeSubagentLogs(logRoot, 'session_b')).toBe('removed');
+    expect(existsSync(join(logRoot, 'session_b'))).toBe(false);
+  });
+
+  it.runIf(process.platform !== 'win32').each([
+    ['session_a', 'fifo'],
+    ['session_a', 'socket'],
+    ['session_a/subagents', 'fifo'],
+    ['session_a/subagents', 'socket'],
+  ] as const)('unlinks %s planted as a %s by name', async (name, kind) => {
+    if (name.includes('/')) mkdirSync(join(logRoot, 'session_a'));
+    const path = join(logRoot, ...name.split('/'));
+    if (kind === 'fifo') {
+      execFileSync('mkfifo', [path]);
+    } else {
+      const server = createServer();
+      servers.push(server);
+      // Bound at a short name and moved into place: a socket path has a small length limit.
+      const short = join(scratch, 's');
+      await new Promise<void>((resolve) => server.listen(short, resolve));
+      renameSync(short, path);
+    }
+    expect(removeSubagentLogs(logRoot, 'session_a')).toBe('removed');
+    expect(existsSync(join(logRoot, 'session_a'))).toBe(false);
+    expect(readFileSync(join(outside, 'keep.txt'), 'utf8')).toBe('keep');
   });
 
   it('unlinks a link inside the tree by name, leaving what it points at', () => {
@@ -112,11 +150,22 @@ describe('removeSubagentLogs', () => {
     expect(readFileSync(join(outside, 'keep.txt'), 'utf8')).toBe('keep');
   });
 
-  it('works under a log root reached through a link', () => {
+  it('refuses a log root that is itself a link or not a directory, touching nothing', () => {
     seed('session_a');
     const alias = join(scratch, 'alias');
     linkDirectory(logRoot, alias);
-    expect(removeSubagentLogs(alias, 'session_a')).toBe('removed');
+    expect(() => removeSubagentLogs(alias, 'session_a')).toThrow(SubagentLogRemovalRefusedError);
+    expect(existsSync(join(logRoot, 'session_a', 'subagents', 'task_1.jsonl'))).toBe(true);
+    const fileRoot = join(scratch, 'file-root');
+    writeFileSync(fileRoot, 'file');
+    expect(() => removeSubagentLogs(fileRoot, 'session_a')).toThrow(SubagentLogRemovalRefusedError);
+  });
+
+  it('works under a log root whose ancestor is reached through a link', () => {
+    seed('session_a');
+    const alias = join(scratch, 'alias');
+    linkDirectory(scratch, alias);
+    expect(removeSubagentLogs(join(alias, 'logs'), 'session_a')).toBe('removed');
     expect(existsSync(join(logRoot, 'session_a'))).toBe(false);
   });
 });

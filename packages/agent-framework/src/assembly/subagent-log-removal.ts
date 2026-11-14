@@ -4,7 +4,9 @@
  * runs on every platform with plain path calls: every directory it enters is checked with `lstat` to
  * be a directory and not a link, and its resolved path must still be the one it walked down to, so a
  * link is never followed and nothing outside the parent's `subagents/` directory is touched. A link
- * or any other non-directory inside the tree is unlinked by name, never followed.
+ * or any other non-directory inside the tree, or at the session's own names (`{parentSessionId}` and
+ * its `subagents`), is unlinked by name, never followed, so nothing planted there makes the session's
+ * logs unremovable.
  */
 
 import { lstatSync, readdirSync, realpathSync, rmdirSync, unlinkSync } from 'node:fs';
@@ -54,6 +56,44 @@ function plainDirectory(path: string): { readonly dev: number; readonly ino: num
   return { dev: metadata.dev, ino: metadata.ino };
 }
 
+/**
+ * The session's own entry `path` under the plain directory `parent`: `'absent'`, `'directory'` (a
+ * plain one), or `'unlinked'` when it was a link or any other non-directory, removed by name without
+ * following it. Refused when `parent` no longer resolves to itself.
+ */
+function ownEntry(parent: string, path: string): 'absent' | 'directory' | 'unlinked' {
+  const metadata = lstatSync(path, { throwIfNoEntry: false });
+  if (metadata === undefined) return 'absent';
+  if (metadata.isDirectory() && !metadata.isSymbolicLink()) {
+    plainDirectory(path);
+    return 'directory';
+  }
+  if (plainDirectory(parent) === undefined) return 'absent';
+  unlinkName(path, metadata.isSymbolicLink());
+  return 'unlinked';
+}
+
+/**
+ * Unlinks the non-directory entry `path` by name. A directory link on Windows (a junction or
+ * directory symlink) is removed with `rmdir`, which removes the link, never its target.
+ */
+function unlinkName(path: string, isLink: boolean): void {
+  try {
+    unlinkSync(path);
+  } catch (error) {
+    if (isMissing(error)) return;
+    if (
+      process.platform === 'win32' &&
+      isLink &&
+      (error as NodeJS.ErrnoException).code === 'EPERM'
+    ) {
+      rmdirSync(path);
+      return;
+    }
+    throw error;
+  }
+}
+
 function removeTree(directory: string): void {
   const before = plainDirectory(directory);
   if (before === undefined) return;
@@ -73,11 +113,7 @@ function removeTree(directory: string): void {
       removeTree(entry);
       continue;
     }
-    try {
-      unlinkSync(entry);
-    } catch (error) {
-      if (!isMissing(error)) throw error;
-    }
+    unlinkName(entry, metadata.isSymbolicLink());
   }
   try {
     rmdirSync(directory);
@@ -88,11 +124,12 @@ function removeTree(directory: string): void {
 
 /**
  * Removes `{baseLogsDir}/{parentSessionId}/subagents/` and everything under it, then the parent's own
- * directory if that is left empty. `parentSessionId` must be a session id (no separator, never `..`),
- * and the parent and `subagents/` directories must be plain directories, not links; otherwise nothing
- * is removed and {@link SubagentLogRemovalRefusedError} is thrown. `baseLogsDir` is the root the
- * host's subagent loggers write under (its sealed-artifact root included, when it keeps one); it is
- * resolved once, and nothing above it is touched.
+ * directory if that is left empty; a link or other non-directory at the parent or `subagents` name is
+ * unlinked by name instead, never followed. `parentSessionId` must be a session id (no separator,
+ * never `..`), and `baseLogsDir` itself must be a directory, not a link (directories above it are
+ * resolved once); otherwise nothing is removed and {@link SubagentLogRemovalRefusedError} is thrown.
+ * `baseLogsDir` is the root the host's subagent loggers write under (its sealed-artifact root
+ * included, when it keeps one), and nothing above it is touched.
  */
 export function removeSubagentLogs(
   baseLogsDir: string,
@@ -101,19 +138,22 @@ export function removeSubagentLogs(
   if (!isSafeSessionId(parentSessionId)) {
     throw new SubagentLogRemovalRefusedError('The parent session id is not a usable session id.');
   }
-  let root: string;
-  try {
-    root = realpathSync(baseLogsDir);
-  } catch (error) {
-    if (isMissing(error)) return 'absent';
-    throw error;
+  const rootMetadata = lstatSync(baseLogsDir, { throwIfNoEntry: false });
+  if (rootMetadata === undefined) return 'absent';
+  if (rootMetadata.isSymbolicLink() || !rootMetadata.isDirectory()) {
+    throw new SubagentLogRemovalRefusedError(
+      'The subagent log root is a link or not a directory, so nothing under it is removed.',
+    );
   }
+  const root = realpathSync(baseLogsDir);
   if (plainDirectory(root) === undefined) return 'absent';
   const subagents = resolveSubagentLogDir(parentSessionId, root);
   const parent = join(root, parentSessionId);
-  if (plainDirectory(parent) === undefined) return 'absent';
-  const present = plainDirectory(subagents) !== undefined;
-  if (present) removeTree(subagents);
+  const parentEntry = ownEntry(root, parent);
+  if (parentEntry !== 'directory') return parentEntry === 'unlinked' ? 'removed' : 'absent';
+  const subagentsEntry = ownEntry(parent, subagents);
+  if (subagentsEntry === 'directory') removeTree(subagents);
+  const present = subagentsEntry !== 'absent';
   try {
     rmdirSync(parent);
   } catch {

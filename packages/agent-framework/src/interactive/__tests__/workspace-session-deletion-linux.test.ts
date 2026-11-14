@@ -212,8 +212,8 @@ describe.runIf(process.platform === 'linux')('deleting a project session (Linux 
   });
 
   it.each(
-    (['logs/S.jsonl', 'logs/S.payloads', 'checkpoints/S'] as const).flatMap((name) =>
-      (['link', 'fifo', 'socket'] as const).map((kind) => [name, kind] as const),
+    (['logs/S.jsonl', 'logs/S.payloads', 'checkpoints/S', 'sessions/S.json'] as const).flatMap(
+      (name) => (['link', 'fifo', 'socket'] as const).map((kind) => [name, kind] as const),
     ),
   )('removes %s planted as a %s by name, following nothing', async (name, kind) => {
     const f = await fixture();
