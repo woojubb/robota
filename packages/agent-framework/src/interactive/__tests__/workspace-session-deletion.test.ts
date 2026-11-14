@@ -52,6 +52,8 @@ const PAYLOAD = '{"payload":true}';
 /** A project tree held in memory: files by path, directories by path, every operation recorded. */
 class VirtualProject {
   readonly files = new Map<string, Uint8Array>();
+  /** Files that are really a link, FIFO or socket: listed so, refused by a file delete. */
+  readonly specials = new Map<string, 'link' | 'other'>();
   readonly directories = new Set<string>();
   readonly operations: string[] = [];
   /** Answers `partial` for this many calls of a path before removing it. */
@@ -108,7 +110,7 @@ class VirtualProject {
         for (const entry of entries) {
           if (!entry.startsWith(`${prefix}/`)) continue;
           const rest = entry.slice(prefix.length + 1);
-          if (!rest.includes('/')) names.set(rest, kind);
+          if (!rest.includes('/')) names.set(rest, this.specials.get(entry) ?? kind);
         }
       }
       return [...names].map(([name, kind]) => ({ name, kind }));
@@ -155,6 +157,8 @@ class VirtualProject {
       },
       delete: (path) => {
         this.trip('delete', path);
+        if (this.specials.has(path))
+          throw new Error('a file delete refuses a link or special file');
         return this.files.delete(path);
       },
       sweepTemporaries: () => 0,
@@ -166,6 +170,10 @@ class VirtualProject {
       discardStaged: noop,
       removeDirectory: (path): TWorkspaceDirectoryRemoval => {
         this.trip('removeDirectory', path);
+        if (this.files.delete(path)) {
+          this.specials.delete(path);
+          return { status: 'removed' };
+        }
         if (!this.directories.has(path)) return { status: 'absent' };
         const remaining = this.partialCalls.get(path) ?? 0;
         if (remaining > 0) {
@@ -315,7 +323,7 @@ describe('deleting a project session (virtual host)', () => {
     expect(f.project.has(`.state/sessions/${DOOMED}.json`)).toBe(false);
     expect(f.removedSubagentLogs).toEqual([DOOMED]);
     expect(f.project.operations).toEqual([
-      `delete .state/logs/${DOOMED}.jsonl`,
+      `removeDirectory .state/logs/${DOOMED}.jsonl`,
       `removeDirectory .state/logs/${DOOMED}.payloads`,
       `acquireWriter .state/checkpoints/${DOOMED}/.writer`,
       `removeDirectory .state/checkpoints/${DOOMED}/turn-0001`,
@@ -359,7 +367,7 @@ describe('deleting a project session (virtual host)', () => {
   });
 
   it.each([
-    ['the log', `delete .state/logs/${DOOMED}.jsonl`],
+    ['the log', `removeDirectory .state/logs/${DOOMED}.jsonl`],
     ['the payloads', `removeDirectory .state/logs/${DOOMED}.payloads`],
     ['the checkpoints', `removeDirectory .state/checkpoints/${DOOMED}`],
   ])(
@@ -385,6 +393,34 @@ describe('deleting a project session (virtual host)', () => {
       expect(f.project.under(`.state/checkpoints/${DOOMED}`)).toEqual([]);
     },
   );
+
+  it.each([
+    [`.state/logs/${DOOMED}.jsonl`, 'link'],
+    [`.state/logs/${DOOMED}.jsonl`, 'other'],
+    [`.state/logs/${DOOMED}.payloads`, 'link'],
+    [`.state/logs/${DOOMED}.payloads`, 'other'],
+    [`.state/checkpoints/${DOOMED}`, 'link'],
+    [`.state/checkpoints/${DOOMED}`, 'other'],
+  ] as const)('removes a %s planted as a %s by name, the record last', async (name, kind) => {
+    const f = await fixture();
+    f.seed(DOOMED);
+    for (const entry of f.project.under(name)) {
+      f.project.files.delete(entry);
+      f.project.directories.delete(entry);
+    }
+    f.project.put(name, '');
+    f.project.specials.set(name, kind);
+    const store = f.store({ deletion: f.deletion() });
+    f.project.operations.length = 0;
+
+    store.delete(DOOMED);
+
+    expect(f.project.has(name)).toBe(false);
+    expect(f.project.operations).toContain(`removeDirectory ${name}`);
+    expect(f.project.operations.at(-1)).toBe(`delete .state/sessions/${DOOMED}.json`);
+    expect(listedIds(store)).toEqual([]);
+    expect(store.load(DOOMED)).toEqual({ status: 'missing' });
+  });
 
   it('keeps the record when the subagent logs cannot be removed', async () => {
     const f = await fixture();

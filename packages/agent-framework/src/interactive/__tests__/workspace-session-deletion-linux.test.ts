@@ -3,16 +3,21 @@
  * Linux. The order of the cascade, its stops and retries are checked on every platform over a virtual
  * host in `workspace-session-deletion.test.ts`.
  */
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readdirSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { createServer, type Server } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -44,11 +49,34 @@ beforeEach(() => {
   logRoot = join(scratch, 'user-logs');
   mkdirSync(project);
   mkdirSync(logRoot);
+  mkdirSync(join(scratch, 'outside'));
+  writeFileSync(join(scratch, 'outside', 'canary.txt'), 'CANARY');
 });
 
-afterEach(() => {
+const servers: Server[] = [];
+
+afterEach(async () => {
+  await Promise.all(
+    servers
+      .splice(0)
+      .map((server) => new Promise<void>((resolve) => server.close(() => resolve()))),
+  );
   rmSync(scratch, { recursive: true, force: true });
 });
+
+/** Puts a link to a canary directory outside the project, a FIFO or a socket at `path`. */
+async function plant(path: string, kind: 'link' | 'fifo' | 'socket'): Promise<void> {
+  rmSync(path, { recursive: true, force: true });
+  if (kind === 'link') {
+    symlinkSync(join(scratch, 'outside'), path);
+  } else if (kind === 'fifo') {
+    execFileSync('mkfifo', [path]);
+  } else {
+    const server = createServer();
+    servers.push(server);
+    await new Promise<void>((resolve) => server.listen(path, resolve));
+  }
+}
 
 interface IFixture {
   readonly logs: IWorkspaceProjectStateStorage;
@@ -181,6 +209,39 @@ describe.runIf(process.platform === 'linux')('deleting a project session (Linux 
     expect(existsSync(state('logs', `${DOOMED}.payloads`))).toBe(false);
     expect(readdirSync(state('logs')).filter((name) => name.startsWith(DOOMED))).toEqual([]);
     expect(f.store.list().map((entry) => entry.id)).toEqual([]);
+  });
+
+  it.each(
+    (['logs/S.jsonl', 'logs/S.payloads', 'checkpoints/S'] as const).flatMap((name) =>
+      (['link', 'fifo', 'socket'] as const).map((kind) => [name, kind] as const),
+    ),
+  )('removes %s planted as a %s by name, following nothing', async (name, kind) => {
+    const f = await fixture();
+    f.seed(DOOMED);
+    const planted = state(...name.replace('S', DOOMED).split('/'));
+    await plant(planted, kind);
+    expect(lstatSync(planted).isDirectory()).toBe(false);
+
+    f.store.delete(DOOMED);
+
+    expect(lstatSync(planted, { throwIfNoEntry: false })).toBeUndefined();
+    expect(leftovers(DOOMED)).toEqual([]);
+    expect(f.store.list()).toEqual([]);
+    expect(f.store.load(DOOMED)).toEqual({ status: 'missing' });
+    expect(readFileSync(join(scratch, 'outside', 'canary.txt'), 'utf8')).toBe('CANARY');
+  });
+
+  it('still refuses when an ancestor of the session data is a link', async () => {
+    const f = await fixture();
+    f.seed(DOOMED);
+    rmSync(state('checkpoints'), { recursive: true, force: true });
+    mkdirSync(join(scratch, 'outside', 'checkpoints', DOOMED), { recursive: true });
+    symlinkSync(join(scratch, 'outside', 'checkpoints'), state('checkpoints'));
+
+    expect(() => f.store.delete(DOOMED)).toThrow();
+
+    expect(existsSync(join(scratch, 'outside', 'checkpoints', DOOMED))).toBe(true);
+    expect(f.store.load(DOOMED).status).toBe('valid');
   });
 
   it('a non-creating append creates neither the file nor a missing directory', async () => {

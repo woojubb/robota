@@ -62,7 +62,10 @@ export class ProjectSessionDeletionStoppedError extends Error {
  */
 export const DIRECTORY_REMOVAL_ATTEMPTS = 8;
 
-/** Removes `relativePath` of `storage` whole, or throws with the reason the record must stay. */
+/**
+ * Removes the entry `relativePath` of `storage` whole (a file, link, socket or FIFO by name, a
+ * directory with everything under it), or throws with the reason the record must stay.
+ */
 export function removeStateDirectory(
   storage: IWorkspaceProjectStateStorage,
   relativePath: string,
@@ -94,10 +97,6 @@ export function removeSessionCheckpoints(
     .find((candidate) => candidate.name === sessionId);
   if (entry === undefined) return;
   const purpose = 'delete the checkpoints of a deleted session';
-  if (entry.kind === 'file') {
-    checkpoints.deleteFile(sessionId, purpose);
-    return;
-  }
   if (entry.kind === 'directory') {
     if (checkpoints.acquireWriter === undefined) {
       throw new ProjectSessionDeletionStoppedError(sessionId, 'checkpoint-writer');
@@ -123,6 +122,6 @@ export function removeSessionCheckpoints(
       lease.release();
     }
   }
-  // A link or other entry under the name is refused here, never followed.
+  // Anything else under the name (a file, link, socket or FIFO) is unlinked by name, never followed.
   removeStateDirectory(checkpoints, sessionId, sessionId, purpose);
 }

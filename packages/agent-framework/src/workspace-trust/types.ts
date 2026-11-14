@@ -142,7 +142,7 @@ export interface IWorkspaceProjectStateStorage {
   ): boolean;
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[];
   deleteFile(relativePath: string, purpose: string): boolean;
-  /** Remove a directory of this state and everything under it, as the mutation boundary does. */
+  /** Remove an entry of this state and everything under it, as the mutation boundary does. */
   removeDirectory?(
     relativePath: string,
     purpose: string,
@@ -201,13 +201,14 @@ export interface IWorkspaceProjectMutationBoundary {
   /** Removes a staged temp file that was not committed; one already gone is fine. */
   discardStaged(relativePath: string, temporaryName: string): void;
   /**
-   * Removes the directory at the path and everything under it, in bounded steps a caller repeats
-   * while the result is `partial`. Every directory is reached from a held descriptor chain, never a
+   * Removes the entry at the path and everything under it, in bounded steps a caller repeats while
+   * the result is `partial`; a target that is not a directory (a file, link, socket or FIFO) is
+   * unlinked by name, never followed or opened. Every directory is reached from a held descriptor chain, never a
    * path string; a link or other non-directory entry is unlinked by name, never followed; a directory
    * on another mount (a bind mount included) is refused before anything under it is touched; a
    * directory is removed only while its name still opens the directory that was emptied, so a
-   * replacement swapped in under that name is refused rather than removed. A target that is a link,
-   * not a directory or a mount point is refused. Missing ancestors are not created.
+   * replacement swapped in under that name is refused rather than removed. A target that is a mount
+   * point is refused, as is a link or non-directory ancestor. Missing ancestors are not created.
    */
   removeDirectory?(
     relativePath: string,

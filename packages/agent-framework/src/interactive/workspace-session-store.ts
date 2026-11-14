@@ -458,7 +458,8 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     }
     this.records.delete(id, () => {
       for (const sink of deletion.logSinks ?? []) sink.sessionDeleted(id);
-      this.logs.deleteFile(`${id}.jsonl`, 'delete project session log');
+      // Removed as an entry, so a link, FIFO or socket planted under the name cannot block it.
+      removeStateDirectory(this.logs, `${id}.jsonl`, id, 'delete project session log');
       removeStateDirectory(this.logs, `${id}.payloads`, id, 'delete project session log payloads');
       if (checkpoints !== undefined) removeSessionCheckpoints(checkpoints, id);
       deletion.removeSubagentLogs?.(id);
