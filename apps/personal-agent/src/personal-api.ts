@@ -108,7 +108,7 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       return ok({ removed });
     }
     if (area === 'wiki' && collection === 'log' && method === 'GET') return ok({ entries: await wiki.log() });
-    if (area === 'wiki' && collection === 'lint' && method === 'GET') return ok(await wiki.lint());
+    if (area === 'wiki' && collection === 'lint' && method === 'GET') return ok(await wiki.lint({ record: false }));
 
     if (area === 'search' && method === 'GET') {
       const query = (request.query.get('q') ?? '').trim();

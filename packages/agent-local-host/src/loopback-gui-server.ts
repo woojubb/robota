@@ -115,6 +115,10 @@ function readJsonBody(req: import('node:http').IncomingMessage): Promise<unknown
     req.setEncoding('utf8');
     req.setTimeout(10_000, () => req.destroy());
     req.on('error', reject);
+    // A request destroyed before it ended (timeout, client gone) settles as a failure.
+    req.on('close', () => {
+      if (!req.complete) reject(new Error('request closed'));
+    });
     req.on('data', (chunk: string) => {
       body += chunk;
       if (body.length > API_BODY_LIMIT) {
@@ -352,7 +356,9 @@ export async function startLoopbackGuiServer(options: ILoopbackGuiServerOptions)
         return;
       }
       const query = new URLSearchParams((req.url ?? '').split('?')[1] ?? '');
-      const answer = await api({ method: req.method ?? 'GET', path: `/${segments.join('/')}`, segments, query, body });
+      // HEAD is answered as the GET it mirrors; Node leaves the body out of a HEAD response.
+      const method = req.method === 'HEAD' ? 'GET' : (req.method ?? 'GET');
+      const answer = await api({ method, path: `/${segments.join('/')}`, segments, query, body });
       sendJson(res, answer.status, answer.body);
     } catch {
       // allow-fallback: a failing handler is a 500 for that request, never a crash of the agent.

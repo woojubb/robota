@@ -4,8 +4,7 @@
 
 The personal agent's web UI: the shared session surface (`@robota-sdk/agent-ui-web`) for chat, inside a
 menu shell for what a personal agent keeps — the library of what it knows about the person, search
-and settings. `apps/personal-agent` serves its build behind the shared access-code server, locally
-now and from a server later.
+and settings. `apps/personal-agent` serves its build behind the shared access-code server.
 
 It is a **`private` product-shell package**: a product UI assembled from the shared libraries, not an
 importable library.
@@ -34,5 +33,3 @@ importable library.
 
 - The shell keeps the chat mounted while another menu is open, so a session and its draft survive a
   trip to the library.
-- A menu appears only when the capability behind it exists, so the shell grows with the personal
-  pack instead of showing empty places.

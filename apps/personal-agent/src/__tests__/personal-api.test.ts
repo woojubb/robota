@@ -100,6 +100,10 @@ describe('the personal API behind the web UI', () => {
     const log = (await api.get('wiki/log')).body.entries;
     expect(JSON.stringify(log)).not.toContain('mina');
     expect(log[0]).toEqual(expect.objectContaining({ action: 'forget' }));
+
+    // Looking at the check changes nothing: no entry is added to the change log.
+    expect((await api.get('wiki/lint')).status).toBe(200);
+    expect((await api.get('wiki/log')).body.entries).toEqual(log);
   });
 
   it('refuses bad input, secrets and writes without the API header', async () => {

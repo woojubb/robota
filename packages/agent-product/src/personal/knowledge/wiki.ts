@@ -14,7 +14,14 @@ import { containsSensitiveMemoryContent } from '@robota-sdk/agent-framework';
 
 import { oneLine, renderPageForModel } from './render.js';
 
-import type { IClaim, IClaimSource, IKnowledgeStore, IWikiLogEntry, IWikiPage, TPageKind } from './types.js';
+import type {
+  IClaim,
+  IClaimSource,
+  IKnowledgeStore,
+  IWikiLogEntry,
+  IWikiPage,
+  TPageKind,
+} from './types.js';
 
 export class SensitiveContentRefusedError extends Error {
   constructor() {
@@ -305,7 +312,11 @@ export class KnowledgeWiki {
     });
   }
 
-  async lint(): Promise<ILintReport> {
+  /**
+   * Check the wiki. By default the check is logged, as the agent's own maintenance; a person merely
+   * looking at the findings passes `record: false`, so looking never changes the wiki.
+   */
+  async lint(options: { readonly record?: boolean } = {}): Promise<ILintReport> {
     const pages = await this.store.listPages();
     const now = this.now().getTime();
     const contradictions: { pageId: string; claimIds: string[] }[] = [];
@@ -356,11 +367,13 @@ export class KnowledgeWiki {
             .map((page) => page.id)
         : [];
     const report = { contradictions, stale, orphans, missingLinks };
-    await this.store.appendLog({
-      at: this.now().toISOString(),
-      action: 'lint',
-      summary: `${contradictions.length} contradiction(s), ${stale.length} stale, ${orphans.length} orphan(s), ${missingLinks.length} missing link(s)`,
-    });
+    if (options.record !== false) {
+      await this.store.appendLog({
+        at: this.now().toISOString(),
+        action: 'lint',
+        summary: `${contradictions.length} contradiction(s), ${stale.length} stale, ${orphans.length} orphan(s), ${missingLinks.length} missing link(s)`,
+      });
+    }
     return report;
   }
 }

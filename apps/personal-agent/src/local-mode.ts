@@ -37,7 +37,7 @@ export interface ILocalModeOptions {
   readonly permissionMode?: TPermissionMode;
   /** Serve the web GUI (default true). */
   readonly gui?: boolean;
-  /** The built GUI to serve; defaults to the one `@robota-sdk/agent-gui-web` ships. */
+  /** The built web UI to serve; defaults to the one `@robota-sdk/personal-gui-web` builds. */
   readonly webRoot?: string;
   /** The personal API the web UI calls, served beside it behind the same access cookie. */
   readonly api?: ILoopbackGuiServerOptions['api'];

@@ -95,8 +95,11 @@ describe('loopback GUI server', () => {
       expect(answer.status).toBe(200);
       expect(answer.headers.get('content-type')).toContain('application/json');
       expect(await answer.json()).toEqual({ pages: ['mina'] });
+      const head = await fetch(new URL('wiki/pages', base), { method: 'HEAD', headers: { cookie } });
+      expect(head.status).toBe(200);
       expect(seen.map((request) => [request.method, request.path, request.segments, request.query.get('kind')])).toEqual([
         ['GET', '/wiki/pages/mina lee', ['wiki', 'pages', 'mina lee'], 'person'],
+        ['GET', '/wiki/pages', ['wiki', 'pages'], null],
       ]);
     });
 
