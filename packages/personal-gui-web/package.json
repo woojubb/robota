@@ -2,6 +2,7 @@
   "name": "@robota-sdk/personal-gui-web",
   "version": "0.1.0",
   "private": true,
+  "source": "./src/main.tsx",
   "description": "The personal agent's web UI: the shared chat surface inside a menu shell (chat, library, search, settings) over the personal agent's own API. Private product shell, served by apps/personal-agent; not an importable library.",
   "type": "module",
   "scripts": {
