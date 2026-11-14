@@ -1,13 +1,13 @@
 {
   "id": "robota",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "name": "Robota",
   "description": "Install the CLI with private state that survives ordinary container rebuilds.",
   "installsAfter": ["ghcr.io/devcontainers/features/node"],
   "options": {
     "version": {
       "type": "string",
-      "default": "3.4.2",
+      "default": "3.4.3",
       "description": "Exact CLI release version."
     },
     "installMethod": {

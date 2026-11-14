@@ -1,5 +1,11 @@
 # @robota-sdk/agent-framework
 
+## 3.3.5
+### Patch Changes
+
+- 393c036: `createServeSessionDirectory` gives each client of a served session pool its own view of the sessions: listing them, switching, starting a new one, renaming and deleting, with refusals carrying codes. It is the directory `robota --serve` uses, moved into the framework so every composition root that serves a session pool shares one implementation.
+- 9642508: `IAgentRuntime.sessionRecipe(options)` returns the recipe `createSession` builds from, and the `SessionRecipe` type is exported. A composition root uses it to give a runtime host or a session pool the same sessions the runtime would create, such as one per chat a client opens.
+
 ## 3.3.4
 ### Patch Changes
 
