@@ -133,7 +133,13 @@ export interface IWorkspaceProjectStateStorage {
    * it was.
    */
   replaceBytes(relativePath: string, content: Uint8Array, purpose: string): void;
-  appendText(relativePath: string, content: string, purpose: string): void;
+  /** Appends as the mutation boundary does; false only when `create` is off and nothing was there. */
+  appendText(
+    relativePath: string,
+    content: string,
+    purpose: string,
+    options?: IWorkspaceAppendOptions,
+  ): boolean;
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[];
   deleteFile(relativePath: string, purpose: string): boolean;
   /** Remove a directory of this state and everything under it, as the mutation boundary does. */
@@ -166,7 +172,12 @@ export interface IWorkspaceProjectMutationBoundary {
    * crashed replace left for the same name are swept.
    */
   replace(relativePath: string, content: Uint8Array | string): void;
-  append(relativePath: string, content: string): void;
+  /**
+   * Appends to the file, creating it (and missing directories) unless `options.create` is false: then
+   * a missing file or directory is left missing, nothing is written and the answer is false, so a
+   * late write for something removed cannot bring it back. True when the content was appended.
+   */
+  append(relativePath: string, content: string, options?: IWorkspaceAppendOptions): boolean;
   delete(relativePath: string): boolean;
   /**
    * Removes (with `apply`) every temp file a crashed replace left in the directory, by the same rule
@@ -202,6 +213,12 @@ export interface IWorkspaceProjectMutationBoundary {
     relativePath: string,
     options?: IWorkspaceDirectoryRemovalOptions,
   ): TWorkspaceDirectoryRemoval;
+}
+
+/** How an append treats a file that is not there. */
+export interface IWorkspaceAppendOptions {
+  /** False: append only to a file that exists, creating nothing. Default true. */
+  readonly create?: boolean;
 }
 
 /** How much one directory removal call may do before it answers `partial`. */

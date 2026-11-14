@@ -11,6 +11,7 @@ import {
 } from './workspace-authority.js';
 
 import type {
+  IWorkspaceAppendOptions,
   IWorkspaceDirectoryEntry,
   IWorkspaceDirectoryRemovalOptions,
   IWorkspaceProjectAuthority,
@@ -106,10 +107,15 @@ class WorkspaceProjectStateStorage {
     this.#mutationBoundary.replace(this.projectRelativePath(relativePath), content);
   }
 
-  appendText(relativePath: string, content: string, purpose: string): void {
+  appendText(
+    relativePath: string,
+    content: string,
+    purpose: string,
+    options?: IWorkspaceAppendOptions,
+  ): boolean {
     assertWorkspaceProjectAuthority(this.#authority);
     assertProjectReadPurpose(purpose);
-    this.#mutationBoundary.append(this.projectRelativePath(relativePath), content);
+    return this.#mutationBoundary.append(this.projectRelativePath(relativePath), content, options);
   }
 
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[] {
@@ -218,6 +224,16 @@ function migrationAccessOf(storage: IWorkspaceProjectStateStorage): IMigrationAc
     );
   }
   return access;
+}
+
+/**
+ * Whether the host behind `storage` can remove directories, asked before a removal that must not
+ * start when one of its steps could not be done. Internal to the framework.
+ */
+export function workspaceProjectStateRemovesDirectories(
+  storage: IWorkspaceProjectStateStorage,
+): boolean {
+  return migrationAccessOf(storage).boundary.removeDirectory !== undefined;
 }
 
 /**

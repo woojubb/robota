@@ -55,6 +55,7 @@ export type {
   ITrustedWorkspaceProjectAccess,
   IWorkspaceAncestorTextEntry,
   IWorkspaceDirectoryEntry,
+  IWorkspaceAppendOptions,
   IWorkspaceDirectoryRemovalOptions,
   IWorkspaceIdentity,
   IWorkspaceIdentityResolver,
