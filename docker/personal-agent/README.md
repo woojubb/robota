@@ -17,5 +17,8 @@ OPENAI_API_KEY=... docker compose -f docker/personal-agent/compose.yaml up
 - **Hardening:** the program is root-owned and read-only. The agent runs as `node`, with every
   capability dropped, `no-new-privileges` and a read-only root filesystem. Its only writable places are
   the state volume and `/tmp`.
+- **On a server:** [`server/`](server/) publishes the agent over HTTPS with Caddy, and
+  [`server/install.sh`](server/install.sh) sets it up on a fresh Ubuntu or Debian VPS. The agent still
+  binds loopback only; set `PERSONAL_AGENT_PUBLIC_URL` and the image starts it with `--server`.
 - **Behind a proxy that re-signs TLS,** pass its CA as a build secret
   (`--secret id=extra-ca,src=<file>`). It is used for the install step only.

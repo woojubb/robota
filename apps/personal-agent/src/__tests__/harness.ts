@@ -80,6 +80,7 @@ export async function startHarness(
     webRoot?: string;
     stateDir?: string;
     browserAllowedHosts?: readonly string[];
+    server?: import('../local-mode.js').IServerExposure;
   } = {},
 ): Promise<IHarness> {
   const stateDir = options.stateDir ?? mkdtempSync(join(tmpdir(), 'personal-agent-'));
@@ -111,6 +112,7 @@ export async function startHarness(
     gui: options.gui ?? false,
     api: capabilities.api,
     ...(options.webRoot !== undefined && { webRoot: options.webRoot }),
+    ...(options.server !== undefined && { server: options.server }),
   });
   await capabilities.attach(local.agent);
   const auth = { authorization: `Bearer ${local.httpToken}` };

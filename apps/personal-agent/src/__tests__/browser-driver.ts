@@ -9,11 +9,12 @@ import { findChromiumExecutable } from '../browser/playwright-browser.js';
 import type { Browser } from 'playwright';
 
 export interface IBrowserLauncher {
-  launch(): Promise<Browser>;
+  /** Extra Chromium switches, such as a host resolver rule for a test host name. */
+  launch(args?: readonly string[]): Promise<Browser>;
 }
 
 export function findChromium(): IBrowserLauncher | undefined {
   const executablePath = findChromiumExecutable();
   if (executablePath === undefined) return undefined;
-  return { launch: () => chromium.launch({ executablePath }) };
+  return { launch: (args = []) => chromium.launch({ executablePath, args: [...args] }) };
 }
