@@ -19,9 +19,8 @@ vi.mock('../lib/product-config.generated', () => ({
     },
   },
 }));
-vi.mock('next/font/google', () => ({
-  IBM_Plex_Sans: () => ({ variable: 'sans' }),
-  IBM_Plex_Mono: () => ({ variable: 'mono' }),
+vi.mock('next/font/local', () => ({
+  default: ({ variable }: { variable: string }) => ({ variable }),
 }));
 vi.mock('next/navigation', () => ({
   usePathname: () => request.pathname,
