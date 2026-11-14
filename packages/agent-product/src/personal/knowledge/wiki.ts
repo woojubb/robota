@@ -225,7 +225,7 @@ export class KnowledgeWiki {
     return pages
       .map(
         (page) =>
-          `- ${page.title} [${page.id}] (${page.kind}, ${page.claims.filter((c) => c.validTo === undefined).length} current claims)`,
+          `- ${oneLine(page.title)} [${page.id}] (${page.kind}, ${page.claims.filter((c) => c.validTo === undefined).length} current claims)`,
       )
       .join('\n');
   }
@@ -278,9 +278,13 @@ export class KnowledgeWiki {
     return forgottenClaims.size;
   }
 
-  async link(from: string, to: string): Promise<void> {
+  /** Link two existing pages, named by id or title; a link is always a page id, never free text. */
+  async link(fromPage: string, toPage: string): Promise<void> {
+    const from = pageIdFor(fromPage);
+    const to = pageIdFor(toPage);
     const page = await this.store.getPage(from);
     if (page === undefined) throw new Error(`No wiki page ${from}`);
+    if ((await this.store.getPage(to)) === undefined) throw new Error(`No wiki page ${to}`);
     if (page.links.includes(to) || from === to) return;
     const at = this.now().toISOString();
     await this.store.putPage({ ...page, links: [...page.links, to], updatedAt: at });

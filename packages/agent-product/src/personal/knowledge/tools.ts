@@ -134,7 +134,7 @@ export function createWikiTools(wiki: KnowledgeWiki): FunctionTool[] {
   );
   const link = createZodFunctionTool(
     WIKI_TOOL_NAMES.link,
-    'Link one wiki page to another related page.',
+    'Link one existing wiki page to another related existing page, each named by id or title.',
     z.object({ from: z.string().min(1), to: z.string().min(1) }),
     async ({ from, to }): Promise<TUniversalValue> => {
       await wiki.link(from, to);

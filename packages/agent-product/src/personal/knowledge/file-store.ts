@@ -15,7 +15,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
-import { renderPageMarkdown } from './render.js';
+import { oneLine, renderPageMarkdown } from './render.js';
 
 import type { IKnowledgeStore, IWikiLogEntry, IWikiPage } from './types.js';
 
@@ -65,7 +65,7 @@ export function createFileKnowledgeStore(directory: string): IKnowledgeStore {
     const lines = [
       '# Index',
       '',
-      ...pages.map((page) => `- [${page.title}](pages/${page.id}.md) — ${page.kind}`),
+      ...pages.map((page) => `- [${oneLine(page.title)}](pages/${page.id}.md) — ${page.kind}`),
       '',
     ];
     writeAtomic(join(directory, 'index.md'), lines.join('\n'));
