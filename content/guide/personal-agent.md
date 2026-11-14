@@ -48,6 +48,15 @@ prints an HTTP API address and the bearer for scripts.
 - **Secrets are refused.** Passwords, keys and similar strings are not kept in the library, ideas or goals.
 - **No shell.** The agent has no command line; its file tools reach only its own workspace folder.
 
+## Messengers
+
+Any messenger can reach your agent through an adapter of the standard channel contract
+(`createChannelHub` and `IChannelAdapter` in `@robota-sdk/agent-product/personal`). Only the sender ids
+you verified for yourself on a channel get answers. Approvals arrive as buttons where the messenger has
+them; elsewhere you get a note to approve in your Feed, because a typed "yes" is never an approval.
+Goal reports are sent to your channels too. No messenger adapter ships yet; each is added as its own
+adapter.
+
 ## Where it keeps things
 
 Everything lives in one owner-only folder: `--state-dir <dir>`, else `PERSONAL_AGENT_STATE_DIR`, else

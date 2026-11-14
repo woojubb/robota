@@ -1,6 +1,7 @@
 import { GoalBook, createMemoryGoalStore } from '@robota-sdk/agent-product/personal';
 import { describe, expect, it } from 'vitest';
 
+import { createApprovalRegistry } from '../approvals.js';
 import { createGoalRunner } from '../goal-runner.js';
 
 import type { TRunSession } from '../goal-runner.js';
@@ -62,7 +63,11 @@ describe('goal runner', () => {
   it('expires an approval its session stopped waiting for, so it can never be approved afterwards', async () => {
     const book = new GoalBook({ store: createMemoryGoalStore() });
     const stub = promptingSession();
-    const runner = createGoalRunner({ book, openSession: () => stub.session });
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
     const goal = await book.create({ title: 'Buy', instructions: 'Buy tickets' });
     await runner.runDue();
     const approval = await pendingApproval(book);
@@ -81,7 +86,11 @@ describe('goal runner', () => {
   it('stops without waiting for a person: a turn waiting on approval is aborted and its approval expires', async () => {
     const book = new GoalBook({ store: createMemoryGoalStore() });
     const stub = promptingSession();
-    const runner = createGoalRunner({ book, openSession: () => stub.session });
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
     const goal = await book.create({ title: 'Buy', instructions: 'Buy tickets' });
     await runner.runDue();
     const approval = await pendingApproval(book);
@@ -94,7 +103,11 @@ describe('goal runner', () => {
   it('works again once the person approves, and records the approval', async () => {
     const book = new GoalBook({ store: createMemoryGoalStore() });
     const stub = promptingSession();
-    const runner = createGoalRunner({ book, openSession: () => stub.session });
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => stub.session,
+    });
     const goal = await book.create({ title: 'Buy', instructions: 'Buy tickets' });
     await runner.runDue();
     const approval = await pendingApproval(book);
@@ -128,6 +141,7 @@ describe('goal runner stopping', () => {
     } as unknown as TRunSession;
     runner = createGoalRunner({
       book,
+      approvals: createApprovalRegistry(book),
       // The runner stops while this run is opening its session.
       openSession: () => {
         void runner!.stop();

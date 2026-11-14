@@ -29,7 +29,9 @@ describe('knowledge wiki in the personal agent', () => {
     harness.model.script({ text: 'ok' });
     await harness.submit('hi');
     const request = harness.model.requests[0]!;
-    expect(offeredTools(request)).toEqual(expect.arrayContaining(['WikiIndex', 'WikiSearch', 'WikiRemember', 'WikiForget']));
+    expect(offeredTools(request)).toEqual(
+      expect.arrayContaining(['WikiIndex', 'WikiSearch', 'WikiRemember', 'WikiForget']),
+    );
     const system = String(request.messages.find((message) => message.role === 'system')?.content);
     expect(system).toContain('knowledge wiki');
   });
@@ -38,20 +40,29 @@ describe('knowledge wiki in the personal agent', () => {
     const dir = stateDir();
     harness = await startHarness({ stateDir: dir });
     harness.model.script(
-      { tool: 'WikiRemember', args: { page: 'Mina', kind: 'person', claim: 'Mina is allergic to peanuts', origin: 'owner' } },
+      {
+        tool: 'WikiRemember',
+        args: {
+          page: 'Mina',
+          kind: 'person',
+          claim: 'Mina is allergic to peanuts',
+          origin: 'owner',
+        },
+      },
       { text: 'Noted: Mina is allergic to peanuts.' },
     );
     const first = await harness.submit('Remember that Mina is allergic to peanuts.');
     expect(first.text).toContain('Noted');
-    expect(readFileSync(join(dir, 'wiki', 'pages', 'mina.md'), 'utf8')).toContain('Mina is allergic to peanuts');
+    expect(readFileSync(join(dir, 'wiki', 'pages', 'mina.md'), 'utf8')).toContain(
+      'Mina is allergic to peanuts',
+    );
     await harness.close();
 
     // A new process and a new session: the only way to know is the wiki.
     harness = await startHarness({ stateDir: dir });
-    harness.model.script(
-      { tool: 'WikiSearch', args: { query: 'Mina allergy' } },
-      (request) => ({ text: `From my notes: ${toolResults(request).join(' ')}` }),
-    );
+    harness.model.script({ tool: 'WikiSearch', args: { query: 'Mina allergy' } }, (request) => ({
+      text: `From my notes: ${toolResults(request).join(' ')}`,
+    }));
     const second = await harness.submit('What should I avoid when cooking for Mina?');
     const firstRequest = harness.model.requests[0]!;
     expect(JSON.stringify(firstRequest.messages)).not.toContain('allergic to peanuts');
@@ -63,11 +74,22 @@ describe('knowledge wiki in the personal agent', () => {
     const dir = stateDir();
     harness = await startHarness({ stateDir: dir });
     harness.model.script(
-      { tool: 'WikiRemember', args: { page: 'Gifts', kind: 'matter', claim: 'Wants a red bicycle for the birthday', origin: 'owner' } },
+      {
+        tool: 'WikiRemember',
+        args: {
+          page: 'Gifts',
+          kind: 'matter',
+          claim: 'Wants a red bicycle for the birthday',
+          origin: 'owner',
+        },
+      },
       { text: 'Saved.' },
     );
     await harness.submit('Remember the gift idea.');
-    harness.model.script({ tool: 'WikiForget', args: { text: 'red bicycle' } }, { text: 'Forgotten.' });
+    harness.model.script(
+      { tool: 'WikiForget', args: { text: 'red bicycle' } },
+      { text: 'Forgotten.' },
+    );
     await harness.submit('Forget the bicycle idea.');
     expect(existsSync(join(dir, 'wiki', 'pages', 'gifts.md'))).toBe(false);
     expect(await harness.capabilities.wiki.recall('bicycle')).toBe('No wiki pages match.');

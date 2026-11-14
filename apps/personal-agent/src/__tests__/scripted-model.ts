@@ -13,8 +13,7 @@ export interface IModelRequest {
 }
 
 export type TModelReply =
-  | { readonly text: string }
-  | { readonly tool: string; readonly args: Record<string, unknown> };
+  { readonly text: string } | { readonly tool: string; readonly args: Record<string, unknown> };
 
 export interface IScriptedModel {
   readonly baseURL: string;
@@ -25,11 +24,15 @@ export interface IScriptedModel {
 }
 
 export function offeredTools(request: IModelRequest): string[] {
-  return (request.tools ?? []).map((tool) => tool.function?.name ?? '').filter((name) => name !== '');
+  return (request.tools ?? [])
+    .map((tool) => tool.function?.name ?? '')
+    .filter((name) => name !== '');
 }
 
 export function toolResults(request: IModelRequest): string[] {
-  return request.messages.filter((message) => message.role === 'tool').map((message) => String(message.content));
+  return request.messages
+    .filter((message) => message.role === 'tool')
+    .map((message) => String(message.content));
 }
 
 export async function startScriptedModel(): Promise<IScriptedModel> {
@@ -57,7 +60,12 @@ export async function startScriptedModel(): Promise<IScriptedModel> {
             role: 'assistant',
             content: null,
             tool_calls: [
-              { index: 0, id: `call-${round}`, type: 'function', function: { name: reply.tool, arguments: JSON.stringify(reply.args) } },
+              {
+                index: 0,
+                id: `call-${round}`,
+                type: 'function',
+                function: { name: reply.tool, arguments: JSON.stringify(reply.args) },
+              },
             ],
           };
     const finish = 'text' in reply ? 'stop' : 'tool_calls';
@@ -67,7 +75,9 @@ export async function startScriptedModel(): Promise<IScriptedModel> {
       object: streaming ? 'chat.completion.chunk' : 'chat.completion',
       created: 1,
       model: 'scripted-model',
-      choices: [{ index: 0, ...(streaming ? { delta: message } : { message }), finish_reason: finish }],
+      choices: [
+        { index: 0, ...(streaming ? { delta: message } : { message }), finish_reason: finish },
+      ],
     };
     if (!streaming) {
       res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(chunk));

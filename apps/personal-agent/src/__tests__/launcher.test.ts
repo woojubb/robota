@@ -29,8 +29,15 @@ function sandbox(): Record<string, string> {
   };
 }
 
-function run(args: string[], env: Record<string, string>): { status: number | null; stdout: string; stderr: string } {
-  const result = spawnSync(process.execPath, [LAUNCHER, ...args], { env, encoding: 'utf8', timeout: 60_000 });
+function run(
+  args: string[],
+  env: Record<string, string>,
+): { status: number | null; stdout: string; stderr: string } {
+  const result = spawnSync(process.execPath, [LAUNCHER, ...args], {
+    env,
+    encoding: 'utf8',
+    timeout: 60_000,
+  });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
@@ -54,7 +61,20 @@ describe('personal-agent launcher', () => {
     cleanup.push(() => model.close());
     model.script({ text: 'Launched and answering' });
     const env = sandbox();
-    const configured = run(['configure', '--type', 'openai', '--model', 'scripted-model', '--base-url', model.baseURL, '--api-key-env', 'SCRIPTED_KEY'], env);
+    const configured = run(
+      [
+        'configure',
+        '--type',
+        'openai',
+        '--model',
+        'scripted-model',
+        '--base-url',
+        model.baseURL,
+        '--api-key-env',
+        'SCRIPTED_KEY',
+      ],
+      env,
+    );
     expect(configured.stderr).toBe('');
     expect(configured.status).toBe(0);
 
@@ -62,7 +82,9 @@ describe('personal-agent launcher', () => {
     let output = '';
     child.stdout.on('data', (chunk) => (output += String(chunk)));
     child.stderr.on('data', (chunk) => (output += String(chunk)));
-    const exited = new Promise<number | null>((resolve) => child.once('exit', (code) => resolve(code)));
+    const exited = new Promise<number | null>((resolve) =>
+      child.once('exit', (code) => resolve(code)),
+    );
     cleanup.push(() => {
       if (child.exitCode === null) child.kill('SIGKILL');
     });
