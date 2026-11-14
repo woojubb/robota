@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { createNodeHostSessionStore, loadOrgPolicy } from '@robota-sdk/agent-framework/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { CORE_HARNESS_PROMPT } from '../../harness/core-harness.js';
 import { runPrintMode } from '../print-mode.js';
 import { buildServeSessionOptions } from '../serve-mode.js';
 import { presetSessionFields } from '../../startup/preset-session-fields.js';
@@ -76,6 +77,13 @@ function createRecordingProvider(response: string): IRecordingProvider {
     },
   };
   return { provider, lastMessages: () => last };
+}
+
+function systemTextOf(messages: TUniversalMessage[]): string {
+  return messages
+    .filter((m) => m.role === 'system')
+    .map((m) => m.content ?? '')
+    .join('\n');
 }
 
 function makeArgs(overrides: Partial<IParsedCliArgs> = {}): IParsedCliArgs {
@@ -355,13 +363,6 @@ describe('CLI-sourced prompt flags reach the session', () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  function systemTextOf(messages: TUniversalMessage[]): string {
-    return messages
-      .filter((m) => m.role === 'system')
-      .map((m) => m.content ?? '')
-      .join('\n');
-  }
-
   it('print mode: the composed addition arrives on the projection, not from a second helper call', async () => {
     const { provider, lastMessages } = createRecordingProvider('ok');
     const sessionStore = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
@@ -462,5 +463,76 @@ describe('CLI-sourced prompt flags reach the session', () => {
     // interactive receives it through this hop and no other, renamed onto the session's own key —
     // and kept off the preset's `appendSystemPrompt` until here, so the merge order stays open.
     expect(toSessionOptions(surface).appendSystemPrompt).toBe('FROM-FLAG');
+  });
+});
+
+/**
+ * The core harness is composed once, in the projection, and every shell reads it from there.
+ * Asserted against what the PROVIDER received for print mode, because the request is the only place
+ * the text's arrival is observable; the other two shells are compared on the options they start with.
+ */
+describe('the core harness reaches the model on every surface', () => {
+  let cwd: string;
+
+  beforeEach(() => {
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-core-harness-')));
+    vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new ExitSentinel(code ?? 0);
+    }) as never);
+    vi.spyOn(process.stdout, 'write').mockImplementation((() => true) as never);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('print, serve and interactive start from one seed, and the provider gets the core once', async () => {
+    const surface = buildPresetSurfaceOptions(
+      createTestProductRuntime(),
+      { systemPrompt: 'PRESET-GUIDANCE' } as never,
+      'acme',
+      'default',
+    );
+    const { provider, lastMessages } = createRecordingProvider('ok');
+    const sessionStore = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    });
+    try {
+      await runPrintMode(
+        createTestProductRuntime(), testHost, cwd,
+        makeArgs({ positional: ['hello'] }),
+        provider,
+        sessionStore,
+        [],
+        (() => {
+          throw new Error('subagent runner not used here');
+        }) as never,
+        [],
+        {},
+        [],
+        {} as never,
+        {},
+        surface,
+      );
+    } catch (error) {
+      if (!(error instanceof ExitSentinel)) throw error;
+    }
+    const served = buildServeSessionOptions({
+      host: testHost,
+      productRuntime: createTestProductRuntime(),
+      cwd,
+      args: makeArgs({}),
+      preset: surface,
+    } as never) as { presetSystemPrompt?: string };
+
+    const seed = `${CORE_HARNESS_PROMPT}\n\nPRESET-GUIDANCE`;
+    expect(surface.systemPrompt).toBe(seed);
+    expect(served.presetSystemPrompt).toBe(seed);
+    expect(toSessionOptions(surface).presetSystemPrompt).toBe(seed);
+
+    const system = systemTextOf(lastMessages());
+    expect(system.split(CORE_HARNESS_PROMPT)).toHaveLength(2);
+    expect(system).toContain(seed);
   });
 });
