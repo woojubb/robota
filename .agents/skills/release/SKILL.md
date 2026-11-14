@@ -28,8 +28,8 @@ npm environment. Use one release PR; do not create a separate version-bump PR or
 4. After an understood partial failure, rerun only failed jobs in the same run. Successful preparation is
    reused; never repack an already published version or restart the entire workflow to resume publication.
    An existing version must have matching integrity.
-   The publish job waits, within a 20-minute bound, for the registry to serve the published version and `latest`;
-   if that bound passes, resume the same retained artifact.
+   The publish job waits, within one 20-minute bound, for the registry to serve the published version and `latest`
+   and for the install lock generation to resolve it; if that bound passes, resume the same retained artifact.
 5. Successful CLI npm completion starts the agent image. The Feature runs when both native and CLI npm
    completion events have succeeded for the same commit. Confirm npm latest versions and durable receipts;
    for CLI releases also confirm native/desktop assets, Feature, multi-platform image delivery and the
@@ -42,6 +42,12 @@ Keep tarball inspection, integrity, provenance, signing and real installed-artif
 boundary. Do not repeat full package packing in PR CI or reconstruct past release diffs to authorize a release.
 Use short timeouts based on observed work with a small margin. A missing prerequisite is a concrete failed or
 pending state, never an unbounded runner wait.
+
+Before tagging, check every prerequisite that could force a second pass: each package's trusted publisher
+(`npm view <package> _npmUser` names GitHub Actions), the npm login when a first publication is needed, the version
+plan read from `pnpm run version`, and installed-CLI acceptance on the release branch head. From the tags until the
+last publish, main is frozen: no promotion or merge to main, because `publish.yml` requires the tag, the workflow
+SHA and main to be one commit; tell every session when the tags are pushed.
 
 Never overwrite published versions or tags. First publication of a new npm package requires owner OTP/setup;
 do not guess or retain credentials. Source changes made after a tag belong to a new release.

@@ -11,6 +11,7 @@ import { AttentionTracker } from './attention/attention-tracker.js';
 import { FocusReportingStdin } from './attention/focus-input-filter.js';
 import { createTerminalModeHooks } from './terminal-mode-hooks.js';
 import { KeybindingsProvider } from './keybindings/keybindings-context.js';
+import { InputReadinessProvider } from './input-readiness-context.js';
 import { ProductDisplayNameProvider } from './product-display-name-context.js';
 import { writeScreenReaderAnnouncement } from './screen-reader-announcement.js';
 import { ScreenReaderProvider } from './screen-reader-context.js';
@@ -680,6 +681,9 @@ async function renderStartedApp(
     onFocusOut: () => attention.focusOut(),
     onKeystroke: () => attention.keystroke(),
   });
+  // Ink reads the proxy from its first commit on, but the composer listens only after a later one, and a
+  // key read in between reaches no one. Keys wait in the proxy until the app says its start has settled.
+  stdin.deferInput();
   // Registered once the proxy exists, because a handover holds it: what is typed while another
   // program has the terminal never reaches the composer.
   handoffController.setTerminalModeHooks(
@@ -739,11 +743,13 @@ async function renderStartedApp(
     </ProductDisplayNameProvider>
   );
   const instance = render(
-    pacingPort === undefined ? (
-      tree
-    ) : (
-      <ScreenReaderPacingProvider port={pacingPort}>{tree}</ScreenReaderPacingProvider>
-    ),
+    <InputReadinessProvider onReady={() => stdin.openInput()}>
+      {pacingPort === undefined ? (
+        tree
+      ) : (
+        <ScreenReaderPacingProvider port={pacingPort}>{tree}</ScreenReaderPacingProvider>
+      )}
+    </InputReadinessProvider>,
     {
       exitOnCtrlC: false,
       isScreenReaderEnabled: screenReader,

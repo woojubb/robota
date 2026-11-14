@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useSignalInputReady } from '../input-readiness-context.js';
 import { useTerminalTitle } from '../use-terminal-title.js';
 import { useTerminalHandoffSuspension } from './useTerminalHandoffSuspension.js';
 
@@ -62,6 +63,13 @@ export function useAppLifecycleState(
   startupUpdateNotice?: Promise<string | undefined>,
 ): IAppLifecycleState {
   const channelLifecycle = useChannelLifecycle(channel);
+  // A child's effects run first: the composer, or the screen that stands in for it, has attached its
+  // key listeners by now, so keys typed during the start are delivered to it instead of being read and dropped.
+  const signalInputReady = useSignalInputReady();
+  const { startPending } = channelLifecycle;
+  useEffect(() => {
+    if (!startPending) signalInputReady();
+  }, [startPending, signalInputReady]);
   const [sessionName, setSessionName] = useState<string | undefined>(channel.sessionName);
   useEffect(() => {
     if (channel.sessionName !== undefined && channel.sessionName !== sessionName) {
