@@ -15,8 +15,8 @@ import { ArtifactCorruptError } from '@robota-sdk/agent-core';
 import { KeyringError, openArtifactKey, openBlob, parseKeyring } from '@robota-sdk/agent-keyring';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
-import { KeyHolder, OpenedDataKeys } from '../key-holder.js';
+import { KeyHolderArtifactSealer } from '@robota-sdk/agent-local-host';
+import { KeyHolder, OpenedDataKeys } from '@robota-sdk/agent-local-host';
 import { createMemoryKeyringStore } from './helpers.js';
 
 import type { IArtifactContext } from '@robota-sdk/agent-core';

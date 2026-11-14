@@ -50,8 +50,8 @@ import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker
 import { resolveCliRuntimeContext } from '../../startup/product-bootstrap.js';
 import { compactProductPromptHistory } from '../../product/session-stores.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
-import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
-import { KeyHolder } from '../key-holder.js';
+import { KeyHolderArtifactSealer } from '@robota-sdk/agent-local-host';
+import { KeyHolder } from '@robota-sdk/agent-local-host';
 import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import {
   SECURE_MODE_OFF,

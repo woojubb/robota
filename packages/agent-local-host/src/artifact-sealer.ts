@@ -1,5 +1,5 @@
 /**
- * The artifact sealers the CLI hands to the stores: `IArtifactSealer` over the keyring and the one
+ * The artifact sealers a host hands to its stores: `IArtifactSealer` over the keyring and the one
  * `KeyHolder` that holds this process's keys, a write-only sealer for a process that was handed
  * only a write grant, and a process-local sealer for what only the process that wrote it ever reads.
  *
@@ -53,7 +53,7 @@ import {
   splitSealedBlob,
 } from '@robota-sdk/agent-keyring';
 
-import { KeyringStoreError, type TKeyringStoreErrorCode } from '@robota-sdk/agent-local-host';
+import { KeyringStoreError, type TKeyringStoreErrorCode } from './keyring-store.js';
 
 import type { IArtifactContext, IArtifactSealer, TArtifactKind } from '@robota-sdk/agent-core';
 import type { IKeyPair } from '@robota-sdk/agent-keyring';

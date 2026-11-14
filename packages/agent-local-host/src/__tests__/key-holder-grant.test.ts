@@ -20,7 +20,7 @@ import {
   createMemoryKeyringStore,
   fixtureKeyring,
   withSwappedSealingKey,
-} from './helpers.js';
+} from '../testing.js';
 
 /** The read keys an owner link delivers: what an unlock with the owner's passphrase yields. */
 async function grantedKeys(): Promise<IReadKeys> {

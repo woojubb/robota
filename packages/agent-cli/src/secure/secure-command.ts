@@ -32,7 +32,7 @@ import { userPaths } from '../product/user-paths.js';
 import { writeProductConversationMode } from './conversation-mode-state.js';
 import { createInterface } from 'node:readline/promises';
 import { listSupervisedSessions, lockSupervisedSession, resolveSupervisedDirectory } from '../session-inventory/supervised-session-control.js';
-import { KeyHolder, SealingKeyMismatchError } from './key-holder.js';
+import { KeyHolder, SealingKeyMismatchError } from '@robota-sdk/agent-local-host';
 import { KeyringStoreError, createKeyringFileStore, type IKeyringStore } from '@robota-sdk/agent-local-host';
 import {
   EXIT_FAILED,

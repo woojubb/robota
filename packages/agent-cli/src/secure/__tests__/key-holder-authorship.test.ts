@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { KeyringError, parseKeyring } from '@robota-sdk/agent-keyring';
 import { describe, expect, it } from 'vitest';
 
-import { KeyHolder } from '../key-holder.js';
+import { KeyHolder } from '@robota-sdk/agent-local-host';
 import { createMemoryKeyringStore } from './helpers.js';
 
 const keyring = parseKeyring(

@@ -31,6 +31,31 @@
         }
       }
     },
+    "./testing": {
+      "source": "./src/testing.ts",
+      "browser": null,
+      "product-source": "./src/testing.ts",
+      "node": {
+        "import": {
+          "types": "./dist/node/testing.d.ts",
+          "default": "./dist/node/testing.js"
+        },
+        "require": {
+          "types": "./dist/node/testing.d.cts",
+          "default": "./dist/node/testing.cjs"
+        }
+      },
+      "default": {
+        "import": {
+          "types": "./dist/node/testing.d.ts",
+          "default": "./dist/node/testing.js"
+        },
+        "require": {
+          "types": "./dist/node/testing.d.cts",
+          "default": "./dist/node/testing.cjs"
+        }
+      }
+    },
     "./package.json": "./package.json"
   },
   "engines": {

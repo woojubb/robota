@@ -24,14 +24,14 @@ import {
   type IKeyHolderTimers,
   type TLockReason,
 } from '../key-holder.js';
-import { KeyringStoreError, createKeyringFileStore } from '@robota-sdk/agent-local-host';
+import { KeyringStoreError, createKeyringFileStore } from '../index.js';
 import {
   FIXTURE_PASSPHRASE,
   OTHER_PASSPHRASE,
   createMemoryKeyringStore,
   fixtureKeyring,
   withSwappedSealingKey,
-} from './helpers.js';
+} from '../testing.js';
 
 const MINUTE = 60_000;
 const passphrase: TKeyringCredential = { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE };

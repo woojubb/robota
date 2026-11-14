@@ -6,7 +6,7 @@
 import { fingerprint, getSealingPublicKey, type IKeyring } from '@robota-sdk/agent-keyring';
 
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
-import type { SealingKeyMismatchError } from './key-holder.js';
+import type { SealingKeyMismatchError } from '@robota-sdk/agent-local-host';
 import type { IKeyringStore } from '@robota-sdk/agent-local-host';
 
 export const EXIT_OK = 0;
