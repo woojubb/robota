@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { hostedWorkerCliFixture } from './helpers/hosted-worker-cli.js';
@@ -145,8 +145,11 @@ describe('hosted stock CLI task-owned tools', () => {
         ],
         abort.signal,
       );
-      await vi.waitFor(() => expect(existsSync(started)).toBe(true), { timeout: 40_000 });
-      const observed = JSON.parse(readFileSync(started, 'utf8')) as { pid: number; cwd: string };
+      // The shell creates the file before it finishes writing it: wait for a complete record.
+      const observed = await vi.waitFor(
+        () => JSON.parse(readFileSync(started, 'utf8')) as { pid: number; cwd: string },
+        { timeout: 40_000 },
+      );
       pid = observed.pid;
       expect(observed.cwd).toBe(fixture.worker);
       const stoppingAt = Date.now();
