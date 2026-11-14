@@ -5,11 +5,16 @@ import {
 } from '@robota-sdk/agent-core';
 import { assertSessionSealing } from '@robota-sdk/agent-session/node';
 
+import { WorkspaceAuthorityRequiredError } from '../workspace-trust/workspace-authority-required-error.js';
 import { MANIFEST_FILE, SNAPSHOT_DIR } from './edit-checkpoint-store-helpers.js';
 
 import type { IEditCheckpointStateStorage } from './edit-checkpoint-state-storage.js';
 import type { IArtifactContext, IArtifactSealer, TArtifactSealing } from '@robota-sdk/agent-core';
-import type { IWorkspaceDirectoryEntry } from '../workspace-trust/index.js';
+import type {
+  IWorkspaceDirectoryEntry,
+  IWorkspaceDirectoryRemovalOptions,
+  TWorkspaceDirectoryRemoval,
+} from '../workspace-trust/index.js';
 
 /** The characters `safePathSegment` leaves and turn names use; never `:` or `|`, so an id parses one way. */
 const PLACE_SEGMENT = /^[A-Za-z0-9._-]+$/u;
@@ -128,6 +133,18 @@ export class SealedEditCheckpointState implements IEditCheckpointStateStorage {
 
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[] {
     return this.inner.listDirectory(relativePath, purpose);
+  }
+
+  /** Removal touches no sealed content, so it goes to the inner state as it is. */
+  removeDirectory(
+    relativePath: string,
+    purpose: string,
+    options?: IWorkspaceDirectoryRemovalOptions,
+  ): TWorkspaceDirectoryRemoval {
+    if (this.inner.removeDirectory === undefined) {
+      throw new WorkspaceAuthorityRequiredError('The checkpoint state cannot remove directories.');
+    }
+    return this.inner.removeDirectory(relativePath, purpose, options);
   }
 
   /** The bytes at `relativePath` exactly as stored, sealed or not. */
