@@ -11,22 +11,27 @@ import { findProviderDefinition, formatSupportedProviderTypes } from '@robota-sd
 import {
   GoalRefusedError,
   IdeaRefusedError,
+  SpaceRefusedError,
   PAGE_KINDS,
   SensitiveContentRefusedError,
 } from '@robota-sdk/agent-product/personal';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
 
+import { SideChatRefusedError } from './side-chats.js';
 import { loadConfig, saveConfig } from './config.js';
 import { createProviderFromProfile } from './provider.js';
 
 import type { ILoopbackGuiApiRequest, ILoopbackGuiApiResponse } from '@robota-sdk/agent-local-host';
 import type {
   GoalBook,
+  ISpace,
   IWikiPage,
   IdeaBook,
   KnowledgeWiki,
+  SpaceBook,
   TPageKind,
 } from '@robota-sdk/agent-product/personal';
+import type { ISideChatBook } from './side-chats.js';
 import type { IGoalRunner } from './goal-runner.js';
 import type { IProviderProfile } from './config.js';
 
@@ -34,6 +39,8 @@ export interface IPersonalApiOptions {
   readonly wiki: KnowledgeWiki;
   readonly goals: GoalBook;
   readonly ideas: IdeaBook;
+  readonly spaces: SpaceBook;
+  readonly sideChats: ISideChatBook;
   /** The goal runner, once the agent is running; approvals and "run now" need it. */
   readonly runner: () => IGoalRunner | undefined;
   readonly stateDir: string;
@@ -68,6 +75,14 @@ function text(body: Record<string, unknown>, key: string, optional = false): str
   return value;
 }
 
+/** A text field that may be left empty; when it is sent, it has to be a string. */
+function optionalText(body: Record<string, unknown>, key: string): string {
+  const value = body[key];
+  if (value === undefined) return '';
+  if (typeof value !== 'string') throw new BadRequest(`${key} must be a string`);
+  return value;
+}
+
 function summary(page: IWikiPage) {
   return {
     id: page.id,
@@ -83,7 +98,14 @@ export function providerTypes(): string[] {
 }
 
 export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
-  const { wiki, goals, ideas } = options;
+  const { wiki, goals, ideas, spaces, sideChats } = options;
+  /** A space as the page shows it: its pinned pages that still exist, and the opening they make. */
+  const spaceView = async (space: ISpace) => {
+    const pinned = (await Promise.all(space.pages.map((pageId) => wiki.read(pageId))))
+      .filter((page): page is IWikiPage => page !== undefined)
+      .map((page) => ({ id: page.id, title: page.title }));
+    return { ...space, pinned, opening: spaces.opening(space, pinned) };
+  };
 
   const routes = async (request: ILoopbackGuiApiRequest): Promise<ILoopbackGuiApiResponse> => {
     const { method, segments } = request;
@@ -216,6 +238,46 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
         return ok({ idea: await ideas.takeUp(idea.id, `goal:${goal.id}`), goal });
       }
     }
+    if (area === 'spaces' && collection === undefined) {
+      if (method === 'GET') {
+        return ok({
+          spaces: await Promise.all((await spaces.list()).map((space) => spaceView(space))),
+        });
+      }
+      if (method === 'POST') {
+        const body = record(request.body);
+        const space = await spaces.create({
+          name: text(body, 'name')!,
+          instructions: optionalText(body, 'instructions'),
+        });
+        return ok({ space: await spaceView(space) });
+      }
+    }
+    if (area === 'spaces' && collection !== undefined && method === 'POST') {
+      if ((await spaces.get(collection)) === undefined) return fail(404, 'no such space');
+      if (id === 'update') {
+        const body = record(request.body);
+        const space = await spaces.update(collection, {
+          name: text(body, 'name')!,
+          instructions: optionalText(body, 'instructions'),
+        });
+        return ok({ space: await spaceView(space) });
+      }
+      if (id === 'pin' || id === 'unpin') {
+        const pageId = text(record(request.body), 'pageId')!;
+        if (id === 'pin' && (await wiki.read(pageId)) === undefined)
+          return fail(404, 'no such page');
+        const space =
+          id === 'pin'
+            ? await spaces.pin(collection, pageId)
+            : await spaces.unpin(collection, pageId);
+        return ok({ space: await spaceView(space) });
+      }
+      if (id === 'remove') {
+        await spaces.remove(collection);
+        return ok({ removed: collection });
+      }
+    }
     if (area === 'feed' && collection === undefined && method === 'GET') {
       return ok({ items: (await goals.feed()).filter((item) => !item.dismissed) });
     }
@@ -235,6 +297,24 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       }
     }
 
+    if (area === 'side-chats' && collection === undefined) {
+      if (method === 'GET') return ok({ sideChats: sideChats.list() });
+      if (method === 'POST') {
+        const body = record(request.body);
+        const parentId = body.parentId === undefined ? undefined : text(body, 'parentId')!;
+        const chat = sideChats.add({
+          id: text(body, 'id')!,
+          ...(parentId !== undefined && { parentId }),
+          title: optionalText(body, 'title'),
+        });
+        return ok({ sideChat: chat });
+      }
+    }
+    if (area === 'side-chats' && collection !== undefined && id === 'remove' && method === 'POST') {
+      return sideChats.remove(collection)
+        ? ok({ removed: collection })
+        : fail(404, 'no such side chat');
+    }
     if (area === 'search' && method === 'GET') {
       const query = (request.query.get('q') ?? '').trim();
       if (query === '') return ok({ results: [] });
@@ -304,6 +384,8 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       if (error instanceof SensitiveContentRefusedError) return fail(422, error.message);
       if (error instanceof GoalRefusedError) return fail(400, error.message);
       if (error instanceof IdeaRefusedError) return fail(400, error.message);
+      if (error instanceof SpaceRefusedError) return fail(400, error.message);
+      if (error instanceof SideChatRefusedError) return fail(400, error.message);
       if (error instanceof Error && /^No (current claim|wiki page)/u.test(error.message))
         return fail(400, error.message);
       throw error;

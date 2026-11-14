@@ -3,7 +3,7 @@
 ## Purpose
 
 The personal agent's web UI: the shared session surface (`@robota-sdk/agent-ui-web`) for chat, inside a
-menu shell for what a personal agent keeps — the feed of results and approvals, ideas, its goals, the library
+menu shell for what a personal agent keeps — the feed of results and approvals, ideas, its goals, spaces, the library
 of what it knows about the person, search and settings. `apps/personal-agent` serves its build behind
 the shared access-code server.
 
@@ -36,3 +36,7 @@ importable library.
 
 - The shell keeps the chat mounted while another menu is open, so a session and its draft survive a
   trip to the library.
+- A side chat is a second connection with a chat of its own, so nothing said there reaches the main
+  chat unless the person brings it back, and then as their own message. It can start from the main
+  chat's latest turns, quoted in the person's first message rather than shared, and the menu lists
+  side chats apart, each linked to the chat it was started beside.

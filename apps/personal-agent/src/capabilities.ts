@@ -11,12 +11,14 @@ import {
   IDEA_INSTRUCTIONS,
   IdeaBook,
   KnowledgeWiki,
+  SpaceBook,
   WIKI_INSTRUCTIONS,
   createBrowserTools,
   createChannelHub,
   createFileGoalStore,
   createFileIdeaStore,
   createFileKnowledgeStore,
+  createFileSpaceStore,
   createGoalTools,
   createIdeaTools,
   createWikiTools,
@@ -26,6 +28,7 @@ import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playw
 import { createApprovalRegistry } from './approvals.js';
 import { createChannelTurns } from './channel-turns.js';
 import { createGoalRunner } from './goal-runner.js';
+import { createSideChatBook } from './side-chats.js';
 import { createPersonalApi } from './personal-api.js';
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
@@ -42,6 +45,7 @@ export interface IPersonalCapabilities {
   readonly browser: IBrowserPort;
   readonly goals: GoalBook;
   readonly ideas: IdeaBook;
+  readonly spaces: SpaceBook;
   /**
    * The channels the person reaches the agent through. Any messenger connects as an adapter of the
    * standard channel contract; only the owner's verified sender ids are admitted on each.
@@ -82,6 +86,8 @@ export function createPersonalCapabilities(
   });
   const goals = new GoalBook({ store: createFileGoalStore(join(options.stateDir, 'goals')) });
   const ideas = new IdeaBook({ store: createFileIdeaStore(join(options.stateDir, 'ideas')) });
+  const spaces = new SpaceBook({ store: createFileSpaceStore(join(options.stateDir, 'spaces')) });
+  const sideChats = createSideChatBook(join(options.stateDir, 'side-chats'));
   let runner: IGoalRunner | undefined;
   let channelTurns: IChannelTurns | undefined;
   const approvals = createApprovalRegistry(goals);
@@ -124,12 +130,15 @@ export function createPersonalCapabilities(
     browser,
     goals,
     ideas,
+    spaces,
     channels,
     runner: () => runner,
     api: createPersonalApi({
       wiki,
       goals,
       ideas,
+      spaces,
+      sideChats,
       runner: () => runner,
       stateDir: options.stateDir,
       environment: options.environment,
