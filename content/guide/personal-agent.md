@@ -35,17 +35,20 @@ prints an HTTP API address and the bearer for scripts.
 
 ## The menus
 
+The menu lists your tabs: the fixed ones and one per space, in your order (drag a tab, or press
+Alt+Up/Down on it, to move it). On a narrow screen it opens from the menu button.
+
 | Menu | What it is for |
 | --- | --- |
-| **New chat** / **Chat** | Talk with your agent. Earlier chats are listed and can be reopened. |
+| **Chat** | Talk with your agent. Earlier chats are in the chat's own list, one toggle away. |
 | **Feed** | Results from your goals, and actions waiting for your approval. Approve or decline here. |
 | **Ideas** | Thoughts kept for later, yours or suggested by your agent (marked as such). Make one a goal when you want. |
 | **Goals** | What your agent keeps working on, once or on a schedule, with each run's report and what it did. |
-| **Spaces** | Areas of your life with your own instructions and pinned library pages; a chat started in a space opens with them. |
-| **Side chat** | A quick chat beside the main one, optionally starting from the main chat's latest turns. Side chats are listed in the menu; bring an answer back when you want it there. |
+| **Spaces** (one tab each) | Areas of your life with your own instructions and pinned library pages; a chat started in a space opens with them. **Create space** adds one. |
+| **Side chats** | The round button in the chat starts a quick chat beside it, optionally from the main chat's latest turns. Side chats are listed in the menu; bring an answer back when you want it there. |
 | **Library** | What your agent knows about you, page by page, with where each fact came from. Correct or forget anything. |
-| **Search** | Find anything in your library. |
-| **Settings** | Model, browser, and where your data lives. |
+| **Search** (foot of the menu) | Find anything in your library. |
+| **Settings** (gear) and **New chat** (pen), foot of the menu | Model, browser, where your data lives; a fresh chat. |
 
 ## What keeps it safe
 
