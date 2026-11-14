@@ -137,6 +137,14 @@ export interface ISpaceView {
   readonly opening: string;
 }
 
+export interface ISideChatView {
+  /** The side chat's session id. */
+  readonly id: string;
+  readonly parentId?: string;
+  readonly title: string;
+  readonly createdAt: string;
+}
+
 export const API_WRITE_HEADER = 'x-robota-api';
 
 export class ApiError extends Error {
@@ -183,6 +191,13 @@ export interface IPersonalApi {
     instructions: string;
   }): Promise<{ space: ISpaceView }>;
   removeSpace(id: string): Promise<unknown>;
+  sideChats(): Promise<readonly ISideChatView[]>;
+  recordSideChat(input: {
+    id: string;
+    parentId?: string;
+    title: string;
+  }): Promise<{ sideChat: ISideChatView }>;
+  removeSideChat(id: string): Promise<unknown>;
   pinPage(spaceId: string, pageId: string, pinned: boolean): Promise<{ space: ISpaceView }>;
   addIdea(input: { text: string; tags: readonly string[] }): Promise<{ idea: IIdeaView }>;
   ideaAction(
@@ -242,6 +257,10 @@ export function createPersonalApi(
     saveSpace: ({ id: spaceId, ...input }) =>
       call('POST', spaceId === undefined ? 'spaces' : `spaces/${id(spaceId)}/update`, input),
     removeSpace: (spaceId) => call('POST', `spaces/${id(spaceId)}/remove`),
+    sideChats: async () =>
+      (await call<{ sideChats: ISideChatView[] }>('GET', 'side-chats')).sideChats,
+    recordSideChat: (input) => call('POST', 'side-chats', input),
+    removeSideChat: (chatId) => call('POST', `side-chats/${id(chatId)}/remove`),
     pinPage: (spaceId, pageId, pinned) =>
       call('POST', `spaces/${id(spaceId)}/${pinned ? 'pin' : 'unpin'}`, { pageId }),
     ideaAction: (ideaId, action) => call('POST', `ideas/${id(ideaId)}/${action}`),

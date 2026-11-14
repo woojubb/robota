@@ -689,3 +689,15 @@ describe('/cd', () => {
     expect(usage.success).toBe(false);
   });
 });
+
+describe('a session command module limited to named commands', () => {
+  it('offers and runs only those commands', () => {
+    const module = createSessionCommandModule({ only: ['rename'] });
+    expect(
+      module.commandSources!.flatMap((source) => source.getCommands()).map((c) => c.name),
+    ).toEqual(['rename']);
+    expect(module.systemCommands!.map((command) => command.name)).toEqual(['rename']);
+    const all = createSessionCommandModule();
+    expect(all.systemCommands!.map((command) => command.name)).toContain('cd');
+  });
+});

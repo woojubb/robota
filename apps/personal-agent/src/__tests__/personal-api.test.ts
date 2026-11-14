@@ -229,6 +229,27 @@ describe('the personal API behind the web UI', () => {
     expect(unpinned.body.space.pages).toEqual([]);
   });
 
+  it('records side chats for the menu and forgets them on request', async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    expect((await api.get('side-chats')).body).toEqual({ sideChats: [] });
+    const recorded = await api.send('POST', 'side-chats', {
+      id: 'session-a',
+      parentId: 'session-main',
+      title: 'Ferry times',
+    });
+    expect(recorded.body.sideChat).toEqual(
+      expect.objectContaining({ id: 'session-a', parentId: 'session-main', title: 'Ferry times' }),
+    );
+    expect((await api.send('POST', 'side-chats', { id: '../x', title: 't' })).status).toBe(400);
+    expect((await api.send('POST', 'side-chats', { title: 't' })).status).toBe(400);
+    expect((await api.get('side-chats')).body.sideChats.map((chat: any) => chat.id)).toEqual([
+      'session-a',
+    ]);
+    expect((await api.send('POST', 'side-chats/session-a/remove')).status).toBe(200);
+    expect((await api.send('POST', 'side-chats/session-a/remove')).status).toBe(404);
+  });
+
   it('keeps spaces with their opening, edits and removes them', async () => {
     harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
     const api = await client(harness);

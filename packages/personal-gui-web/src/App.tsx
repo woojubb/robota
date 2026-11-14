@@ -3,19 +3,19 @@ import {
   SessionSurface,
   useWsSession,
 } from '@robota-sdk/agent-ui-web/client';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { FeedView } from './views/Feed.js';
 import { GoalsView } from './views/Goals.js';
 import { IdeasView } from './views/Ideas.js';
-import { SideChat } from './views/SideChat.js';
+import { SideChat, recentTurns } from './views/SideChat.js';
 import { SpacesView } from './views/Spaces.js';
 import { LibraryView } from './views/Library.js';
 import { SearchView } from './views/Search.js';
 import { SettingsView } from './views/Settings.js';
 
 import type { IWebProductIdentity } from '@robota-sdk/agent-ui-web/client';
-import type { IPersonalApi } from './api.js';
+import type { IPersonalApi, ISideChatView } from './api.js';
 
 /** The personal agent's identity for the shared surface: its name, and the browser storage it owns. */
 export const PERSONAL_IDENTITY: IWebProductIdentity = {
@@ -70,7 +70,41 @@ function Shell({
   const [menu, setMenu] = useState<TMenu>('chat');
   // The chat connection lives here, so the menu can start a new chat as well as the chat list can.
   const chat = useWsSession(wsUrl);
-  const [sideOpen, setSideOpen] = useState(false);
+  // The open side chat: a new one (with the main chat's latest turns to offer) or a listed one.
+  const [side, setSide] = useState<
+    { readonly key: number; readonly resumeId?: string; readonly context?: string } | undefined
+  >(undefined);
+  const [sideChats, setSideChats] = useState<readonly ISideChatView[]>([]);
+  const reloadSideChats = useCallback(async () => {
+    try {
+      setSideChats(await api.sideChats());
+    } catch {
+      // The list is a convenience; the side chats themselves stay in the chat list.
+    }
+  }, [api]);
+  useEffect(() => {
+    void reloadSideChats();
+  }, [reloadSideChats]);
+  const openSide = (resumeId?: string): void => {
+    setMenu('chat');
+    // The side chat records the chat it was started beside, so the listing has to be current.
+    chat.requestSessions();
+    const context = resumeId === undefined ? recentTurns(chat.messages) : undefined;
+    setSide({
+      key: Date.now(),
+      ...(resumeId !== undefined && { resumeId }),
+      ...(context !== undefined && { context }),
+    });
+  };
+  const sideStarted = useCallback(
+    (sessionId: string, title: string) => {
+      const parentId = chat.sessionListing?.currentSessionId;
+      void api
+        .recordSideChat({ id: sessionId, title, ...(parentId !== undefined && { parentId }) })
+        .then(reloadSideChats, () => undefined);
+    },
+    [api, chat.sessionListing, reloadSideChats],
+  );
   // A space's opening goes into an empty chat: the current one if it is empty, else a new one, sent
   // once the new chat is current (its conversation starts empty).
   const opening = useRef<string | undefined>(undefined);
@@ -124,11 +158,8 @@ function Shell({
         </button>
         <button
           type="button"
-          aria-pressed={sideOpen}
-          onClick={() => {
-            setMenu('chat');
-            setSideOpen((open) => !open);
-          }}
+          aria-pressed={side !== undefined && side.resumeId === undefined}
+          onClick={() => openSide()}
           className="mb-2 rounded-lg px-2.5 py-2 text-left text-[14px] font-medium text-muted-foreground hover:bg-hover"
         >
           Side chat
@@ -145,14 +176,58 @@ function Shell({
             {item.label}
           </button>
         ))}
+        <section
+          aria-label="Side chats"
+          className="mt-4 flex min-h-0 flex-col gap-1 border-t border-border pt-3"
+        >
+          <h2 className="px-2.5 text-[12px] font-medium text-muted-foreground">Side chats</h2>
+          {sideChats.length === 0 && (
+            <p className="px-2.5 text-[12px] text-muted-foreground">
+              Side chats you start appear here.
+            </p>
+          )}
+          <ul className="flex min-h-0 flex-col gap-0.5 overflow-y-auto">
+            {sideChats.map((sideChat) => (
+              <li key={sideChat.id} className="group flex items-center">
+                <button
+                  type="button"
+                  title={sideChat.title}
+                  aria-current={side?.resumeId === sideChat.id ? 'true' : undefined}
+                  onClick={() => openSide(sideChat.id)}
+                  className="min-w-0 flex-1 truncate rounded-lg px-2.5 py-1.5 text-left text-[13px] text-muted-foreground hover:bg-hover"
+                >
+                  {sideChat.title}
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove ${sideChat.title} from side chats`}
+                  onClick={() =>
+                    void api.removeSideChat(sideChat.id).then(reloadSideChats, () => undefined)
+                  }
+                  className="hidden px-1 text-muted-foreground hover:text-foreground group-hover:block"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       </nav>
       <main className="relative min-w-0 flex-1">
         <div className={menu === 'chat' ? 'flex h-full' : 'hidden'}>
           <div className="min-w-0 flex-1">
             <SessionSurface state={chat} surface="web" draftMode="persistent" />
           </div>
-          {sideOpen && (
-            <SideChat wsUrl={wsUrl} onBringBack={bringBack} onClose={() => setSideOpen(false)} />
+          {side !== undefined && (
+            <SideChat
+              key={side.key}
+              wsUrl={wsUrl}
+              {...(side.resumeId !== undefined && { resumeId: side.resumeId })}
+              {...(side.context !== undefined && { context: side.context })}
+              onStarted={sideStarted}
+              onBringBack={bringBack}
+              onClose={() => setSide(undefined)}
+            />
           )}
         </div>
         {menu === 'feed' && <FeedView api={api} onOpenGoal={showGoal} />}

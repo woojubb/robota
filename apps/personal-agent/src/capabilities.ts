@@ -28,6 +28,7 @@ import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playw
 import { createApprovalRegistry } from './approvals.js';
 import { createChannelTurns } from './channel-turns.js';
 import { createGoalRunner } from './goal-runner.js';
+import { createSideChatBook } from './side-chats.js';
 import { createPersonalApi } from './personal-api.js';
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
@@ -86,6 +87,7 @@ export function createPersonalCapabilities(
   const goals = new GoalBook({ store: createFileGoalStore(join(options.stateDir, 'goals')) });
   const ideas = new IdeaBook({ store: createFileIdeaStore(join(options.stateDir, 'ideas')) });
   const spaces = new SpaceBook({ store: createFileSpaceStore(join(options.stateDir, 'spaces')) });
+  const sideChats = createSideChatBook(join(options.stateDir, 'side-chats'));
   let runner: IGoalRunner | undefined;
   let channelTurns: IChannelTurns | undefined;
   const approvals = createApprovalRegistry(goals);
@@ -136,6 +138,7 @@ export function createPersonalCapabilities(
       goals,
       ideas,
       spaces,
+      sideChats,
       runner: () => runner,
       stateDir: options.stateDir,
       environment: options.environment,

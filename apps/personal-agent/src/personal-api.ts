@@ -17,6 +17,7 @@ import {
 } from '@robota-sdk/agent-product/personal';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider/builtin';
 
+import { SideChatRefusedError } from './side-chats.js';
 import { loadConfig, saveConfig } from './config.js';
 import { createProviderFromProfile } from './provider.js';
 
@@ -30,6 +31,7 @@ import type {
   SpaceBook,
   TPageKind,
 } from '@robota-sdk/agent-product/personal';
+import type { ISideChatBook } from './side-chats.js';
 import type { IGoalRunner } from './goal-runner.js';
 import type { IProviderProfile } from './config.js';
 
@@ -38,6 +40,7 @@ export interface IPersonalApiOptions {
   readonly goals: GoalBook;
   readonly ideas: IdeaBook;
   readonly spaces: SpaceBook;
+  readonly sideChats: ISideChatBook;
   /** The goal runner, once the agent is running; approvals and "run now" need it. */
   readonly runner: () => IGoalRunner | undefined;
   readonly stateDir: string;
@@ -95,7 +98,7 @@ export function providerTypes(): string[] {
 }
 
 export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
-  const { wiki, goals, ideas, spaces } = options;
+  const { wiki, goals, ideas, spaces, sideChats } = options;
   /** A space as the page shows it: its pinned pages that still exist, and the opening they make. */
   const spaceView = async (space: ISpace) => {
     const pinned = (await Promise.all(space.pages.map((pageId) => wiki.read(pageId))))
@@ -294,6 +297,24 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       }
     }
 
+    if (area === 'side-chats' && collection === undefined) {
+      if (method === 'GET') return ok({ sideChats: sideChats.list() });
+      if (method === 'POST') {
+        const body = record(request.body);
+        const parentId = body.parentId === undefined ? undefined : text(body, 'parentId')!;
+        const chat = sideChats.add({
+          id: text(body, 'id')!,
+          ...(parentId !== undefined && { parentId }),
+          title: optionalText(body, 'title'),
+        });
+        return ok({ sideChat: chat });
+      }
+    }
+    if (area === 'side-chats' && collection !== undefined && id === 'remove' && method === 'POST') {
+      return sideChats.remove(collection)
+        ? ok({ removed: collection })
+        : fail(404, 'no such side chat');
+    }
     if (area === 'search' && method === 'GET') {
       const query = (request.query.get('q') ?? '').trim();
       if (query === '') return ok({ results: [] });
@@ -364,6 +385,7 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       if (error instanceof GoalRefusedError) return fail(400, error.message);
       if (error instanceof IdeaRefusedError) return fail(400, error.message);
       if (error instanceof SpaceRefusedError) return fail(400, error.message);
+      if (error instanceof SideChatRefusedError) return fail(400, error.message);
       if (error instanceof Error && /^No (current claim|wiki page)/u.test(error.message))
         return fail(400, error.message);
       throw error;

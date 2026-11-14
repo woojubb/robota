@@ -37,7 +37,7 @@ prints an HTTP API address and the bearer for scripts.
 | **Ideas** | Thoughts kept for later, yours or suggested by your agent (marked as such). Make one a goal when you want. |
 | **Goals** | What your agent keeps working on, once or on a schedule, with each run's report and what it did. |
 | **Spaces** | Areas of your life with your own instructions and pinned library pages; a chat started in a space opens with them. |
-| **Side chat** | A quick chat beside the main one; bring its answer back when you want it there. |
+| **Side chat** | A quick chat beside the main one, optionally starting from the main chat's latest turns. Side chats are listed in the menu; bring an answer back when you want it there. |
 | **Library** | What your agent knows about you, page by page, with where each fact came from. Correct or forget anything. |
 | **Search** | Find anything in your library. |
 | **Settings** | Model, browser, and where your data lives. |

@@ -37,4 +37,6 @@ importable library.
 - The shell keeps the chat mounted while another menu is open, so a session and its draft survive a
   trip to the library.
 - A side chat is a second connection with a chat of its own, so nothing said there reaches the main
-  chat unless the person brings it back, and then as their own message.
+  chat unless the person brings it back, and then as their own message. It can start from the main
+  chat's latest turns, quoted in the person's first message rather than shared, and the menu lists
+  side chats apart, each linked to the chat it was started beside.

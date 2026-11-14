@@ -15,3 +15,4 @@ export {
   createSessionCommandModule,
   createValidateSessionCommandEntry,
 } from './session-command-module.js';
+export type { ISessionCommandModuleOptions } from './session-command-module.js';
