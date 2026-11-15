@@ -51,6 +51,7 @@ export type {
 } from './cases/case-book.js';
 export { createFileCaseStore, createMemoryCaseStore } from './cases/stores.js';
 export { CASE_INSTRUCTIONS, CASE_TOOL_NAMES, createCaseTools } from './cases/tools.js';
+export { caseTurnInstructions, caseTurnPrompt, caseTurnTools } from './cases/turn.js';
 export type {
   ICase,
   ICaseEvent,

@@ -567,10 +567,11 @@ A case is the agent's own record of one matter it noticed: what it saw and noted
 waiting on, and what happened. An item that already has a case gets that case back, open or closed, never a
 second one. The question shows in the feed as its own kind of item, never an approval, with the notes as its
 evidence; the person answers with one of the choices offered or, where the question allows it, in their own
-words, once, and the answer is recorded on the case without running anything. A question whose case closed first
-can no longer be answered. A case touches only the agent's own record and the feed, so a read-only run and a run
-that reads untrusted content may keep one; the agent writes it from content other people wrote, so what it takes
-is bounded and a likely secret is refused.
+words, once, and the answer is recorded on the case and gives the agent one read-only turn on it, which takes its
+direction from the answer alone and can only read, note, ask one follow-up question or close the case. A question
+whose case closed first can no longer be answered. A case touches only the agent's own record and the feed, so a
+read-only run and a run that reads untrusted content may keep one; the agent writes it from content other people
+wrote, so what it takes is bounded and a likely secret is refused.
 
 An idea is kept as the person's or as the agent's own suggestion, and a suggestion stays one: nothing
 acts on an idea until the person takes it up, and an idea taken up records what it became. A space
