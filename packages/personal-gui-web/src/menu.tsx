@@ -4,6 +4,7 @@ import {
   Lightbulb,
   MessageCircle,
   Newspaper,
+  Plug,
   Settings,
   SquareCheck,
   SquarePen,
@@ -15,7 +16,7 @@ import type { LucideIcon } from 'lucide-react';
 import type { ISideChatView, ISpaceView } from './api.js';
 
 /** The tabs every person has; spaces join them as `space:<id>`. */
-export type TFixedTab = 'chat' | 'feed' | 'ideas' | 'goals' | 'library';
+export type TFixedTab = 'chat' | 'feed' | 'ideas' | 'goals' | 'library' | 'connectors';
 export type TTab = TFixedTab | `space:${string}`;
 
 export const FIXED_TABS: readonly {
@@ -29,6 +30,7 @@ export const FIXED_TABS: readonly {
   { id: 'ideas', label: 'Ideas', hint: 'Thoughts kept for later', icon: Lightbulb },
   { id: 'goals', label: 'Goals', hint: 'What your agent keeps working on', icon: SquareCheck },
   { id: 'library', label: 'Library', hint: 'What your agent knows about you', icon: LibraryBig },
+  { id: 'connectors', label: 'Connectors', hint: 'The services your agent can use', icon: Plug },
 ];
 
 export const spaceTab = (spaceId: string): TTab => `space:${spaceId}`;

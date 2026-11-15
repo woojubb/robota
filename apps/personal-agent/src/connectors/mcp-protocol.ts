@@ -18,6 +18,7 @@ import {
   MCPOAuthError,
   createOAuthAuthenticator,
   createStreamableHttpAdapter,
+  oauthCredentialKey,
   openMcpSession,
   readMCPOAuthCredentialState,
   runMCPOAuthLogin,
@@ -64,6 +65,9 @@ const DIRECTORY = 'connector-credentials';
 const CLIENT_NAME = 'Robota personal agent';
 const CLIENT_VERSION = '0.1.0';
 const RESULT_BLOCK_LIMIT = 24_000;
+/** Scope words as RFC 6749 allows them, space separated; anything else is the service's text and is not shown. */
+const SCOPE_WORDS = /^[\x21\x23-\x5b\x5d-\x7e]+(?: [\x21\x23-\x5b\x5d-\x7e]+)*$/;
+const MAX_SCOPE_LENGTH = 512;
 
 const DEFAULT_TIMEOUTS: IMCPTimeouts = {
   startupMs: 15_000,
@@ -213,6 +217,22 @@ export function createMcpConnectorProtocol(
     return supervisor;
   };
 
+  /** The scopes the service says it granted, kept only when they are plain scope words. */
+  const grantedScope = async (connector: IConnector): Promise<string | undefined> => {
+    try {
+      const credential = await store.get(
+        oauthCredentialKey(identity(connector), connector.endpoint),
+      );
+      const scope = credential?.scope;
+      return scope !== undefined && scope.length <= MAX_SCOPE_LENGTH && SCOPE_WORDS.test(scope)
+        ? scope
+        : undefined;
+    } catch {
+      // allow-fallback: an unreadable credential file shows no scope; the state itself says what is wrong.
+      return undefined;
+    }
+  };
+
   return {
     id: 'mcp',
 
@@ -226,7 +246,10 @@ export function createMcpConnectorProtocol(
         store,
       });
       // A sign-in that failed or was abandoned leaves a working credential working.
-      if (stored === 'signed-in' || stored === 'expired-refreshable') return { state: 'connected' };
+      if (stored === 'signed-in' || stored === 'expired-refreshable') {
+        const scope = await grantedScope(connector);
+        return { state: 'connected', ...(scope !== undefined && { scope }) };
+      }
       if (runtime?.failure !== undefined) return { state: 'failed', reason: runtime.failure };
       if (stored === 'sign-in-required' || runtime?.needsSignIn === true) {
         return { state: 'needs-sign-in' };

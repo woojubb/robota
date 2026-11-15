@@ -235,6 +235,14 @@ describe('connecting', () => {
     await w.waitForState(id, 'connected');
   });
 
+  it('shows the scopes the service says it granted, as the permission the person gave', async () => {
+    const w = await world();
+    const id = await w.add('Notes', 'notes', NOTES_HOST, { scopes: ['notes.read', 'notes.write'] });
+    await w.consent((await w.connect(id)).authorizationUrl);
+    const view = await w.waitForState(id, 'connected');
+    expect(view.status.scope).toBe('notes.read notes.write');
+  });
+
   it('uses the client id the person registered, and registers nothing dynamically', async () => {
     const w = await world();
     const id = await w.add('Notes', 'notes', NOTES_HOST, { clientId: 'my-registered-client' });

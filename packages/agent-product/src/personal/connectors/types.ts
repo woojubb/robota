@@ -79,6 +79,12 @@ export interface IConnectorStatus {
   readonly authorizationUrl?: string;
   /** While connecting: the address the consent returns to, which a pre-registered client must list. */
   readonly redirectUri?: string;
+  /**
+   * While connected: the scopes the service says it granted, as scope words. What the person
+   * consented to is this, so it is shown as the authoritative permission; never a token or derived
+   * from one.
+   */
+  readonly scope?: string;
 }
 
 /** Where the person's browser reaches this agent; the consent returns there. */

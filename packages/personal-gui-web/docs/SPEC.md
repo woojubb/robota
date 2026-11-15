@@ -4,7 +4,7 @@
 
 The personal agent's web UI: the shared session surface (`@robota-sdk/agent-ui-web`) for chat, inside a
 menu shell for what a personal agent keeps — the feed of results and approvals, ideas, its goals, spaces, the library
-of what it knows about the person, search and settings. `apps/personal-agent` serves its build behind
+of what it knows about the person, the services it is connected to, search and settings. `apps/personal-agent` serves its build behind
 the shared access-code server.
 
 It is a **`private` product-shell package**: a product UI assembled from the shared libraries, not an
@@ -23,6 +23,12 @@ importable library.
   action a goal is waiting on; the page shows the method and address being approved.
 - **The person's word, labelled as such.** A fact the person adds or corrects in the library is
   theirs; facts the agent read elsewhere are shown with where they came from.
+- **A connection is made by the person, in this browser.** The Connectors tab starts a sign-in and
+  opens the service's own page for the person; the agent's machine opens nothing. The page shows a
+  connection's state as a fixed word and the scopes the service says it granted, never a credential,
+  and shows what each tool may do split into reading (on its own) and writing (the person approves
+  every call). The page records the person's decision about a tool; deciding what a tool is by
+  default stays with the agent.
 - **Secrets stay out of the page.** Settings name the environment variable that holds a provider key;
   the key itself is never sent to or shown by the page.
 
