@@ -33,6 +33,14 @@ const STATE_LABEL: Readonly<Record<TConnectorState, string>> = {
   failed: 'Could not connect',
 };
 
+/** What a person can do about a sign-in that failed for a reason that is theirs to act on. */
+const FAILURE_HELP: Readonly<Record<string, string>> = {
+  'registration-unavailable':
+    'This service does not register clients automatically. Register a client with it yourself (the add form shows the redirect address to allow), then remove this connector and add it again with that client id.',
+  'client-metadata-unusable':
+    'This service takes a client description published at an address, but the one this agent was given cannot be used: it could not be read, is not this agent’s, or does not list this page’s redirect address. Whoever runs this agent can fix the address, or you can register a client with the service yourself.',
+};
+
 /** The state in words; a token the service stopped accepting asks for a new token, not a sign-in. */
 function stateLabel(connector: IConnectorView): string {
   if (connector.auth === 'token' && connector.status.state === 'needs-sign-in') {
@@ -209,6 +217,11 @@ function ConnectorCard({
         </span>
       </div>
       <p className="break-all text-[12px] text-muted-foreground">{connector.endpoint}</p>
+      {status.state === 'failed' &&
+        status.reason !== undefined &&
+        FAILURE_HELP[status.reason] !== undefined && (
+          <p className="mt-1 text-[12.5px]">{FAILURE_HELP[status.reason]}</p>
+        )}
       {auth === 'none' && (
         <p className="text-[12px] text-muted-foreground">This service needs no sign-in.</p>
       )}

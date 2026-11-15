@@ -95,6 +95,8 @@ export interface IPersonalCapabilityOptions {
   readonly goalTickMs?: number;
   /** Exact hostnames the connectors may reach although they are loopback or private; the owner names them. */
   readonly connectorAllowedHosts?: readonly string[];
+  /** The `https` address of this agent's client metadata document, for services that take one instead of a registration. */
+  readonly connectorClientMetadataUrl?: string;
   /** Owner or test carrier and resolver for the connectors' requests; each is still judged against the egress policy first. */
   readonly connectorNetwork?: {
     readonly fetch?: typeof globalThis.fetch;
@@ -136,6 +138,9 @@ export function createPersonalCapabilities(
         broker: consent,
         ...(options.connectorAllowedHosts !== undefined && {
           allowedHosts: options.connectorAllowedHosts,
+        }),
+        ...(options.connectorClientMetadataUrl !== undefined && {
+          clientMetadataUrl: options.connectorClientMetadataUrl,
         }),
         ...(options.connectorNetwork?.fetch !== undefined && {
           fetch: options.connectorNetwork.fetch,

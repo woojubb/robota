@@ -20,6 +20,7 @@ import { createNodeOAuthNetwork } from '../node/oauth-network.js';
 import { createFileOAuthRefreshLock } from '../node/oauth-refresh-lock.js';
 import {
   AS_URL,
+  CLIENT_DOCUMENT_URL,
   MCP_URL,
   SECRET_DESCRIPTION,
   createFakeOAuthServer,
@@ -78,6 +79,7 @@ function login(
   options: {
     config?: IMCPOAuthConfig;
     clientSecret?: string;
+    clientMetadataUrl?: string;
     browse?: (url: URL) => URL;
     directory?: string;
   } = {},
@@ -99,6 +101,9 @@ function login(
     serverUrl: MCP_URL,
     config: options.config ?? {},
     ...(options.clientSecret === undefined ? {} : { clientSecret: options.clientSecret }),
+    ...(options.clientMetadataUrl === undefined
+      ? {}
+      : { clientMetadataUrl: options.clientMetadataUrl }),
     store,
     callbackListener: loopbackOAuthCallbackListener,
     network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
@@ -348,6 +353,179 @@ describe('OAuth sign-in', () => {
       /stolen-code-value|leaked-secret|verifier/,
     );
   });
+});
+
+describe('how the client is registered', () => {
+  const randomPort = (): number => 40_000 + Math.floor(Math.random() * 20_000);
+  const redirectOn = (port: number): string => `http://127.0.0.1:${port}/callback`;
+  const documentFor = (redirects: unknown, clientId: string = CLIENT_DOCUMENT_URL) => ({
+    client_id: clientId,
+    client_name: 'Test Client',
+    redirect_uris: redirects,
+    grant_types: ['authorization_code', 'refresh_token'],
+    response_types: ['code'],
+    token_endpoint_auth_method: 'none',
+  });
+  const registrations = (server: IFakeOAuthServer) =>
+    server.requests.filter((request) => request.url.endsWith('/register'));
+  const documentFetches = (server: IFakeOAuthServer) =>
+    server.requests.filter((request) => request.url === CLIENT_DOCUMENT_URL);
+
+  it('tells the registration standard a loopback redirect is a native application', async () => {
+    const server = createFakeOAuthServer();
+    await login(server).result;
+    const [registration] = registrations(server);
+    expect(JSON.parse(registration!.body)).toMatchObject({
+      application_type: 'native',
+      redirect_uris: [expect.stringMatching(/^http:\/\/127\.0\.0\.1:\d+\/callback$/)],
+    });
+  });
+
+  it('tells it an https redirect is a web application', async () => {
+    const server = createFakeOAuthServer();
+    const directory = temporaryDirectory();
+    let arrive!: (result: { code: string; iss: string }) => void;
+    const arrived = new Promise<{ code: string; iss: string }>((resolve) => {
+      arrive = resolve;
+    });
+    const opened: URL[] = [];
+    await runMCPOAuthLogin({
+      clientName: 'Test Client',
+      securityIdentity: 'identity-1',
+      serverUrl: MCP_URL,
+      config: {},
+      store: createFileOAuthCredentialStore(directory),
+      lock: createFileOAuthRefreshLock(directory),
+      network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
+      callbackListener: {
+        freePort: async () => 0,
+        listen: async () => ({
+          redirectUri: 'https://agent.example.test/connector-callback',
+          wait: () => arrived,
+          close: async () => undefined,
+        }),
+      },
+      openBrowser: async (url) => {
+        opened.push(url);
+        const redirect = server.approve(url);
+        arrive({
+          code: redirect.searchParams.get('code')!,
+          iss: redirect.searchParams.get('iss')!,
+        });
+      },
+    });
+    expect(JSON.parse(registrations(server)[0]!.body)).toMatchObject({
+      application_type: 'web',
+      redirect_uris: ['https://agent.example.test/connector-callback'],
+    });
+  });
+
+  it('uses the host’s client metadata document instead of registering, when the server takes one that lists this redirect', async () => {
+    const port = randomPort();
+    const server = createFakeOAuthServer();
+    server.overrides.clientDocuments = true;
+    server.overrides.clientDocument = documentFor([redirectOn(port)]);
+    const { result, store, opened } = login(server, {
+      config: { callbackPort: port },
+      clientMetadataUrl: CLIENT_DOCUMENT_URL,
+    });
+    await result;
+    expect(registrations(server)).toEqual([]);
+    expect(opened[0]!.searchParams.get('client_id')).toBe(CLIENT_DOCUMENT_URL);
+    const stored = await store.get(oauthCredentialKey('identity-1', MCP_URL));
+    expect(stored).toMatchObject({ clientId: CLIENT_DOCUMENT_URL, issuer: AS_URL });
+    expect(stored).not.toHaveProperty('clientSecret');
+  });
+
+  it('does not look at the document when the server does not take one, and registers', async () => {
+    const port = randomPort();
+    const server = createFakeOAuthServer();
+    server.overrides.clientDocument = documentFor([redirectOn(port)]);
+    const { result, opened } = login(server, {
+      config: { callbackPort: port },
+      clientMetadataUrl: CLIENT_DOCUMENT_URL,
+    });
+    await result;
+    expect(documentFetches(server)).toEqual([]);
+    expect(registrations(server)).toHaveLength(1);
+    expect(opened[0]!.searchParams.get('client_id')).toBe('dynamic-client');
+  });
+
+  it('prefers a client the person registered over the document, and reads no document', async () => {
+    const port = randomPort();
+    const server = createFakeOAuthServer();
+    server.overrides.clientDocuments = true;
+    server.overrides.clientDocument = documentFor([redirectOn(port)]);
+    const { result, opened } = login(server, {
+      config: { clientId: 'agent-test-cli', callbackPort: port },
+      clientMetadataUrl: CLIENT_DOCUMENT_URL,
+    });
+    await result;
+    expect(documentFetches(server)).toEqual([]);
+    expect(registrations(server)).toEqual([]);
+    expect(opened[0]!.searchParams.get('client_id')).toBe('agent-test-cli');
+  });
+
+  it('registers when the document does not list this sign-in’s redirect address', async () => {
+    const server = createFakeOAuthServer();
+    server.overrides.clientDocuments = true;
+    server.overrides.clientDocument = documentFor([redirectOn(1)]);
+    const { result, opened } = login(server, { clientMetadataUrl: CLIENT_DOCUMENT_URL });
+    await result;
+    expect(documentFetches(server)).toHaveLength(1);
+    expect(registrations(server)).toHaveLength(1);
+    expect(opened[0]!.searchParams.get('client_id')).toBe('dynamic-client');
+  });
+
+  it.each([
+    ['cannot be read', undefined],
+    [
+      'is the document of another address',
+      documentFor(['x'], 'https://client.example.test/other.json'),
+    ],
+    ['lists no redirect addresses', documentFor(undefined)],
+    ['lists something that is not an address list', documentFor([1, 2])],
+  ])(
+    'refuses with a fixed reason, before anything is shown, when the document %s and the server offers no registration',
+    async (_name, document) => {
+      const server = createFakeOAuthServer();
+      server.overrides.clientDocuments = true;
+      server.overrides.registration = 'absent';
+      if (document !== undefined) server.overrides.clientDocument = document;
+      const attempt = login(server, { clientMetadataUrl: CLIENT_DOCUMENT_URL });
+      expect((await failure(attempt.result)).reason).toBe('client-metadata-unusable');
+      expect(attempt.opened).toEqual([]);
+    },
+  );
+
+  it('tells the person to register a client when there is no document the server takes and no registration', async () => {
+    const withoutUrl = createFakeOAuthServer();
+    withoutUrl.overrides.clientDocuments = true;
+    withoutUrl.overrides.registration = 'absent';
+    expect((await failure(login(withoutUrl).result)).reason).toBe('registration-unavailable');
+
+    const unsupported = createFakeOAuthServer();
+    unsupported.overrides.registration = 'absent';
+    unsupported.overrides.clientDocument = documentFor(['x']);
+    const attempt = login(unsupported, { clientMetadataUrl: CLIENT_DOCUMENT_URL });
+    expect((await failure(attempt.result)).reason).toBe('registration-unavailable');
+    expect(attempt.opened).toEqual([]);
+  });
+
+  it.each([
+    ['not https', 'http://client.example.test/clients/agent.json'],
+    ['without a path', 'https://client.example.test/'],
+    ['not an address', 'not an address'],
+  ])(
+    'refuses a client metadata address that is %s before the service hears anything',
+    async (_name, url) => {
+      const server = createFakeOAuthServer();
+      const attempt = login(server, { clientMetadataUrl: url });
+      expect((await failure(attempt.result)).reason).toBe('client-metadata-url-invalid');
+      expect(attempt.opened).toEqual([]);
+      expect(server.requests).toEqual([]);
+    },
+  );
 });
 
 describe('OAuth callback listener', () => {

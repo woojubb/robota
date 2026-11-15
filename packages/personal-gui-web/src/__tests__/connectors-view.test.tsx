@@ -219,6 +219,25 @@ describe('the Connectors tab', () => {
     expect(screen.getByRole('button', { name: 'Connect again' })).toBeTruthy();
   });
 
+  it('says what to do when the service offers no way to get a client, instead of only a fixed word', async () => {
+    const failed: IConnectorView = {
+      ...NOTES,
+      status: { state: 'failed', reason: 'registration-unavailable' },
+      tools: undefined,
+    };
+    const { unmount } = render(<ConnectorsView api={fakeApi([failed])} />);
+    await screen.findByText(/does not register clients automatically/u);
+    unmount();
+    // A reason the person cannot act on stays a fixed word with no advice attached.
+    render(
+      <ConnectorsView
+        api={fakeApi([{ ...failed, status: { state: 'failed', reason: 'authorization-denied' } }])}
+      />,
+    );
+    await screen.findByText(/Could not connect \(authorization-denied\)/u);
+    expect(screen.queryByText(/does not register clients automatically/u)).toBeNull();
+  });
+
   it('tells the person what disconnecting did at the service, with nothing to ask when nothing was pulled', async () => {
     const disconnect = vi.fn(async () => ({
       outcome: { removed: true, revocation: 'failed' as const },

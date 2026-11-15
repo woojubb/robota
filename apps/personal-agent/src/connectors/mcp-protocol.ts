@@ -61,6 +61,8 @@ export interface IMcpConnectorProtocolOptions {
   readonly broker: IConsentBroker;
   /** Exact hostnames that may be reached although they are loopback or private; the owner names them. */
   readonly allowedHosts?: readonly string[];
+  /** The `https` address of a client metadata document that names this agent, used instead of a registration where the service takes one. */
+  readonly clientMetadataUrl?: string;
   /** Owner or test carrier and resolver: every request is still judged against the policy first. */
   readonly fetch?: typeof globalThis.fetch;
   readonly lookup?: TEgressLookup;
@@ -397,6 +399,9 @@ export function createMcpConnectorProtocol(
         callbackListener: options.broker.listenerFor(context.origin),
         // Held for this sign-in only; the login keeps it with the owner-only credential.
         ...(context.clientSecret !== undefined && { clientSecret: context.clientSecret }),
+        ...(options.clientMetadataUrl !== undefined && {
+          clientMetadataUrl: options.clientMetadataUrl,
+        }),
         signal: abort.signal,
         // The person's own browser opens this address; nothing on this machine does.
         openBrowser: async (url, redirectUri) => {

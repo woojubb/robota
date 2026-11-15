@@ -131,10 +131,19 @@ export async function main(
     .split(',')
     .map((host) => host.trim().toLowerCase())
     .filter((host) => host !== '');
+  // The address of a hosted client metadata document naming this agent, for services that take one in place of a registration.
+  const clientMetadataUrl = (merged['PERSONAL_AGENT_CLIENT_METADATA_URL'] ?? '').trim();
+  if (
+    clientMetadataUrl !== '' &&
+    !(URL.canParse(clientMetadataUrl) && new URL(clientMetadataUrl).protocol === 'https:')
+  ) {
+    throw new Error('PERSONAL_AGENT_CLIENT_METADATA_URL must be an https address');
+  }
   const capabilities = createPersonalCapabilities({
     stateDir,
     environment: merged,
     ...(connectorHosts.length > 0 && { connectorAllowedHosts: connectorHosts }),
+    ...(clientMetadataUrl !== '' && { connectorClientMetadataUrl: clientMetadataUrl }),
   });
   const local = await startLocalMode({
     stateDir,

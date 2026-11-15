@@ -3,8 +3,11 @@
  * and ending with a credential in the store.
  *
  * - The authorization server is discovered and checked (`discovery.ts`).
- * - Without a pre-registered `clientId`, the client registers itself dynamically for the loopback
- *   redirect of this sign-in.
+ * - The client is, in this order: the pre-registered `clientId`; the host's client metadata document
+ *   (its address is the client id) when the authorization server accepts those and the document lists
+ *   this sign-in's redirect address; a dynamic registration for that redirect address, which says
+ *   whether it is a native or a web application; else the sign-in is refused and the person is told to
+ *   register a client.
  * - The authorization request carries PKCE, a random `state` and the canonical server URL as the
  *   RFC 8707 resource indicator, and any extra parameters the config names (never one of these); the redirect is accepted only with that `state`
  *   (`callback.ts`) and, when it carries an RFC 9207 `iss`, only from the discovered issuer.
@@ -22,7 +25,9 @@
 import {
   exchangeAuthorization,
   registerClient,
+  resolveClientMetadata,
   startAuthorization,
+  validateClientMetadataUrl,
 } from '@modelcontextprotocol/client';
 import { randomHex } from '@robota-sdk/agent-core';
 
@@ -51,6 +56,13 @@ export interface IMCPOAuthLoginInput {
   readonly config: IMCPOAuthConfig;
   /** Only with a pre-registered `clientId`; asked for by the host, never read from a definition. */
   readonly clientSecret?: string;
+  /**
+   * The `https` address of a client metadata document the host publishes (a JSON file naming this
+   * client, with its own address as `client_id` and its redirect addresses). It stands in for a
+   * registration at an authorization server that advertises support for such documents, so nothing is
+   * registered there and nothing is kept about this client at the server.
+   */
+  readonly clientMetadataUrl?: string;
   readonly store: IMCPOAuthCredentialStore;
   /** The refresh lock a session uses, so a refresh in flight cannot overwrite this sign-in. */
   readonly lock: IMCPOAuthRefreshLock;
@@ -116,6 +128,55 @@ export function credentialFromTokens(
   };
 }
 
+/** The redirect addresses a client metadata document lists, when it is the document of its own address. */
+async function listedRedirects(
+  url: string,
+  fetchFn: ReturnType<typeof createOAuthFetch>,
+  signal: AbortSignal | undefined,
+): Promise<readonly string[] | undefined> {
+  let document: unknown;
+  try {
+    const response = await fetchFn(url, { headers: { accept: 'application/json' } });
+    if (!response.ok) return undefined;
+    document = await response.json();
+  } catch {
+    // allow-fallback: a document that cannot be read is one this sign-in cannot rely on; the caller registers or refuses.
+    if (signal?.aborted === true) throw new MCPOAuthError('cancelled');
+    return undefined;
+  }
+  if (typeof document !== 'object' || document === null) return undefined;
+  const record = document as Record<string, unknown>;
+  const redirects = record['redirect_uris'];
+  if (record['client_id'] !== url) return undefined;
+  return Array.isArray(redirects) && redirects.every((entry) => typeof entry === 'string')
+    ? (redirects as string[])
+    : undefined;
+}
+
+/**
+ * The host's client metadata document as this sign-in's client: only when the authorization server
+ * accepts such documents and the document is this client's and lists the redirect address this sign-in
+ * uses, since the server would otherwise refuse the sign-in after the person has been sent to it.
+ * `undefined` when there is no document or the server does not take one; `unusable` when there is a
+ * document the server would take but this sign-in cannot rely on it.
+ */
+async function documentClient(
+  input: IMCPOAuthLoginInput,
+  server: IMCPOAuthServerInfo,
+  redirectUri: string,
+  fetchFn: ReturnType<typeof createOAuthFetch>,
+): Promise<OAuthClientInformationMixed | 'unusable' | undefined> {
+  const url = input.clientMetadataUrl;
+  if (url === undefined) return undefined;
+  if (
+    (server.metadata as Record<string, unknown>)['client_id_metadata_document_supported'] !== true
+  ) {
+    return undefined;
+  }
+  const listed = await listedRedirects(url, fetchFn, input.signal);
+  return listed?.includes(redirectUri) === true ? { client_id: url } : 'unusable';
+}
+
 async function clientFor(
   input: IMCPOAuthLoginInput,
   server: IMCPOAuthServerInfo,
@@ -129,19 +190,28 @@ async function clientFor(
     };
   }
   if (input.clientSecret !== undefined) throw new MCPOAuthError('client-secret-without-client-id');
+  const viaDocument = await documentClient(input, server, redirectUri, fetchFn);
+  if (viaDocument !== undefined && viaDocument !== 'unusable') return viaDocument;
   if (server.metadata.registration_endpoint === undefined) {
-    throw new MCPOAuthError('registration-unavailable');
+    throw new MCPOAuthError(
+      viaDocument === 'unusable' ? 'client-metadata-unusable' : 'registration-unavailable',
+    );
   }
   try {
     return await registerClient(server.issuer, {
       metadata: server.metadata,
-      clientMetadata: {
-        client_name: input.clientName,
-        redirect_uris: [redirectUri],
-        grant_types: ['authorization_code', 'refresh_token'],
-        response_types: ['code'],
-        token_endpoint_auth_method: 'none',
-      },
+      // The SDK says whether this is a native application (a loopback or custom-scheme redirect) or a
+      // web one, as the registration standard requires.
+      clientMetadata: resolveClientMetadata({
+        clientMetadata: {
+          client_name: input.clientName,
+          redirect_uris: [redirectUri],
+          grant_types: ['authorization_code', 'refresh_token'],
+          response_types: ['code'],
+          token_endpoint_auth_method: 'none',
+        },
+        redirectUrl: redirectUri,
+      }),
       ...(server.scope === undefined ? {} : { scope: server.scope }),
       fetchFn,
     });
@@ -215,6 +285,12 @@ export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCP
       ? {}
       : checkAuthorizationParams(input.config.authorizationParams);
   if (typeof extraParams === 'string') throw new MCPOAuthError('authorization-params-invalid');
+  try {
+    validateClientMetadataUrl(input.clientMetadataUrl);
+  } catch {
+    // allow-fallback: the SDK's error says nothing the fixed reason does not; the address is the host's setting.
+    throw new MCPOAuthError('client-metadata-url-invalid');
+  }
   const fetchFn = createOAuthFetch(input.network, input.signal);
   const server = await discoverMCPOAuthServer({
     serverUrl: input.serverUrl,

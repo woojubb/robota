@@ -5,6 +5,7 @@
  * a notes service differ here only in the tools the stand-in is given.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -82,6 +83,7 @@ afterEach(async () => {
 async function world(
   authorization: Omit<IStandInAuthorizationOptions, 'publicBase'> = {},
   extraHosts: Readonly<Record<string, number>> = {},
+  app: { readonly clientMetadataUrl?: string } = {},
 ): Promise<IWorld> {
   const auth = withTokenCheck(
     await startStandInAuthorizationServer({ publicBase: `https://${AUTH_HOST}`, ...authorization }),
@@ -107,6 +109,9 @@ async function world(
     gui: true,
     webRoot: createFixtureWebRoot(),
     connectorNetwork: { fetch: fetchVirtual, lookup: async () => ['203.0.113.10'] },
+    ...(app.clientMetadataUrl !== undefined && {
+      connectorClientMetadataUrl: app.clientMetadataUrl,
+    }),
   });
   closers.push(() => harness.close());
   const origin = new URL(harness.local.gui!.url).origin;
@@ -606,6 +611,67 @@ describe('a service that gives a client you registered a secret', () => {
     const view = await w.waitForState(hijack, 'failed');
     expect(view.status.reason).toBe('authorization-params-invalid');
     expect(w.auth.authorizationRequests).toEqual([]);
+  });
+});
+
+describe('a service that takes a client metadata document in place of a registration', () => {
+  const DOCUMENT_HOST = 'client.stand-in.test';
+  const DOCUMENT_URL = `https://${DOCUMENT_HOST}/clients/agent.json`;
+
+  /** The host's published document, naming the agent by its own address and the redirect it uses. */
+  async function documentServer() {
+    let redirect = '';
+    const requested: string[] = [];
+    const server = createServer((request, response) => {
+      requested.push(request.url ?? '');
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          client_id: DOCUMENT_URL,
+          client_name: 'Robota personal agent',
+          redirect_uris: [redirect],
+          grant_types: ['authorization_code', 'refresh_token'],
+          response_types: ['code'],
+          token_endpoint_auth_method: 'none',
+        }),
+      );
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    closers.push(() => new Promise<void>((resolve) => server.close(() => resolve())));
+    const port = (server.address() as { port: number }).port;
+    return { port, requested, listRedirect: (address: string) => (redirect = address) };
+  }
+
+  it('signs in with the document’s address as its client id and registers nothing', async () => {
+    const document = await documentServer();
+    const w = await world(
+      { clientDocuments: true },
+      { [DOCUMENT_HOST]: document.port },
+      { clientMetadataUrl: DOCUMENT_URL },
+    );
+    document.listRedirect(`${w.origin}/connector-callback`);
+    const id = await w.add('Notes', 'notes', NOTES_HOST);
+    const started = await w.connect(id);
+    expect(new URL(started.authorizationUrl).searchParams.get('client_id')).toBe(DOCUMENT_URL);
+    await w.consent(started.authorizationUrl);
+    await w.waitForState(id, 'connected');
+    expect(document.requested).toEqual(['/clients/agent.json']);
+  });
+
+  it('registers as before when the service takes no document, and never reads it', async () => {
+    const document = await documentServer();
+    const w = await world(
+      {},
+      { [DOCUMENT_HOST]: document.port },
+      { clientMetadataUrl: DOCUMENT_URL },
+    );
+    document.listRedirect(`${w.origin}/connector-callback`);
+    const id = await w.add('Notes', 'notes', NOTES_HOST);
+    const started = await w.connect(id);
+    expect(new URL(started.authorizationUrl).searchParams.get('client_id')).toMatch(/^client-/u);
+    await w.consent(started.authorizationUrl);
+    await w.waitForState(id, 'connected');
+    expect(document.requested).toEqual([]);
   });
 });
 
