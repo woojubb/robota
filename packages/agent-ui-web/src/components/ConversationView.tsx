@@ -128,7 +128,7 @@ interface IConversationViewProps {
 }
 
 /** Agent markdown, set as reading prose: headings step down gently, code sits on its own quiet surface. */
-function AgentMarkdown({ children }: { children: string }): React.ReactElement {
+export function AgentMarkdown({ children }: { children: string }): React.ReactElement {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
