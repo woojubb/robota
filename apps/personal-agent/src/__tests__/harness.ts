@@ -80,6 +80,7 @@ export async function startHarness(
     webRoot?: string;
     stateDir?: string;
     browserAllowedHosts?: readonly string[];
+    connectorNetwork?: import('../capabilities.js').IPersonalCapabilityOptions['connectorNetwork'];
     server?: import('../local-mode.js').IServerExposure;
   } = {},
 ): Promise<IHarness> {
@@ -101,6 +102,7 @@ export async function startHarness(
     ...(options.browserAllowedHosts !== undefined && {
       browserAllowedHosts: options.browserAllowedHosts,
     }),
+    ...(options.connectorNetwork !== undefined && { connectorNetwork: options.connectorNetwork }),
   });
   // Saved the way `personal-agent configure` saves it, so settings read what this run uses.
   const profile = {
@@ -118,10 +120,13 @@ export async function startHarness(
     instructions: capabilities.instructions,
     gui: options.gui ?? false,
     api: capabilities.api,
+    landing: capabilities.landing,
     ...(options.webRoot !== undefined && { webRoot: options.webRoot }),
     ...(options.server !== undefined && { server: options.server }),
   });
-  await capabilities.attach(local.agent);
+  await capabilities.attach(local.agent, {
+    guiOrigins: local.gui === undefined ? [] : [new URL(local.gui.url).origin],
+  });
   const auth = { authorization: `Bearer ${local.httpToken}` };
   async function submit(
     prompt: string,

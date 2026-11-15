@@ -6,6 +6,9 @@ import { join } from 'node:path';
 
 import {
   BROWSER_INSTRUCTIONS,
+  CONNECTOR_INSTRUCTIONS,
+  ConnectorBook,
+  ConnectorRegistry,
   GOAL_INSTRUCTIONS,
   GoalBook,
   IDEA_INSTRUCTIONS,
@@ -15,6 +18,8 @@ import {
   WIKI_INSTRUCTIONS,
   createBrowserTools,
   createChannelHub,
+  createConnectorTools,
+  createFileConnectorStore,
   createFileGoalStore,
   createFileIdeaStore,
   createFileKnowledgeStore,
@@ -29,12 +34,17 @@ import { createApprovalRegistry } from './approvals.js';
 import { createChannelTurns } from './channel-turns.js';
 import { createGoalRunner } from './goal-runner.js';
 import { watchBrowser } from './browser/watched-browser.js';
+import { CONSENT_CALLBACK_PATH, createConsentBroker } from './connectors/consent.js';
+import { createConnectorsApi } from './connectors/connectors-api.js';
+import { createMcpConnectorProtocol } from './connectors/mcp-protocol.js';
 import { createLayoutBook } from './layout.js';
 import { createSideChatBook } from './side-chats.js';
 import { createPersonalApi } from './personal-api.js';
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
+import type { TEgressLookup } from '@robota-sdk/agent-core/node';
 import type { IBrowserPort, IChannelHub } from '@robota-sdk/agent-product/personal';
+import type { ILoopbackGuiServerOptions } from '@robota-sdk/agent-local-host';
 import type { IChannelTurns } from './channel-turns.js';
 import type { IPersonalAgent } from './agent.js';
 import type { IGoalRunner } from './goal-runner.js';
@@ -48,6 +58,10 @@ export interface IPersonalCapabilities {
   readonly goals: GoalBook;
   readonly ideas: IdeaBook;
   readonly spaces: SpaceBook;
+  /** The services the person connected, and the one place that decides what each tool may do. */
+  readonly connectors: ConnectorRegistry;
+  /** The path the person's browser returns to after consenting at a service; hand it to the GUI server. */
+  readonly landing: NonNullable<ILoopbackGuiServerOptions['landing']>;
   /**
    * The channels the person reaches the agent through. Any messenger connects as an adapter of the
    * standard channel contract; only the owner's verified sender ids are admitted on each.
@@ -57,8 +71,15 @@ export interface IPersonalCapabilities {
   readonly runner: () => IGoalRunner | undefined;
   /** The API the web UI calls for the library, search and settings. */
   readonly api: TPersonalApi;
-  /** Connect what needs the running agent: the goal runner works due goals in sessions of its own. */
-  attach(agent: IPersonalAgent): Promise<void>;
+  /**
+   * Connect what needs the running agent: the goal runner works due goals in sessions of its own.
+   * `guiOrigins` are the addresses the person's browser reaches the page at; a connector's sign-in
+   * returns to one of them.
+   */
+  attach(
+    agent: IPersonalAgent,
+    options?: { readonly guiOrigins?: readonly string[] },
+  ): Promise<void>;
   dispose(): Promise<void>;
 }
 
@@ -69,6 +90,13 @@ export interface IPersonalCapabilityOptions {
   readonly browserAllowedHosts?: readonly string[];
   /** How often to look for due goals; 0 runs them only when asked. */
   readonly goalTickMs?: number;
+  /** Exact hostnames the connectors may reach although they are loopback or private; the owner names them. */
+  readonly connectorAllowedHosts?: readonly string[];
+  /** Owner or test carrier and resolver for the connectors' requests; each is still judged against the egress policy first. */
+  readonly connectorNetwork?: {
+    readonly fetch?: typeof globalThis.fetch;
+    readonly lookup?: TEgressLookup;
+  };
 }
 
 const DEFAULT_GOAL_TICK_MS = 30_000;
@@ -91,6 +119,29 @@ export function createPersonalCapabilities(
   const spaces = new SpaceBook({ store: createFileSpaceStore(join(options.stateDir, 'spaces')) });
   const sideChats = createSideChatBook(join(options.stateDir, 'side-chats'));
   const layout = createLayoutBook(join(options.stateDir, 'layout'));
+  const connectorBook = new ConnectorBook({
+    store: createFileConnectorStore(join(options.stateDir, 'connectors')),
+  });
+  const consent = createConsentBroker();
+  const connectors = new ConnectorRegistry({
+    book: connectorBook,
+    protocols: [
+      createMcpConnectorProtocol({
+        stateDir: options.stateDir,
+        broker: consent,
+        ...(options.connectorAllowedHosts !== undefined && {
+          allowedHosts: options.connectorAllowedHosts,
+        }),
+        ...(options.connectorNetwork?.fetch !== undefined && {
+          fetch: options.connectorNetwork.fetch,
+        }),
+        ...(options.connectorNetwork?.lookup !== undefined && {
+          lookup: options.connectorNetwork.lookup,
+        }),
+      }),
+    ],
+  });
+  let guiOrigins: readonly string[] = [];
   let runner: IGoalRunner | undefined;
   let channelTurns: IChannelTurns | undefined;
   const approvals = createApprovalRegistry(goals);
@@ -127,6 +178,7 @@ export function createPersonalCapabilities(
       ...createBrowserTools(browser),
       ...createGoalTools(goals),
       ...createIdeaTools(ideas),
+      ...createConnectorTools(connectors),
     ],
     instructions: [
       PERSONAL_INSTRUCTIONS,
@@ -134,12 +186,15 @@ export function createPersonalCapabilities(
       BROWSER_INSTRUCTIONS,
       GOAL_INSTRUCTIONS,
       IDEA_INSTRUCTIONS,
+      CONNECTOR_INSTRUCTIONS,
     ].join('\n\n'),
     wiki,
     browser,
     goals,
     ideas,
     spaces,
+    connectors,
+    landing: { path: CONSENT_CALLBACK_PATH, handle: (query) => consent.land(query) },
     channels,
     runner: () => runner,
     api: createPersonalApi({
@@ -158,8 +213,14 @@ export function createPersonalCapabilities(
       stateDir: options.stateDir,
       environment: options.environment,
       browserAvailable: () => findChromiumExecutable(options.environment) !== undefined,
+      connectors: createConnectorsApi({
+        registry: connectors,
+        book: connectorBook,
+        origins: () => guiOrigins,
+      }),
     }),
-    attach: async (agent) => {
+    attach: async (agent, attachOptions) => {
+      guiOrigins = attachOptions?.guiOrigins ?? [];
       await goals.recover();
       channelTurns = createChannelTurns({
         book: goals,
@@ -180,6 +241,7 @@ export function createPersonalCapabilities(
       await runner?.stop();
       await channelTurns?.stop();
       for (const channel of channels.channels()) await channels.disconnect(channel.id);
+      await connectors.close();
       await browser.close();
     },
   };

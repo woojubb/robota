@@ -53,6 +53,8 @@ export interface ILocalModeOptions {
   readonly webRoot?: string;
   /** The personal API the web UI calls, served beside it behind the same access cookie. */
   readonly api?: ILoopbackGuiServerOptions['api'];
+  /** The one path another site sends the person's browser back to, such as a sign-in's redirect. */
+  readonly landing?: ILoopbackGuiServerOptions['landing'];
   /** WebSocket port; omitted lets the system choose a free one. */
   readonly wsPort?: number;
   /**
@@ -215,6 +217,7 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
           accessCode: options.server.accessCode,
         }),
         ...(options.api !== undefined && { api: options.api }),
+        ...(options.landing !== undefined && { landing: options.landing }),
       });
       gui = started;
       cleanups.push(() => started.close());
