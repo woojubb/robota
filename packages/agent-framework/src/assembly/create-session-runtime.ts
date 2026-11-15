@@ -247,6 +247,9 @@ function buildStaticPromptParams(
         }
       : {}),
     commandDescriptors: options.commandDescriptors ?? [],
+    // Static on purpose: product sections ride in every build and rebuild, never in the per-build
+    // closure values, so no live override can drop them.
+    ...(options.productSections !== undefined ? { productSections: options.productSections } : {}),
   };
 }
 

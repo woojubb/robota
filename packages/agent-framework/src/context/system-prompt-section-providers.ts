@@ -1,13 +1,22 @@
+import { ConfigurationError } from '@robota-sdk/agent-core';
+
 import { PROJECT_MEMORY_TRUST_NOTE } from '../memory/memory-trust-framing.js';
 
 import type { IOutputStylePrompt } from './output-style-prompt.js';
 import type { IProjectInfo } from './project-detector.js';
-import type { ISystemPromptSection } from './system-prompt-types.js';
+import type { IProductPromptSection, ISystemPromptSection } from './system-prompt-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 const PROJECT_MEMORY_PRIORITY = Number('25');
 const TASK_CONTEXT_PRIORITY = Number('27');
+/**
+ * Product sections sit just above the preset's own system prompt (4) and below an output style (3).
+ * The product's guidance is the frame a preset's text is read in, so a preset's prompt, persona and
+ * project instructions all follow it. A fixed value rather than a per-section one keeps the list order
+ * the caller gave, which is the only ordering a product has any reason to rely on.
+ */
+const PRODUCT_SECTION_PRIORITY = Number('3.5');
 
 function createSection(
   id: string,
@@ -47,6 +56,34 @@ export function createOutputStyleSection(
  */
 export function createPresetSystemPromptSection(text: string): ISystemPromptSection {
   return createSection('preset-system-prompt', undefined, 4, text, 'preset-system-prompt');
+}
+
+/**
+ * The sections a product contributes, in the order it listed them. Blank content adds no section, as
+ * for a preset prompt. A duplicate id is refused for the whole list, blank sections included: an id
+ * that names two sections cannot tell the manifest which one it means.
+ */
+export function createProductSections(
+  sections: readonly IProductPromptSection[],
+): ISystemPromptSection[] {
+  const seen = new Set<string>();
+  for (const section of sections) {
+    if (seen.has(section.id)) {
+      throw new ConfigurationError(`Duplicate product prompt section id: "${section.id}"`);
+    }
+    seen.add(section.id);
+  }
+  return sections
+    .filter((section) => section.content.trim().length > 0)
+    .map((section) =>
+      createSection(
+        section.id,
+        section.title,
+        PRODUCT_SECTION_PRIORITY,
+        section.content,
+        'product',
+      ),
+    );
 }
 
 /**

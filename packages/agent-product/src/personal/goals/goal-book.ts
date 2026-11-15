@@ -25,6 +25,7 @@ export interface ICreateGoalInput {
   readonly instructions: string;
   readonly everyMinutes?: number;
   readonly readOnly?: boolean;
+  readonly connectorId?: string;
 }
 
 export class GoalRefusedError extends Error {
@@ -105,6 +106,7 @@ export class GoalBook {
       instructions,
       ...(input.everyMinutes !== undefined && { everyMinutes: input.everyMinutes }),
       readOnly: input.readOnly === true,
+      ...(input.connectorId !== undefined && { connectorId: input.connectorId }),
       status: 'active',
       nextRunAt: at,
       createdAt: at,
@@ -145,6 +147,28 @@ export class GoalBook {
     return this.save(goal, { status: 'paused' }, ['nextRunAt']);
   }
 
+  /**
+   * Change how often a goal repeats. A run in progress keeps going and the next one follows the new
+   * interval; otherwise the goal is active again and due that long after its last run (at once if it
+   * never ran or that moment has passed).
+   */
+  async reschedule(id: string, everyMinutes: number): Promise<IGoal> {
+    if (!Number.isInteger(everyMinutes) || everyMinutes < 1) {
+      throw new GoalRefusedError('everyMinutes must be a whole number of at least 1');
+    }
+    const goal = await this.require(id);
+    if (goal.status === 'running' || goal.status === 'waiting') {
+      return this.save(goal, { everyMinutes });
+    }
+    const last = goal.lastRunAt === undefined ? undefined : new Date(goal.lastRunAt).getTime();
+    const due = last === undefined ? this.now().getTime() : last + everyMinutes * 60_000;
+    return this.save(goal, {
+      everyMinutes,
+      status: 'active',
+      nextRunAt: new Date(due).toISOString(),
+    });
+  }
+
   /** Make a paused, finished or failed goal due now. */
   async resume(id: string): Promise<IGoal> {
     const goal = await this.require(id);
@@ -180,7 +204,16 @@ export class GoalBook {
   }
 
   /** End a run, schedule the next one or close the goal, and report to the feed. */
-  async finishRun(run: IGoalRun, outcome: TGoalRunOutcome, report: string): Promise<IGoalRun> {
+  /**
+   * End a run. A `quiet` run that went well is kept in the goal's history but is not posted to the
+   * feed, so a goal that mostly finds nothing does not fill it; a run that did not go well is posted.
+   */
+  async finishRun(
+    run: IGoalRun,
+    outcome: TGoalRunOutcome,
+    report: string,
+    options: { readonly quiet?: boolean } = {},
+  ): Promise<IGoalRun> {
     const goal = await this.require(run.goalId);
     const at = this.stamp();
     const finished: IGoalRun = { ...run, endedAt: at, outcome, report };
@@ -191,6 +224,7 @@ export class GoalBook {
     } else {
       await this.save(goal, { status: outcome === 'done' ? 'done' : 'failed' }, ['nextRunAt']);
     }
+    if (options.quiet === true && outcome === 'done') return finished;
     await this.post({
       kind: 'report',
       title: outcome === 'done' ? goal.title : `${goal.title} (${outcome})`,

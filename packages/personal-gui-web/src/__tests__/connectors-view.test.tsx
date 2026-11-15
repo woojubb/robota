@@ -31,7 +31,11 @@ function fakeApi(
   extra: Partial<IPersonalApi> = {},
 ): IPersonalApi {
   const listing: IConnectorsListing = { callbackPath: '/connector-callback', connectors };
-  return { connectors: async () => listing, ...extra } as unknown as IPersonalApi;
+  return {
+    connectors: async () => listing,
+    connectorPulled: async () => ({ count: 0 }),
+    ...extra,
+  } as unknown as IPersonalApi;
 }
 
 describe('the Connectors tab', () => {
@@ -109,12 +113,13 @@ describe('the Connectors tab', () => {
     expect(screen.getByRole('button', { name: 'Connect again' })).toBeTruthy();
   });
 
-  it('tells the person what disconnecting did at the service', async () => {
+  it('tells the person what disconnecting did at the service, with nothing to ask when nothing was pulled', async () => {
     const disconnect = vi.fn(async () => ({
       outcome: { removed: true, revocation: 'failed' as const },
     }));
     render(<ConnectorsView api={fakeApi([NOTES], { disconnectConnector: disconnect })} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Disconnect' }));
+    await waitFor(() => expect(disconnect).toHaveBeenCalledWith(NOTES.id, false));
     await waitFor(() =>
       expect(
         screen.getByText(/did not confirm the revocation; the access ends when it expires/u),
@@ -122,18 +127,92 @@ describe('the Connectors tab', () => {
     );
   });
 
-  it('removes a connector only after a second, explicit step', async () => {
+  it('asks whether to keep or forget what the service put in the library, and says what was forgotten', async () => {
+    const disconnect = vi.fn(async () => ({
+      outcome: { removed: true, revocation: 'revoked' as const },
+      forgotten: 2,
+    }));
+    render(
+      <ConnectorsView
+        api={fakeApi([NOTES], {
+          disconnectConnector: disconnect,
+          connectorPulled: async () => ({ count: 2 }),
+        })}
+      />,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Disconnect' }));
+    await screen.findByText(/2 facts in your Library came from it/u);
+    expect(disconnect).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect and forget them' }));
+    await waitFor(() => expect(disconnect).toHaveBeenCalledWith(NOTES.id, true));
+    await waitFor(() =>
+      expect(screen.getByText(/2 facts it had pulled were forgotten/u)).toBeTruthy(),
+    );
+  });
+
+  it('removes a connector only after a second, explicit step, and can keep what it pulled', async () => {
     const remove = vi.fn(async () => ({
       outcome: { removed: true, revocation: 'revoked' as const },
     }));
     render(<ConnectorsView api={fakeApi([NOTES], { removeConnector: remove })} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+    await screen.findByRole('button', { name: 'Yes, remove' });
     expect(remove).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(remove).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Yes, remove' }));
-    await waitFor(() => expect(remove).toHaveBeenCalledWith(NOTES.id));
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, remove' }));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(NOTES.id, false));
+  });
+
+  it('turns keeping the library up to date on, off and runs it now', async () => {
+    const setSync = vi.fn(async () => ({ connector: NOTES }));
+    const run = vi.fn(async () => ({}));
+    const synced: IConnectorView = {
+      ...NOTES,
+      sync: {
+        goalId: 'goal-1',
+        everyMinutes: 60,
+        status: 'active',
+        lastRunAt: '2026-11-15T01:00:00Z',
+        nextRunAt: '2026-11-15T02:00:00Z',
+      },
+    };
+    render(
+      <ConnectorsView api={fakeApi([synced], { setConnectorSync: setSync, goalAction: run })} />,
+    );
+    const choose = await screen.findByLabelText('How often to check Notes');
+    expect((choose as HTMLSelectElement).value).toBe('60');
+    fireEvent.change(choose, { target: { value: '15' } });
+    await waitFor(() => expect(setSync).toHaveBeenCalledWith(NOTES.id, 15));
+    fireEvent.change(choose, { target: { value: 'off' } });
+    await waitFor(() => expect(setSync).toHaveBeenCalledWith(NOTES.id, null));
+    fireEvent.click(screen.getByRole('button', { name: 'Check now' }));
+    await waitFor(() => expect(run).toHaveBeenCalledWith('goal-1', 'run'));
+    expect(screen.getByText(/cannot change anything at the service/u)).toBeTruthy();
+  });
+
+  it('says when a check is paused or going on, instead of showing a time that will not come', async () => {
+    const sync = {
+      goalId: 'goal-1',
+      everyMinutes: 60,
+      lastRunAt: '2026-11-15T01:00:00Z',
+      nextRunAt: '2026-11-15T02:00:00Z',
+    } as const;
+    const { unmount } = render(
+      <ConnectorsView api={fakeApi([{ ...NOTES, sync: { ...sync, status: 'paused' } }])} />,
+    );
+    await screen.findByText(/Paused in your Goals/u);
+    unmount();
+    render(<ConnectorsView api={fakeApi([{ ...NOTES, sync: { ...sync, status: 'running' } }])} />);
+    await screen.findByText(/Checking now\./u);
+  });
+
+  it('offers sync only for a connected service', async () => {
+    const idle: IConnectorView = { ...NOTES, status: { state: 'not-connected' }, tools: undefined };
+    render(<ConnectorsView api={fakeApi([idle])} />);
+    await screen.findByRole('button', { name: 'Connect' });
+    expect(screen.queryByLabelText('How often to check Notes')).toBeNull();
   });
 
   it('adds a connector, shows the redirect address a registered client needs, and splits the scopes', async () => {
@@ -174,17 +253,24 @@ describe('the connector calls of the API client', () => {
     });
     await api.connectors();
     await api.connectConnector('connector-a', 'https://agent.example');
-    await api.disconnectConnector('connector-a');
+    await api.disconnectConnector('connector-a', true);
     await api.removeConnector('connector-a');
+    await api.connectorPulled('connector-a');
+    await api.setConnectorSync('connector-a', 60);
     await api.decideConnectorTool('connector-a', 'tool/with space', null);
     expect(calls.map((call) => `${call.init?.method ?? 'GET'} ${call.url}`)).toEqual([
       'GET api/connectors',
       'POST api/connectors/connector-a/connect',
       'POST api/connectors/connector-a/disconnect',
       'POST api/connectors/connector-a/remove',
+      'GET api/connectors/connector-a/pulled',
+      'POST api/connectors/connector-a/sync',
       'POST api/connectors/connector-a/tools/tool%2Fwith%20space',
     ]);
     expect(calls[1]!.init?.body).toBe(JSON.stringify({ origin: 'https://agent.example' }));
-    expect(calls[4]!.init?.body).toBe(JSON.stringify({ decision: null }));
+    expect(calls[2]!.init?.body).toBe(JSON.stringify({ forgetPulled: true }));
+    expect(calls[3]!.init?.body).toBe(JSON.stringify({ forgetPulled: false }));
+    expect(calls[5]!.init?.body).toBe(JSON.stringify({ everyMinutes: 60 }));
+    expect(calls[6]!.init?.body).toBe(JSON.stringify({ decision: null }));
   });
 });

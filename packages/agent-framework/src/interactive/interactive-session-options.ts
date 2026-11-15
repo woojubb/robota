@@ -183,6 +183,12 @@ export interface IInteractiveSessionStandardOptions {
   /** `systemPrompt` REPLACES the composed prompt; `presetSystemPrompt` SEEDS it. */
   systemPrompt?: string;
   presetSystemPrompt?: string;
+  /**
+   * The product's own prompt sections, carried unchanged by every prompt rebuild — a live preset
+   * switch replaces `presetSystemPrompt` but never these. Ignored when `systemPrompt` replaces the
+   * whole prompt.
+   */
+  productSections?: ICreateSessionOptions['productSections'];
   /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
   language?: string;
   /** Runtime-composed background task runners. */

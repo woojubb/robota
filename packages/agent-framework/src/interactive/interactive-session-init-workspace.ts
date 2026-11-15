@@ -112,14 +112,18 @@ export async function restoreInteractiveSandboxSnapshot(options: IInitOptions): 
 export function interactivePresetOptions(
   options: Pick<
     IInteractiveSessionStandardOptions,
-    'temperature' | 'maxOutputTokens' | 'presetSystemPrompt'
+    'temperature' | 'maxOutputTokens' | 'presetSystemPrompt' | 'productSections'
   >,
-): Pick<IInitOptions, 'temperature' | 'maxOutputTokens' | 'presetSystemPrompt'> {
+): Pick<
+  IInitOptions,
+  'temperature' | 'maxOutputTokens' | 'presetSystemPrompt' | 'productSections'
+> {
   return {
     ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
     ...(options.maxOutputTokens !== undefined ? { maxOutputTokens: options.maxOutputTokens } : {}),
     ...(options.presetSystemPrompt !== undefined
       ? { presetSystemPrompt: options.presetSystemPrompt }
       : {}),
+    ...(options.productSections !== undefined ? { productSections: options.productSections } : {}),
   };
 }

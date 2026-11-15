@@ -152,6 +152,8 @@ export interface IRenderOptions {
   maxOutputTokens?: number;
   /** Preset prompt seed, distinct from the replacing `systemPrompt` option. */
   presetSystemPrompt?: string;
+  /** The product's own prompt sections, kept through a live preset switch. */
+  productSections?: ITuiInteractionChannelOptions['productSections'];
   /** CLI-sourced additive prompt text, composed before the TUI is rendered. */
   appendSystemPrompt?: string;
   responseFormat?: ITuiInteractionChannelOptions['responseFormat'];
@@ -344,6 +346,7 @@ export function toChannelOptions(
     ...(options.presetSystemPrompt !== undefined
       ? { presetSystemPrompt: options.presetSystemPrompt }
       : {}),
+    ...(options.productSections !== undefined ? { productSections: options.productSections } : {}),
     ...(options.appendSystemPrompt !== undefined
       ? { appendSystemPrompt: options.appendSystemPrompt }
       : {}),

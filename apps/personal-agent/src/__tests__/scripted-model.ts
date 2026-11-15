@@ -20,8 +20,13 @@ export type TModelReply =
 export interface IScriptedModel {
   readonly baseURL: string;
   readonly requests: IModelRequest[];
-  /** Replies are taken in order; the last one repeats. A function reply sees the request. */
-  script(...replies: (TModelReply | ((request: IModelRequest) => TModelReply))[]): void;
+  /**
+   * Replies are taken in order; the last one repeats. A function reply sees the request, and may
+   * answer later (a reply that waits keeps a run in progress).
+   */
+  script(
+    ...replies: (TModelReply | ((request: IModelRequest) => TModelReply | Promise<TModelReply>))[]
+  ): void;
   close(): Promise<void>;
 }
 
@@ -39,7 +44,8 @@ export function toolResults(request: IModelRequest): string[] {
 
 export async function startScriptedModel(): Promise<IScriptedModel> {
   const requests: IModelRequest[] = [];
-  let replies: (TModelReply | ((request: IModelRequest) => TModelReply))[] = [{ text: 'OK' }];
+  let replies: (TModelReply | ((request: IModelRequest) => TModelReply | Promise<TModelReply>))[] =
+    [{ text: 'OK' }];
   let next = 0;
   let round = 0;
   const server = createServer(async (req, res) => {
@@ -57,7 +63,7 @@ export async function startScriptedModel(): Promise<IScriptedModel> {
     requests.push(body);
     const entry = replies[Math.min(next, replies.length - 1)]!;
     next += 1;
-    const reply = typeof entry === 'function' ? entry(body) : entry;
+    const reply = typeof entry === 'function' ? await entry(body) : entry;
     round += 1;
     const message =
       'text' in reply

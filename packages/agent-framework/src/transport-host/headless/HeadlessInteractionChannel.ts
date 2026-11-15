@@ -77,6 +77,8 @@ export interface IHeadlessInteractionChannelOptions {
   /** Response language and preset prompt seed, distinct from a replacing system prompt. */
   language?: string;
   presetSystemPrompt?: string;
+  /** The product's own prompt sections; see `ICreateSessionOptions.productSections`. */
+  productSections?: ICreateSessionOptions['productSections'];
   /** Structured response policy, including JSON schema requests. */
   responseFormat?: ICreateSessionOptions['responseFormat'];
   /** Startup source/effective metadata projected into headless results. */
@@ -247,6 +249,9 @@ export class HeadlessInteractionChannel {
       ...(this.opts.language !== undefined ? { language: this.opts.language } : {}),
       ...(this.opts.presetSystemPrompt !== undefined
         ? { presetSystemPrompt: this.opts.presetSystemPrompt }
+        : {}),
+      ...(this.opts.productSections !== undefined
+        ? { productSections: this.opts.productSections }
         : {}),
       ...(this.opts.responseFormat !== undefined
         ? { responseFormat: this.opts.responseFormat }

@@ -303,6 +303,25 @@ describe('the connector registry', () => {
     await expect(registry.describe(connector.id)).rejects.toThrow(/needs-sign-in/u);
   });
 
+  it('counts the reads that worked and the ones that did not, for a caller that must tell the two apart', async () => {
+    const { registry, protocol, connector } = await setup();
+    expect(registry.readCounts(connector.id)).toEqual({ succeeded: 0, failed: 0 });
+    protocol.reply = { text: 'three results', isError: false };
+    await registry.read(connector.id, 'search', {});
+    // The service answers, but says the call failed.
+    protocol.reply = { text: 'rate limited', isError: true };
+    await registry.read(connector.id, 'search', {});
+    // A tool that writes is refused at the reading door, and a missing tool and a lapsed sign-in are failures too.
+    await expect(registry.read(connector.id, 'send', {})).rejects.toBeInstanceOf(
+      ConnectorRefusedError,
+    );
+    protocol.state = { state: 'needs-sign-in' };
+    await expect(registry.read(connector.id, 'search', {})).rejects.toBeInstanceOf(
+      ConnectorRefusedError,
+    );
+    expect(registry.readCounts(connector.id)).toEqual({ succeeded: 1, failed: 3 });
+  });
+
   it('disconnects before it forgets a removed connector, and keeps nothing of it', async () => {
     const { registry, protocol, book, connector } = await setup();
     const outcome = await registry.remove(connector.id);

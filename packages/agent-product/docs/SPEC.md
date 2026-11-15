@@ -583,6 +583,19 @@ every mode and no allow rule answers it; the reading path refuses a tool that wr
 blocked is never called. What a service returns reaches the model as data from the service, never as
 instructions.
 
+A connector is kept current by a goal tied to it, not by a scheduler or per-service code of its own. Its
+run reads what is new through the reading tool and files durable facts through one tool that always
+records the connector as their origin, by kind, and names it in their reference, so what a sync kept is
+told from what the person said and can be counted and forgotten together with the connection. A
+filed fact is only ever added: content read from a service never rewrites or retires what the person
+said. Everything the run reads is content written by others, so the run is given only the tools to read,
+look in the library and file, never a list of what is withheld that a tool added later would escape:
+it cannot write to the service, reach the web or files, drive the browser, or rewrite the library.
+Turning a sync off, or disconnecting, takes the access away first and then ends a run in progress rather
+than being refused by it. A run that is reachable, read at least once without a failed read and added
+nothing stays in the goal's history and is not posted to the feed; a run that read nothing or could not
+read is posted, so a broken sync is never silent.
+
 ### Non-goals
 
 The browser does not hold reads. Opening a page, following a link or submitting a GET form sends

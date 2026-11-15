@@ -7,6 +7,7 @@ import {
   createPermissionSection,
   createPersonaSection,
   createPresetSystemPromptSection,
+  createProductSections,
   createProjectMemorySection,
   createProjectSection,
   createResponseLanguageSection,
@@ -18,7 +19,7 @@ import {
 
 import type { IOutputStylePrompt } from './output-style-prompt.js';
 import type { IProjectInfo } from './project-detector.js';
-import type { ISystemPromptSection } from './system-prompt-types.js';
+import type { IProductPromptSection, ISystemPromptSection } from './system-prompt-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
@@ -37,6 +38,14 @@ export interface ISystemPromptParams {
    * seeds the prompt rather than replacing it — see `createPresetSystemPromptSection`.
    */
   presetSystemPrompt?: string;
+  /**
+   * Sections the product itself contributes, composed in list order at a fixed priority just above
+   * `presetSystemPrompt`, so a preset's own prompt follows them. They are static: every rebuild of the
+   * prompt carries them unchanged, which is what a live preset switch relies on. Blank content adds
+   * no section and a duplicate `id` is refused. Not applied when the caller supplies a replacement
+   * prompt, because that seam returns text only and composes nothing.
+   */
+  productSections?: readonly IProductPromptSection[];
   /**
    * When enabled, a concise verify-before-done directive is composed as a
    * `source: 'self-verification'` section with priority 6; false/undefined adds no section.
@@ -133,6 +142,9 @@ export function buildSystemPromptSections(params: ISystemPromptParams): ISystemP
     params.outputStyle !== undefined ? createOutputStyleSection(params.outputStyle) : undefined,
   );
 
+  if (params.productSections !== undefined) {
+    sections.push(...createProductSections(params.productSections));
+  }
   appendOptionalSection(
     sections,
     params.presetSystemPrompt !== undefined && params.presetSystemPrompt.trim().length > 0
