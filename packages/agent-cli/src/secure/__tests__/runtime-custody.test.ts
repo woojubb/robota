@@ -8,7 +8,12 @@ import { createConnection, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { InteractiveSession, SessionPool, SessionSlot } from '@robota-sdk/agent-framework';
+import {
+  InteractiveSession,
+  SessionPool,
+  SessionSlot,
+  createServeSessionDirectory,
+} from '@robota-sdk/agent-framework';
 import { createScriptedProvider, createTestArtifactSealer, openTestWriteGrant } from '@robota-sdk/agent-core/testing';
 import { SESSION_RECORD_ENVELOPE_VERSION } from '@robota-sdk/agent-session';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
@@ -38,7 +43,6 @@ import {
   type ISupervisedControl,
 } from '../../session-inventory/supervised-session-control.js';
 import { MAX_ATTACHED_SURFACES } from '../../session-inventory/supervised-attach.js';
-import { createServeSessionDirectory } from '../../modes/serve-session-directory.js';
 import { KeyHolder, type IKeyHolderTimer, type IKeyHolderTimers, type TLockReason } from '@robota-sdk/agent-local-host';
 import { RuntimeCustody } from '../runtime-custody.js';
 import {
@@ -51,7 +55,7 @@ import {
 
 import type { ISessionBinder, ISessionDirectory } from '@robota-sdk/agent-interface/session';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
-import type { IServeOwnerBinding, IServeOwnerDirectory } from '../../modes/serve-session-directory.js';
+import type { IServeOwnerBinding, IServeOwnerDirectory } from '@robota-sdk/agent-framework';
 
 const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
 const IDLE_MS = 15 * 60_000;
