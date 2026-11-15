@@ -26,8 +26,11 @@ export interface IAnthropicContent {
 }
 
 export interface IAnthropicUsage {
+  /** The part of the prompt that was neither read from nor written to the prompt cache. */
   input_tokens: number;
   output_tokens: number;
+  cache_creation_input_tokens?: number | null;
+  cache_read_input_tokens?: number | null;
 }
 
 // Request Types
