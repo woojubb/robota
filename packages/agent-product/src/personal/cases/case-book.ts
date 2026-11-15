@@ -10,7 +10,7 @@
  * one write that goes the other way: its card must exist for the case to name it, so the card is posted
  * first and withdrawn again if the case cannot be written.
  */
-import { containsSensitiveMemoryContent } from '@robota-sdk/agent-framework';
+import { carriesSecretValue } from '../secret-values.js';
 
 import type { GoalBook } from '../goals/goal-book.js';
 import type { IFeedItem } from '../goals/types.js';
@@ -67,14 +67,19 @@ export interface IAnswerInput {
   readonly reply?: string;
 }
 
-/** A text that is kept: one line, within its limit, and not a likely secret. */
+/**
+ * A text that is kept: one line, within its limit, and carrying no secret value. A case says what
+ * happened, so it may be about a password or a token; only a value written out is refused.
+ */
 function kept(text: string, what: string, limit: number, multiline = false): string {
   const value = multiline ? text.trim() : text.replace(/\s+/gu, ' ').trim();
   if (value === '') throw new CaseRefusedError(`${what} cannot be empty`);
   if (value.length > limit)
     throw new CaseRefusedError(`${what} is longer than ${limit} characters`);
-  if (containsSensitiveMemoryContent(value))
-    throw new CaseRefusedError(`${what} looks like a secret and is not kept in a case`);
+  if (carriesSecretValue(value))
+    throw new CaseRefusedError(
+      `${what} looks like it contains a secret value, so it is not kept in a case. Words such as password or token are fine: say what happened without writing the value out`,
+    );
   return value;
 }
 
