@@ -45,12 +45,20 @@ export interface IConnectorRegistryOptions {
 
 const DEFAULT_TOOL_CACHE_MS = 5 * 60_000;
 
-/** What a tool is treated as: the person's decision first, else the service's read-only claim, else a write. */
+function isDecision(value: unknown): value is TToolDecision {
+  return value === 'read' || value === 'write' || value === 'blocked';
+}
+
+/**
+ * What a tool is treated as: the person's decision first, else the service's read-only claim, else a
+ * write. A decision that is present but not one of the three words (a hand-edited or damaged file)
+ * is something the person said that cannot be read, so the tool is blocked rather than guessed at.
+ */
 export function classifyTool(connector: IConnector, tool: IConnectorToolInfo): TToolAccess {
-  const decision = Object.hasOwn(connector.decisions, tool.name)
-    ? connector.decisions[tool.name]
-    : undefined;
-  if (decision !== undefined) return decision;
+  if (Object.hasOwn(connector.decisions, tool.name)) {
+    const decision: unknown = connector.decisions[tool.name];
+    return isDecision(decision) ? decision : 'blocked';
+  }
   return tool.hints?.readOnly === true ? 'read' : 'write';
 }
 
@@ -96,9 +104,8 @@ export class ConnectorRegistry {
     return tools.map((tool) => ({
       ...tool,
       access: classifyTool(connector, tool),
-      ...(Object.hasOwn(connector.decisions, tool.name) && {
-        decision: connector.decisions[tool.name],
-      }),
+      ...(Object.hasOwn(connector.decisions, tool.name) &&
+        isDecision(connector.decisions[tool.name]) && { decision: connector.decisions[tool.name] }),
     }));
   }
 
@@ -190,7 +197,7 @@ export class ConnectorRegistry {
   ): Promise<IConnectorCallResult> {
     const { connector, protocol, access } = await this.resolve(id, tool);
     if (access === 'blocked') throw new ConnectorRefusedError(`${tool} is blocked by the person`);
-    if (access === 'write') {
+    if (access !== 'read') {
       throw new ConnectorRefusedError(
         `${tool} changes or sends something, so it goes through ConnectorAct, which the person approves`,
       );
@@ -207,7 +214,7 @@ export class ConnectorRegistry {
   ): Promise<IConnectorCallResult> {
     const { connector, protocol, access } = await this.resolve(id, tool);
     if (access === 'blocked') throw new ConnectorRefusedError(`${tool} is blocked by the person`);
-    if (access === 'read') {
+    if (access !== 'write') {
       throw new ConnectorRefusedError(`${tool} only reads, so it goes through ConnectorRead`);
     }
     return protocol.call(connector, tool, args, signal === undefined ? {} : { signal });

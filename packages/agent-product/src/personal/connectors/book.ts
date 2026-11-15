@@ -186,6 +186,9 @@ export class ConnectorBook {
   /** Record the person's decision about one tool, or clear it with `undefined`. */
   async decide(id: string, tool: string, decision: TToolDecision | undefined): Promise<IConnector> {
     const connector = await this.existing(id);
+    if (decision !== undefined && !['read', 'write', 'blocked'].includes(decision)) {
+      throw new ConnectorRefusedError('A decision is read, write or blocked');
+    }
     if (tool === '' || tool.length > MAX_TOOL_NAME) {
       throw new ConnectorRefusedError(`A tool name has 1 to ${MAX_TOOL_NAME} characters`);
     }
