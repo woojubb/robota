@@ -291,6 +291,17 @@ export function createPersonalCapabilities(
         approvals,
         onReport: (goal, report) => {
           void channels.notify(`${goal.title}: ${report}`).catch(() => undefined);
+          if (goal.caseId === undefined) return;
+          // An answer that came while a case turn ran started nothing: give it its turn. The goal still
+          // counts as running until its run is over, so what is due runs once it has ended.
+          void caseTurns
+            .ended(goal)
+            .then(async (again) => {
+              if (!again) return;
+              await runner?.settled(goal.id);
+              await runner?.runDue();
+            })
+            .catch(() => undefined);
         },
         openSession: (extra) => agent.openSession(extra),
         tickMs: options.goalTickMs ?? DEFAULT_GOAL_TICK_MS,
