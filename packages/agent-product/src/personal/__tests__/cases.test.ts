@@ -68,6 +68,27 @@ const SIGN_IN = {
   connectorId: 'connector-mail-1',
 };
 
+// The Korean word for "password", built from code points: the repository keeps no Korean outside its
+// localization data, and the shared secret check knows this word.
+const KOREAN_PASSWORD = String.fromCodePoint(0xbe44, 0xbc00, 0xbc88, 0xd638);
+
+/**
+ * Secret values, each short enough for the shortest text a case takes. Key-shaped ones are spelled in
+ * two parts so the repository's own secret scan does not read the fixture as a real key.
+ */
+const SECRET_VALUES = [
+  `${'sk-'}proj-abcdefghijklmnopqrstuvwx1234567890`,
+  `${'ghp_'}abcdefghijklmnopqrstuvwxyz0123456789`,
+  `${'AKIA'}ABCDEFGHIJKLMNOP`,
+  `${'eyJhbGciOiJIUzI1NiJ9'}.${'eyJzdWIiOiIxMjM0'}.abcdefghijkl`,
+  'password=hunter2',
+  'token: abc123',
+  '4111 1111 1111 1111',
+  '900101-1234567',
+  `${'-----BEGIN'} RSA PRIVATE KEY-----`,
+  'aB3dE6gH9jK2mN5pQ8sT1vW4yZ7x',
+];
+
 describe.each([
   ['memory', () => world(createMemoryCaseStore(), createMemoryGoalStore())],
   ['file', () => world(createFileCaseStore(directory()), createFileGoalStore(directory()))],
@@ -118,6 +139,88 @@ describe.each([
       book.open({ ...SIGN_IN, noticed: 'The code is: password: hunter2-very-secret' }),
     ).rejects.toThrow(CaseRefusedError);
     expect(await book.list()).toEqual([]);
+  });
+
+  it('keeps a case about a password and the words around it, since a case says what happened and not what the secret is', async () => {
+    const { book } = makeWorld();
+    const noticed = 'Acme says a password reset was requested for your account';
+    const { case: opened } = await book.open({
+      title: 'Password reset requested',
+      noticed,
+      source: 'mail:reset-1',
+      connectorId: 'connector-mail-1',
+    });
+    expect(opened.notes.map((note) => note.text)).toEqual([noticed]);
+    for (const text of [
+      'The mail asks for a one-time token before the reset link works.',
+      'It never says the secret or the API key; the private key is not mentioned.',
+      `The mail uses the word ${KOREAN_PASSWORD} once.`,
+    ]) {
+      expect((await book.note(opened.id, text)).notes.at(-1)?.text).toBe(text);
+    }
+    const question = 'Have you changed your password and signed out other sessions?';
+    const { case: asked, item } = await book.ask(opened.id, {
+      question,
+      options: ['Yes, password changed', 'No, not my token'],
+      allowsReply: true,
+    });
+    expect(asked.question?.text).toBe(question);
+    expect(item.question?.options).toEqual(['Yes, password changed', 'No, not my token']);
+    const answered = await book.answer(item.id, { reply: 'I already reset my password' });
+    expect(answered.case.history.at(-1)).toEqual(
+      expect.objectContaining({ kind: 'answered', text: 'I already reset my password' }),
+    );
+    const closed = await book.close(opened.id, 'The person had already reset the password.');
+    expect(closed.state).toBe('closed');
+    expect(closed.history.at(-1)?.text).toBe('The person had already reset the password.');
+  });
+
+  it('refuses a secret value in every text a case takes, says the words themselves are fine, and writes nothing', async () => {
+    const { book, goals } = makeWorld();
+    const plain = (await book.open({ ...SIGN_IN, source: 'mail:plain' })).case;
+    const second = (await book.open({ ...SIGN_IN, source: 'mail:waiting' })).case;
+    const waiting = await book.ask(second.id, {
+      question: 'What happened?',
+      options: ['Nothing'],
+      allowsReply: true,
+    });
+    const around = (value: string): string => `Acme says the code is ${value}`;
+    const paths: ReadonlyArray<readonly [string, (value: string) => Promise<unknown>]> = [
+      ['The title', (value) => book.open({ ...SIGN_IN, source: 'mail:new', title: around(value) })],
+      [
+        'What was noticed',
+        (value) => book.open({ ...SIGN_IN, source: 'mail:new', noticed: around(value) }),
+      ],
+      ['The source reference', (value) => book.open({ ...SIGN_IN, source: value })],
+      [
+        'The connector id',
+        (value) => book.open({ ...SIGN_IN, source: 'mail:new', connectorId: value }),
+      ],
+      ['A note', (value) => book.note(plain.id, around(value))],
+      ['The question', (value) => book.ask(plain.id, { question: around(value), options: ['Ok'] })],
+      ['A choice', (value) => book.ask(plain.id, { question: 'Sure?', options: [value] })],
+      ['The reply', (value) => book.answer(waiting.item.id, { reply: around(value) })],
+      ['The resolution', (value) => book.close(plain.id, around(value))],
+    ];
+    for (const [what, attempt] of paths) {
+      for (const value of SECRET_VALUES) {
+        await expect(attempt(value), `${what}: ${value}`).rejects.toThrow(
+          new RegExp(`^${what} looks like it contains a secret value`, 'u'),
+        );
+      }
+    }
+    await expect(book.note(plain.id, 'token: abc123')).rejects.toThrow(
+      /Words such as password or token are fine/u,
+    );
+    // Nothing was written: no new case, the plain case untouched and open, the question still waiting.
+    expect(await book.list()).toHaveLength(2);
+    const after = (await book.get(plain.id))!;
+    expect(after.state).toBe('open');
+    expect(after.question).toBeUndefined();
+    expect(after.history.map((event) => event.kind)).toEqual(['observed']);
+    expect((await book.get(waiting.case.id))?.question?.feedItemId).toBe(waiting.item.id);
+    expect((await goals.feedItem(waiting.item.id))?.question?.state).toBe('open');
+    expect((await goals.feed()).filter((entry) => entry.kind === 'question')).toHaveLength(1);
   });
 
   it('holds a bounded number of open cases and frees a place when one closes', async () => {
@@ -281,7 +384,7 @@ describe.each([
     );
     await expect(
       book.answer(item.id, { reply: 'my password: hunter2-very-secret' }),
-    ).rejects.toThrow(/looks like a secret/u);
+    ).rejects.toThrow(/contains a secret value/u);
     const answered = await book.answer(item.id, { reply: '  I was on a train,\nso no.  ' });
     expect(answered.case.history.at(-1)).toEqual(
       expect.objectContaining({ kind: 'answered', text: 'I was on a train,\nso no.' }),
@@ -593,6 +696,27 @@ describe('case tools', () => {
       closed: id,
     });
     expect(await call('CaseNote', { id, text: 'Late' })).toEqual({ error: 'This case is closed' });
+  });
+
+  it('gives the model a refusal that says the words are fine and only a value is not, and keeps a note about a password', async () => {
+    const { call } = tools();
+    const opened = await call('CaseOpen', {
+      title: SIGN_IN.title,
+      noticed: SIGN_IN.noticed,
+      source: SIGN_IN.source,
+    });
+    const id = opened['opened'] as string;
+    expect(
+      await call('CaseNote', { id, text: 'Acme says a password reset was requested.' }),
+    ).toEqual({
+      noted: id,
+    });
+    const refused = await call('CaseNote', { id, text: 'The reset code is token: abc123' });
+    expect(refused).toEqual({
+      error: expect.stringMatching(
+        /^A note looks like it contains a secret value, so it is not kept in a case\. Words such as password or token are fine/u,
+      ),
+    });
   });
 
   it('tells the model what became of an item that already has a case, instead of opening another', async () => {
