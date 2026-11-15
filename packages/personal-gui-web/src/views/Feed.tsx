@@ -1,3 +1,4 @@
+import { MarkdownText } from '@robota-sdk/agent-ui-web/client';
 import { useCallback, useEffect, useState } from 'react';
 
 import { Button, Notice, ViewFrame, errorText, when } from './ui.js';
@@ -75,7 +76,11 @@ export function FeedView({
                 <h2 className="text-[14px] font-semibold">{item.title}</h2>
                 <span className="ml-auto text-[12px] text-muted-foreground">{when(item.at)}</span>
               </div>
-              <p className="mt-1 whitespace-pre-wrap text-[14px]">{item.body}</p>
+              {item.kind === 'approval' ? (
+                <p className="mt-1 whitespace-pre-wrap text-[14px]">{item.body}</p>
+              ) : (
+                <MarkdownText className="mt-1 text-[14px]">{item.body}</MarkdownText>
+              )}
               {item.approval !== undefined && (
                 <p className="mt-2 break-all rounded-md bg-muted px-2 py-1.5 font-mono text-[12.5px]">
                   {item.approval.detail}
