@@ -55,8 +55,10 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         const menu = page.getByRole('navigation', { name: 'Menu' });
         await menu.getByRole('button', { name: 'Feed' }).click();
         await page.waitForFunction(bodyIncludes, 'Did you sign in just now?', { timeout: 15_000 });
-        // The evidence is formatted text, and the question is not an approval.
-        expect(await page.locator('strong', { hasText: 'new sign-in' }).count()).toBe(1);
+        // The evidence came from a mail, so it is plain text with its Markdown left literal, and the
+        // question is not an approval.
+        expect(await page.locator('strong', { hasText: 'new sign-in' }).count()).toBe(0);
+        expect(await page.locator('body').innerText()).toContain('**new sign-in**');
         expect(await page.getByRole('button', { name: 'Approve' }).count()).toBe(0);
         await page.screenshot({ path: `${harness.stateDir}/question-card.png` });
 

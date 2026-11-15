@@ -18,12 +18,17 @@ const QUESTION: IFeedQuestionView = {
   state: 'open',
 };
 
+/** What a mail can plant in a note: Markdown that would become a clickable link if it were formatted. */
+const PLANTED = '[Verify your sign-in](https://evil.example/login)';
+
+const OPEN_THREAD = 'Open thread: New sign-in to your account';
+
 const card = (question: IFeedQuestionView = QUESTION): IFeedItemView => ({
   id: 'feed-1',
   at: '2026-11-16T01:00:00Z',
   kind: 'question',
   title: 'New sign-in to your account',
-  body: '- A mail says a **new sign-in** happened from Seoul at 10:02.\n- The address is the one the service always uses.',
+  body: `- A mail says a **new sign-in** happened from Seoul at 10:02.\n- ${PLANTED}`,
   question,
 });
 
@@ -44,9 +49,13 @@ const THREAD: ICaseView = {
     {
       at: '2026-11-16T01:00:00Z',
       kind: 'observed',
-      text: 'A mail says a **new sign-in** happened.',
+      text: `A mail says a **new sign-in** happened. ${PLANTED}`,
     },
-    { at: '2026-11-16T01:00:01Z', kind: 'noted', text: 'The address is the usual one.' },
+    {
+      at: '2026-11-16T01:00:01Z',
+      kind: 'noted',
+      text: 'The address is the usual one. [See the report](https://evil.example/report)',
+    },
     { at: '2026-11-16T01:00:02Z', kind: 'asked', text: 'Did you sign in just now?' },
   ],
   createdAt: '2026-11-16T01:00:00Z',
@@ -86,14 +95,20 @@ function fakeApi(extra: Partial<IPersonalApi> = {}, item: IFeedItemView = card()
 const view = (api: IPersonalApi) => render(<FeedView api={api} onOpenGoal={() => undefined} />);
 
 describe('a question in the feed', () => {
-  it('shows the notes that came with it as formatted text, the question, and a button per choice', async () => {
-    view(fakeApi().api);
+  it('shows the notes that came with it as plain text with no clickable link, the question, and a button per choice', async () => {
+    const { container } = view(fakeApi().api);
     await waitFor(() => expect(screen.getByText('Did you sign in just now?')).toBeTruthy());
-    expect(screen.getByText('new sign-in').tagName).toBe('STRONG');
-    expect(screen.getByText('The address is the one the service always uses.').tagName).toBe('LI');
+    // A link planted in a note stays literal text: nothing in the card can be followed.
+    const notes = screen.getByText(/A mail says a \*\*new sign-in\*\*/u);
+    expect(notes.tagName).toBe('P');
+    expect(notes.textContent).toContain(PLANTED);
+    expect(container.querySelector('a')).toBeNull();
+    expect(container.querySelector('strong')).toBeNull();
+    expect(screen.queryByRole('link')).toBeNull();
     expect(screen.getByRole('button', { name: 'Yes, it was me' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'No' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Open thread' })).toBeTruthy();
+    // Each thread button names its card, so a feed of several tells them apart.
+    expect(screen.getByRole('button', { name: OPEN_THREAD })).toBeTruthy();
     // A question that takes no reply has no reply box, and a waiting one is not dismissed unanswered.
     expect(screen.queryByRole('textbox', { name: 'Your reply' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull();
@@ -106,6 +121,8 @@ describe('a question in the feed', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'No' }));
     await waitFor(() => expect(answerQuestion).toHaveBeenCalledWith('feed-1', { choice: 'No' }));
     await waitFor(() => expect(screen.getByText(/You answered: No/u)).toBeTruthy());
+    // The clicked button is gone, so the result is announced as a status instead of lost with it.
+    expect(screen.getByRole('status').textContent).toMatch(/You answered: No/u);
     expect(screen.queryByRole('button', { name: 'Yes, it was me' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Dismiss' })).toBeTruthy();
     expect(answerQuestion).toHaveBeenCalledTimes(1);
@@ -159,6 +176,9 @@ describe('a question in the feed', () => {
     await waitFor(() =>
       expect(screen.getByText('Your agent closed this case before you answered')).toBeTruthy(),
     );
+    expect(screen.getByRole('status').textContent).toBe(
+      'Your agent closed this case before you answered',
+    );
     expect(screen.queryByRole('button', { name: 'No' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     await waitFor(() => expect(api.answerFeed).toHaveBeenCalledWith('feed-1', 'dismiss'));
@@ -168,7 +188,7 @@ describe('a question in the feed', () => {
 describe('the thread of a case', () => {
   it('lists the case’s title, state, notes, question and history in order, and goes back to the feed', async () => {
     view(fakeApi().api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Open thread' }));
+    fireEvent.click(await screen.findByRole('button', { name: OPEN_THREAD }));
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'New sign-in to your account' })).toBeTruthy(),
     );
@@ -178,16 +198,23 @@ describe('the thread of a case', () => {
       .getAllByRole('listitem')
       .map((row) => row.textContent ?? '');
     expect(rows).toHaveLength(3);
-    expect(rows[0]).toMatch(/^Noticed · .*A mail says a new sign-in happened\.$/u);
-    expect(rows[1]).toMatch(/^Noted · .*The address is the usual one\.$/u);
+    // What the agent noticed and noted came from a mail: a Markdown link in it stays literal text.
+    expect(rows[0]).toMatch(
+      /^Noticed · .*A mail says a \*\*new sign-in\*\* happened\. \[Verify your sign-in\]\(https:\/\/evil\.example\/login\)$/u,
+    );
+    expect(rows[1]).toMatch(
+      /^Noted · .*The address is the usual one\. \[See the report\]\(https:\/\/evil\.example\/report\)$/u,
+    );
     expect(rows[2]).toMatch(/^Asked you · .*Did you sign in just now\?$/u);
-    expect(within(history).getByText('new sign-in').tagName).toBe('STRONG');
+    expect(history.querySelector('a')).toBeNull();
+    expect(history.querySelector('strong')).toBeNull();
+    expect(within(history).queryByRole('link')).toBeNull();
     const waiting = screen.getByRole('region', { name: 'Waiting for you' });
     expect(within(waiting).getByText('Did you sign in just now?')).toBeTruthy();
     expect(within(waiting).getByText('Yes, it was me · No')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Back to feed' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Open thread' })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('button', { name: OPEN_THREAD })).toBeTruthy());
   });
 
   it('shows the answer and the closing of a settled case, with nothing waiting', async () => {
@@ -202,7 +229,7 @@ describe('the thread of a case', () => {
     };
     const { question: _answered, ...withoutQuestion } = settled;
     view(fakeApi({ caseThread: async () => withoutQuestion }).api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Open thread' }));
+    fireEvent.click(await screen.findByRole('button', { name: OPEN_THREAD }));
     await waitFor(() => expect(screen.getByText(/Closed · opened/u)).toBeTruthy());
     const rows = within(screen.getByRole('list', { name: 'History' }))
       .getAllByRole('listitem')
@@ -220,7 +247,7 @@ describe('the thread of a case', () => {
         },
       }).api,
     );
-    fireEvent.click(await screen.findByRole('button', { name: 'Open thread' }));
+    fireEvent.click(await screen.findByRole('button', { name: OPEN_THREAD }));
     await waitFor(() => expect(screen.getByText('no such case')).toBeTruthy());
   });
 });

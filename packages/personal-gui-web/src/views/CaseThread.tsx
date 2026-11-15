@@ -1,4 +1,3 @@
-import { MarkdownText } from '@robota-sdk/agent-ui-web/client';
 import { useCallback, useEffect, useState } from 'react';
 
 import { Button, Notice, ViewFrame, errorText, when } from './ui.js';
@@ -15,12 +14,11 @@ const EVENT_LABEL: Record<TCaseEventKind, string> = {
   closed: 'Closed',
 };
 
-/** What the agent wrote about the matter is formatted; what the person said, and the rest, is shown as written. */
-const AGENT_WORDS: readonly TCaseEventKind[] = ['observed', 'noted'];
-
 /**
  * One case as a thread, oldest first: what the agent noticed and noted, the question it asked, the
- * person's answer and how it closed. A question still waiting is answered from the feed.
+ * person's answer and how it closed. A question still waiting is answered from the feed. Every text is
+ * shown as written: what the agent noticed and noted came from what other people wrote, and a link in
+ * it must not become clickable.
  */
 export function CaseThread({
   api,
@@ -64,11 +62,7 @@ export function CaseThread({
                 <div className="text-muted-foreground">
                   {EVENT_LABEL[event.kind]} · {when(event.at)}
                 </div>
-                {AGENT_WORDS.includes(event.kind) ? (
-                  <MarkdownText className="mt-1 text-[14px]">{event.text}</MarkdownText>
-                ) : (
-                  <p className="mt-1 whitespace-pre-wrap text-[14px]">{event.text}</p>
-                )}
+                <p className="mt-1 whitespace-pre-wrap text-[14px]">{event.text}</p>
               </li>
             ))}
           </ol>

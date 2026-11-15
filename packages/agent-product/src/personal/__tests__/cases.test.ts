@@ -54,6 +54,13 @@ function world(cases: ICaseStore, feed: IGoalStore): IWorld {
   return { book: new CaseBook({ store: cases, feed: goals, now }), goals };
 }
 
+/** A card that was stuck open is now a withdrawn one, and the person can clear it from the feed. */
+async function expectCleared(goals: GoalBook, feedItemId: string): Promise<void> {
+  expect((await goals.feedItem(feedItemId))?.question?.state).toBe('withdrawn');
+  await goals.dismiss(feedItemId);
+  expect((await goals.feedItem(feedItemId))?.dismissed).toBe(true);
+}
+
 const SIGN_IN = {
   title: 'New sign-in to your account',
   noticed: 'A mail from Example says a new sign-in happened from Seoul at 10:02.',
@@ -308,14 +315,16 @@ describe.each([
     await expect(book.answer('feed-nothing', { choice: 'Yes' })).rejects.toThrow(/No question/u);
   });
 
-  it('refuses an answer when the case is gone or closed behind a card that still looks open', async () => {
+  it('refuses an answer when the case is gone, closed or moved on behind a card that still looks open, and withdraws that card so it can be dismissed', async () => {
     const cases = createMemoryCaseStore();
     const { book, goals } = world(cases, createMemoryGoalStore());
     const { case: opened } = await book.open(SIGN_IN);
     const { item } = await book.ask(opened.id, { question: 'Sure?', options: ['Yes'] });
     // A card whose case was closed by a write that did not reach the feed, and one with no case at all.
     await cases.put({ ...opened, state: 'closed' });
+    await expect(goals.dismiss(item.id)).rejects.toThrow(/Answer the question/u);
     await expect(book.answer(item.id, { choice: 'Yes' })).rejects.toThrow(/case is closed/u);
+    await expectCleared(goals, item.id);
     const orphan = await goals.post({
       kind: 'question',
       title: 'Orphan',
@@ -331,6 +340,16 @@ describe.each([
     await expect(book.answer(orphan.id, { choice: 'Yes' })).rejects.toThrow(
       /case for this question is gone/u,
     );
+    await expectCleared(goals, orphan.id);
+    // A case that no longer waits on this card, as after an answer that did not reach the feed.
+    const other = (await book.open({ ...SIGN_IN, source: 'mail:other' })).case;
+    const stuck = await book.ask(other.id, { question: 'Sure?', options: ['Yes'] });
+    const { question: _waiting, ...notWaiting } = stuck.case;
+    await cases.put(notWaiting);
+    await expect(book.answer(stuck.item.id, { choice: 'Yes' })).rejects.toThrow(
+      /no longer waiting for an answer/u,
+    );
+    await expectCleared(goals, stuck.item.id);
   });
 
   it('closes a case with a resolution, withdraws a waiting question, and refuses to change a closed case', async () => {
@@ -375,6 +394,59 @@ describe.each([
     expect((await goals.feed()).find((entry) => entry.id === item.id)?.question?.state).toBe(
       'answered',
     );
+  });
+});
+
+describe('a write that fails half way', () => {
+  it('withdraws the card it posted when the case cannot be written, so no open question is left behind', async () => {
+    const underlying = createMemoryCaseStore();
+    let failing = false;
+    const cases: ICaseStore = {
+      ...underlying,
+      put: async (item) => {
+        if (failing) throw new Error('disk full');
+        await underlying.put(item);
+      },
+    };
+    const { book, goals } = world(cases, createMemoryGoalStore());
+    const { case: opened } = await book.open(SIGN_IN);
+    failing = true;
+    await expect(book.ask(opened.id, { question: 'Sure?', options: ['Yes'] })).rejects.toThrow(
+      /disk full/u,
+    );
+    failing = false;
+    const cards = (await goals.feed()).filter((entry) => entry.kind === 'question');
+    expect(cards.map((entry) => entry.question?.state)).toEqual(['withdrawn']);
+    await expectCleared(goals, cards[0]!.id);
+    // The case is as it was, and can ask again.
+    expect((await book.get(opened.id))?.question).toBeUndefined();
+    const again = await book.ask(opened.id, { question: 'Sure?', options: ['Yes'] });
+    expect(again.item.question?.state).toBe('open');
+  });
+
+  it('closes the case before withdrawing its card, so a failure of the withdrawal leaves a card that clears when answered', async () => {
+    const underlying = createMemoryGoalStore();
+    let failing = false;
+    const feed: IGoalStore = {
+      ...underlying,
+      putFeedItem: async (item) => {
+        if (failing) throw new Error('disk full');
+        await underlying.putFeedItem(item);
+      },
+    };
+    const { book, goals } = world(createMemoryCaseStore(), feed);
+    const { case: opened } = await book.open(SIGN_IN);
+    const { item } = await book.ask(opened.id, { question: 'Sure?', options: ['Yes'] });
+    failing = true;
+    await expect(book.close(opened.id, 'Settled.')).rejects.toThrow(/disk full/u);
+    failing = false;
+    // The case is closed with no question waiting; the card still looks open until it is answered.
+    const closed = (await book.get(opened.id))!;
+    expect(closed.state).toBe('closed');
+    expect(closed.question).toBeUndefined();
+    expect((await goals.feedItem(item.id))?.question?.state).toBe('open');
+    await expect(book.answer(item.id, { choice: 'Yes' })).rejects.toThrow(/case is closed/u);
+    await expectCleared(goals, item.id);
   });
 });
 

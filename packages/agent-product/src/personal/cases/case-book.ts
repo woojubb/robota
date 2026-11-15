@@ -5,8 +5,10 @@
  * events, and only so many cases are open at once; a refusal says which limit was reached.
  *
  * Writes go in one order at a time. An answer or a close is written to the case first and to the feed
- * second, so a failure in between leaves a card that says the case moved on, never a case that waits
- * on a question nobody can see.
+ * second, so a failure in between leaves a card that still looks open while the case moved on, never a
+ * case that waits on a question nobody can see; answering such a card withdraws it. A question is the
+ * one write that goes the other way: its card must exist for the case to name it, so the card is posted
+ * first and withdrawn again if the case cannot be written.
  */
 import { containsSensitiveMemoryContent } from '@robota-sdk/agent-framework';
 
@@ -116,6 +118,12 @@ export class CaseBook {
     return found;
   }
 
+  /** A card that still looks open although its case moved on becomes a withdrawn one, which can be dismissed. */
+  private async stale(feedItemId: string, reason: string): Promise<never> {
+    await this.feed.withdrawQuestion(feedItemId);
+    throw new CaseRefusedError(reason);
+  }
+
   private requireRoom(found: ICase): void {
     if (found.history.length >= HISTORY_MAX - HISTORY_RESERVED)
       throw new CaseRefusedError(
@@ -207,7 +215,14 @@ export class CaseBook {
         history: [...found.history, { at, kind: 'asked', text }],
         updatedAt: at,
       };
-      await this.store.put(next);
+      try {
+        await this.store.put(next);
+      } catch (failure) {
+        // No case names this card, so it could never be answered or dismissed: withdraw it, and report
+        // the write that failed rather than a failure of the clean-up.
+        await this.feed.withdrawQuestion(item.id).catch(() => undefined);
+        throw failure;
+      }
       return { case: next, item };
     });
   }
@@ -228,10 +243,10 @@ export class CaseBook {
       if (waiting.state === 'withdrawn')
         throw new CaseRefusedError('The case was closed before this question was answered');
       const found = await this.store.get(waiting.caseId);
-      if (found === undefined) throw new CaseRefusedError('The case for this question is gone');
-      if (found.state === 'closed') throw new CaseRefusedError('This case is closed');
+      if (found === undefined) return this.stale(feedItemId, 'The case for this question is gone');
+      if (found.state === 'closed') return this.stale(feedItemId, 'This case is closed');
       if (found.question?.feedItemId !== feedItemId)
-        throw new CaseRefusedError('This question is no longer waiting for an answer');
+        return this.stale(feedItemId, 'This question is no longer waiting for an answer');
       if ((input.choice === undefined) === (input.reply === undefined))
         throw new CaseRefusedError('Answer with one of the choices, or with a reply');
       let answer: IAnswerInput;
@@ -256,7 +271,11 @@ export class CaseBook {
     });
   }
 
-  /** Settle a case with a one-line resolution; a question still waiting is withdrawn from the feed. */
+  /**
+   * Settle a case with a one-line resolution; a question still waiting is withdrawn from the feed. The
+   * case is written first: if that fails nothing changed and the case still waits on a visible card, and
+   * if the withdrawal fails the case is closed and its card is withdrawn when the person next answers it.
+   */
   close(id: string, resolution: string): Promise<ICase> {
     return this.exclusive(async () => {
       const found = await this.requireOpen(id);

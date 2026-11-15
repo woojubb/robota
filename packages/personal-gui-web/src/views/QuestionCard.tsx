@@ -1,4 +1,3 @@
-import { MarkdownText } from '@robota-sdk/agent-ui-web/client';
 import { useState } from 'react';
 
 import { Button, errorText, inputClass, when } from './ui.js';
@@ -16,7 +15,8 @@ function settled(question: IFeedQuestionView): string {
 /**
  * A question the agent asks about one of its cases: what it noted as the evidence, the question, one
  * button per choice, and a reply box when the question allows one. Answering records the answer on the
- * case; it does not approve or send anything.
+ * case; it does not approve or send anything. The evidence comes from what other people wrote, so it
+ * is shown as plain text: a link in it is not made clickable inside a card that asks for an answer.
  */
 export function QuestionCard({
   item,
@@ -57,7 +57,7 @@ export function QuestionCard({
         <span className="ml-auto text-[12px] text-muted-foreground">{when(item.at)}</span>
       </div>
       <p className="mt-2 text-[12px] text-muted-foreground">What your agent noted</p>
-      <MarkdownText className="text-[14px]">{item.body}</MarkdownText>
+      <p className="mt-1 whitespace-pre-wrap text-[14px]">{item.body}</p>
       <p className="mt-2 whitespace-pre-wrap text-[14px] font-medium">{question.text}</p>
       {open ? (
         <>
@@ -94,13 +94,15 @@ export function QuestionCard({
           )}
         </>
       ) : (
-        <p className="mt-2 whitespace-pre-wrap text-[13px] text-muted-foreground">
+        <p role="status" className="mt-2 whitespace-pre-wrap text-[13px] text-muted-foreground">
           {settled(question)}
         </p>
       )}
       {error !== undefined && <p className="mt-2 text-[13px] text-destructive">{error}</p>}
       <div className="mt-2 flex justify-end gap-2">
-        <Button onClick={onOpenThread}>Open thread</Button>
+        <Button label={`Open thread: ${item.title}`} onClick={onOpenThread}>
+          Open thread
+        </Button>
         {!open && <Button onClick={onDismiss}>Dismiss</Button>}
       </div>
     </li>
