@@ -68,6 +68,7 @@ export class ConnectorRegistry {
   private readonly cacheMs: number;
   private readonly now: () => number;
   private readonly cache = new Map<string, { at: number; tools: readonly IConnectorToolInfo[] }>();
+  private readonly reads = new Map<string, { succeeded: number; failed: number }>();
 
   constructor(options: IConnectorRegistryOptions) {
     this.book = options.book;
@@ -188,6 +189,23 @@ export class ConnectorRegistry {
     return { connector, protocol, access: classifyTool(connector, info) };
   }
 
+  /**
+   * How many reads on a connector worked and how many did not (refused, errored or reported as an
+   * error by the service), counted since this agent started. A caller that wants to know whether
+   * a stretch of work could read compares the counts before and after.
+   */
+  readCounts(id: string): { readonly succeeded: number; readonly failed: number } {
+    return this.reads.get(id) ?? { succeeded: 0, failed: 0 };
+  }
+
+  private noteRead(id: string, worked: boolean): void {
+    const counts = this.reads.get(id) ?? { succeeded: 0, failed: 0 };
+    this.reads.set(id, {
+      succeeded: counts.succeeded + (worked ? 1 : 0),
+      failed: counts.failed + (worked ? 0 : 1),
+    });
+  }
+
   /** Call a tool that only reads. A tool that writes is refused here, whatever the caller says it is. */
   async read(
     id: string,
@@ -195,14 +213,26 @@ export class ConnectorRegistry {
     args: Readonly<Record<string, unknown>>,
     signal?: AbortSignal,
   ): Promise<IConnectorCallResult> {
-    const { connector, protocol, access } = await this.resolve(id, tool);
-    if (access === 'blocked') throw new ConnectorRefusedError(`${tool} is blocked by the person`);
-    if (access !== 'read') {
-      throw new ConnectorRefusedError(
-        `${tool} changes or sends something, so it goes through ConnectorAct, which the person approves`,
+    try {
+      const { connector, protocol, access } = await this.resolve(id, tool);
+      if (access === 'blocked') throw new ConnectorRefusedError(`${tool} is blocked by the person`);
+      if (access !== 'read') {
+        throw new ConnectorRefusedError(
+          `${tool} changes or sends something, so it goes through ConnectorAct, which the person approves`,
+        );
+      }
+      const result = await protocol.call(
+        connector,
+        tool,
+        args,
+        signal === undefined ? {} : { signal },
       );
+      this.noteRead(id, !result.isError);
+      return result;
+    } catch (error) {
+      this.noteRead(id, false);
+      throw error;
     }
-    return protocol.call(connector, tool, args, signal === undefined ? {} : { signal });
   }
 
   /** Call a tool that writes or sends. The person's approval is the caller's gate; a read tool is refused. */

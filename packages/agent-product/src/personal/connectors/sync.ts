@@ -25,8 +25,8 @@ const MAX_ITEMS_PER_RUN = 20;
 /**
  * The only tools a sync run has. Content from the service is written by others, so a run can read it,
  * look in the library and add what it finds, and nothing else: it cannot change the service, reach the
- * web or the files, drive the browser, rewrite what the person said or set up goals. A list of what is
- * withheld would miss the next tool a host adds; a list of what is allowed cannot.
+ * web or the files, drive the browser, rewrite what the person said or set up goals. It is a list of
+ * what is allowed, not of what is withheld: a tool added later is then not offered until it is named.
  */
 export function syncRunTools(): string[] {
   return [

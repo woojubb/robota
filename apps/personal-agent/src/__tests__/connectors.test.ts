@@ -552,14 +552,41 @@ describe('keeping a connector in sync', () => {
     expect(w.notes.calls).toEqual([]);
   });
 
-  it('keeps a run that found nothing in the goal\u2019s history without filling the feed', async () => {
+  it('keeps a run that read the service and found nothing in the goal\u2019s history without filling the feed', async () => {
     const w = await connectedWorld();
     await w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: 60 });
-    w.harness.model.script({ text: 'Nothing new.' });
+    w.harness.model.script(
+      {
+        tool: 'ConnectorRead',
+        args: { connector: w.id, tool: 'search_notes', argumentsJson: '{"query":"new"}' },
+      },
+      { text: 'Nothing new.' },
+    );
     await runSync(w);
     const goal = (await w.harness.capabilities.goals.list())[0]!;
     expect(await w.harness.capabilities.goals.feed()).toEqual([]);
     expect(await w.harness.capabilities.goals.runs(goal.id)).toHaveLength(1);
+  });
+
+  it('reports a run that read nothing, or whose reads the service or the person refused', async () => {
+    const w = await connectedWorld();
+    await w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: 15 });
+    w.harness.model.script({ text: 'I did not look.' });
+    await runSync(w);
+    expect((await w.harness.capabilities.goals.feed()).map((item) => item.body)).toEqual([
+      'I did not look.',
+    ]);
+    // A read that is refused (a writing tool through the reading one) is a failed read, not a quiet one.
+    const goal = (await w.harness.capabilities.goals.list())[0]!;
+    await w.harness.capabilities.goals.resume(goal.id);
+    w.harness.model.script(
+      { tool: 'ConnectorRead', args: { connector: w.id, tool: 'create_note' } },
+      { text: 'The read was refused.' },
+    );
+    await runSync(w);
+    expect((await w.harness.capabilities.goals.feed()).map((item) => item.body)).toContain(
+      'The read was refused.',
+    );
   });
 
   it('refuses to start before the service is connected, and refuses an interval it cannot keep', async () => {

@@ -66,8 +66,9 @@ export interface IExtraSessionOptions {
   readonly permissionMode: TPermissionMode;
   readonly deniedTools?: readonly string[];
   /**
-   * Offer only these tools: every other tool the agent has is withheld, including one a host adds
-   * later, which stays withheld until it is named here.
+   * Offer only these tools: every other tool the agent has is withheld. The agent's tools are the
+   * host's defaults and the pack's, listed when the agent is built; what a host or the framework adds
+   * beyond those is caught by the test that names what each such session is offered.
    */
   readonly onlyTools?: readonly string[];
   /** Where its transcript is kept: among the person's chats, or with the goal runs' audit (the default). */

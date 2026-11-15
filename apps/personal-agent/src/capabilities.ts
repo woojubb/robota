@@ -103,6 +103,8 @@ export interface IPersonalCapabilityOptions {
 }
 
 const DEFAULT_GOAL_TICK_MS = 30_000;
+/** How long taking a connector's access away waits for its sync run to end before going on. */
+const HALT_WAIT_MS = 30_000;
 
 export const PERSONAL_INSTRUCTIONS = [
   'You are a personal assistant that acts for one person.',
@@ -148,7 +150,11 @@ export function createPersonalCapabilities(
   // A goal cannot be removed while it runs: turning a sync off first ends the run in progress.
   const connectorSync = new ConnectorSync(goals, async (goalId) => {
     runner?.interrupt(goalId);
-    await runner?.settled(goalId);
+    // A run that does not end on being interrupted must not hold up taking the access away.
+    await Promise.race([
+      runner?.settled(goalId),
+      new Promise<void>((resolve) => setTimeout(resolve, HALT_WAIT_MS).unref()),
+    ]);
   });
   const syncRuns = createSyncRuns({ book: connectorBook, registry: connectors, goals, wiki });
   let guiOrigins: readonly string[] = [];

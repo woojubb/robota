@@ -591,9 +591,10 @@ filed fact is only ever added: content read from a service never rewrites or ret
 said. Everything the run reads is content written by others, so the run is given only the tools to read,
 look in the library and file, never a list of what is withheld that a tool added later would escape:
 it cannot write to the service, reach the web or files, drive the browser, or rewrite the library.
-Turning a sync off, or disconnecting, never waits for a run in progress. A run that is reachable, read
-cleanly and added nothing stays in the goal's history and is not posted to the feed; a run that could
-not read is posted, so a broken sync is never silent.
+Turning a sync off, or disconnecting, takes the access away first and then ends a run in progress rather
+than being refused by it. A run that is reachable, read at least once without a failed read and added
+nothing stays in the goal's history and is not posted to the feed; a run that read nothing or could not
+read is posted, so a broken sync is never silent.
 
 ### Non-goals
 

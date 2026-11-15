@@ -40,7 +40,7 @@ export interface IGoalRunnerOptions {
   /** A goal that is more than the person's instruction, such as one keeping a connector in sync. */
   readonly shape?: (goal: IGoal) => Promise<IGoalShape | undefined>;
   /** A run that went well and is not worth the person's attention: kept in the goal's history only. */
-  readonly quiet?: (goal: IGoal, run: IGoalRun) => Promise<boolean>;
+  readonly quiet?: (goal: IGoal) => Promise<boolean>;
 }
 
 export interface IGoalRunner {
@@ -196,7 +196,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       if (approvals.release(feedId)) await book.setApproval(feedId, 'expired');
     }
     await book.finishRun(run, outcome, report, {
-      quiet: outcome === 'done' && (await options.quiet?.(goal, run)) === true,
+      quiet: outcome === 'done' && (await options.quiet?.(goal)) === true,
     });
     try {
       options.onReport?.(goal, report);

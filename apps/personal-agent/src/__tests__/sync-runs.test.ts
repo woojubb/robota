@@ -28,8 +28,11 @@ async function setup(state: 'connected' | 'needs-sign-in' = 'connected') {
     protocol: 'mcp',
     endpoint: 'https://mail.example/mcp',
   });
+  /** What the registry says about reads on the connector; a test moves it as a run would. */
+  const reads = { succeeded: 0, failed: 0 };
   const registry = {
     view: async () => ({ connector: mail, status: { state } }),
+    readCounts: () => ({ ...reads }),
   } as unknown as ConnectorRegistry;
   const goal = await goals.create({
     title: 'Keep Work mail in sync',
@@ -41,6 +44,7 @@ async function setup(state: 'connected' | 'needs-sign-in' = 'connected') {
     clock.now = new Date(clock.now.getTime() + minutes * 60_000);
   };
   return {
+    reads,
     goals,
     book,
     wiki,
@@ -87,50 +91,66 @@ describe('where a sync run starts reading', () => {
     const { runs, goals } = await setup();
     const own = await goals.create({ title: 'Plan the week', instructions: 'Plan it.' });
     expect(await runs.shape(own)).toBeUndefined();
-    expect(await runs.quiet(own, await goals.startRun(own.id))).toBe(false);
+    expect(await runs.quiet(own)).toBe(false);
   });
 });
 
 describe('whether a sync run is worth reporting', () => {
-  it('is quiet when the service is reachable, every read worked and nothing was added', async () => {
-    const { runs, goal, goals } = await setup();
+  it('is quiet when the service is reachable, it was read, no read failed and nothing was added', async () => {
+    const { runs, goal, reads } = await setup();
     await runs.shape(goal);
-    expect(await runs.quiet(goal, await goals.startRun(goal.id))).toBe(true);
+    reads.succeeded += 1;
+    expect(await runs.quiet(goal)).toBe(true);
   });
 
   it('is reported when it added something to the library', async () => {
-    const { runs, goal, goals, wiki, mail } = await setup();
+    const { runs, goal, wiki, mail, reads } = await setup();
     await runs.shape(goal);
+    reads.succeeded += 1;
     await wiki.remember({
       pageTitle: 'Mina',
       claim: 'Dinner on Friday',
       source: { origin: 'mail', reference: `connector:${mail.id} Plans` },
     });
-    expect(await runs.quiet(goal, await goals.startRun(goal.id))).toBe(false);
+    expect(await runs.quiet(goal)).toBe(false);
+  });
+
+  it('is reported when it never read the service at all', async () => {
+    const { runs, goal } = await setup();
+    await runs.shape(goal);
+    expect(await runs.quiet(goal)).toBe(false);
   });
 
   it('is reported when the service can no longer be read', async () => {
-    const { runs, goal, goals } = await setup('needs-sign-in');
+    const { runs, goal, reads } = await setup('needs-sign-in');
     await runs.shape(goal);
-    expect(await runs.quiet(goal, await goals.startRun(goal.id))).toBe(false);
+    reads.succeeded += 1;
+    expect(await runs.quiet(goal)).toBe(false);
   });
 
-  it('is reported when a read failed, even though the connection looks fine', async () => {
-    const { runs, goal, goals } = await setup();
+  it('is reported when a read failed, though the connection looks fine and another read worked', async () => {
+    const { runs, goal, reads } = await setup();
     await runs.shape(goal);
-    const run = await goals.recordAction(await goals.startRun(goal.id), {
-      tool: 'ConnectorRead',
-      detail: 'search_mail',
-      outcome: 'error',
-    });
-    expect(await runs.quiet(goal, run)).toBe(false);
+    reads.failed += 1;
+    reads.succeeded += 1;
+    expect(await runs.quiet(goal)).toBe(false);
+  });
+
+  it('counts only what happened during the run, not what happened before it', async () => {
+    const { runs, goal, reads } = await setup();
+    reads.failed = 5;
+    reads.succeeded = 5;
+    await runs.shape(goal);
+    reads.succeeded += 1;
+    expect(await runs.quiet(goal)).toBe(true);
   });
 
   it('is reported when its connector is gone', async () => {
-    const { runs, goal, goals, book, mail } = await setup();
+    const { runs, goal, book, mail, reads } = await setup();
     await book.remove(mail.id);
     const shape = await runs.shape(goal);
     expect(shape?.instructions).toContain('no longer exists');
-    expect(await runs.quiet(goal, await goals.startRun(goal.id))).toBe(false);
+    reads.succeeded += 1;
+    expect(await runs.quiet(goal)).toBe(false);
   });
 });
