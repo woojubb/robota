@@ -583,7 +583,9 @@ owner-only; no record, answer or log carries them, and a record names at most th
 never one the connection itself uses. A catalog entry is a suggestion for the add form, accepted
 only if the connector it stands for could be created. It comes from the owner's file or from the
 public registry, where a remote is offered only when pasting one token can sign in to it (its address
-has no variable and it needs at most one secret header). An entry's words are somebody else's: they
+has no variable and it needs at most one secret header). Only the owner's file may name a client the
+owner registered with a service (never with its secret, which a person types at sign-in); a registry
+never supplies one. An entry's words are somebody else's: they
 are shown to the person and never reach the model. A connector may name a few plain-word options for the sign-in request (a service may need one to
 issue a sign-in that lasts), never a parameter the sign-in sets itself. The agent
 has three tools whatever is connected: one lists, one reads, one writes. A tool is read only when the person

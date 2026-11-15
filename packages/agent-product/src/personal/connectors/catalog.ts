@@ -7,6 +7,7 @@
 import { ConnectorRefusedError, checkConnectorInput } from './book.js';
 import { CONNECTOR_AUTHS, CONNECTOR_KINDS } from './types.js';
 
+import type { ICreateConnectorInput } from './book.js';
 import type { TConnectorAuth, TConnectorKind } from './types.js';
 
 export interface IConnectorCatalogEntry {
@@ -16,6 +17,16 @@ export interface IConnectorCatalogEntry {
   /** How the service is expected to be signed in to; the person can change it before adding. */
   readonly auth: TConnectorAuth;
   readonly tokenHeader?: string;
+  /**
+   * A client the owner registered with the service for this agent, so a person need not register one:
+   * only the owner's file can carry it. The client's secret, if it has one, is never in a suggestion;
+   * the person types it at sign-in.
+   */
+  readonly oauth?: {
+    readonly clientId?: string;
+    readonly scopes?: readonly string[];
+    readonly authorizationParams?: Readonly<Record<string, string>>;
+  };
   readonly description?: string;
   /** Where the suggestion came from, as a word the page shows. */
   readonly source: string;
@@ -51,6 +62,36 @@ function plain(value: unknown, limit: number): string | undefined {
   return line === '' ? undefined : line;
 }
 
+/** The sign-in settings of a raw record, or `invalid` when they are not the shapes a connector takes. */
+function oauthOf(value: unknown): ICreateConnectorInput['oauth'] | 'invalid' | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) return 'invalid';
+  const { clientId, scopes, authorizationParams } = value;
+  if (clientId !== undefined && typeof clientId !== 'string') return 'invalid';
+  if (
+    scopes !== undefined &&
+    !(Array.isArray(scopes) && scopes.every((scope) => typeof scope === 'string'))
+  ) {
+    return 'invalid';
+  }
+  if (
+    authorizationParams !== undefined &&
+    !(
+      isRecord(authorizationParams) &&
+      Object.values(authorizationParams).every((v) => typeof v === 'string')
+    )
+  ) {
+    return 'invalid';
+  }
+  return {
+    ...(clientId !== undefined && { clientId }),
+    ...(scopes !== undefined && { scopes: scopes as string[] }),
+    ...(authorizationParams !== undefined && {
+      authorizationParams: authorizationParams as Record<string, string>,
+    }),
+  };
+}
+
 /**
  * A catalog entry from one raw record, or `undefined` when the record is not a suggestion the book
  * would accept (a missing or unusable address, an unknown sign-in way, a header the connection owns).
@@ -62,7 +103,10 @@ export function catalogEntryOf(raw: unknown, source: string): IConnectorCatalogE
   const kind = raw['kind'] ?? 'other';
   const auth = raw['auth'] ?? 'oauth';
   const tokenHeader = raw['tokenHeader'];
+  // A client belongs to whoever registered it: the owner's file may name one, a registry never does.
+  const oauth = source === 'file' ? oauthOf(raw['oauth']) : undefined;
   if (
+    oauth === 'invalid' ||
     title === undefined ||
     typeof raw['endpoint'] !== 'string' ||
     !CONNECTOR_KINDS.includes(kind as TConnectorKind) ||
@@ -79,6 +123,7 @@ export function catalogEntryOf(raw: unknown, source: string): IConnectorCatalogE
       endpoint: raw['endpoint'],
       auth: auth as TConnectorAuth,
       ...(tokenHeader !== undefined && { tokenHeader }),
+      ...(oauth !== undefined && { oauth }),
     });
     return {
       title: checked.title,
@@ -86,6 +131,7 @@ export function catalogEntryOf(raw: unknown, source: string): IConnectorCatalogE
       kind: kind as TConnectorKind,
       auth: checked.auth,
       ...(checked.tokenHeader !== undefined && { tokenHeader: checked.tokenHeader }),
+      ...(checked.oauth !== undefined && { oauth: checked.oauth }),
       ...(description !== undefined && { description }),
       source,
     };
