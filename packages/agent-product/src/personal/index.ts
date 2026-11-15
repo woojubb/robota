@@ -101,3 +101,37 @@ export {
   createMemorySpaceStore,
 } from './spaces/spaces.js';
 export type { ISpace, ISpacePage, ISpaceStore } from './spaces/spaces.js';
+export {
+  ConnectorBook,
+  ConnectorRefusedError,
+  createFileConnectorStore,
+  createMemoryConnectorStore,
+} from './connectors/book.js';
+export type { IConnectorStore, ICreateConnectorInput } from './connectors/book.js';
+export { ConnectorRegistry, classifyTool } from './connectors/registry.js';
+export type {
+  IConnectorRegistryOptions,
+  IConnectorToolView,
+  IConnectorView,
+} from './connectors/registry.js';
+export {
+  CONNECTOR_INSTRUCTIONS,
+  CONNECTOR_TOOL_NAMES,
+  createConnectorTools,
+} from './connectors/tools.js';
+export { CONNECTOR_KINDS } from './connectors/types.js';
+export type {
+  IConnector,
+  IConnectorCallResult,
+  IConnectorProtocol,
+  IConnectorStatus,
+  IConnectorToolHints,
+  IConnectorToolInfo,
+  IDisconnectOutcome,
+  ISignInContext,
+  TConnectorKind,
+  TConnectorState,
+  TRevocation,
+  TToolAccess,
+  TToolDecision,
+} from './connectors/types.js';

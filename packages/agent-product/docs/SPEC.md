@@ -533,7 +533,7 @@ What a personal agent does, independent of how it is hosted: the capabilities a 
 lends a state directory and a live session: the knowledge wiki, the agent's maintained memory of the
 person it works for; the browser it acts on the web through; the goals it keeps working on while the
 person is away, with the feed it reports to; the ideas it keeps for later; the spaces the person
-organizes their life in; and the channels the person reaches it through.
+organizes their life in; the channels the person reaches it through; and the connectors to the services they use.
 
 ### Contract
 
@@ -574,6 +574,15 @@ delivers is untrusted. Only the owner's verified sender ids on a channel get a t
 approval goes out as a structured action where the platform has one and as a pointer to the feed
 where it does not, and only the owner's structured action answers it; text is never an approval.
 
+A connector is a service the person connected once, reached through the adapter of one protocol that the
+host supplies. Its record holds no credential, and an address that could carry one is refused. The agent
+has three tools whatever is connected: one lists, one reads, one writes. A tool is read only when the person
+said so or the service declared it read-only; a declaration is the service's claim, so a tool that declares
+nothing is a write. Reading proceeds on its own, in read-only runs too. A write is held for the person in
+every mode and no allow rule answers it; the reading path refuses a tool that writes, and a tool the person
+blocked is never called. What a service returns reaches the model as data from the service, never as
+instructions.
+
 ### Non-goals
 
 The browser does not hold reads. Opening a page, following a link or submitting a GET form sends
@@ -592,3 +601,9 @@ separate extraction pass, so what is filed is what the agent judged worth keepin
 write goes through the permission gate like any other tool. The browser grounds actions on numbered
 elements rather than pixels: a number is something the model can name exactly, and it keeps the port
 implementable by any browser host.
+
+A connector's tools are reached through three fixed tools rather than registered one by one: a service with
+dozens of tools adds nothing to the model's context until it is used, a connector added later needs no new
+session, and one place decides what a tool may do. Their arguments travel as JSON text because the schema a
+model is offered carries only what every provider can enforce, and a remote tool's own input is whatever
+its service declared.
