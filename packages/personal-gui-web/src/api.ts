@@ -171,6 +171,55 @@ export interface IBrowserScreenshotView {
   readonly png: string;
 }
 
+export type TConnectorState =
+  'not-connected' | 'connecting' | 'connected' | 'needs-sign-in' | 'failed';
+export type TToolAccess = 'read' | 'write' | 'blocked';
+export type TConnectorKind = 'mail' | 'calendar' | 'files' | 'chat' | 'notes' | 'other';
+
+export interface IConnectorToolView {
+  readonly name: string;
+  readonly description?: string;
+  /** What the agent treats the tool as: reading is allowed, writing waits for the person. */
+  readonly access: TToolAccess;
+  /** The person's own decision, when there is one. */
+  readonly decision?: TToolAccess;
+  /** What the service claims about the tool. */
+  readonly hints?: { readonly readOnly?: boolean; readonly destructive?: boolean };
+}
+
+export interface IConnectorStatusView {
+  readonly state: TConnectorState;
+  /** Why a sign-in failed, as a fixed word. */
+  readonly reason?: string;
+  /** While connecting: where the person's browser goes to consent. */
+  readonly authorizationUrl?: string;
+  readonly redirectUri?: string;
+  /** While connected: the scope words the service says it granted. */
+  readonly scope?: string;
+}
+
+export interface IConnectorView {
+  readonly id: string;
+  readonly title: string;
+  readonly kind: TConnectorKind;
+  readonly endpoint: string;
+  readonly status: IConnectorStatusView;
+  readonly tools?: readonly IConnectorToolView[];
+}
+
+export interface IConnectorsListing {
+  /** The path on this page's origin that a sign-in returns to. */
+  readonly callbackPath: string;
+  readonly connectors: readonly IConnectorView[];
+}
+
+export type TRevocation = 'revoked' | 'partial' | 'unsupported' | 'failed' | 'not-attempted';
+
+export interface IDisconnectView {
+  readonly removed: boolean;
+  readonly revocation: TRevocation;
+}
+
 export const API_WRITE_HEADER = 'x-robota-api';
 
 export class ApiError extends Error {
@@ -237,6 +286,24 @@ export interface IPersonalApi {
     action: 'archive' | 'remove' | 'make-goal',
   ): Promise<{ idea?: IIdeaView; goal?: IGoalView }>;
   answerFeed(id: string, action: 'approve' | 'deny' | 'dismiss'): Promise<unknown>;
+  connectors(): Promise<IConnectorsListing>;
+  addConnector(input: {
+    title: string;
+    kind: TConnectorKind;
+    endpoint: string;
+    clientId?: string;
+    scopes?: readonly string[];
+  }): Promise<{ connector: IConnectorView }>;
+  /** Start the sign-in; the page opens the returned address in the person's browser. */
+  connectConnector(id: string, origin: string): Promise<{ status: IConnectorStatusView }>;
+  disconnectConnector(id: string): Promise<{ outcome: IDisconnectView }>;
+  removeConnector(id: string): Promise<{ outcome: IDisconnectView }>;
+  /** The person's decision about one tool; `null` returns it to what the service claims. */
+  decideConnectorTool(
+    id: string,
+    tool: string,
+    decision: TToolAccess | null,
+  ): Promise<{ connector: IConnectorView }>;
   saveProvider(provider: IProviderSettings): Promise<{ saved: true; restartRequired: boolean }>;
 }
 
@@ -304,5 +371,13 @@ export function createPersonalApi(
       call('POST', `spaces/${id(spaceId)}/${pinned ? 'pin' : 'unpin'}`, { pageId }),
     ideaAction: (ideaId, action) => call('POST', `ideas/${id(ideaId)}/${action}`),
     answerFeed: (itemId, action) => call('POST', `feed/${id(itemId)}/${action}`),
+    connectors: () => call('GET', 'connectors'),
+    addConnector: (input) => call('POST', 'connectors', input),
+    connectConnector: (connectorId, origin) =>
+      call('POST', `connectors/${id(connectorId)}/connect`, { origin }),
+    disconnectConnector: (connectorId) => call('POST', `connectors/${id(connectorId)}/disconnect`),
+    removeConnector: (connectorId) => call('POST', `connectors/${id(connectorId)}/remove`),
+    decideConnectorTool: (connectorId, tool, decision) =>
+      call('POST', `connectors/${id(connectorId)}/tools/${id(tool)}`, { decision }),
   };
 }
