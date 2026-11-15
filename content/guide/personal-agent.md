@@ -94,8 +94,9 @@ each tool records your own decision over that.
 Turn on **sync** on a connected card to have the agent check it every 15 minutes, hour, 6 hours or day
 (or press **Check now**). Each check is a goal of its own: it reads what is new and files the durable
 facts in your Library, marked as read from that service with the item they came from, then reports in the
-Feed only when it kept something or could not finish. A check cannot write to the service, use the
-browser, or change what you told the agent. **Disconnect** deletes the sign-in and asks the service to
+Feed unless it read the service cleanly and found nothing to keep, so a check that could not read is
+never silent. A check has only the tools to read and file: it cannot write to the service, reach the web,
+use the browser, or change what you told the agent. **Disconnect** deletes the sign-in and asks the service to
 revoke it; **Remove** also deletes the connector itself. Both ask whether to keep or forget the facts it pulled.
 
 A service on your own network is refused by default, like the agent's browser. Name its host in
