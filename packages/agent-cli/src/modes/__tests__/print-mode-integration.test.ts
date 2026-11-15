@@ -524,15 +524,18 @@ describe('the core harness reaches the model on every surface', () => {
       cwd,
       args: makeArgs({}),
       preset: surface,
-    } as never) as { presetSystemPrompt?: string };
+    } as never) as { presetSystemPrompt?: string; productSections?: unknown };
 
-    const seed = `${CORE_HARNESS_PROMPT}\n\nPRESET-GUIDANCE`;
-    expect(surface.systemPrompt).toBe(seed);
-    expect(served.presetSystemPrompt).toBe(seed);
-    expect(toSessionOptions(surface).presetSystemPrompt).toBe(seed);
+    const core = [{ id: 'core-harness', content: CORE_HARNESS_PROMPT }];
+    expect(surface.systemPrompt).toBe('PRESET-GUIDANCE');
+    expect(surface.productSections).toEqual(core);
+    expect(served.presetSystemPrompt).toBe('PRESET-GUIDANCE');
+    expect(served.productSections).toEqual(core);
+    expect(toSessionOptions(surface).presetSystemPrompt).toBe('PRESET-GUIDANCE');
+    expect(toSessionOptions(surface).productSections).toEqual(core);
 
     const system = systemTextOf(lastMessages());
     expect(system.split(CORE_HARNESS_PROMPT)).toHaveLength(2);
-    expect(system).toContain(seed);
+    expect(system).toContain(`${CORE_HARNESS_PROMPT}\n\nPRESET-GUIDANCE`);
   });
 });

@@ -132,12 +132,22 @@ describe('the core harness in a default run', () => {
     expect(occurrences(systemText(prompt.scripted), CORE_HARNESS_PROMPT)).toBe(1);
 
     const listing = await run('/context prompt');
-    const listed = listing.data?.sections?.find((section) => section.id === 'preset-system-prompt');
-    expect(listing.result).toContain('preset-system-prompt');
+    const listed = listing.data?.sections?.find((section) => section.id === 'core-harness');
+    expect(listing.result).toContain('core-harness');
     expect(listed?.characters).toBe(CORE_HARNESS_PROMPT.length);
+    expect(listing.data?.sections?.some((section) => section.id === 'preset-system-prompt')).toBe(
+      false,
+    );
 
-    const section = await run('/context prompt preset-system-prompt');
+    const section = await run('/context prompt core-harness');
     expect(section.result).toBe(CORE_HARNESS_PROMPT);
+  }, 60_000);
+
+  it('lists a preset’s own system prompt as a section of its own after the core', async () => {
+    const listing = await run('/context prompt', ['--preset', 'acme']);
+    const ids = (listing.data?.sections ?? []).map((section) => section.id);
+    expect(ids.indexOf('core-harness')).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf('preset-system-prompt')).toBeGreaterThan(ids.indexOf('core-harness'));
   }, 60_000);
 
   it('keeps a preset’s own system prompt after the core', async () => {

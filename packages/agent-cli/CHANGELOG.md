@@ -1,5 +1,11 @@
 # @robota-sdk/agent-cli
 
+## 3.4.4
+### Patch Changes
+
+- 04a2401: Every run of the CLI now sends a short core harness prompt. It tells the model how the harness renders output and marks `<system-reminder>` blocks, to issue independent tool calls together, to report only what it verified (numbers in a final answer must come from tool results, otherwise "not run"), and to state a denied tool instead of routing around it. A preset's own system prompt follows the core, and `--system-prompt` still replaces the whole prompt. Interactive, print and serve runs all carry it, and `/context prompt` lists it as the `preset-system-prompt` section.
+- 069358a: The core harness prompt is now a section of its own (`core-harness` in `/context prompt`) instead of the first part of the preset's system prompt, so a live `/preset` switch to a preset that carries its own system prompt no longer drops it for the rest of the session. The CLI also ships the SDK that asks the Anthropic API to cache the prompt of an agent loop and records what was read from the cache: a session with several model calls now reads most of its prompt from the cache instead of paying full price for it on every call.
+
 ## 3.4.3
 ### Patch Changes
 

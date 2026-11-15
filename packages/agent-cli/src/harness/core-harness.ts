@@ -4,6 +4,9 @@
  * Built-in prompt text lives in TypeScript modules rather than Markdown files because the
  * development loop, the test runner and the bundler load files differently.
  */
+/** The id the core harness has as its own section of the composed prompt (`/context prompt`). */
+export const CORE_HARNESS_SECTION_ID = 'core-harness';
+
 export const CORE_HARNESS_PROMPT = `You are Robota, an agent that works in the user's project through the tools listed below. Do the task the user asked for and finish it. Keep answers short and plain.
 
 How this harness works

@@ -1,6 +1,6 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
-import { CORE_HARNESS_PROMPT } from '../harness/core-harness.js';
+import { CORE_HARNESS_PROMPT, CORE_HARNESS_SECTION_ID } from '../harness/core-harness.js';
 
 import { buildAppendSystemPrompt } from './append-system-prompt.js';
 import { buildJsonSchemaResponseFormat } from './json-schema-response-format.js';
@@ -11,6 +11,7 @@ import type {
   ICreateSessionOptions,
   IModelEffortResolution,
   IOutputStylePrompt,
+  IProductPromptSection,
   TSessionResponseFormat,
 } from '@robota-sdk/agent-framework';
 import type { IResolvedPresetOptions } from '@robota-sdk/agent-product/preset';
@@ -71,8 +72,8 @@ export interface IPresetSurfaceOptions {
   /** Response language, composed as a prompt section rather than a provider parameter. */
   language?: string;
   /**
-   * The system prompt that SEEDS the composed prompt: the product's core harness, then the
-   * resolved preset's own system prompt when it has one.
+   * The resolved preset's own system prompt, which SEEDS the composed prompt after the product's own
+   * sections (`productSections`); absent when the preset states none.
    *
    * Named `presetSystemPrompt` on the SESSION, deliberately: the session's own `systemPrompt` option
    * REPLACES the composed prompt, and a preset pointing at that would drop the AGENTS.md and
@@ -81,6 +82,12 @@ export interface IPresetSurfaceOptions {
    * A `--system-prompt` flag is such a full replacement, so it is carried as given, without the core.
    */
   systemPrompt?: string;
+  /**
+   * The product's own prompt sections: today the core harness, as a section of its own with a stable
+   * id. A section rather than part of the preset's seed so that a live preset switch, which replaces
+   * the seed, cannot drop it. Absent when the caller supplied the whole prompt, which carries no core.
+   */
+  productSections?: readonly IProductPromptSection[];
   /**
    * The preset's tool lists.
    *
@@ -120,17 +127,12 @@ export interface IPresetSurfaceOptions {
 }
 
 /**
- * The seed prompt every surface sends. The core harness comes first and a preset's own system
- * prompt follows it, so a preset adds to the core instead of replacing it. When the caller supplied
- * the whole prompt (`replaced`), the text is returned as given and no core is added.
+ * What the product contributes to the prompt of every surface: the core harness, ahead of a preset's
+ * own system prompt, so a preset adds to the core instead of replacing it. When the caller supplied
+ * the whole prompt (`replaced`) there is none, and no core is added.
  */
-function composeSeedSystemPrompt(
-  presetPrompt: string | undefined,
-  replaced: boolean,
-): string | undefined {
-  if (replaced) return presetPrompt;
-  if (presetPrompt === undefined || presetPrompt.trim().length === 0) return CORE_HARNESS_PROMPT;
-  return `${CORE_HARNESS_PROMPT}\n\n${presetPrompt}`;
+function productSectionsFor(replaced: boolean): readonly IProductPromptSection[] | undefined {
+  return replaced ? undefined : [{ id: CORE_HARNESS_SECTION_ID, content: CORE_HARNESS_PROMPT }];
 }
 
 /**
@@ -157,10 +159,12 @@ export function buildPresetSurfaceOptions(
     cli !== undefined ? buildAppendSystemPrompt(cli.cwd, cli.args) : undefined;
   const responseFormat =
     cli !== undefined ? buildJsonSchemaResponseFormat(cli.args.jsonSchema) : undefined;
-  const systemPrompt = composeSeedSystemPrompt(
-    resolved.systemPrompt,
-    Boolean(cli?.args.systemPrompt),
-  );
+  const replaced = Boolean(cli?.args.systemPrompt);
+  const productSections = productSectionsFor(replaced);
+  const systemPrompt =
+    resolved.systemPrompt !== undefined && resolved.systemPrompt.trim().length > 0
+      ? resolved.systemPrompt
+      : undefined;
   return {
     ...(resolved.model !== undefined ? { model: resolved.model } : {}),
     ...(outputStyle !== undefined ? { outputStyle } : {}),
@@ -186,6 +190,7 @@ export function buildPresetSurfaceOptions(
       : {}),
     ...(resolved.language !== undefined ? { language: resolved.language } : {}),
     ...(systemPrompt !== undefined ? { systemPrompt } : {}),
+    ...(productSections !== undefined ? { productSections } : {}),
     ...(resolved.allowedTools !== undefined ? { allowedTools: resolved.allowedTools } : {}),
     ...(resolved.deniedTools !== undefined ? { deniedTools: resolved.deniedTools } : {}),
     ...(cliAppendSystemPrompt !== undefined ? { cliAppendSystemPrompt } : {}),
