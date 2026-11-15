@@ -571,7 +571,8 @@ words, once, and the answer is recorded on the case and gives the agent one read
 direction from the answer alone and can only read, note, ask one follow-up question or close the case. A question
 whose case closed first can no longer be answered. A case touches only the agent's own record and the feed, so a
 read-only run and a run that reads untrusted content may keep one; the agent writes it from content other people
-wrote, so what it takes is bounded and a likely secret is refused.
+wrote, so what it takes is bounded and a secret value is refused, judged by the value and not by the words a
+case is written in.
 
 An idea is kept as the person's or as the agent's own suggestion, and a suggestion stays one: nothing
 acts on an idea until the person takes it up, and an idea taken up records what it became. A space

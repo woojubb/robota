@@ -8,6 +8,7 @@ import { join } from 'node:path';
 
 import { containsSensitiveMemoryContent } from '@robota-sdk/agent-framework';
 
+import { carriesSecretValue } from '../secret-values.js';
 import { ATTENTION_MAX_CHARACTERS } from './attention.js';
 import { CONNECTOR_AUTHS, CONNECTOR_KINDS } from './types.js';
 
@@ -191,44 +192,10 @@ export function checkConnectorInput(input: ICreateConnectorInput): ICheckedConne
 }
 
 /**
- * Longer than any plain word and shorter than every value the secret check recognises by its shape (a
- * credential prefix with its body, a key block, a long mixed run), so a word this short that the check
- * flags is flagged by its vocabulary alone.
- */
-const VOCABULARY_MAX_LENGTH = 16;
-/** A word, or the phrase "private key", with a `:` or `=` and the first character of a value after it. */
-const WORD_AND_VALUE = /(private key|[\p{L}\p{M}_-]+)(\s*[:=]\s*\S)?/giu;
-/** Shapes the secret check knows only through the words that usually precede them. */
-const KEY_BLOCK = /-----BEGIN [A-Z ]*-----/u;
-const NATIONAL_ID_NUMBER = /\b\d{6}-[1-8]\d{6}\b/u;
-
-/**
- * Whether an attention text carries a secret value. A policy is written in words such as "password",
- * "token" or "key" (a sign-in notice is the usual example), so those words are not what is refused: a
- * word the shared secret check flags by its vocabulary alone, in any language it knows, is set aside
- * before the check looks at what remains, which still refuses credential prefixes, key blocks, tokens
- * and card or identity numbers by their shape. A set-aside word followed by `:` or `=` and a value is
- * a secret written out, so that is refused as well.
- */
-function carriesSecretValue(words: string): boolean {
-  let assigned = false;
-  const rest = words.replace(WORD_AND_VALUE, (match, word: string, value: string | undefined) => {
-    if (word.length >= VOCABULARY_MAX_LENGTH || !containsSensitiveMemoryContent(word)) return match;
-    if (value !== undefined) assigned = true;
-    return ' ';
-  });
-  return (
-    assigned ||
-    KEY_BLOCK.test(words) ||
-    NATIONAL_ID_NUMBER.test(words) ||
-    containsSensitiveMemoryContent(rest)
-  );
-}
-
-/**
  * The attention words as they are kept: one line within the limit, and no secret value in them. Empty
- * text means no words of the person's own, so the default applies again. Only this field is checked
- * by value rather than by vocabulary; the other free-text fields keep the shared check as it is.
+ * text means no words of the person's own, so the default applies again. This field and the text of a
+ * case are checked by value rather than by vocabulary; the other free-text fields keep the shared
+ * check as it is.
  */
 export function checkAttention(text: string): string | undefined {
   const words = text.replace(/\s+/gu, ' ').trim();
