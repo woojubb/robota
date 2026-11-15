@@ -68,7 +68,8 @@ Alt+Up/Down on it, to move it). On a narrow screen it opens from the menu button
 - **No shell.** The agent has no command line; its file tools reach only its own workspace folder.
 - **A connected service is read freely and changed only with your approval.** Anything that sends or
   changes something there waits for you each time, in the chat or in your Feed. What it reads from
-  a service is treated as information written by others, never as instructions.
+  a service is handed to the agent as information written by others, not as instructions, and a sync
+  check has only the tools to read and file.
 
 ## Connect a service
 
@@ -76,32 +77,42 @@ A connector is a service you sign in to once so your agent can read it for you: 
 chat or notes. Any service that offers the standard tool interface (MCP over HTTPS, signed in with OAuth)
 fits the same way; nothing is built in for one service.
 
-1. Open **Connectors** and choose **Add a connector**: a name, what it is for, and the service's
-   `https` address.
-2. Press **Connect**. The service's own page opens in *this* browser, the one you are using, so you sign
-   in and agree there, wherever the agent runs, on your machine or on a server. The agent never sees your
-   password. The service sends the browser back to the page's `/connector-callback` address, and the
-   card shows **Connected** with the permissions the service says it granted.
-3. If the service does not register clients automatically, register one with it yourself, allow the
-   redirect address the form shows (`<this page's address>/connector-callback`), and enter its client id
-   (and scopes) in the form. Only public values are kept; a client secret is never stored.
+1. If the service does not register clients automatically, register one with it yourself first: allow
+   the redirect address the add form shows (`<the address you open this page at>/connector-callback`;
+   `127.0.0.1` and `localhost` count as different addresses) and note its client id. The form has no
+   place for a client secret, so a service that requires one from a client you registered yourself
+   cannot be connected here.
+2. Open **Connectors** and choose **Add a connector**: a name, what it is for, the service's `https`
+   address and, for a service from step 1, the client id (and scopes).
+3. Press **Connect**. The service's own page opens in *this* browser, the one you are using (the card
+   also offers it as a link if a pop-up blocker stops it), so you sign in and agree there, wherever the
+   agent runs, on your machine or on a server. The agent never sees your password. The service sends
+   the browser back to the page's `/connector-callback` address, and the card shows **Connected** with
+   the permissions the service reports, when it reports them in plain words. A sign-in left unfinished
+   expires after a few minutes; **Start over** begins it again. If Connect ends in *Could not connect*,
+   remove the connector and add it again with the right client id.
+
+Only public values are kept in the connector. A secret the service itself issues when it registers your
+agent is kept with the sign-in in `connector-credentials/`, readable only by you.
 
 What the agent may do is shown per tool, in three groups: **Reads** it may use on its own, **Writes**
 (anything that changes or sends) held for your approval every time, and **Blocked**. The groups follow
 what the service says about each tool, and a tool that says nothing counts as a write. A select next to
-each tool records your own decision over that.
+each tool records your own decision over that; **Blocked** holds the tools you set to *Never allow*.
 
 Turn on **sync** on a connected card to have the agent check it every 15 minutes, hour, 6 hours or day
 (or press **Check now**). Each check is a goal of its own: it reads what is new and files the durable
 facts in your Library, marked as read from that service with the item they came from, then reports in the
 Feed unless it read the service cleanly and found nothing to keep, so a check that could not read is
 never silent. A check has only the tools to read and file: it cannot write to the service, reach the web,
-use the browser, or change what you told the agent. **Disconnect** deletes the sign-in and asks the service to
-revoke it; **Remove** also deletes the connector itself. Both ask whether to keep or forget the facts it pulled.
+use the browser, or change what you told the agent. Turning sync off ends the checks and removes their
+reports; the facts already filed stay in your Library. **Disconnect** deletes the sign-in and asks the
+service to revoke it; **Remove** also deletes the connector itself. When your Library holds facts the
+connector pulled, both ask whether to keep or forget them.
 
-A service on your own network is refused by default, like the agent's browser. Name its host in
-`PERSONAL_AGENT_CONNECTOR_HOSTS` (comma-separated, for example `PERSONAL_AGENT_CONNECTOR_HOSTS=mail.lan`)
-to allow only those hosts.
+A service on your own network is refused by default, like the agent's browser. To reach one, list its
+exact host names in `PERSONAL_AGENT_CONNECTOR_HOSTS` (comma-separated, for example `mail.lan`) and restart
+the agent. Only the hosts you list are exempted from that refusal, and the service must still use `https`.
 
 ## Messengers
 
