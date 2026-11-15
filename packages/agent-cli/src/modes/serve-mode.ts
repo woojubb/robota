@@ -355,6 +355,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(preset.language !== undefined ? { language: preset.language } : {}),
     // Onto the SEED key, never onto `systemPrompt` — that one replaces the composed prompt.
     ...(preset.systemPrompt !== undefined ? { presetSystemPrompt: preset.systemPrompt } : {}),
+    ...(preset.productSections !== undefined ? { productSections: preset.productSections } : {}),
     // Surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...(opts.memorySessionOptions ?? {}),
     ...(opts.setupRequired === true ? { setupRequired: true } : {}),
