@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { Button, Notice, ViewFrame, errorText, inputClass } from './ui.js';
+import { Button, Notice, ViewFrame, errorText, inputClass, when } from './ui.js';
 
 import type {
   IConnectorToolView,
   IConnectorView,
   IConnectorsListing,
+  IDisconnectAnswer,
   IDisconnectView,
   IPersonalApi,
   TConnectorKind,
@@ -25,8 +26,16 @@ const STATE_LABEL: Readonly<Record<TConnectorState, string>> = {
   failed: 'Could not connect',
 };
 
-/** What disconnecting did at the service, in words the person can act on. */
-function outcomeText(outcome: IDisconnectView): string {
+/** What disconnecting did at the service, and in the library, in words the person can act on. */
+function outcomeText(answer: IDisconnectAnswer): string {
+  const forgotten =
+    answer.forgotten === undefined || answer.forgotten === 0
+      ? ''
+      : ` ${answer.forgotten} ${answer.forgotten === 1 ? 'fact it had pulled was' : 'facts it had pulled were'} forgotten.`;
+  return `${revocationText(answer.outcome)}${forgotten}`;
+}
+
+function revocationText(outcome: IDisconnectView): string {
   switch (outcome.revocation) {
     case 'revoked':
       return 'Disconnected. The service confirmed it revoked the access.';
@@ -40,6 +49,14 @@ function outcomeText(outcome: IDisconnectView): string {
       return 'Disconnected. There was no access to revoke.';
   }
 }
+
+const SYNC_CHOICES: readonly { readonly minutes: number | null; readonly label: string }[] = [
+  { minutes: null, label: 'Off' },
+  { minutes: 15, label: 'Every 15 minutes' },
+  { minutes: 60, label: 'Every hour' },
+  { minutes: 360, label: 'Every 6 hours' },
+  { minutes: 1440, label: 'Every day' },
+];
 
 const DECISIONS: readonly { readonly value: TToolAccess | 'default'; readonly label: string }[] = [
   { value: 'default', label: 'What the service says' },
@@ -117,15 +134,35 @@ function ConnectorCard({
   onDisconnect,
   onRemove,
   onDecide,
+  onSync,
+  onRunSync,
+  pulledCount,
 }: {
   readonly connector: IConnectorView;
   readonly onConnect: () => void;
-  readonly onDisconnect: () => void;
-  readonly onRemove: () => void;
+  readonly onDisconnect: (forgetPulled: boolean) => void;
+  readonly onRemove: (forgetPulled: boolean) => void;
   readonly onDecide: (tool: string, decision: TToolAccess | null) => void;
+  readonly onSync: (everyMinutes: number | null) => void;
+  readonly onRunSync: () => void;
+  /** How many library claims this connector put there. */
+  readonly pulledCount: () => Promise<number>;
 }): React.ReactElement {
   const { status } = connector;
-  const [confirmRemove, setConfirmRemove] = useState(false);
+  // What the person is being asked, and how much of the library the connector filled.
+  const [asking, setAsking] = useState<
+    { kind: 'disconnect' | 'remove'; pulled: number } | undefined
+  >(undefined);
+  const ask = async (kind: 'disconnect' | 'remove'): Promise<void> => {
+    const pulled = await pulledCount().catch(() => 0);
+    if (kind === 'disconnect' && pulled === 0) onDisconnect(false);
+    else setAsking({ kind, pulled });
+  };
+  const finish = (forget: boolean): void => {
+    if (asking?.kind === 'remove') onRemove(forget);
+    else onDisconnect(forget);
+    setAsking(undefined);
+  };
   const tools = connector.tools ?? [];
   return (
     <li className="rounded-lg border border-border p-3" aria-label={connector.title}>
@@ -188,6 +225,47 @@ function ConnectorCard({
           />
         </>
       )}
+      {status.state === 'connected' && (
+        <section aria-label="Keep up to date" className="mt-3 border-t border-border pt-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-[13px] font-semibold">Keep your library up to date</h3>
+            <select
+              aria-label={`How often to check ${connector.title}`}
+              className="ml-auto rounded-md border border-border bg-background px-1.5 py-1 text-[12.5px]"
+              value={String(connector.sync?.everyMinutes ?? 'off')}
+              onChange={(event) =>
+                onSync(event.target.value === 'off' ? null : Number(event.target.value))
+              }
+            >
+              <option value="off">Off</option>
+              {SYNC_CHOICES.filter((choice) => choice.minutes !== null).map((choice) => (
+                <option key={choice.minutes} value={String(choice.minutes)}>
+                  {choice.label}
+                </option>
+              ))}
+              {connector.sync !== undefined &&
+                !SYNC_CHOICES.some((choice) => choice.minutes === connector.sync?.everyMinutes) && (
+                  <option value={String(connector.sync.everyMinutes)}>
+                    Every {connector.sync.everyMinutes} minutes
+                  </option>
+                )}
+            </select>
+          </div>
+          <p className="text-[12px] text-muted-foreground">
+            Each check reads the service and files the facts worth keeping in your Library, marked
+            with where they came from. It cannot change anything at the service.
+          </p>
+          {connector.sync !== undefined && (
+            <p className="mt-1 flex items-center gap-2 text-[12.5px]">
+              <span>
+                Last checked: {when(connector.sync.lastRunAt)}. Next:{' '}
+                {when(connector.sync.nextRunAt)}.
+              </span>
+              <Button onClick={onRunSync}>Check now</Button>
+            </p>
+          )}
+        </section>
+      )}
       <div className="mt-3 flex items-center gap-2">
         {status.state !== 'connected' && status.state !== 'connecting' && (
           <Button tone="primary" onClick={onConnect}>
@@ -195,18 +273,37 @@ function ConnectorCard({
           </Button>
         )}
         {status.state === 'connecting' && <Button onClick={onConnect}>Start over</Button>}
-        {status.state === 'connected' && <Button onClick={onDisconnect}>Disconnect</Button>}
+        {status.state === 'connected' && asking === undefined && (
+          <Button onClick={() => void ask('disconnect')}>Disconnect</Button>
+        )}
         <span className="ml-auto flex items-center gap-2">
-          {confirmRemove ? (
+          {asking !== undefined ? (
             <>
-              <span className="text-[12.5px] text-muted-foreground">Remove and revoke access?</span>
-              <Button tone="danger" onClick={onRemove}>
-                Yes, remove
-              </Button>
-              <Button onClick={() => setConfirmRemove(false)}>Keep</Button>
+              <span className="text-[12.5px] text-muted-foreground">
+                {asking.kind === 'remove' ? 'Remove and revoke access?' : 'Disconnect?'}
+                {asking.pulled > 0 &&
+                  ` ${asking.pulled} ${asking.pulled === 1 ? 'fact' : 'facts'} in your Library came from it.`}
+              </span>
+              {asking.pulled > 0 ? (
+                <>
+                  <Button tone="danger" onClick={() => finish(true)}>
+                    {asking.kind === 'remove'
+                      ? 'Remove and forget them'
+                      : 'Disconnect and forget them'}
+                  </Button>
+                  <Button tone="danger" onClick={() => finish(false)}>
+                    {asking.kind === 'remove' ? 'Remove, keep them' : 'Disconnect, keep them'}
+                  </Button>
+                </>
+              ) : (
+                <Button tone="danger" onClick={() => finish(false)}>
+                  Yes, remove
+                </Button>
+              )}
+              <Button onClick={() => setAsking(undefined)}>Keep</Button>
             </>
           ) : (
-            <Button onClick={() => setConfirmRemove(true)}>Remove</Button>
+            <Button onClick={() => void ask('remove')}>Remove</Button>
           )}
         </span>
       </div>
@@ -385,14 +482,26 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
                 }
               })
             }
-            onDisconnect={() =>
+            onDisconnect={(forget) =>
               void run(async () => {
-                setMessage(outcomeText((await api.disconnectConnector(connector.id)).outcome));
+                setMessage(outcomeText(await api.disconnectConnector(connector.id, forget)));
               })
             }
-            onRemove={() =>
+            onRemove={(forget) =>
               void run(async () => {
-                setMessage(outcomeText((await api.removeConnector(connector.id)).outcome));
+                setMessage(outcomeText(await api.removeConnector(connector.id, forget)));
+              })
+            }
+            pulledCount={async () => (await api.connectorPulled(connector.id)).count}
+            onSync={(everyMinutes) =>
+              void run(async () => {
+                await api.setConnectorSync(connector.id, everyMinutes);
+              })
+            }
+            onRunSync={() =>
+              void run(async () => {
+                if (connector.sync !== undefined)
+                  await api.goalAction(connector.sync.goalId, 'run');
               })
             }
             onDecide={(tool, decision) =>

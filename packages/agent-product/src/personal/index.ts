@@ -119,6 +119,22 @@ export {
   CONNECTOR_TOOL_NAMES,
   createConnectorTools,
 } from './connectors/tools.js';
+export {
+  connectorReference,
+  countPulled,
+  createConnectorKeepTool,
+  forgetPulled,
+  originOfConnector,
+} from './connectors/keep.js';
+export {
+  ConnectorSync,
+  SYNC_MAX_MINUTES,
+  SYNC_MIN_MINUTES,
+  syncDeniedTools,
+  syncGoalPrompt,
+  syncRunInstructions,
+} from './connectors/sync.js';
+export type { IConnectorSyncStatus } from './connectors/sync.js';
 export { CONNECTOR_KINDS } from './connectors/types.js';
 export type {
   IConnector,

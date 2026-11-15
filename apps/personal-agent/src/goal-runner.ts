@@ -21,6 +21,12 @@ export type TRunSession = Pick<
   'on' | 'off' | 'submit' | 'resolvePermission' | 'shutdown' | 'abort'
 >;
 
+/** How one goal differs from an ordinary one: more to tell the run, and more tools it is denied. */
+export interface IGoalShape {
+  readonly instructions: string;
+  readonly deniedTools: readonly string[];
+}
+
 export interface IGoalRunnerOptions {
   readonly book: GoalBook;
   readonly openSession: (extra: IExtraSessionOptions) => TRunSession;
@@ -30,6 +36,10 @@ export interface IGoalRunnerOptions {
   readonly onReport?: (goal: IGoal, report: string) => void;
   /** How often to look for due goals; 0 runs only when asked. */
   readonly tickMs?: number;
+  /** A goal that is more than the person's instruction, such as one keeping a connector in sync. */
+  readonly shape?: (goal: IGoal) => Promise<IGoalShape | undefined>;
+  /** A run that went well and is not worth the person's attention: kept in the goal's history only. */
+  readonly quiet?: (goal: IGoal, run: IGoalRun) => boolean;
 }
 
 export interface IGoalRunner {
@@ -79,11 +89,14 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       enqueue(async () => {
         run = await book.recordAction(run, action);
       });
+    const shape = await options.shape?.(goal);
     const session = options.openSession({
       sessionName: `Goal: ${goal.title}`,
-      instructions: goalRunInstructions(goal),
+      instructions: [goalRunInstructions(goal), shape?.instructions]
+        .filter((text) => text !== undefined)
+        .join('\n\n'),
       permissionMode: goal.readOnly ? 'plan' : 'acceptEdits',
-      deniedTools: Object.values(GOAL_TOOL_NAMES),
+      deniedTools: [...Object.values(GOAL_TOOL_NAMES), ...(shape?.deniedTools ?? [])],
     });
     sessions.add(session);
     /** Prompt id to the feed item that shows it. */
@@ -179,7 +192,9 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     for (const feedId of ownPrompts.values()) {
       if (approvals.release(feedId)) await book.setApproval(feedId, 'expired');
     }
-    await book.finishRun(run, outcome, report);
+    await book.finishRun(run, outcome, report, {
+      quiet: outcome === 'done' && options.quiet?.(goal, run) === true,
+    });
     try {
       options.onReport?.(goal, report);
     } catch {

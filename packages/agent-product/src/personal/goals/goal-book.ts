@@ -25,6 +25,7 @@ export interface ICreateGoalInput {
   readonly instructions: string;
   readonly everyMinutes?: number;
   readonly readOnly?: boolean;
+  readonly connectorId?: string;
 }
 
 export class GoalRefusedError extends Error {
@@ -105,6 +106,7 @@ export class GoalBook {
       instructions,
       ...(input.everyMinutes !== undefined && { everyMinutes: input.everyMinutes }),
       readOnly: input.readOnly === true,
+      ...(input.connectorId !== undefined && { connectorId: input.connectorId }),
       status: 'active',
       nextRunAt: at,
       createdAt: at,
@@ -180,7 +182,16 @@ export class GoalBook {
   }
 
   /** End a run, schedule the next one or close the goal, and report to the feed. */
-  async finishRun(run: IGoalRun, outcome: TGoalRunOutcome, report: string): Promise<IGoalRun> {
+  /**
+   * End a run. A `quiet` run that went well is kept in the goal's history but is not posted to the
+   * feed, so a goal that mostly finds nothing does not fill it; a run that did not go well is posted.
+   */
+  async finishRun(
+    run: IGoalRun,
+    outcome: TGoalRunOutcome,
+    report: string,
+    options: { readonly quiet?: boolean } = {},
+  ): Promise<IGoalRun> {
     const goal = await this.require(run.goalId);
     const at = this.stamp();
     const finished: IGoalRun = { ...run, endedAt: at, outcome, report };
@@ -191,6 +202,7 @@ export class GoalBook {
     } else {
       await this.save(goal, { status: outcome === 'done' ? 'done' : 'failed' }, ['nextRunAt']);
     }
+    if (options.quiet === true && outcome === 'done') return finished;
     await this.post({
       kind: 'report',
       title: outcome === 'done' ? goal.title : `${goal.title} (${outcome})`,

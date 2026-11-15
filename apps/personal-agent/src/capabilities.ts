@@ -9,6 +9,7 @@ import {
   CONNECTOR_INSTRUCTIONS,
   ConnectorBook,
   ConnectorRegistry,
+  ConnectorSync,
   GOAL_INSTRUCTIONS,
   GoalBook,
   IDEA_INSTRUCTIONS,
@@ -18,6 +19,7 @@ import {
   WIKI_INSTRUCTIONS,
   createBrowserTools,
   createChannelHub,
+  createConnectorKeepTool,
   createConnectorTools,
   createFileConnectorStore,
   createFileGoalStore,
@@ -27,6 +29,8 @@ import {
   createGoalTools,
   createIdeaTools,
   createWikiTools,
+  syncDeniedTools,
+  syncRunInstructions,
 } from '@robota-sdk/agent-product/personal';
 
 import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playwright-browser.js';
@@ -141,6 +145,7 @@ export function createPersonalCapabilities(
       }),
     ],
   });
+  const connectorSync = new ConnectorSync(goals);
   let guiOrigins: readonly string[] = [];
   let runner: IGoalRunner | undefined;
   let channelTurns: IChannelTurns | undefined;
@@ -179,6 +184,7 @@ export function createPersonalCapabilities(
       ...createGoalTools(goals),
       ...createIdeaTools(ideas),
       ...createConnectorTools(connectors),
+      createConnectorKeepTool({ book: connectorBook, wiki }),
     ],
     instructions: [
       PERSONAL_INSTRUCTIONS,
@@ -216,6 +222,8 @@ export function createPersonalCapabilities(
       connectors: createConnectorsApi({
         registry: connectors,
         book: connectorBook,
+        sync: connectorSync,
+        wiki,
         origins: () => guiOrigins,
       }),
     }),
@@ -235,6 +243,24 @@ export function createPersonalCapabilities(
         },
         openSession: (extra) => agent.openSession(extra),
         tickMs: options.goalTickMs ?? DEFAULT_GOAL_TICK_MS,
+        // A sync run reads one connector and adds to the library; it is denied everything content could act through.
+        shape: async (goal) => {
+          if (goal.connectorId === undefined) return undefined;
+          const connector = await connectorBook.get(goal.connectorId);
+          return {
+            instructions:
+              connector === undefined
+                ? 'Its connector no longer exists. Say so in one line and do nothing else.'
+                : syncRunInstructions(connector, goal.lastRunAt),
+            deniedTools: syncDeniedTools(),
+          };
+        },
+        // A sync that kept nothing has nothing to tell the person; its run stays in the goal's history.
+        quiet: (goal, run) =>
+          goal.connectorId !== undefined &&
+          !run.actions.some(
+            (action) => action.tool === 'ConnectorKeep' && action.outcome === 'done',
+          ),
       });
     },
     dispose: async () => {

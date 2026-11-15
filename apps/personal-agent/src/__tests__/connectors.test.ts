@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createFixtureWebRoot, startHarness } from './harness.js';
-import { toolResults } from './scripted-model.js';
+import { offeredTools, toolResults } from './scripted-model.js';
 import {
   startStandInAuthorizationServer,
   startStandInConnector,
@@ -444,5 +444,170 @@ describe('disconnecting', () => {
     expect(answer.body.outcome.removed).toBe(true);
     expect((await w.call('GET', ['connectors'])).body.connectors).toEqual([]);
     expect((await w.call('GET', ['connectors', w.id])).status).toBe(404);
+  });
+});
+
+describe('keeping a connector in sync', () => {
+  async function connectedWorld(): Promise<IWorld & { id: string }> {
+    const w = await world();
+    const id = await w.add('Notes', 'notes', NOTES_HOST);
+    await w.consent((await w.connect(id)).authorizationUrl);
+    await w.waitForState(id, 'connected');
+    return { ...w, id };
+  }
+
+  /** A model that reads, keeps one fact and reports, whatever else it is shown. */
+  function syncScript(id: string) {
+    return (request: Parameters<typeof toolResults>[0]) => {
+      const done = toolResults(request).length;
+      if (done === 0) {
+        return {
+          tool: 'ConnectorRead',
+          args: { connector: id, tool: 'search_notes', argumentsJson: '{"query":"trip"}' },
+        };
+      }
+      if (done === 1) {
+        return {
+          tool: 'ConnectorKeep',
+          args: {
+            connector: id,
+            page: 'Trips',
+            kind: 'topic',
+            claim: 'Trip to Busan on May 3',
+            reference: 'Trip note',
+          },
+        };
+      }
+      return { text: 'Kept 1 fact on Trips.' };
+    };
+  }
+
+  async function runSync(w: IWorld): Promise<void> {
+    const runner = w.harness.capabilities.runner()!;
+    await runner.runDue();
+    await runner.settled();
+  }
+
+  it('files what a run reads into the library with where it came from, and reports to the feed', async () => {
+    const w = await connectedWorld();
+    const enabled = await w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: 60 });
+    expect(enabled.status).toBe(200);
+    expect(enabled.body.connector.sync.everyMinutes).toBe(60);
+    const goals = await w.harness.capabilities.goals.list();
+    expect(goals.map((goal) => goal.connectorId)).toEqual([w.id]);
+
+    w.harness.model.script(syncScript(w.id));
+    await runSync(w);
+
+    const claim = (await w.harness.capabilities.wiki.read('trips'))!.claims[0]!;
+    expect(claim.text).toBe('Trip to Busan on May 3');
+    expect(claim.source.origin).toBe('tool');
+    expect(claim.source.reference).toBe(`connector:${w.id} Trip note`);
+    const feed = await w.harness.capabilities.goals.feed();
+    expect(feed.map((item) => item.body)).toEqual(['Kept 1 fact on Trips.']);
+    expect(w.notes.calls).toEqual(['search_notes {"query":"trip"}']);
+  });
+
+  it('gives the run only what it needs to read and file, and tells it where to start', async () => {
+    const w = await connectedWorld();
+    await w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: 60 });
+    w.harness.model.script(syncScript(w.id));
+    await runSync(w);
+    const first = w.harness.model.requests[0]!;
+    const offered = offeredTools(first);
+    expect(offered).toEqual(
+      expect.arrayContaining(['ConnectorList', 'ConnectorRead', 'ConnectorKeep', 'WikiSearch']),
+    );
+    for (const denied of [
+      'ConnectorAct',
+      'WikiRemember',
+      'WikiForget',
+      'BrowserOpen',
+      'BrowserSubmit',
+      'GoalCreate',
+      'IdeaAdd',
+    ]) {
+      expect(offered, denied).not.toContain(denied);
+    }
+    const system = String(first.messages.find((message) => message.role === 'system')?.content);
+    expect(system).toContain('first sync');
+    expect(system).toContain(w.id);
+  });
+
+  it('cannot write to the service even when the content it read says to', async () => {
+    const w = await connectedWorld();
+    await w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: 60 });
+    // A model that obeyed the planted instruction would try the writing tool.
+    w.harness.model.script(
+      {
+        tool: 'ConnectorAct',
+        args: { connector: w.id, tool: 'create_note', argumentsJson: '{"text":"leak"}' },
+      },
+      { text: 'Done.' },
+    );
+    await runSync(w);
+    expect(w.notes.calls).toEqual([]);
+  });
+
+  it('keeps a run that found nothing in the goal\u2019s history without filling the feed', async () => {
+    const w = await connectedWorld();
+    await w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: 60 });
+    w.harness.model.script({ text: 'Nothing new.' });
+    await runSync(w);
+    const goal = (await w.harness.capabilities.goals.list())[0]!;
+    expect(await w.harness.capabilities.goals.feed()).toEqual([]);
+    expect(await w.harness.capabilities.goals.runs(goal.id)).toHaveLength(1);
+  });
+
+  it('refuses to start before the service is connected, and refuses an interval it cannot keep', async () => {
+    const w = await world();
+    const id = await w.add('Notes', 'notes', NOTES_HOST);
+    expect((await w.call('POST', ['connectors', id, 'sync'], { everyMinutes: 60 })).status).toBe(
+      400,
+    );
+    await w.consent((await w.connect(id)).authorizationUrl);
+    await w.waitForState(id, 'connected');
+    for (const everyMinutes of [1, 100_000, 'hourly']) {
+      const answer = await w.call('POST', ['connectors', id, 'sync'], { everyMinutes });
+      expect(answer.status, String(everyMinutes)).toBe(400);
+    }
+    expect((await w.call('POST', ['connectors', id, 'sync'], { everyMinutes: null })).status).toBe(
+      200,
+    );
+  });
+
+  it('counts what was pulled and forgets exactly that when the person disconnects and asks to', async () => {
+    const w = await connectedWorld();
+    await w.harness.capabilities.wiki.remember({
+      pageTitle: 'Trips',
+      claim: 'I like window seats',
+      source: { origin: 'owner' },
+    });
+    await w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: 60 });
+    w.harness.model.script(syncScript(w.id));
+    await runSync(w);
+    expect((await w.call('GET', ['connectors', w.id, 'pulled'])).body.count).toBe(1);
+
+    const answer = await w.call('POST', ['connectors', w.id, 'disconnect'], {
+      forgetPulled: true,
+    });
+    expect(answer.body.forgotten).toBe(1);
+    expect(answer.body.outcome.revocation).toBe('revoked');
+    const page = (await w.harness.capabilities.wiki.read('trips'))!;
+    expect(page.claims.map((claim) => claim.text)).toEqual(['I like window seats']);
+    // The sync is off with the connection.
+    expect(await w.harness.capabilities.goals.list()).toEqual([]);
+    expect((await w.call('GET', ['connectors', w.id])).body.connector.sync).toBeUndefined();
+  });
+
+  it('keeps what was pulled when the person disconnects without asking to forget it', async () => {
+    const w = await connectedWorld();
+    await w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: 60 });
+    w.harness.model.script(syncScript(w.id));
+    await runSync(w);
+    const answer = await w.call('POST', ['connectors', w.id, 'disconnect']);
+    expect(answer.body.forgotten).toBeUndefined();
+    expect((await w.harness.capabilities.wiki.read('trips'))!.claims).toHaveLength(1);
+    expect(await w.harness.capabilities.goals.list()).toEqual([]);
   });
 });
