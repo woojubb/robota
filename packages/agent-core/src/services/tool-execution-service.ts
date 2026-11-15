@@ -102,17 +102,31 @@ export class ToolExecutionService {
       // before the unknown-tool loop guard force-summarises are recoverable rather than fatal.
       provenance = snapshotToolProvenance(this.tools.getTool?.(toolName)?.provenance);
       context.signal?.throwIfAborted();
-      const withheld =
+      // A registered tool the model is not offered is one of two things: a deferred tool it has not
+      // loaded (visible, so a search can load it), or one the session hides outright — denied, or
+      // outside its allowed set. The model was never shown the second, so a call to it is answered
+      // as not allowed rather than reaching the permission gate, whose refusal reads as the person
+      // having said no.
+      const notOffered =
         catalog === 'offered' &&
-        this.tools.getToolSchema(toolName)?.deferLoading === true &&
+        this.tools.hasTool(toolName) &&
         !this.tools.isToolOffered(toolName);
-      if (!this.tools.hasTool(toolName) || withheld) {
+      const withheld =
+        notOffered &&
+        this.tools.getToolSchema(toolName)?.deferLoading === true &&
+        this.tools.getTools().some((tool) => tool.name === toolName);
+      const hidden = notOffered && !withheld;
+      if (!this.tools.hasTool(toolName) || withheld || hidden) {
         const availableTools = (
           catalog === 'registered' ? this.tools.getTools() : this.tools.getOfferedTools()
         )
           .map((tool) => tool.name)
           .sort();
-        const error = formatUnknownToolError(toolName, availableTools, withheld);
+        const error = formatUnknownToolError(
+          toolName,
+          availableTools,
+          hidden ? 'hidden' : withheld ? 'deferred' : 'unknown',
+        );
         const eventService = context.eventService;
         if (eventService) {
           const errorEvent: IToolEventData = {
@@ -335,11 +349,14 @@ function decodeToolCallArguments(
 function formatUnknownToolError(
   toolName: string,
   availableTools: string[],
-  withheld: boolean,
+  kind: 'unknown' | 'deferred' | 'hidden',
 ): string {
   const available =
     availableTools.length > 0 ? availableTools.join(', ') : 'no registered tools are available';
-  if (withheld) {
+  if (kind === 'hidden') {
+    return `Tool "${toolName}" is not allowed in this session, so the tool call was not executed. Available tools: ${available}.`;
+  }
+  if (kind === 'deferred') {
     return (
       `Tool "${toolName}" is registered but deferred and not yet loaded, so the tool call was not executed. ` +
       `Call ${TOOL_SEARCH_TOOL_NAME} with names: ["${toolName}"] to load it, then call it again. ` +

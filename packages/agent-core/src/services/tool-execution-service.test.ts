@@ -232,6 +232,76 @@ describe('ToolExecutionService', () => {
       expect(tools.executeTool).not.toHaveBeenCalled();
     });
 
+    it('answers a call to a registered tool the session hides as not allowed, not as a refusal by the person', async () => {
+      const tools = createMockToolManager({
+        getTools: vi.fn().mockReturnValue([{ name: 'Read' }]),
+        getOfferedTools: vi.fn().mockReturnValue([{ name: 'Read' }]),
+        getToolSchema: vi.fn().mockReturnValue({ name: 'Bash' }),
+        hasTool: vi.fn().mockReturnValue(true),
+        isToolOffered: vi.fn().mockReturnValue(false),
+        executeTool: vi.fn(),
+      });
+      const service = new ToolExecutionService(tools, createMockLogger());
+
+      const result = await service.executeTool(
+        'Bash',
+        { command: 'ls' },
+        createToolContext({ executionId: 'call_hidden' }),
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Tool "Bash" is not allowed in this session');
+      expect(result.error).toContain('Available tools: Read');
+      expect(result.error).not.toContain('not registered');
+      expect(result.metadata).toEqual({
+        errorCode: 'unknown_tool',
+        requestedTool: 'Bash',
+        availableTools: ['Read'],
+      });
+      expect(tools.executeTool).not.toHaveBeenCalled();
+    });
+
+    it('still tells the model how to load a deferred tool it is allowed to use', async () => {
+      const tools = createMockToolManager({
+        getTools: vi.fn().mockReturnValue([{ name: 'sheets_read' }]),
+        getOfferedTools: vi.fn().mockReturnValue([]),
+        getToolSchema: vi.fn().mockReturnValue({ name: 'sheets_read', deferLoading: true }),
+        hasTool: vi.fn().mockReturnValue(true),
+        isToolOffered: vi.fn().mockReturnValue(false),
+        executeTool: vi.fn(),
+      });
+      const service = new ToolExecutionService(tools, createMockLogger());
+
+      const result = await service.executeTool(
+        'sheets_read',
+        {},
+        createToolContext({ executionId: 'call_deferred' }),
+      );
+
+      expect(result.error).toContain('deferred and not yet loaded');
+    });
+
+    it('does not offer to load a deferred tool the session denies', async () => {
+      const tools = createMockToolManager({
+        getTools: vi.fn().mockReturnValue([]),
+        getOfferedTools: vi.fn().mockReturnValue([]),
+        getToolSchema: vi.fn().mockReturnValue({ name: 'sheets_read', deferLoading: true }),
+        hasTool: vi.fn().mockReturnValue(true),
+        isToolOffered: vi.fn().mockReturnValue(false),
+        executeTool: vi.fn(),
+      });
+      const service = new ToolExecutionService(tools, createMockLogger());
+
+      const result = await service.executeTool(
+        'sheets_read',
+        {},
+        createToolContext({ executionId: 'call_denied_deferred' }),
+      );
+
+      expect(result.error).toContain('is not allowed in this session');
+      expect(result.error).not.toContain('ToolSearch');
+    });
+
     it('should emit start and complete events when eventService is provided', async () => {
       const tools = createMockToolManager({
         executeTool: vi.fn().mockResolvedValue('result'),
