@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -128,6 +128,41 @@ describe('the services the add form can suggest', () => {
     },
   );
 
+  it('stops reading an answer that has no declared size once it passes the limit, and counts bytes, not letters', async () => {
+    let pulls = 0;
+    let cancelled = false;
+    const endless = new Response(
+      new ReadableStream<Uint8Array>({
+        pull(controller) {
+          pulls += 1;
+          controller.enqueue(new Uint8Array(64 * 1024).fill(32));
+        },
+        cancel() {
+          cancelled = true;
+        },
+      }),
+      { status: 200 },
+    );
+    const catalog = createConnectorCatalog({
+      stateDir: stateDir(),
+      registryUrl: 'https://registry.example.test',
+      fetch: registry(() => endless).fetch,
+    });
+    expect((await catalog.search('')).registry).toBe('unreachable');
+    expect(cancelled).toBe(true);
+    // It gave up soon after one megabyte instead of reading on.
+    expect(pulls).toBeLessThan(40);
+
+    // 400 000 three-byte letters are fewer than a million characters but more than a megabyte.
+    const wide = createConnectorCatalog({
+      stateDir: stateDir(),
+      registryUrl: 'https://registry.example.test',
+      fetch: registry(() => new Response(JSON.stringify({ servers: [], pad: '€'.repeat(400_000) })))
+        .fetch,
+    });
+    expect((await wide.search('')).registry).toBe('unreachable');
+  });
+
   it('says the registry is unreachable when the request itself fails', async () => {
     const catalog = createConnectorCatalog({
       stateDir: stateDir(),
@@ -180,7 +215,34 @@ describe('the services the add form can suggest', () => {
     expect(await titles(stateDir([good, ...bad]))).toEqual(['Calendar']);
     expect(await titles(stateDir({ entries: [good, ...bad] }))).toEqual(['Calendar']);
     expect(await titles(stateDir(undefined, '{ not json'))).toEqual([]);
+    // The same address twice is offered once.
+    expect(await titles(stateDir([good, { ...good, title: 'Calendar again' }]))).toEqual([
+      'Calendar',
+    ]);
     expect(await titles(stateDir())).toEqual([]);
+  });
+});
+
+describe('the owner’s file when it is not a small regular file', () => {
+  const off = { registryUrl: null } as const;
+  const good = { title: 'Calendar', endpoint: 'https://calendar.example.test/mcp' };
+
+  it('offers nothing from a file past the size limit, however valid it is', async () => {
+    const directory = stateDir(
+      undefined,
+      JSON.stringify({ entries: [good], pad: 'x'.repeat(1.2 * 1024 * 1024) }),
+    );
+    expect(
+      (await createConnectorCatalog({ ...off, stateDir: directory }).search('')).entries,
+    ).toEqual([]);
+  });
+
+  it('offers nothing when the path is a directory', async () => {
+    const directory = stateDir();
+    mkdirSync(join(directory, 'connector-catalog.json'));
+    expect(
+      (await createConnectorCatalog({ ...off, stateDir: directory }).search('')).entries,
+    ).toEqual([]);
   });
 });
 

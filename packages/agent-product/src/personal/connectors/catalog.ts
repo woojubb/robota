@@ -42,6 +42,8 @@ function plain(value: unknown, limit: number): string | undefined {
   const line = [...value]
     .map((character) => (isControl(character) ? ' ' : character))
     .join('')
+    // Invisible formatting (direction overrides, zero-width marks) can make a name read as another.
+    .replace(/\p{Cf}/gu, '')
     .replace(/\s+/gu, ' ')
     .trim()
     .slice(0, limit)
@@ -126,27 +128,32 @@ function entryFromServer(item: unknown): IConnectorCatalogEntry | undefined {
   const status = isRecord(meta) ? meta['status'] : undefined;
   if (typeof status === 'string' && status !== ACTIVE) return undefined;
   const remotes = Array.isArray(server['remotes']) ? server['remotes'] : [];
-  // A remote whose address still has a variable in it needs the person's value first: not offered.
-  const remote = remotes.find(
-    (candidate) =>
-      isRecord(candidate) &&
-      candidate['type'] === 'streamable-http' &&
-      typeof candidate['url'] === 'string' &&
-      !candidate['url'].includes('{'),
-  );
-  if (!isRecord(remote)) return undefined;
-  const signIn = signInOf(remote['headers']);
-  if (signIn === undefined) return undefined;
-  return catalogEntryOf(
-    {
-      title: server['title'] ?? server['name'],
-      description: server['description'],
-      endpoint: remote['url'],
-      auth: signIn.auth,
-      ...(signIn.tokenHeader !== undefined && { tokenHeader: signIn.tokenHeader }),
-    },
-    'registry',
-  );
+  for (const remote of remotes) {
+    // A remote whose address still has a variable in it needs the person's value first: not offered.
+    if (
+      !isRecord(remote) ||
+      remote['type'] !== 'streamable-http' ||
+      typeof remote['url'] !== 'string' ||
+      remote['url'].includes('{')
+    ) {
+      continue;
+    }
+    const signIn = signInOf(remote['headers']);
+    if (signIn === undefined) continue;
+    const entry = catalogEntryOf(
+      {
+        title: server['title'] ?? server['name'],
+        description: server['description'],
+        endpoint: remote['url'],
+        auth: signIn.auth,
+        ...(signIn.tokenHeader !== undefined && { tokenHeader: signIn.tokenHeader }),
+      },
+      'registry',
+    );
+    // The first remote that can be signed in to and added is the one offered.
+    if (entry !== undefined) return entry;
+  }
+  return undefined;
 }
 
 /** The services of one page of a registry's answer that can be added here, one entry per address. */

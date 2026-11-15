@@ -4,7 +4,7 @@
  * add form and nothing more: adding it, signing in and what the agent may do with it stay the person's.
  * Everything here is text somebody else wrote, shown on the page and never given to the model.
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { catalogEntriesFromRegistry, catalogEntryOf } from '@robota-sdk/agent-product/personal';
@@ -17,6 +17,7 @@ const CATALOG_FILE = 'connector-catalog.json';
 const MAX_QUERY = 100;
 const PAGE_LIMIT = 30;
 const MAX_FILE_ENTRIES = 200;
+const MAX_FILE_BYTES = 1024 * 1024;
 const MAX_RESPONSE_BYTES = 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 15_000;
 const CACHE_MS = 5 * 60_000;
@@ -59,12 +60,14 @@ export function registryUrlFrom(
 /** The entries of the owner's file; a missing or unreadable file offers nothing. */
 function fileEntries(stateDir: string): IConnectorCatalogEntry[] {
   const path = join(stateDir, CATALOG_FILE);
-  if (!existsSync(path)) return [];
   let parsed: unknown;
   try {
+    // A regular file of a sane size only: a pipe or a huge file would stall the agent on every search.
+    const file = statSync(path);
+    if (!file.isFile() || file.size > MAX_FILE_BYTES) return [];
     parsed = JSON.parse(readFileSync(path, 'utf8'));
   } catch {
-    // allow-fallback: a file the owner is still editing offers nothing until it parses again.
+    // allow-fallback: a missing file, or one the owner is still editing, offers nothing until it reads and parses again.
     return [];
   }
   const list = Array.isArray(parsed)
@@ -73,16 +76,44 @@ function fileEntries(stateDir: string): IConnectorCatalogEntry[] {
       ? (parsed as { entries?: unknown }).entries
       : undefined;
   if (!Array.isArray(list)) return [];
-  return list
-    .slice(0, MAX_FILE_ENTRIES)
-    .map((raw) => catalogEntryOf(raw, 'file'))
-    .filter((entry): entry is IConnectorCatalogEntry => entry !== undefined);
+  const seen = new Set<string>();
+  const entries: IConnectorCatalogEntry[] = [];
+  for (const raw of list.slice(0, MAX_FILE_ENTRIES)) {
+    const entry = catalogEntryOf(raw, 'file');
+    if (entry === undefined || seen.has(entry.endpoint)) continue;
+    seen.add(entry.endpoint);
+    entries.push(entry);
+  }
+  return entries;
 }
 
 function matches(entry: IConnectorCatalogEntry, query: string): boolean {
   if (query === '') return true;
   const host = URL.canParse(entry.endpoint) ? new URL(entry.endpoint).hostname : '';
   return `${entry.title} ${entry.description ?? ''} ${host}`.toLowerCase().includes(query);
+}
+
+/** The answer's text, read in chunks and abandoned the moment it passes `limit` bytes, however it is labelled. */
+async function readBounded(response: Response, limit: number): Promise<string> {
+  if (Number(response.headers.get('content-length') ?? '0') > limit) {
+    await response.body?.cancel();
+    throw new Error('The registry answer is too large');
+  }
+  if (response.body === null) return '';
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    if (received > limit) {
+      await reader.cancel();
+      throw new Error('The registry answer is too large');
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
 }
 
 export function createConnectorCatalog(options: IConnectorCatalogOptions): IConnectorCatalog {
@@ -106,11 +137,7 @@ export function createConnectorCatalog(options: IConnectorCatalogOptions): IConn
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error('The registry did not answer');
-    const declared = Number(response.headers.get('content-length') ?? '0');
-    if (declared > MAX_RESPONSE_BYTES) throw new Error('The registry answer is too large');
-    const body = await response.text();
-    if (body.length > MAX_RESPONSE_BYTES) throw new Error('The registry answer is too large');
-    return catalogEntriesFromRegistry(JSON.parse(body));
+    return catalogEntriesFromRegistry(JSON.parse(await readBounded(response, MAX_RESPONSE_BYTES)));
   };
 
   return {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button, Notice, ViewFrame, errorText, inputClass, when } from './ui.js';
 
@@ -420,13 +420,22 @@ function AddForm({
 }): React.ReactElement {
   // Suggestions are values to fill in below; nothing is added until the person presses Add.
   const [query, setQuery] = useState('');
-  const [found, setFound] = useState<IConnectorCatalogView | undefined>(undefined);
+  // What was found, and for which words: an answer that arrives after a newer search is dropped.
+  const [found, setFound] = useState<
+    { readonly view: IConnectorCatalogView; readonly query: string } | undefined
+  >(undefined);
   const [searchError, setSearchError] = useState<string | undefined>(undefined);
+  const newest = useRef(0);
   const runSearch = async (): Promise<void> => {
+    newest.current += 1;
+    const mine = newest.current;
+    const asked = query;
     setSearchError(undefined);
     try {
-      setFound(await search(query));
+      const view = await search(asked);
+      if (mine === newest.current) setFound({ view, query: asked });
     } catch (caught) {
+      if (mine !== newest.current) return;
       setFound(undefined);
       setSearchError(errorText(caught));
     }
@@ -481,24 +490,27 @@ function AddForm({
           <Button onClick={() => void runSearch()}>Search</Button>
         </div>
         {searchError !== undefined && <Notice tone="error">{searchError}</Notice>}
-        {found?.registry === 'unreachable' && (
+        {found?.view.registry === 'unreachable' && (
           <p className="text-[12.5px] text-muted-foreground">
             The public registry could not be reached, so only your own list is shown.
           </p>
         )}
-        {found !== undefined && found.entries.length === 0 && (
+        {found !== undefined && found.view.entries.length === 0 && (
           <p className="text-[12.5px] text-muted-foreground">
             Nothing found. You can still type the service’s address below.
           </p>
         )}
-        {found !== undefined && found.entries.length > 0 && (
+        {found !== undefined && found.view.entries.length > 0 && (
           <>
+            <p className="text-[12.5px] font-medium">
+              {found.query === '' ? 'Suggestions' : `Results for “${found.query}”`}
+            </p>
             <p className="text-[12.5px] text-muted-foreground">
               Anyone can list a service in the registry: check that you trust one before you add it.
               Choosing one only fills in the form below.
             </p>
             <ul className="divide-y divide-border rounded-md border border-border">
-              {found.entries.map((entry) => (
+              {found.view.entries.map((entry) => (
                 <li key={entry.endpoint} className="flex items-center gap-2 px-2 py-1.5">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-medium">{entry.title}</p>

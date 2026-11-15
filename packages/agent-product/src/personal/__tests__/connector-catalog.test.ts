@@ -46,6 +46,10 @@ describe('a catalog entry', () => {
     expect(entry.title).toHaveLength(80);
     expect(entry.description!.length).toBeLessThanOrEqual(300);
     expect([...entry.description!].some((character) => character.charCodeAt(0) < 32)).toBe(false);
+    // Direction overrides and zero-width marks are removed, not just spaced.
+    expect(catalogEntryOf({ ...OK, title: 'Not\u202Eesab\u200Bd' }, 'file')!.title).toBe(
+      'Notesabd',
+    );
   });
 
   it.each([
@@ -160,6 +164,26 @@ describe('the entries of a registry page', () => {
       ],
     });
     expect(entries).toEqual([]);
+  });
+
+  it('offers the first remote that can be signed in to, even when an earlier one cannot', () => {
+    const entries = catalogEntriesFromRegistry({
+      servers: [
+        server(http('https://a.example.test/mcp'), {
+          remotes: [
+            http('https://{tenant}.example.test/mcp'),
+            http('https://two.example.test/mcp', [
+              { name: 'X-A', isRequired: true, isSecret: true },
+              { name: 'X-B', isRequired: true, isSecret: true },
+            ]),
+            { type: 'sse', url: 'https://sse.example.test/mcp' },
+            http('https://usable.example.test/mcp'),
+            http('https://later.example.test/mcp'),
+          ],
+        }),
+      ],
+    });
+    expect(entries.map((entry) => entry.endpoint)).toEqual(['https://usable.example.test/mcp']);
   });
 
   it('keeps one entry per address, and ignores a page that is not one', () => {

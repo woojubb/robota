@@ -536,7 +536,10 @@ describe('finding a service to add', () => {
       target: { value: 'my-client' },
     });
     fireEvent.change(screen.getByLabelText('Search for a service'), { target: { value: 'cal' } });
-    fireEvent.keyDown(screen.getByLabelText('Search for a service'), { key: 'Enter' });
+    // The key press is cancelled, so the browser does not submit the form below and add something.
+    expect(fireEvent.keyDown(screen.getByLabelText('Search for a service'), { key: 'Enter' })).toBe(
+      false,
+    );
     await screen.findByText('Team calendar');
     expect(add).not.toHaveBeenCalled();
     fireEvent.click(screen.getAllByRole('button', { name: 'Use' })[1]!);
@@ -580,6 +583,40 @@ describe('finding a service to add', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Add a connector' }));
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     await screen.findByText('The agent is not reachable');
+  });
+
+  it('names the words the results are for, and drops an answer that arrives after a newer search', async () => {
+    let release!: (view: IConnectorCatalogView) => void;
+    const slow = new Promise<IConnectorCatalogView>((resolve) => {
+      release = resolve;
+    });
+    const search = vi
+      .fn<(query: string) => Promise<IConnectorCatalogView>>()
+      .mockImplementationOnce(() => slow)
+      .mockImplementationOnce(async () => FOUND);
+    await openAddForm({ connectorCatalog: search });
+    const field = screen.getByLabelText('Search for a service');
+    fireEvent.change(field, { target: { value: 'old' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    fireEvent.change(field, { target: { value: 'new' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByText('Results for “new”');
+    // The first answer comes back last and is not shown over the newer one.
+    release({
+      registry: 'ok',
+      entries: [
+        {
+          title: 'Stale answer',
+          endpoint: 'https://stale.example.test/mcp',
+          kind: 'other',
+          auth: 'oauth',
+          source: 'registry',
+        },
+      ],
+    });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(screen.queryByText('Stale answer')).toBeNull();
+    expect(screen.getByText('Example notes')).toBeTruthy();
   });
 
   it('shows a suggestion’s words as plain text, whatever they contain', async () => {
