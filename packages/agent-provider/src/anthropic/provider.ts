@@ -159,7 +159,9 @@ export class AnthropicProvider extends AbstractAIProvider {
       model: resolvedOptions.model,
       messages: cache ? withTailBreakpoint(anthropicMessages) : anthropicMessages,
       max_tokens: resolveAnthropicMaxTokens(resolvedOptions.model, resolvedOptions.maxTokens),
-      ...(systemPrompt && { system: cache ? cachedSystem(systemPrompt) : systemPrompt }),
+      ...(systemPrompt && {
+        system: cache && systemPrompt.trim().length > 0 ? cachedSystem(systemPrompt) : systemPrompt,
+      }),
       ...(resolvedOptions.temperature !== undefined && {
         temperature: resolvedOptions.temperature,
       }),

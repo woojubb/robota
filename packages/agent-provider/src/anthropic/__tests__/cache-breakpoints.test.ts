@@ -208,19 +208,39 @@ describe('Anthropic request breakpoints', () => {
     expect(markerCount(params)).toBe(0);
   });
 
-  it('marks the tail of each call, so a later call reads what the earlier one wrote', async () => {
+  it('moves the tail marker forward with the history and keeps the system block the same', async () => {
     const provider = new AnthropicProvider({ client: mockClient as unknown as Anthropic });
-    await provider.chat(
-      conversation.slice(0, 3).concat({ ...conversation[1]!, id: '5', content: 'next' }),
-      {
-        model: 'claude-test',
-      },
-    );
+    await provider.chat(conversation.slice(0, 2), { model: 'claude-test' });
     await provider.chat(conversation, { model: 'claude-test' });
 
     const [first, second] = mockClient.messages.create.mock.calls.map((call) => call[0]);
     expect(first.system).toEqual(second.system);
+    expect(first.messages.at(-1).content[0]).toMatchObject({
+      text: 'first question',
+      cache_control: MARK,
+    });
+    expect(second.messages.at(-1).content[0]).toMatchObject({
+      text: 'second question',
+      cache_control: MARK,
+    });
+    // The earlier tail is an ordinary block again, so a request never carries more than two markers.
+    expect(second.messages[0].content).toBe('first question');
     expect(markerCount(first)).toBe(2);
     expect(markerCount(second)).toBe(2);
+  });
+
+  it('keeps a whitespace-only system prompt a plain string', async () => {
+    const provider = new AnthropicProvider({ client: mockClient as unknown as Anthropic });
+    await provider.chat(
+      [
+        { id: '0', role: 'system', content: '   ', state: 'complete', timestamp: new Date() },
+        conversation[1]!,
+      ],
+      { model: 'claude-test' },
+    );
+
+    const params = mockClient.messages.create.mock.calls[0]?.[0];
+    expect(params.system).toBe('   ');
+    expect(markerCount(params)).toBe(1);
   });
 });

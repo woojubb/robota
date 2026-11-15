@@ -188,17 +188,6 @@ describe('request prefix stability in one session of a detected project', () => 
     expect(scripted.requests.length).toBeGreaterThanOrEqual(5);
     // The project was detected: the section under test is present and not empty.
     expect(systemOf(scripted.requests[0] ?? [])).toContain('- **Name:** probe-app');
-    const text = systemOf(scripted.requests[0] ?? []);
-    const offsets = Object.fromEntries(
-      text
-        .split('\n')
-        .filter((line) => line.startsWith('## '))
-        .map((line) => [line, text.indexOf(line)]),
-    );
-    // eslint-disable-next-line no-console
-    console.log(
-      `section offsets in a ${text.length}-character prompt\n${JSON.stringify(offsets, null, 1)}`,
-    );
 
     for (const pair of report(scripted)) {
       expect(pair, `call ${pair.call}`).toMatchObject({
@@ -229,10 +218,6 @@ describe('request prefix stability in one session of a detected project', () => 
       },
       { text: 'goal complete' },
     ]);
-    // eslint-disable-next-line no-console
-    console.log(
-      `prefix report after a guidance edit\n${JSON.stringify(report(scripted), null, 1)}`,
-    );
 
     const first = systemOf(scripted.requests[0] ?? []);
     const last = systemOf(scripted.requests.at(-1) ?? []);
