@@ -15,11 +15,15 @@ export function renderSystemPromptSection(section: ISystemPromptSection): string
   return [`## ${section.title}`, content].join('\n');
 }
 
-/** The sections that reach the prompt, in the order they appear in it. */
+/**
+ * The sections that reach the prompt, in the order they appear in it: by priority, and sections of
+ * one priority in the order they were supplied (the sort is stable), so a list a caller ordered keeps
+ * that order.
+ */
 function orderSections(sections: readonly ISystemPromptSection[]): ISystemPromptSection[] {
   return [...sections]
     .filter((section) => section.content.trim().length > 0)
-    .sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id));
+    .sort((a, b) => a.priority - b.priority);
 }
 
 export function composeSystemPrompt(sections: readonly ISystemPromptSection[]): string {

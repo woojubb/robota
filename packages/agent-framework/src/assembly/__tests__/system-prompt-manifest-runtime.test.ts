@@ -97,3 +97,80 @@ describe('a rebuilt prompt carries the composition of the rebuilt text', () => {
     expect(ids(rebuilt.manifest).at(-1)).toBe('append-system-prompt');
   });
 });
+
+describe('product sections are static for the session', () => {
+  const PRODUCT = [{ id: 'product-core', content: 'PRODUCT CORE TEXT' }];
+
+  it('composes them at the start and lists them with the product source', () => {
+    const result = build({ productSections: PRODUCT, presetSystemPrompt: 'PRESET ONE' });
+    expect(ids(result.systemPromptManifest).slice(0, 2)).toEqual([
+      'product-core',
+      'preset-system-prompt',
+    ]);
+    expect(result.systemPromptManifest?.sections[0]?.source).toBe('product');
+    expect(result.finalSystemMessage.indexOf('PRODUCT CORE TEXT')).toBeLessThan(
+      result.finalSystemMessage.indexOf('PRESET ONE'),
+    );
+  });
+
+  it('survive every live override, each of which rebuilds the whole prompt', () => {
+    const result = build({
+      productSections: PRODUCT,
+      presetSystemPrompt: 'PRESET ONE',
+      persona: 'PERSONA ONE',
+      selfVerification: true,
+    });
+    const overrides = [
+      { presetSystemPrompt: 'PRESET TWO' },
+      { persona: 'PERSONA TWO' },
+      { selfVerification: 'VERIFY TWO' },
+      { language: 'ko' },
+      { memoryMd: 'MEMORY TWO' },
+      {
+        outputStyle: {
+          id: 'terse',
+          name: 'Terse',
+          instructions: 'Answer briefly.',
+          keepCodingInstructions: true,
+        },
+      },
+    ];
+    for (const override of overrides) {
+      const rebuilt = result.rebuildSystemMessage('A1', 'C1', override);
+      expect(rebuilt.message).toContain('PRODUCT CORE TEXT');
+      expect(ids(rebuilt.manifest)).toContain('product-core');
+    }
+    expect(result.rebuildSystemMessage('A2', 'C2').message).toContain('PRODUCT CORE TEXT');
+  });
+
+  it('stay while a preset prompt is replaced, and the replaced text goes', () => {
+    const result = build({ productSections: PRODUCT, presetSystemPrompt: 'PRESET ONE' });
+    const switched = result.rebuildSystemMessage('A1', 'C1', { presetSystemPrompt: 'PRESET TWO' });
+    expect(switched.message).toContain('PRODUCT CORE TEXT');
+    expect(switched.message).toContain('PRESET TWO');
+    expect(switched.message).not.toContain('PRESET ONE');
+    expect(switched.message.indexOf('PRODUCT CORE TEXT')).toBeLessThan(
+      switched.message.indexOf('PRESET TWO'),
+    );
+  });
+
+  it('are not applied when the caller supplies the whole prompt', () => {
+    const result = build({
+      productSections: PRODUCT,
+      systemPromptBuilder: () => 'SUPPLIED WHOLE',
+    });
+    expect(result.finalSystemMessage).toBe('SUPPLIED WHOLE');
+    expect(result.systemPromptManifest).toBeUndefined();
+  });
+
+  it('refuse a duplicate id when the session prompt is first composed', () => {
+    expect(() =>
+      build({
+        productSections: [
+          { id: 'product-core', content: 'ONE' },
+          { id: 'product-core', content: 'TWO' },
+        ],
+      }),
+    ).toThrow(/Duplicate product prompt section id/);
+  });
+});

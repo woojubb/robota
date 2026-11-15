@@ -5,6 +5,7 @@ export type TSystemPromptSectionSource =
   | 'output-style'
   | 'persona'
   | 'preset-system-prompt'
+  | 'product'
   | 'self-verification'
   | 'project-instructions'
   | 'runtime'
@@ -14,6 +15,15 @@ export type TSystemPromptSectionSource =
   | 'skill'
   | 'tool'
   | 'agent';
+
+/** A titled-or-untitled section a product contributes to the prompt it composes. */
+export interface IProductPromptSection {
+  /** Stable, caller-owned and unique within the list; it is the section's id in the manifest. */
+  readonly id: string;
+  /** Rendered as a heading only when given, exactly like the other titled sections. */
+  readonly title?: string;
+  readonly content: string;
+}
 
 export interface ISystemPromptSection {
   readonly id: string;
@@ -29,6 +39,7 @@ export interface ISystemPromptSection {
  */
 export const HARNESS_SECTION_SOURCES: readonly TSystemPromptSectionSource[] = [
   'preset-system-prompt',
+  'product',
   'persona',
   'self-verification',
 ];
