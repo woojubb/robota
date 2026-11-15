@@ -50,8 +50,27 @@ export interface IGoalRun {
   readonly actions: readonly IGoalAction[];
 }
 
-export type TFeedKind = 'report' | 'approval' | 'notice';
+export type TFeedKind = 'report' | 'approval' | 'notice' | 'question';
 export type TApprovalState = 'pending' | 'approved' | 'denied' | 'expired';
+/** A question is open until the person answers it, or withdrawn when its case closes first. */
+export type TQuestionState = 'open' | 'answered' | 'withdrawn';
+
+/** What the person answered: one of the offered choices, or a reply in their own words. */
+export interface IQuestionAnswer {
+  readonly choice?: string;
+  readonly reply?: string;
+  readonly at: string;
+}
+
+/** The question the agent asks from a case, and where it stands. Never approved, only answered. */
+export interface IFeedQuestion {
+  readonly caseId: string;
+  readonly text: string;
+  readonly options: readonly string[];
+  readonly allowsReply: boolean;
+  readonly state: TQuestionState;
+  readonly answer?: IQuestionAnswer;
+}
 
 export interface IFeedItem {
   readonly id: string;
@@ -67,6 +86,8 @@ export interface IFeedItem {
     readonly detail: string;
     readonly state: TApprovalState;
   };
+  /** Present on a question: what the agent asks the person about one of its cases. */
+  readonly question?: IFeedQuestion;
   readonly dismissed: boolean;
 }
 

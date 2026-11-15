@@ -9,6 +9,7 @@
  */
 import { findProviderDefinition, formatSupportedProviderTypes } from '@robota-sdk/agent-core';
 import {
+  CaseRefusedError,
   ConnectorRefusedError,
   GoalRefusedError,
   IdeaRefusedError,
@@ -25,7 +26,9 @@ import { createProviderFromProfile } from './provider.js';
 
 import type { ILoopbackGuiApiRequest, ILoopbackGuiApiResponse } from '@robota-sdk/agent-local-host';
 import type {
+  CaseBook,
   GoalBook,
+  ICase,
   ISpace,
   IWikiPage,
   IdeaBook,
@@ -43,6 +46,12 @@ import type { TConnectorsApi } from './connectors/connectors-api.js';
 export interface IPersonalApiOptions {
   readonly wiki: KnowledgeWiki;
   readonly goals: GoalBook;
+  readonly cases: CaseBook;
+  /**
+   * Called with a case once the person's answer is recorded on it. It must not wait for work: an
+   * answer is already recorded when this runs, and an error from it never undoes or fails the answer.
+   */
+  readonly onCaseAnswered: (answered: ICase) => void;
   readonly ideas: IdeaBook;
   readonly spaces: SpaceBook;
   readonly sideChats: ISideChatBook;
@@ -110,7 +119,7 @@ export function providerTypes(): string[] {
 }
 
 export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
-  const { wiki, goals, ideas, spaces, sideChats, layout, browser } = options;
+  const { wiki, goals, cases, ideas, spaces, sideChats, layout, browser } = options;
   /** A space as the page shows it: its pinned pages that still exist, and the opening they make. */
   const spaceView = async (space: ISpace) => {
     const pinned = (await Promise.all(space.pages.map((pageId) => wiki.read(pageId))))
@@ -309,6 +318,32 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
         await goals.dismiss(collection);
         return ok({ dismissed: collection });
       }
+      if (id === 'answer') {
+        const body = record(request.body);
+        const { choice, reply } = body;
+        if (choice !== undefined && typeof choice !== 'string')
+          throw new BadRequest('choice must be a string');
+        if (reply !== undefined && typeof reply !== 'string')
+          throw new BadRequest('reply must be a string');
+        if ((await goals.feedItem(collection)) === undefined) return fail(404, 'no such feed item');
+        const answered = await cases.answer(collection, {
+          ...(choice !== undefined && { choice }),
+          ...(reply !== undefined && { reply }),
+        });
+        try {
+          options.onCaseAnswered(answered.case);
+        } catch {
+          // allow-fallback: the answer is recorded; whatever follows it cannot fail the person's answer.
+        }
+        return ok({ item: answered.item, case: answered.case });
+      }
+    }
+    if (area === 'cases' && collection === undefined && method === 'GET') {
+      return ok({ cases: await cases.list() });
+    }
+    if (area === 'cases' && collection !== undefined && id === undefined && method === 'GET') {
+      const found = await cases.get(collection);
+      return found === undefined ? fail(404, 'no such case') : ok({ case: found });
     }
 
     if (area === 'browser') {
@@ -434,6 +469,7 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       if (error instanceof BadRequest) return fail(400, error.message);
       if (error instanceof SensitiveContentRefusedError) return fail(422, error.message);
       if (error instanceof GoalRefusedError) return fail(400, error.message);
+      if (error instanceof CaseRefusedError) return fail(400, error.message);
       if (error instanceof IdeaRefusedError) return fail(400, error.message);
       if (error instanceof SpaceRefusedError) return fail(400, error.message);
       if (error instanceof SideChatRefusedError) return fail(400, error.message);

@@ -1,9 +1,11 @@
 import { MarkdownText } from '@robota-sdk/agent-ui-web/client';
 import { useCallback, useEffect, useState } from 'react';
 
+import { CaseThread } from './CaseThread.js';
+import { QuestionCard } from './QuestionCard.js';
 import { Button, Notice, ViewFrame, errorText, when } from './ui.js';
 
-import type { IFeedItemView, IPersonalApi } from '../api.js';
+import type { IFeedItemView, IPersonalApi, TQuestionAnswer } from '../api.js';
 
 const REFRESH_MS = 3_000;
 
@@ -17,7 +19,7 @@ const STATE_LABEL = {
 /**
  * What the agent did or needs while the person was away. An approval here answers the very request
  * a goal is waiting on: the goal resumes when the person approves, and nothing is sent when they
- * decline.
+ * decline. A question is answered on its card, and its case opens as a thread.
  */
 export function FeedView({
   api,
@@ -28,6 +30,7 @@ export function FeedView({
 }): React.ReactElement {
   const [items, setItems] = useState<readonly IFeedItemView[] | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [thread, setThread] = useState<string | undefined>(undefined);
   const reload = useCallback(async () => {
     try {
       setItems(await api.feed());
@@ -49,6 +52,16 @@ export function FeedView({
     }
     await reload();
   };
+  // A refused answer is shown on its card, and the feed is read again whatever happened.
+  const answer = async (id: string, given: TQuestionAnswer): Promise<void> => {
+    try {
+      await api.answerQuestion(id, given);
+    } finally {
+      await reload();
+    }
+  };
+  if (thread !== undefined)
+    return <CaseThread api={api} caseId={thread} onBack={() => setThread(undefined)} />;
   return (
     <ViewFrame title="Feed">
       {error !== undefined && <Notice tone="error">{error}</Notice>}
@@ -59,6 +72,18 @@ export function FeedView({
       )}
       <ul className="flex max-w-3xl flex-col gap-2 p-4">
         {(items ?? []).map((item) => {
+          if (item.question !== undefined) {
+            return (
+              <QuestionCard
+                key={item.id}
+                item={item}
+                question={item.question}
+                onAnswer={(given) => answer(item.id, given)}
+                onOpenThread={() => setThread(item.question!.caseId)}
+                onDismiss={() => void act(item.id, 'dismiss')}
+              />
+            );
+          }
           const pending = item.approval?.state === 'pending';
           return (
             <li

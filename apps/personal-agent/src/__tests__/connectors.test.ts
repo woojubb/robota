@@ -1091,6 +1091,7 @@ describe('keeping a connector in sync', () => {
     const first = w.harness.model.requests[0]!;
     // Anything outside this list fails here, so a tool a host adds later is a decision, not a leak
     // (the web, files, the browser, goals and ideas, and every write are among what it is not given).
+    // The four case tools touch only the agent's own record and the feed.
     // The framework's two goal-signal tools are stateless acknowledgements that change nothing.
     const acknowledgements = ['report_goal_status', 'report_loop_decision'];
     expect(
@@ -1099,6 +1100,10 @@ describe('keeping a connector in sync', () => {
         .sort(),
     ).toEqual(
       [
+        'CaseAsk',
+        'CaseClose',
+        'CaseNote',
+        'CaseOpen',
         'ConnectorKeep',
         'ConnectorList',
         'ConnectorRead',
