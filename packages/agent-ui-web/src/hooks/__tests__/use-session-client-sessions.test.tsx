@@ -61,8 +61,20 @@ function changeRequestId(wire: readonly TClientMessage[], index: number): string
 const listing = (currentSessionId: string) => ({
   currentSessionId,
   sessions: [
-    { id: 'a', cwd: '/w', updatedAt: '2026-09-26T00:00:00.000Z', messageCount: 2, preview: 'first' },
-    { id: 'b', cwd: '/w', updatedAt: '2026-09-25T00:00:00.000Z', messageCount: 4, preview: 'second' },
+    {
+      id: 'a',
+      cwd: '/w',
+      updatedAt: '2026-09-26T00:00:00.000Z',
+      messageCount: 2,
+      preview: 'first',
+    },
+    {
+      id: 'b',
+      cwd: '/w',
+      updatedAt: '2026-09-25T00:00:00.000Z',
+      messageCount: 4,
+      preview: 'second',
+    },
   ],
   unreadableSessionIds: ['broken'],
 });
@@ -177,7 +189,12 @@ describe('session list, start and switch in the GUI reducer', () => {
     act(() => result.current.send({ type: 'command', name: 'resume' }));
 
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-session-picker' } } });
-    deliver({ type: 'command_result', name: 'resume', message: 'Opening session picker...', success: true });
+    deliver({
+      type: 'command_result',
+      name: 'resume',
+      message: 'Opening session picker...',
+      success: true,
+    });
 
     expect(result.current.sessionSidebarOpen).toBe(true);
     expect(result.current.messages).toEqual([]);
@@ -194,7 +211,12 @@ describe('session list, start and switch in the GUI reducer', () => {
     });
     act(() => result.current.send({ type: 'command', name: 'resume' }));
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-session-picker' } } });
-    deliver({ type: 'command_result', name: 'resume', message: 'Opening session picker...', success: true });
+    deliver({
+      type: 'command_result',
+      name: 'resume',
+      message: 'Opening session picker...',
+      success: true,
+    });
 
     expect(result.current.messages.at(-1)).toMatchObject({
       role: 'command',
@@ -222,13 +244,23 @@ describe('session list, start and switch in the GUI reducer', () => {
     // A still-genuinely-unsupported intent: every intent with a real GUI screen (session picker,
     // settings, plugin manager, agent switcher) now suppresses the reply's conversation card by
     // design, so this generic in-flight-pairing test needs one that still does not.
-    deliver({ type: 'ui_intent', event: { intent: { type: 'show-theme-picker' } } } as TServerMessage);
+    deliver({
+      type: 'ui_intent',
+      event: { intent: { type: 'show-theme-picker' } },
+    } as TServerMessage);
     act(() => result.current.switchSession('b'));
     deliver({ type: 'protocol_error', message: 'Stop the running turn first.' });
     // The refusal is a toast; the agent command still awaits its own reply.
-    expect(result.current.sessionNotices.at(-1)).toMatchObject({ message: 'Stop the running turn first.' });
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({
+      message: 'Stop the running turn first.',
+    });
     expect(result.current.messages).toEqual([]);
-    deliver({ type: 'command_result', name: 'agent', message: 'Opening agent switcher...', success: true });
+    deliver({
+      type: 'command_result',
+      name: 'agent',
+      message: 'Opening agent switcher...',
+      success: true,
+    });
     expect(result.current.messages).toEqual([
       expect.objectContaining({ role: 'command', name: 'agent', tone: 'info' }),
     ]);
@@ -268,7 +300,10 @@ describe('a refused session change and a pool-capable host', () => {
     // A still-genuinely-unsupported intent: every intent with a real GUI screen (session picker,
     // settings, plugin manager, agent switcher) now suppresses the reply's conversation card by
     // design, so this generic in-flight-pairing test needs one that still does not.
-    deliver({ type: 'ui_intent', event: { intent: { type: 'show-theme-picker' } } } as TServerMessage);
+    deliver({
+      type: 'ui_intent',
+      event: { intent: { type: 'show-theme-picker' } },
+    } as TServerMessage);
     act(() => result.current.switchSession('b'));
     deliver({
       type: 'session_change_failed',
@@ -413,6 +448,32 @@ describe("remembering the session across a desktop Reconnect's reload", () => {
     expect(wire.some((m) => m.type === 'switch-session')).toBe(false);
   });
 
+  it("the person's own reload returns to the session that was open", () => {
+    const first = setup();
+    first.connect();
+    first.deliver({
+      type: 'sessions',
+      requestId: lastListRequest(first.wire),
+      listing: liveListing('a'),
+    });
+    act(() => first.result.current.switchSession('b'));
+    first.deliver({ type: 'session_switched', event: { sessionId: 'b' } });
+    expect(window.sessionStorage.getItem(RESTORE_KEY)).toBe('b');
+
+    // The page reloads: nothing but sessionStorage is left, and the host puts it on its primary.
+    const reloaded = setup();
+    reloaded.connect();
+    reloaded.deliver({
+      type: 'sessions',
+      requestId: lastListRequest(reloaded.wire),
+      listing: liveListing('a'),
+    });
+
+    expect(reloaded.wire.filter((m) => m.type === 'switch-session')).toEqual([
+      { type: 'switch-session', sessionId: 'b', requestId: expect.any(String) },
+    ]);
+  });
+
   it('rememberSessionForRestore is best-effort: a storage failure does not throw', () => {
     const original = window.sessionStorage.setItem;
     window.sessionStorage.setItem = () => {
@@ -436,7 +497,12 @@ describe('renaming and deleting a row from the list', () => {
     act(() => result.current.renameSessionInList('b', 'New name'));
     const rename = wire.filter((m) => m.type === 'rename-session').at(-1);
     if (rename?.type !== 'rename-session') throw new Error('expected a rename-session message');
-    expect(rename).toEqual({ type: 'rename-session', sessionId: 'b', name: 'New name', requestId: rename.requestId });
+    expect(rename).toEqual({
+      type: 'rename-session',
+      sessionId: 'b',
+      name: 'New name',
+      requestId: rename.requestId,
+    });
 
     deliver({
       type: 'session_renamed_in_list',
