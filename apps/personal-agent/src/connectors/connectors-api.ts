@@ -2,7 +2,11 @@
  * The connectors' part of the personal API: what the Connectors tab lists and does. Nothing here
  * returns a token, a code or any text derived from one; a connection's state is a fixed word.
  */
-import { ConnectorRefusedError } from '@robota-sdk/agent-product/personal';
+import {
+  ConnectorRefusedError,
+  countPulled,
+  forgetPulled,
+} from '@robota-sdk/agent-product/personal';
 
 import { CONSENT_CALLBACK_PATH } from './consent.js';
 
@@ -10,7 +14,10 @@ import type { ILoopbackGuiApiRequest, ILoopbackGuiApiResponse } from '@robota-sd
 import type {
   ConnectorBook,
   ConnectorRegistry,
+  ConnectorSync,
+  IConnectorSyncStatus,
   IConnectorView,
+  KnowledgeWiki,
   TConnectorKind,
   TToolDecision,
 } from '@robota-sdk/agent-product/personal';
@@ -18,6 +25,10 @@ import type {
 export interface IConnectorsApiOptions {
   readonly registry: ConnectorRegistry;
   readonly book: ConnectorBook;
+  /** The goals that keep connectors in sync. */
+  readonly sync: ConnectorSync;
+  /** The library, where what a sync keeps is counted and, on request, forgotten. */
+  readonly wiki: KnowledgeWiki;
   /** The origins the person's browser reaches this agent at; a sign-in returns to one of them. */
   readonly origins: () => readonly string[];
 }
@@ -43,7 +54,7 @@ function text(body: Record<string, unknown>, key: string): string {
   return value;
 }
 
-function present(view: IConnectorView): Record<string, unknown> {
+function present(view: IConnectorView, sync?: IConnectorSyncStatus): Record<string, unknown> {
   const { connector, status, tools } = view;
   return {
     id: connector.id,
@@ -53,6 +64,7 @@ function present(view: IConnectorView): Record<string, unknown> {
     endpoint: connector.endpoint,
     ...(connector.oauth !== undefined && { oauth: connector.oauth }),
     status,
+    ...(sync !== undefined && { sync }),
     ...(tools !== undefined && {
       tools: tools.map((tool) => ({
         name: tool.name,
@@ -69,7 +81,28 @@ const DECISIONS: readonly string[] = ['read', 'write', 'blocked'];
 
 /** Answers `connectors/...` requests, or `undefined` for a path that is not one. */
 export function createConnectorsApi(options: IConnectorsApiOptions): TConnectorsApi {
-  const { registry, book } = options;
+  const { registry, book, sync, wiki } = options;
+  /** A connector as the page shows it, with how its sync stands. */
+  const show = async (id: string, refresh = false): Promise<Record<string, unknown>> =>
+    present(await registry.view(id, { refresh }), await sync.status(id));
+  /** Whether the person asked to forget what was pulled; a request with no body asks for nothing. */
+  const wantsForgetting = (body: unknown): boolean =>
+    body !== undefined && record(body)['forgetPulled'] === true;
+  /**
+   * Take the access away first, so nothing in progress can hold it up, then stop the sync (ending a
+   * run that is still going) and, when asked, forget what the connector put in the library, which
+   * only a stopped sync can no longer add to.
+   */
+  const leave = async (
+    id: string,
+    body: unknown,
+    take: () => Promise<unknown>,
+  ): Promise<ILoopbackGuiApiResponse> => {
+    const forget = wantsForgetting(body);
+    const outcome = await take();
+    await sync.disable(id);
+    return ok({ outcome, ...(forget && { forgotten: await forgetPulled(wiki, id) }) });
+  };
   const known = async (id: string): Promise<boolean> => (await book.get(id)) !== undefined;
   const notFound: ILoopbackGuiApiResponse = { status: 404, body: { error: 'no such connector' } };
 
@@ -82,7 +115,11 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       if (method === 'GET') {
         return ok({
           callbackPath: CONSENT_CALLBACK_PATH,
-          connectors: (await registry.list()).map(present),
+          connectors: await Promise.all(
+            (await registry.list()).map(async (view) =>
+              present(view, await sync.status(view.connector.id)),
+            ),
+          ),
         });
       }
       if (method === 'POST') {
@@ -112,19 +149,16 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
               }
             : {}),
         });
-        return ok({ connector: present(await registry.view(connector.id)) });
+        return ok({ connector: await show(connector.id) });
       }
       return undefined;
     }
 
     if (!(await known(id))) return notFound;
     if (action === undefined && method === 'GET') {
-      return ok({
-        connector: present(
-          await registry.view(id, { refresh: request.query.get('refresh') === '1' }),
-        ),
-      });
+      return ok({ connector: await show(id, request.query.get('refresh') === '1') });
     }
+    if (action === 'pulled' && method === 'GET') return ok({ count: await countPulled(wiki, id) });
     if (method !== 'POST') return undefined;
     if (action === 'connect') {
       const origin = text(record(request.body), 'origin');
@@ -134,15 +168,31 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       }
       return ok({ status: await registry.signIn(id, { origin: normalized }) });
     }
-    if (action === 'disconnect') return ok({ outcome: await registry.disconnect(id) });
-    if (action === 'remove') return ok({ outcome: await registry.remove(id) });
+    if (action === 'disconnect') return leave(id, request.body, () => registry.disconnect(id));
+    if (action === 'remove') return leave(id, request.body, () => registry.remove(id));
+    if (action === 'sync') {
+      const everyMinutes = record(request.body)['everyMinutes'];
+      if (everyMinutes === null) {
+        await sync.disable(id);
+        return ok({ connector: await show(id) });
+      }
+      if (typeof everyMinutes !== 'number') {
+        throw new ConnectorRefusedError('everyMinutes must be a number of minutes, or null');
+      }
+      const view = await registry.view(id);
+      if (view.status.state !== 'connected') {
+        throw new ConnectorRefusedError('Connect the service before keeping it in sync');
+      }
+      await sync.enable(view.connector, everyMinutes);
+      return ok({ connector: await show(id) });
+    }
     if (action === 'tools' && tool !== undefined) {
       const decision = record(request.body)['decision'];
       if (decision !== null && (typeof decision !== 'string' || !DECISIONS.includes(decision))) {
         throw new ConnectorRefusedError('decision must be read, write, blocked or null');
       }
       await registry.decide(id, tool, decision === null ? undefined : (decision as TToolDecision));
-      return ok({ connector: present(await registry.view(id)) });
+      return ok({ connector: await show(id) });
     }
     return undefined;
   };

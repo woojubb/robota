@@ -9,6 +9,7 @@ import {
   CONNECTOR_INSTRUCTIONS,
   ConnectorBook,
   ConnectorRegistry,
+  ConnectorSync,
   GOAL_INSTRUCTIONS,
   GoalBook,
   IDEA_INSTRUCTIONS,
@@ -18,6 +19,7 @@ import {
   WIKI_INSTRUCTIONS,
   createBrowserTools,
   createChannelHub,
+  createConnectorKeepTool,
   createConnectorTools,
   createFileConnectorStore,
   createFileGoalStore,
@@ -37,6 +39,7 @@ import { watchBrowser } from './browser/watched-browser.js';
 import { CONSENT_CALLBACK_PATH, createConsentBroker } from './connectors/consent.js';
 import { createConnectorsApi } from './connectors/connectors-api.js';
 import { createMcpConnectorProtocol } from './connectors/mcp-protocol.js';
+import { createSyncRuns } from './connectors/sync-runs.js';
 import { createLayoutBook } from './layout.js';
 import { createSideChatBook } from './side-chats.js';
 import { createPersonalApi } from './personal-api.js';
@@ -100,6 +103,8 @@ export interface IPersonalCapabilityOptions {
 }
 
 const DEFAULT_GOAL_TICK_MS = 30_000;
+/** How long taking a connector's access away waits for its sync run to end before going on. */
+const HALT_WAIT_MS = 30_000;
 
 export const PERSONAL_INSTRUCTIONS = [
   'You are a personal assistant that acts for one person.',
@@ -141,8 +146,18 @@ export function createPersonalCapabilities(
       }),
     ],
   });
-  let guiOrigins: readonly string[] = [];
   let runner: IGoalRunner | undefined;
+  // A goal cannot be removed while it runs: turning a sync off first ends the run in progress.
+  const connectorSync = new ConnectorSync(goals, async (goalId) => {
+    runner?.interrupt(goalId);
+    // A run that does not end on being interrupted must not hold up taking the access away.
+    await Promise.race([
+      runner?.settled(goalId),
+      new Promise<void>((resolve) => setTimeout(resolve, HALT_WAIT_MS).unref()),
+    ]);
+  });
+  const syncRuns = createSyncRuns({ book: connectorBook, registry: connectors, goals, wiki });
+  let guiOrigins: readonly string[] = [];
   let channelTurns: IChannelTurns | undefined;
   const approvals = createApprovalRegistry(goals);
   const channels = createChannelHub({
@@ -179,6 +194,7 @@ export function createPersonalCapabilities(
       ...createGoalTools(goals),
       ...createIdeaTools(ideas),
       ...createConnectorTools(connectors),
+      createConnectorKeepTool({ book: connectorBook, wiki }),
     ],
     instructions: [
       PERSONAL_INSTRUCTIONS,
@@ -216,6 +232,8 @@ export function createPersonalCapabilities(
       connectors: createConnectorsApi({
         registry: connectors,
         book: connectorBook,
+        sync: connectorSync,
+        wiki,
         origins: () => guiOrigins,
       }),
     }),
@@ -235,6 +253,10 @@ export function createPersonalCapabilities(
         },
         openSession: (extra) => agent.openSession(extra),
         tickMs: options.goalTickMs ?? DEFAULT_GOAL_TICK_MS,
+        // A sync run reads one connector and adds to the library, with only the tools to do that.
+        shape: syncRuns.shape,
+        // A sync that is reachable, read cleanly and added nothing has nothing to tell the person.
+        quiet: syncRuns.quiet,
       });
     },
     dispose: async () => {

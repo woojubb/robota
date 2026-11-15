@@ -18,6 +18,8 @@ export interface IGoal {
   readonly everyMinutes?: number;
   /** Change nothing while running: the agent may only look, and anything else is refused. */
   readonly readOnly: boolean;
+  /** The connector this goal keeps in sync, when it is one: a person's own goals have none. */
+  readonly connectorId?: string;
   readonly status: TGoalStatus;
   /** When the goal is next due (ISO 8601); absent when it is not scheduled. */
   readonly nextRunAt?: string;

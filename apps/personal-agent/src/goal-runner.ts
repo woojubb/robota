@@ -21,6 +21,13 @@ export type TRunSession = Pick<
   'on' | 'off' | 'submit' | 'resolvePermission' | 'shutdown' | 'abort'
 >;
 
+/** How one goal differs from an ordinary one: more to tell the run, and fewer tools it is given. */
+export interface IGoalShape {
+  readonly instructions: string;
+  /** The only tools the run has. */
+  readonly onlyTools: readonly string[];
+}
+
 export interface IGoalRunnerOptions {
   readonly book: GoalBook;
   readonly openSession: (extra: IExtraSessionOptions) => TRunSession;
@@ -30,6 +37,10 @@ export interface IGoalRunnerOptions {
   readonly onReport?: (goal: IGoal, report: string) => void;
   /** How often to look for due goals; 0 runs only when asked. */
   readonly tickMs?: number;
+  /** A goal that is more than the person's instruction, such as one keeping a connector in sync. */
+  readonly shape?: (goal: IGoal) => Promise<IGoalShape | undefined>;
+  /** A run that went well and is not worth the person's attention: kept in the goal's history only. */
+  readonly quiet?: (goal: IGoal) => Promise<boolean>;
 }
 
 export interface IGoalRunner {
@@ -37,10 +48,10 @@ export interface IGoalRunner {
   runDue(): Promise<number>;
   /** Answer an approval waiting in the feed. */
   answer(feedId: string, approve: boolean): Promise<IFeedItem>;
-  /** Resolves when every run started so far has ended. */
-  settled(): Promise<void>;
-  /** End the turns of the runs in progress, as a person's Stop does; later runs still start. */
-  interrupt(): void;
+  /** Resolves when every run started so far has ended, or when the given goal's run has. */
+  settled(goalId?: string): Promise<void>;
+  /** End the turns of the runs in progress (of one goal when given), as a person's Stop does; later runs still start. */
+  interrupt(goalId?: string): void;
   stop(): Promise<void>;
 }
 
@@ -57,7 +68,8 @@ export function describeCall(toolName: string, args: Readonly<Record<string, unk
 export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
   const { book } = options;
   const running = new Map<string, Promise<void>>();
-  const sessions = new Set<TRunSession>();
+  /** The runs' sessions, with the goal each belongs to. */
+  const sessions = new Map<TRunSession, string>();
   const { approvals } = options;
   let stopped = false;
 
@@ -79,13 +91,17 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       enqueue(async () => {
         run = await book.recordAction(run, action);
       });
+    const shape = await options.shape?.(goal);
     const session = options.openSession({
       sessionName: `Goal: ${goal.title}`,
-      instructions: goalRunInstructions(goal),
+      instructions: [goalRunInstructions(goal), shape?.instructions]
+        .filter((text) => text !== undefined)
+        .join('\n\n'),
       permissionMode: goal.readOnly ? 'plan' : 'acceptEdits',
       deniedTools: Object.values(GOAL_TOOL_NAMES),
+      ...(shape !== undefined && { onlyTools: shape.onlyTools }),
     });
-    sessions.add(session);
+    sessions.set(session, goal.id);
     /** Prompt id to the feed item that shows it. */
     const ownPrompts = new Map<string, string>();
     const onToolEnd = (state: { toolName: string; firstArg: string; result?: string }): void => {
@@ -179,7 +195,9 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     for (const feedId of ownPrompts.values()) {
       if (approvals.release(feedId)) await book.setApproval(feedId, 'expired');
     }
-    await book.finishRun(run, outcome, report);
+    await book.finishRun(run, outcome, report, {
+      quiet: outcome === 'done' && (await options.quiet?.(goal)) === true,
+    });
     try {
       options.onReport?.(goal, report);
     } catch {
@@ -223,17 +241,23 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
   return {
     runDue,
     answer: (feedId, approve) => approvals.answer(feedId, approve),
-    async settled() {
+    async settled(goalId) {
+      if (goalId !== undefined) {
+        await running.get(goalId);
+        return;
+      }
       while (running.size > 0) await Promise.allSettled([...running.values()]);
     },
-    interrupt() {
-      for (const session of sessions) session.abort();
+    interrupt(goalId) {
+      for (const [session, owner] of sessions) {
+        if (goalId === undefined || owner === goalId) session.abort();
+      }
     },
     async stop() {
       stopped = true;
       if (timer !== undefined) clearInterval(timer);
       // Abort every running turn: its prompts are refused, so nothing waits on a person who is gone.
-      for (const session of sessions) session.abort();
+      for (const session of sessions.keys()) session.abort();
       await Promise.allSettled([...running.values()]);
     },
   };

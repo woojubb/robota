@@ -198,12 +198,24 @@ export interface IConnectorStatusView {
   readonly scope?: string;
 }
 
+export interface IConnectorSyncView {
+  /** The goal that keeps the connector in sync; it is also listed with the person's goals. */
+  readonly goalId: string;
+  readonly everyMinutes: number;
+  /** Where the goal stands: a sync the person paused among their goals does not run. */
+  readonly status: TGoalStatus;
+  readonly lastRunAt?: string;
+  readonly nextRunAt?: string;
+}
+
 export interface IConnectorView {
   readonly id: string;
   readonly title: string;
   readonly kind: TConnectorKind;
   readonly endpoint: string;
   readonly status: IConnectorStatusView;
+  /** Present while the connector is kept in sync. */
+  readonly sync?: IConnectorSyncView;
   readonly tools?: readonly IConnectorToolView[];
 }
 
@@ -218,6 +230,12 @@ export type TRevocation = 'revoked' | 'partial' | 'unsupported' | 'failed' | 'no
 export interface IDisconnectView {
   readonly removed: boolean;
   readonly revocation: TRevocation;
+}
+
+export interface IDisconnectAnswer {
+  readonly outcome: IDisconnectView;
+  /** How many library claims were forgotten, when the person asked to forget what was pulled. */
+  readonly forgotten?: number;
 }
 
 export const API_WRITE_HEADER = 'x-robota-api';
@@ -296,8 +314,12 @@ export interface IPersonalApi {
   }): Promise<{ connector: IConnectorView }>;
   /** Start the sign-in; the page opens the returned address in the person's browser. */
   connectConnector(id: string, origin: string): Promise<{ status: IConnectorStatusView }>;
-  disconnectConnector(id: string): Promise<{ outcome: IDisconnectView }>;
-  removeConnector(id: string): Promise<{ outcome: IDisconnectView }>;
+  disconnectConnector(id: string, forgetPulled?: boolean): Promise<IDisconnectAnswer>;
+  removeConnector(id: string, forgetPulled?: boolean): Promise<IDisconnectAnswer>;
+  /** How many library claims came from this connector. */
+  connectorPulled(id: string): Promise<{ count: number }>;
+  /** Keep the connector in sync every so many minutes, or stop with `null`. */
+  setConnectorSync(id: string, everyMinutes: number | null): Promise<{ connector: IConnectorView }>;
   /** The person's decision about one tool; `null` returns it to what the service claims. */
   decideConnectorTool(
     id: string,
@@ -375,8 +397,13 @@ export function createPersonalApi(
     addConnector: (input) => call('POST', 'connectors', input),
     connectConnector: (connectorId, origin) =>
       call('POST', `connectors/${id(connectorId)}/connect`, { origin }),
-    disconnectConnector: (connectorId) => call('POST', `connectors/${id(connectorId)}/disconnect`),
-    removeConnector: (connectorId) => call('POST', `connectors/${id(connectorId)}/remove`),
+    disconnectConnector: (connectorId, forgetPulled = false) =>
+      call('POST', `connectors/${id(connectorId)}/disconnect`, { forgetPulled }),
+    removeConnector: (connectorId, forgetPulled = false) =>
+      call('POST', `connectors/${id(connectorId)}/remove`, { forgetPulled }),
+    connectorPulled: (connectorId) => call('GET', `connectors/${id(connectorId)}/pulled`),
+    setConnectorSync: (connectorId, everyMinutes) =>
+      call('POST', `connectors/${id(connectorId)}/sync`, { everyMinutes }),
     decideConnectorTool: (connectorId, tool, decision) =>
       call('POST', `connectors/${id(connectorId)}/tools/${id(tool)}`, { decision }),
   };
