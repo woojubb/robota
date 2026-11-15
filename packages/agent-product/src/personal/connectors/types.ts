@@ -62,6 +62,12 @@ export interface IConnector {
   };
   /** The person's decisions, by tool name. A tool without one is sorted by what the service claims. */
   readonly decisions: Readonly<Record<string, TToolDecision>>;
+  /**
+   * What deserves a question, in the person's own words: one short paragraph a sync run reads before
+   * it looks at the service. Absent means the default for the connector's kind. Only the person sets
+   * it; nothing read from the service ever does.
+   */
+  readonly attention?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 }

@@ -160,6 +160,99 @@ function ToolGroup({
   );
 }
 
+/** The longest text the agent keeps as what to ask about; it refuses a longer one, this only stops typing. */
+const ATTENTION_MAX = 600;
+
+/** Words as the agent keeps them: one line, so a saved text compares equal to what the page shows. */
+const collapsed = (text: string): string => text.replace(/\s+/gu, ' ').trim();
+
+/**
+ * What the person wants to be asked about, in their own words: the text a check reads before it
+ * looks at the service. It shows what applies (their words, or the default for this kind), saves
+ * plain text, and says plainly whether the agent kept it or refused it.
+ */
+function AttentionEditor({
+  connector,
+  onSave,
+}: {
+  readonly connector: IConnectorView;
+  /** Keep this text, or the default when it is empty; rejects with the reason it was refused. */
+  readonly onSave: (text: string) => Promise<void>;
+}): React.ReactElement {
+  const effective = connector.attention ?? connector.defaultAttention;
+  const [draft, setDraft] = useState(effective);
+  const [outcome, setOutcome] = useState<
+    { readonly refused: boolean; readonly text: string } | undefined
+  >(undefined);
+  const [saving, setSaving] = useState(false);
+  // The list reloads every few seconds: what the person is typing is never overwritten, and what
+  // changed elsewhere shows once they have nothing unsaved.
+  const shown = useRef(effective);
+  useEffect(() => {
+    setDraft((current) => (collapsed(current) === collapsed(shown.current) ? effective : current));
+    shown.current = effective;
+  }, [effective]);
+  const save = async (text: string, done: string): Promise<void> => {
+    setSaving(true);
+    try {
+      await onSave(text);
+      setOutcome({ refused: false, text: done });
+      if (collapsed(text) === '') setDraft(connector.defaultAttention);
+    } catch (caught) {
+      setOutcome({ refused: true, text: errorText(caught) });
+    } finally {
+      setSaving(false);
+    }
+  };
+  const field = `attention-${connector.id}`;
+  return (
+    <div className="mt-3 border-t border-border pt-2">
+      <label htmlFor={field} className="text-[13px] font-semibold">
+        What should I ask you about?
+      </label>
+      <p className="text-[12px] text-muted-foreground">
+        Each check reads these words first and asks you only about what fits them.{' '}
+        {connector.attention === undefined
+          ? `These are the default words for ${connector.kind}; change them to say what matters to you.`
+          : 'These are your own words.'}
+      </p>
+      <textarea
+        id={field}
+        className={`${inputClass} mt-1`}
+        rows={3}
+        maxLength={ATTENTION_MAX}
+        value={draft}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          setOutcome(undefined);
+        }}
+      />
+      <div className="mt-1 flex items-center gap-2">
+        <Button
+          tone="primary"
+          disabled={saving || collapsed(draft) === effective}
+          onClick={() => void save(draft, 'Saved. The next check uses these words.')}
+        >
+          Save
+        </Button>
+        <Button
+          disabled={saving}
+          onClick={() => void save('', 'Back to the default words.')}
+          label={`Use the default words for ${connector.title}`}
+        >
+          Use the default
+        </Button>
+        <span
+          role="status"
+          className={`min-w-0 flex-1 text-[12.5px] ${outcome?.refused === true ? 'text-destructive' : 'text-muted-foreground'}`}
+        >
+          {outcome?.text}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ConnectorCard({
   connector,
   onConnect,
@@ -168,6 +261,7 @@ function ConnectorCard({
   onDecide,
   onSync,
   onRunSync,
+  onSaveAttention,
   pulledCount,
 }: {
   readonly connector: IConnectorView;
@@ -177,6 +271,7 @@ function ConnectorCard({
   readonly onDecide: (tool: string, decision: TToolAccess | null) => void;
   readonly onSync: (everyMinutes: number | null) => void;
   readonly onRunSync: () => void;
+  readonly onSaveAttention: (text: string) => Promise<void>;
   /** How many library claims this connector put there. */
   readonly pulledCount: () => Promise<number>;
 }): React.ReactElement {
@@ -321,6 +416,7 @@ function ConnectorCard({
               <Button onClick={onRunSync}>Check now</Button>
             </p>
           )}
+          <AttentionEditor connector={connector} onSave={onSaveAttention} />
         </section>
       )}
       {asksClientSecret && (
@@ -809,6 +905,11 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
                 );
               })
             }
+            onSaveAttention={async (text) => {
+              // The editor shows the refusal beside its own buttons, so it is not a refusal of the page.
+              await api.setConnectorAttention(connector.id, text);
+              await reload();
+            }}
             onDecide={(tool, decision) =>
               void run(async () => {
                 await api.decideConnectorTool(connector.id, tool, decision);

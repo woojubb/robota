@@ -131,6 +131,11 @@ export {
   createMemoryConnectorStore,
 } from './connectors/book.js';
 export type { IConnectorStore, ICreateConnectorInput } from './connectors/book.js';
+export {
+  ATTENTION_MAX_CHARACTERS,
+  defaultAttention,
+  effectiveAttention,
+} from './connectors/attention.js';
 export { catalogEntriesFromRegistry, catalogEntryOf } from './connectors/catalog.js';
 export type { IConnectorCatalogEntry } from './connectors/catalog.js';
 export { ConnectorRegistry, classifyTool } from './connectors/registry.js';

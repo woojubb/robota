@@ -5,6 +5,7 @@
 import {
   ConnectorRefusedError,
   countPulled,
+  defaultAttention,
   forgetPulled,
 } from '@robota-sdk/agent-product/personal';
 
@@ -70,6 +71,9 @@ function present(view: IConnectorView, sync?: IConnectorSyncStatus): Record<stri
     ...(connector.auth !== undefined && { auth: connector.auth }),
     ...(connector.tokenHeader !== undefined && { tokenHeader: connector.tokenHeader }),
     ...(connector.oauth !== undefined && { oauth: connector.oauth }),
+    // The person's own words about what to be asked, when they wrote some, and what applies without them.
+    ...(connector.attention !== undefined && { attention: connector.attention }),
+    defaultAttention: defaultAttention(connector.kind),
     status,
     ...(sync !== undefined && { sync }),
     ...(tools !== undefined && {
@@ -226,6 +230,13 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
       return ok({ connector: await show(id, request.query.get('refresh') === '1') });
     }
     if (action === 'pulled' && method === 'GET') return ok({ count: await countPulled(wiki, id) });
+    // What the person wants to be asked about: their words replace the default, and empty text brings it back.
+    if (action === 'attention' && method === 'PUT') {
+      const words = record(request.body)['text'];
+      if (typeof words !== 'string') throw new ConnectorRefusedError('text must be a string');
+      await book.setAttention(id, words);
+      return ok({ connector: await show(id) });
+    }
     if (method !== 'POST') return undefined;
     if (action === 'connect') {
       const body = record(request.body);

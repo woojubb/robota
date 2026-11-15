@@ -611,13 +611,18 @@ run reads what is new through the reading tool and files durable facts through o
 records the connector as their origin, by kind, and names it in their reference, so what a sync kept is
 told from what the person said and can be counted and forgotten together with the connection. A
 filed fact is only ever added: content read from a service never rewrites or retires what the person
-said. Everything the run reads is content written by others, so the run is given only the tools to read,
-look in the library, file and keep a case, never a list of what is withheld that a tool added later would escape:
-it cannot write to the service, reach the web or files, drive the browser, or rewrite the library.
-Turning a sync off, or disconnecting, takes the access away first and then ends a run in progress rather
-than being refused by it. A run that is reachable, read at least once without a failed read and added
-nothing stays in the goal's history and is not posted to the feed; a run that read nothing or could not
-read is posted, so a broken sync is never silent.
+said. What deserves a question is the person's own to say: each connector carries attention words in plain
+text, a sensible default for its kind until the person writes their own, and the run reads them before it
+looks at the service and keeps a case, with one question, on what fits them. They decide only what is asked
+about, so they add no tool and no permission, and nothing the run reads can change them: only the person does,
+and a text that looks like a secret is refused. Everything the run reads is content written by others, so the
+run is given only the tools to read, look in the library, file and keep a case, never a list of what is
+withheld that a tool added later would escape: it cannot write to the service, reach the web or files, drive
+the browser, or rewrite the library. Turning a sync off, or disconnecting, takes the access away first and
+then ends a run in progress rather than being refused by it. A run that is reachable, had no failed read,
+did something worth the read (it read, or it opened a case) and added nothing to the library stays in the
+goal's history and is not posted to the feed, since a case it opened is already the message to the person; a
+run that read nothing and opened nothing, or could not read, is posted, so a broken sync is never silent.
 
 ### Non-goals
 

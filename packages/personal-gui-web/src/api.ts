@@ -263,6 +263,10 @@ export interface IConnectorView {
     readonly scopes?: readonly string[];
     readonly authorizationParams?: Readonly<Record<string, string>>;
   };
+  /** What the person wrote about what to be asked, in their own words; absent until they write some. */
+  readonly attention?: string;
+  /** The words that apply while the person has written none. */
+  readonly defaultAttention: string;
   readonly status: IConnectorStatusView;
   /** Present while the connector is kept in sync. */
   readonly sync?: IConnectorSyncView;
@@ -414,6 +418,11 @@ export interface IPersonalApi {
   connectorPulled(id: string): Promise<{ count: number }>;
   /** Keep the connector in sync every so many minutes, or stop with `null`. */
   setConnectorSync(id: string, everyMinutes: number | null): Promise<{ connector: IConnectorView }>;
+  /**
+   * What the person wants to be asked about for this connector, in their own words; empty text
+   * returns it to the default. The agent refuses a text that looks like a secret or is too long.
+   */
+  setConnectorAttention(id: string, text: string): Promise<{ connector: IConnectorView }>;
   /** The person's decision about one tool; `null` returns it to what the service claims. */
   decideConnectorTool(
     id: string,
@@ -508,6 +517,8 @@ export function createPersonalApi(
     connectorPulled: (connectorId) => call('GET', `connectors/${id(connectorId)}/pulled`),
     setConnectorSync: (connectorId, everyMinutes) =>
       call('POST', `connectors/${id(connectorId)}/sync`, { everyMinutes }),
+    setConnectorAttention: (connectorId, text) =>
+      call('PUT', `connectors/${id(connectorId)}/attention`, { text }),
     decideConnectorTool: (connectorId, tool, decision) =>
       call('POST', `connectors/${id(connectorId)}/tools/${id(tool)}`, { decision }),
   };

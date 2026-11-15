@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createPersonalApi } from '../api.js';
+import { API_WRITE_HEADER, createPersonalApi } from '../api.js';
 import { ConnectorsView } from '../views/Connectors.js';
 
 import type {
@@ -18,11 +18,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+const DEFAULT_WORDS =
+  'Ask me about anything that needs my decision soon or looks unusual; do not ask me about routine updates.';
+
 const NOTES: IConnectorView = {
   id: 'connector-notes-1',
   title: 'Notes',
   kind: 'notes',
   endpoint: 'https://notes.example/mcp',
+  defaultAttention: DEFAULT_WORDS,
   status: { state: 'connected', scope: 'notes.read notes.write' },
   tools: [
     { name: 'search_notes', description: 'Find notes', access: 'read', hints: { readOnly: true } },
@@ -463,6 +467,115 @@ describe('the Connectors tab', () => {
   });
 });
 
+describe('what the agent should ask the person about', () => {
+  const WORDS_LABEL = 'What should I ask you about?';
+
+  it('shows the default words until the person writes their own, then saves them as plain text', async () => {
+    const save = vi.fn(async () => ({ connector: NOTES }));
+    render(<ConnectorsView api={fakeApi([NOTES], { setConnectorAttention: save })} />);
+    const field = (await screen.findByLabelText(WORDS_LABEL)) as HTMLTextAreaElement;
+    expect(field.tagName).toBe('TEXTAREA');
+    expect(field.value).toBe(DEFAULT_WORDS);
+    expect(field.maxLength).toBe(600);
+    expect(screen.getByText(/These are the default words for notes/u)).toBeTruthy();
+    // Nothing to save while the words are the ones already in force.
+    const keep = screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement;
+    expect(keep.disabled).toBe(true);
+
+    fireEvent.change(field, { target: { value: 'Only ask me about <b>my landlord</b>.' } });
+    expect(keep.disabled).toBe(false);
+    fireEvent.click(keep);
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(NOTES.id, 'Only ask me about <b>my landlord</b>.'),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toBe(
+        'Saved. The next check uses these words.',
+      ),
+    );
+    // What was typed is text, never markup.
+    expect(field.value).toBe('Only ask me about <b>my landlord</b>.');
+    expect(document.querySelector('b')).toBeNull();
+  });
+
+  it('shows the person’s own words when they wrote some, and goes back to the default on request', async () => {
+    const own: IConnectorView = { ...NOTES, attention: 'Only my landlord.' };
+    const save = vi.fn(async () => ({ connector: NOTES }));
+    render(<ConnectorsView api={fakeApi([own], { setConnectorAttention: save })} />);
+    const field = (await screen.findByLabelText(WORDS_LABEL)) as HTMLTextAreaElement;
+    expect(field.value).toBe('Only my landlord.');
+    expect(screen.getByText(/These are your own words\./u)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use the default words for Notes' }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(NOTES.id, ''));
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toBe('Back to the default words.'),
+    );
+    expect(field.value).toBe(DEFAULT_WORDS);
+  });
+
+  it('says why the agent refused the words, beside the buttons, and keeps what was typed', async () => {
+    const save = vi.fn(async () => {
+      throw new Error('This looks like a secret, or uses a word such as password, token or key');
+    });
+    render(<ConnectorsView api={fakeApi([NOTES], { setConnectorAttention: save })} />);
+    const field = (await screen.findByLabelText(WORDS_LABEL)) as HTMLTextAreaElement;
+    fireEvent.change(field, { target: { value: 'Ask me about my password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toMatch(/looks like a secret/u),
+    );
+    expect(field.value).toBe('Ask me about my password');
+    // Said once, in the editor: not also as a refusal of the whole page.
+    expect(screen.getAllByText(/looks like a secret/u)).toHaveLength(1);
+    expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+    // Typing again clears the old verdict.
+    fireEvent.change(field, { target: { value: 'Ask me about my landlord' } });
+    expect(screen.getByRole('status').textContent).toBe('');
+  });
+
+  it('keeps what is being typed when the list reloads, and shows a change made elsewhere once nothing is unsaved', async () => {
+    const synced: IConnectorView = {
+      ...NOTES,
+      sync: { goalId: 'goal-1', everyMinutes: 60, status: 'active' },
+    };
+    let current: IConnectorView = synced;
+    const api = {
+      connectors: async () => ({ callbackPath: '/connector-callback', connectors: [current] }),
+      connectorPulled: async () => ({ count: 0 }),
+      goalAction: async () => ({}),
+    } as unknown as IPersonalApi;
+    render(<ConnectorsView api={api} />);
+    const field = (await screen.findByLabelText(WORDS_LABEL)) as HTMLTextAreaElement;
+    const reload = async (): Promise<void> => {
+      fireEvent.click(screen.getByRole('button', { name: 'Check now' }));
+      await screen.findByText(/Queued\./u);
+      // The click reloads once its request is done; wait for that to settle.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    };
+
+    fireEvent.change(field, { target: { value: 'Half-written words' } });
+    current = { ...synced, attention: 'Written on another device.' };
+    await reload();
+    expect(field.value).toBe('Half-written words');
+
+    // Back to the words the page last showed: nothing is unsaved now, so a change made elsewhere shows.
+    fireEvent.change(field, { target: { value: 'Written on another device.' } });
+    current = { ...synced, attention: 'Changed once more.' };
+    await reload();
+    await waitFor(() => expect(field.value).toBe('Changed once more.'));
+  });
+
+  it('is offered only for a connected service, where a check can run', async () => {
+    const idle: IConnectorView = { ...NOTES, status: { state: 'not-connected' }, tools: undefined };
+    render(<ConnectorsView api={fakeApi([idle])} />);
+    await screen.findByRole('button', { name: 'Connect' });
+    expect(screen.queryByLabelText(WORDS_LABEL)).toBeNull();
+  });
+});
+
 describe('finding a service to add', () => {
   const FOUND: IConnectorCatalogView = {
     registry: 'ok',
@@ -801,6 +914,7 @@ describe('the connector calls of the API client', () => {
     await api.removeConnector('connector-a');
     await api.connectorPulled('connector-a');
     await api.setConnectorSync('connector-a', 60);
+    await api.setConnectorAttention('connector-a', 'Only my landlord.');
     await api.decideConnectorTool('connector-a', 'tool/with space', null);
     expect(calls.map((call) => `${call.init?.method ?? 'GET'} ${call.url}`)).toEqual([
       'GET api/connectors',
@@ -811,6 +925,7 @@ describe('the connector calls of the API client', () => {
       'POST api/connectors/connector-a/remove',
       'GET api/connectors/connector-a/pulled',
       'POST api/connectors/connector-a/sync',
+      'PUT api/connectors/connector-a/attention',
       'POST api/connectors/connector-a/tools/tool%2Fwith%20space',
     ]);
     expect(calls[2]!.init?.body).toBe(JSON.stringify({ origin: 'https://agent.example' }));
@@ -819,6 +934,12 @@ describe('the connector calls of the API client', () => {
     expect(calls[4]!.init?.body).toBe(JSON.stringify({ forgetPulled: true }));
     expect(calls[5]!.init?.body).toBe(JSON.stringify({ forgetPulled: false }));
     expect(calls[7]!.init?.body).toBe(JSON.stringify({ everyMinutes: 60 }));
-    expect(calls[8]!.init?.body).toBe(JSON.stringify({ decision: null }));
+    // The words go as a write the server accepts: the write header and JSON.
+    expect(calls[8]!.init?.body).toBe(JSON.stringify({ text: 'Only my landlord.' }));
+    expect(calls[8]!.init?.headers).toEqual({
+      'content-type': 'application/json',
+      [API_WRITE_HEADER]: '1',
+    });
+    expect(calls[9]!.init?.body).toBe(JSON.stringify({ decision: null }));
   });
 });
