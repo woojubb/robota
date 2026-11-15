@@ -17,6 +17,14 @@ export const CONNECTOR_KINDS: readonly TConnectorKind[] = [
   'other',
 ];
 
+/**
+ * How a service asks the person to sign in: `oauth` (a sign-in in their browser, the default), `token`
+ * (a token they type once) or `none` (the service needs no sign-in).
+ */
+export type TConnectorAuth = 'oauth' | 'token' | 'none';
+
+export const CONNECTOR_AUTHS: readonly TConnectorAuth[] = ['oauth', 'token', 'none'];
+
 /** The person's own decision about one tool, over what the service claims about it. */
 export type TToolDecision = 'read' | 'write' | 'blocked';
 
@@ -32,6 +40,13 @@ export interface IConnector {
   readonly protocol: string;
   /** Where the service is reached: an `https` address that carries no credential. */
   readonly endpoint: string;
+  /** How it asks the person to sign in; absent means `oauth`. */
+  readonly auth?: TConnectorAuth;
+  /**
+   * With `token`: the header the token goes in when it is not the standard `Authorization` bearer.
+   * A name only; the token itself is never in a connector.
+   */
+  readonly tokenHeader?: string;
   /**
    * What the person registered with the service's authorization server when it has no dynamic
    * registration. Public values only: a secret never lives in a connector (it is typed at sign-in).
@@ -94,7 +109,13 @@ export interface IConnectorStatus {
 
 /** Where the person's browser reaches this agent; the consent returns there. */
 export interface ISignInContext {
-  readonly origin: string;
+  /** Where the person's browser reaches this agent; an `oauth` sign-in needs it, the others do not. */
+  readonly origin?: string;
+  /**
+   * The token the person typed for a `token` connector. Held until it is checked and then only in
+   * the owner-only credential directory: never in a connector, an answer or a log.
+   */
+  readonly token?: string;
   /**
    * The client secret the person typed for this sign-in, for a service that gives its pre-registered
    * client one. It is held only until the sign-in ends and then only with the credential the

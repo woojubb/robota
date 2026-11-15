@@ -74,8 +74,8 @@ Alt+Up/Down on it, to move it). On a narrow screen it opens from the menu button
 ## Connect a service
 
 A connector is a service you sign in to once so your agent can read it for you: mail, a calendar, files,
-chat or notes. Any service that offers the standard tool interface (MCP over HTTPS, signed in with OAuth)
-fits the same way; nothing is built in for one service.
+chat or notes. Any service that offers the standard tool interface (MCP over HTTPS, signed in with OAuth
+or a token, or needing no sign-in) fits the same way; nothing is built in for one service.
 
 1. If the service does not register clients automatically, register one with it yourself first: allow
    the redirect address the add form shows (`<the address you open this page at>/connector-callback`;
@@ -97,8 +97,17 @@ fits the same way; nothing is built in for one service.
    connect*, read the reason on the card and press **Connect again**; if the client id was wrong, remove
    the connector and add it again with the right one.
 
+If the service takes a token or API key instead of a sign-in page, choose *Paste a token or API key* in
+the add form (name the header only when the service does not use the standard `Authorization` header),
+then paste the token into the field on the card and press **Connect**. The agent checks it by listing the
+service's tools; a token the service refuses is not kept, and a token you had before stays in place. When
+the service later stops accepting it, the card asks for a new one. A service that needs no sign-in is added
+with *No sign-in needed* and shows its tools at once. **Disconnect** deletes the token from your agent, but
+the service keeps honouring it until you revoke it there.
+
 Only public values are kept in the connector. A client secret you type, or one the service issues when it
-registers your agent, is kept with the sign-in in `connector-credentials/`, readable only by you.
+registers your agent, is kept with the sign-in in `connector-credentials/`, and a token you paste in
+`connector-tokens/`, both readable only by you.
 
 What the agent may do is shown per tool, in three groups: **Reads** it may use on its own, **Writes**
 (anything that changes or sends) held for your approval every time, and **Blocked**. The groups follow
@@ -134,7 +143,8 @@ adapter.
 Everything lives in one owner-only folder: `--state-dir <dir>`, else `PERSONAL_AGENT_STATE_DIR`, else
 `~/.robota/personal`. It holds the profile (`config.json`), chats (`sessions/`), goal-run transcripts
 (`goal-sessions/`), the library as plain Markdown (`wiki/`), goals and the feed (`goals/`), ideas
-(`ideas/`), connectors (`connectors/`), their sign-ins (`connector-credentials/`, readable only by you),
+(`ideas/`), connectors (`connectors/`), their sign-ins and tokens (`connector-credentials/` and
+`connector-tokens/`, readable only by you),
 the browser profile, and the agent's `workspace/`. Back the folder up to keep everything.
 
 ## Use it from anywhere: your own server

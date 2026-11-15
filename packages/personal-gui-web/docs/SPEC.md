@@ -27,8 +27,9 @@ importable library.
   opens the service's own page for the person; the agent's machine opens nothing. The page shows a
   connection's state as a fixed word and the scopes the service says it granted, never a credential,
   and shows what each tool may do split into reading (on its own) and writing (the person approves
-  every call). A client secret the person types for a sign-in goes with that one request and is
-  emptied from the page as it goes. The page records the person's decision about a tool; deciding what a tool is by
+  every call). A client secret or token the person types for a sign-in goes with that one request and
+  is emptied from the page as it goes; only a sign-in page comes back to this one, so only that way
+  of signing in sends the page's address. The page records the person's decision about a tool; deciding what a tool is by
   default stays with the agent. Keeping a service's content in the library up to date is the
   person's switch, and disconnecting asks whether to keep or forget what the service put there.
 - **Secrets stay out of the page.** Settings name the environment variable that holds a provider key;

@@ -131,6 +131,20 @@ export class ConnectorRegistry {
   /** Start the person's sign-in; the answer says where their browser goes. */
   async signIn(id: string, context: ISignInContext): Promise<IConnectorStatus> {
     const connector = await this.book.existing(id);
+    const auth = connector.auth ?? 'oauth';
+    if (auth === 'none') throw new ConnectorRefusedError('This service needs no sign-in');
+    if (auth === 'token') {
+      if (context.token === undefined)
+        throw new ConnectorRefusedError('Type the token for this service');
+      if (context.clientSecret !== undefined) {
+        throw new ConnectorRefusedError('A client secret belongs to an OAuth sign-in');
+      }
+    } else {
+      if (context.token !== undefined)
+        throw new ConnectorRefusedError('This service signs in with OAuth, not a token');
+      if (context.origin === undefined)
+        throw new ConnectorRefusedError('A sign-in needs the address of this page');
+    }
     if (context.clientSecret !== undefined && connector.oauth?.clientId === undefined) {
       throw new ConnectorRefusedError('A client secret goes with the client id you registered');
     }
