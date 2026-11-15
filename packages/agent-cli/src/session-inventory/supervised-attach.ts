@@ -22,7 +22,7 @@ import {
 } from '@robota-sdk/agent-transport';
 
 import type { IControlChannel } from '@robota-sdk/agent-local-host';
-import type { IServeOwnerBinding } from '../modes/serve-session-directory.js';
+import type { IServeOwnerBinding } from '@robota-sdk/agent-framework';
 import type { ISessionBinder } from '@robota-sdk/agent-interface/session';
 import type {
   ICapabilityApprovalRequest,

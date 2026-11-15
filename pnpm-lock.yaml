@@ -1311,8 +1311,8 @@ importers:
         specifier: npm:@robota-sdk/product-config@3.2.2
         version: 3.2.2
       '@robota-sdk/workflows':
-        specifier: 0.0.7
-        version: 0.0.7(@robota-sdk/agent-core@3.3.2)(@robota-sdk/agent-framework@3.3.5)(@robota-sdk/agent-interface@3.3.2)(@robota-sdk/agent-provider@3.3.4)(@robota-sdk/agent-tools@3.3.2)
+        specifier: 0.0.8
+        version: 0.0.8(@robota-sdk/agent-core@3.3.2)(@robota-sdk/agent-framework@3.3.5)(@robota-sdk/agent-interface@3.3.2)(@robota-sdk/agent-provider@3.3.4)(@robota-sdk/agent-tools@3.3.2)
       '@types/marked':
         specifier: ^6.0.0
         version: 6.0.0
@@ -7511,8 +7511,8 @@ packages:
     resolution: {integrity: sha512-eVia8GXuPTQuHU7//HmGE+pYBc3EKCjrpABJNgMCf5L0gOLYshCWmKh29hbJiUbOx+0RwWTqB4O3XkTqiTFgEA==}
     engines: {node: '>=22.12.0'}
 
-  /@robota-sdk/workflows@0.0.7(@robota-sdk/agent-core@3.3.2)(@robota-sdk/agent-framework@3.3.5)(@robota-sdk/agent-interface@3.3.2)(@robota-sdk/agent-provider@3.3.4)(@robota-sdk/agent-tools@3.3.2):
-    resolution: {integrity: sha512-yIuArJGj9fnzbq43cNZKheZwJny4Mo77nEmplp8q+VOrDwllnfAtII75a+K84+y2jVll9IDeKN30HXwICsDlbg==}
+  /@robota-sdk/workflows@0.0.8(@robota-sdk/agent-core@3.3.2)(@robota-sdk/agent-framework@3.3.5)(@robota-sdk/agent-interface@3.3.2)(@robota-sdk/agent-provider@3.3.4)(@robota-sdk/agent-tools@3.3.2):
+    resolution: {integrity: sha512-J97UjRxgnqg8C3Y6gyhuyaxW/AecIri4jdQJEQvnZCTR6H0dqX/XCU5K6dFJ3ESuW1NBBhivUD70Wr9JRnTFFA==}
     engines: {node: ^22.14.0}
     peerDependencies:
       '@robota-sdk/agent-core': ~3.3.0

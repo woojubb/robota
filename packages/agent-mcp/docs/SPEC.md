@@ -83,7 +83,10 @@ authoritative, so each guarantee below is stated, and held, once.
   advertised — because the SDK's discovery guesses when a link is missing. A POST never follows a
   redirect, since its body is a code, a token or a secret, and a sign-in's redirect — caught on
   loopback or pasted by the user — is accepted only once, as its own redirect URI with its own
-  `state` and, when present, its issuer's `iss`. Tokens are kept by server identity and canonical
+  `state` and, when present, its issuer's `iss`. A definition may add a few plain-word parameters
+  to the authorization request (a service may need one to keep a sign-in long-lived), but never one
+  the sign-in sets itself, so configuration cannot turn the flow against its own protections.
+  Tokens are kept by server identity and canonical
   URL together, so a shadowing definition cannot use another's sign-in; a refresh goes only to the
   endpoint the tokens came from and runs once per credential across processes, because a rotating
   refresh token spent twice signs the user out — and a refused refresh never clears a token someone

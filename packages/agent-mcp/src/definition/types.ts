@@ -59,6 +59,11 @@ export interface IMCPOAuthConfig {
   readonly authServerMetadataUrl?: string;
   /** Requested instead of whatever the server's metadata advertises. */
   readonly scopes?: readonly string[];
+  /**
+   * Extra parameters on the authorization request, for a service that needs one to keep a sign-in
+   * long-lived. Plain words, never secrets; none may replace a parameter the sign-in sets.
+   */
+  readonly authorizationParams?: Readonly<Record<string, string>>;
 }
 
 /** A raw entry that decoded cleanly. Environment templates are NOT yet materialized. */

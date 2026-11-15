@@ -82,6 +82,7 @@ export async function startHarness(
     browserAllowedHosts?: readonly string[];
     connectorNetwork?: import('../capabilities.js').IPersonalCapabilityOptions['connectorNetwork'];
     server?: import('../local-mode.js').IServerExposure;
+    guiPort?: number;
   } = {},
 ): Promise<IHarness> {
   const stateDir = options.stateDir ?? mkdtempSync(join(tmpdir(), 'personal-agent-'));
@@ -123,6 +124,7 @@ export async function startHarness(
     landing: capabilities.landing,
     ...(options.webRoot !== undefined && { webRoot: options.webRoot }),
     ...(options.server !== undefined && { server: options.server }),
+    ...(options.guiPort !== undefined && { guiPort: options.guiPort }),
   });
   await capabilities.attach(local.agent, {
     guiOrigins: local.gui === undefined ? [] : [new URL(local.gui.url).origin],

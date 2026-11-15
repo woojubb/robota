@@ -47,6 +47,8 @@ interface IFakeProtocol extends IConnectorProtocol {
   readonly events: string[];
   reply: IConnectorCallResult;
   failTools: boolean;
+  /** What the last sign-in was handed. */
+  context?: { readonly origin: string; readonly clientSecret?: string };
 }
 
 function fakeProtocol(): IFakeProtocol {
@@ -58,7 +60,8 @@ function fakeProtocol(): IFakeProtocol {
     reply: { text: 'ok', isError: false },
     failTools: false,
     status: async () => fake.state,
-    signIn: async (connector) => {
+    signIn: async (connector, context) => {
+      fake.context = context;
       fake.events.push(`signIn ${connector.id}`);
       return { state: 'connecting', authorizationUrl: 'https://auth.example/authorize' };
     },
@@ -118,6 +121,22 @@ describe('the connector book', () => {
     expect(await book.list()).toEqual([connector]);
   });
 
+  it('keeps sign-in options as plain words, in the record, and nothing else about the sign-in', async () => {
+    const book = new ConnectorBook({ store: createMemoryConnectorStore() });
+    const connector = await book.create({
+      title: 'Mail',
+      kind: 'mail',
+      protocol: 'mcp',
+      endpoint: 'https://mail.example/mcp',
+      oauth: { authorizationParams: { access_type: 'offline', prompt: 'consent' } },
+    });
+    expect(connector.oauth).toEqual({
+      authorizationParams: { access_type: 'offline', prompt: 'consent' },
+    });
+    // No field of a connector can hold a client secret: it is typed at sign-in.
+    expect(Object.keys(connector.oauth ?? {})).not.toContain('clientSecret');
+  });
+
   it.each([
     ['an endpoint that is not https', { endpoint: 'http://notes.example/mcp' }],
     ['an endpoint that is not an address', { endpoint: 'notes' }],
@@ -129,6 +148,15 @@ describe('the connector book', () => {
     ['a protocol name that is not a word', { protocol: 'Not A Word' }],
     ['a client id with a space', { oauth: { clientId: 'two words' } }],
     ['a scope that is not one word', { oauth: { scopes: ['read all'] } }],
+    ['a sign-in option value with a space', { oauth: { authorizationParams: { prompt: 'a b' } } }],
+    [
+      'a sign-in option name in capitals',
+      { oauth: { authorizationParams: { Prompt: 'consent' } } },
+    ],
+    [
+      'more than four sign-in options',
+      { oauth: { authorizationParams: { a: '1', b: '2', c: '3', d: '4', e: '5' } } },
+    ],
   ])('refuses %s', async (_name, change) => {
     const book = new ConnectorBook({ store: createMemoryConnectorStore() });
     await expect(
@@ -328,6 +356,33 @@ describe('the connector registry', () => {
     expect(outcome).toEqual({ removed: true, revocation: 'revoked' });
     expect(protocol.events).toEqual([`signOut ${connector.id}`, `forget ${connector.id}`]);
     expect(await book.get(connector.id)).toBeUndefined();
+  });
+
+  it('hands a client secret to the protocol for a registered client only, and keeps it in no record', async () => {
+    const { registry, protocol, book, connector } = await setup();
+    // A connector without a client id the person registered has nothing a secret could belong to.
+    await expect(
+      registry.signIn(connector.id, {
+        origin: 'https://agent.example',
+        clientSecret: 'the-secret',
+      }),
+    ).rejects.toThrow(/client id/u);
+    expect(protocol.events).not.toContain(`signIn ${connector.id}`);
+
+    const registered = await book.create({
+      title: 'Registered',
+      kind: 'notes',
+      protocol: 'fake',
+      endpoint: ENDPOINT,
+      oauth: { clientId: 'my-client' },
+    });
+    await registry.signIn(registered.id, {
+      origin: 'https://agent.example',
+      clientSecret: 'the-secret',
+    });
+    expect(protocol.context?.clientSecret).toBe('the-secret');
+    expect(JSON.stringify(await book.get(registered.id))).not.toContain('the-secret');
+    expect(JSON.stringify(await book.list())).not.toContain('the-secret');
   });
 
   it('starts a sign-in through the connector’s own protocol', async () => {

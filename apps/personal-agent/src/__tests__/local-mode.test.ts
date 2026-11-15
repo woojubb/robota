@@ -150,6 +150,17 @@ describe('web GUI server', () => {
     expect(traversal.status).toBe(403);
   });
 
+  it('serves the web UI on the fixed port it is given, so an address registered in advance stays valid', async () => {
+    const { createServer } = await import('node:http');
+    const probe = createServer();
+    await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', () => resolve()));
+    const port = (probe.address() as import('node:net').AddressInfo).port;
+    await new Promise<void>((resolve) => probe.close(() => resolve()));
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot(), guiPort: port });
+    expect(new URL(harness.local.gui!.url).port).toBe(String(port));
+    expect((await fetch(harness.local.gui!.url)).status).toBe(200);
+  });
+
   it('refuses a request whose Host is not loopback', async () => {
     harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
     const { request } = await import('node:http');

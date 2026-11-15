@@ -1,8 +1,8 @@
 import { createTestProductRuntime } from '../../../__tests__/helpers/product-runtime.js';
+import { createServeSessionDirectory } from '@robota-sdk/agent-framework';
 import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 
 import { runServeMode, type IServeModeOptions } from '../../../modes/serve-mode.js';
-import { createServeSessionDirectory } from '../../../modes/serve-session-directory.js';
 import { parseCliArgs } from '../../../utils/cli-args.js';
 import { readSupervisedTransportToken } from '../../supervised-transport-token.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';

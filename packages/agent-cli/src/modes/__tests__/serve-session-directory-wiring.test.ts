@@ -12,7 +12,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createServeSessionDirectory } from '../serve-session-directory.js';
+import { createServeSessionDirectory } from '@robota-sdk/agent-framework';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IServeModeOptions } from '../serve-mode.js';

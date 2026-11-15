@@ -44,7 +44,6 @@ import {
   createExternalEventGrantHistory,
   startRuntimeHost,
 } from '@robota-sdk/agent-framework';
-import type { IServeSessionDirectory } from './serve-session-directory.js';
 import { startServeHttpHost, type IServeHttpHost } from './serve-http-host.js';
 import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 import { RuntimeCustody } from '../secure/runtime-custody.js';
@@ -61,6 +60,7 @@ import type {
   ExternalEventGrantHistory,
   InteractiveSession,
   IOrgPolicy,
+  IServeSessionDirectory,
   SessionSlot,
 } from '@robota-sdk/agent-framework';
 

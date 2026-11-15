@@ -79,6 +79,10 @@ export interface IStandInAuthorizationServer {
   readonly revoked: readonly string[];
   /** The dynamically registered clients' redirect URIs. */
   readonly registrations: readonly { readonly clientId: string; readonly redirectUris: string[] }[];
+  /** The query of every authorization request, as the browser was sent it. */
+  readonly authorizationRequests: readonly Readonly<Record<string, string>>[];
+  /** How many token requests were refused for want of the client secret. */
+  readonly secretRefusals: () => number;
   /** Make the next revocation request fail with this status. */
   failRevocation(status: number): void;
   /** Drop the revocation endpoint from the metadata, as a server that offers none. */
@@ -93,6 +97,13 @@ export interface IStandInAuthorizationOptions {
   readonly port?: number;
   /** Lifetime of an access token, so a test can make it expire. */
   readonly accessTokenSeconds?: number;
+  /**
+   * A service that gives a pre-registered client a secret and no dynamic registration: the token
+   * endpoint needs this secret (as the client's HTTP Basic credential or a form field) on every grant.
+   */
+  readonly requiredClientSecret?: string;
+  /** A service that issues a refresh token only when the authorization request asked for offline access. */
+  readonly refreshOnlyWhenOfflineRequested?: boolean;
 }
 
 interface ICode {
@@ -101,6 +112,7 @@ interface ICode {
   readonly challenge: string;
   readonly scope: string;
   readonly resource: string;
+  readonly offline: boolean;
 }
 
 export async function startStandInAuthorizationServer(
@@ -114,6 +126,8 @@ export async function startStandInAuthorizationServer(
   const accessTokens = new Map<string, { expiresAt: number; scope: string; resource: string }>();
   const refreshTokens = new Map<string, ICode>();
   const revoked: string[] = [];
+  const authorizationRequests: Record<string, string>[] = [];
+  let secretRefusals = 0;
   let refreshes = 0;
   let revocationFailure: number | undefined;
   let revocationOffered = true;
@@ -127,14 +141,26 @@ export async function startStandInAuthorizationServer(
       scope: code.scope,
       resource: code.resource,
     });
-    refreshTokens.set(refresh, code);
+    const refreshable = options.refreshOnlyWhenOfflineRequested !== true || code.offline;
+    if (refreshable) refreshTokens.set(refresh, code);
     return {
       access_token: access,
       token_type: 'Bearer',
       expires_in: Math.floor(lifetime / 1000),
-      refresh_token: refresh,
+      ...(refreshable && { refresh_token: refresh }),
       scope: code.scope,
     };
+  };
+
+  /** The secret a client presented, by HTTP Basic or by form field. */
+  const presentedSecret = (req: IncomingMessage, form: URLSearchParams): string | undefined => {
+    const header = req.headers.authorization;
+    if (header?.startsWith('Basic ') === true) {
+      const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
+      const separator = decoded.indexOf(':');
+      return separator < 0 ? undefined : decodeURIComponent(decoded.slice(separator + 1));
+    }
+    return form.get('client_secret') ?? undefined;
   };
 
   const running = await listen(
@@ -146,12 +172,17 @@ export async function startStandInAuthorizationServer(
             issuer: base,
             authorization_endpoint: `${base}/authorize`,
             token_endpoint: `${base}/token`,
-            registration_endpoint: `${base}/register`,
+            ...(options.requiredClientSecret === undefined && {
+              registration_endpoint: `${base}/register`,
+            }),
             ...(revocationOffered && { revocation_endpoint: `${base}/revoke` }),
             response_types_supported: ['code'],
             grant_types_supported: ['authorization_code', 'refresh_token'],
             code_challenge_methods_supported: ['S256'],
-            token_endpoint_auth_methods_supported: ['none'],
+            token_endpoint_auth_methods_supported:
+              options.requiredClientSecret === undefined
+                ? ['none']
+                : ['client_secret_basic', 'client_secret_post'],
             authorization_response_iss_parameter_supported: true,
           });
         }
@@ -176,6 +207,7 @@ export async function startStandInAuthorizationServer(
           if (url.searchParams.get('code_challenge_method') !== 'S256') {
             return json(res, 400, { error: 'pkce_required' });
           }
+          authorizationRequests.push(Object.fromEntries(url.searchParams));
           const txn = randomBytes(8).toString('hex');
           transactions.set(txn, {
             clientId,
@@ -183,6 +215,7 @@ export async function startStandInAuthorizationServer(
             challenge: url.searchParams.get('code_challenge') ?? '',
             scope: url.searchParams.get('scope') ?? '',
             resource: url.searchParams.get('resource') ?? '',
+            offline: url.searchParams.get('access_type') === 'offline',
             state: url.searchParams.get('state') ?? '',
           });
           res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
@@ -211,6 +244,13 @@ export async function startStandInAuthorizationServer(
         }
         if (req.method === 'POST' && url.pathname === '/token') {
           const form = new URLSearchParams(await readBody(req));
+          if (
+            options.requiredClientSecret !== undefined &&
+            presentedSecret(req, form) !== options.requiredClientSecret
+          ) {
+            secretRefusals += 1;
+            return json(res, 401, { error: 'invalid_client' });
+          }
           if (form.get('grant_type') === 'authorization_code') {
             const code = codes.get(form.get('code') ?? '');
             codes.delete(form.get('code') ?? '');
@@ -264,6 +304,10 @@ export async function startStandInAuthorizationServer(
     get registrations() {
       return [...clients].map(([clientId, redirectUris]) => ({ clientId, redirectUris }));
     },
+    get authorizationRequests() {
+      return authorizationRequests.map((query) => ({ ...query }));
+    },
+    secretRefusals: () => secretRefusals,
     failRevocation: (status) => {
       revocationFailure = status;
     },

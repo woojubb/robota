@@ -82,12 +82,49 @@ describe('the Connectors tab', () => {
     const idle: IConnectorView = { ...NOTES, status: { state: 'not-connected' }, tools: undefined };
     render(<ConnectorsView api={fakeApi([idle], { connectConnector: connect })} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Connect' }));
-    await waitFor(() => expect(connect).toHaveBeenCalledWith(NOTES.id, window.location.origin));
+    await waitFor(() =>
+      expect(connect).toHaveBeenCalledWith(NOTES.id, window.location.origin, undefined),
+    );
     expect(open).toHaveBeenCalledWith(
       'https://auth.example/authorize?x=1',
       '_blank',
       'noopener,noreferrer',
     );
+  });
+
+  it('takes a client secret only for a client the person registered, sends it with that one sign-in and does not keep it', async () => {
+    vi.spyOn(window, 'open').mockReturnValue(null);
+    const connect = vi.fn(async () => ({
+      status: { state: 'connecting' as const, authorizationUrl: 'https://auth.example/a' },
+    }));
+    const registered: IConnectorView = {
+      ...NOTES,
+      status: { state: 'not-connected' },
+      tools: undefined,
+      oauth: { clientId: 'my-client' },
+    };
+    const { unmount } = render(
+      <ConnectorsView api={fakeApi([registered], { connectConnector: connect })} />,
+    );
+    const field = (await screen.findByLabelText(/Client secret for Notes/u)) as HTMLInputElement;
+    expect(field.type).toBe('password');
+    fireEvent.change(field, { target: { value: 'the-secret' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+    await waitFor(() =>
+      expect(connect).toHaveBeenCalledWith(NOTES.id, window.location.origin, 'the-secret'),
+    );
+    // The field is emptied as the request goes, and the secret appears nowhere on the page.
+    expect(field.value).toBe('');
+    expect(document.body.textContent).not.toContain('the-secret');
+    unmount();
+    // A connector without a client id the person registered has nothing to type.
+    render(
+      <ConnectorsView
+        api={fakeApi([{ ...NOTES, status: { state: 'not-connected' }, tools: undefined }])}
+      />,
+    );
+    await screen.findByRole('button', { name: 'Connect' });
+    expect(screen.queryByLabelText(/Client secret/u)).toBeNull();
   });
 
   it('offers the sign-in page as a link while it waits, and shows a failure by its fixed word', async () => {
@@ -213,6 +250,44 @@ describe('the Connectors tab', () => {
     render(<ConnectorsView api={fakeApi([idle])} />);
     await screen.findByRole('button', { name: 'Connect' });
     expect(screen.queryByLabelText('How often to check Notes')).toBeNull();
+  });
+
+  it('keeps the reason an action was refused on the page, instead of wiping it with the reload after it', async () => {
+    const add = vi.fn(async () => {
+      throw new Error('This looks like a secret and is not kept as a name');
+    });
+    render(<ConnectorsView api={fakeApi([], { addConnector: add })} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a connector' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'sk-proj-abc' } });
+    fireEvent.change(screen.getByLabelText('Address of the service'), {
+      target: { value: 'https://mail.example/mcp' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await screen.findByText(/looks like a secret/u);
+    // The form stays open for the person to correct, and the reason is still there after the reload.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByText(/looks like a secret/u)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add' })).toBeTruthy();
+  });
+
+  it('asks the service for a long-lasting sign-in only when the person chooses it', async () => {
+    const add = vi.fn(async () => ({ connector: NOTES }));
+    render(<ConnectorsView api={fakeApi([], { addConnector: add })} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a connector' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Work mail' } });
+    fireEvent.change(screen.getByLabelText('Address of the service'), {
+      target: { value: 'https://mail.example/mcp' },
+    });
+    fireEvent.click(screen.getByLabelText(/Ask the service for a long-lasting sign-in/u));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith({
+        title: 'Work mail',
+        kind: 'mail',
+        endpoint: 'https://mail.example/mcp',
+        authorizationParams: { access_type: 'offline', prompt: 'consent' },
+      }),
+    );
   });
 
   it('adds a connector, shows the redirect address a registered client needs, and splits the scopes', async () => {

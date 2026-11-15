@@ -12,6 +12,7 @@
 import { isAbsolutePath } from '@robota-sdk/agent-core';
 
 import { UNSUPPORTED_AUTHENTICATION_KEYS } from '../client/authentication.js';
+import { checkAuthorizationParams } from './oauth-params.js';
 import type {
   IMCPDefinitionProblem,
   IMCPHeadersHelper,
@@ -115,6 +116,7 @@ const OAUTH_KEYS: ReadonlySet<string> = new Set([
   'callbackPort',
   'authServerMetadataUrl',
   'scopes',
+  'authorizationParams',
 ]);
 
 /**
@@ -129,10 +131,10 @@ function decodeOAuth(value: unknown): IMCPOAuthConfig | string {
   }
   const unknown = Object.keys(value).filter((key) => !OAUTH_KEYS.has(key));
   if (unknown.length > 0) {
-    return '`oauth` accepts only `clientId`, `callbackPort`, `authServerMetadataUrl` and `scopes`';
+    return '`oauth` accepts only `clientId`, `callbackPort`, `authServerMetadataUrl`, `scopes` and `authorizationParams`';
   }
   const config: { -readonly [K in keyof IMCPOAuthConfig]: IMCPOAuthConfig[K] } = {};
-  const { clientId, callbackPort, authServerMetadataUrl, scopes } = value;
+  const { clientId, callbackPort, authServerMetadataUrl, scopes, authorizationParams } = value;
   if (clientId !== undefined) {
     if (
       typeof clientId !== 'string' ||
@@ -186,6 +188,11 @@ function decodeOAuth(value: unknown): IMCPOAuthConfig | string {
       return '`oauth.scopes` must be a non-empty array of scope tokens (no spaces or quotes)';
     }
     config.scopes = [...(scopes as string[])];
+  }
+  if (authorizationParams !== undefined) {
+    const checked = checkAuthorizationParams(authorizationParams);
+    if (typeof checked === 'string') return `\`oauth.authorizationParams\` ${checked}`;
+    config.authorizationParams = checked;
   }
   const fields = [config.clientId, config.authServerMetadataUrl, ...(config.scopes ?? [])];
   if (fields.some((field) => field !== undefined && TEMPLATE.test(field))) {

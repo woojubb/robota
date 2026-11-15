@@ -139,7 +139,7 @@ function ConnectorCard({
   pulledCount,
 }: {
   readonly connector: IConnectorView;
-  readonly onConnect: () => void;
+  readonly onConnect: (clientSecret?: string) => void;
   readonly onDisconnect: (forgetPulled: boolean) => void;
   readonly onRemove: (forgetPulled: boolean) => void;
   readonly onDecide: (tool: string, decision: TToolAccess | null) => void;
@@ -149,6 +149,13 @@ function ConnectorCard({
   readonly pulledCount: () => Promise<number>;
 }): React.ReactElement {
   const { status } = connector;
+  // A secret the person types for one sign-in: held here until the request goes, never stored.
+  const [clientSecret, setClientSecret] = useState('');
+  const connect = (): void => {
+    const secret = clientSecret;
+    setClientSecret('');
+    onConnect(secret === '' ? undefined : secret);
+  };
   // What the person is being asked, and how much of the library the connector filled.
   const [asking, setAsking] = useState<
     { kind: 'disconnect' | 'remove'; pulled: number } | undefined
@@ -270,13 +277,33 @@ function ConnectorCard({
           )}
         </section>
       )}
+      {status.state !== 'connected' &&
+        status.state !== 'connecting' &&
+        connector.oauth?.clientId !== undefined && (
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            Type the client secret again for each sign-in: this page does not keep it.
+          </p>
+        )}
       <div className="mt-3 flex items-center gap-2">
+        {status.state !== 'connected' &&
+          status.state !== 'connecting' &&
+          connector.oauth?.clientId !== undefined && (
+            <input
+              type="password"
+              autoComplete="new-password"
+              aria-label={`Client secret for ${connector.title}, if the service gave you one`}
+              placeholder="Client secret (if given)"
+              className={`${inputClass} w-56`}
+              value={clientSecret}
+              onChange={(event) => setClientSecret(event.target.value)}
+            />
+          )}
         {status.state !== 'connected' && status.state !== 'connecting' && (
-          <Button tone="primary" onClick={onConnect}>
+          <Button tone="primary" onClick={connect}>
             {status.state === 'not-connected' ? 'Connect' : 'Connect again'}
           </Button>
         )}
-        {status.state === 'connecting' && <Button onClick={onConnect}>Start over</Button>}
+        {status.state === 'connecting' && <Button onClick={() => onConnect()}>Start over</Button>}
         {status.state === 'connected' && asking === undefined && (
           <Button onClick={() => void ask('disconnect')}>Disconnect</Button>
         )}
@@ -327,6 +354,7 @@ function AddForm({
     endpoint: string;
     clientId?: string;
     scopes?: readonly string[];
+    authorizationParams?: Readonly<Record<string, string>>;
   }) => Promise<void>;
   readonly onCancel: () => void;
 }): React.ReactElement {
@@ -335,6 +363,7 @@ function AddForm({
   const [endpoint, setEndpoint] = useState('');
   const [clientId, setClientId] = useState('');
   const [scopes, setScopes] = useState('');
+  const [stayIn, setStayIn] = useState(false);
   return (
     <form
       aria-label="Add a connector"
@@ -348,6 +377,7 @@ function AddForm({
           endpoint,
           ...(clientId.trim() !== '' && { clientId: clientId.trim() }),
           ...(words.length > 0 && { scopes: words }),
+          ...(stayIn && { authorizationParams: { access_type: 'offline', prompt: 'consent' } }),
         });
       }}
     >
@@ -396,6 +426,21 @@ function AddForm({
         Scopes to ask for, separated by spaces (optional)
         <input className={inputClass} value={scopes} onChange={(e) => setScopes(e.target.value)} />
       </label>
+      <label className="flex items-start gap-2 text-[13px]">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={stayIn}
+          onChange={(event) => setStayIn(event.target.checked)}
+        />
+        <span>
+          Ask the service for a long-lasting sign-in
+          <span className="block text-[12.5px] text-muted-foreground">
+            Some services end a sign-in after about an hour unless you ask for this when you sign
+            in. It asks you to agree again.
+          </span>
+        </span>
+      </label>
       <p className="text-[12.5px] text-muted-foreground">
         If the service needs a client you registered yourself, register this redirect address with
         it:
@@ -419,7 +464,10 @@ function AddForm({
  */
 export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.ReactElement {
   const [listing, setListing] = useState<IConnectorsListing | undefined>(undefined);
+  // Why the list could not be loaded (cleared by the next load that works) and why the person's last
+  // action was refused (kept until they act again, so a refusal is not wiped by the reload after it).
   const [error, setError] = useState<string | undefined>(undefined);
+  const [refusal, setRefusal] = useState<string | undefined>(undefined);
   const [message, setMessage] = useState<string | undefined>(undefined);
   const [adding, setAdding] = useState(false);
   const reload = useCallback(async () => {
@@ -436,10 +484,11 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
     return () => clearInterval(timer);
   }, [reload]);
   const run = async (work: () => Promise<void>): Promise<void> => {
+    setRefusal(undefined);
     try {
       await work();
     } catch (caught) {
-      setError(errorText(caught));
+      setRefusal(errorText(caught));
     }
     await reload();
   };
@@ -450,6 +499,7 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
       actions={!adding && <Button onClick={() => setAdding(true)}>Add a connector</Button>}
     >
       {error !== undefined && <Notice tone="error">{error}</Notice>}
+      {refusal !== undefined && <Notice tone="error">{refusal}</Notice>}
       {message !== undefined && <Notice>{message}</Notice>}
       {adding && (
         <AddForm
@@ -475,10 +525,14 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
           <ConnectorCard
             key={connector.id}
             connector={connector}
-            onConnect={() =>
+            onConnect={(clientSecret) =>
               void run(async () => {
                 setMessage(undefined);
-                const { status } = await api.connectConnector(connector.id, window.location.origin);
+                const { status } = await api.connectConnector(
+                  connector.id,
+                  window.location.origin,
+                  clientSecret,
+                );
                 // Opened for the person in this browser; the link on the card does the same if a
                 // pop-up blocker stops it.
                 if (status.authorizationUrl !== undefined) {
