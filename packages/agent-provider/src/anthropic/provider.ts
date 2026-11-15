@@ -9,6 +9,7 @@ import {
   ValidationError,
 } from '@robota-sdk/agent-core';
 
+import { cachedSystem, withTailBreakpoint } from './cache-breakpoints';
 import { ANTHROPIC_CAPABILITY_TABLE } from './capability-table';
 import { resolveAnthropicMaxTokens } from './claude-models.js';
 import { rethrowAnthropicError, withAnthropicStreamErrors } from './errors';
@@ -151,11 +152,16 @@ export class AnthropicProvider extends AbstractAIProvider {
       : [];
     const allTools: Anthropic.Messages.ToolUnion[] = [...functionTools, ...serverTools];
 
+    // Prompt-cache breakpoints go only to the vendor endpoint: a gateway's accepted request fields
+    // are not the vendor's, and a rejected marker would fail a call that works without it.
+    const cache = this.endpointIsVendorDefault();
     const baseParams: Anthropic.MessageCreateParamsNonStreaming = {
       model: resolvedOptions.model,
-      messages: anthropicMessages,
+      messages: cache ? withTailBreakpoint(anthropicMessages) : anthropicMessages,
       max_tokens: resolveAnthropicMaxTokens(resolvedOptions.model, resolvedOptions.maxTokens),
-      ...(systemPrompt && { system: systemPrompt }),
+      ...(systemPrompt && {
+        system: cache && systemPrompt.trim().length > 0 ? cachedSystem(systemPrompt) : systemPrompt,
+      }),
       ...(resolvedOptions.temperature !== undefined && {
         temperature: resolvedOptions.temperature,
       }),

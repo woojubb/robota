@@ -17,7 +17,9 @@ export default mergeConfig(
       testTimeout: 60_000,
       pool: 'forks',
       fileParallelism: false,
-      server: { deps: { inline: [/@robota-sdk\//] } },
+      // The MCP client loads `eventsource`, which exports a `source` condition that names TypeScript;
+      // both are inlined so Vite transforms it, instead of Node refusing to strip types under node_modules.
+      server: { deps: { inline: [/@robota-sdk\//, /@modelcontextprotocol\//, /eventsource/] } },
     },
   }),
 );

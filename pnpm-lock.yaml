@@ -460,6 +460,9 @@ importers:
       '@robota-sdk/agent-local-host':
         specifier: workspace:^
         version: link:../../packages/agent-local-host
+      '@robota-sdk/agent-mcp':
+        specifier: workspace:^
+        version: link:../../packages/agent-mcp
       '@robota-sdk/agent-product':
         specifier: workspace:^
         version: link:../../packages/agent-product

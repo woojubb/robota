@@ -9,7 +9,18 @@
     "noEmit": true,
     "customConditions": [
       "source"
-    ]
+    ],
+    "paths": {
+      "eventsource": [
+        "./src/eventsource-types.d.ts"
+      ],
+      "eventsource-parser": [
+        "./src/eventsource-types.d.ts"
+      ],
+      "eventsource-parser/stream": [
+        "./src/eventsource-types.d.ts"
+      ]
+    }
   },
   "include": [
     "src"

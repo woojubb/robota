@@ -200,4 +200,60 @@ describe('loopback GUI server', () => {
       expect((await fetch(index, { method: 'POST', headers: { cookie, [LOOPBACK_GUI_API_HEADER]: '1' } })).status).toBe(405);
     });
   });
+
+  describe('landing path', () => {
+    const landing = (seen: URLSearchParams[] = []) => ({
+      path: '/back',
+      handle: async (query: URLSearchParams) => {
+        seen.push(query);
+        if (query.get('boom') !== null) throw new Error('secret detail');
+        return { status: 200, html: '<p>Connected</p>' };
+      },
+    });
+
+    it('is reached without the cookie, with the query it carries and a locked-down page', async () => {
+      const seen: URLSearchParams[] = [];
+      const server = await start({ landing: landing(seen) });
+      const answer = await fetch(new URL('/back?code=c&state=s', server.url));
+      expect(answer.status).toBe(200);
+      expect(await answer.text()).toBe('<p>Connected</p>');
+      expect(answer.headers.get('content-security-policy')).toContain("default-src 'none'");
+      expect(answer.headers.get('x-frame-options')).toBe('DENY');
+      expect(answer.headers.get('referrer-policy')).toBe('no-referrer');
+      expect(seen[0]?.get('state')).toBe('s');
+    });
+
+    it('answers only a GET to exactly its path, and serves nothing else without a cookie', async () => {
+      const seen: URLSearchParams[] = [];
+      const server = await start({ landing: landing(seen) });
+      expect((await fetch(new URL('/back', server.url), { method: 'POST' })).status).toBe(405);
+      expect((await fetch(new URL('/back/more', server.url))).status).toBe(404);
+      expect((await fetch(new URL('/other', server.url))).status).toBe(404);
+      expect(seen).toHaveLength(0);
+    });
+
+    it('keeps the Host rule: another host does not reach the handler', async () => {
+      const seen: URLSearchParams[] = [];
+      const server = await start({ landing: landing(seen) });
+      const answer = await new Promise<number>((resolve, reject) => {
+        const target = new URL('/back?state=s', server.url);
+        const outgoing = request({ host: target.hostname, port: target.port, path: '/back?state=s', headers: { host: 'evil.example' } }, (response) => {
+          response.resume();
+          resolve(response.statusCode ?? 0);
+        });
+        outgoing.on('error', reject);
+        outgoing.end();
+      });
+      expect(answer).toBe(403);
+      expect(seen).toHaveLength(0);
+    });
+
+    it('turns a failing handler into a bare 500 and an over-long request into a 414', async () => {
+      const server = await start({ landing: landing() });
+      const failed = await fetch(new URL('/back?boom=1', server.url));
+      expect(failed.status).toBe(500);
+      expect(await failed.text()).not.toContain('secret detail');
+      expect((await fetch(new URL(`/back?x=${'a'.repeat(5000)}`, server.url))).status).toBe(414);
+    });
+  });
 });

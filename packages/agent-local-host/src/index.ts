@@ -20,6 +20,7 @@ export type {
   ILoopbackGuiApiRequest,
   ILoopbackGuiApiResponse,
   ILoopbackGuiLabels,
+  ILoopbackGuiLanding,
   ILoopbackGuiServer,
   ILoopbackGuiServerOptions,
 } from './loopback-gui-server.js';
