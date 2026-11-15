@@ -194,8 +194,8 @@ importers:
         specifier: ^3.4.1
         version: 3.4.1
       '@robota-sdk/agent-framework':
-        specifier: npm:@robota-sdk/agent-framework@3.3.4
-        version: 3.3.4
+        specifier: npm:@robota-sdk/agent-framework@3.3.5
+        version: 3.3.5
       '@robota-sdk/agent-gui-web':
         specifier: workspace:^
         version: link:../../packages/agent-gui-web
@@ -1251,8 +1251,8 @@ importers:
         specifier: npm:@robota-sdk/agent-executor@3.2.5
         version: 3.2.5(koffi@3.3.1)
       '@robota-sdk/agent-framework':
-        specifier: npm:@robota-sdk/agent-framework@3.3.4
-        version: 3.3.4
+        specifier: npm:@robota-sdk/agent-framework@3.3.5
+        version: 3.3.5
       '@robota-sdk/agent-gui-web':
         specifier: workspace:^
         version: link:../agent-gui-web
@@ -1275,8 +1275,8 @@ importers:
         specifier: npm:@robota-sdk/agent-os@3.3.2
         version: 3.3.2(koffi@3.3.1)
       '@robota-sdk/agent-product':
-        specifier: npm:@robota-sdk/agent-product@3.4.0
-        version: 3.4.0
+        specifier: npm:@robota-sdk/agent-product@3.5.0
+        version: 3.5.0
       '@robota-sdk/agent-provider':
         specifier: npm:@robota-sdk/agent-provider@3.3.4
         version: 3.3.4(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
@@ -1312,7 +1312,7 @@ importers:
         version: 3.2.2
       '@robota-sdk/workflows':
         specifier: 0.0.7
-        version: 0.0.7(@robota-sdk/agent-core@3.3.2)(@robota-sdk/agent-framework@3.3.4)(@robota-sdk/agent-interface@3.3.2)(@robota-sdk/agent-provider@3.3.4)(@robota-sdk/agent-tools@3.3.2)
+        version: 0.0.7(@robota-sdk/agent-core@3.3.2)(@robota-sdk/agent-framework@3.3.5)(@robota-sdk/agent-interface@3.3.2)(@robota-sdk/agent-provider@3.3.4)(@robota-sdk/agent-tools@3.3.2)
       '@types/marked':
         specifier: ^6.0.0
         version: 6.0.0
@@ -1519,8 +1519,8 @@ importers:
         specifier: npm:@robota-sdk/agent-core@3.3.2
         version: 3.3.2
       '@robota-sdk/agent-framework':
-        specifier: npm:@robota-sdk/agent-framework@3.3.4
-        version: 3.3.4
+        specifier: npm:@robota-sdk/agent-framework@3.3.5
+        version: 3.3.5
       '@robota-sdk/agent-transport':
         specifier: npm:@robota-sdk/agent-transport@3.4.2
         version: 3.4.2(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
@@ -7025,8 +7025,8 @@ packages:
       zod: 4.6.7
     dev: false
 
-  /@robota-sdk/agent-framework@3.3.4:
-    resolution: {integrity: sha512-iaZperjhup88z13BlRuQ4Wllli3tph83oLfzgB95W2qGqBu42G0m8UpYP0cc1PZsRq7fvDqVpKhYvQNVhAK6bQ==}
+  /@robota-sdk/agent-framework@3.3.5:
+    resolution: {integrity: sha512-+CKdLOx6HEvvPlNqjIzDAFixdOxl5/JDk+cy4idM9hXJfSmIV2DKrA0lXZQT3UHH1ZHauRqRuVdizRZXnaj/XA==}
     engines: {node: '>=22.12.0'}
     dependencies:
       '@robota-sdk/agent-core': 3.3.2
@@ -7143,12 +7143,12 @@ packages:
     dependencies:
       koffi: 3.3.1
 
-  /@robota-sdk/agent-product@3.4.0:
-    resolution: {integrity: sha512-+K9iFcqN+L3MRQaHPlpdhuujns13FN+mAWe0ZIU7JS5m3ygcaF2vs9z7xGYFtanONjlkDVTsLlHeCbLFWGMzag==}
+  /@robota-sdk/agent-product@3.5.0:
+    resolution: {integrity: sha512-aUadYJ/LZU5I7yziy3UgjHRNtQgx7yX/oHvZVa8EGZArQL2XdavmJEjvyGeH+38x6fo4/kv/JHuDEt+wy0V+Bw==}
     engines: {node: '>=22.12.0'}
     dependencies:
       '@robota-sdk/agent-core': 3.3.2
-      '@robota-sdk/agent-framework': 3.3.4
+      '@robota-sdk/agent-framework': 3.3.5
       '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-tools': 3.3.2(@robota-sdk/agent-core@3.3.2)
       zod: 4.6.7
@@ -7262,7 +7262,7 @@ packages:
     dependencies:
       '@robota-sdk/agent-core': 3.3.2
       '@robota-sdk/agent-executor': 3.2.5(koffi@3.3.1)
-      '@robota-sdk/agent-framework': 3.3.4
+      '@robota-sdk/agent-framework': 3.3.5
       '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-os': 3.3.2(koffi@3.3.1)
     transitivePeerDependencies:
@@ -7449,7 +7449,7 @@ packages:
     engines: {node: '>=22.12.0'}
     dependencies:
       '@robota-sdk/agent-core': 3.3.2
-      '@robota-sdk/agent-framework': 3.3.4
+      '@robota-sdk/agent-framework': 3.3.5
       '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-transport': 3.4.2(@agentclientprotocol/sdk@1.9.0)(@modelcontextprotocol/node@2.1.0)(@modelcontextprotocol/server@2.3.0)(@robota-sdk/agent-keyring@3.2.2)(@robota-sdk/agent-remote-pairing@3.3.0)(bittorrent-dht@11.0.12)(hono@4.13.14)(multicast-dns@7.2.5)(node-datachannel@0.33.6)(nostr-tools@2.25.2)(ws@8.21.1)(zod@4.6.7)
       chalk: 5.6.2
@@ -7511,7 +7511,7 @@ packages:
     resolution: {integrity: sha512-eVia8GXuPTQuHU7//HmGE+pYBc3EKCjrpABJNgMCf5L0gOLYshCWmKh29hbJiUbOx+0RwWTqB4O3XkTqiTFgEA==}
     engines: {node: '>=22.12.0'}
 
-  /@robota-sdk/workflows@0.0.7(@robota-sdk/agent-core@3.3.2)(@robota-sdk/agent-framework@3.3.4)(@robota-sdk/agent-interface@3.3.2)(@robota-sdk/agent-provider@3.3.4)(@robota-sdk/agent-tools@3.3.2):
+  /@robota-sdk/workflows@0.0.7(@robota-sdk/agent-core@3.3.2)(@robota-sdk/agent-framework@3.3.5)(@robota-sdk/agent-interface@3.3.2)(@robota-sdk/agent-provider@3.3.4)(@robota-sdk/agent-tools@3.3.2):
     resolution: {integrity: sha512-yIuArJGj9fnzbq43cNZKheZwJny4Mo77nEmplp8q+VOrDwllnfAtII75a+K84+y2jVll9IDeKN30HXwICsDlbg==}
     engines: {node: ^22.14.0}
     peerDependencies:
@@ -7523,7 +7523,7 @@ packages:
     dependencies:
       '@marcbachmann/cel-js': 7.6.1
       '@robota-sdk/agent-core': 3.3.2
-      '@robota-sdk/agent-framework': 3.3.4
+      '@robota-sdk/agent-framework': 3.3.5
       '@robota-sdk/agent-interface': 3.3.2(@robota-sdk/agent-core@3.3.2)
       '@robota-sdk/agent-provider': 3.3.4(@anthropic-ai/sdk@0.114.0)(@google/genai@1.52.0)(openai@6.0.0)
       '@robota-sdk/agent-tools': 3.3.2(@robota-sdk/agent-core@3.3.2)
