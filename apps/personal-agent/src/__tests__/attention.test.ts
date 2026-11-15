@@ -402,7 +402,8 @@ describe('a sync run raises cases under the person’s attention words', () => {
 describe('the person’s own attention words', () => {
   it('replaces the default in the next run’s instructions, and the default comes back when cleared', async () => {
     const w = await mailWorld([SIGN_IN, NEWSLETTER]);
-    const words = 'Ask me only about mail from my landlord.';
+    // A policy is written in the words of what it is about, such as a password reset.
+    const words = 'Ask me only about mail from my landlord and about password reset notices.';
     const saved = await w.call('PUT', ['connectors', w.id, 'attention'], { text: words });
     expect(saved.status).toBe(200);
     expect(saved.body.connector.attention).toBe(words);
@@ -443,7 +444,10 @@ describe('the person’s own attention words', () => {
       text: 'Ask me when sk-proj-abcdefghijklmnopqrstuvwx1234567890 appears',
     });
     expect(secret.status).toBe(400);
-    expect(secret.body.error).toMatch(/secret/u);
+    expect(secret.body.error).toMatch(/contains a secret value/u);
+    const assigned = await put(['connectors', w.id, 'attention'], { text: 'password=hunter2' });
+    expect(assigned.status).toBe(400);
+    expect(assigned.body.error).toMatch(/Words such as password or token are fine/u);
     expect((await put(['connectors', w.id, 'attention'], { text: 'a'.repeat(601) })).status).toBe(
       400,
     );

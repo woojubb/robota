@@ -111,10 +111,12 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         expect(await words.inputValue()).toBe(own);
         expect(await page.locator('body').innerText()).toContain('These are your own words.');
 
-        // Words that look like a secret are refused where the person is typing, and nothing changes.
+        // A secret value is refused where the person is typing, and nothing changes.
         await words.fill('Ask me when sk-proj-abcdefghijklmnopqrstuvwx1234567890 shows up');
         await page.getByRole('button', { name: 'Save' }).click();
-        await page.waitForFunction(bodyIncludes, 'looks like a secret', { timeout: 10_000 });
+        await page.waitForFunction(bodyIncludes, 'contains a secret value', {
+          timeout: 10_000,
+        });
         expect(await stored()).toBe(own);
         expect(await words.inputValue()).toContain('sk-proj-');
         await page.screenshot({ path: `${harness.stateDir}/attention-refused.png` });

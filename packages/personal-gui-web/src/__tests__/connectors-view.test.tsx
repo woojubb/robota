@@ -516,18 +516,18 @@ describe('what the agent should ask the person about', () => {
 
   it('says why the agent refused the words, beside the buttons, and keeps what was typed', async () => {
     const save = vi.fn(async () => {
-      throw new Error('This looks like a secret, or uses a word such as password, token or key');
+      throw new Error('This text looks like it contains a secret value, so it is not kept');
     });
     render(<ConnectorsView api={fakeApi([NOTES], { setConnectorAttention: save })} />);
     const field = (await screen.findByLabelText(WORDS_LABEL)) as HTMLTextAreaElement;
-    fireEvent.change(field, { target: { value: 'Ask me about my password' } });
+    fireEvent.change(field, { target: { value: 'Ask me about password=hunter2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() =>
-      expect(screen.getByRole('status').textContent).toMatch(/looks like a secret/u),
+      expect(screen.getByRole('status').textContent).toMatch(/contains a secret value/u),
     );
-    expect(field.value).toBe('Ask me about my password');
+    expect(field.value).toBe('Ask me about password=hunter2');
     // Said once, in the editor: not also as a refusal of the whole page.
-    expect(screen.getAllByText(/looks like a secret/u)).toHaveLength(1);
+    expect(screen.getAllByText(/contains a secret value/u)).toHaveLength(1);
     expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(
       false,
     );

@@ -8,10 +8,8 @@ import type { IConnector, TConnectorKind } from './types.js';
 /** The longest attention text kept: one short paragraph. */
 export const ATTENTION_MAX_CHARACTERS = 600;
 
-// Worded without "password", "token" or "key": the check every saved text passes would refuse a
-// default that used them, and the person could not save the text the page shows them unchanged.
 const MAIL_ATTENTION =
-  'Ask me about security notices (new sign-ins, changes to how I sign in or recover my account), bills and payments that are due, and messages from people already in my library. Do not ask me about newsletters, promotions or receipts.';
+  'Ask me about security notices (new sign-ins, password or recovery changes), bills and payments that are due, and messages from people already in my library. Do not ask me about newsletters, promotions or receipts.';
 
 const GENERIC_ATTENTION =
   'Ask me about anything that needs my decision soon or looks unusual; do not ask me about routine updates.';

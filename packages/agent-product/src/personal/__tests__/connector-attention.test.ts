@@ -1,6 +1,6 @@
 /**
  * What a connector's attention words are: the person's own text kept with the connector (checked,
- * short, never a secret, clearable), the default each kind falls back to, and how a sync run is told
+ * short, no secret value in it, clearable), the default each kind falls back to, and how a sync run is told
  * about them.
  */
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -23,6 +23,12 @@ import {
 } from '../index.js';
 
 import type { IConnector, IConnectorStore } from '../index.js';
+
+// The Korean word for "password" and the particle that follows it in a sentence, built from code
+// points: the repository keeps no Korean outside its localization data, and the shared secret check
+// knows this word.
+const KOREAN_PASSWORD = String.fromCodePoint(0xbe44, 0xbc00, 0xbc88, 0xd638);
+const KOREAN_OBJECT_PARTICLE = String.fromCodePoint(0xb97c);
 
 async function setup(store: IConnectorStore = createMemoryConnectorStore()) {
   const book = new ConnectorBook({ store });
@@ -67,17 +73,63 @@ describe('saving the person’s attention words', () => {
     );
   });
 
-  it('refuses text that looks like a secret, and keeps what was there', async () => {
+  it('keeps the words a policy is written in, such as password, token, secret and key', async () => {
+    const { book, mail } = await setup();
+    for (const words of [
+      'Ask me about password reset and new sign-in notices',
+      'Ask me about a token that expired, a secret that was rotated or an API key that was revoked',
+      'Ask me about a private key warning from my host.',
+      'Tell me about "password" changes: they matter more than any receipt.',
+      `Ask me about ${KOREAN_PASSWORD} reset mails`,
+      `Ask me about ${KOREAN_PASSWORD}${KOREAN_OBJECT_PARTICLE} reset mails`,
+    ]) {
+      expect((await book.setAttention(mail.id, words)).attention, words).toBe(words);
+    }
+  });
+
+  it('refuses a secret value, whatever words come with it, and keeps what was there', async () => {
     const { book, mail } = await setup();
     await book.setAttention(mail.id, 'Ask me about bills.');
-    await expect(
-      book.setAttention(mail.id, 'Ask me when sk-proj-abcdefghijklmnopqrstuvwx1234567890 shows up'),
-    ).rejects.toThrow(/secret/u);
-    // The check is word-based, so a plain mention is refused too, and the refusal says how to go on.
-    await expect(book.setAttention(mail.id, 'Ask me about password resets')).rejects.toThrow(
-      /say what to ask about in other words/u,
+    for (const text of [
+      'Ask me when sk-proj-abcdefghijklmnopqrstuvwx1234567890 shows up',
+      'Ask me about password sk-proj-abcdefghijklmnopqrstuvwx1234567890',
+      'Ask me about ghp_abcdefghijklmnopqrstuvwxyz0123456789',
+      'password=hunter2',
+      'Ask me about my token: abc123',
+      'Ask me about my API_KEY = abc123',
+      'Ask me about my secret :abc123',
+      'Ask me about a private key: MIIEvQIBADANBg',
+      `${KOREAN_PASSWORD}: hunter2`,
+      '-----BEGIN RSA PRIVATE KEY----- MIIEvQIBADANBgkqhkiG9w0BAQEFAASC',
+      'Ask me about eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnopqrstuvwxyz',
+      'My card is 4111 1111 1111 1111',
+      'My number is 123-45-6789',
+      'My number is 900101-1234567',
+      // Spelled in two parts so the repository's own secret scan does not read the fixture as a real key.
+      `Ask me about ${'AKIA'}ABCDEFGHIJKLMNOP`,
+      'Ask me about aB3dE6gH9jK2mN5pQ8sT1vW4yZ7x',
+    ]) {
+      await expect(book.setAttention(mail.id, text), text).rejects.toThrow(
+        /contains a secret value/u,
+      );
+    }
+    // The refusal says the words are fine, and a refused text changed nothing.
+    await expect(book.setAttention(mail.id, 'token: abc123')).rejects.toThrow(
+      /Words such as password or token are fine/u,
     );
     expect((await book.get(mail.id))?.attention).toBe('Ask me about bills.');
+  });
+
+  it('leaves the shared secret check as it is for every other field', async () => {
+    const { book } = await setup();
+    await expect(
+      book.create({
+        title: 'My password',
+        kind: 'mail',
+        protocol: 'mcp',
+        endpoint: 'https://mail.example/mcp',
+      }),
+    ).rejects.toThrow(/looks like a secret/u);
   });
 
   it('clears the words with empty text, so the default applies again', async () => {
@@ -127,7 +179,7 @@ describe('saving the person’s attention words', () => {
 describe('the default attention words', () => {
   it('asks about security notices, bills and known people for mail, and not about newsletters', () => {
     const words = defaultAttention('mail');
-    expect(words).toMatch(/security notices \(new sign-ins, changes to how I sign in or recover/u);
+    expect(words).toMatch(/security notices \(new sign-ins, password or recovery changes\)/u);
     expect(words).toMatch(/bills and payments that are due/u);
     expect(words).toMatch(/people already in my library/u);
     expect(words).toMatch(/Do not ask me about newsletters, promotions or receipts/u);

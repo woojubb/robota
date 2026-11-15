@@ -615,7 +615,7 @@ said. What deserves a question is the person's own to say: each connector carrie
 text, a sensible default for its kind until the person writes their own, and the run reads them before it
 looks at the service and keeps a case, with one question, on what fits them. They decide only what is asked
 about, so they add no tool and no permission, and nothing the run reads can change them: only the person does,
-and a text that looks like a secret is refused. Everything the run reads is content written by others, so the
+and a secret value written into them is refused, judged by the value and not by the words a policy is written in. Everything the run reads is content written by others, so the
 run is given only the tools to read, look in the library, file and keep a case, never a list of what is
 withheld that a tool added later would escape: it cannot write to the service, reach the web or files, drive
 the browser, or rewrite the library. Turning a sync off, or disconnecting, takes the access away first and
