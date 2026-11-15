@@ -5,8 +5,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { FeedView } from '../views/Feed.js';
 import { GoalsView } from '../views/Goals.js';
+import { IdeasView } from '../views/Ideas.js';
 
-import type { IFeedItemView, IGoalRunView, IGoalView, IPersonalApi } from '../api.js';
+import type { IFeedItemView, IGoalRunView, IGoalView, IIdeaView, IPersonalApi } from '../api.js';
 
 afterEach(cleanup);
 
@@ -74,5 +75,28 @@ describe('a goal run report', () => {
     render(<GoalsView api={api} openGoal="g" onOpenGoal={() => undefined} />);
     await waitFor(() => expect(screen.getByText('Now:').tagName).toBe('STRONG'));
     expect(screen.getByText('Today: high 16').tagName).toBe('LI');
+  });
+});
+
+describe('an idea', () => {
+  const idea = (origin: 'owner' | 'agent'): IIdeaView => ({
+    id: origin,
+    text: 'Try the **night ferry**',
+    tags: [],
+    origin,
+    status: 'open',
+    createdAt: '2026-11-15T00:00:00Z',
+  });
+  const ideasApi = (ideas: readonly IIdeaView[]): IPersonalApi =>
+    ({ ideas: async () => ideas }) as unknown as IPersonalApi;
+
+  it('the agent suggested is shown as formatted text', async () => {
+    render(<IdeasView api={ideasApi([idea('agent')])} onOpenGoal={() => undefined} />);
+    await waitFor(() => expect(screen.getByText('night ferry').tagName).toBe('STRONG'));
+  });
+
+  it('the person typed is shown exactly as written', async () => {
+    render(<IdeasView api={ideasApi([idea('owner')])} onOpenGoal={() => undefined} />);
+    await waitFor(() => expect(screen.getByText('Try the **night ferry**')).toBeTruthy());
   });
 });

@@ -1,3 +1,4 @@
+import { MarkdownText } from '@robota-sdk/agent-ui-web/client';
 import { useCallback, useEffect, useState } from 'react';
 
 import { Button, Notice, ViewFrame, errorText, inputClass, when } from './ui.js';
@@ -117,7 +118,11 @@ export function IdeasView({
       <ul className="flex max-w-3xl flex-col gap-2 px-4 pb-4">
         {(ideas ?? []).map((idea) => (
           <li key={idea.id} className="rounded-lg border border-border p-3">
-            <p className="whitespace-pre-wrap text-[14px]">{idea.text}</p>
+            {idea.origin === 'agent' ? (
+              <MarkdownText className="text-[14px]">{idea.text}</MarkdownText>
+            ) : (
+              <p className="whitespace-pre-wrap text-[14px]">{idea.text}</p>
+            )}
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-muted-foreground">
               <span>{idea.origin === 'agent' ? 'Suggested by your agent' : 'Yours'}</span>
               <span>{when(idea.createdAt)}</span>
