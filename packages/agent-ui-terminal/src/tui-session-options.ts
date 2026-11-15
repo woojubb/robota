@@ -75,6 +75,7 @@ export function buildTuiSessionOptions(
     ...(opts.presetSystemPrompt !== undefined
       ? { presetSystemPrompt: opts.presetSystemPrompt }
       : {}),
+    ...(opts.productSections !== undefined ? { productSections: opts.productSections } : {}),
     ...(opts.responseFormat !== undefined ? { responseFormat: opts.responseFormat } : {}),
     ...(opts.outputStyle !== undefined ? { outputStyle: opts.outputStyle } : {}),
     permissionMode: opts.permissionMode,

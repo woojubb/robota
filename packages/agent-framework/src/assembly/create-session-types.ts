@@ -45,7 +45,10 @@ import type {
 } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IToolCallHandoffPolicy } from './tool-call-handoff-types.js';
-import type { IComposedSystemPrompt } from '../context/system-prompt-types.js';
+import type {
+  IComposedSystemPrompt,
+  IProductPromptSection,
+} from '../context/system-prompt-types.js';
 
 /**
  * The session-level structured-output option is the provider contract's own
@@ -286,6 +289,14 @@ export interface ICreateSessionOptions {
    * person choosing a preset did not ask to lose. Owner decision 2026-08-20: seed, do not replace.
    */
   presetSystemPrompt?: string;
+  /**
+   * Sections the PRODUCT contributes to the composed prompt, in list order, just above any preset
+   * system prompt. Static for the session: every rebuild (persona, preset prompt, output style,
+   * language, context-file refreshes) carries them unchanged, so a live preset switch cannot drop
+   * them the way it replaces `presetSystemPrompt`. Not applied when the caller supplies a replacement
+   * prompt — that seam returns text only and composes no sections.
+   */
+  productSections?: readonly IProductPromptSection[];
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
   persona?: string;
   /** Model command execution bridge. */

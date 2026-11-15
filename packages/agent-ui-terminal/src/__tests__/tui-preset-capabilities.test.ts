@@ -33,4 +33,19 @@ describe('TUI preset capabilities reach the session', () => {
       responseFormat,
     });
   });
+
+  it('carries the product prompt sections beside the preset prompt seed', () => {
+    const productSections = [{ id: 'product-core', content: 'Product core' }];
+    const render = renderOptions({ presetSystemPrompt: 'Preset seed', productSections });
+
+    const session = buildTuiSessionOptions(toChannelOptions(render));
+
+    expect(session).toMatchObject({ presetSystemPrompt: 'Preset seed', productSections });
+  });
+
+  it('leaves the key out when the product contributes no sections', () => {
+    const session = buildTuiSessionOptions(toChannelOptions(renderOptions()));
+
+    expect('productSections' in session).toBe(false);
+  });
 });

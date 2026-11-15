@@ -138,6 +138,8 @@ export interface IInitOptions {
   /** Replace the entire system prompt with this string. Takes precedence over the default builder. */
   systemPrompt?: string;
   presetSystemPrompt?: string;
+  /** The product's own prompt sections; see `ICreateSessionOptions.productSections`. */
+  productSections?: ICreateSessionOptions['productSections'];
   /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
   language?: string;
   /** Runtime-composed background task runners. */
