@@ -1,5 +1,13 @@
 # @robota-sdk/agent-framework
 
+## 3.3.6
+### Patch Changes
+
+- 386def1: A product can now contribute prompt sections of its own with `productSections`, a list of `{ id, title?, content }` entries accepted by `createSession`, `InteractiveSession` and the headless channel. They are composed in list order just above a preset's own system prompt and below an output style, rendered as bare content when untitled and under a heading when titled, and listed in the prompt manifest and `harnessVersion` with the `product` source. Unlike `presetSystemPrompt`, which a live preset switch replaces, the list is carried unchanged by every rebuild of the prompt, so text a product keeps there survives a switch to a preset that brings its own system prompt. Blank content adds no section and a duplicate `id` is refused when the prompt is first composed. A replacement `systemPrompt` still replaces everything, so the sections are not applied to it. Sections that share a priority now keep the order they were supplied in instead of being ordered by id.
+- 8bb5204: The system prompt no longer names a tool the session denies outright (by `deniedTools` or a bare `deny` rule). The model is never offered such a tool, so describing it only invited calls that were refused.
+- Updated dependencies [0da6a59]
+  - @robota-sdk/agent-core@3.3.3
+
 ## 3.3.5
 ### Patch Changes
 

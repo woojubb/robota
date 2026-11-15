@@ -1,5 +1,18 @@
 # @robota-sdk/agent-ui-web
 
+## 3.4.0
+### Minor Changes
+
+- 0639a89: `MarkdownText` shows text an agent wrote outside a conversation, such as a report or a notice, formatted the way the same text is in a chat. A surface that shows such text no longer shows the person raw Markdown.
+
+### Patch Changes
+
+- daf810f: Reloading the page returns to the session that was open. The surface remembers its active session in `sessionStorage` whenever it changes, and the existing restore after a reconnect uses it, so a reload no longer lands on the host's primary session.
+- Updated dependencies [0da6a59]
+- Updated dependencies [4af39a2]
+  - @robota-sdk/agent-core@3.3.3
+  - @robota-sdk/agent-transport@3.4.3
+
 ## 3.3.4
 ### Patch Changes
 

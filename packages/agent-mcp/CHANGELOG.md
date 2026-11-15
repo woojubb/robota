@@ -1,5 +1,10 @@
 # @robota-sdk/agent-mcp
 
+## 3.2.4
+### Patch Changes
+
+- 0681ee3: Discovery now carries a tool's declared behavior hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) as `annotations` on each discovered tool, so a host can sort tools into reading and writing from what the server claims. Only those four booleans are kept; a tool that declares none has no `annotations`.
+
 ## 3.2.3
 ### Patch Changes
 
