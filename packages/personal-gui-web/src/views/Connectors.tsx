@@ -277,6 +277,13 @@ function ConnectorCard({
           )}
         </section>
       )}
+      {status.state !== 'connected' &&
+        status.state !== 'connecting' &&
+        connector.oauth?.clientId !== undefined && (
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            Type the client secret again for each sign-in: this page does not keep it.
+          </p>
+        )}
       <div className="mt-3 flex items-center gap-2">
         {status.state !== 'connected' &&
           status.state !== 'connecting' &&

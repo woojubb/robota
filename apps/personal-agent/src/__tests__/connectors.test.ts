@@ -498,6 +498,18 @@ describe('a service that gives a client you registered a secret', () => {
     }
   });
 
+  it('opens the same sign-in again while one waits, so the secret typed once still counts', async () => {
+    const w = await secretWorld();
+    const id = await w.add('Notes', 'notes', NOTES_HOST, { clientId: 'registered-client' });
+    const first = await w.connect(id, { clientSecret: SECRET });
+    // Start over with nothing typed: the pending sign-in is handed back, not a new one without the secret.
+    const again = await w.connect(id);
+    expect(again.authorizationUrl).toBe(first.authorizationUrl);
+    await w.consent(again.authorizationUrl);
+    await w.waitForState(id, 'connected');
+    expect(w.auth.secretRefusals()).toBe(0);
+  });
+
   it('cannot sign in without the secret, and says so by a fixed word', async () => {
     const w = await secretWorld();
     const id = await w.add('Notes', 'notes', NOTES_HOST, { clientId: 'registered-client' });

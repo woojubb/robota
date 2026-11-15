@@ -116,7 +116,7 @@ export function definitionFingerprint(definition: IMCPServerDefinitionResolved):
             : listParts(
                 'oauthAuthorizationParams',
                 Object.entries(definition.oauth.authorizationParams)
-                  .sort(([a], [b]) => a.localeCompare(b))
+                  .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
                   .map(([name, value]) => `${name}=${value}`),
               )),
         ]),

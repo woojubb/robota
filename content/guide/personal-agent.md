@@ -92,8 +92,10 @@ fits the same way; nothing is built in for one service.
    agent runs, on your machine or on a server. The agent never sees your password. The service sends
    the browser back to the page's `/connector-callback` address, and the card shows **Connected** with
    the permissions the service reports, when it reports them in plain words. A sign-in left unfinished
-   expires after a few minutes; **Start over** begins it again. If Connect ends in *Could not connect*,
-   remove the connector and add it again with the right client id.
+   expires after a few minutes; press **Connect again** (and type the client secret again, since the page
+   does not keep it), and **Start over** opens the same sign-in page again. If Connect ends in *Could not
+   connect*, read the reason on the card and press **Connect again**; if the client id was wrong, remove
+   the connector and add it again with the right one.
 
 Only public values are kept in the connector. A client secret you type, or one the service issues when it
 registers your agent, is kept with the sign-in in `connector-credentials/`, readable only by you.

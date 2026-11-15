@@ -22,6 +22,8 @@ export const OWNED_AUTHORIZATION_PARAMS: ReadonlySet<string> = new Set([
   'resource',
   'request',
   'request_uri',
+  // How the redirect comes back: this sign-in reads only the query of its own redirect.
+  'response_mode',
 ]);
 
 /** The parameters as a plain record, or a sentence saying what is wrong with them. */

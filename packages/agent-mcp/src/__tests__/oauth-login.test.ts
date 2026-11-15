@@ -264,6 +264,7 @@ describe('OAuth sign-in', () => {
       { state: 'fixed' },
       { redirect_uri: 'https://evil.example/x' },
       { code_challenge: 'abc' },
+      { response_mode: 'fragment' },
       { prompt: 'a b' },
     ];
     for (const params of bad) {

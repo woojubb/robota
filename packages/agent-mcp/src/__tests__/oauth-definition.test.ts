@@ -87,6 +87,7 @@ describe('oauth definition', () => {
     for (const params of [
       { state: 'x' },
       { redirect_uri: 'https://evil.example/' },
+      { response_mode: 'form_post' },
       { prompt: 'two words' },
       { Prompt: 'consent' },
       {},
