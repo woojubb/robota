@@ -175,7 +175,13 @@ export function createPersonalCapabilities(
       new Promise<void>((resolve) => setTimeout(resolve, HALT_WAIT_MS).unref()),
     ]);
   });
-  const syncRuns = createSyncRuns({ book: connectorBook, registry: connectors, goals, wiki });
+  const syncRuns = createSyncRuns({
+    book: connectorBook,
+    registry: connectors,
+    goals,
+    wiki,
+    cases,
+  });
   const caseTurns = createCaseTurns({ goals, cases });
   let guiOrigins: readonly string[] = [];
   let channelTurns: IChannelTurns | undefined;

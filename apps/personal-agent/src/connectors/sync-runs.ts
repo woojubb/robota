@@ -6,6 +6,7 @@
 import { countPulled, syncRunInstructions, syncRunTools } from '@robota-sdk/agent-product/personal';
 
 import type {
+  CaseBook,
   ConnectorBook,
   ConnectorRegistry,
   GoalBook,
@@ -27,12 +28,29 @@ export function createSyncRuns(options: {
   readonly registry: ConnectorRegistry;
   readonly goals: GoalBook;
   readonly wiki: KnowledgeWiki;
+  /** The agent's cases: a run that opens some has told the person through their question cards. */
+  readonly cases: CaseBook;
 }): ISyncRuns {
-  /** What a connector held and how its reads stood when its run began, to tell what the run did. */
+  /**
+   * What a connector held, which of its cases existed and how its reads stood when its run began, to
+   * tell what the run did.
+   */
   const atStart = new Map<
     string,
-    { held: number; reads: { readonly succeeded: number; readonly failed: number } }
+    {
+      held: number;
+      cases: ReadonlySet<string>;
+      reads: { readonly succeeded: number; readonly failed: number };
+    }
   >();
+
+  /** The ids of every case that came from this connector, open or closed. */
+  const casesOf = async (connectorId: string): Promise<ReadonlySet<string>> => {
+    const all = await options.cases.list(Number.POSITIVE_INFINITY);
+    return new Set(
+      all.filter((found) => found.origin.connectorId === connectorId).map((found) => found.id),
+    );
+  };
 
   /**
    * Where a run starts reading: when the last run that finished well began. A run that failed or was
@@ -48,6 +66,7 @@ export function createSyncRuns(options: {
       const connector = await options.book.get(goal.connectorId);
       atStart.set(goal.id, {
         held: await countPulled(options.wiki, goal.connectorId),
+        cases: await casesOf(goal.connectorId),
         reads: options.registry.readCounts(goal.connectorId),
       });
       return {
@@ -60,10 +79,12 @@ export function createSyncRuns(options: {
     },
 
     /**
-     * A sync has nothing to tell the person when the service is reachable, it was read at least once,
-     * no read failed and the run added nothing to the library: its run stays in the goal's history
-     * only. A run that read nothing, whose reads failed or whose connection is gone is reported, so a
-     * broken sync is never silent.
+     * A sync has nothing to tell the person when the service is reachable, no read failed, it did
+     * something worth the read (it was read at least once, or it opened a case) and the run added
+     * nothing to the library: its run stays in the goal's history only. A case it opened is already
+     * the message, as a question card in the feed, so a report on top of it would say the same thing
+     * twice. A run that read nothing and opened nothing, whose reads failed or whose connection is
+     * gone is reported, so a broken sync is never silent.
      */
     async quiet(goal) {
       const connectorId = goal.connectorId;
@@ -76,9 +97,9 @@ export function createSyncRuns(options: {
       const view = await options.registry.view(connectorId).catch(() => undefined);
       if (view === undefined || view.status.state !== 'connected') return false;
       const reads = options.registry.readCounts(connectorId);
-      if (reads.failed > start.reads.failed || reads.succeeded <= start.reads.succeeded) {
-        return false;
-      }
+      if (reads.failed > start.reads.failed) return false;
+      const opened = [...(await casesOf(connectorId))].some((id) => !start.cases.has(id));
+      if (reads.succeeded <= start.reads.succeeded && !opened) return false;
       return (await countPulled(options.wiki, connectorId)) <= start.held;
     },
   };
