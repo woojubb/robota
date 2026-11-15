@@ -372,7 +372,12 @@ describe('AnthropicProvider', () => {
         expect.objectContaining({
           model: 'claude-3-opus-20240229',
           max_tokens: 1024,
-          messages: [{ role: 'user', content: 'Hi' }],
+          messages: [
+            {
+              role: 'user',
+              content: [{ type: 'text', text: 'Hi', cache_control: { type: 'ephemeral' } }],
+            },
+          ],
         }),
         undefined,
       );
@@ -936,7 +941,12 @@ describe('AnthropicProvider', () => {
       await provider.chat(messages, { model: 'claude-3-opus-20240229' });
 
       const sentMessages = mockClient.messages.create.mock.calls[0][0].messages;
-      expect(sentMessages).toEqual([{ role: 'user', content: 'Hello' }]);
+      expect(sentMessages).toEqual([
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Hello', cache_control: { type: 'ephemeral' } }],
+        },
+      ]);
     });
 
     it('should extract system messages to system parameter', async () => {
@@ -959,8 +969,15 @@ describe('AnthropicProvider', () => {
       await provider.chat(messages, { model: 'claude-3-opus-20240229' });
 
       const params = mockClient.messages.create.mock.calls[0][0];
-      expect(params.system).toBe('You are helpful');
-      expect(params.messages).toEqual([{ role: 'user', content: 'Hi' }]);
+      expect(params.system).toEqual([
+        { type: 'text', text: 'You are helpful', cache_control: { type: 'ephemeral' } },
+      ]);
+      expect(params.messages).toEqual([
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Hi', cache_control: { type: 'ephemeral' } }],
+        },
+      ]);
     });
 
     it('should convert assistant messages with toolCalls to content blocks', async () => {
@@ -1001,6 +1018,7 @@ describe('AnthropicProvider', () => {
             id: 'call_1',
             name: 'get_weather',
             input: { city: 'Tokyo' },
+            cache_control: { type: 'ephemeral' },
           },
         ],
       });
