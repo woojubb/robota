@@ -237,6 +237,12 @@ export interface ICatalogEntryView {
   readonly kind: TConnectorKind;
   readonly auth: TConnectorAuth;
   readonly tokenHeader?: string;
+  /** A client the owner registered with the service for this agent; never its secret. */
+  readonly oauth?: {
+    readonly clientId?: string;
+    readonly scopes?: readonly string[];
+    readonly authorizationParams?: Readonly<Record<string, string>>;
+  };
   readonly description?: string;
   /** Where the suggestion came from, as a word. */
   readonly source: string;

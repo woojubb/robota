@@ -38,6 +38,62 @@ describe('a catalog entry', () => {
     });
   });
 
+  it('carries a client the owner registered, with its scopes and sign-in options, from the owner’s file', () => {
+    const entry = catalogEntryOf(
+      {
+        ...OK,
+        oauth: {
+          clientId: 'my-client',
+          scopes: ['notes.read', 'notes.write'],
+          authorizationParams: { access_type: 'offline', prompt: 'consent' },
+        },
+      },
+      'file',
+    );
+    expect(entry?.oauth).toEqual({
+      clientId: 'my-client',
+      scopes: ['notes.read', 'notes.write'],
+      authorizationParams: { access_type: 'offline', prompt: 'consent' },
+    });
+  });
+
+  it('never keeps a client secret, even when the file has one, and never takes a client from another source', () => {
+    const withSecret = catalogEntryOf(
+      { ...OK, oauth: { clientId: 'my-client', clientSecret: 'the-secret' } },
+      'file',
+    );
+    expect(withSecret?.oauth).toEqual({ clientId: 'my-client' });
+    expect(JSON.stringify(withSecret)).not.toContain('the-secret');
+    const fromElsewhere = catalogEntryOf(
+      { ...OK, oauth: { clientId: 'someone-elses' } },
+      'registry',
+    );
+    expect(fromElsewhere).toBeDefined();
+    expect(fromElsewhere).not.toHaveProperty('oauth');
+  });
+
+  it.each([
+    ['sign-in settings that are not an object', { oauth: 'my-client' }],
+    ['a client id with a space', { oauth: { clientId: 'two words' } }],
+    ['scopes that are not a list of words', { oauth: { scopes: 'notes.read' } }],
+    ['a scope that is not one word', { oauth: { scopes: ['read all'] } }],
+    [
+      'sign-in options that replace what the sign-in sets itself',
+      { oauth: { authorizationParams: { Prompt: 'consent' } } },
+    ],
+    ['a sign-in option that is not a word', { oauth: { authorizationParams: { prompt: 7 } } }],
+    [
+      'a client for a service that takes a token',
+      { auth: 'token', oauth: { clientId: 'my-client' } },
+    ],
+    [
+      'a client for a service that needs no sign-in',
+      { auth: 'none', oauth: { clientId: 'my-client' } },
+    ],
+  ])('is left out when the owner’s file gives %s', (_name, extra) => {
+    expect(catalogEntryOf({ ...OK, ...extra }, 'file')).toBeUndefined();
+  });
+
   it('clips long text to one plain line and drops control characters', () => {
     const entry = catalogEntryOf(
       { ...OK, title: `${'t'.repeat(200)}`, description: `a\u0000b‮${'d'.repeat(900)}` },
@@ -184,6 +240,19 @@ describe('the entries of a registry page', () => {
       ],
     });
     expect(entries.map((entry) => entry.endpoint)).toEqual(['https://usable.example.test/mcp']);
+  });
+
+  it('never takes a client from a registry, whatever the page says', () => {
+    const [entry] = catalogEntriesFromRegistry({
+      servers: [
+        server(
+          { ...http('https://a.example.test/mcp'), oauth: { clientId: 'evil-remote' } },
+          { oauth: { clientId: 'evil-server' } },
+        ),
+      ],
+    });
+    expect(entry).toBeDefined();
+    expect(entry).not.toHaveProperty('oauth');
   });
 
   it('keeps one entry per address, and ignores a page that is not one', () => {

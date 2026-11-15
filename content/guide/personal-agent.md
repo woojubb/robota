@@ -115,6 +115,34 @@ be read, is not this agent's, or does not list the redirect address this page us
 the agent registers itself, saying whether it is a native or a web application. If the service offers
 none of these, the card says *Could not connect* with a note that you register a client yourself (step 1).
 
+A service that only signs in clients registered by hand has three ways through, from least to most
+effort for each person. First, register a client yourself as in step 1 and type its id (and secret) in the
+add form. Second, if you run the agent for others, register one client with the service for your
+deployment and put it in `connector-catalog.json`: an entry may carry an `oauth` object with `clientId`,
+`scopes` and `authorizationParams`, and choosing the entry fills them in. The list never holds a client
+secret (a secret in the file is dropped), so each person still types it when they connect. Check the
+service's terms before sharing a client. Third, use a gateway: a server that signs in to many services
+itself and offers one tool address, with the standard sign-in or a token. Add it like any other service,
+choosing *Paste a token or API key* for one that gives you a token. Everything the gateway reads passes
+through its operator, so choose one you trust as much as the service itself.
+
+```json
+{
+  "entries": [
+    {
+      "title": "Work mail",
+      "endpoint": "https://mail.example.com/mcp",
+      "kind": "mail",
+      "oauth": {
+        "clientId": "your-client-id",
+        "scopes": ["mail.read"],
+        "authorizationParams": { "access_type": "offline", "prompt": "consent" }
+      }
+    }
+  ]
+}
+```
+
 If the service takes a token or API key instead of a sign-in page, choose *Paste a token or API key* in
 the add form (name the header only when the service does not use the standard `Authorization` header),
 then paste the token into the field on the card and press **Connect**. The agent checks it by listing the

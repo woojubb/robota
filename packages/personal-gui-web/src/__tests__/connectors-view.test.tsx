@@ -619,6 +619,102 @@ describe('finding a service to add', () => {
     expect(screen.getByText('Example notes')).toBeTruthy();
   });
 
+  const SHIPPED: IConnectorCatalogView = {
+    registry: 'off',
+    entries: [
+      {
+        title: 'Shipped mail',
+        endpoint: 'https://mail.example.test/mcp',
+        kind: 'mail',
+        auth: 'oauth',
+        source: 'file',
+        oauth: {
+          clientId: 'shipped-client',
+          scopes: ['mail.read', 'mail.labels'],
+          authorizationParams: { access_type: 'offline', prompt: 'consent' },
+        },
+      },
+      {
+        title: 'Shipped files',
+        endpoint: 'https://files.example.test/mcp',
+        kind: 'files',
+        auth: 'oauth',
+        source: 'file',
+        oauth: { clientId: 'files-client', authorizationParams: { audience: 'files' } },
+      },
+      {
+        title: 'Plain notes',
+        endpoint: 'https://plain.example.test/mcp',
+        kind: 'notes',
+        auth: 'oauth',
+        source: 'file',
+      },
+    ],
+  };
+
+  it('fills in the client, scopes and long-lasting sign-in a suggestion brings, and adds them as typed', async () => {
+    const add = vi.fn(async () => ({ connector: NOTES }));
+    await openAddForm({ connectorCatalog: async () => SHIPPED, addConnector: add });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByText('Shipped mail');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Use' })[0]!);
+    expect(
+      (screen.getByLabelText('Client id you registered (optional)') as HTMLInputElement).value,
+    ).toBe('shipped-client');
+    expect((screen.getByLabelText(/Scopes to ask for/u) as HTMLInputElement).value).toBe(
+      'mail.read mail.labels',
+    );
+    expect(
+      (screen.getByLabelText(/Ask the service for a long-lasting sign-in/u) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    // The long-lasting choice stands for those two options, so nothing else is announced.
+    expect(screen.queryByText(/This suggestion also asks the service for/u)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith({
+        title: 'Shipped mail',
+        kind: 'mail',
+        endpoint: 'https://mail.example.test/mcp',
+        clientId: 'shipped-client',
+        scopes: ['mail.read', 'mail.labels'],
+        authorizationParams: { access_type: 'offline', prompt: 'consent' },
+      }),
+    );
+  });
+
+  it('shows any other sign-in option a suggestion brings before it is sent, and clears it when another is chosen', async () => {
+    const add = vi.fn(async () => ({ connector: NOTES }));
+    await openAddForm({ connectorCatalog: async () => SHIPPED, addConnector: add });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByText('Shipped files');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Use' })[1]!);
+    await screen.findByText('audience=files');
+    expect(
+      (screen.getByLabelText(/Ask the service for a long-lasting sign-in/u) as HTMLInputElement)
+        .checked,
+    ).toBe(false);
+    // A later choice that brings no client leaves nothing of the earlier one behind.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Use' })[2]!);
+    expect(screen.queryByText('audience=files')).toBeNull();
+    expect(
+      (screen.getByLabelText('Client id you registered (optional)') as HTMLInputElement).value,
+    ).toBe('');
+    // Choosing the first again brings its option back, and it is sent as shown.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Use' })[1]!);
+    await screen.findByText('audience=files');
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith({
+        title: 'Shipped files',
+        kind: 'files',
+        endpoint: 'https://files.example.test/mcp',
+        clientId: 'files-client',
+        authorizationParams: { audience: 'files' },
+      }),
+    );
+  });
+
   it('shows a suggestion’s words as plain text, whatever they contain', async () => {
     const hostile: IConnectorCatalogView = {
       registry: 'ok',

@@ -4,7 +4,7 @@
  * everything but the owner-only credential files, and disconnecting revokes. A mail, a calendar and
  * a notes service differ here only in the tools the stand-in is given.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 
@@ -677,6 +677,44 @@ describe('suggesting services to add', () => {
     expect((await w.call('GET', ['connectors'])).body.connectors).toEqual([]);
     // Only reading is offered, and a connector can never be named `catalog`.
     expect((await w.call('POST', ['connectors', 'catalog'], {})).status).not.toBe(200);
+  });
+
+  it('offers the client the owner registered with a service from the owner’s file, and never its secret', async () => {
+    const w = await world({}, {}, { registryUrl: null });
+    writeFileSync(
+      join(w.harness.stateDir, 'connector-catalog.json'),
+      JSON.stringify({
+        entries: [
+          {
+            title: 'Shipped mail',
+            endpoint: 'https://mail.example.test/mcp',
+            kind: 'mail',
+            oauth: {
+              clientId: 'shipped-client',
+              clientSecret: 'must-never-be-offered',
+              scopes: ['mail.read'],
+              authorizationParams: { access_type: 'offline', prompt: 'consent' },
+            },
+          },
+        ],
+      }),
+    );
+    const answer = await w.call('GET', ['connectors', 'catalog']);
+    expect(answer.body.entries).toEqual([
+      {
+        title: 'Shipped mail',
+        endpoint: 'https://mail.example.test/mcp',
+        kind: 'mail',
+        auth: 'oauth',
+        oauth: {
+          clientId: 'shipped-client',
+          scopes: ['mail.read'],
+          authorizationParams: { access_type: 'offline', prompt: 'consent' },
+        },
+        source: 'file',
+      },
+    ]);
+    expect(JSON.stringify(answer.body)).not.toContain('must-never-be-offered');
   });
 
   it('says the registry is off, with the owner’s own entries, when it is turned off', async () => {

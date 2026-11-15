@@ -18,6 +18,12 @@ import type {
 
 const REFRESH_MS = 3_000;
 
+/** What the long-lasting sign-in choice asks of a service that ends sign-ins after about an hour. */
+const LONG_LASTING: Readonly<Record<string, string>> = {
+  access_type: 'offline',
+  prompt: 'consent',
+};
+
 const KINDS: readonly TConnectorKind[] = ['mail', 'calendar', 'files', 'chat', 'notes', 'other'];
 
 const AUTH_CHOICES: readonly { readonly value: TConnectorAuth; readonly label: string }[] = [
@@ -448,6 +454,10 @@ function AddForm({
   const [clientId, setClientId] = useState('');
   const [scopes, setScopes] = useState('');
   const [stayIn, setStayIn] = useState(false);
+  // Sign-in options a suggestion brought that the checkbox does not stand for; shown, never hidden.
+  const [suggestedParams, setSuggestedParams] = useState<
+    Readonly<Record<string, string>> | undefined
+  >(undefined);
   return (
     <form
       aria-label="Add a connector"
@@ -467,7 +477,9 @@ function AddForm({
           ...(oauth && clientId.trim() !== '' && { clientId: clientId.trim() }),
           ...(oauth && words.length > 0 && { scopes: words }),
           ...(oauth &&
-            stayIn && { authorizationParams: { access_type: 'offline', prompt: 'consent' } }),
+            (stayIn || suggestedParams !== undefined) && {
+              authorizationParams: stayIn ? LONG_LASTING : suggestedParams,
+            }),
         });
       }}
     >
@@ -532,9 +544,16 @@ function AddForm({
                       setEndpoint(entry.endpoint);
                       setAuth(entry.auth);
                       setTokenHeader(entry.tokenHeader ?? '');
-                      setClientId('');
-                      setScopes('');
-                      setStayIn(false);
+                      setClientId(entry.oauth?.clientId ?? '');
+                      setScopes((entry.oauth?.scopes ?? []).join(' '));
+                      const params = entry.oauth?.authorizationParams;
+                      const longLasting =
+                        params !== undefined &&
+                        Object.keys(params).length === 2 &&
+                        params['access_type'] === 'offline' &&
+                        params['prompt'] === 'consent';
+                      setStayIn(longLasting);
+                      setSuggestedParams(longLasting ? undefined : params);
                     }}
                   >
                     Use
@@ -639,6 +658,16 @@ function AddForm({
               </span>
             </span>
           </label>
+          {suggestedParams !== undefined && (
+            <p className="text-[12.5px] text-muted-foreground">
+              This suggestion also asks the service for:{' '}
+              <span className="font-mono">
+                {Object.entries(suggestedParams)
+                  .map(([name, value]) => `${name}=${value}`)
+                  .join(', ')}
+              </span>
+            </p>
+          )}
           <p className="text-[12.5px] text-muted-foreground">
             If the service needs a client you registered yourself, register this redirect address
             with it:
