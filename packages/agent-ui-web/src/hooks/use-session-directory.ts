@@ -19,9 +19,7 @@ type TSessionDirectoryState = Pick<
 >;
 
 let requestCounter = 0;
-function nextRequestId(
-  kind: 'sessions' | 'session_change' | 'session_rename' | 'session_delete',
-): string {
+function nextRequestId(kind: 'sessions' | 'session_change' | 'session_rename' | 'session_delete'): string {
   requestCounter += 1;
   return `${kind}_${requestCounter}_${Date.now()}`;
 }
@@ -37,9 +35,7 @@ function keepsSessionsLive(listing: TSessionListing): boolean {
  * the reload (and only that tab), so it carries the id across it. Namespaced so a page hosting other
  * state under the same origin does not collide.
  */
-function restoreSessionStorageKey(namespace: string): string {
-  return `${namespace}.restoreSessionId`;
-}
+function restoreSessionStorageKey(namespace: string): string { return `${namespace}.restoreSessionId`; }
 
 /**
  * Remember `sessionId` so a reload can switch back to it once the first session listing arrives (see
@@ -97,9 +93,7 @@ export function useSessionDirectoryState(
   /** The connection is (re)established: the next listing decides whether to go back. */
   armRestore: () => void;
 } {
-  const {
-    storage: { browserNamespace },
-  } = useProductIdentity();
+  const { storage: { browserNamespace } } = useProductIdentity();
   const [sessionListing, setSessionListing] = useState<TSessionListing | null>(null);
   const [sessionsError, setSessionsError] = useState<TSessionsError | null>(null);
   const [sessionSidebarOpen, setSessionSidebarOpen] = useState(initialSidebarOpen);
@@ -162,11 +156,7 @@ export function useSessionDirectoryState(
       if (!keepsSessionsLive(listing)) return;
       // A session the host no longer lists (an empty one it never saved) is nothing to go back to.
       if (!listing.sessions.some((row) => row.id === target)) return;
-      send({
-        type: 'switch-session',
-        sessionId: target,
-        requestId: nextRequestId('session_change'),
-      });
+      send({ type: 'switch-session', sessionId: target, requestId: nextRequestId('session_change') });
     },
     [send, browserNamespace, isObserving],
   );
@@ -192,17 +182,14 @@ export function useSessionDirectoryState(
   );
 
   const canListSessions = useCallback((): boolean => !notAvailableRef.current, []);
-  const markCurrent = useCallback(
-    (sessionId: string): void => {
-      lastSwitchedIdRef.current = sessionId;
-      // A reload lands on the host's primary session; this is what takes it back to the open one.
-      rememberSessionForRestore(browserNamespace, sessionId);
-      setSessionListing((previous) =>
-        previous === null ? previous : { ...previous, currentSessionId: sessionId },
-      );
-    },
-    [browserNamespace],
-  );
+  const markCurrent = useCallback((sessionId: string): void => {
+    lastSwitchedIdRef.current = sessionId;
+    // A reload lands on the host's primary session; this is what takes it back to the open one.
+    rememberSessionForRestore(browserNamespace, sessionId);
+    setSessionListing((previous) =>
+      previous === null ? previous : { ...previous, currentSessionId: sessionId },
+    );
+  }, [browserNamespace]);
 
   return {
     sessionListing,
