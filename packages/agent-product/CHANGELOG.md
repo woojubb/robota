@@ -1,5 +1,22 @@
 # @robota-sdk/agent-product
 
+## 3.6.0
+### Minor Changes
+
+- addebb5: `IBrowserPort` in `@robota-sdk/agent-product/personal` gains an optional `snapshot()`: the current page's address, title and a PNG, so a host can let a person watch what the agent's browser does.
+- 4f0f2e0: `@robota-sdk/agent-product/personal` adds the standard channel contract, so any messenger plugs into a personal agent as an adapter. An adapter declares its platform's capabilities and the sender each message came from. The channel hub admits only the owner's verified sender ids, runs turns through a port the host supplies, sends approvals as structured actions (or as a pointer to the feed when the platform has none), and accepts an approval only as the owner's structured action. The package includes an in-memory fixture adapter for tests.
+- 117f8e8: `createSessionCommandModule({ only })` offers only the named session commands, so a product can include `rename` without the commands that change the working folder or open other sessions.
+- 347af21: `@robota-sdk/agent-product/personal` adds spaces: areas of the person's life, each with the person's own instructions and a tag for its ideas. `SpaceBook` keeps them behind a store port with file and memory adapters. A chat started in a space opens with the space's instructions as the person's first message.
+
+### Patch Changes
+
+- d0eb61d: The personal pack gains connectors: a record of each external service the person connected (kind, endpoint, public sign-in settings, per-tool decisions) with no credential in it, a protocol port a host implements, a registry that sorts every tool into reading, writing or blocked (a tool is read only when the person said so or the service declared it read-only), and three tools for the agent (`ConnectorList`, `ConnectorRead`, `ConnectorAct`). A write is held for the person in every permission mode.
+- Updated dependencies [0da6a59]
+- Updated dependencies [386def1]
+- Updated dependencies [8bb5204]
+  - @robota-sdk/agent-core@3.3.3
+  - @robota-sdk/agent-framework@3.3.6
+
 ## 3.5.0
 ### Minor Changes
 
