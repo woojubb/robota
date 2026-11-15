@@ -3,13 +3,9 @@
  * its own and not per-service mapping code. Turning sync on creates a goal tied to the connector;
  * each run reads what is new through the connector's reading tool, files durable facts with
  * `ConnectorKeep`, and reports into the feed. A run is a session of its own, so the person's chat
- * context does not grow, and everything in the content is data: the run is denied every tool by
- * which content could do something (writing to the service, the browser, rewriting the library,
- * making goals), whatever the content says.
+ * context does not grow, and everything in the content is data: the run has only the tools to read,
+ * look in the library and file facts, so nothing it reads can make it do anything else.
  */
-import { BROWSER_TOOL_NAMES } from '../browser/tools.js';
-import { GOAL_TOOL_NAMES } from '../goals/tools.js';
-import { IDEA_TOOL_NAMES } from '../ideas/tools.js';
 import { WIKI_TOOL_NAMES } from '../knowledge/tools.js';
 import { ConnectorRefusedError } from './book.js';
 import { CONNECTOR_TOOL_NAMES } from './tools.js';
@@ -27,19 +23,19 @@ const FIRST_RUN_DAYS = 7;
 const MAX_ITEMS_PER_RUN = 20;
 
 /**
- * Tools a sync run never has. Content from the service is written by others, so a run can only
- * read it and add what it finds to the library; nothing it reads can change the service, drive the
- * browser, rewrite or remove what the person said, or set up other goals.
+ * The only tools a sync run has. Content from the service is written by others, so a run can read it,
+ * look in the library and add what it finds, and nothing else: it cannot change the service, reach the
+ * web or the files, drive the browser, rewrite what the person said or set up goals. A list of what is
+ * withheld would miss the next tool a host adds; a list of what is allowed cannot.
  */
-export function syncDeniedTools(): string[] {
+export function syncRunTools(): string[] {
   return [
-    CONNECTOR_TOOL_NAMES.act,
-    WIKI_TOOL_NAMES.remember,
-    WIKI_TOOL_NAMES.forget,
-    WIKI_TOOL_NAMES.link,
-    ...Object.values(BROWSER_TOOL_NAMES),
-    ...Object.values(GOAL_TOOL_NAMES),
-    ...Object.values(IDEA_TOOL_NAMES),
+    CONNECTOR_TOOL_NAMES.list,
+    CONNECTOR_TOOL_NAMES.read,
+    CONNECTOR_TOOL_NAMES.keep,
+    WIKI_TOOL_NAMES.index,
+    WIKI_TOOL_NAMES.search,
+    WIKI_TOOL_NAMES.read,
   ];
 }
 
@@ -72,9 +68,15 @@ export interface IConnectorSyncStatus {
   readonly nextRunAt?: string;
 }
 
-/** The goals that keep connectors in sync: one per connector, found by the connector it names. */
+/**
+ * The goals that keep connectors in sync: one per connector, found by the connector it names. `halt`
+ * ends a run that is in progress, which a goal cannot be removed during.
+ */
 export class ConnectorSync {
-  constructor(private readonly goals: GoalBook) {}
+  constructor(
+    private readonly goals: GoalBook,
+    private readonly halt?: (goalId: string) => Promise<void>,
+  ) {}
 
   private async goalOf(connectorId: string): Promise<IGoal | undefined> {
     return (await this.goals.list()).find((goal) => goal.connectorId === connectorId);
@@ -92,7 +94,7 @@ export class ConnectorSync {
     };
   }
 
-  /** Turn sync on, or change how often it runs; the first run is due at once. */
+  /** Turn sync on, or change how often it runs; a new sync is due at once, a changed one keeps its place. */
   async enable(connector: IConnector, everyMinutes: number): Promise<IConnectorSyncStatus> {
     if (
       !Number.isInteger(everyMinutes) ||
@@ -103,13 +105,17 @@ export class ConnectorSync {
         `Sync runs every ${SYNC_MIN_MINUTES} minutes to ${SYNC_MAX_MINUTES / 1440} days`,
       );
     }
-    await this.disable(connector.id);
-    await this.goals.create({
-      title: `Keep ${connector.title} in sync`,
-      instructions: syncGoalPrompt(connector),
-      everyMinutes,
-      connectorId: connector.id,
-    });
+    const existing = await this.goalOf(connector.id);
+    if (existing === undefined) {
+      await this.goals.create({
+        title: `Keep ${connector.title} in sync`,
+        instructions: syncGoalPrompt(connector),
+        everyMinutes,
+        connectorId: connector.id,
+      });
+    } else {
+      await this.goals.reschedule(existing.id, everyMinutes);
+    }
     return (await this.status(connector.id))!;
   }
 
@@ -117,6 +123,7 @@ export class ConnectorSync {
   async disable(connectorId: string): Promise<boolean> {
     const goal = await this.goalOf(connectorId);
     if (goal === undefined) return false;
+    if (goal.status === 'running' || goal.status === 'waiting') await this.halt?.(goal.id);
     await this.goals.remove(goal.id);
     return true;
   }

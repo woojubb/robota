@@ -88,15 +88,19 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
   /** Whether the person asked to forget what was pulled; a request with no body asks for nothing. */
   const wantsForgetting = (body: unknown): boolean =>
     body !== undefined && record(body)['forgetPulled'] === true;
-  /** Stop the sync, take the access away, and, when asked, forget what the connector put in the library. */
+  /**
+   * Take the access away first, so nothing in progress can hold it up, then stop the sync (ending a
+   * run that is still going) and, when asked, forget what the connector put in the library, which
+   * only a stopped sync can no longer add to.
+   */
   const leave = async (
     id: string,
     body: unknown,
     take: () => Promise<unknown>,
   ): Promise<ILoopbackGuiApiResponse> => {
     const forget = wantsForgetting(body);
-    await sync.disable(id);
     const outcome = await take();
+    await sync.disable(id);
     return ok({ outcome, ...(forget && { forgotten: await forgetPulled(wiki, id) }) });
   };
   const known = async (id: string): Promise<boolean> => (await book.get(id)) !== undefined;

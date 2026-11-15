@@ -202,6 +202,8 @@ export interface IConnectorSyncView {
   /** The goal that keeps the connector in sync; it is also listed with the person's goals. */
   readonly goalId: string;
   readonly everyMinutes: number;
+  /** Where the goal stands: a sync the person paused among their goals does not run. */
+  readonly status: TGoalStatus;
   readonly lastRunAt?: string;
   readonly nextRunAt?: string;
 }

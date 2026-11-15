@@ -158,7 +158,7 @@ describe('the Connectors tab', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
     await screen.findByRole('button', { name: 'Yes, remove' });
     expect(remove).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(remove).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Yes, remove' }));
@@ -173,6 +173,7 @@ describe('the Connectors tab', () => {
       sync: {
         goalId: 'goal-1',
         everyMinutes: 60,
+        status: 'active',
         lastRunAt: '2026-11-15T01:00:00Z',
         nextRunAt: '2026-11-15T02:00:00Z',
       },
@@ -189,6 +190,22 @@ describe('the Connectors tab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Check now' }));
     await waitFor(() => expect(run).toHaveBeenCalledWith('goal-1', 'run'));
     expect(screen.getByText(/cannot change anything at the service/u)).toBeTruthy();
+  });
+
+  it('says when a check is paused or going on, instead of showing a time that will not come', async () => {
+    const sync = {
+      goalId: 'goal-1',
+      everyMinutes: 60,
+      lastRunAt: '2026-11-15T01:00:00Z',
+      nextRunAt: '2026-11-15T02:00:00Z',
+    } as const;
+    const { unmount } = render(
+      <ConnectorsView api={fakeApi([{ ...NOTES, sync: { ...sync, status: 'paused' } }])} />,
+    );
+    await screen.findByText(/Paused in your Goals/u);
+    unmount();
+    render(<ConnectorsView api={fakeApi([{ ...NOTES, sync: { ...sync, status: 'running' } }])} />);
+    await screen.findByText(/Checking now\./u);
   });
 
   it('offers sync only for a connected service', async () => {

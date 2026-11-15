@@ -65,6 +65,11 @@ export interface IExtraSessionOptions {
   readonly instructions: string;
   readonly permissionMode: TPermissionMode;
   readonly deniedTools?: readonly string[];
+  /**
+   * Offer only these tools: every other tool the agent has is withheld, including one a host adds
+   * later, which stays withheld until it is named here.
+   */
+  readonly onlyTools?: readonly string[];
   /** Where its transcript is kept: among the person's chats, or with the goal runs' audit (the default). */
   readonly keepWith?: 'chats' | 'goals';
 }
@@ -98,13 +103,24 @@ export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAg
       ...(options.instructions !== undefined && { appendSystemPrompt: options.instructions }),
     });
   const goalSessionStore = createPersonalGoalSessionStore(options.stateDir);
+  /** Every tool the agent has, by name: the host's own and the pack's. */
+  const toolNames = [
+    ...createDefaultTools({ cwd: workspace }).map((tool) => tool.getName()),
+    ...(options.tools ?? []).map((tool) => tool.getName()),
+  ];
   const openSession = (extra: IExtraSessionOptions): TPersonalSession =>
     runtime.createSession({
       ...base,
       sessionStore: extra.keepWith === 'chats' ? runtime.sessionStore : goalSessionStore,
       sessionName: extra.sessionName,
       permissionMode: extra.permissionMode,
-      deniedTools: [...PERSONAL_WITHHELD_TOOLS, ...(extra.deniedTools ?? [])],
+      deniedTools: [
+        ...PERSONAL_WITHHELD_TOOLS,
+        ...(extra.deniedTools ?? []),
+        ...(extra.onlyTools === undefined
+          ? []
+          : toolNames.filter((name) => !extra.onlyTools!.includes(name))),
+      ],
       appendSystemPrompt: [options.instructions, extra.instructions]
         .filter((text) => text !== undefined)
         .join('\n\n'),

@@ -588,9 +588,12 @@ run reads what is new through the reading tool and files durable facts through o
 records the connector as their origin, by kind, and names it in their reference, so what a sync kept is
 told from what the person said and can be counted and forgotten together with the connection. A
 filed fact is only ever added: content read from a service never rewrites or retires what the person
-said. Everything the run reads is content written by others, so the run is denied every tool by which
-content could act: writing to the service, the browser, rewriting the library, making goals and ideas.
-A run that kept nothing stays in the goal's history and is not posted to the feed.
+said. Everything the run reads is content written by others, so the run is given only the tools to read,
+look in the library and file, never a list of what is withheld that a tool added later would escape:
+it cannot write to the service, reach the web or files, drive the browser, or rewrite the library.
+Turning a sync off, or disconnecting, never waits for a run in progress. A run that is reachable, read
+cleanly and added nothing stays in the goal's history and is not posted to the feed; a run that could
+not read is posted, so a broken sync is never silent.
 
 ### Non-goals
 

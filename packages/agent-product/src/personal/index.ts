@@ -130,7 +130,7 @@ export {
   ConnectorSync,
   SYNC_MAX_MINUTES,
   SYNC_MIN_MINUTES,
-  syncDeniedTools,
+  syncRunTools,
   syncGoalPrompt,
   syncRunInstructions,
 } from './connectors/sync.js';

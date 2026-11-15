@@ -29,8 +29,6 @@ import {
   createGoalTools,
   createIdeaTools,
   createWikiTools,
-  syncDeniedTools,
-  syncRunInstructions,
 } from '@robota-sdk/agent-product/personal';
 
 import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playwright-browser.js';
@@ -41,6 +39,7 @@ import { watchBrowser } from './browser/watched-browser.js';
 import { CONSENT_CALLBACK_PATH, createConsentBroker } from './connectors/consent.js';
 import { createConnectorsApi } from './connectors/connectors-api.js';
 import { createMcpConnectorProtocol } from './connectors/mcp-protocol.js';
+import { createSyncRuns } from './connectors/sync-runs.js';
 import { createLayoutBook } from './layout.js';
 import { createSideChatBook } from './side-chats.js';
 import { createPersonalApi } from './personal-api.js';
@@ -145,9 +144,14 @@ export function createPersonalCapabilities(
       }),
     ],
   });
-  const connectorSync = new ConnectorSync(goals);
-  let guiOrigins: readonly string[] = [];
   let runner: IGoalRunner | undefined;
+  // A goal cannot be removed while it runs: turning a sync off first ends the run in progress.
+  const connectorSync = new ConnectorSync(goals, async (goalId) => {
+    runner?.interrupt(goalId);
+    await runner?.settled(goalId);
+  });
+  const syncRuns = createSyncRuns({ book: connectorBook, registry: connectors, goals, wiki });
+  let guiOrigins: readonly string[] = [];
   let channelTurns: IChannelTurns | undefined;
   const approvals = createApprovalRegistry(goals);
   const channels = createChannelHub({
@@ -243,24 +247,10 @@ export function createPersonalCapabilities(
         },
         openSession: (extra) => agent.openSession(extra),
         tickMs: options.goalTickMs ?? DEFAULT_GOAL_TICK_MS,
-        // A sync run reads one connector and adds to the library; it is denied everything content could act through.
-        shape: async (goal) => {
-          if (goal.connectorId === undefined) return undefined;
-          const connector = await connectorBook.get(goal.connectorId);
-          return {
-            instructions:
-              connector === undefined
-                ? 'Its connector no longer exists. Say so in one line and do nothing else.'
-                : syncRunInstructions(connector, goal.lastRunAt),
-            deniedTools: syncDeniedTools(),
-          };
-        },
-        // A sync that kept nothing has nothing to tell the person; its run stays in the goal's history.
-        quiet: (goal, run) =>
-          goal.connectorId !== undefined &&
-          !run.actions.some(
-            (action) => action.tool === 'ConnectorKeep' && action.outcome === 'done',
-          ),
+        // A sync run reads one connector and adds to the library, with only the tools to do that.
+        shape: syncRuns.shape,
+        // A sync that is reachable, read cleanly and added nothing has nothing to tell the person.
+        quiet: syncRuns.quiet,
       });
     },
     dispose: async () => {

@@ -258,8 +258,12 @@ function ConnectorCard({
           {connector.sync !== undefined && (
             <p className="mt-1 flex items-center gap-2 text-[12.5px]">
               <span>
-                Last checked: {when(connector.sync.lastRunAt)}. Next:{' '}
-                {when(connector.sync.nextRunAt)}.
+                Last checked: {when(connector.sync.lastRunAt)}.{' '}
+                {connector.sync.status === 'paused'
+                  ? 'Paused in your Goals: Check now runs it once and starts it again.'
+                  : connector.sync.status === 'running' || connector.sync.status === 'waiting'
+                    ? 'Checking now.'
+                    : `Next: ${when(connector.sync.nextRunAt)}.`}
               </span>
               <Button onClick={onRunSync}>Check now</Button>
             </p>
@@ -279,7 +283,7 @@ function ConnectorCard({
         <span className="ml-auto flex items-center gap-2">
           {asking !== undefined ? (
             <>
-              <span className="text-[12.5px] text-muted-foreground">
+              <span role="status" className="text-[12.5px] text-muted-foreground">
                 {asking.kind === 'remove' ? 'Remove and revoke access?' : 'Disconnect?'}
                 {asking.pulled > 0 &&
                   ` ${asking.pulled} ${asking.pulled === 1 ? 'fact' : 'facts'} in your Library came from it.`}
@@ -300,7 +304,7 @@ function ConnectorCard({
                   Yes, remove
                 </Button>
               )}
-              <Button onClick={() => setAsking(undefined)}>Keep</Button>
+              <Button onClick={() => setAsking(undefined)}>Cancel</Button>
             </>
           ) : (
             <Button onClick={() => void ask('remove')}>Remove</Button>
@@ -500,8 +504,11 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
             }
             onRunSync={() =>
               void run(async () => {
-                if (connector.sync !== undefined)
-                  await api.goalAction(connector.sync.goalId, 'run');
+                if (connector.sync === undefined) return;
+                await api.goalAction(connector.sync.goalId, 'run');
+                setMessage(
+                  'Queued. The check starts shortly; its report comes to your Feed if it has something to tell.',
+                );
               })
             }
             onDecide={(tool, decision) =>

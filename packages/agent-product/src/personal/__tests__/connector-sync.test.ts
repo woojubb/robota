@@ -22,7 +22,7 @@ import {
   createMemoryKnowledgeStore,
   forgetPulled,
   originOfConnector,
-  syncDeniedTools,
+  syncRunTools,
   syncRunInstructions,
 } from '../index.js';
 
@@ -158,8 +158,18 @@ describe('what a connector’s content becomes in the library', () => {
 });
 
 describe('what a sync run may use', () => {
-  it('is denied every way content could act, and keeps what it needs to read and file', () => {
-    const denied = syncDeniedTools();
+  it('has only what it needs to read, look in the library and file, and nothing content could act through', () => {
+    const allowed = syncRunTools();
+    expect(allowed.sort()).toEqual(
+      [
+        'ConnectorKeep',
+        'ConnectorList',
+        'ConnectorRead',
+        'WikiIndex',
+        'WikiRead',
+        'WikiSearch',
+      ].sort(),
+    );
     for (const name of [
       'ConnectorAct',
       'WikiRemember',
@@ -169,17 +179,11 @@ describe('what a sync run may use', () => {
       'BrowserSubmit',
       'GoalCreate',
       'IdeaAdd',
+      'WebFetch',
+      'Write',
+      'Edit',
     ]) {
-      expect(denied, name).toContain(name);
-    }
-    for (const name of [
-      'ConnectorList',
-      'ConnectorRead',
-      'ConnectorKeep',
-      'WikiSearch',
-      'WikiRead',
-    ]) {
-      expect(denied, name).not.toContain(name);
+      expect(allowed, name).not.toContain(name);
     }
   });
 
@@ -195,7 +199,7 @@ describe('what a sync run may use', () => {
 });
 
 describe('turning sync on and off', () => {
-  it('makes one goal for the connector, due at once, and replaces it when the interval changes', async () => {
+  it('makes one goal for the connector, due at once, and changes its interval in place', async () => {
     const { sync, goals, mail } = await setup();
     const first = await sync.enable(mail, 60);
     expect(first.everyMinutes).toBe(60);
@@ -206,7 +210,48 @@ describe('turning sync on and off', () => {
     expect(listed[0]!.readOnly).toBe(false);
     await sync.enable(mail, 120);
     expect(await goals.list()).toHaveLength(1);
+    expect((await goals.list())[0]!.id).toBe(listed[0]!.id);
     expect((await sync.status(mail.id))!.everyMinutes).toBe(120);
+  });
+
+  it('keeps when a changed sync is next due, from its last run', async () => {
+    const clock = { now: new Date('2026-11-15T10:00:00.000Z') };
+    const goals = new GoalBook({ store: createMemoryGoalStore(), now: () => clock.now });
+    const sync = new ConnectorSync(goals);
+    const book = new ConnectorBook({ store: createMemoryConnectorStore() });
+    const mail = await book.create({
+      title: 'Work mail',
+      kind: 'mail',
+      protocol: 'mcp',
+      endpoint: 'https://mail.example/mcp',
+    });
+    await sync.enable(mail, 1440);
+    const goal = (await goals.list())[0]!;
+    const run = await goals.startRun(goal.id);
+    await goals.finishRun(run, 'done', 'ok', { quiet: true });
+    clock.now = new Date('2026-11-15T10:30:00.000Z');
+    // Asking for hourly after a run at 10:00 makes the next one due at 11:00, not a day later and not now.
+    const changed = await sync.enable(mail, 60);
+    expect(changed.nextRunAt).toBe('2026-11-15T11:00:00.000Z');
+    // A sync the person paused in the goals list is on again when they choose how often it runs.
+    await goals.pause(goal.id);
+    expect((await sync.enable(mail, 60)).status).toBe('active');
+  });
+
+  it('ends a run in progress before removing the sync, so turning it off is never refused', async () => {
+    const { goals, mail } = await setup();
+    const ended: string[] = [];
+    const sync = new ConnectorSync(goals, async (goalId) => {
+      ended.push(goalId);
+      const run = (await goals.runs(goalId, 1))[0]!;
+      await goals.finishRun(run, 'failed', 'stopped');
+    });
+    await sync.enable(mail, 60);
+    const goal = (await goals.list())[0]!;
+    await goals.startRun(goal.id);
+    expect(await sync.disable(mail.id)).toBe(true);
+    expect(ended).toEqual([goal.id]);
+    expect(await goals.list()).toEqual([]);
   });
 
   it('keeps one sync per connector', async () => {

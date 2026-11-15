@@ -514,21 +514,24 @@ describe('keeping a connector in sync', () => {
     w.harness.model.script(syncScript(w.id));
     await runSync(w);
     const first = w.harness.model.requests[0]!;
-    const offered = offeredTools(first);
-    expect(offered).toEqual(
-      expect.arrayContaining(['ConnectorList', 'ConnectorRead', 'ConnectorKeep', 'WikiSearch']),
+    // Anything outside this list fails here, so a tool a host adds later is a decision, not a leak
+    // (the web, files, the browser, goals and ideas, and every write are among what it is not given).
+    // The framework's two goal-signal tools are stateless acknowledgements that change nothing.
+    const acknowledgements = ['report_goal_status', 'report_loop_decision'];
+    expect(
+      offeredTools(first)
+        .filter((name) => !acknowledgements.includes(name))
+        .sort(),
+    ).toEqual(
+      [
+        'ConnectorKeep',
+        'ConnectorList',
+        'ConnectorRead',
+        'WikiIndex',
+        'WikiRead',
+        'WikiSearch',
+      ].sort(),
     );
-    for (const denied of [
-      'ConnectorAct',
-      'WikiRemember',
-      'WikiForget',
-      'BrowserOpen',
-      'BrowserSubmit',
-      'GoalCreate',
-      'IdeaAdd',
-    ]) {
-      expect(offered, denied).not.toContain(denied);
-    }
     const system = String(first.messages.find((message) => message.role === 'system')?.content);
     expect(system).toContain('first sync');
     expect(system).toContain(w.id);
@@ -574,6 +577,66 @@ describe('keeping a connector in sync', () => {
     expect((await w.call('POST', ['connectors', id, 'sync'], { everyMinutes: null })).status).toBe(
       200,
     );
+  });
+
+  it('does not report a run that only found what it had already kept', async () => {
+    const w = await connectedWorld();
+    await w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: 15 });
+    w.harness.model.script(syncScript(w.id));
+    await runSync(w);
+    expect(await w.harness.capabilities.goals.feed()).toHaveLength(1);
+    // The next run reads the same note and tries to keep the same fact: nothing was added.
+    const goal = (await w.harness.capabilities.goals.list())[0]!;
+    await w.harness.capabilities.goals.resume(goal.id);
+    w.harness.model.script(syncScript(w.id));
+    await runSync(w);
+    expect(await w.harness.capabilities.goals.runs(goal.id)).toHaveLength(2);
+    expect(await w.harness.capabilities.goals.feed()).toHaveLength(1);
+  });
+
+  it('tells the person when a sync can no longer read the service, instead of staying silent', async () => {
+    const w = await world();
+    const id = await w.add('Notes', 'notes', NOTES_HOST);
+    // A sync whose connector was never signed in to (or whose sign-in has lapsed).
+    await w.harness.capabilities.goals.create({
+      title: 'Keep Notes in sync',
+      instructions: 'Check Notes.',
+      everyMinutes: 60,
+      connectorId: id,
+    });
+    w.harness.model.script({ text: 'I could not read Notes.' });
+    await runSync(w);
+    expect((await w.harness.capabilities.goals.feed()).map((item) => item.body)).toEqual([
+      'I could not read Notes.',
+    ]);
+  });
+
+  it('takes the access away even while a run is in progress, and ends that run', async () => {
+    const w = await connectedWorld();
+    await w.call('POST', ['connectors', w.id, 'sync'], { everyMinutes: 60 });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let reached!: () => void;
+    const started = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    w.harness.model.script(async () => {
+      reached();
+      await gate;
+      return { text: 'late' };
+    });
+    const runner = w.harness.capabilities.runner()!;
+    await runner.runDue();
+    await started;
+    const answer = await w.call('POST', ['connectors', w.id, 'disconnect'], {});
+    expect(answer.status).toBe(200);
+    expect(answer.body.outcome.revocation).toBe('revoked');
+    expect(w.auth.revoked.length).toBeGreaterThan(0);
+    expect(await w.harness.capabilities.goals.list()).toEqual([]);
+    release();
+    await runner.settled();
   });
 
   it('counts what was pulled and forgets exactly that when the person disconnects and asks to', async () => {

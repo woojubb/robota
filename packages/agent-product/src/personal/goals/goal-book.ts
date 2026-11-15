@@ -147,6 +147,28 @@ export class GoalBook {
     return this.save(goal, { status: 'paused' }, ['nextRunAt']);
   }
 
+  /**
+   * Change how often a goal repeats. A run in progress keeps going and the next one follows the new
+   * interval; otherwise the goal is active again and due that long after its last run (at once if it
+   * never ran or that moment has passed).
+   */
+  async reschedule(id: string, everyMinutes: number): Promise<IGoal> {
+    if (!Number.isInteger(everyMinutes) || everyMinutes < 1) {
+      throw new GoalRefusedError('everyMinutes must be a whole number of at least 1');
+    }
+    const goal = await this.require(id);
+    if (goal.status === 'running' || goal.status === 'waiting') {
+      return this.save(goal, { everyMinutes });
+    }
+    const last = goal.lastRunAt === undefined ? undefined : new Date(goal.lastRunAt).getTime();
+    const due = last === undefined ? this.now().getTime() : last + everyMinutes * 60_000;
+    return this.save(goal, {
+      everyMinutes,
+      status: 'active',
+      nextRunAt: new Date(due).toISOString(),
+    });
+  }
+
   /** Make a paused, finished or failed goal due now. */
   async resume(id: string): Promise<IGoal> {
     const goal = await this.require(id);
