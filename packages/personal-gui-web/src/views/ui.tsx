@@ -27,12 +27,15 @@ export function Button({
   tone = 'default',
   type = 'button',
   disabled,
+  label,
 }: {
   readonly children: ReactNode;
   readonly onClick?: () => void;
   readonly tone?: 'default' | 'primary' | 'danger';
   readonly type?: 'button' | 'submit';
   readonly disabled?: boolean;
+  /** The accessible name when the visible text alone does not say which item the button acts on. */
+  readonly label?: string;
 }): React.ReactElement {
   const tones = {
     default: 'border border-border text-foreground hover:bg-hover',
@@ -43,6 +46,7 @@ export function Button({
     <button
       type={type}
       disabled={disabled}
+      aria-label={label}
       onClick={onClick}
       className={`rounded-md px-3 py-1.5 text-[13px] font-medium disabled:opacity-50 ${tones[tone]}`}
     >

@@ -5,7 +5,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const TAB_ID = /^(chat|feed|ideas|goals|library|space:space-[a-z0-9-]{1,60})$/u;
+const TAB_ID = /^(chat|feed|ideas|goals|library|connectors|space:space-[a-z0-9-]{1,60})$/u;
 const MAX_TABS = 200;
 
 export class LayoutRefusedError extends Error {

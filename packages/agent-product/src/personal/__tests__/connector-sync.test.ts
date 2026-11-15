@@ -158,10 +158,14 @@ describe('what a connector’s content becomes in the library', () => {
 });
 
 describe('what a sync run may use', () => {
-  it('has only what it needs to read, look in the library and file, and nothing content could act through', () => {
+  it('has only what it needs to read, look in the library, file and keep a case, and nothing content could act through', () => {
     const allowed = syncRunTools();
     expect(allowed.sort()).toEqual(
       [
+        'CaseAsk',
+        'CaseClose',
+        'CaseNote',
+        'CaseOpen',
         'ConnectorKeep',
         'ConnectorList',
         'ConnectorRead',

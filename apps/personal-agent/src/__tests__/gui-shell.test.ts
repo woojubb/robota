@@ -49,7 +49,14 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
       const { page, close } = await open(harness);
       try {
         const menu = page.getByRole('navigation', { name: 'Menu' });
-        expect(await tabNames(page)).toEqual(['Chat', 'Feed', 'Ideas', 'Goals', 'Library']);
+        expect(await tabNames(page)).toEqual([
+          'Chat',
+          'Feed',
+          'Ideas',
+          'Goals',
+          'Library',
+          'Connectors',
+        ]);
         await menu.getByText('Side chats you start appear here.').waitFor();
         await menu.getByText(/drag the tabs above to reorder them/u).waitFor();
 
@@ -64,6 +71,7 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           'Ideas',
           'Goals',
           'Library',
+          'Connectors',
           'Garden',
         ]);
 
@@ -82,12 +90,13 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           'Ideas',
           'Library',
           'Goals',
+          'Connectors',
         ]);
         // Alt+Down twice in a row: the moved tab keeps focus, so the second press moves it again.
         await tabs.getByRole('button', { name: 'Chat', exact: true }).focus();
         await page.keyboard.press('Alt+ArrowDown');
         await page.keyboard.press('Alt+ArrowDown');
-        const moved = ['Garden', 'Feed', 'Ideas', 'Chat', 'Library', 'Goals'];
+        const moved = ['Garden', 'Feed', 'Ideas', 'Chat', 'Library', 'Goals', 'Connectors'];
         expect(await tabNames(page)).toEqual(moved);
         const savedTabs = () =>
           JSON.parse(readFileSync(join(harness!.stateDir, 'layout', 'layout.json'), 'utf8')).tabs;
@@ -100,6 +109,7 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
             'chat',
             'library',
             'goals',
+            'connectors',
           ]);
 
         // The order follows the person to a fresh page.
@@ -120,11 +130,11 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         await edit.getByRole('button', { name: 'Save space' }).click();
         await expect
           .poll(() => tabNames(page))
-          .toEqual(['Vegetable garden', 'Feed', 'Ideas', 'Chat', 'Library', 'Goals']);
+          .toEqual(['Vegetable garden', 'Feed', 'Ideas', 'Chat', 'Library', 'Goals', 'Connectors']);
         await page.getByRole('button', { name: 'Delete' }).click();
         await expect
           .poll(() => tabNames(page))
-          .toEqual(['Feed', 'Ideas', 'Chat', 'Library', 'Goals']);
+          .toEqual(['Feed', 'Ideas', 'Chat', 'Library', 'Goals', 'Connectors']);
       } finally {
         await close();
       }

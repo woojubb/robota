@@ -42,6 +42,25 @@ export {
 } from './browser/tools.js';
 export { GoalBook, GoalRefusedError } from './goals/goal-book.js';
 export type { ICreateGoalInput, IGoalBookOptions } from './goals/goal-book.js';
+export { CaseBook, CaseRefusedError } from './cases/case-book.js';
+export type {
+  IAnswerInput,
+  IAskInput,
+  ICaseBookOptions,
+  IOpenCaseInput,
+} from './cases/case-book.js';
+export { createFileCaseStore, createMemoryCaseStore } from './cases/stores.js';
+export { CASE_INSTRUCTIONS, CASE_TOOL_NAMES, createCaseTools } from './cases/tools.js';
+export type {
+  ICase,
+  ICaseEvent,
+  ICaseNote,
+  ICaseOrigin,
+  ICaseQuestion,
+  ICaseStore,
+  TCaseEventKind,
+  TCaseState,
+} from './cases/types.js';
 export { createFileGoalStore } from './goals/file-store.js';
 export { createMemoryGoalStore } from './goals/memory-store.js';
 export {
@@ -53,14 +72,17 @@ export {
 } from './goals/tools.js';
 export type {
   IFeedItem,
+  IFeedQuestion,
   IGoal,
   IGoalAction,
   IGoalRun,
   IGoalStore,
+  IQuestionAnswer,
   TApprovalState,
   TFeedKind,
   TGoalRunOutcome,
   TGoalStatus,
+  TQuestionState,
 } from './goals/types.js';
 export {
   IdeaBook,

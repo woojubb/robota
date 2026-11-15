@@ -3,7 +3,7 @@
 ## Purpose
 
 The personal agent's web UI: the shared session surface (`@robota-sdk/agent-ui-web`) for chat, inside a
-menu shell for what a personal agent keeps — the feed of results and approvals, ideas, its goals, spaces, the library
+menu shell for what a personal agent keeps — the feed of results, approvals and questions, ideas, its goals, spaces, the library
 of what it knows about the person, the services it is connected to, search and settings. `apps/personal-agent` serves its build behind
 the shared access-code server.
 
@@ -21,6 +21,10 @@ importable library.
   WebSocket.
 - **An approval answers the real request.** Approving or declining in the feed resolves the very
   action a goal is waiting on; the page shows the method and address being approved.
+- **A question records an answer and nothing more.** Answering in the feed records the person's choice or
+  reply on the case; it approves nothing and sends nothing. A question the agent withdrew cannot be
+  answered, and a waiting one is answered rather than dismissed. What the case rests on came from
+  elsewhere, often a mail, so it is shown as plain text and never as a link.
 - **The person's word, labelled as such.** A fact the person adds or corrects in the library is
   theirs; facts the agent read elsewhere are shown with where they came from.
 - **A connection is made by the person, in this browser.** The Connectors tab starts a sign-in and

@@ -11,6 +11,7 @@ import type {
   IGoalAction,
   IGoalRun,
   IGoalStore,
+  IQuestionAnswer,
   TApprovalState,
   TGoalRunOutcome,
 } from './types.js';
@@ -283,11 +284,36 @@ export class GoalBook {
     return next;
   }
 
+  /** Record the person's answer to a question; a question is answered once. */
+  async answerQuestion(id: string, answer: Omit<IQuestionAnswer, 'at'>): Promise<IFeedItem> {
+    const item = await this.store.getFeedItem(id);
+    if (item?.question === undefined) throw new GoalRefusedError(`No question ${id}`);
+    if (item.question.state !== 'open')
+      throw new GoalRefusedError('This question is no longer waiting for an answer');
+    const next: IFeedItem = {
+      ...item,
+      question: { ...item.question, state: 'answered', answer: { ...answer, at: this.stamp() } },
+    };
+    await this.store.putFeedItem(next);
+    return next;
+  }
+
+  /** A question whose case closed before the person answered it can no longer be answered. */
+  async withdrawQuestion(id: string): Promise<IFeedItem> {
+    const item = await this.store.getFeedItem(id);
+    if (item?.question === undefined) throw new GoalRefusedError(`No question ${id}`);
+    const next: IFeedItem = { ...item, question: { ...item.question, state: 'withdrawn' } };
+    await this.store.putFeedItem(next);
+    return next;
+  }
+
   async dismiss(id: string): Promise<void> {
     const item = await this.store.getFeedItem(id);
     if (item === undefined) throw new GoalRefusedError(`No feed item ${id}`);
     if (item.approval?.state === 'pending')
       throw new GoalRefusedError('Answer the approval before dismissing it');
+    if (item.question?.state === 'open')
+      throw new GoalRefusedError('Answer the question before dismissing it');
     await this.store.putFeedItem({ ...item, dismissed: true });
   }
 }

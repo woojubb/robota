@@ -245,15 +245,15 @@ describe('the personal API behind the web UI', () => {
     expect((await api.get('layout')).body).toEqual({ tabs: [] });
     const space = (await api.send('POST', 'spaces', { name: 'Garden' })).body.space;
     const saved = await api.send('POST', 'layout', {
-      tabs: [`space:${space.id}`, 'library', 'chat', 'chat'],
+      tabs: [`space:${space.id}`, 'library', 'connectors', 'chat', 'chat'],
     });
-    expect(saved.body).toEqual({ tabs: [`space:${space.id}`, 'library', 'chat'] });
+    expect(saved.body).toEqual({ tabs: [`space:${space.id}`, 'library', 'connectors', 'chat'] });
     for (const tabs of [['../x'], ['space:nope'], [3], 'chat']) {
       expect((await api.send('POST', 'layout', { tabs })).status).toBe(400);
     }
-    expect((await api.get('layout')).body.tabs).toHaveLength(3);
+    expect((await api.get('layout')).body.tabs).toHaveLength(4);
     await api.send('POST', `spaces/${space.id}/remove`);
-    expect((await api.get('layout')).body).toEqual({ tabs: ['library', 'chat'] });
+    expect((await api.get('layout')).body).toEqual({ tabs: ['library', 'connectors', 'chat'] });
   });
 
   it('records side chats for the menu and forgets them on request', async () => {

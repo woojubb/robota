@@ -6,7 +6,9 @@ import { join } from 'node:path';
 
 import {
   BROWSER_INSTRUCTIONS,
+  CASE_INSTRUCTIONS,
   CONNECTOR_INSTRUCTIONS,
+  CaseBook,
   ConnectorBook,
   ConnectorRegistry,
   ConnectorSync,
@@ -19,8 +21,10 @@ import {
   WIKI_INSTRUCTIONS,
   createBrowserTools,
   createChannelHub,
+  createCaseTools,
   createConnectorKeepTool,
   createConnectorTools,
+  createFileCaseStore,
   createFileConnectorStore,
   createFileGoalStore,
   createFileIdeaStore,
@@ -60,6 +64,8 @@ export interface IPersonalCapabilities {
   readonly wiki: KnowledgeWiki;
   readonly browser: IBrowserPort;
   readonly goals: GoalBook;
+  /** The agent's cases: what it noticed, the one question it asks about each, and what became of it. */
+  readonly cases: CaseBook;
   readonly ideas: IdeaBook;
   readonly spaces: SpaceBook;
   /** The services the person connected, and the one place that decides what each tool may do. */
@@ -125,6 +131,10 @@ export function createPersonalCapabilities(
     store: createFileKnowledgeStore(join(options.stateDir, 'wiki')),
   });
   const goals = new GoalBook({ store: createFileGoalStore(join(options.stateDir, 'goals')) });
+  const cases = new CaseBook({
+    store: createFileCaseStore(join(options.stateDir, 'cases')),
+    feed: goals,
+  });
   const ideas = new IdeaBook({ store: createFileIdeaStore(join(options.stateDir, 'ideas')) });
   const spaces = new SpaceBook({ store: createFileSpaceStore(join(options.stateDir, 'spaces')) });
   const sideChats = createSideChatBook(join(options.stateDir, 'side-chats'));
@@ -200,6 +210,7 @@ export function createPersonalCapabilities(
       ...createWikiTools(wiki),
       ...createBrowserTools(browser),
       ...createGoalTools(goals),
+      ...createCaseTools(cases),
       ...createIdeaTools(ideas),
       ...createConnectorTools(connectors),
       createConnectorKeepTool({ book: connectorBook, wiki }),
@@ -209,12 +220,14 @@ export function createPersonalCapabilities(
       WIKI_INSTRUCTIONS,
       BROWSER_INSTRUCTIONS,
       GOAL_INSTRUCTIONS,
+      CASE_INSTRUCTIONS,
       IDEA_INSTRUCTIONS,
       CONNECTOR_INSTRUCTIONS,
     ].join('\n\n'),
     wiki,
     browser,
     goals,
+    cases,
     ideas,
     spaces,
     connectors,
@@ -224,6 +237,9 @@ export function createPersonalCapabilities(
     api: createPersonalApi({
       wiki,
       goals,
+      cases,
+      // The seam where a turn that carries a case on will start: an answer is only recorded for now.
+      onCaseAnswered: () => undefined,
       ideas,
       spaces,
       sideChats,
