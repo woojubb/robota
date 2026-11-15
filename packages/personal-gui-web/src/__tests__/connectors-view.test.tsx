@@ -733,6 +733,37 @@ describe('finding a service to add', () => {
     );
   });
 
+  it('lets what the note names win over the long-lasting pair when they name the same option', async () => {
+    const add = vi.fn(async () => ({ connector: NOTES }));
+    const conflicting: IConnectorCatalogView = {
+      registry: 'off',
+      entries: [
+        {
+          title: 'Online only',
+          endpoint: 'https://online.example.test/mcp',
+          kind: 'other',
+          auth: 'oauth',
+          source: 'file',
+          oauth: { clientId: 'online-client', authorizationParams: { access_type: 'online' } },
+        },
+      ],
+    };
+    await openAddForm({ connectorCatalog: async () => conflicting, addConnector: add });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByText('Online only');
+    fireEvent.click(screen.getByRole('button', { name: 'Use' }));
+    await screen.findByText('access_type=online');
+    fireEvent.click(screen.getByLabelText(/Ask the service for a long-lasting sign-in/u));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          authorizationParams: { access_type: 'online', prompt: 'consent' },
+        }),
+      ),
+    );
+  });
+
   it('shows a suggestion’s words as plain text, whatever they contain', async () => {
     const hostile: IConnectorCatalogView = {
       registry: 'ok',
