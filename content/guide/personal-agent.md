@@ -84,7 +84,7 @@ or a token, or needing no sign-in) fits the same way; nothing is built in for on
    id and, if the service gives one, its client secret.
 2. Open **Connectors** and choose **Add a connector**. You can search for the service first: the search
    looks in a list you may keep as `connector-catalog.json` in the state folder (a JSON list of objects with
-   `title`, `endpoint`, and optionally `kind`, `auth`, `tokenHeader` and `description`) and in the public MCP
+   `title`, `endpoint`, and optionally `kind`, `auth`, `tokenHeader`, `oauth` and `description`) and in the public MCP
    registry (set `PERSONAL_AGENT_REGISTRY_URL` to another registry's `https` address, or to `off`).
    Choosing a result only fills in the form below, and anyone can list a service in the registry, so check
    that you trust it before you add it. The registry does not say whether a service needs a sign-in, so a
@@ -116,8 +116,8 @@ the agent registers itself, saying whether it is a native or a web application. 
 none of these, the card says *Could not connect* with a note that you register a client yourself (step 1).
 
 A service that only signs in clients registered by hand has three ways through, from least to most
-effort for each person. First, register a client yourself as in step 1 and type its id (and secret) in the
-add form. Second, if you run the agent for others, register one client with the service for your
+effort for each person. First, register a client yourself as in step 1 and type its id in the add form (the
+secret goes in on the card when you connect). Second, if you run the agent for others, register one client with the service for your
 deployment and put it in `connector-catalog.json`: an entry may carry an `oauth` object with `clientId`,
 `scopes` and `authorizationParams`, and choosing the entry fills them in. The list never holds a client
 secret (a secret in the file is dropped), so each person still types it when they connect. Check the

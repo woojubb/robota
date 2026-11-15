@@ -715,6 +715,24 @@ describe('finding a service to add', () => {
     );
   });
 
+  it('sends the options the note names together with the long-lasting pair when the person ticks it', async () => {
+    const add = vi.fn(async () => ({ connector: NOTES }));
+    await openAddForm({ connectorCatalog: async () => SHIPPED, addConnector: add });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByText('Shipped files');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Use' })[1]!);
+    await screen.findByText('audience=files');
+    fireEvent.click(screen.getByLabelText(/Ask the service for a long-lasting sign-in/u));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          authorizationParams: { audience: 'files', access_type: 'offline', prompt: 'consent' },
+        }),
+      ),
+    );
+  });
+
   it('shows a suggestion’s words as plain text, whatever they contain', async () => {
     const hostile: IConnectorCatalogView = {
       registry: 'ok',

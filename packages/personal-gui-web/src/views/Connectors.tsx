@@ -478,7 +478,8 @@ function AddForm({
           ...(oauth && words.length > 0 && { scopes: words }),
           ...(oauth &&
             (stayIn || suggestedParams !== undefined) && {
-              authorizationParams: stayIn ? LONG_LASTING : suggestedParams,
+              // What the note says the suggestion asks for, plus the long-lasting pair when it is ticked.
+              authorizationParams: { ...suggestedParams, ...(stayIn && LONG_LASTING) },
             }),
         });
       }}
