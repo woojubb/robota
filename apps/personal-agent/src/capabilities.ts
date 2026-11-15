@@ -37,6 +37,7 @@ import {
 
 import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playwright-browser.js';
 import { createApprovalRegistry } from './approvals.js';
+import { createCaseTurns } from './case-turns.js';
 import { createChannelTurns } from './channel-turns.js';
 import { createGoalRunner } from './goal-runner.js';
 import { watchBrowser } from './browser/watched-browser.js';
@@ -175,6 +176,7 @@ export function createPersonalCapabilities(
     ]);
   });
   const syncRuns = createSyncRuns({ book: connectorBook, registry: connectors, goals, wiki });
+  const caseTurns = createCaseTurns({ goals, cases });
   let guiOrigins: readonly string[] = [];
   let channelTurns: IChannelTurns | undefined;
   const approvals = createApprovalRegistry(goals);
@@ -238,8 +240,14 @@ export function createPersonalCapabilities(
       wiki,
       goals,
       cases,
-      // The seam where a turn that carries a case on will start: an answer is only recorded for now.
-      onCaseAnswered: () => undefined,
+      // The answer is recorded already; the agent's turn on the case starts behind it and may fail without
+      // touching it.
+      onCaseAnswered: (answered) => {
+        void caseTurns
+          .onAnswered(answered)
+          .then(() => runner?.runDue())
+          .catch(() => undefined);
+      },
       ideas,
       spaces,
       sideChats,
@@ -286,10 +294,12 @@ export function createPersonalCapabilities(
         },
         openSession: (extra) => agent.openSession(extra),
         tickMs: options.goalTickMs ?? DEFAULT_GOAL_TICK_MS,
-        // A sync run reads one connector and adds to the library, with only the tools to do that.
-        shape: syncRuns.shape,
-        // A sync that is reachable, read cleanly and added nothing has nothing to tell the person.
-        quiet: syncRuns.quiet,
+        // A sync run reads one connector and adds to the library; a case turn reads and keeps the case.
+        // Each has only the tools to do that.
+        shape: (goal) => (goal.caseId !== undefined ? caseTurns.shape(goal) : syncRuns.shape(goal)),
+        // A sync that is reachable, read cleanly and added nothing has nothing to tell the person; a case
+        // turn that left a note, a question or its closing on the case has told them already.
+        quiet: (goal) => (goal.caseId !== undefined ? caseTurns.quiet(goal) : syncRuns.quiet(goal)),
       });
     },
     dispose: async () => {
