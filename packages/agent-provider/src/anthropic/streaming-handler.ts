@@ -2,7 +2,9 @@ import { randomId } from '@robota-sdk/agent-core';
 
 import { formatCitedSources, formatWebSearchResults } from './message-converter';
 import { awaitWithProviderRequestId } from './provider-request-id';
+import { countAnthropicUsage } from './usage';
 
+import type { IAnthropicUsage } from './types/api-types';
 import type Anthropic from '@anthropic-ai/sdk';
 import type {
   TProviderNativeRawPayloadCallback,
@@ -63,7 +65,7 @@ export async function streamAndAssemble(
     | { kind: 'server'; name: string; json: string }
     | undefined;
   const citations: Anthropic.Messages.TextCitation[] = [];
-  let usage = { input_tokens: 0, output_tokens: 0 };
+  let usage: IAnthropicUsage = { input_tokens: 0, output_tokens: 0 };
   let sawUsageStart = false;
   let sawUsageEnd = false;
   let model = '';
@@ -173,8 +175,7 @@ export async function streamAndAssemble(
   };
 
   result.metadata = {
-    inputTokens: usage.input_tokens,
-    outputTokens: usage.output_tokens,
+    ...countAnthropicUsage(usage),
     model,
     ...((sawUsageStart || sawUsageEnd) && {
       usageProvenance: sawUsageStart && sawUsageEnd && stopReason ? 'complete' : 'partial',
@@ -208,7 +209,7 @@ function buildPartialResult(
     type: 'function';
     function: { name: string; arguments: string };
   }>,
-  usage: { input_tokens: number; output_tokens: number },
+  usage: IAnthropicUsage,
   model: string,
   providerRequestId?: string,
 ): TUniversalMessage {
@@ -222,8 +223,7 @@ function buildPartialResult(
     ...(toolCalls.length > 0 && { toolCalls }),
   };
   partialResult.metadata = {
-    inputTokens: usage.input_tokens,
-    outputTokens: usage.output_tokens,
+    ...countAnthropicUsage(usage),
     model,
     stopReason: 'aborted',
     usageProvenance: 'partial',
