@@ -6,8 +6,16 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { FeedView } from '../views/Feed.js';
 import { GoalsView } from '../views/Goals.js';
 import { IdeasView } from '../views/Ideas.js';
+import { SpaceView } from '../views/Spaces.js';
 
-import type { IFeedItemView, IGoalRunView, IGoalView, IIdeaView, IPersonalApi } from '../api.js';
+import type {
+  IFeedItemView,
+  IGoalRunView,
+  IGoalView,
+  IIdeaView,
+  IPersonalApi,
+  ISpaceView,
+} from '../api.js';
 
 afterEach(cleanup);
 
@@ -97,6 +105,50 @@ describe('an idea', () => {
 
   it('the person typed is shown exactly as written', async () => {
     render(<IdeasView api={ideasApi([idea('owner')])} onOpenGoal={() => undefined} />);
+    await waitFor(() => expect(screen.getByText('Try the **night ferry**')).toBeTruthy());
+  });
+});
+
+describe('an idea in a space', () => {
+  const space: ISpaceView = {
+    id: 's',
+    name: 'Jeju trip',
+    instructions: 'Keep answers short.',
+    tag: 'jeju',
+    pinned: [],
+    opening: 'Let us plan.',
+  };
+  const idea = (origin: 'owner' | 'agent'): IIdeaView => ({
+    id: origin,
+    text: 'Try the **night ferry**',
+    tags: ['jeju'],
+    origin,
+    status: 'open',
+    createdAt: '2026-11-15T00:00:00Z',
+  });
+  const spaceApi = (ideas: readonly IIdeaView[]): IPersonalApi =>
+    ({
+      spaces: async () => [space],
+      listPages: async () => [],
+      ideas: async () => ideas,
+    }) as unknown as IPersonalApi;
+  const view = (ideas: readonly IIdeaView[]): React.ReactElement => (
+    <SpaceView
+      api={spaceApi(ideas)}
+      spaceId="s"
+      onStartChat={() => undefined}
+      onChanged={() => undefined}
+      onRemoved={() => undefined}
+    />
+  );
+
+  it('the agent suggested is shown as formatted text', async () => {
+    render(view([idea('agent')]));
+    await waitFor(() => expect(screen.getByText('night ferry').tagName).toBe('STRONG'));
+  });
+
+  it('the person typed is shown exactly as written', async () => {
+    render(view([idea('owner')]));
     await waitFor(() => expect(screen.getByText('Try the **night ferry**')).toBeTruthy());
   });
 });

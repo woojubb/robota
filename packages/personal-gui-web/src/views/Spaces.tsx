@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { IdeaText } from './IdeaText.js';
 import { Button, Notice, ViewFrame, errorText, inputClass } from './ui.js';
 
 import type { IIdeaView, IPageSummary, IPersonalApi, ISpaceView } from '../api.js';
@@ -144,7 +145,7 @@ export function SpaceView({
                     key={idea.id}
                     className="rounded-md border border-border px-3 py-2 text-[13.5px]"
                   >
-                    {idea.text}
+                    <IdeaText idea={idea} />
                   </li>
                 ))}
               </ul>
