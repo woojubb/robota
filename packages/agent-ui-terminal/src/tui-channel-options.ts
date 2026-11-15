@@ -108,6 +108,8 @@ export interface ITuiInteractionChannelOptions {
   maxOutputTokens?: number;
   /** Preset prompt seed, distinct from the replacing `systemPrompt` option. */
   presetSystemPrompt?: string;
+  /** The product's own prompt sections, kept through a live preset switch. */
+  productSections?: ICreateSessionOptions['productSections'];
   responseFormat?: ICreateSessionOptions['responseFormat'];
   permissionMode?: TPermissionMode;
   maxTurns?: number;
