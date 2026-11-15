@@ -102,10 +102,20 @@ export interface IGoalRunView {
   }[];
 }
 
+export interface IFeedQuestionView {
+  readonly caseId: string;
+  readonly text: string;
+  readonly options: readonly string[];
+  readonly allowsReply: boolean;
+  /** Open until the person answers; withdrawn when the agent closed the case first. */
+  readonly state: 'open' | 'answered' | 'withdrawn';
+  readonly answer?: { readonly choice?: string; readonly reply?: string; readonly at: string };
+}
+
 export interface IFeedItemView {
   readonly id: string;
   readonly at: string;
-  readonly kind: 'report' | 'approval' | 'notice';
+  readonly kind: 'report' | 'approval' | 'notice' | 'question';
   readonly title: string;
   readonly body: string;
   readonly goalId?: string;
@@ -114,7 +124,36 @@ export interface IFeedItemView {
     readonly detail: string;
     readonly state: 'pending' | 'approved' | 'denied' | 'expired';
   };
+  readonly question?: IFeedQuestionView;
 }
+
+export type TCaseEventKind = 'observed' | 'noted' | 'asked' | 'answered' | 'closed';
+
+export interface ICaseView {
+  readonly id: string;
+  readonly title: string;
+  readonly origin: { readonly connectorId?: string; readonly source: string };
+  readonly state: 'open' | 'closed';
+  readonly notes: readonly { readonly at: string; readonly text: string }[];
+  readonly question?: {
+    readonly text: string;
+    readonly options: readonly string[];
+    readonly allowsReply: boolean;
+    readonly askedAt: string;
+    readonly feedItemId: string;
+  };
+  /** What happened on the case, oldest first. */
+  readonly history: readonly {
+    readonly at: string;
+    readonly kind: TCaseEventKind;
+    readonly text: string;
+  }[];
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+/** One of the offered choices, or a reply in the person's own words. */
+export type TQuestionAnswer = { readonly choice: string } | { readonly reply: string };
 
 export interface IIdeaView {
   readonly id: string;
@@ -339,6 +378,14 @@ export interface IPersonalApi {
     action: 'archive' | 'remove' | 'make-goal',
   ): Promise<{ idea?: IIdeaView; goal?: IGoalView }>;
   answerFeed(id: string, action: 'approve' | 'deny' | 'dismiss'): Promise<unknown>;
+  /** Answer a question in the feed; the answer is recorded on its case. */
+  answerQuestion(
+    itemId: string,
+    answer: TQuestionAnswer,
+  ): Promise<{ item: IFeedItemView; case: ICaseView }>;
+  /** Open cases first, then the ones closed last. */
+  cases(): Promise<readonly ICaseView[]>;
+  caseThread(id: string): Promise<ICaseView>;
   connectors(): Promise<IConnectorsListing>;
   /** Services to suggest when adding a connector, matching what was typed. */
   connectorCatalog(query: string): Promise<IConnectorCatalogView>;
@@ -440,6 +487,10 @@ export function createPersonalApi(
       call('POST', `spaces/${id(spaceId)}/${pinned ? 'pin' : 'unpin'}`, { pageId }),
     ideaAction: (ideaId, action) => call('POST', `ideas/${id(ideaId)}/${action}`),
     answerFeed: (itemId, action) => call('POST', `feed/${id(itemId)}/${action}`),
+    answerQuestion: (itemId, answer) => call('POST', `feed/${id(itemId)}/answer`, answer),
+    cases: async () => (await call<{ cases: ICaseView[] }>('GET', 'cases')).cases,
+    caseThread: async (caseId) =>
+      (await call<{ case: ICaseView }>('GET', `cases/${id(caseId)}`)).case,
     connectors: () => call('GET', 'connectors'),
     connectorCatalog: (query) =>
       call('GET', `connectors/catalog?query=${encodeURIComponent(query)}`),

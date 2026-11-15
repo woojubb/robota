@@ -31,12 +31,16 @@ function own<T>(map: Record<string, T>, id: string): T | undefined {
   return Object.hasOwn(map, id) ? map[id] : undefined;
 }
 
-/** The newest feed items up to the bound, never dropping an approval still waiting for an answer. */
+/** An approval or a question still waiting for an answer. */
+const isWaiting = (item: IFeedItem): boolean =>
+  item.approval?.state === 'pending' || item.question?.state === 'open';
+
+/** The newest feed items up to the bound, never dropping one still waiting for an answer. */
 function boundedFeed(items: IFeedItem[]): IFeedItem[] {
   const sorted = newestFirst(items, (item) => item.at);
-  const waiting = sorted.filter((item) => item.approval?.state === 'pending');
+  const waiting = sorted.filter(isWaiting);
   const rest = sorted
-    .filter((item) => item.approval?.state !== 'pending')
+    .filter((item) => !isWaiting(item))
     .slice(0, Math.max(0, FEED_LIMIT - waiting.length));
   return newestFirst([...waiting, ...rest], (item) => item.at);
 }

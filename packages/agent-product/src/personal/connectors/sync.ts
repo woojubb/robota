@@ -6,6 +6,7 @@
  * context does not grow, and everything in the content is data: the run has only the tools to read,
  * look in the library and file facts, so nothing it reads can make it do anything else.
  */
+import { CASE_TOOL_NAMES } from '../cases/tools.js';
 import { WIKI_TOOL_NAMES } from '../knowledge/tools.js';
 import { ConnectorRefusedError } from './book.js';
 import { CONNECTOR_TOOL_NAMES } from './tools.js';
@@ -24,8 +25,9 @@ const MAX_ITEMS_PER_RUN = 20;
 
 /**
  * The only tools a sync run has. Content from the service is written by others, so a run can read it,
- * look in the library and add what it finds, and nothing else: it cannot change the service, reach the
- * web or the files, drive the browser, rewrite what the person said or set up goals. It is a list of
+ * look in the library, add what it finds and keep a case on what the person should be asked, and nothing
+ * else: it cannot change the service, reach the web or the files, drive the browser, rewrite what the
+ * person said or set up goals. The case tools touch only the agent's own record and the feed. It is a list of
  * what is allowed, not of what is withheld: a tool added later is then not offered until it is named.
  */
 export function syncRunTools(): string[] {
@@ -36,6 +38,7 @@ export function syncRunTools(): string[] {
     WIKI_TOOL_NAMES.index,
     WIKI_TOOL_NAMES.search,
     WIKI_TOOL_NAMES.read,
+    ...Object.values(CASE_TOOL_NAMES),
   ];
 }
 

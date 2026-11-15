@@ -532,8 +532,9 @@ assembled in one process get independently-scoped file tools.
 What a personal agent does, independent of how it is hosted: the capabilities a composition root
 lends a state directory and a live session: the knowledge wiki, the agent's maintained memory of the
 person it works for; the browser it acts on the web through; the goals it keeps working on while the
-person is away, with the feed it reports to; the ideas it keeps for later; the spaces the person
-organizes their life in; the channels the person reaches it through; and the connectors to the services they use.
+person is away, with the feed it reports to; the cases it opens from what it notices and asks the person
+about; the ideas it keeps for later; the spaces the person organizes their life in; the channels the person
+reaches it through; and the connectors to the services they use.
 
 ### Contract
 
@@ -561,6 +562,15 @@ records what the agent did and what it only proposed, and ends with a report in 
 run would ask a person becomes an approval in the feed, and the run waits for that answer rather than
 guessing it. A read-only goal can only look. The book is the record: after a host restarts, a goal it
 was running is due again, and an approval nobody can still answer is marked expired, never approved.
+
+A case is the agent's own record of one matter it noticed: what it saw and noted, the one question it is
+waiting on, and what happened. An item that already has a case gets that case back, open or closed, never a
+second one. The question shows in the feed as its own kind of item, never an approval, with the notes as its
+evidence; the person answers with one of the choices offered or, where the question allows it, in their own
+words, once, and the answer is recorded on the case without running anything. A question whose case closed first
+can no longer be answered. A case touches only the agent's own record and the feed, so a read-only run and a run
+that reads untrusted content may keep one; the agent writes it from content other people wrote, so what it takes
+is bounded and a likely secret is refused.
 
 An idea is kept as the person's or as the agent's own suggestion, and a suggestion stays one: nothing
 acts on an idea until the person takes it up, and an idea taken up records what it became. A space
@@ -601,7 +611,7 @@ records the connector as their origin, by kind, and names it in their reference,
 told from what the person said and can be counted and forgotten together with the connection. A
 filed fact is only ever added: content read from a service never rewrites or retires what the person
 said. Everything the run reads is content written by others, so the run is given only the tools to read,
-look in the library and file, never a list of what is withheld that a tool added later would escape:
+look in the library, file and keep a case, never a list of what is withheld that a tool added later would escape:
 it cannot write to the service, reach the web or files, drive the browser, or rewrite the library.
 Turning a sync off, or disconnecting, takes the access away first and then ends a run in progress rather
 than being refused by it. A run that is reachable, read at least once without a failed read and added
