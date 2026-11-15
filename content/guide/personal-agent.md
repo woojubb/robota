@@ -82,7 +82,14 @@ or a token, or needing no sign-in) fits the same way; nothing is built in for on
    `127.0.0.1` and `localhost` count as different addresses, and a registered address includes the
    port, so run the agent on a fixed one with `personal-agent start --gui-port 7360`) and note its client
    id and, if the service gives one, its client secret.
-2. Open **Connectors** and choose **Add a connector**: a name, what it is for, the service's `https`
+2. Open **Connectors** and choose **Add a connector**. You can search for the service first: the search
+   looks in a list you may keep as `connector-catalog.json` in the state folder (a JSON list of objects with
+   `title`, `endpoint`, and optionally `kind`, `auth`, `tokenHeader` and `description`) and in the public MCP
+   registry (set `PERSONAL_AGENT_REGISTRY_URL` to another registry's `https` address, or to `off`).
+   Choosing a result only fills in the form below, and anyone can list a service in the registry, so check
+   that you trust it before you add it. The registry does not say whether a service needs a sign-in, so a
+   service that lists no required header is offered with the usual sign-in page; change it to *No sign-in
+   needed* when it asks for nothing. Then fill in or check: a name, what it is for, the service's `https`
    address and, for a service from step 1, the client id (and scopes). Tick *Ask the service for a
    long-lasting sign-in* if the service ends sign-ins after about an hour unless asked otherwise; it
    asks you to agree again.

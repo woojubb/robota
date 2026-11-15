@@ -10,6 +10,8 @@ import {
 
 import { CONSENT_CALLBACK_PATH } from './consent.js';
 
+import type { IConnectorCatalog } from './catalog.js';
+
 import type { ILoopbackGuiApiRequest, ILoopbackGuiApiResponse } from '@robota-sdk/agent-local-host';
 import type {
   ConnectorBook,
@@ -32,6 +34,8 @@ export interface IConnectorsApiOptions {
   readonly wiki: KnowledgeWiki;
   /** The origins the person's browser reaches this agent at; a sign-in returns to one of them. */
   readonly origins: () => readonly string[];
+  /** The services the add form can suggest. */
+  readonly catalog: IConnectorCatalog;
 }
 
 export type TConnectorsApi = (
@@ -123,7 +127,7 @@ function authorizationParamsOf(body: Record<string, unknown>): Record<string, st
 
 /** Answers `connectors/...` requests, or `undefined` for a path that is not one. */
 export function createConnectorsApi(options: IConnectorsApiOptions): TConnectorsApi {
-  const { registry, book, sync, wiki } = options;
+  const { registry, book, sync, wiki, catalog } = options;
   /** A connector as the page shows it, with how its sync stands. */
   const show = async (id: string, refresh = false): Promise<Record<string, unknown>> =>
     present(await registry.view(id, { refresh }), await sync.status(id));
@@ -208,6 +212,13 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
         return ok({ connector: await show(connector.id) });
       }
       return undefined;
+    }
+
+    // The services the add form can suggest: values to fill in, not connectors.
+    if (id === 'catalog' && action === undefined) {
+      if (method !== 'GET') return undefined;
+      const answer = await catalog.search(request.query.get('query') ?? '');
+      return ok({ entries: answer.entries, registry: answer.registry });
     }
 
     if (!(await known(id))) return notFound;

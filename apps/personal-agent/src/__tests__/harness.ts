@@ -82,6 +82,7 @@ export async function startHarness(
     browserAllowedHosts?: readonly string[];
     connectorNetwork?: import('../capabilities.js').IPersonalCapabilityOptions['connectorNetwork'];
     connectorClientMetadataUrl?: string;
+    connectorRegistryUrl?: string | null;
     server?: import('../local-mode.js').IServerExposure;
     guiPort?: number;
   } = {},
@@ -107,6 +108,9 @@ export async function startHarness(
     ...(options.connectorNetwork !== undefined && { connectorNetwork: options.connectorNetwork }),
     ...(options.connectorClientMetadataUrl !== undefined && {
       connectorClientMetadataUrl: options.connectorClientMetadataUrl,
+    }),
+    ...(options.connectorRegistryUrl !== undefined && {
+      connectorRegistryUrl: options.connectorRegistryUrl,
     }),
   });
   // Saved the way `personal-agent configure` saves it, so settings read what this run uses.

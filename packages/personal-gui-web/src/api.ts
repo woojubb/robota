@@ -230,6 +230,24 @@ export interface IConnectorView {
   readonly tools?: readonly IConnectorToolView[];
 }
 
+/** A service the add form suggests: values to fill in, never a connection. */
+export interface ICatalogEntryView {
+  readonly title: string;
+  readonly endpoint: string;
+  readonly kind: TConnectorKind;
+  readonly auth: TConnectorAuth;
+  readonly tokenHeader?: string;
+  readonly description?: string;
+  /** Where the suggestion came from, as a word. */
+  readonly source: string;
+}
+
+export interface IConnectorCatalogView {
+  readonly entries: readonly ICatalogEntryView[];
+  /** Whether the public registry answered; `off` when the owner turned it off. */
+  readonly registry: 'ok' | 'unreachable' | 'off';
+}
+
 export interface IConnectorsListing {
   /** The path on this page's origin that a sign-in returns to. */
   readonly callbackPath: string;
@@ -316,6 +334,8 @@ export interface IPersonalApi {
   ): Promise<{ idea?: IIdeaView; goal?: IGoalView }>;
   answerFeed(id: string, action: 'approve' | 'deny' | 'dismiss'): Promise<unknown>;
   connectors(): Promise<IConnectorsListing>;
+  /** Services to suggest when adding a connector, matching what was typed. */
+  connectorCatalog(query: string): Promise<IConnectorCatalogView>;
   addConnector(input: {
     title: string;
     kind: TConnectorKind;
@@ -415,6 +435,8 @@ export function createPersonalApi(
     ideaAction: (ideaId, action) => call('POST', `ideas/${id(ideaId)}/${action}`),
     answerFeed: (itemId, action) => call('POST', `feed/${id(itemId)}/${action}`),
     connectors: () => call('GET', 'connectors'),
+    connectorCatalog: (query) =>
+      call('GET', `connectors/catalog?query=${encodeURIComponent(query)}`),
     addConnector: (input) => call('POST', 'connectors', input),
     connectConnector: (connectorId, { origin, clientSecret, token }) =>
       call('POST', `connectors/${id(connectorId)}/connect`, {

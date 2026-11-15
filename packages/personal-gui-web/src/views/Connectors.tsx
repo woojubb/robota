@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button, Notice, ViewFrame, errorText, inputClass, when } from './ui.js';
 
 import type {
+  IConnectorCatalogView,
   IConnectorToolView,
   IConnectorView,
   IConnectorsListing,
@@ -399,10 +400,12 @@ function ConnectorCard({
 
 function AddForm({
   redirectUri,
+  search,
   onAdd,
   onCancel,
 }: {
   readonly redirectUri: string;
+  readonly search: (query: string) => Promise<IConnectorCatalogView>;
   readonly onAdd: (input: {
     title: string;
     kind: TConnectorKind;
@@ -415,6 +418,28 @@ function AddForm({
   }) => Promise<void>;
   readonly onCancel: () => void;
 }): React.ReactElement {
+  // Suggestions are values to fill in below; nothing is added until the person presses Add.
+  const [query, setQuery] = useState('');
+  // What was found, and for which words: an answer that arrives after a newer search is dropped.
+  const [found, setFound] = useState<
+    { readonly view: IConnectorCatalogView; readonly query: string } | undefined
+  >(undefined);
+  const [searchError, setSearchError] = useState<string | undefined>(undefined);
+  const newest = useRef(0);
+  const runSearch = async (): Promise<void> => {
+    newest.current += 1;
+    const mine = newest.current;
+    const asked = query;
+    setSearchError(undefined);
+    try {
+      const view = await search(asked);
+      if (mine === newest.current) setFound({ view, query: asked });
+    } catch (caught) {
+      if (mine !== newest.current) return;
+      setFound(undefined);
+      setSearchError(errorText(caught));
+    }
+  };
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<TConnectorKind>('mail');
   const [endpoint, setEndpoint] = useState('');
@@ -446,6 +471,80 @@ function AddForm({
         });
       }}
     >
+      <section aria-label="Find a service" className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <input
+            aria-label="Search for a service"
+            placeholder="Search for a service to connect"
+            className={`${inputClass} flex-1`}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              // Enter searches; it must not submit the form below and add something.
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void runSearch();
+              }
+            }}
+          />
+          <Button onClick={() => void runSearch()}>Search</Button>
+        </div>
+        {searchError !== undefined && <Notice tone="error">{searchError}</Notice>}
+        {found?.view.registry === 'unreachable' && (
+          <p className="text-[12.5px] text-muted-foreground">
+            The public registry could not be reached, so only your own list is shown.
+          </p>
+        )}
+        {found !== undefined && found.view.entries.length === 0 && (
+          <p className="text-[12.5px] text-muted-foreground">
+            Nothing found. You can still type the service’s address below.
+          </p>
+        )}
+        {found !== undefined && found.view.entries.length > 0 && (
+          <>
+            <p className="text-[12.5px] font-medium">
+              {found.query === '' ? 'Suggestions' : `Results for “${found.query}”`}
+            </p>
+            <p className="text-[12.5px] text-muted-foreground">
+              Anyone can list a service in the registry: check that you trust one before you add it.
+              Choosing one only fills in the form below.
+            </p>
+            <ul className="divide-y divide-border rounded-md border border-border">
+              {found.view.entries.map((entry) => (
+                <li key={entry.endpoint} className="flex items-center gap-2 px-2 py-1.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium">{entry.title}</p>
+                    {entry.description !== undefined && (
+                      <p className="truncate text-[12px] text-muted-foreground">
+                        {entry.description}
+                      </p>
+                    )}
+                    <p className="truncate text-[12px] text-muted-foreground">
+                      {new URL(entry.endpoint).hostname} ·{' '}
+                      {AUTH_CHOICES.find((choice) => choice.value === entry.auth)?.label} ·{' '}
+                      {entry.source === 'file' ? 'your list' : 'public registry'}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      setTitle(entry.title);
+                      setKind(entry.kind);
+                      setEndpoint(entry.endpoint);
+                      setAuth(entry.auth);
+                      setTokenHeader(entry.tokenHeader ?? '');
+                      setClientId('');
+                      setScopes('');
+                      setStayIn(false);
+                    }}
+                  >
+                    Use
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
       <label className="flex flex-col gap-1 text-[13px]">
         Name
         <input
@@ -605,6 +704,7 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
       {adding && (
         <AddForm
           redirectUri={redirectUri}
+          search={(query) => api.connectorCatalog(query)}
           onCancel={() => setAdding(false)}
           onAdd={(input) =>
             run(async () => {
