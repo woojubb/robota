@@ -1,4 +1,4 @@
-import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
+import { TRUST_TO_MODE, isToolDeniedOutright, toolNamesToPatterns } from '@robota-sdk/agent-core';
 
 import { buildAgentRuntime } from './build-runtime.js';
 import { formatDeferredToolRoster } from './deferred-tool-roster.js';
@@ -40,9 +40,10 @@ import type { Session } from '@robota-sdk/agent-session';
  * module boundary would exist for nobody.
  *
  * A LIMIT worth meeting head-on now that the list sits beside its consumer: this inventory is
- * hard-coded and is NOT derived from the tools the session actually assembled. It happens to be
- * accurate for every in-repo product today. Making it derived is filed separately; putting the list
- * here is what makes the gap visible at the site that would fix it.
+ * hard-coded and is NOT derived from the tools the session actually assembled. The one thing it
+ * follows is what the session denies outright, because the model is never given such a tool and a
+ * prompt that names it invites a call that is refused. Deriving the rest is filed separately;
+ * putting the list here is what makes the gap visible at the site that would fix it.
  */
 /** Human-readable descriptions of the built-in tools (for system prompt) */
 export const DEFAULT_TOOL_DESCRIPTIONS = [
@@ -279,12 +280,19 @@ export function buildSessionSystemPrompt(
           'BackgroundProcess — start long-running shell commands as managed background tasks',
         ]
       : defaultToolDescriptions);
+  // The model is never offered a tool its session denies outright, so neither list names one: a
+  // prompt that did would have the model call a tool that is only ever refused.
+  const denied = [
+    ...(options.config.permissions.deny ?? []),
+    ...toolNamesToPatterns(options.deniedTools),
+  ];
+  const isOffered = (toolName: string): boolean => !isToolDeniedOutright(toolName, denied);
   // Appended AFTER the override branch, deliberately. A caller supplying its own
   // `toolDescriptions` owns which resident tools are described, but no caller can know what this
   // session deferred — and a deferred tool the model is never told about cannot be searched for.
   const resolvedToolDescriptions = [
-    ...listedToolDescriptions,
-    ...formatDeferredToolRoster(assembledTools),
+    ...listedToolDescriptions.filter((line) => isOffered(/^\S+/.exec(line)?.[0] ?? line)),
+    ...formatDeferredToolRoster(assembledTools.filter((tool) => isOffered(tool.getName()))),
   ];
 
   // Persona is mutable for the lifetime of this closure. A live preset switch can

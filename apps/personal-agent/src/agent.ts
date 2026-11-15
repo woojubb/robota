@@ -70,10 +70,15 @@ export interface IExtraSessionOptions {
 }
 
 export function createPersonalAgent(options: IPersonalAgentOptions): IPersonalAgent {
-  const workspace = join(options.stateDir, 'workspace');
-  mkdirSync(workspace, { recursive: true, mode: 0o700 });
+  const host = createNodeFrameworkHost({ createDefaultTools });
+  const folder = join(options.stateDir, 'workspace');
+  mkdirSync(folder, { recursive: true, mode: 0o700 });
+  // A saved chat records this folder as the host spells a real path, and the chat list shows the chats
+  // whose recorded folder is the one it is given. Spelled as the state directory spells it, a path
+  // that crosses a symlink (macOS keeps its temporary folders and `/tmp` behind one) lists no chats.
+  const workspace = host.canonicalizePath?.(folder) ?? folder;
   const runtime = createAgentRuntime({
-    host: createNodeFrameworkHost({ createDefaultTools }),
+    host,
     cwd: workspace,
     provider: options.provider,
     sessionStore: createPersonalSessionStore(options.stateDir),

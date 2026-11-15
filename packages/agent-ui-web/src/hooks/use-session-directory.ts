@@ -30,7 +30,7 @@ function keepsSessionsLive(listing: TSessionListing): boolean {
 }
 
 /**
- * A desktop Reconnect reloads the page, which loses every bit of JS state — so the
+ * A reload — a desktop Reconnect's, or the person's own — loses every bit of JS state, so the
  * session to go back to cannot live in a ref like `lastSwitchedIdRef` below. `sessionStorage` survives
  * the reload (and only that tab), so it carries the id across it. Namespaced so a page hosting other
  * state under the same origin does not collide.
@@ -38,10 +38,10 @@ function keepsSessionsLive(listing: TSessionListing): boolean {
 function restoreSessionStorageKey(namespace: string): string { return `${namespace}.restoreSessionId`; }
 
 /**
- * Remember `sessionId` so the reload a desktop Reconnect triggers can switch back to it once the
- * first session listing arrives (see {@link useSessionDirectoryState}). Best-effort: a host whose
- * storage is unavailable simply lands on whatever session the daemon puts a fresh connection on, same
- * as before this existed.
+ * Remember `sessionId` so a reload can switch back to it once the first session listing arrives (see
+ * {@link useSessionDirectoryState}). The surface does this itself whenever its session changes; a
+ * host that restarts the runtime before reloading may do it too. Best-effort: a host whose storage is
+ * unavailable simply lands on whatever session the daemon puts a fresh connection on.
  */
 export function rememberSessionForRestore(namespace: string, sessionId: string): void {
   try {
@@ -184,6 +184,8 @@ export function useSessionDirectoryState(
   const canListSessions = useCallback((): boolean => !notAvailableRef.current, []);
   const markCurrent = useCallback((sessionId: string): void => {
     lastSwitchedIdRef.current = sessionId;
+    // A reload lands on the host's primary session; this is what takes it back to the open one.
+    rememberSessionForRestore(browserNamespace, sessionId);
     setSessionListing((previous) =>
       previous === null ? previous : { ...previous, currentSessionId: sessionId },
     );

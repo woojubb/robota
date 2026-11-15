@@ -1,3 +1,4 @@
+import { MarkdownText } from '@robota-sdk/agent-ui-web/client';
 import { useCallback, useEffect, useState } from 'react';
 
 import { Button, Notice, ViewFrame, errorText, inputClass, interval, when } from './ui.js';
@@ -282,7 +283,7 @@ function GoalDetail({
               {when(run.startedAt)} · {run.outcome ?? 'in progress'}
             </div>
             {run.report !== undefined && (
-              <p className="mt-1 whitespace-pre-wrap text-[14px]">{run.report}</p>
+              <MarkdownText className="mt-1 text-[14px]">{run.report}</MarkdownText>
             )}
             {run.actions.length > 0 && (
               <details className="mt-2">
