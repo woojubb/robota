@@ -1,5 +1,13 @@
 # @robota-sdk/agent-provider
 
+## 3.3.5
+### Patch Changes
+
+- a149dc9: The Anthropic provider now records prompt-cache usage. The API reports `input_tokens` as the uncached remainder of the prompt and the cache read and cache write beside it, and the adapter dropped both. It now records the whole prompt as the input and the cache read as a subset of it (`cacheReadTokens`), on the streamed, the cut-short and the non-streaming paths, matching the other adapters that report cached tokens. A call that reports no cache fields records exactly what it did before.
+- 47f3fa4: The Anthropic provider now asks the API to cache the prompt of an agent loop. A call marks the end of the system prompt (which also covers the tools before it) and the end of the history, so each call of a session reads what the previous one wrote instead of paying full price for the whole prompt again. The markers are sent only to the vendor endpoint, never to a configured `baseURL` gateway, and the text the model is shown does not change. A prefix below the model's minimum silently does not cache. The first call that writes a cache entry costs more than an uncached one, so a one-call run pays slightly more and a multi-call session pays much less.
+- Updated dependencies [0da6a59]
+  - @robota-sdk/agent-core@3.3.3
+
 ## 3.3.4
 ### Patch Changes
 

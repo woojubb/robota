@@ -1,5 +1,12 @@
 # @robota-sdk/agent-transport
 
+## 3.4.3
+### Patch Changes
+
+- 4af39a2: `WsTransport` reports the port it actually bound, so a host can ask for `port: 0` (any free port) and hand its client a reachable URL.
+- Updated dependencies [0da6a59]
+  - @robota-sdk/agent-core@3.3.3
+
 ## 3.4.2
 ### Patch Changes
 

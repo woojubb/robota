@@ -1,5 +1,17 @@
 # @robota-sdk/agent-ui-terminal
 
+## 3.2.8
+### Patch Changes
+
+- 386def1: The terminal accepts `productSections` beside `presetSystemPrompt` and hands it to the session it creates, so a product that composes the terminal keeps its own prompt sections through a live preset switch.
+- Updated dependencies [0da6a59]
+- Updated dependencies [386def1]
+- Updated dependencies [8bb5204]
+- Updated dependencies [4af39a2]
+  - @robota-sdk/agent-core@3.3.3
+  - @robota-sdk/agent-framework@3.3.6
+  - @robota-sdk/agent-transport@3.4.3
+
 ## 3.2.7
 ### Patch Changes
 
