@@ -64,7 +64,12 @@ interface IWorld {
   readonly notes: IStandInConnector;
   readonly calendar: IStandInConnector;
   readonly origin: string;
-  call(method: string, segments: string[], body?: unknown): Promise<{ status: number; body: any }>;
+  call(
+    method: string,
+    segments: string[],
+    body?: unknown,
+    query?: Record<string, string>,
+  ): Promise<{ status: number; body: any }>;
   /** What the person's browser does: consent at the service, then follow the redirect back. */
   consent(authorizationUrl: string, decision?: 'approve' | 'deny'): Promise<Response>;
   add(title: string, kind: string, host: string, extra?: Record<string, unknown>): Promise<string>;
@@ -83,7 +88,7 @@ afterEach(async () => {
 async function world(
   authorization: Omit<IStandInAuthorizationOptions, 'publicBase'> = {},
   extraHosts: Readonly<Record<string, number>> = {},
-  app: { readonly clientMetadataUrl?: string } = {},
+  app: { readonly clientMetadataUrl?: string; readonly registryUrl?: string | null } = {},
 ): Promise<IWorld> {
   const auth = withTokenCheck(
     await startStandInAuthorizationServer({ publicBase: `https://${AUTH_HOST}`, ...authorization }),
@@ -112,16 +117,17 @@ async function world(
     ...(app.clientMetadataUrl !== undefined && {
       connectorClientMetadataUrl: app.clientMetadataUrl,
     }),
+    ...(app.registryUrl !== undefined && { connectorRegistryUrl: app.registryUrl }),
   });
   closers.push(() => harness.close());
   const origin = new URL(harness.local.gui!.url).origin;
 
-  const call: IWorld['call'] = async (method, segments, body) => {
+  const call: IWorld['call'] = async (method, segments, body, query = {}) => {
     const answer = await harness.capabilities.api({
       method,
       path: `/${segments.join('/')}`,
       segments,
-      query: new URLSearchParams(),
+      query: new URLSearchParams(query),
       body,
     });
     return { status: answer.status, body: answer.body as any };
@@ -611,6 +617,72 @@ describe('a service that gives a client you registered a secret', () => {
     const view = await w.waitForState(hijack, 'failed');
     expect(view.status.reason).toBe('authorization-params-invalid');
     expect(w.auth.authorizationRequests).toEqual([]);
+  });
+});
+
+describe('suggesting services to add', () => {
+  const REGISTRY_HOST = 'registry.stand-in.test';
+
+  /** The public registry, as a service that answers one page and notes what it was asked. */
+  async function registryServer() {
+    const asked: string[] = [];
+    const server = createServer((request, response) => {
+      asked.push(request.url ?? '');
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          servers: [
+            {
+              server: {
+                name: 'example.test/notes',
+                title: 'Example notes',
+                description: 'Find and file notes',
+                remotes: [{ type: 'streamable-http', url: 'https://notes.example.test/mcp' }],
+              },
+              _meta: { 'io.modelcontextprotocol.registry/official': { status: 'active' } },
+            },
+          ],
+        }),
+      );
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    closers.push(() => new Promise<void>((resolve) => server.close(() => resolve())));
+    return { port: (server.address() as { port: number }).port, asked };
+  }
+
+  it('answers a search with values the add form can take, and what it asked the registry', async () => {
+    const registry = await registryServer();
+    const w = await world(
+      {},
+      { [REGISTRY_HOST]: registry.port },
+      { registryUrl: `https://${REGISTRY_HOST}` },
+    );
+    const answer = await w.call('GET', ['connectors', 'catalog'], undefined, { query: 'notes' });
+    expect(answer.status).toBe(200);
+    expect(answer.body).toEqual({
+      registry: 'ok',
+      entries: [
+        {
+          title: 'Example notes',
+          endpoint: 'https://notes.example.test/mcp',
+          kind: 'other',
+          auth: 'oauth',
+          description: 'Find and file notes',
+          source: 'registry',
+        },
+      ],
+    });
+    expect(registry.asked).toEqual(['/v0.1/servers?limit=30&version=latest&search=notes']);
+    // A suggestion changes nothing by itself: no connector exists until the person adds one.
+    expect((await w.call('GET', ['connectors'])).body.connectors).toEqual([]);
+    // Only reading is offered, and a connector can never be named `catalog`.
+    expect((await w.call('POST', ['connectors', 'catalog'], {})).status).not.toBe(200);
+  });
+
+  it('says the registry is off, with the owner’s own entries, when it is turned off', async () => {
+    const w = await world({}, {}, { registryUrl: null });
+    const answer = await w.call('GET', ['connectors', 'catalog']);
+    expect(answer.body).toEqual({ registry: 'off', entries: [] });
   });
 });
 

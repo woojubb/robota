@@ -6,7 +6,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPersonalApi } from '../api.js';
 import { ConnectorsView } from '../views/Connectors.js';
 
-import type { IConnectorView, IConnectorsListing, IPersonalApi } from '../api.js';
+import type {
+  IConnectorCatalogView,
+  IConnectorView,
+  IConnectorsListing,
+  IPersonalApi,
+} from '../api.js';
 
 afterEach(() => {
   cleanup();
@@ -458,6 +463,184 @@ describe('the Connectors tab', () => {
   });
 });
 
+describe('finding a service to add', () => {
+  const FOUND: IConnectorCatalogView = {
+    registry: 'ok',
+    entries: [
+      {
+        title: 'Example notes',
+        endpoint: 'https://notes.example.test/mcp',
+        kind: 'notes',
+        auth: 'token',
+        tokenHeader: 'X-Api-Key',
+        description: 'Find and file notes',
+        source: 'registry',
+      },
+      {
+        title: 'Team calendar',
+        endpoint: 'https://calendar.example.test/mcp',
+        kind: 'calendar',
+        auth: 'oauth',
+        source: 'file',
+      },
+    ],
+  };
+
+  async function openAddForm(extra: Partial<IPersonalApi>) {
+    render(<ConnectorsView api={fakeApi([], extra)} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a connector' }));
+  }
+
+  it('shows what a search found, and choosing one only fills in the form until the person adds it', async () => {
+    const search = vi.fn(async () => FOUND);
+    const add = vi.fn(async () => ({ connector: NOTES }));
+    await openAddForm({ connectorCatalog: search, addConnector: add });
+    fireEvent.change(screen.getByLabelText('Search for a service'), { target: { value: 'notes' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByText('Example notes');
+    expect(search).toHaveBeenCalledWith('notes');
+    expect(
+      screen.getByText(/notes\.example\.test · Paste a token or API key · public registry/u),
+    ).toBeTruthy();
+    expect(screen.getByText(/calendar\.example\.test · .* · your list/u)).toBeTruthy();
+    expect(screen.getByText(/check that you trust one before you add it/u)).toBeTruthy();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Use' })[0]!);
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Example notes');
+    expect((screen.getByLabelText('Address of the service') as HTMLInputElement).value).toBe(
+      'https://notes.example.test/mcp',
+    );
+    expect((screen.getByLabelText('How it signs you in') as HTMLSelectElement).value).toBe('token');
+    expect((screen.getByLabelText(/Header the token goes in/u) as HTMLInputElement).value).toBe(
+      'X-Api-Key',
+    );
+    // Nothing is added by choosing.
+    expect(add).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith({
+        title: 'Example notes',
+        kind: 'notes',
+        endpoint: 'https://notes.example.test/mcp',
+        auth: 'token',
+        tokenHeader: 'X-Api-Key',
+      }),
+    );
+  });
+
+  it('searches on Enter without adding anything, and clears what a previous choice filled that belongs to another sign-in', async () => {
+    const search = vi.fn(async () => FOUND);
+    const add = vi.fn(async () => ({ connector: NOTES }));
+    await openAddForm({ connectorCatalog: search, addConnector: add });
+    fireEvent.change(screen.getByLabelText('Client id you registered (optional)'), {
+      target: { value: 'my-client' },
+    });
+    fireEvent.change(screen.getByLabelText('Search for a service'), { target: { value: 'cal' } });
+    // The key press is cancelled, so the browser does not submit the form below and add something.
+    expect(fireEvent.keyDown(screen.getByLabelText('Search for a service'), { key: 'Enter' })).toBe(
+      false,
+    );
+    await screen.findByText('Team calendar');
+    expect(add).not.toHaveBeenCalled();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Use' })[1]!);
+    expect(
+      (screen.getByLabelText('Client id you registered (optional)') as HTMLInputElement).value,
+    ).toBe('');
+  });
+
+  it('says so when the registry could not be reached, when nothing was found, and when the search failed', async () => {
+    const { unmount } = render(
+      <ConnectorsView
+        api={fakeApi([], {
+          connectorCatalog: async () => ({ ...FOUND, registry: 'unreachable' }),
+        })}
+      />,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a connector' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByText(/public registry could not be reached/u);
+    unmount();
+
+    const empty = render(
+      <ConnectorsView
+        api={fakeApi([], { connectorCatalog: async () => ({ registry: 'ok', entries: [] }) })}
+      />,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a connector' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByText(/Nothing found/u);
+    empty.unmount();
+
+    render(
+      <ConnectorsView
+        api={fakeApi([], {
+          connectorCatalog: async () => {
+            throw new Error('The agent is not reachable');
+          },
+        })}
+      />,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a connector' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByText('The agent is not reachable');
+  });
+
+  it('names the words the results are for, and drops an answer that arrives after a newer search', async () => {
+    let release!: (view: IConnectorCatalogView) => void;
+    const slow = new Promise<IConnectorCatalogView>((resolve) => {
+      release = resolve;
+    });
+    const search = vi
+      .fn<(query: string) => Promise<IConnectorCatalogView>>()
+      .mockImplementationOnce(() => slow)
+      .mockImplementationOnce(async () => FOUND);
+    await openAddForm({ connectorCatalog: search });
+    const field = screen.getByLabelText('Search for a service');
+    fireEvent.change(field, { target: { value: 'old' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    fireEvent.change(field, { target: { value: 'new' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByText('Results for “new”');
+    // The first answer comes back last and is not shown over the newer one.
+    release({
+      registry: 'ok',
+      entries: [
+        {
+          title: 'Stale answer',
+          endpoint: 'https://stale.example.test/mcp',
+          kind: 'other',
+          auth: 'oauth',
+          source: 'registry',
+        },
+      ],
+    });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(screen.queryByText('Stale answer')).toBeNull();
+    expect(screen.getByText('Example notes')).toBeTruthy();
+  });
+
+  it('shows a suggestion’s words as plain text, whatever they contain', async () => {
+    const hostile: IConnectorCatalogView = {
+      registry: 'ok',
+      entries: [
+        {
+          title: 'Looks fine',
+          endpoint: 'https://notes.example.test/mcp',
+          kind: 'other',
+          auth: 'oauth',
+          description: '<img src=x onerror=alert(1)><script>alert(2)</script>',
+          source: 'registry',
+        },
+      ],
+    };
+    await openAddForm({ connectorCatalog: async () => hostile });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByText(/<script>alert\(2\)<\/script>/u);
+    expect(document.querySelector('img[src="x"]')).toBeNull();
+    expect(document.querySelector('script')).toBeNull();
+  });
+});
+
 describe('the connector calls of the API client', () => {
   it('use the connector routes and encode ids and tool names', async () => {
     const calls: { url: string; init: RequestInit | undefined }[] = [];
@@ -466,6 +649,7 @@ describe('the connector calls of the API client', () => {
       return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
     });
     await api.connectors();
+    await api.connectorCatalog('mail & notes');
     await api.connectConnector('connector-a', { origin: 'https://agent.example' });
     await api.connectConnector('connector-a', { token: 'typed-token' });
     await api.disconnectConnector('connector-a', true);
@@ -475,6 +659,7 @@ describe('the connector calls of the API client', () => {
     await api.decideConnectorTool('connector-a', 'tool/with space', null);
     expect(calls.map((call) => `${call.init?.method ?? 'GET'} ${call.url}`)).toEqual([
       'GET api/connectors',
+      'GET api/connectors/catalog?query=mail%20%26%20notes',
       'POST api/connectors/connector-a/connect',
       'POST api/connectors/connector-a/connect',
       'POST api/connectors/connector-a/disconnect',
@@ -483,12 +668,12 @@ describe('the connector calls of the API client', () => {
       'POST api/connectors/connector-a/sync',
       'POST api/connectors/connector-a/tools/tool%2Fwith%20space',
     ]);
-    expect(calls[1]!.init?.body).toBe(JSON.stringify({ origin: 'https://agent.example' }));
+    expect(calls[2]!.init?.body).toBe(JSON.stringify({ origin: 'https://agent.example' }));
     // A token sign-in never comes back to this page, so it carries no origin.
-    expect(calls[2]!.init?.body).toBe(JSON.stringify({ token: 'typed-token' }));
-    expect(calls[3]!.init?.body).toBe(JSON.stringify({ forgetPulled: true }));
-    expect(calls[4]!.init?.body).toBe(JSON.stringify({ forgetPulled: false }));
-    expect(calls[6]!.init?.body).toBe(JSON.stringify({ everyMinutes: 60 }));
-    expect(calls[7]!.init?.body).toBe(JSON.stringify({ decision: null }));
+    expect(calls[3]!.init?.body).toBe(JSON.stringify({ token: 'typed-token' }));
+    expect(calls[4]!.init?.body).toBe(JSON.stringify({ forgetPulled: true }));
+    expect(calls[5]!.init?.body).toBe(JSON.stringify({ forgetPulled: false }));
+    expect(calls[7]!.init?.body).toBe(JSON.stringify({ everyMinutes: 60 }));
+    expect(calls[8]!.init?.body).toBe(JSON.stringify({ decision: null }));
   });
 });

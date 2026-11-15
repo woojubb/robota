@@ -580,7 +580,11 @@ is signed in to is the person's choice: the service's own sign-in page (the defa
 pastes, or none at all. A token, and a client secret for a service that gives a client the person registered
 one, are typed at sign-in, held for that sign-in alone and kept only with the credential the host stores
 owner-only; no record, answer or log carries them, and a record names at most the header a token goes in,
-never one the connection itself uses. A connector may name a few plain-word options for the sign-in request (a service may need one to
+never one the connection itself uses. A catalog entry is a suggestion for the add form, accepted
+only if the connector it stands for could be created. It comes from the owner's file or from the
+public registry, where a remote is offered only when pasting one token can sign in to it (its address
+has no variable and it needs at most one secret header). An entry's words are somebody else's: they
+are shown to the person and never reach the model. A connector may name a few plain-word options for the sign-in request (a service may need one to
 issue a sign-in that lasts), never a parameter the sign-in sets itself. The agent
 has three tools whatever is connected: one lists, one reads, one writes. A tool is read only when the person
 said so or the service declared it read-only; a declaration is the service's claim, so a tool that declares
