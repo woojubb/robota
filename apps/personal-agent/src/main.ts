@@ -16,6 +16,7 @@ import { ensureStateDir, loadConfig, resolveStateDir, saveConfig } from './confi
 import { startLocalMode } from './local-mode.js';
 import { createProviderFromProfile } from './provider.js';
 import { createPersonalCapabilities } from './capabilities.js';
+import { clientMetadataUrlFrom } from './connectors/client-metadata-url.js';
 import { ensureEnvFile, openInEditor, withEnvFile } from './env-file.js';
 import {
   DEFAULT_GUI_PORT,
@@ -131,10 +132,13 @@ export async function main(
     .split(',')
     .map((host) => host.trim().toLowerCase())
     .filter((host) => host !== '');
+  // The address of a hosted client metadata document naming this agent, for services that take one in place of a registration.
+  const clientMetadataUrl = clientMetadataUrlFrom(merged);
   const capabilities = createPersonalCapabilities({
     stateDir,
     environment: merged,
     ...(connectorHosts.length > 0 && { connectorAllowedHosts: connectorHosts }),
+    ...(clientMetadataUrl !== undefined && { connectorClientMetadataUrl: clientMetadataUrl }),
   });
   const local = await startLocalMode({
     stateDir,

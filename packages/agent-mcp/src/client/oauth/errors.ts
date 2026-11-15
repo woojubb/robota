@@ -22,8 +22,17 @@ export type TMCPOAuthFailure =
   | 'insecure-endpoint'
   /** The authorization server does not advertise PKCE with `S256`. */
   | 'pkce-unsupported'
+  /** No pre-registered client, no usable client metadata document and no registration endpoint: the person has to register a client. */
   | 'registration-unavailable'
   | 'registration-failed'
+  /** The configured client metadata address is not an `https` address with a path and no credential or fragment. */
+  | 'client-metadata-url-invalid'
+  /**
+   * The authorization server takes a client metadata document but the host's one could not be read,
+   * is not the document of that address, or does not list this sign-in's redirect address, and the
+   * server offers no registration to fall back on.
+   */
+  | 'client-metadata-unusable'
   /** A client secret was supplied for a client the definition does not pre-register. */
   | 'client-secret-without-client-id'
   /** The configured authorization parameters would replace one the sign-in sets, or are not plain words. */

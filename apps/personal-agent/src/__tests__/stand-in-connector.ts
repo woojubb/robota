@@ -104,6 +104,8 @@ export interface IStandInAuthorizationOptions {
   readonly requiredClientSecret?: string;
   /** A service that issues a refresh token only when the authorization request asked for offline access. */
   readonly refreshOnlyWhenOfflineRequested?: boolean;
+  /** A service that takes the address of a client metadata document as a client id. */
+  readonly clientDocuments?: boolean;
 }
 
 interface ICode {
@@ -174,6 +176,9 @@ export async function startStandInAuthorizationServer(
             token_endpoint: `${base}/token`,
             ...(options.requiredClientSecret === undefined && {
               registration_endpoint: `${base}/register`,
+            }),
+            ...(options.clientDocuments === true && {
+              client_id_metadata_document_supported: true,
             }),
             ...(revocationOffered && { revocation_endpoint: `${base}/revoke` }),
             response_types_supported: ['code'],
