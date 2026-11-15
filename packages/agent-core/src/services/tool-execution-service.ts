@@ -105,7 +105,7 @@ export class ToolExecutionService {
       // A registered tool the model is not offered is one of two things: a deferred tool it has not
       // loaded (visible, so a search can load it), or one the session hides outright — denied, or
       // outside its allowed set. The model was never shown the second, so a call to it is answered
-      // as unavailable rather than reaching the permission gate, whose refusal reads as the person
+      // as not allowed rather than reaching the permission gate, whose refusal reads as the person
       // having said no.
       const notOffered =
         catalog === 'offered' &&
@@ -354,7 +354,7 @@ function formatUnknownToolError(
   const available =
     availableTools.length > 0 ? availableTools.join(', ') : 'no registered tools are available';
   if (kind === 'hidden') {
-    return `Tool "${toolName}" is not available in this session, so the tool call was not executed. Available tools: ${available}.`;
+    return `Tool "${toolName}" is not allowed in this session, so the tool call was not executed. Available tools: ${available}.`;
   }
   if (kind === 'deferred') {
     return (

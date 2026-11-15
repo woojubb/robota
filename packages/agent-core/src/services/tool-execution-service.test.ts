@@ -232,7 +232,7 @@ describe('ToolExecutionService', () => {
       expect(tools.executeTool).not.toHaveBeenCalled();
     });
 
-    it('answers a call to a registered tool the session hides as unavailable, not as a refusal', async () => {
+    it('answers a call to a registered tool the session hides as not allowed, not as a refusal by the person', async () => {
       const tools = createMockToolManager({
         getTools: vi.fn().mockReturnValue([{ name: 'Read' }]),
         getOfferedTools: vi.fn().mockReturnValue([{ name: 'Read' }]),
@@ -250,7 +250,7 @@ describe('ToolExecutionService', () => {
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Tool "Bash" is not available in this session');
+      expect(result.error).toContain('Tool "Bash" is not allowed in this session');
       expect(result.error).toContain('Available tools: Read');
       expect(result.error).not.toContain('not registered');
       expect(result.metadata).toEqual({
@@ -298,7 +298,7 @@ describe('ToolExecutionService', () => {
         createToolContext({ executionId: 'call_denied_deferred' }),
       );
 
-      expect(result.error).toContain('is not available in this session');
+      expect(result.error).toContain('is not allowed in this session');
       expect(result.error).not.toContain('ToolSearch');
     });
 
