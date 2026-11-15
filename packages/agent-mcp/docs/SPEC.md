@@ -94,7 +94,13 @@ authoritative, so each guarantee below is stated, and held, once.
   revoke it, so an authorization server that is down or refuses cannot keep the user signed in. A
   sign-in state shown to the user is a fixed word, never derived from a token. Storage is a
   get/set/delete port with that coordination on the caller's side, so a keychain can replace files
-  without anything else changing. A client secret never lives in a definition. Every request goes
+  without anything else changing. A client secret never lives in a definition. The client of a
+  sign-in is, in this order, the one the person registered; the host's published client metadata
+  document, when the authorization server accepts one and the document is this client's and lists
+  this sign-in's redirect (so the server is never handed a redirect it would refuse after the user
+  was sent to it); a dynamic registration that says whether the redirect is a native or a web
+  application; else the sign-in is refused with a fixed reason that tells the user a client must be
+  registered. Every request goes
   through the host's OAuth network port, which holds these bounds, so a host that gives none cannot
   sign in, refresh or sign out; the loopback listener is a port too, and a sign-in that needs one
   without it fails with `callback-unavailable` before the user is shown anything.

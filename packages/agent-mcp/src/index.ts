@@ -185,6 +185,7 @@ export {
 } from './client/oauth/store.js';
 export type { IMCPOAuthRefreshLock } from './client/oauth/refresh-lock.js';
 export {
+  isClientMetadataUrl,
   runMCPOAuthLogin,
   type IMCPOAuthLoginInput,
   type IMCPOAuthLoginResult,

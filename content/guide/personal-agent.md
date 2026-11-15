@@ -97,6 +97,17 @@ or a token, or needing no sign-in) fits the same way; nothing is built in for on
    connect*, read the reason on the card and press **Connect again**; if the client id was wrong, remove
    the connector and add it again with the right one.
 
+The agent gets a client for the sign-in in this order. The client id you typed in step 2 comes first.
+Otherwise, when the service accepts a *client metadata document* and you set
+`PERSONAL_AGENT_CLIENT_METADATA_URL` to the `https` address (with a path) of one you host, that document
+stands in for a registration and nothing is registered at the service. The document is a JSON file
+naming this agent: `client_id` equal to its own address, a `client_name`, `redirect_uris` listing
+`<the address you open this page at>/connector-callback`, `grant_types` `authorization_code` and
+`refresh_token`, `response_types` `code`, and `token_endpoint_auth_method` `none`. A document that cannot
+be read, is not this agent's, or does not list the redirect address this page uses is not used. Otherwise
+the agent registers itself, saying whether it is a native or a web application. If the service offers
+none of these, the card says *Could not connect* with a note that you register a client yourself (step 1).
+
 If the service takes a token or API key instead of a sign-in page, choose *Paste a token or API key* in
 the add form (name the header only when the service does not use the standard `Authorization` header),
 then paste the token into the field on the card and press **Connect**. The agent checks it by listing the

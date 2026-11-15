@@ -11,6 +11,8 @@ import type { TEgressLookup } from '@robota-sdk/agent-core/node';
 export const MCP_URL = 'https://mcp.example.test/mcp';
 export const AS_URL = 'https://auth.example.test/';
 export const SECRET_DESCRIPTION = 'leaked-secret-description';
+/** Where a host publishes the metadata document that stands in for a registration. */
+export const CLIENT_DOCUMENT_URL = 'https://client.example.test/clients/agent.json';
 
 export interface IFakeRequest {
   readonly method: string;
@@ -45,6 +47,12 @@ export interface IFakeOAuthServer {
     /** How the revocation endpoint behaves; `absent` leaves it out of the metadata. */
     revocation?: 'ok' | 'error' | 'redirect' | 'absent' | 'refresh-only';
     revocationAuthMethods?: string[];
+    /** The server accepts a client metadata document's address as a client id. */
+    clientDocuments?: boolean;
+    /** `absent` leaves the registration endpoint out of the metadata. */
+    registration?: 'absent';
+    /** What the host's client metadata document says; absent, the address answers 404. */
+    clientDocument?: Record<string, unknown>;
   };
   readonly validRefreshTokens: Set<string>;
   tokenCalls(grant?: string): number;
@@ -76,7 +84,10 @@ export function createFakeOAuthServer(): IFakeOAuthServer {
     issuer: overrides.issuer ?? AS_URL,
     authorization_endpoint: 'https://auth.example.test/authorize',
     token_endpoint: overrides.tokenEndpoint ?? 'https://auth.example.test/token',
-    registration_endpoint: 'https://auth.example.test/register',
+    ...(overrides.registration === 'absent'
+      ? {}
+      : { registration_endpoint: 'https://auth.example.test/register' }),
+    ...(overrides.clientDocuments === true ? { client_id_metadata_document_supported: true } : {}),
     response_types_supported: ['code'],
     ...(overrides.codeChallengeMethods === null
       ? {}
@@ -142,6 +153,11 @@ export function createFakeOAuthServer(): IFakeOAuthServer {
     const headers = new Headers(init?.headers);
     const body = init?.body === undefined || init.body === null ? '' : String(init.body);
     requests.push({ method, url: url.href, headers, body });
+    if (url.origin === 'https://client.example.test') {
+      return overrides.clientDocument === undefined
+        ? json({ error: 'not found' }, 404)
+        : json(overrides.clientDocument);
+    }
     if (url.origin === 'https://mcp.example.test') {
       if (
         url.pathname === '/.well-known/oauth-protected-resource/mcp' &&
