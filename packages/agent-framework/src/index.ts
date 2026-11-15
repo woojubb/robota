@@ -981,6 +981,7 @@ export type {
 } from './runtime/index.js';
 export type { IResolvedConfig } from './config/config-types.js';
 export type { IOutputStylePrompt } from './context/output-style-prompt.js';
+export type { IProductPromptSection } from './context/system-prompt-types.js';
 export { sliceSystemPromptByManifest } from './context/system-prompt-manifest-slice.js';
 export type { ISlicedSystemPromptSection } from './context/system-prompt-manifest-slice.js';
 

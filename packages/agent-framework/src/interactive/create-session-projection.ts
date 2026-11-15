@@ -105,6 +105,7 @@ export function buildCreateSessionOptions(
     ...(options.presetSystemPrompt !== undefined
       ? { presetSystemPrompt: options.presetSystemPrompt }
       : {}),
+    ...(options.productSections !== undefined ? { productSections: options.productSections } : {}),
     ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
     ...(options.maxOutputTokens !== undefined ? { maxOutputTokens: options.maxOutputTokens } : {}),
     appendSystemPrompt: options.appendSystemPrompt,

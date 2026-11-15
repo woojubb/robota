@@ -319,4 +319,25 @@ describe('HeadlessInteractionChannel session options', () => {
       responseFormat,
     });
   });
+
+  it('hands the product prompt sections to the session beside the preset prompt seed', async () => {
+    const productSections = [{ id: 'product-core', content: 'Product core' }];
+    const channel = new HeadlessInteractionChannel({
+      host: testHost,
+      cwd: process.cwd(),
+      provider: {} as IAIProvider,
+      output: processOutput,
+      outputFormat: 'text',
+      presetSystemPrompt: 'Preset seed',
+      productSections,
+      shellExec: () => '',
+    });
+
+    await channel.run('hello');
+
+    expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({
+      presetSystemPrompt: 'Preset seed',
+      productSections,
+    });
+  });
 });
