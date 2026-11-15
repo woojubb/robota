@@ -135,7 +135,7 @@ export {
   syncRunInstructions,
 } from './connectors/sync.js';
 export type { IConnectorSyncStatus } from './connectors/sync.js';
-export { CONNECTOR_KINDS } from './connectors/types.js';
+export { CONNECTOR_AUTHS, CONNECTOR_KINDS } from './connectors/types.js';
 export type {
   IConnector,
   IConnectorCallResult,
@@ -145,6 +145,7 @@ export type {
   IConnectorToolInfo,
   IDisconnectOutcome,
   ISignInContext,
+  TConnectorAuth,
   TConnectorKind,
   TConnectorState,
   TRevocation,

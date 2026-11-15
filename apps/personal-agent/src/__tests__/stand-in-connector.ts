@@ -338,11 +338,25 @@ export interface IStandInConnector {
   readonly url: string;
   /** Every tool call the server received, as `name args`, in order. */
   readonly calls: string[];
+  /** How many requests were refused for a missing or wrong credential. */
+  readonly refusals: () => number;
+  /** The `authorization` header of every request to the tool endpoint, in order; `undefined` when it carried none. */
+  readonly authorizations: (string | undefined)[];
+  /** Change the static token it wants, as a service that rotates its tokens does. */
+  rotateToken(token: string): void;
+  /** Answer every request to the tool endpoint this many milliseconds late, as a slow service does. */
+  setLatency(milliseconds: number): void;
   close(): Promise<void>;
 }
 
 export interface IStandInConnectorOptions {
-  readonly authorization: IStandInAuthorizationServer & { acceptsToken(token: string): boolean };
+  /** The authorization server whose tokens it honours; omit for a server with `access`. */
+  readonly authorization?: IStandInAuthorizationServer & { acceptsToken(token: string): boolean };
+  /**
+   * Without an authorization server: a static token it wants (as a bearer token, or raw in `header`),
+   * or `open` for a server that asks for nothing.
+   */
+  readonly access?: { readonly token: string; readonly header?: string } | 'open';
   readonly tools: readonly IStandInTool[];
   /** Where the protocol sees this server; defaults to its own loopback address plus `/mcp`. */
   readonly publicBase?: string;
@@ -363,8 +377,27 @@ export async function startStandInConnector(
   options: IStandInConnectorOptions,
 ): Promise<IStandInConnector> {
   const calls: string[] = [];
+  const authorizations: (string | undefined)[] = [];
+  let refusals = 0;
+  let latencyMs = 0;
   let base = options.publicBase ?? '';
   const tools = new Map(options.tools.map((tool) => [tool.name, tool]));
+
+  let staticToken =
+    options.access === undefined || options.access === 'open' ? '' : options.access.token;
+
+  /** Whether the request carries what this server asks for. */
+  const admitted = (headers: IncomingMessage['headers']): boolean => {
+    const access = options.access;
+    if (access === 'open') return true;
+    if (access !== undefined) {
+      const header = (access.header ?? 'authorization').toLowerCase();
+      const expected = header === 'authorization' ? `Bearer ${staticToken}` : staticToken;
+      return headers[header] === expected;
+    }
+    const bearer = /^Bearer (.+)$/u.exec(headers.authorization ?? '')?.[1];
+    return bearer !== undefined && options.authorization?.acceptsToken(bearer) === true;
+  };
 
   const rpc = (res: ServerResponse, id: unknown, result: unknown): void =>
     json(res, 200, { jsonrpc: '2.0', id, result });
@@ -373,22 +406,30 @@ export async function startStandInConnector(
     (req, res) => {
       void (async () => {
         const url = new URL(req.url ?? '/', 'http://stand-in');
-        if (req.method === 'GET' && url.pathname === '/.well-known/oauth-protected-resource/mcp') {
+        if (
+          options.authorization !== undefined &&
+          req.method === 'GET' &&
+          url.pathname === '/.well-known/oauth-protected-resource/mcp'
+        ) {
           return json(res, 200, {
             resource: `${base}/mcp`,
             authorization_servers: [options.authorization.issuer],
           });
         }
         if (url.pathname !== '/mcp') return json(res, 404, { error: 'not_found' });
-        const bearer = /^Bearer (.+)$/u.exec(req.headers.authorization ?? '')?.[1];
-        if (bearer === undefined || !options.authorization.acceptsToken(bearer)) {
+        authorizations.push(req.headers.authorization);
+        if (latencyMs > 0) await new Promise((resolve) => setTimeout(resolve, latencyMs));
+        if (!admitted(req.headers)) {
+          refusals += 1;
           return json(
             res,
             401,
             { error: 'invalid_token' },
-            {
-              'www-authenticate': `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource/mcp"`,
-            },
+            options.authorization === undefined
+              ? {}
+              : {
+                  'www-authenticate': `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource/mcp"`,
+                },
           );
         }
         if (req.method !== 'POST') return void res.writeHead(405).end();
@@ -445,7 +486,20 @@ export async function startStandInConnector(
   base =
     options.publicBase ??
     `${options.tls === undefined ? 'http' : 'https'}://127.0.0.1:${running.port}`;
-  return { port: running.port, url: `${base}/mcp`, calls, close: running.close };
+  return {
+    port: running.port,
+    url: `${base}/mcp`,
+    calls,
+    refusals: () => refusals,
+    authorizations,
+    rotateToken: (token) => {
+      staticToken = token;
+    },
+    setLatency: (milliseconds) => {
+      latencyMs = milliseconds;
+    },
+    close: running.close,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------

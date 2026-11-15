@@ -575,10 +575,12 @@ approval goes out as a structured action where the platform has one and as a poi
 where it does not, and only the owner's structured action answers it; text is never an approval.
 
 A connector is a service the person connected once, reached through the adapter of one protocol that the
-host supplies. Its record holds no credential, and an address that could carry one is refused. A client
-secret, for a service that gives a client the person registered one, is typed at sign-in, held for that
-sign-in alone and kept only with the credential the host stores owner-only; no record, answer or log carries
-it. A connector may name a few plain-word options for the sign-in request (a service may need one to
+host supplies. Its record holds no credential, and an address that could carry one is refused. How a service
+is signed in to is the person's choice: the service's own sign-in page (the default), a token the person
+pastes, or none at all. A token, and a client secret for a service that gives a client the person registered
+one, are typed at sign-in, held for that sign-in alone and kept only with the credential the host stores
+owner-only; no record, answer or log carries them, and a record names at most the header a token goes in,
+never one the connection itself uses. A connector may name a few plain-word options for the sign-in request (a service may need one to
 issue a sign-in that lasts), never a parameter the sign-in sets itself. The agent
 has three tools whatever is connected: one lists, one reads, one writes. A tool is read only when the person
 said so or the service declared it read-only; a declaration is the service's claim, so a tool that declares
