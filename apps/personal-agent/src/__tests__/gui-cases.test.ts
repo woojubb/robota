@@ -62,7 +62,6 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         expect(await page.getByRole('button', { name: 'Approve' }).count()).toBe(0);
         await page.screenshot({ path: `${harness.stateDir}/question-card.png` });
 
-        const asked = harness.model.requests.length;
         await page.getByRole('button', { name: 'Yes, it was me' }).click();
         await page.waitForFunction(bodyIncludes, 'You answered: Yes, it was me', {
           timeout: 10_000,
@@ -73,8 +72,6 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         expect(recorded?.history.at(-1)).toEqual(
           expect.objectContaining({ kind: 'answered', text: 'Yes, it was me' }),
         );
-        // Nothing continued the case: the model was not asked anything because of the answer.
-        expect(harness.model.requests).toHaveLength(asked);
 
         await page.getByRole('button', { name: 'Open thread' }).click();
         await page.waitForFunction(bodyIncludes, 'Back to feed', { timeout: 10_000 });

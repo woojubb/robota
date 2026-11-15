@@ -20,6 +20,8 @@ export interface IGoal {
   readonly readOnly: boolean;
   /** The connector this goal keeps in sync, when it is one: a person's own goals have none. */
   readonly connectorId?: string;
+  /** The case this goal gives a turn on, when it is one: found by this id, and run again for each answer. */
+  readonly caseId?: string;
   readonly status: TGoalStatus;
   /** When the goal is next due (ISO 8601); absent when it is not scheduled. */
   readonly nextRunAt?: string;

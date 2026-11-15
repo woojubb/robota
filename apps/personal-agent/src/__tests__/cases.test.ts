@@ -1,7 +1,7 @@
 /**
  * Cases in the personal agent: the agent opens one from a chat turn or a read-only goal run, asks the
  * person a question that shows in the feed, and the person's answer is recorded over the HTTP API.
- * Nothing runs on an answer yet.
+ * The turn the agent takes on an answered case is in `case-turns.test.ts`.
  */
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -198,11 +198,8 @@ describe('answering a question over the personal API', () => {
       }),
     );
     const feed = (await api.get('feed')).body.items;
-    expect(feed[0].question.state).toBe('answered');
+    expect(feed.find((entry: any) => entry.id === item.id).question.state).toBe('answered');
     expect((await harness.capabilities.cases.get(opened.id))?.question).toBeUndefined();
-    // Nothing continued the case: no goal ran and nothing else was posted.
-    expect(await harness.capabilities.goals.list()).toEqual([]);
-    expect(feed).toHaveLength(1);
   });
 
   it('refuses an answer that is not one of the choices, and a reply to a question that takes none', async () => {
@@ -292,7 +289,8 @@ describe('answering a question over the personal API', () => {
     expect(refused.status).toBe(400);
     await api.send('POST', `feed/${item.id}/answer`, { choice: 'No' });
     expect((await api.send('POST', `feed/${item.id}/dismiss`)).status).toBe(200);
-    expect((await api.get('feed')).body.items).toEqual([]);
+    // The agent's turn on the case may have reported by now; the dismissed card is gone either way.
+    expect((await api.get('feed')).body.items.map((entry: any) => entry.id)).not.toContain(item.id);
   });
 });
 

@@ -27,6 +27,7 @@ export interface ICreateGoalInput {
   readonly everyMinutes?: number;
   readonly readOnly?: boolean;
   readonly connectorId?: string;
+  readonly caseId?: string;
 }
 
 export class GoalRefusedError extends Error {
@@ -108,6 +109,7 @@ export class GoalBook {
       ...(input.everyMinutes !== undefined && { everyMinutes: input.everyMinutes }),
       readOnly: input.readOnly === true,
       ...(input.connectorId !== undefined && { connectorId: input.connectorId }),
+      ...(input.caseId !== undefined && { caseId: input.caseId }),
       status: 'active',
       nextRunAt: at,
       createdAt: at,
@@ -174,6 +176,21 @@ export class GoalBook {
   async resume(id: string): Promise<IGoal> {
     const goal = await this.require(id);
     if (goal.status === 'running' || goal.status === 'waiting') return goal;
+    return this.save(goal, { status: 'active', nextRunAt: this.stamp() });
+  }
+
+  /**
+   * Make a goal that has finished due now again, as a one-shot goal's next turn: a case's goal runs once
+   * for each answer. A goal still running or waiting is refused, since a second run would start before
+   * the first ended, and so is a paused one, which the person stopped; `resume` is for them. The interval
+   * is untouched, so a scheduled goal follows its own schedule again once the extra run ends.
+   */
+  async runAgain(id: string): Promise<IGoal> {
+    const goal = await this.require(id);
+    if (goal.status === 'running' || goal.status === 'waiting')
+      throw new GoalRefusedError('The goal is running; run it again after this run');
+    if (goal.status === 'paused')
+      throw new GoalRefusedError('The goal is paused; resume it to run it again');
     return this.save(goal, { status: 'active', nextRunAt: this.stamp() });
   }
 

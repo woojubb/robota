@@ -92,10 +92,14 @@ export const GOAL_INSTRUCTIONS = [
   "A goal run reports its result to the person's feed; actions that need their approval wait there until they answer.",
 ].join('\n');
 
-/** What a goal run's session is told, on top of the agent's usual instructions. */
+/**
+ * What a goal run's session is told, on top of the agent's usual instructions. A goal on a case is not
+ * named: its title is the case's, which the agent wrote from content other people wrote.
+ */
 export function goalRunInstructions(goal: IGoal): string {
+  const subject = goal.caseId === undefined ? `the goal "${goal.title}"` : 'a goal on one case';
   return [
-    `You are working in the background on the goal "${goal.title}". The person is not watching.`,
+    `You are working in the background on ${subject}. The person is not watching.`,
     goal.readOnly ? 'This goal is read-only: look things up, change nothing.' : '',
     'Do the work, then end with a short report for the person: what you found or did, and what is waiting for their approval.',
     'Anything that needs their approval waits for them; do not ask questions you cannot get answered now.',

@@ -106,6 +106,69 @@ describe.each([
     expect(await book.get(other.id)).toBeUndefined();
   });
 
+  it('keeps the case a goal gives a turn on, and no case on any other goal', async () => {
+    const book = new GoalBook({ store: makeStore(), now: clock().now });
+    const turn = await book.create({
+      title: 'Case: Sign-in',
+      instructions: 'x',
+      readOnly: true,
+      caseId: 'case-1',
+    });
+    expect((await book.get(turn.id))?.caseId).toBe('case-1');
+    expect((await book.list()).find((goal) => goal.caseId === 'case-1')?.id).toBe(turn.id);
+    expect(await book.create({ title: 'Plain', instructions: 'x' })).not.toHaveProperty('caseId');
+  });
+
+  it('runs a finished one-off goal again, and refuses one that is running, waiting or paused', async () => {
+    const time = clock();
+    const book = new GoalBook({ store: makeStore(), now: time.now });
+    const goal = await book.create({ title: 'Case', instructions: 'x', caseId: 'case-1' });
+    await book.finishRun(await book.startRun(goal.id), 'done', 'Settled.');
+    expect((await book.get(goal.id))?.status).toBe('done');
+    expect(await book.due()).toEqual([]);
+
+    time.advance(1);
+    const again = await book.runAgain(goal.id);
+    expect(again).toEqual(
+      expect.objectContaining({ status: 'active', nextRunAt: time.now().toISOString() }),
+    );
+    expect((await book.due()).map((due) => due.id)).toEqual([goal.id]);
+
+    const second = await book.startRun(goal.id);
+    await expect(book.runAgain(goal.id)).rejects.toThrow(/running/u);
+    await book.setWaiting(goal.id, true);
+    await expect(book.runAgain(goal.id)).rejects.toThrow(GoalRefusedError);
+    expect((await book.get(goal.id))?.status).toBe('waiting');
+    await book.setWaiting(goal.id, false);
+
+    await book.finishRun(second, 'failed', 'The run failed.');
+    expect((await book.get(goal.id))?.status).toBe('failed');
+    expect((await book.runAgain(goal.id)).status).toBe('active');
+
+    await book.pause(goal.id);
+    await expect(book.runAgain(goal.id)).rejects.toThrow(/paused/u);
+    expect((await book.get(goal.id))?.status).toBe('paused');
+    await expect(book.runAgain('goal-nothing')).rejects.toThrow(GoalRefusedError);
+  });
+
+  it('keeps a scheduled goal on its own interval when it is run again', async () => {
+    const time = clock();
+    const book = new GoalBook({ store: makeStore(), now: time.now });
+    const goal = await book.create({ title: 'Watch', instructions: 'x', everyMinutes: 60 });
+    await book.finishRun(await book.startRun(goal.id), 'done', 'Nothing new.');
+    expect(await book.due()).toEqual([]);
+
+    const again = await book.runAgain(goal.id);
+    expect(again.everyMinutes).toBe(60);
+    expect((await book.due()).map((due) => due.id)).toEqual([goal.id]);
+
+    time.advance(10);
+    await book.finishRun(await book.startRun(goal.id), 'done', 'Nothing new.');
+    const after = (await book.get(goal.id))!;
+    expect(after).toEqual(expect.objectContaining({ status: 'active', everyMinutes: 60 }));
+    expect(after.nextRunAt).toBe(new Date(time.now().getTime() + 60 * 60_000).toISOString());
+  });
+
   it('keeps an approval in the feed until the person answers it', async () => {
     const book = new GoalBook({ store: makeStore(), now: clock().now });
     const goal = await book.create({ title: 'Buy tickets', instructions: 'x' });
