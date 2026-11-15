@@ -213,6 +213,12 @@ export interface IConnectorView {
   readonly title: string;
   readonly kind: TConnectorKind;
   readonly endpoint: string;
+  /** What the person registered with the service: public values only, never a secret. */
+  readonly oauth?: {
+    readonly clientId?: string;
+    readonly scopes?: readonly string[];
+    readonly authorizationParams?: Readonly<Record<string, string>>;
+  };
   readonly status: IConnectorStatusView;
   /** Present while the connector is kept in sync. */
   readonly sync?: IConnectorSyncView;
@@ -311,9 +317,17 @@ export interface IPersonalApi {
     endpoint: string;
     clientId?: string;
     scopes?: readonly string[];
+    authorizationParams?: Readonly<Record<string, string>>;
   }): Promise<{ connector: IConnectorView }>;
-  /** Start the sign-in; the page opens the returned address in the person's browser. */
-  connectConnector(id: string, origin: string): Promise<{ status: IConnectorStatusView }>;
+  /**
+   * Start the sign-in; the page opens the returned address in the person's browser. A client secret
+   * the person typed goes with this one request and is not kept by the page.
+   */
+  connectConnector(
+    id: string,
+    origin: string,
+    clientSecret?: string,
+  ): Promise<{ status: IConnectorStatusView }>;
   disconnectConnector(id: string, forgetPulled?: boolean): Promise<IDisconnectAnswer>;
   removeConnector(id: string, forgetPulled?: boolean): Promise<IDisconnectAnswer>;
   /** How many library claims came from this connector. */
@@ -395,8 +409,11 @@ export function createPersonalApi(
     answerFeed: (itemId, action) => call('POST', `feed/${id(itemId)}/${action}`),
     connectors: () => call('GET', 'connectors'),
     addConnector: (input) => call('POST', 'connectors', input),
-    connectConnector: (connectorId, origin) =>
-      call('POST', `connectors/${id(connectorId)}/connect`, { origin }),
+    connectConnector: (connectorId, origin, clientSecret) =>
+      call('POST', `connectors/${id(connectorId)}/connect`, {
+        origin,
+        ...(clientSecret !== undefined && clientSecret !== '' && { clientSecret }),
+      }),
     disconnectConnector: (connectorId, forgetPulled = false) =>
       call('POST', `connectors/${id(connectorId)}/disconnect`, { forgetPulled }),
     removeConnector: (connectorId, forgetPulled = false) =>

@@ -14,10 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { MCPOAuthError } from '../client/oauth/errors.js';
 import { runMCPOAuthLogin } from '../client/oauth/login.js';
 import { oauthCredentialKey } from '../client/oauth/store.js';
-import {
-  loopbackOAuthCallbackListener,
-  startOAuthCallbackServer,
-} from '../node/oauth-callback.js';
+import { loopbackOAuthCallbackListener, startOAuthCallbackServer } from '../node/oauth-callback.js';
 import { createFileOAuthCredentialStore } from '../node/oauth-file-store.js';
 import { createNodeOAuthNetwork } from '../node/oauth-network.js';
 import { createFileOAuthRefreshLock } from '../node/oauth-refresh-lock.js';
@@ -104,7 +101,7 @@ function login(
     ...(options.clientSecret === undefined ? {} : { clientSecret: options.clientSecret }),
     store,
     callbackListener: loopbackOAuthCallbackListener,
-      network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
+    network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
     callbackTimeoutMs: 5_000,
     openBrowser: async (url) => {
       opened.push(url);
@@ -242,7 +239,43 @@ describe('OAuth sign-in', () => {
     const token = server.requests.find((request) => request.url.endsWith('/token'))!;
     expect(token.headers.get('authorization')).toMatch(/^Basic /);
     const stored = await store.get(oauthCredentialKey('identity-1', MCP_URL));
-    expect(stored).toMatchObject({ clientId: 'agent-test-cli', clientSecret: 'client-secret-value' });
+    expect(stored).toMatchObject({
+      clientId: 'agent-test-cli',
+      clientSecret: 'client-secret-value',
+    });
+  });
+
+  it('adds the configured authorization parameters and keeps the ones the sign-in sets', async () => {
+    const server = createFakeOAuthServer();
+    const { result, opened } = login(server, {
+      config: { authorizationParams: { access_type: 'offline', prompt: 'consent' } },
+    });
+    await result;
+    const url = opened[0]!;
+    expect(url.searchParams.get('access_type')).toBe('offline');
+    expect(url.searchParams.get('prompt')).toBe('consent');
+    expect(url.searchParams.get('code_challenge_method')).toBe('S256');
+    expect(url.searchParams.get('resource')).toBe(MCP_URL);
+    expect(url.searchParams.get('state')).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('refuses parameters that would replace one the sign-in sets, before anything is shown', async () => {
+    const bad: Record<string, string>[] = [
+      { state: 'fixed' },
+      { redirect_uri: 'https://evil.example/x' },
+      { code_challenge: 'abc' },
+      { response_mode: 'fragment' },
+      { prompt: 'a b' },
+    ];
+    for (const params of bad) {
+      const server = createFakeOAuthServer();
+      const attempt = login(server, { config: { authorizationParams: params } });
+      const error = await failure(attempt.result);
+      expect(error.reason, JSON.stringify(params)).toBe('authorization-params-invalid');
+      // Refused before the service heard anything: nothing was discovered or registered.
+      expect(attempt.opened).toEqual([]);
+      expect(server.requests).toEqual([]);
+    }
   });
 
   it('refuses a client secret for a dynamically registered client', async () => {
@@ -266,7 +299,7 @@ describe('OAuth sign-in', () => {
     const server = createFakeOAuthServer();
     const directory = temporaryDirectory();
     const result = runMCPOAuthLogin({
-    clientName: 'Test Client',
+      clientName: 'Test Client',
       securityIdentity: 'identity-1',
       serverUrl: MCP_URL,
       config: {},

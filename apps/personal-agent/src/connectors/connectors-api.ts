@@ -78,6 +78,32 @@ function present(view: IConnectorView, sync?: IConnectorSyncStatus): Record<stri
 }
 
 const DECISIONS: readonly string[] = ['read', 'write', 'blocked'];
+/** A client secret is one word of printable characters; its value is never repeated in an answer. */
+const CLIENT_SECRET = /^[\x21-\x7e]{1,512}$/;
+
+/** The secret typed for this sign-in, or `undefined` when none was given. */
+function clientSecretOf(body: Record<string, unknown>): string | undefined {
+  const value = body['clientSecret'];
+  if (value === undefined || value === '') return undefined;
+  if (typeof value !== 'string' || !CLIENT_SECRET.test(value)) {
+    throw new ConnectorRefusedError('The client secret must be one word of printable characters');
+  }
+  return value;
+}
+
+/** The sign-in options as words, or `undefined` when none were given. */
+function authorizationParamsOf(body: Record<string, unknown>): Record<string, string> | undefined {
+  const value = body['authorizationParams'];
+  if (value === undefined) return undefined;
+  const entries =
+    typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? Object.entries(value)
+      : undefined;
+  if (entries === undefined || !entries.every(([, word]) => typeof word === 'string')) {
+    throw new ConnectorRefusedError('authorizationParams must be an object of words');
+  }
+  return entries.length === 0 ? undefined : (Object.fromEntries(entries) as Record<string, string>);
+}
 
 /** Answers `connectors/...` requests, or `undefined` for a path that is not one. */
 export function createConnectorsApi(options: IConnectorsApiOptions): TConnectorsApi {
@@ -135,16 +161,20 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
         if (clientId !== undefined && typeof clientId !== 'string') {
           throw new ConnectorRefusedError('clientId must be a string');
         }
+        const authorizationParams = authorizationParamsOf(body);
         const connector = await book.create({
           title: text(body, 'title'),
           kind: text(body, 'kind') as TConnectorKind,
           protocol: 'mcp',
           endpoint: text(body, 'endpoint'),
-          ...((clientId !== undefined && clientId !== '') || (scopes?.length ?? 0) > 0
+          ...((clientId !== undefined && clientId !== '') ||
+          (scopes?.length ?? 0) > 0 ||
+          authorizationParams !== undefined
             ? {
                 oauth: {
                   ...(clientId !== undefined && clientId !== '' && { clientId }),
                   ...(scopes !== undefined && scopes.length > 0 && { scopes: scopes as string[] }),
+                  ...(authorizationParams !== undefined && { authorizationParams }),
                 },
               }
             : {}),
@@ -161,12 +191,19 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
     if (action === 'pulled' && method === 'GET') return ok({ count: await countPulled(wiki, id) });
     if (method !== 'POST') return undefined;
     if (action === 'connect') {
-      const origin = text(record(request.body), 'origin');
+      const body = record(request.body);
+      const origin = text(body, 'origin');
+      const clientSecret = clientSecretOf(body);
       const normalized = URL.canParse(origin) ? new URL(origin).origin : undefined;
       if (normalized === undefined || !options.origins().includes(normalized)) {
         throw new ConnectorRefusedError('the agent is not reached at that origin');
       }
-      return ok({ status: await registry.signIn(id, { origin: normalized }) });
+      return ok({
+        status: await registry.signIn(id, {
+          origin: normalized,
+          ...(clientSecret !== undefined && { clientSecret }),
+        }),
+      });
     }
     if (action === 'disconnect') return leave(id, request.body, () => registry.disconnect(id));
     if (action === 'remove') return leave(id, request.body, () => registry.remove(id));

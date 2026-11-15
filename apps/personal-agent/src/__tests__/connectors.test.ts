@@ -20,6 +20,7 @@ import {
 
 import type { IHarness } from './harness.js';
 import type {
+  IStandInAuthorizationOptions,
   IStandInAuthorizationServer,
   IStandInConnector,
   IStandInTool,
@@ -66,7 +67,10 @@ interface IWorld {
   /** What the person's browser does: consent at the service, then follow the redirect back. */
   consent(authorizationUrl: string, decision?: 'approve' | 'deny'): Promise<Response>;
   add(title: string, kind: string, host: string, extra?: Record<string, unknown>): Promise<string>;
-  connect(id: string): Promise<{ authorizationUrl: string; redirectUri: string }>;
+  connect(
+    id: string,
+    extra?: Record<string, unknown>,
+  ): Promise<{ authorizationUrl: string; redirectUri: string }>;
   waitForState(id: string, state: string): Promise<any>;
 }
 
@@ -75,9 +79,11 @@ afterEach(async () => {
   for (const close of closers.splice(0).reverse()) await close();
 });
 
-async function world(): Promise<IWorld> {
+async function world(
+  authorization: Omit<IStandInAuthorizationOptions, 'publicBase'> = {},
+): Promise<IWorld> {
   const auth = withTokenCheck(
-    await startStandInAuthorizationServer({ publicBase: `https://${AUTH_HOST}` }),
+    await startStandInAuthorizationServer({ publicBase: `https://${AUTH_HOST}`, ...authorization }),
   );
   const notes = await startStandInConnector({
     authorization: auth,
@@ -139,8 +145,8 @@ async function world(): Promise<IWorld> {
       expect(made.status).toBe(200);
       return made.body.connector.id as string;
     },
-    async connect(id) {
-      const started = await call('POST', ['connectors', id, 'connect'], { origin });
+    async connect(id, extra = {}) {
+      const started = await call('POST', ['connectors', id, 'connect'], { origin, ...extra });
       expect(started.status).toBe(200);
       expect(started.body.status.state).toBe('connecting');
       return started.body.status;
@@ -444,6 +450,160 @@ describe('disconnecting', () => {
     expect(answer.body.outcome.removed).toBe(true);
     expect((await w.call('GET', ['connectors'])).body.connectors).toEqual([]);
     expect((await w.call('GET', ['connectors', w.id])).status).toBe(404);
+  });
+});
+
+describe('a service that gives a client you registered a secret', () => {
+  const SECRET = 'registered-client-secret-123';
+
+  async function secretWorld(): Promise<IWorld> {
+    return world({ requiredClientSecret: SECRET, refreshOnlyWhenOfflineRequested: true });
+  }
+
+  it('signs in with the secret typed at Connect and the sign-in options, and keeps the secret only in the owner-only credential', async () => {
+    const w = await secretWorld();
+    const id = await w.add('Notes', 'notes', NOTES_HOST, {
+      clientId: 'registered-client',
+      authorizationParams: { access_type: 'offline', prompt: 'consent' },
+    });
+    const started = await w.connect(id, { clientSecret: SECRET });
+    const landed = await w.consent(started.authorizationUrl);
+    expect(await landed.text()).toContain('Connected');
+    await w.waitForState(id, 'connected');
+
+    // The service offers no registration, so the registered client was used; the options went along
+    // with the sign-in's own protections, and no secret travelled through the browser.
+    expect(w.auth.registrations).toEqual([]);
+    const request = w.auth.authorizationRequests[0]!;
+    expect(request['client_id']).toBe('registered-client');
+    expect(request['access_type']).toBe('offline');
+    expect(request['prompt']).toBe('consent');
+    expect(request['code_challenge_method']).toBe('S256');
+    expect(JSON.stringify(request)).not.toContain(SECRET);
+    expect(w.auth.secretRefusals()).toBe(0);
+
+    // The secret is in no answer and no file but the credential's own (read by the owner only).
+    for (const answer of [
+      started,
+      (await w.call('GET', ['connectors'])).body,
+      (await w.call('GET', ['connectors', id])).body,
+    ]) {
+      expect(JSON.stringify(answer)).not.toContain(SECRET);
+    }
+    const holding = filesUnder(w.harness.stateDir).filter((file) => file.text.includes(SECRET));
+    expect(holding.length).toBeGreaterThan(0);
+    for (const file of holding) {
+      expect(file.path).toContain('connector-credentials');
+      if (process.platform !== 'win32') expect(statSync(file.path).mode & 0o077).toBe(0);
+    }
+  });
+
+  it('opens the same sign-in again while one waits, so the secret typed once still counts', async () => {
+    const w = await secretWorld();
+    const id = await w.add('Notes', 'notes', NOTES_HOST, { clientId: 'registered-client' });
+    const first = await w.connect(id, { clientSecret: SECRET });
+    // Start over with nothing typed: the pending sign-in is handed back, not a new one without the secret.
+    const again = await w.connect(id);
+    expect(again.authorizationUrl).toBe(first.authorizationUrl);
+    await w.consent(again.authorizationUrl);
+    await w.waitForState(id, 'connected');
+    expect(w.auth.secretRefusals()).toBe(0);
+  });
+
+  it('cannot sign in without the secret, and says so by a fixed word', async () => {
+    const w = await secretWorld();
+    const id = await w.add('Notes', 'notes', NOTES_HOST, { clientId: 'registered-client' });
+    const started = await w.connect(id);
+    await w.consent(started.authorizationUrl);
+    const view = await w.waitForState(id, 'failed');
+    expect(view.status.reason).toBe('token-exchange-failed');
+    expect(w.auth.secretRefusals()).toBeGreaterThan(0);
+    expect(w.auth.validTokens()).toEqual([]);
+  });
+
+  it('refreshes a long-lasting sign-in with the stored secret, and has none to refresh without the option', async () => {
+    const withOption = await world({
+      requiredClientSecret: SECRET,
+      refreshOnlyWhenOfflineRequested: true,
+      accessTokenSeconds: 1,
+    });
+    const id = await withOption.add('Notes', 'notes', NOTES_HOST, {
+      clientId: 'registered-client',
+      authorizationParams: { access_type: 'offline' },
+    });
+    await withOption.consent(
+      (await withOption.connect(id, { clientSecret: SECRET })).authorizationUrl,
+    );
+    await withOption.waitForState(id, 'connected');
+    await new Promise((resolve) => setTimeout(resolve, 1_300));
+    const read = await withOption.harness.capabilities.api({
+      method: 'GET',
+      path: `/connectors/${id}`,
+      segments: ['connectors', id],
+      query: new URLSearchParams('refresh=1'),
+      body: undefined,
+    });
+    expect((read.body as any).connector.status.state).toBe('connected');
+    expect(withOption.auth.refreshes()).toBeGreaterThan(0);
+    expect(withOption.auth.secretRefusals()).toBe(0);
+
+    const without = await world({
+      requiredClientSecret: SECRET,
+      refreshOnlyWhenOfflineRequested: true,
+      accessTokenSeconds: 1,
+    });
+    const other = await without.add('Notes', 'notes', NOTES_HOST, {
+      clientId: 'registered-client',
+    });
+    await without.consent(
+      (await without.connect(other, { clientSecret: SECRET })).authorizationUrl,
+    );
+    await without.waitForState(other, 'connected');
+    await new Promise((resolve) => setTimeout(resolve, 1_300));
+    // No refresh token was issued, so once the access token lapses the person has to sign in again.
+    const stale = await without.call('GET', ['connectors', other]);
+    expect(stale.body.connector.status.state).not.toBe('connected');
+  });
+
+  it('refuses a secret for a connector with no client id, a malformed secret, and sign-in options that break the sign-in', async () => {
+    const w = await secretWorld();
+    const plain = await w.add('Notes', 'notes', NOTES_HOST);
+    const refused = await w.call('POST', ['connectors', plain, 'connect'], {
+      origin: w.origin,
+      clientSecret: SECRET,
+    });
+    expect(refused.status).toBe(400);
+    expect(JSON.stringify(refused.body)).not.toContain(SECRET);
+
+    const registered = await w.add('Notes two', 'notes', NOTES_HOST, {
+      clientId: 'registered-client',
+    });
+    for (const clientSecret of ['has space', 'new\nline', 'x'.repeat(513), 42]) {
+      const answer = await w.call('POST', ['connectors', registered, 'connect'], {
+        origin: w.origin,
+        clientSecret,
+      });
+      expect(answer.status, String(clientSecret).slice(0, 12)).toBe(400);
+    }
+
+    expect(
+      (
+        await w.call('POST', ['connectors'], {
+          title: 'Bad',
+          kind: 'notes',
+          endpoint: `https://${NOTES_HOST}/mcp`,
+          authorizationParams: { prompt: 'a b' },
+        })
+      ).status,
+    ).toBe(400);
+    // An option the sign-in sets itself passes the record's shape check and stops at sign-in.
+    const hijack = await w.add('Hijack', 'notes', NOTES_HOST, {
+      authorizationParams: { state: 'fixed' },
+    });
+    await w.connect(hijack).catch(() => undefined);
+    const view = await w.waitForState(hijack, 'failed');
+    expect(view.status.reason).toBe('authorization-params-invalid');
+    expect(w.auth.authorizationRequests).toEqual([]);
   });
 });
 

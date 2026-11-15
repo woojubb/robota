@@ -30,6 +30,10 @@ const CONNECTOR_ID = /^connector-[a-z0-9-]{1,60}$/;
 const PROTOCOL = /^[a-z][a-z0-9-]{0,30}$/;
 /** The characters RFC 6749 allows in one scope token. */
 const SCOPE_TOKEN = /^[\x21\x23-\x5b\x5d-\x7e]{1,200}$/;
+/** An authorization parameter is a plain word: a name and a value an address carries unchanged. */
+const PARAM_NAME = /^[a-z][a-z0-9_]{0,31}$/;
+const PARAM_VALUE = /^[A-Za-z0-9._~-]{1,64}$/;
+const MAX_PARAMS = 4;
 const MAX_TITLE = 80;
 const MAX_DECISIONS = 200;
 const MAX_TOOL_NAME = 128;
@@ -104,7 +108,11 @@ export interface ICreateConnectorInput {
   readonly kind: TConnectorKind;
   readonly protocol: string;
   readonly endpoint: string;
-  readonly oauth?: { readonly clientId?: string; readonly scopes?: readonly string[] };
+  readonly oauth?: {
+    readonly clientId?: string;
+    readonly scopes?: readonly string[];
+    readonly authorizationParams?: Readonly<Record<string, string>>;
+  };
 }
 
 export class ConnectorBook {
@@ -152,7 +160,7 @@ export class ConnectorBook {
 
   private checkOAuth(oauth: ICreateConnectorInput['oauth']): IConnector['oauth'] | undefined {
     if (oauth === undefined) return undefined;
-    const { clientId, scopes } = oauth;
+    const { clientId, scopes, authorizationParams } = oauth;
     if (
       clientId !== undefined &&
       (clientId === '' || /\s/u.test(clientId) || clientId.length > 256)
@@ -162,10 +170,26 @@ export class ConnectorBook {
     if (scopes !== undefined && !scopes.every((scope) => SCOPE_TOKEN.test(scope))) {
       throw new ConnectorRefusedError('Each scope must be a single scope word');
     }
-    if (clientId === undefined && (scopes === undefined || scopes.length === 0)) return undefined;
+    const params = authorizationParams === undefined ? [] : Object.entries(authorizationParams);
+    if (
+      params.length > MAX_PARAMS ||
+      !params.every(([name, value]) => PARAM_NAME.test(name) && PARAM_VALUE.test(value))
+    ) {
+      throw new ConnectorRefusedError(
+        `Sign-in options are up to ${MAX_PARAMS} plain words, each a name and a value`,
+      );
+    }
+    if (
+      clientId === undefined &&
+      (scopes === undefined || scopes.length === 0) &&
+      params.length === 0
+    ) {
+      return undefined;
+    }
     return {
       ...(clientId !== undefined && { clientId }),
       ...(scopes !== undefined && scopes.length > 0 && { scopes: [...scopes] }),
+      ...(params.length > 0 && { authorizationParams: Object.fromEntries(params) }),
     };
   }
 

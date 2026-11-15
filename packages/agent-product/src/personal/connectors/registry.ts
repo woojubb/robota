@@ -131,6 +131,9 @@ export class ConnectorRegistry {
   /** Start the person's sign-in; the answer says where their browser goes. */
   async signIn(id: string, context: ISignInContext): Promise<IConnectorStatus> {
     const connector = await this.book.existing(id);
+    if (context.clientSecret !== undefined && connector.oauth?.clientId === undefined) {
+      throw new ConnectorRefusedError('A client secret goes with the client id you registered');
+    }
     this.cache.delete(id);
     return this.protocolOf(connector).signIn(connector, context);
   }

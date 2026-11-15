@@ -6,7 +6,7 @@
  * - Without a pre-registered `clientId`, the client registers itself dynamically for the loopback
  *   redirect of this sign-in.
  * - The authorization request carries PKCE, a random `state` and the canonical server URL as the
- *   RFC 8707 resource indicator; the redirect is accepted only with that `state`
+ *   RFC 8707 resource indicator, and any extra parameters the config names (never one of these); the redirect is accepted only with that `state`
  *   (`callback.ts`) and, when it carries an RFC 9207 `iss`, only from the discovered issuer.
  * - With `readRedirect`, nothing listens: the user pastes the redirect URL their browser was sent
  *   to, and it is held to the same rules. The code alone is worthless without this process's PKCE
@@ -31,6 +31,7 @@ import {
   createPastedRedirectAcceptor,
   loopbackRedirectUri,
 } from './callback.js';
+import { checkAuthorizationParams } from '../../definition/oauth-params.js';
 import { discoverMCPOAuthServer } from './discovery.js';
 import { MCPOAuthError, asOAuthError } from './errors.js';
 import { createOAuthFetch } from './network.js';
@@ -208,6 +209,12 @@ function pastedRedirectReceiver(
 
 /** Run the whole sign-in and store its credential. Every failure is an {@link MCPOAuthError}. */
 export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCPOAuthLoginResult> {
+  // Refused before anything is discovered or registered: a bad configuration changes nothing at the service.
+  const extraParams =
+    input.config.authorizationParams === undefined
+      ? {}
+      : checkAuthorizationParams(input.config.authorizationParams);
+  if (typeof extraParams === 'string') throw new MCPOAuthError('authorization-params-invalid');
   const fetchFn = createOAuthFetch(input.network, input.signal);
   const server = await discoverMCPOAuthServer({
     serverUrl: input.serverUrl,
@@ -234,6 +241,9 @@ export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCP
     }
     if (authorization.authorizationUrl.protocol !== 'https:') {
       throw new MCPOAuthError('insecure-endpoint');
+    }
+    for (const [name, value] of Object.entries(extraParams)) {
+      authorization.authorizationUrl.searchParams.set(name, value);
     }
     try {
       await input.openBrowser(authorization.authorizationUrl, callback.redirectUri);

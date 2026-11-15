@@ -26,6 +26,8 @@ export type TMCPOAuthFailure =
   | 'registration-failed'
   /** A client secret was supplied for a client the definition does not pre-register. */
   | 'client-secret-without-client-id'
+  /** The configured authorization parameters would replace one the sign-in sets, or are not plain words. */
+  | 'authorization-params-invalid'
   | 'callback-unavailable'
   | 'callback-timeout'
   | 'callback-invalid'
