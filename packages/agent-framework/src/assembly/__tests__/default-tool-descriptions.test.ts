@@ -48,7 +48,7 @@ const NOOP_TERMINAL: ITerminalOutput = {
   spinner: () => ({ stop: () => undefined, update: () => undefined }),
 };
 
-function makeOptions(): ICreateSessionOptions {
+function makeOptions(overrides: Partial<ICreateSessionOptions> = {}): ICreateSessionOptions {
   return {
     host: testHost,
     cwd: process.cwd(),
@@ -60,6 +60,7 @@ function makeOptions(): ICreateSessionOptions {
     },
     context: { agentsMd: 'A0', projectNotesMd: 'C0' },
     terminal: NOOP_TERMINAL,
+    ...overrides,
   };
 }
 
@@ -76,9 +77,12 @@ function tool(name: string, description: string, deferLoading?: boolean): IToolW
 }
 
 /** The assembled system prompt for a session holding exactly these tools. */
-function promptFor(tools: readonly IToolWithEventService[]): string {
+function promptFor(
+  tools: readonly IToolWithEventService[],
+  overrides: Partial<ICreateSessionOptions> = {},
+): string {
   const { finalSystemMessage } = buildSessionSystemPrompt(
-    makeOptions(),
+    makeOptions(overrides),
     '/tmp/tool-roster',
     [],
     undefined,
@@ -125,5 +129,40 @@ describe('the deferred roster reaches the assembled system prompt', () => {
     const verbose = tool('verbose_tool', `First line.\nSecond line.\n${'x'.repeat(400)}`, true);
     const [, entry] = formatDeferredToolRoster([verbose]);
     expect(entry).toBe('verbose_tool — First line.');
+  });
+});
+
+describe('the prompt describes only tools the session offers', () => {
+  const described = (prompt: string, name: string): boolean =>
+    prompt.split('\n').some((line) => line.startsWith(`- ${name} — `));
+
+  it('leaves out a tool the session denies outright, and the alias that goes with it', () => {
+    const prompt = promptFor([], { deniedTools: ['Shell', 'Bash', 'BackgroundProcess'] });
+    expect(described(prompt, 'Shell')).toBe(false);
+    expect(described(prompt, 'Bash')).toBe(false);
+    expect(described(prompt, 'Read')).toBe(true);
+    expect(described(prompt, 'WebFetch')).toBe(true);
+  });
+
+  it('follows a deny rule from the settings the same way', () => {
+    const prompt = promptFor([], {
+      config: { ...makeOptions().config, permissions: { allow: [], deny: ['Write(*)', 'Edit'] } },
+    });
+    expect(described(prompt, 'Write')).toBe(false);
+    expect(described(prompt, 'Edit')).toBe(false);
+    expect(described(prompt, 'Read')).toBe(true);
+  });
+
+  it('keeps a tool that is only denied for some arguments, because the model is still offered it', () => {
+    const prompt = promptFor([], {
+      config: { ...makeOptions().config, permissions: { allow: [], deny: ['Bash(rm *)'] } },
+    });
+    expect(described(prompt, 'Bash')).toBe(true);
+  });
+
+  it('leaves a denied deferred tool out of the roster too', () => {
+    const prompt = promptFor([DEFERRED_A, DEFERRED_B], { deniedTools: ['postgres_query'] });
+    expect(prompt).not.toContain('postgres_query');
+    expect(prompt).toContain('sheets_read');
   });
 });
