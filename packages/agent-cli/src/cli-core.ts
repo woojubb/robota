@@ -33,6 +33,7 @@ import {
   scanSessionStore,
   InteractiveSession,
   createExternalEventGrantHistory,
+  createServeSessionDirectory,
   readMergedProviderSettings,
   type IBackgroundTaskRunner,
   type SessionSlot,
@@ -164,7 +165,6 @@ import {
 } from './startup/workspace-move-adapter.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
-import { createServeSessionDirectory } from './modes/serve-session-directory.js';
 import { runAcpMode } from './modes/acp-mode.js';
 import { runMcpServeMode } from './modes/mcp-serve-mode.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
