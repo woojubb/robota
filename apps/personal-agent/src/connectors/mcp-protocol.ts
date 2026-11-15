@@ -14,6 +14,7 @@
 import { join } from 'node:path';
 
 import {
+  MCPAuthenticationError,
   MCPConnectionSupervisor,
   MCPOAuthError,
   createOAuthAuthenticator,
@@ -32,6 +33,8 @@ import {
 } from '@robota-sdk/agent-mcp/node';
 
 import type {
+  IMCPBoundAuthenticator,
+  IMCPClientAuthenticator,
   IMCPDiscoveredTool,
   IMCPOAuthAuthenticator,
   IMCPOAuthConfig,
@@ -46,9 +49,12 @@ import type {
   IConnectorStatus,
   IConnectorToolInfo,
   IDisconnectOutcome,
+  TConnectorAuth,
   TRevocation,
 } from '@robota-sdk/agent-product/personal';
 import type { IConsentBroker } from './consent.js';
+import type { ITokenStore } from './token-store.js';
+import { createFileTokenStore } from './token-store.js';
 
 export interface IMcpConnectorProtocolOptions {
   readonly stateDir: string;
@@ -62,6 +68,7 @@ export interface IMcpConnectorProtocolOptions {
 }
 
 const DIRECTORY = 'connector-credentials';
+const TOKEN_DIRECTORY = 'connector-tokens';
 const CLIENT_NAME = 'Robota personal agent';
 const CLIENT_VERSION = '0.1.0';
 const RESULT_BLOCK_LIMIT = 24_000;
@@ -78,7 +85,8 @@ const DEFAULT_TIMEOUTS: IMCPTimeouts = {
 };
 
 interface IRuntime {
-  readonly authenticator: IMCPOAuthAuthenticator;
+  /** The OAuth authenticator; only an `oauth` connector has one. */
+  readonly authenticator?: IMCPOAuthAuthenticator;
   supervisor?: MCPConnectionSupervisor;
   signIn?: {
     readonly abort: AbortController;
@@ -89,6 +97,10 @@ interface IRuntime {
   failure?: string;
   /** A request was refused for want of a sign-in. */
   needsSignIn: boolean;
+}
+
+function authOf(connector: IConnector): TConnectorAuth {
+  return connector.auth ?? 'oauth';
 }
 
 function oauthConfig(connector: IConnector): IMCPOAuthConfig {
@@ -147,6 +159,7 @@ export function createMcpConnectorProtocol(
 ): IConnectorProtocol {
   const directory = join(options.stateDir, DIRECTORY);
   const store = createFileOAuthCredentialStore(directory);
+  const tokens: ITokenStore = createFileTokenStore(join(options.stateDir, TOKEN_DIRECTORY));
   const lock = createFileOAuthRefreshLock(directory);
   const policy =
     options.allowedHosts === undefined ? undefined : { allowedHosts: options.allowedHosts };
@@ -167,21 +180,59 @@ export function createMcpConnectorProtocol(
     if (existing !== undefined) return existing;
     const runtime: IRuntime = {
       needsSignIn: false,
-      authenticator: createOAuthAuthenticator({
-        serverId: connector.id,
-        securityIdentity: identity(connector),
-        serverUrl: connector.endpoint,
-        config: oauthConfig(connector),
-        store,
-        lock,
-        network,
-        notify: (notice) => {
-          if (notice.kind === 'login-required') runtime.needsSignIn = true;
-        },
+      ...(authOf(connector) === 'oauth' && {
+        authenticator: createOAuthAuthenticator({
+          serverId: connector.id,
+          securityIdentity: identity(connector),
+          serverUrl: connector.endpoint,
+          config: oauthConfig(connector),
+          store,
+          lock,
+          network,
+          notify: (notice) => {
+            if (notice.kind === 'login-required') runtime.needsSignIn = true;
+          },
+        }),
       }),
     };
     runtimes.set(connector.id, runtime);
     return runtime;
+  };
+
+  /** The header carrying a token: the standard bearer one, or the header the person named, raw. */
+  const tokenHeaders = (connector: IConnector, token: string): Record<string, string> =>
+    connector.tokenHeader === undefined
+      ? { authorization: `Bearer ${token}` }
+      : { [connector.tokenHeader.toLowerCase()]: token };
+
+  /** What signs a request to a `token` connector: the stored token, read each time, never refreshed. */
+  const tokenAuthenticator = (
+    connector: IConnector,
+    runtime: IRuntime,
+  ): IMCPClientAuthenticator => ({
+    async authorize() {
+      const token = tokens.get(connector.id);
+      if (token === undefined) throw new MCPAuthenticationError('authorize-failed');
+      return tokenHeaders(connector, token);
+    },
+    async onRejected() {
+      runtime.needsSignIn = true;
+      return 'fail';
+    },
+  });
+
+  /** What signs requests to this connector, when anything does. */
+  const authenticationOf = (
+    connector: IConnector,
+    runtime: IRuntime,
+  ): IMCPBoundAuthenticator | undefined => {
+    const mode = authOf(connector);
+    if (mode === 'none') return undefined;
+    const authenticator =
+      mode === 'oauth' ? runtime.authenticator : tokenAuthenticator(connector, runtime);
+    return authenticator === undefined
+      ? undefined
+      : { serverId: connector.id, securityIdentity: identity(connector), authenticator };
   };
 
   const stopConnection = async (runtime: IRuntime): Promise<void> => {
@@ -194,14 +245,10 @@ export function createMcpConnectorProtocol(
     const runtime = runtimeOf(connector);
     if (runtime.supervisor !== undefined) return runtime.supervisor;
     const adapter = createStreamableHttpAdapter({ egress });
+    const authentication = authenticationOf(connector, runtime);
     const admission = await adapter.admit({
       url: connector.endpoint,
-      authenticationRequired: true,
-      authentication: {
-        serverId: connector.id,
-        securityIdentity: identity(connector),
-        authenticator: runtime.authenticator,
-      },
+      ...(authentication !== undefined && { authenticationRequired: true, authentication }),
     });
     if (!admission.ok) throw new Error(`The endpoint was refused (${admission.reason})`);
     const supervisor = new MCPConnectionSupervisor({
@@ -236,11 +283,53 @@ export function createMcpConnectorProtocol(
     }
   };
 
+  /**
+   * Keep the typed token only if the service accepts it: it is stored, one connection is made and the
+   * tools are listed. A token that fails leaves nothing behind and a token that worked before stays.
+   */
+  const connectWithToken = async (
+    connector: IConnector,
+    token: string | undefined,
+  ): Promise<IConnectorStatus> => {
+    if (token === undefined) return { state: 'failed', reason: 'no-token' };
+    const runtime = runtimeOf(connector);
+    const previous = tokens.get(connector.id);
+    runtime.failure = undefined;
+    runtime.needsSignIn = false;
+    tokens.set(connector.id, token);
+    await stopConnection(runtime);
+    try {
+      await (await connectionOf(connector)).discover();
+      return { state: 'connected' };
+    } catch (error) {
+      if (previous === undefined) tokens.delete(connector.id);
+      else tokens.set(connector.id, previous);
+      await stopConnection(runtime);
+      runtime.needsSignIn = false;
+      runtime.failure =
+        error instanceof MCPAuthenticationError ||
+        (error as { classification?: string }).classification === 'auth'
+          ? 'rejected'
+          : 'unreachable';
+      return { state: 'failed', reason: runtime.failure };
+    }
+  };
+
   return {
     id: 'mcp',
 
     async status(connector): Promise<IConnectorStatus> {
       const runtime = runtimes.get(connector.id);
+      // A service that needs no sign-in has nothing to be connected to.
+      if (authOf(connector) === 'none') return { state: 'connected' };
+      if (authOf(connector) === 'token') {
+        if (!tokens.has(connector.id)) {
+          return runtime?.failure !== undefined
+            ? { state: 'failed', reason: runtime.failure }
+            : { state: 'not-connected' };
+        }
+        return runtime?.needsSignIn === true ? { state: 'needs-sign-in' } : { state: 'connected' };
+      }
       // A sign-in under way is what the person has to act on, even for a connector that is connected.
       if (runtime?.signIn !== undefined) return runtime.signIn.status;
       const stored = await readMCPOAuthCredentialState({
@@ -261,6 +350,10 @@ export function createMcpConnectorProtocol(
     },
 
     async signIn(connector, context): Promise<IConnectorStatus> {
+      const mode = authOf(connector);
+      if (mode === 'none') return { state: 'connected' };
+      if (mode === 'token') return connectWithToken(connector, context.token);
+      if (context.origin === undefined) return { state: 'failed', reason: 'no-origin' };
       const runtime = runtimeOf(connector);
       if (runtime.signIn !== undefined) return runtime.signIn.announced;
       runtime.failure = undefined;
@@ -296,7 +389,7 @@ export function createMcpConnectorProtocol(
         async () => {
           runtime.signIn = undefined;
           runtime.needsSignIn = false;
-          runtime.authenticator.forget();
+          runtime.authenticator?.forget();
           await stopConnection(runtime);
           announce({ state: 'connected' });
         },
@@ -315,6 +408,17 @@ export function createMcpConnectorProtocol(
     },
 
     async signOut(connector): Promise<IDisconnectOutcome> {
+      if (authOf(connector) !== 'oauth') {
+        // A token is deleted; the service is not asked to revoke what it never issued to this agent.
+        const runtime = runtimes.get(connector.id);
+        if (runtime !== undefined) {
+          runtime.failure = undefined;
+          runtime.needsSignIn = false;
+          await stopConnection(runtime);
+        }
+        const removed = tokens.delete(connector.id);
+        return { removed, revocation: 'unsupported' };
+      }
       const runtime = runtimeOf(connector);
       runtime.signIn?.abort.abort();
       runtime.signIn = undefined;
@@ -329,7 +433,7 @@ export function createMcpConnectorProtocol(
         lock,
         network,
       });
-      runtime.authenticator.forget();
+      runtime.authenticator?.forget();
       return { removed: result.removed, revocation: REVOCATION[result.revocation] ?? 'failed' };
     },
 
@@ -360,10 +464,12 @@ export function createMcpConnectorProtocol(
     },
 
     async forget(connector): Promise<void> {
+      // A removed connector keeps no token, whether or not this process ever connected it.
+      tokens.delete(connector.id);
       const runtime = runtimes.get(connector.id);
       if (runtime === undefined) return;
       runtime.signIn?.abort.abort();
-      runtime.authenticator.close();
+      runtime.authenticator?.close();
       await stopConnection(runtime);
       runtimes.delete(connector.id);
     },
@@ -371,7 +477,7 @@ export function createMcpConnectorProtocol(
     async close(): Promise<void> {
       for (const runtime of runtimes.values()) {
         runtime.signIn?.abort.abort();
-        runtime.authenticator.close();
+        runtime.authenticator?.close();
         await stopConnection(runtime);
       }
       runtimes.clear();

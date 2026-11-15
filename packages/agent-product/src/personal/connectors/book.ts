@@ -8,9 +8,9 @@ import { join } from 'node:path';
 
 import { containsSensitiveMemoryContent } from '@robota-sdk/agent-framework';
 
-import { CONNECTOR_KINDS } from './types.js';
+import { CONNECTOR_AUTHS, CONNECTOR_KINDS } from './types.js';
 
-import type { IConnector, TConnectorKind, TToolDecision } from './types.js';
+import type { IConnector, TConnectorAuth, TConnectorKind, TToolDecision } from './types.js';
 
 export interface IConnectorStore {
   list(): Promise<readonly IConnector[]>;
@@ -34,6 +34,30 @@ const SCOPE_TOKEN = /^[\x21\x23-\x5b\x5d-\x7e]{1,200}$/;
 const PARAM_NAME = /^[a-z][a-z0-9_]{0,31}$/;
 const PARAM_VALUE = /^[A-Za-z0-9._~-]{1,64}$/;
 const MAX_PARAMS = 4;
+/** A header name as HTTP allows it, and the ones the transport or the connection itself owns. */
+const HEADER_NAME = /^[A-Za-z][A-Za-z0-9-]{0,63}$/;
+const OWNED_HEADERS: ReadonlySet<string> = new Set([
+  'host',
+  'content-length',
+  'content-type',
+  'accept',
+  'connection',
+  'transfer-encoding',
+  'upgrade',
+  'te',
+  'trailer',
+  'cookie',
+  'set-cookie',
+  'proxy-authorization',
+  'proxy-authenticate',
+  'origin',
+  'referer',
+  'mcp-session-id',
+  'mcp-protocol-version',
+  'last-event-id',
+  'traceparent',
+  'tracestate',
+]);
 const MAX_TITLE = 80;
 const MAX_DECISIONS = 200;
 const MAX_TOOL_NAME = 128;
@@ -108,6 +132,8 @@ export interface ICreateConnectorInput {
   readonly kind: TConnectorKind;
   readonly protocol: string;
   readonly endpoint: string;
+  readonly auth?: TConnectorAuth;
+  readonly tokenHeader?: string;
   readonly oauth?: {
     readonly clientId?: string;
     readonly scopes?: readonly string[];
@@ -138,7 +164,17 @@ export class ConnectorBook {
     }
     if (!PROTOCOL.test(input.protocol)) throw new ConnectorRefusedError('Unknown protocol name');
     const endpoint = checkEndpoint(input.endpoint);
+    const auth = input.auth ?? 'oauth';
+    if (!CONNECTOR_AUTHS.includes(auth)) {
+      throw new ConnectorRefusedError(`auth must be one of ${CONNECTOR_AUTHS.join(', ')}`);
+    }
+    const tokenHeader = this.checkTokenHeader(auth, input.tokenHeader);
     const oauth = this.checkOAuth(input.oauth);
+    if (oauth !== undefined && auth !== 'oauth') {
+      throw new ConnectorRefusedError(
+        'A client id, scopes and sign-in options belong to an OAuth sign-in',
+      );
+    }
     const at = this.now().toISOString();
     this.sequence += 1;
     const unique = `${this.now().getTime().toString(36)}${this.sequence.toString(36)}`;
@@ -149,6 +185,8 @@ export class ConnectorBook {
       kind: input.kind,
       protocol: input.protocol,
       endpoint,
+      ...(auth !== 'oauth' && { auth }),
+      ...(tokenHeader !== undefined && { tokenHeader }),
       ...(oauth !== undefined && { oauth }),
       decisions: {},
       createdAt: at,
@@ -156,6 +194,19 @@ export class ConnectorBook {
     };
     await this.store.put(connector);
     return connector;
+  }
+
+  private checkTokenHeader(auth: TConnectorAuth, header: string | undefined): string | undefined {
+    if (header === undefined || header === '') return undefined;
+    if (auth !== 'token') {
+      throw new ConnectorRefusedError('A header name belongs to a service that takes a token');
+    }
+    if (!HEADER_NAME.test(header) || OWNED_HEADERS.has(header.toLowerCase())) {
+      throw new ConnectorRefusedError(
+        'The header must be a plain header name that the connection does not use itself',
+      );
+    }
+    return header;
   }
 
   private checkOAuth(oauth: ICreateConnectorInput['oauth']): IConnector['oauth'] | undefined {

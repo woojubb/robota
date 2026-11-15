@@ -48,7 +48,7 @@ interface IFakeProtocol extends IConnectorProtocol {
   reply: IConnectorCallResult;
   failTools: boolean;
   /** What the last sign-in was handed. */
-  context?: { readonly origin: string; readonly clientSecret?: string };
+  context?: Parameters<IConnectorProtocol['signIn']>[1];
 }
 
 function fakeProtocol(): IFakeProtocol {
@@ -137,6 +137,23 @@ describe('the connector book', () => {
     expect(Object.keys(connector.oauth ?? {})).not.toContain('clientSecret');
   });
 
+  it('keeps how a service is signed in to: a token with the header it goes in, or none at all', async () => {
+    const book = new ConnectorBook({ store: createMemoryConnectorStore() });
+    const base = { title: 'Tracker', kind: 'notes', protocol: 'mcp', endpoint: ENDPOINT } as const;
+    const signedIn = await book.create(base);
+    const standard = await book.create({ ...base, auth: 'token' });
+    const custom = await book.create({ ...base, auth: 'token', tokenHeader: 'X-Api-Key' });
+    const open = await book.create({ ...base, auth: 'none' });
+    // OAuth is the default and leaves the record as it always was.
+    expect(Object.keys(signedIn)).not.toContain('auth');
+    expect(standard.auth).toBe('token');
+    expect(standard.tokenHeader).toBeUndefined();
+    expect(custom).toMatchObject({ auth: 'token', tokenHeader: 'X-Api-Key' });
+    expect(open.auth).toBe('none');
+    // The record names the header, never the token that goes in it.
+    expect(Object.keys(custom)).not.toContain('token');
+  });
+
   it.each([
     ['an endpoint that is not https', { endpoint: 'http://notes.example/mcp' }],
     ['an endpoint that is not an address', { endpoint: 'notes' }],
@@ -156,6 +173,29 @@ describe('the connector book', () => {
     [
       'more than four sign-in options',
       { oauth: { authorizationParams: { a: '1', b: '2', c: '3', d: '4', e: '5' } } },
+    ],
+    ['a sign-in mode that is not one', { auth: 'password' as never }],
+    ['a header name for a service that signs in with OAuth', { tokenHeader: 'X-Api-Key' }],
+    [
+      'a header name for a service that needs no sign-in',
+      { auth: 'none' as const, tokenHeader: 'X-Api-Key' },
+    ],
+    ['a header name with a space', { auth: 'token' as const, tokenHeader: 'X Api Key' }],
+    [
+      'a header the connection uses itself',
+      { auth: 'token' as const, tokenHeader: 'Content-Type' },
+    ],
+    [
+      'a header the connection uses itself, in other letters',
+      { auth: 'token' as const, tokenHeader: 'mcp-SESSION-id' },
+    ],
+    [
+      'a client id for a service that takes a token',
+      { auth: 'token' as const, oauth: { clientId: 'client-1' } },
+    ],
+    [
+      'sign-in options for a service that needs no sign-in',
+      { auth: 'none' as const, oauth: { authorizationParams: { prompt: 'consent' } } },
     ],
   ])('refuses %s', async (_name, change) => {
     const book = new ConnectorBook({ store: createMemoryConnectorStore() });
@@ -383,6 +423,51 @@ describe('the connector registry', () => {
     expect(protocol.context?.clientSecret).toBe('the-secret');
     expect(JSON.stringify(await book.get(registered.id))).not.toContain('the-secret');
     expect(JSON.stringify(await book.list())).not.toContain('the-secret');
+  });
+
+  it('hands the typed token of a token service to the protocol, keeps it in no record, and asks for it when missing', async () => {
+    const { registry, protocol, book } = await setup();
+    const service = await book.create({
+      title: 'Tracker',
+      kind: 'notes',
+      protocol: 'fake',
+      endpoint: ENDPOINT,
+      auth: 'token',
+    });
+    await registry.signIn(service.id, { token: 'typed-token-value' });
+    expect(protocol.context).toEqual({ token: 'typed-token-value' });
+    expect(JSON.stringify(await book.list())).not.toContain('typed-token-value');
+    await expect(registry.signIn(service.id, {})).rejects.toThrow(/Type the token/u);
+    // A client secret belongs to an OAuth sign-in, so a token service refuses it.
+    await expect(registry.signIn(service.id, { token: 'x', clientSecret: 's' })).rejects.toThrow(
+      /OAuth sign-in/u,
+    );
+    expect(protocol.events.filter((event) => event.startsWith('signIn'))).toHaveLength(1);
+  });
+
+  it('refuses a token for an OAuth service, and an OAuth sign-in with no page to come back to', async () => {
+    const { registry, protocol, connector } = await setup();
+    await expect(
+      registry.signIn(connector.id, { origin: 'https://agent.example', token: 'x' }),
+    ).rejects.toThrow(/OAuth, not a token/u);
+    await expect(registry.signIn(connector.id, {})).rejects.toThrow(/address of this page/u);
+    expect(protocol.events).toEqual([]);
+  });
+
+  it('starts no sign-in for a service that needs none', async () => {
+    const { registry, protocol, book } = await setup();
+    const open = await book.create({
+      title: 'Open',
+      kind: 'notes',
+      protocol: 'fake',
+      endpoint: ENDPOINT,
+      auth: 'none',
+    });
+    await expect(registry.signIn(open.id, { origin: 'https://agent.example' })).rejects.toThrow(
+      /needs no sign-in/u,
+    );
+    await expect(registry.signIn(open.id, { token: 'x' })).rejects.toThrow(/needs no sign-in/u);
+    expect(protocol.events).toEqual([]);
   });
 
   it('starts a sign-in through the connector’s own protocol', async () => {

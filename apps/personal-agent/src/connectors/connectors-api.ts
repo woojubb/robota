@@ -18,6 +18,7 @@ import type {
   IConnectorSyncStatus,
   IConnectorView,
   KnowledgeWiki,
+  TConnectorAuth,
   TConnectorKind,
   TToolDecision,
 } from '@robota-sdk/agent-product/personal';
@@ -62,6 +63,8 @@ function present(view: IConnectorView, sync?: IConnectorSyncStatus): Record<stri
     kind: connector.kind,
     protocol: connector.protocol,
     endpoint: connector.endpoint,
+    ...(connector.auth !== undefined && { auth: connector.auth }),
+    ...(connector.tokenHeader !== undefined && { tokenHeader: connector.tokenHeader }),
     ...(connector.oauth !== undefined && { oauth: connector.oauth }),
     status,
     ...(sync !== undefined && { sync }),
@@ -80,6 +83,19 @@ function present(view: IConnectorView, sync?: IConnectorSyncStatus): Record<stri
 const DECISIONS: readonly string[] = ['read', 'write', 'blocked'];
 /** A client secret is one word of printable characters; its value is never repeated in an answer. */
 const CLIENT_SECRET = /^[\x21-\x7e]{1,512}$/;
+
+/** A token is one word of printable characters; its value is never repeated in an answer. */
+const TOKEN = /^[\x21-\x7e]{1,4096}$/;
+
+/** The token typed for this connection, or `undefined` when none was given. */
+function tokenOf(body: Record<string, unknown>): string | undefined {
+  const value = body['token'];
+  if (value === undefined || value === '') return undefined;
+  if (typeof value !== 'string' || !TOKEN.test(value)) {
+    throw new ConnectorRefusedError('The token must be one word of printable characters');
+  }
+  return value;
+}
 
 /** The secret typed for this sign-in, or `undefined` when none was given. */
 function clientSecretOf(body: Record<string, unknown>): string | undefined {
@@ -162,11 +178,21 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
           throw new ConnectorRefusedError('clientId must be a string');
         }
         const authorizationParams = authorizationParamsOf(body);
+        const auth = body['auth'];
+        if (auth !== undefined && typeof auth !== 'string') {
+          throw new ConnectorRefusedError('auth must be oauth, token or none');
+        }
+        const tokenHeader = body['tokenHeader'];
+        if (tokenHeader !== undefined && typeof tokenHeader !== 'string') {
+          throw new ConnectorRefusedError('tokenHeader must be a header name');
+        }
         const connector = await book.create({
           title: text(body, 'title'),
           kind: text(body, 'kind') as TConnectorKind,
           protocol: 'mcp',
           endpoint: text(body, 'endpoint'),
+          ...(auth !== undefined && { auth: auth as TConnectorAuth }),
+          ...(tokenHeader !== undefined && { tokenHeader }),
           ...((clientId !== undefined && clientId !== '') ||
           (scopes?.length ?? 0) > 0 ||
           authorizationParams !== undefined
@@ -192,16 +218,22 @@ export function createConnectorsApi(options: IConnectorsApiOptions): TConnectors
     if (method !== 'POST') return undefined;
     if (action === 'connect') {
       const body = record(request.body);
-      const origin = text(body, 'origin');
       const clientSecret = clientSecretOf(body);
-      const normalized = URL.canParse(origin) ? new URL(origin).origin : undefined;
-      if (normalized === undefined || !options.origins().includes(normalized)) {
-        throw new ConnectorRefusedError('the agent is not reached at that origin');
+      const token = tokenOf(body);
+      // Only an OAuth sign-in returns to this agent's page, so only it needs an origin that is ours.
+      let normalized: string | undefined;
+      if (body['origin'] !== undefined) {
+        const origin = text(body, 'origin');
+        normalized = URL.canParse(origin) ? new URL(origin).origin : undefined;
+        if (normalized === undefined || !options.origins().includes(normalized)) {
+          throw new ConnectorRefusedError('the agent is not reached at that origin');
+        }
       }
       return ok({
         status: await registry.signIn(id, {
-          origin: normalized,
+          ...(normalized !== undefined && { origin: normalized }),
           ...(clientSecret !== undefined && { clientSecret }),
+          ...(token !== undefined && { token }),
         }),
       });
     }

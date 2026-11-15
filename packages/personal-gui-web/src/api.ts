@@ -175,6 +175,8 @@ export type TConnectorState =
   'not-connected' | 'connecting' | 'connected' | 'needs-sign-in' | 'failed';
 export type TToolAccess = 'read' | 'write' | 'blocked';
 export type TConnectorKind = 'mail' | 'calendar' | 'files' | 'chat' | 'notes' | 'other';
+/** How a service is signed in to; a view that carries none is signed in to with OAuth. */
+export type TConnectorAuth = 'oauth' | 'token' | 'none';
 
 export interface IConnectorToolView {
   readonly name: string;
@@ -213,6 +215,9 @@ export interface IConnectorView {
   readonly title: string;
   readonly kind: TConnectorKind;
   readonly endpoint: string;
+  readonly auth?: TConnectorAuth;
+  /** The header a token goes in, when it is not the standard one; the name only, never the token. */
+  readonly tokenHeader?: string;
   /** What the person registered with the service: public values only, never a secret. */
   readonly oauth?: {
     readonly clientId?: string;
@@ -315,18 +320,20 @@ export interface IPersonalApi {
     title: string;
     kind: TConnectorKind;
     endpoint: string;
+    auth?: TConnectorAuth;
+    tokenHeader?: string;
     clientId?: string;
     scopes?: readonly string[];
     authorizationParams?: Readonly<Record<string, string>>;
   }): Promise<{ connector: IConnectorView }>;
   /**
-   * Start the sign-in; the page opens the returned address in the person's browser. A client secret
-   * the person typed goes with this one request and is not kept by the page.
+   * Sign in. With OAuth the page sends its own origin and opens the returned address in the person's
+   * browser; with a token it sends the token instead. What the person typed (a client secret or a
+   * token) goes with this one request and is not kept by the page.
    */
   connectConnector(
     id: string,
-    origin: string,
-    clientSecret?: string,
+    input: { origin?: string; clientSecret?: string; token?: string },
   ): Promise<{ status: IConnectorStatusView }>;
   disconnectConnector(id: string, forgetPulled?: boolean): Promise<IDisconnectAnswer>;
   removeConnector(id: string, forgetPulled?: boolean): Promise<IDisconnectAnswer>;
@@ -409,10 +416,11 @@ export function createPersonalApi(
     answerFeed: (itemId, action) => call('POST', `feed/${id(itemId)}/${action}`),
     connectors: () => call('GET', 'connectors'),
     addConnector: (input) => call('POST', 'connectors', input),
-    connectConnector: (connectorId, origin, clientSecret) =>
+    connectConnector: (connectorId, { origin, clientSecret, token }) =>
       call('POST', `connectors/${id(connectorId)}/connect`, {
-        origin,
+        ...(origin !== undefined && { origin }),
         ...(clientSecret !== undefined && clientSecret !== '' && { clientSecret }),
+        ...(token !== undefined && token !== '' && { token }),
       }),
     disconnectConnector: (connectorId, forgetPulled = false) =>
       call('POST', `connectors/${id(connectorId)}/disconnect`, { forgetPulled }),

@@ -83,7 +83,7 @@ describe('the Connectors tab', () => {
     render(<ConnectorsView api={fakeApi([idle], { connectConnector: connect })} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Connect' }));
     await waitFor(() =>
-      expect(connect).toHaveBeenCalledWith(NOTES.id, window.location.origin, undefined),
+      expect(connect).toHaveBeenCalledWith(NOTES.id, { origin: window.location.origin }),
     );
     expect(open).toHaveBeenCalledWith(
       'https://auth.example/authorize?x=1',
@@ -111,7 +111,10 @@ describe('the Connectors tab', () => {
     fireEvent.change(field, { target: { value: 'the-secret' } });
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
     await waitFor(() =>
-      expect(connect).toHaveBeenCalledWith(NOTES.id, window.location.origin, 'the-secret'),
+      expect(connect).toHaveBeenCalledWith(NOTES.id, {
+        origin: window.location.origin,
+        clientSecret: 'the-secret',
+      }),
     );
     // The field is emptied as the request goes, and the secret appears nowhere on the page.
     expect(field.value).toBe('');
@@ -125,6 +128,72 @@ describe('the Connectors tab', () => {
     );
     await screen.findByRole('button', { name: 'Connect' });
     expect(screen.queryByLabelText(/Client secret/u)).toBeNull();
+  });
+
+  it('takes the token of a token service in a password field, sends it with that one request and does not keep it', async () => {
+    const connect = vi.fn(async () => ({ status: { state: 'connected' as const } }));
+    const tracker: IConnectorView = {
+      ...NOTES,
+      auth: 'token',
+      tokenHeader: 'X-Api-Key',
+      status: { state: 'not-connected' },
+      tools: undefined,
+    };
+    render(<ConnectorsView api={fakeApi([tracker], { connectConnector: connect })} />);
+    const field = (await screen.findByLabelText('Token for Notes')) as HTMLInputElement;
+    expect(field.type).toBe('password');
+    expect(screen.getByText(/in the X-Api-Key header/u)).toBeTruthy();
+    // Nothing to send yet, and nothing of an OAuth sign-in on the card.
+    const button = screen.getByRole('button', { name: 'Connect' }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(screen.queryByLabelText(/Client secret/u)).toBeNull();
+    fireEvent.change(field, { target: { value: 'typed-token' } });
+    expect(button.disabled).toBe(false);
+    fireEvent.click(button);
+    await waitFor(() => expect(connect).toHaveBeenCalledWith(NOTES.id, { token: 'typed-token' }));
+    expect(field.value).toBe('');
+    expect(document.body.textContent).not.toContain('typed-token');
+  });
+
+  it('asks for a new token, not a sign-in, when the service stops accepting the one it has', async () => {
+    const refused: IConnectorView = {
+      ...NOTES,
+      auth: 'token',
+      status: { state: 'needs-sign-in' },
+      tools: undefined,
+    };
+    render(<ConnectorsView api={fakeApi([refused])} />);
+    await screen.findByText('The service no longer accepts the token');
+    expect(screen.getByLabelText('Token for Notes')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Connect again' })).toBeTruthy();
+  });
+
+  it('shows a service that needs no sign-in with its tools, and nothing to connect or disconnect', async () => {
+    const open: IConnectorView = { ...NOTES, auth: 'none', status: { state: 'connected' } };
+    render(<ConnectorsView api={fakeApi([open])} />);
+    await screen.findByText('This service needs no sign-in.');
+    expect(
+      within(screen.getByRole('region', { name: 'Reads' })).getByText('search_notes'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Connect/u })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Disconnect' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeTruthy();
+  });
+
+  it('says the token was deleted but the service still honours it, when a token connector is disconnected', async () => {
+    const disconnect = vi.fn(async () => ({
+      outcome: { removed: true, revocation: 'unsupported' as const },
+    }));
+    const tracker: IConnectorView = { ...NOTES, auth: 'token' };
+    render(<ConnectorsView api={fakeApi([tracker], { disconnectConnector: disconnect })} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Disconnect' }));
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          /deleted the token\. The service keeps the token valid until you revoke it there/u,
+        ),
+      ).toBeTruthy(),
+    );
   });
 
   it('offers the sign-in page as a link while it waits, and shows a failure by its fixed word', async () => {
@@ -290,6 +359,57 @@ describe('the Connectors tab', () => {
     );
   });
 
+  it('adds a service that takes a token with its header, and leaves out what only a sign-in page needs, even when it was typed first', async () => {
+    const add = vi.fn(async () => ({ connector: NOTES }));
+    render(<ConnectorsView api={fakeApi([], { addConnector: add })} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a connector' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Tracker' } });
+    fireEvent.change(screen.getByLabelText('Address of the service'), {
+      target: { value: 'https://tracker.example/mcp' },
+    });
+    fireEvent.change(screen.getByLabelText('Client id you registered (optional)'), {
+      target: { value: 'my-client' },
+    });
+    fireEvent.change(screen.getByLabelText('How it signs you in'), { target: { value: 'token' } });
+    // The OAuth fields and the redirect address are gone once the person picks a token.
+    expect(screen.queryByLabelText('Client id you registered (optional)')).toBeNull();
+    expect(screen.queryByText(`${window.location.origin}/connector-callback`)).toBeNull();
+    fireEvent.change(screen.getByLabelText(/Header the token goes in/u), {
+      target: { value: ' X-Api-Key ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith({
+        title: 'Tracker',
+        kind: 'mail',
+        endpoint: 'https://tracker.example/mcp',
+        auth: 'token',
+        tokenHeader: 'X-Api-Key',
+      }),
+    );
+  });
+
+  it('adds a service that needs no sign-in with nothing about signing in', async () => {
+    const add = vi.fn(async () => ({ connector: NOTES }));
+    render(<ConnectorsView api={fakeApi([], { addConnector: add })} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a connector' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Open notes' } });
+    fireEvent.change(screen.getByLabelText('Address of the service'), {
+      target: { value: 'https://open.example/mcp' },
+    });
+    fireEvent.change(screen.getByLabelText('How it signs you in'), { target: { value: 'none' } });
+    expect(screen.queryByLabelText(/Header the token goes in/u)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith({
+        title: 'Open notes',
+        kind: 'mail',
+        endpoint: 'https://open.example/mcp',
+        auth: 'none',
+      }),
+    );
+  });
+
   it('adds a connector, shows the redirect address a registered client needs, and splits the scopes', async () => {
     const add = vi.fn(async () => ({ connector: NOTES }));
     render(<ConnectorsView api={fakeApi([], { addConnector: add })} />);
@@ -327,7 +447,8 @@ describe('the connector calls of the API client', () => {
       return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
     });
     await api.connectors();
-    await api.connectConnector('connector-a', 'https://agent.example');
+    await api.connectConnector('connector-a', { origin: 'https://agent.example' });
+    await api.connectConnector('connector-a', { token: 'typed-token' });
     await api.disconnectConnector('connector-a', true);
     await api.removeConnector('connector-a');
     await api.connectorPulled('connector-a');
@@ -336,6 +457,7 @@ describe('the connector calls of the API client', () => {
     expect(calls.map((call) => `${call.init?.method ?? 'GET'} ${call.url}`)).toEqual([
       'GET api/connectors',
       'POST api/connectors/connector-a/connect',
+      'POST api/connectors/connector-a/connect',
       'POST api/connectors/connector-a/disconnect',
       'POST api/connectors/connector-a/remove',
       'GET api/connectors/connector-a/pulled',
@@ -343,9 +465,11 @@ describe('the connector calls of the API client', () => {
       'POST api/connectors/connector-a/tools/tool%2Fwith%20space',
     ]);
     expect(calls[1]!.init?.body).toBe(JSON.stringify({ origin: 'https://agent.example' }));
-    expect(calls[2]!.init?.body).toBe(JSON.stringify({ forgetPulled: true }));
-    expect(calls[3]!.init?.body).toBe(JSON.stringify({ forgetPulled: false }));
-    expect(calls[5]!.init?.body).toBe(JSON.stringify({ everyMinutes: 60 }));
-    expect(calls[6]!.init?.body).toBe(JSON.stringify({ decision: null }));
+    // A token sign-in never comes back to this page, so it carries no origin.
+    expect(calls[2]!.init?.body).toBe(JSON.stringify({ token: 'typed-token' }));
+    expect(calls[3]!.init?.body).toBe(JSON.stringify({ forgetPulled: true }));
+    expect(calls[4]!.init?.body).toBe(JSON.stringify({ forgetPulled: false }));
+    expect(calls[6]!.init?.body).toBe(JSON.stringify({ everyMinutes: 60 }));
+    expect(calls[7]!.init?.body).toBe(JSON.stringify({ decision: null }));
   });
 });

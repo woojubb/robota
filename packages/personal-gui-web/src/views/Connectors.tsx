@@ -9,6 +9,7 @@ import type {
   IDisconnectAnswer,
   IDisconnectView,
   IPersonalApi,
+  TConnectorAuth,
   TConnectorKind,
   TConnectorState,
   TToolAccess,
@@ -18,6 +19,12 @@ const REFRESH_MS = 3_000;
 
 const KINDS: readonly TConnectorKind[] = ['mail', 'calendar', 'files', 'chat', 'notes', 'other'];
 
+const AUTH_CHOICES: readonly { readonly value: TConnectorAuth; readonly label: string }[] = [
+  { value: 'oauth', label: 'Sign in on the service’s own page' },
+  { value: 'token', label: 'Paste a token or API key' },
+  { value: 'none', label: 'No sign-in needed' },
+];
+
 const STATE_LABEL: Readonly<Record<TConnectorState, string>> = {
   'not-connected': 'Not connected',
   connecting: 'Waiting for you to sign in',
@@ -26,23 +33,33 @@ const STATE_LABEL: Readonly<Record<TConnectorState, string>> = {
   failed: 'Could not connect',
 };
 
+/** The state in words; a token the service stopped accepting asks for a new token, not a sign-in. */
+function stateLabel(connector: IConnectorView): string {
+  if (connector.auth === 'token' && connector.status.state === 'needs-sign-in') {
+    return 'The service no longer accepts the token';
+  }
+  return STATE_LABEL[connector.status.state];
+}
+
 /** What disconnecting did at the service, and in the library, in words the person can act on. */
-function outcomeText(answer: IDisconnectAnswer): string {
+function outcomeText(answer: IDisconnectAnswer, auth: TConnectorAuth): string {
   const forgotten =
     answer.forgotten === undefined || answer.forgotten === 0
       ? ''
       : ` ${answer.forgotten} ${answer.forgotten === 1 ? 'fact it had pulled was' : 'facts it had pulled were'} forgotten.`;
-  return `${revocationText(answer.outcome)}${forgotten}`;
+  return `${revocationText(answer.outcome, auth)}${forgotten}`;
 }
 
-function revocationText(outcome: IDisconnectView): string {
+function revocationText(outcome: IDisconnectView, auth: TConnectorAuth): string {
   switch (outcome.revocation) {
     case 'revoked':
       return 'Disconnected. The service confirmed it revoked the access.';
     case 'partial':
       return 'Disconnected. The service revoked part of the access; the rest ends when it expires.';
     case 'unsupported':
-      return 'Disconnected here. The service offers no way to revoke, so the access ends when it expires.';
+      return auth === 'token'
+        ? 'Disconnected, and your agent deleted the token. The service keeps the token valid until you revoke it there.'
+        : 'Disconnected here. The service offers no way to revoke, so the access ends when it expires.';
     case 'failed':
       return 'Disconnected here, but the service did not confirm the revocation; the access ends when it expires.';
     case 'not-attempted':
@@ -139,7 +156,7 @@ function ConnectorCard({
   pulledCount,
 }: {
   readonly connector: IConnectorView;
-  readonly onConnect: (clientSecret?: string) => void;
+  readonly onConnect: (typed?: { clientSecret?: string; token?: string }) => void;
   readonly onDisconnect: (forgetPulled: boolean) => void;
   readonly onRemove: (forgetPulled: boolean) => void;
   readonly onDecide: (tool: string, decision: TToolAccess | null) => void;
@@ -149,13 +166,19 @@ function ConnectorCard({
   readonly pulledCount: () => Promise<number>;
 }): React.ReactElement {
   const { status } = connector;
-  // A secret the person types for one sign-in: held here until the request goes, never stored.
-  const [clientSecret, setClientSecret] = useState('');
+  const auth = connector.auth ?? 'oauth';
+  // What the person types for one sign-in (a client secret, or the token of a service that takes
+  // one): held here until the request goes, never stored.
+  const [typed, setTyped] = useState('');
   const connect = (): void => {
-    const secret = clientSecret;
-    setClientSecret('');
-    onConnect(secret === '' ? undefined : secret);
+    const value = typed;
+    setTyped('');
+    if (value === '') onConnect();
+    else onConnect(auth === 'token' ? { token: value } : { clientSecret: value });
   };
+  const idle = status.state !== 'connected' && status.state !== 'connecting';
+  const asksClientSecret = idle && auth === 'oauth' && connector.oauth?.clientId !== undefined;
+  const asksToken = idle && auth === 'token';
   // What the person is being asked, and how much of the library the connector filled.
   const [asking, setAsking] = useState<
     { kind: 'disconnect' | 'remove'; pulled: number } | undefined
@@ -181,11 +204,14 @@ function ConnectorCard({
         <span
           className={`ml-auto text-[12.5px] ${status.state === 'connected' ? 'text-foreground' : 'text-muted-foreground'}`}
         >
-          {STATE_LABEL[status.state]}
+          {stateLabel(connector)}
           {status.state === 'failed' && status.reason !== undefined ? ` (${status.reason})` : ''}
         </span>
       </div>
       <p className="break-all text-[12px] text-muted-foreground">{connector.endpoint}</p>
+      {auth === 'none' && (
+        <p className="text-[12px] text-muted-foreground">This service needs no sign-in.</p>
+      )}
       {status.state === 'connected' && status.scope !== undefined && (
         <p className="mt-1 break-words text-[12.5px]">
           <span className="text-muted-foreground">The service says you allowed: </span>
@@ -277,34 +303,50 @@ function ConnectorCard({
           )}
         </section>
       )}
-      {status.state !== 'connected' &&
-        status.state !== 'connecting' &&
-        connector.oauth?.clientId !== undefined && (
-          <p className="mt-2 text-[12px] text-muted-foreground">
-            Type the client secret again for each sign-in: this page does not keep it.
-          </p>
-        )}
+      {asksClientSecret && (
+        <p className="mt-2 text-[12px] text-muted-foreground">
+          Type the client secret again for each sign-in: this page does not keep it.
+        </p>
+      )}
+      {asksToken && (
+        <p className="mt-2 text-[12px] text-muted-foreground">
+          Paste the token the service gave you. Your agent keeps it in an owner-only file and does
+          not show it again.{' '}
+          {connector.tokenHeader === undefined
+            ? 'It is sent as a bearer token.'
+            : `It is sent in the ${connector.tokenHeader} header.`}
+        </p>
+      )}
       <div className="mt-3 flex items-center gap-2">
-        {status.state !== 'connected' &&
-          status.state !== 'connecting' &&
-          connector.oauth?.clientId !== undefined && (
-            <input
-              type="password"
-              autoComplete="new-password"
-              aria-label={`Client secret for ${connector.title}, if the service gave you one`}
-              placeholder="Client secret (if given)"
-              className={`${inputClass} w-56`}
-              value={clientSecret}
-              onChange={(event) => setClientSecret(event.target.value)}
-            />
-          )}
-        {status.state !== 'connected' && status.state !== 'connecting' && (
-          <Button tone="primary" onClick={connect}>
+        {asksClientSecret && (
+          <input
+            type="password"
+            autoComplete="new-password"
+            aria-label={`Client secret for ${connector.title}, if the service gave you one`}
+            placeholder="Client secret (if given)"
+            className={`${inputClass} w-56`}
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+          />
+        )}
+        {asksToken && (
+          <input
+            type="password"
+            autoComplete="new-password"
+            aria-label={`Token for ${connector.title}`}
+            placeholder="Token"
+            className={`${inputClass} w-56`}
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+          />
+        )}
+        {idle && (
+          <Button tone="primary" onClick={connect} disabled={asksToken && typed.trim() === ''}>
             {status.state === 'not-connected' ? 'Connect' : 'Connect again'}
           </Button>
         )}
         {status.state === 'connecting' && <Button onClick={() => onConnect()}>Start over</Button>}
-        {status.state === 'connected' && asking === undefined && (
+        {status.state === 'connected' && auth !== 'none' && asking === undefined && (
           <Button onClick={() => void ask('disconnect')}>Disconnect</Button>
         )}
         <span className="ml-auto flex items-center gap-2">
@@ -352,6 +394,8 @@ function AddForm({
     title: string;
     kind: TConnectorKind;
     endpoint: string;
+    auth?: TConnectorAuth;
+    tokenHeader?: string;
     clientId?: string;
     scopes?: readonly string[];
     authorizationParams?: Readonly<Record<string, string>>;
@@ -361,6 +405,8 @@ function AddForm({
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<TConnectorKind>('mail');
   const [endpoint, setEndpoint] = useState('');
+  const [auth, setAuth] = useState<TConnectorAuth>('oauth');
+  const [tokenHeader, setTokenHeader] = useState('');
   const [clientId, setClientId] = useState('');
   const [scopes, setScopes] = useState('');
   const [stayIn, setStayIn] = useState(false);
@@ -371,13 +417,19 @@ function AddForm({
       onSubmit={(event) => {
         event.preventDefault();
         const words = scopes.split(/\s+/u).filter((word) => word !== '');
+        // What belongs to another way of signing in is left out, so a field the person filled and then
+        // hid by changing the choice is never sent.
+        const oauth = auth === 'oauth';
         void onAdd({
           title,
           kind,
           endpoint,
-          ...(clientId.trim() !== '' && { clientId: clientId.trim() }),
-          ...(words.length > 0 && { scopes: words }),
-          ...(stayIn && { authorizationParams: { access_type: 'offline', prompt: 'consent' } }),
+          ...(!oauth && { auth }),
+          ...(auth === 'token' && tokenHeader.trim() !== '' && { tokenHeader: tokenHeader.trim() }),
+          ...(oauth && clientId.trim() !== '' && { clientId: clientId.trim() }),
+          ...(oauth && words.length > 0 && { scopes: words }),
+          ...(oauth &&
+            stayIn && { authorizationParams: { access_type: 'offline', prompt: 'consent' } }),
         });
       }}
     >
@@ -415,38 +467,74 @@ function AddForm({
         />
       </label>
       <label className="flex flex-col gap-1 text-[13px]">
-        Client id you registered (optional)
-        <input
+        How it signs you in
+        <select
           className={inputClass}
-          value={clientId}
-          onChange={(e) => setClientId(e.target.value)}
-        />
+          value={auth}
+          onChange={(event) => setAuth(event.target.value as TConnectorAuth)}
+        >
+          {AUTH_CHOICES.map((choice) => (
+            <option key={choice.value} value={choice.value}>
+              {choice.label}
+            </option>
+          ))}
+        </select>
       </label>
-      <label className="flex flex-col gap-1 text-[13px]">
-        Scopes to ask for, separated by spaces (optional)
-        <input className={inputClass} value={scopes} onChange={(e) => setScopes(e.target.value)} />
-      </label>
-      <label className="flex items-start gap-2 text-[13px]">
-        <input
-          type="checkbox"
-          className="mt-1"
-          checked={stayIn}
-          onChange={(event) => setStayIn(event.target.checked)}
-        />
-        <span>
-          Ask the service for a long-lasting sign-in
-          <span className="block text-[12.5px] text-muted-foreground">
-            Some services end a sign-in after about an hour unless you ask for this when you sign
-            in. It asks you to agree again.
+      {auth === 'token' && (
+        <label className="flex flex-col gap-1 text-[13px]">
+          Header the token goes in (optional)
+          <input
+            className={inputClass}
+            value={tokenHeader}
+            onChange={(e) => setTokenHeader(e.target.value)}
+            placeholder="Authorization, as a bearer token, when left empty"
+          />
+          <span className="text-[12.5px] text-muted-foreground">
+            You paste the token itself on the card after adding, not here.
           </span>
-        </span>
-      </label>
-      <p className="text-[12.5px] text-muted-foreground">
-        If the service needs a client you registered yourself, register this redirect address with
-        it:
-        <br />
-        <span className="break-all font-mono">{redirectUri}</span>
-      </p>
+        </label>
+      )}
+      {auth === 'oauth' && (
+        <>
+          <label className="flex flex-col gap-1 text-[13px]">
+            Client id you registered (optional)
+            <input
+              className={inputClass}
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-[13px]">
+            Scopes to ask for, separated by spaces (optional)
+            <input
+              className={inputClass}
+              value={scopes}
+              onChange={(e) => setScopes(e.target.value)}
+            />
+          </label>
+          <label className="flex items-start gap-2 text-[13px]">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={stayIn}
+              onChange={(event) => setStayIn(event.target.checked)}
+            />
+            <span>
+              Ask the service for a long-lasting sign-in
+              <span className="block text-[12.5px] text-muted-foreground">
+                Some services end a sign-in after about an hour unless you ask for this when you
+                sign in. It asks you to agree again.
+              </span>
+            </span>
+          </label>
+          <p className="text-[12.5px] text-muted-foreground">
+            If the service needs a client you registered yourself, register this redirect address
+            with it:
+            <br />
+            <span className="break-all font-mono">{redirectUri}</span>
+          </p>
+        </>
+      )}
       <div className="flex gap-2">
         <Button type="submit" tone="primary">
           Add
@@ -525,14 +613,16 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
           <ConnectorCard
             key={connector.id}
             connector={connector}
-            onConnect={(clientSecret) =>
+            onConnect={(typed) =>
               void run(async () => {
                 setMessage(undefined);
-                const { status } = await api.connectConnector(
-                  connector.id,
-                  window.location.origin,
-                  clientSecret,
-                );
+                // Only an OAuth sign-in comes back to this page, so only it sends the page's address.
+                const { status } = await api.connectConnector(connector.id, {
+                  ...((connector.auth ?? 'oauth') === 'oauth' && {
+                    origin: window.location.origin,
+                  }),
+                  ...typed,
+                });
                 // Opened for the person in this browser; the link on the card does the same if a
                 // pop-up blocker stops it.
                 if (status.authorizationUrl !== undefined) {
@@ -542,12 +632,22 @@ export function ConnectorsView({ api }: { readonly api: IPersonalApi }): React.R
             }
             onDisconnect={(forget) =>
               void run(async () => {
-                setMessage(outcomeText(await api.disconnectConnector(connector.id, forget)));
+                setMessage(
+                  outcomeText(
+                    await api.disconnectConnector(connector.id, forget),
+                    connector.auth ?? 'oauth',
+                  ),
+                );
               })
             }
             onRemove={(forget) =>
               void run(async () => {
-                setMessage(outcomeText(await api.removeConnector(connector.id, forget)));
+                setMessage(
+                  outcomeText(
+                    await api.removeConnector(connector.id, forget),
+                    connector.auth ?? 'oauth',
+                  ),
+                );
               })
             }
             pulledCount={async () => (await api.connectorPulled(connector.id)).count}

@@ -81,6 +81,7 @@ afterEach(async () => {
 
 async function world(
   authorization: Omit<IStandInAuthorizationOptions, 'publicBase'> = {},
+  extraHosts: Readonly<Record<string, number>> = {},
 ): Promise<IWorld> {
   const auth = withTokenCheck(
     await startStandInAuthorizationServer({ publicBase: `https://${AUTH_HOST}`, ...authorization }),
@@ -100,6 +101,7 @@ async function world(
     [AUTH_HOST]: auth.port,
     [NOTES_HOST]: notes.port,
     [CALENDAR_HOST]: calendar.port,
+    ...extraHosts,
   });
   const harness = await startHarness({
     gui: true,
@@ -604,6 +606,196 @@ describe('a service that gives a client you registered a secret', () => {
     const view = await w.waitForState(hijack, 'failed');
     expect(view.status.reason).toBe('authorization-params-invalid');
     expect(w.auth.authorizationRequests).toEqual([]);
+  });
+});
+
+describe('a service that signs in with a token, or not at all', () => {
+  const TOKEN = 'static-token-for-standin-0001';
+  const TOKEN_HOST = 'tokened.stand-in.test';
+  const OPEN_HOST = 'open.stand-in.test';
+
+  async function tokenWorld(header?: string) {
+    const tokened = await startStandInConnector({
+      access: { token: TOKEN, ...(header !== undefined && { header }) },
+      tools: NOTES,
+      publicBase: `https://${TOKEN_HOST}`,
+    });
+    const open = await startStandInConnector({
+      access: 'open',
+      tools: NOTES,
+      publicBase: `https://${OPEN_HOST}`,
+    });
+    closers.push(tokened.close, open.close);
+    const w = await world({}, { [TOKEN_HOST]: tokened.port, [OPEN_HOST]: open.port });
+    return { w, tokened, open };
+  }
+
+  const tokenFiles = (w: IWorld) =>
+    filesUnder(w.harness.stateDir).filter((file) => file.path.includes('connector-tokens'));
+
+  it('takes a typed token, keeps it only in the owner-only token directory, and lists the tools', async () => {
+    const { w, tokened } = await tokenWorld();
+    const id = await w.add('Tokened', 'notes', TOKEN_HOST, { auth: 'token' });
+    expect((await w.call('GET', ['connectors', id])).body.connector.status.state).toBe(
+      'not-connected',
+    );
+
+    const answer = await w.call('POST', ['connectors', id, 'connect'], { token: TOKEN });
+    expect(answer.status).toBe(200);
+    expect(answer.body.status.state).toBe('connected');
+    const view = (await w.call('GET', ['connectors', id])).body.connector;
+    expect(view.auth).toBe('token');
+    expect(view.tools.map((tool: any) => [tool.name, tool.access])).toEqual([
+      ['search_notes', 'read'],
+      ['create_note', 'write'],
+      ['delete_note', 'write'],
+    ]);
+    expect(tokened.refusals()).toBe(0);
+
+    // The token is in no answer and no file but its own, which only the owner can read.
+    for (const body of [answer.body, (await w.call('GET', ['connectors'])).body, view]) {
+      expect(JSON.stringify(body)).not.toContain(TOKEN);
+    }
+    const holding = filesUnder(w.harness.stateDir).filter((file) => file.text.includes(TOKEN));
+    expect(holding.map((file) => file.path.split('/').slice(-2).join('/'))).toEqual([
+      `connector-tokens/${id}.json`,
+    ]);
+    if (process.platform !== 'win32') {
+      expect(statSync(holding[0]!.path).mode & 0o077).toBe(0);
+      expect(statSync(join(w.harness.stateDir, 'connector-tokens')).mode & 0o077).toBe(0);
+    }
+    expect(
+      readFileSync(join(w.harness.stateDir, 'connectors', 'connectors.json'), 'utf8'),
+    ).not.toContain(TOKEN);
+  });
+
+  it('sends the token in the header the person named, raw', async () => {
+    const { w, tokened } = await tokenWorld('x-api-key');
+    const id = await w.add('Keyed', 'notes', TOKEN_HOST, {
+      auth: 'token',
+      tokenHeader: 'X-Api-Key',
+    });
+    const answer = await w.call('POST', ['connectors', id, 'connect'], { token: TOKEN });
+    expect(answer.body.status.state).toBe('connected');
+    expect(tokened.refusals()).toBe(0);
+  });
+
+  it('keeps nothing for a token the service refuses, and a token that worked stays after a wrong one', async () => {
+    const { w } = await tokenWorld();
+    const id = await w.add('Tokened', 'notes', TOKEN_HOST, { auth: 'token' });
+    const wrong = await w.call('POST', ['connectors', id, 'connect'], { token: 'not-the-token' });
+    expect(wrong.body.status).toEqual({ state: 'failed', reason: 'rejected' });
+    expect(tokenFiles(w)).toEqual([]);
+
+    await w.call('POST', ['connectors', id, 'connect'], { token: TOKEN });
+    const again = await w.call('POST', ['connectors', id, 'connect'], {
+      token: 'another-wrong-one',
+    });
+    expect(again.body.status.state).toBe('failed');
+    // The earlier token is still held and still signs requests.
+    expect(tokenFiles(w).map((file) => file.text)).toEqual([expect.stringContaining(TOKEN)]);
+  });
+
+  it('asks for a new token when the service stops honouring the one it has', async () => {
+    const { w, tokened } = await tokenWorld();
+    const id = await w.add('Tokened', 'notes', TOKEN_HOST, { auth: 'token' });
+    await w.call('POST', ['connectors', id, 'connect'], { token: TOKEN });
+    tokened.rotateToken('rotated-token-for-standin-02');
+    // The next use is refused, and the page then says the person has to sign in again.
+    w.harness.model.script(
+      { tool: 'ConnectorRead', args: { connector: id, tool: 'search_notes' } },
+      (request) => ({ text: toolResults(request).join(' ') }),
+    );
+    await w.harness.submitAnswering('find notes', () => true);
+    const view = (await w.call('GET', ['connectors', id])).body.connector;
+    expect(view.status.state).toBe('needs-sign-in');
+    const renewed = await w.call('POST', ['connectors', id, 'connect'], {
+      token: 'rotated-token-for-standin-02',
+    });
+    expect(renewed.body.status.state).toBe('connected');
+  });
+
+  it('deletes the token on disconnect and on removal, and says no revocation was possible', async () => {
+    const { w } = await tokenWorld();
+    const id = await w.add('Tokened', 'notes', TOKEN_HOST, { auth: 'token' });
+    await w.call('POST', ['connectors', id, 'connect'], { token: TOKEN });
+    expect(tokenFiles(w)).toHaveLength(1);
+    const left = await w.call('POST', ['connectors', id, 'disconnect'], {});
+    expect(left.body.outcome).toEqual({ removed: true, revocation: 'unsupported' });
+    expect(tokenFiles(w)).toEqual([]);
+    expect((await w.call('GET', ['connectors', id])).body.connector.status.state).toBe(
+      'not-connected',
+    );
+
+    await w.call('POST', ['connectors', id, 'connect'], { token: TOKEN });
+    expect(tokenFiles(w)).toHaveLength(1);
+    await w.call('POST', ['connectors', id, 'remove'], {});
+    expect(tokenFiles(w)).toEqual([]);
+  });
+
+  it('reads a service that needs no sign-in at once, with the same labels and holds', async () => {
+    const { w, open } = await tokenWorld();
+    const id = await w.add('Open', 'notes', OPEN_HOST, { auth: 'none' });
+    const view = (await w.call('GET', ['connectors', id])).body.connector;
+    expect(view.status.state).toBe('connected');
+    expect(view.tools.map((tool: any) => [tool.name, tool.access])).toEqual([
+      ['search_notes', 'read'],
+      ['create_note', 'write'],
+      ['delete_note', 'write'],
+    ]);
+    w.harness.model.script(
+      { tool: 'ConnectorRead', args: { connector: id, tool: 'search_notes' } },
+      (request) => ({ text: toolResults(request).join(' ') }),
+    );
+    const turn = await w.harness.submitAnswering('find notes', () => true);
+    expect(turn.text).toContain('content from the service');
+    expect(open.calls).toEqual(['search_notes {}']);
+    // Nothing to sign in to, nothing kept: no token, no credential.
+    expect(tokenFiles(w)).toEqual([]);
+    const refused = await w.call('POST', ['connectors', id, 'connect'], {});
+    expect(refused.status).toBe(400);
+  });
+
+  it('refuses sign-in settings that do not fit the mode, a malformed token, and a header the connection owns', async () => {
+    const { w } = await tokenWorld();
+    const create = (extra: Record<string, unknown>) =>
+      w.call('POST', ['connectors'], {
+        title: 'Bad',
+        kind: 'notes',
+        endpoint: `https://${TOKEN_HOST}/mcp`,
+        ...extra,
+      });
+    expect((await create({ auth: 'cookie' })).status).toBe(400);
+    expect((await create({ auth: 'token', clientId: 'my-client' })).status).toBe(400);
+    expect(
+      (await create({ auth: 'none', authorizationParams: { prompt: 'consent' } })).status,
+    ).toBe(400);
+    expect((await create({ auth: 'oauth', tokenHeader: 'x-api-key' })).status).toBe(400);
+    for (const tokenHeader of ['host', 'Content-Length', 'cookie', 'two words', 'x-key\r\nx: y']) {
+      expect((await create({ auth: 'token', tokenHeader })).status, tokenHeader).toBe(400);
+    }
+
+    const id = await w.add('Tokened', 'notes', TOKEN_HOST, { auth: 'token' });
+    for (const token of ['has space', 'new\nline', 'x'.repeat(4097), 42]) {
+      const answer = await w.call('POST', ['connectors', id, 'connect'], { token });
+      expect(answer.status, String(token).slice(0, 10)).toBe(400);
+    }
+    const none = await w.call('POST', ['connectors', id, 'connect'], {});
+    expect(none.status).toBe(400);
+    // A token for an OAuth connector, and a client secret for a token connector, belong nowhere.
+    const oauth = await w.add('Oauth', 'notes', NOTES_HOST);
+    expect(
+      (await w.call('POST', ['connectors', oauth, 'connect'], { origin: w.origin, token: TOKEN }))
+        .status,
+    ).toBe(400);
+    expect(
+      (
+        await w.call('POST', ['connectors', id, 'connect'], {
+          token: TOKEN,
+          clientSecret: 'a-secret',
+        })
+      ).status,
+    ).toBe(400);
   });
 });
 
