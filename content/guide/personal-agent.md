@@ -47,6 +47,7 @@ Alt+Up/Down on it, to move it). On a narrow screen it opens from the menu button
 | **Spaces** (one tab each) | Areas of your life with your own instructions and pinned library pages; a chat started in a space opens with them. **Create space** adds one. |
 | **Side chats** | The round button in the chat starts a quick chat beside it, optionally from the main chat's latest turns. Side chats are listed in the menu; bring an answer back when you want it there. |
 | **Library** | What your agent knows about you, page by page, with where each fact came from. Correct or forget anything. |
+| **Connectors** | The services you connected (mail, calendar, files, chat, notes): sign in once, see what your agent may do there, keep them in sync, disconnect. |
 | **Search** (foot of the menu) | Find anything in your library. |
 | **Settings** (gear) and **New chat** (pen), foot of the menu | Model, browser, where your data lives; a fresh chat. |
 
@@ -65,6 +66,41 @@ Alt+Up/Down on it, to move it). On a narrow screen it opens from the menu button
   entry that held it.
 - **Secrets are refused.** Passwords, keys and similar strings are not kept in the library, ideas or goals.
 - **No shell.** The agent has no command line; its file tools reach only its own workspace folder.
+- **A connected service is read freely and changed only with your approval.** Anything that sends or
+  changes something there waits for you each time, in the chat or in your Feed. What it reads from
+  a service is treated as information written by others, never as instructions.
+
+## Connect a service
+
+A connector is a service you sign in to once so your agent can read it for you: mail, a calendar, files,
+chat or notes. Any service that offers the standard tool interface (MCP over HTTPS, signed in with OAuth)
+fits the same way; nothing is built in for one service.
+
+1. Open **Connectors** and choose **Add a connector**: a name, what it is for, and the service's
+   `https` address.
+2. Press **Connect**. The service's own page opens in *this* browser, the one you are using, so you sign
+   in and agree there, wherever the agent runs, on your machine or on a server. The agent never sees your
+   password. The service sends the browser back to the page's `/connector-callback` address, and the
+   card shows **Connected** with the permissions the service says it granted.
+3. If the service does not register clients automatically, register one with it yourself, allow the
+   redirect address the form shows (`<this page's address>/connector-callback`), and enter its client id
+   (and scopes) in the form. Only public values are kept; a client secret is never stored.
+
+What the agent may do is shown per tool, in three groups: **Reads** it may use on its own, **Writes**
+(anything that changes or sends) held for your approval every time, and **Blocked**. The groups follow
+what the service says about each tool, and a tool that says nothing counts as a write. A select next to
+each tool records your own decision over that.
+
+Turn on **sync** on a connected card to have the agent check it every 15 minutes, hour, 6 hours or day
+(or press **Check now**). Each check is a goal of its own: it reads what is new and files the durable
+facts in your Library, marked as read from that service with the item they came from, then reports in the
+Feed only when it kept something or could not finish. A check cannot write to the service, use the
+browser, or change what you told the agent. **Disconnect** deletes the sign-in and asks the service to
+revoke it; **Remove** also deletes the connector itself. Both ask whether to keep or forget the facts it pulled.
+
+A service on your own network is refused by default, like the agent's browser. Name its host in
+`PERSONAL_AGENT_CONNECTOR_HOSTS` (comma-separated, for example `PERSONAL_AGENT_CONNECTOR_HOSTS=mail.lan`)
+to allow only those hosts.
 
 ## Messengers
 
@@ -81,7 +117,8 @@ adapter.
 Everything lives in one owner-only folder: `--state-dir <dir>`, else `PERSONAL_AGENT_STATE_DIR`, else
 `~/.robota/personal`. It holds the profile (`config.json`), chats (`sessions/`), goal-run transcripts
 (`goal-sessions/`), the library as plain Markdown (`wiki/`), goals and the feed (`goals/`), ideas
-(`ideas/`), the browser profile, and the agent's `workspace/`. Back the folder up to keep everything.
+(`ideas/`), connectors (`connectors/`), their sign-ins (`connector-credentials/`, readable only by you),
+the browser profile, and the agent's `workspace/`. Back the folder up to keep everything.
 
 ## Use it from anywhere: your own server
 
