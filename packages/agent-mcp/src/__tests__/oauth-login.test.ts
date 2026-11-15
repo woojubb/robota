@@ -516,6 +516,11 @@ describe('how the client is registered', () => {
     ['not https', 'http://client.example.test/clients/agent.json'],
     ['without a path', 'https://client.example.test/'],
     ['not an address', 'not an address'],
+    [
+      'carrying a user name and password',
+      'https://user:pass@client.example.test/clients/agent.json',
+    ],
+    ['carrying a fragment', 'https://client.example.test/clients/agent.json#top'],
   ])(
     'refuses a client metadata address that is %s before the service hears anything',
     async (_name, url) => {

@@ -128,6 +128,21 @@ export function credentialFromTokens(
   };
 }
 
+/**
+ * Whether an address can name this client: `https` with a path, and no user name, password or
+ * fragment, since the address is sent to the authorization server as the client id.
+ */
+export function isClientMetadataUrl(value: string): boolean {
+  try {
+    validateClientMetadataUrl(value);
+  } catch {
+    // allow-fallback: the SDK's reason adds nothing to the answer, which is only whether the address can be used.
+    return false;
+  }
+  const url = new URL(value);
+  return url.username === '' && url.password === '' && url.hash === '';
+}
+
 /** The redirect addresses a client metadata document lists, when it is the document of its own address. */
 async function listedRedirects(
   url: string,
@@ -285,10 +300,7 @@ export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCP
       ? {}
       : checkAuthorizationParams(input.config.authorizationParams);
   if (typeof extraParams === 'string') throw new MCPOAuthError('authorization-params-invalid');
-  try {
-    validateClientMetadataUrl(input.clientMetadataUrl);
-  } catch {
-    // allow-fallback: the SDK's error says nothing the fixed reason does not; the address is the host's setting.
+  if (input.clientMetadataUrl !== undefined && !isClientMetadataUrl(input.clientMetadataUrl)) {
     throw new MCPOAuthError('client-metadata-url-invalid');
   }
   const fetchFn = createOAuthFetch(input.network, input.signal);

@@ -25,7 +25,7 @@ export type TMCPOAuthFailure =
   /** No pre-registered client, no usable client metadata document and no registration endpoint: the person has to register a client. */
   | 'registration-unavailable'
   | 'registration-failed'
-  /** The configured client metadata address is not an `https` address with a path. */
+  /** The configured client metadata address is not an `https` address with a path and no credential or fragment. */
   | 'client-metadata-url-invalid'
   /**
    * The authorization server takes a client metadata document but the host's one could not be read,
