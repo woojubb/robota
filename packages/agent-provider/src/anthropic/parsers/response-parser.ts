@@ -1,5 +1,7 @@
 import { logger, randomId } from '@robota-sdk/agent-core';
 
+import { countAnthropicUsage } from '../usage';
+
 import type { IAnthropicMessage } from '../types/api-types';
 import type Anthropic from '@anthropic-ai/sdk';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
@@ -35,11 +37,15 @@ export class AnthropicResponseParser {
         }));
 
       // Calculate token usage
-      const usage = response.usage
+      const counts = response.usage ? countAnthropicUsage(response.usage) : undefined;
+      const usage = counts
         ? {
-            promptTokens: response.usage.input_tokens,
-            completionTokens: response.usage.output_tokens,
-            totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+            promptTokens: counts.inputTokens,
+            completionTokens: counts.outputTokens,
+            totalTokens: counts.inputTokens + counts.outputTokens,
+            ...(counts.cacheReadTokens !== undefined && {
+              cacheReadTokens: counts.cacheReadTokens,
+            }),
           }
         : undefined;
 
