@@ -208,6 +208,9 @@ export async function runPrintMode(
     ...(presetOptions.systemPrompt !== undefined
       ? { presetSystemPrompt: presetOptions.systemPrompt }
       : {}),
+    ...(presetOptions.productSections !== undefined
+      ? { productSections: presetOptions.productSections }
+      : {}),
     ...(presetOptions.selfVerification !== undefined
       ? { selfVerification: presetOptions.selfVerification }
       : {}),

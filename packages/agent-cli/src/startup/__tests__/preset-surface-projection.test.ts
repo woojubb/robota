@@ -1,7 +1,7 @@
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { describe, expect, it } from 'vitest';
 
-import { CORE_HARNESS_PROMPT } from '../../harness/core-harness.js';
+import { CORE_HARNESS_PROMPT, CORE_HARNESS_SECTION_ID } from '../../harness/core-harness.js';
 import { buildPresetSurfaceOptions, toSessionOptions } from '../preset-surface-options.js';
 
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
@@ -34,6 +34,8 @@ import type { IResolvedPresetOptions } from '@robota-sdk/agent-product/preset';
  * The two `model` cases below are ordinary runtime assertions and do fail on their condition:
  * dropping the projection turns the first red.
  */
+const CORE_SECTIONS = [{ id: CORE_HARNESS_SECTION_ID, content: CORE_HARNESS_PROMPT }];
+
 describe('the preset surface projection is declared once', () => {
   it('both mode surfaces accept every field of the shared projection', () => {
     // If either mode re-declares its own shape, a field the shared type has and the copy lacks makes
@@ -62,6 +64,7 @@ describe('the preset surface projection is declared once', () => {
       maxOutputTokens: 4096,
       language: 'ko',
       systemPrompt: 'seed text',
+      productSections: CORE_SECTIONS,
       cliAppendSystemPrompt: 'cli-sourced addition',
       allowedTools: ['Read'],
       deniedTools: ['Bash'],
@@ -131,11 +134,12 @@ describe('the preset surface projection is declared once', () => {
       'default',
     );
     const sessionOptions = toSessionOptions(surface);
-    expect(sessionOptions.presetSystemPrompt).toBe(`${CORE_HARNESS_PROMPT}\n\nseed text`);
+    expect(sessionOptions.presetSystemPrompt).toBe('seed text');
+    expect(sessionOptions.productSections).toEqual(CORE_SECTIONS);
     expect('systemPrompt' in sessionOptions).toBe(false);
   });
 
-  it('seeds every default run with the core harness alone', () => {
+  it('contributes the core harness as the product’s own section in every default run', () => {
     // A preset that states no system prompt of its own still reaches the model with the product's
     // core guidance: the projection is where the shell owns it, so no surface has to remember it.
     const surface = buildPresetSurfaceOptions(
@@ -144,17 +148,19 @@ describe('the preset surface projection is declared once', () => {
       'default',
       'default',
     );
-    expect(surface.systemPrompt).toBe(CORE_HARNESS_PROMPT);
+    expect(surface.productSections).toEqual(CORE_SECTIONS);
+    expect(surface.systemPrompt).toBeUndefined();
   });
 
-  it('puts a preset’s own system prompt after the core, separated by a blank line', () => {
+  it('keeps a preset’s own system prompt as the seed, apart from the core section', () => {
     const surface = buildPresetSurfaceOptions(
       createTestProductRuntime(),
       { systemPrompt: 'Preset guidance.' } as IResolvedPresetOptions,
       'acme',
       'default',
     );
-    expect(surface.systemPrompt).toBe(`${CORE_HARNESS_PROMPT}\n\nPreset guidance.`);
+    expect(surface.systemPrompt).toBe('Preset guidance.');
+    expect(surface.productSections).toEqual(CORE_SECTIONS);
   });
 
   it('treats a blank preset system prompt as none', () => {
@@ -164,7 +170,8 @@ describe('the preset surface projection is declared once', () => {
       'acme',
       'default',
     );
-    expect(surface.systemPrompt).toBe(CORE_HARNESS_PROMPT);
+    expect(surface.systemPrompt).toBeUndefined();
+    expect(surface.productSections).toEqual(CORE_SECTIONS);
   });
 
   it('leaves a caller-supplied whole prompt alone, with no core in front of it', () => {
@@ -178,6 +185,7 @@ describe('the preset surface projection is declared once', () => {
       { cwd: '/work', args: { systemPrompt: 'WHOLE-PROMPT' } as IParsedCliArgs },
     );
     expect(surface.systemPrompt).toBe('WHOLE-PROMPT');
+    expect(surface.productSections).toBeUndefined();
   });
 
   it('omits `model` entirely when the preset names none, so the shell’s fallback survives', () => {
