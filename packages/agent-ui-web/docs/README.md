@@ -26,7 +26,8 @@ web app and browser-remote surface.
 - Components: `SessionSurface`, `CenteredChrome`, `ConversationView`, `AgentActivityPanel`,
   `AgentSwitcherSheet`, `PermissionPrompt`, `SessionSidebar` (the host's sessions; switch or start
   one), `SessionMonitor` (a self-contained session page for a WebSocket URL), `SettingsScreen`,
-  `HelpSheet`, `Dialog`/`ConfirmDialog`, and `PersonalUsageDashboard` (7- and 30-day usage).
+  `HelpSheet`, `Dialog`/`ConfirmDialog`, `MarkdownText` (text an agent wrote outside a conversation,
+  formatted as a chat shows it), and `PersonalUsageDashboard` (7- and 30-day usage).
 - Product identity: `ProductIdentityProvider` and `useProductIdentity` supply the display name and
   browser namespace the components use.
 - Brand marks: `ProductMark`, `ProductWordmark` — render them inside a `agent-ui` scope.
