@@ -27,6 +27,7 @@ import type {
   IMCPDiscoveryDomainResult,
   IMCPResponseCacheHint,
   IMCPServerIdentity,
+  IMCPToolAnnotations,
   TMCPCapabilityDomain,
 } from '../catalog/types.js';
 import type { ResultTypeMap, Tool } from '@modelcontextprotocol/client';
@@ -70,15 +71,36 @@ function toParameterSchema(schema: Readonly<Record<string, unknown>>): IParamete
   return schema as unknown as IParameterSchema;
 }
 
+const ANNOTATION_HINTS = [
+  'readOnlyHint',
+  'destructiveHint',
+  'idempotentHint',
+  'openWorldHint',
+] as const;
+
+/** The behavior hints a server declared, keeping only boolean values; a hint of any other type is not one. */
+function projectAnnotations(raw: unknown): IMCPToolAnnotations | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const declared = raw as Readonly<Record<string, unknown>>;
+  const kept: Partial<Record<(typeof ANNOTATION_HINTS)[number], boolean>> = {};
+  for (const hint of ANNOTATION_HINTS) {
+    const value = declared[hint];
+    if (typeof value === 'boolean') kept[hint] = value;
+  }
+  return Object.keys(kept).length === 0 ? undefined : kept;
+}
+
 function mapTool(raw: TRawTool, apps: boolean): IMCPDiscoveredTool {
   const rawMeta = (raw as TRawTool & { readonly _meta?: unknown })._meta;
   const resultSizeMetadata = parseMCPResultSizeMetadata(rawMeta);
   const ui = apps ? parseMCPToolUiMetadata(rawMeta) : ({ kind: 'absent' } as const);
+  const annotations = projectAnnotations(raw.annotations);
   return {
     name: raw.name,
     description: raw.description,
     inputSchema: toParameterSchema(raw.inputSchema),
     outputSchema: raw.outputSchema === undefined ? undefined : toUniversalObject(raw.outputSchema),
+    ...(annotations === undefined ? {} : { annotations }),
     ...(resultSizeMetadata.kind === 'absent' ? {} : { resultSizeMetadata }),
     ...(ui.kind === 'accepted'
       ? {

@@ -40,11 +40,28 @@ export interface IMCPResponseCacheHint {
   readonly receivedAtMs: number;
 }
 
+/**
+ * What a server says about a tool's effect: a claim by the server, never a guarantee, so a host
+ * decides what it is worth. Only the four boolean hints are kept, and only when they are booleans.
+ */
+export interface IMCPToolAnnotations {
+  /** The tool changes nothing in its environment. */
+  readonly readOnlyHint?: boolean;
+  /** The tool may destroy or overwrite what it touches (meaningful when it is not read-only). */
+  readonly destructiveHint?: boolean;
+  /** Calling it again with the same arguments adds no further effect. */
+  readonly idempotentHint?: boolean;
+  /** The tool reaches beyond a closed set of things, such as the open internet or other people. */
+  readonly openWorldHint?: boolean;
+}
+
 export interface IMCPDiscoveredTool {
   readonly name: string;
   readonly description?: string;
   readonly inputSchema: IParameterSchema;
   readonly outputSchema?: IUniversalObjectValue;
+  /** The server's behavior hints for the tool; absent when it declared none. */
+  readonly annotations?: IMCPToolAnnotations;
   /** Validated projection only; the server's raw `_meta` never enters the catalog. */
   readonly resultSizeMetadata?: Exclude<TMCPResultSizeMetadata, { readonly kind: 'absent' }>;
   /**

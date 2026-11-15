@@ -247,6 +247,7 @@ export {
   type IMCPDiscoveryFailure,
   type IMCPResponseCacheHint,
   type IMCPServerIdentity,
+  type IMCPToolAnnotations,
   type TMCPCanonicalName,
   type TMCPCapabilityDomain,
   type TMCPCapabilityState,
