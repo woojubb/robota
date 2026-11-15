@@ -34,9 +34,10 @@ function registerProfiles(): void {
   registerToolPermissionProfile(CONNECTOR_TOOL_NAMES.read, { riskClass: 'inspect' });
   // Anything a connector writes or sends reaches a service or a person outside this machine, and
   // what a service calls harmless it only claims. So the person decides every time, in every mode:
-  // no allow rule, hook or classifier can stand in for them, and plan mode refuses it.
+  // no allow rule, hook or classifier can stand in for them, and plan mode refuses it. Like sending
+  // a held browser submission, it changes things elsewhere without running a command here.
   registerToolPermissionProfile(CONNECTOR_TOOL_NAMES.act, {
-    riskClass: 'execute',
+    riskClass: 'modify',
     consequential: true,
   });
 }

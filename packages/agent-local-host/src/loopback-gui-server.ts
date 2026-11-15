@@ -86,6 +86,18 @@ export interface ILoopbackGuiApiResponse {
   readonly body: unknown;
 }
 
+/** What a landing page answers: a status and a fixed page of markup. */
+export interface ILoopbackGuiLanding {
+  readonly status: number;
+  readonly html: string;
+}
+
+/**
+ * The longest request line a landing path accepts. A redirect back from another site carries a code
+ * and a state, which fit well inside it; anything longer is not one.
+ */
+const LANDING_URL_LIMIT = 4096;
+
 /** The header every API request that changes something must carry; a cross-site form cannot set it. */
 export const LOOPBACK_GUI_API_HEADER = 'x-robota-api';
 
@@ -109,6 +121,17 @@ export interface ILoopbackGuiServerOptions {
   readonly port?: number;
   /** A kept access code (at least 32 characters) instead of a new one for each start. */
   readonly accessCode?: string;
+  /**
+   * One path a browser reaches when another site sends it back, such as an authorization server's
+   * redirect. It is served without the access cookie, because a strict cookie is not sent on a
+   * redirect from another site, so the handler decides by what the request itself carries (a
+   * one-time `state`, say). Only a GET to exactly this path, under the same Host rule, and only the
+   * fixed page the handler returns.
+   */
+  readonly landing?: {
+    readonly path: string;
+    readonly handle: (query: URLSearchParams) => Promise<ILoopbackGuiLanding>;
+  };
 }
 
 /** A running GUI server: its loopback URL, the code a person types, and a close that ends open connections. */
@@ -196,6 +219,14 @@ export async function startLoopbackGuiServer(options: ILoopbackGuiServerOptions)
     // token-carrying index.html from this server, mirroring the WS transport's upgrade check.
     if (!hostAccepted(req.headers.host)) {
       res.writeHead(403).end('Forbidden host');
+      return;
+    }
+    if (
+      options.landing !== undefined &&
+      req.method === 'GET' &&
+      (req.url ?? '').split('?')[0] === options.landing.path
+    ) {
+      void serveLanding(options.landing.handle, req, res);
       return;
     }
     if (req.method === 'POST' && req.url === '/__monitor_login') {
@@ -352,6 +383,32 @@ export async function startLoopbackGuiServer(options: ILoopbackGuiServerOptions)
     });
     res.end(body);
   });
+
+  async function serveLanding(
+    handle: NonNullable<ILoopbackGuiServerOptions['landing']>['handle'],
+    req: import('node:http').IncomingMessage,
+    res: import('node:http').ServerResponse,
+  ): Promise<void> {
+    const headers = {
+      'content-type': 'text/html; charset=utf-8',
+      'content-security-policy':
+        "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
+      'x-frame-options': 'DENY',
+      'x-content-type-options': 'nosniff',
+    };
+    if ((req.url ?? '').length > LANDING_URL_LIMIT) {
+      res.writeHead(414, headers).end();
+      return;
+    }
+    try {
+      const answer = await handle(new URLSearchParams((req.url ?? '').split('?')[1] ?? ''));
+      res.writeHead(answer.status, headers).end(answer.html);
+    } catch {
+      // allow-fallback: a failing handler is a 500 for that request, never a crash of the agent.
+      if (!res.headersSent) res.writeHead(500, headers).end();
+      else res.end();
+    }
+  }
 
   async function serveApi(
     api: NonNullable<ILoopbackGuiServerOptions['api']>,

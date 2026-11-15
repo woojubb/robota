@@ -125,7 +125,16 @@ export async function main(
           accessCode: serverAccessCode(stateDir),
         }
       : undefined;
-  const capabilities = createPersonalCapabilities({ stateDir, environment: merged });
+  // Hosts the owner names (a service on their own network) may be reached although they are private.
+  const connectorHosts = (merged['PERSONAL_AGENT_CONNECTOR_HOSTS'] ?? '')
+    .split(',')
+    .map((host) => host.trim().toLowerCase())
+    .filter((host) => host !== '');
+  const capabilities = createPersonalCapabilities({
+    stateDir,
+    environment: merged,
+    ...(connectorHosts.length > 0 && { connectorAllowedHosts: connectorHosts }),
+  });
   const local = await startLocalMode({
     stateDir,
     provider: createProviderFromProfile(config.provider, merged),
@@ -134,9 +143,19 @@ export async function main(
     instructions: capabilities.instructions,
     gui: values['no-gui'] !== true,
     api: capabilities.api,
+    landing: capabilities.landing,
     ...(server !== undefined && { server }),
   });
-  await capabilities.attach(local.agent);
+  // The addresses the person's browser reaches the page at: a sign-in with a service returns to one.
+  const guiOrigins =
+    local.gui === undefined
+      ? []
+      : [
+          new URL(local.gui.url).origin,
+          `http://localhost:${new URL(local.gui.url).port}`,
+          ...(server !== undefined ? [new URL(server.publicOrigin).origin] : []),
+        ];
+  await capabilities.attach(local.agent, { guiOrigins });
   if (local.gui !== undefined && server !== undefined) {
     process.stdout.write(
       `Personal agent is published at ${server.publicOrigin} (loopback ${local.gui.url})\nAccess code: ${local.gui.accessCode}\n`,

@@ -9,6 +9,7 @@
  */
 import { findProviderDefinition, formatSupportedProviderTypes } from '@robota-sdk/agent-core';
 import {
+  ConnectorRefusedError,
   GoalRefusedError,
   IdeaRefusedError,
   SpaceRefusedError,
@@ -37,6 +38,7 @@ import type { ILayoutBook } from './layout.js';
 import type { ISideChatBook } from './side-chats.js';
 import type { IGoalRunner } from './goal-runner.js';
 import type { IProviderProfile } from './config.js';
+import type { TConnectorsApi } from './connectors/connectors-api.js';
 
 export interface IPersonalApiOptions {
   readonly wiki: KnowledgeWiki;
@@ -55,6 +57,8 @@ export interface IPersonalApiOptions {
   readonly environment: Readonly<Record<string, string | undefined>>;
   /** Whether the agent has a browser on this machine. */
   readonly browserAvailable: () => boolean;
+  /** The connectors' routes: connect, disconnect, what each may do. */
+  readonly connectors: TConnectorsApi;
 }
 
 export type TPersonalApi = (request: ILoopbackGuiApiRequest) => Promise<ILoopbackGuiApiResponse>;
@@ -332,6 +336,10 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
         return ok({ stopped: true });
       }
     }
+    if (area === 'connectors') {
+      const answered = await options.connectors(request);
+      if (answered !== undefined) return answered;
+    }
     if (area === 'layout' && collection === undefined) {
       if (method === 'GET') return ok({ tabs: layout.tabs() });
       if (method === 'POST') {
@@ -430,6 +438,7 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       if (error instanceof SpaceRefusedError) return fail(400, error.message);
       if (error instanceof SideChatRefusedError) return fail(400, error.message);
       if (error instanceof LayoutRefusedError) return fail(400, error.message);
+      if (error instanceof ConnectorRefusedError) return fail(400, error.message);
       if (error instanceof Error && /^No (current claim|wiki page)/u.test(error.message))
         return fail(400, error.message);
       throw error;
