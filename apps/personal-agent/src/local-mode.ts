@@ -58,6 +58,11 @@ export interface ILocalModeOptions {
   /** WebSocket port; omitted lets the system choose a free one. */
   readonly wsPort?: number;
   /**
+   * A fixed loopback port for the web UI, so an address registered in advance (a sign-in's redirect
+   * with a service that requires one) stays valid across restarts; omitted lets the system choose.
+   */
+  readonly guiPort?: number;
+  /**
    * Publish the web UI through a TLS reverse proxy on this host. Everything still listens on
    * loopback; the proxy forwards the public host to the GUI port, and `/ws/` to the WebSocket port.
    */
@@ -216,6 +221,8 @@ export async function startLocalMode(options: ILocalModeOptions): Promise<ILocal
           port: options.server.guiPort,
           accessCode: options.server.accessCode,
         }),
+        ...(options.server === undefined &&
+          options.guiPort !== undefined && { port: options.guiPort }),
         ...(options.api !== undefined && { api: options.api }),
         ...(options.landing !== undefined && { landing: options.landing }),
       });

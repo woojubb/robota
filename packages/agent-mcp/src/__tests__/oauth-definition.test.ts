@@ -78,6 +78,28 @@ describe('oauth definition', () => {
     expect(reasonOf(decode('yes'))).toContain('object');
   });
 
+  it('decodes authorization parameters, and refuses any the sign-in sets itself or that are not plain words', () => {
+    const decoded = decode({ authorizationParams: { access_type: 'offline', prompt: 'consent' } });
+    if ('reason' in decoded) throw new Error(decoded.reason);
+    expect(decoded.oauth).toEqual({
+      authorizationParams: { access_type: 'offline', prompt: 'consent' },
+    });
+    for (const params of [
+      { state: 'x' },
+      { redirect_uri: 'https://evil.example/' },
+      { prompt: 'two words' },
+      { Prompt: 'consent' },
+      {},
+      'consent',
+      ['consent'],
+      { a: 'b', c: 'd', e: 'f', g: 'h', i: 'j' },
+    ]) {
+      expect(reasonOf(decode({ authorizationParams: params })), JSON.stringify(params)).toContain(
+        'authorizationParams',
+      );
+    }
+  });
+
   it('refuses oauth beside a header helper, and on a stdio server', () => {
     expect(reasonOf(decode({}, { headersHelper: { command: '/bin/helper' } }))).toContain('both');
     const stdio = decodeEntry({
@@ -105,5 +127,9 @@ describe('oauth definition', () => {
     expect(base).not.toBe(definitionFingerprint(materializeDefinition(none, {})));
     expect(fingerprint({ scopes: ['a'] })).not.toBe(base);
     expect(fingerprint({ authServerMetadataUrl: 'https://other.example.test/' })).not.toBe(base);
+    expect(fingerprint({ authorizationParams: { prompt: 'consent' } })).not.toBe(base);
+    expect(fingerprint({ authorizationParams: { prompt: 'consent' } })).not.toBe(
+      fingerprint({ authorizationParams: { prompt: 'login' } }),
+    );
   });
 });

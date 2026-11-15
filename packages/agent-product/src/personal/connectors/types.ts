@@ -34,11 +34,16 @@ export interface IConnector {
   readonly endpoint: string;
   /**
    * What the person registered with the service's authorization server when it has no dynamic
-   * registration. Public values only: a secret never lives in a connector.
+   * registration. Public values only: a secret never lives in a connector (it is typed at sign-in).
    */
   readonly oauth?: {
     readonly clientId?: string;
     readonly scopes?: readonly string[];
+    /**
+     * Plain-word parameters the person's sign-in adds to the authorization request, for a service
+     * that needs one to keep a sign-in long-lived. Never a secret.
+     */
+    readonly authorizationParams?: Readonly<Record<string, string>>;
   };
   /** The person's decisions, by tool name. A tool without one is sorted by what the service claims. */
   readonly decisions: Readonly<Record<string, TToolDecision>>;
@@ -90,6 +95,12 @@ export interface IConnectorStatus {
 /** Where the person's browser reaches this agent; the consent returns there. */
 export interface ISignInContext {
   readonly origin: string;
+  /**
+   * The client secret the person typed for this sign-in, for a service that gives its pre-registered
+   * client one. It is held only until the sign-in ends and then only with the credential the
+   * protocol keeps owner-only: never in a connector, an answer or a log.
+   */
+  readonly clientSecret?: string;
 }
 
 export type TRevocation = 'revoked' | 'partial' | 'unsupported' | 'failed' | 'not-attempted';

@@ -110,6 +110,15 @@ export function definitionFingerprint(definition: IMCPServerDefinitionResolved):
           definition.oauth.callbackPort === undefined ? '' : String(definition.oauth.callbackPort),
           definition.oauth.authServerMetadataUrl ?? '',
           ...listParts('oauthScopes', definition.oauth.scopes ?? []),
+          // Only when present, so the fingerprint an earlier approval was bound to does not change.
+          ...(definition.oauth.authorizationParams === undefined
+            ? []
+            : listParts(
+                'oauthAuthorizationParams',
+                Object.entries(definition.oauth.authorizationParams)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([name, value]) => `${name}=${value}`),
+              )),
         ]),
     ...(definition.unsupportedAuthentication === undefined
       ? []

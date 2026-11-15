@@ -95,6 +95,9 @@ function oauthConfig(connector: IConnector): IMCPOAuthConfig {
   return {
     ...(connector.oauth?.clientId !== undefined && { clientId: connector.oauth.clientId }),
     ...(connector.oauth?.scopes !== undefined && { scopes: connector.oauth.scopes }),
+    ...(connector.oauth?.authorizationParams !== undefined && {
+      authorizationParams: connector.oauth.authorizationParams,
+    }),
   };
 }
 
@@ -277,6 +280,8 @@ export function createMcpConnectorProtocol(
         lock,
         network,
         callbackListener: options.broker.listenerFor(context.origin),
+        // Held for this sign-in only; the login keeps it with the owner-only credential.
+        ...(context.clientSecret !== undefined && { clientSecret: context.clientSecret }),
         signal: abort.signal,
         // The person's own browser opens this address; nothing on this machine does.
         openBrowser: async (url, redirectUri) => {

@@ -79,12 +79,15 @@ fits the same way; nothing is built in for one service.
 
 1. If the service does not register clients automatically, register one with it yourself first: allow
    the redirect address the add form shows (`<the address you open this page at>/connector-callback`;
-   `127.0.0.1` and `localhost` count as different addresses) and note its client id. The form has no
-   place for a client secret, so a service that requires one from a client you registered yourself
-   cannot be connected here.
+   `127.0.0.1` and `localhost` count as different addresses, and a registered address includes the
+   port, so run the agent on a fixed one with `personal-agent start --gui-port 7360`) and note its client
+   id and, if the service gives one, its client secret.
 2. Open **Connectors** and choose **Add a connector**: a name, what it is for, the service's `https`
-   address and, for a service from step 1, the client id (and scopes).
-3. Press **Connect**. The service's own page opens in *this* browser, the one you are using (the card
+   address and, for a service from step 1, the client id (and scopes). Tick *Ask the service for a
+   long-lasting sign-in* if the service ends sign-ins after about an hour unless asked otherwise; it
+   asks you to agree again.
+3. A connector with a client id shows a field for the client secret beside **Connect**; type it there.
+   It goes with that one sign-in and is not kept on the page. Press **Connect**. The service's own page opens in *this* browser, the one you are using (the card
    also offers it as a link if a pop-up blocker stops it), so you sign in and agree there, wherever the
    agent runs, on your machine or on a server. The agent never sees your password. The service sends
    the browser back to the page's `/connector-callback` address, and the card shows **Connected** with
@@ -92,8 +95,8 @@ fits the same way; nothing is built in for one service.
    expires after a few minutes; **Start over** begins it again. If Connect ends in *Could not connect*,
    remove the connector and add it again with the right client id.
 
-Only public values are kept in the connector. A secret the service itself issues when it registers your
-agent is kept with the sign-in in `connector-credentials/`, readable only by you.
+Only public values are kept in the connector. A client secret you type, or one the service issues when it
+registers your agent, is kept with the sign-in in `connector-credentials/`, readable only by you.
 
 What the agent may do is shown per tool, in three groups: **Reads** it may use on its own, **Writes**
 (anything that changes or sends) held for your approval every time, and **Blocked**. The groups follow
