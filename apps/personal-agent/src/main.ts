@@ -16,6 +16,7 @@ import { ensureStateDir, loadConfig, resolveStateDir, saveConfig } from './confi
 import { startLocalMode } from './local-mode.js';
 import { createProviderFromProfile } from './provider.js';
 import { createPersonalCapabilities } from './capabilities.js';
+import { registryUrlFrom } from './connectors/catalog.js';
 import { clientMetadataUrlFrom } from './connectors/client-metadata-url.js';
 import { ensureEnvFile, openInEditor, withEnvFile } from './env-file.js';
 import {
@@ -134,11 +135,14 @@ export async function main(
     .filter((host) => host !== '');
   // The address of a hosted client metadata document naming this agent, for services that take one in place of a registration.
   const clientMetadataUrl = clientMetadataUrlFrom(merged);
+  // Where the add form looks for services to suggest: the public registry unless the owner changes or turns it off.
+  const registryUrl = registryUrlFrom(merged);
   const capabilities = createPersonalCapabilities({
     stateDir,
     environment: merged,
     ...(connectorHosts.length > 0 && { connectorAllowedHosts: connectorHosts }),
     ...(clientMetadataUrl !== undefined && { connectorClientMetadataUrl: clientMetadataUrl }),
+    ...(registryUrl !== undefined && { connectorRegistryUrl: registryUrl }),
   });
   const local = await startLocalMode({
     stateDir,

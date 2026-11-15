@@ -37,6 +37,7 @@ import { createChannelTurns } from './channel-turns.js';
 import { createGoalRunner } from './goal-runner.js';
 import { watchBrowser } from './browser/watched-browser.js';
 import { CONSENT_CALLBACK_PATH, createConsentBroker } from './connectors/consent.js';
+import { createConnectorCatalog } from './connectors/catalog.js';
 import { createConnectorsApi } from './connectors/connectors-api.js';
 import { createMcpConnectorProtocol } from './connectors/mcp-protocol.js';
 import { createSyncRuns } from './connectors/sync-runs.js';
@@ -97,6 +98,8 @@ export interface IPersonalCapabilityOptions {
   readonly connectorAllowedHosts?: readonly string[];
   /** The `https` address of this agent's client metadata document, for services that take one instead of a registration. */
   readonly connectorClientMetadataUrl?: string;
+  /** Where the add form looks for services to suggest: the public registry when absent, none with `null`. */
+  readonly connectorRegistryUrl?: string | null;
   /** Owner or test carrier and resolver for the connectors' requests; each is still judged against the egress policy first. */
   readonly connectorNetwork?: {
     readonly fetch?: typeof globalThis.fetch;
@@ -240,6 +243,15 @@ export function createPersonalCapabilities(
         sync: connectorSync,
         wiki,
         origins: () => guiOrigins,
+        catalog: createConnectorCatalog({
+          stateDir: options.stateDir,
+          ...(options.connectorRegistryUrl !== undefined && {
+            registryUrl: options.connectorRegistryUrl,
+          }),
+          ...(options.connectorNetwork?.fetch !== undefined && {
+            fetch: options.connectorNetwork.fetch,
+          }),
+        }),
       }),
     }),
     attach: async (agent, attachOptions) => {

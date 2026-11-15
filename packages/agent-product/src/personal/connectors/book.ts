@@ -143,6 +143,100 @@ export interface ICreateConnectorInput {
   };
 }
 
+/** What a connector's input comes to once every rule has held, ready to be kept. */
+export interface ICheckedConnectorInput {
+  readonly title: string;
+  readonly endpoint: string;
+  readonly auth: TConnectorAuth;
+  readonly tokenHeader?: string;
+  readonly oauth?: IConnector['oauth'];
+}
+
+/**
+ * The one place the rules for a connector's input live: a record is created from them, and a catalog
+ * entry is accepted only if the connector it stands for could be. Throws {@link ConnectorRefusedError}.
+ */
+export function checkConnectorInput(input: ICreateConnectorInput): ICheckedConnectorInput {
+  const title = input.title.replace(/\s+/gu, ' ').trim();
+  if (title === '' || title.length > MAX_TITLE) {
+    throw new ConnectorRefusedError(`A connector needs a name of 1 to ${MAX_TITLE} characters`);
+  }
+  if (containsSensitiveMemoryContent(title)) {
+    throw new ConnectorRefusedError('This looks like a secret and is not kept as a name');
+  }
+  if (!CONNECTOR_KINDS.includes(input.kind)) {
+    throw new ConnectorRefusedError(`kind must be one of ${CONNECTOR_KINDS.join(', ')}`);
+  }
+  if (!PROTOCOL.test(input.protocol)) throw new ConnectorRefusedError('Unknown protocol name');
+  const endpoint = checkEndpoint(input.endpoint);
+  const auth = input.auth ?? 'oauth';
+  if (!CONNECTOR_AUTHS.includes(auth)) {
+    throw new ConnectorRefusedError(`auth must be one of ${CONNECTOR_AUTHS.join(', ')}`);
+  }
+  const tokenHeader = checkTokenHeader(auth, input.tokenHeader);
+  const oauth = checkOAuth(input.oauth);
+  if (oauth !== undefined && auth !== 'oauth') {
+    throw new ConnectorRefusedError(
+      'A client id, scopes and sign-in options belong to an OAuth sign-in',
+    );
+  }
+  return {
+    title,
+    endpoint,
+    auth,
+    ...(tokenHeader !== undefined && { tokenHeader }),
+    ...(oauth !== undefined && { oauth }),
+  };
+}
+
+function checkTokenHeader(auth: TConnectorAuth, header: string | undefined): string | undefined {
+  if (header === undefined || header === '') return undefined;
+  if (auth !== 'token') {
+    throw new ConnectorRefusedError('A header name belongs to a service that takes a token');
+  }
+  if (!HEADER_NAME.test(header) || OWNED_HEADERS.has(header.toLowerCase())) {
+    throw new ConnectorRefusedError(
+      'The header must be a plain header name that the connection does not use itself',
+    );
+  }
+  return header;
+}
+
+function checkOAuth(oauth: ICreateConnectorInput['oauth']): IConnector['oauth'] | undefined {
+  if (oauth === undefined) return undefined;
+  const { clientId, scopes, authorizationParams } = oauth;
+  if (
+    clientId !== undefined &&
+    (clientId === '' || /\s/u.test(clientId) || clientId.length > 256)
+  ) {
+    throw new ConnectorRefusedError('The client id must be one word of at most 256 characters');
+  }
+  if (scopes !== undefined && !scopes.every((scope) => SCOPE_TOKEN.test(scope))) {
+    throw new ConnectorRefusedError('Each scope must be a single scope word');
+  }
+  const params = authorizationParams === undefined ? [] : Object.entries(authorizationParams);
+  if (
+    params.length > MAX_PARAMS ||
+    !params.every(([name, value]) => PARAM_NAME.test(name) && PARAM_VALUE.test(value))
+  ) {
+    throw new ConnectorRefusedError(
+      `Sign-in options are up to ${MAX_PARAMS} plain words, each a name and a value`,
+    );
+  }
+  if (
+    clientId === undefined &&
+    (scopes === undefined || scopes.length === 0) &&
+    params.length === 0
+  ) {
+    return undefined;
+  }
+  return {
+    ...(clientId !== undefined && { clientId }),
+    ...(scopes !== undefined && scopes.length > 0 && { scopes: [...scopes] }),
+    ...(params.length > 0 && { authorizationParams: Object.fromEntries(params) }),
+  };
+}
+
 export class ConnectorBook {
   private readonly store: IConnectorStore;
   private readonly now: () => Date;
@@ -154,29 +248,7 @@ export class ConnectorBook {
   }
 
   async create(input: ICreateConnectorInput): Promise<IConnector> {
-    const title = input.title.replace(/\s+/gu, ' ').trim();
-    if (title === '' || title.length > MAX_TITLE) {
-      throw new ConnectorRefusedError(`A connector needs a name of 1 to ${MAX_TITLE} characters`);
-    }
-    if (containsSensitiveMemoryContent(title)) {
-      throw new ConnectorRefusedError('This looks like a secret and is not kept as a name');
-    }
-    if (!CONNECTOR_KINDS.includes(input.kind)) {
-      throw new ConnectorRefusedError(`kind must be one of ${CONNECTOR_KINDS.join(', ')}`);
-    }
-    if (!PROTOCOL.test(input.protocol)) throw new ConnectorRefusedError('Unknown protocol name');
-    const endpoint = checkEndpoint(input.endpoint);
-    const auth = input.auth ?? 'oauth';
-    if (!CONNECTOR_AUTHS.includes(auth)) {
-      throw new ConnectorRefusedError(`auth must be one of ${CONNECTOR_AUTHS.join(', ')}`);
-    }
-    const tokenHeader = this.checkTokenHeader(auth, input.tokenHeader);
-    const oauth = this.checkOAuth(input.oauth);
-    if (oauth !== undefined && auth !== 'oauth') {
-      throw new ConnectorRefusedError(
-        'A client id, scopes and sign-in options belong to an OAuth sign-in',
-      );
-    }
+    const { title, endpoint, auth, tokenHeader, oauth } = checkConnectorInput(input);
     const at = this.now().toISOString();
     this.sequence += 1;
     const unique = `${this.now().getTime().toString(36)}${this.sequence.toString(36)}`;
@@ -196,54 +268,6 @@ export class ConnectorBook {
     };
     await this.store.put(connector);
     return connector;
-  }
-
-  private checkTokenHeader(auth: TConnectorAuth, header: string | undefined): string | undefined {
-    if (header === undefined || header === '') return undefined;
-    if (auth !== 'token') {
-      throw new ConnectorRefusedError('A header name belongs to a service that takes a token');
-    }
-    if (!HEADER_NAME.test(header) || OWNED_HEADERS.has(header.toLowerCase())) {
-      throw new ConnectorRefusedError(
-        'The header must be a plain header name that the connection does not use itself',
-      );
-    }
-    return header;
-  }
-
-  private checkOAuth(oauth: ICreateConnectorInput['oauth']): IConnector['oauth'] | undefined {
-    if (oauth === undefined) return undefined;
-    const { clientId, scopes, authorizationParams } = oauth;
-    if (
-      clientId !== undefined &&
-      (clientId === '' || /\s/u.test(clientId) || clientId.length > 256)
-    ) {
-      throw new ConnectorRefusedError('The client id must be one word of at most 256 characters');
-    }
-    if (scopes !== undefined && !scopes.every((scope) => SCOPE_TOKEN.test(scope))) {
-      throw new ConnectorRefusedError('Each scope must be a single scope word');
-    }
-    const params = authorizationParams === undefined ? [] : Object.entries(authorizationParams);
-    if (
-      params.length > MAX_PARAMS ||
-      !params.every(([name, value]) => PARAM_NAME.test(name) && PARAM_VALUE.test(value))
-    ) {
-      throw new ConnectorRefusedError(
-        `Sign-in options are up to ${MAX_PARAMS} plain words, each a name and a value`,
-      );
-    }
-    if (
-      clientId === undefined &&
-      (scopes === undefined || scopes.length === 0) &&
-      params.length === 0
-    ) {
-      return undefined;
-    }
-    return {
-      ...(clientId !== undefined && { clientId }),
-      ...(scopes !== undefined && scopes.length > 0 && { scopes: [...scopes] }),
-      ...(params.length > 0 && { authorizationParams: Object.fromEntries(params) }),
-    };
   }
 
   async list(): Promise<readonly IConnector[]> {
