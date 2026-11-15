@@ -413,6 +413,28 @@ describe("remembering the session across a desktop Reconnect's reload", () => {
     expect(wire.some((m) => m.type === 'switch-session')).toBe(false);
   });
 
+  it("the person's own reload returns to the session that was open", () => {
+    const first = setup();
+    first.connect();
+    first.deliver({ type: 'sessions', requestId: lastListRequest(first.wire), listing: liveListing('a') });
+    act(() => first.result.current.switchSession('b'));
+    first.deliver({ type: 'session_switched', event: { sessionId: 'b' } });
+    expect(window.sessionStorage.getItem(RESTORE_KEY)).toBe('b');
+
+    // The page reloads: nothing but sessionStorage is left, and the host puts it on its primary.
+    const reloaded = setup();
+    reloaded.connect();
+    reloaded.deliver({
+      type: 'sessions',
+      requestId: lastListRequest(reloaded.wire),
+      listing: liveListing('a'),
+    });
+
+    expect(reloaded.wire.filter((m) => m.type === 'switch-session')).toEqual([
+      { type: 'switch-session', sessionId: 'b', requestId: expect.any(String) },
+    ]);
+  });
+
   it('rememberSessionForRestore is best-effort: a storage failure does not throw', () => {
     const original = window.sessionStorage.setItem;
     window.sessionStorage.setItem = () => {
