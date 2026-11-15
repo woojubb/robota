@@ -40,6 +40,7 @@ export interface IMockTool {
   name: string;
   description?: string;
   inputSchema: Record<string, unknown>;
+  annotations?: Record<string, unknown>;
   _meta?: Record<string, unknown>;
 }
 

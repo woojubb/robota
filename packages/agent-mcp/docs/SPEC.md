@@ -147,6 +147,11 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
 - **Discovery is bounded and honest**: an unsupported capability's list method is never called; a
   declared one is drained page by page until pagination ends, bounded by a page count and a
   per-request timeout; a partial catalog is never reported as complete.
+- **A tool's behavior hints are the server's claim, not a guarantee.** Discovery carries only the
+  four boolean hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) and
+  nothing else the annotation holds, so text a server writes there never reaches a model. A hint a
+  server did not declare is absent, and absence never reads as "read-only": a host that sorts tools
+  into reading and writing decides what the claim is worth.
 - **Result-size metadata is a bounded, adapter-validated request, not a server-controlled policy
   override.** Only one vendor metadata key is interpreted, only within a fixed numeric range; a
   malformed or out-of-range value is ignored with a diagnostic rather than treated as permission to
