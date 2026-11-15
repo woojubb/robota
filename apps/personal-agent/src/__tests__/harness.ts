@@ -85,7 +85,14 @@ export async function startHarness(
 ): Promise<IHarness> {
   const stateDir = options.stateDir ?? mkdtempSync(join(tmpdir(), 'personal-agent-'));
   const model = await startScriptedModel();
-  const environment = { HOME: stateDir, SCRIPTED_KEY: 'scripted-key' };
+  // The agent's browser looks for Chromium in this environment, which is not the process's. The tests
+  // decide whether to run from the process, so the one variable that points at a Chromium goes along.
+  const chromiumOverride = process.env['PERSONAL_AGENT_CHROMIUM'];
+  const environment = {
+    HOME: stateDir,
+    SCRIPTED_KEY: 'scripted-key',
+    ...(chromiumOverride !== undefined && { PERSONAL_AGENT_CHROMIUM: chromiumOverride }),
+  };
   const capabilities = createPersonalCapabilities({
     stateDir,
     environment,
