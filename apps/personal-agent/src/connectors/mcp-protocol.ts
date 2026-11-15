@@ -173,6 +173,25 @@ export function createMcpConnectorProtocol(
   const timeouts: IMCPTimeouts = { ...DEFAULT_TIMEOUTS, ...options.timeouts };
   const runtimes = new Map<string, IRuntime>();
 
+  /**
+   * Work that changes what a connector holds (a token being tried, a disconnect, a removal) runs one
+   * piece at a time per connector, in the order it was asked, so a later piece never undoes an earlier
+   * one half-way: a disconnect during a refused connect still ends with no token.
+   */
+  const chains = new Map<string, Promise<void>>();
+  const exclusively = <T>(id: string, work: () => Promise<T>): Promise<T> => {
+    const run = (chains.get(id) ?? Promise.resolve()).then(work);
+    const settled = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    chains.set(id, settled);
+    void settled.then(() => {
+      if (chains.get(id) === settled) chains.delete(id);
+    });
+    return run;
+  };
+
   const identity = (connector: IConnector): string => `personal-connector:${connector.id}`;
 
   const runtimeOf = (connector: IConnector): IRuntime => {
@@ -287,33 +306,36 @@ export function createMcpConnectorProtocol(
    * Keep the typed token only if the service accepts it: it is stored, one connection is made and the
    * tools are listed. A token that fails leaves nothing behind and a token that worked before stays.
    */
-  const connectWithToken = async (
+  const connectWithToken = (
     connector: IConnector,
     token: string | undefined,
-  ): Promise<IConnectorStatus> => {
-    if (token === undefined) return { state: 'failed', reason: 'no-token' };
-    const runtime = runtimeOf(connector);
-    const previous = tokens.get(connector.id);
-    runtime.failure = undefined;
-    runtime.needsSignIn = false;
-    tokens.set(connector.id, token);
-    await stopConnection(runtime);
-    try {
-      await (await connectionOf(connector)).discover();
-      return { state: 'connected' };
-    } catch (error) {
-      if (previous === undefined) tokens.delete(connector.id);
-      else tokens.set(connector.id, previous);
-      await stopConnection(runtime);
+  ): Promise<IConnectorStatus> =>
+    exclusively(connector.id, async () => {
+      if (token === undefined) return { state: 'failed', reason: 'no-token' };
+      const runtime = runtimeOf(connector);
+      const previous = tokens.get(connector.id);
+      // A token the service had stopped honouring is still that token if the new one is refused.
+      const wasStale = runtime.needsSignIn;
+      runtime.failure = undefined;
       runtime.needsSignIn = false;
-      runtime.failure =
-        error instanceof MCPAuthenticationError ||
-        (error as { classification?: string }).classification === 'auth'
-          ? 'rejected'
-          : 'unreachable';
-      return { state: 'failed', reason: runtime.failure };
-    }
-  };
+      tokens.set(connector.id, token);
+      await stopConnection(runtime);
+      try {
+        await (await connectionOf(connector)).discover();
+        return { state: 'connected' };
+      } catch (error) {
+        if (previous === undefined) tokens.delete(connector.id);
+        else tokens.set(connector.id, previous);
+        await stopConnection(runtime);
+        runtime.needsSignIn = previous !== undefined && wasStale;
+        runtime.failure =
+          error instanceof MCPAuthenticationError ||
+          (error as { classification?: string }).classification === 'auth'
+            ? 'rejected'
+            : 'unreachable';
+        return { state: 'failed', reason: runtime.failure };
+      }
+    });
 
   return {
     id: 'mcp',
@@ -410,14 +432,16 @@ export function createMcpConnectorProtocol(
     async signOut(connector): Promise<IDisconnectOutcome> {
       if (authOf(connector) !== 'oauth') {
         // A token is deleted; the service is not asked to revoke what it never issued to this agent.
-        const runtime = runtimes.get(connector.id);
-        if (runtime !== undefined) {
-          runtime.failure = undefined;
-          runtime.needsSignIn = false;
-          await stopConnection(runtime);
-        }
-        const removed = tokens.delete(connector.id);
-        return { removed, revocation: 'unsupported' };
+        return exclusively(connector.id, async () => {
+          const runtime = runtimes.get(connector.id);
+          if (runtime !== undefined) {
+            runtime.failure = undefined;
+            runtime.needsSignIn = false;
+            await stopConnection(runtime);
+          }
+          const removed = tokens.delete(connector.id);
+          return { removed, revocation: 'unsupported' as const };
+        });
       }
       const runtime = runtimeOf(connector);
       runtime.signIn?.abort.abort();
@@ -463,15 +487,17 @@ export function createMcpConnectorProtocol(
       }
     },
 
-    async forget(connector): Promise<void> {
-      // A removed connector keeps no token, whether or not this process ever connected it.
-      tokens.delete(connector.id);
-      const runtime = runtimes.get(connector.id);
-      if (runtime === undefined) return;
-      runtime.signIn?.abort.abort();
-      runtime.authenticator?.close();
-      await stopConnection(runtime);
-      runtimes.delete(connector.id);
+    forget(connector): Promise<void> {
+      return exclusively(connector.id, async () => {
+        // A removed connector keeps no token, whether or not this process ever connected it.
+        tokens.delete(connector.id);
+        const runtime = runtimes.get(connector.id);
+        if (runtime === undefined) return;
+        runtime.signIn?.abort.abort();
+        runtime.authenticator?.close();
+        await stopConnection(runtime);
+        runtimes.delete(connector.id);
+      });
     },
 
     async close(): Promise<void> {

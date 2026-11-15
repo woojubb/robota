@@ -340,8 +340,12 @@ export interface IStandInConnector {
   readonly calls: string[];
   /** How many requests were refused for a missing or wrong credential. */
   readonly refusals: () => number;
+  /** The `authorization` header of every request to the tool endpoint, in order; `undefined` when it carried none. */
+  readonly authorizations: (string | undefined)[];
   /** Change the static token it wants, as a service that rotates its tokens does. */
   rotateToken(token: string): void;
+  /** Answer every request to the tool endpoint this many milliseconds late, as a slow service does. */
+  setLatency(milliseconds: number): void;
   close(): Promise<void>;
 }
 
@@ -373,7 +377,9 @@ export async function startStandInConnector(
   options: IStandInConnectorOptions,
 ): Promise<IStandInConnector> {
   const calls: string[] = [];
+  const authorizations: (string | undefined)[] = [];
   let refusals = 0;
+  let latencyMs = 0;
   let base = options.publicBase ?? '';
   const tools = new Map(options.tools.map((tool) => [tool.name, tool]));
 
@@ -411,6 +417,8 @@ export async function startStandInConnector(
           });
         }
         if (url.pathname !== '/mcp') return json(res, 404, { error: 'not_found' });
+        authorizations.push(req.headers.authorization);
+        if (latencyMs > 0) await new Promise((resolve) => setTimeout(resolve, latencyMs));
         if (!admitted(req.headers)) {
           refusals += 1;
           return json(
@@ -483,8 +491,12 @@ export async function startStandInConnector(
     url: `${base}/mcp`,
     calls,
     refusals: () => refusals,
+    authorizations,
     rotateToken: (token) => {
       staticToken = token;
+    },
+    setLatency: (milliseconds) => {
+      latencyMs = milliseconds;
     },
     close: running.close,
   };

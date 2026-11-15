@@ -709,10 +709,47 @@ describe('a service that signs in with a token, or not at all', () => {
     await w.harness.submitAnswering('find notes', () => true);
     const view = (await w.call('GET', ['connectors', id])).body.connector;
     expect(view.status.state).toBe('needs-sign-in');
+    // A wrong token pasted over the stale one does not make the stale one look fine.
+    const wrong = await w.call('POST', ['connectors', id, 'connect'], { token: 'still-wrong-one' });
+    expect(wrong.body.status).toEqual({ state: 'failed', reason: 'rejected' });
+    expect((await w.call('GET', ['connectors', id])).body.connector.status.state).toBe(
+      'needs-sign-in',
+    );
     const renewed = await w.call('POST', ['connectors', id, 'connect'], {
       token: 'rotated-token-for-standin-02',
     });
     expect(renewed.body.status.state).toBe('connected');
+  });
+
+  it('ends with no token when a disconnect or a removal comes while a wrong token is still being tried', async () => {
+    const { w, tokened } = await tokenWorld();
+    const id = await w.add('Tokened', 'notes', TOKEN_HOST, { auth: 'token' });
+    await w.call('POST', ['connectors', id, 'connect'], { token: TOKEN });
+    expect(tokenFiles(w)).toHaveLength(1);
+
+    // The service answers slowly, so the wrong token is still being tried when the person disconnects.
+    tokened.setLatency(250);
+    const trying = w.call('POST', ['connectors', id, 'connect'], { token: 'a-wrong-token' });
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    const leaving = w.call('POST', ['connectors', id, 'disconnect'], {});
+    const [tried, left] = await Promise.all([trying, leaving]);
+    expect(tried.body.status.state).toBe('failed');
+    expect(left.status).toBe(200);
+    // The disconnect came last, so it is the last word: the earlier token was not put back after it.
+    expect(tokenFiles(w)).toEqual([]);
+    expect((await w.call('GET', ['connectors', id])).body.connector.status.state).toBe(
+      'not-connected',
+    );
+
+    // The same holds for a removal.
+    tokened.setLatency(0);
+    await w.call('POST', ['connectors', id, 'connect'], { token: TOKEN });
+    tokened.setLatency(250);
+    const again = w.call('POST', ['connectors', id, 'connect'], { token: 'a-wrong-token' });
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    const removing = w.call('POST', ['connectors', id, 'remove'], {});
+    await Promise.all([again, removing]);
+    expect(tokenFiles(w)).toEqual([]);
   });
 
   it('deletes the token on disconnect and on removal, and says no revocation was possible', async () => {
@@ -750,8 +787,10 @@ describe('a service that signs in with a token, or not at all', () => {
     const turn = await w.harness.submitAnswering('find notes', () => true);
     expect(turn.text).toContain('content from the service');
     expect(open.calls).toEqual(['search_notes {}']);
-    // Nothing to sign in to, nothing kept: no token, no credential.
+    // Nothing to sign in to, nothing kept: no token, no credential, and none sent either.
     expect(tokenFiles(w)).toEqual([]);
+    expect(open.authorizations.length).toBeGreaterThan(0);
+    expect(open.authorizations.every((sent) => sent === undefined)).toBe(true);
     const refused = await w.call('POST', ['connectors', id, 'connect'], {});
     expect(refused.status).toBe(400);
   });
@@ -771,7 +810,15 @@ describe('a service that signs in with a token, or not at all', () => {
       (await create({ auth: 'none', authorizationParams: { prompt: 'consent' } })).status,
     ).toBe(400);
     expect((await create({ auth: 'oauth', tokenHeader: 'x-api-key' })).status).toBe(400);
-    for (const tokenHeader of ['host', 'Content-Length', 'cookie', 'two words', 'x-key\r\nx: y']) {
+    for (const tokenHeader of [
+      'host',
+      'Content-Length',
+      'cookie',
+      'mcp-method',
+      'Mcp-Name',
+      'two words',
+      'x-key\r\nx: y',
+    ]) {
       expect((await create({ auth: 'token', tokenHeader })).status, tokenHeader).toBe(400);
     }
 

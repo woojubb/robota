@@ -190,6 +190,14 @@ describe('the connector book', () => {
       { auth: 'token' as const, tokenHeader: 'mcp-SESSION-id' },
     ],
     [
+      'a header that tells the service which call this is',
+      { auth: 'token' as const, tokenHeader: 'Mcp-Method' },
+    ],
+    [
+      'a header that names the tool being called',
+      { auth: 'token' as const, tokenHeader: 'mcp-name' },
+    ],
+    [
       'a client id for a service that takes a token',
       { auth: 'token' as const, oauth: { clientId: 'client-1' } },
     ],

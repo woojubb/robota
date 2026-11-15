@@ -54,6 +54,8 @@ const OWNED_HEADERS: ReadonlySet<string> = new Set([
   'referer',
   'mcp-session-id',
   'mcp-protocol-version',
+  'mcp-method',
+  'mcp-name',
   'last-event-id',
   'traceparent',
   'tracestate',
