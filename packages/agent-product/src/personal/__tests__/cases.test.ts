@@ -945,6 +945,76 @@ describe('case tools', () => {
     });
   });
 
+  describe('an item whose case no run ever asked', () => {
+    const open = { title: SIGN_IN.title, noticed: SIGN_IN.noticed, source: SIGN_IN.source };
+    const again = { title: 'x', noticed: 'y', source: SIGN_IN.source };
+
+    /** A case just opened and then met again: it is handed back as not asked yet. */
+    async function unasked() {
+      const world = tools();
+      const first = await world.call('CaseOpen', open);
+      const id = first['opened'] as string;
+      expect(first).toEqual({ opened: id });
+      expect(await world.call('CaseOpen', again)).toEqual({
+        existing: id,
+        state: 'open',
+        notAskedYet: true,
+      });
+      return { ...world, id };
+    }
+
+    it('comes back marked as not asked yet, a note being no question', async () => {
+      const { call, id } = await unasked();
+      await call('CaseNote', { id, text: 'Looked at the address.' });
+      expect(await call('CaseOpen', again)).toEqual({
+        existing: id,
+        state: 'open',
+        notAskedYet: true,
+      });
+    });
+
+    it('comes back with the waiting question, and no longer as unasked, once it is asked', async () => {
+      const { call, id } = await unasked();
+      await call('CaseAsk', { id, question: 'Was it you?', options: ['Yes'] });
+      expect(await call('CaseOpen', again)).toEqual({
+        existing: id,
+        state: 'open',
+        waitingForThePerson: 'Was it you?',
+      });
+    });
+
+    it('is not unasked after the person answered and the case stayed open with no question', async () => {
+      const { call, goals, book, id } = await unasked();
+      const asked = await call('CaseAsk', { id, question: 'Was it you?', options: ['Yes', 'No'] });
+      await book.answer(asked['feedItem'] as string, { choice: 'No' });
+      const found = await book.get(id);
+      expect(found?.state).toBe('open');
+      expect(found?.question).toBeUndefined();
+      expect(found?.history.map((event) => event.kind)).toEqual(['observed', 'asked', 'answered']);
+      expect(await call('CaseOpen', again)).toEqual({ existing: id, state: 'open' });
+      expect((await goals.feed()).filter((item) => item.kind === 'question')).toHaveLength(1);
+    });
+
+    it('is not unasked once closed, and a closed case keeps its resolution', async () => {
+      const { call, id } = await unasked();
+      await call('CaseClose', { id, resolution: 'Settled without asking.' });
+      expect(await call('CaseOpen', again)).toEqual({
+        existing: id,
+        state: 'closed',
+        resolution: 'Settled without asking.',
+      });
+    });
+
+    it('is explained to the model: the person was never asked, so ask now with CaseAsk', () => {
+      const { book } = world(createMemoryCaseStore(), createMemoryGoalStore());
+      const description = createCaseTools(book).find((tool) => tool.schema.name === 'CaseOpen')!
+        .schema.description!;
+      expect(description).toMatch(/`notAskedYet: true`/u);
+      expect(description).toMatch(/the person was never asked/u);
+      expect(description).toMatch(/ask now with `CaseAsk`/u);
+    });
+  });
+
   it('takes an urgency, and refuses any other word with a message the model can act on', async () => {
     const { call, goals } = tools();
     const opened = await call('CaseOpen', {

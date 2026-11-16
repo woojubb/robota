@@ -565,9 +565,10 @@ was running is due again, and an approval nobody can still answer is marked expi
 
 A case is the agent's own record of one matter it noticed: what it saw and noted, the one question it is
 waiting on, and what happened. An item that already has a case gets that case back, open or closed, never a
-second one. The question shows in the feed as its own kind of item, never an approval, with the notes as its
-evidence; the person answers with one of the choices offered or, where the question allows it, in their own
-words, once, and the answer is recorded on the case and gives the agent one read-only turn on it, which takes its
+second one, and a case no question was ever put on (an interrupted run opened it) is handed back as not yet
+asked, so the next run asks it instead of leaving it for good. The question shows in the feed as its own kind
+of item, never an approval, with the notes as its evidence; the person answers with one of the choices offered
+or, where the question allows it, in their own words, once, and the answer is recorded on the case and gives the agent one read-only turn on it, which takes its
 direction from the answer alone and can only read, note, ask one follow-up question or close the case. A question
 whose case closed first can no longer be answered, and a case closed after an answer shows its resolution on the
 card that carried that answer instead of posting anything new, so a close the person would want to know of is not

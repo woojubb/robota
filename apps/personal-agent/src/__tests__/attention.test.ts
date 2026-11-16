@@ -181,32 +181,58 @@ const PAYMENT_CASE: IRaised = {
   options: ['Yes, remind me', 'Already paid'],
 };
 
+const readCall = (id: string): TModelReply => ({
+  tool: 'ConnectorRead',
+  args: { connector: id, tool: 'list_messages' },
+});
+
+const openCall = (id: string, item: IRaised): TModelReply => ({
+  tool: 'CaseOpen',
+  args: {
+    title: item.title,
+    noticed: item.noticed,
+    source: `mail:${item.mail.id}`,
+    connector: id,
+  },
+});
+
+const askCall = (caseId: string, item: IRaised): TModelReply => ({
+  tool: 'CaseAsk',
+  args: { id: caseId, question: item.question, options: item.options, allowReply: true },
+});
+
 /** What a model that followed the instructions does: read, then open and ask for each item. */
 function raising(id: string, items: readonly IRaised[]): (request: IModelRequest) => TModelReply {
   return steps(
-    { tool: 'ConnectorRead', args: { connector: id, tool: 'list_messages' } },
+    readCall(id),
     ...items.flatMap((item): TStep[] => [
-      {
-        tool: 'CaseOpen',
-        args: {
-          title: item.title,
-          noticed: item.noticed,
-          source: `mail:${item.mail.id}`,
-          connector: id,
-        },
-      },
-      (result) => ({
-        tool: 'CaseAsk',
-        args: {
-          id: caseIn(result),
-          question: item.question,
-          options: item.options,
-          allowReply: true,
-        },
-      }),
+      openCall(id, item),
+      (result) => askCall(caseIn(result), item),
     ]),
     { text: `I opened ${items.length} cases.` },
   );
+}
+
+/**
+ * A model that follows the instructions as they are worded now: it opens each item, and asks only
+ * when CaseOpen opened a new case or said the case was not asked yet. The same reply tells it apart
+ * from a case that was asked, so what it does depends on nothing but what the tool answered.
+ */
+function following(id: string, items: readonly IRaised[]): (request: IModelRequest) => TModelReply {
+  return (request) => {
+    const results = toolResults(request);
+    if (results.length === 0) return readCall(id);
+    let at = 1;
+    for (const item of items) {
+      const answer = results[at];
+      if (answer === undefined) return openCall(id, item);
+      at += 1;
+      if (!/"opened":|notAskedYet/u.test(answer)) continue;
+      if (results[at] === undefined) return askCall(caseIn(answer), item);
+      at += 1;
+    }
+    return { text: 'Done.' };
+  };
 }
 
 const withoutAcknowledgements = (request: IModelRequest): string[] =>
@@ -330,7 +356,7 @@ describe('a sync run raises cases under the person’s attention words', () => {
     // The second run starts where the first began, not from the first sync's look back, and it is
     // told that an item that already has a case is not asked about again.
     expect(w.systemOf(requestsBefore)).not.toContain('first sync');
-    expect(w.systemOf(requestsBefore)).toContain('do not ask again');
+    expect(w.systemOf(requestsBefore)).toContain('needs no new question');
   });
 
   it('does not ask again about an item whose case was settled, and says how it ended', async () => {
@@ -396,6 +422,110 @@ describe('a sync run raises cases under the person’s attention words', () => {
     w.harness.model.script({ text: 'I did not look.' });
     await w.sync();
     expect((await w.feed()).map((item) => item.body)).toEqual(['I did not look.']);
+  });
+});
+
+describe('a run cut short before it asked', () => {
+  const ITEMS = [SIGN_IN_CASE, PAYMENT_CASE];
+  /** The answers CaseOpen gave in the run that made the last request. */
+  const openAnswers = (w: IWorld): string[] =>
+    toolResults(w.harness.model.requests.at(-1)!).filter((result) =>
+      /"opened":|"existing":/u.test(result),
+    );
+  const questionsOf = async (w: IWorld) =>
+    (await w.feed()).filter((item) => item.kind === 'question');
+
+  /**
+   * The first run: both cases are opened, then the provider's stream breaks before any question. The
+   * run failed, and what it left is two open cases the person was never asked about.
+   */
+  async function cutRun(w: IWorld): Promise<void> {
+    w.harness.model.script(
+      steps(readCall(w.id), ...ITEMS.map((item) => openCall(w.id, item)), { cut: true }),
+    );
+    await w.sync();
+    const { goals, cases } = w.harness.capabilities;
+    const goal = (await goals.list())[0]!;
+    expect((await goals.runs(goal.id))[0]?.outcome).toBe('failed');
+    const kept = await cases.list();
+    expect(kept).toHaveLength(2);
+    for (const found of kept) {
+      expect(found.state).toBe('open');
+      expect(found.question).toBeUndefined();
+      expect(found.history.map((event) => event.kind)).toEqual(['observed']);
+    }
+    expect(await questionsOf(w)).toEqual([]);
+  }
+
+  it('is told by the next run that the cases were not asked yet, and asks each of them once with a new case’s evidence and choices', async () => {
+    const w = await mailWorld([SIGN_IN, PAYMENT, NEWSLETTER]);
+    await cutRun(w);
+    const { cases } = w.harness.capabilities;
+    const before = (await cases.list()).map((found) => found.id).sort();
+
+    const requestsBefore = w.harness.model.requests.length;
+    w.harness.model.script(following(w.id, ITEMS));
+    await w.sync();
+
+    // The model was not told to ask by anything but the reply to CaseOpen.
+    const answers = openAnswers(w);
+    expect(answers).toHaveLength(2);
+    for (const answer of answers) {
+      expect(answer).toContain('"existing"');
+      expect(answer).toContain('"state":"open"');
+      expect(answer).toContain('"notAskedYet":true');
+      expect(answer).not.toContain('waitingForThePerson');
+    }
+    expect(w.systemOf(requestsBefore)).toContain('unless CaseOpen replies notAskedYet');
+
+    // The same cases, each now asked once, with the evidence the first run wrote and the choices.
+    expect((await cases.list()).map((found) => found.id).sort()).toEqual(before);
+    const questions = await questionsOf(w);
+    expect(questions).toHaveLength(2);
+    const signIn = questions.find((item) => item.title === SIGN_IN_CASE.title)!;
+    expect(signIn.body).toContain('10:02');
+    expect(signIn.body).toContain('Seoul, South Korea');
+    expect(signIn.question).toEqual(
+      expect.objectContaining({
+        text: SIGN_IN_CASE.question,
+        options: SIGN_IN_CASE.options,
+        allowsReply: true,
+        state: 'open',
+      }),
+    );
+    const bill = questions.find((item) => item.title === PAYMENT_CASE.title)!;
+    expect(bill.body).toContain('84,000 KRW');
+    expect(bill.question?.options).toEqual(PAYMENT_CASE.options);
+    for (const found of await cases.list()) {
+      expect(found.question).toBeDefined();
+      expect(found.history.filter((event) => event.kind === 'asked')).toHaveLength(1);
+    }
+  });
+
+  it('asks nothing new in the run after that: an asked case is handed back as waiting, not as unasked', async () => {
+    const w = await mailWorld([SIGN_IN, PAYMENT, NEWSLETTER]);
+    await cutRun(w);
+    w.harness.model.script(following(w.id, ITEMS));
+    await w.sync();
+    const { cases } = w.harness.capabilities;
+    const cardsBefore = (await questionsOf(w)).map((item) => item.id).sort();
+    const caseIds = (await cases.list()).map((found) => found.id).sort();
+
+    const requestsBefore = w.harness.model.requests.length;
+    w.harness.model.script(following(w.id, ITEMS));
+    await w.sync();
+
+    const answers = openAnswers(w);
+    expect(answers).toHaveLength(2);
+    for (const answer of answers) {
+      expect(answer).toContain('"waitingForThePerson"');
+      expect(answer).not.toContain('notAskedYet');
+    }
+    // Read, then one CaseOpen for each mail: no CaseAsk was called.
+    expect(toolResults(w.harness.model.requests.at(-1)!)).toHaveLength(3);
+    expect(w.harness.model.requests.length).toBeGreaterThan(requestsBefore);
+    expect((await questionsOf(w)).map((item) => item.id).sort()).toEqual(cardsBefore);
+    expect((await cases.list()).map((found) => found.id).sort()).toEqual(caseIds);
   });
 });
 

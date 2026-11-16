@@ -12,6 +12,7 @@ import { CASE_MAX_OPTIONS, CASE_URGENCIES, CaseRefusedError } from './case-book.
 
 import type { FunctionTool, TUniversalValue } from '@robota-sdk/agent-core';
 import type { CaseBook } from './case-book.js';
+import type { ICase } from './types.js';
 
 export const CASE_TOOL_NAMES = {
   open: 'CaseOpen',
@@ -38,12 +39,24 @@ async function guarded(run: () => Promise<TUniversalValue>): Promise<TUniversalV
   }
 }
 
+/**
+ * An open case that was never asked: the run that opened it may have been cut short before asking, and
+ * nothing else would ask it. A case that was asked and then answered has asked, so it is not this.
+ */
+function neverAsked(found: ICase): boolean {
+  return (
+    found.state === 'open' &&
+    found.question === undefined &&
+    !found.history.some((event) => event.kind === 'asked')
+  );
+}
+
 export function createCaseTools(book: CaseBook): FunctionTool[] {
   registerProfiles();
   return [
     createZodFunctionTool(
       CASE_TOOL_NAMES.open,
-      'Open a case when you notice something the person may need to decide or confirm: a sign-in notice, a bill due, an unexpected change. Say what you saw and why it matters, quoting where it came from. `source` is your own stable reference to the item (for example a message id), so the same item never opens two cases: if one exists you get it back, with how it ended.',
+      'Open a case when you notice something the person may need to decide or confirm: a sign-in notice, a bill due, an unexpected change. Say what you saw and why it matters, quoting where it came from. `source` is your own stable reference to the item (for example a message id), so the same item never opens two cases: if one exists you get it back, with how it ended. An open case that nobody has asked yet comes back with `notAskedYet: true`: the person was never asked (a run may have been cut short before asking), so ask now with `CaseAsk`.',
       z.object({
         title: z.string().min(1),
         noticed: z.string().min(1),
@@ -65,6 +78,7 @@ export function createCaseTools(book: CaseBook): FunctionTool[] {
             state: found.state,
             ...(closing !== undefined && { resolution: closing.text }),
             ...(found.question !== undefined && { waitingForThePerson: found.question.text }),
+            ...(neverAsked(found) && { notAskedYet: true }),
           };
         }),
     ),
