@@ -155,6 +155,20 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         await menu.getByRole('button', { name: 'Settings' }).click();
         await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor();
 
+        // The person's own delivery limits: a refusal is the agent's words, a save reaches the agent.
+        const notifications = page.getByRole('form', { name: 'Notifications' });
+        const limit = notifications.getByLabel('Daily limit');
+        await limit.fill('25');
+        await notifications.getByRole('button', { name: 'Save notifications' }).click();
+        await notifications
+          .getByRole('status')
+          .filter({ hasText: /whole number from 0 to 20/u })
+          .waitFor();
+        await limit.fill('5');
+        await notifications.getByRole('button', { name: 'Save notifications' }).click();
+        await notifications.getByRole('status').filter({ hasText: 'Saved.' }).waitFor();
+        expect((await harness.capabilities.delivery.status()).settings.dailyLimit).toBe(5);
+
         await menu.getByRole('searchbox', { name: 'Search' }).fill('green tea');
         await menu.getByRole('searchbox', { name: 'Search' }).press('Enter');
         await page.getByRole('button', { name: /Mina/u }).waitFor();

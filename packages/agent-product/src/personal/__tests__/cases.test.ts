@@ -24,7 +24,7 @@ import {
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
 
-import type { ICaseStore, IGoalStore } from '../index.js';
+import type { ICaseBookOptions, ICaseStore, IGoalStore } from '../index.js';
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -48,10 +48,18 @@ interface IWorld {
   readonly goals: GoalBook;
 }
 
-function world(cases: ICaseStore, feed: IGoalStore): IWorld {
+function world(cases: ICaseStore, feed: IGoalStore, onAsked?: ICaseBookOptions['onAsked']): IWorld {
   const now = clock();
   const goals = new GoalBook({ store: feed, now });
-  return { book: new CaseBook({ store: cases, feed: goals, now }), goals };
+  return {
+    book: new CaseBook({
+      store: cases,
+      feed: goals,
+      now,
+      ...(onAsked !== undefined && { onAsked }),
+    }),
+    goals,
+  };
 }
 
 /** A card that was stuck open is now a withdrawn one, and the person can clear it from the feed. */
@@ -281,6 +289,7 @@ describe.each([
       allowsReply: false,
       askedAt: expect.any(String),
       feedItemId: item.id,
+      urgency: 'feed',
     });
     expect(item).toEqual(
       expect.objectContaining({
@@ -936,6 +945,33 @@ describe('case tools', () => {
     });
   });
 
+  it('takes an urgency, and refuses any other word with a message the model can act on', async () => {
+    const { call, goals } = tools();
+    const opened = await call('CaseOpen', {
+      title: SIGN_IN.title,
+      noticed: SIGN_IN.noticed,
+      source: SIGN_IN.source,
+    });
+    const id = opened['opened'] as string;
+    expect(await call('CaseAsk', { id, question: 'Was it you?', urgency: 'immediately' })).toEqual({
+      error: expect.stringMatching(/^The urgency must be one of now, digest, feed/u),
+    });
+    expect(await goals.feed()).toEqual([]);
+    const asked = await call('CaseAsk', { id, question: 'Was it you?', urgency: 'digest' });
+    expect((await goals.feedItem(asked['feedItem'] as string))?.question?.state).toBe('open');
+  });
+
+  it('tells the model what each urgency is for, and that it is only a suggestion', () => {
+    const { book } = world(createMemoryCaseStore(), createMemoryGoalStore());
+    const ask = createCaseTools(book).find((tool) => tool.schema.name === 'CaseAsk')!;
+    const description = ask.schema.description!;
+    expect(description).toMatch(/`now` only for something that needs them soon/u);
+    expect(description).toMatch(/security risk.*deadline within about a day/u);
+    expect(description).toMatch(/`digest` for what can wait for a daily summary/u);
+    expect(description).toMatch(/`feed` for the rest, and the default/u);
+    expect(description).toMatch(/only a suggestion: the person's own limits decide/u);
+  });
+
   it('are inspect-class: they change only the agent’s own record, so a read-only run may keep a case', () => {
     clearRegisteredToolProfiles();
     tools();
@@ -944,6 +980,90 @@ describe('case tools', () => {
       expect(getToolPermissionProfile(name).consequential, name).toBeUndefined();
       expect(evaluatePermission(name, {}, 'plan', {}), name).toBe('auto');
       expect(evaluatePermission(name, {}, 'default', {}), name).toBe('auto');
+    }
+  });
+});
+
+describe('the urgency of a question', () => {
+  const QUESTION = { question: 'Did you sign in just now?', options: ['Yes, it was me', 'No'] };
+
+  it('is stored with the question, and is `feed` when the agent says nothing', async () => {
+    for (const urgency of ['now', 'digest', 'feed'] as const) {
+      const { book } = world(createMemoryCaseStore(), createMemoryGoalStore());
+      const { case: opened } = await book.open(SIGN_IN);
+      const { case: asked } = await book.ask(opened.id, { ...QUESTION, urgency });
+      expect(asked.question?.urgency).toBe(urgency);
+    }
+    const { book } = world(createMemoryCaseStore(), createMemoryGoalStore());
+    const { case: opened } = await book.open(SIGN_IN);
+    expect((await book.ask(opened.id, QUESTION)).case.question?.urgency).toBe('feed');
+  });
+
+  it('is refused when it is not an urgency, in plain words, before anything is posted', async () => {
+    const { book, goals } = world(createMemoryCaseStore(), createMemoryGoalStore());
+    const { case: opened } = await book.open(SIGN_IN);
+    for (const urgency of ['urgent', 'NOW', '', 'now ']) {
+      await expect(book.ask(opened.id, { ...QUESTION, urgency })).rejects.toThrow(
+        /The urgency must be one of now, digest, feed; it is only a suggestion/u,
+      );
+    }
+    expect(await goals.feed()).toEqual([]);
+    expect((await book.get(opened.id))?.question).toBeUndefined();
+  });
+
+  it('is read from a case file written before it existed', async () => {
+    const dir = directory();
+    const feed = createMemoryGoalStore();
+    const first = world(createFileCaseStore(dir), feed);
+    const { case: opened } = await first.book.open(SIGN_IN);
+    const { item } = await first.book.ask(opened.id, QUESTION);
+    const path = join(dir, 'cases.json');
+    const stored = JSON.parse(readFileSync(path, 'utf8'));
+    delete stored[opened.id].question.urgency;
+    writeFileSync(path, JSON.stringify(stored));
+
+    const after = world(createFileCaseStore(dir), feed);
+    const loaded = await after.book.get(opened.id);
+    expect(loaded?.question?.text).toBe(QUESTION.question);
+    expect(loaded?.question?.urgency).toBeUndefined();
+    // The case still works: the question can be answered and the case closed.
+    await after.book.answer(item.id, { choice: 'No' });
+    await after.book.close(opened.id, 'Settled.');
+    expect((await after.book.get(opened.id))?.state).toBe('closed');
+  });
+
+  it('is reported to the host once the question is asked, with the case, the card and the urgency', async () => {
+    const seen: unknown[] = [];
+    const { book, goals } = world(createMemoryCaseStore(), createMemoryGoalStore(), (event) => {
+      seen.push(event);
+    });
+    const { case: opened } = await book.open(SIGN_IN);
+    await expect(book.ask(opened.id, { ...QUESTION, urgency: 'sometime' })).rejects.toThrow();
+    expect(seen).toEqual([]);
+    const { case: asked, item } = await book.ask(opened.id, { ...QUESTION, urgency: 'now' });
+    expect(seen).toEqual([{ case: asked, item, urgency: 'now' }]);
+    expect((await goals.feedItem(item.id))?.question?.state).toBe('open');
+    // A second question on the same case is refused and tells the host nothing.
+    await expect(book.ask(opened.id, QUESTION)).rejects.toThrow(/already has a question/u);
+    expect(seen).toHaveLength(1);
+  });
+
+  it('cannot fail the ask or hold it up, whatever the host does with the news', async () => {
+    const throwing = world(createMemoryCaseStore(), createMemoryGoalStore(), () => {
+      throw new Error('sync failure');
+    });
+    const rejecting = world(createMemoryCaseStore(), createMemoryGoalStore(), async () => {
+      throw new Error('async failure');
+    });
+    const never = world(
+      createMemoryCaseStore(),
+      createMemoryGoalStore(),
+      () => new Promise<void>(() => undefined),
+    );
+    for (const { book } of [throwing, rejecting, never]) {
+      const { case: opened } = await book.open(SIGN_IN);
+      const { case: asked } = await book.ask(opened.id, { ...QUESTION, urgency: 'now' });
+      expect(asked.question?.text).toBe(QUESTION.question);
     }
   });
 });

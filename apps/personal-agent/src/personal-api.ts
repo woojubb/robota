@@ -11,6 +11,7 @@ import { findProviderDefinition, formatSupportedProviderTypes } from '@robota-sd
 import {
   CaseRefusedError,
   ConnectorRefusedError,
+  DeliveryRefusedError,
   GoalRefusedError,
   IdeaRefusedError,
   SpaceRefusedError,
@@ -33,6 +34,7 @@ import type {
   IWikiPage,
   IdeaBook,
   KnowledgeWiki,
+  QuestionDelivery,
   SpaceBook,
   TPageKind,
 } from '@robota-sdk/agent-product/personal';
@@ -47,6 +49,8 @@ export interface IPersonalApiOptions {
   readonly wiki: KnowledgeWiki;
   readonly goals: GoalBook;
   readonly cases: CaseBook;
+  /** The person's delivery limits: only their own request, through the routes here, reads or changes them. */
+  readonly delivery: QuestionDelivery;
   /**
    * Called with a case once the person's answer is recorded on it. It must not wait for work: an
    * answer is already recorded when this runs, and an error from it never undoes or fails the answer.
@@ -119,7 +123,7 @@ export function providerTypes(): string[] {
 }
 
 export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
-  const { wiki, goals, cases, ideas, spaces, sideChats, layout, browser } = options;
+  const { wiki, goals, cases, delivery, ideas, spaces, sideChats, layout, browser } = options;
   /** A space as the page shows it: its pinned pages that still exist, and the opening they make. */
   const spaceView = async (space: ISpace) => {
     const pinned = (await Promise.all(space.pages.map((pageId) => wiki.read(pageId))))
@@ -346,6 +350,14 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       return found === undefined ? fail(404, 'no such case') : ok({ case: found });
     }
 
+    if (area === 'delivery' && collection === undefined) {
+      if (method === 'GET') return ok(await delivery.status());
+      if (method === 'PUT') {
+        await delivery.updateSettings(request.body);
+        return ok(await delivery.status());
+      }
+    }
+
     if (area === 'browser') {
       if (collection === undefined && method === 'GET') {
         return ok({ available: options.browserAvailable(), ...browser.watch() });
@@ -470,6 +482,7 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
       if (error instanceof SensitiveContentRefusedError) return fail(422, error.message);
       if (error instanceof GoalRefusedError) return fail(400, error.message);
       if (error instanceof CaseRefusedError) return fail(400, error.message);
+      if (error instanceof DeliveryRefusedError) return fail(400, error.message);
       if (error instanceof IdeaRefusedError) return fail(400, error.message);
       if (error instanceof SpaceRefusedError) return fail(400, error.message);
       if (error instanceof SideChatRefusedError) return fail(400, error.message);
