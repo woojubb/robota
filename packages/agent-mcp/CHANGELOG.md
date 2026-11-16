@@ -1,5 +1,11 @@
 # @robota-sdk/agent-mcp
 
+## 3.2.5
+### Patch Changes
+
+- aacc8ca: A sign-in takes an optional `clientMetadataUrl`: the address of a client metadata document the host publishes. When the authorization server accepts such documents and the document names this client and lists the sign-in's redirect address, its address is the client id and nothing is registered; otherwise the client registers dynamically as before, now saying whether it is a native or a web application, or the sign-in is refused with `client-metadata-unusable` (a document the server would take but this sign-in cannot rely on) or `client-metadata-url-invalid` (an address that is not `https` with a path, or that carries a user name, password or fragment). `isClientMetadataUrl` tells a host whether an address can be used, so it can refuse one when it starts.
+- ed2b00c: An `oauth` block can carry `authorizationParams`: up to four extra parameters on the authorization request (for example `prompt=consent`, or a service's own switch for a sign-in that lasts). They are plain words the person chose, never secrets, cannot replace any parameter the sign-in sets (PKCE, `state`, the redirect, the client, the scope, the resource), are part of the definition fingerprint, and a sign-in refuses parameters that break these rules before showing anything.
+
 ## 3.2.4
 ### Patch Changes
 
