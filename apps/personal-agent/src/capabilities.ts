@@ -17,6 +17,7 @@ import {
   IDEA_INSTRUCTIONS,
   IdeaBook,
   KnowledgeWiki,
+  QuestionDelivery,
   SpaceBook,
   WIKI_INSTRUCTIONS,
   createBrowserTools,
@@ -26,6 +27,7 @@ import {
   createConnectorTools,
   createFileCaseStore,
   createFileConnectorStore,
+  createFileDeliveryStores,
   createFileGoalStore,
   createFileIdeaStore,
   createFileKnowledgeStore,
@@ -52,7 +54,7 @@ import { createPersonalApi } from './personal-api.js';
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { TEgressLookup } from '@robota-sdk/agent-core/node';
-import type { IBrowserPort, IChannelHub } from '@robota-sdk/agent-product/personal';
+import type { IBrowserPort, IChannelHub, IDeliverySink } from '@robota-sdk/agent-product/personal';
 import type { ILoopbackGuiServerOptions } from '@robota-sdk/agent-local-host';
 import type { IChannelTurns } from './channel-turns.js';
 import type { IPersonalAgent } from './agent.js';
@@ -67,6 +69,11 @@ export interface IPersonalCapabilities {
   readonly goals: GoalBook;
   /** The agent's cases: what it noticed, the one question it asks about each, and what became of it. */
   readonly cases: CaseBook;
+  /**
+   * Which of the agent's questions reach the person beyond the feed. The person's own limits decide;
+   * the agent only suggests how urgent a question is, and can neither read nor change the limits.
+   */
+  readonly delivery: QuestionDelivery;
   readonly ideas: IdeaBook;
   readonly spaces: SpaceBook;
   /** The services the person connected, and the one place that decides what each tool may do. */
@@ -101,6 +108,10 @@ export interface IPersonalCapabilityOptions {
   readonly browserAllowedHosts?: readonly string[];
   /** How often to look for due goals; 0 runs them only when asked. */
   readonly goalTickMs?: number;
+  /** How often to look for a digest that is due; 0 sends one only when asked. */
+  readonly deliveryTickMs?: number;
+  /** The clock delivery reads the local day and time from; the machine's own when absent. */
+  readonly deliveryClock?: () => Date;
   /** Exact hostnames the connectors may reach although they are loopback or private; the owner names them. */
   readonly connectorAllowedHosts?: readonly string[];
   /** The `https` address of this agent's client metadata document, for services that take one instead of a registration. */
@@ -115,6 +126,7 @@ export interface IPersonalCapabilityOptions {
 }
 
 const DEFAULT_GOAL_TICK_MS = 30_000;
+const DEFAULT_DELIVERY_TICK_MS = 60_000;
 /** How long taking a connector's access away waits for its sync run to end before going on. */
 const HALT_WAIT_MS = 30_000;
 
@@ -132,10 +144,6 @@ export function createPersonalCapabilities(
     store: createFileKnowledgeStore(join(options.stateDir, 'wiki')),
   });
   const goals = new GoalBook({ store: createFileGoalStore(join(options.stateDir, 'goals')) });
-  const cases = new CaseBook({
-    store: createFileCaseStore(join(options.stateDir, 'cases')),
-    feed: goals,
-  });
   const ideas = new IdeaBook({ store: createFileIdeaStore(join(options.stateDir, 'ideas')) });
   const spaces = new SpaceBook({ store: createFileSpaceStore(join(options.stateDir, 'spaces')) });
   const sideChats = createSideChatBook(join(options.stateDir, 'side-chats'));
@@ -175,14 +183,6 @@ export function createPersonalCapabilities(
       new Promise<void>((resolve) => setTimeout(resolve, HALT_WAIT_MS).unref()),
     ]);
   });
-  const syncRuns = createSyncRuns({
-    book: connectorBook,
-    registry: connectors,
-    goals,
-    wiki,
-    cases,
-  });
-  const caseTurns = createCaseTurns({ goals, cases });
   let guiOrigins: readonly string[] = [];
   let channelTurns: IChannelTurns | undefined;
   const approvals = createApprovalRegistry(goals);
@@ -202,6 +202,41 @@ export function createPersonalCapabilities(
       .announceApproval({ approvalId: item.id, title: item.title, detail: item.approval.detail })
       .catch(() => undefined);
   });
+  // Which questions reach the person beyond the feed is decided by their own limits, kept beside the
+  // other state and changed only through their own request to the API; the agent only suggests an
+  // urgency, and no tool or text it reads reaches the limits. With no channel connected a push is not
+  // possible: it is refused, so it neither counts toward the day's limit nor goes anywhere, and the
+  // question stays in the feed.
+  const channelSink: IDeliverySink = {
+    id: 'channels',
+    deliver: async (message) => {
+      if (channels.channels().length === 0) throw new Error('No channel is connected');
+      await channels.notify(message.text);
+    },
+  };
+  const deliveryStores = createFileDeliveryStores(join(options.stateDir, 'delivery'));
+  const delivery = new QuestionDelivery({
+    settings: deliveryStores.settings,
+    state: deliveryStores.state,
+    sinks: [channelSink],
+    feed: goals,
+    ...(options.deliveryClock !== undefined && { now: options.deliveryClock }),
+  });
+  const cases = new CaseBook({
+    store: createFileCaseStore(join(options.stateDir, 'cases')),
+    feed: goals,
+    // Not waited for, and it cannot fail the ask: the question is in the feed already.
+    onAsked: (event) => delivery.onAsked(event),
+  });
+  const syncRuns = createSyncRuns({
+    book: connectorBook,
+    registry: connectors,
+    goals,
+    wiki,
+    cases,
+  });
+  const caseTurns = createCaseTurns({ goals, cases });
+  let deliveryTimer: ReturnType<typeof setInterval> | undefined;
   // Watched, so the person can see what the agent's browser does and stop it.
   const watchedBrowser = watchBrowser(
     createPlaywrightBrowser({
@@ -236,6 +271,7 @@ export function createPersonalCapabilities(
     browser,
     goals,
     cases,
+    delivery,
     ideas,
     spaces,
     connectors,
@@ -246,6 +282,7 @@ export function createPersonalCapabilities(
       wiki,
       goals,
       cases,
+      delivery,
       // The answer is recorded already; the agent's turn on the case starts behind it and may fail without
       // touching it.
       onCaseAnswered: (answered) => {
@@ -318,8 +355,20 @@ export function createPersonalCapabilities(
         // turn that left a note, a question or its closing on the case has told them already.
         quiet: (goal) => (goal.caseId !== undefined ? caseTurns.quiet(goal) : syncRuns.quiet(goal)),
       });
+      // The daily digest goes out from here: once now, for a digest that came due while the agent was
+      // off, and then every minute. A failure waits for the next minute; the question is in the feed.
+      const deliveryTickMs = options.deliveryTickMs ?? DEFAULT_DELIVERY_TICK_MS;
+      if (deliveryTickMs > 0) {
+        const tick = (): void => {
+          void delivery.tick().catch(() => undefined);
+        };
+        tick();
+        deliveryTimer = setInterval(tick, deliveryTickMs);
+        deliveryTimer.unref();
+      }
     },
     dispose: async () => {
+      clearInterval(deliveryTimer);
       await runner?.stop();
       await channelTurns?.stop();
       for (const channel of channels.channels()) await channels.disconnect(channel.id);

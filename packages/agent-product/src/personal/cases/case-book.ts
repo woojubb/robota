@@ -10,13 +10,14 @@
  * one write that goes the other way: its card must exist for the case to name it, so the card is posted
  * first and withdrawn again if the case cannot be written. The resolution a close shows on an answered
  * card is only a copy of what the closed case holds, so the close does not fail when the card cannot
- * take it.
+ * take it. Once a question is asked and written the host is told, without being waited for, so a failure
+ * to tell the person more loudly never fails the ask.
  */
 import { carriesSecretValue } from '../secret-values.js';
 
 import type { GoalBook } from '../goals/goal-book.js';
 import type { IFeedItem } from '../goals/types.js';
-import type { ICase, ICaseNote, ICaseStore } from './types.js';
+import type { ICase, ICaseNote, ICaseStore, TCaseUrgency } from './types.js';
 
 const TITLE_LIMIT = 120;
 const SOURCE_LIMIT = 200;
@@ -27,6 +28,7 @@ const OPTION_LIMIT = 60;
 const REPLY_LIMIT = 1_000;
 const RESOLUTION_LIMIT = 300;
 export const CASE_MAX_OPTIONS = 4;
+export const CASE_URGENCIES: readonly TCaseUrgency[] = ['now', 'digest', 'feed'];
 const NOTES_MAX = 30;
 const HISTORY_MAX = 100;
 /** History kept free for what the agent does not start: the person's answer and the closing. */
@@ -41,10 +43,22 @@ export class CaseRefusedError extends Error {
   }
 }
 
+/** What a host is told when a question was asked: the case, the card that shows it, and the urgency suggested. */
+export interface ICaseAskedEvent {
+  readonly case: ICase;
+  readonly item: IFeedItem;
+  readonly urgency: TCaseUrgency;
+}
+
 export interface ICaseBookOptions {
   readonly store: ICaseStore;
   /** Where a question is shown to the person, and where their answer is recorded. */
   readonly feed: GoalBook;
+  /**
+   * Called once a question has been asked and written. It is not waited for and cannot fail the ask: a
+   * question is already in the feed when this runs, whatever the host does about telling the person.
+   */
+  readonly onAsked?: (event: ICaseAskedEvent) => void | Promise<void>;
   readonly now?: () => Date;
 }
 
@@ -62,6 +76,8 @@ export interface IAskInput {
   readonly options?: readonly string[];
   /** Whether the person may answer in their own words; by default, when there are no choices. */
   readonly allowsReply?: boolean;
+  /** How urgent the agent suggests the question is; `feed` when it says nothing. */
+  readonly urgency?: string;
 }
 
 export interface IAnswerInput {
@@ -92,6 +108,7 @@ const evidence = (notes: readonly ICaseNote[]): string =>
 export class CaseBook {
   private readonly store: ICaseStore;
   private readonly feed: GoalBook;
+  private readonly onAsked: ICaseBookOptions['onAsked'];
   private readonly now: () => Date;
   private sequence = 0;
   private tail: Promise<unknown> = Promise.resolve();
@@ -99,7 +116,18 @@ export class CaseBook {
   constructor(options: ICaseBookOptions) {
     this.store = options.store;
     this.feed = options.feed;
+    this.onAsked = options.onAsked;
     this.now = options.now ?? (() => new Date());
+  }
+
+  /** Tell the host a question was asked, without waiting for it and without letting it fail the ask. */
+  private announce(event: ICaseAskedEvent): void {
+    if (this.onAsked === undefined) return;
+    try {
+      void Promise.resolve(this.onAsked(event)).catch(() => undefined);
+    } catch {
+      // allow-fallback: the question is asked and shown in the feed; telling the person more loudly is the host's to do, and its failure is not the agent's.
+    }
   }
 
   private stamp(): string {
@@ -209,6 +237,11 @@ export class CaseBook {
       const allowsReply = input.allowsReply ?? options.length === 0;
       if (options.length === 0 && !allowsReply)
         throw new CaseRefusedError('A question needs choices, or must allow a reply');
+      const urgency = input.urgency ?? 'feed';
+      if (!CASE_URGENCIES.includes(urgency as TCaseUrgency))
+        throw new CaseRefusedError(
+          `The urgency must be one of ${CASE_URGENCIES.join(', ')}; it is only a suggestion, and the person's own limits decide what reaches them`,
+        );
       const item = await this.feed.post({
         kind: 'question',
         title: found.title,
@@ -218,7 +251,14 @@ export class CaseBook {
       const at = this.stamp();
       const next: ICase = {
         ...found,
-        question: { text, options, allowsReply, askedAt: at, feedItemId: item.id },
+        question: {
+          text,
+          options,
+          allowsReply,
+          askedAt: at,
+          feedItemId: item.id,
+          urgency: urgency as TCaseUrgency,
+        },
         history: [...found.history, { at, kind: 'asked', text }],
         updatedAt: at,
       };
@@ -230,6 +270,7 @@ export class CaseBook {
         await this.feed.withdrawQuestion(item.id).catch(() => undefined);
         throw failure;
       }
+      this.announce({ case: next, item, urgency: urgency as TCaseUrgency });
       return { case: next, item };
     });
   }
