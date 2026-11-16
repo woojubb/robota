@@ -43,12 +43,19 @@ export interface IDeliveryState {
 export type TDelivery = 'notify' | 'digest' | 'feed';
 
 export interface IDeliveryMessage {
-  readonly kind: 'question' | 'digest';
+  /** A `test` message is the person's own check that a sink works; it is never a question. */
+  readonly kind: 'question' | 'digest' | 'test';
+  /** A short plain line that says what the message is about, for a sink that shows a heading. */
+  readonly title: string;
   /** Plain text on one or a few lines; a sink adds nothing to it. */
   readonly text: string;
 }
 
-/** Somewhere a message can be pushed to, such as the person's connected messengers. */
+/**
+ * Somewhere a message can be pushed to: the person's connected messengers, an address they gave, a page
+ * they have open. A sink that cannot take a message throws, which is how a push is told from one that
+ * was not taken.
+ */
 export interface IDeliverySink {
   readonly id: string;
   deliver(message: IDeliveryMessage): Promise<void>;

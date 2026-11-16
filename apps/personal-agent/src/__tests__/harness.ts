@@ -81,6 +81,8 @@ export async function startHarness(
     stateDir?: string;
     browserAllowedHosts?: readonly string[];
     connectorNetwork?: import('../capabilities.js').IPersonalCapabilityOptions['connectorNetwork'];
+    /** Exact hostnames the owner names as reachable although they are loopback or private. */
+    connectorAllowedHosts?: readonly string[];
     connectorClientMetadataUrl?: string;
     connectorRegistryUrl?: string | null;
     server?: import('../local-mode.js').IServerExposure;
@@ -111,6 +113,9 @@ export async function startHarness(
       browserAllowedHosts: options.browserAllowedHosts,
     }),
     ...(options.connectorNetwork !== undefined && { connectorNetwork: options.connectorNetwork }),
+    ...(options.connectorAllowedHosts !== undefined && {
+      connectorAllowedHosts: options.connectorAllowedHosts,
+    }),
     ...(options.connectorClientMetadataUrl !== undefined && {
       connectorClientMetadataUrl: options.connectorClientMetadataUrl,
     }),

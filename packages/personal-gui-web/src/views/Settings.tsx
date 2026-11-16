@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { BrowserNotifications } from './BrowserNotifications.js';
+import { NotificationAddress } from './NotificationAddress.js';
 import { NotificationsSection } from './Notifications.js';
 import { Button, Notice, ViewFrame, errorText, inputClass } from './ui.js';
 
@@ -107,6 +109,8 @@ export function SettingsView({ api }: { readonly api: IPersonalApi }): React.Rea
           </div>
         </form>
         <NotificationsSection api={api} />
+        <NotificationAddress api={api} />
+        <BrowserNotifications />
         <section className="flex flex-col gap-1 text-[13px]">
           <h2 className="text-[15px] font-semibold">Browser</h2>
           <p className="text-muted-foreground">

@@ -87,6 +87,24 @@ export interface IDeliveryStatusView {
   readonly waitingInDigest: number;
 }
 
+export type TWebhookFormat = 'plain' | 'json';
+
+/** The address the person gave to be notified at, as the agent tells it: never the address, only its host. */
+export interface IWebhookView {
+  readonly configured: boolean;
+  readonly host?: string;
+  readonly format: TWebhookFormat;
+}
+
+/** One message for the open page to show the person, as plain text. */
+export interface IBrowserNotificationView {
+  readonly id: number;
+  readonly at: string;
+  readonly kind: 'question' | 'digest' | 'test';
+  readonly title: string;
+  readonly text: string;
+}
+
 export type TGoalStatus = 'active' | 'running' | 'waiting' | 'paused' | 'done' | 'failed';
 
 export interface IGoalView {
@@ -363,6 +381,21 @@ export interface IPersonalApi {
   delivery(): Promise<IDeliveryStatusView>;
   /** Save the limits; the agent refuses a value that is not valid, in words the page shows. */
   saveDelivery(settings: IDeliverySettingsView): Promise<IDeliveryStatusView>;
+  /** Whether a notification address is set, its host and format; the address is never sent back. */
+  webhook(): Promise<IWebhookView>;
+  /** Keep the address the person typed; it goes with this one request and is not kept by the page. */
+  saveWebhook(input: { url: string; format: TWebhookFormat }): Promise<IWebhookView>;
+  removeWebhook(): Promise<IWebhookView>;
+  /** Send the fixed test message to the address alone; the agent refuses in words that name no address. */
+  testWebhook(): Promise<{ ok: true }>;
+  /**
+   * What arrived for this page after the last message it saw (`after`); with none, from now on. Asking is
+   * what tells the agent a page is open to take a push.
+   */
+  notifications(after?: number): Promise<{
+    readonly messages: readonly IBrowserNotificationView[];
+    readonly latest: number;
+  }>;
   goals(): Promise<readonly IGoalView[]>;
   goal(id: string): Promise<{ goal: IGoalView; runs: readonly IGoalRunView[] }>;
   createGoal(input: {
@@ -484,6 +517,12 @@ export function createPersonalApi(
     settings: () => call('GET', 'settings'),
     delivery: () => call('GET', 'delivery'),
     saveDelivery: (settings) => call('PUT', 'delivery', settings),
+    webhook: () => call('GET', 'delivery/webhook'),
+    saveWebhook: (input) => call('PUT', 'delivery/webhook', input),
+    removeWebhook: () => call('DELETE', 'delivery/webhook'),
+    testWebhook: () => call('POST', 'delivery/webhook/test'),
+    notifications: (after) =>
+      call('GET', after === undefined ? 'notifications' : `notifications?after=${after}`),
     saveProvider: (provider) => call('PUT', 'settings/provider', provider),
     goals: async () => (await call<{ goals: IGoalView[] }>('GET', 'goals')).goals,
     goal: (goalId) => call('GET', `goals/${id(goalId)}`),

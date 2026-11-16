@@ -525,6 +525,10 @@ export function virtualHostFetch(hosts: Readonly<Record<string, number>>): typeo
     const target = new URL(url.href);
     target.protocol = 'http:';
     target.host = `127.0.0.1:${port}`;
-    return globalThis.fetch(new Request(target, request));
+    // A request follows the signal it was made from through a weak reference to its own controller, so
+    // both requests are kept reachable until the exchange ends: otherwise a collection can drop the
+    // caller's timeout somewhere between them.
+    const remade = new Request(target, request);
+    return globalThis.fetch(remade).finally(() => void [request, remade]);
   };
 }

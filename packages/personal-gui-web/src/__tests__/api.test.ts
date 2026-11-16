@@ -100,6 +100,33 @@ describe('personal API client', () => {
     expect(calls[1]!.init?.body).toBe(JSON.stringify(status.settings));
   });
 
+  it('reaches the notification address and the page’s own messages through writes and reads as the agent expects', async () => {
+    const { api, calls } = recorder({ status: 200, body: { configured: false, format: 'plain' } });
+    await api.webhook();
+    await api.saveWebhook({ url: 'https://push.example.test/x', format: 'json' });
+    await api.removeWebhook();
+    await api.testWebhook();
+    await api.notifications();
+    await api.notifications(12);
+    expect(calls.map((call) => [call.init?.method, call.url])).toEqual([
+      ['GET', 'api/delivery/webhook'],
+      ['PUT', 'api/delivery/webhook'],
+      ['DELETE', 'api/delivery/webhook'],
+      ['POST', 'api/delivery/webhook/test'],
+      ['GET', 'api/notifications'],
+      ['GET', 'api/notifications?after=12'],
+    ]);
+    expect(calls[1]!.init?.body).toBe(
+      JSON.stringify({ url: 'https://push.example.test/x', format: 'json' }),
+    );
+    for (const index of [1, 2, 3])
+      expect(calls[index]!.init?.headers).toEqual({
+        'content-type': 'application/json',
+        [API_WRITE_HEADER]: '1',
+      });
+    for (const index of [0, 4, 5]) expect(calls[index]!.init?.headers).toEqual({});
+  });
+
   it('turns an error answer into an ApiError carrying the server message', async () => {
     const { api } = recorder({ status: 422, body: { error: 'This looks like a secret' } });
     await expect(api.createPage({ title: 'Bank', kind: 'matter', text: 'x' })).rejects.toEqual(

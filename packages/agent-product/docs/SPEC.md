@@ -575,12 +575,16 @@ left in the thread alone. A case touches only the agent's own record and the fee
 read-only run and a run that reads untrusted content may keep one; the agent writes it from content other people
 wrote, so what it takes is bounded and a secret value is refused, judged by the value and not by the words a
 case is written in. A question carries only the urgency the agent suggests for it, and a suggestion decides
-nothing: which questions are also pushed to the person's channels is decided by the person's own limits on what
-may reach them and when. A question the limits hold back waits for the one daily digest or stays in the feed,
-where every question is, so holding it back loses nothing, and a push that no channel took is neither counted
-nor retried. The limits are the person's words alone: no tool the agent can call, no text it reads and no
-urgency it suggests reaches them, and limits that cannot be read are never replaced by others, so nothing is
-pushed until they are mended.
+nothing: which questions are also pushed to the person (on their channels, at a notification address they gave,
+on a page they have open) is decided by the person's own limits on what may reach them and when. A question the
+limits hold back waits for the one daily digest or stays in the feed, where every question is, so holding it
+back loses nothing, and a push counts only when something took it: a place that is not there, does not answer
+with success or is not being looked at takes nothing, and nothing is counted, retried or lost. The limits and
+the address are the person's words alone: no tool the agent can call, no text it reads and no urgency it
+suggests reaches them; the address may carry a token, so it is kept as a credential, shown only as its host,
+the destination of the person's own notifications and of nothing else, judged by the outbound-request policy
+when saved and again by each send, which is made once and never follows a redirect; limits that cannot be read
+are never replaced by others, so nothing is pushed until they are mended.
 
 An idea is kept as the person's or as the agent's own suggestion, and a suggestion stays one: nothing
 acts on an idea until the person takes it up, and an idea taken up records what it became. A space

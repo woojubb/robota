@@ -33,6 +33,7 @@ import type {
 } from './types.js';
 
 const TEXT_PART_LIMIT = 200;
+const TITLE_LIMIT = 100;
 const SINK_TIMEOUT_MS = 20_000;
 const FEED_POINTER = 'Open your Feed to answer.';
 
@@ -65,8 +66,11 @@ export interface IQuestionDeliveryOptions {
   /** The person's limits; none stored means the defaults. */
   readonly settings: IDeliveryStore<IDeliverySettings>;
   readonly state: IDeliveryStore<IDeliveryState>;
-  /** Where the person is told; a message goes to every sink. */
-  readonly sinks: readonly IDeliverySink[];
+  /**
+   * Where the person is told; a message goes to every sink. A function is asked again for each message,
+   * so a sink that exists only while the person has set it up is there for exactly that long.
+   */
+  readonly sinks: readonly IDeliverySink[] | (() => Promise<readonly IDeliverySink[]>);
   /** Where a held question is looked up again, to see whether it still waits for an answer. */
   readonly feed: IDeliveryFeed;
   /** The time of the machine running the agent; local day and local clock are read from it. */
@@ -123,10 +127,21 @@ export class QuestionDelivery {
     }
   }
 
+  private async sinks(): Promise<readonly IDeliverySink[]> {
+    const { sinks } = this.options;
+    if (typeof sinks !== 'function') return sinks;
+    try {
+      return await sinks();
+    } catch {
+      // allow-fallback: a sink list that cannot be read pushes nowhere; the question is in the feed.
+      return [];
+    }
+  }
+
   /** Send to every sink, once; how many took it. */
   private async send(message: IDeliveryMessage): Promise<number> {
     const results = await Promise.all(
-      this.options.sinks.map((sink) => this.attempt(sink, message)),
+      (await this.sinks()).map((sink) => this.attempt(sink, message)),
     );
     return results.filter(Boolean).length;
   }
@@ -162,7 +177,8 @@ export class QuestionDelivery {
         return;
       }
       const text = `${oneLine(event.item.title)}: ${oneLine(event.item.question?.text ?? '')}\n${FEED_POINTER}`;
-      if ((await this.send({ kind: 'question', text })) > 0)
+      const title = oneLine(event.item.title, TITLE_LIMIT);
+      if ((await this.send({ kind: 'question', title, text })) > 0)
         await this.options.state.write({ ...state, sent: state.sent + 1 });
     });
   }
@@ -195,7 +211,11 @@ export class QuestionDelivery {
         FEED_POINTER,
       ].join('\n');
       await this.options.state.write({ ...state, pendingDigest: [], digestedOn: day });
-      await this.send({ kind: 'digest', text });
+      await this.send({
+        kind: 'digest',
+        title: `${count} question${count === 1 ? '' : 's'} waiting for you`,
+        text,
+      });
     });
   }
 

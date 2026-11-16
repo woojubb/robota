@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { resolveGuiRoot } from '../gui-server.js';
 import { findChromium } from './browser-driver.js';
 import { startHarness } from './harness.js';
+import { virtualHostFetch } from './stand-in-connector.js';
+import { startStandInWebhook } from './stand-in-webhook.js';
 
 import type { Page } from 'playwright';
 import type { IHarness } from './harness.js';
@@ -137,6 +139,59 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
           .toEqual(['Feed', 'Ideas', 'Chat', 'Library', 'Goals', 'Connectors']);
       } finally {
         await close();
+      }
+    });
+
+    it('saves a notification address in Settings, sends it a test, and counts waiting questions in the tab title', async () => {
+      const hook = await startStandInWebhook();
+      // A token the address carries; built from pieces so no scan takes it for one.
+      const token = ['tok', 'en-', 'Qx7', 'kd2', 'Lm9'].join('');
+      try {
+        harness = await startHarness({
+          gui: true,
+          connectorNetwork: {
+            fetch: virtualHostFetch({ 'hook.stand-in.test': hook.port }),
+            lookup: async () => ['203.0.113.10'],
+          },
+        });
+        const { page, close } = await open(harness);
+        try {
+          const menu = page.getByRole('navigation', { name: 'Menu' });
+          await menu.getByRole('button', { name: 'Settings' }).click();
+          await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor();
+          const address = page.getByRole('form', { name: 'Notification address' });
+          const field = address.getByLabel('Send notifications to this address');
+          await field.fill(`https://hook.stand-in.test/topics/${token}`);
+          await address.getByRole('button', { name: 'Save', exact: true }).click();
+          await address
+            .getByRole('status')
+            .filter({ hasText: 'Saved. Notifications go to hook.stand-in.test.' })
+            .waitFor();
+          // The page keeps nothing of the address: the field is empty and only the host is shown.
+          expect(await field.inputValue()).toBe('');
+          expect(await page.content()).not.toContain(token);
+          await address.getByRole('button', { name: 'Send a test' }).click();
+          await address.getByRole('status').filter({ hasText: 'Test sent.' }).waitFor();
+          expect(hook.received.map((request) => request.body)).toEqual(['Test from your agent']);
+          expect(hook.received[0]!.path).toBe(`/topics/${token}`);
+
+          // A question waiting in the feed is counted in the title, on whichever tab is showing.
+          expect(await page.title()).toMatch(/Personal agent$/u);
+          const { cases } = harness.capabilities;
+          const { case: opened } = await cases.open({
+            title: 'New sign-in from Lagos',
+            noticed: 'A mail says a new sign-in happened.',
+            source: 'mail:1',
+          });
+          await cases.ask(opened.id, { question: 'Was this you?', options: ['Yes', 'No'] });
+          await expect
+            .poll(() => page.title(), { timeout: 20_000 })
+            .toMatch(/^\(1\) .*Personal agent$/u);
+        } finally {
+          await close();
+        }
+      } finally {
+        await hook.close();
       }
     });
 

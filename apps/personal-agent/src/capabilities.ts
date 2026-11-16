@@ -6,6 +6,7 @@ import { join } from 'node:path';
 
 import {
   BROWSER_INSTRUCTIONS,
+  BrowserOutbox,
   CASE_INSTRUCTIONS,
   CONNECTOR_INSTRUCTIONS,
   CaseBook,
@@ -17,6 +18,7 @@ import {
   IDEA_INSTRUCTIONS,
   IdeaBook,
   KnowledgeWiki,
+  NotificationAddress,
   QuestionDelivery,
   SpaceBook,
   WIKI_INSTRUCTIONS,
@@ -32,6 +34,7 @@ import {
   createFileIdeaStore,
   createFileKnowledgeStore,
   createFileSpaceStore,
+  createFileWebhookStore,
   createGoalTools,
   createIdeaTools,
   createWikiTools,
@@ -49,6 +52,7 @@ import { createConnectorsApi } from './connectors/connectors-api.js';
 import { createMcpConnectorProtocol } from './connectors/mcp-protocol.js';
 import { createSyncRuns } from './connectors/sync-runs.js';
 import { createLayoutBook } from './layout.js';
+import { createNotificationTransport } from './notification-transport.js';
 import { createSideChatBook } from './side-chats.js';
 import { createPersonalApi } from './personal-api.js';
 
@@ -74,6 +78,13 @@ export interface IPersonalCapabilities {
    * the agent only suggests how urgent a question is, and can neither read nor change the limits.
    */
   readonly delivery: QuestionDelivery;
+  /**
+   * The address the person gave to be notified at. Only their own request, through the API, sets or
+   * clears it; it is never reachable by a tool, a mail or the agent, and is never shown again.
+   */
+  readonly notificationAddress: NotificationAddress;
+  /** What a page the person has open fetches to show them; only a page that polls takes a push. */
+  readonly notifications: BrowserOutbox;
   readonly ideas: IdeaBook;
   readonly spaces: SpaceBook;
   /** The services the person connected, and the one place that decides what each tool may do. */
@@ -215,10 +226,34 @@ export function createPersonalCapabilities(
     },
   };
   const deliveryStores = createFileDeliveryStores(join(options.stateDir, 'delivery'));
+  // The address the person gave is reached through the same outbound-request policy the connectors use,
+  // so a loopback or private destination is refused unless the owner named its host.
+  const notificationAddress = new NotificationAddress({
+    store: createFileWebhookStore(join(options.stateDir, 'delivery')),
+    transport: createNotificationTransport({
+      ...(options.connectorAllowedHosts !== undefined && {
+        allowedHosts: options.connectorAllowedHosts,
+      }),
+      ...(options.connectorNetwork?.fetch !== undefined && {
+        fetch: options.connectorNetwork.fetch,
+      }),
+      ...(options.connectorNetwork?.lookup !== undefined && {
+        lookup: options.connectorNetwork.lookup,
+      }),
+    }),
+  });
+  // A page the person has open takes a push only while it polls; with none open it refuses, so the push
+  // is neither counted nor lost: the question is in the feed.
+  const notifications = new BrowserOutbox();
   const delivery = new QuestionDelivery({
     settings: deliveryStores.settings,
     state: deliveryStores.state,
-    sinks: [channelSink],
+    // Every message goes to each of these; the address is there only while the person has set one.
+    sinks: async () => [
+      channelSink,
+      notifications,
+      ...((await notificationAddress.configured()) ? [notificationAddress.sink] : []),
+    ],
     feed: goals,
     ...(options.deliveryClock !== undefined && { now: options.deliveryClock }),
   });
@@ -272,6 +307,8 @@ export function createPersonalCapabilities(
     goals,
     cases,
     delivery,
+    notificationAddress,
+    notifications,
     ideas,
     spaces,
     connectors,
@@ -283,6 +320,8 @@ export function createPersonalCapabilities(
       goals,
       cases,
       delivery,
+      notificationAddress,
+      notifications,
       // The answer is recorded already; the agent's turn on the case starts behind it and may fail without
       // touching it.
       onCaseAnswered: (answered) => {
