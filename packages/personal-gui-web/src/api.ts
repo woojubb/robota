@@ -110,6 +110,8 @@ export interface IFeedQuestionView {
   /** Open until the person answers; withdrawn when the agent closed the case first. */
   readonly state: 'open' | 'answered' | 'withdrawn';
   readonly answer?: { readonly choice?: string; readonly reply?: string; readonly at: string };
+  /** How the case closed, when it closed right after this answer. */
+  readonly resolution?: string;
 }
 
 export interface IFeedItemView {

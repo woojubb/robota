@@ -86,6 +86,13 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
         await page.waitForFunction(bodyIncludes, 'You answered: Yes, it was me', {
           timeout: 10_000,
         });
+
+        // The agent closes the case after that answer: how it closed shows under the answer, as plain text.
+        const resolution = 'Go to the service directly, not through **the mail**.';
+        await harness.capabilities.cases.close(recorded!.id, resolution);
+        await page.waitForFunction(bodyIncludes, `Closed: ${resolution}`, { timeout: 10_000 });
+        expect(await page.locator('strong', { hasText: 'the mail' }).count()).toBe(0);
+        await page.screenshot({ path: `${harness.stateDir}/question-card-closed.png` });
       } finally {
         await browser.close();
       }

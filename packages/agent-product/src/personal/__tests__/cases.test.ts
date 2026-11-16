@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -473,6 +473,126 @@ describe.each([
     await expect(book.note('case-nothing', 'x')).rejects.toThrow(/No case case-nothing/u);
   });
 
+  it('shows the resolution on the card that carried the last answered question, and on no other card, without posting anything new', async () => {
+    const { book, goals } = makeWorld();
+    const { case: opened } = await book.open(SIGN_IN);
+    const first = await book.ask(opened.id, {
+      question: 'Did you sign in?',
+      options: ['Yes', 'No'],
+    });
+    await book.answer(first.item.id, { choice: 'No' });
+    const second = await book.ask(opened.id, { question: 'Did you sign out?', options: ['Yes'] });
+    await book.answer(second.item.id, { choice: 'Yes' });
+    await book.note(opened.id, 'The person is safe.');
+    const cardsBefore = (await goals.feed()).length;
+
+    const closed = await book.close(opened.id, '  Go to the service directly, not the mail.  ');
+
+    expect(closed.state).toBe('closed');
+    const [firstCard, secondCard] = [
+      (await goals.feedItem(first.item.id))!.question!,
+      (await goals.feedItem(second.item.id))!.question!,
+    ];
+    expect(secondCard).toEqual(
+      expect.objectContaining({
+        state: 'answered',
+        answer: { choice: 'Yes', at: expect.any(String) },
+        resolution: 'Go to the service directly, not the mail.',
+      }),
+    );
+    expect(firstCard.state).toBe('answered');
+    expect(firstCard.resolution).toBeUndefined();
+    expect('resolution' in firstCard).toBe(false);
+    // The resolution is in the card, not in another item: nothing was posted.
+    expect(await goals.feed()).toHaveLength(cardsBefore);
+    expect(closed.history.at(-1)).toEqual(
+      expect.objectContaining({
+        kind: 'closed',
+        text: 'Go to the service directly, not the mail.',
+      }),
+    );
+  });
+
+  it('shows the resolution of a case closed after one answer, whatever the person answered', async () => {
+    const { book, goals } = makeWorld();
+    const { case: opened } = await book.open(SIGN_IN);
+    const { item } = await book.ask(opened.id, { question: 'What happened?' });
+    await book.answer(item.id, { reply: 'I was on a train' });
+    await book.close(opened.id, 'Nothing to do.');
+    expect((await goals.feedItem(item.id))?.question).toEqual(
+      expect.objectContaining({
+        answer: { reply: 'I was on a train', at: expect.any(String) },
+        resolution: 'Nothing to do.',
+      }),
+    );
+  });
+
+  it('withdraws a question still waiting when the case closes, and shows the resolution on no card', async () => {
+    const { book, goals } = makeWorld();
+    const { case: opened } = await book.open(SIGN_IN);
+    const first = await book.ask(opened.id, { question: 'Did you sign in?', options: ['No'] });
+    await book.answer(first.item.id, { choice: 'No' });
+    const waiting = await book.ask(opened.id, {
+      question: 'Shall I look further?',
+      options: ['Yes'],
+    });
+
+    await book.close(opened.id, 'Settled without asking.');
+
+    const withdrawn = (await goals.feedItem(waiting.item.id))!.question!;
+    expect(withdrawn.state).toBe('withdrawn');
+    expect(withdrawn.resolution).toBeUndefined();
+    // The card answered before the open one is not the last word of the case either.
+    expect((await goals.feedItem(first.item.id))!.question!.resolution).toBeUndefined();
+  });
+
+  it('closes a case that has no card to show the resolution on, and one whose card cannot take it', async () => {
+    const cases = createMemoryCaseStore();
+    const { book, goals } = world(cases, createMemoryGoalStore());
+    const plain = (await book.open({ ...SIGN_IN, source: 'mail:plain' })).case;
+    expect((await book.close(plain.id, 'Nothing to do.')).state).toBe('closed');
+    expect(await goals.feed()).toEqual([]);
+
+    // The card is gone from the feed, as when newer items pushed it out.
+    const gone = (await book.open({ ...SIGN_IN, source: 'mail:gone' })).case;
+    await cases.put({ ...gone, lastAnsweredFeedItemId: 'feed-nothing' });
+    expect((await book.close(gone.id, 'Nothing to do.')).state).toBe('closed');
+
+    // The card still looks open, as when an answer reached the case and not the feed.
+    const stuck = (await book.open({ ...SIGN_IN, source: 'mail:stuck' })).case;
+    const { item } = await book.ask(stuck.id, { question: 'Sure?', options: ['Yes'] });
+    const { question: _waiting, ...notWaiting } = (await book.get(stuck.id))!;
+    await cases.put({ ...notWaiting, lastAnsweredFeedItemId: item.id });
+    expect((await book.close(stuck.id, 'Nothing to do.')).state).toBe('closed');
+    const card = (await goals.feedItem(item.id))!.question!;
+    expect(card.state).toBe('open');
+    expect(card.resolution).toBeUndefined();
+    // A card that is not an answered question refuses a resolution on its own, too.
+    await expect(goals.resolveQuestion(item.id, 'Nothing to do.')).rejects.toThrow(
+      /Only an answered question/u,
+    );
+    const report = await goals.post({ kind: 'report', title: 'Report', body: 'Nothing new.' });
+    await expect(goals.resolveQuestion(report.id, 'Nothing to do.')).rejects.toThrow(
+      /No question/u,
+    );
+  });
+
+  it('refuses a resolution that carries a secret value, leaves the case open and the card as answered, and shows the next one that is kept', async () => {
+    const { book, goals } = makeWorld();
+    const { case: opened } = await book.open(SIGN_IN);
+    const { item } = await book.ask(opened.id, { question: 'Sure?', options: ['No'] });
+    await book.answer(item.id, { choice: 'No' });
+    await expect(book.close(opened.id, `Reset it with ${SECRET_VALUES[0]!}`)).rejects.toThrow(
+      /^The resolution looks like it contains a secret value/u,
+    );
+    expect((await book.get(opened.id))?.state).toBe('open');
+    expect((await goals.feedItem(item.id))!.question!.resolution).toBeUndefined();
+    await book.close(opened.id, 'Reset the password at the service itself.');
+    expect((await goals.feedItem(item.id))!.question!.resolution).toBe(
+      'Reset the password at the service itself.',
+    );
+  });
+
   it('lists open cases first and the ones closed last after them, newest first', async () => {
     const { book } = makeWorld();
     const a = (await book.open({ ...SIGN_IN, source: 'a' })).case;
@@ -553,7 +673,82 @@ describe('a write that fails half way', () => {
   });
 });
 
+describe('a resolution that cannot be shown on its card', () => {
+  it('does not fail the close, which already happened, and leaves the card as the person answered it', async () => {
+    const underlying = createMemoryGoalStore();
+    let failing = false;
+    const feed: IGoalStore = {
+      ...underlying,
+      putFeedItem: async (item) => {
+        if (failing) throw new Error('disk full');
+        await underlying.putFeedItem(item);
+      },
+    };
+    const { book, goals } = world(createMemoryCaseStore(), feed);
+    const { case: opened } = await book.open(SIGN_IN);
+    const { item } = await book.ask(opened.id, { question: 'Sure?', options: ['No'] });
+    await book.answer(item.id, { choice: 'No' });
+    failing = true;
+    const closed = await book.close(opened.id, 'Go to the service directly.');
+    failing = false;
+    expect(closed.state).toBe('closed');
+    expect((await book.get(opened.id))?.history.at(-1)).toEqual(
+      expect.objectContaining({ kind: 'closed', text: 'Go to the service directly.' }),
+    );
+    const card = (await goals.feedItem(item.id))!.question!;
+    expect(card.state).toBe('answered');
+    expect(card.resolution).toBeUndefined();
+    await expect(book.close(opened.id, 'Again.')).rejects.toThrow(/case is closed/u);
+  });
+});
+
 describe('cases in an owner-only file', () => {
+  it('keeps the card that carried the last answer across a restart, so a close after the restart still shows its resolution there', async () => {
+    const caseDir = directory();
+    const feedDir = directory();
+    const before = world(createFileCaseStore(caseDir), createFileGoalStore(feedDir));
+    const { case: opened } = await before.book.open(SIGN_IN);
+    const { item } = await before.book.ask(opened.id, {
+      question: 'Did you sign in just now?',
+      options: ['Yes, it was me', 'No'],
+    });
+    await before.book.answer(item.id, { choice: 'No' });
+    const stored = JSON.parse(readFileSync(join(caseDir, 'cases.json'), 'utf8'));
+    expect(stored[opened.id].lastAnsweredFeedItemId).toBe(item.id);
+
+    const after = world(createFileCaseStore(caseDir), createFileGoalStore(feedDir));
+    expect((await after.book.get(opened.id))?.lastAnsweredFeedItemId).toBe(item.id);
+    await after.book.close(opened.id, 'Go to the service directly.');
+
+    const again = world(createFileCaseStore(caseDir), createFileGoalStore(feedDir));
+    expect((await again.goals.feedItem(item.id))?.question).toEqual(
+      expect.objectContaining({ state: 'answered', resolution: 'Go to the service directly.' }),
+    );
+  });
+
+  it('loads a case written before the card was recorded on it and closes it, with nothing to show the resolution on', async () => {
+    const caseDir = directory();
+    const feedDir = directory();
+    const before = world(createFileCaseStore(caseDir), createFileGoalStore(feedDir));
+    const { case: opened } = await before.book.open(SIGN_IN);
+    const { item } = await before.book.ask(opened.id, { question: 'Sure?', options: ['No'] });
+    await before.book.answer(item.id, { choice: 'No' });
+    // The file as an older version wrote it: the same case without the new field.
+    const path = join(caseDir, 'cases.json');
+    const stored = JSON.parse(readFileSync(path, 'utf8'));
+    expect(stored[opened.id].lastAnsweredFeedItemId).toBe(item.id);
+    delete stored[opened.id].lastAnsweredFeedItemId;
+    writeFileSync(path, JSON.stringify(stored));
+
+    const after = world(createFileCaseStore(caseDir), createFileGoalStore(feedDir));
+    const found = (await after.book.get(opened.id))!;
+    expect(found.lastAnsweredFeedItemId).toBeUndefined();
+    expect((await after.book.close(opened.id, 'Settled.')).state).toBe('closed');
+    const card = (await after.goals.feedItem(item.id))!.question!;
+    expect(card.state).toBe('answered');
+    expect(card.resolution).toBeUndefined();
+  });
+
   it('keeps a case, its question and its history across a restart, and the answer after it continues the case', async () => {
     const caseDir = directory();
     const feedDir = directory();

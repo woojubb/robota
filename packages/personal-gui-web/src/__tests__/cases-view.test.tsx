@@ -128,6 +128,47 @@ describe('a question in the feed', () => {
     expect(answerQuestion).toHaveBeenCalledTimes(1);
   });
 
+  it('shows how the case closed under the answer, as plain text that can neither be followed nor formatted', async () => {
+    const resolution = `Go to the service directly. **Do not** use ${PLANTED}`;
+    const { container } = view(
+      fakeApi(
+        {},
+        card({
+          ...QUESTION,
+          state: 'answered',
+          answer: { choice: 'No', at: '2026-11-16T02:00:00Z' },
+          resolution,
+        }),
+      ).api,
+    );
+    const closed = await screen.findByText(/^Closed: /u);
+    expect(closed.tagName).toBe('P');
+    expect(closed.textContent).toBe(`Closed: ${resolution}`);
+    // It follows the answered line, which stays the card's one status.
+    expect(closed.previousElementSibling).toBe(screen.getByRole('status'));
+    expect(screen.getByRole('status').textContent).toMatch(/^You answered: No/u);
+    expect(closed.getAttribute('role')).toBeNull();
+    // A link or emphasis written in it stays literal.
+    expect(container.querySelector('a')).toBeNull();
+    expect(container.querySelector('strong')).toBeNull();
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('shows no closing line on an answered question the case did not close after', async () => {
+    const { container } = view(
+      fakeApi(
+        {},
+        card({
+          ...QUESTION,
+          state: 'answered',
+          answer: { choice: 'No', at: '2026-11-16T02:00:00Z' },
+        }),
+      ).api,
+    );
+    await waitFor(() => expect(screen.getByText(/You answered: No/u)).toBeTruthy());
+    expect(container.textContent).not.toContain('Closed:');
+  });
+
   it('takes a reply in the person’s own words when the question allows one, and never an empty one', async () => {
     const { api, answerQuestion } = fakeApi(
       {},

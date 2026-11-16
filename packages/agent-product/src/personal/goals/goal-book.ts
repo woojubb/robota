@@ -315,6 +315,17 @@ export class GoalBook {
     return next;
   }
 
+  /** Show how the case closed under the person's answer; only an answered question carries one. */
+  async resolveQuestion(id: string, resolution: string): Promise<IFeedItem> {
+    const item = await this.store.getFeedItem(id);
+    if (item?.question === undefined) throw new GoalRefusedError(`No question ${id}`);
+    if (item.question.state !== 'answered')
+      throw new GoalRefusedError('Only an answered question shows a resolution');
+    const next: IFeedItem = { ...item, question: { ...item.question, resolution } };
+    await this.store.putFeedItem(next);
+    return next;
+  }
+
   /** A question whose case closed before the person answered it can no longer be answered. */
   async withdrawQuestion(id: string): Promise<IFeedItem> {
     const item = await this.store.getFeedItem(id);
