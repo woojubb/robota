@@ -8,7 +8,9 @@
  * second, so a failure in between leaves a card that still looks open while the case moved on, never a
  * case that waits on a question nobody can see; answering such a card withdraws it. A question is the
  * one write that goes the other way: its card must exist for the case to name it, so the card is posted
- * first and withdrawn again if the case cannot be written.
+ * first and withdrawn again if the case cannot be written. The resolution a close shows on an answered
+ * card is only a copy of what the closed case holds, so the close does not fail when the card cannot
+ * take it.
  */
 import { carriesSecretValue } from '../secret-values.js';
 
@@ -268,6 +270,7 @@ export class CaseBook {
       const { question: _answered, ...rest } = found;
       const next: ICase = {
         ...rest,
+        lastAnsweredFeedItemId: feedItemId,
         history: [...found.history, { at, kind: 'answered', text: answer.choice ?? answer.reply! }],
         updatedAt: at,
       };
@@ -277,9 +280,12 @@ export class CaseBook {
   }
 
   /**
-   * Settle a case with a one-line resolution; a question still waiting is withdrawn from the feed. The
-   * case is written first: if that fails nothing changed and the case still waits on a visible card, and
-   * if the withdrawal fails the case is closed and its card is withdrawn when the person next answers it.
+   * Settle a case with a one-line resolution. A question still waiting is withdrawn from the feed; with
+   * none waiting, the resolution is shown on the card of the question the person answered last, so a
+   * close that matters to them (the agent telling them to go to the service directly, say) is not left
+   * in the case's thread alone. The case is written first: if that fails nothing changed and the case
+   * still waits on a visible card, and if the withdrawal fails the case is closed and its card is
+   * withdrawn when the person next answers it.
    */
   close(id: string, resolution: string): Promise<ICase> {
     return this.exclusive(async () => {
@@ -295,8 +301,23 @@ export class CaseBook {
       };
       await this.store.put(next);
       if (waiting !== undefined) await this.feed.withdrawQuestion(waiting.feedItemId);
+      else if (found.lastAnsweredFeedItemId !== undefined)
+        await this.showResolution(found.lastAnsweredFeedItemId, text);
       return next;
     });
+  }
+
+  /**
+   * The card shows a copy of what the closed case already holds, so a card that cannot take it is left
+   * as it is: failing the close here would tell the agent a close that happened had not, and a second
+   * close is refused, so nothing could be retried. The resolution stays in the case's thread.
+   */
+  private async showResolution(feedItemId: string, resolution: string): Promise<void> {
+    try {
+      await this.feed.resolveQuestion(feedItemId, resolution);
+    } catch {
+      // allow-fallback: the case is closed and its thread holds the resolution; the card only repeats it.
+    }
   }
 
   async get(id: string): Promise<ICase | undefined> {

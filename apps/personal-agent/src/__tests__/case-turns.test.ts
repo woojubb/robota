@@ -193,6 +193,76 @@ describe('the agent takes a turn on a case once its question is answered', () =>
     expect((await goals.runs(goal.id))[0]?.outcome).toBe('done');
   });
 
+  it('shows how the case closed after a "No" on the card that was answered, in the feed the page reads, and posts nothing new', async () => {
+    harness = await startHarness();
+    const { opened, item } = await asked(harness);
+    const resolution = 'Not you: go to the service directly, not through the mail.';
+    harness.model.script(
+      {
+        tool: 'CaseNote',
+        args: { id: opened.id, text: 'The person says the sign-in was not theirs.' },
+      },
+      { tool: 'CaseClose', args: { id: opened.id, resolution } },
+      { text: 'Closed it: someone else signed in.' },
+    );
+    await answer(harness, item.id, 'No');
+    const goal = await turnEnded(harness, opened.id, 1);
+
+    const { cases, goals } = harness.capabilities;
+    expect((await cases.get(opened.id))!.state).toBe('closed');
+    // What the feed list endpoint serves: the one card, answered, with the resolution under the answer.
+    const listed = await harness.capabilities.api({
+      method: 'GET',
+      path: '/feed',
+      segments: ['feed'],
+      query: new URLSearchParams(),
+      body: undefined,
+    });
+    expect(listed.status).toBe(200);
+    expect((listed.body as { items: unknown[] }).items).toEqual([
+      expect.objectContaining({
+        id: item.id,
+        kind: 'question',
+        question: expect.objectContaining({
+          state: 'answered',
+          answer: { choice: 'No', at: expect.any(String) },
+          resolution,
+        }),
+      }),
+    ]);
+    // Nothing new was posted: not for the close, and not as a report of the quiet turn.
+    expect((await goals.feed()).map((entry) => entry.id)).toEqual([item.id]);
+    expect((await goals.runs(goal.id))[0]?.outcome).toBe('done');
+  });
+
+  it('shows the resolution on the card of the follow-up the person answered last, and not on the first one', async () => {
+    harness = await startHarness();
+    const { opened, item } = await asked(harness);
+    harness.model.script(
+      {
+        tool: 'CaseAsk',
+        args: { id: opened.id, question: 'Have you changed your login?', options: ['Yes'] },
+      },
+      { text: 'Asked a follow-up.' },
+    );
+    await answer(harness, item.id, 'No');
+    await turnEnded(harness, opened.id, 1);
+    const next = (await harness.capabilities.cases.get(opened.id))!.question!.feedItemId;
+
+    harness.model.script(
+      { tool: 'CaseClose', args: { id: opened.id, resolution: 'Nothing more to check.' } },
+      { text: 'Closed it.' },
+    );
+    await answer(harness, next, 'Yes');
+    await turnEnded(harness, opened.id, 2);
+
+    const feed = await harness.capabilities.goals.feed();
+    expect(feed.find((entry) => entry.id === item.id)?.question?.resolution).toBeUndefined();
+    expect(feed.find((entry) => entry.id === next)?.question?.resolution).toBe(
+      'Nothing more to check.',
+    );
+  });
+
   it('reports a turn that did nothing, so it is never silent', async () => {
     harness = await startHarness();
     const { opened, item } = await asked(harness);
