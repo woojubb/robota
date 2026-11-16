@@ -7,7 +7,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   CASE_INSTRUCTIONS,
@@ -20,15 +20,18 @@ import {
 
 import { offeredTools, toolResults } from './scripted-model.js';
 import { createFixtureWebRoot, startHarness } from './harness.js';
+import { startStandInConnector, virtualHostFetch } from './stand-in-connector.js';
 
 import type { IConnector, IFixtureChannel } from '@robota-sdk/agent-product/personal';
 import type { IHarness } from './harness.js';
-import type { IModelRequest } from './scripted-model.js';
+import type { IModelRequest, TModelReply } from './scripted-model.js';
+import type { TRunSession } from '../goal-runner.js';
 
 /** A local time on the sixteenth of November, or on `day`: delivery reads the machine's own clock. */
 const at = (hours: number, minutes = 0, day = 16): Date => new Date(2026, 10, day, hours, minutes);
 
 const POINTER = 'Open your Feed to answer.';
+const MAIL_HOST = 'mail.stand-in.test';
 const DEFAULTS = {
   dailyLimit: 3,
   quietHours: { enabled: true, from: '22:00', to: '08:00' },
@@ -37,18 +40,26 @@ const DEFAULTS = {
 const clock = { now: at(10) };
 
 let harness: IHarness | undefined;
+const closers: (() => Promise<void>)[] = [];
 afterEach(async () => {
+  vi.restoreAllMocks();
   await harness?.close();
   harness = undefined;
+  for (const close of closers.splice(0)) await close();
   clock.now = at(10);
 });
 
 async function start(
-  options: { channel?: boolean; gui?: boolean } = {},
+  options: {
+    channel?: boolean;
+    gui?: boolean;
+    connectorNetwork?: NonNullable<Parameters<typeof startHarness>[0]>['connectorNetwork'];
+  } = {},
 ): Promise<{ started: IHarness; channel: IFixtureChannel }> {
   harness = await startHarness({
     deliveryClock: () => clock.now,
     ...(options.gui === true && { gui: true, webRoot: createFixtureWebRoot() }),
+    ...(options.connectorNetwork !== undefined && { connectorNetwork: options.connectorNetwork }),
   });
   const channel = createFixtureChannel();
   if (options.channel !== false) await connect(harness, channel);
@@ -88,12 +99,63 @@ async function askInChat(
 
 const status = (started: IHarness) => started.capabilities.delivery.status();
 
-async function until(check: () => boolean, what: string): Promise<void> {
+async function until(check: () => boolean | Promise<boolean>, what: string): Promise<void> {
   for (let attempt = 0; attempt < 200; attempt += 1) {
-    if (check()) return;
+    if (await check()) return;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error(`timed out waiting for ${what}`);
+}
+
+/** The personal API, called the way the GUI server calls it once the person is let in. */
+const call = (started: IHarness, method: string, segments: string[], body?: unknown) =>
+  started.capabilities.api({
+    method,
+    path: `/${segments.join('/')}`,
+    segments,
+    query: new URLSearchParams(),
+    body,
+  });
+
+/** Everything queued on the way to the channel has been sent: the fixture channel takes no real time. */
+const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+/**
+ * A case whose first question is in the feed. The person answers it, the agent takes its turn on the
+ * case with the replies given for the case id, and this resolves once the turn has ended and whatever
+ * it queued has been sent.
+ */
+async function takeCaseTurn(
+  started: IHarness,
+  replies: (caseId: string) => TModelReply[],
+): Promise<{ caseId: string; goalId: string }> {
+  const { cases, goals } = started.capabilities;
+  const { case: opened } = await cases.open({
+    title: 'New sign-in from Lagos',
+    noticed: 'A mail says a new sign-in happened.',
+    source: 'mail:1',
+  });
+  const { item } = await cases.ask(opened.id, {
+    question: 'Was this you?',
+    options: ['Yes', 'No'],
+  });
+  started.model.script(...replies(opened.id));
+  expect((await call(started, 'POST', ['feed', item.id, 'answer'], { choice: 'No' })).status).toBe(
+    200,
+  );
+  const caseGoal = async () => (await goals.list()).find((goal) => goal.caseId === opened.id);
+  await until(async () => {
+    const goal = await caseGoal();
+    return (
+      goal !== undefined &&
+      (goal.status === 'done' || goal.status === 'failed') &&
+      (await goals.runs(goal.id)).length >= 1
+    );
+  }, 'the turn on the case');
+  await started.capabilities.runner()!.settled();
+  await started.capabilities.delivery.idle();
+  await flush();
+  return { caseId: opened.id, goalId: (await caseGoal())!.id };
 }
 
 describe('a question the agent marks as needing the person now', () => {
@@ -111,44 +173,23 @@ describe('a question the agent marks as needing the person now', () => {
     );
   });
 
-  it('reaches the channel from a case turn too, which is a run in the background', async () => {
+  it('reaches the channel from a case turn too, as the only message that run sends', async () => {
     const { started, channel } = await start();
-    const { cases, goals } = started.capabilities;
-    const { case: opened } = await cases.open({
-      title: 'New sign-in from Lagos',
-      noticed: 'A mail says a new sign-in happened.',
-      source: 'mail:1',
-    });
-    const { item } = await cases.ask(opened.id, {
-      question: 'Was this you?',
-      options: ['Yes', 'No'],
-    });
-    started.model.script(
+    const { goals } = started.capabilities;
+    await takeCaseTurn(started, (id) => [
       {
         tool: 'CaseAsk',
         args: {
-          id: opened.id,
+          id,
           question: 'Have you signed out the other sessions?',
           options: ['Yes', 'Not yet'],
           urgency: 'now',
         },
       },
       { text: 'I asked about the other sessions.' },
-    );
-    const answered = await started.capabilities.api({
-      method: 'POST',
-      path: `/feed/${item.id}/answer`,
-      segments: ['feed', item.id, 'answer'],
-      query: new URLSearchParams(),
-      body: { choice: 'No' },
-    });
-    expect(answered.status).toBe(200);
-    const pushed = () => channel.sent.filter((message) => message.text.endsWith(`\n${POINTER}`));
-    await until(() => pushed().length > 0, 'the follow-up question on the channel');
-    await started.capabilities.runner()!.settled();
-    await started.capabilities.delivery.idle();
-    // The run's own report is another matter; the question is pushed once.
-    expect(pushed()).toEqual([
+    ]);
+    // The turn left a question, so its report stays in the goal's history: the question is all there is.
+    expect(channel.sent).toEqual([
       {
         conversationId: 'dm',
         text: `New sign-in from Lagos: Have you signed out the other sessions?\n${POINTER}`,
@@ -157,18 +198,12 @@ describe('a question the agent marks as needing the person now', () => {
     expect((await goals.feed()).filter((entry) => entry.question?.state === 'open')).toHaveLength(
       1,
     );
+    expect((await status(started)).today.sent).toBe(1);
   });
 
   it('is held for the digest once the limit is reached, and reaches the channel only through it', async () => {
     const { started, channel } = await start();
-    const put = await started.capabilities.api({
-      method: 'PUT',
-      path: '/delivery',
-      segments: ['delivery'],
-      query: new URLSearchParams(),
-      body: { dailyLimit: 1 },
-    });
-    expect(put.status).toBe(200);
+    expect((await call(started, 'PUT', ['delivery'], { dailyLimit: 1 })).status).toBe(200);
     await askInChat(started, 'Sign-in from Lagos', { urgency: 'now' });
     await askInChat(started, 'Bill due tomorrow', { urgency: 'now' });
     expect(channel.sent.map((message) => message.text.split('\n')[0])).toEqual([
@@ -270,6 +305,176 @@ describe('a question the agent does not mark as needing the person now', () => {
     expect(
       (await started.capabilities.goals.feed()).filter((item) => item.kind === 'question'),
     ).toEqual([]);
+  });
+});
+
+/** A connected mail service holding one sign-in notice, kept in sync every hour. */
+async function syncWorld() {
+  const mail = await startStandInConnector({
+    access: 'open',
+    tools: [
+      {
+        name: 'list_messages',
+        description: 'List the newest messages',
+        annotations: { readOnlyHint: true },
+        run: () =>
+          'id: msg-1\nfrom: Example Security <security@example.test>\nsubject: New sign-in to your account\nA new sign-in happened at 10:02 from Seoul.',
+      },
+    ],
+    publicBase: `https://${MAIL_HOST}`,
+  });
+  closers.push(mail.close);
+  const { started, channel } = await start({
+    connectorNetwork: {
+      fetch: virtualHostFetch({ [MAIL_HOST]: mail.port }),
+      lookup: async () => ['203.0.113.10'],
+    },
+  });
+  const made = await call(started, 'POST', ['connectors'], {
+    title: 'Work mail',
+    kind: 'mail',
+    endpoint: `https://${MAIL_HOST}/mcp`,
+    auth: 'none',
+  });
+  expect(made.status).toBe(200);
+  const id = (made.body as { connector: { id: string } }).connector.id;
+  expect(
+    (await call(started, 'POST', ['connectors', id, 'sync'], { everyMinutes: 60 })).status,
+  ).toBe(200);
+  const { goals } = started.capabilities;
+  return {
+    started,
+    channel,
+    /** What a model does that read the mail, opened a case for it and asked with this urgency. */
+    raising: (urgency: string) =>
+      started.model.script((request): TModelReply => {
+        const done = toolResults(request).length;
+        if (done === 0)
+          return { tool: 'ConnectorRead', args: { connector: id, tool: 'list_messages' } };
+        if (done === 1)
+          return {
+            tool: 'CaseOpen',
+            args: {
+              title: 'New sign-in to your account',
+              noticed: 'A mail says a new sign-in happened at 10:02 from Seoul.',
+              source: 'mail:msg-1',
+              connector: id,
+            },
+          };
+        if (done === 2)
+          return {
+            tool: 'CaseAsk',
+            args: {
+              id: caseIdIn(request),
+              question: 'Did you sign in just now?',
+              options: ['Yes, it was me', 'No'],
+              urgency,
+            },
+          };
+        return { text: 'I opened 1 case.' };
+      }),
+    /** Run the sync goal once, as the runner does when it is due, and wait until it has ended. */
+    async sync(): Promise<void> {
+      const goal = (await goals.list()).find((candidate) => candidate.connectorId === id)!;
+      await goals.resume(goal.id);
+      const runner = started.capabilities.runner()!;
+      await runner.runDue();
+      await runner.settled();
+      await started.capabilities.delivery.idle();
+      await flush();
+    },
+  };
+}
+
+describe('the report of a run the agent started on its own', () => {
+  it('is not pushed when the run is quiet, though the question it left in the feed is its own matter', async () => {
+    const { started, channel } = await start();
+    const { goalId } = await takeCaseTurn(started, (id) => [
+      {
+        tool: 'CaseAsk',
+        args: {
+          id,
+          question: 'Have you signed out the other sessions?',
+          options: ['Yes', 'Not yet'],
+          urgency: 'feed',
+        },
+      },
+      { text: 'I asked about the other sessions.' },
+    ]);
+    // The run happened and was recorded; none of it went to the channel.
+    const [run] = await started.capabilities.goals.runs(goalId);
+    expect(run).toEqual(
+      expect.objectContaining({ outcome: 'done', report: 'I asked about the other sessions.' }),
+    );
+    expect(channel.sent).toEqual([]);
+    expect(await status(started)).toEqual(
+      expect.objectContaining({ today: { sent: 0, limit: 3 } }),
+    );
+  });
+
+  it('is not pushed for a quiet sync run either, whatever the urgency of the question it raised', async () => {
+    const quiet = await syncWorld();
+    quiet.raising('feed');
+    await quiet.sync();
+    const goal = (await quiet.started.capabilities.goals.list())[0]!;
+    expect((await quiet.started.capabilities.goals.runs(goal.id))[0]).toEqual(
+      expect.objectContaining({ outcome: 'done', report: 'I opened 1 case.' }),
+    );
+    expect(quiet.channel.sent).toEqual([]);
+  });
+
+  it('leaves the question of a quiet sync run as the only message when the agent says it is needed now', async () => {
+    const urgent = await syncWorld();
+    urgent.raising('now');
+    await urgent.sync();
+    expect(urgent.channel.sent).toEqual([
+      {
+        conversationId: 'dm',
+        text: `New sign-in to your account: Did you sign in just now?\n${POINTER}`,
+      },
+    ]);
+  });
+
+  it('is pushed when the run is not quiet: a turn that left nothing on the case, with the report as it was', async () => {
+    const { started, channel } = await start();
+    await takeCaseTurn(started, () => [{ text: 'Nothing more to do.' }]);
+    expect(channel.sent).toEqual([
+      { conversationId: 'dm', text: 'Case: New sign-in from Lagos: Nothing more to do.' },
+    ]);
+    // A report is the person's own goal output, not a question the agent chose to raise.
+    expect(await status(started)).toEqual(
+      expect.objectContaining({ today: { sent: 0, limit: 3 } }),
+    );
+  });
+
+  it('is pushed when the run failed, which is never quiet', async () => {
+    const { started, channel } = await start();
+    const unreachable = {
+      on: () => undefined,
+      off: () => undefined,
+      submit: async () => {
+        throw new Error('The model could not be reached');
+      },
+      resolvePermission: () => undefined,
+      abort: () => undefined,
+      shutdown: async () => undefined,
+    } as unknown as TRunSession;
+    vi.spyOn(started.local.agent, 'openSession').mockImplementation(() => unreachable as never);
+    await takeCaseTurn(started, () => [{ text: 'unused' }]);
+    expect(channel.sent).toEqual([
+      {
+        conversationId: 'dm',
+        text: 'Case: New sign-in from Lagos: The run failed: The model could not be reached',
+      },
+    ]);
+  });
+
+  it('is pushed when a sync run did not read the mail, so a broken sync is never silent', async () => {
+    const { started, channel, sync } = await syncWorld();
+    started.model.script({ text: 'I did not look.' });
+    await sync();
+    expect(channel.sent).toHaveLength(1);
+    expect(channel.sent[0]!.text).toMatch(/: I did not look\.$/u);
   });
 });
 

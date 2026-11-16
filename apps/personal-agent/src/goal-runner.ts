@@ -33,8 +33,11 @@ export interface IGoalRunnerOptions {
   readonly openSession: (extra: IExtraSessionOptions) => TRunSession;
   /** Where the runs' approvals wait for the person, shared with every other source of approvals. */
   readonly approvals: IApprovalRegistry;
-  /** Called with each finished run's report, such as to tell the person on their channels. */
-  readonly onReport?: (goal: IGoal, report: string) => void;
+  /**
+   * Called with each finished run's report, after the run is recorded. `quiet` says the run was kept in
+   * the goal's history only: a host that tells the person on their channels leaves a quiet run out.
+   */
+  readonly onReport?: (goal: IGoal, report: string, run: { readonly quiet: boolean }) => void;
   /** How often to look for due goals; 0 runs only when asked. */
   readonly tickMs?: number;
   /** A goal that is more than the person's instruction, such as one keeping a connector in sync. */
@@ -195,11 +198,11 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     for (const feedId of ownPrompts.values()) {
       if (approvals.release(feedId)) await book.setApproval(feedId, 'expired');
     }
-    await book.finishRun(run, outcome, report, {
-      quiet: outcome === 'done' && (await options.quiet?.(goal)) === true,
-    });
+    // Judged once, before the report is announced: a host's bookkeeping about the run may depend on it.
+    const quiet = outcome === 'done' && (await options.quiet?.(goal)) === true;
+    await book.finishRun(run, outcome, report, { quiet });
     try {
-      options.onReport?.(goal, report);
+      options.onReport?.(goal, report, { quiet });
     } catch {
       // allow-fallback: telling the person elsewhere must never undo a finished run.
     }

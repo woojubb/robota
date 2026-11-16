@@ -332,8 +332,12 @@ export function createPersonalCapabilities(
       runner = createGoalRunner({
         book: goals,
         approvals,
-        onReport: (goal, report) => {
-          void channels.notify(`${goal.title}: ${report}`).catch(() => undefined);
+        onReport: (goal, report, { quiet }) => {
+          // A quiet run is kept in the goal's history only, so it is not pushed either: pushing it would
+          // let the runs the agent starts on its own reach the person outside their limits. A run that is
+          // not quiet is the person's own goal output, not a question the agent chose to raise, so it
+          // does not count toward the day's limit.
+          if (!quiet) void channels.notify(`${goal.title}: ${report}`).catch(() => undefined);
           if (goal.caseId === undefined) return;
           // An answer that came while a case turn ran started nothing: give it its turn. The goal still
           // counts as running until its run is over, so what is due runs once it has ended.

@@ -630,8 +630,9 @@ withheld that a tool added later would escape: it cannot write to the service, r
 the browser, or rewrite the library. Turning a sync off, or disconnecting, takes the access away first and
 then ends a run in progress rather than being refused by it. A run that is reachable, had no failed read,
 did something worth the read (it read, or it opened a case) and added nothing to the library stays in the
-goal's history and is not posted to the feed, since a case it opened is already the message to the person; a
-run that read nothing and opened nothing, or could not read, is posted, so a broken sync is never silent.
+goal's history and is posted neither to the feed nor to a channel, since a case it opened is already the message
+to the person and the person's limits decide whether that is pushed; a run that read nothing and opened nothing,
+or could not read, is posted, so a broken sync is never silent.
 
 ### Non-goals
 
