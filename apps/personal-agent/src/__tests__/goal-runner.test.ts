@@ -181,3 +181,70 @@ describe('goal runner stopping', () => {
     );
   });
 });
+
+describe('goal runner reporting', () => {
+  /** A session whose turn ends with `response`, or fails when `response` is an error. */
+  function endingSession(response: string | Error): TRunSession {
+    return {
+      on: () => undefined,
+      off: () => undefined,
+      submit: async () => ({
+        turnId: 't',
+        completed:
+          response instanceof Error ? Promise.reject(response) : Promise.resolve({ response }),
+      }),
+      resolvePermission: () => undefined,
+      abort: () => undefined,
+      shutdown: async () => undefined,
+    } as unknown as TRunSession;
+  }
+
+  /** One run of one goal; what the host was asked and told, in order, and what the feed holds. */
+  async function runOnce(response: string | Error, quiet: boolean | undefined) {
+    const book = new GoalBook({ store: createMemoryGoalStore() });
+    const events: string[] = [];
+    const runner = createGoalRunner({
+      book,
+      approvals: createApprovalRegistry(book),
+      openSession: () => endingSession(response),
+      ...(quiet !== undefined && {
+        quiet: async () => {
+          events.push('asked whether quiet');
+          return quiet;
+        },
+      }),
+      onReport: (_goal, report, run) =>
+        events.push(`told ${run.quiet ? 'quiet' : 'not quiet'}: ${report}`),
+    });
+    await book.create({ title: 'Watch', instructions: 'Look' });
+    await runner.runDue();
+    await runner.settled();
+    return { events, feed: await book.feed() };
+  }
+
+  it('tells the host a run was quiet after judging that once, and posts nothing to the feed', async () => {
+    const { events, feed } = await runOnce('Looked.', true);
+    expect(events).toEqual(['asked whether quiet', 'told quiet: Looked.']);
+    expect(feed).toEqual([]);
+  });
+
+  it('tells the host a run was not quiet when the host says so, and posts its report', async () => {
+    const { events, feed } = await runOnce('Looked.', false);
+    expect(events).toEqual(['asked whether quiet', 'told not quiet: Looked.']);
+    expect(feed.map((item) => [item.kind, item.body])).toEqual([['report', 'Looked.']]);
+  });
+
+  it('is never quiet for a goal the host does not judge', async () => {
+    const { events, feed } = await runOnce('Looked.', undefined);
+    expect(events).toEqual(['told not quiet: Looked.']);
+    expect(feed).toHaveLength(1);
+  });
+
+  it('is never quiet for a run that failed, and does not ask the host about it', async () => {
+    const { events, feed } = await runOnce(new Error('The model could not be reached'), true);
+    expect(events).toEqual(['told not quiet: The run failed: The model could not be reached']);
+    expect(feed.map((item) => item.body)).toEqual([
+      'The run failed: The model could not be reached',
+    ]);
+  });
+});

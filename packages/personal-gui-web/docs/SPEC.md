@@ -42,7 +42,9 @@ importable library.
   suggested service only fills in the add form, so nothing is added until the person presses Add,
   and a suggestion's words are shown as plain text.
 - **Secrets stay out of the page.** Settings name the environment variable that holds a provider key;
-  the key itself is never sent to or shown by the page.
+  the key itself is never sent to or shown by the page. The limits on what reaches the person beyond
+  the feed are theirs: Settings saves them as typed, shows the agent's refusal of a value beside them
+  instead of the browser's own, and says that the agent only suggests how urgent a question is.
 
 ## Non-goals
 

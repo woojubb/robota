@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { NotificationsSection } from './Notifications.js';
 import { Button, Notice, ViewFrame, errorText, inputClass } from './ui.js';
 
 import type { IPersonalApi, IProviderSettings, ISettings } from '../api.js';
@@ -105,6 +106,7 @@ export function SettingsView({ api }: { readonly api: IPersonalApi }): React.Rea
             </Button>
           </div>
         </form>
+        <NotificationsSection api={api} />
         <section className="flex flex-col gap-1 text-[13px]">
           <h2 className="text-[15px] font-semibold">Browser</h2>
           <p className="text-muted-foreground">

@@ -8,7 +8,7 @@ import { registerToolPermissionProfile } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
-import { CASE_MAX_OPTIONS, CaseRefusedError } from './case-book.js';
+import { CASE_MAX_OPTIONS, CASE_URGENCIES, CaseRefusedError } from './case-book.js';
 
 import type { FunctionTool, TUniversalValue } from '@robota-sdk/agent-core';
 import type { CaseBook } from './case-book.js';
@@ -76,19 +76,21 @@ export function createCaseTools(book: CaseBook): FunctionTool[] {
     ),
     createZodFunctionTool(
       CASE_TOOL_NAMES.ask,
-      `Ask the person the one question an open case is waiting on. It shows in their feed with your notes as the evidence. Offer up to ${CASE_MAX_OPTIONS} short choices, and allow a reply in their own words when the choices may not fit (a reply is allowed by default when there are no choices). A case has one question at a time.`,
+      `Ask the person the one question an open case is waiting on. It shows in their feed with your notes as the evidence. Offer up to ${CASE_MAX_OPTIONS} short choices, and allow a reply in their own words when the choices may not fit (a reply is allowed by default when there are no choices). A case has one question at a time. \`urgency\` is your suggestion of how soon the person needs it (${CASE_URGENCIES.join(', ')}): \`now\` only for something that needs them soon, such as a security risk or a deadline within about a day; \`digest\` for what can wait for a daily summary; \`feed\` for the rest, and the default. It is only a suggestion: the person's own limits decide what actually reaches them, and you cannot change them.`,
       z.object({
         id: z.string().min(1),
         question: z.string().min(1),
         options: z.array(z.string()).max(CASE_MAX_OPTIONS).optional(),
         allowReply: z.boolean().optional(),
+        urgency: z.string().optional(),
       }),
-      async ({ id, question, options, allowReply }) =>
+      async ({ id, question, options, allowReply, urgency }) =>
         guarded(async () => {
           const { case: found, item } = await book.ask(id, {
             question,
             ...(options !== undefined && { options }),
             ...(allowReply !== undefined && { allowsReply: allowReply }),
+            ...(urgency !== undefined && { urgency }),
           });
           return { asked: found.id, feedItem: item.id };
         }),

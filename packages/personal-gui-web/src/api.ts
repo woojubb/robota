@@ -74,6 +74,19 @@ export interface ISettings {
   readonly browser: { readonly available: boolean };
 }
 
+/** The person's limits on what the agent may push to them; times are `HH:MM` in the agent machine's local time. */
+export interface IDeliverySettingsView {
+  readonly dailyLimit: number;
+  readonly quietHours: { readonly enabled: boolean; readonly from: string; readonly to: string };
+  readonly digest: { readonly enabled: boolean; readonly at: string };
+}
+
+export interface IDeliveryStatusView {
+  readonly settings: IDeliverySettingsView;
+  readonly today: { readonly sent: number; readonly limit: number };
+  readonly waitingInDigest: number;
+}
+
 export type TGoalStatus = 'active' | 'running' | 'waiting' | 'paused' | 'done' | 'failed';
 
 export interface IGoalView {
@@ -346,6 +359,10 @@ export interface IPersonalApi {
   lint(): Promise<ILintReport>;
   search(query: string): Promise<readonly ISearchResult[]>;
   settings(): Promise<ISettings>;
+  /** The person's delivery limits, today's pushes against them, and what waits for the digest. */
+  delivery(): Promise<IDeliveryStatusView>;
+  /** Save the limits; the agent refuses a value that is not valid, in words the page shows. */
+  saveDelivery(settings: IDeliverySettingsView): Promise<IDeliveryStatusView>;
   goals(): Promise<readonly IGoalView[]>;
   goal(id: string): Promise<{ goal: IGoalView; runs: readonly IGoalRunView[] }>;
   createGoal(input: {
@@ -465,6 +482,8 @@ export function createPersonalApi(
       (await call<{ results: ISearchResult[] }>('GET', `search?q=${encodeURIComponent(query)}`))
         .results,
     settings: () => call('GET', 'settings'),
+    delivery: () => call('GET', 'delivery'),
+    saveDelivery: (settings) => call('PUT', 'delivery', settings),
     saveProvider: (provider) => call('PUT', 'settings/provider', provider),
     goals: async () => (await call<{ goals: IGoalView[] }>('GET', 'goals')).goals,
     goal: (goalId) => call('GET', `goals/${id(goalId)}`),

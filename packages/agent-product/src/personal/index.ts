@@ -42,10 +42,11 @@ export {
 } from './browser/tools.js';
 export { GoalBook, GoalRefusedError } from './goals/goal-book.js';
 export type { ICreateGoalInput, IGoalBookOptions } from './goals/goal-book.js';
-export { CaseBook, CaseRefusedError } from './cases/case-book.js';
+export { CASE_URGENCIES, CaseBook, CaseRefusedError } from './cases/case-book.js';
 export type {
   IAnswerInput,
   IAskInput,
+  ICaseAskedEvent,
   ICaseBookOptions,
   IOpenCaseInput,
 } from './cases/case-book.js';
@@ -61,7 +62,30 @@ export type {
   ICaseStore,
   TCaseEventKind,
   TCaseState,
+  TCaseUrgency,
 } from './cases/types.js';
+export {
+  DAILY_LIMIT_MAX,
+  DEFAULT_DELIVERY_SETTINGS,
+  DeliveryRefusedError,
+  decideDelivery,
+} from './delivery/policy.js';
+export type { IDecideDeliveryInput } from './delivery/policy.js';
+export { QuestionDelivery } from './delivery/question-delivery.js';
+export type { IQuestionDeliveryOptions } from './delivery/question-delivery.js';
+export { createFileDeliveryStores, createMemoryDeliveryStore } from './delivery/stores.js';
+export type {
+  IDeliveryFeed,
+  IDeliveryMessage,
+  IDeliverySettings,
+  IDeliverySink,
+  IDeliveryState,
+  IDeliveryStatus,
+  IDeliveryStore,
+  IDigestSchedule,
+  IQuietHours,
+  TDelivery,
+} from './delivery/types.js';
 export { createFileGoalStore } from './goals/file-store.js';
 export { createMemoryGoalStore } from './goals/memory-store.js';
 export {

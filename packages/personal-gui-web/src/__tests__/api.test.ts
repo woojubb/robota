@@ -75,6 +75,31 @@ describe('personal API client', () => {
     expect(one.calls[0]!.init?.headers).toEqual({});
   });
 
+  it('reads the delivery limits, and saves them with a PUT that carries the write header', async () => {
+    const status = {
+      settings: {
+        dailyLimit: 3,
+        quietHours: { enabled: true, from: '22:00', to: '08:00' },
+        digest: { enabled: true, at: '08:00' },
+      },
+      today: { sent: 0, limit: 3 },
+      waitingInDigest: 0,
+    };
+    const { api, calls } = recorder({ status: 200, body: status });
+    expect(await api.delivery()).toEqual(status);
+    expect(await api.saveDelivery(status.settings)).toEqual(status);
+    expect(calls.map((call) => [call.url, call.init?.method])).toEqual([
+      ['api/delivery', 'GET'],
+      ['api/delivery', 'PUT'],
+    ]);
+    expect(calls[0]!.init?.headers).toEqual({});
+    expect(calls[1]!.init?.headers).toEqual({
+      'content-type': 'application/json',
+      [API_WRITE_HEADER]: '1',
+    });
+    expect(calls[1]!.init?.body).toBe(JSON.stringify(status.settings));
+  });
+
   it('turns an error answer into an ApiError carrying the server message', async () => {
     const { api } = recorder({ status: 422, body: { error: 'This looks like a secret' } });
     await expect(api.createPage({ title: 'Bank', kind: 'matter', text: 'x' })).rejects.toEqual(

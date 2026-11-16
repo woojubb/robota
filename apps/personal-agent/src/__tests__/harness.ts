@@ -85,6 +85,8 @@ export async function startHarness(
     connectorRegistryUrl?: string | null;
     server?: import('../local-mode.js').IServerExposure;
     guiPort?: number;
+    /** The clock delivery reads the local day and time from. */
+    deliveryClock?: () => Date;
   } = {},
 ): Promise<IHarness> {
   const stateDir = options.stateDir ?? mkdtempSync(join(tmpdir(), 'personal-agent-'));
@@ -102,6 +104,9 @@ export async function startHarness(
     environment,
     // Goals run when a test asks, never on a timer.
     goalTickMs: 0,
+    // So does the digest.
+    deliveryTickMs: 0,
+    ...(options.deliveryClock !== undefined && { deliveryClock: options.deliveryClock }),
     ...(options.browserAllowedHosts !== undefined && {
       browserAllowedHosts: options.browserAllowedHosts,
     }),

@@ -7,6 +7,12 @@
 
 export type TCaseState = 'open' | 'closed';
 export type TCaseEventKind = 'observed' | 'noted' | 'asked' | 'answered' | 'closed';
+/**
+ * How soon the agent suggests a question be put to the person: `now` for what needs them soon, `digest`
+ * for what can wait for a daily summary, `feed` for the rest. It is only a suggestion: what actually
+ * reaches the person is decided by their own delivery limits.
+ */
+export type TCaseUrgency = 'now' | 'digest' | 'feed';
 
 /** Where a case came from: the service that showed it and the agent's own stable reference to the item. */
 export interface ICaseOrigin {
@@ -29,6 +35,8 @@ export interface ICaseQuestion {
   readonly askedAt: string;
   /** The feed item that shows the question to the person. */
   readonly feedItemId: string;
+  /** The agent's suggestion of how urgent the question is; absent in a case written before it existed, which reads as `feed`. */
+  readonly urgency?: TCaseUrgency;
 }
 
 /** What happened on the case, oldest first. */
