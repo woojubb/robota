@@ -36,6 +36,14 @@ export const FIXED_TABS: readonly {
 export const spaceTab = (spaceId: string): TTab => `space:${spaceId}`;
 
 /**
+ * What the page opens on: the Feed when its address says so, which is where a click on a notification
+ * from a closed page lands, and the chat otherwise.
+ */
+export function initialTab(hash: string): TTab {
+  return hash === '#feed' ? 'feed' : 'chat';
+}
+
+/**
  * The tabs in the person's order: the saved order first, keeping only tabs that exist, then any tab
  * it does not name yet (a fixed tab, or a space made since) in its natural place at the end.
  */

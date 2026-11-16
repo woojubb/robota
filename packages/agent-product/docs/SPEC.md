@@ -577,7 +577,8 @@ read-only run and a run that reads untrusted content may keep one; the agent wri
 wrote, so what it takes is bounded and a secret value is refused, judged by the value and not by the words a
 case is written in. A question carries only the urgency the agent suggests for it, and a suggestion decides
 nothing: which questions are also pushed to the person (on their channels, at a notification address they gave,
-on a page they have open) is decided by the person's own limits on what may reach them and when. A question the
+on a page they have open, in a browser they subscribed while its page is closed) is decided by the person's own
+limits on what may reach them and when. A question the
 limits hold back waits for the one daily digest or stays in the feed, where every question is, so holding it
 back loses nothing, and a push counts only when something took it: a place that is not there, does not answer
 with success or is not being looked at takes nothing, and nothing is counted, retried or lost. The limits and

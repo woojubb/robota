@@ -173,7 +173,7 @@ connector pulled, both ask whether to keep or forget them.
 A service on your own network is refused by default, like the agent's browser. To reach one, list its
 exact host names in `PERSONAL_AGENT_CONNECTOR_HOSTS` (comma-separated, for example `mail.lan`) and restart
 the agent. Only the hosts you list are exempted from that refusal, and the service must still use `https`.
-The same list decides whether the notification address you set in Settings may point at such a host.
+The same list decides whether the notification address you set in Settings, and the push service of a browser you subscribed, may be at such a host.
 
 ## Messengers
 

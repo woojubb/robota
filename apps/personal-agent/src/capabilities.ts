@@ -53,6 +53,10 @@ import { createMcpConnectorProtocol } from './connectors/mcp-protocol.js';
 import { createSyncRuns } from './connectors/sync-runs.js';
 import { createLayoutBook } from './layout.js';
 import { createNotificationTransport } from './notification-transport.js';
+import { createPushApi } from './push/push-api.js';
+import { createPushSink } from './push/push-sink.js';
+import { createPushSubscriptions } from './push/subscriptions.js';
+import { createVapid } from './push/vapid.js';
 import { createSideChatBook } from './side-chats.js';
 import { createPersonalApi } from './personal-api.js';
 
@@ -226,21 +230,38 @@ export function createPersonalCapabilities(
     },
   };
   const deliveryStores = createFileDeliveryStores(join(options.stateDir, 'delivery'));
-  // The address the person gave is reached through the same outbound-request policy the connectors use,
-  // so a loopback or private destination is refused unless the owner named its host.
+  // The address the person gave, and the push services of the browsers they subscribed, are reached
+  // through the same outbound-request policy the connectors use, so a loopback or private destination is
+  // refused unless the owner named its host.
+  const egress = createNotificationTransport({
+    ...(options.connectorAllowedHosts !== undefined && {
+      allowedHosts: options.connectorAllowedHosts,
+    }),
+    ...(options.connectorNetwork?.fetch !== undefined && {
+      fetch: options.connectorNetwork.fetch,
+    }),
+    ...(options.connectorNetwork?.lookup !== undefined && {
+      lookup: options.connectorNetwork.lookup,
+    }),
+  });
   const notificationAddress = new NotificationAddress({
     store: createFileWebhookStore(join(options.stateDir, 'delivery')),
-    transport: createNotificationTransport({
-      ...(options.connectorAllowedHosts !== undefined && {
-        allowedHosts: options.connectorAllowedHosts,
-      }),
-      ...(options.connectorNetwork?.fetch !== undefined && {
-        fetch: options.connectorNetwork.fetch,
-      }),
-      ...(options.connectorNetwork?.lookup !== undefined && {
-        lookup: options.connectorNetwork.lookup,
-      }),
-    }),
+    transport: egress,
+  });
+  // A browser the person subscribed takes a push while its page is closed. The list and the signing key
+  // are capabilities, kept in owner-only files of their own; with no browser subscribed the sink refuses,
+  // so the push neither counts toward the day's limit nor goes anywhere.
+  const pushSubscriptions = createPushSubscriptions({
+    directory: join(options.stateDir, 'delivery'),
+    admit: (url) => egress.admit(url),
+  });
+  const pushVapid = createVapid(join(options.stateDir, 'delivery'), () =>
+    pushSubscriptions.clear(),
+  );
+  const pushSink = createPushSink({
+    vapid: pushVapid,
+    subscriptions: pushSubscriptions,
+    transport: egress,
   });
   // A page the person has open takes a push only while it polls; with none open it refuses, so the push
   // is neither counted nor lost: the question is in the feed.
@@ -252,6 +273,7 @@ export function createPersonalCapabilities(
     sinks: async () => [
       channelSink,
       notifications,
+      pushSink,
       ...((await notificationAddress.configured()) ? [notificationAddress.sink] : []),
     ],
     feed: goals,
@@ -322,6 +344,7 @@ export function createPersonalCapabilities(
       delivery,
       notificationAddress,
       notifications,
+      push: createPushApi({ vapid: pushVapid, subscriptions: pushSubscriptions }),
       // The answer is recorded already; the agent's turn on the case starts behind it and may fail without
       // touching it.
       onCaseAnswered: (answered) => {
