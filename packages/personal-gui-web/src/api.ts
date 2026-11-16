@@ -105,6 +105,12 @@ export interface IBrowserNotificationView {
   readonly text: string;
 }
 
+/** How many browsers are subscribed to be notified while the page is closed; their addresses are never sent back. */
+export interface IPushStatusView {
+  readonly subscribed: number;
+  readonly supported: boolean;
+}
+
 export type TGoalStatus = 'active' | 'running' | 'waiting' | 'paused' | 'done' | 'failed';
 
 export interface IGoalView {
@@ -396,6 +402,17 @@ export interface IPersonalApi {
     readonly messages: readonly IBrowserNotificationView[];
     readonly latest: number;
   }>;
+  /** How many browsers are subscribed to be notified while the page is closed. */
+  pushStatus(): Promise<IPushStatusView>;
+  /** The public key a browser subscribes with. */
+  pushKey(): Promise<{ readonly publicKey: string }>;
+  /**
+   * Tell the agent this browser subscribed, as the browser gives it (`PushSubscription.toJSON()`); the
+   * agent refuses in words the page shows.
+   */
+  subscribePush(subscription: PushSubscriptionJSON): Promise<IPushStatusView>;
+  /** Tell the agent this browser no longer takes pushes. */
+  unsubscribePush(endpoint: string): Promise<IPushStatusView>;
   goals(): Promise<readonly IGoalView[]>;
   goal(id: string): Promise<{ goal: IGoalView; runs: readonly IGoalRunView[] }>;
   createGoal(input: {
@@ -523,6 +540,10 @@ export function createPersonalApi(
     testWebhook: () => call('POST', 'delivery/webhook/test'),
     notifications: (after) =>
       call('GET', after === undefined ? 'notifications' : `notifications?after=${after}`),
+    pushStatus: () => call('GET', 'push'),
+    pushKey: () => call('GET', 'push/key'),
+    subscribePush: (subscription) => call('POST', 'push/subscribe', subscription),
+    unsubscribePush: (endpoint) => call('DELETE', 'push/subscribe', { endpoint }),
     saveProvider: (provider) => call('PUT', 'settings/provider', provider),
     goals: async () => (await call<{ goals: IGoalView[] }>('GET', 'goals')).goals,
     goal: (goalId) => call('GET', `goals/${id(goalId)}`),

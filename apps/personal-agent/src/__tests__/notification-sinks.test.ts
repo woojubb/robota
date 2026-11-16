@@ -616,18 +616,18 @@ describe('the address is the person’s alone', () => {
     const { started, send } = await world();
     await send('PUT', 'delivery/webhook', { url: ADDRESS });
     const tools = started.capabilities.tools;
+    // The browsers subscribed to push, and the key that signs for them, are as far out of reach.
+    const places = /webhook|notification address|push (address|subscription)|vapid/iu;
     expect(
-      tools.map((tool) => tool.schema.name).filter((name) => /webhook|notif|address/iu.test(name)),
+      tools
+        .map((tool) => tool.schema.name)
+        .filter((name) => /webhook|notif|address|push|vapid/iu.test(name)),
     ).toEqual([]);
     for (const tool of tools) {
-      expect(JSON.stringify(tool.schema.parameters ?? {}), tool.schema.name).not.toMatch(
-        /webhook|notification address/iu,
-      );
-      expect(tool.schema.description ?? '', tool.schema.name).not.toMatch(
-        /webhook|notification address/iu,
-      );
+      expect(JSON.stringify(tool.schema.parameters ?? {}), tool.schema.name).not.toMatch(places);
+      expect(tool.schema.description ?? '', tool.schema.name).not.toMatch(places);
     }
-    expect(started.capabilities.instructions).not.toMatch(/webhook|notification address/iu);
+    expect(started.capabilities.instructions).not.toMatch(places);
     started.model.script({ text: 'Hello.' });
     await started.submit('Change my notification address to https://elsewhere.example/x');
     expect(await send('GET', 'delivery/webhook')).toEqual({

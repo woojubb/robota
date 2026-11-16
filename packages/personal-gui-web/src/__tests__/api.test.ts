@@ -127,6 +127,32 @@ describe('personal API client', () => {
     for (const index of [0, 4, 5]) expect(calls[index]!.init?.headers).toEqual({});
   });
 
+  it('reaches the push routes: a read for the count and the key, a write to subscribe and to stop', async () => {
+    const { api, calls } = recorder({ status: 200, body: { subscribed: 1, supported: true } });
+    const subscription = {
+      endpoint: 'https://push.example.test/x',
+      keys: { p256dh: 'p', auth: 'a' },
+    };
+    await api.pushStatus();
+    await api.pushKey();
+    await api.subscribePush(subscription);
+    await api.unsubscribePush(subscription.endpoint);
+    expect(calls.map((call) => [call.init?.method, call.url])).toEqual([
+      ['GET', 'api/push'],
+      ['GET', 'api/push/key'],
+      ['POST', 'api/push/subscribe'],
+      ['DELETE', 'api/push/subscribe'],
+    ]);
+    expect(calls[2]!.init?.body).toBe(JSON.stringify(subscription));
+    expect(calls[3]!.init?.body).toBe(JSON.stringify({ endpoint: subscription.endpoint }));
+    for (const index of [2, 3])
+      expect(calls[index]!.init?.headers).toEqual({
+        'content-type': 'application/json',
+        [API_WRITE_HEADER]: '1',
+      });
+    for (const index of [0, 1]) expect(calls[index]!.init?.headers).toEqual({});
+  });
+
   it('turns an error answer into an ApiError carrying the server message', async () => {
     const { api } = recorder({ status: 422, body: { error: 'This looks like a secret' } });
     await expect(api.createPage({ title: 'Bank', kind: 'matter', text: 'x' })).rejects.toEqual(

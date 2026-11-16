@@ -13,7 +13,7 @@ import { IdeasView } from './views/Ideas.js';
 import { BrowserPanel } from './views/BrowserPanel.js';
 import { SideChat, recentTurns } from './views/SideChat.js';
 import { CreateSpaceView, SpaceView } from './views/Spaces.js';
-import { Menu, orderTabs, spaceTab } from './menu.js';
+import { Menu, initialTab, orderTabs, spaceTab } from './menu.js';
 import { openQuestionCount, usePageNotifications } from './notifications.js';
 import { LibraryView } from './views/Library.js';
 import { SearchView } from './views/Search.js';
@@ -74,7 +74,7 @@ function Shell({
   readonly wsUrl: string;
   readonly api: IPersonalApi;
 }): React.ReactElement {
-  const [view, setView] = useState<TView>('chat');
+  const [view, setView] = useState<TView>(() => initialTab(window.location.hash));
   const [drawerOpen, setDrawerOpen] = useState(false);
   // On a narrow screen the closed drawer is off screen: it leaves the focus order and the
   // accessibility tree until it opens.

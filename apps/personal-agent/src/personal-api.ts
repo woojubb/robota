@@ -46,6 +46,7 @@ import type { ISideChatBook } from './side-chats.js';
 import type { IGoalRunner } from './goal-runner.js';
 import type { IProviderProfile } from './config.js';
 import type { TConnectorsApi } from './connectors/connectors-api.js';
+import type { TPushApi } from './push/push-api.js';
 
 export interface IPersonalApiOptions {
   readonly wiki: KnowledgeWiki;
@@ -57,6 +58,8 @@ export interface IPersonalApiOptions {
   readonly notificationAddress: NotificationAddress;
   /** What the open page fetches to show the person; fetching it is what shows a page is open. */
   readonly notifications: BrowserOutbox;
+  /** The browsers the person asked to be notified in while the page is closed: only a count is ever returned. */
+  readonly push: TPushApi;
   /**
    * Called with a case once the person's answer is recorded on it. It must not wait for work: an
    * answer is already recorded when this runs, and an error from it never undoes or fails the answer.
@@ -373,6 +376,10 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
     if (area === 'delivery' && collection === 'webhook' && id === 'test' && method === 'POST') {
       await notificationAddress.test();
       return ok({ ok: true });
+    }
+    if (area === 'push') {
+      const answered = await options.push(request);
+      if (answered !== undefined) return answered;
     }
     if (area === 'notifications' && collection === undefined && method === 'GET') {
       const after = request.query.get('after');

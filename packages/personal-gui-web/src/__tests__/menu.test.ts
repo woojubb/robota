@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { moveTab, orderTabs } from '../menu.js';
+import { initialTab, moveTab, orderTabs } from '../menu.js';
 
 import type { ISpaceView } from '../api.js';
 
@@ -11,6 +11,14 @@ const space = (id: string): ISpaceView => ({
   tag: id,
   pinned: [],
   opening: '',
+});
+
+describe('the tab the page opens on', () => {
+  it('is the Feed when its address names it, which is where a notification from a closed page leads, and the chat otherwise', () => {
+    expect(initialTab('#feed')).toBe('feed');
+    for (const hash of ['', '#', '#chat', '#feed2', '#Feed', '#/feed', 'feed'])
+      expect(initialTab(hash), hash).toBe('chat');
+  });
 });
 
 describe('the tab order', () => {
