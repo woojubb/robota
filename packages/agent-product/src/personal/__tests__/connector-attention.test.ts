@@ -263,7 +263,27 @@ describe('what a sync run is told about the person’s attention', () => {
     expect(instructions).toMatch(/none for an item that does not meet/u);
     expect(instructions).toMatch(/Never put a secret, password or one-time code into a case/u);
     expect(instructions).toMatch(/refused as looking like a secret, say the same thing again/u);
-    expect(instructions).toMatch(/already has a case, it was dealt with before: do not ask again/u);
+  });
+
+  it('asks again only for an item whose case an interrupted run never asked, and counts that against the cap', async () => {
+    const { mail } = await setup();
+    const instructions = syncRunInstructions(mail, undefined);
+    expect(instructions).toMatch(/An item that already has a case needs no new question, unless/u);
+    expect(instructions).toMatch(/CaseOpen replies notAskedYet/u);
+    expect(instructions).toMatch(/an earlier run was cut short before asking/u);
+    expect(instructions).toMatch(
+      /ask it now with CaseAsk, with the same evidence and choices as for a new case/u,
+    );
+    expect(instructions).toMatch(
+      /a case you ask now because it was not asked before counts like a new one/u,
+    );
+    // The rule sits in the step that opens cases, under the person's words and inside the cap's sentence.
+    const words = instructions.indexOf(defaultAttention('mail'));
+    expect(words).toBeLessThan(instructions.indexOf('notAskedYet'));
+    expect(instructions.indexOf('at most 5 cases')).toBeLessThan(
+      instructions.indexOf('notAskedYet'),
+    );
+    expect(instructions).not.toMatch(/do not ask again/u);
   });
 
   it('keeps everything read from the service as content, whatever the words say', async () => {

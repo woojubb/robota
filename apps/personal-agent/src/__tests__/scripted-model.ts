@@ -15,7 +15,10 @@ export interface IModelRequest {
 }
 
 export type TModelReply =
-  { readonly text: string } | { readonly tool: string; readonly args: Record<string, unknown> };
+  | { readonly text: string }
+  | { readonly tool: string; readonly args: Record<string, unknown> }
+  /** The reply breaks off after it began: one chunk is sent and the connection is cut, as a dropped link does. */
+  | { readonly cut: true };
 
 export interface IScriptedModel {
   readonly baseURL: string;
@@ -65,6 +68,19 @@ export async function startScriptedModel(): Promise<IScriptedModel> {
     next += 1;
     const reply = typeof entry === 'function' ? await entry(body) : entry;
     round += 1;
+    const streaming = body.stream === true;
+    if ('cut' in reply) {
+      res.writeHead(200, { 'Content-Type': streaming ? 'text/event-stream' : 'application/json' });
+      const first = {
+        id: `reply-${round}`,
+        object: 'chat.completion.chunk',
+        created: 1,
+        model: 'scripted-model',
+        choices: [{ index: 0, delta: { role: 'assistant', content: 'Let' }, finish_reason: null }],
+      };
+      res.write(streaming ? `data: ${JSON.stringify(first)}\n\n` : '{"id":', () => res.destroy());
+      return;
+    }
     const message =
       'text' in reply
         ? { role: 'assistant', content: reply.text }
@@ -81,7 +97,6 @@ export async function startScriptedModel(): Promise<IScriptedModel> {
             ],
           };
     const finish = 'text' in reply ? 'stop' : 'tool_calls';
-    const streaming = body.stream === true;
     const chunk = {
       id: `reply-${round}`,
       object: streaming ? 'chat.completion.chunk' : 'chat.completion',
