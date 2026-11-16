@@ -72,6 +72,12 @@ export interface IFeedQuestion {
   readonly allowsReply: boolean;
   readonly state: TQuestionState;
   readonly answer?: IQuestionAnswer;
+  /**
+   * How the case closed, when it closed right after this answer: shown under the answer so a close the
+   * person would want to know about is not left in the case's thread alone. Written by the agent from
+   * content other people wrote, so a host shows it as plain text.
+   */
+  readonly resolution?: string;
 }
 
 export interface IFeedItem {

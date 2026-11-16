@@ -16,7 +16,8 @@ function settled(question: IFeedQuestionView): string {
  * A question the agent asks about one of its cases: what it noted as the evidence, the question, one
  * button per choice, and a reply box when the question allows one. Answering records the answer on the
  * case; it does not approve or send anything. The evidence comes from what other people wrote, so it
- * is shown as plain text: a link in it is not made clickable inside a card that asks for an answer.
+ * is shown as plain text: a link in it is not made clickable inside a card that asks for an answer. So
+ * is the resolution a closed case shows under the answer, which the agent wrote from the same evidence.
  */
 export function QuestionCard({
   item,
@@ -94,9 +95,14 @@ export function QuestionCard({
           )}
         </>
       ) : (
-        <p role="status" className="mt-2 whitespace-pre-wrap text-[13px] text-muted-foreground">
-          {settled(question)}
-        </p>
+        <>
+          <p role="status" className="mt-2 whitespace-pre-wrap text-[13px] text-muted-foreground">
+            {settled(question)}
+          </p>
+          {question.state === 'answered' && question.resolution !== undefined && (
+            <p className="mt-1 whitespace-pre-wrap text-[13px]">{`Closed: ${question.resolution}`}</p>
+          )}
+        </>
       )}
       {error !== undefined && <p className="mt-2 text-[13px] text-destructive">{error}</p>}
       <div className="mt-2 flex justify-end gap-2">

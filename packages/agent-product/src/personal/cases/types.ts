@@ -46,6 +46,12 @@ export interface ICase {
   /** The agent's running notes, oldest first; what a question shows as its evidence. */
   readonly notes: readonly ICaseNote[];
   readonly question?: ICaseQuestion;
+  /**
+   * The feed item that showed the question the person answered last; it is where the case's resolution
+   * is shown if the case closes after that answer. Absent until a question is answered, and in a case
+   * written before it existed, where there is nothing to show it on.
+   */
+  readonly lastAnsweredFeedItemId?: string;
   readonly history: readonly ICaseEvent[];
   readonly createdAt: string;
   readonly updatedAt: string;
