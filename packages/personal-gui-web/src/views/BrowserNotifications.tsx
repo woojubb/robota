@@ -17,7 +17,7 @@ const STATE_TEXT: Readonly<Record<TNotificationPermission, string>> = {
 /**
  * Notifications from this page while it is open. The browser asks for permission only when the person
  * presses the button, never when the page loads, and what it shows is plain text. A page that is closed
- * shows nothing: a notification address is what reaches the person then.
+ * shows nothing: a worker in the page (the next section) or a notification address reaches the person then.
  */
 export function BrowserNotifications(): React.ReactElement {
   const [permission, setPermission] = useState<TNotificationPermission>(notificationPermission);
@@ -26,7 +26,7 @@ export function BrowserNotifications(): React.ReactElement {
       <h2 className="text-[15px] font-semibold">Notifications in this browser</h2>
       <p className="text-muted-foreground">
         They work only while this page is open, and the tab title counts the questions waiting in
-        your Feed. To be reached when it is closed, use a notification address.
+        your Feed. To be reached when it is closed, use the next section or a notification address.
       </p>
       <p role="status" className="text-muted-foreground">
         {STATE_TEXT[permission]}

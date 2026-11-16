@@ -46,8 +46,9 @@ importable library.
   the feed, and the address they give to be notified at, are theirs: Settings saves the limits as typed,
   shows the agent's refusal of a value beside them instead of the browser's own, and says that the agent
   only suggests how urgent a question is; the address is sent once, its field emptied, and only its host
-  shown afterwards, and the browser's permission to notify is asked for only when the person presses its
-  button.
+  shown afterwards, and the browser's permission to notify, and with it the worker that shows a push while the
+  page is closed, is asked for only when the person presses its button; the page keeps and shows no push address
+  or key, only how many browsers are subscribed.
 
 ## Non-goals
 

@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
@@ -35,6 +37,18 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     target: 'esnext',
+    rollupOptions: {
+      input: {
+        index: fileURLToPath(new URL('./index.html', import.meta.url)),
+        // The push worker is a script of its own at the root of the build, beside the index, under a name
+        // the page knows: served from the page's random path, its scope is exactly that path.
+        'push-worker': fileURLToPath(new URL('./src/push-worker.ts', import.meta.url)),
+      },
+      output: {
+        entryFileNames: (chunk) =>
+          chunk.name === 'push-worker' ? 'push-worker.js' : 'assets/[name]-[hash].js',
+      },
+    },
     assetsInlineLimit: (file) => (/\.(woff2?|ttf|otf)$/u.test(file) ? false : undefined),
   },
   optimizeDeps: { esbuildOptions: { target: 'esnext' } },
