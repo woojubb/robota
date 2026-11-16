@@ -14,12 +14,13 @@ import { BrowserPanel } from './views/BrowserPanel.js';
 import { SideChat, recentTurns } from './views/SideChat.js';
 import { CreateSpaceView, SpaceView } from './views/Spaces.js';
 import { Menu, orderTabs, spaceTab } from './menu.js';
+import { openQuestionCount, usePageNotifications } from './notifications.js';
 import { LibraryView } from './views/Library.js';
 import { SearchView } from './views/Search.js';
 import { SettingsView } from './views/Settings.js';
 
 import type { IWebProductIdentity } from '@robota-sdk/agent-ui-web/client';
-import type { IPersonalApi, ISideChatView, ISpaceView } from './api.js';
+import type { IFeedItemView, IPersonalApi, ISideChatView, ISpaceView } from './api.js';
 import type { TTab } from './menu.js';
 
 /** The personal agent's identity for the shared surface: its name, and the browser storage it owns. */
@@ -207,6 +208,12 @@ function Shell({
     show('library');
   };
   const openSpace = view.startsWith('space:') ? view.slice('space:'.length) : undefined;
+  // The agent's messages for the person and the count of questions waiting, whichever tab is showing.
+  const { setWaiting } = usePageNotifications(api, () => show('feed'));
+  const countWaiting = useCallback(
+    (items: readonly IFeedItemView[]) => setWaiting(openQuestionCount(items)),
+    [setWaiting],
+  );
   return (
     <div className="relative flex h-full w-full overflow-hidden bg-background text-foreground">
       {drawerOpen && (
@@ -303,7 +310,7 @@ function Shell({
             />
           )}
         </div>
-        {view === 'feed' && <FeedView api={api} onOpenGoal={showGoal} />}
+        {view === 'feed' && <FeedView api={api} onOpenGoal={showGoal} onItems={countWaiting} />}
         {view === 'connectors' && <ConnectorsView api={api} />}
         {view === 'ideas' && <IdeasView api={api} onOpenGoal={showGoal} />}
         {view === 'goals' && <GoalsView api={api} openGoal={openGoal} onOpenGoal={setOpenGoal} />}

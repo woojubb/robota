@@ -43,8 +43,11 @@ importable library.
   and a suggestion's words are shown as plain text.
 - **Secrets stay out of the page.** Settings name the environment variable that holds a provider key;
   the key itself is never sent to or shown by the page. The limits on what reaches the person beyond
-  the feed are theirs: Settings saves them as typed, shows the agent's refusal of a value beside them
-  instead of the browser's own, and says that the agent only suggests how urgent a question is.
+  the feed, and the address they give to be notified at, are theirs: Settings saves the limits as typed,
+  shows the agent's refusal of a value beside them instead of the browser's own, and says that the agent
+  only suggests how urgent a question is; the address is sent once, its field emptied, and only its host
+  shown afterwards, and the browser's permission to notify is asked for only when the person presses its
+  button.
 
 ## Non-goals
 
@@ -54,6 +57,9 @@ importable library.
 
 ## Design decisions
 
+- The shell asks the agent for new messages every few seconds on whichever tab is showing, which is also
+  how the agent knows a page is open to take a push; it shows one as a browser notification only while the
+  page is not in front of the person, and the tab title counts the questions waiting in the feed.
 - The shell keeps the chat mounted while another menu is open, so a session and its draft survive a
   trip to the library.
 - The menu is the person's own: their spaces are tabs beside the fixed ones, in an order they choose

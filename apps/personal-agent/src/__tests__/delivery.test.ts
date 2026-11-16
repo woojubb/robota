@@ -585,7 +585,7 @@ describe('the person’s own routes to the limits', () => {
 });
 
 describe('what the agent can reach', () => {
-  const NAMES = /deliver|quiet|digest|daily|limit|notif|setting/iu;
+  const NAMES = /deliver|quiet|digest|daily|limit|notif|setting|webhook/iu;
 
   it('offers no tool, in any run, that reads or changes the limits', async () => {
     const { started } = await start();
@@ -593,7 +593,7 @@ describe('what the agent can reach', () => {
     expect(sent.filter((name) => NAMES.test(name))).toEqual([]);
     for (const tool of started.capabilities.tools) {
       const schema = JSON.stringify(tool.schema.parameters ?? {});
-      expect(schema, tool.schema.name).not.toMatch(/dailyLimit|quietHours/u);
+      expect(schema, tool.schema.name).not.toMatch(/dailyLimit|quietHours|webhook/iu);
     }
     // What a run is allowed to call is a short list of names, none of them about the limits.
     for (const name of [...syncRunTools(), ...caseTurnTools()]) {
@@ -629,7 +629,7 @@ describe('what the agent can reach', () => {
     ];
     for (const text of texts) {
       expect(text).not.toMatch(
-        /dailyLimit|quietHours|delivery settings|settings\.json|\/delivery/iu,
+        /dailyLimit|quietHours|delivery settings|settings\.json|\/delivery|webhook|notification address/iu,
       );
     }
   });

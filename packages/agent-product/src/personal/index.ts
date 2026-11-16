@@ -71,6 +71,30 @@ export {
   decideDelivery,
 } from './delivery/policy.js';
 export type { IDecideDeliveryInput } from './delivery/policy.js';
+export {
+  BROWSER_LISTENING_MS,
+  BROWSER_OUTBOX_CAPACITY,
+  BrowserOutbox,
+} from './delivery/browser-outbox.js';
+export type { IBrowserNotification, IBrowserOutboxOptions } from './delivery/browser-outbox.js';
+export {
+  NotificationAddress,
+  WEBHOOK_FORMATS,
+  createFileWebhookStore,
+  createMemoryWebhookStore,
+  parseNotificationAddress,
+  webhookMessage,
+} from './delivery/notification-address.js';
+export type {
+  INotificationAddressOptions,
+  INotificationAddressView,
+  IWebhookRequest,
+  IWebhookStore,
+  IWebhookTarget,
+  IWebhookTransport,
+  TWebhookAnswer,
+  TWebhookFormat,
+} from './delivery/notification-address.js';
 export { QuestionDelivery } from './delivery/question-delivery.js';
 export type { IQuestionDeliveryOptions } from './delivery/question-delivery.js';
 export { createFileDeliveryStores, createMemoryDeliveryStore } from './delivery/stores.js';

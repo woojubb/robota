@@ -24,21 +24,26 @@ const STATE_LABEL = {
 export function FeedView({
   api,
   onOpenGoal,
+  onItems,
 }: {
   readonly api: IPersonalApi;
   readonly onOpenGoal: (goalId: string) => void;
+  /** Told whenever the feed is read, so the page can show how many questions wait without asking again. */
+  readonly onItems?: (items: readonly IFeedItemView[]) => void;
 }): React.ReactElement {
   const [items, setItems] = useState<readonly IFeedItemView[] | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const [thread, setThread] = useState<string | undefined>(undefined);
   const reload = useCallback(async () => {
     try {
-      setItems(await api.feed());
+      const read = await api.feed();
+      setItems(read);
       setError(undefined);
+      onItems?.(read);
     } catch (caught) {
       setError(errorText(caught));
     }
-  }, [api]);
+  }, [api, onItems]);
   useEffect(() => {
     void reload();
     const timer = setInterval(() => void reload(), REFRESH_MS);

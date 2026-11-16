@@ -27,6 +27,7 @@ import { createProviderFromProfile } from './provider.js';
 
 import type { ILoopbackGuiApiRequest, ILoopbackGuiApiResponse } from '@robota-sdk/agent-local-host';
 import type {
+  BrowserOutbox,
   CaseBook,
   GoalBook,
   ICase,
@@ -34,6 +35,7 @@ import type {
   IWikiPage,
   IdeaBook,
   KnowledgeWiki,
+  NotificationAddress,
   QuestionDelivery,
   SpaceBook,
   TPageKind,
@@ -51,6 +53,10 @@ export interface IPersonalApiOptions {
   readonly cases: CaseBook;
   /** The person's delivery limits: only their own request, through the routes here, reads or changes them. */
   readonly delivery: QuestionDelivery;
+  /** The person's notification address: the page sets, clears and tests it, and never reads it back. */
+  readonly notificationAddress: NotificationAddress;
+  /** What the open page fetches to show the person; fetching it is what shows a page is open. */
+  readonly notifications: BrowserOutbox;
   /**
    * Called with a case once the person's answer is recorded on it. It must not wait for work: an
    * answer is already recorded when this runs, and an error from it never undoes or fails the answer.
@@ -124,6 +130,7 @@ export function providerTypes(): string[] {
 
 export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
   const { wiki, goals, cases, delivery, ideas, spaces, sideChats, layout, browser } = options;
+  const { notificationAddress, notifications } = options;
   /** A space as the page shows it: its pinned pages that still exist, and the opening they make. */
   const spaceView = async (space: ISpace) => {
     const pinned = (await Promise.all(space.pages.map((pageId) => wiki.read(pageId))))
@@ -356,6 +363,22 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
         await delivery.updateSettings(request.body);
         return ok(await delivery.status());
       }
+    }
+    // The notification address may carry a token: every answer here is its host and format, never itself.
+    if (area === 'delivery' && collection === 'webhook' && id === undefined) {
+      if (method === 'GET') return ok(await notificationAddress.view());
+      if (method === 'PUT') return ok(await notificationAddress.set(request.body));
+      if (method === 'DELETE') return ok(await notificationAddress.clear());
+    }
+    if (area === 'delivery' && collection === 'webhook' && id === 'test' && method === 'POST') {
+      await notificationAddress.test();
+      return ok({ ok: true });
+    }
+    if (area === 'notifications' && collection === undefined && method === 'GET') {
+      const after = request.query.get('after');
+      if (after !== null && !/^\d{1,15}$/u.test(after))
+        throw new BadRequest('after must be a whole number');
+      return ok(notifications.poll(after === null ? undefined : Number(after)));
     }
 
     if (area === 'browser') {

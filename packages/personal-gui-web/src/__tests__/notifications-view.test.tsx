@@ -22,7 +22,11 @@ const STORED: IDeliveryStatusView = {
 };
 
 function fakeApi(extra: Partial<IPersonalApi> = {}): IPersonalApi {
-  return { delivery: async () => STORED, ...extra } as unknown as IPersonalApi;
+  return {
+    delivery: async () => STORED,
+    webhook: async () => ({ configured: false, format: 'plain' }),
+    ...extra,
+  } as unknown as IPersonalApi;
 }
 
 const field = async (label: string): Promise<HTMLInputElement> =>

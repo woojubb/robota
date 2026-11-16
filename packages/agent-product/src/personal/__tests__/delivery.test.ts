@@ -523,6 +523,7 @@ describe('quiet hours', () => {
     expect(only.received).toHaveLength(1);
     expect(only.received[0]).toEqual({
       kind: 'digest',
+      title: '1 question waiting for you',
       text: '1 question is waiting for you:\n- Sign-in from Lagos\nOpen your Feed to answer.',
     });
   });
@@ -549,6 +550,7 @@ describe('the digest', () => {
     expect(only.received).toEqual([
       {
         kind: 'digest',
+        title: '3 questions waiting for you',
         text: '3 questions are waiting for you:\n- Alpha\n- Bravo\n- Charlie\nOpen your Feed to answer.',
       },
     ]);
@@ -587,6 +589,7 @@ describe('the digest', () => {
     expect(only.received).toEqual([
       {
         kind: 'digest',
+        title: '1 question waiting for you',
         text: '1 question is waiting for you:\n- Charlie\nOpen your Feed to answer.',
       },
     ]);
