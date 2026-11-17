@@ -626,7 +626,9 @@ run reads what is new through the reading tool and files durable facts through o
 records the connector as their origin, by kind, and names it in their reference, so what a sync kept is
 told from what the person said and can be counted and forgotten together with the connection. A
 filed fact is only ever added: content read from a service never rewrites or retires what the person
-said. What deserves a question is the person's own to say: each connector carries attention words in plain
+said. Connector-sourced facts are checked for secret values rather than refused for security vocabulary,
+so a password-reset event can be retained; other wiki writes keep the shared sensitive-content check.
+What deserves a question is the person's own to say: each connector carries attention words in plain
 text, a sensible default for its kind until the person writes their own, and the run reads them before it
 looks at the service and keeps a case, with one question, on what fits them. They decide only what is asked
 about, so they add no tool and no permission, and nothing the run reads can change them: only the person does,

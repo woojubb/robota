@@ -84,6 +84,31 @@ describe('what a connector’s content becomes in the library', () => {
     expect(claim.source.reference).toBe(`connector:${mail.id} Subject: Plans`);
   });
 
+  it('keeps service facts about password events without keeping a credential value', async () => {
+    const { book, wiki, mail } = await setup();
+    const tool = createConnectorKeepTool({ book, wiki });
+    const kept = await keep(tool, {
+      connector: mail.id,
+      page: 'Password reset',
+      claim: 'A password reset was requested',
+      reference: 'Password reset notice',
+    });
+    expect(kept['kept']).toBe(true);
+    expect((await wiki.read('password-reset'))?.claims[0]).toMatchObject({
+      text: 'A password reset was requested',
+      source: { origin: 'mail', reference: `connector:${mail.id} Password reset notice` },
+    });
+
+    const refused = await keep(tool, {
+      connector: mail.id,
+      page: 'Secrets',
+      claim: 'Password: hunter2',
+      reference: 'Password reset notice',
+    });
+    expect(refused['kept']).toBe(false);
+    expect(await wiki.read('secrets')).toBeUndefined();
+  });
+
   it('keeps a fact once, and never rewrites what the person said', async () => {
     const { book, wiki, mail } = await setup();
     await wiki.remember({

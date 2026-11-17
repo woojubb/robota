@@ -117,7 +117,7 @@ export function createConnectorKeepTool(options: {
         return { kept: false, reason: 'Already kept' };
       }
       try {
-        const result = await options.wiki.remember({
+        const result = await options.wiki.rememberConnectorFact({
           pageTitle: page,
           ...(kind !== undefined && { kind }),
           claim,
