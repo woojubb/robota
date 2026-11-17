@@ -12,6 +12,7 @@
  */
 import { containsSensitiveMemoryContent } from '@robota-sdk/agent-framework';
 
+import { carriesSecretValue } from '../secret-values.js';
 import { oneLine, renderPageForModel } from './render.js';
 
 import type {
@@ -20,6 +21,7 @@ import type {
   IKnowledgeStore,
   IWikiLogEntry,
   IWikiPage,
+  TClaimOrigin,
   TPageKind,
 } from './types.js';
 
@@ -71,6 +73,7 @@ export interface IKnowledgeWikiOptions {
 }
 
 const TIME_SENSITIVE: ReadonlySet<TPageKind> = new Set(['matter', 'preference', 'place']);
+const CONNECTOR_ORIGINS: ReadonlySet<TClaimOrigin> = new Set(['mail', 'peer', 'tool']);
 const DEFAULT_STALE_MS = 180 * 24 * 60 * 60 * 1000;
 
 export function pageIdFor(title: string): string {
@@ -114,6 +117,31 @@ export class KnowledgeWiki {
   }
 
   async remember(raw: IRememberInput): Promise<IRememberResult> {
+    return this.rememberWithCheck(raw, containsSensitiveMemoryContent);
+  }
+
+  /**
+   * File a fact through the validated connector adapter. This path only accepts connector provenance
+   * and checks for secret values, so security vocabulary in an external fact is not refused. It is
+   * deliberately not exposed through the model-facing wiki tool; that path remains strict.
+   */
+  async rememberConnectorFact(raw: IRememberInput): Promise<IRememberResult> {
+    const reference = raw.source.reference?.trim();
+    if (
+      !CONNECTOR_ORIGINS.has(raw.source.origin) ||
+      reference === undefined ||
+      !reference.startsWith('connector:') ||
+      reference.length <= 'connector:'.length
+    ) {
+      throw new Error('A connector fact needs a connector origin and reference');
+    }
+    return this.rememberWithCheck(raw, carriesSecretValue);
+  }
+
+  private async rememberWithCheck(
+    raw: IRememberInput,
+    isSensitive: (text: string) => boolean,
+  ): Promise<IRememberResult> {
     // Stored text is single-line, so no claim can lay out a line that reads as another claim.
     const input: IRememberInput = {
       ...raw,
@@ -131,9 +159,7 @@ export class KnowledgeWiki {
       input.source.reference ?? '',
       ...(input.linkTo ?? []),
     ];
-    if (written.some((text) => containsSensitiveMemoryContent(text))) {
-      throw new SensitiveContentRefusedError();
-    }
+    if (written.some(isSensitive)) throw new SensitiveContentRefusedError();
     const at = this.now().toISOString();
     const pageId = pageIdFor(input.pageTitle);
     const existing = await this.store.getPage(pageId);

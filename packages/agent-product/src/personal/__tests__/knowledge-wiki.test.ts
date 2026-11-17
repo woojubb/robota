@@ -80,6 +80,13 @@ describe.each([
         source: { origin: 'owner' },
       }),
     ).rejects.toBeInstanceOf(SensitiveContentRefusedError);
+    await expect(
+      wiki.rememberConnectorFact({
+        pageTitle: 'Password reset',
+        claim: 'A password reset was requested',
+        source: { origin: 'owner', reference: 'connector:mail-1' },
+      }),
+    ).rejects.toThrow('A connector fact needs a connector origin and reference');
     expect(await store.listPages()).toHaveLength(0);
   });
 
@@ -290,6 +297,17 @@ describe('wiki tools', () => {
       { toolName: 'WikiRemember', parameters: {} },
     );
     expect(dataOf(refused)).toContain('"saved":false');
+    const serviceWords = await tools['WikiRemember']!.execute(
+      {
+        page: 'Login',
+        claim: 'A password reset was requested',
+        origin: 'mail',
+        reference: 'Password reset email',
+      },
+      { toolName: 'WikiRemember', parameters: {} },
+    );
+    expect(dataOf(serviceWords)).toContain('"saved":false');
+    expect(await wiki.read('login')).toBeUndefined();
     await tools['WikiForget']!.execute(
       { text: 'green tea' },
       { toolName: 'WikiForget', parameters: {} },
