@@ -78,12 +78,7 @@ import { createPersonalApi } from './personal-api.js';
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { TEgressLookup } from '@robota-sdk/agent-core/node';
-import type {
-  IBrowserPort,
-  ICase,
-  IChannelHub,
-  IDeliverySink,
-} from '@robota-sdk/agent-product/personal';
+import type { IBrowserPort, IChannelHub, IDeliverySink } from '@robota-sdk/agent-product/personal';
 import type { ILoopbackGuiServerOptions } from '@robota-sdk/agent-local-host';
 import type { IChannelTurns } from './channel-turns.js';
 import type { IPersonalAgent } from './agent.js';
@@ -363,18 +358,16 @@ export function createPersonalCapabilities(
   // Case writes must not resurrect a closed case even when connector settings are unavailable.
   const caseWrites = createCaseActionScope(join(options.stateDir, 'cases'));
   let caseTurns: ICaseTurns;
-  answerOutbox = supportsDurableApprovals
-    ? createCaseAnswerOutbox({
-        stateDir: options.stateDir,
-        cases: caseStore,
-        goals,
-        ownerId: presence.id,
-        withCaseLock: (work) => caseWrites.exclusive(work),
-        deliver: async (answered, ownerId) => {
-          await caseTurns.onAnswered(answered, ownerId);
-        },
-      })
-    : undefined;
+  answerOutbox = createCaseAnswerOutbox({
+    stateDir: options.stateDir,
+    cases: caseStore,
+    goals,
+    ownerId: presence.id,
+    withCaseLock: (work) => caseWrites.exclusive(work),
+    deliver: async (answered, ownerId) => {
+      await caseTurns.onAnswered(answered, ownerId);
+    },
+  });
   const cases = new CaseBook({
     withWriteLock: (work) => caseWrites.exclusive(work),
     store: {
@@ -504,17 +497,6 @@ export function createPersonalCapabilities(
   let shuttingDown = false;
   let attached = false;
   const pendingWork = new Set<Promise<unknown>>();
-  const unqueuedAnswers = new Map<string, ICase>();
-  const retryUnqueuedAnswers = async (): Promise<void> => {
-    for (const [id, answered] of unqueuedAnswers) {
-      try {
-        await caseTurns.onAnswered(answered);
-        if (unqueuedAnswers.get(id) === answered) unqueuedAnswers.delete(id);
-      } catch {
-        // Retain this answer for a later attempt while the agent remains running.
-      }
-    }
-  };
   const track = <T>(task: Promise<T>): Promise<T> => {
     pendingWork.add(task);
     void task.then(
@@ -622,20 +604,8 @@ export function createPersonalCapabilities(
             return recovered[0];
           },
         }),
-        onCaseAnswered: (answered, snapshot) => {
-          if (answerOutbox !== undefined) {
-            void runner?.runDue().catch(() => undefined);
-            return;
-          }
-          caseTurns.remember(answered, snapshot);
-          if (answered.lastAnsweredFeedItemId !== undefined)
-            unqueuedAnswers.set(answered.lastAnsweredFeedItemId, answered);
-          void track(
-            retryUnqueuedAnswers()
-              .then(() => retryUnqueuedAnswers())
-              .then(() => runner?.runDue())
-              .catch(() => undefined),
-          );
+        onCaseAnswered: () => {
+          void runner?.runDue().catch(() => undefined);
         },
         ideas,
         spaces,
@@ -687,6 +657,7 @@ export function createPersonalCapabilities(
         approvals,
         ownerId: presence.id,
         mayStart: (goal) => {
+          if (goal.activeCaseRun !== undefined) return false;
           const answerId = goal.pendingCaseAnswer?.feedItemId ?? goal.lastCaseAnswerId;
           if (goal.caseId === undefined || answerId === undefined || answerOutbox === undefined)
             return true;
@@ -719,12 +690,16 @@ export function createPersonalCapabilities(
         openSession: (extra) => agent.openSession(extra),
         tickMs: options.goalTickMs ?? DEFAULT_GOAL_TICK_MS,
         beforeRunDue: async (isRunning, recover) => {
-          if (answerOutbox === undefined) await retryUnqueuedAnswers();
           await answerOutbox?.recover();
           for (const goal of await goals.list()) {
             const runOwner = goal.activeCaseRun?.ownerId;
-            if (runOwner !== undefined && presence.ownerExited(runOwner))
-              await goals.recoverCaseOwner(goal.id, runOwner, presence.id);
+            if (runOwner !== undefined && presence.ownerExited(runOwner)) {
+              try {
+                await goals.recoverCaseOwner(goal.id, runOwner, presence.id);
+              } catch {
+                // Keep this run closed while other goals continue.
+              }
+            }
             const owner = goal.pendingCaseAnswer?.ownerId;
             if (owner !== undefined && presence.ownerExited(owner))
               await goals.adoptCaseAnswer(goal.id, owner, presence.id);
@@ -732,10 +707,21 @@ export function createPersonalCapabilities(
           await presence.whenAlone(async () => {
             await approvals.restore();
             for (const goal of await goals.list()) {
-              if (!isRunning(goal.id))
+              if (!isRunning(goal.id)) {
+                if (goal.activeCaseRun !== undefined) {
+                  try {
+                    await recover(goal.id, () =>
+                      goals.recoverCaseOwner(goal.id, goal.activeCaseRun!.ownerId, presence.id),
+                    );
+                  } catch {
+                    // An unreadable run stays closed while other goals continue.
+                  }
+                  continue;
+                }
                 await recover(goal.id, () =>
                   goals.recoverGoal(goal.id, { adoptOwner: presence.id }),
                 );
+              }
             }
           });
           await cleanStoppedOwners().catch(() => undefined);

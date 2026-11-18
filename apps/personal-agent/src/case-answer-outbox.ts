@@ -27,8 +27,9 @@ const CASE_ID = /^case-[a-z0-9]{1,40}$/u;
 const OWNER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.live$/u;
 type TStoredAnswer = ICaseAnswerEvent & { readonly ownerId: string };
 
-function sync(path: string): void {
-  const fd = openSync(path, 'r');
+function sync(path: string, directory = false): void {
+  if (directory && process.platform === 'win32') return;
+  const fd = openSync(path, process.platform === 'win32' ? 'r+' : 'r');
   try {
     fsyncSync(fd);
   } finally {
@@ -130,10 +131,10 @@ export function createCaseAnswerOutbox(options: {
     if (!has(id, caseId)) return;
     rmSync(path);
     const folder = caseDirectory(caseId);
-    sync(folder);
+    sync(folder, true);
     try {
       rmdirSync(folder);
-      sync(directory);
+      sync(directory, true);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== 'ENOENT' && code !== 'ENOTEMPTY' && code !== 'EEXIST') throw error;
@@ -142,7 +143,7 @@ export function createCaseAnswerOutbox(options: {
   const persistCase = async (): Promise<void> => {
     const path = join(options.stateDir, 'cases', 'cases.json');
     sync(path);
-    sync(dirname(path));
+    sync(dirname(path), true);
   };
   const complete = (caseId: string, id: string): void => {
     if (!has(id, caseId)) return;
@@ -152,16 +153,16 @@ export function createCaseAnswerOutbox(options: {
       join(options.stateDir, 'goals', 'goals.json'),
     ]) {
       sync(path);
-      sync(dirname(path));
+      sync(dirname(path), true);
     }
     forget(caseId, id);
   };
   const prepare = async (event: ICaseAnswerEvent): Promise<void> => {
     mkdirSync(directory, { recursive: true, mode: 0o700 });
-    sync(dirname(directory));
+    sync(dirname(directory), true);
     const folder = caseDirectory(event.before.id);
     mkdirSync(folder, { recursive: true, mode: 0o700 });
-    sync(directory);
+    sync(directory, true);
     const path = pathOf(event.before.id, event.item.id);
     if (has(event.item.id)) throw new Error('The case answer needs recovery');
     const temporary = join(folder, `${randomUUID()}.tmp`);
@@ -176,7 +177,7 @@ export function createCaseAnswerOutbox(options: {
         closeSync(fd);
       }
       renameSync(temporary, path);
-      sync(folder);
+      sync(folder, true);
     } finally {
       if (created) rmSync(temporary, { force: true });
     }

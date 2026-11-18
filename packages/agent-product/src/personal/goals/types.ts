@@ -55,7 +55,9 @@ export interface IGoalRun {
   readonly id: string;
   readonly goalId: string;
   readonly caseAnswerId?: string;
+  readonly caseOwnerId?: string;
   readonly resumeAfterShutdown?: true;
+  readonly caseReport?: 'pending' | 'recorded' | 'quiet';
   readonly startedAt: string;
   readonly endedAt?: string;
   readonly outcome?: TGoalRunOutcome;

@@ -167,6 +167,8 @@ What the agent may do is shown per tool, in three groups: **Reads** it may use o
 what the service says about each tool, and a tool that says nothing counts as a write. A select next to
 each tool records your own decision over that; **Blocked** holds the tools you set to *Never allow*.
 Case requests remain read-only on Windows while the required approval storage guarantees are unavailable.
+Windows syncs answer recovery files but does not sync their parent directories, so recovery after an
+abrupt power loss has weaker guarantees than recovery after an ordinary process restart.
 
 Turn on **sync** on a connected card to have the agent check it every 15 minutes, hour, 6 hours or day
 (or press **Check now**). Each check is a goal of its own: it reads what is new and files the durable

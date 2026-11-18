@@ -191,6 +191,14 @@ export class GoalBook {
       const goal = await this.store.getGoal(id);
       if (goal?.pendingCaseAnswer?.ownerId !== previousOwner || previousOwner === ownerId)
         return false;
+      for (const run of await this.store.listRuns(id, Number.POSITIVE_INFINITY)) {
+        if (
+          run.endedAt === undefined &&
+          run.caseOwnerId === previousOwner &&
+          run.caseAnswerId === goal.pendingCaseAnswer.feedItemId
+        )
+          await this.store.putRun({ ...run, endedAt: this.stamp(), outcome: 'interrupted' });
+      }
       await this.save(goal, {
         pendingCaseAnswer: { ...goal.pendingCaseAnswer, ownerId },
       });
@@ -204,11 +212,16 @@ export class GoalBook {
       const goal = await this.store.getGoal(id);
       const active = goal?.activeCaseRun;
       if (goal === undefined || active?.ownerId !== previousOwner) return false;
-      const run = (await this.store.listRuns(id, Number.POSITIVE_INFINITY)).find(
+      let run = (await this.store.listRuns(id, Number.POSITIVE_INFINITY)).find(
         (entry) => entry.id === active.runId,
       );
-      if (run === undefined || run.caseAnswerId !== active.answerId)
+      if (
+        run === undefined ||
+        run.caseAnswerId !== active.answerId ||
+        run.caseOwnerId !== active.ownerId
+      )
         throw new GoalRefusedError('The interrupted case run needs manual recovery');
+      if (run.caseReport === 'pending') run = await this.recordCaseReport(goal, run);
       for (const item of await this.store.listFeed(Number.POSITIVE_INFINITY)) {
         if (item.goalId === id && item.runId === run.id && item.approval?.state === 'pending')
           await this.setApproval(item.id, 'expired');
@@ -238,6 +251,42 @@ export class GoalBook {
         ]);
       return true;
     });
+  }
+
+  private async recordCaseReport(goal: IGoal, run: IGoalRun): Promise<IGoalRun> {
+    if (
+      run.caseReport !== 'pending' ||
+      run.endedAt === undefined ||
+      run.outcome === undefined ||
+      run.report === undefined
+    )
+      throw new GoalRefusedError('The case run report needs manual recovery');
+    const id = `feed-${run.id.slice('run-'.length)}`;
+    const title = run.outcome === 'done' ? goal.title : `${goal.title} (${run.outcome})`;
+    const existing = await this.store.getFeedItem(id);
+    if (existing === undefined) {
+      await this.store.putFeedItem({
+        id,
+        at: run.endedAt,
+        kind: 'report',
+        title,
+        body: run.report,
+        goalId: goal.id,
+        runId: run.id,
+        dismissed: false,
+      });
+    } else if (
+      existing.runId !== run.id ||
+      existing.goalId !== goal.id ||
+      existing.kind !== 'report' ||
+      existing.title !== title ||
+      existing.body !== run.report
+    ) {
+      throw new GoalRefusedError('The case run report conflicts with an existing feed item');
+    }
+    const recorded: IGoalRun = { ...run, caseReport: 'recorded' };
+    await this.store.putRun(recorded);
+    return recorded;
   }
 
   async list(): Promise<readonly IGoal[]> {
@@ -375,7 +424,10 @@ export class GoalBook {
       goalId,
       startedAt: at,
       actions: [],
-      ...(answerId !== undefined && { caseAnswerId: answerId }),
+      ...(answerId !== undefined && {
+        caseAnswerId: answerId,
+        caseOwnerId: options.ownerId ?? 'local',
+      }),
     };
     await this.store.putRun(run);
     await this.save(
@@ -439,15 +491,20 @@ export class GoalBook {
   ): Promise<IGoalRun> {
     const goal = await this.require(run.goalId);
     const at = this.stamp();
-    const finished: IGoalRun = {
+    let finished: IGoalRun = {
       ...run,
       endedAt: at,
       outcome,
       report,
       ...(outcome === 'interrupted' &&
         options.resumeCaseOwner !== undefined && { resumeAfterShutdown: true as const }),
+      ...(goal.caseId !== undefined && {
+        caseReport:
+          options.quiet === true && outcome === 'done' ? ('quiet' as const) : ('pending' as const),
+      }),
     };
     await this.store.putRun(finished);
+    if (finished.caseReport === 'pending') finished = await this.recordCaseReport(goal, finished);
     if (goal.pendingCaseAnswer !== undefined) {
       await this.save(goal, { status: 'active', nextRunAt: at }, ['activeCaseRun']);
     } else if (
@@ -474,7 +531,8 @@ export class GoalBook {
         'activeCaseRun',
       ]);
     }
-    if (options.quiet === true && outcome === 'done') return finished;
+    if (goal.caseId !== undefined || (options.quiet === true && outcome === 'done'))
+      return finished;
     await this.post({
       kind: 'report',
       title: outcome === 'done' ? goal.title : `${goal.title} (${outcome})`,
@@ -496,23 +554,28 @@ export class GoalBook {
   private async recoverUnlocked(): Promise<number> {
     let recovered = 0;
     for (const goal of await this.store.listGoals()) {
-      let changed = false;
-      for (const run of await this.store.listRuns(goal.id, Number.POSITIVE_INFINITY)) {
-        if (run.endedAt === undefined) {
-          await this.store.putRun({
-            ...run,
-            endedAt: this.stamp(),
-            outcome: 'interrupted',
-            ...(goal.activeCaseRun?.runId === run.id && { resumeAfterShutdown: true as const }),
-          });
+      try {
+        let changed = false;
+        for (const run of await this.store.listRuns(goal.id, Number.POSITIVE_INFINITY)) {
+          if (run.endedAt === undefined) {
+            await this.store.putRun({
+              ...run,
+              endedAt: this.stamp(),
+              outcome: 'interrupted',
+              ...(goal.activeCaseRun?.runId === run.id && { resumeAfterShutdown: true as const }),
+            });
+            changed = true;
+          }
+        }
+        if (goal.status === 'running' || goal.status === 'waiting') {
+          await this.save(goal, { status: 'active', nextRunAt: this.stamp() });
           changed = true;
         }
+        if (changed) recovered += 1;
+      } catch (error) {
+        if (goal.activeCaseRun === undefined) throw error;
+        // Preserve an unreadable case run while other goals recover.
       }
-      if (goal.status === 'running' || goal.status === 'waiting') {
-        await this.save(goal, { status: 'active', nextRunAt: this.stamp() });
-        changed = true;
-      }
-      if (changed) recovered += 1;
     }
     for (const item of await this.store.listFeed(Number.POSITIVE_INFINITY)) {
       if (item.approval?.state === 'pending') await this.setApproval(item.id, 'expired');
