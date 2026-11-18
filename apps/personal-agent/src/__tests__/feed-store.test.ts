@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -36,6 +36,8 @@ describe('the shared feed', () => {
     ['question', 'sync-failure'],
     ['approval', 'read-only'],
     ['question', 'read-only'],
+    ['approval', 'commit-read-only'],
+    ['question', 'commit-read-only'],
   ] as const)(
     'recovers a failed %s post after %s',
     async (kind, failure) => {
@@ -46,17 +48,18 @@ describe('the shared feed', () => {
         import fs from 'node:fs';
         import path from 'node:path';
         import { syncBuiltinESMExports } from 'node:module';
-        let armed = false, renamed = false;
+        let armed = false, renamed = false, committing = false;
         const rename = fs.renameSync, sync = fs.fsyncSync;
         fs.renameSync = (source, target) => {
           const result = rename(source, target);
           if (armed && String(target).endsWith('/goals/feed.json')) renamed = true;
+          if (armed && String(target).endsWith('/goals/feed-commit-uncertain.json')) committing = true;
           return result;
         };
         fs.fsyncSync = fd => {
-          if (armed && renamed && fs.fstatSync(fd).isDirectory()) {
+          if (armed && (${JSON.stringify(failure)} === 'commit-read-only' ? committing : renamed) && fs.fstatSync(fd).isDirectory()) {
             armed = false;
-            if (${JSON.stringify(failure)} === 'read-only') fs.chmodSync(path.join(${JSON.stringify(root)}, 'goals'), 0o500);
+            if (${JSON.stringify(failure)} !== 'sync-failure') fs.chmodSync(path.join(${JSON.stringify(root)}, 'goals'), 0o500);
             throw Object.assign(new Error('directory sync failed'), { code: 'EIO' });
           }
           return sync(fd);
@@ -74,7 +77,7 @@ describe('the shared feed', () => {
           else await book.post({ kind: 'approval', title: 'Action', body: '',
             approval: { tool: 'ConnectorAct', detail: 'Send', state: 'pending' } });
         } catch { failed = true; }
-        if (${JSON.stringify(failure)} === 'read-only') fs.chmodSync(path.join(${JSON.stringify(root)}, 'goals'), 0o700);
+        if (${JSON.stringify(failure)} !== 'sync-failure') fs.chmodSync(path.join(${JSON.stringify(root)}, 'goals'), 0o700);
         fs.writeSync(1, JSON.stringify({ failed, feed: await book.feed(), question: (await cases.get(opened.case.id)).question ?? null }));
       `;
       const child = spawn(
@@ -101,6 +104,17 @@ describe('the shared feed', () => {
     },
     15_000,
   );
+
+  it('keeps an uncertain commit closed after a restart', async () => {
+    const root = directory();
+    const store = createSharedFeedStore(root);
+    writeFileSync(join(root, 'goals', 'feed.json'), JSON.stringify({ [approval.id]: approval }));
+    writeFileSync(
+      join(root, 'goals', 'feed-commit-uncertain.json'),
+      JSON.stringify({ previous: {} }),
+    );
+    await expect(store.listFeed(10)).rejects.toThrow(/commit outcome is uncertain/u);
+  });
 
   it('does not let a stale item change an approved call or restore pending', async () => {
     const store = createSharedFeedStore(directory());

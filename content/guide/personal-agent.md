@@ -203,6 +203,10 @@ If an interrupted connection change keeps the settings closed, choose **Finish d
 machine restart or a failure on another machine, the agent may be unable to prove that the old lock is
 unused. In that case the settings stay closed and may need offline recovery:
 
+If the feed reports an uncertain commit, stop all agents and preserve `goals/feed.json`,
+`goals/feed-commit-uncertain.json`, and the case records. Compare the current and previous feed with the
+cases before choosing which version to restore; do not delete the recovery record until they agree.
+
 1. Stop every agent and container that can access the state folder. Close any unfinished sign-in pages.
    Do not restart an agent until the recovery command completes. If you cannot ensure that all agents
    have stopped and cannot resume, leave the settings closed. If sync must not run after restart, turn

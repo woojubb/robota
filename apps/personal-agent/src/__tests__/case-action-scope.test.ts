@@ -102,6 +102,54 @@ describe('the owner’s case action scope', () => {
     }
   });
 
+  it('cleans a partially created primary marker before using the fallback', async () => {
+    if (process.platform === 'win32') return;
+    const root = directory();
+    const moduleUrl = new URL('../connectors/case-action-scope.ts', import.meta.url).href;
+    const program = `
+      import fs from 'node:fs';
+      import { syncBuiltinESMExports } from 'node:module';
+      const sync = fs.fsyncSync;
+      let fail = false;
+      fs.fsyncSync = fd => {
+        if (fail) { fail = false; throw Object.assign(new Error('sync failed'), { code: 'EIO' }); }
+        return sync(fd);
+      };
+      syncBuiltinESMExports();
+      const { createCaseActionScope } = await import(${JSON.stringify(moduleUrl)});
+      const scope = createCaseActionScope(${JSON.stringify(root)});
+      await scope.exclusive(() => scope.initialize('connector-mail'));
+      await scope.exclusive(() => scope.set('connector-mail', 'send', true));
+      fail = true;
+      const transition = scope.beginDisconnect('connector-mail');
+      transition.complete();
+      transition.release();
+      await scope.exclusive(() => scope.settleDisconnects('connector-mail', true));
+      fs.writeSync(1, JSON.stringify(scope.snapshot('connector-mail').tools));
+    `;
+    const child = spawn(
+      process.execPath,
+      ['--import', 'tsx', '--input-type=module', '-e', program],
+      {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
+    let output = '';
+    let errors = '';
+    child.stdout!.on('data', (chunk: Buffer) => {
+      output += chunk.toString();
+    });
+    child.stderr!.on('data', (chunk: Buffer) => {
+      errors += chunk.toString();
+    });
+    const code = await new Promise<number | null>((resolve, reject) => {
+      child.once('exit', resolve);
+      child.once('error', reject);
+    });
+    expect(code, errors).toBe(0);
+    expect(JSON.parse(output)).toEqual([]);
+  }, 15_000);
+
   it('keeps authority stable when an unchanged scope is fenced', async () => {
     const root = directory();
     const scope = createCaseActionScope(root);

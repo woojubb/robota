@@ -100,6 +100,7 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
   const recoveryDirectory = join(dirname(canonical), `.${basename(canonical)}-recovery`);
   const transitionDirectory = join(dirname(canonical), `.${basename(canonical)}-transitions`);
   const fallbackTransitions = join(canonical, '.connection-transitions');
+  const abandonedMarkers = new Set<string>();
   const syncDirectory = (path: string): void => {
     if (process.platform === 'win32') return;
     const fd = openSync(path, 'r');
@@ -481,11 +482,21 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
       };
       const createMarker = (folder: string, path: string): void => {
         mkdirSync(folder, { recursive: true, mode: 0o700 });
-        if (tryDirectoryLock(path) === undefined) throw new Error('marker already exists');
-        sync(join(path, 'owner.json'));
-        sync(path);
-        sync(folder);
-        sync(dirname(folder));
+        const guard = tryDirectoryLock(path);
+        if (guard === undefined) throw new Error('marker already exists');
+        try {
+          sync(join(path, 'owner.json'));
+          sync(path);
+          sync(folder);
+          sync(dirname(folder));
+        } catch (error) {
+          try {
+            guard.release();
+          } catch {
+            abandonedMarkers.add(path);
+          }
+          throw error;
+        }
       };
       let prefix = join(transitionDirectory, `${connectorId}.${token}`);
       let marker = `${prefix}.active`;
@@ -519,7 +530,13 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
     try {
       for (const marker of markers) {
         if (marker.endsWith('.done')) continue;
-        if (disconnected && (marker.endsWith('.interrupted') || ownerHasExited(marker))) continue;
+        if (
+          disconnected &&
+          (marker.endsWith('.interrupted') ||
+            abandonedMarkers.has(marker) ||
+            ownerHasExited(marker))
+        )
+          continue;
         throw new ConnectorRefusedError(
           'The connector change is still in progress or was interrupted',
         );
@@ -532,7 +549,10 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
           generation: randomUUID(),
           ...(disconnected && { tools: [] }),
         });
-      for (const marker of markers) removeDirectoryGuard(marker);
+      for (const marker of markers) {
+        removeDirectoryGuard(marker);
+        abandonedMarkers.delete(marker);
+      }
     } catch (error) {
       if (error instanceof ConnectorRefusedError) throw error;
       throw new ConnectorRefusedError('The connector transition could not be settled');

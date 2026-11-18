@@ -2,6 +2,7 @@
  * A goal store in an owner-only directory: `goals.json` and `feed.json`, each rewritten atomically,
  * and one `runs/<goal>.json` per goal holding its recent runs. The feed and each goal's run history
  * keep a bounded number of entries, so an agent that runs for years does not grow without limit.
+ * A host must serialize reads and writes when multiple processes share this directory.
  */
 import {
   closeSync,
@@ -84,22 +85,40 @@ export function createFileGoalStore(directory: string): IGoalStore {
   const goalsPath = join(directory, 'goals.json');
   const feedPath = join(directory, 'feed.json');
   const feedRecoveryPath = join(directory, 'feed-recovery.json');
+  const feedCommitPath = join(directory, 'feed-commit-uncertain.json');
+  let failedCommit = false;
+  let knownCommit = false;
   const runsPath = (goalId: string): string => {
     if (!GOAL_ID.test(goalId)) throw new Error(`Invalid goal id: ${goalId}`);
     return join(directory, 'runs', `${goalId}.json`);
   };
   const goals = (): Record<string, IGoal> => readJson(goalsPath, {});
-  const recoverFeed = (): void => {
-    if (!existsSync(feedRecoveryPath)) return;
-    const recovery = readJson<unknown>(feedRecoveryPath, undefined);
+  const restoreFeed = (path: string): void => {
+    const recovery = readJson<unknown>(path, undefined);
     if (typeof recovery !== 'object' || recovery === null || Array.isArray(recovery))
       throw new Error('The feed recovery record is invalid');
     const previous = (recovery as { previous?: unknown }).previous;
     if (typeof previous !== 'object' || previous === null || Array.isArray(previous))
       throw new Error('The feed recovery record is invalid');
     writeAtomic(feedPath, previous, true);
-    rmSync(feedRecoveryPath);
+    rmSync(path);
     syncDirectory(directory);
+  };
+  const recoverFeed = (): void => {
+    if (existsSync(feedCommitPath)) {
+      if (failedCommit) {
+        restoreFeed(feedCommitPath);
+        failedCommit = false;
+      } else if (knownCommit) {
+        rmSync(feedCommitPath);
+        knownCommit = false;
+      } else {
+        throw new Error(
+          'The feed commit outcome is uncertain; stop all agents and recover the state folder',
+        );
+      }
+    }
+    if (existsSync(feedRecoveryPath)) restoreFeed(feedRecoveryPath);
   };
   const feed = (): Record<string, IFeedItem> => {
     recoverFeed();
@@ -138,12 +157,22 @@ export function createFileGoalStore(directory: string): IGoalStore {
       try {
         writeAtomic(feedPath, next, true);
         if (waitingPost) {
-          rmSync(feedRecoveryPath);
+          renameSync(feedRecoveryPath, feedCommitPath);
+          failedCommit = true;
           syncDirectory(directory);
+          failedCommit = false;
+          knownCommit = true;
+          try {
+            rmSync(feedCommitPath);
+            knownCommit = false;
+          } catch {
+            // A confirmed commit remains closed to other hosts until cleanup succeeds.
+          }
         }
       } catch (error) {
         try {
-          if (existsSync(feedRecoveryPath)) recoverFeed();
+          if (existsSync(feedRecoveryPath) || (failedCommit && existsSync(feedCommitPath)))
+            recoverFeed();
           else if (JSON.stringify(readJson(feedPath, {})) === JSON.stringify(next))
             writeAtomic(feedPath, previous, true);
         } catch {
