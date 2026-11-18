@@ -66,6 +66,87 @@ function message(child: ChildProcess): Promise<void> {
 }
 
 describe('the owner’s case action scope', () => {
+  it('keeps authority stable when an unchanged scope is fenced', async () => {
+    const root = directory();
+    const scope = createCaseActionScope(root);
+    await scope.exclusive(() => scope.initialize('connector-mail'));
+    await scope.exclusive(() => scope.set('connector-mail', 'send', true));
+    const before = scope.snapshot('connector-mail');
+    await scope.exclusive(() => scope.fence('connector-mail', before.revision));
+    const after = createCaseActionScope(root).snapshot('connector-mail');
+    expect(after.revision).not.toBe(before.revision);
+    expect(after.generation).toBe(before.generation);
+    expect(after.tools).toEqual(['send']);
+  });
+
+  it('does not restore an earlier authority generation after revoke and regrant', async () => {
+    const scope = createCaseActionScope(directory());
+    await scope.exclusive(() => scope.initialize('connector-mail'));
+    await scope.exclusive(() => scope.set('connector-mail', 'send', true));
+    const allowed = scope.snapshot('connector-mail');
+    await scope.exclusive(() => scope.set('connector-mail', 'send', false));
+    const revoked = scope.snapshot('connector-mail');
+    await scope.exclusive(() => scope.set('connector-mail', 'send', true));
+    const reallowed = scope.snapshot('connector-mail');
+    expect(revoked.generation).not.toBe(allowed.generation);
+    expect(reallowed.generation).not.toBe(allowed.generation);
+    expect(reallowed.generation).not.toBe(revoked.generation);
+    expect(reallowed.tools).toEqual(allowed.tools);
+    await scope.exclusive(() => scope.reset('connector-mail'));
+    expect(scope.snapshot('connector-mail').generation).not.toBe(reallowed.generation);
+  });
+
+  it('preserves prior authority when a staged allow is canceled', async () => {
+    const scope = createCaseActionScope(directory());
+    await scope.exclusive(() => scope.initialize('connector-mail'));
+    await scope.exclusive(() => scope.set('connector-mail', 'send', true));
+    const before = scope.snapshot('connector-mail');
+    const staged = await scope.exclusive(async () =>
+      scope.stageAllow('connector-mail', 'delete', before.revision),
+    );
+    await expect(scope.tools('connector-mail')).rejects.toThrow(/recovery/u);
+    await scope.exclusive(() => scope.fence('connector-mail', before.revision));
+    const restored = scope.snapshot('connector-mail');
+    expect(restored.generation).toBe(before.generation);
+    expect(restored.tools).toEqual(before.tools);
+    await expect(
+      scope.exclusive(async () => scope.finishAllow('connector-mail', staged, true)),
+    ).rejects.toThrow();
+  });
+
+  it('invalidates prior authority when a connection change settles', async () => {
+    const scope = createCaseActionScope(directory());
+    await scope.exclusive(() => scope.initialize('connector-mail'));
+    await scope.exclusive(() => scope.set('connector-mail', 'send', true));
+    const before = scope.snapshot('connector-mail');
+    const transition = scope.beginDisconnect('connector-mail');
+    transition.complete();
+    transition.release();
+    await scope.exclusive(() => scope.settleDisconnects('connector-mail'));
+    const after = scope.snapshot('connector-mail');
+    expect(after.generation).not.toBe(before.generation);
+    expect(after.tools).toEqual(before.tools);
+  });
+
+  it('upgrades an older scope without changing its authority on a fence', async () => {
+    const root = directory();
+    const id = 'connector-mail';
+    const revision = randomUUID();
+    mkdirSync(join(root, id));
+    writeFileSync(join(root, id, 'scope.json'), JSON.stringify({ revision, tools: ['send'] }));
+    const scope = createCaseActionScope(root);
+    expect(scope.snapshot(id).generation).toBe(revision);
+    await scope.exclusive(() => scope.fence(id, revision));
+    const reopened = createCaseActionScope(root).snapshot(id);
+    expect(reopened.revision).not.toBe(revision);
+    expect(reopened.generation).toBe(revision);
+    writeFileSync(
+      join(root, id, 'scope.json'),
+      JSON.stringify({ revision, generation: 'invalid', tools: ['send'] }),
+    );
+    await expect(scope.tools(id)).rejects.toThrow(/cannot be read/u);
+  });
+
   it('keeps settings closed until a legacy lock is migrated offline', async () => {
     const root = directory();
     const legacy = join(dirname(root), '.scope-connector-settings.sqlite');
