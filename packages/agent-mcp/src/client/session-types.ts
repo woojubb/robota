@@ -42,6 +42,19 @@ export interface IMCPToolCallOptions {
    * put to a person through it; absent, such a request is declined on the server's behalf.
    */
   readonly ask?: IUserInteraction['ask'];
+  /** Admit the single wire request immediately before it starts; its response settles afterward. */
+  readonly admitDispatch?: TMCPDispatchAdmission;
+}
+
+export type TMCPDispatchAdmission = (
+  dispatch: () => Promise<unknown>,
+  request: IMCPDispatchRequest,
+) => Promise<{ readonly response: Promise<unknown> }>;
+
+/** The effective tool input extracted from the exact request body, as immutable text. */
+export interface IMCPDispatchRequest {
+  readonly tool: string;
+  readonly argumentsJson: string;
 }
 
 export interface IMCPToolCallResult {
@@ -64,6 +77,8 @@ export interface IMCPReadResourceResult {
 export type TMCPListChangedListener = (domain: TMCPCapabilityDomain) => void;
 
 export interface IMCPSession {
+  /** A guarded tool call is refused unless the transport admits its final handoff. */
+  readonly supportsDispatchAdmission?: true;
   readonly skills?: IMCPSkillsSession;
   /**
    * True only when MCP Apps was negotiated: the host opted in, the server declared the UI extension

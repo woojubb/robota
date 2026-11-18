@@ -36,6 +36,7 @@ import type {
   IMCPReadResourceResult,
   IMCPSession,
   IMCPToolCallResult,
+  TMCPDispatchAdmission,
 } from '../client/session.js';
 import type {
   IOutboundTraceContext,
@@ -350,6 +351,9 @@ type TMCPAttemptOutcome =
   | { readonly ok: false; readonly error: MCPSupervisorError };
 
 export class MCPConnectionSupervisor {
+  /** This supervisor forwards per-call dispatch admission to its session. */
+  readonly forwardsDispatchAdmission = true as const;
+
   private state: TMCPConnectionState = { kind: 'idle' };
   private readonly backoff: IMCPBackoffPolicy;
   private readonly clock: IMCPSupervisorClock;
@@ -469,10 +473,13 @@ export class MCPConnectionSupervisor {
       readonly signal?: AbortSignal;
       readonly outboundTraceContext?: IOutboundTraceContext;
       readonly ask?: IUserInteraction['ask'];
+      readonly admitDispatch?: TMCPDispatchAdmission;
     },
   ): Promise<IMCPToolCallResult> {
     return this.withDefaultBudget(options?.signal, async (effectiveSignal) => {
       const session = await this.ensureConnected(effectiveSignal);
+      if (options?.admitDispatch !== undefined && session.supportsDispatchAdmission !== true)
+        throw new Error('This session cannot admit a tool dispatch');
       this.noteActivity();
       try {
         // Retries are for CONNECTIONS only: a transient tool-call failure is classified and thrown,
@@ -484,6 +491,7 @@ export class MCPConnectionSupervisor {
             ? { outboundTraceContext: options.outboundTraceContext }
             : {}),
           ...(options?.ask ? { ask: options.ask } : {}),
+          ...(options?.admitDispatch ? { admitDispatch: options.admitDispatch } : {}),
         });
       } catch (error) {
         this.retireSelfClosedStdioSession(session, error);
