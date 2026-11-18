@@ -241,6 +241,26 @@ describe('one client for both protocol eras', () => {
     expect(wire.filter((item) => item.method === 'tools/call')).toHaveLength(1);
   });
 
+  it('refuses an invalid output schema before an admitted legacy call reaches the service', async () => {
+    const typed = {
+      ...tool,
+      name: 'typed',
+      outputSchema: { type: 'object', properties: { text: { type: 'string', pattern: '[' } } },
+    } as Tool;
+    const client = await open(await startHost([typed]));
+    await client.discover({ maxPages: 2, perRequestTimeoutMs: 3_000 });
+    await expect(
+      client.callTool(
+        'typed',
+        {},
+        {
+          admitDispatch: async (dispatch) => ({ response: dispatch() }),
+        },
+      ),
+    ).rejects.toThrow(/invalid output schema/u);
+    expect(wire.filter((item) => item.method === 'tools/call')).toHaveLength(0);
+  });
+
   it.each([undefined, '2026-07-28'])(
     'does not send an admitted call cancelled while it waits (%s)',
     async (version) => {

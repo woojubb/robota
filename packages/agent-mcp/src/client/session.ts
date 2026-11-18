@@ -353,6 +353,15 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
       const leave = calls.enter({ ask: callOptions?.ask, signal: callOptions?.signal });
       try {
         if (callOptions?.admitDispatch !== undefined) {
+          let outputValidator: ReturnType<typeof fromJsonSchema> | undefined;
+          try {
+            outputValidator =
+              outputSchema === undefined
+                ? undefined
+                : fromJsonSchema(outputSchema as NonNullable<Tool['outputSchema']>);
+          } catch {
+            throw new Error('The tool has an invalid output schema');
+          }
           const raw = await withDispatchAdmission(
             options.transport,
             callOptions.admitDispatch,
@@ -377,14 +386,12 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
           )
             throw new Error('The admitted tool call requires additional input');
           const result = toToolCallResult(raw);
-          if (outputSchema !== undefined && !result.isError) {
+          if (outputValidator !== undefined && !result.isError) {
             if (result.structuredContent === undefined)
               throw new Error(
                 'The tool result has no structured content required by its output schema',
               );
-            const checked = await fromJsonSchema(outputSchema as NonNullable<Tool['outputSchema']>)[
-              '~standard'
-            ].validate(result.structuredContent);
+            const checked = await outputValidator['~standard'].validate(result.structuredContent);
             if (checked.issues !== undefined)
               throw new Error('The tool result does not match its output schema');
           }
