@@ -410,6 +410,52 @@ describe('the agent takes a turn on a case once its question is answered', () =>
     }
   }, 20_000);
 
+  it('retries a completed case report on its live owner while another agent remains active', async () => {
+    if (process.platform === 'win32') return;
+    harness = await startHarness();
+    const other = await startHarness({ stateDir: harness.stateDir });
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    try {
+      const { opened, item } = await asked(harness);
+      const goals = harness.capabilities.goals;
+      harness.model.script(async () => {
+        reached();
+        await gate;
+        return { text: 'Nothing else is needed.' };
+      });
+      expect((await answer(harness, item.id, 'No')).status).toBe(200);
+      await waiting;
+      const store = (
+        goals as unknown as { store: import('@robota-sdk/agent-product/personal').IGoalStore }
+      ).store;
+      const put = store.putFeedItem.bind(store);
+      vi.spyOn(store, 'putFeedItem').mockImplementationOnce(async (value, options) => {
+        if (value.kind === 'report') throw new Error('report unavailable');
+        return put(value, options);
+      });
+      release();
+      await harness.capabilities.runner()!.settled();
+      const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+      expect((await goals.get(goal.id))?.activeCaseRun).toBeDefined();
+      expect(await harness.capabilities.runner()!.runDue()).toBe(0);
+      expect((await goals.get(goal.id))?.status).toBe('done');
+      expect(
+        (await goals.feed()).filter((entry) => entry.goalId === goal.id && entry.kind === 'report'),
+      ).toHaveLength(1);
+      expect(other.model.requests).toHaveLength(0);
+    } finally {
+      release();
+      await other.close();
+    }
+  }, 20_000);
+
   it('isolates a damaged answer record from other goals and a restart', async () => {
     if (process.platform === 'win32') return;
     const root = mkdtempSync(join(tmpdir(), 'personal-answer-damaged-'));

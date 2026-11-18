@@ -198,6 +198,7 @@ export function createPersonalCapabilities(
     goals.supportsCaseAnswerQueue !== true ||
     goals.supportsCaseInterruptionRecovery !== true ||
     goals.supportsCaseRunOwnership !== true ||
+    goals.supportsCaseReportRecovery !== true ||
     goals.supportsCoordinatedRemoval !== true ||
     typeof goals.adoptCaseAnswer !== 'function' ||
     typeof goals.recoverGoal !== 'function' ||
@@ -693,7 +694,10 @@ export function createPersonalCapabilities(
           await answerOutbox?.recover();
           for (const goal of await goals.list()) {
             const runOwner = goal.activeCaseRun?.ownerId;
-            if (runOwner !== undefined && presence.ownerExited(runOwner)) {
+            if (
+              runOwner !== undefined &&
+              ((runOwner === presence.id && !isRunning(goal.id)) || presence.ownerExited(runOwner))
+            ) {
               try {
                 await goals.recoverCaseOwner(goal.id, runOwner, presence.id);
               } catch {

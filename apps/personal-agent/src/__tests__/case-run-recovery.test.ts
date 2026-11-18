@@ -7,7 +7,15 @@ import { expect, it } from 'vitest';
 
 import { startHarness } from './harness.js';
 
-it.each(['claim', 'before-report', 'after-report', 'before-goal', 'quiet', 'damaged'] as const)(
+it.each([
+  'claim',
+  'claim-newer',
+  'before-report',
+  'after-report',
+  'before-goal',
+  'quiet',
+  'damaged',
+] as const)(
   'recovers an interrupted case run at %s',
   async (phase) => {
     if (process.platform === 'win32') return;
@@ -26,7 +34,7 @@ it.each(['claim', 'before-report', 'after-report', 'before-goal', 'quiet', 'dama
       const store = h.capabilities.goals.store;
       const putGoal = store.putGoal.bind(store), putRun = store.putRun.bind(store), putFeed = store.putFeedItem.bind(store);
       store.putGoal = async goal => {
-        if (goal.caseId === opened.id && ((${JSON.stringify(phase)} === 'claim' && goal.status === 'running') ||
+        if (goal.caseId === opened.id && ((['claim', 'claim-newer'].includes(${JSON.stringify(phase)}) && goal.status === 'running') ||
             (['before-goal', 'quiet'].includes(${JSON.stringify(phase)}) && goal.status === 'done'))) checkpoint();
         return putGoal(goal);
       };
@@ -100,6 +108,26 @@ it.each(['claim', 'before-report', 'after-report', 'before-goal', 'quiet', 'dama
       } else if (phase === 'claim') {
         second.model.script({ text: 'The answer was reconsidered.' });
         expect(await second.capabilities.runner()!.runDue()).toBe(1);
+        await second.capabilities.runner()!.settled();
+        expect((await goals.runs(goal.id)).map((run) => run.outcome)).toEqual(
+          expect.arrayContaining(['interrupted', 'done']),
+        );
+      } else if (phase === 'claim-newer') {
+        const later = await second.capabilities.cases.ask(ids.caseId, {
+          question: 'Another answer?',
+          options: ['Yes'],
+        });
+        second.model.script({ text: 'The newer answer was handled.' });
+        const answered = await second.capabilities.api({
+          method: 'POST',
+          path: `/feed/${later.item.id}/answer`,
+          segments: ['feed', later.item.id, 'answer'],
+          query: new URLSearchParams(),
+          body: { choice: 'Yes' },
+        });
+        expect(answered.status).toBe(200);
+        for (let attempt = 0; (await goals.runs(goal.id)).length < 2 && attempt < 200; attempt += 1)
+          await new Promise((resolve) => setTimeout(resolve, 10));
         await second.capabilities.runner()!.settled();
         expect((await goals.runs(goal.id)).map((run) => run.outcome)).toEqual(
           expect.arrayContaining(['interrupted', 'done']),

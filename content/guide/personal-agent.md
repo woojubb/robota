@@ -169,6 +169,8 @@ each tool records your own decision over that; **Blocked** holds the tools you s
 Case requests remain read-only on Windows while the required approval storage guarantees are unavailable.
 Windows syncs answer recovery files but does not sync their parent directories, so recovery after an
 abrupt power loss has weaker guarantees than recovery after an ordinary process restart.
+After an unclean Windows process exit, the agent may be unable to verify that a lock is unused; stop
+every agent and use the offline recovery steps below before restarting.
 
 Turn on **sync** on a connected card to have the agent check it every 15 minutes, hour, 6 hours or day
 (or press **Check now**). Each check is a goal of its own: it reads what is new and files the durable
@@ -262,7 +264,8 @@ records; do not delete the answer recovery record while its outcome is uncertain
    NODE
    ```
 
-3. Start the upgraded agent. Disconnect the affected connector normally before reconnecting it, and
+3. Start only one upgraded agent first. Let its interrupted work recover and check the Feed and Goals
+   before starting any other agents. Disconnect the affected connector normally before reconnecting it, and
    choose its case-request tools again only when needed. The moved files are a recovery record, not
    current settings; restoring them would also restore old choices.
 

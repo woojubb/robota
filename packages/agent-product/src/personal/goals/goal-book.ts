@@ -61,6 +61,7 @@ export class GoalBook {
   readonly supportsCaseAnswerQueue = true as const;
   readonly supportsCaseInterruptionRecovery = true as const;
   readonly supportsCaseRunOwnership = true as const;
+  readonly supportsCaseReportRecovery = true as const;
   readonly supportsCoordinatedRemoval = true as const;
 
   private readonly store: IGoalStore;
@@ -174,6 +175,7 @@ export class GoalBook {
           },
           pendingCaseAnswer,
         );
+      await this.settleUnclaimedCaseRun(goal);
       if (
         goal.pendingCaseAnswer?.feedItemId === input.feedItemId ||
         goal.lastCaseAnswerId === input.feedItemId
@@ -191,19 +193,26 @@ export class GoalBook {
       const goal = await this.store.getGoal(id);
       if (goal?.pendingCaseAnswer?.ownerId !== previousOwner || previousOwner === ownerId)
         return false;
-      for (const run of await this.store.listRuns(id, Number.POSITIVE_INFINITY)) {
-        if (
-          run.endedAt === undefined &&
-          run.caseOwnerId === previousOwner &&
-          run.caseAnswerId === goal.pendingCaseAnswer.feedItemId
-        )
-          await this.store.putRun({ ...run, endedAt: this.stamp(), outcome: 'interrupted' });
-      }
+      await this.settleUnclaimedCaseRun(goal);
       await this.save(goal, {
         pendingCaseAnswer: { ...goal.pendingCaseAnswer, ownerId },
       });
       return true;
     });
+  }
+
+  private async settleUnclaimedCaseRun(goal: IGoal): Promise<void> {
+    const pending = goal.pendingCaseAnswer;
+    if (pending === undefined) return;
+    for (const run of await this.store.listRuns(goal.id, Number.POSITIVE_INFINITY)) {
+      if (
+        run.endedAt === undefined &&
+        run.id !== goal.activeCaseRun?.runId &&
+        run.caseOwnerId === pending.ownerId &&
+        run.caseAnswerId === pending.feedItemId
+      )
+        await this.store.putRun({ ...run, endedAt: this.stamp(), outcome: 'interrupted' });
+    }
   }
 
   /** Recover a case run only after its particular owner has been proven stopped. */
