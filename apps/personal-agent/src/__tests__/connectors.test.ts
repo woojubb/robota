@@ -284,6 +284,68 @@ describe('using a connected service', () => {
     return { ...w, id };
   }
 
+  it('lets the owner allow only named writable tools for case requests', async () => {
+    const w = await connected();
+    const path = (tool: string) => ['connectors', w.id, 'case-actions', tool];
+    expect((await w.call('GET', ['connectors', w.id])).body.connector.caseActionTools).toEqual([]);
+    expect((await w.call('POST', path('search_notes'), { allowed: true })).status).toBe(400);
+    expect((await w.call('POST', path('missing'), { allowed: true })).status).toBe(400);
+    expect((await w.call('POST', path('create_note'), { allowed: 'yes' })).status).toBe(400);
+    const enabled = await w.call('POST', path('create_note'), { allowed: true });
+    expect(enabled.status).toBe(200);
+    expect(enabled.body.connector.caseActionTools).toEqual(['create_note']);
+    expect((await w.call('GET', ['connectors'])).body.connectors[0].caseActionTools).toEqual([
+      'create_note',
+    ]);
+    const blocked = await w.call('POST', ['connectors', w.id, 'tools', 'create_note'], {
+      decision: 'blocked',
+    });
+    expect(blocked.body.connector.caseActionTools).toEqual([]);
+    expect((await w.call('POST', path('create_note'), { allowed: true })).status).toBe(400);
+    await w.call('POST', ['connectors', w.id, 'tools', 'create_note'], { decision: null });
+    expect((await w.call('GET', ['connectors', w.id])).body.connector.caseActionTools).toEqual([]);
+    const disabled = await w.call('POST', path('create_note'), { allowed: false });
+    expect(disabled.status).toBe(200);
+    expect(disabled.body.connector.caseActionTools).toEqual([]);
+  });
+
+  it('does not restore case authority when an allow and a block arrive together', async () => {
+    const w = await connected();
+    const [allowed, blocked] = await Promise.all([
+      w.call('POST', ['connectors', w.id, 'case-actions', 'create_note'], { allowed: true }),
+      w.call('POST', ['connectors', w.id, 'tools', 'create_note'], { decision: 'blocked' }),
+    ]);
+    expect(allowed.status).toBe(200);
+    expect(blocked.status).toBe(200);
+    const view = (await w.call('GET', ['connectors', w.id])).body.connector;
+    expect(view.caseActionTools).toEqual([]);
+    expect(view.tools.find((tool: { name: string }) => tool.name === 'create_note').access).toBe(
+      'blocked',
+    );
+  });
+
+  it('keeps a damaged case scope closed while letting the owner block a tool and reset it', async () => {
+    const w = await connected();
+    writeFileSync(join(w.harness.stateDir, 'case-action-scope', `${w.id}.json`), '{"tools":[7]}');
+    const damaged = await w.call('GET', ['connectors', w.id]);
+    expect(damaged.status).toBe(200);
+    expect(damaged.body.connector.caseActionTools).toEqual([]);
+    expect(damaged.body.connector.caseActionScopeError).toBe(true);
+    const blocked = await w.call('POST', ['connectors', w.id, 'tools', 'create_note'], {
+      decision: 'blocked',
+    });
+    expect(blocked.status).toBe(200);
+    expect(blocked.body.connector.caseActionScopeError).toBe(true);
+    const reset = await w.call('POST', ['connectors', w.id, 'case-actions'], { reset: true });
+    expect(reset.status).toBe(200);
+    expect(reset.body.connector.caseActionScopeError).toBeUndefined();
+    expect(reset.body.connector.caseActionTools).toEqual([]);
+    expect(
+      reset.body.connector.tools.find((tool: { name: string }) => tool.name === 'create_note')
+        .access,
+    ).toBe('blocked');
+  });
+
   it('reads on its own and hands the content to the model as data', async () => {
     const w = await connected();
     w.harness.model.script(

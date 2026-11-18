@@ -43,6 +43,7 @@ import {
 import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playwright-browser.js';
 import { createApprovalRegistry } from './approvals.js';
 import { createCaseTurns } from './case-turns.js';
+import { createCaseActionScope } from './connectors/case-action-scope.js';
 import { createChannelTurns } from './channel-turns.js';
 import { createGoalRunner } from './goal-runner.js';
 import { watchBrowser } from './browser/watched-browser.js';
@@ -166,6 +167,7 @@ export function createPersonalCapabilities(
   const connectorBook = new ConnectorBook({
     store: createFileConnectorStore(join(options.stateDir, 'connectors')),
   });
+  const caseActions = createCaseActionScope(join(options.stateDir, 'case-action-scope'));
   const consent = createConsentBroker();
   const connectors = new ConnectorRegistry({
     book: connectorBook,
@@ -369,6 +371,7 @@ export function createPersonalCapabilities(
       connectors: createConnectorsApi({
         registry: connectors,
         book: connectorBook,
+        caseActions,
         sync: connectorSync,
         wiki,
         origins: () => guiOrigins,
