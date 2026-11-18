@@ -14,8 +14,9 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { createFileGoalStore } from '@robota-sdk/agent-product/personal';
+
 import { createSharedLock } from './shared-lock.js';
-import type { IFeedItem } from '@robota-sdk/agent-product/personal';
 
 export interface IApprovalIdentity {
   readonly id: string;
@@ -82,6 +83,9 @@ export function createApprovalCancellations(stateDir: string): IApprovalCancella
     join(realpathSync(stateDir), '.feed-write.lock'),
     'The feed',
   );
+  const feed = createFileGoalStore(join(stateDir, 'goals'));
+  if (feed.durableFeedWrites !== true)
+    throw new Error('The product SDK cannot safely store approvals');
   const pathOf = (id: string): string => {
     if (!FEED_ID.test(id)) throw new Error('Invalid approval id');
     return join(directory, `${id}.json`);
@@ -148,12 +152,9 @@ export function createApprovalCancellations(stateDir: string): IApprovalCancella
         if (!stillWaiting()) throw new Error('The approval was cancelled');
         if (existing === undefined || !same(existing, expected) || existing.phase !== 'pending')
           throw new Error('The approval intent changed');
-        const feed: unknown = JSON.parse(
-          readFileSync(join(stateDir, 'goals', 'feed.json'), 'utf8'),
-        );
-        if (typeof feed !== 'object' || feed === null || !Object.hasOwn(feed, expected.id))
-          throw new Error('The recorded approval is no longer in the feed');
-        const item = (feed as Record<string, IFeedItem>)[expected.id];
+        const item = await feed.getFeedItem(expected.id);
+        if (!stillWaiting()) throw new Error('The approval was cancelled');
+        if (item === undefined) throw new Error('The recorded approval is no longer in the feed');
         if (
           item?.id !== expected.id ||
           item.goalId !== expected.goalId ||
@@ -189,6 +190,7 @@ export function createApprovalCancellations(stateDir: string): IApprovalCancella
         const existing = read(path);
         if (existing === undefined) return;
         if (!same(existing, expected)) throw new Error('The approval cancellation changed');
+        await feed.listFeed(0);
         syncFeed();
         rmSync(path);
         syncDirectory(directory);

@@ -101,6 +101,8 @@ export interface IFeedItem {
 
 /** Where goals, their runs and the feed live; a host supplies one per principal. */
 export interface IGoalStore {
+  /** The file store synchronizes feed replacements before exposing them to a host. */
+  readonly durableFeedWrites?: true;
   listGoals(): Promise<readonly IGoal[]>;
   getGoal(id: string): Promise<IGoal | undefined>;
   putGoal(goal: IGoal): Promise<void>;

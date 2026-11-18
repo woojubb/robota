@@ -166,6 +166,7 @@ What the agent may do is shown per tool, in three groups: **Reads** it may use o
 (anything that changes or sends) held for your approval every time, and **Blocked**. The groups follow
 what the service says about each tool, and a tool that says nothing counts as a write. A select next to
 each tool records your own decision over that; **Blocked** holds the tools you set to *Never allow*.
+Case requests remain read-only on Windows while the required approval storage guarantees are unavailable.
 
 Turn on **sync** on a connected card to have the agent check it every 15 minutes, hour, 6 hours or day
 (or press **Check now**). Each check is a goal of its own: it reads what is new and files the durable
@@ -176,6 +177,10 @@ use the browser, or change what you told the agent. Turning sync off ends the ch
 reports; the facts already filed stay in your Library. **Disconnect** deletes the sign-in and asks the
 service to revoke it; **Remove** also deletes the connector itself. When your Library holds facts the
 connector pulled, both ask whether to keep or forget them.
+Disconnecting also clears that service's case-request tool choices; choose them again if needed after
+reconnecting.
+If a connection change cannot be secured, the disconnect or removal does not start. Restore access to
+the state folder and try again.
 
 A service on your own network is refused by default, like the agent's browser. To reach one, list its
 exact host names in `PERSONAL_AGENT_CONNECTOR_HOSTS` (comma-separated, for example `mail.lan`) and restart
@@ -212,6 +217,7 @@ unused. In that case the settings stay closed and may need offline recovery:
    Approved case-action records are kept separately in the owner-only `case-approvals` folder; this
    recovery leaves them in place. They contain the action details shown at approval.
    Pending approval cancellation records are retained and reconciled when one agent is active.
+   An unfinished feed recovery record is kept and applied when the feed is next read.
    Interrupted work is recovered when only one agent can be confirmed active. An agent that cannot
    confirm another agent has stopped leaves its pending work untouched until offline recovery.
    If the command fails, fix the error and run it again before restarting.

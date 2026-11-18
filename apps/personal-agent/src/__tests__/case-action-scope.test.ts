@@ -66,6 +66,42 @@ function message(child: ChildProcess): Promise<void> {
 }
 
 describe('the owner’s case action scope', () => {
+  it('serializes a connection change with the final dispatch handoff', () => {
+    const root = directory();
+    const first = createCaseActionScope(root);
+    const second = createCaseActionScope(root);
+    first.withDispatch('connector-mail', () => {
+      expect(() => second.beginDisconnect('connector-mail')).toThrow(/starting an action/u);
+    });
+    const transition = second.beginDisconnect('connector-mail');
+    transition.complete();
+    transition.release();
+    expect(() => first.snapshot('connector-mail')).toThrow(/disconnecting/u);
+  });
+
+  it('keeps a fallback transition closed after the primary marker location recovers', async () => {
+    const root = directory();
+    const scope = createCaseActionScope(root);
+    await scope.exclusive(() => scope.initialize('connector-mail'));
+    await scope.exclusive(() => scope.set('connector-mail', 'send', true));
+    const before = scope.snapshot('connector-mail');
+    const transitions = join(dirname(root), '.scope-transitions');
+    writeFileSync(transitions, 'unavailable');
+    try {
+      const change = scope.beginDisconnect('connector-mail');
+      change.complete();
+      change.release();
+      rmSync(transitions);
+      expect(() => scope.snapshot('connector-mail')).toThrow(/disconnecting/u);
+      await scope.exclusive(() => scope.settleDisconnects('connector-mail', true));
+      const after = scope.snapshot('connector-mail');
+      expect(after.generation).not.toBe(before.generation);
+      expect(after.tools).toEqual([]);
+    } finally {
+      rmSync(transitions, { force: true });
+    }
+  });
+
   it('keeps authority stable when an unchanged scope is fenced', async () => {
     const root = directory();
     const scope = createCaseActionScope(root);

@@ -64,6 +64,8 @@ export function createSharedFeedStore(stateDir: string): IGoalStore {
   const lock = createSharedLock(join(realpathSync(stateDir), '.feed-write.lock'), 'The feed');
   return {
     ...store,
+    getFeedItem: (id) => lock(() => store.getFeedItem(id)),
+    listFeed: (limit) => lock(() => store.listFeed(limit)),
     putFeedItem: (item, options) =>
       lock(async () => {
         checkUpdate(await store.getFeedItem(item.id), item, options);

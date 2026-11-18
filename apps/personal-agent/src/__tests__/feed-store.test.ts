@@ -31,9 +31,14 @@ const approval: IFeedItem = {
 };
 
 describe('the shared feed', () => {
-  it.each(['approval', 'question'] as const)(
-    'does not leave a waiting %s when a feed directory sync fails after rename',
-    async (kind) => {
+  it.each([
+    ['approval', 'sync-failure'],
+    ['question', 'sync-failure'],
+    ['approval', 'read-only'],
+    ['question', 'read-only'],
+  ] as const)(
+    'recovers a failed %s post after %s',
+    async (kind, failure) => {
       if (process.platform === 'win32') return;
       const root = directory();
       const moduleUrl = new URL('../feed-store.ts', import.meta.url).href;
@@ -51,6 +56,7 @@ describe('the shared feed', () => {
         fs.fsyncSync = fd => {
           if (armed && renamed && fs.fstatSync(fd).isDirectory()) {
             armed = false;
+            if (${JSON.stringify(failure)} === 'read-only') fs.chmodSync(path.join(${JSON.stringify(root)}, 'goals'), 0o500);
             throw Object.assign(new Error('directory sync failed'), { code: 'EIO' });
           }
           return sync(fd);
@@ -68,6 +74,7 @@ describe('the shared feed', () => {
           else await book.post({ kind: 'approval', title: 'Action', body: '',
             approval: { tool: 'ConnectorAct', detail: 'Send', state: 'pending' } });
         } catch { failed = true; }
+        if (${JSON.stringify(failure)} === 'read-only') fs.chmodSync(path.join(${JSON.stringify(root)}, 'goals'), 0o700);
         fs.writeSync(1, JSON.stringify({ failed, feed: await book.feed(), question: (await cases.get(opened.case.id)).question ?? null }));
       `;
       const child = spawn(

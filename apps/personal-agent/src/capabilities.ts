@@ -48,6 +48,7 @@ import { createApprovalRegistry } from './approvals.js';
 import { createApprovalCancellations } from './approval-cancellations.js';
 import { createCaseTurns } from './case-turns.js';
 import { callCaseConnector, captureCaseAction, createCaseAction } from './case-action.js';
+import type { ICaseActionSnapshot } from './case-action.js';
 import { createCaseApprovalRecorder } from './case-approval-record.js';
 import { createSharedFeedStore } from './feed-store.js';
 import { createSharedLock } from './shared-lock.js';
@@ -172,6 +173,7 @@ export function createPersonalCapabilities(
     store: createFileKnowledgeStore(join(options.stateDir, 'wiki')),
   });
   const goalStore = createSharedFeedStore(options.stateDir);
+  const supportsDurableApprovals = process.platform !== 'win32';
   const goals = new GoalBook({
     store: goalStore,
     withWriteLock: createSharedLock(
@@ -180,6 +182,7 @@ export function createPersonalCapabilities(
     ),
   });
   if (
+    (supportsDurableApprovals && goalStore.durableFeedWrites !== true) ||
     goals.usesUniqueFeedIds !== true ||
     goals.supportsSharedGoalLock !== true ||
     typeof goals.recoverGoal !== 'function' ||
@@ -240,7 +243,9 @@ export function createPersonalCapabilities(
   });
   let guiOrigins: readonly string[] = [];
   let channelTurns: IChannelTurns | undefined;
-  const cancellations = createApprovalCancellations(options.stateDir);
+  const cancellations = supportsDurableApprovals
+    ? createApprovalCancellations(options.stateDir)
+    : undefined;
   let approvals: IApprovalRegistry;
   approvals = createApprovalRegistry(
     goals,
@@ -397,32 +402,36 @@ export function createPersonalCapabilities(
   const caseTurns = createCaseTurns({
     goals,
     cases,
-    makeAction: (snapshot) =>
-      createCaseAction(snapshot, actionSchema, {
-        recordApproval: recordCaseApproval,
-        call: (connector, tool, args, admission, signal) =>
-          callCaseConnector(connectors, connector, tool, args, admission, signal),
-        dispatch: async (chosen, tool, send) => {
-          const result = await bindings.withAuthority(chosen.caseId, (state) => {
-            if (
-              state === undefined ||
-              state.binding.connectorId !== chosen.connectorId ||
-              state.binding.generation !== chosen.bindingGeneration
-            )
-              throw new ConnectorRefusedError('The case connector choice changed');
-            const scope = caseActions.snapshot(chosen.connectorId);
-            if (
-              scope.generation !== chosen.scopeGeneration ||
-              !scope.tools.includes(tool) ||
-              (Object.hasOwn(state.connector.decisions, tool) &&
-                state.connector.decisions[tool] !== 'write')
-            )
-              throw new ConnectorRefusedError('The case action scope changed');
-            return { value: send() };
-          });
-          return { response: result.value };
-        },
-      }),
+    ...(supportsDurableApprovals && {
+      makeAction: (snapshot: ICaseActionSnapshot) =>
+        createCaseAction(snapshot, actionSchema, {
+          recordApproval: recordCaseApproval,
+          call: (connector, tool, args, admission, signal) =>
+            callCaseConnector(connectors, connector, tool, args, admission, signal),
+          dispatch: async (chosen, tool, send) => {
+            const result = await bindings.withAuthority(chosen.caseId, (state) =>
+              caseActions.withDispatch(chosen.connectorId, () => {
+                if (
+                  state === undefined ||
+                  state.binding.connectorId !== chosen.connectorId ||
+                  state.binding.generation !== chosen.bindingGeneration
+                )
+                  throw new ConnectorRefusedError('The case connector choice changed');
+                const scope = caseActions.snapshot(chosen.connectorId);
+                if (
+                  scope.generation !== chosen.scopeGeneration ||
+                  !scope.tools.includes(tool) ||
+                  (Object.hasOwn(state.connector.decisions, tool) &&
+                    state.connector.decisions[tool] !== 'write')
+                )
+                  throw new ConnectorRefusedError('The case action scope changed');
+                return { value: send() };
+              }),
+            );
+            return { response: result.value };
+          },
+        }),
+    }),
   });
   let deliveryTimer: ReturnType<typeof setInterval> | undefined;
   // Watched, so the person can see what the agent's browser does and stop it.

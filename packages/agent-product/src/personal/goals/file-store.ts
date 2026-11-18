@@ -83,14 +83,31 @@ export function createFileGoalStore(directory: string): IGoalStore {
   for (const path of created) syncDirectory(dirname(path));
   const goalsPath = join(directory, 'goals.json');
   const feedPath = join(directory, 'feed.json');
+  const feedRecoveryPath = join(directory, 'feed-recovery.json');
   const runsPath = (goalId: string): string => {
     if (!GOAL_ID.test(goalId)) throw new Error(`Invalid goal id: ${goalId}`);
     return join(directory, 'runs', `${goalId}.json`);
   };
   const goals = (): Record<string, IGoal> => readJson(goalsPath, {});
-  const feed = (): Record<string, IFeedItem> => readJson(feedPath, {});
+  const recoverFeed = (): void => {
+    if (!existsSync(feedRecoveryPath)) return;
+    const recovery = readJson<unknown>(feedRecoveryPath, undefined);
+    if (typeof recovery !== 'object' || recovery === null || Array.isArray(recovery))
+      throw new Error('The feed recovery record is invalid');
+    const previous = (recovery as { previous?: unknown }).previous;
+    if (typeof previous !== 'object' || previous === null || Array.isArray(previous))
+      throw new Error('The feed recovery record is invalid');
+    writeAtomic(feedPath, previous, true);
+    rmSync(feedRecoveryPath);
+    syncDirectory(directory);
+  };
+  const feed = (): Record<string, IFeedItem> => {
+    recoverFeed();
+    return readJson(feedPath, {});
+  };
 
   return {
+    ...(process.platform === 'win32' ? {} : { durableFeedWrites: true as const }),
     listGoals: async () => Object.values(goals()),
     getGoal: async (id) => own(goals(), id),
     putGoal: async (goal) => {
@@ -116,16 +133,21 @@ export function createFileGoalStore(directory: string): IGoalStore {
       const previous = feed();
       const items = boundedFeed(Object.values({ ...previous, [item.id]: item }));
       const next = Object.fromEntries(items.map((entry) => [entry.id, entry]));
+      const waitingPost = !Object.hasOwn(previous, item.id) && isWaiting(item);
+      if (waitingPost) writeAtomic(feedRecoveryPath, { previous }, true);
       try {
         writeAtomic(feedPath, next, true);
+        if (waitingPost) {
+          rmSync(feedRecoveryPath);
+          syncDirectory(directory);
+        }
       } catch (error) {
         try {
-          // A directory sync can fail after rename made the new card visible. Restore the old
-          // feed while the host's write lock is still held, if that is still the current version.
-          if (JSON.stringify(feed()) === JSON.stringify(next))
+          if (existsSync(feedRecoveryPath)) recoverFeed();
+          else if (JSON.stringify(readJson(feedPath, {})) === JSON.stringify(next))
             writeAtomic(feedPath, previous, true);
         } catch {
-          // The original storage failure is still the useful error to the caller.
+          // Retain the recovery record until the feed can be restored.
         }
         throw error;
       }

@@ -12,6 +12,7 @@ import { createSharedFeedStore } from '../feed-store.js';
 import { startHarness } from './harness.js';
 
 it('refuses an action if its recorded approval was removed before handoff', async () => {
+  if (process.platform === 'win32') return;
   const root = mkdtempSync(join(tmpdir(), 'approval-trim-'));
   const store = createSharedFeedStore(root);
   const book = new GoalBook({ store });
@@ -69,6 +70,7 @@ it('refuses an action if its recorded approval was removed before handoff', asyn
 }, 15_000);
 
 it('hands off an approved decision while its durable intent is protected', async () => {
+  if (process.platform === 'win32') return;
   const root = mkdtempSync(join(tmpdir(), 'approval-handoff-'));
   const book = new GoalBook({ store: createSharedFeedStore(root) });
   const cancellations = createApprovalCancellations(root);
@@ -107,6 +109,7 @@ it('hands off an approved decision while its durable intent is protected', async
 }, 15_000);
 
 it('refuses an answer cancelled while authorization waits for the feed lock', async () => {
+  if (process.platform === 'win32') return;
   const root = mkdtempSync(join(tmpdir(), 'approval-lock-'));
   const book = new GoalBook({ store: createSharedFeedStore(root) });
   const cancellations = createApprovalCancellations(root);
@@ -162,6 +165,7 @@ it('refuses an answer cancelled while authorization waits for the feed lock', as
 }, 15_000);
 
 it('recovers an answer interrupted after its feed write and before handoff', async () => {
+  if (process.platform === 'win32') return;
   const root = mkdtempSync(join(tmpdir(), 'approval-interrupted-'));
   const book = new GoalBook({ store: createSharedFeedStore(root) });
   const cancellations = createApprovalCancellations(root);
@@ -217,6 +221,7 @@ it('recovers an answer interrupted after its feed write and before handoff', asy
 }, 15_000);
 
 it('preserves an authorized answer when its intent cleanup needs a restart', async () => {
+  if (process.platform === 'win32') return;
   const root = mkdtempSync(join(tmpdir(), 'approval-authorized-'));
   const book = new GoalBook({ store: createSharedFeedStore(root) });
   const cancellations = createApprovalCancellations(root);
@@ -254,6 +259,7 @@ it('preserves an authorized answer when its intent cleanup needs a restart', asy
 }, 15_000);
 
 it('recovers a cancellation that could not update the feed during shutdown', async () => {
+  if (process.platform === 'win32') return;
   const root = mkdtempSync(join(tmpdir(), 'approval-cancellation-'));
   const book = new GoalBook({ store: createSharedFeedStore(root) });
   const cancellations = createApprovalCancellations(root);
