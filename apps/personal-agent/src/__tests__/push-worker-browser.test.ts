@@ -97,16 +97,18 @@ describe.skipIf(chromium === undefined || resolveGuiRoot() === undefined)(
             scope: '/__robota_personal_push__/',
           });
         });
-        await page.waitForFunction(
-          async () => {
-            const worker = await navigator.serviceWorker.getRegistration(
-              '/__robota_personal_push__/',
-            );
-            return worker?.active?.state === 'activated';
-          },
-          undefined,
-          { timeout: 15_000 },
-        );
+        await expect
+          .poll(
+            () =>
+              page.evaluate(async () => {
+                const worker = await navigator.serviceWorker.getRegistration(
+                  '/__robota_personal_push__/',
+                );
+                return worker?.active?.state;
+              }),
+            { timeout: 15_000 },
+          )
+          .toBe('activated');
         const registered = await page.evaluate(async () => {
           const registration = (await navigator.serviceWorker.getRegistration(
             '/__robota_personal_push__/',
