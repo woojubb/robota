@@ -79,7 +79,7 @@ export function createApprovalRegistry(
     const attempt = (async () => {
       cancellations?.mark(expected);
       await book.cancelApproval(expected.id, expected);
-      cancellations?.finish(expected);
+      await cancellations?.finish(expected);
       failed.delete(expected.id);
     })()
       .catch(() => undefined)
@@ -176,12 +176,13 @@ export function createApprovalRegistry(
           recorded.approval?.state !== (approve ? 'approved' : 'denied')
         )
           throw new Error('The recorded approval differs from the displayed action');
-        cancellations?.authorize(expected);
+        await cancellations?.authorize(expected, () => !flight.cancelled && !closing);
+        if (flight.cancelled || closing) throw new Error('The approval was cancelled');
         answering.delete(feedId);
         handedOff = true;
         waiting.session.resolvePermission(waiting.promptId, approve);
         try {
-          cancellations?.finish(expected);
+          await cancellations?.finish(expected);
         } catch {
           // An authorized intent preserves the answer for reconciliation on restart.
         }
@@ -206,7 +207,7 @@ export function createApprovalRegistry(
     async restore() {
       for (const expected of cancellations?.list() ?? []) {
         if (answering.has(expected.id)) continue;
-        if (expected.phase === 'authorized') cancellations?.finish(expected);
+        if (expected.phase === 'authorized') await cancellations?.finish(expected);
         else failed.set(expected.id, expected);
       }
       await this.settleFailed();

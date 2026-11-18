@@ -3,8 +3,18 @@
  * and one `runs/<goal>.json` per goal holding its recent runs. The feed and each goal's run history
  * keep a bounded number of entries, so an agent that runs for years does not grow without limit.
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import {
+  closeSync,
+  existsSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import type { IFeedItem, IGoal, IGoalRun, IGoalStore } from './types.js';
 
@@ -17,10 +27,28 @@ function readJson<T>(path: string, empty: T): T {
   return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as T) : empty;
 }
 
-function writeAtomic(path: string, value: unknown): void {
+function writeAtomic(path: string, value: unknown, durable = false): void {
   const temporary = `${path}.${process.pid}.tmp`;
-  writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  if (durable) {
+    const fd = openSync(temporary, 'w', 0o600);
+    try {
+      writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+  } else {
+    writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  }
   renameSync(temporary, path);
+  if (durable && process.platform !== 'win32') {
+    const directory = openSync(dirname(path), 'r');
+    try {
+      fsyncSync(directory);
+    } finally {
+      closeSync(directory);
+    }
+  }
 }
 
 const newestFirst = <T extends { readonly id: string }>(items: T[], at: (item: T) => string): T[] =>
@@ -80,7 +108,7 @@ export function createFileGoalStore(directory: string): IGoalStore {
     putFeedItem: async (item) => {
       if (!FEED_ID.test(item.id)) throw new Error(`Invalid feed item id: ${item.id}`);
       const items = boundedFeed(Object.values({ ...feed(), [item.id]: item }));
-      writeAtomic(feedPath, Object.fromEntries(items.map((entry) => [entry.id, entry])));
+      writeAtomic(feedPath, Object.fromEntries(items.map((entry) => [entry.id, entry])), true);
     },
     getFeedItem: async (id) => own(feed(), id),
     listFeed: async (limit) =>

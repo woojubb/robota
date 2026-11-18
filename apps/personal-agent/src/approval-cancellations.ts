@@ -7,11 +7,14 @@ import {
   openSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
+
+import { createSharedLock } from './shared-lock.js';
 
 export interface IApprovalIdentity {
   readonly id: string;
@@ -23,9 +26,9 @@ export interface IApprovalIdentity {
 
 export interface IApprovalCancellations {
   mark(expected: IApprovalIdentity): void;
-  authorize(expected: IApprovalIdentity): void;
+  authorize(expected: IApprovalIdentity, stillWaiting: () => boolean): Promise<void>;
   list(): readonly IApprovalIntent[];
-  finish(expected: IApprovalIdentity): void;
+  finish(expected: IApprovalIdentity): Promise<void>;
 }
 
 export interface IApprovalIntent extends IApprovalIdentity {
@@ -69,6 +72,10 @@ function parse(value: unknown): IApprovalIntent {
 
 export function createApprovalCancellations(stateDir: string): IApprovalCancellations {
   const directory = join(stateDir, 'approval-cancellations');
+  const withFeedLock = createSharedLock(
+    join(realpathSync(stateDir), '.feed-write.lock'),
+    'The feed',
+  );
   const pathOf = (id: string): string => {
     if (!FEED_ID.test(id)) throw new Error('Invalid approval id');
     return join(directory, `${id}.json`);
@@ -129,12 +136,15 @@ export function createApprovalCancellations(stateDir: string): IApprovalCancella
         throw new Error('The approval cancellation changed');
       if (existing?.phase !== 'pending') write(expected, 'pending');
     },
-    authorize(expected) {
-      const existing = read(pathOf(expected.id));
-      if (existing === undefined || !same(existing, expected) || existing.phase !== 'pending')
-        throw new Error('The approval intent changed');
-      syncFeed();
-      write(expected, 'authorized');
+    async authorize(expected, stillWaiting) {
+      await withFeedLock(async () => {
+        const existing = read(pathOf(expected.id));
+        if (!stillWaiting()) throw new Error('The approval was cancelled');
+        if (existing === undefined || !same(existing, expected) || existing.phase !== 'pending')
+          throw new Error('The approval intent changed');
+        syncFeed();
+        write(expected, 'authorized');
+      });
     },
     list() {
       try {
@@ -151,14 +161,16 @@ export function createApprovalCancellations(stateDir: string): IApprovalCancella
         throw new Error('Approval cancellations cannot be read');
       }
     },
-    finish(expected) {
-      const path = pathOf(expected.id);
-      const existing = read(path);
-      if (existing === undefined) return;
-      if (!same(existing, expected)) throw new Error('The approval cancellation changed');
-      syncFeed();
-      rmSync(path);
-      syncDirectory(directory);
+    async finish(expected) {
+      await withFeedLock(async () => {
+        const path = pathOf(expected.id);
+        const existing = read(path);
+        if (existing === undefined) return;
+        if (!same(existing, expected)) throw new Error('The approval cancellation changed');
+        syncFeed();
+        rmSync(path);
+        syncDirectory(directory);
+      });
     },
   };
 }

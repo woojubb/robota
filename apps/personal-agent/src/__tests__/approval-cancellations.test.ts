@@ -7,8 +7,64 @@ import { expect, it, vi } from 'vitest';
 
 import { createApprovalCancellations } from '../approval-cancellations.js';
 import { createApprovalRegistry } from '../approvals.js';
+import { tryDirectoryLock } from '../connectors/directory-lock.js';
 import { createSharedFeedStore } from '../feed-store.js';
 import { startHarness } from './harness.js';
+
+it('refuses an answer cancelled while authorization waits for the feed lock', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'approval-lock-'));
+  const book = new GoalBook({ store: createSharedFeedStore(root) });
+  const cancellations = createApprovalCancellations(root);
+  const approvals = createApprovalRegistry(book, undefined, undefined, cancellations);
+  const resolvePermission = vi.fn();
+  let release!: () => void;
+  let reached!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const written = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
+  let answer: Promise<unknown> | undefined;
+  let lock: { release(): void } | undefined;
+  try {
+    const item = await book.post({
+      kind: 'approval',
+      title: 'Action',
+      body: '',
+      approval: { tool: 'ConnectorAct', detail: 'Send the message', state: 'pending' },
+    });
+    approvals.register(item, {
+      session: { resolvePermission },
+      promptId: 'prompt',
+      recordAnswer: async () => {
+        const recorded = await book.setApproval(item.id, 'approved');
+        reached();
+        await gate;
+        return recorded;
+      },
+    });
+    answer = approvals.answer(item.id, true).catch((error: unknown) => error);
+    await written;
+    lock = tryDirectoryLock(join(root, '.feed-write.lock'));
+    expect(lock).toBeDefined();
+    release();
+    await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    approvals.release(item.id);
+    expect(cancellations.list()[0]?.phase).toBe('pending');
+    lock!.release();
+    lock = undefined;
+    expect(await answer).toBeInstanceOf(Error);
+    await approvals.settleFailed();
+    expect(resolvePermission).not.toHaveBeenCalledWith('prompt', true);
+    expect((await book.feedItem(item.id))?.approval?.state).toBe('expired');
+  } finally {
+    lock?.release();
+    release();
+    await Promise.allSettled(answer === undefined ? [] : [answer]);
+    rmSync(root, { recursive: true, force: true });
+  }
+}, 15_000);
 
 it('recovers an answer interrupted after its feed write and before handoff', async () => {
   const root = mkdtempSync(join(tmpdir(), 'approval-interrupted-'));
@@ -84,9 +140,9 @@ it('preserves an authorized answer when its intent cleanup needs a restart', asy
       promptId: 'prompt',
       recordAnswer: async () => book.setApproval(item.id, 'approved'),
     });
-    const finish = vi.spyOn(cancellations, 'finish').mockImplementationOnce(() => {
-      throw new Error('cleanup unavailable');
-    });
+    const finish = vi
+      .spyOn(cancellations, 'finish')
+      .mockRejectedValueOnce(new Error('cleanup unavailable'));
     expect((await approvals.answer(item.id, true)).approval?.state).toBe('approved');
     expect(resolvePermission).toHaveBeenCalledWith('prompt', true);
     expect(cancellations.list()[0]?.phase).toBe('authorized');
