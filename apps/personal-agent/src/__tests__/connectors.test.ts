@@ -776,6 +776,7 @@ describe('using a connected service', () => {
       writeFileSync(fallback, 'unavailable');
       const result = await w.call('POST', ['connectors', w.id, 'disconnect'], {});
       expect(result.status).toBeGreaterThanOrEqual(400);
+      expect(result.body.error).toMatch(/did not start.*retry on this agent/u);
       expect(disconnect).not.toHaveBeenCalled();
       expect(w.auth.revoked).toEqual([]);
     } finally {

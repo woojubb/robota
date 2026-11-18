@@ -56,6 +56,7 @@ export class GoalBook {
   /** This book allocates feed identifiers independently across host processes. */
   readonly usesUniqueFeedIds = true as const;
   readonly supportsSharedGoalLock = true as const;
+  readonly supportsCaseAnswerQueue = true as const;
 
   private readonly store: IGoalStore;
   private readonly now: () => Date;
@@ -108,7 +109,10 @@ export class GoalBook {
     return this.exclusive(() => this.createUnlocked(input));
   }
 
-  private async createUnlocked(input: ICreateGoalInput): Promise<IGoal> {
+  private async createUnlocked(
+    input: ICreateGoalInput,
+    pendingCaseAnswer?: IGoal['pendingCaseAnswer'],
+  ): Promise<IGoal> {
     const title = oneLine(input.title);
     const instructions = input.instructions.trim();
     if (title === '' || instructions === '')
@@ -132,6 +136,7 @@ export class GoalBook {
       readOnly: input.readOnly === true,
       ...(input.connectorId !== undefined && { connectorId: input.connectorId }),
       ...(input.caseId !== undefined && { caseId: input.caseId }),
+      ...(pendingCaseAnswer !== undefined && { pendingCaseAnswer }),
       status: 'active',
       nextRunAt: at,
       createdAt: at,
@@ -139,6 +144,38 @@ export class GoalBook {
     };
     await this.store.putGoal(goal);
     return goal;
+  }
+
+  /** Queue one answer for the agent holding its answer-time authority. */
+  enqueueCaseAnswer(input: {
+    readonly caseId: string;
+    readonly feedItemId: string;
+    readonly ownerId: string;
+    readonly title: string;
+    readonly instructions: string;
+  }): Promise<IGoal> {
+    return this.exclusive(async () => {
+      const pendingCaseAnswer = { feedItemId: input.feedItemId, ownerId: input.ownerId };
+      const goal = (await this.store.listGoals()).find((item) => item.caseId === input.caseId);
+      if (goal === undefined)
+        return this.createUnlocked(
+          {
+            title: input.title,
+            instructions: input.instructions,
+            caseId: input.caseId,
+            readOnly: true,
+          },
+          pendingCaseAnswer,
+        );
+      if (
+        goal.pendingCaseAnswer?.feedItemId === input.feedItemId ||
+        goal.lastCaseAnswerId === input.feedItemId
+      )
+        return goal;
+      if (goal.status === 'running' || goal.status === 'waiting' || goal.status === 'paused')
+        return this.save(goal, { pendingCaseAnswer });
+      return this.save(goal, { pendingCaseAnswer, status: 'active', nextRunAt: this.stamp() });
+    });
   }
 
   async list(): Promise<readonly IGoal[]> {
@@ -243,13 +280,16 @@ export class GoalBook {
     await this.store.deleteGoal(id);
   }
 
-  startRun(goalId: string, options: { readonly requireDue?: boolean } = {}): Promise<IGoalRun> {
+  startRun(
+    goalId: string,
+    options: { readonly requireDue?: boolean; readonly ownerId?: string } = {},
+  ): Promise<IGoalRun> {
     return this.exclusive(() => this.startRunUnlocked(goalId, options));
   }
 
   private async startRunUnlocked(
     goalId: string,
-    options: { readonly requireDue?: boolean },
+    options: { readonly requireDue?: boolean; readonly ownerId?: string },
   ): Promise<IGoalRun> {
     const goal = await this.require(goalId);
     if (
@@ -257,10 +297,33 @@ export class GoalBook {
       (goal.status !== 'active' || goal.nextRunAt === undefined || goal.nextRunAt > this.stamp())
     )
       throw new GoalRefusedError('The goal is no longer due');
+    if (
+      goal.pendingCaseAnswer !== undefined &&
+      goal.pendingCaseAnswer.ownerId !== (options.ownerId ?? 'local')
+    )
+      throw new GoalRefusedError('This case answer is owned by another agent');
     const at = this.stamp();
-    const run: IGoalRun = { id: this.mint('run-'), goalId, startedAt: at, actions: [] };
+    const run: IGoalRun = {
+      id: this.mint('run-'),
+      goalId,
+      startedAt: at,
+      actions: [],
+      ...(goal.pendingCaseAnswer !== undefined && {
+        caseAnswerId: goal.pendingCaseAnswer.feedItemId,
+      }),
+    };
     await this.store.putRun(run);
-    await this.save(goal, { status: 'running', lastRunAt: at }, ['nextRunAt']);
+    await this.save(
+      goal,
+      {
+        status: 'running',
+        lastRunAt: at,
+        ...(goal.pendingCaseAnswer !== undefined && {
+          lastCaseAnswerId: goal.pendingCaseAnswer.feedItemId,
+        }),
+      },
+      ['nextRunAt', 'pendingCaseAnswer'],
+    );
     return run;
   }
 
@@ -310,7 +373,9 @@ export class GoalBook {
     const at = this.stamp();
     const finished: IGoalRun = { ...run, endedAt: at, outcome, report };
     await this.store.putRun(finished);
-    if (goal.everyMinutes !== undefined) {
+    if (goal.pendingCaseAnswer !== undefined) {
+      await this.save(goal, { status: 'active', nextRunAt: at });
+    } else if (goal.everyMinutes !== undefined) {
       const next = new Date(this.now().getTime() + goal.everyMinutes * 60_000).toISOString();
       await this.save(goal, { status: 'active', nextRunAt: next });
     } else {
@@ -358,11 +423,14 @@ export class GoalBook {
   }
 
   /** Recover one goal only when its host has proved no live agent owns it. */
-  recoverGoal(id: string): Promise<boolean> {
-    return this.exclusive(() => this.recoverGoalUnlocked(id));
+  recoverGoal(id: string, options: { readonly adoptOwner?: string } = {}): Promise<boolean> {
+    return this.exclusive(() => this.recoverGoalUnlocked(id, options));
   }
 
-  private async recoverGoalUnlocked(id: string): Promise<boolean> {
+  private async recoverGoalUnlocked(
+    id: string,
+    options: { readonly adoptOwner?: string },
+  ): Promise<boolean> {
     const goal = await this.store.getGoal(id);
     if (goal === undefined) return false;
     let changed = false;
@@ -378,8 +446,19 @@ export class GoalBook {
         changed = true;
       }
     }
-    if (goal.status === 'running' || goal.status === 'waiting') {
-      await this.save(goal, { status: 'active', nextRunAt: this.stamp() });
+    const adopt =
+      options.adoptOwner !== undefined &&
+      goal.pendingCaseAnswer !== undefined &&
+      goal.pendingCaseAnswer.ownerId !== options.adoptOwner;
+    if (goal.status === 'running' || goal.status === 'waiting' || adopt) {
+      await this.save(goal, {
+        ...(goal.status === 'running' || goal.status === 'waiting'
+          ? { status: 'active' as const, nextRunAt: this.stamp() }
+          : {}),
+        ...(adopt && {
+          pendingCaseAnswer: { ...goal.pendingCaseAnswer!, ownerId: options.adoptOwner! },
+        }),
+      });
       changed = true;
     }
     return changed;

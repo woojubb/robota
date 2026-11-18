@@ -79,7 +79,8 @@ export interface IGoalRunnerOptions {
     recover: (goalId: string, work: () => Promise<unknown>) => Promise<void>,
   ) => Promise<void>;
   /** A goal that is more than the person's instruction, such as one keeping a connector in sync. */
-  readonly shape?: (goal: IGoal) => Promise<IGoalShape | undefined>;
+  readonly shape?: (goal: IGoal, run: IGoalRun) => Promise<IGoalShape | undefined>;
+  readonly ownerId?: string;
   /** A run that went well and is not worth the person's attention: kept in the goal's history only. */
   readonly quiet?: (goal: IGoal) => Promise<boolean>;
 }
@@ -194,7 +195,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       });
     let shape: IGoalShape | undefined;
     try {
-      shape = await options.shape?.(goal);
+      shape = await options.shape?.(goal, run);
     } catch (error) {
       if (!stopped && !control.cancelled) throw error;
       await book.finishRun(run, 'interrupted', 'The run was stopped.');
@@ -437,7 +438,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
         finish = resolve;
       });
       const claim = {
-        started: book.startRun(goal.id, { requireDue: true }),
+        started: book.startRun(goal.id, { requireDue: true, ownerId: options.ownerId ?? 'local' }),
         completed,
         finish,
         cancelled: false,

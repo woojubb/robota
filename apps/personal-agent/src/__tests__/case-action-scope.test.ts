@@ -157,6 +157,68 @@ describe('the owner’s case action scope', () => {
     expect(JSON.parse(output)).toEqual([]);
   }, 15_000);
 
+  it('recovers an abandoned primary marker by retrying on its owner', async () => {
+    if (process.platform === 'win32') return;
+    const root = directory();
+    const moduleUrl = new URL('../connectors/case-action-scope.ts', import.meta.url).href;
+    const program = `
+      import fs from 'node:fs';
+      import { syncBuiltinESMExports } from 'node:module';
+      const sync = fs.fsyncSync, rename = fs.renameSync;
+      let fail = false, failRelease = false;
+      fs.fsyncSync = fd => {
+        if (fail) { fail = false; failRelease = true; throw Object.assign(new Error('sync failed'), { code: 'EIO' }); }
+        return sync(fd);
+      };
+      fs.renameSync = (source, target) => {
+        if (failRelease && String(source).endsWith('.active') && String(target).endsWith('.retired')) {
+          failRelease = false; throw Object.assign(new Error('release failed'), { code: 'EIO' });
+        }
+        return rename(source, target);
+      };
+      syncBuiltinESMExports();
+      const { createCaseActionScope } = await import(${JSON.stringify(moduleUrl)});
+      const scope = createCaseActionScope(${JSON.stringify(root)});
+      await scope.exclusive(() => scope.initialize('connector-mail'));
+      await scope.exclusive(() => scope.set('connector-mail', 'send', true));
+      const fallback = ${JSON.stringify(join(root, '.connection-transitions'))};
+      fs.writeFileSync(fallback, 'unavailable');
+      fail = true;
+      let reason = '';
+      try { scope.beginDisconnect('connector-mail'); } catch (error) { reason = error.message; }
+      fs.rmSync(fallback);
+      const retry = scope.beginDisconnect('connector-mail');
+      retry.complete();
+      retry.release();
+      await scope.exclusive(() => scope.settleDisconnects('connector-mail', true));
+      fs.writeSync(1, JSON.stringify({ reason, tools: scope.snapshot('connector-mail').tools }));
+    `;
+    const child = spawn(
+      process.execPath,
+      ['--import', 'tsx', '--input-type=module', '-e', program],
+      {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
+    let output = '';
+    let errors = '';
+    child.stdout!.on('data', (chunk: Buffer) => {
+      output += chunk.toString();
+    });
+    child.stderr!.on('data', (chunk: Buffer) => {
+      errors += chunk.toString();
+    });
+    const code = await new Promise<number | null>((resolve, reject) => {
+      child.once('exit', resolve);
+      child.once('error', reject);
+    });
+    expect(code, errors).toBe(0);
+    expect(JSON.parse(output)).toEqual({
+      reason: expect.stringMatching(/retry on this agent/u),
+      tools: [],
+    });
+  }, 15_000);
+
   it('keeps authority stable when an unchanged scope is fenced', async () => {
     const root = directory();
     const scope = createCaseActionScope(root);

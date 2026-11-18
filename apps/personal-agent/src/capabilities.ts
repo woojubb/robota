@@ -47,6 +47,8 @@ import { createPlaywrightBrowser, findChromiumExecutable } from './browser/playw
 import { createApprovalRegistry } from './approvals.js';
 import { createApprovalCancellations } from './approval-cancellations.js';
 import { createCaseTurns } from './case-turns.js';
+import type { ICaseTurns } from './case-turns.js';
+import { createCaseAnswerOutbox } from './case-answer-outbox.js';
 import { callCaseConnector, captureCaseAction, createCaseAction } from './case-action.js';
 import type { ICaseActionSnapshot } from './case-action.js';
 import { createCaseApprovalRecorder } from './case-approval-record.js';
@@ -185,6 +187,7 @@ export function createPersonalCapabilities(
     (supportsDurableApprovals && goalStore.durableFeedWrites !== true) ||
     goals.usesUniqueFeedIds !== true ||
     goals.supportsSharedGoalLock !== true ||
+    goals.supportsCaseAnswerQueue !== true ||
     typeof goals.recoverGoal !== 'function' ||
     typeof goals.cancelApproval !== 'function'
   )
@@ -342,6 +345,19 @@ export function createPersonalCapabilities(
   const caseStore = createFileCaseStore(join(options.stateDir, 'cases'));
   // Case writes must not resurrect a closed case even when connector settings are unavailable.
   const caseWrites = createCaseActionScope(join(options.stateDir, 'cases'));
+  let caseTurns: ICaseTurns;
+  const answerOutbox = supportsDurableApprovals
+    ? createCaseAnswerOutbox({
+        stateDir: options.stateDir,
+        cases: caseStore,
+        goals,
+        withCaseLock: (work) => caseWrites.exclusive(work),
+        deliver: async (answered) => {
+          caseTurns.remember(answered, undefined);
+          await caseTurns.onAnswered(answered);
+        },
+      })
+    : undefined;
   const cases = new CaseBook({
     withWriteLock: (work) => caseWrites.exclusive(work),
     store: {
@@ -374,10 +390,24 @@ export function createPersonalCapabilities(
       }
     },
     feed: goals,
+    ...(answerOutbox !== undefined && {
+      answerHooks: {
+        before: async (feedItemId) => {
+          if (answerOutbox.has(feedItemId))
+            throw new Error('The case answer is being recovered; try again');
+        },
+        prepare: answerOutbox.prepare,
+        committed: async (event, context) => {
+          caseTurns.remember(event.after, context as ICaseActionSnapshot | undefined);
+          await caseTurns.onAnswered(event.after);
+          answerOutbox.complete(event.item.id);
+        },
+      },
+    }),
     // Not waited for, and it cannot fail the ask: the question is in the feed already.
     onAsked: (event) => delivery.onAsked(event),
   });
-  if (cases.supportsSharedWriteLock !== true)
+  if (cases.supportsSharedWriteLock !== true || cases.supportsCaseAnswerHooks !== true)
     throw new Error('The product SDK cannot safely coordinate cases; rebuild the workspace');
   caseBindings = createCaseConnectorBindings({
     directory: join(options.stateDir, 'case-connector-bindings'),
@@ -399,9 +429,10 @@ export function createPersonalCapabilities(
   const actionSchema = connectorTools.find(
     (tool) => tool.getName() === CONNECTOR_TOOL_NAMES.act,
   )!.schema;
-  const caseTurns = createCaseTurns({
+  caseTurns = createCaseTurns({
     goals,
     cases,
+    ownerId: presence.id,
     ...(supportsDurableApprovals && {
       makeAction: (snapshot: ICaseActionSnapshot) =>
         createCaseAction(snapshot, actionSchema, {
@@ -493,7 +524,24 @@ export function createPersonalCapabilities(
           binding: (id) => bindings.authoritySnapshot(id),
           scope: (id) => caseActions.exclusive(async () => caseActions.snapshot(id)),
         }),
+      ...(answerOutbox !== undefined && {
+        recoverCaseAnswer: async (feedItemId) => {
+          let recovered: readonly import('@robota-sdk/agent-product/personal').ICase[] = [];
+          const alone = await presence.whenAlone(async () => {
+            recovered = await answerOutbox.recover(feedItemId);
+          });
+          if (!alone && answerOutbox.has(feedItemId))
+            throw new Error('The case answer is being recovered by another agent');
+          if (recovered.length === 0) return undefined;
+          void runner?.runDue().catch(() => undefined);
+          return recovered[0];
+        },
+      }),
       onCaseAnswered: (answered, snapshot) => {
+        if (answerOutbox !== undefined) {
+          void runner?.runDue().catch(() => undefined);
+          return;
+        }
         caseTurns.remember(answered, snapshot);
         void caseTurns
           .onAnswered(answered)
@@ -533,9 +581,11 @@ export function createPersonalCapabilities(
     }),
     attach: async (agent, attachOptions) => {
       guiOrigins = attachOptions?.guiOrigins ?? [];
+      let recoveredAnswers = false;
       await presence.enter(async () => {
         await approvals.restore();
         await goals.recover();
+        recoveredAnswers = answerOutbox !== undefined && (await answerOutbox.recover()).length > 0;
       });
       channelTurns = createChannelTurns({
         book: goals,
@@ -545,6 +595,7 @@ export function createPersonalCapabilities(
       runner = createGoalRunner({
         book: goals,
         approvals,
+        ownerId: presence.id,
         onReport: (goal, report, { quiet }) => {
           // A quiet run is kept in the goal's history only, so it is not pushed either: pushing it would
           // let the runs the agent starts on its own reach the person outside their limits. A run that is
@@ -568,18 +619,24 @@ export function createPersonalCapabilities(
         beforeRunDue: async (isRunning, recover) => {
           await presence.whenAlone(async () => {
             await approvals.restore();
+            await answerOutbox?.recover();
             for (const goal of await goals.list()) {
-              if (!isRunning(goal.id)) await recover(goal.id, () => goals.recoverGoal(goal.id));
+              if (!isRunning(goal.id))
+                await recover(goal.id, () =>
+                  goals.recoverGoal(goal.id, { adoptOwner: presence.id }),
+                );
             }
           });
         },
         // A sync run reads one connector and adds to the library; a case turn reads and keeps the case.
         // Each has only the tools to do that.
-        shape: (goal) => (goal.caseId !== undefined ? caseTurns.shape(goal) : syncRuns.shape(goal)),
+        shape: (goal, run) =>
+          goal.caseId !== undefined ? caseTurns.shape(goal, run) : syncRuns.shape(goal),
         // A sync that is reachable, read cleanly and added nothing has nothing to tell the person; a case
         // turn that left a note, a question or its closing on the case has told them already.
         quiet: (goal) => (goal.caseId !== undefined ? caseTurns.quiet(goal) : syncRuns.quiet(goal)),
       });
+      if (recoveredAnswers) void runner.runDue().catch(() => undefined);
       // The daily digest goes out from here: once now, for a digest that came due while the agent was
       // off, and then every minute. A failure waits for the next minute; the question is in the feed.
       const deliveryTickMs = options.deliveryTickMs ?? DEFAULT_DELIVERY_TICK_MS;

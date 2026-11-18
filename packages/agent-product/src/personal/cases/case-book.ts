@@ -50,6 +50,13 @@ export interface ICaseAskedEvent {
   readonly urgency: TCaseUrgency;
 }
 
+export interface ICaseAnswerEvent {
+  readonly before: ICase;
+  readonly after: ICase;
+  readonly item: IFeedItem;
+  readonly answer: IAnswerInput;
+}
+
 export interface ICaseBookOptions {
   readonly store: ICaseStore;
   /** Serialize complete case mutations across hosts that share the store and feed. */
@@ -63,6 +70,11 @@ export interface ICaseBookOptions {
   readonly onAsked?: (event: ICaseAskedEvent) => void | Promise<void>;
   /** Called after a case has closed and its write lock has been released. */
   readonly onClosed?: (closed: ICase) => void | Promise<void>;
+  readonly answerHooks?: {
+    before(feedItemId: string): Promise<void>;
+    prepare(event: ICaseAnswerEvent): Promise<void>;
+    committed(event: ICaseAnswerEvent, context: unknown): Promise<void>;
+  };
   readonly now?: () => Date;
 }
 
@@ -112,11 +124,13 @@ const evidence = (notes: readonly ICaseNote[]): string =>
 export class CaseBook {
   /** This book serializes a complete mutation with the host's write lock. */
   readonly supportsSharedWriteLock = true as const;
+  readonly supportsCaseAnswerHooks = true as const;
 
   private readonly store: ICaseStore;
   private readonly feed: GoalBook;
   private readonly onAsked: ICaseBookOptions['onAsked'];
   private readonly onClosed: ICaseBookOptions['onClosed'];
+  private readonly answerHooks: ICaseBookOptions['answerHooks'];
   private readonly now: () => Date;
   private readonly withWriteLock: ICaseBookOptions['withWriteLock'];
   private tail: Promise<unknown> = Promise.resolve();
@@ -126,6 +140,7 @@ export class CaseBook {
     this.feed = options.feed;
     this.onAsked = options.onAsked;
     this.onClosed = options.onClosed;
+    this.answerHooks = options.answerHooks;
     this.now = options.now ?? (() => new Date());
     this.withWriteLock = options.withWriteLock;
   }
@@ -293,9 +308,12 @@ export class CaseBook {
   answer(
     feedItemId: string,
     input: IAnswerInput,
+    options?: { readonly context: unknown },
   ): Promise<{ readonly case: ICase; readonly item: IFeedItem }> {
     return this.exclusive(async () => {
-      const waiting = (await this.feed.feedItem(feedItemId))?.question;
+      if (options !== undefined) await this.answerHooks?.before(feedItemId);
+      const card = await this.feed.feedItem(feedItemId);
+      const waiting = card?.question;
       if (waiting === undefined) throw new CaseRefusedError(`No question ${feedItemId}`);
       if (waiting.state === 'answered')
         throw new CaseRefusedError('This question was already answered');
@@ -326,8 +344,18 @@ export class CaseBook {
         history: [...found.history, { at, kind: 'answered', text: answer.choice ?? answer.reply! }],
         updatedAt: at,
       };
+      const event: ICaseAnswerEvent = { before: found, after: next, item: card!, answer };
+      if (options !== undefined) await this.answerHooks?.prepare(event);
       await this.store.put(next);
-      return { case: next, item: await this.feed.answerQuestion(feedItemId, answer) };
+      const item = await this.feed.answerQuestion(feedItemId, answer);
+      if (options !== undefined && this.answerHooks !== undefined) {
+        try {
+          await this.answerHooks.committed(event, options.context);
+        } catch {
+          // The recorded answer remains available for the host to recover.
+        }
+      }
+      return { case: next, item };
     });
   }
 

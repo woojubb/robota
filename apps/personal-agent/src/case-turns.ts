@@ -1,19 +1,23 @@
 /**
  * How the turn on a case is started, run and reported: when the person answers a case's question the
  * agent takes one more turn on that case, as a goal of its own, to decide what the answer means. The
- * goal machinery is the ordinary one; this is the part that knows about cases. The turn is read-only
- * and has only the tools to look and to keep the case, so nothing in the case's notes, which came
- * from content other people wrote, can make it act outside the agent's own record.
+ * goal machinery is the ordinary one; this is the part that knows about cases. The owner can also
+ * authorize a specific connector for a turn, subject to a separate approval for each action.
  */
 import {
-  GoalRefusedError,
   caseTurnInstructions,
   caseTurnPrompt,
   caseTurnTools,
   CONNECTOR_TOOL_NAMES,
 } from '@robota-sdk/agent-product/personal';
 
-import type { CaseBook, GoalBook, ICase, IGoal } from '@robota-sdk/agent-product/personal';
+import type {
+  CaseBook,
+  GoalBook,
+  ICase,
+  IGoal,
+  IGoalRun,
+} from '@robota-sdk/agent-product/personal';
 import type { IGoalShape } from './goal-runner.js';
 import type { ICaseAction } from './goal-runner.js';
 import type { ICaseActionSnapshot } from './case-action.js';
@@ -23,7 +27,7 @@ export interface ICaseTurns {
   remember(answered: ICase, snapshot: ICaseActionSnapshot | undefined): void;
   /** Make the case's goal due: one goal for each case, created by its first answer and run again by each later one. */
   onAnswered(answered: ICase): Promise<void>;
-  shape(goal: IGoal): Promise<IGoalShape | undefined>;
+  shape(goal: IGoal, run?: IGoalRun): Promise<IGoalShape | undefined>;
   quiet(goal: IGoal): Promise<boolean>;
   /**
    * Called when a case turn has ended, whether it went well or not. When the person answered the case
@@ -37,6 +41,7 @@ export interface ICaseTurns {
 export function createCaseTurns(options: {
   readonly goals: GoalBook;
   readonly cases: CaseBook;
+  readonly ownerId?: string;
   readonly makeAction?: (snapshot: ICaseActionSnapshot) => ICaseAction;
 }): ICaseTurns {
   /** How many events a case had when its turn began, to tell what the turn left and what came during it. */
@@ -44,24 +49,14 @@ export function createCaseTurns(options: {
   const answers = new Map<string, ICaseActionSnapshot>();
 
   async function onAnswered(answered: ICase): Promise<void> {
-    const existing = (await options.goals.list()).find((goal) => goal.caseId === answered.id);
-    if (existing === undefined) {
-      await options.goals.create({
-        title: `Case: ${answered.title}`,
-        instructions: caseTurnPrompt(),
-        readOnly: true,
-        caseId: answered.id,
-      });
-      return;
-    }
-    try {
-      await options.goals.runAgain(existing.id);
-    } catch (error) {
-      // A case has one question at a time, so an answer normally comes after the turn that asked it has
-      // ended. One that comes while that turn is still ending is picked up by `ended`; one for a goal the
-      // person paused is not started: the answer is already recorded on the case.
-      if (!(error instanceof GoalRefusedError)) throw error;
-    }
+    if (answered.lastAnsweredFeedItemId === undefined) return;
+    await options.goals.enqueueCaseAnswer({
+      caseId: answered.id,
+      feedItemId: answered.lastAnsweredFeedItemId,
+      ownerId: options.ownerId ?? 'local',
+      title: `Case: ${answered.title}`,
+      instructions: caseTurnPrompt(),
+    });
   }
 
   return {
@@ -76,16 +71,17 @@ export function createCaseTurns(options: {
     },
     onAnswered,
 
-    async shape(goal) {
+    async shape(goal, run) {
       if (goal.caseId === undefined) return undefined;
       // Read when the turn begins, not when the answer came: the case may have moved on since.
       const found = await options.cases.get(goal.caseId);
       if (found !== undefined) atStart.set(goal.id, found.history.length);
+      const answerId = run?.caseAnswerId ?? found?.lastAnsweredFeedItemId;
       const snapshot =
-        found?.lastAnsweredFeedItemId === undefined
-          ? undefined
-          : answers.get(found.lastAnsweredFeedItemId);
-      if (found?.lastAnsweredFeedItemId !== undefined) answers.delete(found.lastAnsweredFeedItemId);
+        answerId !== undefined && answerId === found?.lastAnsweredFeedItemId
+          ? answers.get(answerId)
+          : undefined;
+      if (answerId !== undefined) answers.delete(answerId);
       if (found === undefined || found.state === 'closed') {
         return {
           instructions:

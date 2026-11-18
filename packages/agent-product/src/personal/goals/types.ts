@@ -22,6 +22,10 @@ export interface IGoal {
   readonly connectorId?: string;
   /** The case this goal gives a turn on, when it is one: found by this id, and run again for each answer. */
   readonly caseId?: string;
+  /** An accepted case answer awaiting a turn, owned by the agent holding its authority snapshot. */
+  readonly pendingCaseAnswer?: { readonly feedItemId: string; readonly ownerId: string };
+  /** The most recent case answer whose turn has started. */
+  readonly lastCaseAnswerId?: string;
   readonly status: TGoalStatus;
   /** When the goal is next due (ISO 8601); absent when it is not scheduled. */
   readonly nextRunAt?: string;
@@ -44,6 +48,7 @@ export type TGoalRunOutcome = 'done' | 'failed' | 'interrupted';
 export interface IGoalRun {
   readonly id: string;
   readonly goalId: string;
+  readonly caseAnswerId?: string;
   readonly startedAt: string;
   readonly endedAt?: string;
   readonly outcome?: TGoalRunOutcome;

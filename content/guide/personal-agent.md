@@ -180,7 +180,8 @@ connector pulled, both ask whether to keep or forget them.
 Disconnecting also clears that service's case-request tool choices; choose them again if needed after
 reconnecting.
 If a connection change cannot be secured, the disconnect or removal does not start. Restore access to
-the state folder and try again.
+the state folder and retry on the same agent. If it remains blocked or that agent is unavailable, stop
+every agent and follow the offline recovery steps below.
 
 A service on your own network is refused by default, like the agent's browser. To reach one, list its
 exact host names in `PERSONAL_AGENT_CONNECTOR_HOSTS` (comma-separated, for example `mail.lan`) and restart
@@ -222,6 +223,8 @@ cases before choosing which version to restore; do not delete the recovery recor
    recovery leaves them in place. They contain the action details shown at approval.
    Pending approval cancellation records are retained and reconciled when one agent is active.
    An unfinished feed recovery record is kept and applied when the feed is next read.
+   An unfinished case answer is also retained and reconciled when one agent is active. Its follow-up
+   starts read-only because the earlier process's action permissions are not restored.
    Interrupted work is recovered when only one agent can be confirmed active. An agent that cannot
    confirm another agent has stopped leaves its pending work untouched until offline recovery.
    If the command fails, fix the error and run it again before restarting.

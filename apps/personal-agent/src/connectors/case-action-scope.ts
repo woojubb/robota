@@ -509,7 +509,9 @@ export function createCaseActionScope(directory: string): ICaseActionScope {
         try {
           createMarker(fallbackTransitions, marker);
         } catch {
-          throw new ConnectorRefusedError('The connector transition could not be secured');
+          throw new ConnectorRefusedError(
+            'The connection change did not start. Restore access to the state folder and retry on this agent. If it remains blocked, stop every agent and follow the case-request recovery instructions.',
+          );
         }
       }
       let completed = false;

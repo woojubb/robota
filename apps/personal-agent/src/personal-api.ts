@@ -73,6 +73,7 @@ export interface IPersonalApiOptions {
     caseId: string,
     feedItemId: string,
   ) => Promise<ICaseActionSnapshot | undefined>;
+  readonly recoverCaseAnswer?: (feedItemId: string) => Promise<ICase | undefined>;
   readonly ideas: IdeaBook;
   readonly spaces: SpaceBook;
   readonly sideChats: ISideChatBook;
@@ -347,6 +348,13 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
           throw new BadRequest('choice must be a string');
         if (reply !== undefined && typeof reply !== 'string')
           throw new BadRequest('reply must be a string');
+        const recoveredCase = await options.recoverCaseAnswer?.(collection);
+        if (recoveredCase !== undefined) {
+          const recovered = await goals.feedItem(collection);
+          return recovered === undefined
+            ? fail(404, 'no such feed item')
+            : ok({ item: recovered, case: recoveredCase });
+        }
         const item = await goals.feedItem(collection);
         if (item === undefined) return fail(404, 'no such feed item');
         let snapshot: ICaseActionSnapshot | undefined;
@@ -366,10 +374,14 @@ export function createPersonalApi(options: IPersonalApiOptions): TPersonalApi {
             cancelTimeout();
           }
         }
-        const answered = await cases.answer(collection, {
-          ...(choice !== undefined && { choice }),
-          ...(reply !== undefined && { reply }),
-        });
+        const answered = await cases.answer(
+          collection,
+          {
+            ...(choice !== undefined && { choice }),
+            ...(reply !== undefined && { reply }),
+          },
+          { context: snapshot },
+        );
         try {
           options.onCaseAnswered(answered.case, snapshot);
         } catch {

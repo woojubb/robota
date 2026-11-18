@@ -139,11 +139,11 @@ export function createFileGoalStore(directory: string): IGoalStore {
     getGoal: async (id) => own(goals(), id),
     putGoal: async (goal) => {
       if (!GOAL_ID.test(goal.id)) throw new Error(`Invalid goal id: ${goal.id}`);
-      writeAtomic(goalsPath, { ...goals(), [goal.id]: goal });
+      writeAtomic(goalsPath, { ...goals(), [goal.id]: goal }, true);
     },
     deleteGoal: async (id) => {
       const { [id]: _removed, ...rest } = goals();
-      writeAtomic(goalsPath, rest);
+      writeAtomic(goalsPath, rest, true);
       rmSync(runsPath(id), { force: true });
     },
     putRun: async (run) => {
@@ -152,6 +152,7 @@ export function createFileGoalStore(directory: string): IGoalStore {
       writeAtomic(
         path,
         newestFirst([...runs, run], (item) => item.startedAt).slice(0, RUNS_PER_GOAL),
+        true,
       );
     },
     listRuns: async (goalId, limit) => readJson<IGoalRun[]>(runsPath(goalId), []).slice(0, limit),

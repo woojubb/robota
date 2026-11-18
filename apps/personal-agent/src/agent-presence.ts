@@ -52,6 +52,7 @@ export function createAgentPresence(stateDir: string) {
     }
   };
   return {
+    id: name,
     others,
     async enter(recover: () => Promise<unknown>): Promise<void> {
       if (active !== undefined) throw new Error('The agent is already attached');

@@ -47,6 +47,7 @@ export type {
   IAnswerInput,
   IAskInput,
   ICaseAskedEvent,
+  ICaseAnswerEvent,
   ICaseBookOptions,
   IOpenCaseInput,
 } from './cases/case-book.js';
