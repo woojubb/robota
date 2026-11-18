@@ -1,14 +1,4 @@
-/**
- * The pre-write park on the BUILT CLI binary, in a real PTY.
- *
- * A screen reader sees bytes and time, nothing else, so the claim is checked where both exist: the
- * raw PTY stream is sampled every few milliseconds and each growth is stamped. A COMMIT the park
- * released arrives as one growth (its chunks are written contiguously); the interval shows up as
- * the gap between consecutive printable growths. The same fixture runs three ways — a long park,
- * park 0, mode off — so the interval is attributed to the park and not to the replay.
- *
- * Runs under `test:pty` against the built CLI (`pnpm build` first).
- */
+/** The pre-write park on the built CLI, observed through a real PTY. */
 
 import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -26,12 +16,7 @@ const REPLAY_FIXTURE = join(FIXTURES, 'replay-conversation.jsonl');
 
 const WAIT_MS = 30_000;
 const CASE_TIMEOUT_MS = 120_000;
-/**
- * The park under test. It must be large against the base echo-to-answer latency of a replayed turn
- * on a slow runner: the park-off and park-0 cases measure exactly that latency against
- * `PARK_MS - SLACK_MS`, so a base latency above it fails them loudly instead of letting the parked
- * case pass because the turn alone took that long. It must stay small against the case budget.
- */
+/** The zero and off cases verify that replay latency stays below this interval. */
 const PARK_MS = 1000;
 /** Sampling period; the gap resolution is twice this. */
 const SAMPLE_MS = 5;
@@ -42,6 +27,10 @@ const COALESCE_MS = 30;
 
 /** Startup frames settle for this long before the keystroke is measured against a quiet stream. */
 const STARTUP_SETTLE_MS = 750;
+const OPEN_WINDOW = '\x1b[?2026h';
+const CLOSE_WINDOW = '\x1b[?2026l';
+const ANSWER = 'REPLAYED_ANSWER_42';
+const RESPONSE = /REPLAYED_ANSWER_42[\s\S]*Type a message/;
 /* eslint-disable no-control-regex -- matching the escapes IS the point here */
 const OSC_133 = /\x1b\]133;[ABCD]\x07/g;
 const ESCAPES = /\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]|\x1b[=>]/g;
@@ -52,50 +41,48 @@ interface IGrowth {
   bytes: string;
 }
 
-/**
- * Sample the raw stream from `since` (an offset taken BEFORE the action — the driver's key pacing
- * means output can land before this loop starts) until `until` matches or the budget ends; return
- * every growth stamped.
- */
-interface IMark {
-  /** Index into the RAW stream (growth detection). */
-  raw: number;
-  /** The driver's mark into the STRIPPED transcript (pattern matching) — the two are not the same. */
-  stripped: number;
-}
+const visible = (bytes: string): string => bytes.replace(ESCAPES, '');
 
-function markNow(session: IPtySession): IMark {
-  return { raw: session.raw().length, stripped: session.outputOffset() };
+function answerWindow(output: string): string | undefined {
+  const answer = output.indexOf(ANSWER);
+  if (answer < 0) return undefined;
+  const previousClose = output.lastIndexOf(CLOSE_WINDOW, answer);
+  const start = output.indexOf(
+    OPEN_WINDOW,
+    previousClose < 0 ? 0 : previousClose + CLOSE_WINDOW.length,
+  );
+  if (start < 0 || start > answer) throw new Error('Answer has no open synchronized-output window');
+  const close = output.indexOf(CLOSE_WINDOW, answer);
+  const nested = output.indexOf(OPEN_WINDOW, start + OPEN_WINDOW.length);
+  if (nested >= 0 && (close < 0 || nested < close))
+    throw new Error('Interleaved synchronized-output windows');
+  return close < 0 ? undefined : output.slice(start, close + CLOSE_WINDOW.length);
 }
 
 async function sampleUntil(
-  session: IPtySession,
-  since: IMark,
-  until: RegExp,
+  session: Pick<IPtySession, 'raw'>,
+  since: number,
   budgetMs: number,
+  requireWindow = false,
 ): Promise<IGrowth[]> {
   const growths: IGrowth[] = [];
-  let seen = since.raw;
-  const capture = (): void => {
+  let seen = since;
+  const deadline = Date.now() + budgetMs;
+  while (Date.now() < deadline) {
     const raw = session.raw();
     if (raw.length > seen) {
       growths.push({ at: Date.now(), bytes: raw.slice(seen) });
       seen = raw.length;
     }
-  };
-  const deadline = Date.now() + budgetMs;
-  while (Date.now() < deadline) {
-    capture();
-    if (until.test(session.snapshotSince(since.stripped))) break;
+    const output = raw.slice(since);
+    const window = requireWindow ? answerWindow(output) : output;
+    if (window !== undefined && RESPONSE.test(visible(window))) return growths;
     await new Promise((resolve) => setTimeout(resolve, SAMPLE_MS));
   }
-  // The pattern can match on bytes that arrived after this iteration's read; without them the burst
-  // that completed it would be cut short, losing the end of a synchronized-output window.
-  capture();
-  return growths;
+  throw new Error(
+    `PTY output did not reach ${String(RESPONSE)}${requireWindow ? ' in a complete window' : ''}: ${JSON.stringify(session.raw().slice(-2000))}`,
+  );
 }
-
-const visible = (bytes: string): string => bytes.replace(ESCAPES, '');
 
 /** Merge growths that landed within `COALESCE_MS` of each other — one contiguous write, one burst. */
 function bursts(growths: IGrowth[]): IGrowth[] {
@@ -108,12 +95,7 @@ function bursts(growths: IGrowth[]): IGrowth[] {
   return merged;
 }
 
-/**
- * The marks travel through the owned path and keep their place. A replayed reply resolves inside
- * one commit, so the turn's own B/C/D/A marks are not observable here (their ordering against a
- * parked batch is pinned by the unit test); what this stream does carry is the mount-time
- * prompt-start, which must precede the answer rather than surface inside the parked gap after it.
- */
+/** The mount-time prompt-start must precede the answer. */
 function expectMarksOrderedWithTheTurn(raw: string): void {
   const marks = [...raw.matchAll(OSC_133)].map((match) => ({
     code: match[0],
@@ -125,25 +107,15 @@ function expectMarksOrderedWithTheTurn(raw: string): void {
   expect(promptStarts[0]?.at).toBeLessThan(answerAt);
 }
 
-/**
- * One paced-free line: the echo commit (exempt) and the turn commit (parked) are provoked within
- * milliseconds of each other, so the interval between them is the park and nothing else. The reply
- * itself is replayed as a single chunk, so the turn is ONE commit — which is also what proves the
- * chunks of a commit stay contiguous: the answer arrives inside one synchronized-output window.
- */
 interface ITurnTiming {
   typedAt: number;
   echoAt: number;
   answerAt: number;
-  answerBytes: string;
 }
 
-async function typeAndSubmit(session: IPtySession): Promise<ITurnTiming> {
-  const mark = markNow(session);
-  const sampling = sampleUntil(session, mark, /REPLAYED_ANSWER_42[\s\S]*Type a message/, WAIT_MS);
-  // Characters are paced (a single chunk would be read as a paste); the echo latency is measured
-  // from the LAST key, so the driver's per-key pacing is not charged to the park. Enter follows the
-  // last echo immediately, so the turn's commit is provoked within milliseconds of an exempt one.
+async function typeAndSubmit(session: IPtySession, requireWindow = false): Promise<ITurnTiming> {
+  const sampling = sampleUntil(session, session.raw().length, WAIT_MS, requireWindow);
+  // Measure from the last paced key so input pacing is not charged to the park.
   await session.sendKeys('hell');
   const typedAt = Date.now();
   await session.sendKeys('o');
@@ -157,7 +129,6 @@ async function typeAndSubmit(session: IPtySession): Promise<ITurnTiming> {
     typedAt,
     echoAt: (echo as IGrowth).at,
     answerAt: (answer as IGrowth).at,
-    answerBytes: (answer as IGrowth).bytes,
   };
 }
 
@@ -170,6 +141,21 @@ function spawnScenario(projectDir: string, mode: 'park' | 'zero' | 'off'): IPtyS
     args: ['--session-log', REPLAY_FIXTURE, ...screenReader, '--name', 'prepark-scenario'],
     env: { PRODUCT_SCREEN_READER_STARTUP_QUIET_MS: '0', PRODUCT_SCREEN_READER_PREPARK_MS: prepark },
   });
+}
+
+function delayClosingMarker(session: IPtySession): IPtySession {
+  let revealAt: number | undefined;
+  return {
+    ...session,
+    raw() {
+      const output = session.raw();
+      const answer = output.indexOf(ANSWER);
+      const close = answer < 0 ? -1 : output.indexOf(CLOSE_WINDOW, answer);
+      if (close < 0) return output;
+      revealAt ??= Date.now() + 150;
+      return Date.now() < revealAt ? output.slice(0, close) : output;
+    },
+  };
 }
 
 async function settled(session: IPtySession): Promise<void> {
@@ -198,18 +184,23 @@ describe('the pre-write park through the real binary', () => {
       session = spawnScenario(projectDir, 'park');
       await settled(session);
 
-      const timing = await typeAndSubmit(session);
-      // The keystroke's commit is exempt: its echo lands well inside the interval.
+      const fragmented = delayClosingMarker(session);
+      const timing = await typeAndSubmit(fragmented, true);
       expect(timing.echoAt - timing.typedAt).toBeLessThan(PARK_MS - SLACK_MS);
-      // The turn's commit is parked: at least the interval after the previous printable release.
-      // Assumption: with a single-chunk replay the answer commit is the LAST printable commit of the
-      // turn's burst; only the last waiting batch is parked, so a later commit inside the interval
-      // would make this measure turn latency instead.
       expect(timing.answerAt - timing.echoAt).toBeGreaterThanOrEqual(PARK_MS - SLACK_MS);
-      // And it arrived whole: the synchronized-output window opened and closed in one growth.
-      expect(timing.answerBytes).toContain('\x1b[?2026h');
-      expect(timing.answerBytes).toContain('\x1b[?2026l');
+      expect(answerWindow(fragmented.raw())).toBeDefined();
       expectMarksOrderedWithTheTurn(session.raw());
+      const incomplete = `${OPEN_WINDOW}${ANSWER} Type a message`;
+      await expect(sampleUntil({ raw: () => incomplete }, 0, 25, true)).rejects.toThrow(
+        'complete window',
+      );
+      expect(() => answerWindow(`${ANSWER}${CLOSE_WINDOW}`)).toThrow('no open');
+      expect(() => answerWindow(`${OPEN_WINDOW}${incomplete}${CLOSE_WINDOW}`)).toThrow(
+        'Interleaved',
+      );
+      expect(() => answerWindow(`${incomplete}${OPEN_WINDOW}${CLOSE_WINDOW}`)).toThrow(
+        'Interleaved',
+      );
     },
     CASE_TIMEOUT_MS,
   );
