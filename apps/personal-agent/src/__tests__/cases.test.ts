@@ -3,20 +3,34 @@
  * person a question that shows in the feed, and the person's answer is recorded over the HTTP API.
  * The turn the agent takes on an answered case is in `case-turns.test.ts`.
  */
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   CaseBook,
+  ConnectorBook,
   GoalBook,
   createMemoryCaseStore,
+  createMemoryConnectorStore,
+  createFileCaseStore,
   createMemoryGoalStore,
 } from '@robota-sdk/agent-product/personal';
 
 import { createPersonalApi } from '../personal-api.js';
+import { createCaseActionScope } from '../connectors/case-action-scope.js';
 import { offeredTools, toolResults } from './scripted-model.js';
 import { createFixtureWebRoot, startHarness } from './harness.js';
 
@@ -163,6 +177,34 @@ describe('a read-only goal run', () => {
 });
 
 describe('the person chooses a case connector', () => {
+  it('gives separate instances distinct identities even with the same clock', async () => {
+    const now = () => new Date('2026-01-01T00:00:00.000Z');
+    const cases = createMemoryCaseStore();
+    const goals = new GoalBook({ store: createMemoryGoalStore() });
+    const first = new CaseBook({ store: cases, feed: goals, now });
+    const second = new CaseBook({ store: cases, feed: goals, now });
+    const a = await first.open({ ...SIGN_IN, source: 'item-a' });
+    const b = await second.open({ ...SIGN_IN, source: 'item-b' });
+    expect(a.case.id).not.toBe(b.case.id);
+    const store = createMemoryConnectorStore();
+    const one = new ConnectorBook({ store, now });
+    const two = new ConnectorBook({ store, now });
+    const connectorA = await one.create({
+      title: 'Notes',
+      kind: 'notes',
+      protocol: 'mcp',
+      endpoint: 'https://old.example/mcp',
+    });
+    const connectorB = await two.create({
+      title: 'Notes',
+      kind: 'notes',
+      protocol: 'mcp',
+      endpoint: 'https://new.example/mcp',
+    });
+    expect(connectorA.id).not.toBe(connectorB.id);
+    expect(await store.get(connectorA.id)).toEqual(connectorA);
+  });
+
   it('keeps model-supplied origins untrusted and serializes explicit owner choices', async () => {
     harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
     const api = await client(harness);
@@ -248,6 +290,220 @@ describe('the person chooses a case connector', () => {
       (await api.send('POST', path, { fence: true, revision: broken.revision })).body.binding,
     ).toEqual(brokenAgain);
   });
+
+  it('recovers unexpected setting directories without deleting their contents', async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const path = `cases/${opened.id}/connector`;
+    await api.get(path);
+    const file = join(harness.stateDir, 'case-connector-bindings', `${opened.id}.json`);
+    rmSync(file);
+    mkdirSync(file);
+    writeFileSync(join(file, 'keep'), 'owner data');
+    mkdirSync(`${file}.recovery`);
+    writeFileSync(join(`${file}.recovery`, 'keep'), 'recovery data');
+    const broken = (await api.get(path)).body.binding;
+    expect(broken.error).toBe(true);
+    const reset = await api.send('POST', path, { connectorId: null, revision: broken.revision });
+    expect(reset.status).toBe(200);
+    expect(reset.body.binding.connectorId).toBeUndefined();
+    const files = readdirSync(join(harness.stateDir, 'case-connector-bindings'));
+    const saved = files.find((name) => name.startsWith(`${opened.id}.json.damaged-`));
+    const savedRecovery = files.find((name) =>
+      name.startsWith(`${opened.id}.json.recovery.damaged-`),
+    );
+    expect(
+      readFileSync(join(harness.stateDir, 'case-connector-bindings', saved!, 'keep'), 'utf8'),
+    ).toBe('owner data');
+    expect(
+      readFileSync(
+        join(harness.stateDir, 'case-connector-bindings', savedRecovery!, 'keep'),
+        'utf8',
+      ),
+    ).toBe('recovery data');
+  });
+
+  it('rejects a selection when the case closes before its write', async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    const connector = await api.send('POST', 'connectors', {
+      title: 'Notes',
+      kind: 'notes',
+      endpoint: 'https://notes.example/mcp',
+      auth: 'token',
+    });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const path = `cases/${opened.id}/connector`;
+    const initial = (await api.get(path)).body.binding;
+    const book = harness.capabilities.cases;
+    const original = book.get.bind(book);
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const seen = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    let paused = false;
+    const spy = vi.spyOn(book, 'get').mockImplementation(async (id) => {
+      const found = await original(id);
+      if (!paused && id === opened.id) {
+        paused = true;
+        reached();
+        await gate;
+      }
+      return found;
+    });
+    const selecting = api.send('POST', path, {
+      connectorId: connector.body.connector.id,
+      revision: initial.revision,
+    });
+    try {
+      await seen;
+      const store = createFileCaseStore(join(harness.stateDir, 'cases'));
+      await store.put({ ...opened, state: 'closed' });
+      release();
+      expect((await selecting).status).toBe(400);
+      expect((await api.get(path)).body.binding.connectorId).toBeUndefined();
+    } finally {
+      release();
+      await Promise.allSettled([selecting]);
+      spy.mockRestore();
+    }
+  });
+
+  it('removes references before deleting a connector and ignores malformed orphan directories', async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    const connector = await api.send('POST', 'connectors', {
+      title: 'Notes',
+      kind: 'notes',
+      endpoint: 'https://notes.example/mcp',
+      auth: 'token',
+    });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const path = `cases/${opened.id}/connector`;
+    const initial = (await api.get(path)).body.binding;
+    expect(
+      (
+        await api.send('POST', path, {
+          connectorId: connector.body.connector.id,
+          revision: initial.revision,
+        })
+      ).status,
+    ).toBe(200);
+    const orphan = join(harness.stateDir, 'case-connector-bindings', 'case-ghost.json');
+    mkdirSync(orphan);
+    writeFileSync(join(orphan, 'keep'), 'owner data');
+    expect((await api.get(path)).status).toBe(200);
+    expect(existsSync(orphan)).toBe(false);
+    const saved = readdirSync(join(harness.stateDir, 'case-connector-bindings')).find((name) =>
+      name.startsWith('case-ghost.json.damaged-'),
+    );
+    expect(
+      readFileSync(join(harness.stateDir, 'case-connector-bindings', saved!, 'keep'), 'utf8'),
+    ).toBe('owner data');
+    expect(
+      (await api.send('POST', `connectors/${connector.body.connector.id}/remove`, {})).status,
+    ).toBe(200);
+    expect((await api.get(path)).body.binding.connectorId).toBeUndefined();
+  });
+
+  it('still closes and keeps ordinary notes when the settings lock is unavailable', async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    const connector = await api.send('POST', 'connectors', {
+      title: 'Notes',
+      kind: 'notes',
+      endpoint: 'https://notes.example/mcp',
+      auth: 'token',
+    });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const path = `cases/${opened.id}/connector`;
+    const initial = (await api.get(path)).body.binding;
+    await api.send('POST', path, {
+      connectorId: connector.body.connector.id,
+      revision: initial.revision,
+    });
+    const scope = createCaseActionScope(join(harness.stateDir, 'case-action-scope'));
+    let release!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const held = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const holding = scope.exclusive(async () => {
+      entered();
+      await gate;
+    });
+    try {
+      await held;
+      await harness.capabilities.cases.note(opened.id, 'A normal note.');
+      await harness.capabilities.cases.close(opened.id, 'Settled.');
+    } finally {
+      release();
+      await holding;
+    }
+    expect((await api.get(path)).body.binding.connectorId).toBeUndefined();
+  }, 15_000);
+
+  it('does not restore a closed case from another instance’s stale note', async () => {
+    harness = await startHarness({ gui: true, webRoot: createFixtureWebRoot() });
+    const api = await client(harness);
+    const connector = await api.send('POST', 'connectors', {
+      title: 'Notes',
+      kind: 'notes',
+      endpoint: 'https://notes.example/mcp',
+      auth: 'token',
+    });
+    const { case: opened } = await harness.capabilities.cases.open(SIGN_IN);
+    const path = `cases/${opened.id}/connector`;
+    const initial = (await api.get(path)).body.binding;
+    await api.send('POST', path, {
+      connectorId: connector.body.connector.id,
+      revision: initial.revision,
+    });
+    const other = await startHarness({ stateDir: harness.stateDir });
+    const book = other.capabilities.cases as unknown as {
+      store: { get: (id: string) => Promise<ICase | undefined> };
+    };
+    const original = book.store.get.bind(book.store);
+    let release!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const paused = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const spy = vi.spyOn(book.store, 'get').mockImplementation(async (id) => {
+      const result = await original(id);
+      entered();
+      await gate;
+      return result;
+    });
+    const bindingDir = join(harness.stateDir, 'case-connector-bindings');
+    try {
+      const note = other.capabilities.cases.note(opened.id, 'A delayed note.');
+      await paused;
+      chmodSync(bindingDir, 0o000);
+      await harness.capabilities.cases.close(opened.id, 'Settled.');
+      chmodSync(bindingDir, 0o700);
+      release();
+      await expect(note).rejects.toThrow(/closed/u);
+      expect((await api.get(path)).body.binding.connectorId).toBeUndefined();
+      expect((await harness.capabilities.cases.get(opened.id))?.state).toBe('closed');
+    } finally {
+      chmodSync(bindingDir, 0o700);
+      release();
+      spy.mockRestore();
+      await other.close();
+    }
+  }, 15_000);
 });
 
 describe('answering a question over the personal API', () => {
