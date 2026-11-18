@@ -174,6 +174,13 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
   const sessions = new Map<TRunSession, string>();
   const { approvals } = options;
   let stopped = false;
+  const finishInterrupted = (run: IGoalRun): Promise<IGoalRun> =>
+    book.finishRun(
+      run,
+      'interrupted',
+      'The run was stopped.',
+      stopped ? { resumeCaseOwner: options.ownerId ?? 'local' } : {},
+    );
 
   /** A goal waits while any of its approvals does, and works again once none is left. */
   const settleWaiting = async (goalId: string): Promise<void> => {
@@ -202,11 +209,11 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       shape = await options.shape?.(goal, run);
     } catch (error) {
       if (!stopped && !control.cancelled) throw error;
-      await book.finishRun(run, 'interrupted', 'The run was stopped.');
+      await finishInterrupted(run);
       return;
     }
     if (stopped || control.cancelled) {
-      await book.finishRun(run, 'interrupted', 'The run was stopped.');
+      await finishInterrupted(run);
       return;
     }
     if (
@@ -232,7 +239,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     if (stopped || control.cancelled) {
       session.abort();
       try {
-        await book.finishRun(run, 'interrupted', 'The run was stopped.');
+        await finishInterrupted(run);
       } finally {
         sessions.delete(session);
         await session.shutdown().catch(() => undefined);
@@ -375,7 +382,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     session.on('tool_end', onToolEnd as never);
     session.on('permission_request', onPermission as never);
     session.on('prompt_resolved', onResolved as never);
-    let outcome: 'done' | 'failed' = 'done';
+    let outcome: 'done' | 'failed' | 'interrupted' = 'done';
     let report: string;
     try {
       // A run that was starting while the runner stopped ends here instead of working unwatched.
@@ -393,7 +400,10 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       session.off('prompt_resolved', onResolved as never);
     }
     await chain;
-    if (approvalFailed) {
+    if (stopped && goal.caseId !== undefined && run.caseAnswerId !== undefined) {
+      outcome = 'interrupted';
+      report = 'The run was stopped.';
+    } else if (approvalFailed) {
       outcome = 'failed';
       report = 'The action was refused because its approval could not be shown or recorded.';
     }
@@ -403,7 +413,10 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
     }
     // Judged once, before the report is announced: a host's bookkeeping about the run may depend on it.
     const quiet = outcome === 'done' && (await options.quiet?.(goal)) === true;
-    await book.finishRun(run, outcome, report, { quiet });
+    await book.finishRun(run, outcome, report, {
+      quiet,
+      ...(outcome === 'interrupted' ? { resumeCaseOwner: options.ownerId ?? 'local' } : {}),
+    });
     try {
       options.onReport?.(goal, report, { quiet });
     } catch {
@@ -461,7 +474,7 @@ export function createGoalRunner(options: IGoalRunnerOptions): IGoalRunner {
       }
       if (claim.cancelled || stopped) {
         try {
-          await book.finishRun(run, 'interrupted', 'The run was stopped.');
+          await finishInterrupted(run);
         } finally {
           claiming.delete(goal.id);
           claim.finish();

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -263,6 +263,47 @@ it('adopts an unqueued answer after its owner closes normally', async () => {
   }
 }, 20_000);
 
+it('does not accept a case answer before this agent has attached', async () => {
+  const { startHarness } = await import('./harness.js');
+  const { createPersonalCapabilities } = await import('../capabilities.js');
+  const root = mkdtempSync(join(tmpdir(), 'personal-answer-startup-'));
+  directories.push(root);
+  const first = await startHarness({ stateDir: root });
+  const second = await startHarness({ stateDir: root });
+  const starting = createPersonalCapabilities({
+    stateDir: root,
+    environment: { HOME: root },
+    goalTickMs: 0,
+    deliveryTickMs: 0,
+  });
+  try {
+    const { case: opened } = await starting.cases.open({
+      title: 'Answer',
+      noticed: 'A note',
+      source: 'test:startup',
+    });
+    const { item } = await starting.cases.ask(opened.id, {
+      question: 'Continue?',
+      options: ['Yes', 'No'],
+    });
+    const response = await starting.api({
+      method: 'POST',
+      path: `/feed/${item.id}/answer`,
+      segments: ['feed', item.id, 'answer'],
+      query: new URLSearchParams(),
+      body: { choice: 'Yes' },
+    });
+    expect(response.status).toBe(503);
+    expect((await starting.goals.feedItem(item.id))?.question?.state).toBe('open');
+    expect(await first.capabilities.goals.list()).toEqual([]);
+    expect(await second.capabilities.runner()!.runDue()).toBe(0);
+  } finally {
+    await starting.dispose();
+    await first.close();
+    await second.close();
+  }
+}, 20_000);
+
 it('retains owner shutdown evidence when another agent queues its answer first', async () => {
   if (process.platform === 'win32') return;
   const { startHarness } = await import('./harness.js');
@@ -296,20 +337,35 @@ it('retains owner shutdown evidence when another agent queues its answer first',
     expect(answered.status).toBe(200);
     failure.mockRestore();
     expect(await second.capabilities.runner()!.runDue()).toBe(0);
-    expect(
-      (await second.capabilities.goals.list()).find((goal) => goal.caseId === opened.id)
-        ?.pendingCaseAnswer,
-    ).toBeDefined();
+    const owner = (await second.capabilities.goals.list()).find((goal) => goal.caseId === opened.id)
+      ?.pendingCaseAnswer?.ownerId;
+    expect(owner).toBeDefined();
     await first.close();
     firstClosed = true;
+    const marker = join(root, '.agent-presence', `${owner}.stopped`);
+    expect(existsSync(marker)).toBe(true);
     expect(await second.capabilities.runner()!.runDue()).toBe(1);
     await second.capabilities.runner()!.settled();
+    expect(existsSync(marker)).toBe(false);
     expect(await third.capabilities.runner()!.runDue()).toBe(0);
   } finally {
     if (!firstClosed) await first.close();
     await second.close();
     await third.close();
   }
+}, 20_000);
+
+it('removes unreferenced stopped-owner markers after normal shutdown', async () => {
+  const { startHarness } = await import('./harness.js');
+  const root = mkdtempSync(join(tmpdir(), 'personal-presence-cleanup-'));
+  directories.push(root);
+  for (let count = 0; count < 3; count += 1) {
+    const agent = await startHarness({ stateDir: root });
+    await agent.close();
+  }
+  expect(
+    readdirSync(join(root, '.agent-presence')).filter((name) => name.endsWith('.stopped')),
+  ).toEqual([]);
 }, 20_000);
 
 it('drains an answer already being recorded before marking its owner stopped', async () => {

@@ -5,7 +5,7 @@
  * with stand-in sessions, to see what a session is opened with and how a turn is reported.
  */
 import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -126,6 +126,7 @@ describe('the agent takes a turn on a case once its question is answered', () =>
       expect(await harness.capabilities.runner()!.runDue()).toBe(1);
       const goal = await turnEnded(harness, opened.id, 1);
       expect((await goals.feedItem(item.id))?.question?.state).toBe('answered');
+      expect(existsSync(join(harness.stateDir, 'case-answer-outbox', opened.id))).toBe(false);
       expect((await goals.list()).filter((entry) => entry.caseId === opened.id)).toHaveLength(1);
       expect(await goals.runs(goal.id)).toHaveLength(1);
       expect(other.model.requests).toHaveLength(0);
@@ -311,6 +312,51 @@ describe('the agent takes a turn on a case once its question is answered', () =>
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it('resumes a case answer read-only when shutdown interrupts its running turn', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'personal-answer-interrupted-'));
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    let closing: Promise<void> | undefined;
+    try {
+      harness = await startHarness({ stateDir: root });
+      const { opened, item } = await asked(harness);
+      const goals = harness.capabilities.goals;
+      harness.model.script(async () => {
+        reached();
+        await gate;
+        return { text: 'Too late.' };
+      });
+      expect((await answer(harness, item.id, 'No')).status).toBe(200);
+      await waiting;
+      const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+      closing = harness.close();
+      release();
+      await closing;
+      closing = undefined;
+      expect((await goals.runs(goal.id))[0]?.outcome).toBe('interrupted');
+      harness = await startHarness({ stateDir: root });
+      harness.model.script({ text: 'The interrupted answer was reconsidered.' });
+      expect(await harness.capabilities.runner()!.runDue()).toBe(1);
+      await harness.capabilities.runner()!.settled();
+      expect((await harness.capabilities.goals.runs(goal.id)).map((run) => run.outcome)).toEqual(
+        expect.arrayContaining(['interrupted', 'done']),
+      );
+      expect(offeredTools(harness.model.requests[0]!)).not.toContain(CONNECTOR_TOOL_NAMES.act);
+    } finally {
+      release();
+      if (closing !== undefined) await closing;
+      else await harness?.close();
+      harness = undefined;
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 20_000);
 
   it('isolates a damaged answer record from other goals and a restart', async () => {
     if (process.platform === 'win32') return;
@@ -924,6 +970,30 @@ async function pieces() {
 }
 
 describe('how a case turn is started and run', () => {
+  it('does not claim a newer answer before its owner queues it', async () => {
+    const goals = new GoalBook({ store: createMemoryGoalStore() });
+    const cases = new CaseBook({ store: createMemoryCaseStore(), feed: goals });
+    const first = createCaseTurns({ goals, cases, ownerId: 'first' });
+    const second = createCaseTurns({ goals, cases, ownerId: 'second' });
+    const { case: opened } = await cases.open(SIGN_IN);
+    const initial = await cases.ask(opened.id, QUESTION);
+    const answer1 = (await cases.answer(initial.item.id, { choice: 'No' })).case;
+    await first.onAnswered(answer1);
+    const goal = (await goals.list()).find((entry) => entry.caseId === opened.id)!;
+    const run = await goals.startRun(goal.id, { ownerId: 'first' });
+    await first.shape(goal, run);
+    const later = await cases.ask(opened.id, { question: 'One more?', options: ['Yes'] });
+    const answer2 = (await cases.answer(later.item.id, { choice: 'Yes' })).case;
+    await goals.finishRun(run, 'done', 'Finished.');
+    expect(await first.ended(goal)).toBe(false);
+    expect((await goals.get(goal.id))?.pendingCaseAnswer).toBeUndefined();
+    await second.onAnswered(answer2);
+    expect((await goals.get(goal.id))?.pendingCaseAnswer).toEqual({
+      feedItemId: later.item.id,
+      ownerId: 'second',
+    });
+  });
+
   it('prevents an older turn from changing a case after a newer answer', async () => {
     const goals = new GoalBook({ store: createMemoryGoalStore() });
     const cases = new CaseBook({ store: createMemoryCaseStore(), feed: goals });
@@ -1291,7 +1361,8 @@ describe('how a case turn is started and run', () => {
     run = await goals.startRun(goal!.id);
     await turns.shape(goal!);
     const { item } = await cases.ask(found.id, { question: 'One more thing?', options: ['Yes'] });
-    await cases.answer(item.id, { choice: 'Yes' });
+    const next = (await cases.answer(item.id, { choice: 'Yes' })).case;
+    await turns.onAnswered(next);
     await goals.finishRun(run, 'failed', 'The run failed.');
     expect(await turns.ended(goal!)).toBe(true);
     expect((await goals.get(goal!.id))?.status).toBe('active');

@@ -32,9 +32,8 @@ export interface ICaseTurns {
   quiet(goal: IGoal): Promise<boolean>;
   /**
    * Called when a case turn has ended, whether it went well or not. When the person answered the case
-   * while it ran, that answer found the goal busy and started nothing, and the turn that ended did not
-   * read it: the goal is made due again and this says so, for the host to run what is due once the run
-   * is over. A turn follows an answer at most once, since the next turn begins after it.
+   * while it ran, the answer's owner queues it for a later turn. This says whether such a turn is due
+   * so the host can look again after the current run has ended.
    */
   ended(goal: IGoal): Promise<boolean>;
 }
@@ -140,14 +139,7 @@ export function createCaseTurns(options: {
       const start = atStart.get(goal.id);
       atStart.delete(goal.id);
       if (start === undefined) return false;
-      const found = await options.cases.get(goal.caseId);
-      if (found === undefined) return false;
-      if ((await options.goals.get(goal.id))?.pendingCaseAnswer !== undefined) return true;
-      // The case's last event is an answer, so no question waits, and it came after the turn began.
-      const last = found.history.length - 1;
-      if (found.history[last]?.kind !== 'answered' || last < start) return false;
-      await onAnswered(found);
-      return true;
+      return (await options.goals.get(goal.id))?.pendingCaseAnswer !== undefined;
     },
   };
 }

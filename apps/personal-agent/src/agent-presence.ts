@@ -12,7 +12,13 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
-import { ownerHasExited, tryDirectoryLock } from './connectors/directory-lock.js';
+import {
+  ownerHasExited,
+  removeDirectoryGuard,
+  tryDirectoryLock,
+} from './connectors/directory-lock.js';
+
+const OWNER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.live$/u;
 
 export function createAgentPresence(stateDir: string) {
   const root = join(realpathSync(stateDir), '.agent-presence');
@@ -71,8 +77,30 @@ export function createAgentPresence(stateDir: string) {
   return {
     id: name,
     ownerExited(ownerId: string): boolean {
-      if (!/^[0-9a-f-]{36}\.live$/u.test(ownerId) || ownerId === name) return false;
+      if (!OWNER_ID.test(ownerId) || ownerId === name) return false;
       return markExited(ownerId);
+    },
+    stoppedOwners(): string[] {
+      try {
+        return readdirSync(root)
+          .filter((entry) => entry.endsWith('.stopped'))
+          .map((entry) => entry.slice(0, -8))
+          .filter((entry) => OWNER_ID.test(entry));
+      } catch {
+        return [];
+      }
+    },
+    forgetStopped(ownerId: string): void {
+      if (!OWNER_ID.test(ownerId)) return;
+      removeDirectoryGuard(stoppedPath(ownerId));
+      if (process.platform !== 'win32') {
+        const fd = openSync(root, 'r');
+        try {
+          fsyncSync(fd);
+        } finally {
+          closeSync(fd);
+        }
+      }
     },
     others,
     async enter(recover: () => Promise<unknown>): Promise<void> {

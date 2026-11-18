@@ -196,6 +196,7 @@ export function createPersonalCapabilities(
     goals.usesUniqueFeedIds !== true ||
     goals.supportsSharedGoalLock !== true ||
     goals.supportsCaseAnswerQueue !== true ||
+    goals.supportsCaseInterruptionRecovery !== true ||
     goals.supportsCoordinatedRemoval !== true ||
     typeof goals.adoptCaseAnswer !== 'function' ||
     typeof goals.recoverGoal !== 'function' ||
@@ -495,6 +496,7 @@ export function createPersonalCapabilities(
   );
   const browser = watchedBrowser.port;
   let shuttingDown = false;
+  let attached = false;
   const pendingWork = new Set<Promise<unknown>>();
   const track = <T>(task: Promise<T>): Promise<T> => {
     pendingWork.add(task);
@@ -509,13 +511,33 @@ export function createPersonalCapabilities(
     (request) => {
       if (shuttingDown)
         return Promise.resolve({ status: 503, body: { error: 'The agent is stopping' } });
-      const task = api(request);
-      return request.method === 'POST' &&
+      const isCaseAnswer =
+        request.method === 'POST' &&
         request.segments[0] === 'feed' &&
-        request.segments[2] === 'answer'
-        ? track(task)
-        : task;
+        request.segments[2] === 'answer';
+      if (isCaseAnswer && !attached)
+        return Promise.resolve({ status: 503, body: { error: 'The agent is still starting' } });
+      const task = api(request);
+      return isCaseAnswer ? track(task) : task;
     };
+  const cleanStoppedOwners = async (): Promise<void> => {
+    await caseWrites.exclusive(async () => {
+      const pending = new Set(
+        (await goals.list()).flatMap((goal) =>
+          goal.pendingCaseAnswer === undefined ? [] : [goal.pendingCaseAnswer.ownerId],
+        ),
+      );
+      for (const owner of presence.stoppedOwners()) {
+        if (!pending.has(owner) && answerOutbox?.hasOwner(owner) !== true) {
+          try {
+            presence.forgetStopped(owner);
+          } catch {
+            /* Leave it for a later cleanup. */
+          }
+        }
+      }
+    });
+  };
   return {
     tools: [
       ...createWikiTools(wiki),
@@ -690,6 +712,7 @@ export function createPersonalCapabilities(
                 );
             }
           });
+          await cleanStoppedOwners().catch(() => undefined);
         },
         // A sync run reads one connector and adds to the library; a case turn reads and keeps the case.
         // Each has only the tools to do that.
@@ -711,6 +734,7 @@ export function createPersonalCapabilities(
         deliveryTimer = setInterval(tick, deliveryTickMs);
         deliveryTimer.unref();
       }
+      attached = true;
     },
     dispose: async () => {
       shuttingDown = true;
@@ -730,6 +754,7 @@ export function createPersonalCapabilities(
       const failure = [...stopped, ...closed].find((result) => result.status === 'rejected');
       if (failure?.status === 'rejected') throw failure.reason;
       presence.close(true);
+      await cleanStoppedOwners().catch(() => undefined);
     },
   };
 }

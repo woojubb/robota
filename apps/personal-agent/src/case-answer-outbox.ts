@@ -8,6 +8,7 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
+  rmdirSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -128,7 +129,15 @@ export function createCaseAnswerOutbox(options: {
     const path = pathOf(caseId, id);
     if (!has(id, caseId)) return;
     rmSync(path);
-    sync(caseDirectory(caseId));
+    const folder = caseDirectory(caseId);
+    sync(folder);
+    try {
+      rmdirSync(folder);
+      sync(directory);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'ENOENT' && code !== 'ENOTEMPTY' && code !== 'EEXIST') throw error;
+    }
   };
   const persistCase = async (): Promise<void> => {
     const path = join(options.stateDir, 'cases', 'cases.json');
@@ -282,5 +291,22 @@ export function createCaseAnswerOutbox(options: {
       await recoverUnlocked(undefined, caseId);
       await work();
     });
-  return { prepare, complete, persistCase, recover, stopCase, has };
+  const hasOwner = (ownerId: string): boolean => {
+    try {
+      for (const caseId of caseDirectories()) {
+        for (const name of readdirSync(caseDirectory(caseId))) {
+          if (!name.endsWith('.json')) continue;
+          try {
+            if (read(caseId, name.slice(0, -5))?.ownerId === ownerId) return true;
+          } catch {
+            return true;
+          }
+        }
+      }
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  return { prepare, complete, persistCase, recover, stopCase, has, hasOwner };
 }

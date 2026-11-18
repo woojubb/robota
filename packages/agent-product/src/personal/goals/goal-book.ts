@@ -59,6 +59,7 @@ export class GoalBook {
   readonly usesUniqueFeedIds = true as const;
   readonly supportsSharedGoalLock = true as const;
   readonly supportsCaseAnswerQueue = true as const;
+  readonly supportsCaseInterruptionRecovery = true as const;
   readonly supportsCoordinatedRemoval = true as const;
 
   private readonly store: IGoalStore;
@@ -377,7 +378,7 @@ export class GoalBook {
     run: IGoalRun,
     outcome: TGoalRunOutcome,
     report: string,
-    options: { readonly quiet?: boolean } = {},
+    options: { readonly quiet?: boolean; readonly resumeCaseOwner?: string } = {},
   ): Promise<IGoalRun> {
     return this.exclusive(() => this.finishRunUnlocked(run, outcome, report, options));
   }
@@ -386,7 +387,7 @@ export class GoalBook {
     run: IGoalRun,
     outcome: TGoalRunOutcome,
     report: string,
-    options: { readonly quiet?: boolean } = {},
+    options: { readonly quiet?: boolean; readonly resumeCaseOwner?: string } = {},
   ): Promise<IGoalRun> {
     const goal = await this.require(run.goalId);
     const at = this.stamp();
@@ -394,6 +395,17 @@ export class GoalBook {
     await this.store.putRun(finished);
     if (goal.pendingCaseAnswer !== undefined) {
       await this.save(goal, { status: 'active', nextRunAt: at });
+    } else if (
+      outcome === 'interrupted' &&
+      goal.caseId !== undefined &&
+      run.caseAnswerId !== undefined &&
+      options.resumeCaseOwner !== undefined
+    ) {
+      await this.save(goal, {
+        status: 'active',
+        nextRunAt: at,
+        pendingCaseAnswer: { feedItemId: run.caseAnswerId, ownerId: options.resumeCaseOwner },
+      });
     } else if (goal.everyMinutes !== undefined) {
       const next = new Date(this.now().getTime() + goal.everyMinutes * 60_000).toISOString();
       await this.save(goal, { status: 'active', nextRunAt: next });
