@@ -1,8 +1,9 @@
-import { Client, SdkError, SdkErrorCode } from '@modelcontextprotocol/client';
+import { Client, SdkError, SdkErrorCode, fromJsonSchema } from '@modelcontextprotocol/client';
 import { TypeUtils } from '@robota-sdk/agent-core';
 import { MCP_APP_MIME_TYPE, MCP_APPS_EXTENSION } from '../catalog/app-view.js';
 import { toUniversalObject } from '../catalog/universal-value.js';
-import type { ServerCapabilities } from '@modelcontextprotocol/client';
+import type { ServerCapabilities, Tool } from '@modelcontextprotocol/client';
+import type { IUniversalObjectValue } from '@robota-sdk/agent-core';
 import type { TMCPCapabilityDomain } from '../catalog/types.js';
 import type { TMCPElicitationHandler } from './elicitation.js';
 import type { IMCPReadResourceResult, IMCPToolCallResult } from './session-types.js';
@@ -22,6 +23,27 @@ export const DEFAULT_CLIENT_INFO = { name: 'mcp-client', version: '0.0.0' } as c
 
 /** The one explicitly selectable modern-era revision; selecting it grants no authority. */
 export const STATELESS_PROTOCOL_VERSION = '2026-07-28';
+
+/** Compile before sending: an unusable service schema must not fail only after an effect. */
+export function compileToolOutputSchema(
+  schema: IUniversalObjectValue | undefined,
+): ((result: IMCPToolCallResult) => Promise<void>) | undefined {
+  if (schema === undefined) return undefined;
+  let validator: ReturnType<typeof fromJsonSchema>;
+  try {
+    validator = fromJsonSchema(schema as NonNullable<Tool['outputSchema']>);
+  } catch {
+    throw new Error('The tool has an invalid output schema');
+  }
+  return async (result) => {
+    if (result.isError) return;
+    if (result.structuredContent === undefined)
+      throw new Error('The tool result has no structured content required by its output schema');
+    const checked = await validator['~standard'].validate(result.structuredContent);
+    if (checked.issues !== undefined)
+      throw new Error('The tool result does not match its output schema');
+  };
+}
 
 /**
  * The one client both protocol eras are served by. Legacy negotiation by default; a pinned

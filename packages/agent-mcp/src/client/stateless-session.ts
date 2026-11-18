@@ -21,6 +21,7 @@ import {
 } from './stateless-result.js';
 import {
   buildDeclaredCapabilities,
+  compileToolOutputSchema,
   createMcpClient,
   DEFAULT_CLIENT_INFO,
   isRequestTimeout,
@@ -31,9 +32,11 @@ import {
 } from './session-protocol.js';
 import { MCPStdioError } from './stdio-error.js';
 import { outboundTraceHeaders } from './trace-propagation.js';
+import { withDispatchAdmission } from './effect-dispatch.js';
 import { lastHttpAnswerOf } from './transport.js';
 
 import type { Client, Result, Transport } from '@modelcontextprotocol/client';
+import type { IUniversalObjectValue } from '@robota-sdk/agent-core';
 import type { IMCPSkillRequestOptions } from '../skills/types.js';
 import type { IMCPOpenSessionOptions, IMCPSession } from './session-types.js';
 
@@ -46,7 +49,8 @@ async function closeCarrier(client: Client, transport: Transport): Promise<void>
 
 /** The SDK wraps what the carrier threw during its probe; the carrier's own refusal keeps its class. */
 function probeCause(error: unknown): unknown {
-  if (!(error instanceof SdkError) || error.code !== SdkErrorCode.EraNegotiationFailed) return error;
+  if (!(error instanceof SdkError) || error.code !== SdkErrorCode.EraNegotiationFailed)
+    return error;
   const cause = (error.data as { readonly cause?: unknown } | undefined)?.cause;
   return cause instanceof Error ? cause : error;
 }
@@ -97,7 +101,8 @@ function unofferedRevision(error: unknown, transport: Transport): MCPSessionErro
  */
 function unsupportedResult(error: unknown): MCPStatelessProtocolError | undefined {
   if (!(error instanceof SdkError)) return undefined;
-  const data = error.data as { readonly resultType?: unknown; readonly method?: unknown } | undefined;
+  const data = error.data as
+    { readonly resultType?: unknown; readonly method?: unknown } | undefined;
   switch (error.code) {
     case SdkErrorCode.UnsupportedResultType:
       return new MCPStatelessProtocolError(
@@ -203,6 +208,7 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       ...(serverInfo === undefined ? { serverInfoProvided: false as const } : {}),
     };
     const instructions = client.getInstructions();
+    let outputSchemas: ReadonlyMap<string, IUniversalObjectValue> = new Map();
     /**
      * Every request after discovery passes here. A result the surface cannot act on, a deadline or an
      * abort leaves effects uncertain: the carrier closes, and nothing is ever replayed on a new one.
@@ -277,6 +283,7 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       ...(options.apps === true ? ['the UI extension for tool views'] : []),
     ];
     return {
+      supportsDispatchAdmission: true,
       ...(skills === undefined ? {} : { skills }),
       ...(apps ? { apps } : {}),
       identity,
@@ -316,7 +323,7 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       ],
       discover: async (discoverOptions) => {
         try {
-          return await discoverAll(
+          const result = await discoverAll(
             {
               request: (request, requestOptions) =>
                 invoke(() => client.request(request, requestOptions), requestOptions.signal),
@@ -327,6 +334,12 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
             discoverOptions,
             apps,
           );
+          outputSchemas = new Map(
+            result.tools.items.flatMap((tool) =>
+              tool.outputSchema === undefined ? [] : [[tool.name, tool.outputSchema] as const],
+            ),
+          );
+          return result;
         } catch (error) {
           if (sensitive) throw new MCPStdioError('send');
           throw error;
@@ -335,31 +348,55 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       async callTool(name, args, callOptions) {
         if (!declaredCapabilities.tools)
           throw new Error('Stateless MCP server did not declare tools');
+        const validateOutput =
+          callOptions?.admitDispatch === undefined
+            ? undefined
+            : compileToolOutputSchema(outputSchemas.get(name));
         // The call's own request carries them, and no other: they are this call's per-request headers.
         const traceHeaders =
           callOptions?.outboundTraceContext === undefined
             ? undefined
             : outboundTraceHeaders(transport, callOptions.outboundTraceContext);
-        const call = async () =>
-          toToolCallResult(
-            await invoke(
-              // `request`, not `callTool`: the latter re-lists and replays the call on a header
-              // mismatch, and this surface sends each effectful request exactly once.
-              () =>
+        const call = async () => {
+          const result = await invoke(
+            // `request`, not `callTool`: the latter re-lists and replays the call on a header
+            // mismatch, and this surface sends each effectful request exactly once.
+            () => {
+              const send = () =>
                 client.request(
                   { method: 'tools/call', params: { name, arguments: args } },
                   {
                     signal: callOptions?.signal,
                     timeout: callOptions?.timeoutMs ?? options.timeouts.perCallMs,
+                    ...(callOptions?.admitDispatch !== undefined && { allowInputRequired: true }),
                     ...(traceHeaders === undefined || Object.keys(traceHeaders).length === 0
                       ? {}
                       : { headers: traceHeaders }),
                   },
-                ),
-              callOptions?.signal,
-              () => new MCPStatelessProtocolError('invalid-tool-result'),
-            ),
+                );
+              return callOptions?.admitDispatch === undefined
+                ? send()
+                : withDispatchAdmission(
+                    transport,
+                    callOptions.admitDispatch,
+                    send,
+                    callOptions.signal,
+                  );
+            },
+            callOptions?.signal,
+            () => new MCPStatelessProtocolError('invalid-tool-result'),
           );
+          if (
+            typeof result === 'object' &&
+            result !== null &&
+            'resultType' in result &&
+            result.resultType === 'input_required'
+          )
+            throw new MCPStatelessProtocolError('input_required');
+          const normalized = toToolCallResult(result);
+          await validateOutput?.(normalized);
+          return normalized;
+        };
         const leave = calls.enter({ ask: callOptions?.ask, signal: callOptions?.signal });
         try {
           return await call();
